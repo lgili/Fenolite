@@ -880,6 +880,14 @@ def _layers_of(ctx: _Ctx, role: NetRole, names: Sequence[str]) -> tuple[str, ...
     return tuple(layer for layer in (ctx.copper[0], ctx.copper[-1]) if layer) if ctx.copper else ()
 
 
+def _through_hole_only(ctx: _Ctx, role: NetRole, names: Sequence[str]) -> bool:
+    """Whether the layers of a net's copper are the default of through-hole terminals (``_layers_of``)."""
+    if ctx.request.layers.get(role.kind):
+        return False
+    by_name = {pad_name(pad): pad for pad in ctx.pads}
+    return all((pad := by_name.get(name)) is None or bool(pad.hole) for name in names)
+
+
 def _terminal_pads(ctx: _Ctx, net: str) -> list[str]:
     """The pads a role net's copper joins: its power pads (``measure.power_pads``) and the pads of its hot
     loops, else every pad of the net."""
@@ -1276,6 +1284,9 @@ def _plan_net(ctx: _Ctx, role: NetRole, kind: str, records: list[RoleRecord], hv
     # may lose half a cell on each side, still measures the required width
     base, widest = width.value + POUR_GRID_NM, max_width + POUR_GRID_NM
     user = _user_zone_layers(ctx, net)
+    if set(layers) & user and _through_hole_only(ctx, role, names):
+        # through-hole terminals reach every layer: the user's zone on one of them already joins them
+        layers = tuple(layer for layer in layers if layer in user)
     skipped_layers = [layer for layer in layers if layer in user]
     if skipped_layers:
         ctx.issues.append(
@@ -1632,6 +1643,21 @@ def _plan_ground(
             found.append(NetPlan(net, "ground", skipped="shared-layer"))
             continue
         user = _user_zone_layers(ctx, net)
+        if user and ctx.request.ground_layers is None:
+            # the user drew this ground's copper: the default planes would add to it, so only explicit
+            # ``ground_layers`` add planes to a ground of the user's
+            ctx.issues.append(
+                issue(
+                    "roles.copper-skipped",
+                    f"{net} already holds zones of the user on {', '.join(sorted(user))}: no ground plane "
+                    "(user-copper)",
+                    severity="info",
+                    where=net,
+                    hint="pass ground_layers to add planes beside the user's zones",
+                )
+            )
+            found.append(NetPlan(net, "ground", skipped="user-copper"))
+            continue
         made: list[str] = []
         planes: list[str] = []
         for layer in layers:
@@ -1793,28 +1819,35 @@ def _plan_ground(
 
 
 def _hv_rule(ctx: _Ctx, net: str, distance: int) -> Rule:
+    """The clearance of the bus to every other copper: one selector, the bus (a clearance holds between
+    different nets only), which both KiCad and Altium write (scope 1 the net, scope 2 all)."""
     name = f"role.hv.{safe(net)}"
     return Rule(
         id=derived_id("rul", "roles", name),
         name=name,
         kind="clearance",
         selector_a=Selector("net", glob_escape(net)),
-        selector_b=Selector("not", items=(Selector("net", glob_escape(net)),)),
         min=distance,
     )
 
 
-def _sw_rule(net: str, victims: Sequence[str], distance: int) -> Rule:
-    name = f"role.sw.{safe(net)}"
-    chosen = tuple(Selector("net", glob_escape(victim)) for victim in victims)
-    return Rule(
-        id=derived_id("rul", "roles", name),
-        name=name,
-        kind="clearance",
-        selector_a=Selector("net", glob_escape(net)),
-        selector_b=chosen[0] if len(chosen) == 1 else Selector("or", items=chosen),
-        min=distance,
-    )
+def _sw_rules(net: str, victims: Sequence[str], distance: int) -> list[Rule]:
+    """``role.sw.<net>`` to its one victim, or ``role.sw.<net>.<victim>`` to each of several: a rule between
+    two nets, which both KiCad and Altium write (Altium takes no union of nets in a scope)."""
+    found: list[Rule] = []
+    for victim in victims:
+        name = f"role.sw.{safe(net)}" if len(victims) == 1 else f"role.sw.{safe(net)}.{safe(victim)}"
+        found.append(
+            Rule(
+                id=derived_id("rul", "roles", name),
+                name=name,
+                kind="clearance",
+                selector_a=Selector("net", glob_escape(net)),
+                selector_b=Selector("net", glob_escape(victim)),
+                min=distance,
+            )
+        )
+    return found
 
 
 # --- corridors -------------------------------------------------------------------------------------------
@@ -2009,6 +2042,14 @@ def _blocking(
         if track.locked and other not in mates and track.layer == layer:
             if any(thick_closer_than(s, Thick((track.start, track.end), track.width), 1) for s in shapes):
                 return f"locked track {track.id} of {other}"
+    for zone in board.zones:
+        other = names.get(zone.net_id or "")
+        if _is_role_key(zone.name) or other in mates or layer not in zone.layers or len(zone.outline) < 3:
+            continue
+        if any(thick_closer_than(s, Thick(tuple(zone.outline), 0, filled=True), 1) for s in shapes):
+            return (
+                f"the zone {zone.name or zone.id} of {other}"  # a no-pour corridor would cut the user's pour
+            )
     return ""
 
 
@@ -2076,6 +2117,7 @@ def plan(
         chosen.append(role)
     # high-voltage rules first, so the reach of each bus keeps the other nets' spines away
     distances: dict[str, int] = {}
+    hv_rules: dict[str, Rule] = {}
     for role in chosen:
         if role.net not in hv:
             continue
@@ -2093,7 +2135,7 @@ def plan(
             )
             continue
         distances[role.net] = distance
-        rules.append(_hv_rule(ctx, role.net, distance))
+        hv_rules[role.net] = _hv_rule(ctx, role.net, distance)
         ctx.hv_reach.append((role.net, distance))
     order = {"switch_node": 0, "power": 1, "high_voltage": 1}
     ctx.bounds = BBox.of_points(ctx.board_outline) if len(ctx.board_outline) >= 3 else None
@@ -2147,7 +2189,7 @@ def plan(
                 "switching_distance_nm", roles.limits, net=role.net, kind="kelvin"
             ).value
             if victims and distance:
-                rules.append(_sw_rule(role.net, victims, distance))
+                rules.extend(_sw_rules(role.net, sorted(victims), distance))
 
     planes = _plane_layers(ctx)
     ordered = sorted(
@@ -2164,7 +2206,13 @@ def plan(
     for role in ordered:
         if role.net not in distances:
             handle(role)
+    # the rule and the barrier of a bus go with its role copper: a bus that the user drew (``user-copper``)
+    # keeps the user's rules, and its reach still keeps the other nets' spines away
+    generated_nets = {found.net for found in plans if found.zones}
     for net, distance in sorted(distances.items()):
+        if net not in generated_nets:
+            continue
+        rules.append(hv_rules[net])
         layers = tuple(ctx.copper)
         records.append(RoleBarrier(name=f"role.hv.{safe(net)}", nets=(net,), setback=distance, layers=layers))
     ctx.issues += _placement_faults(ctx)
@@ -2183,6 +2231,16 @@ def plan(
         records = [r for r in records if generated(getattr(r, "group", "") or r.key)]
         zones = [z for z in zones if generated(z.name)]
         keepouts = [k for k in keepouts if generated(k.name)]
+    # a provisional corridor keeps the run's own pours out: on a layer where the run pours nothing, it would
+    # only cut the user's pours, so it is not written
+    poured = {layer for r in records if isinstance(r, RoleBand) for layer in r.layers}
+    poured |= {layer for zone in zones for layer in zone.layers}
+    idle = {c.key for c in corridors if c.origin == "provisional" and c.layer not in poured}
+    if idle:
+        corridors = [c for c in corridors if c.key not in idle]
+        keepouts = [
+            k for k in keepouts if not any(k.name == key or k.name.startswith(key + ".") for key in idle)
+        ]
     merged: dict[str, NetPlan] = {}
     for found in plans:
         held = merged.get(found.net)

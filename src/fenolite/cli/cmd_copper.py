@@ -305,7 +305,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     old_manifest = manifest_path.read_text(encoding="utf-8") if manifest_path.is_file() else None
     changed = (
         board_text != text
-        or manifest_text != old_manifest
+        # an empty manifest where there was none records nothing: a run that generates nothing writes nothing
+        or (manifest_text != old_manifest and (old_manifest is not None or bool(record.items)))
         or (rules_text is not None and rules_text != old_rules)
     )
     writes: tuple[PlannedWrite, ...] = ()

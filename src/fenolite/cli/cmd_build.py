@@ -1131,6 +1131,29 @@ def _sheet_result(
     return {"source": source["source"], "items": found["items"], "pages": pages}
 
 
+def _hand_over(model: ModelDesign, resolved: ModelDesign) -> tuple[ModelDesign, ModelDesign]:
+    """The script's model with the rule areas and the rules that the in-memory KiCad build added (the
+    generated and role copper of change c0243: corridors, barriers, ``role.sw.*`` and ``role.hv.*``), and that
+    build's design without its rule areas, which the model now holds: the Altium build writes the model's
+    rule areas as keep-outs and lowers its rules, and copies only copper from a source."""
+    board, done = model.board, resolved.board
+    if board is None or done is None:
+        return model, resolved
+    held = {area.id for area in board.keepouts}
+    added = tuple(area for area in done.keepouts if area.id not in held)
+    rules = model.rules
+    if resolved.rules is not None:
+        names = {rule.name for rule in rules.rules} if rules is not None else set[str]()
+        fresh = tuple(rule for rule in resolved.rules.rules if rule.name not in names)
+        if fresh:
+            base = rules if rules is not None else dataclasses.replace(resolved.rules, rules=())
+            rules = dataclasses.replace(base, rules=(*base.rules, *fresh))
+    model = dataclasses.replace(
+        model, board=dataclasses.replace(board, keepouts=(*board.keepouts, *added)), rules=rules
+    )
+    return model, dataclasses.replace(resolved, board=dataclasses.replace(done, keepouts=()))
+
+
 def _run_altium(
     args: argparse.Namespace,
     ctx: Context,
@@ -1272,7 +1295,8 @@ def _run_altium(
             if found.severity == "error" or found.code.startswith(SCRIPT_COPPER_CODES)
         ]
         if not refused:
-            source = CopperSource(resolved.design, "script")
+            model, handed = _hand_over(model, resolved.design)
+            source = CopperSource(handed, "script")
             if model.board is not None and model.board.zones:
                 # one copper source: the KiCad build kept the script's zones, so the source holds them
                 model = dataclasses.replace(model, board=dataclasses.replace(model.board, zones=()))

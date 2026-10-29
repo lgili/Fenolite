@@ -150,7 +150,10 @@ caps unconfirmed roles at a warning for the same reason.
   `signal` with `sensitive`.
 - **On the zone's own layer:** a clearance rule `role.sw.<net>` of the model, between the switch node and
   each victim net, with `switching_distance_nm` (c0222's profile, 1 mm). KiCad's fill and DRC enforce it,
-  and Altium lowers it as a clearance rule scoped by net.
+  and Altium lowers it as a clearance rule scoped by net. (Implementation, 2026-10-29: Altium takes no
+  union of nets in a scope, so each rule names two nets: `role.sw.<net>` for one victim,
+  `role.sw.<net>.<victim>` for each of several; `role.hv.<net>` has the bus as its only selector, which
+  both targets write as the bus against all other copper.)
 - **On the adjacent layers:** the zone's spine treats the existing copper of a victim on a neighbouring
   layer, grown by the switching distance, as an obstacle. That is the overlap that c0222's
   `roles.near-switching` reads through the returns and coupling analyses.
@@ -367,6 +370,12 @@ before all of these, so role copper respects the script's keep-outs.
   rules scoped by net.
 - Connections per net become c0215's Polygon Connect Style rules. One setting per net (decision 1) means
   that nothing is lost.
+- (Implementation, 2026-10-29.) `cli/cmd_build.py` moves the rule areas and rules that the in-memory build
+  added into the script's model before `build_altium`, because the Altium build writes the model's rule
+  areas and rules and copies only copper from a source. c0215's pour grew the void of a sharp ring by 1 nm
+  beyond its clearance, and the document's unit (2.54 nm) moved a written vertex up to 1.8 nm nearer: the
+  diagonal edges of a role barrier made the self-check refuse two polygons by 1 nm. The void now grows by
+  `UNIT_SLACK_NM` (2 nm) more; the c0215 tests are unchanged.
 - `kicad.generate.altium` remains only for generated or role records with `--copper-from`. The board
   source wins, so the records would be silently lost; it stays an error.
 - The equivalence test builds each role-copper reference variant for both targets, and compares the
@@ -396,7 +405,7 @@ These are generation parameters, not limits. They live in `roles/copper.py`, eac
 | key | default | source | label |
 |---|---|---|---|
 | width per ampere, vias per current | c0222's `width_per_amp_nm`, `milliamps_per_via` | S-0851 | `INFERRED` |
-| `widen_permille` | 2000 (power, high voltage), 1000 (switch node) | S-0851 ("thick"), S-0860 (switch node minimal) | `INFERRED` (`H-G-ROLE-COPPER-SW`) |
+| `widen_permille` | 2000 (power), 1000 (switch node, high voltage: implementation, 2026-10-29) | S-0851 ("thick"), S-0860 (switch node minimal) | `INFERRED` (`H-G-ROLE-COPPER-SW`) |
 | connection per role | solid; ground `thru_hole_only` | S-0861, S-0862 | `INFERRED` |
 | ground layers | `B.Cu`; `In1.Cu` on 4 layers | S-0851 (ground plane), Fenolite heuristic for the layer | `INFERRED` |
 | `stitch_pitch_nm` | 5 mm | Fenolite heuristic; method S-0863 | `INFERRED` (`H-G-ROLE-COPPER-STITCH`) |
@@ -408,7 +417,7 @@ These are generation parameters, not limits. They live in `roles/copper.py`, eac
 | id | statement | settling test | criterion |
 |---|---|---|---|
 | `H-G-ROLE-COPPER-CLEAN` | Role copper on the good reference variants, with their power copper left out, gives a board that c0222 judges clean | `tests/unit/roles/test_copper_reference.py -k good` | no `roles.*` finding of warning or above on the three `good_roles` variants, and none on the unchanged `good` variants after `copper` (every role net is `user-copper`) |
-| `H-G-ROLE-COPPER-REPAIR` | On the bad variants, with their power copper left out, role copper clears the copper findings and leaves the routing findings | `tests/unit/roles/test_copper_reference.py -k bad` | `width-current`, `section-current`, `via-current`, `return-gap` and `near-switching` absent; `kelvin-outer`, `kelvin-shared`, `gate-return-shared` and `gate-loop` equal to the `bad` variant's (code, severity, subject); the bad buck's hot loop at or under 2000 per-mille of its bound, with the bound of at least 150 mm² in the reply |
+| `H-G-ROLE-COPPER-REPAIR` | On the bad variants, with their power copper left out, role copper clears the copper findings and leaves the routing findings | `tests/unit/roles/test_copper_reference.py -k bad` | `width-current`, `section-current`, `via-current`, `return-gap` and `near-switching` absent; `kelvin-outer`, `kelvin-shared`, `gate-return-shared` and `gate-loop` equal to the `bad` variant's (code, severity, subject); the bad buck's hot loop at or under 2000 per-mille of its bound (measured on 2026-10-29: 1000 per-mille, area and bound 46.1 mm²; the bound of at least 150 mm² first written here was wrong) |
 | `H-G-ROLE-COPPER-SW` | A switch node at the required width and no widening has a smaller area than the hand-drawn pour of the good buck and half-bridge, and keeps the switching distance | `tests/unit/roles/test_copper_reference.py -k switch` | generated switch-node copper area ≤ the good variant's switch-node pour area, and no `roles.near-switching` |
 | `H-G-ROLE-COPPER-STITCH` | A 5 mm stitching pitch with at least two vias per piece joins every ground piece on the reference boards, with no dead copper | `tests/unit/roles/test_copper_ground.py` | c0204's `dead` finds no generated ground piece, and every overlap has at least two vias |
 | `H-G-ROLE-COPPER-IDEMPOTENT` | A second run on the output of a first plans no change, and a user edit is kept | `tests/unit/roles/test_copper_repeat.py` | zero planned changes and byte-identical boards; an edited zone gives `roles.copper-kept` and stays |

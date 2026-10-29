@@ -37,12 +37,12 @@ A loose end of a role net's own track on a layer where the net gets bands SHALL 
 - **THEN** the buck's switch node has one band `role.switch_node.SW.F.Cu.join0`, and the BMS board holds the plan's locked join tracks
 
 ### Requirement: Switch node kept from sensitive copper
-A `switch_node` net with victim nets of c0222 (Kelvin, other switches' gates, sensitive signals) SHALL get a clearance rule `role.sw.<net>` at `switching_distance_nm` to each of them; without victims it gets no rule. Its spine MUST avoid victim copper on an adjacent layer grown by that distance. The ground plane MUST NOT be cut for it.
+A `switch_node` net with victim nets of c0222 (Kelvin, other switches' gates, sensitive signals) SHALL get a clearance rule at `switching_distance_nm` to each of them, between two nets: `role.sw.<net>` for one victim, `role.sw.<net>.<victim>` for each of several; without victims it gets no rule. Its spine MUST avoid victim copper on an adjacent layer grown by that distance. The ground plane MUST NOT be cut for it.
 
 #### Scenario: Sense pair not under the switch node
 - **GIVEN** the bare bad half-bridge, whose sense pair runs on `In1.Cu`
 - **WHEN** `uv run pytest tests/unit/roles/test_copper_plan.py -k victims` resolves its role copper
-- **THEN** the switch-node zone does not overlap the sense pair grown by 1 mm, and the model holds the rule `role.sw.SW` naming both Kelvin nets
+- **THEN** the switch-node zone does not overlap the sense pair grown by 1 mm, its plan holds no `role.sw.*` rule (the sense lines are branches of the switch node's own nets), and the bare good buck with a sensitive `ISNS` net gets `role.sw.SW` to `ISNS` at 1 mm
 
 ### Requirement: Ground copper and stitching
 Each `ground` net SHALL get one locked zone over the board outline on each ground layer (default `B.Cu` on 2 layers, `In1.Cu` on 4), priority 0, and one stitching record over its zones on different layers with `stitch_pitch_nm` (default 5 mm) and `min_vias` 2. `ground_fill="all"` MUST also pour the free outer area.
@@ -95,6 +95,21 @@ A gate-loop return net with a copper role of its own SHALL get no corridor, sinc
 - **WHEN** the same test plans the bare good half-bridge
 - **THEN** its gate returns `SW` and `GND`, both with copper roles, have no corridor
 
+### Requirement: User copper respected
+A role net SHALL get no role copper where the user drew it: a net whose terminals are all through-hole and which holds the user's zone on one of its default layers gets none (`user-copper`), a ground net with zones of the user gets no plane unless `ground_layers` is given, and a high-voltage net without role copper gets no `role.hv.*` rule or barrier.
+
+#### Scenario: Copper on an unchanged good variant
+- **GIVEN** each `good` reference variant built for KiCad, with every inferred role confirmed
+- **WHEN** `uv run pytest tests/unit/roles/test_copper_reference.py -k good_variant` runs `fenolite copper --dry-run` on it
+- **THEN** the plan changes nothing, and every role net is skipped as `user-copper` or `current-missing`
+
+### Requirement: Corridors only against the run's pours
+A provisional corridor SHALL NOT be written on a layer where the run pours nothing, and a corridor over a zone of the user of another net MUST be left out with `roles.corridor-blocked`: a no-pour corridor would cut the user's pour.
+
+#### Scenario: No corridor on an unchanged good variant
+- **WHEN** the same test runs `fenolite copper --dry-run` on each unchanged `good` variant
+- **THEN** `result.corridors` is empty
+
 ### Requirement: Phase 2 copper kept
 Phase 1 SHALL treat every locked item of another net and every rule area named `role.corridor.*` as an obstacle (decided by the maintainer on 2026-10-29: phase 2 runs first and writes these corridors; the hot loop is phase 1's). It MUST NOT edit or remove such an area unless it wrote it and the manifest holds its current fingerprint.
 
@@ -126,7 +141,7 @@ Each reference board SHALL have `good_roles.py` and `bad_roles.py`: the variant 
 - **THEN** the good ones have no warning; the bad ones have no `width-current`, `section-current`, `via-current`, `return-gap` or `near-switching`, and the same `kelvin-*`, `gate-return-shared` and `gate-loop` findings as `bad`
 
 ### Requirement: Role copper evidence
-The KiCad builds of the six role-copper scripts, refilled by `kicad-cli`, SHALL show no DRC violation type with more entries than the same board without role copper, unconnected items aside, and are `KICAD-VERIFIED` for that only. The planner stays `INFERRED`, citing `H-G-ROLE-COPPER-*`.
+The KiCad builds of the six role-copper scripts, refilled by `kicad-cli`, SHALL show no DRC violation type with more entries than the same board without role copper, unconnected items aside (and, on KiCad 9, which refills no zone, the dangling vias and tracks of the unfilled zones), and are `KICAD-VERIFIED` for that only. The planner stays `INFERRED`, citing `H-G-ROLE-COPPER-*`.
 
 #### Scenario: DRC on the bench
 - **WHEN** `uv run pytest tests/kicad/roles/test_copper_drc.py` builds, refills and checks each script on KiCad 10
