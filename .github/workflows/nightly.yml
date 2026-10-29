@@ -1,6 +1,7 @@
 name: nightly
 
-# Oracle runs that are too heavy for every push. Nothing here is a check of pull requests or a merge gate.
+# Oracle runs and the residue scan over the history: too heavy for every push. Nothing here is a check of
+# pull requests or a merge gate.
 on:
   schedule:
     - cron: "17 3 * * *"
@@ -14,6 +15,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  residue-history:
+    # The residue scan over every blob reachable from any ref, on the public patterns (change c0220): the
+    # summary line is printed and a hit fails the job. It takes about as long as the unit job, so it does not
+    # run on every push; release.yml runs it again before its build. The private gate is skipped here: its
+    # lists never leave the maintainer's machine (`make residue-history`).
+    name: residue-history (the residue scan over the whole history)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Residue scan over the history
+        run: uv run --no-project python tools/residue/scan.py --history
+
   macos-app:
     # The kicad-cli of the official KiCad 10.0.6 macOS disk image: what the hypothesis register records
     # as "confirmed with local kicad-cli 10.0.6 (macOS)", repeated in CI (H-K-CI-MACOSAPP). KiCad is run

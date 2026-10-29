@@ -13,7 +13,7 @@
 
 ## 1. History scan
 
-- [ ] 1.1 `--history` in `release.yml` before the build and in `nightly.yml` as a job of its own (scenario "The
+- [x] 1.1 `--history` in `release.yml` before the build and in `nightly.yml` as a job of its own (scenario "The
   release scans the history"). Proof: `uv run pytest tests/unit/test_ci_workflow.py -q`.
 - [ ] 1.2 `make residue-history` (scenario "The private run prints counts"). Proof: `make residue-history`
   without private lists prints the summary with `private gate: skipped`.

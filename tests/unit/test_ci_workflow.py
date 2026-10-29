@@ -938,3 +938,111 @@ def test_mcp_job() -> None:
 def test_mcp_job_without_the_sdk_rejected() -> None:
     text = WORKFLOW.read_text(encoding="utf-8").replace("--extra dev --extra oracles", "--extra dev")
     assert "mcp: must sync the oracles extra, which holds the official SDK" in mcp_job_problems(text)
+
+
+# ---- the residue scan over the history (capability residue-scan, "Integration points"; change c0220)
+
+HISTORY_SCAN = "run: uv run --no-project python tools/residue/scan.py --history"
+
+
+def history_scan_problems(release: str, nightly: str, ci: str) -> list[str]:
+    """Why the history would not be scanned where the design of c0220 says: in the ``build`` job of the
+    release before the distributions are built, and in a nightly job of its own; a hit fails each job. The
+    push workflow does not run it (about as long as the ``unit`` job)."""
+    problems: list[str] = []
+    build = job_text(release, "build")
+    scan, built = build.find(HISTORY_SCAN), build.find("uv build --out-dir")
+    if scan < 0:
+        problems.append("release: the build job must run tools/residue/scan.py --history")
+    elif built < 0 or built < scan:
+        problems.append("release: the history scan must run before the distributions are built")
+    job = job_text(nightly, "residue-history")
+    if not job:
+        problems.append("nightly: job 'residue-history' missing")
+    else:
+        problems += [
+            f"nightly: {p.split(': ', 1)[1]}"
+            for p in ordered_problems(
+                job,
+                "residue-history",
+                [
+                    ("checkout", "uses: actions/checkout@v4"),
+                    ("setup-uv", "uses: astral-sh/setup-uv"),
+                    ("history scan", HISTORY_SCAN),
+                ],
+            )
+        ]
+        if not re.search(r"^\s+fetch-depth: 0\s*$", job, re.MULTILINE):
+            problems.append("nightly: the checkout needs fetch-depth: 0, every ref and its history")
+        if not re.search(r"^\s+timeout-minutes: \d+\s*$", job, re.MULTILINE):
+            problems.append("nightly: the residue-history job must set timeout-minutes")
+    for name, text in (("release", build), ("nightly", job)):
+        if "continue-on-error" in text or "--history || " in text:
+            problems.append(f"{name}: a hit of the history scan must fail the job")
+    if "--history" in ci:
+        problems.append("ci: the history scan must not run on every push")
+    return problems
+
+
+def _history_workflows() -> tuple[str, str, str]:
+    return (
+        RELEASE_WORKFLOW.read_text(encoding="utf-8"),
+        NIGHTLY.read_text(encoding="utf-8"),
+        WORKFLOW.read_text(encoding="utf-8"),
+    )
+
+
+def test_release_and_nightly_scan_the_history() -> None:
+    """Scenario "The release scans the history"."""
+    assert history_scan_problems(*_history_workflows()) == []
+
+
+def test_history_scan_missing_or_late_rejected() -> None:
+    release, nightly, ci = _history_workflows()
+    step = "      - name: Residue scan over the history\n"
+    assert release.count(step) == 1
+    unscanned = release.replace(HISTORY_SCAN, "run: uv run --no-project python tools/residue/scan.py")
+    assert "release: the build job must run tools/residue/scan.py --history" in history_scan_problems(
+        unscanned, nightly, ci
+    )
+    build = job_text(release, "build")
+    block = build[build.find("      # Every blob reachable") : build.find("      - name: Build fenolite")]
+    assert block.endswith(HISTORY_SCAN + "\n")
+    late = release.replace(block, "").replace(
+        "      - name: Metadata of the distributions\n",
+        block + "      - name: Metadata of the distributions\n",
+    )
+    assert "release: the history scan must run before the distributions are built" in (
+        history_scan_problems(late, nightly, ci)
+    )
+    renamed = nightly.replace("  residue-history:", "  other:")
+    assert "nightly: job 'residue-history' missing" in history_scan_problems(release, renamed, ci)
+
+
+def test_history_scan_shape_rejected() -> None:
+    release, nightly, ci = _history_workflows()
+    job = job_text(nightly, "residue-history")
+    shallow = nightly.replace(job, job.replace("          fetch-depth: 0\n", ""))
+    assert "nightly: the checkout needs fetch-depth: 0, every ref and its history" in (
+        history_scan_problems(release, shallow, ci)
+    )
+    soft = nightly.replace(job, job.replace(HISTORY_SCAN, HISTORY_SCAN + " || true"))
+    assert "nightly: a hit of the history scan must fail the job" in history_scan_problems(release, soft, ci)
+    untimed = nightly.replace(job, job.replace("    timeout-minutes: 45\n", ""))
+    assert "nightly: the residue-history job must set timeout-minutes" in (
+        history_scan_problems(release, untimed, ci)
+    )
+    swapped = nightly.replace(
+        job,
+        job.replace("uses: astral-sh/setup-uv@v6", "uses: @@UV@@")
+        .replace(HISTORY_SCAN, "uses: astral-sh/setup-uv@v6")
+        .replace("uses: @@UV@@", HISTORY_SCAN),
+    )
+    assert "nightly: step 'history scan' must come after 'setup-uv'" in (
+        history_scan_problems(release, swapped, ci)
+    )
+    pushed = ci + "\n      - " + HISTORY_SCAN + "\n"
+    assert "ci: the history scan must not run on every push" in history_scan_problems(
+        release, nightly, pushed
+    )
+    assert macos_app_problems(nightly) == [] and yardstick_problems(nightly, ci) == []
