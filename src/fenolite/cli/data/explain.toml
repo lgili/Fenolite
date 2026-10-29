@@ -1263,6 +1263,11 @@ meaning = "KiCad's DRC report stops at a fixed number of entries per type: 499 o
 fix = "Read the count as a lower bound. Repair the reported findings of the type and run check again: the next ones then appear. summary.limits of the stage drc.kicad lists every such type."
 see = "check"
 
+["check.roles-unreadable"]
+meaning = "The stage `roles.rules` could not read the stored roles of the board: its role document (`<board stem>.roles.json`) or the roles of `.fenolite/rules.json` is not valid. The message names the file and the place."
+fix = "Correct or delete the role document, or store the roles again with `fenolite roles PATH --accept ... --confirm`."
+see = "check"
+
 ["check.roundtrip-unjudged"]
 meaning = "A round-trip level could not be judged for one document; the message names the reason (`too-large`: the file needs sectors the compound writer does not write; `writer-refused`: the writer refuses the tree)."
 fix = "Nothing to do: the level is neither passed nor failed for this document. `roundtrip.rta1` still judges its records."

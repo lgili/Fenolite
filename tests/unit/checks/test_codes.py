@@ -18,6 +18,7 @@ CODE = ("check.", "erc.lite.", "netlist.", "render.", "copper.", "zone.", "parit
 TABLE = {
     "check.read-refused": ("error",),
     "check.cache-unreadable": ("warning",),
+    "check.roles-unreadable": ("error",),  # c0222
     "check.footprint-unresolved": ("error",),
     "check.symbol-unresolved": ("error",),
     "check.rt1-failed": ("error",),

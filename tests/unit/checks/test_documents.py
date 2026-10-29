@@ -107,6 +107,7 @@ def test_stage_names() -> None:
         "erc.lite",
         "copper.clearance",
         "placement.rules",
+        "roles.rules",
         "parity",
         "netlist.assignment_compare",
         "roundtrip.rta0",
@@ -115,11 +116,13 @@ def test_stage_names() -> None:
     )
     assert "roundtrip.rta0" not in STAGE_ORDER  # the KiCad pipeline is unchanged
     # ``erc.lite`` is a stage of the document pipeline only: the KiCad one asks KiCad's ERC (c0062); the
-    # stages that need no tool on any backend are in both (c0088, and placement.rules of c0113)
+    # stages that need no tool on any backend are in both (c0088, placement.rules of c0113 and roles.rules
+    # of c0222)
     assert set(DOCUMENT_STAGES) & set(STAGE_ORDER) == {
         "model.validate",
         "copper.clearance",
         "placement.rules",
+        "roles.rules",
         "parity",
         "netlist.assignment_compare",
     }
@@ -190,6 +193,7 @@ def test_library_alone_is_not_judged_by_the_model_stages() -> None:
         "erc.lite": ("skipped", "no-schematic"),
         "copper.clearance": ("skipped", "single-source"),
         "placement.rules": ("skipped", "single-source"),
+        "roles.rules": ("skipped", "single-source"),
         "parity": ("skipped", "no-schematic"),
         "netlist.assignment_compare": ("skipped", "single-source"),
         "roundtrip.rta0": ("ok", ""),

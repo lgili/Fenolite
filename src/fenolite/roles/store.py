@@ -108,7 +108,8 @@ def stored_roles(
     whose ``.fenolite/`` model was loaded, ``model_roles`` its ``RuleSet.roles``) keeps them in
     ``.fenolite/rules.json``; else the role document beside the board is read when it exists."""
     if given is not None:
-        return Stored(read_document(given) if given.is_file() else None, given, given, False)
+        found = given.is_file()
+        return Stored(read_document(given) if found else None, given if found else None, given, False)
     if built:
         rules = root / ".fenolite" / "rules.json"
         return Stored(model_roles, rules if model_roles is not None else None, rules, True)

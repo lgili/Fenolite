@@ -20,12 +20,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from fenolite.backends import registry
-from fenolite.backends.base import DocumentSet, DocumentValidator, ProjectSet, Validator
+from fenolite.backends.base import BoardPad, DocumentSet, DocumentValidator, ProjectSet, Validator
 from fenolite.backends.kicad import versions
 from fenolite.backends.kicad.oracle import KicadOracle
 from fenolite.backends.kicad.projectset import project_set, resolve_board
@@ -40,6 +41,7 @@ from fenolite.cli.api import Command, Context, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FormatError, Issue
+from fenolite.core.evidence import Evidence
 from fenolite.core.progress import NULL_PROGRESS, Progress
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
@@ -130,6 +132,16 @@ def _document_stages(text: str | None) -> tuple[str, ...]:
     return tuple(names)
 
 
+def roles_judge(
+    design: Design, model: Design | None, project: ProjectSet, pads: Sequence[BoardPad] | None
+) -> tuple[tuple[Issue, ...], Mapping[str, object], Evidence]:
+    """The ``RolesJudge`` of the stage ``roles.rules``: ``fenolite.roles.judge.judge``, imported when the
+    stage runs (``checks`` imports neither ``roles`` nor ``analysis``; change c0222)."""
+    from fenolite.roles.judge import judge
+
+    return judge(design, model, project, pads)
+
+
 def _cache(root: Path) -> tuple[bool, Design | None, str]:
     """``(built, model, cache_error)`` from ``<root>/.fenolite/``."""
     return built_cache(root)
@@ -156,6 +168,7 @@ def _run_documents(
         validator=backend,
         cache_error=cache_error,
         waivers=_waivers(model, cache_error),
+        roles_judge=roles_judge,
     )
     error = report.read_error
     if isinstance(error, FormatError):
@@ -207,7 +220,8 @@ def run_stages(
                         oracle=oracle, cache_error=cache_error,
                         plotter=oracle if "render" in stages else None,
                         fill_oracle=oracle if "zone.fill" in stages else None,
-                        waivers=_waivers(model, cache_error), progress=progress)  # fmt: skip
+                        waivers=_waivers(model, cache_error), progress=progress,
+                        roles_judge=roles_judge)  # fmt: skip
     error = report.read_error
     if isinstance(error, FormatError) and not report.drc_reported:
         old = isinstance(error, versions.UnsupportedFormatError)

@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from fenolite.backends.base import (
     BoardFrame,
@@ -34,12 +34,16 @@ from fenolite.core.progress import NULL_PROGRESS, Progress
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
 
+if TYPE_CHECKING:
+    from fenolite.checks.roles import RolesJudge
+
 STAGE_ORDER: tuple[str, ...] = (
     "model.validate",
     "erc.kicad",
     "copper.clearance",
     "length.rules",
     "placement.rules",
+    "roles.rules",
     "zone.fill",
     "drc.kicad",
     "parity",
@@ -56,7 +60,9 @@ entries when that stage judged them; it needs no tool itself, so it is not an or
 ``placement.rules`` (change c0113) judges the placement rules of a built project and measures the wire
 length and the congestion of every board; it needs no tool either and follows ``copper.clearance``.
 ``length.rules`` (change c0106) judges the length and skew rules on the net lengths a ``LengthSource``
-gives; it needs no tool, stands right after ``copper.clearance`` and so before ``drc.kicad``."""
+gives; it needs no tool, stands right after ``copper.clearance`` and so before ``drc.kicad``.
+``roles.rules`` (change c0222) judges the net roles of a board with the judge that ``fenolite check`` passes;
+it needs no tool and follows ``placement.rules``."""
 OPT_IN_STAGES: tuple[str, ...] = ("roundtrip.rt2", "render")
 """Stages that run only when ``--stages`` names them: RT2 costs two re-saves and three DRC runs."""
 DEFAULT_STAGES: tuple[str, ...] = tuple(name for name in STAGE_ORDER if name not in OPT_IN_STAGES)
@@ -70,7 +76,15 @@ ORACLE_STAGES: tuple[str, ...] = (
 )
 """Stages that need the external tool; selecting one runs the pre-flight and builds the oracle."""
 _READING_STAGES = frozenset(
-    {"roundtrip", "copper.clearance", "length.rules", "placement.rules", "parity", *ORACLE_STAGES}
+    {
+        "roundtrip",
+        "copper.clearance",
+        "length.rules",
+        "placement.rules",
+        "roles.rules",
+        "parity",
+        *ORACLE_STAGES,
+    }
     - {"render", "erc.kicad"}
 )
 """Stages that need the board read; ``erc.kicad`` needs only the schematic, and ``render`` only the files."""
@@ -90,6 +104,7 @@ StageSkip = Literal[
     "no-document",
     "model-predates-graphics",
     "no-frame",
+    "no-roles",
 ]
 _COUNTED_SKIPS = frozenset({"read-refused", "cache-unreadable"})
 
@@ -184,11 +199,13 @@ def run_checks(
     fill_oracle: FillOracle | None = None,
     waivers: Sequence[Waiver] = (),
     progress: Progress = NULL_PROGRESS,
+    roles_judge: RolesJudge | None = None,
 ) -> CheckReport:
     """Run the selected stages in ``STAGE_ORDER`` on ``project`` (``model`` is the ``.fenolite/`` model of a
     built project); ``validator.validate`` runs at most once. ``waivers`` are the design's waivers
     (``checks.waivers``): they reach the copper stage and the DRC stage, and no other stage. Each stage
-    that runs is one unit of ``progress``, named by the stage."""
+    that runs is one unit of ``progress``, named by the stage. ``roles_judge`` judges the stage
+    ``roles.rules`` (``checks.roles``)."""
     from fenolite.checks.assignment_compare import assignment_stage
     from fenolite.checks.copper import copper_stage
     from fenolite.checks.drc import drc_stage
@@ -198,6 +215,7 @@ def run_checks(
     from fenolite.checks.parity_stage import parity_stage
     from fenolite.checks.placement import placement_stage
     from fenolite.checks.render import render_stage
+    from fenolite.checks.roles import roles_stage
     from fenolite.checks.roundtrip import roundtrip_stage
     from fenolite.checks.rt2 import rt2_stage
     from fenolite.checks.validate import BUILT_EVIDENCE, validate_stage
@@ -270,6 +288,19 @@ def run_checks(
             evidence=validation.read.evidence,
         )
 
+    def roles() -> StageResult:
+        if validation is None:
+            return skipped("roles.rules", "read-refused")
+        if built and (cache_error or model is None):
+            return skipped("roles.rules", "cache-unreadable")
+        return roles_stage(
+            validation.read.design,
+            model=model,
+            project=project,
+            frame=validator if isinstance(validator, BoardFrame) else None,
+            judge=roles_judge,
+        )
+
     def drc() -> StageResult:
         if oracle is None:
             raise ValueError("drc.kicad is selected but no oracle was given")
@@ -318,6 +349,7 @@ def run_checks(
         "copper.clearance": copper,
         "length.rules": length,
         "placement.rules": placement,
+        "roles.rules": roles,
         "zone.fill": fill,
         "drc.kicad": drc,
         "parity": parity,

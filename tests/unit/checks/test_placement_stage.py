@@ -85,9 +85,9 @@ def test_stage_is_a_default_stage_without_a_tool() -> None:
     # c0106's length.rules stands right after copper.clearance, and placement.rules follows it
     assert STAGE_ORDER.index("copper.clearance") + 2 == STAGE_ORDER.index(STAGE)
     assert STAGE_ORDER.index("length.rules") + 1 == STAGE_ORDER.index(STAGE)
-    assert STAGE_ORDER.index(STAGE) + 1 == STAGE_ORDER.index("zone.fill")
+    assert STAGE_ORDER.index(STAGE) + 2 == STAGE_ORDER.index("zone.fill")  # roles.rules (c0222) between
     assert DOCUMENT_STAGES.index("copper.clearance") + 1 == DOCUMENT_STAGES.index(STAGE)
-    assert DOCUMENT_STAGES.index(STAGE) + 1 == DOCUMENT_STAGES.index("parity")
+    assert DOCUMENT_STAGES.index(STAGE) + 2 == DOCUMENT_STAGES.index("parity")
     assert EVIDENCE.level is Level.INFERRED
 
 

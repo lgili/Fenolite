@@ -85,7 +85,8 @@ def test_default_stages_and_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     routed = Routed(tmp_path, monkeypatch, confirm=False)
     code, env, _ = cli(routed, "check", str(SAMPLES / "blink"))
     assert code == 0 and list(stages(env)) == list(DOCUMENT_STAGES)
-    assert [stage["status"] for stage in stages(env).values()][:7] == ["ok"] * 7
+    statuses = [stage["status"] for stage in stages(env).values()]
+    assert statuses[:8] == ["ok"] * 4 + ["skipped"] + ["ok"] * 3  # roles.rules: no-roles (c0222)
 
 
 def test_a_short_on_an_altium_board(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

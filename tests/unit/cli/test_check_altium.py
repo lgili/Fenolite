@@ -260,7 +260,8 @@ def test_built_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     stages = _stages(env)
     assert code == 0, env["issues"]
     assert env["result"]["project"]["built"] is True
-    assert [stage["status"] for stage in stages.values()] == ["ok"] * 9
+    assert [stage["status"] for stage in stages.values()] == ["ok"] * 4 + ["skipped"] + ["ok"] * 5
+    assert stages["roles.rules"]["reason"] == "no-roles"  # c0222: blink declares no role
     pairs = stages["netlist.assignment_compare"]["summary"]["pairs"]
     assert [(p["a"], p["b"], p["differences"]) for p in pairs] == [
         ("model", "schematic", 0),
@@ -297,7 +298,7 @@ def test_placement_rules_on_a_built_project(monkeypatch: pytest.MonkeyPatch, tmp
     code, env, _, _ = run(monkeypatch, tmp_path, "check", str(root))
     names = [stage["name"] for stage in env["result"]["stages"]]
     assert names == list(DOCUMENT_STAGES)
-    assert names.index("copper.clearance") + 1 == names.index("placement.rules") == names.index("parity") - 1
+    assert names.index("copper.clearance") + 1 == names.index("placement.rules") == names.index("parity") - 2
     found = [i for i in env["issues"] if i["code"].startswith("placement.")]
     assert [(i["code"], i["severity"], i["where"]) for i in found] == [("placement.too-far", "error", "D1")]
     assert code == 5

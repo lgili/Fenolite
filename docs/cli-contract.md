@@ -1085,7 +1085,7 @@ out. Without `--stages`, every stage runs except `roundtrip.rt2` (`DEFAULT_STAGE
 re-saves and three DRC runs and is selected by name. `erc.kicad`, `drc.kicad`, `netlist.assignment_compare` and
 `roundtrip.rt2` and `zone.fill` need `kicad-cli` (`ORACLE_STAGES`): selecting any of them runs the tool pre-flight.
 `copper.clearance` needs no tool: `--stages copper.clearance` runs on a machine without KiCad.
-`length.rules` and `placement.rules` need none either, and are default stages.
+`length.rules`, `placement.rules` and `roles.rules` need none either, and are default stages.
 `parity` needs none either for a project that `build` wrote.
 
 | stage | runs on | evidence |
@@ -1095,6 +1095,7 @@ re-saves and three DRC runs and is selected by name. `erc.kicad`, `drc.kicad`, `
 | `copper.clearance` | Fenolite's own exact check of shorts and clearance on the board model, native and built alike, with the rules of `<stem>.kicad_pro` and `<stem>.kicad_dru`; no tool runs | the lowest of the copper check (`INFERRED`), the board reader and the project and rules readers; `UNVERIFIED` when part of the copper or of the rules went unjudged |
 | `length.rules` | Fenolite's own verdict on the `length`, `skew` and `diff_pair_skew` rules of `<stem>.kicad_dru` (`docs/analyses.md`, "Length rules in check"), on the net lengths as the target KiCad major counts them; no tool runs | the lowest of the stage (`INFERRED`, `H-K-NETLEN-RULES`), the board reader, the rules readers and the length facts; `UNVERIFIED` with `length.input-missing` |
 | `placement.rules` | Fenolite's own placement rules and measures on the board model, without a tool: on a project that `build` wrote, the `near` rules of `.fenolite/rules.json` judged on the pad positions; on every board, the wire length and the congestion of the placement (`docs/placement.md`) | the board reader's level when no rule was judged; the lowest of it and `INFERRED` when one was |
+| `roles.rules` | the net roles of the board judged against its copper, as `fenolite roles --check` judges them (`roles` below, `docs/roles.md`): the roles of `.fenolite/rules.json` of a built project or of the role document beside the board, with the inferred ones; no tool runs. Skipped with `no-roles` when the board has no stored or declared role | `INFERRED`, with the role hypotheses and the analyses' evidence |
 | `zone.fill` | KiCad 10 refills a private copy of the project board; compares saved copper polygons per zone | refill evidence; `UNVERIFIED` when any zone is unfilled or stale |
 | `drc.kicad` | `kicad-cli pcb drc` on the copy set, with the rules canary; every violation becomes a located issue | DRC report reader and oracle combined, `kicad-cli <version>`; `UNVERIFIED` without a report or with a rules issue |
 | `parity` | Fenolite's own comparison of the board with `<stem>.kicad_sch`, and of symbol pins with footprint pads (`parity` below); no tool for a schematic that `build` wrote, else the schematic netlist of `kicad-cli` when another stage built the oracle | the lowest of the comparison (`INFERRED`, `H-K-PARITY-OWN`) and of the netlist it used |
@@ -1108,7 +1109,7 @@ error issue), `errors` (ran, at least one) or `skipped`, with `reason` `native-i
 `cache-unreadable`, `no-schematic` (`erc.kicad` on a project without a schematic of the board's stem),
 `unsupported-oracle`, `oracle-unsupported`, `netlist-unavailable` (`parity` on a schematic that Fenolite
 does not read itself, in a run without `kicad-cli`), `no-frame` (`placement.rules` when the reader gives
-no pad positions) or `oracle-unstable` (two refill runs differ; never counted in the
+no pad positions), `no-roles` (`roles.rules` on a board without a stored or declared role) or `oracle-unstable` (two refill runs differ; never counted in the
 envelope). A skipped stage carries `UNVERIFIED`. The envelope evidence is the lowest level of
 the stages that ran and of those skipped for `read-refused` or `cache-unreadable`; `UNVERIFIED` when
 none counts. `result.project` holds `board`, `built`, `files` and `skipped`, names relative to the
@@ -1327,6 +1328,7 @@ repeat.
 |---|---|---|
 | `check.read-refused` | error | Fenolite cannot read the board; the message starts with the FEN code, `where` is `file:locator:@offset` |
 | `check.cache-unreadable` | warning | `.fenolite/` cannot be loaded; `model.validate` is skipped |
+| `check.roles-unreadable` | error | `roles.rules`: the role document beside the board (or the roles of `.fenolite/rules.json`) cannot be read |
 | `check.footprint-unresolved` | error | a non-DNP component has no footprint reference or instance |
 | `check.symbol-unresolved` | error | a built component that carries `fenolite.path` has no symbol reference; a board-only footprint added in KiCad, without that key, is not asked for one (`docs/lens.md`) |
 | `check.rt1-failed` | error | RT1 failed; `where` is the first difference |
@@ -1514,6 +1516,7 @@ it, because it writes a whole project into a temporary folder and reads it again
 | `erc.lite` | the three ERC lite rules on the schematic reading (pin types and No ERC marks come from the sheets), or on the stored model of built input | `INFERRED` (`H-K-CHECK-ERC`, `H-A-VER-ERC`) |
 | `copper.clearance` | the copper check of `check` on the PCB reading, built and native input alike: shorts, clearance and zone overlaps, with the pads of the Altium board frame and the Clearance rules the document holds (below) | the reading and the check (`H-A-DRC-SAME`); `UNVERIFIED` when part of the copper or of the rules was not judged |
 | `placement.rules` | the placement rules and measures of `check` on the PCB reading: on built input the `near` rules of the stored model judged on the pad positions of the Altium board frame; on every PCB document the wire length and the congestion. No stage judges a part in a keep-out on Altium input | the reading when no rule was judged; the lowest of it and `INFERRED` when one was |
+| `roles.rules` | the net roles of the PCB reading, as the stage of the KiCad pipeline judges them, with the pads of the Altium board frame; skipped with `no-roles` without a stored or declared role | `INFERRED` |
 | `parity` | the PCB reading against the schematic reading, as `parity` below: references, values, footprint names, nets, pins and pads | `INFERRED` (`H-K-PARITY-OWN`, `H-A-DRC-PARITY`) |
 | `netlist.assignment_compare` | the partition compare of the pairs (`schematic`, `pcb`) on native input, (`model`, `schematic`) and (`model`, `pcb`) on built input; no export is needed | the lowest of the readings compared (`H-A-IMP-NETLIST`) |
 | `roundtrip.rta0` | RT-A0 of every compound file of the set: a copy through the reader and the compound writer keeps every storage and stream | `EVIDENCE_RT_A0`; `UNVERIFIED` when a copy fails |
@@ -1529,8 +1532,9 @@ some: build it again), `no-document` (`roundtrip.rta3` when the write
 gives no document of the kind that was read: the schematic writer refuses the circuit),
 `no-schematic` (`erc.lite` and `parity` without a schematic document),
 `single-source` (`netlist.assignment_compare` without two sources; `copper.clearance`,
-`placement.rules` and `parity` without a PCB document), `no-frame` (`placement.rules` when the backend
-gives no pad positions), `not-judged` (no document of the set can be judged
+`placement.rules`, `roles.rules` and `parity` without a PCB document), `no-frame` (`placement.rules` when
+the backend gives no pad positions), `no-roles` (`roles.rules` without a stored or declared role),
+`not-judged` (no document of the set can be judged
 by the stage: a project file alone for `roundtrip.rta0`, a library alone for `model.validate`),
 `read-refused` and `cache-unreadable`. Only the last two count in the envelope evidence. No stage
 carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite reads the files.

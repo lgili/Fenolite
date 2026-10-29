@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
 
 from fenolite.backends.base import (
     BoardFrame,
@@ -49,11 +50,15 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
 
+if TYPE_CHECKING:
+    from fenolite.checks.roles import RolesJudge
+
 DOCUMENT_STAGES: tuple[str, ...] = (
     "model.validate",
     "erc.lite",
     "copper.clearance",
     "placement.rules",
+    "roles.rules",
     "parity",
     "netlist.assignment_compare",
     "roundtrip.rta0",
@@ -62,7 +67,8 @@ DOCUMENT_STAGES: tuple[str, ...] = (
 )
 """The stages of a document check that run by default, in the order they run. ``placement.rules`` (change
 c0113) judges the placement rules of a built project on the pad positions of the PCB document and measures
-every board."""
+every board. ``roles.rules`` (change c0222) judges the net roles of the PCB document with the judge that
+``fenolite check`` passes."""
 OPT_IN_DOCUMENT_STAGES: tuple[str, ...] = ("roundtrip.rta3",)
 """The stages that run only when ``--stages`` names them (change c0090): RT-A3 writes a whole project
 into a temporary folder and reads it again."""
@@ -74,6 +80,7 @@ _READING_STAGES = frozenset(
         "erc.lite",
         "copper.clearance",
         "placement.rules",
+        "roles.rules",
         "parity",
         "netlist.assignment_compare",
         "roundtrip.rta2",
@@ -234,6 +241,7 @@ def run_document_checks(
     validator: DocumentValidator,
     cache_error: str = "",
     waivers: Sequence[Waiver] = (),
+    roles_judge: RolesJudge | None = None,
 ) -> CheckReport:
     """Run the selected stages in ``DOCUMENT_STAGES`` order on ``documents`` (``model`` is the ``.fenolite/``
     model of a built project). ``validator.read_documents`` runs at most once, and
@@ -241,7 +249,7 @@ def run_document_checks(
 
     ``waivers`` are the design's waivers (change c0114): they reach the ``copper.clearance`` stage and no
     other. This pipeline has no DRC stage, so a ``<oracle>.drc.*`` waiver is listed as ``stage-not-run``,
-    and no stored exclusion is read."""
+    and no stored exclusion is read. ``roles_judge`` judges the stage ``roles.rules`` (``checks.roles``)."""
     from fenolite.checks import parity as parity_check
     from fenolite.checks.rta2 import body_total, predates_board, predates_graphics, rta2_stage
     from fenolite.checks.rta3 import compare, rta3_stage
@@ -326,6 +334,20 @@ def run_document_checks(
         return (
             stage if stage.status == "skipped" else replace(stage, evidence=with_added(name, stage.evidence))
         )
+
+    def roles() -> StageResult:
+        from fenolite.checks.roles import roles_stage
+
+        name = "roles.rules"
+        project = project_of(documents)
+        if project is None:
+            return skipped(name, "single-source")
+        if pcb is None:
+            return skipped(name, "read-refused")
+        if built and usable is None:
+            return skipped(name, "cache-unreadable")
+        frame = validator if isinstance(validator, BoardFrame) else None
+        return roles_stage(pcb.design, model=usable, project=project, frame=frame, judge=roles_judge)
 
     def parity() -> StageResult:
         name = "parity"
@@ -451,6 +473,7 @@ def run_document_checks(
         "erc.lite": erc,
         "copper.clearance": copper,
         "placement.rules": placement,
+        "roles.rules": roles,
         "parity": parity,
         "netlist.assignment_compare": assignment,
         "roundtrip.rta0": container("roundtrip.rta0"),

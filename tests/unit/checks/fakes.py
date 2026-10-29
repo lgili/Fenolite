@@ -415,3 +415,18 @@ __all__ = [
     "validation",
     "violation",
 ]
+
+
+@dataclass
+class FakeRolesJudge:
+    """A ``RolesJudge`` (``checks.roles``) that returns one ``roles.loop-area`` warning and records its
+    calls (change c0222)."""
+
+    calls: list[tuple[Design, Design | None, ProjectSet]] = field(default_factory=lambda: [])
+
+    def __call__(
+        self, design: Design, model: Design | None, project: ProjectSet, pads: object
+    ) -> tuple[tuple[Issue, ...], dict[str, object], Evidence]:
+        self.calls.append((design, model, project))
+        found = Issue("roles.loop-area", "warning", "the hot loop hot_SW encloses 180.00 mm²", where="hot_SW")
+        return (found,), {"measures": 1}, Evidence(Level.INFERRED, hypotheses=("H-FAKE-ROLES",))

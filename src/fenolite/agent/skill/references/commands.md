@@ -164,7 +164,7 @@ another type; a flag without a value is a switch.
 `fenolite check [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder; an Altium document, .PrjPcb or project folder
-- `--stages A,B`: stages to run, of model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip,roundtrip.rt2,render (default: model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip); for Altium input, of model.validate,erc.lite,copper.clearance,placement.rules,parity,netlist.assignment_compare,roundtrip.rta0,roundtrip.rta1,roundtrip.rta2 (default: all)
+- `--stages A,B`: stages to run, of model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,roles.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip,roundtrip.rt2,render (default: model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,roles.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip); for Altium input, of model.validate,erc.lite,copper.clearance,placement.rules,roles.rules,parity,netlist.assignment_compare,roundtrip.rta0,roundtrip.rta1,roundtrip.rta2 (default: all)
 - `--kicad-cli PATH`: the kicad-cli to run (unused for Altium input)
 - `--timeout SECONDS` (number, default `300.0`): kicad-cli timeout (300; unused for Altium input)
 - `--exclude CODE:ITEM_A:ITEM_B`: store a KiCad DRC exclusion of this finding in the project (both item orders) instead of checking; needs --reason and the mutation protocol (KiCad input only)
@@ -343,7 +343,7 @@ another type; a flag without a value is a switch.
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
 - `--artifacts DIR` (repeatable): a folder inside the project whose fenolite-artifacts.json lists artefacts to add (repeatable)
-- `--stages A,B`: stages to run, of model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip,roundtrip.rt2,render (default: model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip)
+- `--stages A,B`: stages to run, of model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,roles.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip,roundtrip.rt2,render (default: model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,roles.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip)
 - `--no-check`: run no stage: record hashes only
 - `--verify`: compare the manifest with the files on disk; write nothing
 - `-o`, `--out FILE`: the manifest file (default: fenolite-artifacts.json by the board)

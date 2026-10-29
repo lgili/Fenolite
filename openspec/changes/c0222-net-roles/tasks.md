@@ -207,7 +207,14 @@
   for both targets). The three reference boards now declare their currents, the bus's working voltage and
   via limit, and the sensitive cell taps; the tests read them from the build instead of a table of their
   own. Proof passed: 20 tests.
-- [ ] 6.3 Add `checks/roles.py` with `RolesJudge` and the stage `roles.rules` in both pipelines, and `fenolite.roles.judge` passed by `cmd_check` (scenarios "A board without roles is unchanged", "Confirmed roles are judged", "A fake judge"). Proof: `uv run pytest tests/unit/checks/test_roles_stage.py tests/unit/checks/test_stages.py tests/unit/test_import_graph.py -q`.
+- [x] 6.3 Add `checks/roles.py` with `RolesJudge` and the stage `roles.rules` in both pipelines, and `fenolite.roles.judge` passed by `cmd_check` (scenarios "A board without roles is unchanged", "Confirmed roles are judged", "A fake judge"). Proof: `uv run pytest tests/unit/checks/test_roles_stage.py tests/unit/checks/test_stages.py tests/unit/test_import_graph.py -q`.
+  Done 2026-10-29. `cmd_check.roles_judge` imports `fenolite.roles.judge` when the stage runs and is passed
+  to `run_checks` and `run_document_checks`; `manifest`, which runs the stages through `run_stages`, gets
+  it too. A role document that cannot be read is the new check code `check.roles-unreadable` (error), with
+  its `explain` entry and its row in `docs/cli-contract.md`. `StageSkip` gains `no-roles`. "Confirmed roles
+  are judged" runs `check --stages model.validate,copper.clearance,placement.rules,roles.rules`, since the
+  default stages need `kicad-cli`. The tests that list the default stages of both pipelines now name
+  `roles.rules`. Proof passed: 78 tests.
 - [ ] 6.4 Amend "No shipped requirement values" in `docs/analyses.md` and the facts-page test (scenario "Analyze ignores the role profile"). Proof: `uv run pytest tests/unit/analysis/test_facts_page.py -q`.
 - [ ] 6.5 Compare the roles and measures of the KiCad and Altium builds of each variant (scenarios "Same roles from both builds", "Evidence of a check"). Proof: `uv run pytest tests/unit/roles/test_backends.py -q`.
 

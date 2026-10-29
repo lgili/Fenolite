@@ -48,6 +48,7 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
     {
         "check.read-refused": ("error",),
         "check.cache-unreadable": ("warning",),
+        "check.roles-unreadable": ("error",),
         "check.footprint-unresolved": ("error",),
         "check.symbol-unresolved": ("error",),
         "check.rt1-failed": ("error",),

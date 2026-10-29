@@ -39,6 +39,7 @@ def test_stage_order() -> None:
         "copper.clearance",
         "length.rules",
         "placement.rules",
+        "roles.rules",
         "zone.fill",
         "drc.kicad",
         "parity",
