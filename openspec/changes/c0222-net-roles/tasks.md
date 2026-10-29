@@ -69,7 +69,22 @@
   the model so that `design.part_class` reaches `fenolite roles`: `PartClass(ref, cls, terminals)` with
   `Terminal(name, pins)` and `RoleSet.classes` were added to `model/rules.py` (schemas regenerated,
   `docs/design-model.md` updated). Proof passed: 31 tests.
-- [ ] 2.2 Add `roles/infer.py` with the rule table `SW-1` to `SIG-0`, confidence, conflicts and currents (scenarios "Switching node and hot loop of a buck", "No high voltage from a name", "A power net without a current"). Proof: `uv run pytest tests/unit/roles/test_infer.py -q`.
+- [x] 2.2 Add `roles/infer.py` with the rule table `SW-1` to `SIG-0`, confidence, conflicts and currents (scenarios "Switching node and hot loop of a buck", "No high voltage from a name", "A power net without a current"). Proof: `uv run pytest tests/unit/roles/test_infer.py -q`.
+
+  2026-10-29: `roles/infer.py` applies the eleven rules in order with the conflict rule and
+  `roles.ambiguous`, and `with_currents` takes a role's current from the role, a `[[current]]` row, then
+  `--current`, assuming none. `roles/codes.py` was created here with the seventeen codes, because the
+  inference reports `roles.ambiguous` (its `explain` entries and tests stay task 4.2). Choices the design
+  left open, recorded in the module docstring: a result of `low` confidence is not given (the net falls to
+  `SIG-0`, which keeps `H-G-ROLE-INFER`'s "every low result is signal"); `HL-1` takes the capacitor nearest
+  the switches when several qualify and pad positions are known, and looks through a shunt on the low
+  side's far net (the half-bridge's low-side shunt lies in its commutation loop); `GD-2`'s return is the
+  driver's pin on the switch's Kelvin-source (or source) net, a return or switching-node pin first; `PWR-1`
+  does not fire on a net `GND-1` gave (else every ground named by name only would be ambiguous with the
+  low-side far net); `KS-1` also forms the pair of a four-terminal shunt whose force pads, not its sense
+  pads, reach the input pair, so the check can report the shared force pad. The scenarios run on the
+  authored circuit of a buck (`tests/unit/roles/_circuits.py`); the same scenario on the built good buck is
+  in `test_infer_reference.py` (task 3.2). Proof passed: 7 tests.
 
 ## 3. Reference boards
 
