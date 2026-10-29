@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Net roles, phase 2: critical routes** (c0244): `fenolite route PATH --router octilinear --roles critical [--group NAME]... [--rip] [--gate drc]` routes the gate loops and Kelvin pairs of the confirmed or declared net roles (c0222) before anything else, through the reviewed-plan protocol. c0228's octilinear router gains a role mode (feature `roles`, `RoutingJob.roles`, one `RoleOutcome` per route): gate loops first, then Kelvin pairs; a Kelvin branch enters its sense pad on the inner half, a gate return starts at the source or Kelvin-source pad, branches touch their own power copper only at their end pads, keep the profile's distance from switching copper, take the smallest gate-loop area or the shortest Kelvin pair, and the pattern-routing Z shapes join the five shapes. A `role_check` extra judges the roles before and after the job and removes a group that gets worse (`route.role-refused`); every written item is locked and every branch gets a corridor `role.corridor.<group>.<net>` that pours fill around. `result.roles` gives each group's status, findings before and after and its copper; a group that cannot be routed gets `route.role-unrouted` with a reason and a proposal from closed sets, and unconfirmed inferred groups are listed and not routed (`route.role-unconfirmed`).
+
 ## [0.6.0] - 2026-10-29
 
 ### Added
