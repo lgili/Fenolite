@@ -1,18 +1,17 @@
 # Roadmap to 1.0
 
-## Current status — 2026-10-28
+## Current status — 2026-10-29
 
-**Released: 0.5.0. Development: 0.6.0.dev0.** The [0.5 release record](release/v0.5.md) identifies
-what ships, what remains experimental and the native checks deferred by the maintainer. The viewer
-ships in 0.5. The native Draftsman writer and Embedded Board Arrays remain gated; the earlier release
-hold was superseded by the decision of 2026-10-25.
-
-Post-release implementations in this development line include router-input fidelity, ground-tie and
-barrier-crossing checks, return-path screening, file snapshots and fabrication read-back (c0197–c0203).
-They are not features of the published 0.5 package. The MCP server and its editing/image integration
-from [PR #20](https://github.com/lgili/Fenolite/pull/20) are implemented on dev; installing the 0.5 `mcp`
-extra does not provide that server. The remaining engineering tasks are in c0175. The completed feature and its
-validation are separate: see each change's tasks and the current commit's CI results.
+**Released: 0.5.0. Prepared: 0.6.0 (change c0242), waiting for the maintainer's verdict, merge and tag.**
+By the maintainer's decision of 2026-10-29 the v1.0 freeze (c0216 to c0220) is held, and `0.6.0` ships what
+`dev` implemented after `0.5.0`: the MCP server and `fenolite edit` (c0195, c0196), the board engineering
+tools of c0175 in their own changes (c0197 to c0214, c0223 to c0229), computed Altium pours (c0215,
+experimental), the release from a tag (c0221), reliability, viewer review, the catalog browser and the
+public presentation (c0232 to c0240), and kit Part J of the Altium edit sessions (c0241). The
+[0.6 release record](release/v0.6.md) gives what ships, what stays experimental and the maintainer's tests
+deferred to v0.7; the [0.5 release record](release/v0.5.md) stays the record of `0.5.0`. A `0.7.0` with
+improvements follows; its scope is the maintainer's to decide (Open decisions, row 50). The native
+Draftsman writer and Embedded Board Arrays remain gated.
 
 The dated decisions below preserve the planning history. Earlier “pending publication” and release-hold
 statements describe their stated dates, not the current release. Current milestone rows are updated below.
@@ -109,7 +108,11 @@ write part of v0.3, and “v0.2c” the complex-board part of v0.4.
 | 3. KiCad complete | v0.2b | c0069–c0074 | complete layout lens and `placements.toml`, one schematic sheet per module and a readable layout, full rule kinds, parity, typed interfaces and quantities, the user's drawing sheet, v0.1 follow-ups | every change archived; released in `v0.2.0` on 2026-10-06 |
 | 4. Second backend | v0.3 | read: c0039–c0047. Write: c0032–c0038 pulled forward; c0083–c0092; c0121–c0132, c0134 | read, equivalence levels 1–4, analyses; write, equivalence level 5, verification kit | Released as 0.3.0 with experimental writes (historical record: docs/release/v0.3.md). Reconciled 2026-10-14: c0083-c0091 and the c0125/c0130/c0131/c0132/c0152 chain are archived; c0092's rule, acceptance project, kit publication and per-kind runtime integration are implemented. Native AD 26.5 kit: 32 passed steps, 27 recorded candidate labels, supplemental v0.4.0 archive. KiCad 10.0.6 acceptance/probe passed. No write kind graduates yet; maintainer acceptance review and closing exact-commit CI remain pending. |
 | — | v0.4 | agent track, board authoring and complex-board work; release c0154 | guide, placement, copper findings, readiness and complex-board tooling | released as `0.4.0`; see [the release record](release/v0.4.md) for scope and deferred checks. Historical implementation states are retained in the dated sections below |
-| 5. To 1.0 | v0.5a, v0.5b, v0.6, v1.0 | v0.5 release c0171; remaining work c0175, c0215 and the open native acceptance changes | conversion, viewer, review and engineering workflows; later contract freeze | v0.5a: released as `0.5.0`, including viewer c0176–c0191; the earlier native release hold was superseded on 2026-10-25. MCP, script editing and image replies are implemented on dev; v1.0 freeze remains proposed in c0216–c0220. Development is `0.6.0.dev0`; implementation, native acceptance and release are tracked separately |
+| 5. To 1.0 | v0.5a | v0.5 release c0171 | conversion, downgrade, public `equivalent`, slots, panels, Draftsman reading and the viewer | v0.5a: released as `0.5.0`, including viewer c0176–c0191; the earlier native release hold was superseded on 2026-10-25 |
+| 5. To 1.0 | v0.5b | c0195, c0196 | the MCP server, script editing and image replies | shipped in `0.6.0` |
+| 5. To 1.0 | v0.6 | release c0242; c0175 and c0197–c0214, c0223–c0229; c0195, c0196, c0215, c0221, c0232–c0241 | board engineering tools, MCP, computed Altium pours (experimental), release from a tag, reliability and review work, Altium edit-session measurements | released as `0.6.0` (c0242, the maintainer's decision of 2026-10-29); the verdict, the merge to `main` and the tag `v0.6.0` are his; his deferred tests go to v0.7 |
+| 5. To 1.0 | v0.7 | to be decided | improvements, scope to be decided by the maintainer | after `0.6.0`; the maintainer's deferred tests of `docs/release/v0.6.md` ("Deferred after v0.6") are its candidates |
+| 5. To 1.0 | v1.0 | c0216–c0220 | contract freeze: CLI, envelopes and schemas `v1`, model schema 1.0, conformance matrix, legal and history review | held by the maintainer's decision of 2026-10-29: proposed, not implemented (c0220 tasks 1.1 and 1.2, the history scan of the release and the nightly, are on `dev`) |
 
 About 70 changes to 1.0 on this map before the cuts, and about 61 with the cuts the maintainer accepted
 on 2026-10-09 (see [Proposed cuts](#proposed-cuts-for-a-leaner-10)). Both counts were made before 2026-10-07 and do not
@@ -643,9 +646,10 @@ change at that point.
 | milestone | scope |
 |---|---|
 | v0.5a | conversion between KiCad and the second backend, with a report of what is kept or lost; controlled KiCad downgrade (capability resolver); public `equivalent`. The next release, `0.5.0`, is v0.5a alone (Open decisions, row 38); the annealing placer moved after 1.0 (row 3) |
-| v0.5b | the MCP server: change c0195, `fenolite mcp`, being implemented since 2026-10-26 (Open decisions, row 46). The rest of the former v0.5b (multi-instance hierarchy, variants, layout reuse per module, schematic editing that keeps presentation) moved after 1.0 (row 3) |
-| v0.6 | the maintainer's tests deferred from `0.5.0` and what they open (decision of 2026-10-25; [below](#v06-the-maintainers-tests-of-v05)), the board engineering tools of c0175, and the poured copper of Altium documents of c0215 (row 48). Matched-length and skew analysis moved to v0.4 (c0106), and equivalence levels 6–7, the emulated-evidence category, KiCad 11 IPC, SPICE and the ASCII inspection format moved after 1.0 (row 3) |
-| v1.0 | freeze: CLI, envelope and schemas `v1`; model schema version 1.0 with migrators; published conformance matrix (format × version × operation × evidence); no `INFERRED` without a hypothesis, no `UNVERIFIED` outside `experimental`; `LEGAL.md` reviewed; residue scan green over the whole history |
+| v0.5b | the MCP server: change c0195, `fenolite mcp`, implemented since 2026-10-26 (Open decisions, row 46) and shipped in `0.6.0` with c0196. The rest of the former v0.5b (multi-instance hierarchy, variants, layout reuse per module, schematic editing that keeps presentation) moved after 1.0 (row 3) |
+| v0.6 | released as `0.6.0` by the maintainer's decision of 2026-10-29 (change c0242, [below](#v06-release-060-decided-on-2026-10-29)): what `dev` implemented after `0.5.0`, among it the board engineering tools of c0175 and the poured copper of Altium documents of c0215 (row 48); the maintainer's tests deferred from `0.5.0` (decision of 2026-10-25; [below](#v06-the-maintainers-tests-of-v05)) that are still open move to v0.7. Matched-length and skew analysis moved to v0.4 (c0106), and equivalence levels 6–7, the emulated-evidence category, KiCad 11 IPC, SPICE and the ASCII inspection format moved after 1.0 (row 3) |
+| v0.7 | improvements after `0.6.0`, scope to be decided by the maintainer (row 50); the candidates are the tests he owes ("Deferred after v0.6" of `docs/release/v0.6.md`) |
+| v1.0 | held by the maintainer's decision of 2026-10-29 (row 50). freeze: CLI, envelope and schemas `v1`; model schema version 1.0 with migrators; published conformance matrix (format × version × operation × evidence); no `INFERRED` without a hypothesis, no `UNVERIFIED` outside `experimental`; `LEGAL.md` reviewed; residue scan green over the whole history |
 | after 1.0 | the annealing placer; multi-instance hierarchy; variants; layout reuse per module (KiCad groups); schematic editing that keeps presentation; equivalence levels 6–7; the emulated-evidence category; KiCad 11 IPC; SPICE; the ASCII inspection format (Open decisions, row 3) |
 
 ### v0.5a: conversion, downgrade and the public `equivalent`
@@ -758,7 +762,26 @@ list with each change's tasks is "Deferred after v0.5" of `docs/release/v0.5.md`
   decision of 2026-10-26, row 48): the K6 round of the samples `pour` and `pour4` in Altium Designer, which
   ends its experimental label (task 7.4).
 
-### v1.0: the freeze (proposed on 2026-10-27)
+### v0.6: release `0.6.0` (decided on 2026-10-29)
+
+On 2026-10-29 the maintainer held the v1.0 freeze and decided to release `0.6.0` with what is implemented
+since `0.5.0`, then a `0.7.0` with improvements (row 50). The release change is c0242 and the record
+`docs/release/v0.6.md`: one row per change (c0175, c0195 to c0215, c0221, c0223 to c0229, c0232 to c0241),
+with what it ships, its open tasks and why each is open. What depends on his own tests (the Altium kit runs of
+c0160, c0166, c0168, c0172, c0173, c0092, K6 of c0215 and Part J of c0241, the viewer reviews of c0177 to
+c0186, the GUI save of c0105, the agent runs of c0081, his MCP client of c0195) is deferred to v0.7, as in
+`0.5.0`.
+
+### v0.7: improvements (scope to be decided)
+
+The maintainer decides the scope of `0.7.0` after `0.6.0`. Its candidates are the tests he owes, listed under
+"Deferred after v0.6" of `docs/release/v0.6.md`, and the proposal c0222 (net roles).
+
+### v1.0: the freeze (proposed on 2026-10-27; held on 2026-10-29)
+
+**Held by the maintainer's decision of 2026-10-29.** The five changes below stay open and are not implemented
+until he lifts the hold; c0220's tasks 1.1 and 1.2 (the history scan of the release and the nightly,
+`make residue-history`) are on `dev` and serve `0.6.0`. The table keeps the plan.
 
 The freeze of the v1.0 row above, written as five changes on `dev`, ids taken together on 2026-10-27 as c0198 to c0202 and renumbered c0216 to
 c0220 on 2026-10-28, when they were rebased on the work of c0195 to c0203 and c0215 (c0197 to c0209 had taken the
@@ -968,6 +991,7 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 | 47 | c0196: an MCP agent writes the design and sees the board: `fenolite edit` as a command line command (whole text or exact pairs, for `*.py`, `*.toml` and the library tables, parsed and never run), `fenolite_edit` only with `fenolite mcp --allow-edit` (editing and building a script runs it as the user), and the PNGs of a reply as images, at most 4 and 6 MB, not resized | `openspec/changes/c0196-mcp-design-and-images/design.md`, "Open Questions" | decided by the maintainer on 2026-10-26: every recommended answer is accepted |
 | 48 | Poured copper in Altium documents: Fenolite computes the pour of every polygon it writes into a `.PcbDoc`, with Altium's rules and pour algorithm as public sources and kit runs describe them, and writes the regions, so the document opens poured without "Tools » Polygon Pours » Repour All"; a polygon whose inputs Fenolite cannot evaluate keeps its outline; experimental until a round of kit group K6 passes. Row 23 is superseded | proposal and design of c0215 | decided by the maintainer on 2026-10-26 (the reversal of row 23), with the open questions of c0215's design the same day: `computed` is the default of `build`, `convert` and `panel` before the kit round, marked experimental (`--altium-pour outline` gives the earlier files); the Polygon Connect Style rules are lowered from the zones, one per net; the comparison bound is the polygon's arc resolution; a rewrite pours every polygon again; no copy of a public document is repoured in Altium; the change is in v0.6 |
 | 49 | v1.0 freeze (c0216–c0220): the open questions of the five designs, among them whether `fenolite.dsl` and `fenolite.api` are frozen with the CLI, that envelopes say `v1` from the release of `1.0.0`, which file formats are public, `"1.0"` as the model version with a newer minor refused, the list of no-claim commands and the evidence of `route`, and whether a lawyer reads the legal review | the designs of c0216 to c0220, "Open questions" | decided by the maintainer on 2026-10-27: every recommended answer accepted, as each design records: `fenolite.dsl` and `fenolite.api` are frozen with the CLI and every other module stays internal; envelopes say `v1` from the release of `1.0.0`; hidden commands are out of the contract; the public file formats are the inputs a user writes and the outputs an agent reads, the viewer's documents and the kit's form internal; a removed result key is refused after `1.0.0`; the model version is `"1.0"` and a newer minor is refused; the no-claim commands are `capabilities`, `catalog`, `doctor`, `explain`, `guide`, `skill`, `init`, `fetch`, `manifest` and `restore`; `route` answers `INFERRED` with the Specctra rows; `UNKNOWN` only from the detection of an unknown file; no lawyer's review is a condition of `1.0.0`; a private-gate hit in history is decided per hit. What c0218's review renames or drops is decided in its task 1.2 |
+| 50 | Hold the v1.0 freeze and release `0.6.0` now with what is implemented since `0.5.0`, then a `0.7.0` with improvements whose scope is decided later | `docs/release/v0.6.md`; change c0242; this page, [v0.6](#v06-release-060-decided-on-2026-10-29) | decided by the maintainer on 2026-10-29; c0216 to c0220 stay open and are not implemented; recorded the same day (c0242) |
 
 Change-level questions: see Open Questions in the designs of the proposed changes (c0025, c0039–c0046,
 c0060–c0074, c0083–c0092 and, for v0.5a, c0158 onwards; for board slots and cut-outs, c0167–c0170; for Draftsman documents and panels, c0172 and c0173).

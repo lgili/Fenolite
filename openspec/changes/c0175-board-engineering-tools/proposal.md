@@ -17,7 +17,7 @@ Twelve work packages, each implementable alone or splittable into its own change
 9. **File safety:** snapshots, receipt-guarded replace, open sessions, cloud placeholders, reference repointing, gated and three-way diffs.
 10. **Library fidelity:** imported pad mask and paste, 3D model placement, library from a board and its drift, body copy by pad fit, house-library coverage.
 11. **Release checks:** Gerber and Excellon read-back, trial edits gated by DRC, DRC exclusions, region renders.
-12. **Native Altium edit sessions:** typed, asserted edits keeping index tables consistent, connectivity gates, and an integrity check for faults that crash the native tool.
+12. **Native Altium edit sessions:** typed, asserted edits keeping index tables consistent, connectivity gates, and an integrity check for faults that crash the native tool. Moved to c0241 on 2026-10-29.
 
 ## Capabilities
 
@@ -37,6 +37,9 @@ block and group moves); this change no longer holds a delta of it.
 (`openspec/changes/c0214-tidy-straighten/`, moved on 2026-10-28); this change no longer holds a delta of it.
 The routing plugin `octilinear`, the last task of package 5, moved to c0228
 (`openspec/changes/c0228-octilinear-router/`) on 2026-10-28; this change no longer holds a delta of `routing`.
+
+`altium-edit` is created by c0241 (`openspec/changes/c0241-altium-edit-sessions/`, moved on 2026-10-29 with
+package 12, tasks 6.1 to 6.7); this change no longer holds a delta of it.
 
 `silkscreen-layout` is created by c0212 (`openspec/changes/c0212-assembly-marks/`) and completed by c0226
 (`openspec/changes/c0226-silk-clip/`, moved on 2026-10-28); this change no longer holds a delta of it.
@@ -65,10 +68,10 @@ The routing plugin `octilinear`, the last task of package 5, moved to c0228
 
 - KiCad writes: `KICAD-VERIFIED` by DRC on both majors.
 - Analyses: `INFERRED` on authored benches, KiCad-bracketed where possible.
-- Altium writes: experimental, until the maintainer's kit runs (`ALTIUM-VERIFIED(kit)`).
+- Altium writes: experimental, until the maintainer's kit runs (`ALTIUM-VERIFIED(kit)`); the edit sessions with c0241.
 
 ## Impact
 
-- New: `reuse/`, `tidy/`, `safety/`, `silk/`, `backends/altium/edit/`, `analysis/ties.py`, `crossings.py`, `practice.py`, `coupling.py`, `routing/octilinear.py`, `dsl/generate.py`, `exports/readback.py`.
+- New: `reuse/`, `tidy/`, `safety/`, `silk/` (`backends/altium/edit/` moved to c0241), `analysis/ties.py`, `crossings.py`, `practice.py`, `coupling.py`, `routing/octilinear.py`, `dsl/generate.py`, `exports/readback.py`.
 - Changed: Specctra writer, `route`, `analyze`, `testpoints`, `convert`, guide pages.
 - Size: about 60 design-days. Packages 1 to 3 (6 days) come first.

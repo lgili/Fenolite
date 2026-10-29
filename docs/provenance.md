@@ -57,19 +57,18 @@ Where the gate is on and where it is off:
 
 | where | gate | why |
 |---|---|---|
-| `make residue`, `make check`, `make check-fast` | on, when the list files exist in the checkout | the `Makefile` exports `FENOLITE_RESIDUE_TOKENS_FILE` and `FENOLITE_RESIDUE_BLOBS_FILE` when it finds the two list files in the ignored folder `private/` |
+| `make residue`, `make residue-history`, `make check`, `make check-fast` | on, when the list files exist in the checkout | the `Makefile` exports `FENOLITE_RESIDUE_TOKENS_FILE` and `FENOLITE_RESIDUE_BLOBS_FILE` when it finds the two list files in the ignored folder `private/` |
 | the pre-commit hook (`make hooks`) | on, in the same way | `tools/hooks/pre-commit` sets the two variables before it scans the staged files |
 | `uv run python tools/residue/scan.py`, called directly | off, unless a variable or a home-folder file is set | the script looks for no list inside the checkout |
 | a linked worktree or a fresh clone | off | the list files are ignored by the version control, so they exist only where a maintainer put them |
-| CI (the `unit` job) and the release workflow | off | the lists are never published, so no runner has them |
+| CI (the `unit` job), the release workflow and the nightly `residue-history` job | off | the lists are never published, so no runner has them. The release (before its build) and the nightly scan the whole history with `--history` on the public patterns, and a hit fails them (change c0220) |
 
 So a green CI run and a green release workflow prove the public patterns only. Before a release the
 maintainer runs the gate locally, in the checkout that holds the lists:
 
 ```bash
-make residue                                       # the tree, and dist/*.whl when present
-FENOLITE_RESIDUE_TOKENS_FILE=<token file> FENOLITE_RESIDUE_BLOBS_FILE=<hash file> \
-  uv run python tools/residue/scan.py --history    # every blob reachable from any ref
+make residue            # the tree, and dist/*.whl when present
+make residue-history    # every blob reachable from any ref: scan.py --history with the same lists
 ```
 
 Both runs must end with `private gate: on` and 0 hits. The history run is recorded as a row of

@@ -459,7 +459,7 @@ checked where the extra is installed (`-k keepouts`).
 
 Run locally on 2026-10-26 with Freerouting 2.4.1 (the pinned jar, `251101c3eeac`), OpenJDK 25.0.5 and
 `kicad-cli` 10.0.7 (`tests/routing/test_freerouting_planes.py -k router_input`, `FENOLITE_ROUTING_EVIDENCE=1`;
-the `routing` CI job runs it on 9.0 and 10.0.6). The bench is the plane bench with `J3` in the upper right corner,
+the `routing` CI job runs it on 9.0 and 10.0.6; both jobs passed it in runs 40355527379 and 40703612332). The bench is the plane bench with `J3` in the upper right corner,
 so the `HV` nets pass the pads of `SIG`, `GND` and `VCC` routed by `direct`, and every routed net on `F.Cu`. Its
 rules gain a board-wide `track_width` (min 0.15 mm, opt 1.2 mm, max 2 mm) and an `HV` clearance of 0.8 mm against
 all. "Before" is the file the earlier lowering wrote for them (every class at 1.2 mm, `HV` raised for itself),

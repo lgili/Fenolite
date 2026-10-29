@@ -12,8 +12,8 @@ fenolite --version
 fenolite capabilities --brief --json
 ```
 
-The published release used for this tutorial is **0.5.0**. To reproduce that exact release, install
-`fenolite==0.5.0`. `capabilities` reports optional tools available on your machine.
+The release used for this tutorial is **0.6.0**. To reproduce that exact release, install
+`fenolite==0.6.0`. `capabilities` reports optional tools available on your machine.
 
 ## 2. Create and build
 
@@ -118,10 +118,9 @@ for engineering review. [Exports](exports.md) explains the available deliverable
 | Live KiCad IPC integration | `python -m pip install 'fenolite[kicad-ipc]'` |
 | Meshed embedded 3D models | `gmsh` as a separate executable; without it the viewer falls back to extruded bodies |
 
-The published 0.5 package has no MCP server command. Its `mcp` extra installs an optional SDK only.
-Development builds include the stdlib-only server and editing/image integration from
-[PR #20](https://github.com/lgili/Fenolite/pull/20); see [MCP](mcp.md) and use the documentation of the
-installed version.
+Since 0.6 the package includes the stdlib-only MCP server (`fenolite mcp`) with script editing and image
+replies; it needs no extra (the 0.5 `mcp` extra, an optional SDK only, is removed). See [MCP](mcp.md) and use
+the documentation of the installed version.
 
 ## Next
 

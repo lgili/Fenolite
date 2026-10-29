@@ -242,8 +242,7 @@ command reads library tables or runs external tools. The initial generic catalog
 `docs/catalog/README.md`; every non-`KICAD-VERIFIED` land dimension remains explicitly marked.
 
 `fenolite catalog view --out FILE [--kind symbol|footprint] [--query TEXT]` plans one standalone HTML
-browser of the matching installed definitions. This action is development work after 0.5.0, absent
-from the published 0.5.0 package. Its result holds `count`, `counts.symbols`,
+browser of the matching installed definitions. This action is new in 0.6.0 (c0234). Its result holds `count`, `counts.symbols`,
 `counts.footprints`, `out`, `filters` and `export` (`bytes`, `sha256`). The standard mutation protocol
 applies: `--dry-run` reviews the plan, and `--confirm --plan ID` writes its exact staged bytes. The page
 needs no network, external CAD executable or intermediate library file. Equal definitions and filters

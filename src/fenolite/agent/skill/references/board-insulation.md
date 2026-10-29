@@ -74,7 +74,7 @@ and still fail creepage.
 - **A copper ring around an unplated hole is a new conductor.** Give it a class, or remove it.
 - **Keep high voltage off the face under a part** whose body sits on the board, such as a capacitor
   can, a relay or a heat sink. Make the pour cut-outs real, so that a refill cannot bring the copper
-  back.
+  back. `analyze --kinds bodies` lists the copper under each body against your `[[body_copper]]` rows.
 - **Mind the second face and the inner layers.** A distance on the top face says nothing about the
   bottom face. Inner layers of a multilayer board follow the rules for distance through insulation,
   not creepage. Check the distances across layers too.

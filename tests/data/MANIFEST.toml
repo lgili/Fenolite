@@ -2309,6 +2309,30 @@ corpus_id = ""
 notes = "the steps Q1 to Q6 of Part Q in Portuguese for the maintainer's kit (c0173)"
 
 [[file]]
+path = "tests/data/altium_edit/edit.py"
+origin = "authored"
+corpus_id = ""
+notes = "the board of Part J, the Altium edit sessions (c0241): a 40 x 30 mm two-layer rectangle, two resistors and an LED, the GND track probe, two polygons, a free text, a mechanical line and region, one clearance rule; all values Fenolite choices"
+
+[[file]]
+path = "tests/data/altium_edit/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "library table of the Part J board, naming the authored Mini library"
+
+[[file]]
+path = "tests/data/altium_edit/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "library table of the Part J board, naming the authored Mini library"
+
+[[file]]
+path = "tests/data/altium_edit/kit/README-phase-a.md"
+origin = "authored"
+corpus_id = ""
+notes = "the steps J1 to J22 of Part J in Brazilian Portuguese for the maintainer's kit (c0241)"
+
+[[file]]
 path = "tests/data/kicad/tidy/stub.kicad_pcb"
 origin = "authored"
 corpus_id = ""

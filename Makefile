@@ -13,7 +13,7 @@ PYTEST_WORKERS ?= auto
 PYTEST_MAX_WORKERS ?= 8
 PYTEST_PARALLEL ?= -n $(PYTEST_WORKERS) --maxprocesses $(PYTEST_MAX_WORKERS) --dist loadfile
 
-.PHONY: check check-fast lint format types test test-fast residue hooks agent-eval visual
+.PHONY: check check-fast lint format types test test-fast residue residue-history hooks agent-eval visual
 
 # The gate before a merge: every check and every test.
 check: lint format types residue test
@@ -41,6 +41,11 @@ test-fast:
 
 residue:
 	uv run python tools/residue/scan.py
+
+# Every blob reachable from any ref (change c0220), with the private lists above when they exist: the
+# maintainer's run before a release. Its last line holds counts only; record it in the release record.
+residue-history:
+	uv run python tools/residue/scan.py --history
 
 hooks:
 	ln -sf ../../tools/hooks/pre-commit .git/hooks/pre-commit

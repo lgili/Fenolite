@@ -24,7 +24,7 @@ Create PCB projects from Python, inspect KiCad and Altium files, and review desi
 
 - [Examples](../examples): authored circuits and build scripts.
 - [What's in 0.5](launch/v0.5.md): a short release overview.
-- [Detailed release scope and limits](release/v0.5.md).
+- [Detailed release scope and limits](release/v0.6.md) (0.6; [0.5](release/v0.5.md)).
 - [CLI reference and JSON contract](cli-contract.md).
 - [Model and units](design-model.md).
 - [Evidence matrix](evidence/matrix.md).
@@ -36,4 +36,4 @@ Create PCB projects from Python, inspect KiCad and Altium files, and review desi
 The core has no runtime package dependencies. Viewing supported files and building the starter do not
 require KiCad or Altium. KiCad ERC, DRC, fill and fabrication workflows require `kicad-cli`; external
 routers and 3D model meshing have their own prerequisites. The [quickstart](quickstart.md) separates them.
-Altium writes and all conversions remain experimental in 0.5; see the input-specific report and limits.
+Altium writes and all conversions remain experimental in 0.6; see the input-specific report and limits.
