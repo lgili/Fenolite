@@ -240,7 +240,7 @@ Next blocks (later): decoupling set, reverse-polarity protection, crystal, reset
 
 - **Starter library:** `fenolite.blocks` in the core package. It is code, stdlib only, Apache-2.0, and
   versioned with Fenolite.
-- **Further blocks:** a separate Python package (`fenolite-blocks`) with its own versions, declared as a
+- **Further blocks:** a separate Python package (`fenolite-library`) with its own versions, declared as a
   dependency of the *project*, never of the core. The lock pins the block versions (3.2), so a project
   builds byte-identically.
 - **Project blocks:** a project's own blocks are plain Python modules beside the script, as today.
@@ -254,7 +254,7 @@ Next blocks (later): decoupling set, reverse-polarity protection, crystal, reset
 | c0270 | `block-tests`: shipped test convention, `instantiate(..., stimulus=)`, usage example per block, golden JSON, `fenolite blocks test` | c0256, c0253 | S |
 | c0271 | `block-layouts`: `fenolite.block-layout.v0` relative layout tied to version and parts digest, mirrored pose, refusal on mismatch, `fenolite blocks capture` from a laid-out instance (reusing c0210/c0227's fit) | c0255, c0268 | M |
 | c0272 | `starter-blocks`: the five blocks of 3.6 with requirements, tests and layouts, plus docs pages generated from the records | c0268–c0271, c0254 | M |
-| c0273 | `block-packages`: blocks outside the core (`fenolite-blocks` package), discovery without import side effects, versions pinned in the lock, upgrade review | c0268 | S |
+| c0273 | `block-packages`: blocks outside the core (`fenolite-library` package), discovery without import side effects, versions pinned in the lock, upgrade review | c0268 | S |
 
 ## 5. Questions for the maintainer
 

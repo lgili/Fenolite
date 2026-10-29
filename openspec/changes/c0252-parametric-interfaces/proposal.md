@@ -26,7 +26,19 @@ taken. There is no solver: Fenolite compares exact ranges (c0246) and explains e
 
 - **Parameter tables.** Each interface kind gets a closed parameter table. Each parameter is marked `alias`
   (one value per connected rail or bus), `sum` (sources add capacity, loads add draw), `bound` (a limit of
-  one port) or `link` (a reference to a rail). Values are exact c0246 ranges (`Range` in the DSL, `ValueRange` in the model), never floats.
+  one port) or `link` (a reference to a rail). Values are exact c0246 ranges (`Range` in the DSL, `ValueRange` in the model, with c0246's
+  encoding: unit name, mantissa and exponent), never floats.
+- **Direction is mandatory for sum parameters.** A port that states `current` MUST say `direction="in"` (a load) or
+  `direction="out"` (a source). A pass-through port (`inout`, c0251's default) states no current. A rail is judged
+  as loads against sources, never as all ports summed on both sides.
+- **Operating values, not absolute limits.** A power port's `voltage` is the *operating* range it accepts or
+  promises, judged by the rail checks and never derated. Absolute maximum ratings stay on the device's pins
+  (c0248, split into `abs_max` and `operating` by c0274) and are judged by c0253 with derating.
+- **Logic thresholds.** Logic and bus ports take the datasheet thresholds `input_high_min`, `input_low_max`,
+  `output_high_min`, `output_low_max` and `output_current_max`, and `abs_max` (the input range it withstands).
+  The driver's level is its stated output threshold, never assumed to be its rail.
+- **Companions.** A port may declare `requires` (`pullup`, `supply`, `chip_select`): what must be connected
+  for it to work, judged as `circuit.requires-missing`.
 - **New interface classes.**
   - `Rail(hv, lv=None, *, voltage=None, shared=False)`. `Power` stays as an alias of `Rail`, and the model
     kind stays `power`, so existing scripts and models keep their bytes.
@@ -49,17 +61,22 @@ taken. There is no solver: Fenolite compares exact ranges (c0246) and explains e
 - **Pull-up on a bus.** c0247's `pull_up(target, rail, *resistors)` also accepts an `i2c` port (two
   resistors) and a `Logic` interface or port (one resistor).
 - **Checks.** A new default stage `circuit.rules` of `fenolite check`, right after `model.validate`, runs no
-  tool and reads only the model. c0253 uses the same stage, and whichever of the two lands first creates it.
+  tool and reads only the model. This change creates it (step 4), and c0253 (step 5) adds its checks to it.
   The build reports the same findings through `cmd_build`. The codes:
   - `circuit.rail-voltage`, `circuit.rail-current` and `circuit.rail-sources` (errors);
   - `circuit.rail-unset` (warning);
   - `circuit.logic-level` (error) and `circuit.logic-unknown` (warning);
-  - `circuit.bus-pullup` (warning): wrong rail, or resistance outside the accepted range;
+  - `circuit.bus-pullup` (warning): wrong rail, resistance outside the accepted range, or a pull-up stronger
+    than a port can sink;
+  - `circuit.requires-missing` (warning): a declared companion is absent;
   - `circuit.port-split` (warning).
+
+  The stage is skipped with `no-model` (no `.fenolite/` model) or `no-parameters` (nothing to judge). These
+  are the batch's one skip vocabulary, with c0253's `no-contracts` for the contract half of the stage.
 - **Pull-up target.** `build.i2c-pullup-missing` now also accepts a pull-up to the `hv` net of a power port,
   not only to that of a `power` interface.
 - **Model.** `Interface` and c0251's `Port` gain `params` (name to c0246 `ValueRange`), `reference` and a
-  sharing flag. The model kinds `ground` and `logic` are new. Device ports become `Port` entities owned by
+  sharing flag, and `Port` gains `requires`. The model kinds `ground` and `logic` are new. Device ports become `Port` entities owned by
   their component. Every new field is omitted when empty.
 
 ## Capabilities
@@ -76,12 +93,13 @@ None.
   - ADDED "Rail interface", "Ground and logic interfaces", "Rails and grounds of a design", "Interface
     parameters in the DSL", "Port parameters", "Net-like interfaces", "Connecting whole interfaces",
     "Interface compatibility", "Device interface ports in the DSL", "Bus reference rails", "Pull-ups on a
-    bus" and "Circuit findings in a build".
+    bus", "Interface companions" and "Circuit findings in a build".
 - `design-model`: ADDED "Interface parameters in the model", "Ground and logic kinds in the model" and
   "Device ports in the model".
 - `fenolite-component-catalog`: ADDED "Interface ports of a device" and "Refused device interfaces".
 - `verification-loop`: ADDED "Circuit stage", "Rail voltage check", "Rail current check", "Rail sources
-  check", "Rails without a value", "Logic level check", "Bus pull-up check" and "Split device ports".
+  check", "Rails without a value", "Logic level check", "Bus pull-up check", "Companion check" and "Split
+  device ports".
 
 ## Dependencies
 
@@ -93,7 +111,10 @@ None.
 - **c0251 circuit-blocks:** block ports, port nets, their binding and naming, and the model `Port`. It is
   implemented first, in the same step 4.
 - **c0253 electrical-contracts** adds part ratings with derating, `expect()` and `rig()` to the stage
-  `circuit.rules` (c0253 open question 1: the change that lands first creates the stage).
+  `circuit.rules`. This change lands first (step 4) and creates the stage and the package `checks/circuit/`.
+- **c0274 electrical-requirements** (after c0253): waivers of `circuit.*` findings (with a value digest),
+  voltage propagation through ferrites and links, threshold keys on device pins, decidable stages and the
+  verification matrix. Until it lands, nothing waives a `circuit.*` finding; 0.7.0 is not released before it.
 
 ## Non-goals
 
@@ -117,8 +138,8 @@ None.
 - New:
   - `src/fenolite/dsl/rails.py` (`Rail`, `Ground`, `Logic`, the parameter table, compatibility,
     interface-to-interface `connect`).
-  - `src/fenolite/checks/circuit/rails.py` (the pure judge `circuit_issues(model)`), in the package
-    `checks/circuit/` shared with c0253, and the stage `circuit.rules` if c0253 has not created it.
+  - the package `src/fenolite/checks/circuit/` with `rails.py` (the pure judge `circuit_issues(model)`),
+    which c0253 extends with its own modules, and the stage `circuit.rules`.
   - `examples/sensor_rails/` (the board of the research page's last section, with illustrative devices
     authored for Fenolite, in a good and a bad variant).
   - Tests under `tests/unit/dsl/` (`test_rails.py`, `test_interface_connect.py`, `test_device_ports.py`),
@@ -132,4 +153,4 @@ None.
   - `lens/build.py` (the pull-up target), `cli/data/explain.toml`, `schemas/`.
   - `docs/dsl.md`, `docs/design-model.md`, `docs/cli-contract.md`, `docs/catalog/README.md`.
   - The agent guide pages `design-script`, `checks` and `board-power`, and `CHANGELOG.md`.
-- Size: about 9 design-days.
+- Size: about 10 design-days.
