@@ -6,7 +6,7 @@
 	(descr "Authored for Fenolite (CC0-1.0); synthetic geometry for the net-role reference boards, not a validated land pattern. Two-position power terminal land, 10 mm pitch, 5 mm pads")
 	(tags "terminal power roles")
 	(property "Reference" "REF**"
-		(at 0 -5.25 0)
+		(at 0 -4 0)
 		(layer "F.SilkS")
 		(uuid "a2220000-0000-4000-8000-000600000001")
 		(effects
@@ -17,7 +17,7 @@
 		)
 	)
 	(property "Value" "Roles_Terminal_2P"
-		(at 0 5.25 0)
+		(at 0 4 0)
 		(layer "F.Fab")
 		(uuid "a2220000-0000-4000-8000-000600000002")
 		(effects
@@ -53,8 +53,8 @@
 	)
 	(attr through_hole)
 	(fp_rect
-		(start -8.25 -4.25)
-		(end 8.25 4.25)
+		(start -8 -3)
+		(end 8 3)
 		(stroke
 			(width 0.05)
 			(type solid)
@@ -64,8 +64,8 @@
 		(uuid "a2220000-0000-4000-8000-000600000005")
 	)
 	(fp_rect
-		(start -8 -4)
-		(end 8 4)
+		(start -7.75 -2.75)
+		(end 7.75 2.75)
 		(stroke
 			(width 0.1)
 			(type solid)

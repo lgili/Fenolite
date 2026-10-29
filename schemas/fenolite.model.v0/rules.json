@@ -659,6 +659,12 @@
           "items": {
             "$ref": "#/$defs/PartClass"
           }
+        },
+        "rejected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "additionalProperties": false

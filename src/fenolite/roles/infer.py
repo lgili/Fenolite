@@ -16,9 +16,12 @@ confidence (the lowest of its own and of the classes it read) and the pads it re
 | ``GD-2`` | for each gate, the Kelvin source (or source) and the driver's pin on its net | ``GateLoop`` |
 | ``KS-1`` | a shunt's sense pins reach an input pair, through at most two resistors a side | ``KelvinPair`` |
 | ``GND-1`` | a ground name (``GND*``, ``*GND``, ``VSS*``, ``0V``), and the most ground pins | ``ground`` |
-| ``PWR-1`` | a power interface, a supply pin, a switch's or an inductor's far net | ``power``, medium |
+| ``PWR-1`` | a power interface or supply pin; a switch's or inductor's far net (*) | ``power``, medium |
 | ``HV-1`` | a working voltage at or above ``high_voltage_mv``, never a name | ``high_voltage`` |
 | ``SIG-0`` | no other rule | ``signal``, low |
+
+(*) A switch at no switch node (the back-to-back pair of a battery protector) gives both its drain and its
+source nets.
 
 A later rule does not replace an earlier result of a confidence at least its own; two rules that give
 different kinds at one confidence leave the first and add ``roles.ambiguous``. ``PWR-1`` does not fire on a
@@ -489,6 +492,13 @@ def _powers(top: _Topology, table: _Table, nodes: Sequence[str]) -> None:
                 other = top.two_pin_other(ref, node)
                 if other is not None and other != node:
                     far[other].append(ref)
+    for ref in sorted(top.components):
+        if top.cls(ref) != "transistor":
+            continue
+        own = [net for terminal in ("drain", "source") for net in top.nets_of(ref, terminal)]
+        if own and not set(own) & set(nodes):  # a switch at no switch node: both its nets are power nets
+            for net in own:
+                far[net].append(ref)
     for net, members in top.nets.items():
         supply = [
             m

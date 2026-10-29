@@ -546,8 +546,9 @@ def _limit_order(limit: RoleLimit) -> tuple[str, str, str]:
 @dataclass(frozen=True, slots=True)
 class RoleSet:
     """The net roles of a design (change c0222): one role per net, the three kinds of role groups, the
-    limit overrides and the part classes the user states, each sorted by its key (a net role by its net, a
-    group by its name, a limit by key, kind and net, a class by its reference). A value, not an entity;
+    limit overrides, the part classes the user states and the names of the inferred groups the user rejected,
+    each sorted by its key (a net role by its net, a group by its name, a limit by key, kind and net, a class
+    by its reference). A value, not an entity;
     ``RuleSet`` stores it under ``roles``, and the role document ``fenolite.roles.v0`` beside a board holds
     one."""
 
@@ -557,9 +558,13 @@ class RoleSet:
     gates: tuple[GateLoop, ...] = field(default=(), metadata={"ordered": True})
     limits: tuple[RoleLimit, ...] = field(default=(), metadata={"ordered": True})
     classes: tuple[PartClass, ...] = field(default=(), metadata={"ordered": True})
+    rejected: tuple[str, ...] = field(default=(), metadata={"ordered": True})
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "classes", tuple(sorted(self.classes, key=lambda found: found.ref)))
+        object.__setattr__(self, "rejected", tuple(sorted(set(self.rejected))))
+        for name in self.rejected:
+            _check_name("rejected group", name)
         object.__setattr__(self, "nets", tuple(sorted(self.nets, key=lambda role: role.net)))
         object.__setattr__(self, "loops", tuple(sorted(self.loops, key=lambda group: group.name)))
         object.__setattr__(self, "kelvins", tuple(sorted(self.kelvins, key=lambda group: group.name)))
@@ -578,7 +583,15 @@ class RoleSet:
                 raise ValueError(f"two {what} have the key {twice[0]!r}")
 
     def __bool__(self) -> bool:
-        return bool(self.nets or self.loops or self.kelvins or self.gates or self.limits or self.classes)
+        return bool(
+            self.nets
+            or self.loops
+            or self.kelvins
+            or self.gates
+            or self.limits
+            or self.classes
+            or self.rejected
+        )
 
     def role_of(self, net: str) -> NetRole | None:
         """The role of ``net``, or ``None``."""

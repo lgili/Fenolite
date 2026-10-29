@@ -100,7 +100,21 @@
   both majors read. A KiCad file holds no comment, so the authored line opens the first text a reader meets:
   each footprint's `descr` (before any property) and each symbol's `Description`. Proof passed: 9 tests;
   the residue scan reports 0 hits.
-- [ ] 3.2 Author `examples/roles/buck_shunt`, `half_bridge` and `bms`, each with `good.py` and `bad.py` (pours as script zones, no generated copper), and the expected role tables in `tests/unit/roles/test_infer_reference.py`. Register `H-G-ROLE-INFER` with its first measurement (scenarios "One role per net", "Groups of the half-bridge"). Proof: `uv run pytest tests/unit/roles/test_infer_reference.py -q`.
+- [x] 3.2 Author `examples/roles/buck_shunt`, `half_bridge` and `bms`, each with `good.py` and `bad.py` (pours as script zones, no generated copper), and the expected role tables in `tests/unit/roles/test_infer_reference.py`. Register `H-G-ROLE-INFER` with its first measurement (scenarios "One role per net", "Groups of the half-bridge"). Proof: `uv run pytest tests/unit/roles/test_infer_reference.py -q`.
+  Done 2026-10-29. Each board is a shared module (`*_board.py`, with `make(variant)`) and the two scripts;
+  the half-bridge also has `requirements.toml` with the bus's distance row. The boards are smaller than the
+  design's "about 25 / 40 / 30" parts: 14, 11 and 7 parts, enough for every designed group and fault and
+  each `good` variant passing KiCad 10 DRC; the extra parts would add nothing the checks read. Three
+  findings of this task changed code written for later tasks: `PWR-1` also gives the drain and source nets
+  of a switch at no switch node (the back-to-back pair of the battery protector has none, and its pack
+  path nets fell to `signal`); the monitor symbol `Roles_Cell_Monitor` now has `COM` (pin 10) between
+  `DSG` (9) and `CHG` (11), because with `COM` at the end of the row one of the two gate loops of a
+  common-source pair is a crossed polygon whose shoelace bound nearly cancels; and the gate-return walk
+  stops at the source pads of the other gate loops (both returns share the monitor's one `COM` pin). The
+  half-bridge's "one bus via where the rule of thumb needs five" holds at the declared 20 A only with the
+  user's `milliamps_per_via` of 4000 mA for the bus (a via size the profile does not know); the profile's
+  200 mA would ask for 100. The script declares that limit with the roles in task 6.2. Proof passed: 11
+  tests; 70 nets and 22 groups as expected, every `low` result `signal`.
 - [ ] 3.3 Build the six variants for KiCad and run DRC on the good ones. Proof: `uv run pytest tests/kicad/roles/test_reference_drc.py -rA` (in CI).
 
 ## 4. Profile, limits and codes

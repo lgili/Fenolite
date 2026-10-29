@@ -1,0 +1,9 @@
+# Authored for Fenolite as an example; illustrative values, not requirements of any standard.
+# The bus works at 400 V (declared in the scripts); this row gives its distances to every other net.
+schema = "fenolite.requirements.v0"
+
+[[distance]]
+a = { net = "VBUS" }
+b = { net = "*" }
+clearance_nm = 1200000
+creepage_nm = 1200000

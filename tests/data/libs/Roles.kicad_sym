@@ -1044,10 +1044,10 @@
 					)
 				)
 			)
-			(pin passive line
+			(pin output line
 				(at 10.16 0 180)
 				(length 2.54)
-				(name "COM"
+				(name "CHG"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -1062,10 +1062,10 @@
 					)
 				)
 			)
-			(pin output line
+			(pin passive line
 				(at 10.16 -2.54 180)
 				(length 2.54)
-				(name "CHG"
+				(name "COM"
 					(effects
 						(font
 							(size 1.27 1.27)
