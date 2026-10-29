@@ -1,10 +1,15 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec/specs/residue-scan/spec.md`, `openspec/specs/licensing-and-notices/spec.md`,
+- [x] 0.1 Read `openspec/specs/residue-scan/spec.md`, `openspec/specs/licensing-and-notices/spec.md`,
   `LEGAL.md`, `NOTICE` and the open questions of the design; record the maintainer's answers under this task.
   Proof: `openspec validate c0220-legal-history-1-0 --strict`.
   - 2026-10-27: the maintainer accepted every recommended answer (roadmap, "Open decisions", row 49): no lawyer's
     review is a condition of `1.0.0` and the record says so, and a private-gate hit in history is decided per hit.
+  - 2026-10-29: read the living specs, `LEGAL.md` and `NOTICE`. The MODIFIED "Integration points" keeps the
+    living requirement and its scenario "Hook blocks a commit" and adds the history runs. The two ADDED
+    requirements of `licensing-and-notices` were shortened below the 500-character limit of
+    `openspec validate --strict`; their details moved into scenarios ("A stale inventory fails the check",
+    "A package that is not installed", "Each fetched asset has a row"), nothing was dropped.
 
 ## 1. History scan
 
