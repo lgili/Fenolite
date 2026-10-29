@@ -146,7 +146,12 @@
   switch pad to the others, else between its connectors; and with derived paths only the fills active on
   them are screened by `analyze_necks` (a ground plane that only touches the net carries none of its
   current). Proof passed: 5 tests.
-- [ ] 5.2 Add the role loops (bound, ratio, open legs) on `loop_areas`, and the hot and gate loop checks; register `H-G-ROLE-LOOP-RATIO` with the reference measurements (scenarios "A rectangle and its bound", "An unrouted leg", "The bad buck's hot loop"). Proof: `uv run pytest tests/unit/roles/test_loops.py tests/unit/roles/test_reference_boards.py -k loop -q`.
+- [x] 5.2 Add the role loops (bound, ratio, open legs) on `loop_areas`, and the hot and gate loop checks; register `H-G-ROLE-LOOP-RATIO` with the reference measurements (scenarios "A rectangle and its bound", "An unrouted leg", "The bad buck's hot loop"). Proof: `uv run pytest tests/unit/roles/test_loops.py tests/unit/roles/test_reference_boards.py -k loop -q`.
+  Done 2026-10-29. The rectangle is two two-pad parts (a gate loop's gate and source pads must belong to
+  one part). Until task 6.2 lets the scripts declare their roles, `test_reference_boards.py` adds what
+  the scripts will declare (`DECLARED`) and confirms the inferred roles. Measured: good hot loops 1000 ‰
+  and 975 ‰, good gate loops 214 to 523 ‰, the bad buck's hot loop 180.02 mm² at 3902 ‰, the bad
+  half-bridge's low-side gate loop 116.05 mm² at 2922 ‰. Proof passed: 4 + 4 tests.
 - [ ] 5.3 Add `roles/kelvin.py`: the Kelvin attachment and the gate-return attachment on `path_network`, with `analyze_ties` for separate sense nets. Register `H-G-ROLE-KELVIN-EDGE` (scenarios "Sense lines of the bad buck", "A gate return from the source pour"). Proof: `uv run pytest tests/unit/roles/test_kelvin.py -q`.
 - [ ] 5.4 Add the Kelvin pair and near-switching checks on the role loops and on `analyze_distances`, `analyze_returns` and `analyze_coupling`. Register `H-G-ROLE-KELVIN-PAIR` and `H-G-ROLE-NEAR-SW` (scenario "A sense pair over the switch node"). Proof: `uv run pytest tests/unit/roles/test_reference_boards.py -k "kelvin or switching" -q`.
 - [ ] 5.5 Add the current checks on `analyze_power`, `analyze_split` and `analyze_necks` by both methods, and register `H-G-ROLE-CURRENT` (scenarios "A thin track on a 2 A net", "No analysis finding from the profile"). Proof: `uv run pytest tests/unit/roles/test_current.py -q`.

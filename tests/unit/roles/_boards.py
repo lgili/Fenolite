@@ -13,6 +13,7 @@ findings do not change. An Altium build pours its polygons itself (``--altium-po
 
 from __future__ import annotations
 
+import contextlib
 import io
 import json
 from collections.abc import Mapping
@@ -46,26 +47,25 @@ class Built:
 def build(board: str, variant: str, out: Path, *, target: str = "kicad", fill: bool = True) -> Built:
     """Build one variant into ``out``; a KiCad build gets the fill of ``fill_as_outline`` unless ``fill`` is
     false."""
-    script = EXAMPLES / board / f"{variant}.py"
+    return build_script(EXAMPLES / board / f"{variant}.py", out, target=target, fill=fill)
+
+
+def build_script(script: Path, out: Path, *, target: str = "kicad", fill: bool = True) -> Built:
+    """Build the script ``script`` into ``out`` as ``build`` builds a variant."""
     args = ["build", str(script), "--out", str(out), "--confirm", "--json"]
     if target == "altium":
         args += ["--target", "altium"]
     stdout, stderr = io.StringIO(), io.StringIO()
-    import contextlib
-
     with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
         code = cli_main.main(args)
     envelope = json.loads(stdout.getvalue()) if stdout.getvalue() else {}
-    assert code == 0, (
-        code,
-        stderr.getvalue(),
-        [i for i in envelope.get("issues", []) if i["severity"] == "error"],
-    )
+    errors = [found for found in envelope.get("issues", []) if found["severity"] == "error"]
+    assert code == 0, (code, stderr.getvalue(), errors)
     if target == "altium":
         found = sorted(out.glob("*.PcbDoc"))
         assert found, sorted(out.iterdir())
         return Built(out, found[0])
-    path = out / f"{board}_{variant}.kicad_pcb"
+    (path,) = sorted(out.glob("*.kicad_pcb"))
     if fill:
         path.write_text(fill_as_outline(path.read_text(encoding="utf-8")), encoding="utf-8")
     return Built(out, path)
