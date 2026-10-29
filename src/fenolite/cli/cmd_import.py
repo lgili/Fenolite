@@ -1,0 +1,287 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
+"""``fenolite import PATH --to python --out DIR``: a KiCad board turned into a Fenolite project folder
+(change c0275; capability board-to-code; ``docs/import.md``; ``docs/cli-contract.md``, "import").
+
+The folder holds ``design.py``, ``copper.py`` (the copper as tables), the vendored ``lib/`` with its project
+tables, ``design.lock`` and ``PROVENANCE.json``, and copies of the ``--licence-file`` files. Before anything
+is planned the emitted code is built in a private temporary folder and compared with the source at
+equivalence levels 1 to 5; an unexplained difference is ``import.unequal`` (exit 5) and nothing is written.
+An item the DSL cannot express refuses the import (exit 7, ``FEN-7001``) unless ``--allow-lossy``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import os
+import tempfile
+from collections import Counter
+from pathlib import Path
+from typing import Any
+
+from fenolite import __version__
+from fenolite.api import read_board, run
+from fenolite.backends.kicad.cli import find_kicad_cli
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
+from fenolite.cli.errors import CliError
+from fenolite.cli.output import InputRef
+from fenolite.core.errors import FenoliteError, Issue
+from fenolite.importer import EVIDENCE
+from fenolite.importer.check import SelfCheck, self_check
+from fenolite.importer.codes import issue
+from fenolite.importer.coverage import Unexpressed, lossy_issues
+from fenolite.importer.emit import Emission, Options, emit
+from fenolite.importer.emit.design import design_name
+from fenolite.importer.provenance import Provenance, record
+from fenolite.importer.source import InputKindError, Source, input_kind, read_kicad
+from fenolite.importer.upgrade import upgrader
+
+HELP = "turn a KiCad board into a Fenolite project folder (design.py, copper tables, vendored library)"
+TARGETS = ("python",)
+EXAMPLE = str(Path(__file__).resolve().parents[3] / "tests/data/import_python/two_sheet/two_sheet.kicad_pro")
+"""The authored two-sheet project of the test data."""
+WRITE_KINDS = {".py": "python", ".lock": "lock", ".json": "json", ".kicad_mod": "kicad_mod",
+               ".kicad_sym": "kicad_sym"}  # fmt: skip
+
+
+class LossyImportError(FenoliteError):
+    """Items of the source no DSL call expresses, and no ``--allow-lossy`` (``FEN-7001``): ``issues`` holds
+    one ``import.item-unexpressed`` per kind."""
+
+    cli_code = "FEN-7001"
+
+    def __init__(self, rows: tuple[Unexpressed, ...]) -> None:
+        self.issues = lossy_issues(rows)
+        self.hint = "re-run with --allow-lossy to leave them out, each kind reported"
+        super().__init__(
+            f"the DSL cannot express {sum(r.count for r in rows)} item(s) of the source "
+            f"({', '.join(r.kind for r in rows)})"
+        )
+
+
+def _register(parser: argparse.ArgumentParser) -> None:
+    parser.description = HELP + "; see docs/import.md."
+    parser.add_argument("path", metavar="PATH", help="a .kicad_pro, .kicad_pcb or .kicad_sch")
+    parser.add_argument("--to", choices=TARGETS, required=True, help="the target: python (the Fenolite DSL)")
+    parser.add_argument("--out", metavar="DIR", required=True, help="the project folder to write")
+    parser.add_argument("--name", help="the design name; default: the project's stem")
+    parser.add_argument("--licence", metavar="SPDX", help="the upstream licence as an SPDX expression")
+    parser.add_argument(
+        "--copyright", metavar="TEXT", action="append", default=[], help="an upstream copyright holder"
+    )
+    parser.add_argument("--source", metavar="URL", help="where the upstream board lives")
+    parser.add_argument("--revision", metavar="REV", help="the upstream revision imported")
+    parser.add_argument(
+        "--licence-file",
+        metavar="FILE",
+        action="append",
+        default=[],
+        help="an upstream LICENSE, NOTICE or COPYING file, copied unchanged",
+    )
+    parser.add_argument("--no-upgrade", action="store_true", help="refuse a file below the read floor")
+    parser.add_argument("--no-verify", action="store_true", help="skip the self-check build")
+
+
+def _absolute(path: str, ctx: Context) -> Path:
+    given = Path(path)
+    return given if given.is_absolute() else ctx.cwd / given
+
+
+def _check_out(out: Path, folder: Path) -> None:
+    out_full, folder_full = Path(os.path.abspath(out)), Path(os.path.abspath(folder))
+    if out_full == folder_full or folder_full.is_relative_to(out_full):
+        raise CliError(
+            "FEN-2001",
+            f"--out {out.name} is the folder of the source or holds it; an import never writes over its "
+            "source",
+            where="--out",
+            hint="name another folder with --out",
+        )
+
+
+def _read(path: Path, args: argparse.Namespace) -> Source:
+    try:
+        kind = input_kind(path)
+    except InputKindError as error:
+        raise CliError("FEN-2001", str(error), where=path.name, hint=error.hint) from None
+    if kind != "kicad":
+        raise CliError(
+            "FEN-2001",
+            f"import reads KiCad projects; the Altium input {path.name} is not imported yet",
+            where=path.name,
+            hint="convert it with fenolite convert --to kicad, then import the KiCad project",
+        )
+    upgrade = None if args.no_upgrade else upgrader(find_kicad_cli())
+    return read_kicad(path, upgrade=upgrade)
+
+
+def _build(emission: Emission, name: str, ctx: Context) -> tuple[SelfCheck | None, list[Issue], Any]:
+    """The emitted files built in a private temporary folder, and the read board."""
+    with tempfile.TemporaryDirectory(prefix="fenolite-import-") as folder:
+        root = Path(folder)
+        for relative, data in emission.files.items():
+            target = root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        reply = run(
+            "build", "design.py", "--out", "built", "--confirm", "--kicad-version", str(ctx.kicad_target),
+            cwd=root, timestamp=ctx.timestamp,
+        )  # fmt: skip
+        if reply.exit_code != 0:
+            message = (reply.error or {}).get("message", "the build failed")
+            found = [i for i in (reply.envelope or {}).get("issues", []) if i.get("severity") == "error"]
+            shown = "; ".join(f"{i['code']}: {i['message']}" for i in found[:3]) or message
+            return (
+                None,
+                [issue("import.unequal", f"the emitted code does not build: {shown}", where="build")],
+                None,
+            )
+        return None, [], read_board(root / "built" / f"{name}.kicad_pcb").design
+
+
+def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    path = _absolute(args.path, ctx)
+    if not path.exists():
+        raise CliError("FEN-3001", f"{path.name} does not exist", where=path.name)
+    out = _absolute(args.out, ctx)
+    _check_out(out, path.parent)
+    licence_files = [_absolute(name, ctx) for name in args.licence_file]
+    for given in licence_files:
+        if not given.is_file():
+            raise CliError("FEN-3001", f"--licence-file {given.name} does not exist", where="--licence-file")
+    source = _read(path, args)
+    name = design_name(args.name or source.name)
+    issues: list[Issue] = list(source.issues)
+    stamped = getattr(args, "timestamp", None) is not None
+    if not stamped:
+        issues.append(
+            issue(
+                "import.timestamp-missing",
+                "no --timestamp: the header and PROVENANCE.json carry today's date, so the output is not "
+                "reproducible",
+                hint="pass --timestamp to make the bytes reproducible",
+            )
+        )
+    if args.licence is None or not args.copyright or args.source is None:
+        missing = [flag for flag, value in (("--licence", args.licence), ("--copyright", args.copyright),
+                                            ("--source", args.source)) if not value]  # fmt: skip
+        issues.append(
+            issue(
+                "import.provenance-missing",
+                f"no {', '.join(missing)}: the header says NOASSERTION where the upstream is not stated",
+                hint="state the upstream licence, copyright and location; converted boards are published "
+                "only with them",
+            )
+        )
+    notices = tuple(sorted({given.name for given in licence_files}))
+    provenance = Provenance(
+        licence=args.licence,
+        copyright=tuple(args.copyright),
+        source=args.source,
+        revision=args.revision,
+        fenolite=__version__,
+        date=ctx.timestamp.date().isoformat(),
+        notices=notices,
+    )
+    target = source.major if source.major in (9, 10) else ctx.kicad_target
+    emission = emit(source, Options(name, provenance, target=target))
+    if emission.unexpressed and not ctx.allow_lossy:
+        raise LossyImportError(emission.unexpressed)
+    issues += emission.issues
+    issues += lossy_issues(emission.unexpressed)
+    for row in source.upgrades:
+        issues.append(
+            issue(
+                "import.upgraded",
+                f"{row.file} was upgraded from format version {row.from_version} to {row.to_version} by "
+                f"kicad-cli {row.tool_version} on a private copy; the source is unchanged",
+                where=row.file,
+            )
+        )
+    if source.sheets:
+        issues.append(
+            issue(
+                "import.schematic-generated",
+                f"the source has {source.sheets} schematic sheet(s); the build generates its own schematic "
+                "until "
+                "the drawn schematic (c0276) is imported",
+                where="schematic",
+            )
+        )
+    equivalence: dict[str, object] | None = None
+    if args.no_verify:
+        issues.append(issue("import.unverified", "--no-verify: the emitted code was not built and compared"))
+    else:
+        _, build_issues, built = _build(emission, name, ctx)
+        issues += build_issues
+        if built is not None:
+            checked = self_check(source.design, built, emission.unexpressed, variants=emission.variants)
+            issues += checked.issues
+            equivalence = checked.as_json()
+        else:
+            equivalence = {"levels": [], "equivalent": False}
+    findings = Counter(found.code for found in issues if found.code.startswith("import."))
+    for row in emission.unexpressed:
+        findings[f"unexpressed.{row.kind}"] = row.count
+    files = dict(emission.files)
+    files["PROVENANCE.json"] = record(
+        provenance,
+        design=name,
+        inputs=source.inputs,
+        upgrades=source.upgrades,
+        findings=dict(findings),
+        equivalence=equivalence,
+        tools={row.tool: row.tool_version for row in source.upgrades},
+    ).encode("utf-8")
+    for given in licence_files:
+        files[given.name] = given.read_bytes()
+    shown_out = Path(args.out).as_posix()
+    writes = tuple(
+        PlannedWrite(f"{shown_out}/{relative}", data, WRITE_KINDS.get(Path(relative).suffix, "text"))
+        for relative, data in sorted(files.items())
+    )
+    board_input = source.inputs[0]
+    result: dict[str, Any] = {
+        "source": {
+            "file": board_input.file,
+            "backend": source.backend,
+            "versions": {row.file: row.version for row in source.inputs if row.version is not None},
+        },
+        "out": shown_out,
+        "design": name,
+        "files": [{"path": relative, "bytes": len(data)} for relative, data in sorted(files.items())],
+        "modules": list(emission.modules),
+        "counts": dict(emission.counts),
+        "unexpressed": [row.as_json() for row in emission.unexpressed],
+        "upgrade": [row.as_json() for row in source.upgrades],
+        "equivalence": equivalence,
+        "provenance": {"licence": provenance.spdx, "source": args.source, "revision": args.revision},
+        "adopted": None,
+    }
+    return Result(
+        result=result,
+        issues=tuple(issues),
+        evidence=EVIDENCE,
+        input=InputRef(
+            board_input.file,
+            hashlib.sha256(Path(source.paths[0]).read_bytes()).hexdigest(),
+            "kicad_pcb",
+            None if board_input.version is None else str(board_input.version),
+        ),
+        writes=writes,
+        depends=depends_on(ctx.cwd, *source.paths, *licence_files),
+    )
+
+
+_EXAMPLE = (EXAMPLE, "--to", "python", "--out", "fenolite-import")
+COMMAND = Command(
+    name="import",
+    help=HELP,
+    mutates=True,
+    register=_register,
+    run=_run,
+    paged="files|unexpressed",
+    example_args=(*_EXAMPLE, "--dry-run"),
+    mutation_example_args=_EXAMPLE,
+)

@@ -928,6 +928,43 @@ design.meander("n_tune", track="usb_n", segment=1, match="usb_p", amplitude=mm(0
 - The meander does not avoid other copper; the copper guard judges the result. Corners are square.
 - `result.copper.meanders` of `fenolite build` counts the meanders that changed copper.
 
+### Copper tables
+
+`Design.track_table`, `arc_table` and `via_table` declare many items of one net at once, each row a tuple
+of integer nanometres in the frame of `place()` (change c0275). `fenolite import` writes a board's copper
+this way into `copper.py` (`docs/import.md`); a script may use them too.
+
+```python
+design.track_table(
+    "GND/F.Cu/1",
+    net=gnd,
+    layer="F.Cu",
+    width=mm("0.25"),
+    rows_nm=((10_160_000, 5_080_000, 12_700_000, 5_080_000),),
+)
+design.arc_table(
+    "GND/F.Cu/2",
+    net=gnd,
+    layer="F.Cu",
+    width=mm("0.25"),
+    rows_nm=((0, 0, 1_000_000, 1_000_000, 2_000_000, 0),),
+)
+design.via_table(
+    "GND/via/1", net=gnd, diameter=mm("0.6"), drill=mm("0.3"), rows_nm=((12_700_000, 7_620_000),)
+)
+```
+
+- Rows are `(x1, y1, x2, y2)`, `(sx, sy, mx, my, ex, ey)` (start, a point on the arc, end) and `(x, y)`.
+  The keyword `rows_nm` states the unit: the values are plain `int`s, so a table of thousands of rows stays
+  one line per row. Widths and via sizes are `Length` values and are required.
+- `via_table` takes `kind`, `layers`, `protection` and `locked` as `via()` does; every table takes `locked`.
+- Row `i` of table `key` is the copper item `seg[i]`, `arc[i]` or `via[i]` of the key: the build gives it
+  the copper uuid it derives for that item, so a rebuild keeps it, and the lens treats it as script copper.
+- **Errors at the call.** `DslError` names the key and the row index for a row of the wrong length, a value
+  that is not an `int` (a `bool` included), a segment of zero length or three arc points on one line; it
+  names `rows_nm` when it is empty, and refuses a layer outside the board's copper layers, a drill not
+  below the diameter and a key used by any copper intent.
+
 ## Zones
 
 A script declares its copper pours with `Design.zone`, after `board()`:
@@ -945,6 +982,7 @@ design.zone(
 | `net` | a `Net`, which joins the design, or `None` for a zone without a net | required |
 | `layers` | the copper layers of the pour, any of `Design.copper_layers`: `F.Cu`, `B.Cu` and the inner layers `In1.Cu` … `In<copper − 2>.Cu` of the count (`In6.Cu` is the deepest with `copper=8`); a refused name lists the board's layers | required |
 | `name` | names the zone across builds; unique in the design | the net's name; required when `net` is `None` |
+| `key` | the zone's identity across builds when it has no name (change c0275), written nowhere in the board; with `key` and no `name` the zone has no name; unique among zones | the name |
 | `outline` | at least three `(x, y)` points in the frame of `place()` | the board rectangle |
 | `priority` | an `int` of at least 0; a higher priority is filled first | 0 |
 | `clearance` | the distance the fill keeps from other nets (at least 0) | 0.5 mm |
@@ -1361,7 +1399,7 @@ design.rules.pair(
 
 ## Rule areas
 
-`design.rule_area(name, outline, *, layers=None, forbid=())` declares one rule area and returns its
+`design.rule_area(name, outline, *, layers=None, forbid=(), key=None)` declares one rule area and returns its
 `RuleArea` record. It is the one call for rule areas and keep-outs: a keep-out is a rule area that forbids
 something.
 
@@ -1376,6 +1414,9 @@ hv = design.rule_area("HV", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(30))],
 
 - **`name`** matches `^[A-Za-z0-9_.+-]+$` and is unique. Two names that differ only in letter case are
   refused: KiCad compares area names with letter case, so a rule written for one would miss the other.
+- **`key`** (change c0275) is the area's identity across builds, written nowhere in the board, in the
+  alphabet of copper keys; without it the key is the name. With a key the name may be `""`: an unnamed
+  area, which no `select.area` matches. Keys are unique; `fenolite import` keys the unnamed areas it reads.
 - **`outline`** holds at least three `(x, y)` points in the frame of `place()`. An outline is a polygon: a
   round keep-out is a polygon around the circle.
 - **`layers`** are copper layers of the board; `None` means every copper layer.
@@ -1383,7 +1424,7 @@ hv = design.rule_area("HV", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(30))],
   forbids nothing and only rules select it (`select.area`, "Rules with selectors"). `footprints` makes
   the area a placement keep-out ("Placement rules" below).
 - **In the model** each area is a `Keepout` with its `name`, in name order, with the id
-  `derived_id("kpo", "dsl", "area:<name>")`. `design.rule_areas` holds the records by name.
+  `derived_id("kpo", "dsl", "area:<key>")`. `design.rule_areas` holds the records by key.
 - **What a keep-out does.** KiCad's DRC reports a track (one that only crosses the edge too), a via or a
   pad in an area that forbids it as `items_not_allowed`, on the area's layers only, and its filler leaves
   an area that forbids pours out of every fill. Fenolite's copper check reports the same tracks, vias and

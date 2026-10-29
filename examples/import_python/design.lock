@@ -1,0 +1,10 @@
+# Design lock written by fenolite build. Review changes in git; hand edits are honoured.
+schema = "fenolite.lock.v0"
+design = "two_sheet"
+
+[refs]
+"J1" = "J1"
+"ch1/D101" = "D101"
+"ch1/R101" = "R101"
+"ch2/D101" = "D201"
+"ch2/R101" = "R201"

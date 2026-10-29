@@ -36,6 +36,7 @@ another type; a flag without a value is a switch.
 | `fmt` | yes | give a KiCad S-expression file Fenolite's canonical print, or check it with --check |
 | `guide` | no | print the agent guide of the installed version: the list of its pages, or one page |
 | `impedance` | yes | the impedance table of a project for the fabricator, with --estimate rough estimates (writes FILE with --out) |
+| `import` | yes | turn a KiCad board into a Fenolite project folder (design.py, copper tables, vendored library) |
 | `init` | yes | write a starter project (a design script that builds with the built-in catalog) into a folder |
 | `inspect` | no | summarise a KiCad or an Altium file, or list a compound file's streams (runs no tool) |
 | `kit` | yes | build the Altium verification kit, check the files a run left, record the run, list the runs |
@@ -325,6 +326,22 @@ another type; a flag without a value is a switch.
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
 - `--estimate`: add the estimates of single-ended microstrip and stripline rows (INFERRED)
 - `-o`, `--out FILE`: also write the table as a CSV file
+
+## import
+
+`fenolite import [OPTIONS] --to {python} --out DIR PATH`
+
+- `PATH`: a .kicad_pro, .kicad_pcb or .kicad_sch
+- `--to {python}`: the target: python (the Fenolite DSL)
+- `--out DIR`: the project folder to write
+- `--name NAME`: the design name; default: the project's stem
+- `--licence SPDX`: the upstream licence as an SPDX expression
+- `--copyright TEXT` (repeatable): an upstream copyright holder
+- `--source URL`: where the upstream board lives
+- `--revision REV`: the upstream revision imported
+- `--licence-file FILE` (repeatable): an upstream LICENSE, NOTICE or COPYING file, copied unchanged
+- `--no-upgrade`: refuse a file below the read floor
+- `--no-verify`: skip the self-check build
 
 ## init
 

@@ -58,6 +58,7 @@ ALLOWED: dict[str, set[str]] = {
     "reuse": {"model", "geometry", "backends.base"},
     "silk": {"model", "geometry", "backends*"},
     "library": {"model", "geometry", "backends*"},
+    "importer": {"model", "geometry", "backends*", "checks", "library", "dsl"},  # board to code (c0275)
 }
 LAZY: dict[str, set[str]] = {"api": {"cli"}}
 """Edges allowed only inside a function body, so that importing the source does not import the target:

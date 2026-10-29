@@ -3611,6 +3611,56 @@ see = "tidy"
 meaning = "A net is in a differential pair, or a length, skew or pair-skew rule selects it, so straighten leaves its runs as they are: a new shape would change its length or its coupling."
 fix = "Nothing is needed. Tidy a pair by hand, or route it again with the router."
 see = "tidy"
+["import.item-unexpressed"]
+meaning = "An item of the source, of the kind 'where' names, cannot be written by any call of the DSL (a group, a stack-up, a hole, a dimension, a custom rule...). With --allow-lossy it is left out of the emitted code; without it the import refuses with FEN-7001."
+fix = "Accept the loss with --allow-lossy, or keep the item in the board: change c0277 adds verbatim items for what the DSL does not say."
+see = "import"
+
+["import.unequal"]
+meaning = "The self-check of the import built the emitted code in a private folder and compared its board with the source at equivalence levels 1 to 5 and copper item by item; a difference that no unexpressed kind explains was found, so nothing is written."
+fix = "Report the board: the emitted code does not rebuild it. --no-verify writes it anyway, unproved."
+see = "import"
+
+["import.unverified"]
+meaning = "--no-verify: the emitted code was neither built nor compared with the source."
+fix = "Run the import without --no-verify to prove the code rebuilds the board."
+see = "import"
+
+["import.schematic-generated"]
+meaning = "The source has schematic sheets, but the import writes no drawn schematic yet: the build of the emitted code generates its own schematic from the circuit."
+fix = "Nothing is needed; change c0276 imports the drawn schematic."
+see = "import"
+
+["import.footprint-variant"]
+meaning = "An instance of a footprint differs from the first instance of its name once brought back to its origin (moved fields, an edited pad...), so it is vendored as <name>_2 and its part names that footprint."
+fix = "Make the instances equal on the board if they should be one footprint; otherwise keep the variant."
+see = "import"
+
+["import.symbol-regenerated"]
+meaning = "The vendored symbols are drawn by Fenolite, one passive pin per pad number of the footprint, so every connection of the code is a pad; the source's own symbols are not copied."
+fix = "Nothing is needed; replace a symbol in lib/ by the original if the drawn schematic matters."
+see = "import"
+
+["import.sheet-renamed"]
+meaning = "A sheet file stem was changed to a module name of lower-case letters, digits and underscores."
+fix = "Nothing is needed; the message names both."
+see = "import"
+
+["import.upgraded"]
+meaning = "A board below the read floor was upgraded by kicad-cli on a private copy before it was read; the source file is unchanged, and PROVENANCE.json records the versions and digests before and after."
+fix = "Nothing is needed; commit the upgraded project upstream to skip the step."
+see = "import"
+
+["import.provenance-missing"]
+meaning = "No --licence, --copyright or --source was given, so the header of every emitted file says NOASSERTION where the upstream is not stated."
+fix = "State the upstream licence, copyright holders and location; converted boards are published only with them."
+see = "import"
+
+["import.timestamp-missing"]
+meaning = "No --timestamp: the header and PROVENANCE.json carry today's date, so two imports give different bytes."
+fix = "Pass --timestamp to make the output reproducible."
+see = "import"
+
 ["library.drift"]
 meaning = "With --diff, a footprint made from the board differs from the library's footprint of the same name in the kinds the message names (pads, silkscreen, courtyard, models, fields), or the library lacks it (missing). Nothing is written."
 fix = "Write the library again from the board with fenolite library --out, or edit the board's instances to match the library."
