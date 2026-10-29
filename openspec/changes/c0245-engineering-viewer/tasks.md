@@ -106,7 +106,7 @@
 - [x] 7.2 Add the Net Roles panel (Nets, Groups, Classes) and Properties (Net, Role, Measures) (scenarios "The workspace of the bad buck" and "The switch node explained"). Proof: `uv run pytest tests/visual/test_roles_workspace.py -k "panels or properties" -q`.
 
   Note (2026-10-29): `ui/workspaces/roles.js`: the Net Roles panel (Nets with glyph, role, current, confidence and state; Groups; Classes; a filter; Ctrl+click selects several nets for the writes of phase 8), the role Properties with the tabs Net (Group), Role and Measures (each measure with its analysis and copper, each limit with its source, the router phases with phase 0 from the check and phases 2 and 1 "not run"), the role findings in Messages and as diamond markers, the Roles view drop-down (role colours, confirmation, layer colours), Window ▸ Workspace and Roles ▸ Net Roles Workspace. The scenario "The switch node explained" uses the inferred gate net `GH` and the hot loop `hot_SW`, since `SW` is declared by the `bad` buck's script. Proof passed.
-- [ ] 7.3 Add the overlays Loop areas, Measures, Corridors, Locked copper and Role copper, and the role highlight (scenario "Hot loop on the copper"). Proof: `uv run pytest tests/visual -k roles_workspace -q`.
+- [x] 7.3 Add the overlays Loop areas, Measures, Corridors, Locked copper and Role copper, and the role highlight (scenario "Hot loop on the copper"). Proof: `uv run pytest tests/visual -k roles_workspace -q`.
 - [x] 7.4 Add `--workspace`, `--roles`, `--layout` and `result.roles` to `cmd_view` (scenario "Roles summary for an agent"). Proof: `uv run pytest tests/unit/cli/test_view_cmd.py -k "workspace or layout" -q`.
 
   Note (2026-10-29): `fenolite view --workspace board|roles`, `--roles FILE`, `--layout FILE` (`fenolite.view.layout`, `FEN-3004`/`FEN-3001`) and `--edit` (with `--serve` only, `FEN-2001`); `--workspace roles` on a document that is not a board is `FEN-2001`; `--workspace roles --json` adds `result.roles` (counts by state, findings by severity, groups, locked items) and writes nothing. The agent guide's commands page was regenerated. Proof passed.
@@ -156,7 +156,7 @@
   Then run `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
 - [x] 12.4 Residue: every new `.py` starts with its SPDX and copyright lines, the fixtures carry the authored-for-Fenolite line, and no vendor icon, colour file or layout is present. Proof: `make residue`.
 - [ ] 12.5 Run `make check-fast` and the focused tests of the touched files, then push the batch and confirm the required CI jobs, `viewer` included, on the exact commit (AGENTS.md rule 4; no full suite on the maintainer's machine). Proof: `make check-fast`, and the required jobs green on the exact commit.
-- [ ] 12.6 Evidence: the six `H-G-WB-*` hypotheses in `docs/hypotheses.md` with their measurements; S-0920 to S-0935 cited from a new `src/fenolite/view/PROVENANCE.md` (the package has none today) and from `docs/viewer.md`; the evidence matrix regenerated. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
+- [x] 12.6 Evidence: the six `H-G-WB-*` hypotheses in `docs/hypotheses.md` with their measurements; S-0920 to S-0935 cited from a new `src/fenolite/view/PROVENANCE.md` (the package has none today) and from `docs/viewer.md`; the evidence matrix regenerated. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
 - [ ] 12.7 Add an entry under `## [Unreleased]` in `CHANGELOG.md`, only after `0.7.0.dev0` has opened. The v0.6 guard requires `[Unreleased]` to be empty while `0.6.0` is cut and not published. Proof: `uv run pytest tests/unit -k changelog -q`; `uv run pytest tests/unit/test_release_record_v06.py -q` until 0.6.0 is published.
 
 
@@ -210,3 +210,19 @@
   retained temporary directories each passed strict PNG-byte equality (42 pairs). No threshold or
   equality assertion was relaxed. The quick run in progress during this refinement was interrupted
   (9,627 passes / 36 skips), not counted as passed; a fresh final gate follows.
+
+- CI visual proof (2026-10-30, 631c2a98f09fdedbcb10b4a7bdcb0de8907fcc34, run 40918909813):
+  all role workspace cases, navigation cases and all 14 strict screenshot pairs passed. Task 7.3
+  is proved with the original CI-sourced roles reference unchanged. The full viewer result was
+  117 passed / 3 reference failures: kicad_board (863 pixels), altium_board (863), footprint_library
+  (783), caused by the intended square controls, just above the unchanged 0.1% limit. Reviewed and
+  adopted only these three screenshots from artifact 12916509166. No threshold or assertion changed.
+  Tasks 10.1, 12.1 and 12.5 await the full green viewer/required-jobs result on the next pushed SHA.
+- Evidence (2026-10-30): H-G-WB-STABLE records the 14 exact CI pairs; the other five hypotheses
+  retain their measured budgets/contrast/CVD figures and INFERRED labels. Source S-0931 now names
+  the public API/usage pages read for the optional host. The generated commands inventory remains
+  45,036 bytes (pre-existing generated-page budget issue owned by c0256); board-review is 9,626 bytes.
+
+- Task 12.6 proof (2026-10-30): hypothesis/provenance tests passed (46 tests), and the regenerated
+  evidence matrix passes `--check`. All six workbench hypotheses retain explicit measurements;
+  the maintainer-PC half of 6.4 is still open, and no claim of native-engine rendering was added.

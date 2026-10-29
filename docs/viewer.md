@@ -503,7 +503,9 @@ H-G-WB-FRAME/CURSOR/OPEN retain `INFERRED`; the maintainer PC measurement is sti
 Contrast tests measure minimum dark text 4.55:1 and controls 3.51:1. Role colour separation under
 severity-1 CVD simulation is at least 20.9 (dark) and 15.8 (light), against criterion 12.
 H-G-WB-STABLE compares independent screenshots byte for byte with animation, transition and caret
-suppressed. Native-window tests exercise server lifecycle with a test host; platform rendering is
+suppressed. The viewer job on 631c2a98 (run 40918909813, 2026-10-30) passed all 14 fixture pairs
+with identical PNG bytes; square controls avoid rounded-corner raster variation. The assembled page
+is 306,885 bytes, 119,214 above the task-1.1 baseline and below the 120,000-byte growth limit. Native-window tests exercise server lifecycle with a test host; platform rendering is
 not attested by the Chromium screenshots.
 
 Task 1.1's assembled page was 187,671 bytes; the closing page is checked against a 120,000-byte growth
