@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import io
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,7 +23,11 @@ import fenolite.cli.main as cli_main
 from fenolite.backends import registry
 from fenolite.backends.base import BoardFrame, BoardPad
 from fenolite.backends.kicad.sexpr import Node, dumps, parse
+from fenolite.model.canonical import load_dir
 from fenolite.model.design import Design
+from fenolite.model.rules import RoleSet
+from fenolite.roles.judge import Judged, run, split_roles
+from fenolite.roles.measure import Inputs
 
 ROOT = Path(__file__).resolve().parents[3]
 EXAMPLES = ROOT / "examples" / "roles"
@@ -109,3 +114,29 @@ def read(built: Built) -> tuple[Design, tuple[BoardPad, ...]]:
     design = backend.read(built.board).content
     assert isinstance(design, Design) and isinstance(backend, BoardFrame)
     return design, tuple(backend.board_pads(design, issues=[]))
+
+
+def judge(
+    built: Built,
+    *,
+    currents: Mapping[str, int] | None = None,
+    declared: RoleSet | None = None,
+    stored: RoleSet | None = None,
+    inputs: Inputs | None = None,
+    check: bool = True,
+) -> Judged:
+    """The roles of a built variant judged as ``fenolite roles --check`` judges them: the roles stored in its
+    ``.fenolite/`` model, else ``declared`` and ``stored``, with the circuit of the model."""
+    design, pads = read(built)
+    model = load_dir(built.out / ".fenolite")
+    own_declared, own_confirmed = split_roles(model.rules.roles if model.rules is not None else None)
+    return run(
+        design,
+        pads,
+        circuit=model.circuit,
+        stored=stored if stored is not None else own_confirmed,
+        declared=declared if declared is not None else own_declared,
+        currents=currents,
+        inputs=inputs,
+        check=check,
+    )

@@ -139,7 +139,13 @@
 
 ## 5. Measures through the analyses, and checks
 
-- [ ] 5.1 Add `roles/measure.py`: the derived `[[loop]]`, `[[neck]]` and path inputs, and the calls of decision 8, each measure naming its analysis and copper state (scenarios "Measures name their analysis", "A missing input is the analysis's warning"). Proof: `uv run pytest tests/unit/roles/test_measure.py -q`.
+- [x] 5.1 Add `roles/measure.py`: the derived `[[loop]]`, `[[neck]]` and path inputs, and the calls of decision 8, each measure naming its analysis and copper state (scenarios "Measures name their analysis", "A missing input is the analysis's warning"). Proof: `uv run pytest tests/unit/roles/test_measure.py -q`.
+  Done 2026-10-29. The tests call `roles.judge.run`, the function that `fenolite roles --check` calls
+  (task 6.1 checks the command's `result.measures`). Beyond the design: a path is derived from a net's
+  connector and inductor pads to its other power pads, else from its shunt's pads, else from its first
+  switch pad to the others, else between its connectors; and with derived paths only the fills active on
+  them are screened by `analyze_necks` (a ground plane that only touches the net carries none of its
+  current). Proof passed: 5 tests.
 - [ ] 5.2 Add the role loops (bound, ratio, open legs) on `loop_areas`, and the hot and gate loop checks; register `H-G-ROLE-LOOP-RATIO` with the reference measurements (scenarios "A rectangle and its bound", "An unrouted leg", "The bad buck's hot loop"). Proof: `uv run pytest tests/unit/roles/test_loops.py tests/unit/roles/test_reference_boards.py -k loop -q`.
 - [ ] 5.3 Add `roles/kelvin.py`: the Kelvin attachment and the gate-return attachment on `path_network`, with `analyze_ties` for separate sense nets. Register `H-G-ROLE-KELVIN-EDGE` (scenarios "Sense lines of the bad buck", "A gate return from the source pour"). Proof: `uv run pytest tests/unit/roles/test_kelvin.py -q`.
 - [ ] 5.4 Add the Kelvin pair and near-switching checks on the role loops and on `analyze_distances`, `analyze_returns` and `analyze_coupling`. Register `H-G-ROLE-KELVIN-PAIR` and `H-G-ROLE-NEAR-SW` (scenario "A sense pair over the switch node"). Proof: `uv run pytest tests/unit/roles/test_reference_boards.py -k "kelvin or switching" -q`.

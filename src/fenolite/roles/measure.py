@@ -68,11 +68,12 @@ ANALYSES = (
 )
 """The functions of ``fenolite.analysis`` that measure roles; a measure names one of them."""
 CURRENT_KINDS = ("power", "switch_node", "ground")
+"""The role kinds whose copper is judged for current."""
 FIT_INPUTS = ("temperature rise", "copper thickness", "via plating")
+"""The inputs of the capacity fit; without a rise, ``analyze_power``'s warnings about them are not passed."""
 ROUNDING_NM = 1000
 """An overlap of a victim with switching fills below a micrometre is the rounding of the span ends of
 ``analyze_returns`` (rounded outward), not copper over copper."""
-"""The inputs of the capacity fit; without a rise, ``analyze_power``'s warnings about them are not passed."""
 
 
 @dataclass(frozen=True, slots=True)
