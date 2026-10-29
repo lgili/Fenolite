@@ -40,8 +40,8 @@ Each reference board's `make` SHALL accept the variant `open`: the `bad` placeme
 - **THEN** each `open` variant keeps exactly the findings `design.md` lists (phase 1's faults, and the blocked half-bridge pair reported with `near-switching` naming `SW_UNDER`), each `good` variant plans no write, and the second run on each routed board writes nothing
 
 ### Requirement: Critical routes on both backends
-A routed `open` variant converted with `fenolite convert --to altium` SHALL read back with every role track and via at its position and width with `locked` true and every corridor as a pour keep-out on its layers. `roles --check` on the Altium reading MUST give the findings of the KiCad reading.
+A routed `open` variant converted with `fenolite convert --to altium` SHALL read back with every role track and via at its position and width with `locked` true and every corridor as a pour keep-out region on its layer. The role copper MUST change the `roles.*` findings of the Altium reading exactly as it changes those of the KiCad reading: it adds none, and it removes the same ones.
 
 #### Scenario: Same critical copper in Altium
 - **WHEN** `uv run pytest tests/unit/roles/test_critical_reference.py -k altium` converts the three routed `open` variants and reads them back
-- **THEN** the role copper, the locks and the corridors match the KiCad model, and the `roles.*` findings of both readings are equal
+- **THEN** the role copper, the locks and the corridors match the KiCad model, and against the convert of the unrouted `open` variant both readings lose the same `roles.*` findings and gain none

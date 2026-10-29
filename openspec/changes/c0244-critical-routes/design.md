@@ -507,8 +507,13 @@ closed tables, each with the command to run.
   The tracks and vias keep their locked flag (c0108). A corridor becomes the keep-out that the Altium
   writer lowers for a `Keepout` with `no_copper_pour`, the region on the copper layer that
   `H-A-POUR-KEEPOUT` covers. The read-back of the written project is compared item by item with the KiCad
-  model (`H-A-CRIT-READBACK`), and `roles.rules` gives the same findings on both readings, as c0222's
-  "Roles on both backends" requires.
+  model (`H-A-CRIT-READBACK`): the locked tracks and vias through the import's model, the corridors as the
+  keep-out region records of the document, since the Altium import shows a keep-out as a region on its
+  layer and creates no `Keepout`. The role copper changes the role findings of both readings alike. The two
+  readings of a converted project do not give equal findings even before routing (measured on 2026-10-29:
+  the Altium reading adds `roles.near-switching` of the gate nets and `roles.width-current` of switch-node
+  tracks), because a board that Fenolite did not build carries no pin names to classify its parts; c0222's
+  equality holds for its builds, which keep the circuit in `.fenolite/`.
 - **A board that Fenolite did not build.** The roles of a `.kicad_pcb` come from its role document, and the
   routed board is written as `route` writes any board. `route` takes no `.PcbDoc` (it resolves KiCad boards
   only): an Altium board's roles are checked by `roles --check`, and routing it in place waits for c0241's
@@ -543,8 +548,8 @@ for DRC):
    writes the bytes of the first.
 5. With `--gate drc` on KiCad 9 and 10: no new DRC finding, and nothing dropped (`H-K-CRIT-DRC`).
 6. Convert each routed `open` project to Altium. The read-back holds the same role copper with the locked
-   flags and the corridors, and `roles --check` on the Altium reading gives the findings of the KiCad one
-   (`H-A-CRIT-READBACK`).
+   flags and the corridors, and the routing removes the same role findings from both readings and adds
+   none (`H-A-CRIT-READBACK`).
 
 ### 18. Codes
 
@@ -570,7 +575,7 @@ document `FEN-3004`, a write `FEN-4001` and `FEN-4002`, and `--require-complete`
 | `H-G-CRIT-KEEPAWAY` | The keep-away refuses every shape over switching copper, and the Z shapes route a sense pair clear of switching copper that the five shapes cross | `tests/unit/routing/test_roleroute.py -k keepaway` and `-k half_bridge` of the reference test | on the authored bench the five shapes alone fail with `near-switching` and the Z shapes pass; on `half_bridge` `open` the pair is refused with `near-switching` naming `SW_UNDER`, and no `roles.near-switching` is written |
 | `H-G-CRIT-IDEMPOTENT` | Role routing is a fixed point: a second run and two rebuilds change no byte | `tests/unit/roles/test_critical_reference.py -k again` | no write on the second run; equal bytes after the second rebuild |
 | `H-K-CRIT-DRC` | KiCad's DRC finds nothing new on the reference boards after role routing | `tests/kicad/roles/test_critical_drc.py` | on KiCad 9 and 10, `--gate drc` drops nothing and no violation type grows, on each `open` variant |
-| `H-A-CRIT-READBACK` | The Altium convert of a routed board keeps the role copper, its locks and its corridors | `tests/unit/roles/test_critical_reference.py -k altium` | every role track and via read back at its position and width with `locked` true, each corridor as a pour keep-out on its layers, and equal `roles.*` findings on both readings |
+| `H-A-CRIT-READBACK` | The Altium convert of a routed board keeps the role copper, its locks and its corridors | `tests/unit/roles/test_critical_reference.py -k altium` | every role track and via read back at its position and width with `locked` true, each corridor as a pour keep-out region on its layer, and against the convert of the unrouted board both readings lose the same `roles.*` findings and gain none |
 
 ## Evidence level per behaviour
 
