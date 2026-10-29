@@ -98,7 +98,8 @@ A device id resolves from, in this order (the first source that holds it wins):
 
 1. the records given to `design.devices(*records)` (from `fenolite.catalog.devices.parse_device` or
    `load_devices`), reached through `design.part(...)` and `module.part(...)`;
-2. `devices/*.toml` beside the design script, read by the script runner in file-name order before the script
+2. the records of `devices/` beside the design script (read recursively in path order since change c0259,
+   `docs/library-records.md`), read by the script runner before the script
    runs (the DSL itself reads no file);
 3. the shipped generic `Fenolite:` devices: `R_0402`, `R_0603`, `R_0805`, `R_1206`, `C_0402`, `C_0603`,
    `C_0805`, `C_1206` (functions `P1` and `P2`), `LED_0603` (functions `A` and `K` on the cathode-first

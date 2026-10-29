@@ -534,7 +534,8 @@ connect(vin, u1.VIN, r1.P1)
   `pad_map` are refused, `value` defaults to the device's, and `Manufacturer`, `MPN` and the device's
   properties join the part's (a conflicting `MPN` raises `DslError`). `part.device` is the `DeviceDef`.
 - `design.part(...)` and `module.part(...)` build a `Part` and add it, with or without a device.
-  `design.devices(*records)` registers `DeviceDef` records that win over `devices/*.toml` beside the script
+  `design.devices(*records)` registers `DeviceDef` records (or device records with their parts) that win over the records of
+  `devices/` beside the script
   and over the shipped `Fenolite:` devices.
 - On a device part, `u1.VIN` and `u1["VIN"]` are checked when they are called: a wrong name raises
   `PinNameError` (a `DslError` and an `AttributeError`) naming the closest functions. A function named like

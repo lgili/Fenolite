@@ -170,7 +170,7 @@ design.devices(parse_record(REG))
 design.part("U1", device="Proj:REG@REG100DR").place(mm(10), mm(5))  # MPN REG100DR
 ```
 
-- The shipped devices are generic (`INFERRED`, no MPN). Put your own records in `devices/*.toml` beside the
+- The shipped devices are generic (`INFERRED`, no MPN). Put your own records in `devices/` beside the
   script; `catalog import` writes a template (`UNVERIFIED`) through `--dry-run` and `--confirm --plan`.
 - A wrong pin name raises `PinNameError` at its line with the closest names. The build resolves a function to
   its pins, refuses a device that disagrees with its symbol or footprint (`build.device-mismatch`) and lists
