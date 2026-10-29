@@ -84,6 +84,7 @@ def symbol_for(library: str, name: str, numbers: Sequence[str], reference: str) 
         name=name,
         library=library,
         properties={"Reference": reference, "Value": name, "Footprint": "", "Description": ""},
+        pin_names_hidden=True,
         units=(SymbolUnit(1, 1),),
         pins=pins,
         graphics=(box,),

@@ -101,3 +101,20 @@ def test_board_without_a_schematic(tmp_path: Path) -> None:
 def test_import_needs_a_target(tmp_path: Path) -> None:
     reply = run("import", "x.kicad_pcb", "--out", "out", cwd=tmp_path, timestamp=STAMP)
     assert reply.exit_code == 2
+
+
+def test_a_loaded_module_of_the_same_name_does_not_shadow_copper(tmp_path: Path) -> None:
+    """A module already loaded as ``copper`` (another package, a namespace folder) is set aside while the
+    emitted code runs, and put back after it."""
+    import sys
+    import types
+
+    other = types.ModuleType("copper")
+    sys.modules["copper"] = other
+    try:
+        reply = imported(tmp_path, copy_project(tmp_path), "--confirm")
+        assert reply.exit_code == 0, reply.error
+        assert build(tmp_path / "out").exit_code == 0
+        assert sys.modules["copper"] is other
+    finally:
+        del sys.modules["copper"]

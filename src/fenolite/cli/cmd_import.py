@@ -29,6 +29,7 @@ from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FenoliteError, Issue
+from fenolite.core.evidence import Evidence
 from fenolite.importer import EVIDENCE
 from fenolite.importer.adopt import Adopted, adopt
 from fenolite.importer.check import self_check
@@ -325,7 +326,15 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     return Result(
         result=result,
         issues=tuple(issues),
-        evidence=EVIDENCE,
+        evidence=Evidence(
+            EVIDENCE.level,
+            hypotheses=(
+                *EVIDENCE.hypotheses,
+                *(("H-A-IMPORT-CODE",) if source.backend == "altium" else ()),
+                *(("H-K-IMPORT-UPGRADE",) if source.upgrades else ()),
+                *(("H-K-IMPORT-ADOPT",) if adopted is not None else ()),
+            ),
+        ),
         input=InputRef(
             read_file.name,
             hashlib.sha256(read_file.read_bytes()).hexdigest(),

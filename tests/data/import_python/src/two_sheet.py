@@ -1,4 +1,5 @@
-# SPDX-License-Identifier: CC0-1.0
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
 # Authored for Fenolite as test data of fenolite import (change c0275); no file, value, name or layout comes
 # from any other project.
 """Two channels of a resistor and an LED, each a module (a sheet of the built schematic), a connector, the

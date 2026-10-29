@@ -61,7 +61,15 @@
   Done 2026-10-29: `cli/cmd_import.py`, `schemas/fenolite.import.v0.json` (from `importer/schema.py`), ten codes in `explain.toml`; `tests/unit/cli/test_import.py` and `tests/consistency` pass. The agent guide's generated `commands` page needs 757 lines with the command, so the change raises its budget to 800 (MODIFIED "Page budgets and writing rules" in `specs/agent-guide`), as c0222 did.
 - [x] 4.2 Add the residue detector for converted code (scenarios "Converted corpus board planted", "Authored import example passes"). Proof: `uv run pytest tests/residue/test_converted_code.py -q`.
   Done 2026-10-29: `tests/residue/test_converted_code.py` (tracked `.py` files; pages of the documentation quote the header) passes.
-- [ ] 4.3 Corpus measurement (not committed): import every readable KiCad demo row with an allow-listed licence into `tmp_path`, build and compare at levels 1 to 5, and record counts of unexpressed kinds in `docs/evidence/import-corpus.md`. Proof: `uv run pytest tests/corpus/test_import_corpus.py -rA` (in CI, `needs_corpus`).
+- [x] 4.3 Corpus measurement (not committed): import every readable KiCad demo row with an allow-listed licence into `tmp_path`, build and compare at levels 1 to 5, and record counts of unexpressed kinds in `docs/evidence/import-corpus.md`. Proof: `uv run pytest tests/corpus/test_import_corpus.py -rA` (in CI, `needs_corpus`).
+  Done 2026-10-29: `tests/corpus/test_import_corpus.py` (licence allow-list, temporary folders only) and
+  `docs/evidence/import-corpus.md`: the 16 KiCad 10.0.6 demo boards that are not heavy import with
+  `--allow-lossy` and come through equivalent at levels 1 to 5 and copper item by item, measured with the
+  local corpus cache; the census found and fixed a zero pad angle the derive did not turn back, references
+  the DSL refuses or repeats, blind vias spanning the board, drawings on user layers, teardrop zones, a
+  silkscreen material in a stack-up, and the self-check build now runs `--copper-check warn --schematic
+  skip` (a demo board breaks the copper rules it ships with). The two heavy boards (06, 18) are not
+  measured.
 - [x] 4.4 Author `examples/import_python/` (the imported code of an authored board, marked `Authored for Fenolite`) and its build test. Proof: `uv run pytest tests/unit/test_examples.py -k import_python -q`.
   Done 2026-10-29: `examples/import_python/`, written by `tests/_importexample.py`; `test_examples.py -k import_python` passes. `pyproject.toml` lets its imports keep the third-party grouping (`I001`).
 ## 5. Closing

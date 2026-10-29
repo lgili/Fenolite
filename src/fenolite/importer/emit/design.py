@@ -244,9 +244,9 @@ def _stack_entry(layer: StackLayer) -> tuple[str, int | None, dict[str, str]] | 
     if layer.color:
         extras["color"] = layer.color
     if layer.kind == "silkscreen":
-        if layer.thickness or set(extras) - {"color"}:
+        if layer.thickness:
             return None
-        return "silkscreen", None, extras
+        return "silkscreen", None, {k: v for k, v in extras.items() if k == "color"}
     if layer.kind == "soldermask":
         return "mask", layer.thickness, extras
     if layer.kind == "copper":
@@ -275,6 +275,10 @@ def _stackup(board: Board, copper: int, writer: _Writer, ledger: Ledger) -> list
         if made is None:
             ledger.add("stackup", f"{layer.name} ({layer.kind})")
             return []
+        if layer.kind == "silkscreen":
+            for name in ("material", "epsilon_r", "loss_tangent"):
+                if getattr(layer, name):
+                    ledger.add("stackup-field", f"{layer.name} {name}")
         rows.append(made)
     probe = DslDesign("probe")
     probe.board(Length(1_000_000), Length(1_000_000), copper=copper)
@@ -663,7 +667,9 @@ def _drawings(board: Board, ledger: Ledger) -> list[list[str]]:
 
     # a DSL board holds the standard layers only: a drawing on another user layer cannot be written
     kinds = {
-        name: kind for name, kind in _kinds(board).items() if name in BOARD_LAYER_KINDS or kind == "edge"
+        name: kind
+        for name, kind in _kinds(board).items()
+        if name in BOARD_LAYER_KINDS or kind in ("edge", "copper")
     }
     out: list[list[str]] = []
     counters: dict[tuple[str, str], int] = {}

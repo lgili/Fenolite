@@ -20,7 +20,9 @@ from fenolite.backends.kicad.versions import FileKind, inspect
 from fenolite.core.errors import FenoliteError
 from fenolite.importer.source import Upgrade, Upgrader
 
-PROJECT_SUFFIXES = (".kicad_pro", ".kicad_sch", ".kicad_prl", ".kicad_dru")
+PROJECT_SUFFIXES = (".kicad_pro", ".kicad_sch", ".kicad_dru")
+"""The files beside a board that ``kicad-cli`` may read when it upgrades it (KiCad's local settings file is
+left out: Fenolite never reads or writes it)."""
 TABLES = ("fp-lib-table", "sym-lib-table")
 NO_TOOL_HINT = (
     "install KiCad 10 (kicad-cli) or set FENOLITE_KICAD_CLI; or pass --no-upgrade to refuse the old file"

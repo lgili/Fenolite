@@ -21,7 +21,7 @@
 			(at 0 -5.08 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
-		(pin_names (offset 0.508) (hide no))
+		(pin_names (offset 0.508) (hide yes))
 		(pin_numbers (hide no))
 		(symbol "Mini_LED_THT_3mm_0_1"
 			(rectangle (start -5.08 2.54) (end 5.08 -5.08) (stroke (width 0.254) (type default)) (fill (type none)))
@@ -61,7 +61,7 @@
 			(at 0 -5.08 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
-		(pin_names (offset 0.508) (hide no))
+		(pin_names (offset 0.508) (hide yes))
 		(pin_numbers (hide no))
 		(symbol "Mini_R_0603_0_1"
 			(rectangle (start -5.08 2.54) (end 5.08 -5.08) (stroke (width 0.254) (type default)) (fill (type none)))

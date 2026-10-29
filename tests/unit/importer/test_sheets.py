@@ -32,7 +32,8 @@ def test_single_sheet_writes_no_sheets_folder(tmp_path: Path) -> None:
 
 
 def test_sheet_name_sanitized(tmp_path: Path) -> None:
-    """A KiCad sheet named ``Power Supply`` is the module ``power_supply``; ``import.sheet-renamed`` says so."""
+    """A KiCad sheet named ``Power Supply`` is the module ``power_supply``, and ``import.sheet-renamed``
+    says so."""
     from _importcode import sheeted
 
     reply = imported(tmp_path, sheeted(tmp_path), "--confirm")

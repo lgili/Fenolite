@@ -125,7 +125,7 @@ Never silently. The kinds today:
 |---|---|
 | a root item KiCad keeps that the model does not (`group`, `generated`, `image`, `target`…) | named by its head; a zone KiCad made as a teardrop is `teardrop` |
 | `hole`, `dimension`, `net-tie`, `dnp` | model items no emitter writes yet |
-| `stackup`, `title-block` | a stack-up row or a title-block field the DSL refuses |
+| `stackup`, `stackup-field`, `title-block` | a stack-up row or a title-block field the DSL refuses; the material of a silkscreen row (the stack-up is written without it) |
 | `custom-rule` | a `.kicad_dru` rule whose selector the DSL cannot write (a layer leaf, an undeclared class) |
 | `zone-setting`, `zone-name`, `zone-layer`, `zone-outline`, `rule-area-name`, `rule-area-layer` | a zone smoothing or hatch, a repeated zone name, a zone or area off the copper layers or without an outline, an area name the DSL refuses |
 | `drawing`, `drawing-layer`, `copper-drawing`, `text`, `text-layer` | a drawing the DSL calls refuse, or one on a layer they do not take (copper, or a user layer a DSL board does not hold) |
