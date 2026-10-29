@@ -152,7 +152,12 @@
   the scripts will declare (`DECLARED`) and confirms the inferred roles. Measured: good hot loops 1000 ‰
   and 975 ‰, good gate loops 214 to 523 ‰, the bad buck's hot loop 180.02 mm² at 3902 ‰, the bad
   half-bridge's low-side gate loop 116.05 mm² at 2922 ‰. Proof passed: 4 + 4 tests.
-- [ ] 5.3 Add `roles/kelvin.py`: the Kelvin attachment and the gate-return attachment on `path_network`, with `analyze_ties` for separate sense nets. Register `H-G-ROLE-KELVIN-EDGE` (scenarios "Sense lines of the bad buck", "A gate return from the source pour"). Proof: `uv run pytest tests/unit/roles/test_kelvin.py -q`.
+- [x] 5.3 Add `roles/kelvin.py`: the Kelvin attachment and the gate-return attachment on `path_network`, with `analyze_ties` for separate sense nets. Register `H-G-ROLE-KELVIN-EDGE` (scenarios "Sense lines of the bad buck", "A gate return from the source pour"). Proof: `uv run pytest tests/unit/roles/test_kelvin.py -q`.
+  Done 2026-10-29. Two rules beyond decision 8, both found on the reference boards: for a switch without
+  a Kelvin pin the copper that touches its source pad counts as reaching the pad (its return necessarily
+  lands in the source copper), and the source pads of the other gate loops end the walk (a common-source
+  pair shares its driver's return pin). The tests' shared helpers moved to `tests/unit/roles/_reference.py`.
+  Proof passed: 9 tests.
 - [ ] 5.4 Add the Kelvin pair and near-switching checks on the role loops and on `analyze_distances`, `analyze_returns` and `analyze_coupling`. Register `H-G-ROLE-KELVIN-PAIR` and `H-G-ROLE-NEAR-SW` (scenario "A sense pair over the switch node"). Proof: `uv run pytest tests/unit/roles/test_reference_boards.py -k "kelvin or switching" -q`.
 - [ ] 5.5 Add the current checks on `analyze_power`, `analyze_split` and `analyze_necks` by both methods, and register `H-G-ROLE-CURRENT` (scenarios "A thin track on a 2 A net", "No analysis finding from the profile"). Proof: `uv run pytest tests/unit/roles/test_current.py -q`.
 - [ ] 5.6 Add the return and high-voltage checks on `analyze_returns` and `analyze_distances` (scenarios "A high-voltage bus without a requirement", "A cell tap across a ground gap"). Proof: `uv run pytest tests/unit/roles/test_returns_hv.py -q`.
