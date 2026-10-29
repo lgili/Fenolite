@@ -58,7 +58,7 @@
 - Make the same copper reach a KiCad board and an Altium board from one script.
 - Prove each result with c0222's own checks. A board that phase 1 touched must never judge worse.
 - Leave phase 2 a stable interface: the corridors, the role-copper keys, and a rule that the two phases can
-  run again in either order.
+  run again in either order (phase 2 first by the maintainer's decision of 2026-10-29).
 
 **Non-Goals**
 
@@ -125,7 +125,7 @@ caps unconfirmed roles at a warning for the same reason.
   - the cost of the path is its length, plus a penalty for each turn, plus the obstacle cells it would
     cross;
   - an obstacle is a pad, track, via or keep-out of another net, grown by the clearance plus half the
-    width, or a corridor (decision 8).
+    width, any locked item of another net (phase 2's routes), or a `role.corridor.*` area (decision 8).
   - An edge with no path is `roles.copper-blocked` (warning), naming the two clusters and the layer.
 - **Hot loop first.** The edges between consecutive pads of a `HotLoop` that share a net are placed first,
   on the pads' own layer, so the commutation loop closes on one layer. The input capacitor joins the
@@ -218,36 +218,46 @@ caps unconfirmed roles at a warning for the same reason.
 
 ### 8. Corridors for critical routes: the interface with phase 2
 
-Phase 1 runs before phase 2 and leaves the critical paths free.
+The maintainer settled this interface with `c0244-critical-routes` on 2026-10-29 ("decided by the maintainer
+on 2026-10-29"); it replaces the order and the corridor names of this proposal's first text.
 
-- **Gate loops.** For each `GateLoop`:
-  - one corridor joins the driver output pad, the gate resistor pads and the gate pad;
-  - one joins the source (or Kelvin-source) pad and the driver's return pad.
-  
-  When the two lie within one corridor width of each other, they become one corridor, where phase 2 routes
-  out and return as one pair.
-- **Kelvin pairs.** For each `KelvinPair`, one corridor runs from the inner half of each sense pad (c0222's
-  attachment direction `u`) to the receiver pads.
-- **Shape.** The convex hull of the straight segments between the pad centres, grown by half the corridor
-  width. The default width is `2 × class width + pair gap + 2 × clearance`, where the pair gap is the
-  class's differential gap, or else its clearance.
-- **Written as** rule areas `role.corridor.<group>`, forbidding pours only, on the outer layer of the
-  group's pads. The ground plane on the other layers stays whole, so the gate return can run over ground,
-  as S-0853 wants.
-- A corridor that would cover another net's pad, or a locked item, is not written. That is
-  `roles.corridor-blocked` (warning), and phase 2 then routes around the copper.
+- **Run order.** The critical routes of phase 2 run first, and phase 1 pours around them. The other order
+  (phase 1 first) must keep working.
+- **The hot loop belongs to phase 1**, as pours. Phase 2 does not route hot-loop legs.
+- **One corridor name for both changes:** `role.corridor.<group>.<net>`, a rule area that forbids pours only
+  (no tracks, vias or pads are forbidden). Phase 2 writes them along its locked routes.
+- **Phase 1 treats locked copper and every `role.corridor.*` area as obstacles** and never edits or removes
+  them, whoever wrote them (decision 12: a corridor is never a phase-1 item unless phase 1 wrote it and
+  its fingerprint is unchanged).
+- **Provisional corridors.** When phase 1 runs first, it still writes its own provisional corridors under the
+  same prefix, so its pours leave the critical paths free. Phase 2 replaces them along its routes. Phase 1
+  writes a provisional corridor only for a `(group, net)` that has no `role.corridor.<group>.<net>` area
+  yet, and on a later run it regenerates only the provisional corridors it wrote itself (its manifest holds
+  their fingerprints). A corridor that phase 2 replaced is kept as an obstacle.
+- **Which nets, which shape:**
+  - **Gate loops.** For each `GateLoop`, one corridor per net: the gate net (the driver output pad, the gate
+    resistor pads and the gate pad, joined in that order), and the return net (the source or Kelvin-source
+    pad and the driver's return pad).
+  - **Kelvin pairs.** For each `KelvinPair`, one corridor per sense net: from the inner half of the sense
+    pad (c0222's attachment direction `u`) to the receiver pad of that net.
+  - **Shape.** The convex hull of the straight segments between those points, grown by half the corridor
+    width. The default width is `2 × class width + pair gap + 2 × clearance`, where the pair gap is the
+    class's differential gap, or else its clearance.
+  - **Layer.** The outer layer of the group's pads. The ground plane on the other layers stays whole, so the
+    gate return can run over ground, as S-0853 wants.
+- A provisional corridor that would cover another net's pad, or a locked item of another net, is not written.
+  That is `roles.corridor-blocked` (warning), and phase 2 then routes around the copper.
 - **The contract with `c0244-critical-routes`:**
-  1. Phase 1 owns the keys `role.*`. Phase 2 never edits or removes an item with such a key, but it may
-     connect to one.
-  2. Phase 2 reads corridors by the name prefix `role.corridor.`. It may route outside them, and it does
-     not delete them. A pour-only area does not hinder its tracks.
-  3. Each phase treats the other's copper as obstacles. So the recommended order is 1 then 2, and either
-     may run again after the other: a phase-1 run after phase 2 keeps phase 2's tracks as obstacles and
-     its corridors as written.
-  4. The result of `copper` lists `corridors[]` (group, kind `gate` or `kelvin`, layer, polygon, width),
-     which phase 2 may take instead of reading the board.
-  5. The hot loop is copper of phase 1 (c0222's plan). Phase 2 routes the gate loops, the Kelvin pairs
-     and, after them, the switch-node connections that phase 1 left as `roles.copper-blocked`.
+  1. Phase 1 owns the keys `role.*` of its items, except the corridors, which both phases write under
+     `role.corridor.`. Phase 2 never edits or removes a phase-1 item, but it may connect to one.
+  2. Phase 1 never edits or removes a locked item, nor a `role.corridor.*` area it did not write (or whose
+     fingerprint changed). It treats both as obstacles: no band, ground stitch or via array enters them.
+  3. Phase 2 replaces phase 1's provisional corridors along its routes. A pour-only area does not hinder
+     its tracks.
+  4. The result of `copper` lists `corridors[]` (group, net, kind `gate` or `kelvin`, layer, polygon, width,
+     and whether phase 1 wrote it or found it), which phase 2 may take instead of reading the board.
+  5. The hot loop is copper of phase 1. Phase 2 routes the gate loops and the Kelvin pairs, and after them
+     the switch-node connections that phase 1 left as `roles.copper-blocked`.
 
 ### 9. Surfaces
 
@@ -312,7 +322,7 @@ Phase 1 runs before phase 2 and leaves the critical paths free.
 
 Each step runs in key order:
 
-1. corridors;
+1. provisional corridors (only where no `role.corridor.<group>.<net>` area stands);
 2. high-voltage rules;
 3. bands of the switch nodes, then of the power and high-voltage nets (hot-loop edges first);
 4. net barriers;
@@ -333,7 +343,9 @@ before all of these, so role copper respects the script's keep-outs.
   by the user. It is kept as an obstacle and not regenerated: `roles.copper-kept` (info). The user can
   force it back with `--regenerate KEY` or `role_copper(regenerate=...)`. `keep=` in a script, and a
   `locked` item without a role key, are always kept.
-- **What is never touched.** Items without a role key. The planner deletes nothing else.
+- **What is never touched.** Items without a role key, and `role.corridor.*` areas that the manifest does
+  not hold with their current fingerprint (phase 2's corridors, or a provisional one phase 2 replaced). The
+  planner deletes nothing else.
 - **Repeat runs.** Two runs on the same input give the same plan. A run on its own output plans no change,
   so the command writes nothing and says so.
 
@@ -460,10 +472,15 @@ from four things that the plan left out:
 
 ## Open Questions
 
+**Answered on 2026-10-29.** The maintainer decided "implement when the spec is written": every recommended
+answer of questions 1 to 11 is accepted on 2026-10-29, except question 2, whose answer the maintainer
+settled the same day with `c0244-critical-routes` (phase 2 first; decision 8).
+
 1. Which surfaces? **Recommended:** both, the DSL call `design.role_copper()` and the command `fenolite
    copper`, sharing one planner. The command writes KiCad boards only, until c0241 edits `.PcbDoc` files.
-2. Phase 1 before phase 2? **Recommended:** yes, with corridors as the interface (decision 8). Each phase
-   keeps the other's copper, so either can run again.
+2. Phase 1 before phase 2? **Decided by the maintainer on 2026-10-29:** no. The critical routes of phase 2
+   run first and phase 1 pours around them; the other order must keep working. The hot loop belongs to
+   phase 1, and both phases write corridors as `role.corridor.<group>.<net>` (decision 8).
 3. Should the Altium refusal be lifted for every c0224 call, or only for role copper? **Recommended:** for
    every call, through the same in-memory hand-over. Two paths would differ, and generated items are
    ordinary zones, rule areas and vias. `kicad.generate.altium` stays for `--copper-from`.

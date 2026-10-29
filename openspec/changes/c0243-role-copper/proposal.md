@@ -43,7 +43,9 @@ Today the Altium target refuses generated copper (`kicad.generate.altium`).
     (`milliamps_per_via`, S-0851).
   - **High voltage:** a clearance rule and a keep-out band around each `high_voltage` net, at the user's
     own distance. No distance is ever taken from a table.
-  - **Corridors:** pour-free rule areas that keep the gate-loop and Kelvin paths free for phase 2.
+  - **Corridors:** phase 1 pours around phase 2's locked routes and its `role.corridor.<group>.<net>` rule
+    areas. Run first, it writes provisional corridors under that prefix, which phase 2 replaces (decided by
+    the maintainer on 2026-10-29: phase 2 runs first, the hot loop belongs to phase 1).
 - **One planner, two surfaces.**
   - The DSL call `design.role_copper(...)`, resolved by the build after placement, for both targets.
   - The command `fenolite copper PATH`, for a KiCad board or a built project, under the reviewed-plan
@@ -77,7 +79,7 @@ None. Phase 1 belongs to `net-roles`.
 - `net-roles`:
   - ADDED "Role copper plan", "Copper width from current", "Power and switch-node copper", "Switch node kept from
     sensitive copper", "Ground copper and stitching", "Pad connections per role", "Via arrays at layer changes", "High-voltage copper",
-    "Corridors for critical routes", "Kept copper and repeat runs", "Role copper verification", "Role
+    "Corridors for critical routes", "Phase 2 copper kept", "Kept copper and repeat runs", "Role copper verification", "Role
     copper on the reference boards" and "Role copper evidence";
   - MODIFIED "Role issue codes" (seventeen codes become twenty-five).
 - `design-dsl`: ADDED "Role copper in the DSL"; MODIFIED "Generated copper codes" (`kicad.generate.altium`

@@ -61,11 +61,19 @@ For a `high_voltage` net, or a `power` net at or over `high_voltage_mv`, with a 
 - **THEN** the model holds `role.hv.VBUS` at 3 mm, the barrier encloses the bus band, and no generated copper of another net lies within 3 mm of the bus
 
 ### Requirement: Corridors for critical routes
-For each gate loop and Kelvin pair, the plan SHALL write a pour-only rule area `role.corridor.<group>` on the outer layer of its pads: the hull of its pad-to-pad segments grown by half the corridor width, Kelvin ends on the inner half of the sense pads. A corridor over another net's pad or a locked item MUST be left out with `roles.corridor-blocked`.
+For each net of a gate loop or Kelvin pair without a `role.corridor.<group>.<net>` area, the plan SHALL write that provisional pour-only rule area on the outer layer of its pads: the hull of the net's pad-to-pad segments grown by half the corridor width, Kelvin ends on the inner half of the sense pads. A corridor over another net's pad or a locked item of another net MUST be left out with `roles.corridor-blocked`.
 
 #### Scenario: Corridors keep pours out
 - **WHEN** `uv run pytest tests/unit/roles/test_copper_corridors.py` resolves the bare good half-bridge
-- **THEN** each of its two gate loops and its Kelvin pair has one corridor, and no generated zone's simulated pour enters a corridor on its layer
+- **THEN** each net of its two gate loops and of its Kelvin pair has one corridor `role.corridor.<group>.<net>`, and no generated zone's simulated pour enters a corridor on its layer
+
+### Requirement: Phase 2 copper kept
+Phase 1 SHALL treat every locked item of another net and every rule area named `role.corridor.*` as an obstacle (decided by the maintainer on 2026-10-29: phase 2 runs first and writes these corridors; the hot loop is phase 1's). It MUST NOT edit or remove such an area unless it wrote it and the manifest holds its current fingerprint.
+
+#### Scenario: Phase 2's corridors are kept
+- **GIVEN** the bare good half-bridge with a rule area `role.corridor.gate_Q1.GH` that the manifest does not hold
+- **WHEN** `uv run pytest tests/unit/roles/test_copper_corridors.py -k kept` resolves its role copper
+- **THEN** that area is unchanged, no provisional corridor is written for `gate_Q1`'s `GH`, and no generated zone's simulated pour enters it
 
 ### Requirement: Kept copper and repeat runs
 Role items SHALL have ids from their keys, and `.fenolite/role-copper.json` MUST record each key's fingerprint. An item edited since then, an item in `keep`, and every item without a role key MUST be kept (`roles.copper-kept` for an edit). `regenerate` MUST replace an edited item. A run on its own output MUST plan no change.

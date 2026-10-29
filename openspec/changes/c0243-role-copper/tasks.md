@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list` and the living specs that this change touches: `net-roles`, `design-dsl`, `cli-contract` and `altium-build`. Write under this task the date and the base commit the implementation starts from, and record:
+- [x] 0.1 Read `openspec list` and the living specs that this change touches: `net-roles`, `design-dsl`, `cli-contract` and `altium-build`. Write under this task the date and the base commit the implementation starts from, and record:
   - whether c0222 is merged into `dev`, and the commits since `ff9d9e4c` that touch `src/fenolite/roles/`, `backends/kicad/generate.py`, `lens/build.py`, `cli/cmd_build.py` or `backends/altium/connectstyle.py`, and whether a signature named in `design.md` has changed;
   - which open change holds a delta of "Role issue codes", "Generated copper codes" or "Script copper in an Altium build". If one was archived, regenerate the MODIFIED block from the living text;
   - the state of `c0244-critical-routes`: whether its interface still matches decision 8 (corridor names, key ownership, order). Reconcile both changes before task 1.1;
@@ -8,6 +8,22 @@
   - the maintainer's answers to the open questions of `design.md`.
 
   Proof: `openspec validate c0243-role-copper --strict --no-interactive`; `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py -q`.
+
+  2026-10-29: the implementation starts from `origin/dev` at `dedad4c7` (c0222 merged into `dev` there; `dev` is
+  cut at `0.6.0`, not published). Since `ff9d9e4c` only `dedad4c7` came in, which trims the `board-power`
+  guide page; no commit touches `src/fenolite/roles/`, `backends/kicad/generate.py`, `lens/build.py`,
+  `cli/cmd_build.py` or `backends/altium/connectstyle.py`, and no signature named in `design.md` changed. No
+  other open change holds a delta of "Role issue codes", "Generated copper codes" or "Script copper in an
+  Altium build" (c0222 is archived: the MODIFIED blocks were written from the living text). S-0860 to S-0863
+  are the rows this proposal registered, and S-0864 to S-0889 are free. `c0244-critical-routes` (proposal at
+  `b36d7244`) disagreed with decision 8 (run order, corridor names `role-corridor:`); the maintainer settled
+  the interface on 2026-10-29: the hot loop is phase 1's, as pours; phase 2 runs first and phase 1 pours
+  around it, the other order still working; both write corridors `role.corridor.<group>.<net>`, which phase
+  1 treats, with every locked item, as obstacles and never edits, writing its own provisional ones only
+  when it runs first. Decision 8, open question 2, the requirements "Corridors for critical routes" and
+  "Phase 2 copper kept" and task 2.7 are updated. The maintainer decided "implement when the spec is
+  written": every recommended answer of the open questions 1 to 11 is accepted on 2026-10-29 (question 2 as
+  settled above). Both proofs passed (`openspec validate --strict`: valid; 46 passed).
 
 ## 1. Generator extensions (`backends/kicad/generate.py`)
 
@@ -22,7 +38,7 @@
 - [ ] 2.4 Ground zones, stitching and pad connections per role (scenarios "Ground joined in pieces" and "Ground reliefs on through-hole pads"). Proof: `uv run pytest tests/unit/roles/test_copper_ground.py tests/unit/roles/test_copper_plan.py -k connection -q`.
 - [ ] 2.5 Via arrays at layer changes (scenario "Five vias for one ampere"). Proof: `uv run pytest tests/unit/roles/test_copper_vias.py -q`.
 - [ ] 2.6 High-voltage rules and barriers, and `roles.limit-missing` without a row (scenario "The bus keeps the user's distance"). Proof: `uv run pytest tests/unit/roles/test_copper_hv.py -q`.
-- [ ] 2.7 Corridors and `roles.corridor-blocked` (scenario "Corridors keep pours out"). Proof: `uv run pytest tests/unit/roles/test_copper_corridors.py -q`.
+- [ ] 2.7 Provisional corridors `role.corridor.<group>.<net>`, locked items and existing `role.corridor.*` areas as obstacles, and `roles.corridor-blocked` (scenarios "Corridors keep pours out" and "Phase 2's corridors are kept"; the interface decided by the maintainer on 2026-10-29). Proof: `uv run pytest tests/unit/roles/test_copper_corridors.py -q`.
 - [ ] 2.8 The eight codes in `roles/codes.py`, with their entries in `explain.toml` (scenario "Copper codes in the table"). Proof: `uv run pytest tests/unit/roles/test_codes.py tests/unit/cli/test_explain_cmd.py -k roles -q`.
 
 ## 3. Verification, kept copper and repeat runs
