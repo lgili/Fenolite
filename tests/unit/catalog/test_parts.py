@@ -61,11 +61,15 @@ def test_footprint_in_a_part() -> None:
 
 def test_wider_temperature() -> None:
     wider = (
-        DEVICE + '\n[[part]]\nmpn = "W"\nratings = { temperature = { min = "-40degC", max = "125degC" } }\n'
+        DEVICE
+        + '\n[[part]]\nmpn = "W"\n'
+        + 'ratings = { temperature = { operating = { min = "-40degC", max = "125degC" } } }\n'
     )
     assert "ratings.temperature" in str(_refused(wider))
     narrower = (
-        DEVICE + '\n[[part]]\nmpn = "N"\nratings = { temperature = { min = "0degC", max = "70degC" } }\n'
+        DEVICE
+        + '\n[[part]]\nmpn = "N"\n'
+        + 'ratings = { temperature = { operating = { min = "0degC", max = "70degC" } } }\n'
     )
     assert isinstance(parse_record(narrower), DeviceRecord)
 

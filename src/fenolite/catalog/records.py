@@ -789,7 +789,8 @@ def _part(read: _Reader, table: Mapping[str, object], where: str) -> PartEntry:
                 raise read.fail(
                     f"{where}.ratings.{key}", f"unknown rating; use {', '.join(devicelib.RATINGS)}"
                 )
-            ratings.append(devicelib._rating(read, key, rated[key], f"{where}.ratings.{key}"))  # pyright: ignore[reportPrivateUsage]
+            # the abs_max and operating limits of change c0274, as in the device's [ratings]
+            ratings += devicelib._limit(read, key, rated[key], f"{where}.ratings.{key}")  # pyright: ignore[reportPrivateUsage]
     properties = (
         devicelib._properties(read, table["properties"]) if "properties" in table else {}  # pyright: ignore[reportPrivateUsage]
     )
@@ -829,7 +830,7 @@ def _check_parts(read: _Reader, device: DeviceDef, parts: Sequence[PartEntry]) -
             seen.append(step.extends)
             step = by_mpn[step.extends]
         for rating in part.ratings:
-            own = device.rating(rating.key)
+            own = device.rating(rating.key, rating.limit)
             if own is None:
                 continue
             low = own.min is not None and (rating.min is None or rating.min < own.min)
@@ -837,7 +838,8 @@ def _check_parts(read: _Reader, device: DeviceDef, parts: Sequence[PartEntry]) -
             if low or high:
                 raise read.fail(
                     f"part.{part.mpn}.ratings.{rating.key}",
-                    f"is wider than the device's {rating.key}; a part may only narrow a rating",
+                    f"is wider than the device's {rating.key} ({rating.limit}); a part may only narrow a "
+                    "rating",
                 )
 
 
@@ -1167,7 +1169,7 @@ def _part_lines(part: PartEntry) -> list[str]:
             "properties = " + _inline([(_string(k), _string(v)) for k, v in sorted(part.properties.items())])
         )
     if part.ratings:
-        lines.append("ratings = " + _inline([(r.key, devicelib._rating_text(r)) for r in part.ratings]))  # pyright: ignore[reportPrivateUsage]
+        lines.append("ratings = { " + ", ".join(devicelib._limit_lines(part.ratings)) + " }")  # pyright: ignore[reportPrivateUsage]
     return lines
 
 
@@ -1318,11 +1320,12 @@ def _chain(parts: Sequence[PartEntry], mpn: str) -> list[PartEntry]:
 
 def resolved_part(parts: Sequence[PartEntry], mpn: str) -> PartEntry:
     """The part ``mpn`` with everything it inherits: each ancestor of its ``extends`` chain from the root,
-    then the part; a later level replaces a key, properties merge by key and ratings replace by key."""
+    then the part; a later level replaces a key, properties merge by key and ratings replace by key and
+    limit."""
     result = PartEntry(mpn=mpn)
     for part in _chain(parts, mpn):
-        ratings = {rating.key: rating for rating in result.ratings} | {
-            rating.key: rating for rating in part.ratings
+        ratings = {(rating.key, rating.limit): rating for rating in result.ratings} | {
+            (rating.key, rating.limit): rating for rating in part.ratings
         }
         result = PartEntry(
             mpn=mpn,
@@ -1342,10 +1345,10 @@ def resolved_part(parts: Sequence[PartEntry], mpn: str) -> PartEntry:
 def effective_part(device: DeviceDef, parts: Sequence[PartEntry], mpn: str) -> DeviceDef:
     """The device ``device`` as the orderable part ``mpn`` of ``parts`` (``resolved_part`` on top of the
     device): its MPN, manufacturer, datasheet, summary, properties (merged by key) and ratings (replaced by
-    key). Its id is ``<device id>@<mpn>``. ``KeyError`` when no part has the MPN."""
+    key and limit). Its id is ``<device id>@<mpn>``. ``KeyError`` when no part has the MPN."""
     part = resolved_part(parts, mpn)
-    ratings = {rating.key: rating for rating in device.ratings} | {
-        rating.key: rating for rating in part.ratings
+    ratings = {(rating.key, rating.limit): rating for rating in device.ratings} | {
+        (rating.key, rating.limit): rating for rating in part.ratings
     }
     return replace(
         device,

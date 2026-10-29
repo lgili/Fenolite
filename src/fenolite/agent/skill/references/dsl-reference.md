@@ -138,6 +138,12 @@ Function: `block(function: 'Callable[..., None] \| None' = None, /, *, name: 'st
 
 Mark `def name(b, *, param=default, ...)` as a block: `@block` or `@block(name="buck")`.
 
+## celsius
+
+Function: `celsius(value: 'int \| Fraction \| str') -> 'Quantity'`
+
+An absolute temperature given in degrees Celsius, as a value in kelvin: `celsius(-20)` is exactly `kelvin("253.15")` and prints `-20°C` with `temperature_text()`.
+
 ## column
 
 Function: `column(gap: 'object' = Length(nm=0), align: 'str' = 'start', at: 'object' = None) -> 'Strategy'`
@@ -185,6 +191,12 @@ A frequency: `hertz("16M")`.
 Function: `inch(value: 'int \| str \| float') -> 'Length'`
 
 `value` inches.
+
+## kelvin
+
+Function: `kelvin(value: 'int \| Fraction \| str') -> 'Quantity'`
+
+A temperature in kelvin: `kelvin(15)` is a difference of 15 K, `kelvin("233.15")` the absolute temperature -40 °C.
 
 ## mil
 

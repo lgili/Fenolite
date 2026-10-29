@@ -20,11 +20,13 @@ from fenolite.model.library import (
     FootprintDef,
     Library,
     PinAlternate,
+    PinPairLimit,
     Rating,
     SymbolDef,
     SymbolGraphic,
     SymbolPin,
     SymbolUnit,
+    Threshold,
 )
 
 
@@ -193,18 +195,38 @@ def _buck_device() -> DeviceDef:
         ref_prefix="U",
         evidence="UNVERIFIED",
         ground="GND",
+        cls="controller",
         pins=(
             DevicePin("BST", (("1", "1"),)),
-            DevicePin("EN", (("4", "4"),), voltage=Rating("voltage", "uV", max=6_000_000), must_connect=True),
-            DevicePin("FB", (("3", "3"),), voltage=Rating("voltage", "uV", max=6_000_000)),
+            DevicePin(
+                "EN",
+                (("4", "4"),),
+                ratings=(Rating("voltage", "uV", -300_000, 6_500_000),),
+                thresholds=(
+                    Threshold("input_high_min", "uV", 1_200_000),
+                    Threshold("input_low_max", "uV", 400_000),
+                ),
+                must_connect=True,
+            ),
+            DevicePin("FB", (("3", "3"),), ratings=(Rating("voltage", "uV", max=6_500_000),)),
             DevicePin("GND", (("2", "2"), ("2", "EP"))),
             DevicePin("SW", (("6", "6"),)),
-            DevicePin("VIN", (("5", "5"),), voltage=Rating("voltage", "uV", 2_700_000, 6_000_000)),
+            DevicePin(
+                "VIN",
+                (("5", "5"),),
+                ratings=(
+                    Rating("voltage", "uV", max=6_500_000),
+                    Rating("voltage", "uV", 2_700_000, 6_000_000, "operating"),
+                ),
+            ),
         ),
         ratings=(
-            Rating("current", "uA", max=2_000_000),
-            Rating("temperature", "mdegC", -40_000, 125_000),
+            Rating("current", "uA", max=2_500_000),
+            Rating("current", "uA", max=2_000_000, limit="operating"),
+            Rating("temperature", "mK", 218_150, 423_150),
+            Rating("temperature", "mK", 233_150, 398_150, "operating"),
         ),
+        limits=(PinPairLimit(("BST", "SW"), (Rating("voltage", "uV", max=6_000_000),)),),
         provenance=DeviceProvenance(
             "fenolite catalog import", "Example:Buck_6pin Fenolite:X", "2026-10-29", "0" * 64
         ),
@@ -221,8 +243,46 @@ def test_device_round_trip() -> None:
         ("1", "1"), ("2", "2"), ("2", "EP"), ("3", "3"), ("4", "4"), ("5", "5"), ("6", "6"),
     )  # fmt: skip
     assert loaded.pin("GND").pads == ("2", "EP") and loaded.pin("GND").pins == ("2",)
-    assert loaded.rating("temperature") == Rating("temperature", "mdegC", -40_000, 125_000)
+    assert loaded.rating("temperature", "operating") == Rating(
+        "temperature", "mK", 233_150, 398_150, "operating"
+    )
     assert loaded.rating("power") is None
+
+
+def test_device_limits_round_trip() -> None:
+    """c0274: the split record of design.md, decision 1, round-trips with every limit, threshold and class."""
+    device = _buck_device()
+    loaded = loads(dumps(device), DeviceDef)
+    assert loaded == device
+    assert [(r.key, r.limit) for r in loaded.pin("VIN").ratings] == [
+        ("voltage", "abs_max"),
+        ("voltage", "operating"),
+    ]
+    assert len(loaded.pin("EN").thresholds) == 2 and loaded.pin("EN").threshold("input_low_max") is not None
+    assert [limit.between for limit in loaded.limits] == [("BST", "SW")] and loaded.cls == "controller"
+    assert loaded.pin("VIN").rating("voltage", "operating") == Rating(
+        "voltage", "uV", 2_700_000, 6_000_000, "operating"
+    )
+
+    def no_float(value: object) -> bool:
+        if isinstance(value, dict):
+            return all(no_float(item) for item in value.values())  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+        if isinstance(value, list):
+            return all(no_float(item) for item in value)  # pyright: ignore[reportUnknownVariableType]
+        return not isinstance(value, float)
+
+    import json
+
+    assert no_float(json.loads(dumps(device)))
+    assert "limit" not in dumps(Rating("voltage", "uV", max=1))
+    from pathlib import Path
+
+    from fenolite.catalog.devices import parse_device
+
+    record = Path(__file__).resolve().parents[2] / "data" / "devices" / "example_buck.toml"
+    assert parse_device(record.read_text(encoding="utf-8")) == dataclasses.replace(
+        device, provenance=None, value="EXB6202"
+    )
 
 
 def test_device_library_round_trip() -> None:
@@ -248,7 +308,7 @@ def test_devices_stay_out_of_the_layer_files() -> None:
         if tp in seen:
             return False
         seen.add(tp)
-        if tp in (DeviceDef, DevicePin, Rating, DeviceProvenance):
+        if tp in (DeviceDef, DevicePin, Rating, DeviceProvenance, PinPairLimit, Threshold):
             return True
         if isinstance(tp, type) and dataclasses.is_dataclass(tp):
             hints = typing.get_type_hints(tp)

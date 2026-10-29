@@ -95,8 +95,11 @@ c0246) holds the exact range of a part value given as a DSL `Range` (`docs/dsl.m
 
 - `ValueRange(unit, low=None, nominal=None, high=None)` and `Decimal10(m, e)` are value objects without id
   or entity header, like `PinRef`. `unit` is one of `ohm`, `farad`, `henry`, `volt`, `ampere`, `hertz`,
-  `watt` and `second` (`RangeUnit`); at least one bound is given, `low <= high`, and a nominal lies
-  within the bounds, else `ValueError`.
+  `watt`, `second` and `kelvin` (`RangeUnit`; `kelvin`, change c0274, holds an absolute temperature or a
+  temperature difference: -20 °C is `Decimal10(25315, -2)` K); at least one bound is given,
+  `low <= high`, and a nominal lies within the bounds, else `ValueError`. The DSL-only units
+  `volt_squared` and `ampere_squared` of the products V·V and A·A are no `RangeUnit`: lowering such a
+  range raises `DslError`.
 - `Decimal10(m, e)` is the exact value m · 10^e in one canonical form: `|m| <= 10^15 − 1` (15 significant
   digits), `−30 <= e <= 30`, no trailing zero digit in `m`, and zero as `Decimal10(0, 0)`. Every integer
   stays below 2^53, so a JSON reader that uses doubles reads it exactly. `10kΩ ±1%` is
@@ -137,9 +140,11 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
 | `SymbolDef` | entity: `name`, `library`, `extends`, `power`, `properties`, `in_bom`, `on_board`, `exclude_from_sim`, pin-name settings, `units`, `pins`, ordered symbol-local vector `graphics` |
 | `SymbolPin`, `SymbolUnit`, `SymbolGraphic`, `PinAlternate` | value objects without the entity header; a pin is identified by `(unit, body_style, number)` and graphic points use integer nanometres; a `SymbolGraphic` names its `unit` and `body_style` (0, the default, is common to all; change c0261) |
 | `PinTable`, `PinRow`, `PinVariant` | value objects of a pin table (`fenolite.pins.v0`, change c0261): the rows of pin facts in table order, the `[symbol]` settings, unit names and variants; `fenolite.catalog.pins` reads and writes them and `fenolite.catalog.generate.symbol` draws a `SymbolDef` from them |
-| `DeviceDef` | value object (change c0248): `id` (`<namespace>:<name>`), `summary`, `symbol`, `footprint`, `manufacturer`, `mpn`, `datasheet`, `ref_prefix`, `value`, `evidence`, `sources`, `ground`, `unused_pads`, `ends`, `properties`, `pins` (ordered by function code point), `ratings` (ordered by key), `provenance` |
-| `DevicePin` | `function`, `pin_pads` (ordered `(pin, pad)` pairs, the form of `Component.pin_pad_map`), `voltage`, `current`, `must_connect` |
-| `Rating` | `key` (`voltage`, `current`, `power`, `temperature`), `unit` (`uV`, `uA`, `uW`, `mdegC`), `min`, `max`: integers or `null` |
+| `DeviceDef` | value object (change c0248): `id` (`<namespace>:<name>`), `summary`, `symbol`, `footprint`, `manufacturer`, `mpn`, `datasheet`, `ref_prefix`, `value`, `evidence`, `sources`, `ground`, `unused_pads`, `ends`, `properties`, `pins` (ordered by function code point), `ratings` (ordered by key, then kind), `limits` (`PinPairLimit`, ordered by `between`; change c0274), `cls` (the TOML key `class`; change c0274), `provenance` |
+| `DevicePin` | `function`, `pin_pads` (ordered `(pin, pad)` pairs, the form of `Component.pin_pad_map`), `ratings` (ordered by key, then kind), `thresholds` (ordered by key), `must_connect` (c0274 replaces c0248's `voltage` and `current` with `ratings`) |
+| `Rating` | `key` (`voltage`, `current`, `power`, `temperature`), `unit` (`uV`, `uA`, `uW`, `mK`), `min`, `max`: integers or `null`; `limit`: `abs_max` (default, omitted) or `operating` (change c0274) |
+| `Threshold` | `key` (`input_high_min`, `input_low_max`, `output_high_min`, `output_low_max`, `output_current_max`), `unit` (`uV`, `uA`), `value`: an integer (change c0274) |
+| `PinPairLimit` | `between` (two function names; the voltage is the first's minus the second's), `ratings` (`voltage` limits) (change c0274) |
 | `DeviceProvenance` | `tool`, `source` (lib ids, never a path), `date` (ISO 8601), `sha256` |
 | `Library` | `name`, `footprints`, `symbols`, `devices` (sorted by id); schema `fenolite.library.v0` (`schemas/fenolite.model.v0/library.json`) |
 
@@ -158,7 +163,7 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
   ids for the placed copies.
 - **Devices** (change c0248; `docs/devices.md`). A `DeviceDef` joins a symbol and a footprint by their lib
   ids, the map from pin function to pins and pads, an identity and ratings. Every field but `id` has a
-  default. Ratings are integers in µV, µA, µW and m°C, so no field of a device holds a float, and the
+  default. Ratings are integers in µV, µA, µW and mK, so no field of a device holds a float, and the
   canonical JSON of a device has no number with a fraction or an exponent. A device is never part of a
   `Design` or of a `.fenolite/` layer file: a built component names its device only through the reserved
   properties `fenolite.device` (the id) and `fenolite.device.sha256` (its digest). The device's derived pad

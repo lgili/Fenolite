@@ -28,7 +28,16 @@ from fenolite.catalog.devices import (
 )
 from fenolite.core.errors import FormatError
 from fenolite.model import canonical
-from fenolite.model.library import DeviceDef, FootprintDef, Pad, SymbolDef, SymbolPin
+from fenolite.model.library import (
+    DeviceDef,
+    FootprintDef,
+    Pad,
+    PinPairLimit,
+    Rating,
+    SymbolDef,
+    SymbolPin,
+    Threshold,
+)
 
 ROOT = Path(__file__).resolve().parents[3]
 DATA = ROOT / "tests" / "data" / "devices"
@@ -160,34 +169,121 @@ def test_refused_pin_tables(pins: str, named: str) -> None:
 def test_ratings_read_exactly() -> None:
     device = parse_device(BUCK.read_text(encoding="utf-8"))
     vin = device.pin("VIN")
-    assert vin.voltage is not None and (vin.voltage.unit, vin.voltage.min, vin.voltage.max) == (
-        "uV",
-        2_700_000,
-        6_000_000,
+    assert vin.ratings == (
+        Rating("voltage", "uV", None, 6_500_000, "abs_max"),
+        Rating("voltage", "uV", 2_700_000, 6_000_000, "operating"),
     )
-    temperature = device.rating("temperature")
-    assert temperature is not None and (temperature.unit, temperature.min, temperature.max) == (
-        "mdegC",
-        -40_000,
-        125_000,
+    assert device.rating("temperature", "operating") == Rating(
+        "temperature", "mK", 233_150, 398_150, "operating"
     )
+    assert device.rating("temperature") == Rating("temperature", "mK", 218_150, 423_150)
     assert device.pin("EN").must_connect and not device.pin("FB").must_connect
 
 
 @pytest.mark.parametrize(
     "ratings",
     [
-        'voltage = { max = "6.0000005V" }',
-        'current = { max = "6V" }',
-        'power = { min = "2W", max = "1W" }',
-        "power = { max = 2 }",
-        "power = { max = 2.5 }",
-        'colour = { max = "1V" }',
-        'voltage = { typ = "1V" }',
+        'voltage = { abs_max = "6.0000005V" }',
+        'current = { abs_max = "6V" }',
+        'power = { abs_max = { min = "2W", max = "1W" } }',
+        "power = { abs_max = { max = 2 } }",
+        "power = { abs_max = 2.5 }",
+        'colour = { abs_max = "1V" }',
+        'voltage = { abs_max = { typ = "1V" } }',
+        'voltage = { typical = "1V" }',
+        "voltage = { }",
+        'voltage = "6V"',
     ],
 )
 def test_refused_ratings(ratings: str) -> None:
     _refused(_record() + f"\n[ratings]\n{ratings}\n")
+
+
+# -- limits, thresholds and class (change c0274, tasks 2.1 and 2.2)
+
+LIMITED = 'VIN = { pins = ["5"], voltage = { operating = { min = "2.7V", max = "6V" }, abs_max = "6.5V" } }'
+
+
+def test_limits_both_kinds_on_one_pin() -> None:
+    device = parse_device(_record('ref_prefix = "U"\n', LIMITED))
+    vin = device.pin("VIN")
+    assert vin.rating("voltage") == Rating("voltage", "uV", None, 6_500_000, "abs_max")
+    assert vin.rating("voltage", "operating") == Rating("voltage", "uV", 2_700_000, 6_000_000, "operating")
+
+
+def test_limits_ambiguous_form_is_refused() -> None:
+    error = _refused(_record(pins='VIN = { pins = ["5"], voltage = { min = "2.7V", max = "6V" } }'))
+    assert "VIN" in str(error) and "abs_max" in str(error) and "operating" in str(error)
+    assert "abs_max" in getattr(error, "hint", "") and "operating" in getattr(error, "hint", "")
+    error = _refused(_record(pins='VIN = { pins = ["5"], voltage = { operating = "7V", abs_max = "6.5V" } }'))
+    assert "VIN" in str(error) and "outside" in str(error)
+    _refused(_record() + '\n[ratings]\ncurrent = { min = "1A" }\n')
+
+
+def test_limits_celsius_and_kelvin_agree() -> None:
+    celsius = parse_device(
+        _record() + '\n[ratings]\ntemperature = { operating = { min = "-40degC", max = "125degC" } }\n'
+    )
+    kelvin = parse_device(
+        _record() + '\n[ratings]\ntemperature = { operating = { min = "233.15K", max = "398.15K" } }\n'
+    )
+    assert celsius == kelvin
+    assert celsius.ratings == (Rating("temperature", "mK", 233_150, 398_150, "operating"),)
+    _refused(_record() + '\n[ratings]\ntemperature = { operating = { min = "-40.0001degC" } }\n')
+    assert 'min = "-40degC", max = "125degC"' in device_text(kelvin)
+
+
+def test_limits_bootstrap_to_switch_node() -> None:
+    pins = 'BST = "1"\nSW = "6"\nGND = "2"'
+    limit = '\n[[limits]]\nbetween = ["BST", "SW"]\nvoltage = { abs_max = "6V" }\n'
+    device = parse_device(_record('ref_prefix = "U"\n', pins) + limit)
+    assert device.limits == (PinPairLimit(("BST", "SW"), (Rating("voltage", "uV", None, 6_000_000),)),)
+    text = device_text(device)
+    assert parse_device(text) == device and "[[limits]]" in text
+    error = _refused(_record('ref_prefix = "U"\n', pins) + limit.replace('"SW"]', '"XX"]'))
+    assert "XX" in str(error)
+
+
+@pytest.mark.parametrize(
+    "limits",
+    [
+        '[[limits]]\nbetween = ["BST", "BST"]\nvoltage = { abs_max = "6V" }',
+        '[[limits]]\nbetween = ["BST"]\nvoltage = { abs_max = "6V" }',
+        '[[limits]]\nbetween = ["BST", "SW"]\nvoltage = { max = "6V" }',
+        '[[limits]]\nbetween = ["BST", "SW"]\nvoltage = { abs_max = "6V" }\ncurrent = { abs_max = "1A" }',
+        '[[limits]]\nbetween = ["BST", "SW"]',
+        '[[limits]]\nbetween = ["BST", "SW"]\nvoltage = { abs_max = "6V" }\n'
+        '[[limits]]\nbetween = ["SW", "BST"]\nvoltage = { abs_max = "6V" }',
+        '[limits]\nbetween = ["BST", "SW"]\nvoltage = { abs_max = "6V" }',
+    ],
+)
+def test_limits_refused(limits: str) -> None:
+    _refused(_record('ref_prefix = "U"\n', 'BST = "1"\nSW = "6"') + "\n" + limits + "\n")
+
+
+def test_thresholds_on_a_pin() -> None:
+    pins = (
+        'EN = { pins = ["4"], input_high_min = "1.2V", input_low_max = "0.4V", output_current_max = "4mA" }'
+    )
+    device = parse_device(_record('ref_prefix = "U"\n', pins))
+    en = device.pin("EN")
+    assert en.thresholds == (
+        Threshold("input_high_min", "uV", 1_200_000),
+        Threshold("input_low_max", "uV", 400_000),
+        Threshold("output_current_max", "uA", 4_000),
+    )
+    assert en.threshold("input_low_max") == Threshold("input_low_max", "uV", 400_000)
+    assert parse_device(device_text(device)) == device
+    _refused(_record(pins='EN = { pins = ["4"], input_high_min = "4mA" }'))
+    _refused(_record(pins='EN = { pins = ["4"], input_high = "1V" }'))
+
+
+def test_class_key() -> None:
+    device = parse_device(_record('class = "controller"\n'))
+    assert device.cls == "controller" and 'class = "controller"' in device_text(device)
+    assert parse_device(device_text(device)) == device
+    error = _refused(_record('class = "bead"\n'))
+    assert "bead" in str(error) and "controller" in str(error)
 
 
 def test_canonical_text_round_trip() -> None:

@@ -9,6 +9,10 @@ module reaches the model.
 A ``Range`` (``docs/dsl.md``, "Ranges"; change c0246) is an exact interval of one unit with worst-case
 arithmetic and no solver. The one range that reaches the model is a part value, which ``dsl/convert.py``
 lowers to a ``ValueRange``.
+
+Change c0274 adds temperatures (``kelvin()`` and ``celsius()``, unit ``kelvin``), the DSL-only units
+``volt_squared`` and ``ampere_squared`` of the products V·V and A·A, and arithmetic on one-sided ranges
+whose result keeps a bound.
 """
 
 from __future__ import annotations
@@ -23,13 +27,15 @@ from typing import overload
 from fenolite.core import quantities as core
 from fenolite.dsl.errors import DslError
 
-UNITS: dict[str, str] = {unit: symbol for unit, symbol in core.UNITS.items() if unit != "celsius"}
-"""Unit name → the symbol ``text()`` prints (the units of ``fenolite.core.quantities`` that a script
-value takes: a temperature is a device rating, not a part value)."""
+UNITS: dict[str, str] = dict(core.UNITS)
+"""Unit name → the symbol ``text()`` prints (the units of ``fenolite.core.quantities``)."""
 SYMBOLS: dict[str, tuple[str, ...]] = {unit: core.SYMBOLS[unit] for unit in UNITS}
 """Unit name → the symbols a text may end with."""
-SIGNED: frozenset[str] = frozenset({"volt", "ampere"})
-"""The units that take a negative value."""
+SIGNED: frozenset[str] = frozenset({"volt", "ampere", "kelvin"})
+"""The units that take a negative value (a value in kelvin can be a temperature difference)."""
+SQUARED: dict[str, str] = {"volt_squared": "V²", "ampere_squared": "A²"}
+"""The units of the products V·V and A·A (change c0274) → the symbol a range prints: they exist in the DSL
+and in the judge only, as the unit of a ``Range``, and never reach the model."""
 CODED: frozenset[str] = core.CODED
 """The units that have a letter code."""
 PREFIXES: tuple[tuple[str, int], ...] = core.PREFIXES
@@ -111,12 +117,14 @@ class Quantity:
         return Fraction(other)
 
     @overload
-    def __mul__(self, other: Range) -> Range: ...
+    def __mul__(self, other: Range | Quantity) -> Range: ...
     @overload
     def __mul__(self, other: int | Fraction) -> Quantity: ...
     def __mul__(self, other: object) -> Quantity | Range:
         if isinstance(other, Range):
             return self.as_range() * other
+        if isinstance(other, Quantity) and other.unit == self.unit and self.unit in _SQUARES:
+            return self.as_range() * other.as_range()
         return Quantity(self.unit, self.value * self._factor(other, "*"))
 
     def __rmul__(self, other: int | Fraction) -> Quantity:
@@ -168,6 +176,16 @@ class Quantity:
         """Whether this value lies in ``other`` (``Range.within`` of ``[q, q]``)."""
         return self.as_range().within(other)
 
+    def temperature_text(self) -> str:
+        """An absolute temperature in degrees Celsius (``kelvin("253.15")`` prints ``-20°C``); ``text()``
+        prints a temperature difference in kelvin (``15K``). ``DslError`` for another unit."""
+        if self.unit != "kelvin":
+            raise DslError(f"{self.text()} is not a temperature; temperature_text() takes a value in kelvin")
+        try:
+            return core.celsius_text(self.value)
+        except core.QuantityError as error:
+            raise DslError(str(error)) from None
+
     def _scaled(self) -> tuple[str, str, str]:
         """The digits before and after the point at the prefix of ``text()``, and that prefix."""
         size = abs(self.value)
@@ -199,17 +217,23 @@ class Quantity:
 
 RATIO = "ratio"
 """The unit of a dimensionless range (``ohm / ohm``); it exists only as the unit of a ``Range``."""
+_SQUARES: frozenset[str] = frozenset({"volt", "ampere"})
+"""The units whose quantity times a quantity of the same unit gives a range of ``SQUARED`` (``volt("13.2") *
+volt("13.2")``); every other product of two quantities stays refused (c0246)."""
 
 
 def _unit_products() -> dict[tuple[str, str], str]:
     table: dict[tuple[str, str], str] = {(RATIO, RATIO): RATIO}
-    for unit in UNITS:
+    for unit in (*UNITS, *SQUARED):
         table[(unit, RATIO)] = table[(RATIO, unit)] = unit
     for left, right, result in (
         ("volt", "ampere", "watt"),
         ("ampere", "ohm", "volt"),
         ("ohm", "farad", "second"),
         ("hertz", "second", RATIO),
+        ("volt", "volt", "volt_squared"),
+        ("ampere", "ampere", "ampere_squared"),
+        ("ampere_squared", "ohm", "watt"),
     ):
         table[(left, right)] = table[(right, left)] = result
     return table
@@ -217,7 +241,7 @@ def _unit_products() -> dict[tuple[str, str], str]:
 
 def _unit_quotients() -> dict[tuple[str, str], str]:
     table: dict[tuple[str, str], str] = {(RATIO, RATIO): RATIO}
-    for unit in UNITS:
+    for unit in (*UNITS, *SQUARED):
         table[(unit, unit)] = RATIO
         table[(unit, RATIO)] = unit
     for left, right, result in (
@@ -228,6 +252,8 @@ def _unit_quotients() -> dict[tuple[str, str], str]:
         ("henry", "ohm", "second"),
         (RATIO, "second", "hertz"),
         (RATIO, "hertz", "second"),
+        ("volt_squared", "ohm", "watt"),
+        ("watt", "ohm", "ampere_squared"),
     ):
         table[(left, right)] = result
     return table
@@ -235,7 +261,7 @@ def _unit_quotients() -> dict[tuple[str, str], str]:
 
 UNIT_PRODUCTS: MappingProxyType[tuple[str, str], str] = MappingProxyType(_unit_products())
 """(unit, unit) → the unit of their product; a pair outside the table is refused (``docs/dsl.md``,
-"Ranges"). These are definitions of SI derived units (P = V·I, V = I·R, τ = R·C, f·t = 1)."""
+"Ranges"). These are definitions of SI derived units (P = V·I, V = I·R, τ = R·C, f·t = 1, P = V²/R = I²·R)."""
 UNIT_QUOTIENTS: MappingProxyType[tuple[str, str], str] = MappingProxyType(_unit_quotients())
 """(dividend unit, divisor unit) → the unit of the quotient; a pair outside the table is refused."""
 
@@ -319,12 +345,37 @@ def _bound_text(unit: str, value: Fraction | None, mode: str) -> str:
                 prefix, exponent = name, power
     scaled = size / _power(exponent)
     sign = "-" if value < 0 else ""
-    symbol = "" if unit == RATIO else UNITS[unit]
+    symbol = "" if unit == RATIO else SQUARED.get(unit) or UNITS[unit]
     try:
         return f"{sign}{decimal_text(scaled, '')}{prefix}{symbol}"
     except DslError:
         whole, power = _rounded(scaled, 4, mode if value >= 0 else _FLIP[mode])
         return f"~{sign}{decimal_text(whole * _power(power), '')}{prefix}{symbol}"
+
+
+def _celsius_bound(value: Fraction | None, mode: str) -> str:
+    """One value of ``Range.temperature_text()``: ``value`` (kelvin) in degrees Celsius, exact when it
+    terminates, else rounded ``mode`` to four significant digits after a ``~``; ``""`` for ``None``."""
+    if value is None:
+        return ""
+    celsius = value - core.ZERO_CELSIUS
+    sign = "-" if celsius < 0 else ""
+    try:
+        return f"{sign}{decimal_text(abs(celsius), '')}°C"
+    except DslError:
+        whole, power = _rounded(abs(celsius), 4, mode if celsius >= 0 else _FLIP[mode])
+        return f"~{sign}{decimal_text(whole * _power(power), '')}°C"
+
+
+def _side(left: Fraction | None, right: Fraction | None, combine: str) -> Fraction | None:
+    """``left`` and ``right`` combined (``+``, ``-``, ``*``, ``/``), ``None`` when either is unbounded."""
+    if left is None or right is None:
+        return None
+    if combine == "+":
+        return left + right
+    if combine == "-":
+        return left - right
+    return left * right if combine == "*" else left / right
 
 
 def _operand(value: object) -> Range | None:
@@ -357,8 +408,8 @@ class Range:
     def __init__(
         self, unit: str, low: Fraction | None, high: Fraction | None, nominal: Fraction | None = None
     ) -> None:
-        if unit != RATIO and unit not in UNITS:
-            raise DslError(f"unknown unit {unit!r}; use one of: {', '.join((*UNITS, RATIO))}")
+        if unit != RATIO and unit not in UNITS and unit not in SQUARED:
+            raise DslError(f"unknown unit {unit!r}; use one of: {', '.join((*UNITS, *SQUARED, RATIO))}")
         for name, value in (("low", low), ("high", high), ("nominal", nominal)):
             if value is not None and not isinstance(value, Fraction):  # pyright: ignore[reportUnnecessaryIsInstance]
                 raise DslError(f"a range holds Fractions, not {name}={value!r}")
@@ -381,6 +432,8 @@ class Range:
     def _read(self, value: Fraction | None) -> Quantity | Fraction | None:
         if value is None or self.unit == RATIO:
             return value
+        if self.unit in SQUARED:
+            raise DslError(f"a bound in {self.unit} is not a quantity; read low and high")
         return Quantity(self.unit, value)
 
     @property
@@ -410,30 +463,61 @@ class Range:
 
     # ------------------------------------------------------------------------------------ arithmetic
 
-    def _bounded(self) -> tuple[Fraction, Fraction]:
+    def _bounded(self) -> tuple[Fraction, Fraction] | None:
+        """The two bounds, or ``None`` when a side is unbounded."""
         if self.low is None or self.high is None:
-            raise DslError(f"the range {self.text()} is unbounded; an unbounded range may only be compared")
+            return None
         return self.low, self.high
+
+    @staticmethod
+    def _kept(
+        unit: str, low: Fraction | None, high: Fraction | None, what: str, left: Range, right: Range
+    ) -> Range:
+        """The result of a one-sided operation, which must keep a bound (change c0274)."""
+        if low is None and high is None:
+            raise DslError(
+                f"the {what} of {left.text()} and {right.text()} is unbounded on both sides; a result of "
+                "one-sided ranges must keep a bound"
+            )
+        return Range(unit, low, high)
 
     @staticmethod
     def _sum(left: Range, right: Range, sign: int) -> Range:
         what = "+" if sign > 0 else "-"
         if left.unit != right.unit:
             raise TypeError(f"{what} takes two ranges of one unit, not {left.unit} and {right.unit}")
-        (a0, a1), (b0, b1) = left._bounded(), right._bounded()
         nominal = None
         if left._nominal is not None and right._nominal is not None:
             nominal = left._nominal + sign * right._nominal
         if sign > 0:
-            return Range(left.unit, a0 + b0, a1 + b1, nominal)
-        return Range(left.unit, a0 - b1, a1 - b0, nominal)
+            low, high = _side(left.low, right.low, "+"), _side(left.high, right.high, "+")
+        else:
+            low, high = _side(left.low, right.high, "-"), _side(left.high, right.low, "-")
+        if low is None or high is None:
+            name = "addition" if sign > 0 else "subtraction"
+            return Range._kept(left.unit, low, high, name, left, right)
+        return Range(left.unit, low, high, nominal)
+
+    @staticmethod
+    def _non_negative(left: Range, right: Range, what: str) -> tuple[Fraction, Fraction]:
+        """The low bounds of the operands of a one-sided product or quotient, both at least 0."""
+        if left.low is None or right.low is None or left.low < 0 or right.low < 0:
+            raise DslError(
+                f"the {what} of {left.text()} and {right.text()}: a one-sided range is multiplied or divided "
+                "only when both operands have a low bound of at least 0"
+            )
+        return left.low, right.low
 
     @staticmethod
     def _product(left: Range, right: Range) -> Range:
         unit = UNIT_PRODUCTS.get((left.unit, right.unit))
         if unit is None:
             raise TypeError(f"* has no unit for {left.unit} times {right.unit}; see quantity.UNIT_PRODUCTS")
-        (a0, a1), (b0, b1) = left._bounded(), right._bounded()
+        a, b = left._bounded(), right._bounded()
+        if a is None or b is None:
+            a0, b0 = Range._non_negative(left, right, "product")
+            return Range._kept(unit, a0 * b0, _side(left.high, right.high, "*"), "product", left, right)
+        (a0, a1), (b0, b1) = a, b
         products = (a0 * b0, a0 * b1, a1 * b0, a1 * b1)
         nominal = None
         if left._nominal is not None and right._nominal is not None:
@@ -445,7 +529,17 @@ class Range:
         unit = UNIT_QUOTIENTS.get((left.unit, right.unit))
         if unit is None:
             raise TypeError(f"/ has no unit for {left.unit} over {right.unit}; see quantity.UNIT_QUOTIENTS")
-        (a0, a1), (b0, b1) = left._bounded(), right._bounded()
+        a, b = left._bounded(), right._bounded()
+        if a is None or b is None:
+            a0, b0 = Range._non_negative(left, right, "quotient")
+            if b0 == 0:
+                raise DslError(
+                    f"the divisor {right.text()} holds zero; a range can only be divided by one that does not"
+                )
+            low = Fraction(0) if right.high is None else a0 / right.high
+            high = None if left.high is None else left.high / b0
+            return Range._kept(unit, low, high, "quotient", left, right)
+        (a0, a1), (b0, b1) = a, b
         if b0 <= 0 <= b1:
             raise DslError(
                 f"the divisor {right.text()} holds zero; a range can only be divided by one that does not"
@@ -489,9 +583,10 @@ class Range:
         return NotImplemented if operand is None else Range._quotient(operand, self)
 
     def __neg__(self) -> Range:
-        low, high = self._bounded()
         nominal = None if self._nominal is None else -self._nominal
-        return Range(self.unit, -high, -low, nominal)
+        low = None if self.high is None else -self.high
+        high = None if self.low is None else -self.low
+        return Range(self.unit, low, high, nominal)
 
     # ------------------------------------------------------------------------------------ comparison
 
@@ -516,6 +611,16 @@ class Range:
         if self._nominal is None:
             return span
         return f"{_bound_text(self.unit, self._nominal, 'near')} ({span})"
+
+    def temperature_text(self) -> str:
+        """An absolute temperature range in degrees Celsius, ``-20°C..70°C`` (change c0274); ``text()``
+        prints kelvin, the form of a temperature difference. ``DslError`` for another unit."""
+        if self.unit != "kelvin":
+            raise DslError(f"{self.text()} is not a temperature; temperature_text() takes a range in kelvin")
+        span = f"{_celsius_bound(self.low, 'down')}..{_celsius_bound(self.high, 'up')}"
+        if self._nominal is None:
+            return span
+        return f"{_celsius_bound(self._nominal, 'near')} ({span})"
 
     def __str__(self) -> str:
         return self.text()
@@ -594,8 +699,35 @@ def second(value: int | Fraction | str) -> Quantity:
     return _make("second", value)
 
 
+def kelvin(value: int | Fraction | str) -> Quantity:
+    """A temperature in kelvin (change c0274): ``kelvin(15)`` is a difference of 15 K, ``kelvin("233.15")``
+    the absolute temperature -40 °C."""
+    return _make("kelvin", value)
+
+
+def celsius(value: int | Fraction | str) -> Quantity:
+    """An absolute temperature given in degrees Celsius, as a value in kelvin: ``celsius(-20)`` is exactly
+    ``kelvin("253.15")`` and prints ``-20°C`` with ``temperature_text()`` (change c0274)."""
+    if isinstance(value, bool) or isinstance(value, float):
+        raise DslError(f"celsius: {value!r} is not exact; give an int, a Fraction or a text such as '-40'")
+    if isinstance(value, int | Fraction):
+        degrees = Fraction(value) + core.ZERO_CELSIUS
+        if degrees < 0:
+            raise DslError(f"celsius({value}) lies below absolute zero (-273.15)")
+        return Quantity("kelvin", degrees)
+    if isinstance(value, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+        body = value.strip()
+        if body.endswith("K"):
+            raise DslError(f"celsius: {value!r} is in kelvin; use kelvin() for it")
+        if not body.endswith(core.CELSIUS_SYMBOLS):
+            body += "degC"
+        return Quantity("kelvin", _parse("kelvin", body))
+    raise DslError(f"celsius: a value is an int, a Fraction or a text, not {value!r}")
+
+
 __all__ = [
     "RATIO",
+    "SQUARED",
     "UNITS",
     "UNIT_PRODUCTS",
     "UNIT_QUOTIENTS",
@@ -604,10 +736,12 @@ __all__ = [
     "Tolerance",
     "amp",
     "between",
+    "celsius",
     "decimal_text",
     "farad",
     "henry",
     "hertz",
+    "kelvin",
     "ohm",
     "pct",
     "second",

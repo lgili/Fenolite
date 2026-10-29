@@ -790,7 +790,8 @@
             "ampere",
             "hertz",
             "watt",
-            "second"
+            "second",
+            "kelvin"
           ]
         },
         "low": {

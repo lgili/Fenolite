@@ -9,14 +9,17 @@ from fractions import Fraction
 
 import pytest
 
-from fenolite.core.quantities import MICRO_UNITS, QuantityError, micro_units, parse
+from fenolite.core.quantities import MICRO_UNITS, QuantityError, celsius_text, micro_units, parse
 
 
 def test_parse_matches_the_dsl_forms() -> None:
     assert parse("ohm", "4k7") == parse("ohm", "4.7 kΩ") == Fraction(4700)
     assert parse("volt", "2.7V") == Fraction(27, 10)
     assert parse("farad", "100n") == Fraction(1, 10**7)
-    assert parse("celsius", "-40degC") == -40 and parse("celsius", "125°C") == 125
+    assert parse("kelvin", "-40degC") == Fraction("233.15") and parse("kelvin", "125°C") == Fraction("398.15")
+    assert parse("kelvin", "233.15K") == parse("kelvin", "-40degC") and parse("kelvin", "15mK") == Fraction(
+        3, 200
+    )
 
 
 @pytest.mark.parametrize(
@@ -28,9 +31,10 @@ def test_parse_matches_the_dsl_forms() -> None:
         ("ampere", "500mA", 500_000),
         ("ampere", "2A", 2_000_000),
         ("watt", "250mW", 250_000),
-        ("celsius", "-40degC", -40_000),
-        ("celsius", "125degC", 125_000),
-        ("celsius", "0.5degC", 500),
+        ("kelvin", "-40degC", 233_150),
+        ("kelvin", "125degC", 398_150),
+        ("kelvin", "0.5degC", 273_650),
+        ("kelvin", "233.15K", 233_150),
     ],
 )
 def test_micro_units(unit: str, text: str, expected: int) -> None:
@@ -42,7 +46,11 @@ def test_micro_units(unit: str, text: str, expected: int) -> None:
     ("unit", "text"),
     [
         ("volt", "6.0000005V"),  # half a µV
-        ("celsius", "0.0005degC"),  # half a m°C
+        ("kelvin", "0.0005degC"),  # half a mK
+        ("kelvin", "-40.0001degC"),  # a tenth of a mK
+        ("kelvin", "-274degC"),  # below absolute zero
+        ("kelvin", "-1K"),  # an absolute temperature is not signed
+        ("kelvin", "1mdegC"),  # no prefix on a Celsius text
         ("ampere", "6V"),  # wrong unit
         ("watt", "-1W"),  # power is not signed
         ("ohm", "1k"),  # no integer unit
@@ -54,4 +62,9 @@ def test_refused(unit: str, text: str) -> None:
 
 
 def test_stored_units() -> None:
-    assert {name for name, _ in MICRO_UNITS.values()} == {"uV", "uA", "uW", "mdegC"}
+    assert {name for name, _ in MICRO_UNITS.values()} == {"uV", "uA", "uW", "mK"}
+
+
+def test_celsius_text() -> None:
+    assert celsius_text(Fraction("233.15")) == "-40°C" and celsius_text(Fraction("300")) == "26.85°C"
+    assert celsius_text(Fraction("398.15"), "degC") == "125degC"

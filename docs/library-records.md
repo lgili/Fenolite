@@ -156,7 +156,9 @@ A part takes `mpn` (unique within the device), `extends`, `summary`, `manufactur
 (`active`, `nrnd`, `last-time-buy`, `obsolete`, `unknown`), `grade`, `datasheet`, `properties` and `ratings`.
 It inherits the device, then each ancestor of its `extends` chain, then its own keys; properties merge by key.
 A part never holds `symbol`, `footprint`, `pins`, `ground`, `unused_pads`, `ends` or `ref_prefix` (a different
-interface is a different device), and its ratings only narrow the device's. A `fenolite.part.v0` file keeps
+interface is a different device), and its ratings only narrow the device's. A part's ratings take the form of
+the device's (change c0274): `ratings = { temperature = { operating = { min = "0degC", max = "70degC" } } }`
+narrows the device's `operating` limit, and an `abs_max` limit narrows its `abs_max`. A `fenolite.part.v0` file keeps
 one part apart, with the header and `device = "<id>"`.
 
 `design.part("U1", device="Example:BUCK_6V_2A@EXB6202DR")` places the device as that part: the component gets

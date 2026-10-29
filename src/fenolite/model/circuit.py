@@ -69,8 +69,8 @@ class Decimal10:
         return Fraction(self.m) * (Fraction(10) ** self.e)
 
 
-RangeUnit = Literal["ohm", "farad", "henry", "volt", "ampere", "hertz", "watt", "second"]
-"""The units of a ``ValueRange``: the units of the DSL's ``Quantity``."""
+RangeUnit = Literal["ohm", "farad", "henry", "volt", "ampere", "hertz", "watt", "second", "kelvin"]
+"""The units of a ``ValueRange``: the units of the DSL's ``Quantity`` (``kelvin``: change c0274)."""
 
 
 @dataclass(frozen=True, slots=True)

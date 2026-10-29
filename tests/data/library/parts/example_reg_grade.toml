@@ -10,4 +10,4 @@ device = "Example:REG_TWO"
 mpn = "EXR100QDR"
 extends = "EXR100DR"
 grade = "automotive"
-ratings = { temperature = { min = "-40degC", max = "85degC" } }
+ratings = { temperature = { operating = { min = "-40degC", max = "85degC" } } }

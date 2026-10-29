@@ -175,10 +175,11 @@ def test_arithmetic_divisor_holding_zero() -> None:
 
 
 def test_arithmetic_unbounded_operand() -> None:
-    with pytest.raises(DslError, match="only be compared"):
-        _ = volt("4.5").min() + volt("1")
-    with pytest.raises(DslError, match="only be compared"):
-        _ = -volt("4.5").min()
+    # c0274 lets a one-sided range enter arithmetic when the result keeps a bound (test_quantity.py).
+    assert volt("4.5").min() + volt("1") == Range("volt", F("5.5"), None)
+    assert -volt("4.5").min() == Range("volt", None, F("-4.5"))
+    with pytest.raises(DslError, match="unbounded on both sides"):
+        _ = volt("4.5").min() + (-volt("1").min())
 
 
 def test_arithmetic_quantity_with_a_range_gives_a_range() -> None:
@@ -203,7 +204,7 @@ def test_arithmetic_unit_tables() -> None:
         assert UNIT_PRODUCTS[(unit, "ratio")] == UNIT_PRODUCTS[("ratio", unit)] == unit
         assert UNIT_QUOTIENTS[(unit, unit)] == "ratio" and UNIT_QUOTIENTS[(unit, "ratio")] == unit
     assert UNIT_PRODUCTS[("ampere", "volt")] == "watt" and UNIT_PRODUCTS[("farad", "ohm")] == "second"
-    assert UNIT_PRODUCTS[("second", "hertz")] == "ratio" and ("volt", "volt") not in UNIT_PRODUCTS
+    assert UNIT_PRODUCTS[("second", "hertz")] == "ratio" and ("volt", "ohm") not in UNIT_PRODUCTS
     assert UNIT_QUOTIENTS[("ratio", "hertz")] == "second" and ("ohm", "volt") not in UNIT_QUOTIENTS
 
 

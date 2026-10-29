@@ -31,20 +31,25 @@ datasheet = "https://example.invalid/exb6202.pdf"
 symbol = "Example:Buck_6pin"
 footprint = "Fenolite:SOT23_6_TI_DBV0006A"
 ref_prefix = "U"
+class = "controller"
 evidence = "UNVERIFIED"
 ground = "GND"
 
 [pins]
 BST = "1"
 GND = "2"
-FB  = { pins = ["3"], voltage = { max = "6V" } }
-EN  = { pins = ["4"], voltage = { max = "6V" }, must_connect = true }
-VIN = { pins = ["5"], voltage = { min = "2.7V", max = "6V" } }
+FB  = { pins = ["3"], voltage = { abs_max = "6.5V" } }
+EN  = { pins = ["4"], voltage = { abs_max = { min = "-0.3V", max = "6.5V" } }, input_high_min = "1.2V", input_low_max = "0.4V", must_connect = true }
+VIN = { pins = ["5"], voltage = { operating = { min = "2.7V", max = "6V" }, abs_max = "6.5V" } }
 SW  = "6"
 
+[[limits]]
+between = ["BST", "SW"]
+voltage = { abs_max = "6V" }
+
 [ratings]
-current = { max = "2A" }
-temperature = { min = "-40degC", max = "125degC" }
+current = { abs_max = "2.5A", operating = "2A" }
+temperature = { abs_max = { min = "-55degC", max = "150degC" }, operating = { min = "-40degC", max = "125degC" } }
 ```
 
 | key | required | meaning |
@@ -56,6 +61,7 @@ temperature = { min = "-40degC", max = "125degC" }
 | `manufacturer`, `mpn` | no | printable text; a generic device has neither |
 | `datasheet` | no | an `https://` URL |
 | `ref_prefix` | no | `[A-Z][A-Z_]*`; default: the prefix of a catalog symbol, else required |
+| `class` | no | one part class of the roles' vocabulary (`docs/roles.md`), evidence for `roles.classify` (change c0274) |
 | `value` | no | the default part value; default `mpn`, else the name part of `id` |
 | `evidence` | yes | one label of the evidence vocabulary |
 | `sources` | no | source ids of `docs/evidence/sources.md`; required for a `Fenolite:` device |
@@ -65,6 +71,7 @@ temperature = { min = "-40degC", max = "125degC" }
 | `properties` | no | extra BOM properties, string to string |
 | `pins` | yes | function → pins and pads (below) |
 | `ratings` | no | device ratings (below) |
+| `limits` | no | `[[limits]]` tables: a voltage limit between two functions (below) |
 | `provenance` | no | the stamp of `fenolite catalog import` (below) |
 | `interfaces`, `options` | reserved | refused with `FEN-3002` until later formats define them |
 
@@ -79,18 +86,46 @@ a pin number. Functions differ under `str.casefold`.
 - `GND = ["2", "9"]`: symbol pins 2 and 9, each on the pad of its number;
 - `GND = { map = { "2" = ["2", "EP"], "9" = "9" }, must_connect = true }`: symbol pin to pads, as
   `Part.pad_map` spells them. The long form takes `pins` or `map`, never both, and optionally `voltage`,
-  `current` and `must_connect`.
+  `current`, the logic thresholds and `must_connect`.
 
 Each symbol pin is in exactly one function, and each pad is on at most one symbol pin. The union of the
 `map` entries is the device's pad map: it lowers to `Component.pin_pad_map` exactly as a `pad_map` does.
 
-### Ratings and units
+### Ratings, limits and units
 
 Device ratings take the keys `voltage`, `current`, `power` and `temperature`; pin ratings take `voltage`
-(measured from `ground`) and `current`. Each holds `min`, `max` or both, as text with a unit and an SI
-prefix: `"6V"`, `"500mA"`, `"250mW"`, `"-40degC"`. They are parsed exactly by `fenolite.core.quantities`
-and stored as integers: µV, µA, µW and m°C. A value that is not a whole number of these units
-(`"6.0000005V"`), a unit that does not fit the key, or `min` above `max` gives `FEN-3004`.
+(measured from `ground`) and `current`. Every limit (change c0274) is a table of `abs_max` and/or
+`operating`:
+
+| kind | meaning |
+|---|---|
+| `abs_max` | an absolute maximum rating: beyond it the part may be damaged; judged worst case and derated |
+| `operating` | the range in which the part works as specified; judged exactly and never derated |
+
+Each kind is a `{ min, max }` table (one bound or both) or a string, which is the maximum (`"6.5V"` is
+`{ max = "6.5V" }`). The single form `voltage = { min = "2.7V", max = "6V" }` is refused with
+`FEN-3004` and the hint to say `abs_max` or `operating`: reading it as either kind would be a guess. An
+`operating` range outside its `abs_max` range is refused as well.
+
+Values are text with a unit and an SI prefix: `"6V"`, `"500mA"`, `"250mW"`. A temperature is written in
+degrees Celsius (`"-40degC"`, no prefix) or in kelvin (`"233.15K"`), and both read the same value. They are
+parsed exactly by `fenolite.core.quantities` and stored as integers: µV, µA, µW and mK (millikelvin; the
+canonical text prints temperatures back in `degC`). A value that is not a whole number of these units
+(`"6.0000005V"`, `"-40.0001degC"`), a unit that does not fit the key, or `min` above `max` gives
+`FEN-3004`.
+
+### Limits between two pins
+
+`[[limits]]` states a voltage limit between two functions: `between = ["BST", "SW"]` names two distinct
+functions of the device, and the voltage is the first's minus the second's (`voltage = { abs_max = "6V" }`,
+in the shape above). An unknown function, a pair stated twice (in either order) or another key gives
+`FEN-3004`. The canonical text orders the tables by `between`.
+
+### Logic thresholds
+
+A pin may state `input_high_min`, `input_low_max`, `output_high_min`, `output_low_max` (voltages from
+`ground`) and `output_current_max` (a current), each one quantity text from the datasheet. They are stored
+as `Threshold(key, unit, value)` on the pin; no threshold is shipped or assumed.
 
 ## Where devices come from
 
