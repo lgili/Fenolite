@@ -523,7 +523,7 @@ the resolved records and poses); `.fenolite/build.json` keeps the poses and the 
 Equal inputs give equal records and equal bytes. The codes: `layout.relative-cycle` (error: relative
 requests reference each other in a cycle; nothing is written), `layout.relative-unresolved` (warning: a
 reference has no placement and the part is staged), `layout.strategy-overflow` (warning: a box wider than a
-`pack` width), `layout.block-moved` (info: a block's pose changed and its kept parts moved with it, with
+`pack` width, or a strategy that puts a part beyond the outline), `layout.block-moved` (info: a block's pose changed and its kept parts moved with it, with
 the copper joined only to their pads; other copper stays with `place.copper-left`), and for a block reuse
 `reuse.port-unmapped` (error: a net of the reference board that is neither a port nor a local net, with
 `copper=True`), `reuse.unknown-part` (warning here: a part the reference board lacks is staged) and

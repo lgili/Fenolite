@@ -771,6 +771,30 @@ def _resolve_node(state: _State, frame: str, path: str, request: RequestLike, of
     state.records.append((path, request.text(), frame, tuple(used), placed))
 
 
+def _beyond(scene: Scene, part_frame: Mapping[str, str], placements: Mapping[str, Resolved]) -> list[Issue]:
+    """One ``layout.strategy-overflow`` per frame whose strategy put a part beyond the outline's box (a
+    staged group is meant to lie beside the board)."""
+    board = scene.board
+    if board is None:
+        return []
+    frames: dict[str, list[str]] = {}
+    for path, placed in placements.items():
+        if placed.source != "strategy" or path not in scene.footprints:
+            continue
+        transform = _placement(placed.at, placed.rotation, placed.side)
+        if not board.contains_bbox(transform.apply_bbox(scene.footprints[path].extent)):
+            frames.setdefault(part_frame[path], []).append(path)
+    return [
+        layout_issue(
+            "layout.strategy-overflow",
+            f"the strategy of {frame or 'the top'} puts {', '.join(paths)} beyond the outline",
+            frame or "top",
+            "pose the block elsewhere, choose another strategy, or enlarge the board",
+        )
+        for frame, paths in sorted(frames.items())
+    ]
+
+
 def _depth(scene: Scene, frame: str) -> int:
     depth = 0
     while frame:
@@ -872,7 +896,10 @@ def resolve(scene: Scene, fixed: Mapping[str, Placed] | None = None) -> Resoluti
         block_records[path] = BlockRecord(
             path, placed.at, placed.rotation, text, held.source, path in grouped
         )
-    issues = sorted(state.issues, key=lambda i: (i.code, i.where, i.message))
+    issues = sorted(
+        [*state.issues, *_beyond(scene, code.part_frame, placements)],
+        key=lambda i: (i.code, i.where, i.message),
+    )
     return Resolution(
         MappingProxyType(placements),
         tuple(sorted(records, key=lambda r: r.path)),

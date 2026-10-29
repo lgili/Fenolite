@@ -238,3 +238,28 @@ def test_a_build_without_placement_in_code_has_no_record(
     code, env, err = bench.build("--dry-run")
     assert code == 0, err
     assert "relative" not in env["result"]["placement"]
+
+
+def test_sync_compares_the_board_with_the_resolved_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``sync`` takes the resolved relative requests as the code side: only the part moved in KiCad gets an
+    edit."""
+    import io as _io
+
+    import fenolite.cli.main as cli_main
+
+    bench = Bench(tmp_path, monkeypatch, PADS.read_text(encoding="utf-8"), "relative_pads")
+    assert bench.build("--confirm")[0] == 0
+    bench.board.write_text(
+        move_footprint(bench.board.read_text(encoding="utf-8"), "C2", 0, 2 * MM), encoding="utf-8"
+    )
+    stdout = _io.StringIO()
+    monkeypatch.setattr("sys.stdout", stdout)
+    monkeypatch.setattr("sys.stderr", _io.StringIO())
+    args = ["sync", str(bench.script), "--out", str(bench.out), "--to-source", "--confirm", "--json"]
+    assert cli_main.main(args) == 0, stdout.getvalue()
+    edits = (bench.folder / "edits.toml").read_text(encoding="utf-8")
+    assert '[part."C2"]' in edits and '[part."C2".over]\nx = 24.65\ny = 15' in edits
+    for other in ("C1", "D1", "J1", "R1", "U1"):
+        assert f'[part."{other}"]' not in edits, other

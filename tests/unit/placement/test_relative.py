@@ -300,3 +300,14 @@ def test_equal_inputs_equal_records() -> None:
     first, second = resolve(_scene(design)), resolve(_scene(design))
     assert first.placements == second.placements and first.records == second.records
     assert first.digest() == second.digest()
+
+
+def test_a_strategy_beyond_the_outline() -> None:
+    design = _design()
+    design.layout(row(at=(mm(30), mm(1))))
+    for name in ("R1", "R2", "R3"):
+        _part(design, name)
+    resolution = resolve(_scene(design))
+    (found,) = resolution.issues
+    assert (found.code, found.severity, found.where) == ("layout.strategy-overflow", "warning", "top")
+    assert found.message.endswith("puts R3 beyond the outline")

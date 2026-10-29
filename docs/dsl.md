@@ -1838,7 +1838,8 @@ p3.layout(reuse="channel.kicad_pcb", copper=True)
   pose, as one box each), in creation order, from `at` in the frame. A row aligns top edges (`start`),
   centres or bottom edges; a column left edges, centres or right edges; a grid uses cells of the largest box
   plus `gap`; `pack` fills shelves within `width`, tallest first, and a box wider than `width` takes its own
-  shelf with `layout.strategy-overflow`. `place(rot=90)` without a position turns a part the strategy
+  shelf with `layout.strategy-overflow`, as does a strategy that puts a part beyond the outline.
+  `place(rot=90)` without a position turns a part the strategy
   places. `b.layout(...)` is the block's default, `inst.layout(...)` wins over it, and `design.layout(...)`
   is the top level's. One strategy per frame.
 - **Group staging.** A top-level block with a strategy and no pose, when the top has no strategy, is staged

@@ -1306,6 +1306,20 @@ def _plan_layout(
     return plan, [*plan.issues, *copper_issues], model
 
 
+def code_placements(
+    design: DslDesign,
+    model: ModelDesign,
+    requested: Mapping[str, PlacementRequest],
+    script_path: Path,
+    ctx: Context,
+    given: str,
+) -> Mapping[str, PlacementRequest]:
+    """The code placements of the script, its relative requests, poses and strategies resolved without a
+    board (change c0255): what ``sync`` compares the board with. ``requested`` when it asks for none."""
+    plan, _issues, _model = _plan_layout(design, model, requested, script_path, ctx, given)
+    return requested if plan is None else cast(Mapping[str, PlacementRequest], plan.placements())
+
+
 def _resolution_issues(plan: _layout.LayoutPlan) -> tuple[Issue, ...]:
     """The issues of the last resolution the lens asked for (cycles, unresolved references, overflow)."""
     resolution = plan.last or plan.code

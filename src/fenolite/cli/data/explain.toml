@@ -2943,7 +2943,7 @@ fix = "Remove the table, or run fenolite sync --to-source, which writes the part
 see = "sync"
 
 ["layout.strategy-overflow"]
-meaning = "A box is wider than the width of a pack() strategy; it takes a shelf of its own and crosses the width."
+meaning = "A box is wider than the width of a pack() strategy, so it takes a shelf of its own and crosses the width, or a strategy puts a part beyond the outline."
 fix = "Widen the pack, turn the part with place(rot=90), or place it with place()."
 see = "build"
 
