@@ -27,8 +27,10 @@
 
 ## 1. Generator extensions (`backends/kicad/generate.py`)
 
-- [ ] 1.1 Band records with a `group` are united into one locked zone with the Clipper union, and a single chain needs no union. The c0224 tests stay unchanged. Proof: `uv run pytest tests/unit/dsl/test_generate.py tests/unit/backends/kicad/test_generate_group.py -q`.
-- [ ] 1.2 A barrier over a net set (`nets`), resolved after the bands, and stitching records limited to a `patch`. Proof: `uv run pytest tests/unit/backends/kicad/test_generate_group.py -k "barrier or patch" -q`.
+- [x] 1.1 Band records with a `group` are united into one locked zone with the Clipper union, and a single chain needs no union. The c0224 tests stay unchanged. Proof: `uv run pytest tests/unit/dsl/test_generate.py tests/unit/backends/kicad/test_generate_group.py -q`.
+  2026-10-29: `_united` in `generate.py` resolves the bands of a `group` one by one and unites them with the Clipper union (one band: no union; no `geo` extra: `kicad.generate.unknown`); an optional `connection` sets the zone's pad connection. The c0224 tests are unchanged; 29 passed.
+- [x] 1.2 A barrier over a net set (`nets`), resolved after the bands, and stitching records limited to a `patch`. Proof: `uv run pytest tests/unit/backends/kicad/test_generate_group.py -k "barrier or patch" -q`.
+  2026-10-29: a barrier with `nets` is ranked after the bands and holds those nets' zones; a stitching record with `patch` and `avoid` keeps its candidates inside the patch and out of the rings, and counts `stitch-short` within the patch; 2 passed.
 
 ## 2. Planner (`roles/copper.py`, `roles/spine.py`)
 
