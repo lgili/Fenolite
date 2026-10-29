@@ -91,7 +91,8 @@
 
 ## 6. DSL and CLI
 
-- [ ] 6.1 Add `Footprint.from_package` (scenarios "A generated footprint is registered", "Error finding in a script"). Proof: `uv run pytest tests/unit/dsl/test_footprint_from_package.py -q`.
+- [x] 6.1 Add `Footprint.from_package` (scenarios "A generated footprint is registered", "Error finding in a script"). Proof: `uv run pytest tests/unit/dsl/test_footprint_from_package.py -q`.
+  Done 2026-10-30: `tests/unit/dsl/test_footprint_from_package.py` 4 passed: `Footprint.from_package(text)` registers `Local:SOIC8_B4.9x3.9_P1.27` with 8 pads and its bodies, `.pad`, `.graphic` and `.net_tie` raise `DslError`; `library=` and `positions=`; a span inside the body raises `DslError` naming `package.dimensions-inconsistent`; an unreadable record raises `DslError` with `FEN-3004`; a path instead of text is refused (the DSL reads no file).
 - [ ] 6.2 Add the verb dispatch and `fenolite library generate` with its plan, receipt and result (scenarios "Board form unchanged", "Plan and confirm", "Result of a connector series"). Proof: `uv run pytest tests/unit/cli/test_library_generate.py tests/unit/cli/test_library.py -q`.
 - [ ] 6.2b `fenolite library generate` also plans `DIR/<NICK>.PcbLib` with all generated footprints through the Altium writer, in the same plan and receipt; `--no-pcblib` leaves it out (maintainer's answer to open question 3, 2026-10-30). Proof: `uv run pytest tests/unit/cli/test_library_generate.py -k pcblib -q`.
 - [ ] 6.3 Author `examples/generated/` (a board using one generated footprint per family, built for KiCad, with STEP export). Proof: `uv run pytest tests/unit/test_examples.py -k generated -q`.
