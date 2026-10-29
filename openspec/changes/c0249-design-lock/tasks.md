@@ -50,3 +50,4 @@
 - [ ] 5.4 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
   - 2026-10-29: open: `dev` is at the unpublished 0.6.0, whose guard needs `[Unreleased]` empty; waits for 0.7.0.dev0.
 - [ ] 5.5 Run `make check-fast`, publish the batch (with c0248) to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
+  - 2026-10-29: open: `make check-fast` passes locally (15360 passed, 46 skipped). Under the maintainer's rule of 2026-10-29 the branch is not pushed; CI runs with the batch. c0248 is not in it yet.
