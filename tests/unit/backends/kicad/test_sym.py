@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import dataclasses
+from pathlib import Path
 
 import pytest
 from _libs import MINI
@@ -212,3 +213,64 @@ def test_9_and_10_symbols_compare_equal_without_provenance() -> None:
     v10 = {s.name: strip(s) for s in read_symbol_library(V10, library="Mini")}
     assert v9["Mini_QFP32_IC"] == v10["Mini_QFP32_IC"]
     assert v9["Mini_GND"] == v10["Mini_GND"]
+
+
+# --- change c0261: units, unit names, hidden pins, alternates and derivation -------------------------
+
+PINS = Path(__file__).resolve().parents[3] / "data" / "pins"
+CATALOG_LIBRARY_SHA256 = {
+    9: "16e9c8e93540f6c48ca7ab8bd3fa2f06bc44d7b7451f399a2ae7d392318dbe4f",
+    10: "68e0f3c4f0f80f5d225de8af71c51dbabf29d56ad0340bda3f44aedf7d3d3abd",
+}
+"""``write_symbol_library`` of the 49 catalog symbols before change c0261."""
+
+
+def _generated(name: str) -> tuple[SymbolDef, ...]:
+    from fenolite.catalog.generate.symbol import generate_symbol
+    from fenolite.catalog.pins import read_pins
+
+    base, derived, _ = generate_symbol(read_pins(PINS / name), library="Example")
+    return (base, *derived)
+
+
+def test_generated_symbols_read_back() -> None:
+    written = _generated("example_dual.toml")
+    text = write_symbol_library(written)
+    back = {s.name: s for s in read_symbol_library(text, library="Example")}
+    base, variant = written
+    got = back[base.name]
+    assert [u for u in got.units if u.unit] == list(base.units)
+    assert got.pins == base.pins
+    assert got.graphics == base.graphics and [g.unit for g in got.graphics] == [1, 2]
+    assert any(p.alternates for p in got.pins) and any(p.hidden for p in got.pins)
+    assert got.properties == base.properties
+    assert back[variant.name].extends == base.name and back[variant.name].pins == ()
+    assert back[variant.name].properties == variant.properties
+    assert text.index('(symbol "EXD2-Q1"') > text.index('(symbol "EXD2_2_1"')
+
+
+def test_stacked_and_single_unit_generated_read_back() -> None:
+    base, variant = _generated("example_buck.toml")
+    text = write_symbol_library((variant, base))
+    back = {s.name: s for s in read_symbol_library(text, library="Example")}
+    assert back[base.name].pins == base.pins and back[base.name].graphics == base.graphics
+    assert '(symbol "EXB6202_0_1"' in text and '(symbol "EXB6202_1_1"' in text
+    assert "(hide yes)" in text and 'property "ki_keywords" "regulator buck"' in text
+
+
+def test_existing_libraries_unchanged() -> None:
+    import hashlib
+
+    from fenolite.catalog import ENTRIES, get_symbol
+
+    symbols = tuple(get_symbol(e.lib_id) for e in ENTRIES if e.kind == "symbol")
+    for target, digest in CATALOG_LIBRARY_SHA256.items():
+        text = write_symbol_library(symbols, target=target)
+        assert hashlib.sha256(text.encode()).hexdigest() == digest
+
+
+def test_multi_unit_graphics_keep_their_unit_when_read() -> None:
+    gate = _by_name(V10)["Mini_DualGate"]
+    assert {(g.unit, g.body_style) for g in gate.graphics} <= {(u.unit, u.body_style) for u in gate.units}
+    resistor = _by_name(V10)["Mini_R"]
+    assert {(g.unit, g.body_style) for g in resistor.graphics} == {(0, 0)}

@@ -87,7 +87,7 @@ from fenolite.model.board import (
 )
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
-from fenolite.model.library import FootprintDef, SymbolDef
+from fenolite.model.library import FootprintDef, SymbolDef, flatten_symbol
 from fenolite.model.presentation import PAPER_SIZES, DrawingSheet, SheetBitmap, SheetFrameRef, TitleBlock
 from fenolite.schematic.composition import CompositionError, fail
 from fenolite.schematic.intent import CompositionIntent
@@ -288,7 +288,14 @@ def resolve_symbols(
     with one ``kicad.lib.*`` issue per lib id that does not resolve. A lib id of ``authored`` (a symbol
     the script authored or took from the catalog, change c0086) is that symbol and is not resolved."""
     wanted = kicad_lib_ids(design)
-    found: dict[str, SymbolDef] = {lib_id: authored[lib_id] for lib_id in wanted if lib_id in authored}
+    # a derived symbol the script authored is flattened onto its base of the same library (change c0261)
+    found: dict[str, SymbolDef] = {
+        lib_id: flatten_symbol(
+            authored[lib_id], [s for s in authored.values() if s.library == authored[lib_id].library]
+        )
+        for lib_id in wanted
+        if lib_id in authored
+    }
     wanted = tuple(lib_id for lib_id in wanted if lib_id not in found)
     if not wanted:
         return found

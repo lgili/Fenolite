@@ -177,17 +177,17 @@ KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
     "kicad-clean": (
         ("", ""),
         ("", ""),
-        {"altium.symbol-simplified", "altium.footprint-unresolved", "altium.pcbdoc-not-written"},
+        {"altium.footprint-unresolved", "altium.pcbdoc-not-written"},
     ),
     "unknown-pin": (
         ("u1[8]", 'u1["XYZ"]'),
         ("", ""),
-        {"altium.unknown-pin", "altium.symbol-simplified"},
+        {"altium.unknown-pin"},
     ),
     "off-grid": (
         ("", ""),
         ("(at 0 5.08 270)", "(at 0.001 5.08 270)"),
-        {"altium.symbol-off-grid", "altium.symbol-simplified"},
+        {"altium.symbol-off-grid"},
     ),
     "lossy": (
         ("", ""),
@@ -197,7 +197,6 @@ KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
         ),
         {
             "altium.pin-lossy",
-            "altium.symbol-simplified",
             "altium.footprint-unresolved",
             "altium.pcbdoc-not-written",
         },
@@ -205,15 +204,17 @@ KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
     "pin-text-too-long": (
         ("", ""),
         ('"CLK"', '"' + "C" * 256 + '"'),
-        {"altium.pin-text-too-long", "altium.symbol-simplified"},
+        {"altium.pin-text-too-long"},
     ),
     "description": (
         ("", ""),
         ("Resistor drawn upright", "Résistance"),
-        {"altium.text-unwritable", "altium.symbol-simplified"},
+        {"altium.text-unwritable"},
     ),
 }
-"""KiCad-example variants (change c0034): (script change, library change, codes)."""
+"""KiCad-example variants (change c0034): (script change, library change, codes). Since change c0261 the
+two-unit ``DUAL_OPAMP`` is drawn from its graphics per part, so no variant reports
+``altium.symbol-simplified``."""
 
 
 def run_kicad_case(name: str) -> tuple[Issue, ...]:

@@ -10,7 +10,8 @@ Unit 0 and body style 0 mean "common to all units" and "common to all body style
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Sequence
+from dataclasses import dataclass, field, replace
 from typing import Literal
 
 from fenolite.core.coords import Point
@@ -124,12 +125,15 @@ class SymbolUnit:
 
 @dataclass(frozen=True, slots=True)
 class SymbolGraphic:
-    """A vector primitive in symbol-local coordinates (nanometres)."""
+    """A vector primitive in symbol-local coordinates (nanometres). ``unit`` and ``body_style`` say which
+    unit and body style draw it; 0 (the default) is common to all (change c0261)."""
 
     kind: Literal["line", "circle", "rect", "polygon"]
     points: tuple[Point, ...] = field(metadata=ORDERED)
     width: Nm = 254_000
     filled: bool = False
+    unit: int = 0
+    body_style: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -295,6 +299,98 @@ class DeviceDef:
         return next((found for found in self.ratings if found.key == key), None)
 
 
+def flatten_symbol(symbol: SymbolDef, parents: Sequence[SymbolDef] = ()) -> SymbolDef:
+    """``symbol`` with the body of the root of its ``extends`` chain (change c0261): the root's flags, units,
+    pins and graphics, ``extends`` cleared, and the properties of the chain, the nearest first. ``parents``
+    holds the symbols it may extend, in any order; a symbol without ``extends`` is returned as it is.
+    ``ValueError`` names a missing parent or a loop."""
+    by_name = {parent.name: parent for parent in parents}
+    chain = [symbol]
+    while chain[-1].extends:
+        parent = by_name.get(chain[-1].extends)
+        if parent is None or parent in chain:
+            raise ValueError(f"{symbol.lib_id}: cannot resolve the symbol {chain[-1].extends!r} it extends")
+        chain.append(parent)
+    if len(chain) == 1:
+        return symbol
+    properties: dict[str, str] = {}
+    for item in reversed(chain):
+        properties.update(item.properties)
+    return replace(
+        chain[-1],
+        id=symbol.id,
+        native_ids=symbol.native_ids,
+        name=symbol.name,
+        library=symbol.library,
+        properties=properties,
+    )
+
+
+PinGroup = Literal["", "supply", "ground", "input", "control", "output", "io", "passive", "nc"]
+"""The function group of a pin-table row (change c0261); ``""`` takes the default group of its type."""
+PinSide = Literal["", "left", "right", "top", "bottom"]
+"""The side of a generated symbol a row is drawn on; ``""`` takes the side of its group."""
+
+
+@dataclass(frozen=True, slots=True)
+class PinRow:
+    """One row of a pin table (``fenolite.pins.v0``, change c0261): the facts of one pin. ``unit`` is
+    ``None`` when the table leaves the split to the generator; ``stacked`` holds further pad numbers of the
+    same pin."""
+
+    number: str
+    name: str
+    etype: PinType
+    group: PinGroup = ""
+    side: PinSide = ""
+    bus: str = ""
+    unit: int | None = None
+    shape: PinShape = "line"
+    hidden: bool = False
+    stacked: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    alternates: tuple[PinAlternate, ...] = field(default=(), metadata=ORDERED)
+
+
+@dataclass(frozen=True, slots=True)
+class PinVariant:
+    """A ``[[variant]]`` row of a pin table: a derived symbol with only its own properties."""
+
+    name: str
+    value: str = ""
+    description: str = ""
+    datasheet: str = ""
+    footprint: str = ""
+    keywords: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    fp_filters: tuple[str, ...] = field(default=(), metadata=ORDERED)
+
+
+@dataclass(frozen=True, slots=True)
+class PinTable:
+    """A parsed pin table (``fenolite.pins.v0``, change c0261), rows in table order.
+
+    ``namespace``, ``version``, ``summary``, ``licence``, ``evidence``, ``sources`` and ``category`` are the
+    minimum of the record header that change c0259 owns; the rest is the body: the ``[symbol]`` settings,
+    ``unit_names`` as ``(unit, name)`` pairs and the variants."""
+
+    name: str
+    rows: tuple[PinRow, ...] = field(default=(), metadata=ORDERED)
+    namespace: str = ""
+    version: str = ""
+    summary: str = ""
+    licence: str = ""
+    evidence: str = ""
+    sources: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    category: str = ""
+    reference: str = "U"
+    description: str = ""
+    keywords: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    split_above: int = 100
+    unit_pins: int = 48
+    auto_bus: bool = True
+    unit_names: tuple[tuple[int, str], ...] = field(default=(), metadata=ORDERED)
+    variants: tuple[PinVariant, ...] = field(default=(), metadata=ORDERED)
+
+
 @dataclass(frozen=True, slots=True)
 class Library:
     """A set of definitions under one name (the schema root of ``library.json``). ``devices`` are sorted
@@ -316,7 +412,12 @@ __all__ = [
     "Library",
     "ModelPlacement",
     "PinAlternate",
+    "PinGroup",
+    "PinRow",
     "PinShape",
+    "PinSide",
+    "PinTable",
+    "PinVariant",
     "PowerKind",
     "Rating",
     "RatingUnit",
@@ -324,4 +425,5 @@ __all__ = [
     "SymbolGraphic",
     "SymbolPin",
     "SymbolUnit",
+    "flatten_symbol",
 ]

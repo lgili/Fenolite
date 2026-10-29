@@ -135,7 +135,8 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
 |---|---|
 | `FootprintDef` | entity: `name`, `library`, `description`, `keywords`, `kind`, `flags`, `properties`, `pads` (board `Pad`, `net_id = None`, positions relative to the definition), `graphics` (board `Graphic`), `models` |
 | `SymbolDef` | entity: `name`, `library`, `extends`, `power`, `properties`, `in_bom`, `on_board`, `exclude_from_sim`, pin-name settings, `units`, `pins`, ordered symbol-local vector `graphics` |
-| `SymbolPin`, `SymbolUnit`, `SymbolGraphic`, `PinAlternate` | value objects without the entity header; a pin is identified by `(unit, body_style, number)` and graphic points use integer nanometres |
+| `SymbolPin`, `SymbolUnit`, `SymbolGraphic`, `PinAlternate` | value objects without the entity header; a pin is identified by `(unit, body_style, number)` and graphic points use integer nanometres; a `SymbolGraphic` names its `unit` and `body_style` (0, the default, is common to all; change c0261) |
+| `PinTable`, `PinRow`, `PinVariant` | value objects of a pin table (`fenolite.pins.v0`, change c0261): the rows of pin facts in table order, the `[symbol]` settings, unit names and variants; `fenolite.catalog.pins` reads and writes them and `fenolite.catalog.generate.symbol` draws a `SymbolDef` from them |
 | `DeviceDef` | value object (change c0248): `id` (`<namespace>:<name>`), `summary`, `symbol`, `footprint`, `manufacturer`, `mpn`, `datasheet`, `ref_prefix`, `value`, `evidence`, `sources`, `ground`, `unused_pads`, `ends`, `properties`, `pins` (ordered by function code point), `ratings` (ordered by key), `provenance` |
 | `DevicePin` | `function`, `pin_pads` (ordered `(pin, pad)` pairs, the form of `Component.pin_pad_map`), `voltage`, `current`, `must_connect` |
 | `Rating` | `key` (`voltage`, `current`, `power`, `temperature`), `unit` (`uV`, `uA`, `uW`, `mdegC`), `min`, `max`: integers or `null` |

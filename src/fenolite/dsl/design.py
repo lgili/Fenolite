@@ -795,13 +795,18 @@ class Design(Container):
 
     def add(self, *objs: object) -> None:
         """Attach authored symbols explicitly, or attach ordinary design objects as usual."""
-        from fenolite.dsl.symbol import Symbol
+        from fenolite.dsl.symbol import DerivedSymbol, Symbol
 
         regular: list[object] = []
         for obj in objs:
-            if isinstance(obj, Symbol):
+            if isinstance(obj, (Symbol, DerivedSymbol)):
                 if obj.lib_id in self.symbols:
                     raise DslError(f"symbol {obj.lib_id!r} is registered twice")
+                if isinstance(obj, DerivedSymbol) and self.symbols.get(obj.base.lib_id) is not obj.base:
+                    raise DslError(
+                        f"symbol {obj.lib_id!r} extends {obj.base.lib_id!r}: add the base symbol to the "
+                        "design first (KiCad resolves a derived symbol within its library)"
+                    )
                 self.symbols[obj.lib_id] = obj
             else:
                 regular.append(obj)

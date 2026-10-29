@@ -740,7 +740,7 @@ fix = "Use a symbol drawn on the 10 mil grid, or correct the symbol."
 see = "Build target"
 
 ["altium.symbol-simplified"]
-meaning = "A symbol is drawn as one rectangle per part (--altium-symbols generic, no graphics, a graphic without a record such as an arc, or several units or body styles), or its other body styles or alternates were dropped."
+meaning = "A symbol is drawn as one rectangle per part (--altium-symbols generic, no graphics, a graphic without a record such as an arc, or a part of a multi-unit symbol without a graphic of its own), or its other body styles or alternates were dropped."
 fix = "Nothing to do; redraw the symbol in Altium if its look matters."
 see = "Build target"
 
@@ -3756,6 +3756,21 @@ see = "route"
 meaning = "A property changed both in the script (or edits.toml) and in the CAD file since the last build, to different values, or an edit of edits.toml was made over a script value that changed since (stale-edit); nothing is written."
 fix = "Choose a side with fenolite build ... --take code:PATH#PROPERTY or --take cad:PATH#PROPERTY (board or schematic when the two CAD sides disagree), then run fenolite sync --to-source."
 see = "build"
+
+["symbol.bus-gap"]
+meaning = "A bus of a pin table skips an index (D0, D1, D3): the generated symbol draws the bus in natural order with the gap, and the message names the missing indices."
+fix = "Nothing to do when the part has no such pin; otherwise add the missing row to the pin table."
+see = "library"
+
+["symbol.bus-split"]
+meaning = "A bus of a pin table holds more rows than one unit may (unit_pins), so the automatic split cut it across units."
+fix = "Raise unit_pins in [symbol], split the bus into named buses, or give every row an explicit unit."
+see = "library"
+
+["symbol.units-split"]
+meaning = "The pin table has more visible rows than split_above, so the generated symbol was split into signal units and power units; the message names the pins per unit."
+fix = "Nothing to do; give every row a unit, or change split_above or unit_pins in [symbol], to choose the units yourself."
+see = "library"
 
 ["sync.net-dropped"]
 meaning = "The board holds copper on a net that the design no longer has and that no alias covers; the next build drops that copper."

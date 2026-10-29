@@ -330,3 +330,40 @@ def test_devices_builds_without_a_subprocess(monkeypatch: pytest.MonkeyPatch, tm
     envelope = json.loads(out.getvalue())
     assert not [issue for issue in envelope["issues"] if issue["severity"] != "info"], envelope["issues"]
     assert [row["id"] for row in envelope["result"]["devices"]][0] == "Example:BUCK_6V_2A"
+
+
+SYMBOLS = ROOT / "examples" / "symbols"
+
+
+def test_symbols_example_builds_both_tables(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Change c0261: the script generates both symbols and their variants, and the build writes them into
+    one library, base before variant, as ``write_symbol_library`` gives them."""
+    from fenolite.backends.kicad.sym import read_symbol_library, write_symbol_library
+    from fenolite.catalog.generate.symbol import generate_symbol
+    from fenolite.catalog.pins import read_pins
+
+    lines = (SYMBOLS / "design.py").read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith("# Authored for Fenolite")
+    assert "`symbols/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+    design = run_design_script(SYMBOLS / "design.py").design
+    assert sorted(design.symbols) == [
+        "Example:EXB6202",
+        "Example:EXB6202DR",
+        "Example:EXM120",
+        "Example:EXM120-T",
+    ]
+    expected: list[object] = []
+    for name, footprint in (("EXB6202", "Fenolite:SOIC_8"), ("EXM120", "")):
+        table = read_pins(SYMBOLS / "pins" / f"{name}.toml")
+        base, derived, _ = generate_symbol(table, library="Example", footprint=footprint)
+        expected += [base, *derived]
+        assert design.symbols[f"Example:{name}"].definition == base  # type: ignore[attr-defined]
+    monkeypatch.chdir(tmp_path)
+    code = cli_main.main([
+        "build", str(SYMBOLS / "design.py"), "--out", "out", "--kicad-version", "10", "--confirm", "--json"
+    ])  # fmt: skip
+    assert code == 0
+    text = (tmp_path / "out" / "lib" / "Example.kicad_sym").read_text(encoding="utf-8")
+    assert text == write_symbol_library(expected, target=10)  # type: ignore[arg-type]
+    units = {s.name: s.unit_count for s in read_symbol_library(text, library="Example") if not s.extends}
+    assert units == {"EXB6202": 1, "EXM120": 3}

@@ -1,0 +1,50 @@
+# Authored for Fenolite (CC0-1.0): an illustrative step-down regulator, not a real product.
+schema = "fenolite.pins.v0"
+id = "Example:EXB6202"
+version = "1.0.0"
+summary = "6 V 2 A step-down regulator (illustrative)"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"
+
+[symbol]
+reference = "U"
+keywords = ["regulator", "buck"]
+
+[[pin]]
+number = "5"
+name = "VIN"
+type = "power_in"
+group = "supply"
+
+[[pin]]
+number = "2"
+name = "GND"
+type = "power_in"
+group = "ground"
+stacked = ["7"]
+
+[[pin]]
+number = "4"
+name = "EN"
+type = "input"
+group = "control"
+
+[[pin]]
+number = "3"
+name = "FB"
+type = "input"
+
+[[pin]]
+number = "6"
+name = "SW"
+type = "power_out"
+
+[[pin]]
+number = "1"
+name = "BST"
+type = "passive"
+side = "right"
+
+[[variant]]
+name = "EXB6202DR"
+value = "EXB6202DR"
