@@ -19,3 +19,4 @@ GitHub repository on the public patterns.
 | 2026-10-08 | v0.4.0 | root .. 367cdf8 | 8053 blobs reachable from any ref | 5 structural + blob list | not run | 0 |
 | 2026-10-15 | v0.5.0 | root .. 9946628 | 9814 blobs reachable from any ref | 5 structural + blob list | not run | 0 |
 | 2026-10-29 | v0.6.0 | root .. ab73da4 | 6991 blobs reachable from any ref of the local clone | 5 structural + blob list | not run | 0 |
+| 2026-10-29 | v0.6.0 (release run 40894254054) | root .. 7b9cc1e | 12 586 blobs of every ref the release workflow fetched | 5 structural + blob list | not run | 0 |
