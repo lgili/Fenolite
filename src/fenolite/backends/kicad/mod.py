@@ -34,6 +34,7 @@ from fenolite.backends.kicad._fpmap import (
     margin_disagrees,
     net_tie_groups,
     padstack_key,
+    placement_node,
     projected_fab_property,
     projected_net_ties,
     projected_zone_connect,
@@ -70,7 +71,7 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.model.base import Modeled, Opaque, Slot
 from fenolite.model.board import Graphic, Pad
-from fenolite.model.library import FootprintDef, FootprintKind
+from fenolite.model.library import FootprintDef, FootprintKind, ModelPlacement
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-LIB-READ",))
 AUTHORING_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-DSL-FOOTPRINT",))
@@ -310,7 +311,11 @@ def prepare_authored_definition(defn: FootprintDef) -> FootprintDef:
         root.append(Opaque(dumps(prop, style="compact"), None))
     root.extend(Modeled("pads") for _ in defn.pads)
     root.extend(Modeled("graphics") for _ in defn.graphics)
-    root.extend(Modeled("models") for _ in defn.models)
+    # A model of an authored definition (c0260: a generated footprint's STEP) is written as a ``model`` child
+    # with the identity placement, kept as an opaque child as every read ``model`` is.
+    root.extend(
+        Opaque(dumps(placement_node(ModelPlacement(path)), style="compact"), None) for path in defn.models
+    )
     if defn.placements:
         root.append(Modeled("placements"))
     pads = tuple(

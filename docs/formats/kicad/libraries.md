@@ -547,7 +547,10 @@ above.
   catalog, the footprint generators) gets the authored child order of `prepare_authored_definition`; a
   `roundrect` pad with `Pad.corner_ratio` then gets `(roundrect_rratio R)` after `layers`, `R` the ratio
   in parts per million written as an exact decimal (S-0001: a scaling factor between 0 and 1). A pad
-  without the field gets no child, so earlier authored definitions keep their bytes. The footprints of
+  without the field gets no child, so earlier authored definitions keep their bytes. Each path of `models`
+  of an authored definition is written as a `model` child with the identity placement (offset and rotation
+  0, scale 1; "Model placement" above), kept as an opaque child as a read `model` is; no authored
+  definition named a model before, so none changes. The footprints of
   every generator record load in `fp export svg` and read back with equal pads after `fp upgrade
   --force` on 10.0.6 for targets 9 and 10 (`tests/kicad/libs/test_generated_footprints.py`, 2026-10-30;
   KiCad 9 in CI).

@@ -17,6 +17,7 @@ from types import MappingProxyType
 
 from fenolite.catalog.footprints import naming
 from fenolite.catalog.footprints._draft import Context, Draft, Refused, deltas_view
+from fenolite.catalog.footprints.bodies import bodies as body_volumes
 from fenolite.catalog.footprints.codes import ISSUE_CODES, issue, sort_issues
 from fenolite.catalog.footprints.drawing import DRAWINGS, NAMESPACE, draw0, draw1
 from fenolite.catalog.footprints.grid import draw_grid
@@ -240,6 +241,8 @@ def _footprint(
     else:
         drawn = draw1(name, lib_id, draft, table if table is not None else LANDS[1])
     box = drawn.courtyard
+    volumes = body_volumes(package, draft, lib_id)
+    models = (model_path(library, name),) if volumes and package.drawing >= 1 else ()
     footprint = FootprintDef(
         id=derived_id("fpd", NAMESPACE, lib_id),
         native_ids={"fenolite": lib_id},
@@ -249,8 +252,20 @@ def _footprint(
         kind=draft.kind,
         pads=drawn.pads,
         graphics=drawn.graphics,
+        models=models,
+        bodies=volumes,
     )
     return footprint, (box.x0, box.y0, box.x1, box.y1)
+
+
+MODEL_ROOT = "${KIPRJMOD}/lib"
+"""Where a ``drawing >= 1`` footprint names its STEP model (decision 13): ``lib/<library>.3dshapes``
+beside the project, which ``fenolite build`` writes."""
+
+
+def model_path(library: str, name: str) -> str:
+    """``${KIPRJMOD}/lib/<library>.3dshapes/<name>.step``."""
+    return f"{MODEL_ROOT}/{library}.3dshapes/{name}.step"
 
 
 __all__ = [
@@ -259,8 +274,10 @@ __all__ = [
     "ISSUE_CODES",
     "Generated",
     "LandReport",
+    "MODEL_ROOT",
     "Package",
     "generate",
+    "model_path",
     "positions_of",
     "read_package",
     "series_name",
