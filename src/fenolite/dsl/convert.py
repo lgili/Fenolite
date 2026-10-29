@@ -308,12 +308,11 @@ def _apply_refs(design: Design, refs: Mapping[str, str] | None) -> None:
         refs = assign_refs(design, make_lock(design.name), moves={}).refs
     for path, part in design.parts.items():
         if part.explicit_ref is not None:
-            part.ref = part.explicit_ref
             continue
         ref = refs.get(path)
         if ref is None:
             raise DslError(f"to_model(): refs gives no ref for the part {path}, which has no explicit ref")
-        part.ref = check_name(ref, f"ref of {path}")
+        part.assigned = check_name(ref, f"ref of {path}")
 
 
 def _design_model(design: Design) -> ModelDesign:

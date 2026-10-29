@@ -30,7 +30,7 @@ ALLOWED: dict[str, set[str]] = {
     "core": set(),
     "model": set(),
     "geometry": set(),
-    "dsl": {"model", "schematic"},
+    "dsl": {"model", "schematic", "catalog"},  # catalog: the reference prefix of a symbol (c0249)
     "schematic": set(),
     "catalog": {"model"},
     "lens": {"model", "backends*", "schematic"},

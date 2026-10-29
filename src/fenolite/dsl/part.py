@@ -212,8 +212,8 @@ class Part:
         self.explicit_ref: str | None = None if ref is None else check_name(ref, "ref")
         """The ref the script wrote, or ``None``: the build then assigns one (``docs/dsl.md``, "Reference
         designators and the design lock")."""
-        self.ref: str | None = self.explicit_ref
-        """The explicit ref, or the ref the build assigned (``to_model``); ``None`` before that."""
+        self.assigned: str | None = None
+        """The ref the build assigned to a part without an explicit ref (``to_model``)."""
         self.name: str | None = None if name is None else check_name(name, "part name")
         if prefix is not None and (not isinstance(prefix, str) or not PREFIX.fullmatch(prefix)):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part prefix {prefix!r} must match {PREFIX.pattern}")
@@ -283,6 +283,16 @@ class Part:
         self.connections: dict[str, Net] = {}
         self.no_connects: set[str] = set()
         """Designators marked as intentionally unconnected, as written (``no_connect``)."""
+
+    @property
+    def ref(self) -> str | None:
+        """The explicit ref, or the ref the build assigned (``to_model``); ``None`` before that."""
+        return self.explicit_ref if self.explicit_ref is not None else self.assigned
+
+    @ref.setter
+    def ref(self, value: str | None) -> None:
+        """Setting a ref makes it the part's explicit ref (``None`` removes it)."""
+        self.explicit_ref = None if value is None else check_name(value, "ref")
 
     @property
     def key(self) -> str:
