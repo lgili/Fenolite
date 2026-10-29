@@ -3147,6 +3147,36 @@ meaning = "The copper check judged the copper the octilinear router placed and f
 fix = "Read the finding in the message, give the connection room with fenolite place --move, or route it with another router; fenolite check shows the board's findings."
 see = "route"
 
+["route.role-unrouted"]
+meaning = "In role mode (route --roles critical), a gate loop or Kelvin pair was not routed. The message gives the reason (no-room, too-long, no-layer, near-switching, isolation, drc or pads), and result.roles holds the proposal with its command and a render --region command for the place."
+fix = "Run the proposal's command: free the corridor it names, allow a via with --router-option kelvin-vias=2, raise max-length, or move a part; then run route --roles critical again. Draw the place with the render command first."
+see = "route"
+
+["route.role-refused"]
+meaning = "In role mode, a group was routed, but the role check of c0222 then found a role finding on it that was new or larger than before; the whole copper of the group was removed."
+fix = "Read the finding in the message, free the place it names, and run route --roles critical again; fenolite roles PATH --check shows the role findings."
+see = "route"
+
+["route.role-unconfirmed"]
+meaning = "In role mode, inferred role groups that nobody confirmed were not routed: copper is placed and locked only for confirmed or declared groups. The message names them."
+fix = "Review them with fenolite roles PATH, confirm the right ones with --accept-group NAME, then run route --roles critical again."
+see = "roles"
+
+["route.role-kept"]
+meaning = "In role mode, a group whose connections copper already joins still has role findings; role mode removes no copper on its own, so the group was left as it is."
+fix = "Run route --roles critical again with --rip to replace the group's branches; locked and script copper stay, so change the script when the old copper is script copper."
+see = "route"
+
+["route.role-placement"]
+meaning = "In role mode, the placement bound of a gate loop is above the gate_max you set: no route can bring the loop's area under your limit."
+fix = "Place the driver closer to the switch with fenolite place --move, or raise the limit with fenolite roles."
+see = "roles"
+
+["route.role-none"]
+meaning = "In role mode, the board holds no gate loop or Kelvin pair to route: no role is stored or declared, or the groups named by --group are not among them."
+fix = "Run fenolite roles PATH to see the inferred groups and confirm them with --accept-group or --accept-all; a hot loop is power copper and is not routed here."
+see = "roles"
+
 ["route.pair-uncoupled"]
 meaning = "With --pairs-as-nets, the two nets of a differential pair were given to the router as two single nets: their copper is not coupled at the pair gap."
 fix = "Nothing to do if that is what you want. KiCad's diff_pair_gap and diff_pair_uncoupled rules judge the result; route with a router that has the feature pairs to couple them."

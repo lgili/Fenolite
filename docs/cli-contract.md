@@ -973,6 +973,12 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `route.plane-net` | info | a plane net that `--nets` selects is not given to a router; its pads reach the plane through fan-out vias |
 | `route.project-unread` | warning | the project file or the rules file beside the board could not be read: without the project every net takes the default class values, without the rules file the rules are not given to the router |
 | `route.resumed` | info | the copper of router runs that finished in an earlier call of the same job was reused; the message gives the number of runs and of nets |
+| `route.role-kept` | info | role mode: a group that copper already joins still has role findings and was left as it is; the message names the findings, the hint `--rip` |
+| `route.role-none` | info | role mode: no confirmed or declared gate loop or Kelvin pair to route; nothing is planned |
+| `route.role-placement` | info | role mode: a gate loop's placement bound is above the user's `gate_max`; the message gives both |
+| `route.role-refused` | warning | role mode: a routed group was removed whole because a role finding got worse; the message names the group, the code and both measures |
+| `route.role-unconfirmed` | info | role mode: inferred groups were not routed; the message gives their count and names |
+| `route.role-unrouted` | warning | role mode: a gate loop or Kelvin pair was not routed; the message gives the reason, and `result.roles` the proposal and its commands |
 | `route.tool-failed` | error | the external router failed |
 | `route.tool-missing` | error | the configured router is unavailable |
 | `route.tool-unpinned` | warning | external router checkout is not the supported pinned version |

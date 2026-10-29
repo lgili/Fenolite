@@ -86,7 +86,7 @@ In role mode, `fenolite route` SHALL add `role_check` to `RoutingJob.extra`: a c
 - **THEN** the result holds no copper of `isense`'s two routes and one `route.role-refused` naming it
 
 ### Requirement: Role route codes
-`ISSUE_CODES` SHALL hold `route.role-unrouted` and `route.role-refused` (warnings, errors under `--require-complete`), and `route.role-unconfirmed`, `route.role-kept`, `route.role-placement` and `route.role-none` (info), each with an `explain.toml` entry and a row in `docs/cli-contract.md`. Equal inputs MUST give equal results.
+`ISSUE_CODES` SHALL hold `route.role-unrouted` and `route.role-refused` (warnings, which `--require-complete` turns into one `route.incomplete` error), and `route.role-unconfirmed`, `route.role-kept`, `route.role-placement` and `route.role-none` (info), each with an `explain.toml` entry and a row in `docs/cli-contract.md`. Equal inputs MUST give equal results.
 
 #### Scenario: Codes explained
 - **WHEN** `uv run pytest tests/unit/cli/test_explain_cmd.py tests/unit/routing -k codes` runs

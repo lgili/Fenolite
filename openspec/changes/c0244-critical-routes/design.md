@@ -456,8 +456,9 @@ closed tables, each with the command to run.
 - **`route.role-placement`** (info). A gate loop whose placement bound (c0222) is above the user's
   `gate_max` gets this info: no route can bring the area under the bound. It names the bound and the
   limit. Without a user limit there is nothing to compare.
-- **`--require-complete`** makes each `route.role-unrouted` and `route.role-refused` an error, with exit 5
-  and no write, as `route.incomplete` does.
+- **`--require-complete`** adds one `route.incomplete` (error) naming the groups of every
+  `route.role-unrouted` and `route.role-refused`, with exit 5 and no write, as it does for open nets; each
+  code keeps its one severity in `ISSUE_CODES`.
 
 ### 15. Command line, result and protocol
 
@@ -550,8 +551,8 @@ document `FEN-3004`, a write `FEN-4001` and `FEN-4002`, and `--require-complete`
 
 | code | severity | meaning |
 |---|---|---|
-| `route.role-unrouted` | warning (error with `--require-complete`) | a critical group not routed: reason and proposal |
-| `route.role-refused` | warning (error with `--require-complete`) | a routed group removed because a role finding got worse |
+| `route.role-unrouted` | warning (`route.incomplete` with `--require-complete`) | a critical group not routed: reason and proposal |
+| `route.role-refused` | warning (`route.incomplete` with `--require-complete`) | a routed group removed because a role finding got worse |
 | `route.role-unconfirmed` | info | the inferred groups not routed, with their count and names |
 | `route.role-kept` | info | a complete group with findings, not ripped |
 | `route.role-placement` | info | a gate loop whose placement bound exceeds the user's limit |
