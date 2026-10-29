@@ -40,6 +40,7 @@ ALLOWED: dict[str, set[str]] = {
     "checks": {"model", "geometry", "backends.base"},
     "analysis": {"model", "geometry", "backends.base"},
     "placement": {"model", "geometry", "backends.base"},
+    "roles": {"model", "geometry", "backends.base", "analysis"},
     "routing": {"model", "geometry"},
     "routing.plugins.<x>": {"routing", "model", "geometry", "backends.<same>"},
     "templates": {"model"},
@@ -262,6 +263,15 @@ def test_layering() -> None:
         ("backends.kicad", "api", False),
         ("cli", "api", True),
         ("agent", "api", False),
+        ("roles", "analysis", True),
+        ("roles", "backends.base", True),
+        ("roles", "backends.kicad", False),
+        ("roles", "checks", False),
+        ("checks", "roles", False),
+        ("checks", "analysis", False),
+        ("analysis", "roles", False),
+        ("api", "roles", False),
+        ("cli", "roles", True),
     ],
 )
 def test_rule_table(source: str, target: str, ok: bool) -> None:
@@ -323,6 +333,28 @@ def test_public_api_stays_on_top(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     problems = _violations()
     assert any("checks → api" in p for p in problems), problems
     assert not any("api →" in p for p in problems), problems
+
+
+def test_roles_read_the_analyses_checks_do_not(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Capability package-layering, "Allowed import edges", scenario "Roles read the analyses, checks do
+    not" (change c0222): ``roles`` may import ``analysis``; the check stage of the roles imports neither
+    ``roles`` nor ``analysis``, and ``roles`` imports no backend."""
+    fake = _fake_tree(tmp_path, "roles/measure.py", "import fenolite.analysis.shapes\n")
+    (fake / "checks").mkdir()
+    (fake / "checks" / "roles.py").write_text(
+        "import fenolite.checks.stages\nimport fenolite.model.design\nimport fenolite.backends.base\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    assert _violations() == []
+    (fake / "checks" / "roles.py").write_text(
+        "import fenolite.roles\nimport fenolite.analysis\n", encoding="utf-8"
+    )
+    (fake / "roles" / "measure.py").write_text("import fenolite.backends.kicad.pcb\n", encoding="utf-8")
+    problems = _violations()
+    assert any("checks → roles is not allowed" in p for p in problems), problems
+    assert any("checks → analysis is not allowed" in p for p in problems), problems
+    assert any("roles → backends.kicad is not allowed" in p for p in problems), problems
 
 
 def test_api_runs_the_commands_lazily(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

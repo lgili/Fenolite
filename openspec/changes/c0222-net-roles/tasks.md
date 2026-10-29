@@ -40,7 +40,12 @@
   the field `origin`, because `GateLoop.source` names the source pad as the design writes it. Section "Net
   roles" in `docs/design-model.md`; `schemas/fenolite.model.v0/rules.json` regenerated. Proof passed: 22
   tests (`-k roles`), and the schemas are current.
-- [ ] 1.2 Add the package `src/fenolite/roles/` and its row in the import-graph test (scenario "Roles read the analyses, checks do not"). Proof: `uv run pytest tests/unit/test_import_graph.py -q`.
+- [x] 1.2 Add the package `src/fenolite/roles/` and its row in the import-graph test (scenario "Roles read the analyses, checks do not"). Proof: `uv run pytest tests/unit/test_import_graph.py -q`.
+
+  2026-10-29: `src/fenolite/roles/__init__.py`; the row `roles` → `model`, `geometry`, `backends.base`,
+  `analysis` in `ALLOWED`. No other row names `roles`, so only `cli` and the root modules may import it;
+  `test_rule_table` holds the new edges and `test_roles_read_the_analyses_checks_do_not` the scenario.
+  Proof passed: 52 tests.
 - [ ] 1.3 Add `roles/store.py`: the companion document `fenolite.roles.v0`, its loader and writer, and `--roles FILE` resolution (scenario "Roles beside a hand-routed board"). Proof: `uv run pytest tests/unit/roles/test_store.py -q`.
 
 ## 2. Classes and inference
