@@ -380,7 +380,8 @@ whose project has roles (any KiCad or Altium board: inferred roles exist without
   - it refuses a confirm whose plan it did not stage;
   - it logs each receipt in the Messages panel (source `fenolite roles`, SHA-256 of the file).
 - **Undo and redo.**
-  - Each receipt pushes an entry with its inverse action, computed from the dry-run reply. For example, an
+  - Each receipt pushes an entry with its inverse action, which the server computes from the stored roles
+    before the write and returns with the plan (`fenolite.view.roles.inverse`). For example, an
     accept is undone by a forget, a set over a confirmed role by a set back to it, and a current by the
     previous current or a forget.
   - Ctrl+Z stages the inverse plan. If its target's SHA-256 still equals the receipt's, the inverse is

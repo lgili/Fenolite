@@ -96,6 +96,8 @@
   Note (2026-10-29): `pick()` uses a 2 mm grid per layer, built on the first click after a scene loads, and tests the candidates in the order of the full scan, so the result is the same; `pickScan()` keeps the scan for the comparison. On the stress board: 500 points, no difference, the grid faster than the scan. Proof passed.
 - [ ] 6.4 Measure the budgets in the `viewer` job (`H-G-WB-FRAME`, `H-G-WB-CURSOR`, `H-G-WB-OPEN`) and on the maintainer's PC, and record both under this task. Proof: `uv run pytest tests/visual/test_workbench.py -k budget -q` in the `viewer` job on the pushed commit.
 
+  Note (2026-10-29): the `viewer` job on 8ae0c27e measured: open 416 ms (budget 2.5 s); pan and zoom event p95 1.5 ms, median 1.4 ms, no board painted (budget 52.9 ms, from 75.5 ms before the workbench); the full draw when the hand rests p95 77.6 ms (not budgeted); cursor p95 0.10 ms, no board painted (budget 4 ms); a Messages click 8.3 ms (budget 100 ms); 23 584 primitives on 840 x 606 px. Recorded in `docs/hypotheses.md`. Still open: the measurement on the maintainer's PC, which this session cannot reach (`uv run pytest tests/visual/test_workbench.py -k budget -q -s` prints the line there).
+
 ## 7. Net Roles workspace (read-only)
 
 - [x] 7.1 Add `fenolite.view.roles.roles_payload`, `/roles/<id>.json`, its cache, and its embedding in exports with `--workspace roles` (scenario "The numbers are the command's"). Proof: `uv run pytest tests/unit/view/test_roles_payload.py -q`.
