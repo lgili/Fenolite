@@ -48,12 +48,13 @@ None.
 - No change of a scene, of a document's colours (`docs/viewer.md`, "Colours") or of a server route.
 - The inspector, the layers panel, the net emphasis and the 3D controls are c0244; running commands is c0245;
   writing actions are c0246.
-- No icon font, no framework, no external URL: the page stays one offline file that `--export` embeds.
+- No icon font, no framework beyond the Preact of c0247, no external URL: the page stays one offline file
+  that `--export` embeds.
 - No icon or palette value taken from a vendor tool or a third-party icon set.
 
 ## Evidence level required
 
 No format fact is involved, so no evidence label changes. Each behaviour is proven by tests: static and
-Node checks of `page.html` in `tests/unit/view/`, and Chromium interaction and screenshot tests in
+Node checks of the assembled page (`template()`) in `tests/unit/view/`, and Chromium interaction and screenshot tests in
 `tests/visual` run by the `viewer` CI job (Playwright 1.63.0). The screenshot references are regenerated
 in that job's environment and reviewed by the maintainer before they are committed.

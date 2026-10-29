@@ -6,6 +6,21 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The viewer page is built from TypeScript modules** (c0247; the maintainer's decision of 2026-10-29, before
+  the redesign of c0243 and c0244): the old single `src/fenolite/view/page.html` (188 KB of inline CSS, markup
+  and vanilla JavaScript) is now about fifty modules under `viewer/src/` (`core`, `board`, `measure`, `three`,
+  `sch`, `panels`, `dialogs`, `table`, `library`, `export`), type-checked by the TypeScript compiler and linked
+  by `viewer/build.mjs` into one script whose top-level names stay page globals; the board, sheet and WebGL
+  renderers are moved, not rewritten. Preact (MIT, bundled, listed in `NOTICE`) renders the Changes, Messages,
+  Findings and Navigator panels. The build writes `src/fenolite/view/static/` (`page.html`, `viewer.js`,
+  `viewer.css`, `manifest.json`), which is committed and inlined by `fenolite.view.export.template()`, so the
+  served page and `--export` stay one offline file and installing Fenolite needs no Node. `make viewer`
+  rebuilds (Node 22, `tools/build_viewer.py`), `make viewer-check` fails on a stale bundle and runs in the
+  `viewer` CI job, and `tests/unit/view/test_viewer_bundle.py` checks the recorded digests without Node.
+  Nothing changes on screen: the page's unit tests and the 69 visual tests with their references pass unchanged.
+
 ## [0.6.0] - 2026-10-29
 
 ### Added

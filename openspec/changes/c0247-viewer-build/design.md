@@ -58,7 +58,7 @@ carry `viewer/`: it builds the wheel from the committed bundle, which is all a P
 | `dialogs/` | `catalog-selection` | the catalog dialog |
 | `table/`, `library/`, `export/` | `table`, `library`, `svg` | BOM and output-job tables, libraries, SVG and print |
 | `vendor/` | `preact.ts` | the vendor chunk's entry |
-| `styles/` | `index.css` and eight files it imports | the stylesheet, split by area, in the original rule order |
+| `styles/` | `index.css` and the ten files it imports | the stylesheet, split by area, in the original rule order |
 
 `globals.d.ts` declares `EMBED` and `LIVE`, which stay in an inline script of the shell.
 
@@ -92,9 +92,10 @@ linked before it (function declarations are hoisted); `env`, `dom` and `state` i
 ### 5. Shared state
 
 Read-mostly state is imported (live bindings). A `let` that another module assigns gets a setter in its own
-module (`setS`, `setDoc`, `setProject`, `setCtx`, `setP2D`, `setDpr`, `setFitted`, `setLib`, `setLinkReady`,
-`setNavigation`, `setLoadingNavigation`, `setVariant`, `setProjNet`, `setMarks`); the compiler refuses an
-assignment to an import, so none is missed. Objects (`st`, `view`, `SCH`, `V3`, `REVIEW`, `CATSEL`, `TBL`)
+module: `setProject`, `setDoc`, `setS`, `setCtx` and `setP2D` in `core/state`, `setDpr` and `setFitted` in
+`core/viewport`, `setLinkReady` in `core/links`, `setLib` in `library/library`. A `let` assigned only by its
+own module (`navigation`, the Path2D caches, `VARIANT`, `MARKS`, `PROJ_NET`…) stays there without one. The
+compiler refuses an assignment to an import, so none is missed. Objects (`st`, `view`, `SCH`, `V3`, `REVIEW`, `CATSEL`, `TBL`)
 stay `const` and are mutated in place, as before.
 
 ### 6. Preact for panels only
@@ -104,7 +105,8 @@ The entry `vendor/preact.ts` re-exports `h`, `render`, `Fragment` and `Component
 compiles to `preact.h`. The panels converted are Changes (`buildDiffList`), Messages (`buildMessages`),
 Findings (`buildFindings`) and Navigator (`buildNav`): their `build*` functions keep their names and call
 `preact.render(<Panel …/>, box)`, producing the same elements, classes, titles and texts; nothing else writes
-into those containers (`loadSch` renders an empty Findings panel instead of clearing it). Not converted in
+into those containers (`loadSch` calls `clearFindings()`, an empty render, instead of clearing it). Rows of
+different kinds carry different keys, so Preact never reuses one for the other and leaves no attribute behind. Not converted in
 this change: Marks (a visual test calls `.onclick()` of its rows, which a Preact listener does not set), the
 tree, the virtual lists of the review panels, the project review and the catalog dialog; c0243 and c0244
 convert what they redesign. Preact's dist holds five `http://www.w3.org/…` namespace literals; the build
@@ -166,6 +168,8 @@ bundle and in `NOTICE`; no `</script` in the bundle). The drift check runs in th
   is due, and `make viewer` is one command.
 - **Two parallel changes edit the removed file.** Decision 10 gives their places and the merge steps.
 - **Preact upgrades** may change the namespace literals; the build counts them and fails.
+- **c0244 modifies "Viewer page" too.** Its block is rebased on this change's wording and carries the
+  scenario "The served page is the assembled page"; c0247 is archived before c0244.
 
 ## Open Questions
 
