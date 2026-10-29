@@ -3,8 +3,9 @@
 The roadmap's v1.0 is a freeze: "CLI, envelope and schemas `v1`" (`docs/roadmap.md`, "Phase 5: to 1.0").
 `docs/cli-contract.md` says the contract "is frozen at 1.0; before that, a breaking change bumps the schema
 id", and `schemas/README.md` says "after 1.0 only additive changes are allowed". Nothing records what is
-frozen: the surface is 46 visible commands with their options, the exit codes 0 to 7, 23 `FEN-` codes and
-656 issue codes in 62 tables, each with a severity (measured on 2026-10-28). A rename, a dropped option or a raised severity passes
+frozen: the surface is 49 visible commands with their options, the exit codes 0 to 7, 24 `FEN-` codes and
+707 issue codes in 70 tables, each with its severities (measured on 2026-10-29 by `tools/gen_cli_surface.py`,
+after the work of c0204 to c0229; 46 commands, 23 codes and 656 issue codes on 2026-10-28). A rename, a dropped option or a raised severity passes
 every test today, as long as the command still runs. An agent that drives Fenolite through 1.x needs the
 surface written down and every change to it judged.
 
@@ -43,8 +44,9 @@ took c0171.
 
 ### Modified Capabilities
 
-- `cli-contract`: MODIFIED "Envelope"; ADDED "Contract surface", "Stability of the 1.x contract",
-  "Deprecated options and commands".
+- `cli-contract`: MODIFIED "Envelope"; ADDED "Contract surface", "Contract surface drift check", "Library
+  section of the contract surface", "Experimental and deprecated items in the surface", "Stability of the 1.x
+  contract", "Breaking changes of the surface", "Deprecated options and commands".
 
 ## Non-goals
 

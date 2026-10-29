@@ -131,6 +131,32 @@ def _experimental(features: Sequence[tuple[Mapping[str, object], Evidence]]) -> 
     return sorted(entries, key=lambda e: str(e["name"]))
 
 
+def experimental_features() -> list[dict[str, Any]]:
+    """The entries of ``result.experimental``: one per experimental feature, sorted by name. Imports the
+    modules that define them only when called; the contract surface reads them too (change c0216)."""
+    from fenolite.backends.altium import claims
+    from fenolite.lens.altium import ALTIUM_BUILD_EVIDENCE, EXPERIMENTAL, PCB_BUILD_EVIDENCE, PCB_EXPERIMENTAL
+
+    primary = {
+        *cast(Sequence[str], EXPERIMENTAL["write_kinds"]),
+        *cast(Sequence[str], PCB_EXPERIMENTAL["write_kinds"]),
+    }
+    support = [row for row in claims.MATRIX if row.write is not None and row.kind not in primary]
+    support_entry = {
+        "name": "altium-support-writer",
+        "command": "build",
+        "option": "--target altium",
+        "write_kinds": [row.kind for row in support],
+    }
+    return _experimental(
+        [
+            (EXPERIMENTAL, ALTIUM_BUILD_EVIDENCE),
+            (PCB_EXPERIMENTAL, PCB_BUILD_EVIDENCE),
+            (support_entry, Evidence.combine(*(row.write for row in support if row.write is not None))),
+        ]
+    )
+
+
 def _entry(command: Command) -> dict[str, Any]:
     """The entry of ``command`` in ``result.commands`` of the default view."""
     return (
@@ -204,21 +230,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         return Result(result=_command_view(discover(), str(args.described)))
 
     from fenolite.backends import matrix  # its rows import the claims of every backend package
-    from fenolite.backends.altium import claims
     from fenolite.convert import DIRECTIONS
-    from fenolite.lens.altium import ALTIUM_BUILD_EVIDENCE, EXPERIMENTAL, PCB_BUILD_EVIDENCE, PCB_EXPERIMENTAL
-
-    primary = {
-        *cast(Sequence[str], EXPERIMENTAL["write_kinds"]),
-        *cast(Sequence[str], PCB_EXPERIMENTAL["write_kinds"]),
-    }
-    support = [row for row in claims.MATRIX if row.write is not None and row.kind not in primary]
-    support_entry = {
-        "name": "altium-support-writer",
-        "command": "build",
-        "option": "--target altium",
-        "write_kinds": [row.kind for row in support],
-    }
 
     commands = [_entry(c) for c in sorted(discover().values(), key=lambda c: c.name)]
     from fenolite.cli.main import MUTATION_FLAGS, global_flags
@@ -229,13 +241,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "global_flags": global_flags(),
         "mutation_flags": list(MUTATION_FLAGS),
         "backends": [backend.capabilities().to_json() for backend in registry.all_backends()],
-        "experimental": _experimental(
-            [
-                (EXPERIMENTAL, ALTIUM_BUILD_EVIDENCE),
-                (PCB_EXPERIMENTAL, PCB_BUILD_EVIDENCE),
-                (support_entry, Evidence.combine(*(row.write for row in support if row.write is not None))),
-            ]
-        ),
+        "experimental": experimental_features(),
         "matrix": [row.to_json() for row in matrix.rows()],
         # the registered directions of fenolite convert (capability cli-contract, "Conversions in
         # capabilities"; change c0159)
