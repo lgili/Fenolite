@@ -88,7 +88,18 @@
 
 ## 3. Reference boards
 
-- [ ] 3.1 Author the CC0 footprints and symbols in `tests/data/libs`: the power MOSFETs (one with a Kelvin source), the inductor, the two-pad and four-pad shunts, the half-bridge driver, the sense amplifier and the cell monitor. Each file starts with the authored-for-Fenolite line. Proof: `uv run pytest tests/unit/roles/test_reference_libs.py -q` (every new footprint and symbol loads, and starts with the authored line); `make residue`.
+- [x] 3.1 Author the CC0 footprints and symbols in `tests/data/libs`: the power MOSFETs (one with a Kelvin source), the inductor, the two-pad and four-pad shunts, the half-bridge driver, the sense amplifier and the cell monitor. Each file starts with the authored-for-Fenolite line. Proof: `uv run pytest tests/unit/roles/test_reference_libs.py -q` (every new footprint and symbol loads, and starts with the authored line); `make residue`.
+
+  2026-10-29: the library `Roles` in `tests/data/libs`: six footprints in `Roles.pretty`
+  (`Roles_MOSFET_SO8`, `Roles_MOSFET_K4` with the Kelvin source, `Roles_Inductor_7x7`, `Roles_Shunt_2512`,
+  `Roles_Shunt_4T`, and `Roles_Terminal_2P`, a two-position power terminal with 5 mm pads that the 20 A
+  boards need beyond the design's list) and six symbols in `Roles.kicad_sym` (`Roles_NMOS`,
+  `Roles_NMOS_Kelvin`, `Roles_Shunt_4T`, `Roles_HalfBridge_Driver`, `Roles_Sense_Amplifier`,
+  `Roles_Cell_Monitor`; the driver, amplifier and monitor use the catalog's SOIC-8, SOT-23-5 and SOIC-14
+  lands, and the inductor and the two-pad shunt the catalog's symbols). The files are KiCad 9 format, which
+  both majors read. A KiCad file holds no comment, so the authored line opens the first text a reader meets:
+  each footprint's `descr` (before any property) and each symbol's `Description`. Proof passed: 9 tests;
+  the residue scan reports 0 hits.
 - [ ] 3.2 Author `examples/roles/buck_shunt`, `half_bridge` and `bms`, each with `good.py` and `bad.py` (pours as script zones, no generated copper), and the expected role tables in `tests/unit/roles/test_infer_reference.py`. Register `H-G-ROLE-INFER` with its first measurement (scenarios "One role per net", "Groups of the half-bridge"). Proof: `uv run pytest tests/unit/roles/test_infer_reference.py -q`.
 - [ ] 3.3 Build the six variants for KiCad and run DRC on the good ones. Proof: `uv run pytest tests/kicad/roles/test_reference_drc.py -rA` (in CI).
 
