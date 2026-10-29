@@ -62,6 +62,46 @@ d1.place(mm(15), mm(6), rot=180)
 - A wrong call raises an error at its own line: a duplicate reference, a second `place()`, a bare
   number where a length is expected. The build reports it as `FEN-3004` with `line:N` (page `recovery`).
 
+## Connection helpers
+
+```fenolite-design
+from fenolite.dsl import I2C, Design, Net, Part, connect, decouple, mm, pull_down, pull_up, series
+
+design = Design("helpers")
+design.board(mm(40), mm(30))
+j1 = Part("J1", "Fenolite:Connector_4", footprint="Fenolite:Header_1x4_P2.54", value="IN")
+u1 = Part("U1", "Fenolite:Microcontroller", footprint="Fenolite:SOIC_8", value="MCU")
+chip = "Fenolite:Chip_0603"
+r1, r2, r3, r4, r5 = (Part(f"R{n}", "Fenolite:Resistor", footprint=chip) for n in range(1, 6))
+d1 = Part("D1", "Fenolite:LED", footprint=chip, value="RED")
+c1 = Part("C1", "Fenolite:Capacitor", footprint=chip, value="100n")
+design.add(j1, u1, r1, r2, r3, r4, r5, d1, c1)
+
+v33, gnd, sda, scl, led, rst = Net("3V3"), Net("GND"), Net("SDA"), Net("SCL"), Net("LED"), Net("RST")
+connect(v33, j1[1], u1[1])
+connect(gnd, j1[2], u1[2])
+connect(sda, j1[3], u1[4])
+connect(scl, j1[4], u1[5])
+pull_up(I2C(sda, scl), v33, r1, r2)  # R1 on SDA, R2 on SCL: pin 1 on the signal, pin 2 on 3V3
+decouple(v33, gnd, c1, near=u1.pad(1), within=mm(3))  # also the placement rule decouple/C1
+connect(led, u1[8])
+series(led, r3, d1, gnd)  # LED, R3, D1 from A to K, GND; R3 and D1 meet on the new net R3-D1
+connect(rst, u1[3])
+pull_down(rst, gnd, r4)
+connect(v33, r5.a)  # the ends of a two-pin part: pins 1 and 2
+connect(Net("ADC"), r5.b, u1[7])
+u1.unused_no_connect()  # the build marks CLK (pin 6), the one open pin
+```
+
+- `series` takes nets at both ends; between them a part (in at `a`, out at `b`), a tuple `(d1.b, d1.a)` to
+  turn a part around, or a net that names the joint. `decouple` puts each capacitor between two nets;
+  `pull_up` and `pull_down` take a net and one resistor or an `I2C` bus and two. A refused call connects
+  nothing.
+- `part.unused_no_connect(keep=(...))` marks, at build, every open pin except `keep` and pins of type
+  `no_connect`. An open `power_in` pin stops the build with `build.must-connect-unconnected`; a part used
+  through `a`/`b` or a helper whose symbol has other than two pins gives `build.not-two-terminal`. Both are
+  errors: exit 5, nothing written.
+
 ## Lengths carry a unit
 
 `mm()`, `mil()`, `inch()` and `nm()` return an exact length, stored in whole nanometres. They take an

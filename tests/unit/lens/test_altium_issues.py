@@ -610,6 +610,8 @@ def test_closed_set() -> None:
         produced.setdefault(found.code, set()).add(found.severity)
     for found in run_pour_cases():
         produced.setdefault(found.code, set()).add(found.severity)
+    for found in run_request_case():
+        produced.setdefault(found.code, set()).add(found.severity)
     for code, severities in produced.items():
         if code.startswith(PASS_THROUGH):
             continue
@@ -655,6 +657,28 @@ def run_pour_cases() -> tuple[Issue, ...]:
     return tuple(found)
 
 
+def run_request_case() -> tuple[Issue, ...]:
+    """Change c0247: the KiCad-sourced example with ``U2``'s supply pin 6 left open under an unused-pin
+    request (``build.must-connect-unconnected``) and the eight-pin ``U1`` used through its ends
+    (``build.not-two-terminal``)."""
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        copy = root / "example"
+        shutil.copytree(EXAMPLE_DIR, copy)
+        design = example("u2[1], u2[6], r1[1]", "u2[1], r1[1]")
+        resolver = example_resolver(root, project_dir=copy)
+        return build_altium(
+            to_model(design), name=design.name, resolver=resolver, unused={"U2": ()}, two_terminal=("U1",)
+        ).issues
+
+
+def test_request_case_codes() -> None:
+    found = {i.code: i for i in run_request_case()}
+    assert "U2" in found["build.must-connect-unconnected"].message
+    assert "6" in found["build.must-connect-unconnected"].message
+    assert "U1" in found["build.not-two-terminal"].message and "8" in found["build.not-two-terminal"].message
+
+
 def run_bus_case() -> tuple[Issue, ...]:
     """Change c0086: a bus whose nets are not one stem with consecutive integers is drawn as its nets."""
     model = with_bus(to_model(sample()), "CTRL", ("EN", "LED_DRV"))
@@ -685,6 +709,8 @@ def test_the_table() -> None:
         "altium.harness-name": "error",
         "altium.harness-net-shared": "error",
         "altium.harness-power-net": "error",
+        "build.not-two-terminal": "error",  # c0247
+        "build.must-connect-unconnected": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.pin-lossy": "warning",

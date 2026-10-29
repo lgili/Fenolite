@@ -121,6 +121,7 @@ from fenolite.dsl import (
     via_protection_locked,
 )
 from fenolite.dsl import Design as DslDesign
+from fenolite.dsl.convert import two_terminal, unused_marks
 from fenolite.geometry.errors import BackendUnavailable
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
 from fenolite.lens.altium import (
@@ -954,6 +955,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         planes=plane_nets,
         lock_outline=outline_locked(design),
         heights=heights(design),
+        unused=unused_marks(design),
+        two_terminal=two_terminal(design),
     )
     files = {} if refused else dict(built.files)
     _keep_confirmed_roles(out_dir, files)
@@ -1262,6 +1265,8 @@ def _run_altium(
                 pour=args.altium_pour,
                 authored_symbols=authored_symbols,
                 heights=heights(run.design),
+                unused=unused_marks(run.design),
+                two_terminal=two_terminal(run.design),
                 composition=schematic_composition(
                     run.design, target="altium", enabled=args.altium_layout == "blocks"
                 ),

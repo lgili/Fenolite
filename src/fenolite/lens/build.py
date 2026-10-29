@@ -15,7 +15,7 @@ import dataclasses
 import fnmatch
 import hashlib
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
@@ -118,6 +118,8 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.vendor-unsafe-name": "error",
         "build.schematic-netlist-differs": "error",
         "build.area-unknown": "error",
+        "build.not-two-terminal": "error",
+        "build.must-connect-unconnected": "error",
         "build.pin-ambiguous": "warning",
         "build.unused-pin-without-pad": "warning",
         "build.library-too-new": "warning",
@@ -410,6 +412,101 @@ def _resolve_marks(
                 continue
             marks.add(PinRef(mark.component_id, number))
     return tuple(sorted(marks))
+
+
+def must_connect_pins(component: Component, device: object | None = None) -> frozenset[str]:
+    """The pin numbers of ``component`` (its pins resolved) that an unused-pin request never marks: every
+    ``power_in`` pin. ``device`` is the catalog device the part comes from, whose ``must_connect`` flags
+    change c0248 adds here; no build passes one before it (change c0247, Decision 6)."""
+    del device
+    return frozenset(pin.number for pin in component.pins if pin.etype == "power_in")
+
+
+def _pin_order(number: str) -> tuple[int, int, str]:
+    """Pin-number order: decimal numbers by value first, then the others in code-point order."""
+    return (0, int(number), number) if number.isascii() and number.isdigit() else (1, 0, number)
+
+
+def unused_pin_marks(
+    component: Component,
+    connected: Collection[str],
+    marked: Collection[str],
+    kept: Collection[str],
+    where: str,
+) -> tuple[list[PinRef], list[Issue]]:
+    """The marks of an unused-pin request on ``component`` (its pins resolved), in pin-number order: every
+    pin that is not ``connected``, not ``marked``, not ``kept`` and not of type ``no_connect``. Such a pin
+    that is must-connect gives ``build.must-connect-unconnected`` instead (``docs/dsl.md``, "Connection
+    helpers"; change c0247). Both targets resolve requests through this function."""
+    must = must_connect_pins(component)
+    marks: list[PinRef] = []
+    issues: list[Issue] = []
+    for pin in sorted(component.pins, key=lambda p: _pin_order(p.number)):
+        if pin.number in connected or pin.number in marked or pin.number in kept or pin.etype == "no_connect":
+            continue
+        if pin.number in must:
+            label = f" ({pin.name})" if pin.name and pin.name != "~" else ""
+            issues.append(
+                issue(
+                    "build.must-connect-unconnected",
+                    f"{component.ref} pin {pin.number}{label} must be connected and is open; "
+                    "unused_no_connect() does not mark it",
+                    where,
+                    "connect it, or list it in keep=",
+                )
+            )
+            continue
+        marks.append(PinRef(component.id, pin.number))
+    return marks, issues
+
+
+def two_terminal_issue(component: Component, where: str) -> Issue | None:
+    """``build.not-two-terminal`` for a part used through its ends whose symbol (its pins resolved) has
+    other than two pins, else ``None`` (change c0247)."""
+    count = len(component.pins)
+    if count == 2:
+        return None
+    return issue(
+        "build.not-two-terminal",
+        f"{component.ref} is used through its ends a and b or a connection helper, "
+        f"but its symbol has {count} pins, not 2",
+        where,
+        "connect its pins by number, such as part[1]",
+    )
+
+
+def _resolve_requests(
+    parts: list[_Part],
+    pins: Mapping[str, list[Pin]],
+    on_net: Mapping[str, Mapping[str, str]],
+    marks: tuple[PinRef, ...],
+    unused: Mapping[str, Sequence[str]],
+    two_terminal: Sequence[str],
+    issues: list[Issue],
+) -> tuple[PinRef, ...]:
+    """``marks`` with the marks of the unused-pin requests (component path → ``keep`` designators), after
+    the two-pin check of the parts of ``two_terminal``; a path the build does not hold is ignored."""
+    by_path = {p.path: p for p in parts}
+    for path in sorted(two_terminal):
+        part = by_path.get(path)
+        if part is not None:
+            component = dataclasses.replace(part.component, pins=tuple(pins[part.component.id]))
+            found = two_terminal_issue(component, path)
+            if found is not None:
+                issues.append(found)
+    added = set(marks)
+    for path, keep in sorted(unused.items()):
+        part = by_path.get(path)
+        if part is None:
+            continue
+        cid = part.component.id
+        component = dataclasses.replace(part.component, pins=tuple(pins[cid]))
+        kept = {n for designator in keep for n in _targets(designator, pins[cid], component.ref, issues)}
+        marked = {m.pin for m in marks if m.component_id == cid}
+        new, found = unused_pin_marks(component, on_net[cid], marked, kept, path)
+        added.update(new)
+        issues += found
+    return tuple(sorted(added))
 
 
 def _case_collisions(design: Design, issues: list[Issue]) -> None:
@@ -949,6 +1046,8 @@ def build_design(
     planes: Mapping[str, str] | None = None,
     lock_outline: bool = False,
     heights: Mapping[str, Nm] | None = None,
+    unused: Mapping[str, Sequence[str]] | None = None,
+    two_terminal: Sequence[str] = (),
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
 
@@ -1001,6 +1100,11 @@ def build_design(
     the footprint of that path gets one extruded body of that height (``height_body``), after the bodies
     of its definition. No KiCad file holds a body; ``.fenolite/board.json`` keeps it, also through a
     rebuild. A path that names no footprint is ignored.
+    ``unused`` maps a component path to the ``keep`` designators of its ``unused_no_connect()`` request
+    (``dsl.convert.unused_marks``) and ``two_terminal`` lists the paths of parts used through their ends
+    (``dsl.convert.two_terminal``): after the explicit marks, each request marks the part's open pins
+    (``unused_pin_marks``), and a part of ``two_terminal`` whose symbol has other than two pins gives
+    ``build.not-two-terminal`` (change c0247).
     """
     if vendor not in VENDOR_MODES:  # pyright: ignore[reportUnnecessaryContains]
         raise ValueError(f"unknown vendoring policy {vendor!r}; use one of: {', '.join(VENDOR_MODES)}")
@@ -1015,6 +1119,7 @@ def build_design(
     plan = _vendor_plan(parts, vendor, issues)
     pins, on_net = _resolve_pins(design, parts, issues)
     marks = _resolve_marks(design, parts, pins, on_net, issues)
+    marks = _resolve_requests(parts, pins, on_net, marks, unused or {}, two_terminal, issues)
     _case_collisions(design, issues)
     issues += interface_checks(
         design,
@@ -2057,6 +2162,9 @@ def check_existing(
 __all__ = [
     "BUILD_EVIDENCE",
     "BUILD_ISSUE_CODES",
+    "must_connect_pins",
+    "two_terminal_issue",
+    "unused_pin_marks",
     "impedance_checks",
     "PROPERTY_EVIDENCE",
     "RECORD_FILE",

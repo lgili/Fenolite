@@ -114,6 +114,12 @@ Function: `connect(net: 'Net', *pins: 'PinHandle') -> 'Net'`
 
 Join each pin to `net`; one designator of one part on two nets is refused.
 
+## decouple
+
+Function: `decouple(rail: 'Net', ground: 'Net', *capacitors: 'Part', near: 'object' = None, within: 'object' = None, severity: 'str' = 'error') -> 'None'`
+
+Join each capacitor's `a` to `rail` and its `b` to `ground`.
+
 ## farad
 
 Function: `farad(value: 'int \| Fraction \| str') -> 'Quantity'`
@@ -174,6 +180,18 @@ Function: `protect(*, tenting: 'object' = None, covering: 'object' = None, plugg
 
 How a via is protected.
 
+## pull_down
+
+Function: `pull_down(target: 'Net \| I2C', ground: 'Net', *resistors: 'Part') -> 'None'`
+
+Join each resistor's `a` to a net of `target` and its `b` to `ground`, as `pull_up`.
+
+## pull_up
+
+Function: `pull_up(target: 'Net \| I2C', rail: 'Net', *resistors: 'Part') -> 'None'`
+
+Join each resistor's `a` to a net of `target` and its `b` to `rail`.
+
 ## schematic_composition
 
 Function: `schematic_composition(design: 'Design', *, target: 'str \| None' = None, enabled: 'bool' = False) -> 'CompositionIntent \| None'`
@@ -231,6 +249,12 @@ The items on the two nets of a differential pair: a `DiffPair`, a `USB2` or anot
 Function: `select.ref(name: 'str \| Part') -> 'Select'`
 
 The items of a part (for a courtyard rule, the part's footprint), by reference or as the `Part`.
+
+## series
+
+Function: `series(*chain: 'object') -> 'tuple[Net, ...]'`
+
+Connect a chain from a net through two-pin parts to a net: `series(vin, f1, d1, vprot)`.
 
 ## shape
 
