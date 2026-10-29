@@ -153,8 +153,7 @@ def resolve(
             issue(
                 "roles.unconfirmed",
                 f"{taken_inferred} inferred role(s) and group(s) are not confirmed; their findings are at "
-                "most "
-                "warnings",
+                "most warnings",
                 where="roles",
                 hint="review them with fenolite roles PATH, then --accept, --set or --reject",
             )

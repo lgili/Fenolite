@@ -82,8 +82,7 @@ def _loop(board: RoleBoard, measure: Measure) -> list[Issue]:
             issue(
                 "roles.loop-open",
                 f"the {what} {name}: no copper joins {legs} on the board, so the loop is not routed there "
-                "and "
-                "its area is not judged",
+                "and its area is not judged",
                 where=name,
                 hint="route the connection, or refill the zones whose fill is missing",
             )
@@ -139,8 +138,7 @@ def _attachments(board: RoleBoard, done: Measured) -> list[Issue]:
                     issue(
                         "roles.kelvin-shared",
                         f"the sense branch of the Kelvin pair {pair.name} to {attachment.pad} reaches power "
-                        "copper "
-                        f"before the pad: {', '.join(attachment.shared)} (S-0850)",
+                        f"copper before the pad: {', '.join(attachment.shared)} (S-0850)",
                         severity=level,
                         where=f"{pair.name}:{attachment.pad}",
                         hint="start the sense line on the shunt's own pad, on its inner half, apart from "
@@ -168,8 +166,8 @@ def _attachments(board: RoleBoard, done: Measured) -> list[Issue]:
                     issue(
                         "roles.kelvin-outer",
                         f"the sense line of the Kelvin pair {pair.name} attaches to {attachment.pad} on the "
-                        "outer half "
-                        f"of the pad, t = {mm(min(outer))} mm from its centre toward the other sense pad; "
+                        f"outer half of the pad, t = {mm(min(outer))} mm from its centre toward the other "
+                        "sense pad; "
                         f"{flag.text()}",
                         severity=level,
                         where=f"{pair.name}:{attachment.pad}",
@@ -183,8 +181,7 @@ def _attachments(board: RoleBoard, done: Measured) -> list[Issue]:
                 issue(
                     "roles.gate-return-shared",
                     f"the return of the gate loop {gate.name} reaches the power source copper before its "
-                    "source "
-                    f"pad {gate.source}: {', '.join(attachment.shared)} (S-0852, S-0853)",
+                    f"source pad {gate.source}: {', '.join(attachment.shared)} (S-0852, S-0853)",
                     severity=level,
                     where=gate.name,
                     hint="take the gate return from the source pad (or the Kelvin-source pad) itself",
@@ -274,10 +271,8 @@ def _neck(board: RoleBoard, measure: Measure) -> list[Issue]:
         issue(
             "roles.section-current",
             f"a {values['shape']} of the pour of the {net} role on {values['layer']} at ({mm(x)}, {mm(y)}) "
-            "mm is "
-            f"{mm(values['width'])} mm wide, below the {mm(values['required_width'])} mm that the rule of "
-            "thumb "
-            f"asks for {values['milliamps']} mA ({limit_text})",
+            f"mm is {mm(values['width'])} mm wide, below the {mm(values['required_width'])} mm that the "
+            f"rule of thumb asks for {values['milliamps']} mA ({limit_text})",
             severity=level,
             where=f"{net}@{values['layer']}",
             hint="widen the pour there, or move what narrows it",
@@ -372,14 +367,12 @@ def judge(board: RoleBoard, done: Measured) -> list[Issue]:
                     issue(
                         "roles.limit-missing",
                         f"the high-voltage net {measure.subject} has no distance requirement: Fenolite "
-                        "ships no "
-                        "creepage or clearance table, so its distances are not judged",
+                        "ships no creepage or clearance table, so its distances are not judged",
                         where=measure.subject,
                         hint="add [[distance]] rows (or a [[step]] table) for the working voltage: creepage "
                         "by RMS "
                         "working voltage, pollution degree and material group, clearance by transients, "
-                        "pollution "
-                        "degree and altitude (S-0854)",
+                        "pollution degree and altitude (S-0854)",
                     )
                 )
             case "sense" if measure.values["shared"]:
