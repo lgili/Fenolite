@@ -1,16 +1,26 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec/specs/design-model/spec.md`, `openspec/specs/canonical-serialization/spec.md`,
+- [x] 0.1 Read `openspec/specs/design-model/spec.md`, `openspec/specs/canonical-serialization/spec.md`,
   `docs/design-model.md` and the open questions of the design; record the maintainer's answers under this
   task. Proof: `openspec validate c0218-model-schema-1-0 --strict`.
   - 2026-10-27: the maintainer accepted the recommended answers of questions 1 and 2 (roadmap, "Open decisions",
     row 49): the version is `"1.0"`, and a reader refuses a newer minor. Question 3 is task 1.2.
+  - 2026-10-29, read on `dev` after changes c0204 to c0229: the MODIFIED block "Schema generation and drift
+    control" differs from the living requirement only by the major in the path and the scenario "The v0
+    schemas stay"; no requirement of `design-model` is modified. `SCHEMA_VERSION` is still `"0"`,
+    `canonical.load_dir` refuses any other version, `schemas/fenolite.model.v0/` holds the 10 files of the
+    design and `board.json` 34 closed objects. The release tags are `v0.1.0`, `v0.2.0`, `v0.2.1`, `v0.2.2`,
+    `v0.3.0`, `v0.4.0` and `v0.5.0` (task 1.3 builds one fixture per tag).
 
 ## 1. Review and fixtures
 
-- [ ] 1.1 `tools/model_review.py`: the list of every model dataclass, field, type, default and extension-bag key
+- [x] 1.1 `tools/model_review.py`: the list of every model dataclass, field, type, default and extension-bag key
   with its readers (scenario "The review lists every field"). Proof: `uv run python tools/model_review.py`
   writes the list.
+  - 2026-10-29 on `dev`: 104 dataclasses (the 99 of `fenolite.model`, 9 of them stored in no file, and the
+    stored `Point`, `Size`, `Issue`, `Evidence` and `Provenance` of `fenolite.core`), 757 fields, 56
+    extension-bag keys (40 Altium, 16 KiCad, the slot pairs counted once). `tests/unit/test_model_review.py`
+    holds the scenario.
 - [ ] 1.2 **Maintainer.** Decide keep, rename or drop for each item of 1.1; record the decisions under this
   task. Proof: the record under this task.
 - [ ] 1.3 `tools/model_fixtures.py`: build `examples/blink_2layer` with each tag `v0.1.0` to `v0.5.0` in a
