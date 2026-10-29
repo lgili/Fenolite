@@ -2481,3 +2481,15 @@ path = "examples/roles/half_bridge/sym-lib-table"
 origin = "authored"
 corpus_id = ""
 notes = "symbol table of a net-role reference board (c0222) naming the authored libraries through ${KIPRJMOD}"
+
+[[file]]
+path = "tests/data/pins/example_buck.toml"
+origin = "authored"
+corpus_id = ""
+notes = "pin table of an illustrative regulator with one stacked pad and one variant (change c0261)"
+
+[[file]]
+path = "tests/data/pins/example_dual.toml"
+origin = "authored"
+corpus_id = ""
+notes = "pin table of an illustrative dual buffer with explicit units, alternates, a hidden pin and a variant (change c0261)"

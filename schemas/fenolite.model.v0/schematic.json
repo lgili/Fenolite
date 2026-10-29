@@ -628,7 +628,7 @@
       ]
     },
     "SymbolGraphic": {
-      "description": "A vector primitive in symbol-local coordinates (nanometres).",
+      "description": "A vector primitive in symbol-local coordinates (nanometres). ``unit`` and ``body_style`` say which",
       "type": "object",
       "properties": {
         "kind": {
@@ -650,6 +650,12 @@
         },
         "filled": {
           "type": "boolean"
+        },
+        "unit": {
+          "type": "integer"
+        },
+        "body_style": {
+          "type": "integer"
         }
       },
       "additionalProperties": false,

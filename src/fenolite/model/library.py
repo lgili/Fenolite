@@ -124,12 +124,15 @@ class SymbolUnit:
 
 @dataclass(frozen=True, slots=True)
 class SymbolGraphic:
-    """A vector primitive in symbol-local coordinates (nanometres)."""
+    """A vector primitive in symbol-local coordinates (nanometres). ``unit`` and ``body_style`` say which
+    unit and body style draw it; 0 (the default) is common to all (change c0261)."""
 
     kind: Literal["line", "circle", "rect", "polygon"]
     points: tuple[Point, ...] = field(metadata=ORDERED)
     width: Nm = 254_000
     filled: bool = False
+    unit: int = 0
+    body_style: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,6 +201,71 @@ class SymbolDef(Entity):
         return tuple(p for p in self.pins if p.unit in (0, unit) and p.body_style in (0, body_style))
 
 
+PinGroup = Literal["", "supply", "ground", "input", "control", "output", "io", "passive", "nc"]
+"""The function group of a pin-table row (change c0261); ``""`` takes the default group of its type."""
+PinSide = Literal["", "left", "right", "top", "bottom"]
+"""The side of a generated symbol a row is drawn on; ``""`` takes the side of its group."""
+
+
+@dataclass(frozen=True, slots=True)
+class PinRow:
+    """One row of a pin table (``fenolite.pins.v0``, change c0261): the facts of one pin. ``unit`` is
+    ``None`` when the table leaves the split to the generator; ``stacked`` holds further pad numbers of the
+    same pin."""
+
+    number: str
+    name: str
+    etype: PinType
+    group: PinGroup = ""
+    side: PinSide = ""
+    bus: str = ""
+    unit: int | None = None
+    shape: PinShape = "line"
+    hidden: bool = False
+    stacked: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    alternates: tuple[PinAlternate, ...] = field(default=(), metadata=ORDERED)
+
+
+@dataclass(frozen=True, slots=True)
+class PinVariant:
+    """A ``[[variant]]`` row of a pin table: a derived symbol with only its own properties."""
+
+    name: str
+    value: str = ""
+    description: str = ""
+    datasheet: str = ""
+    footprint: str = ""
+    keywords: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    fp_filters: tuple[str, ...] = field(default=(), metadata=ORDERED)
+
+
+@dataclass(frozen=True, slots=True)
+class PinTable:
+    """A parsed pin table (``fenolite.pins.v0``, change c0261), rows in table order.
+
+    ``namespace``, ``version``, ``summary``, ``licence``, ``evidence``, ``sources`` and ``category`` are the
+    minimum of the record header that change c0259 owns; the rest is the body: the ``[symbol]`` settings,
+    ``unit_names`` as ``(unit, name)`` pairs and the variants."""
+
+    name: str
+    rows: tuple[PinRow, ...] = field(default=(), metadata=ORDERED)
+    namespace: str = ""
+    version: str = ""
+    summary: str = ""
+    licence: str = ""
+    evidence: str = ""
+    sources: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    category: str = ""
+    reference: str = "U"
+    description: str = ""
+    keywords: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    split_above: int = 100
+    unit_pins: int = 48
+    auto_bus: bool = True
+    unit_names: tuple[tuple[int, str], ...] = field(default=(), metadata=ORDERED)
+    variants: tuple[PinVariant, ...] = field(default=(), metadata=ORDERED)
+
+
 @dataclass(frozen=True, slots=True)
 class Library:
     """A set of definitions under one name (the schema root of ``library.json``)."""
@@ -214,7 +282,12 @@ __all__ = [
     "Library",
     "ModelPlacement",
     "PinAlternate",
+    "PinGroup",
+    "PinRow",
     "PinShape",
+    "PinSide",
+    "PinTable",
+    "PinVariant",
     "PowerKind",
     "SymbolDef",
     "SymbolGraphic",

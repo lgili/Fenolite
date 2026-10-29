@@ -170,3 +170,45 @@ def test_float_rejected_by_the_library_schema() -> None:
     data["footprints"][0]["pads"][0]["size"]["w"] = 1.5
     errors = _schema.validate(data, schema)
     assert errors and all(e.startswith("/footprints/0/pads/0/size/w") for e in errors), errors
+
+
+# --- change c0261: graphics per unit and pin tables ------------------------------------------------
+
+CATALOG_SYMBOLS_SHA256 = "f7d914d11baf2565822ceaf0b03c2934af579376010445c1a388440eb6bcb537"
+"""The canonical JSON of the 49 catalog symbols before change c0261 added ``SymbolGraphic.unit``."""
+
+
+def test_old_canonical_json_unchanged() -> None:
+    import hashlib
+
+    from fenolite.catalog import ENTRIES, get_symbol
+
+    symbols = tuple(get_symbol(e.lib_id) for e in ENTRIES if e.kind == "symbol")
+    text = dumps(Library(name="Fenolite", symbols=symbols))
+    assert len(symbols) == 49
+    assert hashlib.sha256(text.encode()).hexdigest() == CATALOG_SYMBOLS_SHA256
+    assert all(g.unit == 0 and g.body_style == 0 for s in symbols for g in s.graphics)
+
+
+def test_two_bodies_keep_their_units() -> None:
+    bodies = tuple(
+        SymbolGraphic("rect", (Point(-1, -1), Point(1, 1)), unit=u, body_style=1) for u in (1, 2)
+    )
+    sym = SymbolDef(id=derived_id("sym", "dsl", "L:Two"), name="Two", library="L", graphics=bodies)
+    back = loads(dumps(Library(symbols=(sym,))), Library)
+    assert [(g.unit, g.body_style) for g in back.symbols[0].graphics] == [(1, 1), (2, 1)]
+    common = SymbolGraphic("line", (Point(0, 0), Point(1, 0)))
+    assert (common.unit, common.body_style) == (0, 0)
+    assert "unit" not in dumps(common)
+
+
+def test_pin_table_value_objects() -> None:
+    from fenolite.model.library import PinRow, PinTable, PinVariant
+
+    row = PinRow("2", "GND", "power_in", group="ground", stacked=("7",))
+    table = PinTable("EXB6202", (row,), variants=(PinVariant("EXB6202DR", value="EXB6202DR"),))
+    assert row.unit is None and row.shape == "line" and not row.hidden
+    assert (table.reference, table.split_above, table.unit_pins, table.auto_bus) == ("U", 100, 48, True)
+    assert table.rows[0].stacked == ("7",)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        row.name = "X"  # type: ignore[misc]

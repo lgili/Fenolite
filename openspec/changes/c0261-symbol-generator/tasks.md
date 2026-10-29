@@ -9,16 +9,47 @@
 
   Proof: `openspec validate c0261-symbol-generator --strict`; `make check-fast`.
 
+  Entry check, 2026-10-29, base commit 3cabfe5a (`circuits-as-code`):
+  - c0259 is not archived and not merged (its branch `cac/c0259-library-data-format` is in progress). Its
+    design spells the common header `schema`, `id` (`<namespace>:<name>`), `version`, `summary`, `licence`,
+    `evidence`, `sources` (and optional `category`, `origin`, `reviewed_by`, `replaces`, `deprecated`); the
+    stable id is `record_uid(kind, id)`; the tree holds `pins/<name>.toml`; a device names its pin table
+    with `symbol` (a pins record's id). Decision 1 follows that spelling: the table's name is the name part
+    of `id`, and `summary` gives `Description` unless `[symbol].description` is set. This change parses
+    only the header keys it needs (`schema`, `id`, `version`, `summary`, `licence`, `evidence`, `sources`,
+    `category`); the other header keys, `record_uid` and the tree are c0259's and are refused with
+    `FEN-3004` until it lands. c0259's explicit drawing (`[symbol].pins`, `[[symbol.graphic]]`) is also
+    c0259's: a table here never holds one.
+  - c0260 has not created `catalog/generate/`; this change creates it.
+  - c0248's `dsl` → `catalog` edge is not in the import-graph test; this change adds the same one-line
+    edge (`Symbol.from_pins` calls the generator), which c0248 adds too.
+  - No open change holds a delta of "Project-authored symbols"; c0264's design names
+    `write_symbol_library` only as a consumer.
+  - The open questions have no maintainer answer yet; the recommended answers of `design.md` are used.
+
 ## 1. Model and pin tables
 
-- [ ] 1.1 Add `unit` and `body_style` to `SymbolGraphic`, `PinRow`, `PinVariant` and `PinTable` to `model/library.py`, regenerate the schemas, and describe them in `docs/design-model.md` (scenarios "Old canonical JSON unchanged", "Two bodies" at the model level). Proof: `uv run pytest tests/unit/model/test_library.py -q`; `uv run python tools/gen_schemas.py --check`.
-- [ ] 1.2 Add `catalog/pins.py` with `parse_pins`, `pins_text` and `read_pins`, and author the test tables under `tests/data/pins/` (each opens with the authored-for-Fenolite line). Scenarios "A pin table is read", "Refused rows", "Round trip", "Hidden power refused" (table). Proof: `uv run pytest tests/unit/catalog/test_pins.py -q`.
+- [x] 1.1 Add `unit` and `body_style` to `SymbolGraphic`, `PinRow`, `PinVariant` and `PinTable` to `model/library.py`, regenerate the schemas, and describe them in `docs/design-model.md` (scenarios "Old canonical JSON unchanged", "Two bodies" at the model level). Proof: `uv run pytest tests/unit/model/test_library.py -q`; `uv run python tools/gen_schemas.py --check`.
+
+  2026-10-29: `SymbolGraphic` gains `unit` and `body_style` (default 0); `PinRow`, `PinVariant` and `PinTable` (with the minimum record header until c0259 lands) are in `model/library.py`; schemas regenerated (`library.json`, `schematic.json`); `docs/design-model.md` updated. The 49 catalog symbols keep the canonical JSON digest measured before the change. Proof passed: `tests/unit/model/test_library.py` 13 passed; `gen_schemas.py --check` clean.
+
+- [x] 1.2 Add `catalog/pins.py` with `parse_pins`, `pins_text` and `read_pins`, and author the test tables under `tests/data/pins/` (each opens with the authored-for-Fenolite line). Scenarios "A pin table is read", "Refused rows", "Round trip", "Hidden power refused" (table). Proof: `uv run pytest tests/unit/catalog/test_pins.py -q`.
+
+  2026-10-29: `catalog/pins.py` (`parse_pins`, `pins_text`, `read_pins`, `PinsSchemaError` with `FEN-3002`); tables `tests/data/pins/example_buck.toml` and `example_dual.toml`, declared in `tests/data/MANIFEST.toml`. Proof passed: `tests/unit/catalog/test_pins.py` 26 passed.
 
 ## 2. Generator
 
-- [ ] 2.1 Write `docs/formats/library/symbols.md` with the constants `G`, `L`, `A`, the stroke, the default group table and the split defaults, each `INFERRED` and Fenolite-authored, and the 100 mil pin-end convention with its public source registered in `docs/evidence/sources.md`. Proof: `make residue`; `uv run pytest tests/unit -k "sources or facts_page" -q`.
-- [ ] 2.2 Add `catalog/generate/symbol.py` with sides, order, gaps, buses and geometry (scenarios "Regulator sides", "Interleaved data pins", "Grid property", "A one-pin edit stays local", "Exposed pad stacked on ground", "Ordering variant"). Register `H-G-SYMBOL-LAYOUT` in `docs/hypotheses.md`. Proof: `uv run pytest tests/unit/catalog/test_symbol_generate.py -q`; `uv run pytest tests/unit/test_hypotheses_register.py -q`.
-- [ ] 2.3 Add the automatic and explicit unit split and the codes `symbol.units-split`, `symbol.bus-split` and `symbol.bus-gap` with their `explain.toml` entries (scenarios "A 120-pin part", "Explicit units win"). Proof: `uv run pytest tests/unit/catalog/test_symbol_generate.py -k unit -q`; `uv run pytest tests/unit/cli/test_explain.py -q`.
+- [x] 2.1 Write `docs/formats/library/symbols.md` with the constants `G`, `L`, `A`, the stroke, the default group table and the split defaults, each `INFERRED` and Fenolite-authored, and the 100 mil pin-end convention with its public source registered in `docs/evidence/sources.md`. Proof: `make residue`; `uv run pytest tests/unit -k "sources or facts_page" -q`.
+
+  2026-10-29: `docs/formats/library/symbols.md` holds the constants, the default groups and the split defaults (`INFERRED`, Fenolite-authored) and the 100 mil pin-origin facts of KLC S4.1, added to the existing source row S-0339 (read at the `klc` repository commit `6e8cbad9`). Proof passed: `make residue` 0 hits; `pytest tests/unit -k "sources or facts_page"` 70 passed (the page's fact table is checked by `test_symbols_facts_page`).
+
+- [x] 2.2 Add `catalog/generate/symbol.py` with sides, order, gaps, buses and geometry (scenarios "Regulator sides", "Interleaved data pins", "Grid property", "A one-pin edit stays local", "Exposed pad stacked on ground", "Ordering variant"). Register `H-G-SYMBOL-LAYOUT` in `docs/hypotheses.md`. Proof: `uv run pytest tests/unit/catalog/test_symbol_generate.py -q`; `uv run pytest tests/unit/test_hypotheses_register.py -q`.
+
+  2026-10-29: `catalog/generate/symbol.py` (`generate_symbol`, `sides`); `H-G-SYMBOL-LAYOUT` registered. The scenario "A one-pin edit stays local" now says that the pins of each side move together when the body grows (the body stays centred, so the top and bottom sides move in opposite directions). Proof passed: `tests/unit/catalog/test_symbol_generate.py` 17 passed; `tests/unit/test_hypotheses_register.py` 38 passed.
+
+- [x] 2.3 Add the automatic and explicit unit split and the codes `symbol.units-split`, `symbol.bus-split` and `symbol.bus-gap` with their `explain.toml` entries (scenarios "A 120-pin part", "Explicit units win"). Proof: `uv run pytest tests/unit/catalog/test_symbol_generate.py -k unit -q`; `uv run pytest tests/unit/cli/test_explain.py -q`.
+
+  2026-10-29: automatic and explicit units, `ISSUE_CODES` of the generator registered in `cli/explain.py` `TABLES` and explained in `explain.toml`. Proof passed: `test_symbol_generate.py -k unit` passed; the explain test is `tests/unit/cli/test_explain_cmd.py` (no `test_explain.py` exists), 8 passed.
 
 ## 3. Writers
 

@@ -3372,6 +3372,21 @@ meaning = "A clearance or edge-clearance rule names layers. The Specctra file ha
 fix = "Nothing to do; the router keeps at least what the rule asks."
 see = "route"
 
+["symbol.bus-gap"]
+meaning = "A bus of a pin table skips an index (D0, D1, D3): the generated symbol draws the bus in natural order with the gap, and the message names the missing indices."
+fix = "Nothing to do when the part has no such pin; otherwise add the missing row to the pin table."
+see = "library"
+
+["symbol.bus-split"]
+meaning = "A bus of a pin table holds more rows than one unit may (unit_pins), so the automatic split cut it across units."
+fix = "Raise unit_pins in [symbol], split the bus into named buses, or give every row an explicit unit."
+see = "library"
+
+["symbol.units-split"]
+meaning = "The pin table has more visible rows than split_above, so the generated symbol was split into signal units and power units; the message names the pins per unit."
+fix = "Nothing to do; give every row a unit, or change split_above or unit_pins in [symbol], to choose the units yourself."
+see = "library"
+
 ["sync.net-dropped"]
 meaning = "The board holds copper on a net that the design no longer has and that no alias covers; the next build drops that copper."
 fix = "Keep the net in the script, or name its new name with moved_net(old, new) before building."

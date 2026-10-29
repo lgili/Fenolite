@@ -98,7 +98,8 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
 |---|---|
 | `FootprintDef` | entity: `name`, `library`, `description`, `keywords`, `kind`, `flags`, `properties`, `pads` (board `Pad`, `net_id = None`, positions relative to the definition), `graphics` (board `Graphic`), `models` |
 | `SymbolDef` | entity: `name`, `library`, `extends`, `power`, `properties`, `in_bom`, `on_board`, `exclude_from_sim`, pin-name settings, `units`, `pins`, ordered symbol-local vector `graphics` |
-| `SymbolPin`, `SymbolUnit`, `SymbolGraphic`, `PinAlternate` | value objects without the entity header; a pin is identified by `(unit, body_style, number)` and graphic points use integer nanometres |
+| `SymbolPin`, `SymbolUnit`, `SymbolGraphic`, `PinAlternate` | value objects without the entity header; a pin is identified by `(unit, body_style, number)` and graphic points use integer nanometres; a `SymbolGraphic` names its `unit` and `body_style` (0, the default, is common to all; change c0261) |
+| `PinTable`, `PinRow`, `PinVariant` | value objects of a pin table (`fenolite.pins.v0`, change c0261): the rows of pin facts in table order, the `[symbol]` settings, unit names and variants; `fenolite.catalog.pins` reads and writes them and `fenolite.catalog.generate.symbol` draws a `SymbolDef` from them |
 | `Library` | `name`, `footprints`, `symbols`; schema `fenolite.library.v0` (`schemas/fenolite.model.v0/library.json`) |
 
 - Every field other than `name` has a default. `keywords`, `flags`, `pads`, `graphics`, `models`,
