@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import functools
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
@@ -116,6 +117,7 @@ from fenolite.dsl import (
     pad_zones,
     placements,
     planes,
+    role_copper,
     schematic_composition,
     stackup_locked,
     to_model,
@@ -150,6 +152,7 @@ from fenolite.lens.build import issue as build_issue
 from fenolite.lens.placements import FILE_NAME as PLACEMENTS_FILE
 from fenolite.lens.placements import SourcePlacement, read_placements
 from fenolite.lens.preserve import ExistingProject, FilePlacement, Prepared, prepare, read_existing
+from fenolite.lens.rolecopper import RoleCopperPlanner
 from fenolite.lens.schplacements import FILE_NAME as SYMBOL_PLACEMENTS_FILE
 from fenolite.lens.schplacements import read_placements as read_symbol_placements
 from fenolite.model.design import Design as ModelDesign
@@ -186,10 +189,18 @@ COPPER_CHECK_MODES = ("refuse", "warn")
 """``refuse`` (the default): a copper error stops the build before anything is written. ``warn``: copper
 errors are reported as warnings and the build writes. There is no ``off``."""
 WARN_NOTE = " (copper guard in warn mode)"
-SCRIPT_COPPER_CODES: tuple[str, ...] = ("kicad.copper.", "kicad.frame.", "kicad.meander.", "layout.unplaced")
+SCRIPT_COPPER_CODES: tuple[str, ...] = (
+    "kicad.copper.",
+    "kicad.frame.",
+    "kicad.meander.",
+    "kicad.generate.",
+    "roles.",
+    "layout.unplaced",
+)
 """The warnings and infos of the in-memory KiCad build that an Altium build with script copper reports
-(change c0053): what the copper intents created or left out, and the parts that build staged. Its other
-warnings and infos concern KiCad files that are not written. Every error passes."""
+(change c0053): what the copper intents, the generated copper and the role copper (change c0243) created
+or left out, and the parts that build staged. Its other warnings and infos concern KiCad files that are not
+written. Every error passes."""
 REPLACED_CODE = "build.schematic-replaced"
 _KINDS = {
     ".kicad_sch": "kicad_sch",
@@ -355,6 +366,26 @@ def _register(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Altium arrangement: grid preserves legacy layout; blocks composes functional blocks",
     )
+
+
+def role_planner(record: object | None, script_path: Path, out_dir: Path | None) -> RoleCopperPlanner | None:
+    """The role-copper planner the build is given for ``design.role_copper()`` (change c0243): the roles
+    that ``fenolite roles`` confirmed in the project's ``.fenolite/rules.json`` (when ``out_dir`` holds one)
+    and the record's requirements file (beside the script) bound to ``fenolite.roles.copper.run``; ``None``
+    without a record."""
+    if record is None:
+        return None
+    from fenolite.cli.cmd_analyze import requirements_option
+    from fenolite.roles.copper import run
+    from fenolite.roles.judge import split_roles
+    from fenolite.roles.store import read_rules_roles
+
+    stored = None
+    if out_dir is not None:
+        _, stored = split_roles(read_rules_roles(out_dir / ".fenolite" / "rules.json"))
+    name = getattr(record, "requirements", None)
+    requirements = requirements_option(name, script_path.resolve().parent) if isinstance(name, str) else None
+    return cast(RoleCopperPlanner, functools.partial(run, stored=stored, requirements=requirements))
 
 
 def _keep_confirmed_roles(out_dir: Path, files: dict[str, bytes]) -> None:
@@ -873,6 +904,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         intents = copper(design)
         meander_intents = meanders(design)
         generated_records = generated(design)
+        role_record = role_copper(design)
         field_requests = fields(design)
         pad_zone_requests = pad_zones(design)
     except DslError as error:
@@ -889,16 +921,20 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
     source, source_issues, source_sha = read_source(script_path)
     refused = any(found.severity == "error" for found in source_issues)
     if args.target == ALTIUM_TARGET:
-        if generated_records:
-            # generated copper is resolved by the KiCad build alone (c0224's design, decision 8)
-            keys = ", ".join(record.key for record in generated_records)
+        if (generated_records or role_record is not None) and board_path is not None:
+            # with --copper-from the board wins: the records would be lost, so the build is refused (c0243)
+            keys = ", ".join(
+                [record.key for record in generated_records]
+                + (["role_copper"] if role_record is not None else [])
+            )
             source_issues = [
                 *source_issues,
                 kicad_generate.issue(
                     "kicad.generate.altium",
-                    f"the generated-copper calls {keys} are resolved for KiCad targets only",
+                    f"the generated-copper calls {keys} are not resolved: {args.copper_from} is the copper "
+                    "source, and --copper-from wins",
                     keys,
-                    "build for a KiCad target, or draw the zones and rule areas with zone() and rule_area()",
+                    "drop --copper-from to have the script's copper resolved, or build the board for KiCad",
                 ),
             ]
             refused = True
@@ -919,6 +955,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             frame_sheet,
             sheet_result,
             meanders=meander_intents,
+            generated_records=generated_records,
+            role_record=role_record,
         )
         return with_lock(
             dataclasses.replace(
@@ -974,6 +1012,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         copper_intents=intents,
         meanders=meander_intents,
         generated_copper=generated_records,
+        role_copper=role_record,
+        role_planner=role_planner(role_record, script_path, out_dir),
         fields=field_requests,
         pad_zones=pad_zone_requests,
         authored_footprints=authored_footprints,
@@ -1128,6 +1168,29 @@ def _sheet_result(
     return {"source": source["source"], "items": found["items"], "pages": pages}
 
 
+def _hand_over(model: ModelDesign, resolved: ModelDesign) -> tuple[ModelDesign, ModelDesign]:
+    """The script's model with the rule areas and the rules that the in-memory KiCad build added (the
+    generated and role copper of change c0243: corridors, barriers, ``role.sw.*`` and ``role.hv.*``), and that
+    build's design without its rule areas, which the model now holds: the Altium build writes the model's
+    rule areas as keep-outs and lowers its rules, and copies only copper from a source."""
+    board, done = model.board, resolved.board
+    if board is None or done is None:
+        return model, resolved
+    held = {area.id for area in board.keepouts}
+    added = tuple(area for area in done.keepouts if area.id not in held)
+    rules = model.rules
+    if resolved.rules is not None:
+        names = {rule.name for rule in rules.rules} if rules is not None else set[str]()
+        fresh = tuple(rule for rule in resolved.rules.rules if rule.name not in names)
+        if fresh:
+            base = rules if rules is not None else dataclasses.replace(resolved.rules, rules=())
+            rules = dataclasses.replace(base, rules=(*base.rules, *fresh))
+    model = dataclasses.replace(
+        model, board=dataclasses.replace(board, keepouts=(*board.keepouts, *added)), rules=rules
+    )
+    return model, dataclasses.replace(resolved, board=dataclasses.replace(done, keepouts=()))
+
+
 def _run_altium(
     args: argparse.Namespace,
     ctx: Context,
@@ -1144,6 +1207,8 @@ def _run_altium(
     sheet_result: Mapping[str, object] | None = None,
     *,
     meanders: Sequence[MeanderIntentLike] = (),
+    generated_records: Sequence[kicad_generate.GeneratedLike] = (),
+    role_record: object | None = None,
 ) -> Result:
     """The ``--target altium`` branch (capability altium-build, "Altium build target"): only the symbol
     libraries of KiCad lib ids and the footprint libraries of KiCad footprint links are read, through a
@@ -1161,7 +1226,9 @@ def _run_altium(
     none of its files is planned. Its model is the ``CopperSource`` of origin ``script``, and the script's
     zones travel with it. An error of that build refuses this one; its ``SCRIPT_COPPER_CODES`` issues pass.
     With ``--copper-from`` the board wins: the intents are not resolved, and one ``altium.not-lowered``
-    info names them.
+    info names them. Change c0243: the in-memory build also runs for the generated-copper records and the
+    ``role_copper`` record (with the planner of ``role_planner``), whose zones, rule areas, vias and rules
+    reach the source; with ``--copper-from`` they give ``kicad.generate.altium`` (in ``execute``).
 
     Change c0087: unless ``--altium-outjob off``, the build writes ``<name>.OutJob`` beside a PCB
     document, for the preset of ``--altium-outjob-preset``; a kept project file is read to see whether it
@@ -1178,7 +1245,8 @@ def _run_altium(
         {key: symbol.definition for key, symbol in run.design.symbols.items()},  # type: ignore[attr-defined]
     )
     resolver = None
-    if kicad_lib_ids(model) or kicad_footprint_ids(model) or intents:
+    scripted = bool(intents or generated_records or role_record is not None)
+    if kicad_lib_ids(model) or kicad_footprint_ids(model) or scripted:
         resolver = LibraryResolver(
             LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
         )
@@ -1239,7 +1307,7 @@ def _run_altium(
         if kept_project is not None:
             project_listed = kept_documents([document.path for document in kept_project.documents])
             job_listed = f"{name}.OutJob".casefold() in project_listed
-    if intents and source is None:
+    if scripted and source is None:
         assert resolver is not None
         resolved = build_design(
             model,
@@ -1250,6 +1318,9 @@ def _run_altium(
             target=ctx.kicad_target,
             copper_intents=intents,
             meanders=meanders,
+            generated_copper=generated_records,
+            role_copper=role_record,
+            role_planner=role_planner(role_record, script_path, out_dir),
             # the catalog definitions too: a design that names only catalog ids has no library (c0077)
             authored_footprints=authored_footprints,
             authored_symbols=authored_symbols,
@@ -1261,7 +1332,8 @@ def _run_altium(
             if found.severity == "error" or found.code.startswith(SCRIPT_COPPER_CODES)
         ]
         if not refused:
-            source = CopperSource(resolved.design, "script")
+            model, handed = _hand_over(model, resolved.design)
+            source = CopperSource(handed, "script")
             if model.board is not None and model.board.zones:
                 # one copper source: the KiCad build kept the script's zones, so the source holds them
                 model = dataclasses.replace(model, board=dataclasses.replace(model.board, zones=()))

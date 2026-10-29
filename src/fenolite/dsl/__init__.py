@@ -70,6 +70,7 @@ from fenolite.dsl.quantity import (
     volt,
     watt,
 )
+from fenolite.dsl.rolecopper import RoleCopperIntent, role_copper
 from fenolite.dsl.symbol import Symbol
 from fenolite.dsl.units import Length, inch, mil, mm, nm
 from fenolite.dsl.wiring import decouple, pull_down, pull_up, series
@@ -99,6 +100,7 @@ __all__ = [
     "PadEnd",
     "PadRef",
     "PadZoneRequest",
+    "RoleCopperIntent",
     "Panel",
     "Part",
     "Placement",
@@ -134,6 +136,7 @@ __all__ = [
     "protect",
     "pull_down",
     "pull_up",
+    "role_copper",
     "select",
     "series",
     "shape",

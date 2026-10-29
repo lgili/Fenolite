@@ -2393,6 +2393,12 @@ corpus_id = ""
 notes = "net-role reference board, bad variant (c0222; DSL source)"
 
 [[file]]
+path = "examples/roles/bms/bad_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, bad variant with role copper (c0243; DSL source)"
+
+[[file]]
 path = "examples/roles/bms/bms_board.py"
 origin = "authored"
 corpus_id = ""
@@ -2411,6 +2417,18 @@ corpus_id = ""
 notes = "net-role reference board, good variant (c0222; DSL source)"
 
 [[file]]
+path = "examples/roles/bms/good_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, good variant with role copper (c0243; DSL source)"
+
+[[file]]
+path = "examples/roles/bms/open.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, open variant: bad without its critical copper (c0244; DSL source)"
+
+[[file]]
 path = "examples/roles/bms/sym-lib-table"
 origin = "authored"
 corpus_id = ""
@@ -2421,6 +2439,12 @@ path = "examples/roles/buck_shunt/bad.py"
 origin = "authored"
 corpus_id = ""
 notes = "net-role reference board, bad variant (c0222; DSL source)"
+
+[[file]]
+path = "examples/roles/buck_shunt/bad_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, bad variant with role copper (c0243; DSL source)"
 
 [[file]]
 path = "examples/roles/buck_shunt/buck_shunt_board.py"
@@ -2441,6 +2465,18 @@ corpus_id = ""
 notes = "net-role reference board, good variant (c0222; DSL source)"
 
 [[file]]
+path = "examples/roles/buck_shunt/good_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, good variant with role copper (c0243; DSL source)"
+
+[[file]]
+path = "examples/roles/buck_shunt/open.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, open variant: bad without its critical copper (c0244; DSL source)"
+
+[[file]]
 path = "examples/roles/buck_shunt/sym-lib-table"
 origin = "authored"
 corpus_id = ""
@@ -2451,6 +2487,12 @@ path = "examples/roles/half_bridge/bad.py"
 origin = "authored"
 corpus_id = ""
 notes = "net-role reference board, bad variant (c0222; DSL source)"
+
+[[file]]
+path = "examples/roles/half_bridge/bad_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, bad variant with role copper (c0243; DSL source)"
 
 [[file]]
 path = "examples/roles/half_bridge/fp-lib-table"
@@ -2465,10 +2507,22 @@ corpus_id = ""
 notes = "net-role reference board, good variant (c0222; DSL source)"
 
 [[file]]
+path = "examples/roles/half_bridge/good_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, good variant with role copper (c0243; DSL source)"
+
+[[file]]
 path = "examples/roles/half_bridge/half_bridge_board.py"
 origin = "authored"
 corpus_id = ""
 notes = "the shared drawing of a net-role reference board (c0222)"
+
+[[file]]
+path = "examples/roles/half_bridge/open.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, open variant: bad without its critical copper (c0244; DSL source)"
 
 [[file]]
 path = "examples/roles/half_bridge/requirements.toml"
