@@ -49,6 +49,7 @@ another type; a flag without a value is a switch.
 | `pads` | no | list the pads of a board in the board frame: position, layers, net (runs no tool) |
 | `panel` | yes | write a panel of copies of one built board |
 | `parity` | no | compare the board of a KiCad project with its schematic, and symbol pins with footprint pads: without kicad-cli for a project that fenolite build wrote, and for an Altium project (writes nothing) |
+| `pick` | yes | list the picks of a design's query parts, rank candidates, update picks, or propose rows |
 | `place` | yes | place staged parts on the board in a grid, or move named parts (edits the board) |
 | `pnp` | yes | the placement (pick-and-place) table of a board, through a column template (writes FILE with --out) |
 | `publish` | yes | put an edited copy back over a project, replacing only the files unchanged since the receipt |
@@ -155,7 +156,7 @@ another type; a flag without a value is a switch.
 
 - `CATALOG_ACTION` (one of `import`, `list`, `show`, `view`): list entries, show one ID, export a browser, or import a device template from a symbol and a footprint
 - `LIB_ID`: catalog ID required by show
-- `--kind {device,footprint,symbol}`: list or show only this kind; show takes it when a device id equals a symbol or footprint id
+- `--kind {device,family,footprint,symbol}`: list or show only this kind; show takes it when a device id equals a symbol or footprint id
 - `--query QUERY`: case-insensitive search in id, category and summary
 - `--out FILE`: required by view (a standalone HTML browser) and by import (the device TOML to write)
 - `--symbol LIB:SYM`: import: the symbol the device joins
@@ -427,6 +428,18 @@ another type; a flag without a value is a switch.
 - `--netlist {auto,kicad,own}` (default `auto`): where the nets of the schematic come from. auto (default): Fenolite's own reading of a schematic it generated, else kicad-cli; own: never a tool; kicad: always kicad-cli
 - `--kicad-cli PATH`: the kicad-cli to run
 - `--timeout SECONDS` (number, default `300.0`): kicad-cli timeout (300)
+
+## pick
+`fenolite pick [OPTIONS] PATH`
+
+- `PATH`: a design script, or its folder (design.py in it)
+- `--candidates COMPONENT`: rank the rows of one query part (read-only)
+- `--update COMPONENT` (repeatable): re-resolve the pick of this part against the current catalog (repeatable)
+- `--update-all`: re-resolve every pick
+- `--propose QUERY`: write UNVERIFIED rows that meet QUERY under devices/proposed/ (never the lock)
+- `--from FILE`: the CSV or JSON rows to propose
+- `--supplier NAME`: a plugin of the group fenolite.suppliers
+- `--allow-offsite`: allow a supplier plugin that sends data off this machine
 
 ## place
 `fenolite place [OPTIONS] PATH`

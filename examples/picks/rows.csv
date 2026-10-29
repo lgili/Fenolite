@@ -1,0 +1,4 @@
+id,kind,value,footprint,case,tolerance,dielectric,voltage,summary
+Example:CAP_10U_A,capacitor,10uF,Fenolite:Chip_0805,0805,10%,X7R,25V,Illustrative proposal row authored for Fenolite (no real product)
+Example:CAP_10U_B,capacitor,10uF,Fenolite:Chip_1206,1206,10%,X7R,50V,Illustrative proposal row authored for Fenolite (no real product)
+Example:CAP_10U_C,capacitor,10uF,Fenolite:Chip_0805,0805,20%,X5R,35V,Illustrative proposal row authored for Fenolite (no real product)

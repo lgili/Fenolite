@@ -62,7 +62,7 @@ A net, named globally and literally; a module-local net is named by the script.
 
 ## Part
 
-Class: `Part(ref: 'str \| None' = None, lib_id: 'str \| None' = None, footprint: 'str \| None' = None, value: 'str \| Quantity \| Range \| None' = None, *, name: 'str \| None' = None, prefix: 'str \| None' = None, device: 'str \| None' = None, properties: 'Mapping[str, str] \| None' = None, pad_map: 'Mapping[str, str \| Sequence[str]] \| None' = None, height: 'object' = None) -> 'None'`
+Class: `Part(ref: 'str \| None' = None, lib_id: 'str \| None' = None, footprint: 'str \| None' = None, value: 'str \| Quantity \| Range \| None' = None, *, name: 'str \| None' = None, prefix: 'str \| None' = None, device: 'str \| PartQuery \| None' = None, properties: 'Mapping[str, str] \| None' = None, pad_map: 'Mapping[str, str \| Sequence[str]] \| None' = None, height: 'object' = None) -> 'None'`
 
 A component: reference, symbol lib id, optional footprint lib id, value and user properties; or a reference and a device id, which gives the rest.
 
@@ -138,6 +138,12 @@ Function: `block(function: 'Callable[..., None] \| None' = None, /, *, name: 'st
 
 Mark `def name(b, *, param=default, ...)` as a block: `@block` or `@block(name="buck")`.
 
+## capacitor
+
+Function: `capacitor(value: 'Quantity \| Range', **constraints: 'object') -> 'PartQuery'`
+
+A capacitor by value (in farads) and `tolerance`, `rating`, `case`, `dielectric`, `series`, `row`.
+
 ## connect
 
 Function: `connect(net: 'object', *pins: 'object') -> 'Net'`
@@ -168,11 +174,29 @@ Function: `hertz(value: 'int \| Fraction \| str') -> 'Quantity'`
 
 A frequency: `hertz("16M")`.
 
+## i2c_pull_ups
+
+Function: `i2c_pull_ups(b: 'object', bus: 'object', supply: 'object', *, bus_capacitance: 'Range', vdd: 'Range \| Quantity', mode: 'str \| None' = None, name: 'str' = 'PU') -> 'tuple[Part, Part]'`
+
+One pull-up value for both lines of `bus` (an `I2C`), from `supply`: the largest series value whose worst-case span lies in the window of the I2C specification for `mode` (`standard`, `fast` — the default — or `fast-plus`), `bus_capacitance` and the supply range `vdd`.
+
 ## inch
 
 Function: `inch(value: 'int \| str \| float') -> 'Length'`
 
 `value` inches.
+
+## inductor
+
+Function: `inductor(value: 'Quantity \| Range', **constraints: 'object') -> 'PartQuery'`
+
+An inductor by value (in henries) and `tolerance`, `current`, `saturation`, `dcr`, `case`, `row`.
+
+## led_resistor
+
+Function: `led_resistor(b: 'object', supply: 'object', led: 'object', *, current: 'Range', vf: 'Range \| Quantity', vs: 'Range \| Quantity', name: 'str \| None' = None) -> 'Part'`
+
+The series resistor of an LED, from `supply` to `led` (the net of the LED's anode), whose worst-case current `(VS − VF) / R` lies within `current` and whose power rating covers the worst dissipation.
 
 ## mil
 
@@ -227,6 +251,18 @@ Join each resistor's `a` to a net of `target` and its `b` to `ground`, as `pull_
 Function: `pull_up(target: 'Net \| I2C', rail: 'Net', *resistors: 'Part') -> 'None'`
 
 Join each resistor's `a` to a net of `target` and its `b` to `rail`.
+
+## rc_lowpass
+
+Function: `rc_lowpass(b: 'object', inp: 'object', out: 'object', gnd: 'object', *, corner: 'Range', r: 'PartQuery \| None' = None, c: 'PartQuery \| None' = None, name: 'str \| None' = None) -> 'tuple[Part, Part]'`
+
+A resistor from `inp` to `out` and a capacitor from `out` to `gnd` (`<name>_R`, `<name>_C`) whose worst-case corner `1 / (2πRC)` lies within `corner`; `r=` or `c=` fixes one part by a query of its kind.
+
+## resistor
+
+Function: `resistor(value: 'Quantity \| Range', **constraints: 'object') -> 'PartQuery'`
+
+A resistor by value (a quantity or a range in ohms) and constraints: `tolerance`, `power`, `voltage`, `case`, `series`, `tempco`, `row`.
 
 ## schematic_composition
 
@@ -346,6 +382,12 @@ Function: `shape.stadium(x: 'object', y: 'object', length: 'object', width: 'obj
 
 The ring of `design.slot()` as a path.
 
+## shunt
+
+Function: `shunt(b: 'object', hi: 'object', lo: 'object', *, current: 'Range', full_scale: 'Range \| Quantity', name: 'str' = 'SHUNT') -> 'Part'`
+
+A current-sense resistor from `hi` to `lo`: the largest row value whose worst-case drop at the largest `current` stays within the smallest `full_scale` input and whose power rating covers the dissipation.
+
 ## stack
 
 Module.
@@ -411,6 +453,12 @@ A via of `kind` (`through`, `blind`, `buried` or `micro`) at `(x, y)` in the fra
 Function: `volt(value: 'int \| Fraction \| str') -> 'Quantity'`
 
 A voltage: `volt("3.3")`; may be negative.
+
+## voltage_divider
+
+Function: `voltage_divider(b: 'object', hi: 'object', mid: 'object', lo: 'object', *, target: 'Range', ref: 'Range \| Quantity \| None' = None, vin: 'Range \| Quantity \| None' = None, current: 'Range', series: 'str \| None' = None, name: 'str \| None' = None) -> 'tuple[Part, Part]'`
+
+Two resistors from `hi` over `mid` to `lo` (`<name>_top`, `<name>_bot`; `name` defaults to the leaf name of `mid`).
 
 ## watt
 

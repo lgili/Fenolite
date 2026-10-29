@@ -33,6 +33,9 @@ from fenolite.pick.propose import load_supplier, proposals, read_rows, suppliers
 from fenolite.pick.query import parse_query
 from fenolite.pick.rows import PROPOSED_DIR, Row, all_rows
 
+EXAMPLE_COPY = "fenolite-pick-example"
+"""The folder of ``mutation_example_args``: a copy of ``examples/picks`` that the test suites write into their
+empty folder (``tests/_cliexamples.py``); the proposals land in its ``devices/proposed/``."""
 HELP = "list the picks of a design's query parts, rank candidates, update picks, or propose rows"
 DEFAULT_LIMIT = 20
 SCRIPT = "design.py"
@@ -263,10 +266,16 @@ COMMAND = Command(
     mutates=True,
     register=_register,
     run=_run,
-    example_args=(EXAMPLE_PICKS, "--json"),
+    example_args=(EXAMPLE_PICKS,),
     paged="candidates|picks",
     default_limit=DEFAULT_LIMIT,
-    mutation_example_args=(EXAMPLE_PICKS, "--update-all"),
+    mutation_example_args=(
+        EXAMPLE_COPY,
+        "--propose",
+        "capacitor(10uF, rating>=25V)",
+        "--from",
+        f"{EXAMPLE_COPY}/rows.csv",
+    ),
 )
 
 __all__ = ["COMMAND"]

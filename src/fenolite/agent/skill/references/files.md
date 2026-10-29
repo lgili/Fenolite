@@ -177,4 +177,44 @@ fenolite build reg/design.py --out reg/build --frozen --dry-run --json
 fenolite build reg/design.py --out reg/build --lock reg/release.lock --dry-run --json
 ```
 
+## Parts chosen by parameters
+
+A query names a passive by what it must be; `build` picks a row of the local catalog (shipped families,
+`fenolite catalog list --kind family`, and `devices/` beside the script), records it in the lock's
+`[picks]` and never swaps it by itself. A generator picks values and reports `gen.achieved`.
+
+```fenolite-design
+from fenolite.dsl import I2C, Design, Net, amp, between, capacitor, connect, farad, henry, hertz, inductor
+from fenolite.dsl import i2c_pull_ups, led_resistor, mm, ohm, pct, rc_lowpass, resistor, shunt, volt
+from fenolite.dsl import voltage_divider
+
+design = Design("picks")
+design.board(mm(30), mm(20))
+design.defaults(resistor={"case": "0603", "tolerance": pct(1)})  # b.defaults(...), then the call, win
+v, fb, gnd, a = Net("V3V3"), Net("FB"), Net("GND"), Net("LED_A")
+r = design.part(device=resistor(ohm("10k")))  # pins 1 and 2 until the pick
+c = design.part(device=capacitor(farad("100n"), rating=volt(25), dielectric="X7R"))
+connect(v, r[1], c[1])
+connect(gnd, r[2], c[2])
+coil = inductor(henry("4u7"), current=amp(1))  # no shipped inductor family: rows in devices/
+voltage_divider(design, v, fb, gnd, target=volt("3.3").pct(5), ref=volt("0.6").pct(1),
+                current=between(amp("40u"), amp("100u")))
+rc_lowpass(design, fb, Net("F"), gnd, corner=hertz(1000).pct(10), c=capacitor(farad("10n"), dielectric="C0G"))
+led_resistor(design, v, a, current=between(amp("2m"), amp("5m")), vf=volt(2), vs=volt("3.3").pct(3))
+i2c_pull_ups(design, I2C(Net("SDA"), Net("SCL")), v, bus_capacitance=between(farad("50p"), farad("100p")),
+             vdd=volt("3.3").pct(3))
+shunt(design, v, Net("LOAD"), current=between(amp(0), amp("5m")), full_scale=volt("0.1").pct(2))
+```
+
+`pick` lists each pick and its state; a query that the locked part no longer meets is `pick.stale`
+(exit 5), fixed by `--update` through the plan. `--propose` writes `UNVERIFIED` rows to
+`devices/proposed/`, which only a query naming them (`row=`) picks.
+
+```fenolite-cmd
+fenolite pick picks/design.py --json
+fenolite pick picks --candidates C_in --limit 5 --json
+fenolite pick picks --update C_in --dry-run --json
+fenolite pick picks --propose "capacitor(10uF, dielectric=X7R)" --from rows.csv --dry-run --json
+```
+
 Read next: `checks`, `altium`, `recovery`.
