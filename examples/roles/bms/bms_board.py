@@ -130,7 +130,7 @@ def make(variant: str) -> Design:
 
 def _good(design, gnd, pack_n, zone, r1, u1):  # type: ignore[no-untyped-def]
     """The shunt sensed on its sense pads, the pack's negative on one pour, an unbroken ground plane."""
-    zone(gnd, "GND_PLANE", (56.2, 1.0), (67.0, 1.0), (67.0, 13.6), (65.3, 13.6), (65.3, 17.5), (63.4, 17.5),
+    zone(gnd, "GND_PLANE", (56.2, 1.0), (66.9, 1.0), (66.9, 13.6), (65.3, 13.6), (65.3, 17.5), (63.4, 17.5),
          (63.4, 13.6), (56.2, 13.6), layer="B.Cu")  # fmt: skip
     zone(pack_n, "PACK_N", (2.0, 15.0), (26.3, 15.0), (26.3, 24.8), (2.0, 24.8))
     design.track("sns_p", r1.pad(2), p(62.7, 12.6), u1.pad(7), width=mm("0.25"))
@@ -140,7 +140,7 @@ def _good(design, gnd, pack_n, zone, r1, u1):  # type: ignore[no-untyped-def]
 def _bad(design, gnd, pack_n, zone, u1):  # type: ignore[no-untyped-def]
     """The monitor senses the shunt on its force pads; the pack's negative narrows to a 1 mm track between
     two pours; a slot in the ground plane runs under the tap ``TAP0``."""
-    zone(gnd, "GND_PLANE", (56.2, 1.0), (67.0, 1.0), (67.0, 13.6), (66.4, 13.6), (66.4, 7.65), (65.6, 7.65),
+    zone(gnd, "GND_PLANE", (56.2, 1.0), (66.9, 1.0), (66.9, 13.6), (66.4, 13.6), (66.4, 7.65), (65.6, 7.65),
          (65.6, 13.6), (65.3, 13.6), (65.3, 17.5), (63.4, 17.5), (63.4, 13.6), (56.2, 13.6),
          layer="B.Cu")  # fmt: skip
     zone(pack_n, "PACK_IN", (2.0, 15.0), (11.6, 15.0), (11.6, 24.8), (2.0, 24.8))

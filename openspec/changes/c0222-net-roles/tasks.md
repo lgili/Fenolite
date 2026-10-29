@@ -115,7 +115,15 @@
   user's `milliamps_per_via` of 4000 mA for the bus (a via size the profile does not know); the profile's
   200 mA would ask for 100. The script declares that limit with the roles in task 6.2. Proof passed: 11
   tests; 70 nets and 22 groups as expected, every `low` result `signal`.
-- [ ] 3.3 Build the six variants for KiCad and run DRC on the good ones. Proof: `uv run pytest tests/kicad/roles/test_reference_drc.py -rA` (in CI).
+- [x] 3.3 Build the six variants for KiCad and run DRC on the good ones. Proof: `uv run pytest tests/kicad/roles/test_reference_drc.py -rA` (in CI).
+  Done 2026-10-29. Each variant is built for the running major. With KiCad 10 the test fills it with
+  `fenolite fill`, runs `drc.kicad` (no warning or error on the `good` variants), and compares the role
+  findings and loop areas on KiCad's fill with those on the unit tests' fill (`fill_as_outline`): equal
+  findings, loop areas within 0.01 mm². `kicad-cli` 9 refills no zone (`FEN-6002`), so on 9 the `good`
+  variants pass DRC on the unit tests' fill, which shows that fill clear of every other net. The 9 run
+  found the battery board's ground plane 0.29 mm from the tap header's pad (class clearance 0.3 mm); the
+  plane edge moved by 0.1 mm. Proof passed locally with the pinned images: 6 cases on
+  `kicad/kicad:10.0.6`, 6 on `kicad/kicad:9.0.9`; the CI jobs confirm them on the pushed head.
 
 ## 4. Profile, limits and codes
 
