@@ -225,7 +225,7 @@ design.role_limits(net=sw, loop_max="60mm2")  # the switch node's own limit wins
 ## Reference boards
 
 `examples/roles/` holds three boards authored for Fenolite with the CC0 parts of `tests/data/libs/Roles.*`,
-each with `good.py` and `bad.py` (a shared `*_board.py` builds both). Every value is a round illustrative
+each with `good.py` and `bad.py` (a shared `*_board.py` builds both, and `open.py` of "Critical routes"). Every value is a round illustrative
 number. The good variants give no warning once their roles are confirmed; the bad ones give exactly their
 designed findings, on the KiCad and the Altium build alike.
 
@@ -234,6 +234,40 @@ designed findings, on the KiCad and the Altium build alike.
 | `buck_shunt` | 2 | the input capacitor far from the switches (hot loop about 180 mm²); one sense line from the outer end of the shunt's pad and one from the output pour; a 0.3 mm track on the 2 A output |
 | `half_bridge` | 4 | the high side's gate return taken from the switch-node pour; the low side's gate trace on a detour (about three times its bound); a switch-node pour under the sense pair on the next layer; one bus via where the bus's via limit asks for five |
 | `bms` | 2 | the monitor sensing the four-pad shunt on its force pads; the pack path narrowed to a 1 mm track at 20 A; a slot of the ground plane under a cell tap |
+
+## Critical routes
+
+`fenolite route BOARD --router octilinear --roles critical --dry-run` (change c0244) draws the copper that
+clears the role findings of critical copper: each gate loop's drive and return, the return from the source
+or Kelvin-source pad, and each Kelvin pair as a coupled pair from the inner halves of the sense pads. Only
+confirmed or declared groups are routed, and only their open connections; the routes are locked and fenced
+by corridors `role.corridor.<group>.<net>` that keep every pour off the branch. Then refill the zones
+(`fenolite fill`) and run `fenolite roles BOARD --check`.
+
+- **One entry per group** in `result.roles`: `routed`, `complete` (joined, no finding), `kept` (joined, with
+  findings: run again with `--rip` to replace its branches; locked and script copper stay), `refused` (a
+  role finding got worse), `unrouted` or `skipped`. A group that is not routed gives its reason and a
+  proposal with the command to run and a `fenolite render --region` command for the place.
+
+| reason | proposal |
+|---|---|
+| `no-room`, `isolation`, `near-switching`, `role-check`, `drc` | `free-corridor`: what blocks it, and the render command |
+| `too-long` | `raise-limit` |
+| `no-layer` | `allow-via` |
+| `pads` | `move-part` |
+| `unconfirmed` | `confirm`: `fenolite roles BOARD --accept-group NAME --dry-run` |
+| `phase-1` | `power-copper`: a hot loop named by `--group` is power copper |
+
+- **Run order with the power copper.** Critical routes first, then the pours around them. The power-copper
+  phase treats locked copper and every `role.corridor.*` area as obstacles; `fenolite.roles.routes.
+  critical_copper(design, roles)` lists the copper and corridors of each group. The other order works as
+  well: existing pours are obstacles, and their provisional corridors are replaced along the routes.
+- **Altium.** `route` writes KiCad boards. The Altium deliverable of a routed board is `fenolite convert
+  BOARD --to altium`: the locked tracks and vias keep their lock, and each corridor becomes a keep-out region
+  that forbids polygon copper on its layer. Routing a `.PcbDoc` in place is not supported.
+- **Reference boards.** Each board has an `open.py` variant: its `bad` placement and power-copper faults,
+  without its critical copper. Routed, the buck and the bms keep only their power-copper faults; the
+  half-bridge routes both gate loops and reports its sense pair blocked by the switch-node pour under it.
 
 ## Limits
 
