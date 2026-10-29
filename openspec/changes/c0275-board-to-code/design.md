@@ -362,10 +362,13 @@ c0277's verbatim item does not cover Altium records (they are KiCad text), so th
 1. *Lock the placements of an imported board (`place(locked=True)`) as the research's sketch does?*
    Recommended: no; keep the source flag, because c0278 compares it and an unlocked placement still
    lands where the code says on a fresh build.
+   Decided 2026-10-29: no; the source flag is kept (the recommended answer).
 2. *Coordinates relative to `BOARD_ORIGIN` or a `board(origin=…)` argument?* Recommended: relative to
    `BOARD_ORIGIN` (no new DSL), accepting negative coordinates for boards drawn left of it.
+   Decided 2026-10-29: relative to `BOARD_ORIGIN` (the recommended answer).
 3. *Default `--adopt` on?* Recommended: off; the adopted copy is a derived third-party file, which belongs
    only in the library repository or the user's own folder.
+   Decided 2026-10-29: off (the recommended answer).
 
 ## Relation to the batch
 

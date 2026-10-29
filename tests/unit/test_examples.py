@@ -367,3 +367,33 @@ def test_symbols_example_builds_both_tables(tmp_path: Path, monkeypatch: pytest.
     assert text == write_symbol_library(expected, target=10)  # type: ignore[arg-type]
     units = {s.name: s.unit_count for s in read_symbol_library(text, library="Example") if not s.extends}
     assert units == {"EXB6202": 1, "EXM120": 3}
+
+
+def test_import_python_is_a_fresh_import(tmp_path: Path) -> None:
+    """The authored import example is the code a fresh import writes (change c0275)."""
+    from _importexample import EXAMPLE, KEPT, fresh, unversioned
+
+    files = fresh(tmp_path)
+    committed = {
+        p.relative_to(EXAMPLE).as_posix(): p.read_bytes()
+        for p in EXAMPLE.rglob("*")
+        if p.is_file() and p.name not in KEPT
+    }
+    assert sorted(committed) == sorted(files)
+    for name, data in files.items():
+        assert unversioned(committed[name]) == unversioned(data), name
+    assert "`import_python/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+
+
+def test_import_python_builds(tmp_path: Path) -> None:
+    """The authored import example builds on its vendored library alone."""
+    from fenolite.api import run
+
+    folder = ROOT / "examples" / "import_python"
+    reply = run(
+        "build", str(folder / "design.py"), "--out", str(tmp_path / "built"), "--dry-run", cwd=tmp_path
+    )
+    assert reply.exit_code == 0, reply.error
+    assert set(reply.result["libraries"].values()) == {"project"}
+    lines = (folder / "design.py").read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[4].startswith("# Authored for Fenolite")

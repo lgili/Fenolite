@@ -27,7 +27,11 @@ from fenolite.lens.altium import build_altium
 from fenolite.model.rules import Rule, Selector
 
 EXAMPLES = Path(__file__).resolve().parents[3] / "examples"
-SCRIPTS = sorted(path.relative_to(EXAMPLES).as_posix() for path in EXAMPLES.glob("*/*.py"))
+MODULES = {"import_python/copper.py"}
+"""Files of an example that its design script imports: modules, not scripts (change c0275)."""
+SCRIPTS = sorted(
+    name for path in EXAMPLES.glob("*/*.py") if (name := path.relative_to(EXAMPLES).as_posix()) not in MODULES
+)
 OFFICIAL = "blink_official/design.py"
 """The one example that resolves its parts from the official KiCad libraries when it is built; its rules
 need no library, so it is read here like the others."""

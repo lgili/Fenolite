@@ -125,6 +125,18 @@ def _run_script(
         raise DesignScriptError(f"{what} script {path} does not exist", file=os.fspath(path))
     folder = script.parent
     saved_path, saved_argv, saved_bytecode = list(sys.path), list(sys.argv), sys.dont_write_bytecode
+    # a module already loaded under the name of a file beside the script (``copper`` of an imported board,
+    # change c0275) would shadow that file: it is set aside for the run and put back after it
+    siblings = {p.stem for p in folder.glob("*.py")} | {
+        p.name for p in folder.iterdir() if p.is_dir() and (p / "__init__.py").is_file()
+    }
+    shadowed = {
+        name: module
+        for name, module in list(sys.modules.items())
+        if name.partition(".")[0] in siblings and not _inside(getattr(module, "__file__", None), folder)
+    }
+    for name in shadowed:
+        del sys.modules[name]
     before = set(sys.modules)
     output = io.StringIO()
     sys.dont_write_bytecode = True
@@ -153,6 +165,7 @@ def _run_script(
             module = sys.modules.get(name)
             if module is not None and _inside(getattr(module, "__file__", None), folder):
                 del sys.modules[name]
+        sys.modules.update(shadowed)
     return namespace, _capped(output.getvalue())
 
 

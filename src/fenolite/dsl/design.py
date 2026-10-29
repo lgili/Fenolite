@@ -660,7 +660,7 @@ class Design(Container):
         self.role_copper_intent: RoleCopperIntent | None = None
         """The record of ``role_copper()`` (change c0243), or ``None``."""
         self.zones: dict[str, ZoneSpec] = {}
-        """Copper zones by name, as declared by ``zone()``."""
+        """Copper zones by key (the name unless ``key=`` is given), as declared by ``zone()``."""
         self.stack: StackupSpec | None = None
         """The stack-up of ``stackup()``."""
         self.via_default: tuple[ViaProtection, bool] | None = None
@@ -668,7 +668,8 @@ class Design(Container):
         self.waivers: dict[str, Waiver] = {}
         """Waivers by name, as declared by ``waive()``."""
         self.rule_areas: dict[str, itemlib.RuleArea] = {}
-        """Rule areas by name, as declared by ``rule_area()``, in call order."""
+        """Rule areas by key (the name unless ``key=`` is given), as declared by ``rule_area()``, in call
+        order."""
         self.drawings: dict[str, itemlib.Drawing] = {}
         """Board drawings by key, as declared by ``text()``, ``line()``, ``rect()``, ``circle()``, ``arc()``,
         ``polygon()`` and ``dimension()``, in call order."""
@@ -1353,29 +1354,38 @@ class Design(Container):
         islands: str | None = None,
         min_island_area: str | None = None,
         locked: bool = False,
+        key: str | None = None,
     ) -> None:
         """One copper zone (pour) on ``layers`` for ``net`` (``None`` for a zone without a net).
 
         The name defaults to the net's name and names the zone across builds. The outline is the board
         rectangle unless ``outline`` gives at least three ``(x, y)`` points in the frame of ``place()``. A
         setting left at ``None`` takes KiCad's new-zone value (``docs/dsl.md``, "Zones"). ``locked=True``
-        makes the script win over an edit of the zone in KiCad, and locks the zone there.
+        makes the script win over an edit of the zone in KiCad, and locks the zone there. ``key`` (change
+        c0275) is the zone's identity across builds, written nowhere in the board; with a key and no name
+        the zone has no name.
         """
         if self.outline_path is None:
             raise DslError("zone(): call board() first")
         if net is not None and not isinstance(net, Net):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"zone(): net must be a Net or None, not {net!r}")
-        if name is None:
+        if key is not None and (not isinstance(key, str) or not itemlib.AREA_KEY.fullmatch(key)):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"zone(): key {key!r} must match {itemlib.AREA_KEY.pattern}")
+        if name is None and key is None:
             if net is None:
                 raise DslError("zone(): a zone without a net needs a name")
             name = net.name
-        if not isinstance(name, str) or not name or name != name.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
+        if name is not None and (not isinstance(name, str) or not name or name != name.strip()):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(
                 f"zone(): name must be a non-empty string without surrounding spaces, not {name!r}"
             )
-        if name in self.zones:
+        if name is not None and any(spec.name == name for spec in self.zones.values()):
             raise DslError(f"zone(): the name {name!r} is already used; pass another name=")
-        what = f"zone {name}"
+        identity = key if key is not None else cast(str, name)
+        if identity in self.zones:
+            raise DslError(f"zone(): the key {identity!r} is already used; pass another key=")
+        name = name if name is not None else ""
+        what = f"zone {identity}"
         found_layers = self._zone_layers(layers, what)
         points = self._zone_outline(outline, what)
         if isinstance(priority, bool) or not isinstance(priority, int) or priority < 0:  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -1414,7 +1424,7 @@ class Design(Container):
             changes["min_island_area"] = as_nm2(min_island_area, name=f"{what}: min_island_area")
         if net is not None:
             self.register_net(net)
-        self.zones[name] = ZoneSpec(
+        self.zones[identity] = ZoneSpec(
             name,
             net.name if net is not None else None,
             found_layers,
@@ -1474,6 +1484,7 @@ class Design(Container):
         *,
         layers: Sequence[str] | None = None,
         forbid: Sequence[str] = (),
+        key: str | None = None,
     ) -> itemlib.RuleArea:
         """One rule area named ``name``: a polygon of at least three ``(x, y)`` points in the frame of
         ``place()``, on ``layers`` (every copper layer of the board when ``None``).
@@ -1481,14 +1492,17 @@ class Design(Container):
         ``forbid`` takes ``tracks``, ``vias``, ``pads``, ``pours`` and ``footprints``: the area is then a
         keep-out for them (``footprints``: no part may be placed there, change c0113).
         With an empty ``forbid`` it is a named area that only rules select (``select.area``). This is the
-        one call for rule areas and keep-outs. Names differ in more than letter case.
+        one call for rule areas and keep-outs. Names differ in more than letter case. ``key`` (change
+        c0275) is the area's identity across builds, written nowhere in the board; with a key the name may
+        be ``""``, an area that no ``select.area`` matches.
         """
         if self.outline_path is None:
             raise DslError("rule_area(): call board() first")
         area = itemlib.rule_area(
-            name, outline, layers, forbid, copper=self.copper_layers, taken=tuple(self.rule_areas)
-        )
-        self.rule_areas[area.name] = area
+            name, outline, layers, forbid, copper=self.copper_layers, key=key, keys=tuple(self.rule_areas),
+            taken=tuple(a.name for a in self.rule_areas.values() if a.name),
+        )  # fmt: skip
+        self.rule_areas[area.key] = area
         return area
 
     def _drawing(self, call: str, key: object) -> str:
@@ -1670,6 +1684,49 @@ class Design(Container):
         from fenolite.dsl import intents
 
         intents.record_via(self, key, x, y, net, diameter, drill, kind, layers, locked, protection)
+
+    def track_table(
+        self, key: str, *, net: Net, layer: str, width: object, rows_nm: object, locked: bool = False
+    ) -> None:
+        """Many straight tracks of ``net`` on ``layer``, ``width`` wide: each row of ``rows_nm`` is
+        ``(x1, y1, x2, y2)`` in integer nanometres in the frame of ``place()`` (change c0275). Row ``i``
+        keeps the copper uuid of item ``seg[i]`` of ``key`` across builds."""
+        from fenolite.dsl import intents
+
+        intents.record_table(
+            self, "track", key, net=net, rows=rows_nm, layer=layer, width=width, locked=locked
+        )
+
+    def arc_table(
+        self, key: str, *, net: Net, layer: str, width: object, rows_nm: object, locked: bool = False
+    ) -> None:
+        """Many arcs of ``net`` on ``layer``: each row is ``(sx, sy, mx, my, ex, ey)`` in integer nanometres
+        in the frame of ``place()``, the start, a point on the arc and the end."""
+        from fenolite.dsl import intents
+
+        intents.record_table(self, "arc", key, net=net, rows=rows_nm, layer=layer, width=width, locked=locked)
+
+    def via_table(
+        self,
+        key: str,
+        *,
+        net: Net,
+        diameter: object,
+        drill: object,
+        rows_nm: object,
+        kind: str = "through",
+        layers: object = None,
+        locked: bool = False,
+        protection: object = None,
+    ) -> None:
+        """Many vias of ``net`` with one size, kind, span and protection: each row is ``(x, y)`` in integer
+        nanometres in the frame of ``place()``."""
+        from fenolite.dsl import intents
+
+        intents.record_table(
+            self, "via", key, net=net, rows=rows_nm, diameter=diameter, drill=drill, kind=kind, layers=layers,
+            locked=locked, protection=protection,
+        )  # fmt: skip
 
     def meander(
         self,

@@ -137,6 +137,31 @@ fenolite convert blink/build --to altium --out blink/altium --dry-run --json
 `result.report` counts what is written, changed or lost per kind and reason. A lost pad, copper or
 fitted flag needs `--allow-lossy` (exit 7); an unexplained difference exits 5.
 
+## A board as code
+
+```fenolite-cmd
+fenolite import blink/build/blink.kicad_pro --to python --out blink/code --dry-run --json
+```
+
+`import PATH --to python --out DIR` writes `design.py`, `copper.py` (the copper as `track_table`,
+`arc_table` and `via_table` rows in nm), the vendored `lib/`, `design.lock` and `PROVENANCE.json`. It
+builds the code first and compares it with the board (`result.equivalence`): `import.unequal` exits 5. An
+item the DSL cannot say exits 7 (`FEN-7001`) unless `--allow-lossy`. Pass `--licence`, `--copyright`,
+`--source` and `--timestamp` for a board you did not author; publish converted boards only where their
+licence allows.
+
+A table is one net's copper, each row in integer nm in the frame of `place()`:
+
+```fenolite-design
+from fenolite.dsl import Design, Net, mm
+
+design = Design("tables")
+design.board(mm(50), mm(30))
+gnd = Net("GND")
+rows = ((10_000_000, 10_000_000, 15_000_000, 10_000_000),)
+design.track_table("GND/F.Cu/1", net=gnd, layer="F.Cu", width=mm("0.25"), rows_nm=rows)
+```
+
 ## The canonical print
 
 ```fenolite-cmd

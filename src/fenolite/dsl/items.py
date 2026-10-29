@@ -23,6 +23,8 @@ from fenolite.dsl.units import as_nm, as_udeg
 from fenolite.model.board import DimensionDirection, DimensionKind, DimensionUnits, GraphicKind, LayerKind
 
 AREA_NAME = re.compile(r"^[A-Za-z0-9_.+-]+$")
+AREA_KEY = re.compile(r"^[A-Za-z0-9_.+-]+(/[A-Za-z0-9_.+-]+)*$")
+"""The key of a rule area or a zone (change c0275), the alphabet of copper keys."""
 """A rule-area name: no character a rules condition would have to escape, and no ``*``."""
 DRAWING_KEY = re.compile(r"^[A-Za-z0-9_.+-]+(/[A-Za-z0-9_.+-]+)*$")
 """The key of a drawing; the pattern of copper intent keys."""
@@ -84,6 +86,12 @@ class RuleArea:
     outline: tuple[Pair, ...]
     layers: tuple[str, ...]
     forbid: tuple[str, ...]
+    key: str = ""
+    """The area's identity across builds (change c0275): ``key=`` of the call, else the name."""
+
+    def __post_init__(self) -> None:
+        if not self.key:
+            object.__setattr__(self, "key", self.name)
 
 
 @dataclass(frozen=True)
@@ -163,13 +171,22 @@ def rule_area(
     *,
     copper: tuple[str, ...],
     taken: Sequence[str],
+    key: object = None,
+    keys: Sequence[str] = (),
 ) -> RuleArea:
-    """The record of one ``rule_area()`` call; ``copper`` are the board's copper layers and ``taken`` the
-    names already declared."""
-    if not isinstance(name, str) or not AREA_NAME.fullmatch(name):
+    """The record of one ``rule_area()`` call; ``copper`` are the board's copper layers, ``taken`` the
+    names already declared and ``keys`` the keys (change c0275: ``key`` names an area without a name)."""
+    if key is not None and (not isinstance(key, str) or not AREA_KEY.fullmatch(key)):
+        raise DslError(f"rule_area(): key {key!r} must match {AREA_KEY.pattern}")
+    unnamed = key is not None and name == ""
+    if not unnamed and (not isinstance(name, str) or not AREA_NAME.fullmatch(name)):
         raise DslError(f"rule_area(): name {name!r} must match {AREA_NAME.pattern}")
-    what = f"rule area {name}"
-    for other in taken:
+    assert isinstance(name, str)
+    identity = key if isinstance(key, str) else name
+    if identity in keys:
+        raise DslError(f"rule_area(): the key {identity!r} is already used")
+    what = f"rule area {identity}"
+    for other in taken if not unnamed else ():
         if other.casefold() == name.casefold():
             raise DslError(
                 f"rule_area(): name {name!r} is already used"
@@ -200,7 +217,7 @@ def rule_area(
         if kind in kinds:
             raise DslError(f"{what}: forbid: {kind!r} is listed twice")
         kinds.append(kind)
-    return RuleArea(name, found, on, tuple(kinds))
+    return RuleArea(name, found, on, tuple(kinds), identity)
 
 
 def drawing_key(key: object, taken: Mapping[str, object]) -> str:

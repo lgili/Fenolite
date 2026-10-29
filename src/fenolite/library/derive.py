@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -22,13 +22,14 @@ from fenolite.backends.kicad._fpmap import node
 from fenolite.backends.kicad.embed import local_footprint
 from fenolite.backends.kicad.mod import read_footprint, write_footprint
 from fenolite.backends.kicad.pcb import read_board
-from fenolite.backends.kicad.sexpr import Atom, dumps, parse
+from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse
 from fenolite.backends.kicad.versions import FORMAT_VERSIONS, FileKind
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry.transform import FULL_TURN
 from fenolite.library.codes import issue
 from fenolite.model.board import Graphic
+from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-LIB-FROM-BOARD",))
@@ -65,11 +66,37 @@ class Derived:
         return {f"{fp.name}{SUFFIX}": fp.text for fp in self.footprints}
 
 
-def derive_library(text: str, *, library: str, target: int, file: str = "") -> Derived:
+def nickname_of(lib_ref: str, default: str) -> str:
+    """The library nickname of a footprint lib id, ``default`` for an id without one."""
+    head, colon, _ = lib_ref.partition(":")
+    return head if colon and head else default
+
+
+def derive_library(
+    text: str, *, library: str, target: int, file: str = "", nickname: str | None = None, default: str = ""
+) -> Derived:
     """The footprints of the KiCad board ``text`` brought back to their own frame, as a library named
-    ``library`` written for KiCad ``target``."""
+    ``library`` written for KiCad ``target``. With ``nickname`` (change c0275), only the footprints whose
+    lib id names that library (``default`` for an id without a nickname)."""
+    return derive_from_model(read_board(text, file=file), text, library=library, target=target,
+                             nickname=nickname, default=default)  # fmt: skip
+
+
+def derive_from_model(
+    design: Design,
+    text: str,
+    *,
+    library: str,
+    target: int,
+    nickname: str | None = None,
+    default: str = "",
+    prepare: Callable[[Node], Node] | None = None,
+) -> Derived:
+    """``derive_library`` of a board already read into ``design`` from ``text`` (change c0275, design
+    decision 8): the import reads the board once and derives one library per nickname from it; ``prepare``
+    turns each instance's footprint node, brought back to its own frame, into the library's (the import
+    drops the properties that belong to the instance) before instances are compared."""
     issues: list[Issue] = []
-    design = read_board(text, file=file)
     board = design.board
     if board is None:
         return Derived()
@@ -80,6 +107,8 @@ def derive_library(text: str, *, library: str, target: int, file: str = "") -> D
     )
     variants: dict[str, list[tuple[str, str, FootprintDef, str, list[str]]]] = {}
     for fp, root in pairs:
+        if nickname is not None and nickname_of(fp.lib_ref, default) != nickname:
+            continue
         ref = refs.get(fp.component_id, "")
         source = fp.lib_ref.rsplit(":", 1)[-1] or ref or fp.id
         found: list[Issue] = []
@@ -95,6 +124,8 @@ def derive_library(text: str, *, library: str, target: int, file: str = "") -> D
             continue
         version = node("version", Atom.integer(FORMAT_VERSIONS[FileKind.FOOTPRINT][target]))
         local = local.with_children((local.children[0], version, *local.children[1:]))
+        if prepare is not None:
+            local = prepare(local)
         definition = read_footprint(dumps(local))
         rows = variants.setdefault(source, [])
         for _, signature, _, _, members in rows:

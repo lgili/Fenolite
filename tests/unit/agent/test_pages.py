@@ -69,7 +69,7 @@ WRITTEN = (*TOOLS, *PRACTICE)
 GENERATED = guide.GENERATED_TOPICS
 RUN_TAGS = ("fenolite-loop", "fenolite-cmd", "fenolite-recipe")
 """The tags whose lines are commands: a public command needs a line in one of them."""
-WRITTEN_LINES, WRITTEN_BYTES, GENERATED_LINES, START_LINES, FOLDER_BYTES = 250, 12_000, 750, 200, 300_000
+WRITTEN_LINES, WRITTEN_BYTES, GENERATED_LINES, START_LINES, FOLDER_BYTES = 250, 12_000, 800, 200, 300_000
 KICAD_TARGETS = ("9", "10")
 LABELS = ("KICAD-VERIFIED", "ORACLE-VERIFIED", "CORPUS-VERIFIED", "ALTIUM-VERIFIED", "INFERRED", "UNVERIFIED")
 RULE = "adds a tested line to a page of the agent guide"
@@ -83,7 +83,7 @@ HOME: Mapping[str, tuple[str, ...]] = {
     "routing": ("route", "tidy", "fill", "net", "fetch"),
     "rules": ("analyze",),
     "checks": ("check", "ready", "explain", "netlist", "parity", "doctor", "capabilities"),
-    "files": ("inspect", "diff", "equivalent", "roundtrip", "fmt", "restore", "view"),
+    "files": ("inspect", "diff", "equivalent", "roundtrip", "fmt", "restore", "view", "import"),
     "fabrication": ("export", "render", "bom", "pnp", "manifest", "models", "panel"),
     "altium": ("kit",),
     "recovery": ("guide", "skill"),
@@ -674,7 +674,7 @@ def test_budget_holds() -> None:
     assert any("at most 12000" in problem for problem in budget_problems([wide]))
     generated = guide.SkillFile("references/commands.md", b"line\n" * (GENERATED_LINES + 1))
     assert budget_problems([generated]) == [
-        "references/commands.md: 751 lines; a generated page has at most 750"
+        f"references/commands.md: {GENERATED_LINES + 1} lines; a generated page has at most {GENERATED_LINES}"
     ]
     assert budget_problems([guide.SkillFile("SKILL.md", b"line\n" * START_LINES)])
     assert any(

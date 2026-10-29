@@ -2727,3 +2727,141 @@ path = "examples/symbols/design.py"
 origin = "authored"
 corpus_id = ""
 notes = "design script of examples/symbols: two symbols generated from pin tables (change c0261)"
+
+[[file]]
+path = "tests/data/import_python/src/two_sheet.py"
+origin = "authored"
+corpus_id = ""
+notes = "input script of the import tests (c0275): two channels of a resistor and an LED in modules, authored for Fenolite"
+
+[[file]]
+path = "tests/data/import_python/src/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of the import test script (c0275): the authored mini library of tests/data/libs"
+
+[[file]]
+path = "tests/data/import_python/src/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of the import test script (c0275): the authored mini library of tests/data/libs"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/two_sheet.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "board of the import test source (c0275), written by the build of tests/data/import_python/src/two_sheet.py; a test keeps it a fresh build"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/two_sheet.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "root schematic of the same build (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/two_sheet.kicad_pro"
+origin = "authored"
+corpus_id = ""
+notes = "project file of the same build (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/two_sheet.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "custom rules of the same build (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/sheets/ch1.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "sheet ch1 of the same build (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/sheets/ch2.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "sheet ch2 of the same build (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of the same build (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of the same build (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/lib/Mini.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "symbols the same build copied from the authored mini library (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "footprint the same build copied from the authored mini library (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/lib/Mini.pretty/Mini_R_0603.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "footprint the same build copied from the authored mini library (c0275)"
+
+[[file]]
+path = "examples/import_python/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): the design code fenolite import writes from tests/data/import_python/two_sheet (CC0); a test keeps it a fresh import"
+
+[[file]]
+path = "examples/import_python/copper.py"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): the copper tables of the same import"
+
+[[file]]
+path = "examples/import_python/design.lock"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): the design lock of the same import"
+
+[[file]]
+path = "examples/import_python/PROVENANCE.json"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): the provenance record of the same import"
+
+[[file]]
+path = "examples/import_python/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): the footprint table of the same import"
+
+[[file]]
+path = "examples/import_python/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): the symbol table of the same import"
+
+[[file]]
+path = "examples/import_python/lib/Mini.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): the symbols the import vendored (drawn by Fenolite from pad numbers)"
+
+[[file]]
+path = "examples/import_python/lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): a footprint the import vendored from the authored source"
+
+[[file]]
+path = "examples/import_python/lib/Mini.pretty/Mini_R_0603.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): a footprint the import vendored from the authored source"

@@ -112,6 +112,10 @@ extend-exclude = ["private", "openspec"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
 
+[tool.ruff.lint.per-file-ignores]
+# fenolite import writes its imports for a project where fenolite is a third-party package (change c0275)
+"examples/import_python/*.py" = ["I001"]
+
 [tool.pyright]
 include = ["src"]
 pythonVersion = "3.11"

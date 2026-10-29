@@ -1190,6 +1190,58 @@ generator's findings). `--limit` and `--cursor` page `symbols`. Evidence is `INF
 | `symbol.bus-split` | warning | a bus larger than `unit_pins` was cut across units |
 | `symbol.bus-gap` | info | a bus skips an index (`D0`, `D1`, `D3`) |
 
+## import
+
+`fenolite import PATH --to python --out DIR` turns a KiCad or Altium board into a Fenolite project folder (change
+c0275; the user guide is `docs/import.md`). `PATH` is a `.kicad_pro`, a `.kicad_pcb` or a `.kicad_sch` (the
+board of its project is read beside it), a `.PrjPcb` or a `.PcbDoc` (read by Fenolite's Altium reader and
+converted in memory as `fenolite convert --to kicad` does, verified, then emitted alike; the conversion's
+own issues and refusals apply). Any other kind exits 2 with `FEN-2001` naming the kind, and so
+does an `--out` that is the source's folder or holds it. The command writes, under the usual `--dry-run`
+plan and `--confirm` receipt protocol, all files or none:
+
+- `design.py` (the design, board, nets, classes, minimums, parts in their modules, connections,
+  placements, zones, rule areas, drawings), `copper.py` (the copper as `track_table`, `arc_table` and
+  `via_table` calls), `design.lock` (every part key and ref, c0249), `fp-lib-table`, `sym-lib-table`, the
+  vendored `lib/<nickname>.pretty` and `lib/<nickname>.kicad_sym`, `PROVENANCE.json`
+  (`fenolite.import-provenance.v0`) and a copy of each `--licence-file`.
+- Options: `--name NAME` (default the project stem), `--licence SPDX`, `--copyright TEXT` (repeatable),
+  `--source URL`, `--revision REV`, `--licence-file FILE` (repeatable, copied unchanged), `--adopt` (also
+  write `adopted/<name>.kicad_pcb`: the source board with the identities a build derives; refused with
+  `--no-verify`, `FEN-2001`), `--no-upgrade`
+  (refuse a file below the read floor: exit 3, `FEN-3003`) and `--no-verify` (skip the self-check); the
+  global `--allow-lossy`, `--timestamp` and `--kicad-version` apply.
+- A board below the read floor is upgraded by `kicad-cli pcb upgrade` on a private copy: exit 6 with
+  `FEN-6001` (the hint names `--no-upgrade`) without `kicad-cli`, `FEN-6002` with a 9.0 one.
+- An item no DSL call expresses refuses the import: exit 7, `FEN-7001`, one `import.item-unexpressed` per
+  kind in `issues`, nothing planned. With `--allow-lossy` each kind is left out with that warning.
+- Unless `--no-verify`, the emitted files are built in a private temporary folder and the board compared
+  with the source at equivalence levels 1 to 5 (profile `import`) and copper item by item: an unexplained
+  difference is `import.unequal`, exit 5, and nothing is planned.
+
+`result` (`schemas/fenolite.import.v0.json`) holds `source` (`file`, `backend`, `versions`), `out`,
+`design`, `files` (`path`, `bytes`), `modules`, `counts` (`parts`, `nets`, `tracks`, `arcs`, `vias`,
+`zones`, `rule_areas`, `drawings`, `tables`), `unexpressed` (`kind`, `count`, `examples`), `upgrade`,
+`equivalence` (`levels`, `equivalent`; `null` with `--no-verify`), `provenance` (`licence`, `source`,
+`revision`) and `adopted` (`null` without `--adopt`, else `board`, `rewritten` by kind, `paths`,
+`unmatched`); `--limit` and `--cursor` page `files`. Evidence is `INFERRED`
+(`H-G-IMPORT-CODE`). The declared inputs are the board, the project file, the rules file and every
+schematic sheet, by their original bytes: a sheet edited after the dry run makes `--confirm --plan` exit 4
+with `FEN-4002`.
+
+| code | severity | when |
+|---|---|---|
+| `import.item-unexpressed` | warning | items of one kind no DSL call expresses (with `--allow-lossy`) |
+| `import.unequal` | error | the self-check found a difference no unexpressed kind explains |
+| `import.unverified` | warning | `--no-verify` |
+| `import.schematic-generated` | info | the build generates its schematic until c0276 imports the drawn one |
+| `import.footprint-variant` | info | an instance written as `<name>_2` |
+| `import.symbol-regenerated` | info | symbols drawn by Fenolite from the pad numbers of their footprints |
+| `import.sheet-renamed` | info | a KiCad sheet name changed to a module name |
+| `import.upgraded` | info | a file upgraded through `kicad-cli` on a private copy |
+| `import.provenance-missing` | warning | no `--licence`, `--copyright` or `--source` |
+| `import.timestamp-missing` | info | no `--timestamp`: the output is not reproducible |
+
 ## check
 
 `fenolite check PATH [--stages A,B] [--kicad-cli PATH] [--timeout SECONDS]` checks a KiCad project

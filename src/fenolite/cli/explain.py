@@ -78,6 +78,7 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.convert.codes", "ISSUE_CODES"),
     ("fenolite.exports.codes", "ISSUE_CODES"),
     ("fenolite.exports.impedance", "ISSUE_CODES"),
+    ("fenolite.importer.codes", "ISSUE_CODES"),
     ("fenolite.lens.altium", "ALTIUM_ISSUE_CODES"),
     ("fenolite.lens.altium_copper", "COPPER_ISSUE_CODES"),
     ("fenolite.lens.altium_schematic", "ISSUE_CODES"),

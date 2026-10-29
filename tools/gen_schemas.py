@@ -75,6 +75,12 @@ def _targets() -> list[Target]:
             "schemas/fenolite.verify-source.v0.json",
             True,
         ),
+        Target(
+            "fenolite.import.v0",
+            "fenolite.importer.schema:ImportReply",
+            "schemas/fenolite.import.v0.json",
+            True,
+        ),
     ]
     model = [Target(sid, ref, f"{SCHEMA_DIR}/{name}", False) for name, (sid, ref) in LAYER_SCHEMAS.items()]
     definitions = [

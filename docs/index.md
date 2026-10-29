@@ -15,6 +15,7 @@ Create PCB projects from Python, inspect KiCad and Altium files, and review desi
 | Create components, connections, placement and copper in Python | [DSL](dsl.md), [copper](copper.md) |
 | Generate a symbol of any size from a pin table | [Symbols from pin tables](symbols.md) |
 | Convert KiCad and Altium projects; downgrade KiCad | [Conversion](conversion.md) |
+| Turn a KiCad board into Fenolite code | [Import](import.md) |
 | Compare designs and check what changed | [Equivalence](equivalence.md) |
 | Run electrical and physical checks | [CLI contract](cli-contract.md), [analyses](analyses.md), [net roles](roles.md) |
 | Preserve editor changes and sync placement into source | [Layout and rebuilds](lens.md) |
