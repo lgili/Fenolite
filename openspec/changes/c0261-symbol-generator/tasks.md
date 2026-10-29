@@ -102,9 +102,11 @@
 
   2026-10-29: `H-G-SYMBOL-LAYOUT`, `H-K-SYM-UNITS-WRITE` and `H-A-SCHLIB-GEN-PARTS` are registered; `H-A-SCHLIB-GEN-PARTS` joins `schlib.EVIDENCE`, so the evidence matrix and the Altium graduation snapshot are regenerated. Proof passed: `tests/unit/test_hypotheses_register.py` 38 passed; `gen_evidence_matrix.py --check` clean.
 
-- [ ] 5.5 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
+- [x] 5.5 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
 
   Open (2026-10-29): `circuits-as-code` is still at 0.6.0, whose release-record guard requires `[Unreleased]` to stay empty; the entry is added once the branch receives `dev`'s `0.7.0.dev0`.
+
+  Done (2026-10-29): integrated on `cac-integration` (dev at 0.7.0.dev0); the entry "Symbols from pin tables" is under `[Unreleased]` › Added. The section "Symbols from pin tables" of task 5.3 moved from `parts.md` to `footprints.md` in the merge, so `parts.md` stays within its 250-line budget. Proof: `uv run pytest tests/unit -k changelog -q`.
 
 - [x] 5.6 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
 

@@ -73,9 +73,13 @@
   Done (2026-10-29): `parts.md` gains a line on the record header and a design block that places `Proj:REG@REG100DR` from a record given to `design.devices`; generated pages rewritten; `test_pages_kicad.py` names the new block. Proof passed.
 - [x] 5.3 Add an example project record tree (`examples/devices/devices/` gains a pins, a package and a part file). Proof: `uv run pytest tests/unit/test_examples.py -k devices -q`.
   Done (2026-10-29): `examples/devices/devices/` holds the device as `fenolite.device.v1` with a `[[part]]`, a part file (`parts/`), two pins records (the regulator's symbol, which leaves the script, and a test point) and a package record (a test pad placed as `TP1`). Proof passed.
-- [ ] 5.4 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
+- [x] 5.4 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
   Left open (2026-10-29): `dev` is at the unpublished 0.6.0 and `tests/unit/test_release_record_v06.py`
   requires `## [Unreleased]` to stay empty, so the entry waits until `dev` is at `0.7.0.dev0`.
+  Done (2026-10-29): integrated on `cac-integration` (dev at 0.7.0.dev0); the entry "Library data format"
+  is under `[Unreleased]` › Added. The guide lines of task 5.2 (the record header and `<id>@<mpn>`) moved
+  from `parts.md` to `footprints.md` in the merge, so `parts.md` stays within its 250-line budget.
+  Proof: `uv run pytest tests/unit -k changelog -q`.
 - [x] 5.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
   Done (2026-10-29): `make check-fast` passed (15457 passed, 46 skipped); pushed to
   `cac/c0259-library-data-format`; run 40925071391 on 91d9975b is green in every job (unit on Linux, macOS and
