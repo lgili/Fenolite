@@ -167,6 +167,7 @@ def _sides(
             used.add((edge, position))
             y = (2 * position - slots + 1) * pitch // 2
             pads.append(PadSpec(number, x, -y if drawing == 0 else y, land.length, land.x))
+    pads.sort(key=lambda pad: (len(pad.number), pad.number))  # numbering order (decision 15)
     if tab is not None:
         pads.append(_tab(ctx, land))
     return pads
