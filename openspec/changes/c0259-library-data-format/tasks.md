@@ -76,4 +76,8 @@
 - [ ] 5.4 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
   Left open (2026-10-29): `dev` is at the unpublished 0.6.0 and `tests/unit/test_release_record_v06.py`
   requires `## [Unreleased]` to stay empty, so the entry waits until `dev` is at `0.7.0.dev0`.
-- [ ] 5.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
+- [x] 5.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
+  Done (2026-10-29): `make check-fast` passed (15457 passed, 46 skipped); pushed to
+  `cac/c0259-library-data-format`; run 40925071391 on 91d9975b is green in every job (unit on Linux, macOS and
+  Windows, kicad-9, kicad-10 with `test_catalog_golden.py` and `test_device_build.py`, routing, mcp, viewer,
+  wheel, dco).
