@@ -183,6 +183,63 @@ equivalence record and must state nonexperimental, nonlossy scope before its rec
 An export reply records artifact generation; it currently does not attest successful readback, so the
 fabrication-export card remains limited even when generation succeeded.
 
+#### Running checks from the page (change c0245)
+
+A page served with `--serve` can run the checks itself. Each card whose stages the server can run has a
+**Run** control, and **Run from this page**, under the cards, picks the stages of `check` (**Run checks**,
+**Run all checks** for the default stages), the kinds of `analyze`, a readiness check (`ready`) and a
+comparison with another document of the project (`equivalent`). Nothing runs unless you ask: opening a
+document or saving a file runs nothing.
+
+One job runs at a time. A strip over the drawing shows the command, its last progress record, the elapsed
+time and **Cancel**; a cancelled run, or one that passes `--run-timeout SECONDS` (default 600), changes
+nothing and says so. A failure shows the command's message and hint; when `kicad-cli` is missing the stages
+that need it could not run. A `check` run replaces the stages it ran, with their findings, and keeps the
+other stages with their own input hash, so a stage run on an older revision reads **Limited**; the cards, the
+Messages panel and the markers are drawn again. `analyze` paths become finding groups; `ready` and
+`equivalent` findings join the review list with **Locate** when they name a part, pad or net. Results stay in
+the server's memory for the session; a finding is never marked fixed, the next run replaces it.
+
+The server runs only `check`, `analyze`, `ready` and `equivalent`, read-only, on the files of the project,
+with options checked against the commands' own choices; it never takes a command line, a path or
+`check --exclude` from the page. Each run is a child process in the project folder. Requests must come from
+the page of this server (`Host` and `Origin` checked, the header `X-Fenolite-Run: 1`). Serve with `--no-run`
+to show recorded results only; an exported page never runs anything.
+
+```sh
+fenolite view board.kicad_pro --serve --run-timeout 1200   # a slow DRC on a large board
+```
+
+#### Actions: writing from the page (change c0246)
+
+`fenolite view board.kicad_pro --serve --allow-actions` lets the page write the project's files, always
+through a plan you review first. Without `--allow-actions` the page offers no action and the server refuses
+every one. The **Actions** section of the review panel holds **Fill zones**, **Tidy copper** (prune,
+straighten, chamfer; each edit kept only when KiCad's DRC accepts it, `--gate drc`), **Silkscreen**
+(designators, clipping), **Place test points**, **Export fabrication files** and **Bill of materials** (into
+`fab/` or another folder under the project), **Move or rotate a part** (the selected part's position and
+rotation filled in, in the page's unit; the arrow keys nudge it, Shift for ten steps), and **Move** or
+**Turn parts with their copper**. A finding of KiCad's DRC in **Review findings** gets **Waive finding**
+with a required one-line reason, stored as a KiCad DRC exclusion in the project file.
+
+**Review plan…** runs the command's dry run. The plan dialog names every file it would write (path, kind,
+size, new SHA-256 and the SHA-256 it replaces), the issues by severity and the evidence, and draws the
+changes of the staged board over the current one: added copper in green, removed in magenta, moved parts as
+arrows, listed under Changes. An error finding plans no write and disables **Confirm and write**, the only
+control that writes. Confirm writes exactly the reviewed bytes (`--confirm --plan`); when a file changed
+since the review the dialog says so and offers **Review again**. After a write the dialog shows the
+receipt (files, digests, backups kept) and the board is read again at once. **Undo…**, on the receipt or in
+**Writes of this session**, plans `fenolite restore` on that receipt and is reviewed and confirmed the same
+way; `restore` refuses when a written file changed since. Each receipt is also kept in
+`view-receipts/` of the state folder.
+
+Security: the server listens on `127.0.0.1` only, checks `Host` and `Origin`, needs the header
+`X-Fenolite-Action: 1` and a per-session token that only this server's page can read, runs only the fixed
+templates of these actions with typed options (lengths with a unit, angles, part references of the board,
+a reason of one line, output paths under the project folder), confirms only plans it made in this session
+whose every write lies under the project folder, never sets `--no-backup`, and writes no Altium document
+(the actions show as unavailable there). Every write keeps a backup. Stop the server when you are done.
+
 Use **Review findings** to jump from the status cards to the problem list. Filter by severity, stage or
 text; Previous/Next visits matching messages with their original hints and evidence. **Locate in drawing**
 reveals the finding's layer and marker and closes the panel so the drawing is visible. Unplaced findings
