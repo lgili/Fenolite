@@ -38,24 +38,6 @@
   #reviewFindings button[aria-pressed=true] { border-color:var(--accent); background:#1f4e7a; }
   #reviewDetail { border-top:1px solid var(--line); margin-top:8px; font-size:12px; }
   #reviewDetail pre { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; }
-  /* runs from the page (c0245) */
-  #runPanel { border-top:1px solid var(--line); margin-top:10px; }
-  #runPanel[hidden], #runStrip[hidden] { display:none; }
-  .runBox { border:1px solid var(--line); border-radius:6px; padding:8px; margin:8px 0; background:var(--panel2); }
-  .runBox h4 { margin:0 0 6px; font-size:12px; }
-  .runGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:3px 8px; font-size:12px; margin-bottom:6px; }
-  .runGrid label, .runOpt { display:flex; align-items:center; gap:5px; overflow-wrap:anywhere; font-size:12px; }
-  .runRow { display:flex; gap:6px; flex-wrap:wrap; }
-  .runBox select { max-width:100%; margin-right:6px; }
-  button.runCard { margin-left:auto; font-size:11px; padding:1px 8px; }
-  button:disabled { opacity:.5; cursor:default; }
-  #runStrip { position:absolute; left:50%; top:8px; transform:translateX(-50%); z-index:8; display:flex; align-items:center; gap:10px; max-width:min(680px,calc(100% - 24px));
-    background:#24272ef2; border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:6px; padding:6px 10px; font-size:12px; box-shadow:0 4px 16px #0006; }
-  #runStrip.done { border-left-color:#7ee787; } #runStrip.failed { border-left-color:#ff7b72; } #runStrip.cancelled { border-left-color:#e3b341; }
-  #runStrip small { color:var(--muted); }
-  #runStrip span { overflow-wrap:anywhere; }
-  .runSpin { width:10px; height:10px; border:2px solid var(--accent); border-right-color:transparent; border-radius:50%; flex:none; animation:runspin 1s linear infinite; }
-  @keyframes runspin { to { transform:rotate(360deg); } }
   .catalog-only { display:none; }
   body.catalog .catalog-only { display:block; }
   #catalogSelection { width:min(1040px,96vw); max-height:94vh; padding:16px; background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:8px; }
@@ -169,6 +151,27 @@
     #info { max-width:calc(100% - 20px); max-height:70%; overflow:auto; }
   }
 </style>
+<style>
+/* c0245 begin: runs from the page */
+  #runPanel { border-top:1px solid var(--line); margin-top:10px; }
+  #runPanel[hidden], #runStrip[hidden] { display:none; }
+  .runBox { border:1px solid var(--line); border-radius:6px; padding:8px; margin:8px 0; background:var(--panel2); }
+  .runBox h4 { margin:0 0 6px; font-size:12px; }
+  .runGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:3px 8px; font-size:12px; margin-bottom:6px; }
+  .runGrid label, .runOpt { display:flex; align-items:center; gap:5px; overflow-wrap:anywhere; font-size:12px; }
+  .runRow { display:flex; gap:6px; flex-wrap:wrap; }
+  .runBox select { max-width:100%; margin-right:6px; }
+  button.runCard { margin-left:auto; font-size:11px; padding:1px 8px; }
+  button:disabled { opacity:.5; cursor:default; }
+  #runStrip { position:absolute; left:50%; top:8px; transform:translateX(-50%); z-index:8; display:flex; align-items:center; gap:10px; max-width:min(680px,calc(100% - 24px));
+    background:#24272ef2; border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:6px; padding:6px 10px; font-size:12px; box-shadow:0 4px 16px #0006; }
+  #runStrip.done { border-left-color:#7ee787; } #runStrip.failed { border-left-color:#ff7b72; } #runStrip.cancelled { border-left-color:#e3b341; }
+  #runStrip small { color:var(--muted); }
+  #runStrip span { overflow-wrap:anywhere; }
+  .runSpin { width:10px; height:10px; border:2px solid var(--accent); border-right-color:transparent; border-radius:50%; flex:none; animation:runspin 1s linear infinite; }
+  @keyframes runspin { to { transform:rotate(360deg); } }
+/* c0245 end */
+</style>
 </head>
 <body>
 <div id="app">
@@ -230,11 +233,11 @@
       <label><input type="checkbox" id="c3body" checked> Bodies</label></div>
     <div id="info"></div><div id="tablewrap"></div><div id="doccard"><div id="doctext"></div></div>
     <div id="lsmenu"></div>
-    <div id="runStrip" role="status" aria-live="polite" hidden></div>
+    <!-- c0245 hook --><div id="runStrip" role="status" aria-live="polite" hidden></div>
     <section id="projectReview" aria-label="Project review" hidden>
       <div class="reviewHead"><h2>Project review</h2><button id="reviewClose" aria-label="Close project review">Close</button></div>
       <p id="reviewScope" class="notes"></p><button id="reviewJump">Review findings</button><div id="reviewCards"></div>
-      <section id="runPanel" aria-label="Run from this page" hidden></section>
+      <!-- c0245 hook --><section id="runPanel" aria-label="Run from this page" hidden></section>
       <h3 id="reviewFindingHeading" tabindex="-1">Review findings</h3>
       <div class="reviewFilters">
         <select id="reviewSeverity" aria-label="Finding severity"><option value="">All severities</option><option value="error">Errors</option><option value="warning">Warnings</option><option value="info">Information</option></select>
@@ -659,16 +662,16 @@ function buildProjectReview() {
     for (const reason of card.reasons || []) add(reason);
     if (card.binding) add(card.binding.note);
     if ((card.missing || []).length) add(`Not run: ${card.missing.join(", ")}`);
-    if (state === "not-run") add(RUNS.enabled && CARD_STAGES[card.id] ? "Not run yet: Run checks it now, on this server." : "No result supplied. Run fenolite check separately and reopen with --check FILE, or attach recorded conversion/export results with --report FILE.");
+    if (state === "not-run") add(RUNS.enabled && CARD_STAGES[card.id] ? "Not run yet: Run checks it now, on this server." : "No result supplied. Run fenolite check separately and reopen with --check FILE, or attach recorded conversion/export results with --report FILE.");   // c0245 hook (text)
     for (const stage of card.stages || []) {
       add(`${stage.name}: ${stage.status || "unknown"} · ${stage.evidence}`);
       for (const reason of stage.reasons || []) add(reason);
       if (stage.limits && Object.keys(stage.limits).length) add(`Report limits: ${JSON.stringify(stage.limits)}`);
     }
-    runCardControl(details, card); box.appendChild(details);
+    runCardControl(details, card); box.appendChild(details);   // c0245 hook
   }
-  buildRunPanel();
-  REVIEW.items = ready ? [ ...(S.check?.findings || []).map((item, i) => ({...item, checkIndex:i})), ...(S.run_findings || []).map((item, i) => ({...item, runIndex:i})), ...(data?.operation_findings || []) ] : [];
+  buildRunPanel();   // c0245 hook
+  REVIEW.items = ready ? [ ...(S.check?.findings || []).map((item, i) => ({...item, checkIndex:i})), ...(S.run_findings || []).map((item, i) => ({...item, runIndex:i})), ...(data?.operation_findings || []) ] : [];   // c0245 hook (run findings)
   const stage = $("reviewStage"), chosen = stage.value;
   stage.innerHTML = '<option value="">All stages</option>';
   for (const name of [...new Set(REVIEW.items.map(x => x.stage || "unassigned"))].sort()) {
@@ -704,12 +707,7 @@ function filterReviewFindings() {
     const button = document.createElement("button"); button.textContent = "Locate in drawing";
     button.onclick = () => { st.checks = true; setProjectReview(false); selectFinding(x.checkIndex); }; detail.appendChild(button);
   }
-  if (x.runIndex != null && x.at) {   // a finding of a ready or equivalent run (c0245)
-    const button = document.createElement("button"); button.textContent = "Locate in drawing";
-    button.onclick = () => { setProjectReview(false); const b = x.box || [x.at[0], x.at[1], x.at[0], x.at[1]], m = Math.max(b[2] - b[0], b[3] - b[1], 6) * 0.8;
-      fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m]); showInfo(`<b>${esc(x.code)}</b> · ${esc(x.severity)}<br>${esc(x.message)}<br>From ${esc(x.stage)} · evidence ${esc(x.evidence || "?")}`); };
-    detail.appendChild(button);
-  }
+  runLocateButton(x, detail);   // c0245 hook
 }
 for (const id of ["reviewSeverity", "reviewStage"]) $(id).onchange = filterReviewFindings;
 $("reviewSearch").oninput = filterReviewFindings;
@@ -1474,7 +1472,8 @@ function loadScene(scene, keepView) {
   else if (scene.kind === "library") loadLibrary(scene, keepView);
   else if (scene.kind === "schematic") loadSch(scene, keepView);
   else loadBoard(scene, keepView);
-  runReapply(scene); REVIEW.doc = DOC?.id || null; buildProjectReview();
+  runReapply(scene);   // c0245 hook
+  REVIEW.doc = DOC?.id || null; buildProjectReview();
 }
 function loadBoard(scene, keepView) {
   document.body.classList.remove("sch"); st.itemInfo = false;
@@ -2167,6 +2166,7 @@ function setUnit(u) {
 $("bUnit").onclick = () => setUnit(UNIT === "mm" ? "mil" : "mm");
 $("bUnit").textContent = UNIT;
 
+/* c0245 begin: run checks from the page */
 // ================================================================== run checks from the page (c0245)
 // Only a live server with a runner offers runs (GET /runs); an exported page never asks. One job at a time:
 // the strip shows its command, last progress record, elapsed time and Cancel; the results land on the scene of
@@ -2312,6 +2312,14 @@ function runStrip() {
   }
 }
 window.FenoliteRuns = { start: startRun, cancel: () => RUNS.job && runCall(`run/${encodeURIComponent(RUNS.job.job)}/cancel`, {}), state: RUNS };   // for the toolbar and palette commands (c0243)
+function runLocateButton(x, detail) {   // Locate for a finding of a ready or equivalent run
+  if (x.runIndex == null || !x.at) return;
+  const button = document.createElement("button"); button.textContent = "Locate in drawing";
+  button.onclick = () => { setProjectReview(false); const b = x.box || [x.at[0], x.at[1], x.at[0], x.at[1]], m = Math.max(b[2] - b[0], b[3] - b[1], 6) * 0.8;
+    fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m]); showInfo(`<b>${esc(x.code)}</b> · ${esc(x.severity)}<br>${esc(x.message)}<br>From ${esc(x.stage)} · evidence ${esc(x.evidence || "?")}`); };
+  detail.appendChild(button);
+}
+/* c0245 end */
 
 // ================================================================== start: embedded data or the live server
 async function start() {
@@ -2332,7 +2340,7 @@ async function start() {
   }
   linkReady = true;
   if (LIVE) setInterval(poll, 2000);
-  runsInit();
+  runsInit();   // c0245 hook
 }
 async function poll() {
   if (!DOC || !DOC.viewable || loadingNavigation === navigation) return;

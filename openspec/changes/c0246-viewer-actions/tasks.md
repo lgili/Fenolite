@@ -1,10 +1,10 @@
 ## 1. Entry
 
-- [ ] 1.1 Validate this change and confirm that c0245's run routes, guard, jobs and runner core are on the branch (this change depends on them). Proof: `~/.npm/_npx/20f2b75ddc8bce88/node_modules/.bin/openspec validate c0246-viewer-actions --strict --no-interactive`; `uv run pytest tests/unit/view/test_server.py -k run -q -n 2`.
+- [x] 1.1 Validate this change and confirm that c0245's run routes, guard, jobs and runner core are on the branch (this change depends on them). Proof: `~/.npm/_npx/20f2b75ddc8bce88/node_modules/.bin/openspec validate c0246-viewer-actions --strict --no-interactive`; `uv run pytest tests/unit/view/test_server.py -k run -q -n 2`.
 
 ## 2. Allow-list and guard
 
-- [ ] 2.1 Add `fenolite.view.actions` with `ACTIONS`, the templates, the typed options, the root confinement of outputs and the Altium refusal (requirement "Allowed actions", scenario "Refused actions"). Proof: `uv run pytest tests/unit/view/test_actions.py tests/unit/test_import_graph.py -q -n 2`.
+- [x] 2.1 Add `fenolite.view.actions` with `ACTIONS`, the templates, the typed options, the root confinement of outputs and the Altium refusal (requirement "Allowed actions", scenario "Refused actions"). Proof: `uv run pytest tests/unit/view/test_actions.py tests/unit/test_import_graph.py -q -n 2`.
 - [ ] 2.2 Add `--allow-actions`, the session token, `GET /actions` and the action guard; refuse every action route without the option (requirements "Writing actions are opt-in", "Action request guard", "View command allows writing actions"). Proof: `uv run pytest tests/unit/view/test_server.py -k "actions_off or action_guard" tests/unit/cli/test_view_cmd.py -k allow_actions -q -n 2`.
 
 ## 3. Plan, confirm, undo
