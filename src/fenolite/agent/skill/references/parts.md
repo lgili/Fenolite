@@ -109,6 +109,46 @@ r1.place(mm(29), mm(14), rot=90)
 - **`properties`** are user fields of the part, as text: a part number, a rating. `Reference`, `Value`,
   `Footprint`, `Datasheet` and `Description` are reserved names.
 
+### Value ranges
+
+A range is an exact interval of one unit, computed forwards with worst-case bounds; there is no solver.
+
+```fenolite-design
+from fenolite.dsl import Design, Net, Part, Range, Tolerance, amp, between, connect, mm, ohm, pct, volt
+
+design = Design("divider")
+design.board(mm(24), mm(16))
+tol: Tolerance = pct(1)  # a per-cent without unit: pct(1) is ±1 %, pct(-20, 80) is asymmetric
+r_top = ohm("100k").pct(tol)  # 100kΩ (99kΩ..101kΩ)
+r_bot = ohm("31.6k").pct(tol)
+v_in = volt("5").pct(5)  # 5V (4.75V..5.25V)
+v_out: Range = v_in * (r_bot / (r_top + r_bot))  # Ω/Ω is a ratio; V·Ω is no unit
+assert v_out.within(between(volt("1"), volt("1.5")))
+assert (v_in / (r_top + r_bot)).within(amp("50u").max())  # at most 50 µA
+
+vin, mid, gnd = Net("VIN"), Net("MID"), Net("GND")
+j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="IN")
+r1 = Part("R1", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value=r_top)
+r2 = Part("R2", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value=r_bot)
+design.add(j1, r1, r2)
+connect(vin, j1[1], r1[1])
+connect(mid, r1[2], r2[1])
+connect(gnd, j1[2], r2[2])
+j1.place(mm(5), mm(8), rot=90)
+r1.place(mm(13), mm(5))
+r2.place(mm(13), mm(11))
+```
+
+- `q.pct(p)`, `q.pct(lo, hi)` and `q.pct(pct(...))` give a range with nominal `q`; `q.max()` is `0..q`,
+  `q.min()` is `q..` (unbounded above); `between(a, b, nominal=None)` takes two quantities of one unit.
+- `+ - * /` mix ranges, quantities and exact numbers; a result may be wider than the truth, never narrower.
+  Units follow a closed table (V/Ω is A, V·A is W, Ω/Ω is a ratio); another pair raises `TypeError`.
+  A divisor that holds zero, or an unbounded operand, raises `DslError`.
+- `a.within(b)` asks whether every value of `a` lies in `b`; `.min`, `.max` and `.nominal` read the
+  bounds back as quantities.
+- A ranged part value writes the nominal text (`100kΩ`) as before and keeps the range in
+  `.fenolite/circuit.json` only; it needs a nominal and two bounds.
+
 ## Typed interfaces
 
 An interface names a group of nets and gives each a role. `attach()` connects the pins of one part by
@@ -173,7 +213,7 @@ def divider(b, *, r_top=ohm("10k")):  # parameters are keyword-only and recorded
     mid = b.net("MID")  # a local net: div0/MID
     top = b.part("R_TOP", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value=r_top)
     low = b.part("R_LOW", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="10k")
-    connect(vin, top[1])  # a port is wired like a net
+    connect(vin, top[1])  # wired like a net
     connect(mid, top[2], low[1])
     connect(gnd, low[2])
 
@@ -181,14 +221,14 @@ def divider(b, *, r_top=ohm("10k")):  # parameters are keyword-only and recorded
 vin, gnd = Net("VIN"), Net("GND")
 for n in range(2):
     div = design.use(divider, f"div{n}", r_top=ohm("22k"))  # the paths div0/R_TOP, div1/R_TOP
-    connect(vin, div.VIN)  # the port net takes the name VIN
+    connect(vin, div.VIN)  # the port net is VIN
     connect(gnd, div.GND)
     div.part("R_TOP").place(mm(10 + 15 * n), mm(6))
     div.part("R_LOW").place(mm(10 + 15 * n), mm(14))
 ```
 
 - `design.use(block, name, **params)` runs the function once with a fresh block `b`; refs come from the
-  design lock, so two instances never collide. `b.part(name, ...)` names a part locally.
+  lock, so two instances never collide. `b.part(name, ...)` names a part locally.
 - `b.port(name, kind=Net, direction=...)` takes `Net` or an interface class (`I2C` gives `.sda`, `.scl`).
   An unwired group of port nets is named `<instance>/<port>`, an `out` port first.
 - `build.port-unused` (warning): a port has nothing outside its block; pass `optional=True` when that is

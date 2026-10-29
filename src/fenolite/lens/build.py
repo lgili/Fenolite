@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import dataclasses
 import fnmatch
+import functools
 import hashlib
 import json
 from collections.abc import Collection, Mapping, Sequence
@@ -81,6 +82,7 @@ from fenolite.lens import preserve
 from fenolite.lens.fields import FieldRequestLike, apply_requests, merge_fields
 from fenolite.lens.moved import identity_map
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
+from fenolite.lens.rolecopper import RoleCopperPlanner, apply_plan
 from fenolite.model import canonical, pairs
 from fenolite.model.board import ComponentBody, FootprintInstance, Pad, Side, ViaProtection
 from fenolite.model.circuit import Component, Interface, Net, NetClass, Pin, PinRef
@@ -1118,6 +1120,8 @@ def build_design(
     copper_intents: Sequence[CopperIntentLike] = (),
     meanders: Sequence[MeanderIntentLike] = (),
     generated_copper: Sequence[generate_mod.GeneratedLike] = (),
+    role_copper: object | None = None,
+    role_planner: RoleCopperPlanner | None = None,
     fields: Mapping[str, Sequence[FieldRequestLike]] = MappingProxyType({}),
     pad_zones: Mapping[str, Sequence[PadZoneRequestLike]] = MappingProxyType({}),
     authored_footprints: Mapping[str, FootprintDef] = MappingProxyType({}),
@@ -1171,6 +1175,11 @@ def build_design(
     ``keepout_ring``, ``barrier``, ``body_keepout``, ``fanout_zone`` and ``stitch_pieces``), resolved after
     the meanders by ``generate.resolve_generated`` into locked zones, rule areas, tracks and vias; an error
     of a record is an error of the build (``docs/copper.md``, "Generated copper").
+    ``role_copper`` is the record of ``design.role_copper()`` (change c0243): after the generated copper,
+    ``role_planner`` (``fenolite.roles.copper.run`` with the stored roles bound, given by the build command:
+    the lens imports no ``roles``) plans the copper of the confirmed and declared roles and applies it with
+    ``lens.rolecopper.apply_plan``; its issues join the build's, and its ``roles.copper-worse`` stops the
+    write (``docs/roles.md``, "Role copper").
     ``fields`` maps a component path to the field placement requests of its part, applied to the placed or
     staged footprint (``docs/dsl.md``, "Field placement"); a footprint without the field raises
     ``FormatError``.
@@ -1421,6 +1430,30 @@ def build_design(
                 )
             },
         }  # fmt: skip
+    role_summary: dict[str, object] | None = None
+    role_evidence: Evidence | None = None
+    if role_copper is not None and role_planner is not None and built.board is not None:
+        held = prepared.board if prepared is not None else None
+        project_text = prepared.existing.project if prepared is not None else None
+        project_data = (
+            pro.read_project_text(project_text) if project_text is not None else pro.template(target)
+        )
+        apply = functools.partial(
+            apply_plan,
+            unplaced=staged,
+            keepouts=[
+                area
+                for area in (held.board.keepouts if held is not None and held.board is not None else ())
+                if not boarditems.is_item_uuid(area.native_ids.get("kicad", ""))
+            ],
+            outline=_kept_outline(held, built, lock_outline),
+            edge_floor=pro.project_minimums(project_data).get("min_copper_edge_clearance", 0),
+        )
+        outcome = role_planner(built, frame.board_pads(built), role_copper, apply)
+        built = outcome.design
+        issues += outcome.issues
+        role_summary = dict(outcome.summary)
+        role_evidence = outcome.evidence
     existing = prepared.existing if prepared is not None else preserve.ExistingProject()
     board_read = prepared is not None and prepared.board is not None
     preserved: dict[str, object] = {}
@@ -1659,6 +1692,8 @@ def build_design(
         evidence_items.append(dru.EVIDENCE)
     if copper_intents:
         evidence_items += [copper_mod.EVIDENCE, frame.EVIDENCE]
+    if role_evidence is not None:
+        evidence_items += [role_evidence, generate_mod.EVIDENCE]
     if any(board_items.values()):
         evidence_items.append(boarditems.EVIDENCE)  # the script declares rule areas or drawings
     if meanders:
@@ -1720,6 +1755,8 @@ def build_design(
     }
     if generated_counts:
         summary["generated"] = generated_counts
+    if role_summary is not None:
+        summary["role_copper"] = role_summary
     return BuildOutput(
         built,
         dict(sorted(files.items())),

@@ -7,8 +7,7 @@ summary: Current loops and loop area, copper sized by a public method, pours as 
 # Power paths, current and copper
 
 A power path has two jobs: to carry its current without overheating, and to keep the area of every
-switching loop small. The first is a matter of copper area. The second is a matter of placement, and no
-amount of copper fixes it later.
+switching loop small. The first takes copper area; the second takes placement, which no copper fixes.
 
 ## Loops first
 
@@ -28,10 +27,14 @@ amount of copper fixes it later.
    Kelvin source, when the part has one) to the driver, beside the gate track. It does not run through
    the power ground.
 4. **Put the bootstrap and supply capacitors of a driver at its pins.** Their pins swing with the switch
-   node. Keep other signals and vias out of the area around them, and keep the clearance that their
-   voltage needs.
+   node. Keep other signals and vias away from them, at the clearance that their voltage needs.
 
-Declare what you know; `fenolite roles PATH --check` infers the rest and measures it.
+Declare what you know; `fenolite roles PATH --check` infers the rest and measures it. Route gate loops
+and Kelvin pairs first, then power copper around them:
+
+```fenolite-cmd
+fenolite route board/board.kicad_pcb --router octilinear --roles critical --dry-run --json
+```
 
 ```fenolite-design
 from fenolite.dsl import Design, Net, Part, amp, connect, mm, volt
@@ -53,6 +56,16 @@ design.gate_loop("q1", drive=u1.pad(1), gate=q1.pad(1), source=q1.pad(3), ret=u1
 design.kelvin("isense", element=(r1.pad(1), r1.pad(2)), receiver=(u1.pad(3), u1.pad(4)))
 design.role_limits(loop_max="50mm2", kind="switch_node")
 design.part_class(r1, "shunt")
+design.role_copper()  # after placement: copper for the confirmed and declared roles
+```
+
+`role_copper()` draws a band per power and switch-node net sized by its current, ground planes with
+stitching, via arrays at layer changes, and keep-outs at your high-voltage distances
+(`requirements=`), never editing locked copper. `fenolite copper` does it on a board; fill and check
+after it.
+
+```fenolite-cmd
+fenolite copper board/board.kicad_pcb --dry-run --json
 ```
 
 ## Copper for the current
@@ -64,8 +77,8 @@ design.part_class(r1, "shunt")
 - **Use the right current.** Size the copper for the RMS value of the real, pulsed current at the
   highest operating point, not for power divided by voltage. Measure it at the narrowest section and at
   the pad entries. Compute again whenever the pours, the copper thickness or the stack-up change.
-- **Never narrow a power path silently.** When a change makes a path narrower, compare the old and the
-  new section, and have the narrower one accepted.
+- **Never narrow a power path silently.** Compare the old and the new section of a
+  narrowed path, and have the narrower one accepted.
 - **Size a via group by the barrels' cross-section**, and check how the current shares between the vias.
 - **Measure what you drew.** `analyze` reports the capacity of each track and via for your inputs.
   `--kinds power` measures the resistance and the voltage drop of the copper between two sets of pads,
@@ -76,14 +89,14 @@ fenolite analyze board/board.kicad_pcb --kinds current --temp-rise 10 --copper-t
 fenolite analyze board/board.kicad_pcb --kinds power --path J1-1 Q1-2 --resistivity 17.2 --copper-thickness 35um --json
 ```
 
-The temperature rise, the thickness and the resistivity above are examples. Use the user's values.
+These values are examples: use the user's.
 
 ## Pours that look drawn
 
 - **Use wide bands, not thin tracks, for power.** Shape each power net as a band that follows its path
   in straight runs. Use 45° chamfers at the steps and bevels at the outer corners. Widen each side
-  independently, as far as the clearance to the neighbouring band allows. A free-form pour that fills
-  every gap looks improvised, and it leaves narrow fingers that carry nothing.
+  independently, as far as the clearance to the neighbouring band allows. A pour that fills every gap
+  looks improvised and leaves fingers that carry nothing.
 - **Let the build draw the band, the keep-outs and the vias.** The calls below run after placement, so
   they follow the parts; each writes ordinary zones, rule areas, tracks and vias that a rebuild replaces.
   A barrier and a body keep-out are convex; read the build's issues for the pads a barrier encloses.
@@ -119,17 +132,17 @@ design.stitch_pieces(gnd, pitch=mm(4))  # vias that tie the two GND pours togeth
 ```
 
 - **Find the necks.** The narrowest point of a band sets its capacity: a gap between two pads, a row of
-  vias, the spokes of a thermal relief. Measure there, not at the widest part. Widen a neck, or add a
-  parallel path on the other face.
+  vias, the spokes of a thermal relief. Widen a neck, or add a parallel path on
+  the other face.
 - **Thermal reliefs on power pads** cut the current path to the width of their spokes. Agree with the
   owner whether a power pad is connected solid (better for current, harder to solder by hand) or with
   wide spokes.
-- **Change layers with vias in parallel.** One via carries far less than a band. Use an array, spread
-  across the band's width, near the part that the current leaves.
-- **Remove copper that carries nothing.** Remove isolated islands, fingers that end nowhere, and pour
-  far from any connection. Dead copper does not cool much, and it shortens clearances.
-- **Share the current in a bank.** In a bank of parallel capacitors, give each capacitor a similar
-  path. The nearest capacitor of a lopsided bank takes most of the ripple current and ages first.
+- **Change layers with vias in parallel:** an array across the band's width, near the part that the
+  current leaves.
+- **Remove copper that carries nothing:** islands, fingers that end nowhere, pour far from any
+  connection. Dead copper cools little and shortens clearances.
+- **Share the current in a bank.** Give each parallel capacitor a similar path: the nearest one of a
+  lopsided bank takes most of the ripple current and ages first.
 
 Measure these with `analyze`. `necks` finds the places narrower than a `[[neck]]` row of the user's
 requirements, `loops` measures the area of each `[[loop]]` row, and `balance` compares the copper at the
@@ -151,26 +164,25 @@ fenolite analyze board.kicad_pcb --kinds loops --requirements req.toml --loop-ba
   sink, and plan a thermal test.
 - **Spread heat into copper.** A part with a thermal pad needs its pad copper connected to an area on
   the same face, with vias to the other face when the datasheet asks for them.
-- **Keep heat sources apart** from each other, and away from electrolytic capacitors, relays,
-  magnetics and the analog parts whose reading must not drift.
+- **Keep heat sources apart,** and away from electrolytics, relays, magnetics and drifting analog
+  parts.
 - **Check each bulk capacitor's ripple current** at the real frequency and with the real sharing,
   against the part that is fitted.
-- **Measure, then decide.** Ask for the temperature limit of each hot part. Report the copper area that
-  each part has; do not claim a temperature that nothing computed. Copper area is a proxy: schedule
-  temperature measurements on the hot parts.
+- **Measure, then decide.** Ask for each hot part's temperature limit. Report its copper area, a proxy;
+  claim no temperature that nothing computed, and schedule measurements on the hot parts.
 
 ## After pours and cut-outs
 
 Pour cut-outs, keep-outs and slots remove copper. After every change to them, check that every pad of a
-poured net is still connected, and that each band is still continuous. A rule check that runs only on
-the copper you drew, without the cut-outs, misses this. `fenolite net` lists the open connections of a
+poured net is still connected, and that each band is still continuous. A check of the drawn copper
+alone misses this. `fenolite net` lists the open connections of a
 net; `analyze --kinds connectivity,dead` pours the zones again and lists cut-off pads and dead copper.
 - **Refill and check before any output or measurement.** The saved fill is what gets fabricated. An
   outline edited after its last refill holds an old fill, and every distance, connection and current
   measured on it is wrong.
 - **Keep a pour out of an area with a pour cut-out,** not with a drawing on a keep-out layer that the
   pour may ignore.
-- **Look at the refilled pour:** the relief spokes, the slivers, the slits and the acute tips.
+- **Look at the refilled pour:** spokes, slivers, slits, acute tips.
 - **Judge a change of a switching path by its loop inductance**, not by its milliohms.
 
 ```fenolite-cmd
@@ -181,17 +193,16 @@ fenolite analyze board.kicad_pcb --kinds connectivity,dead --dead-distance 5mm -
 
 ## Priorities between power and signals
 
-When power copper and a signal compete for the same face, the power copper normally wins, and the
-signal moves.
+When power copper and a signal compete for one face, the power copper wins and the signal moves.
 
 ## Typical failures
 
-- **A rectifier pin left open.** Pour cut-outs under a bank of capacitors removed the only copper that
-  joined a rectifier pin to the bus. A preview model without the cut-outs showed the pin connected. The
-  fix was a neck on the other face and a connectivity check with the cut-outs applied.
+- **A rectifier pin left open.** Pour cut-outs under a capacitor bank removed the only copper joining a
+  rectifier pin to the bus; a preview without the cut-outs showed it connected. A neck on the other face
+  and a connectivity check with the cut-outs fixed it.
 - **A switching loop closed late.** The DC-link film capacitor first sat away from the power module. It
-  was moved next to the module's positive supply pin, with the shunt beside it. The loop of capacitor, module and shunt became as short as the parts allow.
-- **Pours rejected as "free-form".** Pours that filled every free area were rejected; straight bands
-  with chamfered steps, the same nets and clearances, were accepted.
+  was moved next to the module's positive supply pin, with the shunt beside it.
+- **Pours rejected as "free-form".** Straight bands with chamfered steps replaced pours that filled
+  every gap.
 
 Read next: `board-grounds`, `board-routing`, `rules`.

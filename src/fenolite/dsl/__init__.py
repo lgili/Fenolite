@@ -56,7 +56,22 @@ from fenolite.dsl.items import RuleArea
 from fenolite.dsl.module import Module
 from fenolite.dsl.panel import Panel
 from fenolite.dsl.part import FieldRequest, Net, PadZoneRequest, Part, Placement, connect, no_connect
-from fenolite.dsl.quantity import Quantity, amp, farad, henry, hertz, ohm, second, volt, watt
+from fenolite.dsl.quantity import (
+    Quantity,
+    Range,
+    Tolerance,
+    amp,
+    between,
+    farad,
+    henry,
+    hertz,
+    ohm,
+    pct,
+    second,
+    volt,
+    watt,
+)
+from fenolite.dsl.rolecopper import RoleCopperIntent, role_copper
 from fenolite.dsl.symbol import Symbol
 from fenolite.dsl.units import Length, inch, mil, mm, nm
 from fenolite.dsl.wiring import decouple, pull_down, pull_up, series
@@ -86,6 +101,7 @@ __all__ = [
     "PadEnd",
     "PadRef",
     "PadZoneRequest",
+    "RoleCopperIntent",
     "Panel",
     "Part",
     "Placement",
@@ -122,6 +138,7 @@ __all__ = [
     "protect",
     "pull_down",
     "pull_up",
+    "role_copper",
     "select",
     "series",
     "shape",
@@ -136,6 +153,10 @@ __all__ = [
     "UART",
     "USB2",
     "Quantity",
+    "Range",
+    "Tolerance",
+    "between",
+    "pct",
     "RuleArea",
     "amp",
     "farad",

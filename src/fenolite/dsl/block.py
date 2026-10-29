@@ -21,7 +21,7 @@ from fenolite.dsl.interfaces import I2C, SPI, UART, USB2, DiffPair, Harness, Int
 from fenolite.dsl.module import Container, Module
 from fenolite.dsl.part import Net, Part, check_name
 from fenolite.dsl.portnets import DIRECTIONS, PortHandle
-from fenolite.dsl.quantity import Quantity
+from fenolite.dsl.quantity import Quantity, Range
 from fenolite.dsl.units import Length
 
 if TYPE_CHECKING:
@@ -72,11 +72,14 @@ def record(value: object, *, block: str, param: str) -> tuple[str, str]:
         return ("length", str(value.nm))
     if isinstance(value, Quantity):
         return ("quantity", value.text())
+    if isinstance(value, Range):
+        return ("range", value.text())
     if value is None:
         return ("none", "")
     raise DslError(
         f"parameter `{param}` of block `{block}`: a `{type(value).__name__}` cannot be recorded; pass a "
-        "recordable value (bool, int, str, Length, Quantity or None) or build the object inside the block"
+        "recordable value (bool, int, str, Length, Quantity, Range or None) or build the object inside "
+        "the block"
     )
 
 
@@ -135,22 +138,22 @@ def block(function: Callable[..., None], /) -> BlockDef: ...
 def block(*, name: str | None = None) -> Callable[[Callable[..., None]], BlockDef]: ...
 
 
-def block(f: object = None, /, *, name: object = None) -> object:
-    """Mark a block function.
+def block(
+    function: Callable[..., None] | None = None, /, *, name: str | None = None
+) -> BlockDef | Callable[[Callable[..., None]], BlockDef]:
+    """Mark ``def name(b, *, param=default, ...)`` as a block: ``@block`` or ``@block(name="buck")``.
 
-    ``@block`` or ``@block(name="buck")``. The signature is checked here: the builder is the one positional parameter, every other parameter is
-    keyword-only with a recordable default or none, and there is no ``*args`` and no ``**kwargs``. The
-    loose annotations keep the agent guide's line short; the overloads above give the types."""
-    if name is not None and not isinstance(name, str):
+    The signature is checked here: the builder is the one positional parameter, every other parameter is
+    keyword-only with a recordable default or none, and there is no ``*args`` and no ``**kwargs``."""
+    if name is not None and not isinstance(name, str):  # pyright: ignore[reportUnnecessaryIsInstance]
         raise DslError(f"@block(name=...) takes a str, not {name!r}")
-    label = name
-    if f is None:
+    if function is None:
 
-        def decorate(found: object) -> BlockDef:
-            return _define(found, label)
+        def decorate(found: Callable[..., None]) -> BlockDef:
+            return _define(found, name)
 
         return decorate
-    return _define(f, label)
+    return _define(function, name)
 
 
 class Block(Module):

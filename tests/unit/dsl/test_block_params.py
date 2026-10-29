@@ -84,3 +84,12 @@ def test_plain_module_records_nothing() -> None:
     design.add(Module("m"))
     module = to_model(design).circuit.modules[0]
     assert module.block == "" and module.params == ()
+
+
+def test_range_recorded() -> None:
+    @block
+    def reg(b: Any, *, vout: object = volt("3.3").pct(3)) -> None: ...
+
+    design = Design("t")
+    design.use(reg, "r1")
+    assert params(design, "r1") == (BlockParam("vout", "range", "3.3V (3.201V..3.399V)"),)

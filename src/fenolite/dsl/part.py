@@ -7,13 +7,14 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from fractions import Fraction
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, cast
 
 from fenolite.core.coords import Point
 from fenolite.core.units import Nm, Udeg
 from fenolite.dsl.errors import DslError
-from fenolite.dsl.quantity import Quantity
+from fenolite.dsl.quantity import RATIO, SIGNED, Quantity, Range
 from fenolite.dsl.units import as_nm, as_udeg
 from fenolite.model.board import MechanicalIntent
 
@@ -199,6 +200,26 @@ def pad_pairs(pad_map: Mapping[str, str | Sequence[str]]) -> tuple[tuple[str, st
     return tuple((pin, pad) for pin in sorted(pad_map) for pad in pads_of(pad_map[pin]))
 
 
+def _value_range(ref: str, value: Range) -> Range:
+    """``value`` when it can be a part value: a unit of ``Quantity``, a nominal, two bounds, no negative
+    bound of an unsigned unit, and a model form within the exponent limit; else ``DslError``."""
+    from fenolite.dsl.convert import range_to_model
+
+    if value.unit == RATIO:
+        raise DslError(f"part {ref}: the value {value.text()} is a ratio; a part value needs a unit")
+    if value.low is None or value.high is None:
+        raise DslError(f"part {ref}: the value {value.text()} is unbounded; a part value needs two bounds")
+    if value.nominal_value is None:
+        raise DslError(f"part {ref}: the value {value.text()} has no nominal; a part value needs a nominal")
+    if value.low < 0 and value.unit not in SIGNED:
+        raise DslError(f"part {ref}: the value {value.text()} has a negative bound in {value.unit}")
+    try:
+        range_to_model(value)
+    except DslError as exc:
+        raise DslError(f"part {ref}: {exc}") from exc
+    return value
+
+
 class Part:
     """A component: reference, symbol lib id, optional footprint lib id, value and user properties."""
 
@@ -207,7 +228,7 @@ class Part:
         ref: str | None = None,
         lib_id: str | None = None,
         footprint: str | None = None,
-        value: str | Quantity = "",
+        value: str | Quantity | Range = "",
         *,
         name: str | None = None,
         prefix: str | None = None,
@@ -236,10 +257,15 @@ class Part:
         ref = cast(str, label)
         if footprint is not None and (not isinstance(footprint, str) or not footprint):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part {ref}: footprint must be a non-empty string or None")
+        #: The exact range of the value when it was given as a ``Range`` (change c0246); else ``None``.
+        self.value_range: Range | None = None
+        if isinstance(value, Range):
+            self.value_range = _value_range(ref, value)
+            value = Quantity(value.unit, cast(Fraction, value.nominal_value)).text()
         if isinstance(value, Quantity):
             value = value.text()
         if not isinstance(value, str):  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise DslError(f"part {ref}: value must be a string or a Quantity")
+            raise DslError(f"part {ref}: value must be a string, a Quantity or a Range")
         self.lib_id = lib_id
         self.footprint = footprint
         self.value = value
