@@ -152,7 +152,7 @@ def test_drawing_is_deterministic_and_exact() -> None:
     second, _ = drawn(rv.bench(), nets=True)
     assert first.svg == second.svg
     assert (mm(1_500_000), mm(-250_000), mm(12_345_678), mm(0)) == ("1.5", "-0.25", "12.345678", "0")
-    assert EVIDENCE.hypotheses == ("H-G-REGION-RENDER",)
+    assert EVIDENCE.hypotheses == ("H-G-REGION-RENDER", "H-G-RENDER-DETERMINISTIC")
     with pytest.raises(ValueError):
         Region(0, 0, 0, MM)
 

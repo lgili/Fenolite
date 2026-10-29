@@ -32,7 +32,7 @@ from fenolite.geometry import Thick, thick_bbox
 from fenolite.model.base import Entity
 from fenolite.model.design import Design
 
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-REGION-RENDER",))
+EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-REGION-RENDER", "H-G-RENDER-DETERMINISTIC"))
 """The drawing shows the model's own geometry; a simulated pour is drawn to within one cell."""
 MM = 1_000_000
 STEPS = tuple(n * MM // 10 for n in (1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000))
