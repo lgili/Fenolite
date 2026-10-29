@@ -59,7 +59,7 @@ d1.place(mm(15), mm(6), rot=180)
   it. The design block of the page `altium` uses it. A KiCad build puts a power flag on both nets, so
   the electrical check takes a supply that comes in through a connector as driven. It builds with
   parts of the built-in catalog as well: the flag then lies in the catalog's library.
-- A wrong call raises an error at its own line: a duplicate reference, a second `place()`, a bare
+- A wrong call raises an error at its line: a duplicate reference, a second `place()`, a bare
   number where a length is expected. The build reports it as `FEN-3004` with `line:N` (page `recovery`).
 
 ## Connection helpers
@@ -93,7 +93,7 @@ connect(Net("ADC"), r5.b, u1[7])
 u1.unused_no_connect()  # marks CLK, the one open pin
 ```
 
-- `series` takes nets at both ends and parts between (in at `a`, out at `b`; `(d1.b, d1.a)` turns one). `decouple` puts each capacitor between two nets;
+- `series` takes nets at both ends and parts between (in at `a`, out at `b`; `(d1.b, d1.a)` turns one). `decouple` puts each capacitor across two nets;
   `pull_up` and `pull_down` take a net and one resistor or an `I2C` bus and two. A refused call connects nothing.
 - `part.unused_no_connect(keep=(...))` marks, at build, every open pin except `keep` and pins of type
   `no_connect`. An open `power_in` pin stops the build with `build.must-connect-unconnected`; a part used
@@ -180,7 +180,7 @@ fenolite build blink/design.py --out blink/build --confirm --json
 fenolite build blink/design.py --out blink/build --kicad-version 9 --dry-run --json
 ```
 
-- `init` writes `blink/design.py`, a starter that builds as it is; edit it or write your own.
+- `init` writes `blink/design.py`, a starter that builds as it is.
 - `build --dry-run` runs the script and returns `result.plan`, the files it would write, and every issue.
   Read the issues: an `error` means nothing would be written. `--confirm` writes.
 - The project goes under `--out`, never beside the script: board, schematic, project and rules files,
