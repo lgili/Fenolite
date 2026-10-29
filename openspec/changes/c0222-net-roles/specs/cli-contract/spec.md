@@ -15,3 +15,10 @@
 #### Scenario: Usage error
 - **WHEN** `fenolite roles <board> --set SW=motor` runs
 - **THEN** the exit code is 2 and stderr holds `FEN-2001`
+
+### Requirement: Roles measuring options
+`fenolite roles --check` SHALL accept the measuring options of `fenolite analyze` that its analyses use (`--requirements`, `--temp-rise`, `--copper-thickness`, `--via-plating`, `--board-thickness`, `--pour-grid`, `--split`, `--arc-tol`), parsed by the same code with the same errors. Without `--check`, each of them MUST be `FEN-2001`.
+
+#### Scenario: Options shared with analyze
+- **WHEN** `uv run pytest tests/unit/cli/test_roles_cmd.py -k options` runs `fenolite roles <board> --check --temp-rise 1.2345` and `fenolite roles <board> --split`
+- **THEN** both exit 2 with `FEN-2001`, the first with the message that `analyze` gives for the same value

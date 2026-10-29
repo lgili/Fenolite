@@ -92,68 +92,86 @@ A finding against a profile default SHALL be a `warning`. It MUST be an `error` 
 - **WHEN** `fenolite roles <board> --check --json` runs
 - **THEN** every `roles.*` issue has severity `warning` or `info`, the exit code is 0, and one `roles.unconfirmed` gives the count
 
-### Requirement: Copper path between pads
-`fenolite.roles.measure` SHALL find the copper path between two pads of a net: the shortest by plan length over the net's tracks, arc chords, vias and fill regions, with paths inside a fill taken over its ring's visibility graph, and ties broken by item id. When no path exists the measure MUST be `null` with `roles.loop-open` (warning).
+### Requirement: Role measures come from the analyses
+`fenolite.roles.measure` SHALL measure roles only by calling `fenolite.analysis`: `loop_areas`, `analyze_power`, `analyze_split`, `analyze_necks`, `analyze_distances`, `analyze_returns`, `analyze_coupling` and `analyze_ties`, with inputs derived from the roles. Each measure MUST name its analysis and copper state, and the analyses' input warnings MUST pass through unchanged.
 
-#### Scenario: A path through a pour
-- **GIVEN** an authored board where two pads 20 mm apart lie in one rectangular fill
-- **WHEN** `uv run pytest tests/unit/roles/test_path.py -k fill` measures their path
-- **THEN** the path is the straight 20 mm segment, and with an authored notch across it the path runs around the notch's corner
+#### Scenario: Measures name their analysis
+- **GIVEN** the `bad` variant of `buck_shunt`
+- **WHEN** `uv run pytest tests/unit/roles/test_measure.py -k sources` runs `fenolite roles <board> --check --json`
+- **THEN** each entry of `result.measures` names one of those analyses and a copper state, and `src/fenolite/roles/` defines no loop area, section, capacity or gap function of its own
 
-### Requirement: Loop area
-A loop's `area_nm2` SHALL be `enclosed_nm2` (the non-zero winding area of the closed path) plus `stacked_nm2` (overlap length times layer distance from the stack-up). `bound_nm2` MUST be the enclosed area through the pad centres in loop order, and `ratio_permille` MUST be `area * 1000 // bound` when the bound is at least `loop_bound_floor_nm2`. Areas MUST be integers.
+#### Scenario: A missing input is the analysis's warning
+- **GIVEN** the same board without a stack-up thickness and a role current of 2 A
+- **WHEN** `fenolite roles <board> --check --temp-rise 10 --json` runs
+- **THEN** the issues hold the `analysis.input-missing` of `analyze_power` naming `copper thickness`, and no `roles.input-missing`
+### Requirement: Role loops
+Each `HotLoop`, `GateLoop` (drive, resistor, gate, source, return) and `KelvinPair` (element, receiver, receiver, element) SHALL become one derived `[[loop]]` row measured by `loop_areas`. Roles MUST add `bound_nm2`, the shoelace area through the pad centres in loop order, and `ratio_permille = area * 1000 // bound` when the bound is at least `loop_bound_floor_nm2`. A straight leg between pads of one net MUST give `roles.loop-open` and no judged area.
 
-#### Scenario: Authored loops
-- **WHEN** `uv run pytest tests/unit/roles/test_loop_area.py` measures a 10 mm × 5 mm rectangle, a figure-eight of two 4 mm² lobes, and a loop stacked over 20 mm at 0.2 mm
-- **THEN** the areas are 50 mm², 8 mm² and 4 mm² plus the plan area, as integers of nm²
+#### Scenario: A rectangle and its bound
+- **GIVEN** an authored board whose gate loop's four pads stand at the corners of a 10 mm × 5 mm rectangle, its out and return nets as straight tracks along the two long sides, and a copy whose out track detours as a U reaching 5 mm beyond the rectangle
+- **WHEN** `uv run pytest tests/unit/roles/test_loops.py` measures both
+- **THEN** the areas are 50 mm² and 100 mm² as `loop_areas` gives them, the bound is 50 mm² both times, and the ratios are 1000 and 2000, all integers
 
+#### Scenario: An unrouted leg
+- **GIVEN** the same board with one track removed
+- **WHEN** it is measured
+- **THEN** one `roles.loop-open` names the two pads of the leg, and no `roles.gate-loop` is reported
 ### Requirement: Hot and gate loop checks
-Each `HotLoop` and `GateLoop` SHALL be measured. A loop over the user's `loop_max` or `gate_max` MUST be `roles.loop-area` or `roles.gate-loop`, and so MUST a ratio over `loop_ratio_max` or `gate_ratio_max`. A gate return that leaves from power copper instead of the `source` pad MUST be `roles.gate-return-shared`.
+Each `HotLoop` and `GateLoop` SHALL be judged on its role loop. An area over the user's `loop_max` or `gate_max` MUST be `roles.loop-area` or `roles.gate-loop`, and so MUST a ratio over `loop_ratio_max` or `gate_ratio_max`. A gate return that reaches the switch's power source copper before its `source` pad MUST be `roles.gate-return-shared`.
 
 #### Scenario: The bad buck's hot loop
 - **GIVEN** the `bad` variant of `buck_shunt`, whose input capacitor stands 15 mm from the switches
 - **WHEN** `uv run pytest tests/unit/roles/test_reference_boards.py -k buck_loop` runs the check
 - **THEN** one `roles.loop-area` names the loop, with an area within 10 % of 180 mm² and a ratio over 2000
 
+#### Scenario: A gate return from the source pour
+- **GIVEN** the `bad` variant of `half_bridge`, whose high-side gate return joins the source pour away from the Kelvin-source pad
+- **WHEN** `uv run pytest tests/unit/roles/test_kelvin.py -k gate_return` runs the check
+- **THEN** one `roles.gate-return-shared` names the gate loop and the pour
 ### Requirement: Kelvin attachment
-For each sense pad of a `KelvinPair`, the sense branch SHALL be the copper reached from the receiver without crossing the pad or entering power copper. Each attachment offset `t` along the axis to the other sense pad MUST be reported. `t < 0` MUST be `roles.kelvin-outer`. A branch that reaches power copper or a force pad MUST be `roles.kelvin-shared`.
+For each sense pad of a `KelvinPair`, the sense branch SHALL be the copper reached from the receiver without crossing the pad or entering power copper (the active elements of `path_network`). Each attachment offset `t` along the axis to the other sense pad MUST be reported; `t < 0` MUST be `roles.kelvin-outer`. A branch that reaches power copper or a force pad, or a sense net that `analyze_ties` finds shared, MUST be `roles.kelvin-shared`.
 
 #### Scenario: Sense lines of the bad buck
 - **GIVEN** the `bad` variant of `buck_shunt`, where one sense line leaves the outer end of `R12`'s pad and the other leaves the pour
 - **WHEN** `uv run pytest tests/unit/roles/test_kelvin.py -k reference` runs the check
 - **THEN** one `roles.kelvin-outer` names `R12-1` with `t < 0`, and one `roles.kelvin-shared` names `R12-2` and the zone
-
 ### Requirement: Kelvin pair and switching distance
-A `KelvinPair` SHALL be measured as a loop through its element and receiver pads, and a ratio over `pair_ratio_max` MUST be `roles.kelvin-apart` with the largest gap. Copper of a `kelvin` branch, of a `sensitive` `signal` or of another switch's gate loop closer than `switching_distance_nm` to `switch_node` copper on its layer, or over it on an adjacent layer, MUST be `roles.near-switching`.
+A `KelvinPair`'s role loop ratio over `pair_ratio_max` SHALL be `roles.kelvin-apart`. A `kelvin` branch, a `sensitive` `signal` or another switch's gate net SHALL be `roles.near-switching` when the `analyze_distances` gap to `switch_node` copper on its layer is under `switching_distance_nm`, or when it overlaps switching copper on an adjacent layer: its length over switching fills (`analyze_returns`) or its broadside overlap (`analyze_coupling`).
 
 #### Scenario: A sense pair over the switch node
-- **GIVEN** the `bad` variant of `half_bridge`, whose sense pair crosses the switch node on the adjacent layer
+- **GIVEN** the `bad` variant of `half_bridge`, whose sense pair crosses the switch node's pour on the adjacent layer
 - **WHEN** the check runs
 - **THEN** one `roles.near-switching` names the pair, the switch node and the overlap length, and the `good` variant has none
-
 ### Requirement: Current capacity of role copper
-For a role with `milliamps`, each track and arc on its path SHALL be judged against the width the method gives: `width_per_amp_nm` times the current, or the S-0269 fit at the user's rise and the stack-up's thickness. The narrowest section of its pours and the parallel vias at each layer change MUST be judged too. Findings: `roles.width-current`, `roles.section-current`, `roles.via-current`.
+For a role with `milliamps`, the active elements of `analyze_power` on its paths SHALL be judged: with the user's rise by their fit capacity (a parallel element by its `analyze_split` share, else at most a warning), without one by width or section against `width_per_amp_nm` times the current and by via count against `ceil(milliamps / milliamps_per_via)`. `analyze_necks` MUST screen its pours at the required width. Findings: `roles.width-current`, `roles.section-current`, `roles.via-current`.
 
 #### Scenario: A thin track on a 2 A net
 - **GIVEN** an authored board whose 2 A `power` net runs through a 0.3 mm track and one via between two pours
 - **WHEN** `uv run pytest tests/unit/roles/test_current.py` runs the check without and with `--temp-rise 10`
 - **THEN** both runs give one `roles.width-current` naming 0.3 mm and the method, and the first gives one `roles.via-current` asking for 10 vias
 
+#### Scenario: No analysis finding from the profile
+- **GIVEN** the same board and no requirements file
+- **WHEN** the check runs without a rise
+- **THEN** the issues hold no `analysis.path-exceeded`, `analysis.path-undecided` or `analysis.neck-narrow`
 ### Requirement: Returns and high voltage
-For `gate` and `sensitive` `signal` nets, each `split` span of `analyze_returns` against the `ground` nets SHALL be `roles.return-gap`. For each `high_voltage` net, and each net judged as one, distances SHALL come from `analysis` against the user's rows, keeping their `analysis.*` codes. A net without a row MUST be `roles.limit-missing`.
+For `gate` and `sensitive` `signal` nets, each `split` span of `analyze_returns` with the `ground` nets as `reference` SHALL be `roles.return-gap`, and its `analysis.return-split` MUST NOT be repeated. For each `high_voltage` net, and each net judged as one, distances SHALL come from `analyze_distances` against the user's rows, keeping their `analysis.*` codes. A net without a row MUST be `roles.limit-missing`.
 
 #### Scenario: A high-voltage bus without a requirement
 - **GIVEN** the `good` variant of `half_bridge` with its distance rows removed
 - **WHEN** the check runs
 - **THEN** one `roles.limit-missing` names the bus, and no `analysis.clearance-below` is reported
 
+#### Scenario: A cell tap across a ground gap
+- **GIVEN** the `bad` variant of `bms` with its roles confirmed
+- **WHEN** the check runs
+- **THEN** one `roles.return-gap` names the cell-tap net and the span, and no `analysis.return-split` names the same span
 ### Requirement: Role issue codes
-`fenolite.roles.codes.ISSUE_CODES` SHALL be the closed table of the design's eighteen `roles.*` codes with their severities, and an issue outside it MUST raise `ValueError`. `fenolite explain` MUST explain each code. No `FEN-` code is added.
+`fenolite.roles.codes.ISSUE_CODES` SHALL be the closed table of the design's seventeen `roles.*` codes with their severities, and an issue outside it MUST raise `ValueError`. `fenolite explain` MUST explain each code. No `FEN-` code is added.
 
 #### Scenario: Codes in the table
 - **WHEN** `uv run pytest tests/unit/roles/test_codes.py tests/unit/cli/test_explain_cmd.py -k roles` runs
-- **THEN** every code has its severities and an explanation, and `roles.kelvin-outer` allows `warning` and `error`
-
+- **THEN** every code has its severities and an explanation, `roles.kelvin-outer` allows `warning` and `error`, and `roles.input-missing` is not in the table
 ### Requirement: Reference boards
 `examples/roles/` SHALL hold `buck_shunt` (2 layers), `half_bridge` (4 layers) and `bms` (2 layers), authored for Fenolite with CC0 libraries, each with `good.py` and `bad.py`. The `good` variants MUST give no `roles.*` finding of warning or above once their roles are confirmed. The `bad` variants MUST give exactly their designed findings.
 
@@ -169,8 +187,8 @@ The inference, the measures and the checks SHALL read only the `Design` that a b
 - **THEN** the role rows are equal, and each loop area differs by less than 0.01 mm²
 
 ### Requirement: Role evidence
-Every reply of `fenolite roles` and of the stage SHALL carry the evidence level `INFERRED` with the hypotheses of the design that its checks rely on. The limit of each finding MUST name its source id or hypothesis.
+Every reply of `fenolite roles` and of the stage SHALL carry the evidence level `INFERRED`, combining the role hypotheses of the design that its checks rely on with the evidence of the analyses that measured its rows. The limit of each finding MUST name its source id or hypothesis.
 
 #### Scenario: Evidence of a check
 - **WHEN** `fenolite roles <bad buck> --check --json` runs
-- **THEN** `evidence.level` is `INFERRED`, `evidence.hypotheses` holds `H-G-ROLE-LOOP-RATIO`, and the `roles.width-current` issue's message names `S-0851`
+- **THEN** `evidence.level` is `INFERRED`, `evidence.hypotheses` holds `H-G-ROLE-LOOP-RATIO` and `H-G-SHAPE-LOOP`, and the `roles.width-current` issue's message names `S-0851`
