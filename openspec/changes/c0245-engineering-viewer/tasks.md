@@ -13,7 +13,7 @@
   - No open change on `dev` or any branch holds a delta of "Viewer page", "Context-aware viewer shortcuts" or "Review in narrow windows"; the MODIFIED blocks stand as written.
   - S-0920 to S-0933 are this proposal's rows; no branch uses S-0934 to S-0949.
   - The maintainer approved the change on 2026-10-29 and accepted every recommended answer of open questions 1 to 8; they are recorded as decisions in `design.md`, "Open Questions". Implementation runs in parallel with c0243 and c0244.
-- [ ] 0.2 Add the authored stress fixture `tests/visual/fixtures/stress_board.py` (decision 7) and the budget harness, and measure today's page on it in the `viewer` job. Record the p95 frame, cursor and open times under this task. Where today misses a CI budget of `design.md`, record the replacement budget (no worse than today, and 30 % better at task 6.4). Proof: `uv run pytest tests/visual/test_workbench.py -k budget_baseline -q` in the `viewer` job on the pushed commit.
+- [ ] 0.2 Add the authored stress fixture `tests/_stress_board.py` (decision 7) and the budget harness, and measure today's page on it in the `viewer` job. Record the p95 frame, cursor and open times under this task. Where today misses a CI budget of `design.md`, record the replacement budget (no worse than today, and 30 % better at task 6.4). Proof: `uv run pytest tests/visual/test_workbench.py -k budget_baseline -q` in the `viewer` job on the pushed commit.
 
 ## 1. UI sources
 

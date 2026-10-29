@@ -247,7 +247,7 @@ There is no `--ui classic` switch: one interface, one set of baselines.
 
 ### 7. Performance targets
 
-- **Stress fixture.** `tests/visual/fixtures/stress_board.py` builds the board deterministically, authored
+- **Stress fixture.** `tests/_stress_board.py` builds the board deterministically, authored
   for Fenolite: 4 layers, 160 × 100 mm, 2 000 pads, 10 000 tracks, 1 500 vias and 40 zone fills. That is
   about 1.2 times the largest public board of the corpus (8 355 tracks, `docs/viewer.md`, "Speed and size").
 - **Budgets**, measured in the CI viewer job with Chromium's software rendering and on the maintainer's PC.
