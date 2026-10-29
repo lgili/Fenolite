@@ -170,7 +170,13 @@ caps unconfirmed roles at a warning for the same reason.
   layers:
   - `pitch` is `stitch_pitch_nm` (default 5 mm, a Fenolite heuristic, `H-G-ROLE-COPPER-STITCH`);
   - `min_vias` is 2, so no piece is joined at one point only (S-0863);
-  - the via size comes from the net's class.
+  - the via size comes from the net's class;
+  - (implementation, 2026-10-29) a stitching via is judged against all copper by one clearance, the
+    largest class clearance in force, and it keeps off the band of every other net on every layer by that
+    band's clearance: a through via under a switch-node band otherwise narrows the band's fill.
+- **Blocked ground legs** (implementation, 2026-10-29). A hot-loop leg of the ground net that no band can
+  route on the pads' layer lands on the plane through a via array at each of its two pads; when both land,
+  the leg closes through the plane and its `roles.copper-blocked` is withdrawn.
 - **Pitch.** `docs/roles.md` gives the public method behind a pitch: at most one twentieth of the
   wavelength in the board at the highest significant frequency (S-0863). The user who knows that frequency
   sets `stitch_pitch`. Fenolite takes no frequency default.

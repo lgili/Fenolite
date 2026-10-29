@@ -33,8 +33,10 @@ def ring(*points: tuple[float, float]) -> tuple[tuple[int, int], ...]:
     return tuple(p(x, y) for x, y in points)
 
 
-def make(design: Design, variant: str) -> Design:
-    """Draws the ``variant`` board into ``design``, which the variant script makes."""
+def make(design: Design, variant: str, *, power: bool = True) -> Design:
+    """Draws the ``variant`` board into ``design``, which the variant script makes. With ``power=False`` the
+    power and ground copper is left out (the role-copper scripts, change c0243, call
+    ``design.role_copper()`` instead); the signal, gate and Kelvin copper stays."""
     good = variant == "good"
     design.board(mm(80), mm(40))
     j1 = Part("J1", "Fenolite:Connector_2", footprint="Roles:Roles_Terminal_2P", value="BATTERY")
@@ -81,6 +83,8 @@ def make(design: Design, variant: str) -> Design:
     )  # fmt: skip
 
     def zone(net: Net, name: str, *points: tuple[float, float], layer: str = "F.Cu") -> None:
+        if not power:
+            return  # every zone of this board is power or ground copper
         design.zone(
             net, layers=(layer,), name=name, outline=ring(*points), clearance=mm("0.3"), connection="solid"
         )
@@ -103,7 +107,8 @@ def make(design: Design, variant: str) -> Design:
     design.track("bat", u1.pad(1), p(64.2, 3.19), p(64.2, 2.2), p(79.0, 2.2), p(79.0, 27.0), p(77.5, 27.0),
                  width=mm("0.25"))  # fmt: skip
     design.via("gnd_vss", *p(64.6, 9.54), net=gnd, **VIA)
-    design.via("gnd_plane", *p(64.6, 15.6), net=gnd, **VIA)  # the plane joins the battery negative's pour
+    if power:
+        design.via("gnd_plane", *p(64.6, 15.6), net=gnd, **VIA)  # the plane joins the battery negative's pour
     design.track("gnd_vss_t", u1.pad(6), p(64.6, 9.54), width=mm("0.25"))
     # the cell taps, over the ground plane on B.Cu
     design.track("tap3", j2.pad(1), p(68.19, 4.46), u1.pad(2), width=mm("0.25"))
@@ -130,7 +135,7 @@ def make(design: Design, variant: str) -> Design:
     if good:
         _good(design, gnd, pack_n, zone, r1, u1)
     else:
-        _bad(design, gnd, pack_n, zone, u1)
+        _bad(design, gnd, pack_n, zone, u1, power)
     return design
 
 
@@ -143,7 +148,7 @@ def _good(design, gnd, pack_n, zone, r1, u1):  # type: ignore[no-untyped-def]
     design.track("sns_n", r1.pad(3), p(57.3, 12.6), u1.pad(8), width=mm("0.25"))
 
 
-def _bad(design, gnd, pack_n, zone, u1):  # type: ignore[no-untyped-def]
+def _bad(design, gnd, pack_n, zone, u1, power):  # type: ignore[no-untyped-def]
     """The monitor senses the shunt on its force pads; the pack's negative narrows to a 1 mm track between
     two pours; a slot in the ground plane runs under the tap ``TAP0``."""
     zone(gnd, "GND_PLANE", (56.2, 1.0), (66.9, 1.0), (66.9, 13.6), (66.4, 13.6), (66.4, 7.65), (65.6, 7.65),
@@ -151,6 +156,7 @@ def _bad(design, gnd, pack_n, zone, u1):  # type: ignore[no-untyped-def]
          layer="B.Cu")  # fmt: skip
     zone(pack_n, "PACK_IN", (2.0, 15.0), (11.6, 15.0), (11.6, 24.8), (2.0, 24.8))
     zone(pack_n, "PACK_N", (16.7, 15.0), (26.3, 15.0), (26.3, 24.8), (16.7, 24.8))
-    design.track("pack_neck", p(9.5, 20.0), p(17.5, 20.0), width=mm(1), net=pack_n)
+    if power:
+        design.track("pack_neck", p(9.5, 20.0), p(17.5, 20.0), width=mm(1), net=pack_n)
     design.track("sns_p", p(64.5, 17.0), p(62.7, 13.0), u1.pad(7), width=mm("0.25"))
     design.track("sns_n", p(55.5, 17.0), p(57.3, 13.0), u1.pad(8), width=mm("0.25"))

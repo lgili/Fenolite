@@ -33,8 +33,10 @@ def ring(*points: tuple[float, float]) -> tuple[tuple[int, int], ...]:
     return tuple(p(x, y) for x, y in points)
 
 
-def make(design: Design, variant: str) -> Design:
-    """Draws the ``variant`` board into ``design``, which the variant script makes."""
+def make(design: Design, variant: str, *, power: bool = True) -> Design:
+    """Draws the ``variant`` board into ``design``, which the variant script makes. With ``power=False`` the
+    power, switch-node and ground copper is left out (the role-copper scripts, change c0243, call
+    ``design.role_copper()`` instead); the signal, gate and Kelvin copper stays."""
     good = variant == "good"
     design.board(mm(60), mm(40))
     j1 = Part("J1", "Fenolite:Connector_2", footprint="Roles:Roles_Terminal_2P", value="VIN 12V")
@@ -84,6 +86,8 @@ def make(design: Design, variant: str) -> Design:
     )
 
     def zone(net: Net, name: str, *points: tuple[float, float], layer: str = "F.Cu") -> None:
+        if not power:
+            return  # every zone of this board is power, switch-node or ground copper
         design.zone(
             net, layers=(layer,), name=name, outline=ring(*points), clearance=mm("0.3"), connection="solid"
         )
@@ -150,15 +154,16 @@ def make(design: Design, variant: str) -> Design:
         "isns", u3.pad(1), via_step(*p(28.7, 33.4), to="B.Cu", **VIA), p(28.7, 38.6), p(6.19, 38.6),
         j3.pad(4), width=mm("0.25"),
     )  # fmt: skip
-    design.via("gnd_out", *p(41, 15), net=gnd, **VIA)
+    if power:
+        design.via("gnd_out", *p(41, 15), net=gnd, **VIA)
     if good:
-        _good(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone)
+        _good(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone, power)
     else:
-        _bad(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone)
+        _bad(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone, power)
     return design
 
 
-def _good(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone):  # type: ignore[no-untyped-def]
+def _good(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone, power):  # type: ignore[no-untyped-def]
     """``C1`` across the switch pair, pours for every power net, the shunt sensed from its inner halves."""
     j1.place(mm(10), mm(5))
     c1.place(mm("22.5"), mm(6), rot=180)
@@ -167,8 +172,9 @@ def _good(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone):  # type: ignore[no
          (8.5, 8.0), (1.5, 8.0))  # fmt: skip
     zone(gnd, "GND", (12.0, 2.5), (22.6, 2.5), (22.6, 10.05), (16.85, 10.05), (16.85, 8.0), (12.0, 8.0))
     # the output ground joins the switches' ground on B.Cu, apart from the signal ground
-    design.via("gnd_in", *p(22.0, 4.1), net=gnd, **VIA)
-    design.track("gnd_top", p(22.0, 4.1), p(41, 4.1), p(41, 15), layer="B.Cu", net=gnd, width=mm(1))
+    if power:
+        design.via("gnd_in", *p(22.0, 4.1), net=gnd, **VIA)
+        design.track("gnd_top", p(22.0, 4.1), p(41, 4.1), p(41, 15), layer="B.Cu", net=gnd, width=mm(1))
     zone(vl, "VL", (19.4, 23.2), (27.1, 23.2), (27.1, 28.2), (19.4, 28.2))
     zone(vout, "VOUT", (32.9, 23.8), (42.7, 23.8), (42.7, 25.5), (57.5, 25.5), (57.5, 36.5), (35.0, 36.5),
          (35.0, 28.3), (32.9, 28.3))  # fmt: skip
@@ -181,7 +187,7 @@ def _good(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone):  # type: ignore[no
     )
 
 
-def _bad(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone):  # type: ignore[no-untyped-def]
+def _bad(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone, power):  # type: ignore[no-untyped-def]
     """``C1`` 15 mm away with its supply and its return apart, the sense lines from the outer end of one pad
     and from the output pour, and the output path through a 0.3 mm track."""
     j1.place(mm(44), mm(6))
@@ -190,16 +196,18 @@ def _bad(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone):  # type: ignore[no-
     zone(gnd, "GND", (16.85, 7.2), (22.6, 7.2), (22.6, 10.05), (16.85, 10.05))
     zone(gnd, "GND_OUT", (42, 1.2), (57.5, 1.2), (57.5, 25.1), (43.1, 25.1), (43.1, 23.4), (40, 23.4),
          (40, 14), (42, 14))  # fmt: skip
-    design.track("vin_c1", c1.pad(1), p(4.5, 1.8), p(23.5, 1.8), width=mm(1))
-    design.via("gnd_in", *p(22.0, 7.6), net=gnd, **VIA)
-    design.track(
-        "gnd_top", p(22.0, 7.6), p(35, 7.6), p(35, 15), p(41, 15), layer="B.Cu", net=gnd, width=mm(1)
-    )
-    design.track("gnd_c1", p(17.5, 7.6), p(8.5, 7.6), p(8.5, 10.45), c1.pad(2), width=mm(1))
+    if power:
+        design.track("vin_c1", c1.pad(1), p(4.5, 1.8), p(23.5, 1.8), width=mm(1))
+        design.via("gnd_in", *p(22.0, 7.6), net=gnd, **VIA)
+        design.track(
+            "gnd_top", p(22.0, 7.6), p(35, 7.6), p(35, 15), p(41, 15), layer="B.Cu", net=gnd, width=mm(1)
+        )
+        design.track("gnd_c1", p(17.5, 7.6), p(8.5, 7.6), p(8.5, 10.45), c1.pad(2), width=mm(1))
     zone(vl, "VL", (19.4, 23.2), (26.3, 23.2), (26.3, 28.2), (19.4, 28.2))
     zone(vout, "VOUT", (36.5, 23.8), (42.7, 23.8), (42.7, 25.5), (57.5, 25.5), (57.5, 36.5), (33.2, 36.5),
          (33.2, 28.4), (36.5, 28.4))  # fmt: skip
-    design.track("vout_narrow", r12.pad(2), p(37.0, 26.0), width=mm("0.3"))
+    if power:
+        design.track("vout_narrow", r12.pad(2), p(37.0, 26.0), width=mm("0.3"))
     # the sense lines: one from the outer end of R12's pad 1, the other from the output pour
     design.track(
         "sense_p", r12.pad(1).at(mm("-0.55")), p(26.55, 29.2), p(27.2, 29.7), u3.pad(3),

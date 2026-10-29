@@ -2009,8 +2009,8 @@ fix = "Nothing to do; distances to that pad may be reported slightly short."
 see = "check"
 
 ["kicad.generate.altium"]
-meaning = "The script holds generated-copper calls (band, keepout_ring, barrier, body_keepout, fanout_zone, stitch_pieces), which only a KiCad build resolves; the Altium build writes nothing."
-fix = "Build for a KiCad target, or draw the zones and rule areas with zone() and rule_area()."
+meaning = "An Altium build with --copper-from holds generated-copper calls (band, keepout_ring, barrier, body_keepout, fanout_zone, stitch_pieces) or design.role_copper(): the board is the copper source, so the calls would be lost; the Altium build writes nothing."
+fix = "Drop --copper-from to have the script's copper resolved in memory, or build the board for KiCad."
 see = "build"
 
 ["kicad.generate.band-narrow"]
@@ -3015,6 +3015,46 @@ see = "place"
 ["roles.ambiguous"]
 meaning = "Two rules of the role inference gave a net different roles at one confidence; the first is kept (`docs/roles.md`, \"Inference rules\"). The message names the net, the two kinds and the rules."
 fix = "Confirm the net's role with `fenolite roles PATH --set NET=KIND --confirm`, or declare it in the script with `design.net_role(...)`."
+see = "roles"
+
+["roles.copper-blocked"]
+meaning = "The role copper found no free path between two pad clusters of a net on a layer (or no room for a via array): the band would cross the copper of another net, a corridor or a keep-out. Nothing is forced; that connection is missing."
+fix = "Move the parts or the copper between them, or route that connection by hand (phase 2 routes the switch-node connections it leaves)."
+see = "roles"
+
+["roles.copper-extra"]
+meaning = "A net's role copper branches, and uniting its bands into one zone needs the Clipper union of the `geo` extra, which is not installed; only the longest edge (or the single chain) was generated."
+fix = "Install the extra (`pip install fenolite[geo]`) and run again."
+see = "roles"
+
+["roles.copper-kept"]
+meaning = "A role item that you edited since the last run (its fingerprint differs from `.fenolite/role-copper.json`) was kept as it is and treated as an obstacle."
+fix = "Nothing to do; to have the generated item back, pass `--regenerate KEY` or `role_copper(regenerate=(KEY,))`."
+see = "roles"
+
+["roles.copper-narrow"]
+meaning = "A band of role copper cannot keep its clearance from other copper even at its base width in some cells; the fill carves the copper there, so the section there may be below the current's width."
+fix = "Move the spine's neighbours, or check the section with `fenolite fill` then `fenolite check`."
+see = "roles"
+
+["roles.copper-placement"]
+meaning = "The placement bound of a hot loop (the polygon of its pad centres) is already over your `loop_max`: no copper can meet the limit. The copper is still drawn; phase 1 never moves parts."
+fix = "Place the input capacitor across the switches, then run the role copper again."
+see = "roles"
+
+["roles.copper-skipped"]
+meaning = "A role net got no role copper: `unconfirmed` (an inferred role you have not confirmed), `current-missing` (a power or switch-node role without a current; warning), `user-copper` (your own zone holds the net on that layer) or `shared-layer` (the ground planes went to another ground net)."
+fix = "Confirm the role with `fenolite roles PATH --accept`, give it a current, or remove your zone to get role copper there."
+see = "roles"
+
+["roles.copper-worse"]
+meaning = "The role copper would add a role finding of warning or above that the board did not have (judged on the simulated pour, before and after); nothing is written. The topological findings of the routes (Kelvin and gate-return attachments) are not counted."
+fix = "Read the finding it names; move the parts, or pass other layers, widths or `kinds` to the role copper."
+see = "roles"
+
+["roles.corridor-blocked"]
+meaning = "A provisional corridor of a critical route (`role.corridor.<group>.<net>`) would cover another net's pad or a locked item of another net, so it was not written; phase 2 routes around that copper."
+fix = "Nothing to do for phase 1; route the gate loop or the Kelvin pair (phase 2), or move the copper that blocks it."
 see = "roles"
 
 ["roles.current-missing"]

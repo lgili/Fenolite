@@ -34,8 +34,10 @@ def ring(*points: tuple[float, float]) -> tuple[tuple[int, int], ...]:
     return tuple(p(x, y) for x, y in points)
 
 
-def make(design: Design, variant: str) -> Design:
-    """Draws the ``variant`` board into ``design``, which the variant script makes."""
+def make(design: Design, variant: str, *, power: bool = True) -> Design:
+    """Draws the ``variant`` board into ``design``, which the variant script makes. With ``power=False`` the
+    power, switch-node, ground and high-voltage copper is left out (the role-copper scripts, change c0243,
+    call ``design.role_copper()`` instead); the signal, gate and Kelvin copper stays."""
     good = variant == "good"
     design.board(mm(70), mm(50), copper=4)
     j1 = Part("J1", "Fenolite:Connector_2", footprint="Roles:Roles_Terminal_2P", value="BUS 400V")
@@ -82,6 +84,8 @@ def make(design: Design, variant: str) -> Design:
     )
 
     def zone(net: Net, name: str, *points: tuple[float, float], layer: str = "F.Cu") -> None:
+        if not power:
+            return  # every zone of this board is power, switch-node or ground copper
         design.zone(
             net, layers=(layer,), name=name, outline=ring(*points), clearance=mm("0.3"), connection="solid"
         )
@@ -104,9 +108,10 @@ def make(design: Design, variant: str) -> Design:
          layer="B.Cu")  # fmt: skip
     zone(gnd, "GND_SHUNT", (38.4, 33.9), (42.6, 33.9), (42.6, 38.1), (38.4, 38.1))
     zone(src, "SRC", (27.2, 31.85), (28.3, 31.85), (28.3, 33.3), (32.6, 33.3), (32.6, 41.4), (27.2, 41.4))
-    design.via("gnd_shunt", *p(41.8, 36.0), net=gnd, **VIA)
-    design.via("gnd_c1", *p(11, 24.6), net=gnd, **VIA)
-    design.track("gnd_c1t", c1.pad(2), p(11, 24.6), width=mm("0.6"))
+    if power:
+        design.via("gnd_shunt", *p(41.8, 36.0), net=gnd, **VIA)
+        design.via("gnd_c1", *p(11, 24.6), net=gnd, **VIA)
+        design.track("gnd_c1t", c1.pad(2), p(11, 24.6), width=mm("0.6"))
     # the driver: bootstrap, supply and inputs
     design.track("vb", u2.pad(8), p(42.4, 18.095), p(42.4, 15.6), c2.pad(1), width=mm("0.25"))
     design.track("hs_boot", c2.pad(2), p(45.5, 15.6), p(45.5, 20.635), u2.pad(6), width=mm("0.4"))
@@ -144,7 +149,7 @@ def make(design: Design, variant: str) -> Design:
     if good:
         _good(design, q1, q2, u2, vbus, zone)
     else:
-        _bad(design, j1, q1, q2, u2, vbus, sw, zone)
+        _bad(design, j1, q1, q2, u2, vbus, sw, zone, power)
     return design
 
 
@@ -158,14 +163,15 @@ def _good(design, q1, q2, u2, vbus, zone):  # type: ignore[no-untyped-def]
     design.track("gl", u2.pad(5), p(37.0, 21.905), p(37.0, 31.0), q2.pad(1), width=mm("0.25"))
 
 
-def _bad(design, j1, q1, q2, u2, vbus, sw, zone):  # type: ignore[no-untyped-def]
+def _bad(design, j1, q1, q2, u2, vbus, sw, zone, power):  # type: ignore[no-untyped-def]
     """The bus reaches the high side's pour through one via; the high side's Kelvin-source pad is tied to the
     source pour and its gate return leaves from that pour; the low side's gate trace takes a detour; a pour
     of the switch node on ``In1.Cu`` lies under the sense pair."""
     zone(vbus, "VBUS", (1.5, 9.5), (24.1, 9.5), (24.1, 20.6), (1.5, 20.6))
-    design.track("vbus_in", j1.pad(1), p(7.0, 6.0), p(7.0, 14.0), layer="In2.Cu", width=mm(8), net=vbus)
-    design.via("vbus_via", *p(7.0, 14.0), net=vbus, **BLIND, layers=("F.Cu", "In2.Cu"))
-    design.track("vbus_top", p(7.0, 14.0), p(7.0, 12.0), width=mm(8), net=vbus)
+    if power:
+        design.track("vbus_in", j1.pad(1), p(7.0, 6.0), p(7.0, 14.0), layer="In2.Cu", width=mm(8), net=vbus)
+        design.via("vbus_via", *p(7.0, 14.0), net=vbus, **BLIND, layers=("F.Cu", "In2.Cu"))
+        design.track("vbus_top", p(7.0, 14.0), p(7.0, 12.0), width=mm(8), net=vbus)
     design.track("ks_tie", q1.pad(2), p(27.0, 12.5), width=mm("0.25"))
     design.via("gh_ret_via", *p(31.0, 14.6), net=sw, **BLIND, layers=("F.Cu", "In1.Cu"))
     design.track(
@@ -177,4 +183,5 @@ def _bad(design, j1, q1, q2, u2, vbus, sw, zone):  # type: ignore[no-untyped-def
         p(37.0, 31.0), q2.pad(1), width=mm("0.25"),
     )  # fmt: skip
     zone(sw, "SW_UNDER", (25.4, 37.6), (39.5, 37.6), (39.5, 41.4), (25.4, 41.4), layer="In1.Cu")
-    design.via("sw_under", *p(25.8, 40.5), net=sw, **BLIND, layers=("F.Cu", "In1.Cu"))
+    if power:
+        design.via("sw_under", *p(25.8, 40.5), net=sw, **BLIND, layers=("F.Cu", "In1.Cu"))

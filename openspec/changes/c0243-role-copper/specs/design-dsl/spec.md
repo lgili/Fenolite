@@ -1,11 +1,18 @@
 ## ADDED Requirements
 
 ### Requirement: Role copper in the DSL
-`Design.role_copper(*, kinds=…, layers=None, ground_layers=None, ground_fill="reference", connection=None, stitch_pitch=None, temp_rise=None, widen=None, corridors=True, keep=(), regenerate=())` SHALL record plain data, returned by `fenolite.dsl.role_copper(design)`. A second call, an unknown kind, mode or layer MUST raise `DslError`. The build MUST resolve it after the roles, script copper and generated records.
+`Design.role_copper(*, kinds=…, layers=None, ground_layers=None, ground_fill="reference", connection=None, stitch_pitch=None, temp_rise=None, widen=None, corridors=True, keep=(), regenerate=(), requirements=None)` SHALL record plain data, returned by `fenolite.dsl.role_copper(design)`. A second call, an unknown kind, mode or layer MUST raise `DslError`. The build MUST resolve it after the roles, script copper and generated records.
 
 #### Scenario: Recorded and built
 - **WHEN** `uv run pytest tests/unit/dsl/test_role_copper.py` records valid and invalid calls and builds `examples/roles/buck_shunt/good_roles.py` for KiCad
 - **THEN** `role_copper(design)` holds the record, a second call or `kinds=("motor",)` raises `DslError`, and the board holds locked zones whose names start with `role.`
+
+### Requirement: Requirements file of the role copper
+`role_copper(requirements=…)` SHALL name a requirements file beside the script, whose distance rows the build's role-copper planner uses for the high-voltage copper.
+
+#### Scenario: The half-bridge distances
+- **WHEN** `uv run pytest tests/unit/roles/test_copper_hv.py` builds the half-bridge role script, which names `requirements.toml`
+- **THEN** the board holds the barrier `role.hv.VBUS.*` at the file's distance
 
 ## MODIFIED Requirements
 

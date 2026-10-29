@@ -2427,6 +2427,36 @@ keeps winning. `result.inputs.board_thickness_source` is `option`, `stackup` or 
 `result.inputs.stackup` is `null` or `{"thickness": <nm>, "copper": {<layer>: <nm>}}`. A board without a
 stack-up and without options gets the `analysis.input-missing` warnings as before.
 
+## copper
+
+`fenolite copper PATH [--roles FILE] [--requirements FILE] [--kinds KIND,...] [--net GLOB]...
+[--layers KIND=L,L]... [--ground-layers L,L] [--ground-fill reference|all] [--connection KIND=MODE]...
+[--stitch-pitch LENGTH] [--temp-rise KELVIN] [--widen PERMILLE] [--no-corridors] [--regenerate KEY]...
+[--gate drc [--kicad-cli PATH]] [--timeout SECONDS] [--dry-run | --confirm [--plan ID]]` generates the
+power, switch-node, ground and high-voltage copper of a KiCad board from its confirmed and declared net
+roles (schema `fenolite.copper.v0`, change c0243). `PATH` is a `.kicad_pcb`, a `.kicad_pro` or a project
+folder that Fenolite built. The user guide is `docs/roles.md`, "Role copper".
+
+- The roles are those that `fenolite roles` stored for the board (or `--roles FILE`) and those of the
+  project's `.fenolite/rules.json`. An inferred role that is not confirmed gets no copper
+  (`roles.copper-skipped`); a net that already holds the user's zone on a layer gets none there.
+- It is a writing command of the mutation protocol ("Writing files"): `--dry-run` plans the board, the
+  manifest `.fenolite/role-copper.json` and, when the plan holds role rules (`role.sw.*`, `role.hv.*`),
+  the project's `.kicad_dru`; `--confirm --plan ID` writes them together. A plan that changes nothing
+  writes nothing: `result.changed` is false and no `plan_id` is given.
+- `result.nets` holds one row per role net (`net`, `kind`, `method`, `width`, `max_width`, `layers`,
+  `zones`, `skipped`, `vias`); `result.corridors` the corridors of the critical routes, each with its
+  `origin` (`provisional`, written by this run, or `found`, phase 2's); `result.cleared` the role findings
+  that the copper cleared; `result.kept` the role items the user edited, which are kept
+  (`roles.copper-kept`, `--regenerate KEY` to have one generated again); `result.next` the commands to run
+  after a write (`fenolite fill`, `fenolite check`).
+- The board is judged before and after on the simulated pour; a new role finding of warning or above is
+  `roles.copper-worse` (error, exit 5) and nothing is written.
+- `--gate drc` refills and checks the planned board with `kicad-cli` (exit 6 without it) and adds
+  `result.gate`.
+- A `.PcbDoc` and a bad option are `FEN-2001`, exit 2: an Altium board gets role copper through a build of
+  its script with `design.role_copper()`. Every reply carries the evidence level `INFERRED`.
+
 ## roles
 
 `fenolite roles PATH [--roles FILE] [--net GLOB]... [--kinds KIND,...] [--class REF=CLASS]... [--check]

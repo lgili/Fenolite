@@ -102,8 +102,10 @@ class GeneratedLike(Protocol):
 
 class BandLike(GeneratedLike, Protocol):
     """A band record. A role band (change c0243) may also carry ``group`` (the bands of one group are united
-    into one zone named after it) and ``connection`` (the zone's pad connection); both are optional and read
-    with ``getattr``."""
+    into one zone named after it; such a band widens neither into a rule area that forbids pours nor over a
+    zone of another net of at least its priority), ``connection`` (the zone's pad connection),
+    ``square_ends`` (no bevel at its two ends) and ``avoid`` (rings of its own net's copper it does not widen
+    over, such as a Kelvin branch); all are optional and read with ``getattr``."""
 
     @property
     def net(self) -> str: ...
@@ -427,8 +429,15 @@ def _pad_shapes(pad: BoardPad, layers: Collection[str] | None) -> list[tuple[str
     return found
 
 
-def _item_shapes(design: Design, nets: Collection[str] | None, *, exclude: str | None = None) -> list[Thick]:
-    """The tracks, arcs and vias of ``nets`` (of every net but ``exclude`` when ``nets`` is ``None``)."""
+def _item_shapes(
+    design: Design,
+    nets: Collection[str] | None,
+    *,
+    exclude: str | None = None,
+    layers: Collection[str] | None = None,
+) -> list[Thick]:
+    """The tracks, arcs and vias of ``nets`` (of every net but ``exclude`` when ``nets`` is ``None``); with
+    ``layers``, only the tracks and arcs on those layers (a via spans them)."""
     board = design.board
     assert board is not None
     names = {net.id: net.name for net in design.circuit.nets}
@@ -439,10 +448,10 @@ def _item_shapes(design: Design, nets: Collection[str] | None, *, exclude: str |
 
     found: list[Thick] = []
     for track in board.tracks:
-        if chosen(track.net_id):
+        if chosen(track.net_id) and (layers is None or track.layer in layers):
             found.append(Thick((track.start, track.end), track.width))
     for arc in board.arcs:
-        if chosen(arc.net_id):
+        if chosen(arc.net_id) and (layers is None or arc.layer in layers):
             try:
                 core = tuple(GeoArc(arc.start, arc.mid, arc.end).polygonize(DEFAULT_TOL))
             except (GeometryError, ValueError):
@@ -561,12 +570,39 @@ def _band(ctx: _Board, intent: BandLike, outline: BoardOutline) -> tuple[list[Zo
             obstacles += [
                 shape for layer, shape in _pad_shapes(pad, layers) if layer in layers or layer is None
             ]
-    obstacles += _item_shapes(ctx.design, None, exclude=net.name)
+    # c0224's band reads the tracks of every layer; a role band (change c0243) those of its own layers
+    on_layers = layers if _group(intent) is not None else None
+    obstacles += _item_shapes(ctx.design, None, exclude=net.name, layers=on_layers)
     index = SpatialIndex[Thick].build((thick_bbox(shape).inflate(clearance), shape) for shape in obstacles)
+    walls: list[Thick] = []
+    if _group(intent) is not None:
+        # a role band (change c0243) also stays out of the rule areas that forbid pours on its layers and off
+        # the zones of other nets of at least its priority, the role zones resolved before it included
+        board = ctx.current().board
+        assert board is not None
+        for area in board.keepouts:
+            on_layer = not area.layers or layers & set(area.layers)
+            if area.no_copper_pour and len(area.outline) >= 3 and on_layer:
+                walls.append(Thick(tuple(area.outline), 0, filled=True))
+        for other in board.zones:
+            if (
+                other.net_id != net.id
+                and other.priority >= intent.priority
+                and len(other.outline) >= 3
+                and layers & set(other.layers)
+            ):
+                walls.append(Thick(tuple(other.outline), max(0, 2 * clearance - 2), filled=True))
+        avoid = cast("Sequence[Sequence[Point]]", getattr(intent, "avoid", ()) or ())
+        # grown by the clearance less a nanometre: copper exactly the clearance away keeps it
+        grown = max(0, 2 * clearance - 2)
+        walls += [Thick(tuple(ring), grown, filled=True) for ring in avoid if len(ring) >= 3]
+    fence = SpatialIndex[Thick].build((thick_bbox(shape), shape) for shape in walls)
 
     def clear(ring: Sequence[Point]) -> bool:
         shape = Thick(tuple(ring), 0, filled=True)
         box = thick_bbox(shape)
+        if any(thick_closer_than(shape, other, 1) for other in fence.query(box)):
+            return False
         return not any(thick_closer_than(shape, other, clearance) for other in index.query(box))
 
     half, step = intent.width // 2, intent.step
@@ -638,7 +674,10 @@ def _band(ctx: _Board, intent: BandLike, outline: BoardOutline) -> tuple[list[Zo
                 else:
                     second.caps[side][0] = start - 1
                 changed = True
-    ring = _simplified([*_walk(runs, 1, half, offset), *reversed(_walk(runs, -1, half, offset))])
+    square = bool(getattr(intent, "square_ends", False))
+    ring = _simplified(
+        [*_walk(runs, 1, half, offset, square), *reversed(_walk(runs, -1, half, offset, square))]
+    )
     try:
         simple = Polygon(ring).is_simple()
     except (GeometryError, ValueError):
@@ -743,10 +782,14 @@ def _united(
     return made, found
 
 
-def _walk(runs: Sequence[_Run], side: int, half: int, offset: Callable[[int], int]) -> list[Point]:
+def _walk(
+    runs: Sequence[_Run], side: int, half: int, offset: Callable[[int], int], square: bool = False
+) -> list[Point]:
     """The edge of a band on ``side`` of its spine, from the start to the end: each run's profile, a
-    single point on the inside of a turn, a bevelled corner on the outside, and bevelled ends."""
+    single point on the inside of a turn, a bevelled corner on the outside, and bevelled ends (square ends
+    for a role band that asks for them, change c0243: its ends meet the other bands of its group)."""
     bevel = half // 2
+    end_bevel = 0 if square else bevel
     points: list[Point] = []
     last = len(runs) - 1
     for number, run in enumerate(runs):
@@ -754,7 +797,7 @@ def _walk(runs: Sequence[_Run], side: int, half: int, offset: Callable[[int], in
         cut_start, cut_end = -1, run.length
         if number == 0:
             o = profile[0][1]
-            cap = min(bevel, run.lengths[0])
+            cap = min(end_bevel, run.lengths[0])
             points += [run.at(0, side * (o - cap)), run.at(cap, side * o)]
             cut_start = cap
         elif _inner(runs[number - 1], run, side):
@@ -763,11 +806,11 @@ def _walk(runs: Sequence[_Run], side: int, half: int, offset: Callable[[int], in
         if following is not None and _inner(run, following, side):
             cut_end = run.length - offset(following.levels[side][0])
         elif following is None:
-            cut_end = run.length - min(bevel, run.lengths[-1])
+            cut_end = run.length - min(end_bevel, run.lengths[-1])
         points += [run.at(t, side * o) for t, o in profile if cut_start < t < cut_end]
         o_end = profile[-1][1]
         if following is None:
-            cap = min(bevel, run.lengths[-1])
+            cap = min(end_bevel, run.lengths[-1])
             points += [run.at(run.length - cap, side * o_end), run.at(run.length, side * (o_end - cap))]
         elif _inner(run, following, side):
             points.append(run.at(cut_end, side * o_end))
@@ -1134,12 +1177,15 @@ def _stitch(
         other = BBox.of_points(ring_b)
         x0, y0 = max(box.x0, other.x0), max(box.y0, other.y0)
         x1, y1 = min(box.x1, other.x1), min(box.y1, other.y1)
+        ox, oy = 0, 0
         if patch is not None:
             held = BBox.of_points(patch)
             x0, y0, x1, y1 = max(x0, held.x0), max(y0, held.y0), min(x1, held.x1), min(y1, held.y1)
-        for j in range(-(-y0 // pitch), y1 // pitch + 1):
-            for i in range(-(-x0 // pitch), x1 // pitch + 1):
-                point = Point(i * pitch, j * pitch)
+            # a patch aligns the grid on its own corner, so a patch sized for its vias holds them all
+            ox, oy = held.x0 + (reach + 1) // 2, held.y0 + (reach + 1) // 2
+        for j in range(-(-(y0 - oy) // pitch), (y1 - oy) // pitch + 1):
+            for i in range(-(-(x0 - ox) // pitch), (x1 - ox) // pitch + 1):
+                point = Point(ox + i * pitch, oy + j * pitch)
                 if (
                     point not in candidates
                     and _inside(point, ring_a, reach)
@@ -1244,9 +1290,12 @@ def resolve_generated(
     order = {call: index for index, call in enumerate(CALLS)}
 
     def rank(item: GeneratedLike) -> tuple[int, int, str]:
-        # a barrier over a net set is resolved after the bands, so its envelope holds them (change c0243)
+        # change c0243: a barrier over a net set is resolved after the bands, so its envelope holds them; the
+        # bands of a group by falling priority, so a band widens around the zones of higher priority
         if item.call == "barrier" and _nets(item):
             return (order["band"], 1, item.key)
+        if item.call == "band" and _group(item) is not None:
+            return (order["band"], -cast(BandLike, item).priority, item.key)
         return (order.get(item.call, len(order)), 0, item.key)
 
     ordered = sorted(intents, key=rank)
