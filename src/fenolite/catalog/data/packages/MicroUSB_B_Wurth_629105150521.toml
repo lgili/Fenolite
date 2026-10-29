@@ -1,0 +1,128 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:MicroUSB_B_Wurth_629105150521"
+version = "1.0.0"
+summary = "Wurth 629105150521 micro-B with slotted shell anchors and two locating pegs"
+category = "Mixed-mount connector"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0411"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["0.45mm", "1.3mm"]
+at = ["-1.3mm", "5.5mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["0.45mm", "1.3mm"]
+at = ["-0.65mm", "5.5mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "3"
+shape = "rect"
+size = ["0.45mm", "1.3mm"]
+at = ["0mm", "5.5mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "4"
+shape = "rect"
+size = ["0.45mm", "1.3mm"]
+at = ["0.65mm", "5.5mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "5"
+shape = "rect"
+size = ["0.45mm", "1.3mm"]
+at = ["1.3mm", "5.5mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "SH"
+key = "shell:rear:-1"
+shape = "oval"
+size = ["1.45mm", "2mm"]
+at = ["-3.725mm", "5.6mm"]
+kind = "thru_hole"
+drill = "0.85mm"
+layers = ["*.Cu", "*.Mask"]
+padstack = { hole_shape = "slot", hole_length = "1.4mm", hole_rotation = "90deg" }
+
+[[pad]]
+number = "SH"
+key = "shell:rear:1"
+shape = "oval"
+size = ["1.45mm", "2mm"]
+at = ["3.725mm", "5.6mm"]
+kind = "thru_hole"
+drill = "0.85mm"
+layers = ["*.Cu", "*.Mask"]
+padstack = { hole_shape = "slot", hole_length = "1.4mm", hole_rotation = "90deg" }
+
+[[pad]]
+number = "SH"
+key = "shell:front:-1"
+shape = "oval"
+size = ["1.15mm", "1.8mm"]
+at = ["-3.875mm", "1.8mm"]
+kind = "thru_hole"
+drill = "0.55mm"
+layers = ["*.Cu", "*.Mask"]
+padstack = { hole_shape = "slot", hole_length = "1.3mm", hole_rotation = "90deg" }
+
+[[pad]]
+number = "SH"
+key = "shell:front:1"
+shape = "oval"
+size = ["1.15mm", "1.8mm"]
+at = ["3.875mm", "1.8mm"]
+kind = "thru_hole"
+drill = "0.55mm"
+layers = ["*.Cu", "*.Mask"]
+padstack = { hole_shape = "slot", hole_length = "1.3mm", hole_rotation = "90deg" }
+
+[[pad]]
+number = ""
+key = "peg:-1"
+shape = "circle"
+size = ["0.8mm", "0.8mm"]
+at = ["-2.5mm", "4.55mm"]
+kind = "np_thru_hole"
+drill = "0.8mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = ""
+key = "peg:1"
+shape = "circle"
+size = ["0.8mm", "0.8mm"]
+at = ["2.5mm", "4.55mm"]
+kind = "np_thru_hole"
+drill = "0.8mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-4mm", "-0.6mm"], ["4mm", "6mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-4.95mm", "-1.1mm"], ["4.95mm", "7.1mm"]]
+width = "0.05mm"
+
+[[graphic]]
+key = "pcb-edge-guide"
+kind = "line"
+layer = "F.Fab"
+points = [["-4mm", "0mm"], ["4mm", "0mm"]]
+width = "0.1mm"

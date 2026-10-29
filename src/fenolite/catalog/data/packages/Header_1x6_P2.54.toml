@@ -1,0 +1,83 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:Header_1x6_P2.54"
+version = "1.0.0"
+summary = "6-position generic 2.54 mm single-row header"
+category = "Through-hole connector"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0408"]
+generator = "explicit"
+kind = "through_hole"
+
+[[pad]]
+number = "1"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["0mm", "6.35mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "2"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["0mm", "3.81mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "3"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["0mm", "1.27mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "4"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["0mm", "-1.27mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "5"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["0mm", "-3.81mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "6"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["0mm", "-6.35mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-1.27mm", "-7.62mm"], ["1.27mm", "7.62mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-1.77mm", "-8.12mm"], ["1.77mm", "8.12mm"]]
+width = "0.05mm"
+
+[[graphic]]
+key = "pin1"
+kind = "line"
+layer = "F.Fab"
+points = [["-1.27mm", "7.22mm"], ["-0.87mm", "7.62mm"]]
+width = "0.1mm"

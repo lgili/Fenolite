@@ -27,6 +27,7 @@ ERRORS: dict[tuple[str, int], set[str]] = {
     ("design-script", 0): {OPEN},
     ("design-script", 1): {OPEN},
     ("footprints", 0): {OPEN},
+    ("footprints", 1): {"kicad.erc.pin-not-connected"},  # an orderable part, nothing connected (c0259)
     ("parts", 0): {OPEN, "kicad.erc.power-pin-not-driven"},
     ("parts", 1): {OPEN},  # value ranges (c0246)
     ("parts", 2): {OPEN},  # the parts placed from devices (c0248)
@@ -42,6 +43,7 @@ ERRORS: dict[tuple[str, int], set[str]] = {
 reports for the script as it is built, before any routing."""
 SAID = {
     "design-script": ("`kicad.drc.unconnected-items`",),
+    "footprints": ("`kicad.erc.pin-not-connected`",),
     "parts": ("`kicad.erc.power-pin-not-driven`", "`kicad.erc.pin-not-connected`"),
     "routing": ("exits 0",),
 }

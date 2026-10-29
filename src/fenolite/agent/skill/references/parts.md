@@ -154,8 +154,8 @@ r1.place(mm(10), mm(5))
 d1.place(mm(15), mm(5))
 ```
 
-- The shipped devices are generic (`INFERRED`, no MPN). Your own records go in `devices/*.toml` beside the
-  script; `catalog import` writes a template (`UNVERIFIED`).
+- The shipped devices are generic (`INFERRED`, no MPN). Your own records go in `devices/` beside the
+  script; `catalog import` writes an `UNVERIFIED` template; `<device id>@<mpn>` is an orderable part.
 - A wrong pin name raises `PinNameError` with the closest names. A device that disagrees with its symbol or
   footprint is `build.device-mismatch`; `result.devices` lists each device, `device.edited` an edited one.
 

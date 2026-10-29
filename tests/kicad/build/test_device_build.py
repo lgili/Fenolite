@@ -63,7 +63,8 @@ connect(vin, j1[1], c1[1], u1[5], u1[4])
 connect(gnd, j1[2], c1[2], u1[2], c3[2], r2[2], d1[2])
 connect(bst, u1[1], c2[1])
 connect(sw, u1[6], c2[2], l1[1])
-connect(v33, l1[2], c3[1], r1[1], r3[1])
+tp1 = design.part("TP1", "Example:TestPoint", footprint="Example:TestPad_D1.5", value="3V3")
+connect(v33, l1[2], c3[1], r1[1], r3[1], tp1[1])
 connect(fb, u1[3], r1[2], r2[1])
 connect(led, r3[2], d1[1])
 j1.place(mm(5), mm(12.5), rot=90, locked=True)
@@ -76,6 +77,7 @@ r1.place(mm(25), mm(18))
 r2.place(mm(20), mm(18))
 r3.place(mm(31), mm(17))
 d1.place(mm(35), mm(17))
+tp1.place(mm(35), mm(8))
 '''  # fmt: skip
 
 
@@ -110,6 +112,11 @@ def test_device_build_passes_the_kicad_oracle(
     plain = tmp_path / "plain"
     plain.mkdir()
     (plain / "design.py").write_text(PLAIN, encoding="utf-8")
+    # the test point is a pins and a package record of the example (change c0259): the plain build
+    # reads the same files
+    shutil.copytree(EXAMPLE / "devices" / "packages", plain / "devices" / "packages")
+    (plain / "devices" / "pins").mkdir()
+    shutil.copy(EXAMPLE / "devices" / "pins" / "test_point.toml", plain / "devices" / "pins")
     found = build_and_check(monkeypatch, devices / "design.py", tmp_path / "out_devices", target)
     control = build_and_check(monkeypatch, plain / "design.py", tmp_path / "out_plain", target)
     print(f"kicad-cli {version}, target {target}: devices {dict(found)}, plain {dict(control)}")

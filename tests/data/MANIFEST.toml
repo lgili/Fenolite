@@ -2637,3 +2637,63 @@ path = "examples/blocks/design.lock"
 origin = "authored"
 corpus_id = ""
 notes = "the committed design lock of examples/blocks (c0251), written by fenolite build"
+
+[[file]]
+path = "tests/data/catalog/golden.json"
+origin = "authored"
+corpus_id = ""
+notes = "golden digests of the shipped catalog (c0259), written by tools/catalog/golden.py from the Python catalog before its move to data files"
+
+[[file]]
+path = "examples/catalog/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "catalog example of change c0259: a linear supply built from the built-in catalog alone"
+
+[[file]]
+path = "tests/data/library/pins/two_pin.toml"
+origin = "authored"
+corpus_id = ""
+notes = "library record of change c0259, authored for Fenolite; illustrative, not a real product"
+
+[[file]]
+path = "tests/data/library/packages/two_pad.toml"
+origin = "authored"
+corpus_id = ""
+notes = "library record of change c0259, authored for Fenolite; illustrative, not a real product"
+
+[[file]]
+path = "tests/data/library/devices/example_reg.toml"
+origin = "authored"
+corpus_id = ""
+notes = "library record of change c0259, authored for Fenolite; illustrative, not a real product"
+
+[[file]]
+path = "tests/data/library/parts/example_reg_grade.toml"
+origin = "authored"
+corpus_id = ""
+notes = "library record of change c0259, authored for Fenolite; illustrative, not a real product"
+
+[[file]]
+path = "examples/devices/devices/pins/buck_6pin.toml"
+origin = "authored"
+corpus_id = ""
+notes = "library record of change c0259, authored for Fenolite; illustrative, not a real product"
+
+[[file]]
+path = "examples/devices/devices/pins/test_point.toml"
+origin = "authored"
+corpus_id = ""
+notes = "library record of change c0259, authored for Fenolite; illustrative, not a real product"
+
+[[file]]
+path = "examples/devices/devices/packages/test_pad.toml"
+origin = "authored"
+corpus_id = ""
+notes = "library record of change c0259, authored for Fenolite; illustrative, not a real product"
+
+[[file]]
+path = "examples/devices/devices/parts/exb6202_automotive.toml"
+origin = "authored"
+corpus_id = ""
+notes = "library record of change c0259, authored for Fenolite; illustrative, not a real product"

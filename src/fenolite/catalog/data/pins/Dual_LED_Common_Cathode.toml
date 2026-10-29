@@ -1,0 +1,79 @@
+schema = "fenolite.pins.v0"
+id = "Fenolite:Dual_LED_Common_Cathode"
+version = "1.0.0"
+summary = "Conceptual common cathode dual LED; not a package pinout"
+category = "Optoelectronic semiconductor"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0347"]
+
+[[pin]]
+number = "1"
+name = "A1"
+type = "input"
+
+[[pin]]
+number = "2"
+name = "A2"
+type = "input"
+
+[[pin]]
+number = "3"
+name = "K"
+type = "passive"
+
+[symbol]
+reference = "D"
+pin_names_hidden = true
+pins = [
+  { number = "1", at = ["-7.62mm", "2.54mm"], length = "2.54mm" },
+  { number = "2", at = ["-7.62mm", "-2.54mm"], length = "2.54mm" },
+  { number = "3", at = ["7.62mm", "0mm"], rotation = "180deg", length = "2.54mm" },
+]
+
+[[symbol.graphic]]
+kind = "rect"
+points = [["-5.08mm", "-5.08mm"], ["5.08mm", "5.08mm"]]
+filled = true
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-5.08mm", "2.54mm"], ["-1.1mm", "2.54mm"]]
+
+[[symbol.graphic]]
+kind = "polygon"
+points = [["-1.1mm", "1.89mm"], ["0mm", "2.54mm"], ["-1.1mm", "3.19mm"]]
+filled = true
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0mm", "1.79mm"], ["0mm", "3.29mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0mm", "2.54mm"], ["1.4mm", "2.54mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-5.08mm", "-2.54mm"], ["-1.1mm", "-2.54mm"]]
+
+[[symbol.graphic]]
+kind = "polygon"
+points = [["-1.1mm", "-3.19mm"], ["0mm", "-2.54mm"], ["-1.1mm", "-1.89mm"]]
+filled = true
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0mm", "-3.29mm"], ["0mm", "-1.79mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0mm", "-2.54mm"], ["1.4mm", "-2.54mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.4mm", "-2.54mm"], ["1.4mm", "2.54mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.4mm", "0mm"], ["5.08mm", "0mm"]]

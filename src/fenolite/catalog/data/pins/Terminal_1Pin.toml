@@ -1,0 +1,28 @@
+schema = "fenolite.pins.v0"
+id = "Fenolite:Terminal_1Pin"
+version = "1.0.0"
+summary = "Generic single-circuit terminal"
+category = "Electromechanical interface"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0324"]
+
+[[pin]]
+number = "1"
+name = "Passive"
+type = "passive"
+
+[symbol]
+reference = "J"
+pin_names_hidden = true
+pins = [
+  { number = "1", at = ["-5.08mm", "0mm"], length = "4.13mm" },
+]
+
+[[symbol.graphic]]
+kind = "rect"
+points = [["-0.95mm", "-0.95mm"], ["0.95mm", "0.95mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.1mm", "-0.45mm"], ["0.1mm", "0.45mm"]]

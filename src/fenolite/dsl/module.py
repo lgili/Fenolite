@@ -52,7 +52,8 @@ class Container:
         from fenolite.dsl.devices import design_records
 
         design = self.design
-        with design_records(design.device_records if design is not None else {}):
+        records = design.device_records if design is not None else {}
+        with design_records(records, design.device_parts if design is not None else {}):
             made = Part(
                 ref,
                 lib_id,

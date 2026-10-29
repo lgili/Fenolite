@@ -1,0 +1,17 @@
+schema = "fenolite.device.v1"
+id = "Fenolite:Conn_1x2_P2.54"
+version = "1.0.0"
+summary = "Generic two-pin 2.54 mm header"
+category = "Device"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0324", "S-0408"]
+symbol = "Fenolite:Connector_2"
+footprint = "Fenolite:Header_1x2_P2.54"
+ref_prefix = "J"
+value = "Conn_1x2_P2.54"
+ends = ["P1", "P2"]
+
+[pins]
+P1 = "1"
+P2 = "2"

@@ -1,0 +1,52 @@
+schema = "fenolite.pins.v0"
+id = "Fenolite:Schottky_Diode"
+version = "1.0.0"
+summary = "Conceptual Schottky A/K; not a device pinout"
+category = "Discrete semiconductor"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0430"]
+polarity = "anode-first"
+
+[[pin]]
+number = "1"
+name = "A"
+type = "passive"
+
+[[pin]]
+number = "2"
+name = "K"
+type = "passive"
+
+[symbol]
+reference = "D"
+pin_names_hidden = true
+pins = [
+  { number = "1", at = ["-5.08mm", "0mm"], length = "3.81mm" },
+  { number = "2", at = ["5.08mm", "0mm"], rotation = "180deg", length = "3.81mm" },
+]
+
+[[symbol.graphic]]
+kind = "polygon"
+points = [["-1.27mm", "-1.7mm"], ["1.27mm", "0mm"], ["-1.27mm", "1.7mm"]]
+filled = true
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.905mm", "1.05mm"], ["1.905mm", "1.7mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.905mm", "1.7mm"], ["1.27mm", "1.7mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.27mm", "1.7mm"], ["1.27mm", "-1.7mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.27mm", "-1.7mm"], ["0.635mm", "-1.7mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.635mm", "-1.7mm"], ["0.635mm", "-1.05mm"]]

@@ -74,8 +74,11 @@ def test_device_file_in_the_input(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     script, out = str(folder / "design.py"), str(tmp_path / "B")
     code, envelope, _ = run(monkeypatch, script, "--out", out, "--dry-run")
     assert code == 0
-    (row,) = envelope["result"]["device_files"]  # type: ignore[index]
-    assert row["path"] == "devices/example_buck.toml" and len(row["sha256"]) == 64
+    rows = envelope["result"]["device_files"]  # type: ignore[index]
+    # the example's records are read recursively since change c0259
+    assert [r["path"] for r in rows] == sorted(r["path"] for r in rows)
+    row = next(r for r in rows if r["path"] == "devices/example_buck.toml")
+    assert len(row["sha256"]) == 64
     assert str(tmp_path) not in json.dumps(envelope["result"]["device_files"])  # type: ignore[index]
     first = envelope["result"]["plan_id"]  # type: ignore[index]
     record = folder / "devices" / "example_buck.toml"
@@ -85,7 +88,7 @@ def test_device_file_in_the_input(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     )
     code, envelope, _ = run(monkeypatch, script, "--out", out, "--dry-run")
     assert code == 0 and envelope["result"]["plan_id"] != first  # type: ignore[index]
-    assert envelope["result"]["device_files"][0]["sha256"] != row["sha256"]  # type: ignore[index]
+    assert row not in envelope["result"]["device_files"]  # type: ignore[index]
 
 
 def test_one_id_in_two_files(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

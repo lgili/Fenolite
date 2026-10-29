@@ -242,7 +242,9 @@ the list holds symbols, footprints and the shipped devices (change c0248, `docs/
 entry also holds `id`. `fenolite catalog show LIB_ID [--kind ...]` returns the same metadata and a compact
 definition summary; for a device (`--kind device`, or an id that no symbol or footprint has) it returns
 the `record`, its `digest`, `edited` and `shadowed` (functions hidden by attributes of `Part`), and the
-`check_device` issues against the catalog symbol and footprint. Neither
+`check_device` issues against the catalog symbol and footprint. Every entry also holds `version`, `licence` and `uid`, the record's
+version, licence and stable uid (change c0259, `docs/library-records.md`): the catalog is read from record
+files, and every other key keeps its value. Neither
 command reads library tables or runs external tools. The initial generic catalog is documented in
 `docs/catalog/README.md`; every non-`KICAD-VERIFIED` land dimension remains explicitly marked.
 

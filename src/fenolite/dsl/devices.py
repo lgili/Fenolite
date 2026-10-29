@@ -21,6 +21,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
 
 from fenolite.catalog.devices import shipped_devices
+from fenolite.catalog.records import DeviceRecord, PartEntry, effective_part, shipped_tree
 from fenolite.dsl.errors import DslError
 from fenolite.model.library import DeviceDef
 
@@ -34,10 +35,12 @@ PIN_LIST_LIMIT = 24
 
 @dataclass(frozen=True, slots=True)
 class ProjectDevices:
-    """The project devices of one run: the records in file-name order, and the file of each id."""
+    """The project devices of one run: the records in file-name order, the file of each id, and the
+    orderable parts of each device id (change c0259)."""
 
     devices: tuple[DeviceDef, ...] = ()
     files: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+    parts: Mapping[str, tuple[PartEntry, ...]] = field(default_factory=lambda: MappingProxyType({}))
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +55,9 @@ class Resolved:
 
 _PROJECT: ContextVar[ProjectDevices | None] = ContextVar("fenolite_project_devices", default=None)
 _DESIGN: ContextVar[Mapping[str, DeviceDef] | None] = ContextVar("fenolite_design_devices", default=None)
+_DESIGN_PARTS: ContextVar[Mapping[str, tuple[PartEntry, ...]] | None] = ContextVar(
+    "fenolite_design_parts", default=None
+)
 
 
 @contextlib.contextmanager
@@ -65,13 +71,18 @@ def installed(project: ProjectDevices) -> Generator[None]:
 
 
 @contextlib.contextmanager
-def design_records(records: Mapping[str, DeviceDef]) -> Generator[None]:
-    """Resolve device ids against ``records`` first while the block runs (``Design.part``)."""
+def design_records(
+    records: Mapping[str, DeviceDef], parts: Mapping[str, tuple[PartEntry, ...]] | None = None
+) -> Generator[None]:
+    """Resolve device ids against ``records`` (and their orderable ``parts``) first while the block runs
+    (``Design.part``)."""
     token = _DESIGN.set(records)
+    parts_token = _DESIGN_PARTS.set(parts or {})
     try:
         yield
     finally:
         _DESIGN.reset(token)
+        _DESIGN_PARTS.reset(parts_token)
 
 
 def project_devices() -> ProjectDevices:
@@ -90,9 +101,22 @@ def known_ids() -> tuple[str, ...]:
 
 def resolve(device_id: object) -> Resolved:
     """The device of ``device_id`` by the precedence of this module; ``DslError`` naming the closest known
-    ids when no source holds it."""
+    ids when no source holds it. ``<device id>@<mpn>`` names an orderable part of the device (change
+    c0259): the device with the part's MPN, manufacturer, datasheet, properties and ratings."""
     if not isinstance(device_id, str) or not device_id:
         raise DslError(f"a device is named by its id, such as 'Fenolite:R_0603', not {device_id!r}")
+    if "@" in device_id:
+        base, mpn = device_id.split("@", 1)
+        found = resolve(base)
+        parts = (_DESIGN_PARTS.get() or {}).get(base) if base in (_DESIGN.get() or {}) else None
+        if parts is None and found.origin == "authored":
+            parts = project_devices().parts.get(base)
+        if parts is None:
+            parts = shipped_tree().parts.get(base, ())
+        if mpn not in {part.mpn for part in parts}:
+            listed = ", ".join(sorted(part.mpn for part in parts)) or "none"
+            raise DslError(f"device {base} has no part {mpn!r}; its parts: {listed}")
+        return Resolved(effective_part(found.device, parts, mpn), found.origin, found.overrides)
     shipped = {device.id for device in shipped_devices()}
     design = _DESIGN.get() or {}
     if device_id in design:
@@ -111,15 +135,23 @@ def resolve(device_id: object) -> Resolved:
     )
 
 
-def check_records(records: Sequence[object]) -> tuple[DeviceDef, ...]:
-    """``records`` checked as ``DeviceDef`` values for ``Design.devices``."""
-    found: list[DeviceDef] = []
+DeviceSource = DeviceDef | DeviceRecord
+"""What ``Design.devices`` takes: a device, or a device record with its orderable parts (change c0259)."""
+
+
+def check_records(records: Sequence[object]) -> tuple[tuple[DeviceDef, tuple[PartEntry, ...]], ...]:
+    """``records`` checked as ``DeviceDef`` values or device records for ``Design.devices``, each as its
+    device and its orderable parts."""
+    found: list[tuple[DeviceDef, tuple[PartEntry, ...]]] = []
     for record in records:
-        if not isinstance(record, DeviceDef):
+        if isinstance(record, DeviceRecord):
+            found.append((record.device, record.parts))
+        elif isinstance(record, DeviceDef):
+            found.append((record, ()))
+        else:
             raise DslError(
                 f"devices() takes DeviceDef records (fenolite.catalog.devices.parse_device), not {record!r}"
             )
-        found.append(record)
     return tuple(found)
 
 
@@ -219,6 +251,8 @@ def must_connect_pins(device: DeviceDef | None) -> tuple[str, ...]:
 
 __all__ = [
     "PIN_LIST_LIMIT",
+    "DeviceSource",
+    "PartEntry",
     "Origin",
     "PinNameError",
     "ProjectDevices",

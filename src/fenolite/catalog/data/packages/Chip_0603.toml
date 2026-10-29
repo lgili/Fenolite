@@ -1,0 +1,36 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:Chip_0603"
+version = "1.0.0"
+summary = "Generic two-terminal 0603 chip land"
+category = "Chip passive"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0315", "S-0333"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["0.9mm", "1mm"]
+at = ["-0.8mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["0.9mm", "1mm"]
+at = ["0.8mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-0.8mm", "-0.4mm"], ["0.8mm", "0.4mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-1.75mm", "-1mm"], ["1.75mm", "1mm"]]
+width = "0.05mm"

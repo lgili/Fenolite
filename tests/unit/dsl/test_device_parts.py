@@ -107,3 +107,55 @@ def test_designs_without_devices_are_unchanged() -> None:
     texts = canonical.dump_texts(to_model(namespace["design"]))
     assert _digest(texts) == BLINK_DIGEST
     assert "fenolite.device" not in "".join(texts.values())
+
+
+# -- orderable parts (change c0259, capability library-records, "Placing an orderable part")
+
+LIBRARY = ROOT / "tests" / "data" / "library"
+PART_SCRIPT = """\
+from fenolite.dsl import Design, mm
+
+design = Design("parts")
+design.board(mm(20), mm(10))
+u1 = design.part("U1", device="{device}")
+u1.place(mm(10), mm(5))
+"""
+
+
+def _project(tmp_path: Path, device: str) -> Path:
+    import shutil
+
+    folder = tmp_path / "proj"
+    shutil.copytree(LIBRARY, folder / "devices")
+    (folder / "design.py").write_text(PART_SCRIPT.format(device=device), encoding="utf-8")
+    return folder / "design.py"
+
+
+def test_reel_variant_placed_mpn(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    import io
+    import json
+
+    import fenolite.cli.main as cli_main
+    from fenolite.backends.kicad.pcb import read_board
+
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kicad-config"))
+    script = _project(tmp_path, "Example:REG_TWO@EXR100DR")
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    code = cli_main.main(["build", str(script), "--out", str(tmp_path / "out"), "--confirm", "--json"])
+    assert code == 0, err.getvalue()
+    assert json.loads(out.getvalue())["result"]["devices"][0]["id"] == "Example:REG_TWO@EXR100DR"
+    board = read_board((tmp_path / "out" / "parts.kicad_pcb").read_text(encoding="utf-8"))
+    (u1,) = board.circuit.components
+    assert u1.properties["MPN"] == "EXR100DR" and u1.properties["Manufacturer"] == "Example Semi"
+    assert sorted(pad.number for pad in board.board.footprints[0].pads) == ["1", "2"]  # type: ignore[union-attr]
+
+
+def test_unknown_mpn(tmp_path: Path) -> None:
+    from fenolite.cli._script import DesignScriptError, run_design_script
+
+    with pytest.raises(DesignScriptError) as caught:
+        run_design_script(_project(tmp_path, "Example:REG_TWO@NOPE"))
+    assert "EXR100DR" in str(caught.value) and "EXR100QDR" in str(caught.value)
+    assert isinstance(caught.value.__cause__, DslError)

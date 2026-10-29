@@ -1,0 +1,47 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:DO41_P10.16_Diodes"
+version = "1.0.0"
+summary = "Diodes DO-41 body at an authored 10.16 mm bend pitch"
+category = "Axial diode"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0371"]
+generator = "explicit"
+kind = "through_hole"
+
+[[pad]]
+number = "1"
+shape = "circle"
+size = ["2.2mm", "2.2mm"]
+at = ["-5.08mm", "0mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "2"
+shape = "circle"
+size = ["2.2mm", "2.2mm"]
+at = ["5.08mm", "0mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-2.605mm", "-1.36mm"], ["2.605mm", "1.36mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-6.68mm", "-1.86mm"], ["6.68mm", "1.86mm"]]
+width = "0.05mm"
+
+[[graphic]]
+key = "cathode"
+kind = "line"
+layer = "F.Fab"
+points = [["2.405mm", "-1.21mm"], ["2.405mm", "1.21mm"]]
+width = "0.1mm"

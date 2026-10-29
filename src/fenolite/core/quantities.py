@@ -125,16 +125,81 @@ def micro_units(unit: str, text: str) -> int:
     return scaled.numerator
 
 
+LENGTH_UNITS: dict[str, Fraction] = {
+    "mm": Fraction(1_000_000),
+    "um": Fraction(1_000),
+    "µm": Fraction(1_000),
+    "nm": Fraction(1),
+    "mil": Fraction(25_400),
+    "in": Fraction(25_400_000),
+}
+"""Length unit → nanometres in one of it (change c0259: lengths of library records)."""
+
+
+_SCALED = re.compile(r"([+-]?)(\d*)(?:\.(\d+))?\s*([a-zµ]+)")
+
+
+def _scaled(text: str, units: dict[str, int], what: str, step: str) -> int:
+    """``text`` (a decimal and a unit of ``units``) in integer steps; integer arithmetic only, so that a
+    library of thousands of lengths reads fast."""
+    match = _SCALED.fullmatch(text.strip()) if isinstance(text, str) else None  # pyright: ignore[reportUnnecessaryIsInstance]
+    if match is None or match.group(4) not in units or not (match.group(2) or match.group(3)):
+        raise QuantityError(f"{text!r} is not {what}: write a number and one of {', '.join(units)}")
+    sign, whole, part, unit = match.groups()
+    part = part or ""
+    numerator = int((whole or "0") + part) * units[unit]
+    scale = 10 ** len(part)
+    if numerator % scale:
+        raise QuantityError(f"{text!r} is not a whole number of {step}")
+    value = numerator // scale
+    return -value if sign == "-" else value
+
+
+_LENGTH_STEPS = {unit: int(value) for unit, value in LENGTH_UNITS.items()}
+
+
+def parse_length(text: str) -> int:
+    """The length ``text`` (``"1.27mm"``, ``"25mil"``, ``"500um"``) in integer nanometres; a value that is
+    not a whole number of nanometres raises ``QuantityError``."""
+    return _scaled(text, _LENGTH_STEPS, "a length", "nanometres")
+
+
+def parse_angle(text: str) -> int:
+    """The angle ``text`` (``"90deg"``) in integer microdegrees; a value that is not a whole number of
+    microdegrees raises ``QuantityError``."""
+    return _scaled(text, {"deg": 1_000_000}, "an angle", "microdegrees")
+
+
+def _decimal_of(value: int, scale: int, unit: str) -> str:
+    whole, part = decimal_digits(Fraction(abs(value), scale), unit)
+    return f"{'-' if value < 0 else ''}{whole}{'.' + part if part else ''}{unit}"
+
+
+def length_text(nm: int) -> str:
+    """The canonical text of a length of ``nm`` nanometres: millimetres with the fewest exact digits."""
+    return _decimal_of(nm, 1_000_000, "mm")
+
+
+def angle_text(udeg: int) -> str:
+    """The canonical text of an angle of ``udeg`` microdegrees: degrees with the fewest exact digits."""
+    return _decimal_of(udeg, 1_000_000, "deg")
+
+
 __all__ = [
     "CODED",
+    "LENGTH_UNITS",
     "MICRO_UNITS",
     "PREFIXES",
     "SIGNED",
     "SYMBOLS",
     "UNITS",
     "QuantityError",
+    "angle_text",
     "decimal_digits",
+    "length_text",
     "micro_units",
     "parse",
+    "parse_angle",
+    "parse_length",
     "power",
 ]

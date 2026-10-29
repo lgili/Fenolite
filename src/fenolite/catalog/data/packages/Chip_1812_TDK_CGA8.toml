@@ -1,0 +1,36 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:Chip_1812_TDK_CGA8"
+version = "1.0.0"
+summary = "1812 TDK CGA8 MLCC land at recommended range midpoints"
+category = "Chip capacitor"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0358"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["1.3mm", "2.8mm"]
+at = ["-2.35mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["1.3mm", "2.8mm"]
+at = ["2.35mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-2.25mm", "-1.6mm"], ["2.25mm", "1.6mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-3.5mm", "-2.1mm"], ["3.5mm", "2.1mm"]]
+width = "0.05mm"

@@ -1,0 +1,40 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:Header_1x2_P2.5"
+version = "1.0.0"
+summary = "Two-position 2.5 mm-pitch generic header land"
+category = "Through-hole connector"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0324"]
+generator = "explicit"
+kind = "through_hole"
+
+[[pad]]
+number = "1"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["0mm", "1.25mm"]
+kind = "thru_hole"
+drill = "1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "2"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["0mm", "-1.25mm"]
+kind = "thru_hole"
+drill = "1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-1.25mm", "-2.25mm"], ["1.25mm", "2.25mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-1.75mm", "-2.75mm"], ["1.75mm", "2.75mm"]]
+width = "0.05mm"

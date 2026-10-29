@@ -1,0 +1,43 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:DO214AA_Diodes_SMB"
+version = "1.0.0"
+summary = "Diodes SMB / DO-214AA reference land"
+category = "Diode package"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0359", "S-0446"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["2.5mm", "2.3mm"]
+at = ["-2.15mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["2.5mm", "2.3mm"]
+at = ["2.15mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-2.15mm", "-1.8mm"], ["2.15mm", "1.8mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-3.9mm", "-2.3mm"], ["3.9mm", "2.3mm"]]
+width = "0.05mm"
+
+[[graphic]]
+key = "cathode"
+kind = "line"
+layer = "F.Fab"
+points = [["1.95mm", "-1.65mm"], ["1.95mm", "1.65mm"]]
+width = "0.1mm"

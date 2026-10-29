@@ -1,0 +1,34 @@
+schema = "fenolite.pins.v0"
+id = "Fenolite:Capacitor"
+version = "1.0.0"
+summary = "Generic non-polarized capacitor"
+category = "Passive"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0314"]
+
+[[pin]]
+number = "1"
+name = "A"
+type = "passive"
+
+[[pin]]
+number = "2"
+name = "B"
+type = "passive"
+
+[symbol]
+reference = "C"
+pin_names_hidden = true
+pins = [
+  { number = "1", at = ["-5.08mm", "0mm"], length = "3.81mm" },
+  { number = "2", at = ["5.08mm", "0mm"], rotation = "180deg", length = "3.81mm" },
+]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.27mm", "-2.54mm"], ["-1.27mm", "2.54mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.27mm", "-2.54mm"], ["1.27mm", "2.54mm"]]

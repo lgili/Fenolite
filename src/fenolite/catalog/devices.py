@@ -23,7 +23,6 @@ from dataclasses import replace
 from decimal import Decimal
 from fractions import Fraction
 from functools import cache
-from importlib import resources
 from pathlib import Path
 from typing import cast
 
@@ -320,11 +319,17 @@ def parse_device(text: str, *, file: str = "") -> DeviceDef:
     """The ``DeviceDef`` of the TOML record ``text`` (capability fenolite-component-catalog, "Device
     records"). ``file`` names the record in errors. A malformed record raises ``DeviceFormatError``
     (FEN-3004); a newer schema or a reserved key raises ``DeviceFormatTooNewError`` (FEN-3002)."""
-    read = _Reader(file)
     try:
         data = tomllib.loads(text, parse_float=Decimal)
     except tomllib.TOMLDecodeError as error:
         raise DeviceFormatError(f"not TOML: {error}", file=file) from None
+    return parse_device_data(data, file=file)
+
+
+def parse_device_data(data: Mapping[str, object], *, file: str = "") -> DeviceDef:
+    """``parse_device`` of a TOML document already read (``tomllib`` with ``parse_float=Decimal``); the
+    library records of change c0259 read the body of a ``fenolite.device.v1`` record with it."""
+    read = _Reader(file)
     schema = data.get("schema")
     if isinstance(schema, str) and schema != SCHEMA:
         newer = re.fullmatch(r"fenolite\.device\.v(\d+)", schema)
@@ -470,13 +475,15 @@ def _identity(pin: DevicePin) -> bool:
     return all(number == pad for number, pad in pin.pin_pads) and len(pin.pins) == len(pin.pin_pads)
 
 
-def device_text(device: DeviceDef) -> str:
+def device_text(device: DeviceDef, *, header: bool = True) -> str:
     """The canonical TOML of ``device``: a fixed key order, one table per long-form function, LF line ends
-    and one final newline (capability fenolite-component-catalog, "Canonical device text")."""
-    lines = [f"schema = {_string(SCHEMA)}"]
+    and one final newline (capability fenolite-component-catalog, "Canonical device text"). Without
+    ``header`` the keys that a library record's header holds (``schema``, ``id``, ``summary``,
+    ``evidence`` and ``sources``; change c0259) are left out."""
+    lines = [f"schema = {_string(SCHEMA)}"] if header else []
     scalars = (
-        ("id", device.id),
-        ("summary", device.summary),
+        ("id", device.id if header else ""),
+        ("summary", device.summary if header else ""),
         ("manufacturer", device.manufacturer),
         ("mpn", device.mpn),
         ("datasheet", device.datasheet),
@@ -484,10 +491,11 @@ def device_text(device: DeviceDef) -> str:
         ("footprint", device.footprint),
         ("ref_prefix", device.ref_prefix),
         ("value", device.value),
-        ("evidence", device.evidence),
+        ("evidence", device.evidence if header else ""),
     )
     lines += [f"{key} = {_string(value)}" for key, value in scalars if value]
-    for key, values in (("sources", device.sources), ("ground", ()), ("unused_pads", device.unused_pads)):
+    sources = device.sources if header else ()
+    for key, values in (("sources", sources), ("ground", ()), ("unused_pads", device.unused_pads)):
         if key == "ground":
             if device.ground:
                 lines.append(f"ground = {_string(device.ground)}")
@@ -603,14 +611,11 @@ def load_devices(folder: Path) -> tuple[tuple[DeviceDef, ...], tuple[Issue, ...]
 
 @cache
 def shipped_devices() -> tuple[DeviceDef, ...]:
-    """The shipped ``Fenolite:`` devices, read from the package data, in id order."""
-    folder = resources.files("fenolite.catalog") / "devices"
-    found = [
-        parse_device(entry.read_text(encoding="utf-8"), file=f"fenolite/catalog/devices/{entry.name}")
-        for entry in sorted(folder.iterdir(), key=lambda item: item.name)
-        if entry.name.endswith(".toml")
-    ]
-    return tuple(sorted(found, key=lambda device: device.id))
+    """The shipped ``Fenolite:`` devices, in id order: the ``fenolite.device.v1`` records of the catalog's
+    data tree (change c0259)."""
+    from fenolite.catalog.records import shipped_tree
+
+    return tuple(sorted(shipped_tree().devices(), key=lambda device: device.id))
 
 
 def shipped_device(device_id: str) -> DeviceDef:
@@ -685,6 +690,7 @@ __all__ = [
     "is_edited",
     "load_devices",
     "parse_device",
+    "parse_device_data",
     "shipped_device",
     "shipped_devices",
     "stamped",

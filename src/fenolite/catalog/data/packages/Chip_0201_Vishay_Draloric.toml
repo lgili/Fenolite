@@ -1,0 +1,36 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:Chip_0201_Vishay_Draloric"
+version = "1.0.0"
+summary = "0201 Vishay Draloric reflow resistor land"
+category = "Chip passive"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0333"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["0.43mm", "0.42mm"]
+at = ["-0.35mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["0.43mm", "0.42mm"]
+at = ["0.35mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-0.3mm", "-0.15mm"], ["0.3mm", "0.15mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-1.065mm", "-0.71mm"], ["1.065mm", "0.71mm"]]
+width = "0.05mm"

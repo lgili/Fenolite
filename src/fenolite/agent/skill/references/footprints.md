@@ -1,7 +1,7 @@
 ---
 topic: footprints
 title: Footprints and symbols written in the script
-summary: Footprint and Symbol from dimensions when no library has the part, and what a person must still check against the datasheet.
+summary: Footprint and Symbol from dimensions, library records and orderable parts, and what a person must still check against the datasheet.
 ---
 
 # Footprints and symbols written in the script
@@ -113,5 +113,38 @@ A footprint edited on the board (silkscreen clipped, a pad moved) drifts from it
 names each footprint that differs and the kinds (`pads`, `silkscreen`, `courtyard`, `models`, `fields`,
 `missing`), exits 5 on drift and writes nothing. `--out` writes each footprint back at its origin,
 rotation 0 and top side; a second instance that differs becomes `<name>_2` (`library.instances-differ`).
+
+## Library records and orderable parts
+
+A record of your own is a TOML file under `devices/` beside the script: `pins`, `package`, `device` or
+`part`. Each opens with a header: `schema`, `id`, `version`, `summary`, `licence`, `evidence`, `sources`
+(`docs/library-records.md`). An orderable part is `<device id>@<mpn>`.
+
+```fenolite-design
+from fenolite.catalog.records import parse_record
+from fenolite.dsl import Design, mm
+
+REG = """schema = "fenolite.device.v1"
+id = "Proj:REG"
+version = "1.0.0"
+summary = "Two-pin regulator stand-in"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"
+symbol = "Fenolite:Resistor"
+footprint = "Fenolite:Chip_0603"
+[pins]
+IN = "1"
+OUT = "2"
+[[part]]
+mpn = "REG100DR"
+packing = "reel 2500"
+"""
+design = Design("parts")
+design.board(mm(20), mm(10))
+design.devices(parse_record(REG))
+design.part("U1", device="Proj:REG@REG100DR").place(mm(10), mm(5))  # MPN REG100DR
+```
+
+Nothing is connected, so `fenolite check` reports `kicad.erc.pin-not-connected` for both pins of `U1`.
 
 Read next: `parts`, `placement`, `checks`.
