@@ -69,6 +69,8 @@ def test_the_blink_gets_a_schematic(monkeypatch: pytest.MonkeyPatch, tmp_path: P
         "power_flags": 2,
         "libraries": ["lib/Mini.kicad_sym", "lib/fenolite.kicad_sym"],
         "unconnected_pads": 29,
+        "source": "generated",  # c0276: a generated schematic, not a drawn one
+        "drawn": None,
     }
     _, dry, _ = run(monkeypatch, str(BLINK), "--out", str(tmp_path / "C"), "--dry-run")
     kinds = {Path(w["path"]).name: w["kind"] for w in dry["result"]["plan"]}  # type: ignore[index]

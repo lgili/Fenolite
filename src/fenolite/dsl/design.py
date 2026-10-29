@@ -639,6 +639,9 @@ class Design(Container):
         """The drawing sheet of ``sheet()``, as the script names it: a path relative to its folder."""
         self.block: TitleBlock | None = None
         """The title block of ``title_block()``."""
+        self.drawn_source: str | None = None
+        """The drawn schematic of ``load_schematic()``, as the script names it: a path relative to its
+        folder (change c0276)."""
         self.copper_intents: dict[str, Recorded] = {}
         """Copper intents by key, as recorded by ``track()``, ``via()`` and ``stitch()``."""
         self.meander_intents: dict[str, MeanderIntent] = {}
@@ -1236,6 +1239,22 @@ class Design(Container):
             raise DslError(
                 f"sheet(): drawing_sheet {path!r} must be a path inside the folder of the design script"
             )
+
+    def load_schematic(self, path: str) -> None:
+        """Draw the schematic from ``path``, a ``schematic.toml`` beside the script (schema
+        ``fenolite.drawn-schematic.v0``, ``docs/drawn-schematic.md``) instead of generating it. The file is
+        read by ``fenolite build``, which proves that the drawing means the nets of the script; the script
+        stays the only source of connectivity (change c0276)."""
+        if self.drawn_source is not None:
+            raise DslError(f"load_schematic() is called once; the design already loads {self.drawn_source!r}")
+        if not isinstance(path, str) or not path.endswith(".toml"):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"load_schematic(): {path!r} is not a .toml drawn schematic file")
+        parts = path.replace("\\", "/").split("/")
+        if path.startswith(("/", "\\")) or ":" in parts[0] or ".." in parts or "" in parts or "." in parts:
+            raise DslError(
+                f"load_schematic(): {path!r} must be a path inside the folder of the design script"
+            )
+        self.drawn_source = path
 
     def title_block(
         self,

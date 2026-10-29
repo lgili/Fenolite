@@ -106,6 +106,7 @@ from fenolite.dsl import (
     DslError,
     copper,
     drawing_sheet_source,
+    drawn_schematic,
     fields,
     generated,
     heights,
@@ -149,6 +150,7 @@ from fenolite.lens.build import (
     read_record,
 )
 from fenolite.lens.build import issue as build_issue
+from fenolite.lens.drawn import read_drawn
 from fenolite.lens.placements import FILE_NAME as PLACEMENTS_FILE
 from fenolite.lens.placements import SourcePlacement, read_placements
 from fenolite.lens.preserve import ExistingProject, FilePlacement, Prepared, prepare, read_existing
@@ -156,6 +158,8 @@ from fenolite.lens.rolecopper import RoleCopperPlanner
 from fenolite.lens.schplacements import FILE_NAME as SYMBOL_PLACEMENTS_FILE
 from fenolite.lens.schplacements import read_placements as read_symbol_placements
 from fenolite.model.design import Design as ModelDesign
+from fenolite.model.drawn import DrawnSchematic
+from fenolite.model.drawn_connect import issue as drawn_issue
 from fenolite.model.findings import Waiver
 from fenolite.model.presentation import DrawingSheet
 from fenolite.placement import legality
@@ -737,6 +741,23 @@ def read_drawing_sheet_source(
     return sheet, tuple(found), result
 
 
+def read_drawn_source(path: Path, named: str) -> DrawnSchematic:
+    """The drawn schematic that ``design.load_schematic()`` names, read from the script's folder (change
+    c0276); a missing or unreadable file is ``FormatError`` (``FEN-3004``, exit 3) naming the file."""
+    try:
+        data = path.read_bytes()
+    except OSError as error:
+        raise FormatError(
+            f"the drawn schematic {named} of load_schematic() cannot be read: {error.strerror or error}",
+            file=named,
+        ) from None
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise FormatError(f"not UTF-8 text: {error}", file=named) from error
+    return read_drawn(text, file=named)
+
+
 def source_summary(prepared: Prepared | None, issues: Sequence[Issue], *, read: bool) -> dict[str, object]:
     """``result.preserved.source``: the file read, the parts placed from it, and its stale and unknown
     tables."""
@@ -993,8 +1014,25 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
     schematic = cast(Literal["write", "skip"], args.schematic or SCHEMATIC_MODES[0])
     symbol_issues: list[Issue] = []
     symbol_placements = None
+    drawn_name = drawn_schematic(design)
+    drawn_value = None
+    drawn_depends: tuple[str, ...] = ()
+    if schematic == "write" and drawn_name is not None:
+        drawn_path = script_path.resolve().parent / drawn_name
+        drawn_value = read_drawn_source(drawn_path, drawn_name)
+        drawn_depends = depends_on(ctx.cwd, drawn_path)
     placements_path = script_path.resolve().parent / SYMBOL_PLACEMENTS_FILE
-    if schematic == "write" and placements_path.is_file():
+    if schematic == "write" and placements_path.is_file() and drawn_value is not None:
+        symbol_issues.append(
+            drawn_issue(
+                "drawn.placements-ignored",
+                f"{SYMBOL_PLACEMENTS_FILE} is not read: the design loads the drawn schematic {drawn_name}, "
+                "which owns the symbol positions",
+                SYMBOL_PLACEMENTS_FILE,
+                f"delete {SYMBOL_PLACEMENTS_FILE}; move symbols in {drawn_name} or in KiCad and run sync",
+            )
+        )
+    elif schematic == "write" and placements_path.is_file():
         symbol_placements = read_symbol_placements(
             placements_path.read_text(encoding="utf-8"), file=SYMBOL_PLACEMENTS_FILE, issues=symbol_issues
         )
@@ -1030,6 +1068,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         heights=heights(design),
         unused=unused_marks(design),
         two_terminal=two_terminal(design),
+        drawn=drawn_value,
+        drawn_file=drawn_name or "schematic.toml",
     )
     files = {} if refused else dict(built.files)
     _keep_confirmed_roles(out_dir, files)
@@ -1059,6 +1099,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
     if files:
         # the root sheet and the child sheets under sheets/: views of the script, replaced when edited
         sheets = [f"{design.name}.kicad_sch", *sorted(rel for rel in files if _child_sheet(rel))]
+        if built.schematic is not None:  # a drawn sheet may lie outside sheets/ (c0276)
+            sheets += sorted(rel for rel in built.schematic.children if rel in files and rel not in sheets)
         merged = {f"{design.name}{suffix}" for suffix in (".kicad_pcb", ".kicad_pro", ".kicad_dru")}
         guarded = {rel: data for rel, data in files.items() if rel not in merged and rel not in sheets}
         check_existing(out_dir, guarded, record=record, discard_layout=bool(args.discard_layout))
@@ -1107,6 +1149,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             format_version=None,
         ),
         writes=writes,
+        depends=drawn_depends,
     )
     return with_lock(built_result, lock)
 
