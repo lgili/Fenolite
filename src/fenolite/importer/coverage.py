@@ -88,8 +88,6 @@ def scan(design: Design, ledger: Ledger) -> None:
     board = design.board
     if board is None:
         return
-    if board.stackup is not None and board.stackup.layers:
-        ledger.add("stackup", f"{len(board.stackup.layers)} layers")
     for hole in board.holes:
         ledger.add("hole", hole.id)
     for dimension in board.dimensions:

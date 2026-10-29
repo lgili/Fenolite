@@ -33,6 +33,7 @@ from fenolite.importer.emit.printer import (
     Tup,
     angle,
     area_mm2,
+    flat,
     identifier,
     length,
     number,
@@ -45,9 +46,9 @@ from fenolite.importer.provenance import Provenance
 from fenolite.importer.source import Source
 from fenolite.importer.tables import ORIGIN, Table, copper_tables, protect_arguments
 from fenolite.importer.vendor import natural, vendor
-from fenolite.model.board import Board, Graphic, Keepout, Outline, Text, Zone, ZoneSettings
+from fenolite.model.board import Board, Graphic, Keepout, Outline, StackLayer, Text, Zone, ZoneSettings
 from fenolite.model.design import Design
-from fenolite.model.rules import Rule
+from fenolite.model.rules import Rule, Selector
 
 COPPER_COUNTS = (2, 4, 6, 8)
 NAME = re.compile(r"^[A-Za-z0-9_.+-]+$")
@@ -215,13 +216,120 @@ def _board(design: Design, writer: _Writer, ledger: Ledger) -> tuple[list[list[s
     return out, chosen
 
 
-def _path_of(design: Design, component_id: str, ref: str) -> tuple[str, ...]:
+_PLAIN = re.compile(r"^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$")
+
+
+def _stack_entry(layer: StackLayer) -> tuple[str, int | None, dict[str, str]] | None:
+    """The ``fenolite.dsl.stack`` function, thickness and text arguments of one stack-up row; ``None`` for
+    a row the DSL cannot say."""
+    extras: dict[str, str] = {}
+    if layer.material:
+        extras["material"] = layer.material
+    for name in ("epsilon_r", "loss_tangent"):
+        value: str = getattr(layer, name)
+        if value:
+            if not _PLAIN.fullmatch(value):
+                return None
+            extras[name] = value
+    if layer.color:
+        extras["color"] = layer.color
+    if layer.kind == "silkscreen":
+        if layer.thickness or set(extras) - {"color"}:
+            return None
+        return "silkscreen", None, extras
+    if layer.kind == "soldermask":
+        return "mask", layer.thickness, extras
+    if layer.kind == "copper":
+        return ("copper", layer.thickness, extras) if not extras and layer.thickness > 0 else None
+    if layer.kind == "dielectric" and layer.thickness > 0:
+        return ("prepreg" if layer.dielectric_kind == "prepreg" else "core"), layer.thickness, extras
+    return None
+
+
+def _stackup(board: Board, copper: int, writer: _Writer, ledger: Ledger) -> list[list[str]]:
+    """``design.stackup()`` of the board's stack-up, checked by the DSL itself before it is written; a
+    paste row without values is KiCad's own, which the build writes again."""
+    stackup = board.stackup
+    if stackup is None or not stackup.layers:
+        return []
+    from fenolite.dsl import stack as dsl_stack
+    from fenolite.dsl.design import Design as DslDesign
+    from fenolite.dsl.errors import DslError
+    from fenolite.dsl.units import Length
+
+    rows: list[tuple[str, int | None, dict[str, str]]] = []
+    for layer in stackup.layers:
+        if layer.kind == "solderpaste" and not (layer.thickness or layer.material or layer.color):
+            continue
+        made = _stack_entry(layer)
+        if made is None:
+            ledger.add("stackup", f"{layer.name} ({layer.kind})")
+            return []
+        rows.append(made)
+    probe = DslDesign("probe")
+    probe.board(Length(1_000_000), Length(1_000_000), copper=copper)
+    try:
+        probe.stackup(
+            *(
+                getattr(dsl_stack, kind)(*(() if thick is None else (Length(thick),)), **extras)
+                for kind, thick, extras in rows
+            ),
+            finish=stackup.finish or None,
+            impedance_controlled=stackup.impedance_controlled,
+        )
+    except DslError as error:
+        ledger.add("stackup", str(error)[:80])
+        return []
+    calls = tuple(
+        Call(
+            f"stack.{kind}",
+            () if thick is None else (length(thick),),
+            tuple((name, text(value)) for name, value in extras.items()),
+        )
+        for kind, thick, extras in rows
+    )
+    kwargs: list[tuple[str, Expr]] = []
+    if stackup.finish:
+        kwargs.append(("finish", text(stackup.finish)))
+    if stackup.impedance_controlled:
+        kwargs.append(("impedance_controlled", Raw("True")))
+    writer.imports.add("stack")
+    return [statement(Call("design.stackup", calls, tuple(kwargs)))]
+
+
+def _path_of(design: Design, component_id: str, ref: str, sheet: str) -> tuple[str, ...]:
+    """The component path of a part: its ``fenolite.path`` (a board built by Fenolite), else the KiCad sheet
+    path of its footprint (``sheetname``, ``/power/ch1/``) with its ref, else its ref alone."""
     component = next((c for c in design.circuit.components if c.id == component_id), None)
     path = component.properties.get(PATH_PROPERTY, "") if component is not None else ""
     segments = tuple(path.split("/")) if path else ()
-    if not segments or not all(NAME.fullmatch(s) for s in segments):
-        return (ref,)
-    return segments
+    if segments and all(NAME.fullmatch(s) for s in segments):
+        return segments
+    return (*(module_name(part) for part in sheet.split("/") if part), ref)
+
+
+def module_name(sheet: str) -> str:
+    """A KiCad sheet name as a module name: lower case, ``[a-z0-9_]``."""
+    return re.sub(r"[^a-z0-9_]+", "_", sheet.lower()).strip("_") or "sheet"
+
+
+def _sheet_names(board: Board, text: str) -> dict[str, str]:
+    """The ``sheetname`` of each footprint of the board read from ``text``, by footprint id."""
+    from fenolite.backends.kicad.sexpr import parse
+
+    root = parse(text) if text else None
+    nodes = root.nodes("footprint") if root is not None else ()
+    found: dict[str, str] = {}
+    for footprint in board.footprints:
+        locator = footprint.provenance.locator if footprint.provenance is not None else ""
+        match = re.fullmatch(r"/kicad_pcb/footprint\[(\d+)\]", locator)
+        if match is None or int(match.group(1)) >= len(nodes):
+            continue
+        child = nodes[int(match.group(1))].find("sheetname")
+        atoms = child.atoms() if child is not None else ()
+        if atoms and atoms[0].value.strip("/"):
+            found[footprint.id] = atoms[0].value
+    return found
 
 
 def _properties(properties: Mapping[str, str]) -> Dct | None:
@@ -262,14 +370,81 @@ def _minimum_of(rule: Rule, classes: set[str]) -> tuple[str | None, str] | None:
     return None
 
 
-def _minimums(source: Source, classes: set[str], ledger: Ledger) -> list[list[str]]:
+SELECT_ITEMS = ("track", "via", "pad", "zone")
+"""The item kinds ``select.item()`` takes."""
+_WRITTEN_NAME = re.compile(r"^fenolite_\d+_(.+)$")
+_PRECEDENCE = {"or": 1, "and": 2, "not": 3}
+
+
+def _selector(selector: Selector, classes: set[str], parent: int = 0) -> str | None:
+    """The ``fenolite.dsl.select`` expression of a model selector; ``None`` for one the DSL cannot write
+    (a layer leaf, an undeclared class, an item kind ``select.item()`` does not take)."""
+    op, value = selector.op, selector.value
+    if op == "all":
+        return "select.ALL" if parent == 0 else None
+    leaf = {"net": "net", "netclass": "netclass", "ref": "ref", "area": "area", "diff_pair": "pair"}
+    if op in leaf:
+        if op == "netclass" and value != "Default" and "*" not in value and value not in classes:
+            return None
+        return f"select.{leaf[op]}({string(value)})" if value else None
+    if op == "item_kind":
+        return f"select.item({string(value)})" if value in SELECT_ITEMS else None
+    if op in ("and", "or", "not"):
+        rank = _PRECEDENCE[op]
+        parts = [_selector(item, classes, rank) for item in selector.items]
+        if any(part is None for part in parts) or not parts:
+            return None
+        if op == "not":
+            return f"~{parts[0]}" if len(parts) == 1 else None
+        text = f" {'&' if op == 'and' else '|'} ".join(cast(list[str], parts))
+        return f"({text})" if parent > rank else text
+    return None
+
+
+def _rule_call(rule: Rule, classes: set[str], taken: set[str]) -> Call | None:
+    """``design.rules.rule()`` of a custom rule, or ``None`` when its selectors cannot be written."""
+    where = _selector(rule.selector_a, classes)
+    between = None if rule.selector_b is None else _selector(rule.selector_b, classes)
+    if where is None or (rule.selector_b is not None and between is None):
+        return None
+    match = _WRITTEN_NAME.match(rule.name)
+    name = match.group(1) if match and match.group(1) not in taken else rule.name
+    if name in taken:
+        return None
+    taken.add(name)
+    kwargs: list[tuple[str, Expr]] = []
+    if where != "select.ALL":
+        kwargs.append(("where", Raw(where)))
+    if between is not None:
+        kwargs.append(("between", Raw(between)))
+    if rule.layers:
+        kwargs.append(("layers", Tup(tuple(text(layer) for layer in rule.layers))))
+    for label in ("min", "opt", "max"):
+        value = getattr(rule, label)
+        if value is not None:
+            kwargs.append((label, length(value)))
+    if rule.severity != "error":
+        kwargs.append(("severity", text(rule.severity)))
+    if rule.priority:
+        kwargs.append(("priority", number(rule.priority)))
+    return Call("design.rules.rule", (text(name), text(str(rule.kind))), tuple(kwargs))
+
+
+def _minimums(source: Source, classes: set[str], ledger: Ledger, writer: _Writer) -> list[list[str]]:
     """``design.rules.minimum()`` calls: the custom rules that are plain minimums, then the project's
-    board-setup minimums that differ from a new project's and that no rule gave."""
+    board-setup minimums that differ from a new project's and that no rule gave; then a
+    ``design.rules.rule()`` call for each other custom rule the DSL can write."""
     scopes: dict[str | None, dict[str, int]] = {}
+    others: list[Call] = []
+    taken: set[str] = set()
     for rule in source.custom_rules:
         found = _minimum_of(rule, classes)
         if found is None or found[1] in scopes.get(found[0], {}):
-            ledger.add("custom-rule", rule.name)
+            made = _rule_call(rule, classes, taken)
+            if made is None:
+                ledger.add("custom-rule", rule.name)
+            else:
+                others.append(made)
             continue
         scopes.setdefault(found[0], {})[found[1]] = cast(int, rule.min)
     if source.major in MINIMUM_KEYS:
@@ -289,6 +464,9 @@ def _minimums(source: Source, classes: set[str], ledger: Ledger) -> list[list[st
             given.append(("netclass", text(scope)))
         if values:
             out.append(statement(Call("design.rules.minimum", (), tuple(given))))
+    if any("select." in flat(call) for call in others):
+        writer.imports.add("select")
+    out += [statement(call) for call in others]
     return out
 
 
@@ -537,6 +715,7 @@ def emit(source: Source, options: Options) -> Emission:
     writer = _Writer()
     header = options.provenance.header()
     board_lines, copper_count = _board(design, writer, ledger)
+    board_lines += _stackup(board, copper_count, writer, ledger)
     layers = _copper_names(copper_count)
     names = {net.id: net.name for net in design.circuit.nets}
     refs = {c.id: c.ref for c in design.circuit.components}
@@ -604,7 +783,7 @@ def emit(source: Source, options: Options) -> Emission:
         kwargs.append(("nets", Tup(tuple(Raw(net_vars[n]) for n in listed))))
         class_lines.append(statement(Call("design.rules.netclass", (text(cls.name),), tuple(kwargs))))
     declared = {cls.name for cls in design.circuit.netclasses if cls.name != "Default"}
-    class_lines += _minimums(source, declared, ledger)
+    class_lines += _minimums(source, declared, ledger, writer)
     # parts
     part_lines: list[list[str]] = []
     place_lines: list[list[str]] = []
@@ -619,9 +798,19 @@ def emit(source: Source, options: Options) -> Emission:
     )
     components = {c.id: c for c in design.circuit.components}
     paths: dict[str, tuple[str, ...]] = {}
+    sheets = _sheet_names(board, source.board_text)
+    renamed: dict[str, str] = {}
     for footprint in footprints:
         ref = refs[footprint.component_id]
-        paths[ref] = _path_of(design, footprint.component_id, ref)
+        sheet = sheets.get(footprint.id, "")
+        paths[ref] = _path_of(design, footprint.component_id, ref, sheet)
+        for part in (p for p in sheet.split("/") if p):
+            if module_name(part) != part:
+                renamed[part] = module_name(part)
+    for sheet, module in sorted(renamed.items()):
+        issues.append(
+            issue("import.sheet-renamed", f"the sheet {sheet!r} is the module {module!r}", where=sheet)
+        )
     taken_paths: set[tuple[str, ...]] = set()
     for footprint in sorted(
         footprints, key=lambda fp: tuple(natural(s) for s in paths[refs[fp.component_id]])

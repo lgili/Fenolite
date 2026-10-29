@@ -1116,10 +1116,11 @@ Evidence is `INFERRED` (`H-K-LIB-FROM-BOARD`). The exit code is 5 when a footpri
 
 ## import
 
-`fenolite import PATH --to python --out DIR` turns a KiCad board into a Fenolite project folder (change
+`fenolite import PATH --to python --out DIR` turns a KiCad or Altium board into a Fenolite project folder (change
 c0275; the user guide is `docs/import.md`). `PATH` is a `.kicad_pro`, a `.kicad_pcb` or a `.kicad_sch` (the
-board of its project is read beside it); an Altium input is refused until its emitter lands (convert it
-with `fenolite convert --to kicad` first). Any other kind exits 2 with `FEN-2001` naming the kind, and so
+board of its project is read beside it), a `.PrjPcb` or a `.PcbDoc` (read by Fenolite's Altium reader and
+converted in memory as `fenolite convert --to kicad` does, verified, then emitted alike; the conversion's
+own issues and refusals apply). Any other kind exits 2 with `FEN-2001` naming the kind, and so
 does an `--out` that is the source's folder or holds it. The command writes, under the usual `--dry-run`
 plan and `--confirm` receipt protocol, all files or none:
 
@@ -1160,7 +1161,7 @@ with `FEN-4002`.
 | `import.schematic-generated` | info | the build generates its schematic until c0276 imports the drawn one |
 | `import.footprint-variant` | info | an instance written as `<name>_2` |
 | `import.symbol-regenerated` | info | symbols drawn by Fenolite from the pad numbers of their footprints |
-| `import.sheet-renamed` | info | reserved: a sheet stem changed to a module name (sheet modules) |
+| `import.sheet-renamed` | info | a KiCad sheet name changed to a module name |
 | `import.upgraded` | info | a file upgraded through `kicad-cli` on a private copy |
 | `import.provenance-missing` | warning | no `--licence`, `--copyright` or `--source` |
 | `import.timestamp-missing` | info | no `--timestamp`: the output is not reproducible |

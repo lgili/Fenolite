@@ -1,6 +1,6 @@
 # Importing a board as code
 
-`fenolite import PATH --to python --out DIR` turns a KiCad board into a Fenolite project folder: a
+`fenolite import PATH --to python --out DIR` turns a KiCad or Altium board into a Fenolite project folder: a
 `design.py` that rebuilds the board, its copper as tables, a vendored library and a record of where it came
 from (change c0275). The command contract is `docs/cli-contract.md`, "import".
 
@@ -23,7 +23,7 @@ test flags any tracked file holding a `Converted from <URL>` line without the ma
 |---|---|---|
 | `.kicad_pro`, `.kicad_pcb`, `.kicad_sch` | the KiCad readers | the board of the project is read; the project file adds the net classes and minimums, `.kicad_dru` the custom rules |
 | a board below the read floor (KiCad 7 and older) | `kicad-cli pcb upgrade` on a private copy, then the readers | refused with `--no-upgrade` (exit 3, `FEN-3003`) |
-| Altium `.PrjPcb`, `.PcbDoc` | not yet | refused with `FEN-2001`; `fenolite convert --to kicad` first |
+| Altium `.PrjPcb`, `.PcbDoc` | Fenolite's Altium reader, converted in memory by `fenolite convert --to kicad` (verified), then the KiCad emitter | the inputs recorded are the Altium files; `--adopt` is refused |
 | anything else (Eagle, EasyEDA, legacy libraries) | none | exit 2, `FEN-2001`, naming the kind |
 
 A board without a schematic imports: the parts come from its footprints, the netlist from its pad nets.
@@ -63,9 +63,11 @@ every platform, and every emitted `.py` file is left unchanged by `ruff format` 
   not lock). A part's own properties (not `Reference`, `Value`, `Datasheet`, `Description`, KiCad's sheet
   fields or `fenolite.*`) are written as `properties=`.
 - **Modules.** A board built by Fenolite carries each component's path (`fenolite.path`): the import
-  rebuilds the modules from it, the part's key the last segment (`name=` when it is not the ref). A board
-  without paths gives a flat design whose keys are the refs. Modules of a KiCad hierarchy (`sheets/`, one
-  file per sheet) are a later step.
+  rebuilds the modules from it, the part's key the last segment (`name=` when it is not the ref). Another
+  KiCad board gives each footprint's sheet path (`sheetname`, `/power/ch1/`) as nested modules, each sheet
+  name lowered to `[a-z0-9_]` (`import.sheet-renamed` when that changes it), the key the ref. A board
+  without either gives a flat design whose keys are the refs. One module file per sheet (`sheets/`, a
+  repeated sheet one function) is a later step: the modules are written in `design.py`.
 - **Rules.** The project's net classes but `Default` become `design.rules.netclass()`; the custom rules a
   build writes for minimums, and the board-setup minimums that differ from a new project's, become
   `design.rules.minimum()`. Any other custom rule is unexpressed.
@@ -164,7 +166,9 @@ of a third-party board belongs in the library repository or your own folder.
 
 ## Not yet
 
-- **Altium inputs**, **sheet modules** of a KiCad hierarchy and the **drawn schematic** (c0276) follow.
+- **Sheet modules** of a KiCad hierarchy (`sheets/<module>.py`, a repeated sheet one function) and the
+  **drawn schematic** (c0276) follow; an Altium document's rules and records that the model keeps opaque
+  are the conversion's to report (`convert.*`).
 - **Field placements** of an instance are not written as `Part.field()`: an instance whose fields moved is
   vendored as a variant footprint.
 
@@ -178,7 +182,7 @@ of a third-party board belongs in the library repository or your own folder.
 | `import.schematic-generated` | info | the source has sheets; the build generates its own schematic |
 | `import.footprint-variant` | info | an instance written as `<name>_2` |
 | `import.symbol-regenerated` | info | symbols drawn from the pad numbers of their footprints |
-| `import.sheet-renamed` | info | reserved for sheet modules: a sheet stem changed to a module name |
+| `import.sheet-renamed` | info | a KiCad sheet name changed to a module name |
 | `import.upgraded` | info | a file upgraded through `kicad-cli` on a private copy |
 | `import.provenance-missing` | warning | no `--licence`, `--copyright` or `--source` |
 | `import.timestamp-missing` | info | no `--timestamp`: the output is not reproducible |

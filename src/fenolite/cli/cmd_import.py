@@ -13,6 +13,7 @@ An item the DSL cannot express refuses the import (exit 7, ``FEN-7001``) unless 
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import hashlib
 import os
 import tempfile
@@ -21,7 +22,8 @@ from pathlib import Path
 from typing import Any
 
 from fenolite import __version__
-from fenolite.api import read_board, run
+from fenolite.api import convert, read_board, run
+from fenolite.backends.altium.read.project import read_project
 from fenolite.backends.kicad.cli import find_kicad_cli
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
@@ -35,10 +37,10 @@ from fenolite.importer.coverage import Unexpressed, lossy_issues
 from fenolite.importer.emit import Emission, Options, emit
 from fenolite.importer.emit.design import design_name
 from fenolite.importer.provenance import Provenance, record
-from fenolite.importer.source import InputKindError, Source, input_kind, read_kicad
+from fenolite.importer.source import InputFile, InputKindError, Source, input_kind, read_kicad
 from fenolite.importer.upgrade import upgrader
 
-HELP = "turn a KiCad board into a Fenolite project folder (design.py, copper tables, vendored library)"
+HELP = "turn a KiCad or Altium board into a Fenolite project folder (design.py, copper tables, library)"
 TARGETS = ("python",)
 EXAMPLE = str(Path(__file__).resolve().parents[3] / "tests/data/import_python/two_sheet/two_sheet.kicad_pro")
 """The authored two-sheet project of the test data."""
@@ -63,7 +65,9 @@ class LossyImportError(FenoliteError):
 
 def _register(parser: argparse.ArgumentParser) -> None:
     parser.description = HELP + "; see docs/import.md."
-    parser.add_argument("path", metavar="PATH", help="a .kicad_pro, .kicad_pcb or .kicad_sch")
+    parser.add_argument(
+        "path", metavar="PATH", help="a .kicad_pro, .kicad_pcb, .kicad_sch, .PrjPcb or .PcbDoc"
+    )
     parser.add_argument("--to", choices=TARGETS, required=True, help="the target: python (the Fenolite DSL)")
     parser.add_argument("--out", metavar="DIR", required=True, help="the project folder to write")
     parser.add_argument("--name", help="the design name; default: the project's stem")
@@ -106,20 +110,54 @@ def _check_out(out: Path, folder: Path) -> None:
         )
 
 
-def _read(path: Path, args: argparse.Namespace) -> Source:
+def _altium(path: Path, args: argparse.Namespace, ctx: Context) -> tuple[Source, list[Issue]]:
+    """An Altium project or PCB document read through Fenolite's Altium reader and converted in memory to
+    a KiCad project (``fenolite.api.convert``, verified against the source), whose board the one emitter
+    imports; the inputs recorded are the Altium files (design decision 14)."""
+    if args.adopt:
+        raise CliError(
+            "FEN-2001",
+            "--adopt takes a KiCad board; the input is Altium",
+            where="--adopt",
+            hint="drop --adopt",
+        )
+    found = convert(path, to="kicad", kicad_version=ctx.kicad_target, allow_lossy=ctx.allow_lossy)
+    conversion = found.conversion
+    with tempfile.TemporaryDirectory(prefix="fenolite-import-altium-") as folder:
+        root = Path(folder)
+        for name, data in conversion.files.items():
+            target = root / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        project = next(root.glob("*.kicad_pro"), None) or next(root.glob("*.kicad_pcb"))
+        read = read_kicad(project)
+    origin = conversion.source
+    listed = set(origin.files.values())
+    if origin.path.suffix.lower() == ".prjpcb":
+        project = read_project(origin.path.read_bytes(), file=origin.path.name)
+        listed |= {origin.path.parent / document.path for document in project.documents}
+    files = [origin.path, *sorted({p for p in listed if p.is_file()} - {origin.path}, key=lambda p: p.name)]
+    inputs = tuple(
+        InputFile(p.name, hashlib.sha256(p.read_bytes()).hexdigest(), p.suffix.lower().lstrip("."), None)
+        for p in files
+        if p.is_file()
+    )
+    source = dataclasses.replace(
+        read, name=origin.path.stem, backend="altium", inputs=inputs, paths=tuple(files), folder=origin.root,
+        sheets=0,
+    )  # fmt: skip
+    return source, [i for i in found.issues if i.severity == "error" or i.code != "convert.no-verify"]
+
+
+def _read(path: Path, args: argparse.Namespace, ctx: Context) -> tuple[Source, list[Issue]]:
     try:
         kind = input_kind(path)
     except InputKindError as error:
         raise CliError("FEN-2001", str(error), where=path.name, hint=error.hint) from None
-    if kind != "kicad":
-        raise CliError(
-            "FEN-2001",
-            f"import reads KiCad projects; the Altium input {path.name} is not imported yet",
-            where=path.name,
-            hint="convert it with fenolite convert --to kicad, then import the KiCad project",
-        )
+    if kind == "altium":
+        return _altium(path, args, ctx)
     upgrade = None if args.no_upgrade else upgrader(find_kicad_cli())
-    return read_kicad(path, upgrade=upgrade)
+    return read_kicad(path, upgrade=upgrade), []
 
 
 def _build(emission: Emission, name: str, major: int, ctx: Context) -> tuple[list[Issue], Any, str]:
@@ -165,9 +203,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             where="--adopt",
             hint="drop --no-verify",
         )
-    source = _read(path, args)
+    source, converted = _read(path, args, ctx)
     name = design_name(args.name or source.name)
-    issues: list[Issue] = list(source.issues)
+    issues: list[Issue] = [*source.issues, *converted]
     stamped = getattr(args, "timestamp", None) is not None
     if not stamped:
         issues.append(
@@ -264,10 +302,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         PlannedWrite(f"{shown_out}/{relative}", data, WRITE_KINDS.get(Path(relative).suffix, "text"))
         for relative, data in sorted(files.items())
     )
-    board_input = source.inputs[0]
+    read_file = source.paths[0]
+    version = next((row.version for row in source.inputs if row.file == read_file.name), None)
     result: dict[str, Any] = {
         "source": {
-            "file": board_input.file,
+            "file": read_file.name,
             "backend": source.backend,
             "versions": {row.file: row.version for row in source.inputs if row.version is not None},
         },
@@ -287,10 +326,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         issues=tuple(issues),
         evidence=EVIDENCE,
         input=InputRef(
-            board_input.file,
-            hashlib.sha256(Path(source.paths[0]).read_bytes()).hexdigest(),
-            "kicad_pcb",
-            None if board_input.version is None else str(board_input.version),
+            read_file.name,
+            hashlib.sha256(read_file.read_bytes()).hexdigest(),
+            read_file.suffix.lower().lstrip("."),
+            None if version is None else str(version),
         ),
         writes=writes,
         depends=depends_on(ctx.cwd, *source.paths, *licence_files),

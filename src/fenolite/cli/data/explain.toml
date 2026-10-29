@@ -3642,7 +3642,7 @@ fix = "Nothing is needed; replace a symbol in lib/ by the original if the drawn 
 see = "import"
 
 ["import.sheet-renamed"]
-meaning = "A sheet file stem was changed to a module name of lower-case letters, digits and underscores."
+meaning = "The name of a KiCad sheet that a footprint comes from was changed to a module name of lower-case letters, digits and underscores."
 fix = "Nothing is needed; the message names both."
 see = "import"
 

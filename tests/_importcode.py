@@ -42,7 +42,7 @@ def board_only(tmp: Path) -> Path:
 
 def _variant(tmp: Path, name: str, text: str) -> Path:
     folder = tmp / name
-    folder.mkdir()
+    folder.mkdir(parents=True)
     target = folder / f"{name}.kicad_pcb"
     target.write_text(text, encoding="utf-8")
     return target
@@ -97,6 +97,20 @@ def foreign(tmp: Path, board: Path = BOARD) -> Path:
     return _variant(tmp, "foreign", text)
 
 
+def sheeted(tmp: Path) -> Path:
+    """The ``foreign`` board whose footprints name the KiCad sheets they come from: R101 and D101 the sheet
+    ``Power Supply``, R201 and D201 the sheet ``ch2``, J1 the root."""
+    text = foreign(tmp / "base").read_text(encoding="utf-8")
+    for ref, sheet in (("R101", "Power Supply"), ("D101", "Power Supply"), ("R201", "ch2"), ("D201", "ch2")):
+        at = text.index(f'"Reference" "{ref}"')
+        path = text.index("\n\t\t(path ", at)
+        end = text.index("\n", path + 1)
+        stem = sheet.lower().replace(" ", "_")
+        extra = f'\n\t\t(sheetname "/{sheet}/")\n\t\t(sheetfile "{stem}.kicad_sch")'
+        text = text[:end] + extra + text[end:]
+    return _variant(tmp, "sheeted", text)
+
+
 def old(tmp: Path) -> Path:
     """The board with the format version of KiCad 7, below the read floor."""
     text = BOARD.read_text(encoding="utf-8").replace("(version 20260206)", f"(version {OLD_VERSION})", 1)
@@ -136,4 +150,5 @@ __all__ = [
     "grouped",
     "imported",
     "old",
+    "sheeted",
 ]
