@@ -585,6 +585,9 @@ another type; a flag without a value is a switch.
 - `--escape REF[=grid|perimeter]` (repeatable): escape the pads of the matching parts before routing, with a router that has the escape feature (repeatable; the kind is found from the pads unless given)
 - `--pairs-as-nets`: route the nets of differential pairs as single nets, uncoupled, with any router
 - `-o`, `--out FILE`: write the routed board to this file
+- `--roles {critical}`: route the critical connections of the confirmed gate loops and Kelvin pairs (role mode)
+- `--group NAME` (repeatable): with --roles: route this role group only (repeatable)
+- `--roles-file FILE`: with --roles: the role document to read
 - `--gate {drc}`: drc: judge the edit with kicad-cli DRC and write it without the items that bring new findings
 - `--kicad-cli PATH`: kicad-cli binary or docker:<image> for --gate
 
