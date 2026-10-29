@@ -12,11 +12,13 @@ variants give no finding of warning or above; the ``bad`` variants give exactly 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from pathlib import Path
 
 import pytest
-from _boards import Built
+from _boards import EXAMPLES, Built, build_script, judge
 from _reference import checked, findings, loops
 
+from fenolite.model.rules import KelvinPair, NetRole, RoleSet
 from fenolite.roles.profile import MM2
 
 EXPECTED: Mapping[tuple[str, str], set[tuple[str, str, str]]] = {
@@ -111,3 +113,60 @@ def test_switching(reference: Callable[..., Built]) -> None:
     assert "4.256 mm over its fill on a neighbouring layer" in found.message
     near = [m.values for m in judged.measured.measures if m.kind == "near" and m.values["over_fill"]]
     assert {values["layer"] for values in near} == {"F.Cu"} and len(near) == 2
+
+
+PAIR = """\
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as a test board; no file, value, name or layout comes from any other project.
+from fenolite.dsl import Design, Net, Part, connect, mm
+
+design = Design("kelvin_pair")
+design.board(mm(40), mm(30))
+r1 = Part("R1", "Fenolite:Resistor", footprint="Roles:Roles_Shunt_2512", value="5m")
+u1 = Part("U1", "Roles:Roles_Sense_Amplifier", footprint="Fenolite:SOT23_5", value="AMP")
+design.add(r1, u1)
+connect(Net("VA"), r1[1], u1["IN+"])
+connect(Net("VB"), r1[2], u1["IN-"])
+r1.place(mm(15), mm(8))  # pads at (12.1, 8) and (17.9, 8)
+u1.place(mm(15), mm(20))  # IN+ at (13.7, 19.05), IN- at (16.3, 19.05)
+w = mm("0.25")
+p = lambda x, y: (mm(str(x)), mm(str(y)))  # noqa: E731
+design.track("sense_p", r1.pad(1).at(mm("0.5")), p(12.6, 12), p(13.7, 17), u1.pad(3), width=w)
+{sense_n}
+"""
+COUPLED = 'design.track("sense_n", r1.pad(2).at(mm("-0.5")), p(17.4, 12), p(16.3, 17), u1.pad(4), width=w)'
+SPLIT = (
+    'design.track("sense_n", r1.pad(2).at(mm("-0.5")), p(17.4, 3), p(35, 3), p(35, 19.05), u1.pad(4), '
+    "width=w)"
+)
+
+PAIR_ROLES = RoleSet(
+    nets=(NetRole("VA", "power", "declared"), NetRole("VB", "power", "declared")),
+    kelvins=(KelvinPair("kelvin_R1", ("R1-1", "R1-2"), ("U1-3", "U1-4"), origin="declared"),),
+)
+
+
+@pytest.mark.parametrize(("sense_n", "apart"), [(COUPLED, False), (SPLIT, True)])
+def test_kelvin_pair_split(tmp_path: Path, sense_n: str, apart: bool) -> None:
+    """``H-G-ROLE-KELVIN-PAIR`` on an authored pair: the coupled pair at or under 2000 ‰, the split one over
+    it (no reference variant has a split pair)."""
+    for name in ("sym-lib-table", "fp-lib-table"):
+        text = (EXAMPLES / "buck_shunt" / name).read_text(encoding="utf-8")
+        libs = (EXAMPLES.parents[1] / "tests" / "data" / "libs").as_posix()
+        (tmp_path / name).write_text(
+            text.replace("${KIPRJMOD}/../../../tests/data/libs", libs), encoding="utf-8"
+        )
+    script = tmp_path / "pair.py"
+    script.write_text(PAIR.format(sense_n=sense_n), encoding="utf-8")
+    judged = judge(build_script(script, tmp_path / "out"), declared=PAIR_ROLES)
+    (pair,) = loops(judged).values()
+    ratio = pair["ratio_permille"]
+    assert isinstance(ratio, int) and (ratio > 2000) == apart, ratio
+    found = [i for i in judged.issues if i.code == "roles.kelvin-apart"]
+    assert len(found) == int(apart)
+    if apart:
+        assert (
+            found[0].severity == "warning"
+            and "pair_ratio_max=2000 (profile, H-G-ROLE-KELVIN-PAIR)" in found[0].message
+        )
+    assert not [i for i in judged.issues if i.code in ("roles.kelvin-outer", "roles.kelvin-shared")]

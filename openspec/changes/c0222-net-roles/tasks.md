@@ -158,7 +158,11 @@
   lands in the source copper), and the source pads of the other gate loops end the walk (a common-source
   pair shares its driver's return pin). The tests' shared helpers moved to `tests/unit/roles/_reference.py`.
   Proof passed: 9 tests.
-- [ ] 5.4 Add the Kelvin pair and near-switching checks on the role loops and on `analyze_distances`, `analyze_returns` and `analyze_coupling`. Register `H-G-ROLE-KELVIN-PAIR` and `H-G-ROLE-NEAR-SW` (scenario "A sense pair over the switch node"). Proof: `uv run pytest tests/unit/roles/test_reference_boards.py -k "kelvin or switching" -q`.
+- [x] 5.4 Add the Kelvin pair and near-switching checks on the role loops and on `analyze_distances`, `analyze_returns` and `analyze_coupling`. Register `H-G-ROLE-KELVIN-PAIR` and `H-G-ROLE-NEAR-SW` (scenario "A sense pair over the switch node"). Proof: `uv run pytest tests/unit/roles/test_reference_boards.py -k "kelvin or switching" -q`.
+  Done 2026-10-29. The two branches of a Kelvin pair are one victim: the scenario's single
+  `roles.near-switching` names the pair and gives each branch's overlap. No reference variant has a split
+  sense pair, so `H-G-ROLE-KELVIN-PAIR` is measured on an authored shunt and amplifier as well (coupled
+  927 ‰, split 7121 ‰). Proof passed: 6 tests.
 - [ ] 5.5 Add the current checks on `analyze_power`, `analyze_split` and `analyze_necks` by both methods, and register `H-G-ROLE-CURRENT` (scenarios "A thin track on a 2 A net", "No analysis finding from the profile"). Proof: `uv run pytest tests/unit/roles/test_current.py -q`.
 - [ ] 5.6 Add the return and high-voltage checks on `analyze_returns` and `analyze_distances` (scenarios "A high-voltage bus without a requirement", "A cell tap across a ground gap"). Proof: `uv run pytest tests/unit/roles/test_returns_hv.py -q`.
 - [ ] 5.7 Run the whole check on the six variants (scenario "Good and bad variants"). Proof: `uv run pytest tests/unit/roles/test_reference_boards.py -q`.
