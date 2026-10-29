@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+// ================================================================== project nets across sheets and the board (c0185)
 import { draw } from "../board/draw";
 import { docByFile, openDoc } from "../core/documents";
 import { esc, showInfo } from "../core/dom";
@@ -7,9 +8,8 @@ import { PREVIEW_MODE } from "../core/env";
 import { S, st } from "../core/state";
 import { fit } from "../core/viewport";
 import { buildNav } from "../panels/navigator";
-import { SCH, isSch } from "./scene";
+import { isSch, SCH } from "./scene";
 import { netBox, schSelect } from "./select";
-// ================================================================== project nets across sheets and the board (c0185)
 export let PROJ_NET = null;
 export const BC = !PREVIEW_MODE && "BroadcastChannel" in window ? new BroadcastChannel("fenolite-view") : null;
 export function shareNet(name) { PROJ_NET = name || null; if (BC) BC.postMessage({ net: PROJ_NET }); }

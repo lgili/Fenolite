@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
-import { byLayer } from "./cache";
-import { order } from "./draw";
+// ================================================================== hit test (2D)
 import { view } from "../core/state";
 import { s2w } from "../core/viewport";
-// ================================================================== hit test (2D)
+import { byLayer } from "./cache";
+import { order } from "./draw";
 export function segDist(px, py, x1, y1, x2, y2) { const dx = x2 - x1, dy = y2 - y1, L = dx * dx + dy * dy; let t = L ? ((px - x1) * dx + (py - y1) * dy) / L : 0;
   t = Math.max(0, Math.min(1, t)); return Math.hypot(px - x1 - t * dx, py - y1 - t * dy); }
 export function inRing(px, py, r) { let c = false; for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {

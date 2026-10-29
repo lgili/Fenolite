@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+// ================================================================== check findings (c0188)
 import { draw } from "../board/draw";
 import { layerName } from "../board/info";
 import { buildTabs } from "../board/tabs";
-import { esc, showInfo } from "../core/dom";
-import { MM, S, ctx, st, view, vis } from "../core/state";
+import { $, esc, showInfo } from "../core/dom";
+import { ctx, MM, S, st, view, vis } from "../core/state";
 import { fit, worldTf } from "../core/viewport";
 import { buildMessages } from "../panels/messages";
 import { isSch } from "../sch/scene";
 import { set3D } from "../three/view3d";
-import { $ } from "../core/dom";
-// ================================================================== check findings (c0188)
 export const SEV_COLOR = { error: "#ff4040", warning: "#ffb020", info: "#4da3ff" };
 export function checkToMM(sc) { const C = sc.check; if (!C || C.mm) return; C.mm = true; const f = v => v * MM;
   for (const x of C.findings) { if (x.at) x.at = x.at.map(f); if (x.box) x.box = x.box.map(f); } }

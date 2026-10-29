@@ -3,15 +3,15 @@
 import { drawSchDiff } from "../board/diff";
 import { draw } from "../board/draw";
 import { drawVariantMarks } from "../board/variants";
+import { $ } from "../core/dom";
 import { textPolylines } from "../core/font";
 import { linkLater } from "../core/links";
-import { S, ctx, cv, view } from "../core/state";
-import { H, W, dpr, s2w, w2s, worldTf } from "../core/viewport";
+import { ctx, cv, S, view } from "../core/state";
+import { dpr, H, s2w, W, w2s, worldTf } from "../core/viewport";
 import { drawMeasure } from "../measure/measure";
 import { drawMarks } from "../panels/marks";
 import { drawCheck } from "../review/check";
 import { MIL, SCH, SEL, WORKSPACE } from "./scene";
-import { $ } from "../core/dom";
 export function fontCss(fo, px) { return `${fo.italic ? "italic " : ""}${fo.bold ? "bold " : ""}${px.toFixed(2)}px "${fo.name}", "Times New Roman", Times, serif`; }
 export function schAlpha(p) {
   if (SCH.selNet < 0) return 1;

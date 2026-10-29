@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
-import { P2D, S } from "../core/state";
 // an arc through three points: centre, radius, start and end angles, and the direction (canvas angles, Y down)
+import { P2D, S } from "../core/state";
 export function arcOf(d) {
   const [x1, y1, x2, y2, x3, y3] = d, D = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
   if (Math.abs(D) < 1e-12) return null;

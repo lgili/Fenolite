@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
-import { esc } from "../core/dom";
+// ================================================================== project review: recorded evidence and a guided finding list (c0239)
+import { $, esc } from "../core/dom";
 import { setSidebar } from "../core/input";
 import { DOC, S, st } from "../core/state";
 import { selectFinding } from "../review/check";
-import { $ } from "../core/dom";
-// ================================================================== project review: recorded evidence and a guided finding list (c0239)
 export const REVIEW = { doc: null, selected: -1, items: [], matches: [] };
 export const REVIEW_STATE = { "not-run": "Not run", passed: "Passed", failed: "Failed", limited: "Limited" };
 export function setProjectReview(open) {

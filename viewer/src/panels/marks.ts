@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+// ---- review marks: kept by the server in the --marks file, else in this browser until downloaded
 import { draw } from "../board/draw";
 import { allDocs, navigation, openDoc } from "../core/documents";
-import { download, esc, showInfo } from "../core/dom";
+import { $, download, esc, showInfo } from "../core/dom";
 import { toggle } from "../core/input";
 import { selName } from "../core/links";
-import { DOC, PROJECT, ctx, st, view } from "../core/state";
+import { ctx, DOC, PROJECT, st, view } from "../core/state";
 import { fit, worldTf } from "../core/viewport";
 import { isSch } from "../sch/scene";
 import { set3D } from "../three/view3d";
-import { $ } from "../core/dom";
-// ---- review marks: kept by the server in the --marks file, else in this browser until downloaded
 export let MARKS = [];
 export const marksKey = () => "fenolite.view.marks:" + (PROJECT ? PROJECT.name : "");
 export const serverMarks = () => LIVE && PROJECT && PROJECT.marks_file;

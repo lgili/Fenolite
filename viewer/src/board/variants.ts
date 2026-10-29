@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
-import { draw } from "./draw";
-import { esc } from "../core/dom";
-import { S, ctx, st, view } from "../core/state";
-import { V3, draw3D, rebuildBodies } from "../three/view3d";
-import { $ } from "../core/dom";
 // ================================================================== assembly variants of an Altium project (c0186)
+import { $, esc } from "../core/dom";
+import { ctx, S, st, view } from "../core/state";
+import { draw3D, rebuildBodies, V3 } from "../three/view3d";
+import { draw } from "./draw";
 export let VARIANT = null;
 export function variantOf(ref) { const v = VARIANT && S && S.variants && S.variants[VARIANT]; return v ? v[ref] || null : null; }
 export function notFitted(ref) { const v = variantOf(ref); return !!(v && v.kind === "not fitted"); }

@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+// ================================================================== review tools (c0189): edge measure, links, marks, SVG, print
 import { addPrim, byLayer, newCache } from "../board/cache";
 import { draw, paintCache } from "../board/draw";
 import { pick } from "../board/hit";
-import { esc, showInfo } from "../core/dom";
+import { $, esc, showInfo } from "../core/dom";
 import { ctx, st, view } from "../core/state";
 import { fmtLen } from "../core/units";
 import { dpr, w2s, worldTf } from "../core/viewport";
 import { edgeBetween } from "./edge";
-import { $ } from "../core/dom";
-// ================================================================== review tools (c0189): edge measure, links, marks, SVG, print
 export const EDGE_C = "#00d0ff";
 export function toggleEdge() { st.edge = !st.edge; st.epick = []; st.eres = null; $("bEdge").classList.toggle("on", st.edge); draw(); }
 export function edgeGroup(h) {   // every primitive of the clicked item on its layer: a pad's core and its edge stroke together

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
-import { diffToMM } from "../board/scene";
-import { MM, S } from "../core/state";
-import { checkToMM } from "../review/check";
 // ================================================================== schematic view (scene kind "schematic")
 // A sheet drawn as Altium Designer draws it: the file's own colours and fonts on its paper, a line grid, a grey
 // workspace around it. Units on the page are millimetres, Y downwards from the sheet's top-left corner.
+import { diffToMM } from "../board/scene";
+import { MM, S } from "../core/state";
+import { checkToMM } from "../review/check";
 export const SCH = { sel: -1, selNet: -1, selComp: -1, images: new Map(), byObj: null, filter: "" };
 export const WORKSPACE = "#4a4d52", SEL = "#00b050";
 export const isSch = () => !!(S && S.kind === "schematic");

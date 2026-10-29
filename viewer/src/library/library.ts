@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+// ================================================================== libraries (c0179): the item list, each item drawn as a board or a sheet
 import { loadBoard } from "../board/load";
 import { toMM } from "../board/scene";
-import { esc, showInfo } from "../core/dom";
+import { $, esc, showInfo } from "../core/dom";
 import { st } from "../core/state";
 import { fmtPair } from "../core/units";
 import { loadSch } from "../sch/load";
 import { toMMsch } from "../sch/scene";
-import { $ } from "../core/dom";
-// ================================================================== libraries (c0179): the item list, each item drawn as a board or a sheet
 export let LIB = null, LIBSEL = -1, LIBQ = "";
 export function setLib(v) { LIB = v; }
 export function toUnits(sc) {

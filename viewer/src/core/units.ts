@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+// ================================================================== units: millimetres or mil (Q), as in Altium
 import { draw } from "../board/draw";
 import { select } from "../board/info";
-import { showInfo } from "./dom";
+import { buildLibList, itemInfo, LIB, LIBSEL } from "../library/library";
+import { selectNet } from "../sch/project-nets";
+import { isSch, SCH } from "../sch/scene";
+import { schSelect } from "../sch/select";
+import { $, showInfo } from "./dom";
 import { showCoord } from "./input";
 import { S, st } from "./state";
-import { LIB, LIBSEL, buildLibList, itemInfo } from "../library/library";
-import { selectNet } from "../sch/project-nets";
-import { SCH, isSch } from "../sch/scene";
-import { schSelect } from "../sch/select";
-import { $ } from "./dom";
-// ================================================================== units: millimetres or mil (Q), as in Altium
 export const MIL_MM = 0.0254;
 export let UNIT = (() => { try { return localStorage.getItem("fenolite.view.unit") === "mil" ? "mil" : "mm"; } catch (e) { return "mm"; } })();
 export function fmtLen(mm) { return UNIT === "mil" ? `${(mm / MIL_MM).toFixed(2)} mil` : `${mm.toFixed(3)} mm`; }

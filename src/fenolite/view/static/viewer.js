@@ -748,21 +748,20 @@ function drawSchDiff() {
     ctx.setLineDash([]);
 }
 // ---- panels/changes.tsx
+// The Changes panel of `--compare` (c0184), a Preact component (change c0247): one row per change, coloured by
+// its kind; a row with a box frames it.
+function frameChange(b) { const m = Math.max(b[2] - b[0], b[3] - b[1], 1) * 0.6; fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m]); }
+function ChangesPanel({ changes }) {
+    return preact.h(preact.Fragment, null, changes.map(c => (preact.h("div", { class: "navi", onClick: c.box ? () => frameChange(c.box) : undefined },
+        preact.h("span", { class: "sw", style: `background:${DIFF_COLOR[c.kind] || "#888"}` }),
+        ` ${c.text}`))));
+}
 function buildDiffList() {
     const box = $("diffList"), D = S && S.diff;
-    box.innerHTML = "";
     $("diffTitle").style.display = D ? "" : "none";
-    if (!D)
-        return;
-    $("diffTitle").textContent = `Changes since ${D.old.name} (${D.changes.length})`;
-    D.changes.forEach(c => {
-        const d = document.createElement("div");
-        d.className = "navi";
-        d.innerHTML = `<span class="sw" style="background:${DIFF_COLOR[c.kind] || "#888"}"></span> ${esc(c.text)}`;
-        if (c.box)
-            d.onclick = () => { const b = c.box, m = Math.max(b[2] - b[0], b[3] - b[1], 1) * 0.6; fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m]); };
-        box.appendChild(d);
-    });
+    if (D)
+        $("diffTitle").textContent = `Changes since ${D.old.name} (${D.changes.length})`;
+    preact.render(D ? preact.h(ChangesPanel, { changes: D.changes }) : null, box);
 }
 // ---- review/check.ts
 // ================================================================== check findings (c0188)
@@ -832,51 +831,46 @@ function selectFinding(i) {
     draw();
 }
 // ---- panels/messages.tsx
+// The Messages panel of `--check` (c0188), a Preact component (change c0247): the notes, then the findings
+// grouped by rule, errors first; a group opens on a click, a finding is selected on the drawing.
 const MSG_ROWS = 300;
-function buildMessages() {
-    const box = $("msgList"), C = S && S.check;
-    box.innerHTML = "";
-    $("msgTitle").style.display = C ? "" : "none";
-    if (!C)
-        return;
-    const n = C.counts;
-    $("msgTitle").textContent = `Messages: ${n.error} errors · ${n.warning} warnings · ${n.info} info`;
-    for (const note of C.notes) {
-        const d = document.createElement("div");
-        d.className = "notes";
-        d.textContent = note;
-        box.appendChild(d);
-    }
+function toggleGroup(code, open) { if (open)
+    st.msgOpen.delete(code);
+else
+    st.msgOpen.add(code); buildMessages(); }
+function MessagesPanel({ check }) {
     const groups = new Map();
-    C.findings.forEach((x, i) => { if (!groups.has(x.code))
+    check.findings.forEach((x, i) => { if (!groups.has(x.code))
         groups.set(x.code, []); groups.get(x.code).push(i); });
-    st.msgOpen = st.msgOpen || new Set();
+    const out = check.notes.map((note, k) => preact.h("div", { key: "t:" + k, class: "notes" }, note)); // keys: as in the Findings panel
     for (const [code, list] of groups) {
-        const first = C.findings[list[0]], open = st.msgOpen.has(code) || groups.size === 1, h = document.createElement("div");
-        h.className = "navg";
-        h.innerHTML = `<span class="sw" style="display:inline-block;background:${SEV_COLOR[first.severity] || "#888"}"></span> ${open ? "▾" : "▸"} ${esc(code)} (${list.length})`;
-        h.onclick = () => { if (open)
-            st.msgOpen.delete(code);
-        else
-            st.msgOpen.add(code); buildMessages(); };
-        box.appendChild(h);
+        const first = check.findings[list[0]], open = st.msgOpen.has(code) || groups.size === 1;
+        out.push(preact.h("div", { key: "g:" + code, class: "navg", onClick: () => toggleGroup(code, open) },
+            preact.h("span", { class: "sw", style: `display:inline-block;background:${SEV_COLOR[first.severity] || "#888"}` }),
+            ` ${open ? "▾" : "▸"} ${code} (${list.length})`));
         if (!open)
             continue;
         for (const i of list.slice(0, MSG_ROWS)) {
-            const x = C.findings[i], d = document.createElement("div");
-            d.className = "navi" + (i === st.selFinding ? " sel" : "");
-            d.innerHTML = `${esc(x.message)}${x.at ? "" : " <small>(no position)</small>"}`;
-            d.title = x.where;
-            d.onclick = () => selectFinding(i);
-            box.appendChild(d);
+            const x = check.findings[i]; // the title is the location as the panel always set it: "undefined" when there is none
+            out.push(preact.h("div", { key: "f:" + i, class: "navi" + (i === st.selFinding ? " sel" : ""), title: String(x.where), onClick: () => selectFinding(i) },
+                String(x.message),
+                x.at ? null : " ",
+                x.at ? null : preact.h("small", null, "(no position)")));
         }
-        if (list.length > MSG_ROWS) {
-            const d = document.createElement("div");
-            d.className = "notes";
-            d.textContent = `… ${list.length - MSG_ROWS} more`;
-            box.appendChild(d);
-        }
+        if (list.length > MSG_ROWS)
+            out.push(preact.h("div", { key: "m:" + code, class: "notes" }, `… ${list.length - MSG_ROWS} more`));
     }
+    return preact.h(preact.Fragment, null, out);
+}
+function buildMessages() {
+    const box = $("msgList"), C = S && S.check;
+    $("msgTitle").style.display = C ? "" : "none";
+    if (C) {
+        const n = C.counts;
+        $("msgTitle").textContent = `Messages: ${n.error} errors · ${n.warning} warnings · ${n.info} info`;
+    }
+    st.msgOpen = st.msgOpen || new Set();
+    preact.render(C ? preact.h(MessagesPanel, { check: C }) : null, box);
 }
 // ---- panels/project-review.ts
 // ================================================================== project review: recorded evidence and a guided finding list (c0239)
@@ -2544,10 +2538,36 @@ function allDocs() { return PROJECT ? PROJECT.groups.flatMap(g => g.documents) :
 function docByFile(name) { const want = String(name).replace(/\\/g, "/").split("/").pop().toLowerCase(); return allDocs().find(d => d.name.toLowerCase() === want && d.viewable && d.present); }
 // ---- panels/findings.tsx
 // ================================================================== scene, overlays and notes
-// findings by group (change c0193): the box draws or hides a group, the title opens its items, the tooltip says the rule
+// findings by group (change c0193): the box draws or hides a group, the title opens its items, the tooltip says the rule;
+// a Preact component (change c0247)
+function showGroup(id, on) { if (on)
+    st.ovOff.delete(id);
+else
+    st.ovOff.add(id); draw(); }
+function openGroup(id) { if (st.ovOpen.has(id))
+    st.ovOpen.delete(id);
+else
+    st.ovOpen.add(id); buildFindings(); }
+// keys: a row is never reused for a row of another kind, so no attribute of one is left on the other
+function FindingsPanel({ groups, byG }) {
+    const out = [];
+    for (const g of groups) {
+        const idx = byG.get(g.id) || [];
+        out.push(preact.h("div", { key: "g:" + g.id, class: "fg" + (idx.length ? "" : " zero"), title: g.note || "" },
+            preact.h("input", { type: "checkbox", checked: !st.ovOff.has(g.id), onChange: e => showGroup(g.id, e.target.checked) }),
+            preact.h("span", { class: "sw", style: `background:${g.color}` }),
+            preact.h("span", { class: "ft", onClick: () => openGroup(g.id) }, `${st.ovOpen.has(g.id) ? "▾" : "▸"} ${g.title}`),
+            preact.h("span", { class: "fn" }, idx.length)));
+        if (!st.ovOpen.has(g.id))
+            continue;
+        if (g.note)
+            out.push(preact.h("div", { key: "n:" + g.id, class: "fnote" }, g.note));
+        for (const i of idx)
+            out.push(preact.h("div", { key: "o:" + i, class: "ov" + (i === st.selOv ? " sel" : ""), onClick: () => gotoFinding(i) }, S.overlays[i].label));
+    }
+    return preact.h(preact.Fragment, null, out);
+}
 function buildFindings() {
-    const box = $("overlays");
-    box.innerHTML = "";
     const groups = [...(S.meta.findings || [])], byG = new Map();
     (S.overlays || []).forEach((o, i) => { const g = ovGroup(o); if (!byG.has(g))
         byG.set(g, []); byG.get(g).push(i); });
@@ -2555,37 +2575,9 @@ function buildFindings() {
         if (!groups.some(x => x.id === g))
             groups.push({ id: g, title: g, color: S.overlays[byG.get(g)[0]].color, n: byG.get(g).length, note: "" });
     $("ovTitle").style.display = groups.length ? "block" : "none";
-    for (const g of groups) {
-        const idx = byG.get(g.id) || [], row = document.createElement("div");
-        row.className = "fg" + (idx.length ? "" : " zero");
-        row.title = g.note || "";
-        row.innerHTML = `<input type="checkbox" ${st.ovOff.has(g.id) ? "" : "checked"}><span class="sw" style="background:${esc(g.color)}"></span><span class="ft">${st.ovOpen.has(g.id) ? "\u25BE" : "\u25B8"} ${esc(g.title)}</span><span class="fn">${idx.length}</span>`;
-        row.querySelector("input").onchange = e => { if (e.target.checked)
-            st.ovOff.delete(g.id);
-        else
-            st.ovOff.add(g.id); draw(); };
-        row.querySelector(".ft").onclick = () => { if (st.ovOpen.has(g.id))
-            st.ovOpen.delete(g.id);
-        else
-            st.ovOpen.add(g.id); buildFindings(); };
-        box.appendChild(row);
-        if (!st.ovOpen.has(g.id))
-            continue;
-        if (g.note) {
-            const n = document.createElement("div");
-            n.className = "fnote";
-            n.textContent = g.note;
-            box.appendChild(n);
-        }
-        for (const i of idx) {
-            const d = document.createElement("div");
-            d.className = "ov" + (i === st.selOv ? " sel" : "");
-            d.textContent = S.overlays[i].label;
-            d.onclick = () => gotoFinding(i);
-            box.appendChild(d);
-        }
-    }
+    preact.render(preact.h(FindingsPanel, { groups: groups, byG: byG }), $("overlays"));
 }
+function clearFindings() { preact.render(null, $("overlays")); } // a sheet: no finding group
 function gotoFinding(i) {
     const o = S.overlays[i];
     if (st.mode3d)
@@ -4144,32 +4136,31 @@ function selectComp(ci, zoom) {
         fit([b[0] - 12, b[1] - 12, b[2] + 12, b[3] + 12]);
 }
 // ---- panels/navigator.tsx
+// The Navigator of a sheet (c0177), a Preact component (change c0247): its parts and its nets, filtered; a click
+// selects and frames one.
+// keys: a part row is never reused for a net row (no title left behind)
+function NavigatorPanel({ comps, nets }) {
+    return preact.h(preact.Fragment, null,
+        preact.h("div", { key: "hc", class: "navg" }, `Components (${comps.length})`),
+        comps.map(([c, i]) => preact.h("div", { key: "c:" + i, class: "navi" + (SCH.selComp === i ? " sel" : ""), title: c.description || c.lib || "", onClick: () => selectComp(i, true) },
+            `${c.ref} `,
+            preact.h("small", null, String(c.comment || c.lib || "")))),
+        preact.h("div", { key: "hn", class: "navg" }, `Nets (${nets.length})`),
+        nets.map(([n, i]) => preact.h("div", { key: "n:" + i, class: "navi" + (SCH.selNet === i ? " sel" : ""), onClick: () => selectNet(i, true) },
+            String(n.name),
+            n.project && n.project !== n.name ? " " : null,
+            n.project && n.project !== n.name ? preact.h("small", null, `→ ${n.project}`) : null,
+            " ",
+            preact.h("small", null, `${n.pins.length}${n.sheets && n.sheets.length > 1 ? ` · ${n.sheets.length} sheets` : ""}`))));
+}
 function buildNav() {
     const box = $("navList");
     if (!box || !isSch())
         return;
     const q = SCH.filter.trim().toLowerCase();
-    box.innerHTML = "";
     const comps = S.comps.map((c, i) => [c, i]).filter(([c]) => !c.hidden).filter(([c]) => !q || c.ref.toLowerCase().includes(q) || (c.comment || "").toLowerCase().includes(q)).sort((a, b) => natural(a[0].ref, b[0].ref));
     const nets = S.nets.map((n, i) => [n, i]).filter(([n]) => n.name && (n.pins.length > 1 || !n.name.startsWith("Net")) && (!q || n.name.toLowerCase().includes(q))).sort((a, b) => natural(a[0].name, b[0].name));
-    const head = t => { const d = document.createElement("div"); d.className = "navg"; d.textContent = t; box.appendChild(d); };
-    head(`Components (${comps.length})`);
-    for (const [c, i] of comps) {
-        const d = document.createElement("div");
-        d.className = "navi" + (SCH.selComp === i ? " sel" : "");
-        d.innerHTML = `${esc(c.ref)} <small>${esc(c.comment || c.lib || "")}</small>`;
-        d.title = c.description || c.lib || "";
-        d.onclick = () => selectComp(i, true);
-        box.appendChild(d);
-    }
-    head(`Nets (${nets.length})`);
-    for (const [n, i] of nets) {
-        const d = document.createElement("div");
-        d.className = "navi" + (SCH.selNet === i ? " sel" : "");
-        d.innerHTML = `${esc(n.name)}${n.project && n.project !== n.name ? ` <small>→ ${esc(n.project)}</small>` : ""} <small>${n.pins.length}${n.sheets && n.sheets.length > 1 ? ` · ${n.sheets.length} sheets` : ""}</small>`;
-        d.onclick = () => selectNet(i, true);
-        box.appendChild(d);
-    }
+    preact.render(preact.h(NavigatorPanel, { comps: comps, nets: nets }), box);
 }
 $("navFilter").addEventListener("input", e => { SCH.filter = e.target.value; buildNav(); });
 // ---- sch/load.ts
@@ -4271,7 +4262,7 @@ function loadSch(scene, keepView) {
     $("gen").textContent = S.meta.sha256 ? `SHA-256 ${S.meta.sha256.slice(0, 12)}` : "";
     const c = S.meta.counts || {};
     $("ovTitle").style.display = "none";
-    $("overlays").innerHTML = "";
+    clearFindings();
     $("notes").innerHTML = (S.meta.notes || []).map(esc).join("<br>") + `<br>Read by the ${esc(S.meta.backend)} backend, evidence ${esc(S.meta.evidence)}.` +
         (c.kinds ? `<br>${c.items || 0} items: ${Object.entries(c.kinds).map(([k, n]) => `${n} ${esc(k)}`).join(" · ")}` // a Draftsman sheet (c0180)
             : `<br>${c.components || 0} parts · ${c.pins || 0} pins · ${c.wires || 0} wires · ${c.nets || 0} nets · ${c.power_ports || 0} power ports · ${c.ports || 0} ports`);

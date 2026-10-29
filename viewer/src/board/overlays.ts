@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
-import { S, ctx, st, view } from "../core/state";
-import { worldTf } from "../core/viewport";
 // findings: an item of a group drawn as a line, a path (a dashed creepage path too) or a marker; the group's box hides it
+import { ctx, S, st, view } from "../core/state";
+import { worldTf } from "../core/viewport";
 export const ovGroup = o => o.group || (o.kind === "creepage" ? "analyze_creepage" : "analyze_clearance");
 export function drawOverlays() {
   if (!S.overlays || !S.overlays.length) return;

@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+// ================================================================== tables (c0190): a BOM document, an output job
 import { allDocs, docByFile, navigation, openDoc } from "../core/documents";
-import { esc, linkify, natural, showInfo } from "../core/dom";
-import { S, cv, st } from "../core/state";
+import { $, esc, linkify, natural, showInfo } from "../core/dom";
+import { cv, S, setS, st } from "../core/state";
 import { applyQuery } from "../panels/review";
 import { glc } from "../three/view3d";
-import { $ } from "../core/dom";
-import { setS } from "../core/state";
-// ================================================================== tables (c0190): a BOM document, an output job
 export const TBL = { sort: -1, up: true, q: "" };
 export function loadTable(scene) {
   setS(scene); st.mode3d = false; document.body.classList.remove("sch", "lib"); document.body.classList.add("table");

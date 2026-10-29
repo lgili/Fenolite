@@ -3,21 +3,19 @@
 import { draw } from "../board/draw";
 import { buildVariants } from "../board/variants";
 import { allDocs, docByFile, navigation, openDoc, sceneOf } from "../core/documents";
-import { esc, natural, showInfo } from "../core/dom";
+import { $, esc, natural, showInfo } from "../core/dom";
 import { find } from "../core/input";
-import { DOC, S, cv, st, view } from "../core/state";
-import { fit, fitted } from "../core/viewport";
+import { cv, DOC, S, setS, st, view } from "../core/state";
+import { fit, fitted, setFitted } from "../core/viewport";
 import { buildDiffList } from "../panels/changes";
+import { clearFindings } from "../panels/findings";
 import { buildMessages } from "../panels/messages";
 import { buildNav } from "../panels/navigator";
 import { KIND_COLOR } from "../panels/tree";
+import { set3D } from "../three/view3d";
 import { schPick } from "./hit";
 import { applyProjNet, selectComp, selectNet } from "./project-nets";
 import { SCH, toMMsch } from "./scene";
-import { set3D } from "../three/view3d";
-import { $ } from "../core/dom";
-import { setS } from "../core/state";
-import { setFitted } from "../core/viewport";
 export function sheetTabs() {   // the bottom bar of a schematic: the project's viewable documents, as the native tool's document tabs
   const box = $("tablist"); box.innerHTML = "";
   const docs = allDocs().filter(d => d.viewable && d.present).sort((a, b) => ((a.kind !== "schematic") as any) - ((b.kind !== "schematic") as any) || natural(a.name, b.name));
@@ -58,7 +56,7 @@ export function loadSch(scene, keepView) {
   $("fname").textContent = S.meta.name; document.title = S.meta.name + " · Fenolite viewer";
   $("gen").textContent = S.meta.sha256 ? `SHA-256 ${S.meta.sha256.slice(0, 12)}` : "";
   const c = S.meta.counts || {};
-  $("ovTitle").style.display = "none"; $("overlays").innerHTML = "";
+  $("ovTitle").style.display = "none"; clearFindings();
   $("notes").innerHTML = (S.meta.notes || []).map(esc).join("<br>") + `<br>Read by the ${esc(S.meta.backend)} backend, evidence ${esc(S.meta.evidence)}.` +
     (c.kinds ? `<br>${c.items || 0} items: ${Object.entries(c.kinds).map(([k, n]) => `${n} ${esc(k)}`).join(" · ")}`   // a Draftsman sheet (c0180)
       : `<br>${c.components || 0} parts · ${c.pins || 0} pins · ${c.wires || 0} wires · ${c.nets || 0} nets · ${c.power_ports || 0} power ports · ${c.ports || 0} ports`);

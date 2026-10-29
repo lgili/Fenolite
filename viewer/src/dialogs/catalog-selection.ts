@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+// ================================================================== catalog selection (c0240)
 import { allDocs, sceneOf } from "../core/documents";
-import { download } from "../core/dom";
+import { $, download } from "../core/dom";
 import { PREVIEW_MODE } from "../core/env";
 import { PROJECT } from "../core/state";
-import { $ } from "../core/dom";
-// ================================================================== catalog selection (c0240)
 export const CATSEL = { generation:0, symbols:[], footprints:[], symbol:null, footprint:null, validFilters:true, candidates:[], symbolCandidates:[], loading:false, mapping:new Map() };
 export async function openCatalogSelection() {
   if (PREVIEW_MODE || !PROJECT || PROJECT.source !== "catalog") return;

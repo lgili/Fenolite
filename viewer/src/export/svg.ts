@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+// ---- SVG: the view drawn again into a recorder of the canvas calls the page makes, as vector paths
 import { buildCaches } from "../board/cache";
 import { draw } from "../board/draw";
-import { download, esc, showInfo } from "../core/dom";
-import { DOC, P2D, S, ctx, st, view } from "../core/state";
-import { H, W, dpr } from "../core/viewport";
+import { $, download, esc, showInfo } from "../core/dom";
+import { ctx, DOC, P2D, S, setCtx, setP2D, st, view } from "../core/state";
+import { dpr, H, setDpr, W } from "../core/viewport";
 import { isSch } from "../sch/scene";
-import { $ } from "../core/dom";
-import { setCtx, setP2D } from "../core/state";
-import { setDpr } from "../core/viewport";
-// ---- SVG: the view drawn again into a recorder of the canvas calls the page makes, as vector paths
 export class RecPath {   // what a Path2D records, replayed under the transform of the fill or stroke
   declare c: any[];
   constructor() { this.c = []; }

@@ -4,10 +4,6 @@ import { draw } from "../board/draw";
 import { pick } from "../board/hit";
 import { compInfo, select } from "../board/info";
 import { buildTabs, stepCurrent } from "../board/tabs";
-import { esc, showInfo } from "./dom";
-import { S, cv, st, view } from "./state";
-import { UNIT, fmtLen, setUnit } from "./units";
-import { fit, m, s2w } from "./viewport";
 import { edgeClick, toggleEdge } from "../measure/edge-tool";
 import { measureClick } from "../measure/measure";
 import { snap } from "../measure/snap";
@@ -19,7 +15,10 @@ import { shareNet } from "../sch/project-nets";
 import { isSch } from "../sch/scene";
 import { schSelect } from "../sch/select";
 import { camPreset, set3D } from "../three/view3d";
-import { $ } from "./dom";
+import { $, esc, showInfo } from "./dom";
+import { cv, S, st, view } from "./state";
+import { fmtLen, setUnit, UNIT } from "./units";
+import { fit, m, s2w } from "./viewport";
 export function flip() { view.mirror = !view.mirror; $("bFlip").textContent = "View: " + (view.mirror ? "Bottom" : "Top"); draw(); }
 export function toggle(key, btn) { st[key] = !st[key]; $(btn).classList.toggle("on", st[key]); if (key === "measure" && !st.measure) st.mpts = []; draw(); }
 export function find(q) {

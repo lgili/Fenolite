@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+// ================================================================== project tree (left panel)
 import { openDoc } from "../core/documents";
-import { esc } from "../core/dom";
+import { $, esc } from "../core/dom";
 import { setSidebar } from "../core/input";
 import { DOC, PROJECT } from "../core/state";
-import { $ } from "../core/dom";
-// ================================================================== project tree (left panel)
 export const KIND_COLOR = { pcb: "#3fb950", schematic: "#d29922", "schematic-library": "#a371f7", "pcb-library": "#58a6ff", "integrated-library": "#58a6ff", "output-job": "#8b949e", rules: "#8b949e",
   stackup: "#8b949e", project: "#8b949e", "library-table": "#8b949e", draftsman: "#db61a2", other: "#6e7681" };
 export function buildTree() {

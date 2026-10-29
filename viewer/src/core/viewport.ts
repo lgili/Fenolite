@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+// ================================================================== 2D view
 import { draw } from "../board/draw";
-import { S, ctx, cv, st, view } from "./state";
 import { resize3D } from "../three/view3d";
 import { $ } from "./dom";
-// ================================================================== 2D view
+import { ctx, cv, S, st, view } from "./state";
 export let W = 0, H = 0, dpr = 1;
 export function setDpr(v) { dpr = v; }
 export function measure() { const r = cv.getBoundingClientRect(); dpr = window.devicePixelRatio || 1; W = r.width || W; H = r.height || H;

@@ -2,17 +2,14 @@
 // Copyright (c) 2026 Fenolite contributors
 import { loadBoard } from "../board/load";
 import { unpackScene } from "../board/scene";
-import { esc, showInfo } from "./dom";
-import { DOC, PROJECT, RAW, SCENES, SCENE_READS, cv, st } from "./state";
-import { LIB, loadLibrary, toUnits } from "../library/library";
-import { REVIEW, buildProjectReview } from "../panels/project-review";
+import { LIB, loadLibrary, setLib, toUnits } from "../library/library";
+import { buildProjectReview, REVIEW } from "../panels/project-review";
 import { buildTree } from "../panels/tree";
 import { loadSch } from "../sch/load";
 import { loadTable } from "../table/table";
 import { glc } from "../three/view3d";
-import { $ } from "./dom";
-import { setDoc } from "./state";
-import { setLib } from "../library/library";
+import { $, esc, showInfo } from "./dom";
+import { cv, DOC, PROJECT, RAW, SCENE_READS, SCENES, setDoc, st } from "./state";
 export let navigation = 0, loadingNavigation = 0;
 export function docCard(d) {
   REVIEW.doc = null; buildProjectReview();

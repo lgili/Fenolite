@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
-import { draw } from "./draw";
-import { VARIANT, variantOf } from "./variants";
 import { esc, linkify, showInfo } from "../core/dom";
 import { S, st } from "../core/state";
-import { MIL_MM, fmtLen, fmtNm, fmtPair } from "../core/units";
+import { fmtLen, fmtNm, fmtPair, MIL_MM } from "../core/units";
 import { shareNet } from "../sch/project-nets";
+import { draw } from "./draw";
+import { VARIANT, variantOf } from "./variants";
 export function compInfo(ci) { const c = S.comps[ci], b = c.bbox, vs = variantOf(c.ref);
   const params = { ...(c.params || {}), ...((vs && vs.params) || {}) };   // c0187: every parameter the file holds
   return `<b>${esc(c.ref)}</b> · ${esc(c.side)} · rot ${c.rotation}°<br>Footprint: ${esc(c.footprint)}${c.value ? `<br>Value: ${esc(c.value)}` : ""}<br>Position: (${fmtLen(c.x)}, ${fmtLen(c.y)})` +

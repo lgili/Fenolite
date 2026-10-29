@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+// --- hit test
 import { inRing, segDist } from "../board/hit";
 import { S, view } from "../core/state";
 import { s2w } from "../core/viewport";
-// --- hit test
 export function schHitPrim(p, x, y, tol) {
   switch (p.k) {
     case "l": { const q = p.p; if (q.length === 2) return Math.hypot(x - q[0], y - q[1]) <= tol + p.w / 2; for (let i = 0; i + 3 < q.length; i += 2) if (segDist(x, y, q[i], q[i + 1], q[i + 2], q[i + 3]) <= p.w / 2 + tol) return true; return false; }

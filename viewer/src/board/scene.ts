@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
-import { decodeV1 } from "./decode";
-import { arcOf } from "./geometry";
 import { MM } from "../core/state";
 import { checkToMM } from "../review/check";
+import { decodeV1 } from "./decode";
+import { arcOf } from "./geometry";
 export async function unpackScene(v) {   // c0182: a scene of a standalone page, "gz:" + base64 of its gzipped JSON
   if (typeof v !== "string") return v;
   const bin = Uint8Array.from(atob(v.slice(3)), c => c.charCodeAt(0));

@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
-import { cache, compCache, lighten, netCache, qCache, selCache, textCache } from "./cache";
-import { drawDiff } from "./diff";
-import { boardPath } from "./geometry";
-import { drawOverlays } from "./overlays";
-import { VARIANT, drawVariantMarks, notFitted } from "./variants";
+import { $ } from "../core/dom";
 import { linkLater } from "../core/links";
-import { S, ctx, cv, st, view, vis } from "../core/state";
+import { ctx, cv, S, st, view, vis } from "../core/state";
 import { worldTf } from "../core/viewport";
 import { drawEdge } from "../measure/edge-tool";
 import { drawMeasure } from "../measure/measure";
@@ -14,7 +10,11 @@ import { drawMarks } from "../panels/marks";
 import { HL_ALPHA } from "../panels/review";
 import { drawCheck } from "../review/check";
 import { drawSch } from "../sch/draw";
-import { $ } from "../core/dom";
+import { cache, compCache, lighten, netCache, qCache, selCache, textCache } from "./cache";
+import { drawDiff } from "./diff";
+import { boardPath } from "./geometry";
+import { drawOverlays } from "./overlays";
+import { drawVariantMarks, notFitted, VARIANT } from "./variants";
 export const VIEWL = id => id.startsWith("View.");
 export function activeSide() { return view.mirror ? "bottom" : "top"; }
 export function order() {

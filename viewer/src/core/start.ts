@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
-import { invalidateScene, loadingNavigation, navigation, openDoc } from "./documents";
-import { applyLink, applySelect, linkReady } from "./links";
-import { DOC, POLLS, PROJECT, RAW, st } from "./state";
+// ================================================================== start: embedded data or the live server
 import { LIB, openItem } from "../library/library";
 import { buildMarks, loadMarks } from "../panels/marks";
 import { buildTree } from "../panels/tree";
+import { invalidateScene, loadingNavigation, navigation, openDoc } from "./documents";
 import { $ } from "./dom";
-import { setLinkReady } from "./links";
-import { setProject } from "./state";
-// ================================================================== start: embedded data or the live server
+import { applyLink, applySelect, linkReady, setLinkReady } from "./links";
+import { DOC, POLLS, PROJECT, RAW, setProject, st } from "./state";
 export async function start() {
   if (EMBED) { setProject(EMBED.project); for (const [id, sc] of Object.entries(EMBED.scenes)) RAW.set(id, sc); }   // decoded when opened
   else if (LIVE) { setProject(await (await fetch("project.json", { cache: "no-store" })).json()); }

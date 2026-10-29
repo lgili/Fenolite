@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+// ================================================================== changes since an older revision (c0184)
+import { ctx, S, st, view } from "../core/state";
+import { worldTf } from "../core/viewport";
 import { addPrim, newCache } from "./cache";
 import { paintCache } from "./draw";
-import { S, ctx, st, view } from "../core/state";
-import { worldTf } from "../core/viewport";
-// ================================================================== changes since an older revision (c0184)
 export const DIFF_COLOR = { added: "#35e06b", removed: "#ff3cf0", moved: "#ffb020", changed: "#ffb020", zone: "#40c0ff", net: "#ffb020" };
 export function drawDiff() {
   const D = S.diff; if (!D || !st.diff || D.kind !== "board") return;

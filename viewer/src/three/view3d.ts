@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+// ================================================================== 3D view (WebGL, no library)
 import { cache } from "../board/cache";
 import { paintCache, paintTexts } from "../board/draw";
 import { boardPath, ringSamples } from "../board/geometry";
 import { compInfo } from "../board/info";
 import { notFitted } from "../board/variants";
-import { esc, showInfo } from "../core/dom";
-import { S, cv, st } from "../core/state";
-import { H, W, dpr, fitted, measure, resize } from "../core/viewport";
+import { $, esc, showInfo } from "../core/dom";
+import { cv, S, st } from "../core/state";
+import { dpr, fitted, H, measure, resize, setFitted, W } from "../core/viewport";
 import { inv, lookAt, mul, persp } from "./math";
-import { $ } from "../core/dom";
-import { setFitted } from "../core/viewport";
-// ================================================================== 3D view (WebGL, no library)
 export const glc = $("gl");
 export const V3: any = {   // any: init3D and buildMeshes add the model program and buffers
   gl: null, prog: null, loc: {}, parts: [], tex: {}, built: false, cam: { yaw: -2.2, pitch: 0.75, dist: 260, tx: 0, ty: 0, tz: 0 }, selBody: -1, bodies: true, bodyPart: null };

@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+// ---- deep links: the URL's hash keeps the document, the selection, the view, the unit and the layer
 import { draw } from "../board/draw";
 import { buildTabs } from "../board/tabs";
+import { LIB, LIBSEL } from "../library/library";
+import { isSch, SCH } from "../sch/scene";
+import { $ } from "./dom";
 import { PREVIEW_MODE } from "./env";
 import { find } from "./input";
 import { DOC, S, st, view, vis } from "./state";
-import { UNIT, setUnit } from "./units";
-import { fitted } from "./viewport";
-import { LIB, LIBSEL } from "../library/library";
-import { SCH, isSch } from "../sch/scene";
-import { $ } from "./dom";
-import { setFitted } from "./viewport";
-// ---- deep links: the URL's hash keeps the document, the selection, the view, the unit and the layer
+import { setUnit, UNIT } from "./units";
+import { fitted, setFitted } from "./viewport";
 export function selName() {
   if (!S) return "";
   if (isSch()) return SCH.selComp >= 0 ? S.comps[SCH.selComp].ref : SCH.selNet >= 0 ? "net:" + S.nets[SCH.selNet].name : "";

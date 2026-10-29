@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+// ================================================================== review panels (c0187): filter, highlight, components, nets
 import { byLayer, qCache } from "../board/cache";
 import { draw } from "../board/draw";
 import { compInfo } from "../board/info";
 import { queryParse, queryRun, similarQuery } from "../board/query";
-import { esc, natural, showInfo } from "../core/dom";
+import { $, esc, natural, showInfo } from "../core/dom";
 import { MM, S, st } from "../core/state";
 import { fmtLen } from "../core/units";
 import { fit } from "../core/viewport";
 import { shareNet } from "../sch/project-nets";
 import { set3D } from "../three/view3d";
-import { $ } from "../core/dom";
-// ================================================================== review panels (c0187): filter, highlight, components, nets
 export const HL_ALPHA = { dim: 0.28, mask: 0.06, normal: 1 };
 export const ROW = 20;
 export function vlist(box, items, row, click, selected) {   // a list that draws only the rows in view

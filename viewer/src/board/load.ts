@@ -1,22 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
-import { buildCaches } from "./cache";
-import { draw } from "./draw";
-import { queryParse, queryRun } from "./query";
-import { buildTabs } from "./tabs";
-import { buildVariants } from "./variants";
-import { esc } from "../core/dom";
-import { S, cv, st, vis } from "../core/state";
-import { fit, fitted } from "../core/viewport";
+import { $, esc } from "../core/dom";
+import { cv, S, setS, st, vis } from "../core/state";
+import { fit, fitted, setFitted } from "../core/viewport";
 import { buildDiffList } from "../panels/changes";
 import { buildFindings } from "../panels/findings";
 import { buildMessages } from "../panels/messages";
 import { buildReview } from "../panels/review";
 import { applyProjNet } from "../sch/project-nets";
-import { V3, build3D, draw3D } from "../three/view3d";
-import { $ } from "../core/dom";
-import { setS } from "../core/state";
-import { setFitted } from "../core/viewport";
+import { build3D, draw3D, V3 } from "../three/view3d";
+import { buildCaches } from "./cache";
+import { draw } from "./draw";
+import { queryParse, queryRun } from "./query";
+import { buildTabs } from "./tabs";
+import { buildVariants } from "./variants";
 export function buildPanels() {
   buildFindings();
   const c = S.meta.counts || {};
