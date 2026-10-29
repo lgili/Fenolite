@@ -110,11 +110,12 @@ def test_read_newer_schema() -> None:
     assert code(caught.value) == "FEN-3002"
 
 
-def test_reserved_picks_before_c0254() -> None:
+def test_picks_are_read_and_pins_reserved() -> None:
+    # c0254 registers the picks resolver: an incomplete pick is malformed (FEN-3004), pins stay reserved
     text = f'schema = "{SCHEMA}"\ndesign = "d"\n[picks."buck/c_in"]\ndevice = "Fenolite:C_0805"\n'
     with pytest.raises(FormatError) as caught:
         read_lock(text, file="design.lock")
-    assert code(caught.value) == "FEN-3002" and "picks" in str(caught.value)
+    assert code(caught.value) == "FEN-3004" and "picks" in str(caught.value)
     with pytest.raises(LockVersionError, match="pins"):
         read_lock(f'schema = "{SCHEMA}"\ndesign = "d"\n[pins]\n"x" = "y"\n', file="design.lock")
 
@@ -122,7 +123,7 @@ def test_reserved_picks_before_c0254() -> None:
 def test_reserved_sections_have_no_resolver() -> None:
     assert {section.name: section.resolve is None for section in SECTIONS} == {
         "refs": False,
-        "picks": True,
+        "picks": False,
         "pins": True,
     }
 

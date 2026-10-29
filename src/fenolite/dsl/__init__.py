@@ -35,6 +35,7 @@ from fenolite.dsl.devices import PinNameError
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.footprint import Footprint
 from fenolite.dsl.generate import GeneratedIntent, generated
+from fenolite.dsl.generators import i2c_pull_ups, led_resistor, rc_lowpass, shunt, voltage_divider
 from fenolite.dsl.impedance import Trace, trace
 from fenolite.dsl.intents import (
     Anchor,
@@ -74,6 +75,7 @@ from fenolite.dsl.quantity import (
     volt,
     watt,
 )
+from fenolite.dsl.query import capacitor, inductor, resistor
 from fenolite.dsl.rolecopper import RoleCopperIntent, role_copper
 from fenolite.dsl.symbol import Symbol
 from fenolite.dsl.units import Length, inch, mil, mm, nm
@@ -170,4 +172,12 @@ __all__ = [
     "second",
     "volt",
     "watt",
+    "resistor",
+    "capacitor",
+    "inductor",
+    "voltage_divider",
+    "rc_lowpass",
+    "led_resistor",
+    "i2c_pull_ups",
+    "shunt",
 ]

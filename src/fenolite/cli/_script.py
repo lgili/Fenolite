@@ -19,7 +19,7 @@ import traceback
 from dataclasses import dataclass
 from pathlib import Path
 
-from fenolite.catalog.devices import load_devices
+from fenolite.catalog.devices import is_family, load_devices
 from fenolite.core.errors import FormatError, Issue
 from fenolite.dsl import Design, Panel
 from fenolite.dsl.devices import ProjectDevices, installed
@@ -58,15 +58,17 @@ def read_project_devices(folder: Path) -> tuple[ProjectDevices, tuple[DeviceFile
     and the issues of ``load_devices``. A malformed file raises its ``FormatError`` (FEN-3004 or FEN-3002)."""
     devices_dir = folder / DEVICES_DIR
     devices, issues = load_devices(devices_dir)
-    files = (
-        tuple(
-            DeviceFile(f"{DEVICES_DIR}/{path.name}", hashlib.sha256(path.read_bytes()).hexdigest())
-            for path in sorted(devices_dir.glob("*.toml"), key=lambda found: found.name)
-        )
-        if devices_dir.is_dir()
-        else ()
+    paths = sorted(devices_dir.glob("*.toml"), key=lambda found: found.name) if devices_dir.is_dir() else []
+    files = tuple(
+        DeviceFile(f"{DEVICES_DIR}/{path.name}", hashlib.sha256(path.read_bytes()).hexdigest())
+        for path in paths
     )
-    owners = {device.id: file.path for device, file in zip(devices, files, strict=True)}
+    records = [
+        file
+        for path, file in zip(paths, files, strict=True)
+        if not is_family(path.read_text(encoding="utf-8"))
+    ]  # a family file (change c0254) is an input too, but holds no device
+    owners = {device.id: file.path for device, file in zip(devices, records, strict=True)}
     return ProjectDevices(devices, owners), files, issues
 
 

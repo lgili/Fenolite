@@ -33,11 +33,14 @@ from fenolite.core.errors import Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model import canonical
 from fenolite.model.library import DeviceDef, DevicePin, FootprintDef, SymbolDef
+from fenolite.pick.rows import Family, catalog_name, family_text, shipped_families
 
 CATALOG_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-CATALOG",))
 """The catalog is authored for Fenolite and shown as stored."""
 DEVICE_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-CATALOG", "H-G-DEVICE-RECORD"))
 """Devices are shown as stored; ``digest`` and ``edited`` rest on the canonical digest (change c0248)."""
+FAMILY_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-CATALOG", "H-G-PICK-DETERMINISTIC"))
+"""Families are shown as stored, each attribute with its sources (change c0254)."""
 CATALOG_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {"catalog.pin-without-pad": "error", "catalog.pad-unmapped": "warning"}
 )
@@ -56,7 +59,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("lib_id", nargs="?", help="catalog ID required by show")
     parser.add_argument(
         "--kind",
-        choices=("symbol", "footprint", "device"),
+        choices=("symbol", "footprint", "device", "family"),
         default=None,
         help="list or show only this kind; show takes it when a device id equals a symbol or footprint id",
     )
@@ -102,6 +105,29 @@ def _device_entry(device: DeviceDef) -> dict[str, object]:
         "summary": device.summary,
         "evidence": device.evidence,
         "sources": list(device.sources),
+    }
+
+
+def _families(query: str | None) -> list[Family]:
+    found = list(shipped_families())
+    if query:
+        needle = query.casefold()
+        found = [family for family in found if needle in f"{family.id} family {family.summary}".casefold()]
+    return found
+
+
+def _family_entry(family: Family) -> dict[str, object]:
+    return {
+        "lib_id": family.id,
+        "id": family.id,
+        "kind": "family",
+        "category": family.kind,
+        "summary": family.summary,
+        "evidence": family.evidence,
+        "sources": {name: list(ids) for name, ids in sorted(family.sources.items())},
+        "series": family.series,
+        "case": family.case,
+        "values": {"min": family.texts["values.min"], "max": family.texts["values.max"]},
     }
 
 
@@ -186,6 +212,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if args.catalog_action == "list":
         if args.lib_id is not None:
             raise CliError("FEN-2001", "catalog list takes no ID")
+        if args.kind == "family":  # the parametric families of change c0254 are listed on request only
+            families = [_family_entry(found) for found in _families(args.query)]
+            return Result(result={"entries": families, "count": len(families)}, evidence=FAMILY_EVIDENCE)
         rows = (
             []
             if args.kind == "device"
@@ -203,6 +232,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     entry = next(
         (item for item in ENTRIES if item.lib_id == args.lib_id and args.kind in (None, item.kind)), None
     )
+    if entry is None and args.kind in (None, "family"):
+        family = next((found for found in _families(None) if found.id == args.lib_id), None)
+        if family is not None:
+            return Result(
+                result={**_family_entry(family), "record": family_text(family), "catalog": catalog_name()},
+                evidence=FAMILY_EVIDENCE,
+            )
     if entry is None:
         device = next((found for found in shipped_devices() if found.id == args.lib_id), None)
         if device is not None and args.kind in (None, "device"):

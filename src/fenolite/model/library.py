@@ -264,6 +264,15 @@ class DeviceDef:
     datasheet: str = ""
     ref_prefix: str = ""
     value: str = ""
+    kind: str = ""
+    """The query kind of a pickable row (``resistor``, ``capacitor``, ``inductor``; change c0254),
+    or ``""``."""
+    case: str = ""
+    """The EIA inch case code of a pickable row (``0603``), or ``""``."""
+    tolerance: str = ""
+    """The tolerance of a pickable row's value (``1%``, ``-20%..+80%``), or ``""``."""
+    dielectric: str = ""
+    """The dielectric of a pickable capacitor row (``X7R``), or ``""``."""
     evidence: str = "UNVERIFIED"
     sources: tuple[str, ...] = field(default=(), metadata=ORDERED)
     ground: str = ""

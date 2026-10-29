@@ -12,6 +12,9 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, cast
 
 from fenolite.core.coords import Point
+from fenolite.core.partquery import PREFIXES as QUERY_PREFIXES
+from fenolite.core.partquery import SYMBOLS as QUERY_SYMBOLS
+from fenolite.core.partquery import PartQuery
 from fenolite.core.units import Nm, Udeg
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.quantity import RATIO, SIGNED, Quantity, Range
@@ -262,7 +265,7 @@ class Part:
         *,
         name: str | None = None,
         prefix: str | None = None,
-        device: str | None = None,
+        device: str | PartQuery | None = None,
         properties: Mapping[str, str] | None = None,
         pad_map: Mapping[str, str | Sequence[str]] | None = None,
         height: object = None,
@@ -275,13 +278,29 @@ class Part:
         self.name: str | None = None if name is None else check_name(name, "part name")
         if prefix is not None and (not isinstance(prefix, str) or not PREFIX.fullmatch(prefix)):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part prefix {prefix!r} must match {PREFIX.pattern}")
-        label = ref or name or prefix or lib_id or device
+        query = device if isinstance(device, PartQuery) else None
+        label = ref or name or prefix or lib_id or (query.kind if query is not None else device)
         self.device: DeviceDef | None = None
         self.device_origin: Origin | None = None
         self.device_overrides = False
+        self.call_query: PartQuery | None = query
+        """The query of a part made with ``device=resistor(...)`` (change c0254), as the call gave it; the
+        build picks its device. ``query`` reads it with the defaults merged."""
         if (lib_id is None) == (device is None):
             raise DslError(f"part {label}: give exactly one of lib_id and device")
-        if device is not None:
+        if query is not None:
+            for field_name, given in (("footprint", footprint), ("pad_map", pad_map), ("value", value)):
+                if given is not None:
+                    raise DslError(
+                        f"part {label}: a query part takes its {field_name} from the row the build picks; "
+                        f"do not give {field_name} with device={query.kind}(...)"
+                    )
+            lib_id = QUERY_SYMBOLS[query.kind]
+            if prefix is None:
+                prefix = QUERY_PREFIXES[query.kind]
+            value = query.value_text
+            device = None
+        elif device is not None:
             from fenolite.dsl.devices import resolve
 
             for field_name, given in (("footprint", footprint), ("pad_map", pad_map)):
@@ -428,7 +447,21 @@ class Part:
             from fenolite.dsl.devices import designator as checked
 
             text = checked(self, self.device, text)
+        elif self.call_query is not None:
+            from fenolite.dsl.query import query_pin
+
+            text = query_pin(self, text)
         return PinHandle(self, text)
+
+    @property
+    def query(self) -> PartQuery | None:
+        """The effective query of a query part (the defaults merged into the call, change c0254), or
+        ``None``; ``r.query.text()`` is the canonical text the design lock compares."""
+        if self.call_query is None:
+            return None
+        from fenolite.dsl.query import effective
+
+        return effective(self)
 
     def _end(self, index: int) -> PinHandle:
         """The pin handle of end ``index`` (0 is ``a``, 1 is ``b``): symbol pins ``1`` and ``2``. This is the

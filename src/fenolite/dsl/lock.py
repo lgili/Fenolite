@@ -10,20 +10,24 @@ the refs, the new lock, the changes and the issues. Reading and writing the file
 under ``--frozen`` are steps of ``fenolite build``.
 
 The lock has sections. Every step (read, carry by alias, release, compare, write) works on every section
-through ``LockSection``; ``refs`` is the only section with content, and ``picks`` (c0254) and ``pins``
-(c0257) are reserved: a lock that gives them content is refused until their change registers a resolver.
+through ``LockSection``. ``refs`` and ``picks`` (c0254: one table per query part, filled by the build's
+pick resolver, installed with ``picks_resolver``) have content; ``pins`` (c0257) is reserved: a lock that
+gives it content is refused until its change registers a resolver.
 """
 
 from __future__ import annotations
 
+import contextlib
 import re
 import tomllib
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Generator, Mapping, Sequence
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING, cast
 
 from fenolite.core.errors import FenoliteError, FormatError, Issue, Severity
+from fenolite.core.partquery import LOCK_KEYS, LOCK_REQUIRED
 from fenolite.dsl.part import NAME, Part
 
 if TYPE_CHECKING:
@@ -43,8 +47,12 @@ REASONS: tuple[str, ...] = (
     "taken",
     "prefix-changed",
     "design-renamed",
+    "picked",
+    "query-changed",
+    "row-changed",
+    "updated",
 )
-"""The reasons of a change of the lock."""
+"""The reasons of a change of the lock (the last four: changes of ``picks``, change c0254)."""
 LOCK_CODES: Mapping[str, Severity] = MappingProxyType(
     {
         "lock.ref-released": "warning",
@@ -262,9 +270,33 @@ def _resolve_refs(design: Design, entries: Mapping[str, LockValue]) -> SectionRe
     )
 
 
+# -- the picks section (change c0254)
+
+_PICKS: ContextVar[Resolver | None] = ContextVar("fenolite_picks_resolver", default=None)
+
+
+@contextlib.contextmanager
+def picks_resolver(resolve: Resolver) -> Generator[None]:
+    """Resolve the ``picks`` section with ``resolve`` while the block runs (``fenolite build`` and
+    ``fenolite pick`` install the resolver of ``fenolite.pick``, which needs the catalog in hand)."""
+    token = _PICKS.set(resolve)
+    try:
+        yield
+    finally:
+        _PICKS.reset(token)
+
+
+def _resolve_picks(design: Design, entries: Mapping[str, LockValue]) -> SectionResult:
+    """The installed pick resolver's result; without one, the kept entries as they are."""
+    resolve = _PICKS.get()
+    if resolve is None:
+        return SectionResult(entries=MappingProxyType(dict(sorted(entries.items()))))
+    return resolve(design, entries)
+
+
 SECTIONS: tuple[LockSection, ...] = (
     LockSection("refs", _resolve_refs, exact=True),
-    LockSection("picks", None),  # c0254 registers its resolver
+    LockSection("picks", _resolve_picks, exact=True),  # c0254
     LockSection("pins", None),  # c0257 registers its resolver
 )
 """The sections of the lock, in the order the file writes them."""
@@ -444,7 +476,9 @@ def read_lock(text: str, *, file: str) -> Lock:
                 )
             sections[section.name] = {}
             continue
-        sections[section.name] = _read_refs(table, file) if section.name == "refs" else {}
+        sections[section.name] = (
+            _read_refs(table, file) if section.name == "refs" else _read_picks(table, file)
+        )
     return make_lock(design, sections)
 
 
@@ -463,6 +497,34 @@ def _read_refs(table: Mapping[str, object], file: str) -> dict[str, LockValue]:
             raise _refuse(f"two paths have the ref {ref}: {owners[ref]} and {path}", file, where)
         owners[ref] = path
         out[path] = ref
+    return out
+
+
+def _read_picks(table: Mapping[str, object], file: str) -> dict[str, LockValue]:
+    """The ``picks`` tables: one table of strings per component path, keys of ``LOCK_KEYS`` in that order."""
+    out: dict[str, LockValue] = {}
+    for path, entry in table.items():
+        where = f"picks.{path}"
+        if not all(NAME.fullmatch(segment) for segment in path.split("/")):
+            raise _refuse(f"{path!r} is not a component path", file, where)
+        if not isinstance(entry, dict):
+            raise _refuse(f"the pick of {path} must be a table", file, where)
+        values = cast(dict[str, object], entry)
+        for key, value in values.items():
+            if key not in LOCK_KEYS:
+                raise _refuse(
+                    f"unknown key {key!r} in the pick of {path}; the keys are {', '.join(LOCK_KEYS)}",
+                    file,
+                    f"{where}.{key}",
+                )
+            if not isinstance(value, str):
+                raise _refuse(
+                    f"{key} of the pick of {path} must be a string, not {value!r}", file, f"{where}.{key}"
+                )
+        for key in LOCK_REQUIRED:
+            if key not in values:
+                raise _refuse(f"the pick of {path} has no {key}", file, f"{where}.{key}")
+        out[path] = MappingProxyType({key: values[key] for key in LOCK_KEYS if key in values})
     return out
 
 
@@ -493,7 +555,8 @@ def _scalar(value: object) -> str:
 
 def lock_text(lock: Lock) -> str:
     """The canonical text of ``lock``: the header comment, ``schema`` and ``design``, then the non-empty
-    sections in the order of ``SECTIONS`` with keys in code-point order; LF line ends, one final newline,
+    sections in the order of ``SECTIONS`` with keys in code-point order (the keys inside a table, such as a
+    pick, in the order of the table); LF line ends, one final newline,
     no date and no absolute path."""
     lines = [HEADER, f"schema = {_string(SCHEMA)}", f"design = {_string(lock.design)}"]
     for section in SECTIONS:
@@ -508,13 +571,14 @@ def lock_text(lock: Lock) -> str:
             if isinstance(value, str):
                 continue
             lines += ["", f"[{section.name}.{_string(key)}]"]
-            lines += [f"{_string(name)} = {_scalar(item)}" for name, item in sorted(value.items())]
+            lines += [f"{_string(name)} = {_scalar(item)}" for name, item in value.items()]  # fixed key order
     return "\n".join(lines) + "\n"
 
 
 def needs_lock(design: Design) -> bool:
-    """Whether ``design`` has a part without an explicit ref (a design with a lock file needs it too)."""
-    return any(part.explicit_ref is None for part in design.parts.values())
+    """Whether ``design`` has a part without an explicit ref or a query part (change c0254), whose pick
+    the lock keeps (a design with a lock file needs it too)."""
+    return any(part.explicit_ref is None or part.call_query is not None for part in design.parts.values())
 
 
 __all__ = [
@@ -537,5 +601,6 @@ __all__ = [
     "make_lock",
     "natural_key",
     "needs_lock",
+    "picks_resolver",
     "read_lock",
 ]

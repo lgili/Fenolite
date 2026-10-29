@@ -148,6 +148,18 @@
         "value": {
           "type": "string"
         },
+        "kind": {
+          "type": "string"
+        },
+        "case": {
+          "type": "string"
+        },
+        "tolerance": {
+          "type": "string"
+        },
+        "dielectric": {
+          "type": "string"
+        },
         "evidence": {
           "type": "string"
         },

@@ -14,6 +14,10 @@ from fenolite.model.board import Graphic, Pad, Padstack
 from fenolite.model.circuit import PinType
 from fenolite.model.library import FootprintDef, SymbolDef, SymbolGraphic, SymbolPin, SymbolUnit
 
+CATALOG_VERSION = "2026.10"
+"""The version of the catalog data (the shipped families of ``families/``; change c0254). It changes whenever
+a family's canonical text changes (``families/VERSIONS.toml`` records the digests of each version), so a
+pick names the data it was made from, independently of the package version."""
 _NM = 1_000_000
 _STROKE = 254_000
 _GRID = 2_540_000
@@ -1795,6 +1799,7 @@ def get_footprint(lib_id: str) -> FootprintDef:
 __all__ = [
     "ANODE_FIRST_SYMBOLS",
     "CATHODE_FIRST_LANDS",
+    "CATALOG_VERSION",
     "CATHODE_FIRST_PAD_MAP",
     "ENTRIES",
     "CatalogEntry",

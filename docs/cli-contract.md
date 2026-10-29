@@ -3219,6 +3219,45 @@ of an Altium project. `PATH` is taken as `snapshot` takes it.
 | `refs.not-writable` | warning | a document of a format Fenolite does not rewrite holds a path to repoint |
 | `refs.unresolved` | info | a path goes through a variable other than `${KIPRJMOD}` |
 
+## pick
+
+`fenolite pick PATH [--candidates COMPONENT] [--update COMPONENT]... [--update-all] [--propose QUERY
+(--from FILE | --supplier NAME [--allow-offsite])]` reads and updates the picks of a design's query parts
+(change c0254, `docs/picking.md`). `PATH` is a design script or its folder (`design.py` in it). No
+subprocess runs, and without `--supplier` no network connection is opened.
+
+- **Listing** (no option): read-only. `result.picks` holds per query part `path`, `query` (the canonical
+  text), `device`, `row`, `catalog`, `state` (`ok`, `new`, `stale`, `row-changed`, `row-missing`,
+  `no-match`) and `evidence`; `result.generators` what each generator achieved. An error state exits 5.
+- **`--candidates COMPONENT`**: read-only. `result.candidates` ranks the rows that meet the part's query
+  (distance to the nominal, the larger tolerance, the smaller case, project before shipped, the device id);
+  `result.excluded` gives, per row, the first failed constraint. The list is paged: `--limit` (default 20).
+- **`--update COMPONENT...` / `--update-all`**: re-resolve those entries against the current catalog and
+  plan one write of the design lock (`kind` `lock`); `result.updates` shows `before` and `after` per path.
+  An unknown component path is `FEN-2001`.
+- **`--propose QUERY`**: write `UNVERIFIED` device records that meet `QUERY` under `devices/proposed/`
+  beside the script (`kind` `device`), from `--from FILE` (CSV with a header line, or JSON: a list of objects;
+  columns `id`, `kind`, `value`, `footprint` required, `summary`, `symbol`, `case`, `tolerance`,
+  `dielectric`, `voltage`, `power`, `current`, `manufacturer`, `mpn`, `datasheet`) or from a plugin of the
+  entry-point group `fenolite.suppliers`. A plugin that sends data offsite needs `--allow-offsite` (exit 2
+  without). A proposal never writes the lock.
+- The envelope's evidence is `INFERRED` (`H-G-PICK-DETERMINISTIC`) combined with the label of each picked row.
+
+The build reports the same codes (`fenolite build`, result keys `picks` and `generators`).
+
+| code | severity | when |
+|---|---|---|
+| `pick.no-match` | error | no row meets a query |
+| `pick.stale` | error | a changed query, or a generator's new inputs, no longer met by the locked part |
+| `pick.row-missing` | error | the locked row is not in the catalog |
+| `gen.unachievable` | error | a generator found no accepted combination |
+| `pick.row-changed` | warning | the locked row's text changed but still meets the query |
+| `pick.query-changed` | info | the query text changed and the locked part still meets it |
+| `pick.new` | info | a pick the lock did not hold |
+| `pick.attribute-unknown` | info | a row left out only because it lacks a constrained attribute |
+| `pick.row-unverified` | info | an `UNVERIFIED` proposed row ranked out |
+| `gen.achieved` | info | what a generator achieved |
+
 ## restore
 
 `fenolite restore RECEIPT [--in DIR]` puts back the backups of one confirmed write. `RECEIPT` is a file
