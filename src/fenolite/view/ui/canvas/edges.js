@@ -38,17 +38,18 @@ function snapEdge(x, y, tolPx) {
         if (dd < bed) { bed = dd; be = { x: c[0] + (x - c[0]) * c[2] / r0, y: c[1] + (y - c[1]) * c[2] / r0, label: c[3] }; } } } }
   return be;
 }
-function drawMeasure() {
-  if (!st.measure && !st.mpts.length) return; worldTf(); ctx.globalAlpha = 1; const C = "#00e08a"; ctx.strokeStyle = C; ctx.lineWidth = 1.5 / view.s;
-  const mark = (q, on) => { const r = 4 / view.s; ctx.strokeRect(q[0] - r, q[1] - r, 2 * r, 2 * r); if (on) { ctx.beginPath(); ctx.moveTo(q[0] - 2 * r, q[1]); ctx.lineTo(q[0] + 2 * r, q[1]); ctx.moveTo(q[0], q[1] - 2 * r); ctx.lineTo(q[0], q[1] + 2 * r); ctx.stroke(); } };
-  if (st.mhover) { mark(st.mhover.p, st.mhover.snapped); if (st.mhover.edge && !st.mpts.length) $("coord").textContent = `snap: ${st.mhover.edge}`; }
+function drawMeasure(g, preview) {   // c0245: the board shows the points placed; the overlay (preview) shows the cursor's part
+  g = g || ctx; if (!st.measure && !st.mpts.length) return; worldTf(g); g.globalAlpha = 1; const C = "#00e08a"; g.strokeStyle = C; g.lineWidth = 1.5 / view.s;
+  const mark = (q, on) => { const r = 4 / view.s; g.strokeRect(q[0] - r, q[1] - r, 2 * r, 2 * r); if (on) { g.beginPath(); g.moveTo(q[0] - 2 * r, q[1]); g.lineTo(q[0] + 2 * r, q[1]); g.moveTo(q[0], q[1] - 2 * r); g.lineTo(q[0], q[1] + 2 * r); g.stroke(); } };
+  if (preview && st.mhover) { mark(st.mhover.p, st.mhover.snapped); if (st.mhover.edge && !st.mpts.length) $("coord").textContent = `snap: ${st.mhover.edge}`; }
   if (!st.mpts.length) return;
-  const a = st.mpts[0], b = st.mpts[1] || (st.mhover && st.mhover.p); mark(a, true); if (!b) return;
-  ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); if (st.mpts[1]) mark(b, true);
+  const a = st.mpts[0], b = st.mpts[1] || (preview && st.mhover && st.mhover.p);
+  if (!preview || !st.mpts[1]) mark(a, true); if (!b || (preview && st.mpts[1])) return;
+  g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); if (st.mpts[1]) mark(b, true);
   const d = Math.hypot(b[0] - a[0], b[1] - a[1]), txt = `${fmtLen(d)}   Δx ${fmtLen(Math.abs(b[0] - a[0]))}   Δy ${fmtLen(Math.abs(b[1] - a[1]))}`;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); const P = w2s(b[0], b[1]); ctx.font = "600 13px system-ui"; const w = ctx.measureText(txt).width;
-  ctx.fillStyle = "#000c"; ctx.fillRect(P[0] + 8, P[1] - 28, w + 12, 20); ctx.fillStyle = C; ctx.fillText(txt, P[0] + 14, P[1] - 13); worldTf();
-  $("coord").textContent = `measure: ${txt}`;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0); const P = w2s(b[0], b[1]); g.font = "600 13px system-ui"; const w = g.measureText(txt).width;
+  g.fillStyle = "#000c"; g.fillRect(P[0] + 8, P[1] - 28, w + 12, 20); g.fillStyle = C; g.fillText(txt, P[0] + 14, P[1] - 13); worldTf(g);
+  $("coord").textContent = `measure: ${txt}`; $("coord").title = "Measured on the drawing, between points of the model; Fenolite's computation";
 }
 function measureClick(X, Y, free) { const [x, y] = s2w(X, Y), q = snap(x, y, free).p; if (st.mpts.length >= 2) st.mpts = []; st.mpts.push(q); draw(); }
 

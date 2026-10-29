@@ -23,12 +23,13 @@ function selectFinding(i) {
   const x = S.check.findings[i]; st.selFinding = i; st.selMessage = null; if (st.mode3d) set3D(false);
   const ni = findingNet(x); st.selNet = ni; st.selComp = -1; if (ni >= 0) shareNet(S.nets[ni]);
   if (x.layer && !isSch() && S.layers.some(l => l.id === x.layer)) { st.cur = x.layer; vis.set(x.layer, true); buildTabs(); }   // its layer, current
-  if (x.at) { const b = x.box || [x.at[0], x.at[1], x.at[0], x.at[1]], m = Math.max(b[2] - b[0], b[3] - b[1], isSch() ? 10 : 6) * 0.8; fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m]); }
+  if (x.at) { const b = x.box || [x.at[0], x.at[1], x.at[0], x.at[1]], m = Math.max(b[2] - b[0], b[3] - b[1], isSch() ? 10 : 6) * 0.8; fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m], true); }
   showInfo(`<b>${esc(x.code)}</b> · ${esc(x.severity)}<br>${esc(x.message)}` + (x.where ? `<br>Where: ${esc(x.where)}` : "") +
     (x.layer && !isSch() ? `<br>Layer: ${esc(layerName(x.layer))}` : "") + (x.at ? "" : "<br><i>No position on this document.</i>") +
     `<br>Stage: ${esc(x.stage || "?")} · evidence ${esc(x.evidence || "?")}`, { source: x.stage || "check", evidence: x.evidence || "UNKNOWN" });
   if (S.project_review?.binding && !S.project_review.binding.matched) $("info").innerHTML += `<br><b>Historical report:</b> ${esc(S.project_review.binding.note)}`;
-  buildMessages(); draw();
+  buildMessages(); selectionChanged(); evidenceStatus();   // the board is drawn again when the view rests (decision 7)
+  if (!x.at) draw();
 }
 const MSG_ROWS = 300;
 // c0245: the Messages panel is a table of every finding shown, from every source that registers here

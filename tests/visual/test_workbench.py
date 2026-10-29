@@ -15,16 +15,36 @@ from _visual import job, run
 pytestmark = pytest.mark.needs_browser
 
 
+BUDGET = {"frame_p95_ms": 52.9, "cursor_p95_ms": 4.0, "open_ms": 2500.0, "message_ms": 100.0}
+"""The budgets of the `viewer` job (design, decision 7); task 0.2 set the frame budget at 52.9 ms."""
+VIEWPORT = {"width": 1340, "height": 860}
+"""A viewport whose canvas, beside the docks, is 840 x 606 px: the canvas of task 0.2's measurement."""
+
+
 def test_budget_baseline(stress_page: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """Task 0.2: the page's frame, cursor and open times on the stress board, printed for the record."""
-    (reply,) = run([job("budget", stress_page, tmp_path, script=SCRIPT, shot="")], tmp_path)
+    (reply,) = run([job("budget", stress_page, tmp_path, script=SCRIPT, shot="", **VIEWPORT)], tmp_path)
     assert reply["errors"] == [], reply["errors"]
     result = reply["result"]
     assert result["prims"] > 20_000
-    assert result["frame_p95_ms"] > 0 and result["open_ms"] > 0
+    assert result["full_p95_ms"] > 0 and result["open_ms"] > 0
     (tmp_path / "budget.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     with capsys.disabled():
-        print(f"\nc0245 budget baseline: {summary(result)}")
+        print(f"\nc0245 budget: {summary(result)}")
+
+
+def test_budget(stress_page: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Scenario "The budget in CI" (H-G-WB-FRAME, H-G-WB-CURSOR, H-G-WB-OPEN): within the budgets, and no
+    board layer painted during pointer moves or mouse pans and zooms."""
+    (reply,) = run([job("budget", stress_page, tmp_path, script=SCRIPT, shot="", **VIEWPORT)], tmp_path)
+    assert reply["errors"] == [], reply["errors"]
+    result = reply["result"]
+    with capsys.disabled():
+        print(f"\nc0245 budget check: {summary(result)}")
+    assert (result["width"], result["height"]) == (840, 606)
+    assert result["board_paints_during_moves"] == 0 and result["interactive_board_paints"] == 0
+    over = {k: (round(result[k], 1), limit) for k, limit in BUDGET.items() if result[k] > limit}
+    assert over == {}
 
 
 EVENTS = """
@@ -396,3 +416,62 @@ def test_command_search(pages: dict[str, Path], tmp_path: Path) -> None:
     return { unit: $("bUnit").textContent, open: !!document.querySelector(".cmdsearch") };
     """
     assert _act(pages["kicad_board"], tmp_path, script) == {"unit": "mil", "open": False}
+
+
+def test_cursor(stress_page: Path, tmp_path: Path) -> None:
+    """Task 6.1: the crosshair and a measurement in progress are drawn on the overlay; moving the mouse
+    while measuring paints no board layer."""
+    script = """
+    const rr = cv.getBoundingClientRect(), mv = (x, y) => cv.dispatchEvent(new MouseEvent("mousemove",
+      { clientX: rr.left + x, clientY: rr.top + y, bubbles: true }));
+    cv.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
+    toggle("measure", "bMeasure"); mv(100, 100);
+    const at100 = { clientX: rr.left + 100, clientY: rr.top + 100, bubbles: true };
+    cv.dispatchEvent(new MouseEvent("mousedown", at100)); cv.dispatchEvent(new MouseEvent("mouseup", at100));
+    let painted = 0; const paint0 = paintCache; paintCache = function () { painted++;
+    return paint0.apply(this, arguments); };
+    for (let i = 0; i < 50; i++) mv(120 + i * 5, 140 + i * 3);
+    paintCache = paint0;
+    const ov = $("ov").getContext("2d").getImageData(0, 0, $("ov").width, $("ov").height).data;
+    let inked = 0; for (let i = 3; i < ov.length; i += 4) if (ov[i]) inked++;
+    return { painted, inked, coord: $("coord").textContent, points: st.mpts.length };
+    """
+    result = _act(stress_page, tmp_path, script, width=1340, height=860)
+    assert result["painted"] == 0 and result["inked"] > 500
+    assert result["points"] == 1 and result["coord"].startswith("measure:")
+
+
+def test_frame(stress_page: Path, tmp_path: Path) -> None:
+    """Task 6.2: a mouse pan or zoom moves the last frame at once; once the hand rests, the board drawn
+    again is the board a fresh draw gives, pixel for pixel."""
+    script = """
+    const rr = cv.getBoundingClientRect(), cx = rr.left + rr.width / 2, cy = rr.top + rr.height / 2;
+    let painted = 0; const paint0 = paintCache; paintCache = function () { painted++;
+    return paint0.apply(this, arguments); };
+    for (let i = 0; i < 6;
+    i++) cv.dispatchEvent(new WheelEvent("wheel", { clientX: cx, clientY: cy, deltaY: -120,
+      bubbles: true, cancelable: true }));
+    const during = painted; paintCache = paint0;
+    await new Promise(ok => setTimeout(ok, 400));
+    const settled = cv.toDataURL(); draw(); const fresh = cv.toDataURL();
+    return { during, same: settled === fresh, zoom: view.s };
+    """
+    result = _act(stress_page, tmp_path, script, width=1340, height=860)
+    assert result["during"] == 0 and result["same"] is True
+
+
+def test_hit(stress_page: Path, tmp_path: Path) -> None:
+    """Task 6.3: the spatial index picks what the full scan picked, at 500 points over the stress board."""
+    script = """
+    let differ = 0, hits = 0, tGrid = 0, tScan = 0; fit();
+    for (let i = 0; i < 500; i++) {
+      const X = 10 + (i * 37) % (W - 20), Y = 10 + (i * 53) % (H - 20);
+      let t0 = performance.now(); const a = pick(X, Y); tGrid += performance.now() - t0;
+      t0 = performance.now(); const b = pickScan(X, Y); tScan += performance.now() - t0;
+      if ((a && a.pr) !== (b && b.pr) || (a && a.layer) !== (b && b.layer)) differ++; if (a) hits++;
+    }
+    return { differ, hits, grid_ms: tGrid / 500, scan_ms: tScan / 500 };
+    """
+    result = _act(stress_page, tmp_path, script, width=1340, height=860)
+    assert result["differ"] == 0 and result["hits"] > 100
+    assert result["grid_ms"] < result["scan_ms"]

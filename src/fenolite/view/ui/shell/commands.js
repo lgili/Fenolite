@@ -45,7 +45,7 @@ function showCoord(x, y) {
 cv.addEventListener("mousemove", e => { if (!S) return; const [x, y] = s2w(e.offsetX, e.offsetY);
   showCoord(x, y);
   if (drag) { const dx = e.offsetX - drag.x, dy = e.offsetY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
-    view.cx = drag.cx - m() * dx / view.s; view.cy = drag.cy - dy / view.s; draw(); }
-  else if (st.measure) { st.mhover = snap(x, y, e.altKey); draw(); } });
+    view.cx = drag.cx - m() * dx / view.s; view.cy = drag.cy - dy / view.s; drawInteractive(); }
+  else if (st.measure) { st.mhover = snap(x, y, e.altKey); drawCursor(); } });   // c0245: on the overlay, without redrawing the board
 cv.addEventListener("wheel", e => { e.preventDefault(); const [x, y] = s2w(e.offsetX, e.offsetY); const f = Math.exp(-e.deltaY * 0.0015);
-  view.s = Math.min(Math.max(view.s * f, 0.2), 400); const [x2, y2] = s2w(e.offsetX, e.offsetY); view.cx += x - x2; view.cy += y - y2; draw(); }, { passive: false });
+  view.s = Math.min(Math.max(view.s * f, 0.2), 400); const [x2, y2] = s2w(e.offsetX, e.offsetY); view.cx += x - x2; view.cy += y - y2; drawInteractive(); }, { passive: false });

@@ -12,14 +12,40 @@ function hitPrim(pr, x, y, tol) { const d = pr[2]; switch (pr[1]) {
   case "p": case "h": { let n = 0; for (const r of d) if (inRing(x, y, r)) n++; return n % 2 === 1; }
   case "o": for (const r of d) for (let i = 0; i < r.length; i += 2) { const j = (i + 2) % r.length; if (segDist(x, y, r[i], r[i + 1], r[j], r[j + 1]) <= tol) return true; } return false; }
   return false; }
-function pick(X, Y) {
-  const [x, y] = s2w(X, Y), tol = 3 / view.s;
+function pickLayers() {
   const layers = order().map(e => e[0]).reverse().filter(l => l.id !== "View.Drill" && l.id !== "View.Outline");
   const outl = l => l.id === "View.ZoneOutline" || l.id === "View.ZoneEdge";
   layers.sort((a, b) => outl(a) - outl(b));   // copper before zone outlines
-  for (const l of layers) {
-    for (const [pr, b] of byLayer.get(l.id) || []) { if (x < b[0] - tol || x > b[2] + tol || y < b[1] - tol || y > b[3] + tol) continue;
+  return layers;
+}
+// c0245 (decision 7): a uniform grid per layer holds the index of each primitive in the cells its box covers,
+// so a click tests only the primitives near it, in the order the full scan used (the same result)
+const PICK_CELL = 2;   // millimetres
+let PICK_GRID = new Map(), PICK_OF = null;
+function pickGrid(lid) {
+  if (PICK_OF !== byLayer) { PICK_GRID = new Map(); PICK_OF = byLayer; }
+  let g = PICK_GRID.get(lid); if (g) return g; g = new Map();
+  (byLayer.get(lid) || []).forEach(([, b], i) => {
+    const i0 = Math.floor(b[0] / PICK_CELL), i1 = Math.floor(b[2] / PICK_CELL), j0 = Math.floor(b[1] / PICK_CELL), j1 = Math.floor(b[3] / PICK_CELL);
+    if ((i1 - i0 + 1) * (j1 - j0 + 1) > 40000) { (g.big || (g.big = [])).push(i); return; }   // a huge box: tested on every click
+    for (let a = i0; a <= i1; a++) for (let c = j0; c <= j1; c++) { const k = a * 1048576 + c; let cell = g.get(k); if (!cell) { cell = []; g.set(k, cell); } cell.push(i); } });
+  PICK_GRID.set(lid, g); return g;
+}
+function pick(X, Y) {
+  const [x, y] = s2w(X, Y), tol = 3 / view.s;
+  for (const l of pickLayers()) {
+    const list = byLayer.get(l.id) || []; if (!list.length) continue;
+    const g = pickGrid(l.id), seen = new Set(g.big || []);
+    for (let a = Math.floor((x - tol) / PICK_CELL); a <= Math.floor((x + tol) / PICK_CELL); a++)
+      for (let c = Math.floor((y - tol) / PICK_CELL); c <= Math.floor((y + tol) / PICK_CELL); c++) for (const i of g.get(a * 1048576 + c) || []) seen.add(i);
+    for (const i of [...seen].sort((p, q) => p - q)) { const [pr, b] = list[i]; if (x < b[0] - tol || x > b[2] + tol || y < b[1] - tol || y > b[3] + tol) continue;
       if (hitPrim(pr, x, y, tol)) return { layer: l, pr }; } }
+  return null;
+}
+function pickScan(X, Y) {   // the full scan the grid replaces, kept for the test that compares them
+  const [x, y] = s2w(X, Y), tol = 3 / view.s;
+  for (const l of pickLayers()) for (const [pr, b] of byLayer.get(l.id) || []) { if (x < b[0] - tol || x > b[2] + tol || y < b[1] - tol || y > b[3] + tol) continue;
+    if (hitPrim(pr, x, y, tol)) return { layer: l, pr }; }
   return null;
 }
 function showInfo(html, prov) {   // c0245: the Properties panel; empty, it says that nothing is selected

@@ -118,7 +118,7 @@ function drawCursor() {
   const [X, Y] = w2s(st.mouse[0], st.mouse[1]); octx.setTransform(dpr, 0, 0, dpr, 0, 0);
   octx.strokeStyle = "#9aa4b866"; octx.lineWidth = 1; octx.beginPath();
   const x = Math.round(X) + 0.5, y = Math.round(Y) + 0.5; octx.moveTo(x, 0); octx.lineTo(x, H); octx.moveTo(0, y); octx.lineTo(W, y); octx.stroke();
-  if (typeof drawOverlayTools === "function") drawOverlayTools();
+  drawMeasure(octx, true);
 }
 cv.addEventListener("mouseenter", () => { st.inside = true; });
 cv.addEventListener("mouseleave", () => { st.inside = false; drawCursor(); });
@@ -214,7 +214,31 @@ SELECTION_VIEWS.push(() => selectionStatus());
 SELECTION_VIEWS.push(() => { if (S && !S.kind && S.prims && !LIB) buildReview(); });   // the highlight of the Components and Nets lists
 SELECTION_VIEWS.push(() => buildMessages());
 const draw0 = draw;
-draw = function () { draw0(); selectionChanged(); evidenceStatus(); };
+draw = function () { clearTimeout(FRAME.timer); draw0(); snapshotFrame(); selectionChanged(); evidenceStatus(); };
+// ---- pan and zoom by the mouse (decision 7): the last full frame is moved and scaled at once, and the board is
+// drawn again when the hand rests, so a pan or zoom costs one image copy instead of a full drawing
+const FRAME = { canvas: document.createElement("canvas"), valid: false, timer: 0, view: null };
+const SETTLE_MS = 120;
+function snapshotFrame() {
+  if (recording()) return;
+  if (!S || S.kind === "table" || st.mode3d || cv.style.display === "none" || cv.width < 2) { FRAME.valid = false; return; }
+  const f = FRAME.canvas; if (f.width !== cv.width || f.height !== cv.height) { f.width = cv.width; f.height = cv.height; }
+  const g = f.getContext("2d"); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, f.width, f.height); g.drawImage(cv, 0, 0);
+  FRAME.view = { cx: view.cx, cy: view.cy, s: view.s, mirror: view.mirror, W, H, dpr }; FRAME.valid = true;
+}
+function drawInteractive() {
+  const v = FRAME.view;
+  if (!FRAME.valid || !v || v.mirror !== view.mirror || v.W !== W || v.H !== H || v.dpr !== dpr || recording()) { draw(); return; }
+  const k = view.s / v.s, mm = view.mirror ? -1 : 1;
+  const tx = W / 2 + mm * (v.cx - view.cx) * view.s - k * W / 2, ty = H / 2 + (v.cy - view.cy) * view.s - k * H / 2;
+  const bg = isSch() ? (UI_THEME === "light" ? "#c9ccd1" : S.sheet.workspace || WORKSPACE) : boardTheme(S.theme || {}).background || "#15171b";
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = bg; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(k, 0, 0, k, tx * dpr, ty * dpr); ctx.imageSmoothingEnabled = true; ctx.drawImage(FRAME.canvas, 0, 0); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  clearTimeout(FRAME.timer); FRAME.timer = setTimeout(() => draw(), SETTLE_MS);
+  $("zoomv").textContent = isSch() ? `zoom ${(view.s * MIL * 100).toFixed(0)} %` : `zoom ${view.s.toFixed(1)} px/mm`;
+  drawCursor();
+}
+function recording() { return typeof ctx.canvas === "object" && ctx.canvas !== cv; }   // an SVG being recorded draws for real
 
 // ---- start the workbench before the first document opens
 startTheme(); buildMenubar(); startKeymap(); decorateToolbar(); setWorkspace("board", true); buildGridSel();

@@ -85,9 +85,15 @@
 
 ## 6. Performance
 
-- [ ] 6.1 Add the overlay canvas for the crosshair, hover, rubber band and measure line (`H-G-WB-CURSOR`). Proof: `uv run pytest tests/visual/test_workbench.py -k cursor -q`.
-- [ ] 6.2 Add the layer bitmap cache with composited panning. Proof: `uv run pytest tests/visual -q` (references unchanged); `uv run pytest tests/visual/test_workbench.py -k frame -q`.
-- [ ] 6.3 Add the spatial index for hit testing. Proof: `uv run pytest tests/unit/view/test_ui_sources.py -k hit -q`; `uv run pytest tests/visual/test_interaction.py -q`.
+- [x] 6.1 Add the overlay canvas for the crosshair, hover, rubber band and measure line (`H-G-WB-CURSOR`). Proof: `uv run pytest tests/visual/test_workbench.py -k cursor -q`.
+
+  Note (2026-10-29): `#ov` holds the crosshair, the cursor readout and the measurement in progress (hover mark, rubber line, readout); `drawMeasure(g, preview)` draws the placed points on the board and the cursor's part on the overlay, so moving the mouse while measuring paints no board layer (`test_cursor`: 0 paints over 50 moves). The page has no rubber-band selection, so there is none to move. Proof passed.
+- [x] 6.2 Add the layer bitmap cache with composited panning. Proof: `uv run pytest tests/visual -q` (references unchanged); `uv run pytest tests/visual/test_workbench.py -k frame -q`.
+
+  Note (2026-10-29): instead of one bitmap per layer, the page keeps one bitmap of the last full frame (`FRAME`): a pan by drag or a zoom by wheel moves and scales it at once (`drawInteractive`), and the board is drawn in full 120 ms after the last event. Programmatic draws stay full draws, so screenshots are unchanged; after the rest the board equals a fresh draw pixel for pixel (`test_frame`). Selecting a finding uses the same path to frame it. Proof passed: `tests/visual` (references unchanged; `altium_sheet` 0.22 % off on this machine only, task 2.6) and `-k frame`.
+- [x] 6.3 Add the spatial index for hit testing. Proof: `uv run pytest tests/visual/test_workbench.py -k hit -q` (the index picks what the full scan picks; a static check of the sources could not show that, so the proof runs in the browser); `uv run pytest tests/visual/test_interaction.py -q`.
+
+  Note (2026-10-29): `pick()` uses a 2 mm grid per layer, built on the first click after a scene loads, and tests the candidates in the order of the full scan, so the result is the same; `pickScan()` keeps the scan for the comparison. On the stress board: 500 points, no difference, the grid faster than the scan. Proof passed.
 - [ ] 6.4 Measure the budgets in the `viewer` job (`H-G-WB-FRAME`, `H-G-WB-CURSOR`, `H-G-WB-OPEN`) and on the maintainer's PC, and record both under this task. Proof: `uv run pytest tests/visual/test_workbench.py -k budget -q` in the `viewer` job on the pushed commit.
 
 ## 7. Net Roles workspace (read-only)
