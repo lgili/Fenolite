@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as test data (change c0259).
+schema = "fenolite.pins.v0"
+id = "Proj:Two_Pin"
+version = "1.0.0"
+summary = "Two-pin test symbol"
+category = "Passive"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"
+
+[[pin]]
+number = "1"
+name = "A"
+type = "passive"
+
+[[pin]]
+number = "2"
+name = "B"
+type = "passive"
+
+[symbol]
+reference = "X"
+pins = [
+  { number = "1", at = ["-5.08mm", "0mm"], length = "2.54mm" },
+  { number = "2", at = ["5.08mm", "0mm"], rotation = "180deg", length = "2.54mm" },
+]
+
+[[symbol.graphic]]
+kind = "rect"
+points = [["-2.54mm", "-1.27mm"], ["2.54mm", "1.27mm"]]

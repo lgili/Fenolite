@@ -1,0 +1,134 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:SSOP16_Diodes_CJ"
+version = "1.0.0"
+summary = "Diodes sixteen-lead SSOP Type CJ land"
+category = "Small-outline IC"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0391"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["1.5mm", "0.41mm"]
+at = ["-2.52mm", "2.2225mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["1.5mm", "0.41mm"]
+at = ["-2.52mm", "1.5875mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "3"
+shape = "rect"
+size = ["1.5mm", "0.41mm"]
+at = ["-2.52mm", "0.9525mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "4"
+shape = "rect"
+size = ["1.5mm", "0.41mm"]
+at = ["-2.52mm", "0.3175mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "5"
+shape = "rect"
+size = ["1.5mm", "0.41mm"]
+at = ["-2.52mm", "-0.3175mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "6"
+shape = "rect"
+size = ["1.5mm", "0.41mm"]
+at = ["-2.52mm", "-0.9525mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "7"
+shape = "rect"
+size = ["1.5mm", "0.41mm"]
+at = ["-2.52mm", "-1.5875mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "8"
+shape = "rect"
+size = ["1.5mm", "0.41mm"]
+at = ["-2.52mm", "-2.2225mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "9"
+shape = "rect"
+size = ["1.5mm", "0.41mm"]
+at = ["2.52mm", "-2.2225mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "10"
+shape = "rect"
+size = ["1.5mm", "0.41mm"]
+at = ["2.52mm", "-1.5875mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "11"
+shape = "rect"
+size = ["1.5mm", "0.41mm"]
+at = ["2.52mm", "-0.9525mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "12"
+shape = "rect"
+size = ["1.5mm", "0.41mm"]
+at = ["2.52mm", "-0.3175mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "13"
+shape = "rect"
+size = ["1.5mm", "0.41mm"]
+at = ["2.52mm", "0.3175mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "14"
+shape = "rect"
+size = ["1.5mm", "0.41mm"]
+at = ["2.52mm", "0.9525mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "15"
+shape = "rect"
+size = ["1.5mm", "0.41mm"]
+at = ["2.52mm", "1.5875mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "16"
+shape = "rect"
+size = ["1.5mm", "0.41mm"]
+at = ["2.52mm", "2.2225mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-1.95mm", "-2.45mm"], ["1.95mm", "2.45mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-3.77mm", "-2.95mm"], ["3.77mm", "2.95mm"]]
+width = "0.05mm"

@@ -1,0 +1,59 @@
+schema = "fenolite.pins.v0"
+id = "Fenolite:Connector_4"
+version = "1.0.0"
+summary = "Generic four-circuit connector"
+category = "Electromechanical interface"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0324"]
+
+[[pin]]
+number = "1"
+name = "Passive"
+type = "passive"
+
+[[pin]]
+number = "2"
+name = "Passive"
+type = "passive"
+
+[[pin]]
+number = "3"
+name = "Passive"
+type = "passive"
+
+[[pin]]
+number = "4"
+name = "Passive"
+type = "passive"
+
+[symbol]
+reference = "J"
+pin_names_hidden = true
+pins = [
+  { number = "1", at = ["-5.08mm", "3.81mm"], length = "2.54mm" },
+  { number = "2", at = ["-5.08mm", "1.27mm"], length = "2.54mm" },
+  { number = "3", at = ["-5.08mm", "-1.27mm"], length = "2.54mm" },
+  { number = "4", at = ["-5.08mm", "-3.81mm"], length = "2.54mm" },
+]
+
+[[symbol.graphic]]
+kind = "rect"
+points = [["-2.54mm", "-5.08mm"], ["1.27mm", "5.08mm"]]
+filled = true
+
+[[symbol.graphic]]
+kind = "rect"
+points = [["-2.54mm", "3.175mm"], ["-1.27mm", "4.445mm"]]
+
+[[symbol.graphic]]
+kind = "rect"
+points = [["-2.54mm", "0.635mm"], ["-1.27mm", "1.905mm"]]
+
+[[symbol.graphic]]
+kind = "rect"
+points = [["-2.54mm", "-1.905mm"], ["-1.27mm", "-0.635mm"]]
+
+[[symbol.graphic]]
+kind = "rect"
+points = [["-2.54mm", "-4.445mm"], ["-1.27mm", "-3.175mm"]]

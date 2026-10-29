@@ -3506,6 +3506,21 @@ see = "tidy"
 meaning = "A net is in a differential pair, or a length, skew or pair-skew rule selects it, so straighten leaves its runs as they are: a new shape would change its length or its coupling."
 fix = "Nothing is needed. Tidy a pair by hand, or route it again with the router."
 see = "tidy"
+["library.deprecated"]
+meaning = "The design uses a library record (pins, package, device or part) that is deprecated: its interface was replaced by another record. The design still builds."
+fix = "Move the part to the record named in the message (deprecated.by) when you can; read the reason in the record."
+see = "build"
+
+["library.generator-missing"]
+meaning = "The design uses a pins or package record that has no explicit geometry, and the generator of its family is not part of this version. Nothing is written."
+fix = "Write the drawing ([symbol]) or the lands (generator = \"explicit\", [[pad]] and [[graphic]]) into the record, or use another symbol or footprint."
+see = "build"
+
+["library.review-stale"]
+meaning = "A library record the design uses changed after its last review: the review names another digest. A record with an origin stays UNVERIFIED until it is reviewed again."
+fix = "Review the record again and record the review (reviewed_by) with its current digest."
+see = "build"
+
 ["library.drift"]
 meaning = "With --diff, a footprint made from the board differs from the library's footprint of the same name in the kinds the message names (pads, silkscreen, courtyard, models, fields), or the library lacks it (missing). Nothing is written."
 fix = "Write the library again from the board with fenolite library --out, or edit the board's instances to match the library."

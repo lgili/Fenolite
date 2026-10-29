@@ -7,7 +7,8 @@ footprint variants** for chip passives, discretes, ICs, connectors, LEDs, switch
 crystals and mechanical features. See the
 [coverage matrix](coverage.md) for exact IDs, evidence and package limitations.
 
-Use the definitions in Python with `fenolite.catalog.get_symbol()` and
+Every definition is a record file under `src/fenolite/catalog/data/` (`docs/library-records.md`). Use the
+definitions in Python with `fenolite.catalog.get_symbol()` and
 `fenolite.catalog.get_footprint()`. `fenolite catalog list` searches the installed catalog and
 `fenolite catalog show Fenolite:Resistor` prints one entry's metadata. A KiCad build uses a catalog
 definition when the CLI design references its lib id. With the lower-level `build_design()` API,

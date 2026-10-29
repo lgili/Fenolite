@@ -90,10 +90,16 @@ def _entry(entry: CatalogEntry) -> dict[str, object]:
         "summary": entry.summary,
         "evidence": entry.evidence,
         "sources": list(entry.sources),
+        "version": entry.version,
+        "licence": entry.licence,
+        "uid": entry.uid,
     }
 
 
 def _device_entry(device: DeviceDef) -> dict[str, object]:
+    from fenolite.catalog.records import record_uid, shipped_tree
+
+    record = shipped_tree().get("device", device.id)
     return {
         "lib_id": device.id,
         "id": device.id,
@@ -102,6 +108,9 @@ def _device_entry(device: DeviceDef) -> dict[str, object]:
         "summary": device.summary,
         "evidence": device.evidence,
         "sources": list(device.sources),
+        "version": record.header.version if record is not None else "",
+        "licence": record.header.licence if record is not None else "",
+        "uid": record_uid("device", device.id),
     }
 
 

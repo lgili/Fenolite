@@ -1,0 +1,21 @@
+schema = "fenolite.device.v1"
+id = "Fenolite:LED_0603"
+version = "1.0.0"
+summary = "Generic 0603 LED on a cathode-first land"
+category = "Device"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0319", "S-0412"]
+symbol = "Fenolite:LED"
+footprint = "Fenolite:LED0603_Kingbright_APT1608SURCK"
+ref_prefix = "D"
+value = "LED_0603"
+ends = ["A", "K"]
+
+[pins]
+
+[pins.A]
+map = { "1" = "2" }
+
+[pins.K]
+map = { "2" = "1" }

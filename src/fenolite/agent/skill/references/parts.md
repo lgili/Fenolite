@@ -142,6 +142,34 @@ r1.place(mm(10), mm(5))
 d1.place(mm(15), mm(5))
 ```
 
+- An orderable part is `<device id>@<mpn>`. Every record (pins, package, device, part) opens with a header:
+  `schema`, `id`, `version`, `summary`, `licence`, `evidence`, `sources` (`docs/library-records.md`).
+
+```fenolite-design
+from fenolite.catalog.records import parse_record
+from fenolite.dsl import Design, mm
+
+REG = """schema = "fenolite.device.v1"
+id = "Proj:REG"
+version = "1.0.0"
+summary = "Two-pin regulator stand-in"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"
+symbol = "Fenolite:Resistor"
+footprint = "Fenolite:Chip_0603"
+[pins]
+IN = "1"
+OUT = "2"
+[[part]]
+mpn = "REG100DR"
+packing = "reel 2500"
+"""
+design = Design("parts")
+design.board(mm(20), mm(10))
+design.devices(parse_record(REG))
+design.part("U1", device="Proj:REG@REG100DR").place(mm(10), mm(5))  # MPN REG100DR
+```
+
 - The shipped devices are generic (`INFERRED`, no MPN). Put your own records in `devices/*.toml` beside the
   script; `catalog import` writes a template (`UNVERIFIED`) through `--dry-run` and `--confirm --plan`.
 - A wrong pin name raises `PinNameError` at its line with the closest names. The build resolves a function to

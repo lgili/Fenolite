@@ -1,0 +1,62 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:C_Electrolytic_Panasonic_FR_D5_P2"
+version = "1.0.0"
+summary = "Panasonic FR 5 mm nominal body and 2 mm straight-lead pitch, pad 1 positive"
+category = "Through-hole passive"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0419"]
+generator = "explicit"
+kind = "through_hole"
+
+[[pad]]
+number = "1"
+shape = "circle"
+size = ["1.6mm", "1.6mm"]
+at = ["-1mm", "0mm"]
+kind = "thru_hole"
+drill = "0.8mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "2"
+shape = "circle"
+size = ["1.6mm", "1.6mm"]
+at = ["1mm", "0mm"]
+kind = "thru_hole"
+drill = "0.8mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[graphic]]
+key = "body-circle"
+kind = "circle"
+layer = "F.Fab"
+points = [["0mm", "0mm"], ["2.5mm", "0mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-3.25mm", "-3.25mm"], ["3.25mm", "3.25mm"]]
+width = "0.05mm"
+
+[[graphic]]
+key = "plus-h"
+kind = "line"
+layer = "F.Fab"
+points = [["-1.45mm", "1.25mm"], ["-1.05mm", "1.25mm"]]
+width = "0.1mm"
+
+[[graphic]]
+key = "plus-v"
+kind = "line"
+layer = "F.Fab"
+points = [["-1.25mm", "1.05mm"], ["-1.25mm", "1.45mm"]]
+width = "0.1mm"
+
+[[graphic]]
+key = "minus"
+kind = "line"
+layer = "F.Fab"
+points = [["1.05mm", "1.25mm"], ["1.45mm", "1.25mm"]]
+width = "0.1mm"

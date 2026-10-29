@@ -1,0 +1,50 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:Crystal_3225_Abracon_ABM8"
+version = "1.0.0"
+summary = "Abracon ABM8 four-pad crystal suggested land"
+category = "Crystal land"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0416"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["1.3mm", "1.05mm"]
+at = ["-1.15mm", "-0.875mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["1.3mm", "1.05mm"]
+at = ["1.15mm", "-0.875mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "3"
+shape = "rect"
+size = ["1.3mm", "1.05mm"]
+at = ["1.15mm", "0.875mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "4"
+shape = "rect"
+size = ["1.3mm", "1.05mm"]
+at = ["-1.15mm", "0.875mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-1.6mm", "-1.25mm"], ["1.6mm", "1.25mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-2.3mm", "-1.9mm"], ["2.3mm", "1.9mm"]]
+width = "0.05mm"

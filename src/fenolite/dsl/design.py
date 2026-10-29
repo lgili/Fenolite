@@ -34,6 +34,7 @@ from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, Ti
 from fenolite.model.rules import HeightLimit, PlacementSeverity, RuleKind, RuleSeverity, Selector
 
 if TYPE_CHECKING:
+    from fenolite.dsl.devices import DeviceSource, PartEntry
     from fenolite.dsl.generate import Recorded as Generated
     from fenolite.dsl.intents import MeanderIntent, Recorded
 
@@ -626,6 +627,8 @@ class Design(Container):
         self.parts: dict[str, Part] = {}
         self.device_records: dict[str, DeviceDef] = {}
         """The devices of ``devices()`` by id: they win over project and shipped devices (change c0248)."""
+        self.device_parts: dict[str, tuple[PartEntry, ...]] = {}
+        """The orderable parts of the devices of ``devices()`` by device id (change c0259)."""
         self.footprints: dict[str, Footprint] = {}
         self.symbols: dict[str, object] = {}
         self.modules: dict[str, Module] = {}
@@ -753,17 +756,19 @@ class Design(Container):
             name=label, code=code, items=tuple(names), reason=reason.strip(), min_gap=gap
         )
 
-    def devices(self, *records: DeviceDef) -> None:
-        """Register device records for this design (``fenolite.catalog.devices.parse_device`` or
-        ``load_devices``); ``part(ref, device=id)`` resolves an id against them before the project devices
-        and the shipped ones (``docs/devices.md``, "Where devices come from")."""
+    def devices(self, *records: DeviceSource) -> None:
+        """Register device records for this design (``fenolite.catalog.devices.parse_device``,
+        ``load_devices``, or a ``fenolite.device.v1`` record of ``fenolite.catalog.records.parse_record`` with
+        its orderable parts); ``part(ref, device=id)`` resolves an id, or ``<id>@<mpn>``, against them before
+        the project devices and the shipped ones (``docs/devices.md``, "Where devices come from")."""
         from fenolite.dsl.devices import check_records
 
-        for record in check_records(records):
-            known = self.device_records.get(record.id)
-            if known is not None and known != record:
-                raise DslError(f"devices(): device {record.id!r} is registered twice with different records")
-            self.device_records[record.id] = record
+        for device, parts in check_records(records):
+            known = self.device_records.get(device.id)
+            if known is not None and (known != device or self.device_parts.get(device.id, ()) != parts):
+                raise DslError(f"devices(): device {device.id!r} is registered twice with different records")
+            self.device_records[device.id] = device
+            self.device_parts[device.id] = parts
 
     def add_footprint(self, footprint: Footprint) -> None:
         """Register a project-authored library footprint for backend builds (not model persistence)."""

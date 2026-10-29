@@ -1,0 +1,44 @@
+schema = "fenolite.pins.v0"
+id = "Fenolite:Zener_Diode"
+version = "1.0.0"
+summary = "Generic Zener diode"
+category = "Discrete semiconductor"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0319", "S-0344"]
+polarity = "anode-first"
+
+[[pin]]
+number = "1"
+name = "A"
+type = "passive"
+
+[[pin]]
+number = "2"
+name = "K"
+type = "passive"
+
+[symbol]
+reference = "D"
+pin_names_hidden = true
+pins = [
+  { number = "1", at = ["-5.08mm", "0mm"], length = "3.81mm" },
+  { number = "2", at = ["5.08mm", "0mm"], rotation = "180deg", length = "3.81mm" },
+]
+
+[[symbol.graphic]]
+kind = "polygon"
+points = [["-1.27mm", "-1.7mm"], ["1.27mm", "0mm"], ["-1.27mm", "1.7mm"]]
+filled = true
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.9mm", "-1.9mm"], ["1.27mm", "-1.4mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.27mm", "-1.4mm"], ["1.27mm", "1.4mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.27mm", "1.4mm"], ["1.64mm", "1.9mm"]]

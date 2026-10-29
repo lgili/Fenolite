@@ -1,0 +1,61 @@
+schema = "fenolite.pins.v0"
+id = "Fenolite:Phototransistor"
+version = "1.0.0"
+summary = "Conceptual incident-light NPN phototransistor C/E; not a device pinout"
+category = "Optoelectronic semiconductor"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0439", "S-0440"]
+
+[[pin]]
+number = "1"
+name = "C"
+type = "passive"
+
+[[pin]]
+number = "2"
+name = "E"
+type = "passive"
+
+[symbol]
+reference = "Q"
+pin_names_hidden = true
+pins = [
+  { number = "1", at = ["2.54mm", "5.08mm"], rotation = "270deg", length = "2.54mm" },
+  { number = "2", at = ["2.54mm", "-5.08mm"], rotation = "90deg", length = "2.54mm" },
+]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.27mm", "-1.905mm"], ["-1.27mm", "1.905mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.27mm", "1.27mm"], ["2.54mm", "2.54mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.27mm", "-1.27mm"], ["2.54mm", "-2.54mm"]]
+
+[[symbol.graphic]]
+kind = "polygon"
+points = [["1.775mm", "-2.285mm"], ["1.225mm", "-1.768mm"], ["1.025mm", "-2.368mm"]]
+filled = true
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-4.5mm", "3.2mm"], ["-2.6mm", "1.8mm"]]
+
+[[symbol.graphic]]
+kind = "polygon"
+points = [["-2.6mm", "1.8mm"], ["-3.029mm", "2.579mm"], ["-3.471mm", "1.979mm"]]
+filled = true
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-4.5mm", "1.6mm"], ["-2.6mm", "0.2mm"]]
+
+[[symbol.graphic]]
+kind = "polygon"
+points = [["-2.6mm", "0.2mm"], ["-3.029mm", "0.979mm"], ["-3.471mm", "0.379mm"]]
+filled = true

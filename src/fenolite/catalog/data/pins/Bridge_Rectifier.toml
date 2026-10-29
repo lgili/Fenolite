@@ -1,0 +1,138 @@
+schema = "fenolite.pins.v0"
+id = "Fenolite:Bridge_Rectifier"
+version = "1.0.0"
+summary = "Generic four-terminal bridge rectifier"
+category = "Discrete semiconductor"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0329", "S-0342"]
+
+[[pin]]
+number = "1"
+name = "~"
+type = "passive"
+
+[[pin]]
+number = "2"
+name = "~"
+type = "passive"
+
+[[pin]]
+number = "3"
+name = "+"
+type = "passive"
+
+[[pin]]
+number = "4"
+name = "-"
+type = "passive"
+
+[symbol]
+reference = "BR"
+pin_names_hidden = true
+pins = [
+  { number = "1", at = ["-7.62mm", "0mm"], length = "2.54mm" },
+  { number = "2", at = ["7.62mm", "0mm"], rotation = "180deg", length = "2.54mm" },
+  { number = "3", at = ["0mm", "7.62mm"], rotation = "270deg", length = "2.54mm" },
+  { number = "4", at = ["0mm", "-7.62mm"], rotation = "90deg", length = "2.54mm" },
+]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-5.08mm", "0mm"], ["-3.175mm", "1.905mm"]]
+
+[[symbol.graphic]]
+kind = "polygon"
+points = [["-3.625mm", "2.355mm"], ["-1.905mm", "3.175mm"], ["-2.725mm", "1.455mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-2.355mm", "3.625mm"], ["-1.455mm", "2.725mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.905mm", "3.175mm"], ["0mm", "5.08mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["5.08mm", "0mm"], ["3.175mm", "1.905mm"]]
+
+[[symbol.graphic]]
+kind = "polygon"
+points = [["2.725mm", "1.455mm"], ["1.905mm", "3.175mm"], ["3.625mm", "2.355mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.455mm", "2.725mm"], ["2.355mm", "3.625mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.905mm", "3.175mm"], ["0mm", "5.08mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0mm", "-5.08mm"], ["-1.905mm", "-3.175mm"]]
+
+[[symbol.graphic]]
+kind = "polygon"
+points = [["-2.355mm", "-3.625mm"], ["-3.175mm", "-1.905mm"], ["-1.455mm", "-2.725mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-3.625mm", "-2.355mm"], ["-2.725mm", "-1.455mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-3.175mm", "-1.905mm"], ["-5.08mm", "0mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0mm", "-5.08mm"], ["1.905mm", "-3.175mm"]]
+
+[[symbol.graphic]]
+kind = "polygon"
+points = [["1.455mm", "-2.725mm"], ["3.175mm", "-1.905mm"], ["2.355mm", "-3.625mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["2.725mm", "-1.455mm"], ["3.625mm", "-2.355mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["3.175mm", "-1.905mm"], ["5.08mm", "0mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.4mm", "3.5mm"], ["0.4mm", "3.5mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0mm", "3.1mm"], ["0mm", "3.9mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.4mm", "-3.5mm"], ["0.4mm", "-3.5mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-3.95mm", "-0.15mm"], ["-3.65mm", "0.15mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-3.65mm", "0.15mm"], ["-3.35mm", "-0.15mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-3.35mm", "-0.15mm"], ["-3.05mm", "0.15mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["3.05mm", "-0.15mm"], ["3.35mm", "0.15mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["3.35mm", "0.15mm"], ["3.65mm", "-0.15mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["3.65mm", "-0.15mm"], ["3.95mm", "0.15mm"]]

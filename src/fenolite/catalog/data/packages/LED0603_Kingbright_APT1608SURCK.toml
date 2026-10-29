@@ -1,0 +1,44 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:LED0603_Kingbright_APT1608SURCK"
+version = "1.0.0"
+summary = "Kingbright APT1608SURCK LED suggested land, pin 1 cathode"
+category = "LED land"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0412"]
+generator = "explicit"
+kind = "smd"
+pad1 = "cathode"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["0.8mm", "0.8mm"]
+at = ["-0.825mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["0.8mm", "0.8mm"]
+at = ["0.825mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-0.8mm", "-0.4mm"], ["0.8mm", "0.4mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-1.725mm", "-0.9mm"], ["1.725mm", "0.9mm"]]
+width = "0.05mm"
+
+[[graphic]]
+key = "cathode"
+kind = "line"
+layer = "F.Fab"
+points = [["-0.6mm", "-0.25mm"], ["-0.6mm", "0.25mm"]]
+width = "0.1mm"

@@ -1,0 +1,43 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:TO263_3_Diodes_Standard"
+version = "1.0.0"
+summary = "Diodes TO263AB Standard suggested land"
+category = "Power semiconductor"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0374"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["1.1mm", "3.5mm"]
+at = ["-2.54mm", "-6.245mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["10.41mm", "7.01mm"]
+at = ["0mm", "4.49mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "3"
+shape = "rect"
+size = ["1.1mm", "3.5mm"]
+at = ["2.54mm", "-6.245mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-5.08mm", "-4.51mm"], ["5.08mm", "4.51mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-5.705mm", "-8.495mm"], ["5.705mm", "8.495mm"]]
+width = "0.05mm"

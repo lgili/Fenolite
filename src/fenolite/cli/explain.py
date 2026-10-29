@@ -59,6 +59,7 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.backends.kicad.zones", "MERGE_ISSUE_CODES"),
     ("fenolite.backends.kicad.zones", "PAD_ZONE_ISSUE_CODES"),
     ("fenolite.backends.specctra.dsn", "ISSUE_CODES"),
+    ("fenolite.catalog.records", "LIBRARY_ISSUE_CODES"),
     ("fenolite.checks.codes", "ISSUE_CODES"),
     ("fenolite.checks.diffgate", "ISSUE_CODES"),
     ("fenolite.checks.equivalence.codes", "ISSUE_CODES"),

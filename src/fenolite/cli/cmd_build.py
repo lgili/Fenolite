@@ -135,6 +135,7 @@ from fenolite.lens.altium import (
 )
 from fenolite.lens.altium import issue as altium_issue
 from fenolite.lens.build import (
+    BUILD_EVIDENCE,
     RECORD_FILE,
     SCHEMATIC_MODES,
     SHEET_SUFFIX,
@@ -606,6 +607,56 @@ def device_issues(design: DslDesign) -> list[Issue]:
     return found
 
 
+def project_definitions(
+    run: ScriptRun, model: ModelDesign
+) -> tuple[dict[str, Any], dict[str, Any], list[Issue]]:
+    """The footprints and symbols of the project's package and pins records (``devices/`` beside the
+    script, change c0259), which override catalog definitions of the same id, and the issues of the records
+    the design uses: ``library.generator-missing`` (error) for a record without geometry whose generator
+    is not installed, ``library.deprecated`` and ``library.review-stale``."""
+    from fenolite.catalog import records as rec
+
+    tree, shipped = run.library, rec.shipped_tree()
+    footprints: dict[str, Any] = {}
+    symbols: dict[str, Any] = {}
+    for record in tree.records:
+        if isinstance(record, rec.PinsRecord) and record.symbol is not None:
+            symbols[record.header.id] = rec.symbol_def(record)
+        elif isinstance(record, rec.PackageRecord) and record.generator in rec.GENERATORS:
+            footprints[record.header.id] = rec.footprint_def(record)
+    used: list[rec.Record] = []
+    issues: list[Issue] = []
+
+    def find(kind: rec.Kind, record_id: str) -> rec.Record | None:
+        return tree.get(kind, record_id) or shipped.get(kind, record_id)
+
+    for component in sorted(model.circuit.components, key=lambda found: found.ref):
+        for kind, record_id in (("pins", component.lib_symbol_ref), ("package", component.lib_footprint_ref)):
+            record = find(cast(rec.Kind, kind), record_id) if record_id else None
+            if record is None:
+                continue
+            used.append(record)
+            missing = (isinstance(record, rec.PinsRecord) and record.symbol is None) or (
+                isinstance(record, rec.PackageRecord) and record.generator not in rec.GENERATORS
+            )
+            if missing and record not in used[:-1]:
+                what = "symbol generator" if kind == "pins" else f"package generator {record.generator!r}"  # type: ignore[union-attr]
+                issues.append(
+                    rec.library_issue(
+                        "library.generator-missing",
+                        f"{kind} record {record_id} has no explicit geometry and the {what} is not installed",
+                        record_id,
+                        "write the geometry into the record, or wait for the generator of its family",
+                    )
+                )
+    for part in run.design.parts.values():
+        if part.device is not None:
+            record = find("device", part.device.id.split("@", 1)[0])
+            if record is not None:
+                used.append(record)
+    return footprints, symbols, [*issues, *rec.used_record_issues(used)]
+
+
 def lower_device_functions(model: ModelDesign, devices: Mapping[str, DeviceDef]) -> ModelDesign:
     """``model`` with each net member and no-connect mark of a device part that names a function replaced
     by the function's symbol pins, for targets whose writer resolves pin numbers only (the Altium build;
@@ -938,6 +989,28 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
     )
     default_issues = [*pad_map_issues(defaulted), *device_issues(design)]
     devices = design_devices(design)
+    record_footprints, record_symbols, library_issues = project_definitions(run, model)
+    default_issues += library_issues
+    if any(found.severity == "error" for found in library_issues):
+        # a record without geometry: nothing can be resolved for it, so nothing is built (c0259)
+        return Result(
+            result={
+                "design": design.name,
+                "target": ctx.kicad_target,
+                "out": str(out),
+                "files": [],
+                "devices": device_rows(design),
+                "device_files": [{"path": file.path, "sha256": file.sha256} for file in run.device_files],
+            },
+            issues=tuple(default_issues),
+            evidence=BUILD_EVIDENCE,
+            input=InputRef(
+                path=str(args.design),
+                sha256=hashlib.sha256(script_path.read_bytes()).hexdigest(),
+                kind="fenolite-dsl",
+                format_version=None,
+            ),
+        )
     if native_path is not None and drawing_sheet_source(design) is not None:
         raise CliError(
             "FEN-2001", "--altium-template conflicts with sheet(drawing_sheet=...)", where="--altium-template"
@@ -1004,8 +1077,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         prepared = prepare(model, requested, ExistingProject(), name=design.name, source=source)
     authored_footprints, authored_symbols, builtin_ids = _catalog_definitions(
         model,
-        {key: fp.definition for key, fp in design.footprints.items()},
-        {key: symbol.definition for key, symbol in design.symbols.items()},  # type: ignore[attr-defined]
+        {**record_footprints, **{key: fp.definition for key, fp in design.footprints.items()}},
+        {**record_symbols, **{key: symbol.definition for key, symbol in design.symbols.items()}},  # type: ignore[attr-defined]
     )
     schematic = cast(Literal["write", "skip"], args.schematic or SCHEMATIC_MODES[0])
     symbol_issues: list[Issue] = []
@@ -1228,10 +1301,11 @@ def _run_altium(
     sheets = cast(SheetMode, args.altium_sheets or DEFAULT_SHEETS)
     # change c0086: the symbols and footprints the script authored or took from the catalog are written
     # like resolved ones, as in a KiCad build, so their graphics reach the libraries
+    record_footprints, record_symbols, _ = project_definitions(run, model)
     authored_footprints, authored_symbols, _builtin = _catalog_definitions(
         model,
-        {key: fp.definition for key, fp in run.design.footprints.items()},
-        {key: symbol.definition for key, symbol in run.design.symbols.items()},  # type: ignore[attr-defined]
+        {**record_footprints, **{key: fp.definition for key, fp in run.design.footprints.items()}},
+        {**record_symbols, **{key: symbol.definition for key, symbol in run.design.symbols.items()}},  # type: ignore[attr-defined]
     )
     resolver = None
     if kicad_lib_ids(model) or kicad_footprint_ids(model) or intents:

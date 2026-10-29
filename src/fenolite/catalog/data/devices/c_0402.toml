@@ -1,0 +1,17 @@
+schema = "fenolite.device.v1"
+id = "Fenolite:C_0402"
+version = "1.0.0"
+summary = "Generic 0402 chip capacitor"
+category = "Device"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0314", "S-0315", "S-0333"]
+symbol = "Fenolite:Capacitor"
+footprint = "Fenolite:Chip_0402"
+ref_prefix = "C"
+value = "C_0402"
+ends = ["P1", "P2"]
+
+[pins]
+P1 = "1"
+P2 = "2"

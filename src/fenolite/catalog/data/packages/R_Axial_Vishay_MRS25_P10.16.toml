@@ -1,0 +1,40 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:R_Axial_Vishay_MRS25_P10.16"
+version = "1.0.0"
+summary = "Vishay MRS25 with inferred 10.16 mm formed-lead pitch"
+category = "Through-hole passive"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0414"]
+generator = "explicit"
+kind = "through_hole"
+
+[[pad]]
+number = "1"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-5.08mm", "0mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "2"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["5.08mm", "0mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-3.25mm", "-1.25mm"], ["3.25mm", "1.25mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-6.48mm", "-1.75mm"], ["6.48mm", "1.75mm"]]
+width = "0.05mm"

@@ -19,7 +19,8 @@ import traceback
 from dataclasses import dataclass
 from pathlib import Path
 
-from fenolite.catalog.devices import load_devices
+from fenolite.catalog.devices import edited_issue, is_edited
+from fenolite.catalog.records import DeviceRecord, LibraryTree, load_tree
 from fenolite.core.errors import FormatError, Issue
 from fenolite.dsl import Design, Panel
 from fenolite.dsl.devices import ProjectDevices, installed
@@ -48,26 +49,47 @@ class ScriptRun:
     design: Design
     output: str
     devices: ProjectDevices = ProjectDevices()
-    """The project devices of ``devices/*.toml`` beside the script, installed while it ran."""
+    """The project devices of ``devices/`` beside the script, installed while it ran."""
     device_files: tuple[DeviceFile, ...] = ()
     device_issues: tuple[Issue, ...] = ()
+    library: LibraryTree = LibraryTree()
+    """Every record of ``devices/`` beside the script, read recursively (change c0259): devices, parts,
+    pins and packages; its pins and packages override catalog definitions of the same id."""
 
 
-def read_project_devices(folder: Path) -> tuple[ProjectDevices, tuple[DeviceFile, ...], tuple[Issue, ...]]:
-    """The project devices of ``folder/devices/*.toml`` in file-name order, the files with their SHA-256,
-    and the issues of ``load_devices``. A malformed file raises its ``FormatError`` (FEN-3004 or FEN-3002)."""
+def read_project_library(folder: Path) -> tuple[LibraryTree, tuple[DeviceFile, ...], tuple[Issue, ...]]:
+    """The records of ``folder/devices/`` (recursively, in POSIX path order), its files with their SHA-256,
+    and a ``device.edited`` info for each edited device record. A malformed file raises its
+    ``FormatError`` (FEN-3004 or FEN-3002); two records of one kind and id raise FEN-3004 naming both."""
     devices_dir = folder / DEVICES_DIR
-    devices, issues = load_devices(devices_dir)
+    tree = load_tree(devices_dir, label=f"{DEVICES_DIR}/")
     files = (
         tuple(
-            DeviceFile(f"{DEVICES_DIR}/{path.name}", hashlib.sha256(path.read_bytes()).hexdigest())
-            for path in sorted(devices_dir.glob("*.toml"), key=lambda found: found.name)
+            DeviceFile(path.relative_to(folder).as_posix(), hashlib.sha256(path.read_bytes()).hexdigest())
+            for path in sorted(
+                devices_dir.rglob("*.toml"), key=lambda found: found.relative_to(folder).as_posix()
+            )
         )
         if devices_dir.is_dir()
         else ()
     )
-    owners = {device.id: file.path for device, file in zip(devices, files, strict=True)}
-    return ProjectDevices(devices, owners), files, issues
+    issues = tuple(
+        edited_issue(record.device, tree.files[("device", record.header.id)])
+        for record in tree.records
+        if isinstance(record, DeviceRecord) and is_edited(record.device)
+    )
+    return tree, files, issues
+
+
+def read_project_devices(folder: Path) -> tuple[ProjectDevices, tuple[DeviceFile, ...], tuple[Issue, ...]]:
+    """The project devices of ``folder/devices/`` (``read_project_library``) as the DSL takes them."""
+    tree, files, issues = read_project_library(folder)
+    return _project(tree), files, issues
+
+
+def _project(tree: LibraryTree) -> ProjectDevices:
+    owners = {key[1]: name for key, name in tree.files.items() if key[0] == "device"}
+    return ProjectDevices(tree.devices(), owners, dict(tree.parts))
 
 
 def _inside(path: str | None, folder: Path) -> bool:
@@ -138,9 +160,8 @@ def run_design_script(path: Path) -> ScriptRun:
     """The module-level ``design`` of the script at ``path`` and its captured stdout and stderr. The project
     devices of ``devices/*.toml`` beside the script are read first and installed while it runs."""
     script = Path(path).resolve()
-    devices, files, issues = (
-        read_project_devices(script.parent) if script.is_file() else (ProjectDevices(), (), ())
-    )
+    tree, files, issues = read_project_library(script.parent) if script.is_file() else (LibraryTree(), (), ())
+    devices = _project(tree)
     namespace, output = _run_script(path, "design", devices)
     design = namespace.get("design")
     if not isinstance(design, Design):
@@ -149,7 +170,7 @@ def run_design_script(path: Path) -> ScriptRun:
             f"design script binds no module-level 'design' of type fenolite.dsl.Design (found {found})",
             file=os.fspath(path),
         )
-    return ScriptRun(design, output, devices, files, issues)
+    return ScriptRun(design, output, devices, files, issues, tree)
 
 
 @dataclass(frozen=True)
@@ -179,6 +200,7 @@ __all__ = [
     "PanelRun",
     "ScriptRun",
     "read_project_devices",
+    "read_project_library",
     "run_design_script",
     "run_panel_script",
 ]

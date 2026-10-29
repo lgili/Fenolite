@@ -12,7 +12,9 @@ c1 = design.part("C1", device="Fenolite:C_0805", value=farad("10u"))
 connect(vin, u1.VIN, c1.P1)  # u1.VINN stops the script: "...; closest: VIN; pins: BST, EN, ..."
 ```
 
-`examples/devices/` is a complete board built this way.
+`examples/devices/` is a complete board built this way. Since change c0259 a device is one kind of library
+record: the header, versions, licences, orderable parts and the record tree are described in
+`docs/library-records.md`.
 
 ## The record (`fenolite.device.v0`)
 

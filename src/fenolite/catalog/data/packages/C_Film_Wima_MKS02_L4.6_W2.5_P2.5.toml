@@ -1,0 +1,40 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:C_Film_Wima_MKS02_L4.6_W2.5_P2.5"
+version = "1.0.0"
+summary = "Wima MKS02 4.6 by 2.5 mm nominal body, 2.5 mm lead pitch"
+category = "Through-hole passive"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0415"]
+generator = "explicit"
+kind = "through_hole"
+
+[[pad]]
+number = "1"
+shape = "circle"
+size = ["1.4mm", "1.4mm"]
+at = ["-1.25mm", "0mm"]
+kind = "thru_hole"
+drill = "0.7mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "2"
+shape = "circle"
+size = ["1.4mm", "1.4mm"]
+at = ["1.25mm", "0mm"]
+kind = "thru_hole"
+drill = "0.7mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-2.3mm", "-1.25mm"], ["2.3mm", "1.25mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-2.8mm", "-1.75mm"], ["2.8mm", "1.75mm"]]
+width = "0.05mm"
