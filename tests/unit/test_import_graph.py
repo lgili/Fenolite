@@ -59,11 +59,12 @@ ALLOWED: dict[str, set[str]] = {
     "silk": {"model", "geometry", "backends*"},
     "library": {"model", "geometry", "backends*"},
 }
-LAZY: dict[str, set[str]] = {"api": {"cli"}}
+LAZY: dict[str, set[str]] = {"api": {"cli"}, "dsl": {"catalog"}}
 """Edges allowed only inside a function body, so that importing the source does not import the target:
 ``fenolite.api.run`` imports the dispatcher of ``cli`` when it is called (capability package-layering,
 "Public API runs the commands lazily"; change c0206). ``cli`` imports ``api`` at the top, so a top-level
-edge back would be a cycle."""
+edge back would be a cycle. ``Footprint.from_package`` imports the footprint generators of ``catalog`` when
+it is called (change c0260, "Generated footprints are imported lazily"); ``catalog`` never imports ``dsl``."""
 STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog", "schematic", "mcp"}
 EXTRA_LOADER = "geometry/boolean/_extra.py"
 PYPROJECT = SRC.parents[1] / "pyproject.toml"
