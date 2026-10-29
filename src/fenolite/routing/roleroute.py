@@ -204,10 +204,6 @@ class RoleWorld:
                 what = f"zone {zone.name or zone.id}"
                 self._add(net, layer, _Item(shape, what, True, thick_bbox(shape)))
         self._own: dict[tuple[str, str, tuple[str, ...]], list[_Item]] = {}
-        self.zone_clearance: dict[str, Nm] = {}
-        for zone in board.zones:
-            for layer in zone.layers:
-                self.zone_clearance[layer] = max(self.zone_clearance.get(layer, 0), zone.settings.clearance)
 
     def _add(self, net: str, layer: str, item: _Item) -> None:
         self.items.setdefault((net, layer), []).append(item)
@@ -271,7 +267,7 @@ class _Tally:
     short: bool = False
     layers: bool = False
 
-    def reason(self, kind: str) -> str:
+    def reason(self) -> str:
         if not self.layers:
             return "no-layer"
         if self.built and not self.short:
@@ -907,9 +903,9 @@ def _route_unit(router: _Router, unit: _Unit) -> list[_Done] | _Failure:
                 second = _place(router, router.changed(mate, tally)) if first is not None else None
                 results = [first, second] if first is not None and second is not None else []
                 if first is not None and second is None:
-                    return _Failure(tally.reason(route.kind), tuple(tally.blockers[:3]), mate.key)
+                    return _Failure(tally.reason(), tuple(tally.blockers[:3]), mate.key)
             if not results:
-                return _Failure(tally.reason(route.kind), tuple(tally.blockers[:3]), route.key)
+                return _Failure(tally.reason(), tuple(tally.blockers[:3]), route.key)
             if coupled is not None:
                 _place(router, coupled)
             done += results
@@ -924,7 +920,7 @@ def _route_unit(router: _Router, unit: _Unit) -> list[_Done] | _Failure:
         if result is None and route.kind == "gate-return":
             result = router.stacked(route, tally)
         if result is None:
-            return _Failure(tally.reason(route.kind), tuple(tally.blockers[:3]), route.key)
+            return _Failure(tally.reason(), tuple(tally.blockers[:3]), route.key)
         if result.runs:
             router.placed[route.key] = (
                 result.runs[0].points if len(result.runs) == 1 else _joined(result.runs)

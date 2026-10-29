@@ -337,7 +337,9 @@ corner of an L shape: the shape's first part on `a`'s layer and its second on `b
     stay allowed.
   - **Outline.** The route's polyline grown by `w/2 +` the zone clearance in force (the largest clearance of
     the zones on that layer, at least the clearance in force of the net), as an octilinear polygon in
-    integer nanometres: the two offset lines of c0228's `offset` with square ends. A polyline whose grown
+    integer nanometres: the two offset lines of c0228's `offset`, closed flat at the ends. A branch ends
+    inside its pad, which joins its own pour, so the corridor does not reach past it into the pour around
+    the pad (a test fill that overlaps a corridor reads as stale and is simulated). A polyline whose grown
     outline would cross itself gets one area per segment, under the same name.
   - **Layers.** The route's layer, and every layer of a via's span over a square around the via.
   - **Replaced, never duplicated.** An existing rule area of that name (phase 1's provisional corridor, or
