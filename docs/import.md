@@ -15,7 +15,8 @@ fenolite build boards/board/design.py --out build/board --confirm
 Converted third-party boards do not belong in the Fenolite repository: they are published, each under its
 upstream licence with its `NOTICE` and `PROVENANCE.json`, in the separate `fenolite-library` repository
 (c0279). Tests of the tool import boards authored for Fenolite into temporary folders only, and a residue
-test flags any tracked file holding a `Converted from <URL>` line without the marker `Authored for Fenolite`.
+test flags any tracked `.py` file holding a `Converted from <URL>` line without the marker `Authored for
+Fenolite`.
 
 ## Inputs
 
@@ -143,7 +144,9 @@ the built board is compared with the source by the equivalence levels 1 to 5 (`d
 under the profile `import` (absolute frame, no tolerance) and copper item by item: every track, arc and
 via with its geometry, width or sizes, layers and lock flag. A difference an unexpressed kind explains, or
 the name of a variant footprint, is accepted; any other is `import.unequal` (error): exit 5, nothing
-written. `result.equivalence` is `{"levels": [1, 2, 3, 4, 5], "equivalent": true}` on success.
+written. `result.equivalence` is `{"levels": [1, 2, 3, 4, 5], "equivalent": true}` on success. The self-check build
+runs with `--copper-check warn` and without a schematic: a board that breaks Fenolite's copper rules (one
+the source already broke) is still compared, and building its code later needs `--copper-check warn` too.
 
 ## Old KiCad files
 
