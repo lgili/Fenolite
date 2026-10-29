@@ -1,12 +1,40 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list` and the living specs this change touches (`fenolite-component-catalog`, `dsl-footprint-authoring`, `component-body-volumes`, `design-model`, `package-layering`), and record under this task, with the date and the base commit:
+- [x] 0.1 Read `openspec list` and the living specs this change touches (`fenolite-component-catalog`, `dsl-footprint-authoring`, `component-body-volumes`, `design-model`, `package-layering`), and record under this task, with the date and the base commit:
   - whether c0246, c0248 and c0259 are archived. Take `LengthRange` from c0259 if it defines one, else add it to `fenolite.core.quantities` (task 1.1); align the family keys of `design.md` decision 2 with c0259's final envelope and catalog records;
   - that c0259's catalog records carry `drawing = 0` and a `[land]` per family-shaped entry, and that its golden SHA-256 list exists (else capture it in task 4.1 before any helper is removed);
   - which open change of the batch registers further `fenolite library` verbs (c0262, c0264, c0265, c0266), so that decision 17's dispatch table is the one they extend;
   - the maintainer's answers to the open questions of `design.md` (densities, calibration from IPC-citing documents, lead bodies).
 
   Proof: `openspec validate c0260-footprint-generators --strict`; `make check-fast`.
+
+  Entry record (2026-10-30; proof: `openspec validate --strict` valid; `make check-fast` 15275 passed, 2 failed, both pre-existing on the base and unrelated: `test_altium_build.py::test_evidence` and `test_altium_rows.py::test_rows_are_well_formed`, from the proposed row `H-A-SCH-BLOCK-ENTRIES` of c0269; base `331362eb` of `circuits-as-code`, branch `cac/c0260-footprint-generators`):
+  - `openspec list`: c0246 (0/16), c0248 (0/20) and c0259 (0/21) are open, none archived. c0248 is in progress on
+    `cac/c0248-device-catalog` and adds `src/fenolite/core/quantities.py` (electrical quantities); c0259 is in
+    progress on another branch, not on this base. Neither defines a length range here, so task 1.1 adds
+    `LengthRange` to a new `fenolite.core.quantities` holding only it: merging c0248 gives an add/add conflict
+    on that file, resolved by keeping both contents. Range semantics follow c0246 when it lands.
+  - c0259's envelope is not on this base: there are no catalog package records, no `drawing = 0` records and no
+    golden SHA-256 list (`tests/data/catalog/` does not exist). Task 1.2 reads a minimal record (`schema`,
+    `family`, `name` or `id`, the family keys, `[generate]`, `[land]`, and `evidence`, `summary`, `sources`
+    kept as given); c0259's design names the family key `generator`, so the reader takes `family` or
+    `generator` (equal when both are given). Envelope fields beyond id/family/dimensions (version, licence,
+    reviews, stable uid, `FEN-3004` wording of c0259's parser) wait for c0259. Task 4.1 captures the golden
+    list before any helper is removed.
+  - Further `fenolite library` verbs: c0262 (`check`), c0264 (`import`), c0265 (`propose`, `review`), c0266
+    (`seed`), c0279 (`audit`, `replay`, `release`, `gallery`); all open, none implemented, so decision 17's
+    dispatch table is first defined here (task 6.2).
+  - Maintainer's answers (2026-10-30): open question 3 is answered yes: generated footprints are also written
+    as an Altium `.PcbLib` through the existing Altium writer (requirement "Generated footprints in an Altium
+    PCB library", tasks 3.7 and 6.2b). Open questions 1, 2, 4 and 5 keep their recommended defaults (nominal
+    density only; manufacturer patterns that cite IPC-7351 may calibrate, cited one by one, never the
+    standard's tables; one body per lead; `Local` as the default nickname).
+  - Found while reading the 0.6 helpers: `_row_pads` and `_quad_pads` put pin 1 at the most positive y, which
+    is the bottom in the Y-down library frame (`docs/formats/kicad/frame.md`, `KICAD-VERIFIED`), so their
+    numbering runs clockwise in the top view, the mirror image of the manufacturers' top views. The
+    generators number correctly under `drawing >= 1` and keep the 0.6 placement under `drawing/0` (catalog
+    bytes); the spec delta "Pad numbering and orientation" says so. Correcting the catalog itself is a
+    separate change (new versions or ids under c0259's rules).
 
 ## 1. Ranges, records and codes
 
@@ -29,6 +57,7 @@
 - [ ] 3.4 `grid` with ball names and depopulation (scenario "Depopulated centre"). Proof: `uv run pytest tests/unit/catalog/footprints/test_grid.py -q`.
 - [ ] 3.5 `dip`, `to`, `header` and `connector` (series expansion) with through-hole lands (scenarios "DIP drill", "Result of a connector series" at the API level). Proof: `uv run pytest tests/unit/catalog/footprints/test_through_hole.py tests/unit/catalog/footprints/test_connector.py -q`.
 - [ ] 3.6 Courtyard, `drawing/0` and `drawing/1` conventions, silkscreen clearance, naming check and stamp (scenarios "Courtyard contains everything", "Drawing 1 pin-1 marks", "No silk on copper", "Name checked against numbers", "Stamp in the description"); write `docs/formats/library/naming.md`. Proof: `uv run pytest tests/unit/catalog/footprints/test_courtyard.py tests/unit/catalog/footprints/test_drawing.py tests/unit/catalog/footprints/test_naming.py -q`.
+- [ ] 3.7 Altium PCB library of generated footprints: every family's generated footprint passes `pcblib.check_footprint` without refusal or drop, and one library written by `write_pcblib` reads back through `read_pcblib` with equal pads (requirement "Generated footprints in an Altium PCB library", scenario "PcbLib read back with equal pads"). Proof: `uv run pytest tests/unit/catalog/footprints/test_pcblib.py -q`.
 
 ## 4. Catalog migration
 
@@ -45,6 +74,7 @@
 
 - [ ] 6.1 Add `Footprint.from_package` (scenarios "A generated footprint is registered", "Error finding in a script"). Proof: `uv run pytest tests/unit/dsl/test_footprint_from_package.py -q`.
 - [ ] 6.2 Add the verb dispatch and `fenolite library generate` with its plan, receipt and result (scenarios "Board form unchanged", "Plan and confirm", "Result of a connector series"). Proof: `uv run pytest tests/unit/cli/test_library_generate.py tests/unit/cli/test_library.py -q`.
+- [ ] 6.2b `fenolite library generate` also plans `DIR/<NICK>.PcbLib` with all generated footprints through the Altium writer, in the same plan and receipt; `--no-pcblib` leaves it out (maintainer's answer to open question 3, 2026-10-30). Proof: `uv run pytest tests/unit/cli/test_library_generate.py -k pcblib -q`.
 - [ ] 6.3 Author `examples/generated/` (a board using one generated footprint per family, built for KiCad, with STEP export). Proof: `uv run pytest tests/unit/test_examples.py -k generated -q`.
 
 ## 7. Closing

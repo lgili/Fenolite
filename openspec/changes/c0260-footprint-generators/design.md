@@ -270,8 +270,11 @@ nominal by authored deltas; rejected for now, there is no data to calibrate them
 
 ### 9. Pin numbering and orientation
 
-- Dual rows: pin 1 at the top of the left row, counter-clockwise in the top view, exactly as the 0.6
-  helper `_row_pads`; quad: as `_quad_pads`; `sides`: the `numbers` of each `[[side]]` at its `positions`
+- Dual rows: pin 1 at the top of the left row (the most negative y of the Y-down library frame),
+  counter-clockwise in the top view; quad likewise from the upper left. *Correction (2026-10-30):* the 0.6
+  helpers `_row_pads` and `_quad_pads` put pin 1 at the most positive y, the bottom of the Y-down frame
+  (`docs/formats/kicad/frame.md`), which is the mirror image of the top view; `drawing/0` keeps that
+  placement for the catalog's bytes and `drawing >= 1` numbers correctly; `sides`: the `numbers` of each `[[side]]` at its `positions`
   on the pitch grid (SOT-23: left `[1, 2]` at positions `[0, 2]`, right `[3]` at `[1]`).
 - Grid arrays: rows lettered `A`, `B`, ... skipping `I`, `O`, `Q`, `S`, `X`, `Z`, then `AA`, `AB`, ...;
   columns numbered from 1; `A1` at the top left in the top view. The skipped letters are a public
@@ -383,10 +386,10 @@ USB connector) stay explicit pad lists of c0259 and are not generated.
 
 ### 17. Command: `fenolite library generate`
 
-- `fenolite library generate PACKAGE... --out DIR [--library NICK] [--positions N] [--no-step]
+- `fenolite library generate PACKAGE... --out DIR [--library NICK] [--positions N] [--no-step] [--no-pcblib]
   [--dry-run | --confirm --plan ID] [--timestamp T]` plans `DIR/<NICK>.pretty/<name>.kicad_mod` and
-  `DIR/<NICK>.3dshapes/<name>.step` per package (and per position of a connector series); `NICK`
-  defaults to `Local`. It writes all files or none, through plan and confirm, with a receipt.
+  `DIR/<NICK>.3dshapes/<name>.step` per package (and per position of a connector series), and one
+  `DIR/<NICK>.PcbLib` holding them all (open question 3); `NICK` defaults to `Local`. It writes all files or none, through plan and confirm, with a receipt.
 - **Verb dispatch.** `fenolite library` keeps its c0223 form: a first argument that is not a verb is a
   board path. The verbs are `generate` here and those later changes add (`check` c0262, `import` c0264,
   `propose` and `review` c0265, `seed` c0266, `audit`, `replay`, `release` and `gallery` c0279). A board path literally named `generate` is written
@@ -458,7 +461,9 @@ No new `FEN-` code: unreadable records are c0259's `FEN-3004`/`FEN-3002`.
    *Recommended:* yes, the numbers are the manufacturer's published facts for its package, cited one by
    one; never the standard's tables.
 3. Should `fenolite library generate` also write the Altium `.PcbLib`? *Recommended:* later; the Altium
-   build already lowers any `FootprintDef`, bodies included.
+   build already lowers any `FootprintDef`, bodies included. **Answered (maintainer, 2026-10-30): yes.** `library generate` also
+   plans `DIR/<NICK>.PcbLib` through `fenolite.backends.altium.pcblib.write_pcblib` (`--no-pcblib` leaves it
+   out); tasks 3.7 and 6.2b.
 4. One body per lead, or one merged lead body per side? *Recommended:* one per lead (exact volumes),
    revisit if files grow beyond 1 MB for a 208-pin QFP.
 5. Is `Local` the right default library nickname for generated files outside the catalog?

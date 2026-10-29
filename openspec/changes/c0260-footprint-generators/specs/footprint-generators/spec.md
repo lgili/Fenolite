@@ -120,7 +120,11 @@ For `dip`, THT `to`, `header` and `connector` the drill SHALL be the lead diagon
 - **THEN** every drill is 910000 nm (676 757 nm diagonal plus clearance, rounded up to 10 µm)
 
 ### Requirement: Pad numbering and orientation
-Dual rows SHALL be numbered from the top of the left row counter-clockwise in the top view, and quad rows likewise from the upper left, as the 0.6 helpers `_row_pads` and `_quad_pads` place them. `sides` records MUST place each side's `numbers` at its `positions` on the pitch grid. Pads on perpendicular sides MUST have perpendicular long axes. Polarized two-terminals put the cathode on pad 1.
+Under `drawing >= 1`, dual rows SHALL be numbered from the top of the left row (pin 1 at the most negative y of the library frame, X to the right and Y down) counter-clockwise in the top view, and quad rows likewise from the upper left. Under `drawing/0` the rows MUST keep the placement of the 0.6 helpers `_row_pads` and `_quad_pads` (pin 1 at the most positive y), so that the migrated catalog keeps its bytes. `sides` records MUST place each side's `numbers` at its `positions` on the pitch grid, position 0 at the top. Pads on perpendicular sides MUST have perpendicular long axes. Polarized two-terminals put the cathode on pad 1.
+
+#### Scenario: Dual-row top view
+- **WHEN** `soic8.toml` (`drawing = 1`) is generated
+- **THEN** pad 1 lies on the left at y = −1905000, pad 4 on the left at y = +1905000, pad 5 on the right at y = +1905000 and pad 8 on the right at y = −1905000
 
 #### Scenario: SOT-23 sides
 - **GIVEN** a `gullwing` record with `arrangement = "sides"`, left numbers `["1", "2"]` at positions `[0, 2]` and right `["3"]` at `[1]`
@@ -201,6 +205,14 @@ Before drawing, the generator SHALL give the error `package.dimensions-inconsist
 #### Scenario: Plan and confirm
 - **WHEN** `fenolite library generate tests/data/packages/soic8.toml --out lib --dry-run --json` runs, then the same with `--confirm --plan <plan_id>`
 - **THEN** the plan lists the two files, the second run writes them, and the receipt lists both with their SHA-256
+
+### Requirement: Generated footprints in an Altium PCB library
+`fenolite library generate` SHALL also plan `DIR/<NICK>.PcbLib`, one Altium PCB library holding every generated footprint, written by the existing Altium library writer (`fenolite.backends.altium.pcblib.write_pcblib`) with the same plan, confirmation and receipt as the KiCad files; `--no-pcblib` MUST leave it out. A generated footprint MUST pass the writer's footprint check (`check_footprint`) without a refusal: rounded-rectangle pads give their corner ratio, and the generator draws nothing the writer drops.
+
+#### Scenario: PcbLib read back with equal pads
+- **GIVEN** one generated footprint of each family from the records of `tests/data/packages/`
+- **WHEN** `uv run pytest tests/unit/catalog/footprints/test_pcblib.py` writes them into one PCB library and reads it with `fenolite.backends.altium.read.pcblib.read_pcblib`
+- **THEN** the library names every footprint, the reader reports no error finding, and each footprint has the generated pads: equal numbers, positions, sizes, shapes and drills, within the writer's documented unit conversion
 
 ### Requirement: Library verb dispatch
 `fenolite library` SHALL treat a first argument that is a registered verb (`generate`, and the verbs later changes register) as that verb, and any other first argument as the board path of c0223, whose behaviour MUST NOT change.
