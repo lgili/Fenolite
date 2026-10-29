@@ -141,8 +141,9 @@ merged; until then the parser keeps their exact text and bounds as integers.
 
 ### 5. Licence, sources and origin
 
-- `licence` is an SPDX expression. **Shipped records** (`Fenolite:`) MUST be `Apache-2.0` (the licence of
-  the package that ships them today) or `CC0-1.0`. **Pack records** (c0266) MUST be `CC0-1.0`. **Project
+- `licence` is an SPDX expression. **Shipped records** (`Fenolite:`) MUST be `CC0-1.0` (the maintainer's
+  decision of 2026-10-29, open question 1), so a record moves between the core and a pack without a change
+  of terms; the Python package around them stays `Apache-2.0`. **Pack records** (c0266) MUST be `CC0-1.0`. **Project
   records** may hold any text; c0264 writes `LicenseRef-see-source-terms` for imports.
 - `sources` hold ids registered in `docs/evidence/sources.md` for shipped records, and ids of the pack's own
   `sources.toml` for pack records (c0266). An unregistered id gives `FEN-3004`.
@@ -177,13 +178,13 @@ sheet = "reviews/Fenolite/Chip_0603/1.0.0.svg"   # optional, relative to the tre
 ### 7. Pins records and the explicit symbol drawing
 
 ```toml
-# src/fenolite/catalog/data/pins/Resistor.toml   (as the migration writes it)
+# src/fenolite/catalog/data/pins/Resistor.toml   (after the change of licence, task 6.1)
 schema = "fenolite.pins.v0"
 id = "Fenolite:Resistor"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Generic two-terminal resistor"
 category = "Passive"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0314", "S-0343"]
 
@@ -225,13 +226,13 @@ width = "0.254mm"
 ### 8. Package records
 
 ```toml
-# src/fenolite/catalog/data/packages/Chip_0603.toml   (as the migration writes it)
+# src/fenolite/catalog/data/packages/Chip_0603.toml   (after the change of licence, task 6.1)
 schema = "fenolite.package.v0"
 id = "Fenolite:Chip_0603"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Chip 0603 two-terminal land"
 category = "Chip passive"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0314"]
 generator = "explicit"
@@ -286,7 +287,8 @@ width = "0.05mm"
 `reviewed_by`, `origin`, `replaces`, `deprecated`) and `[[part]]`. `symbol` names a pins record's id (or any
 lib id), `footprint` a package record's id (or any lib id), as in `v0`. `v0` files are still read: they
 have version `0.0.0` and licence unset, which is refused for `Fenolite:` records and shown as `unknown` for
-project records; `fenolite fmt`-style rewriting is not added (open question 3).
+project records. `fenolite fmt DEVICE.toml` rewrites a `v0` file as a `v1` record (open question 3, decided
+on 2026-10-29).
 
 ```toml
 schema = "fenolite.device.v1"
@@ -359,7 +361,8 @@ ratings = { temperature = { min = "-40degC", max = "125degC" } }
    and committed on its own.
 2. **Write the data.** `tools/catalog/to_data.py` calls today's `get_symbol` / `get_footprint` and writes one
    pins or package record per entry with `record_text`, lengths in mm with the fewest digits that are
-   exact, keys only where the default key differs, `version = "1.0.0"`, `licence = "Apache-2.0"`.
+   exact, keys only where the default key differs, `version = "1.0.0"`, and the provisional
+   `licence = "Apache-2.0"`; task 6.1 then sets every shipped record to `CC0-1.0` with a PATCH version.
 3. **Switch.** `get_symbol` and `get_footprint` read the records. `tests/unit/catalog/test_golden.py`
    compares every definition with `golden.json`; the KiCad job rebuilds the examples and compares bytes.
 4. **Delete.** The geometry functions, tables and `_symbol_expansion.py` are removed; `to_data.py` is
@@ -388,8 +391,8 @@ reuse these three names.
 - **Explicit geometry is verbose.** It is the honest form of what the code computes today. c0260 replaces
   it by family generators where the generator reproduces the bytes, or with a MINOR version bump and a
   reviewed visual diff (c0262).
-- **Licence of the shipped records.** Writing `Apache-2.0` keeps today's terms; moving them to CC0 needs the
-  maintainer's decision as copyright holder (open question 1).
+- **Licence of the shipped records.** Moving them to CC0 needed the maintainer's decision as copyright
+  holder; he decided `CC0-1.0` on 2026-10-29 (open question 1).
 - **`v0` device files.** Reading them as `0.0.0` avoids breaking c0248 projects; shipped devices are
   rewritten as `v1` in this change.
 

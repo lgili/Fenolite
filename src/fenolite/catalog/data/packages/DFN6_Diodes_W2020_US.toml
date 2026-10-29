@@ -1,9 +1,9 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:DFN6_Diodes_W2020_US"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Diodes W-DFN2020-6 Type US land with EP"
 category = "Leadless IC"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0399", "S-0397"]
 generator = "explicit"

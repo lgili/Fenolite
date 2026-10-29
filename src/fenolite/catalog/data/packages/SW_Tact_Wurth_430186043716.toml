@@ -1,9 +1,9 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:SW_Tact_Wurth_430186043716"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Wurth 6 mm THT tact switch, terminals 1-3 and 2-4 internally common"
 category = "Switch land"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0418"]
 generator = "explicit"

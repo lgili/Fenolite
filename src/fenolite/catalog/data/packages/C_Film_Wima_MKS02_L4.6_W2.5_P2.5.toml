@@ -1,9 +1,9 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:C_Film_Wima_MKS02_L4.6_W2.5_P2.5"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Wima MKS02 4.6 by 2.5 mm nominal body, 2.5 mm lead pitch"
 category = "Through-hole passive"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0415"]
 generator = "explicit"

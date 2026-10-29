@@ -373,13 +373,13 @@ def test_shipped_led_keeps_the_cathode_first_map() -> None:
 
 def test_shipped_files_carry_their_licence() -> None:
     """The shipped devices are ``fenolite.device.v1`` records under ``catalog/data/devices/`` since change
-    c0259: their header names the licence (Apache-2.0, authored for Fenolite) in place of a comment line."""
+    c0259: their header names the licence (CC0-1.0, authored for Fenolite) in place of a comment line."""
     from fenolite.catalog.records import DeviceRecord, shipped_tree
 
     folder = ROOT / "src" / "fenolite" / "catalog" / "data" / "devices"
     assert sorted(path.stem for path in folder.glob("*.toml"))
     records = [r for r in shipped_tree().records if isinstance(r, DeviceRecord)]
-    assert len(records) == len(SHIPPED) and all(r.header.licence == "Apache-2.0" for r in records)
+    assert len(records) == len(SHIPPED) and all(r.header.licence == "CC0-1.0" for r in records)
 
 
 def test_shipped_sources_are_registered() -> None:

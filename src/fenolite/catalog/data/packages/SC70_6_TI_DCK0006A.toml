@@ -1,9 +1,9 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:SC70_6_TI_DCK0006A"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Six-lead TI DCK0006A SC-70 package land"
 category = "Small-outline IC"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0356"]
 generator = "explicit"

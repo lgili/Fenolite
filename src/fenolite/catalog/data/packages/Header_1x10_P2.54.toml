@@ -1,9 +1,9 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:Header_1x10_P2.54"
-version = "1.0.0"
+version = "1.0.1"
 summary = "10-position generic 2.54 mm single-row header"
 category = "Through-hole connector"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0408"]
 generator = "explicit"

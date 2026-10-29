@@ -1,9 +1,9 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:TSSOP24_TI_PW0024A"
-version = "1.0.0"
+version = "1.0.1"
 summary = "TI PW0024A TSSOP land"
 category = "Small-outline IC"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0387"]
 generator = "explicit"

@@ -1,9 +1,9 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:SSOP16_Diodes_CJ"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Diodes sixteen-lead SSOP Type CJ land"
 category = "Small-outline IC"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0391"]
 generator = "explicit"

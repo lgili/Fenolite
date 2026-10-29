@@ -1,9 +1,9 @@
 schema = "fenolite.pins.v0"
 id = "Fenolite:Capacitor_Polarized"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Generic polarized capacitor"
 category = "Passive"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0314"]
 

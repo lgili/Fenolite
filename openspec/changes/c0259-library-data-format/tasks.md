@@ -91,6 +91,17 @@
 
 ## 6. The maintainer's answers of 2026-10-29
 
-- [ ] 6.1 Shipped records are `CC0-1.0` (open question 1): every record under `src/fenolite/catalog/data/` and every example record of this change says `licence = "CC0-1.0"`, a `Fenolite:` record of another licence gives `FEN-3004`, each changed record takes a PATCH version (`tools/catalog/versions.py --update`), and the spec, design, docs and the declarations of authored CC0 data (ADR-0004, `docs/library-records.md`) say so. Proof: `uv run pytest tests/unit/catalog tests/unit/cli/test_catalog.py -q`; `uv run python tools/catalog/versions.py`; `make residue`.
+- [x] 6.1 Shipped records are `CC0-1.0` (open question 1): every record under `src/fenolite/catalog/data/` and every example record of this change says `licence = "CC0-1.0"`, a `Fenolite:` record of another licence gives `FEN-3004`, each changed record takes a PATCH version (`tools/catalog/versions.py --update`), and the spec, design, docs and the declarations of authored CC0 data (ADR-0004, `docs/library-records.md`) say so. Proof: `uv run pytest tests/unit/catalog tests/unit/cli/test_catalog.py -q`; `uv run python tools/catalog/versions.py`; `make residue`.
+  Done (2026-10-29): the 159 records under `src/fenolite/catalog/data/` say `licence = "CC0-1.0"` and version
+  `1.0.1` (a licence is metadata, so the version rules ask for a PATCH; the definitions and interfaces did not
+  change); `tools/catalog/versions.py --update` rewrote `VERSIONS.toml` (catalog `1.0.1`). The example and
+  test records of this change were already `CC0-1.0`. `records.SHIPPED_LICENCES` is `("CC0-1.0",)`, so a
+  `Fenolite:` record under `Apache-2.0` gives `FEN-3004`. `golden.json` is unchanged: the licence is in neither
+  the definitions nor the built files, and `test_golden.py` passes against it. The spec deltas, `proposal.md`,
+  `design.md`, `docs/library-records.md`, `docs/catalog/README.md`, ADR-0004 (decision 1, where authored data is
+  declared CC0) and `LEGAL.md` say so. `NOTICE` is unchanged: by ADR-0004 it lists only third-party works, and
+  the records are Fenolite's own; `LEGAL-ANNEX.md` logs format-code sessions, which this is not. Proofs passed
+  (`tests/unit/catalog` and `test_catalog.py`, 664 tests with `test_adrs.py`; `versions.py`: no problem;
+  `make residue`: 0 hits).
 - [ ] 6.2 `fenolite fmt DEVICE.toml` rewrites a `fenolite.device.v0` file as a `fenolite.device.v1` record under the mutation protocol (open question 3): `--dry-run` shows the plan, `--confirm --plan` writes it, `--check` reports `fmt.would-change`; a `v1` file is left unchanged; the output is deterministic, and v0 → v1 → load gives the same device (scenarios "A v0 device file is rewritten as v1", "A v1 device file is left unchanged"). Contract section, agent-guide line. Proof: `uv run pytest tests/unit/cli/test_fmt_cmd.py tests/unit/catalog/test_records.py -k "fmt or upgrade" -q`; `uv run pytest tests/unit/agent/test_pages.py -q`.
 - [ ] 6.3 Run `make check-fast`, push to `cac/c0259-library-data-format`, and confirm the required CI jobs on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.

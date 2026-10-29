@@ -1,9 +1,9 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:Crystal_3225_Abracon_ABM8"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Abracon ABM8 four-pad crystal suggested land"
 category = "Crystal land"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0416"]
 generator = "explicit"

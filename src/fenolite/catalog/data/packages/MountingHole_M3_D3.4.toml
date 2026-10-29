@@ -1,9 +1,9 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:MountingHole_M3_D3.4"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Generic non-plated 3.4 mm M3 clearance hole with inferred 7 mm hardware guide"
 category = "Mechanical"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0420"]
 generator = "explicit"

@@ -7,7 +7,8 @@ footprint variants** for chip passives, discretes, ICs, connectors, LEDs, switch
 crystals and mechanical features. See the
 [coverage matrix](coverage.md) for exact IDs, evidence and package limitations.
 
-Every definition is a record file under `src/fenolite/catalog/data/` (`docs/library-records.md`). Use the
+Every definition is a record file under `src/fenolite/catalog/data/` (`docs/library-records.md`); the
+records are authored for Fenolite and dedicated to the public domain under CC0-1.0. Use the
 definitions in Python with `fenolite.catalog.get_symbol()` and
 `fenolite.catalog.get_footprint()`. `fenolite catalog list` searches the installed catalog and
 `fenolite catalog show Fenolite:Resistor` prints one entry's metadata. A KiCad build uses a catalog

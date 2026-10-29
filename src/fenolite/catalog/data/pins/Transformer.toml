@@ -1,9 +1,9 @@
 schema = "fenolite.pins.v0"
 id = "Fenolite:Transformer"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Conceptual two-winding transformer P1/P2/S1/S2; not a device pinout"
 category = "Passive"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0437"]
 

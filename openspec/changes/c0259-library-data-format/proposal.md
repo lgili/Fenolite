@@ -36,7 +36,7 @@ requirement forbids copying from any other CAD library, so it is changed here.
   A part inherits everything from its device and may set only orderable facts: `mpn`, `manufacturer`,
   `packing`, `lifecycle`, `grade`, `datasheet`, `properties`, and ratings that narrow the device's.
   `extends` chains parts. A part's id is `<device id>@<mpn>`, and `design.part(device="X@MPN")` places it.
-- **Licence and origin.** Shipped records are `Apache-2.0` or `CC0-1.0`; a record taken from a CC0 source
+- **Licence and origin.** Shipped records are `CC0-1.0` (the maintainer's decision of 2026-10-29); a record taken from a CC0 source
   carries `origin` (library, version or commit, the original element's UUID), `licence = "CC0-1.0"` and
   stays `UNVERIFIED` until a review of its current digest (c0262) is recorded.
 - **The catalog moves to data, byte for byte.** `src/fenolite/catalog/data/{pins,packages,devices,parts}/`

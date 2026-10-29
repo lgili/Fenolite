@@ -1,9 +1,9 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:DO41_P10.16_Diodes"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Diodes DO-41 body at an authored 10.16 mm bend pitch"
 category = "Axial diode"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0371"]
 generator = "explicit"

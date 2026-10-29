@@ -27,7 +27,7 @@ Every shipped catalog symbol and footprint SHALL be given by a record file under
 
 #### Scenario: Show a moved entry
 - **WHEN** `fenolite catalog show Fenolite:Resistor --json` runs
-- **THEN** the entry holds `version` `1.0.0`, its `licence`, its `uid`, and the same kind, category, summary, evidence and sources as on 0.6.0
+- **THEN** the entry holds `version` `1.0.1` (written `1.0.0` by the move, raised by the change of licence to `CC0-1.0`), `licence` `CC0-1.0`, its `uid`, and the same kind, category, summary, evidence and sources as on 0.6.0
 
 ## MODIFIED Requirements
 

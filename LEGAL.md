@@ -1,6 +1,8 @@
 # Legal notes
 
-Fenolite is licensed under the Apache License, Version 2.0 (see `LICENSE` and `NOTICE`).
+Fenolite is licensed under the Apache License, Version 2.0 (see `LICENSE` and `NOTICE`). Data authored for
+Fenolite (test fixtures, examples, sheet templates, and the shipped library records under
+`src/fenolite/catalog/data/`) is dedicated to the public domain under CC0-1.0 (ADR-0004).
 This file explains where Fenolite's knowledge of third-party file formats comes from and how the
 project relates to earlier, non-public work in the same domain. It is a statement of project
 policy, not legal advice.

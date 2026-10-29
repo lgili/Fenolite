@@ -1,9 +1,9 @@
 schema = "fenolite.pins.v0"
 id = "Fenolite:Power_Module"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Conceptual power-module block; not a device pinout"
 category = "Power and control IC"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0316", "S-0331"]
 

@@ -97,10 +97,10 @@ A build that uses a deprecated record SHALL still build and SHALL report `librar
 - **THEN** the build succeeds and `issues` holds one `library.deprecated` naming `Proj:B`
 
 ### Requirement: Record licences
-`licence` SHALL be an SPDX expression. A `Fenolite:` record MUST be `Apache-2.0` or `CC0-1.0`; a record whose `origin` is set MUST be `CC0-1.0`. Any other value in a shipped record MUST raise `FEN-3004`. Project records MAY hold any text.
+`licence` SHALL be an SPDX expression. A `Fenolite:` record MUST be `CC0-1.0` (the maintainer's decision of 2026-10-29); a record whose `origin` is set MUST be `CC0-1.0`. Any other value in a shipped record MUST raise `FEN-3004`. Project records MAY hold any text.
 
 #### Scenario: Shipped record with another licence
-- **WHEN** a `Fenolite:` package with `licence = "CC-BY-SA-4.0"` is read
+- **WHEN** a `Fenolite:` package with `licence = "CC-BY-SA-4.0"` or `licence = "Apache-2.0"` is read
 - **THEN** `FEN-3004` is raised naming `licence`
 
 ### Requirement: Origin of records from CC0 libraries

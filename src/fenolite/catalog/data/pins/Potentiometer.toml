@@ -1,9 +1,9 @@
 schema = "fenolite.pins.v0"
 id = "Fenolite:Potentiometer"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Conceptual adjustable resistance A/W/B; not a device pinout"
 category = "Passive"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0432"]
 

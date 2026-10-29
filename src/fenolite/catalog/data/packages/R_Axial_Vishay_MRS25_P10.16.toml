@@ -1,9 +1,9 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:R_Axial_Vishay_MRS25_P10.16"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Vishay MRS25 with inferred 10.16 mm formed-lead pitch"
 category = "Through-hole passive"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0414"]
 generator = "explicit"

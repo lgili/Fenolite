@@ -39,6 +39,16 @@ def test_entries_carry_version_licence_and_uid() -> None:
     from fenolite.catalog.records import record_uid
 
     resistor = next(entry for entry in ENTRIES if entry.lib_id == "Fenolite:Resistor")
-    assert (resistor.version, resistor.licence) == ("1.0.0", "Apache-2.0")
+    assert (resistor.version, resistor.licence) == ("1.0.1", "CC0-1.0")
     assert resistor.uid == record_uid("pins", "Fenolite:Resistor")
     assert (resistor.kind, resistor.category, resistor.evidence) == ("symbol", "Passive", "INFERRED")
+
+
+def test_every_shipped_record_is_cc0() -> None:
+    """The maintainer decided on 2026-10-29 that the shipped records are CC0-1.0 (c0259, open question 1)."""
+    from fenolite.catalog.records import shipped_tree
+
+    records = shipped_tree().records
+    assert len(records) == 159 and {r.header.licence for r in records} == {"CC0-1.0"}
+    for path in sorted((CATALOG / "data").rglob("*.toml")):
+        assert "Apache-2.0" not in path.read_text(encoding="utf-8"), path.name

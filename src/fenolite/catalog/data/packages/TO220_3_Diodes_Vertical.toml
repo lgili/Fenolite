@@ -1,9 +1,9 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:TO220_3_Diodes_Vertical"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Diodes TO220-3 vertical inferred through-hole land"
 category = "Through-hole semiconductor"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0377"]
 generator = "explicit"

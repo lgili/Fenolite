@@ -78,7 +78,7 @@ HEADER_KEYS: tuple[str, ...] = (
     "reviewed_by",
 )
 HEADER_REQUIRED: tuple[str, ...] = ("schema", "id", "version", "summary", "licence", "evidence")
-SHIPPED_LICENCES: tuple[str, ...] = ("Apache-2.0", "CC0-1.0")
+SHIPPED_LICENCES: tuple[str, ...] = ("CC0-1.0",)
 """The licences a ``Fenolite:`` record may carry."""
 CC0 = "CC0-1.0"
 VERSION = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)")

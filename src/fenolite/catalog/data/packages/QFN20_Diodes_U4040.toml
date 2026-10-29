@@ -1,9 +1,9 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:QFN20_Diodes_U4040"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Diodes U-QFN4040-20 land with EP"
 category = "Leadless IC"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0393", "S-0397"]
 generator = "explicit"

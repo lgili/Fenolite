@@ -163,6 +163,10 @@ def test_digest_changes_with_the_content() -> None:
 def test_licence_shipped_record_with_another_licence() -> None:
     text = _package(record_id="Fenolite:X", licence="CC-BY-SA-4.0", extra='sources = ["S-0314"]\n')
     assert "licence" in str(_refused(text))
+    # the maintainer's decision of 2026-10-29: shipped records are CC0-1.0, not the provisional Apache-2.0
+    apache = _package(record_id="Fenolite:X", licence="Apache-2.0", extra='sources = ["S-0314"]\n')
+    assert "CC0-1.0" in str(_refused(apache))
+    assert parse_record(_package(record_id="Fenolite:X", extra='sources = ["S-0314"]\n'))
     assert parse_record(_package(record_id="Proj:X", licence="LicenseRef-see-source-terms"))
     _refused(_package(record_id="Fenolite:X"))  # a shipped record needs its sources
 

@@ -71,7 +71,8 @@ catalog version (`fenolite.catalog.CATALOG_VERSION`).
 
 ## Licences and origin
 
-Shipped records are `Apache-2.0` or `CC0-1.0`. A record taken from a library whose licence is CC0-1.0 holds
+Shipped records are `CC0-1.0`, like the other data authored for Fenolite (ADR-0004); the code that reads
+them stays `Apache-2.0`. A `Fenolite:` record of any other licence gives `FEN-3004`. A record taken from a library whose licence is CC0-1.0 holds
 `origin = { library, version, element, licence = "CC0-1.0" }`, is itself `CC0-1.0`, and stays `UNVERIFIED`
 until a review of its current digest is recorded: the origin is not evidence. Data from a CC-BY-SA library
 or any other CAD library is never shipped.
@@ -95,10 +96,10 @@ stale: a build that uses the record reports `library.review-stale` (info).
 ```toml
 schema = "fenolite.pins.v0"
 id = "Fenolite:Resistor"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Generic two-terminal resistor"
 category = "Passive"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0314", "S-0343"]
 

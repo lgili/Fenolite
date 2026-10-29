@@ -1,9 +1,9 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:SOT23_5"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Five-lead SOT-23 package land"
 category = "Small-outline IC"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0323", "S-0335"]
 generator = "explicit"

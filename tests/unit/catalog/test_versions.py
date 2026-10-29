@@ -46,7 +46,7 @@ def test_changed_land_without_a_new_version() -> None:
     pad = replace(chip.pads[0], size=replace(chip.pads[0].size, w=chip.pads[0].size.w + 10_000))
     changed = replace(chip, pads=(pad, *chip.pads[1:]))
     problems = _with(changed, shipped_versions())
-    assert problems == ["Fenolite:Chip_0603: its definition changed; give it a MINOR version above 1.0.0"]
+    assert problems == ["Fenolite:Chip_0603: its definition changed; give it a MINOR version above 1.0.1"]
     bumped = replace(changed, header=replace(changed.header, version="1.1.0"))
     assert [p for p in _with(bumped, shipped_versions()) if "Chip_0603" in p] == [
         "Fenolite:Chip_0603: VERSIONS.toml is stale; run `uv run python tools/catalog/versions.py --update` "
@@ -58,8 +58,8 @@ def test_metadata_change_is_a_patch() -> None:
     record = shipped_tree().get("pins", "Fenolite:Resistor")
     assert isinstance(record, PinsRecord)
     changed = replace(record, header=replace(record.header, sources=(*record.header.sources, "S-0315")))
-    assert any("PATCH version above 1.0.0" in p for p in _with(changed, shipped_versions()))
-    patched = replace(changed, header=replace(changed.header, version="1.0.1"))
+    assert any("PATCH version above 1.0.1" in p for p in _with(changed, shipped_versions()))
+    patched = replace(changed, header=replace(changed.header, version="1.0.2"))
     records = [
         r
         for r in shipped_tree().records
