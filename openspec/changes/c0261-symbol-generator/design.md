@@ -348,13 +348,15 @@ No new `FEN-` code.
 
 ## Open questions
 
-1. *Default `split_above` of 100 pins and `unit_pins` of 48?* Recommended: yes, as the research suggests
+Decided by the maintainer on 2026-10-29; each answer is the recommended one.
+
+1. *Default `split_above` of 100 pins and `unit_pins` of 48?* Decided: yes, as the research suggests
    about 100; both are per-table settings, so a library can choose.
-2. *Should bidirectional pins default to the right?* Recommended: yes; MCU ports on the right read as
+2. *Should bidirectional pins default to the right?* Decided: yes; MCU ports on the right read as
    "drives the board", and a table can move them with `side`.
-3. *Should `Symbol.from_pins` accept a path?* Recommended: no; the DSL reads no file. `read_pins` is one
+3. *Should `Symbol.from_pins` accept a path?* Decided: no; the DSL reads no file. `read_pins` is one
    import away and keeps the rule simple.
-4. *Unit names: letters (`A`, `B`) by default for automatic units?* Recommended: no names by default;
+4. *Unit names: letters (`A`, `B`) by default for automatic units?* Decided: no names by default;
    KiCad shows letters itself, and a name like `POWER` comes from `[[symbol.unit]]`.
 
 ## Relation to the batch

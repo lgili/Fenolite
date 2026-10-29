@@ -26,6 +26,10 @@
   - No open change holds a delta of "Project-authored symbols"; c0264's design names
     `write_symbol_library` only as a consumer.
   - The open questions have no maintainer answer yet; the recommended answers of `design.md` are used.
+  - Answers recorded (2026-10-29, branch head de9f3917): the maintainer decided the four open questions on
+    2026-10-29 and chose every recommended answer, which this change already implements: `split_above` 100
+    and `unit_pins` 48 by default; bidirectional pins on the right; `Symbol.from_pins` takes a `PinTable`,
+    not a path; automatic units get no names. Recorded under "Open questions" in `design.md`.
 
   Proof passed (2026-10-29): `openspec validate c0261-symbol-generator --strict` valid; `make check-fast`
   exit 0 on the pushed tree.
@@ -105,6 +109,8 @@
 - [ ] 5.5 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
 
   Open (2026-10-29): `circuits-as-code` is still at 0.6.0, whose release-record guard requires `[Unreleased]` to stay empty; the entry is added once the branch receives `dev`'s `0.7.0.dev0`.
+
+  Still open (2026-10-29): the maintainer decided on 2026-10-29 that `circuits-as-code` keeps its current base, version 0.6.0, until the line is ready for `dev`; the v0.6 guard requires `## [Unreleased]` to stay empty until then.
 
 - [x] 5.6 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
 
