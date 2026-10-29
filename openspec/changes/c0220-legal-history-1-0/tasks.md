@@ -15,8 +15,15 @@
 
 - [x] 1.1 `--history` in `release.yml` before the build and in `nightly.yml` as a job of its own (scenario "The
   release scans the history"). Proof: `uv run pytest tests/unit/test_ci_workflow.py -q`.
-- [ ] 1.2 `make residue-history` (scenario "The private run prints counts"). Proof: `make residue-history`
+- [x] 1.2 `make residue-history` (scenario "The private run prints counts"). Proof: `make residue-history`
   without private lists prints the summary with `private gate: skipped`.
+  - 2026-10-29, public patterns only (`private gate: skipped`), on `dev` at 1559f1b:
+    - the refs of `dev` alone: `residue: 0 hit(s) in 0 file(s); 6339 file(s) scanned; waivers: 11`;
+    - every ref of the GitHub repository (26 branches and tags, what the checkout of the two jobs fetches):
+      2 hits, 12 232 blobs, 11 waivers. Both hits are `docs/mcp.md:554:abs-user-path` in commits reachable
+      only from the branch `c0195-mcp-server` (an example path of a client configuration, gone from `dev`).
+      Until that branch is deleted or the hit is decided by open question 2, the nightly job and a release
+      fail at this step.
 - [ ] 1.3 **Maintainer.** Run `make residue-history` with the private lists on the commit to be released, and
   record the summary line and the commit under this task; decide each hit by open question 2. Proof: the
   record under this task.
