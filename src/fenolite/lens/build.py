@@ -131,6 +131,8 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.diff-pair-gap-shadowed": "warning",
         "build.i2c-pullup-missing": "warning",
         "build.pad-map-default": "warning",
+        "build.port-unused": "warning",  # c0251: blocks
+        "build.block-net-escape": "warning",
         "layout.unplaced": "warning",
         "build.pad-without-pin": "info",
         "build.global-library": "info",
@@ -803,6 +805,82 @@ def interface_checks(
     return found
 
 
+def _inside(path: str, block: str) -> bool:
+    """Whether ``path`` (a component, module or net path) is owned by the block ``block``, directly or
+    through nested modules."""
+    return path.startswith(f"{block}/")
+
+
+def block_checks(design: Design) -> list[Issue]:
+    """What a build says about the blocks of ``design`` (change c0251), from the model alone:
+    ``build.port-unused`` for a port that is not optional when no net of its members holds a pin, a
+    port, an interface or a script-named net outside its block, and ``build.block-net-escape`` for a
+    script-named net that holds pins inside and outside a block that no port of the block binds it to. A
+    net is port-named when its name is the path of a port member it holds (``<owner>/<port>`` or
+    ``<owner>/<port>.<member>``); every other net is script-named. Nothing is changed."""
+    circuit = design.circuit
+    blocks = {m.id: m.path for m in circuit.modules if m.block}
+    if not blocks:
+        return []
+    paths = {c.id: _path(c) for c in circuit.components}
+    nets = {net.id: net for net in circuit.nets}
+    ports_on: dict[str, list[tuple[str, str]]] = {}
+    """Net id → (owner path, port path of the member) of each port member on it."""
+    port_named: set[str] = set()
+    for port in circuit.ports:
+        owner = blocks.get(port.owner) or paths.get(port.owner, "")
+        for member, net_id in port.members.items():
+            label = f"{owner}/{port.name}" if len(port.members) == 1 else f"{owner}/{port.name}.{member}"
+            ports_on.setdefault(net_id, []).append((owner, label))
+            if net_id in nets and nets[net_id].name == label:
+                port_named.add(net_id)
+    in_interfaces = {net_id for itf in circuit.interfaces for net_id in itf.members.values()}
+    found: list[Issue] = []
+    for port in sorted(circuit.ports, key=lambda p: (blocks.get(p.owner, ""), p.name)):
+        block = blocks.get(port.owner)
+        if block is None or port.optional:
+            continue
+        wired = False
+        for net_id in port.members.values():
+            net = nets.get(net_id)
+            if net is None:
+                continue
+            pins_out = any(not _inside(paths.get(m.component_id, ""), block) for m in net.members)
+            ports_out = any(
+                owner != block and not _inside(owner, block) for owner, _ in ports_on.get(net_id, ())
+            )
+            named_out = net_id not in port_named and not _inside(net.name, block)
+            if pins_out or ports_out or named_out or net_id in in_interfaces:
+                wired = True
+                break
+        if not wired:
+            found.append(
+                issue(
+                    "build.port-unused",
+                    f"block {block}: the port {port.name} is wired to nothing outside the block",
+                    f"{block}/{port.name}",
+                    "connect a net to the port, or declare it with optional=True",
+                )
+            )
+    for block in sorted(blocks.values()):
+        bound = {net_id for net_id, owners in ports_on.items() if any(owner == block for owner, _ in owners)}
+        for net in sorted(circuit.nets, key=lambda n: n.name):
+            if net.id in port_named or net.id in bound or not net.members:
+                continue
+            inner = [_inside(paths.get(m.component_id, ""), block) for m in net.members]
+            if any(inner) and not all(inner):
+                found.append(
+                    issue(
+                        "build.block-net-escape",
+                        f"block {block}: the net {net.name} joins pins inside and outside the block without "
+                        "passing through a port of the block",
+                        f"{block}:{net.name}",
+                        "declare a port",
+                    )
+                )
+    return found
+
+
 def _shadows(rule: Rule, classes: Sequence[str], bases: Sequence[str], layer: str) -> bool:
     """Whether ``rule`` selects a target class on ``layer`` as ``impedance_checks`` counts it: its first
     selector is one leaf, or an ``or`` of leaves, each ``all``, a ``netclass`` leaf naming a target class,
@@ -1148,6 +1226,7 @@ def build_design(
     marks = _resolve_marks(design, parts, pins, on_net, issues)
     marks = _resolve_requests(parts, pins, on_net, marks, unused or {}, two_terminal, issues)
     _case_collisions(design, issues)
+    issues += block_checks(design)
     issues += interface_checks(
         design,
         pins,

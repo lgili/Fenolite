@@ -8,6 +8,7 @@ model design with ids keyed by names and paths. It reads no library, file or env
 """
 
 from fenolite.dsl import select, shape, stack
+from fenolite.dsl.block import block
 from fenolite.dsl.convert import (
     BOARD_ORIGIN,
     DSL_BACKEND,
@@ -112,6 +113,7 @@ __all__ = [
     "ViaIntent",
     "ViaStep",
     "arc_to",
+    "block",
     "connect",
     "copper",
     "decouple",

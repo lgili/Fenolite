@@ -40,7 +40,7 @@ objects change; the diff matches such objects by content.
 | File | Class | Contents |
 |---|---|---|
 | `meta.json` | `DesignHeader` | id, name, `schema_version` (`"0"`), `fenolite_version` |
-| `circuit.json` | `Circuit` | components (pins), nets (pin members), net classes, interfaces, modules, no-connect marks |
+| `circuit.json` | `Circuit` | components (pins), nets (pin members), net classes, interfaces, modules, block ports, no-connect marks |
 | `board.json` | `Board` | outline, layers, stack-up, footprints (pads), tracks, arcs, vias, zones, keep-outs, texts, graphics, holes |
 | `rules.json` | `RuleSet` | rules: kind, selectors, layers, min/opt/max, severity, priority (1 = highest); check severities |
 | `manufacturing.json` | `Manifest` | generated artefacts with tool, version, revision, variant, evidence, state |
@@ -661,6 +661,26 @@ Placing again with the same key gives the same ids; two keys share none; adding 
 placement changes no id of a copy. The copy records the definition in `FootprintInstance.lib_ref`,
 belongs to the caller's component, and its pads have no net until the caller assigns one. The
 definition stays unchanged.
+
+### Block instances and ports
+
+Change c0251 records the blocks of a design script (`docs/dsl.md`, "Blocks").
+
+- `Module.block: str` names the block that made the module (empty for a plain module), and
+  `Module.params: tuple[BlockParam, ...]` records its parameters, ordered by name. Two params with one
+  name, params out of name order, or params without a block name raise `ValueError`.
+- `BlockParam(name, type, text)` is a frozen value object. `type` is one of `bool`, `int`, `str`, `length`,
+  `quantity`, `range` and `none`; any other raises `ValueError`. `text` is the canonical text: `true` or
+  `false`, a decimal integer, the string, integer nanometres, `Quantity.text()`, the range text of c0246,
+  or empty for `none`.
+- `Circuit.ports: tuple[Port, ...]` (empty by default). `Port` carries the entity header (prefix `prt`),
+  `name`, `owner` (the id of a module, or of a component for a device port), `kind` (`net` or an
+  interface kind such as `power` or `i2c`), `direction` (`in`, `out` or `inout`; any other raises
+  `ValueError`), `members` (member name to net id, a member without a net left out) and `optional`. An
+  empty `name` or `kind` raises `ValueError`.
+- The fields are additive: each is omitted from `circuit.json` when empty or default, so a design without
+  blocks gives the bytes it gave before, and an older file loads with `block == ""`, no params and no
+  ports. `SCHEMA_VERSION` stays `"0"`. No backend writes ports to a KiCad or Altium file.
 
 ## Ids of design scripts
 

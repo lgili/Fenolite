@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.interfaces import I2C, Interface
 from fenolite.dsl.part import Net, Part, PinHandle, connect
+from fenolite.dsl.portnets import same_net
 from fenolite.dsl.quantity import Quantity
 
 if TYPE_CHECKING:
@@ -53,7 +54,7 @@ def _join(links: Sequence[Link], call: str) -> None:
     for net, pin in links:
         part = pin.part
         current = part.connections.get(pin.designator)
-        if current is not None and current is not net:
+        if current is not None and not same_net(current, net):
             raise DslError(
                 f"{call}: pin {part.ref} {pin.designator} is already on net {current.name}; "
                 f"cannot join {net.name}"
@@ -70,7 +71,7 @@ def _join(links: Sequence[Link], call: str) -> None:
         known = names.setdefault(net.name, net)
         design = part.design
         registered = None if design is None else design.nets.get(net.name)
-        if known is not net or (registered is not None and registered is not net):
+        if not same_net(known, net) or (registered is not None and not same_net(registered, net)):
             raise DslError(f"{call}: two distinct nets are named {net.name!r}")
     for net, pin in links:
         connect(net, pin)

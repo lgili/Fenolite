@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from fenolite.dsl.design import Design
     from fenolite.dsl.intents import AnchorRef, PadRef
     from fenolite.dsl.module import Container
+    from fenolite.dsl.portnets import Group
 
 Side = Literal["top", "bottom"]
 NAME = re.compile(r"[A-Za-z0-9_.+-]+")
@@ -100,12 +101,17 @@ def check_name(value: object, what: str) -> str:
 class Net:
     """A net, named globally and literally; a module-local net is named by the script."""
 
+    deferred = False
+    """True for a port net (``fenolite.dsl.portnets``), whose name is fixed only by ``to_model``."""
+
     def __init__(self, name: str) -> None:
         if not isinstance(name, str) or not name or name != name.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"a net name must be a non-empty string without surrounding spaces, not {name!r}")
         self.name = name
         self.design: Design | None = None
         self.netclass: str | None = None
+        self.group: Group | None = None
+        """The port nets this net is bound to (change c0251); ``None`` until it is bound to one."""
 
     def __repr__(self) -> str:
         return f"Net({self.name!r})"
@@ -547,28 +553,38 @@ class Part:
         return f"Part({self.ref!r}, {self.lib_id!r})"
 
 
-def connect(net: Net, *pins: PinHandle) -> Net:
-    """Join each pin to ``net``; one designator of one part on two nets is refused."""
-    if not isinstance(net, Net):  # pyright: ignore[reportUnnecessaryIsInstance]
+def connect(net: object, *pins: object) -> Net:
+    """Join each pin to ``net``; one designator of one part on two nets is refused.
+
+    ``net`` is a ``Net``, a port net or a net-like port of a block; a pin argument may also be a port net
+    or a net-like port, which binds it to ``net`` (``docs/dsl.md``, "Port nets")."""
+    from fenolite.dsl.portnets import PortHandle, PortNet, as_net, join, same_net
+
+    first = as_net(net, what="connect()")
+    if first is None:
         raise DslError(f"connect() needs a Net first, not {net!r}")
     for pin in pins:
-        if not isinstance(pin, PinHandle):  # pyright: ignore[reportUnnecessaryIsInstance]
+        if isinstance(pin, (PortNet, PortHandle)):
+            join(first, cast(Net, as_net(pin, what="connect()")))
+            continue
+        if not isinstance(pin, PinHandle):
             raise DslError(f"connect() takes pins such as part['1'], not {pin!r}")
         current = pin.part.connections.get(pin.designator)
-        if current is not None and current is not net:
+        if current is not None and not same_net(current, first):
             raise DslError(
                 f"pin {pin.part.label} {pin.designator} is already on net {current.name}; "
-                f"cannot join {net.name}"
+                f"cannot join {first.name}"
             )
         if pin.designator in pin.part.no_connects:
             raise DslError(
-                f"pin {pin.part.label} {pin.designator} is marked as not connected; cannot join {net.name}"
+                f"pin {pin.part.label} {pin.designator} is marked as not connected; cannot join {first.name}"
             )
-        pin.part.connections[pin.designator] = net
+        if current is None:
+            pin.part.connections[pin.designator] = first
         design = pin.part.design
         if design is not None:
-            design.register_net(net)
-    return net
+            design.register_net(first)
+    return first
 
 
 def no_connect(*pins: PinHandle) -> None:

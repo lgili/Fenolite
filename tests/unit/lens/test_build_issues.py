@@ -57,6 +57,7 @@ def test_closed_set() -> None:
         "build.sheet-file-collision": "error",  # c0070: module sheets
         "build.sheet-stale": "warning",
         "build.pad-map-default": "warning",  # c0147: the catalog's default pin-to-pad map
+        "build.port-unused": "warning", "build.block-net-escape": "warning",  # c0251: blocks
         "build.area-unknown": "error",  # c0103: a rule names no rule area
         "build.not-two-terminal": "error", "build.must-connect-unconnected": "error",  # c0247
         # c0249: the design lock

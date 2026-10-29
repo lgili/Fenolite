@@ -126,9 +126,15 @@ Function: `between(a: 'Quantity', b: 'Quantity', *, nominal: 'Quantity \| None' 
 
 The range from `a` to `b`, two quantities of one unit with `a <= b`, with an optional nominal of that unit between them.
 
+## block
+
+Function: `block(function: 'Callable[..., None] \| None' = None, /, *, name: 'str \| None' = None) -> 'BlockDef \| Callable[[Callable[..., None]], BlockDef]'`
+
+Mark `def name(b, *, param=default, ...)` as a block: `@block` or `@block(name="buck")`.
+
 ## connect
 
-Function: `connect(net: 'Net', *pins: 'PinHandle') -> 'Net'`
+Function: `connect(net: 'object', *pins: 'object') -> 'Net'`
 
 Join each pin to `net`; one designator of one part on two nets is refused.
 

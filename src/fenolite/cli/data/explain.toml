@@ -1029,6 +1029,11 @@ meaning = "A part's footprint comes from a library outside the project, so it wa
 fix = "Nothing to do; result.vendored lists the copied files."
 see = "build"
 
+["build.block-net-escape"]
+meaning = "A net named by the script joins pins of parts inside a block instance and pins outside it, and no port of the block binds the net: the block uses a net it does not declare, often a global net closed over by the block's function."
+fix = "Declare a port in the block (b.port) and connect the net to the port of the instance outside the block; or ignore the warning for a net that is meant to be global."
+see = "build"
+
 ["build.i2c-pullup-missing"]
 meaning = "A line of an I2C interface has no part of exactly two pins between it and the hv net of a power interface of the design, so Fenolite sees no pull-up on the bus. A resistor array is not recognised."
 fix = "Add a pull-up resistor from each line to the supply net, or ignore the warning if the pull-ups are elsewhere."
@@ -1138,6 +1143,11 @@ see = "build"
 meaning = "A plane of the script has no copper on a KiCad board: no zone of its net lies on its layer. The layer is still written as a plane layer (type power); one issue per plane."
 fix = "Draw that copper in the script with design.zone(<net>, layers=(\"<layer>\",))."
 see = "Build target"
+
+["build.port-unused"]
+meaning = "A port of a block instance that is not optional has nothing outside the block on any of its members: no pin, net, port or interface outside the block is connected to it."
+fix = "Connect a net to the port of the instance (connect(net, inst.PORT)), or declare the port with optional=True when leaving it unwired is intended."
+see = "build"
 
 ["build.property-conflict"]
 meaning = "A user property of a part has another value than the footprint library already holds for it."

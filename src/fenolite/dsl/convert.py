@@ -20,6 +20,7 @@ from fenolite import __version__
 from fenolite.core.coords import Point, Size
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm
+from fenolite.dsl.block import Block, blocks
 from fenolite.dsl.design import MINIMUM_KINDS, Design, ImpedanceSpec
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.items import DimensionSpec, GraphicSpec, TextSpec
@@ -27,6 +28,7 @@ from fenolite.dsl.lock import assign_refs, make_lock
 from fenolite.dsl.module import Module as DslModule
 from fenolite.dsl.panel import Panel
 from fenolite.dsl.part import FieldRequest, PadZoneRequest, Part, Placement, check_name, pad_pairs
+from fenolite.dsl.portnets import resolve as resolve_port_nets
 from fenolite.dsl.quantity import UNITS, Range
 from fenolite.dsl.roles import to_roles
 from fenolite.dsl.schematic import extract as schematic_composition
@@ -47,6 +49,7 @@ from fenolite.model.board import (
 from fenolite.model.circuit import (
     DECIMAL10_DIGITS,
     DECIMAL10_EXPONENTS,
+    BlockParam,
     Circuit,
     Component,
     Decimal10,
@@ -55,6 +58,7 @@ from fenolite.model.circuit import (
     Net,
     NetClass,
     PinRef,
+    Port,
     RangeUnit,
     ValueRange,
 )
@@ -93,6 +97,7 @@ KEYS: Mapping[str, tuple[str, str]] = MappingProxyType(
         "net": ("net", "net:<name>"),
         "netclass": ("cls", "netclass:<name>"),
         "interface": ("itf", "interface:<kind>:<name>"),
+        "port": ("prt", "port:<owner path>:<port name>"),
         "layer": ("lay", "layer:<KiCad name>"),
         "zone": ("zon", "zone:<name>"),
         "rule": ("rul", "rule:<kind>[:<net class>] or rule:named:<rule name>"),
@@ -382,7 +387,32 @@ def _apply_refs(design: Design, refs: Mapping[str, str] | None) -> None:
         part.assigned = check_name(ref, f"ref of {path}")
 
 
+def _ports(design: Design) -> tuple[Port, ...]:
+    """One model port per port of a block instance, keyed by the block path and the port name; a member
+    whose group became no net (nothing on it) is left out (change c0251)."""
+    found: list[Port] = []
+    for block in blocks(design):
+        for name, port in sorted(block.ports.items()):
+            found.append(
+                Port(
+                    id=key_id("port", block.path, name),
+                    name=name,
+                    owner=key_id("module", block.path),
+                    kind=port.kind,
+                    direction=port.direction,  # type: ignore[arg-type]
+                    members={
+                        member: key_id("net", net.name)
+                        for member, net in sorted(port.members.items())
+                        if net.name in design.nets
+                    },
+                    optional=port.optional,
+                )
+            )
+    return tuple(found)
+
+
 def _design_model(design: Design) -> ModelDesign:
+    resolve_port_nets(design)
     parts = sorted(design.parts.values(), key=lambda p: p.path)
     components = tuple(_component(p) for p in parts)
     classes = {
@@ -479,6 +509,7 @@ def _design_model(design: Design) -> ModelDesign:
             netclasses=tuple(classes.values()),
             interfaces=interfaces,
             modules=modules,
+            ports=_ports(design),
             no_connects=marks,
         ),
         board=Board(
@@ -655,6 +686,8 @@ def _module(module: DslModule) -> Module:
         component_ids=tuple(
             key_id("component", c.path) for c in sorted(module.children, key=_path) if isinstance(c, Part)
         ),
+        block=module.definition.name if isinstance(module, Block) else "",
+        params=tuple(BlockParam(*entry) for entry in module.records) if isinstance(module, Block) else (),  # type: ignore[arg-type]
     )
 
 
@@ -742,6 +775,7 @@ def planes(design: Design) -> Mapping[str, str]:
     A plane on a net that the design does not hold raises ``DslError`` naming it. The model gets no plane
     entity: a plane is a build parameter, as the copper count is.
     """
+    resolve_port_nets(design)
     for layer, net in design.planes.items():
         if net not in design.nets:
             raise DslError(f"the plane on {layer} names the net {net!r}, which the design does not hold")

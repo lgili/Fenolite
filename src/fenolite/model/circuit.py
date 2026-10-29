@@ -229,13 +229,75 @@ class Interface(Entity):
     members: dict[str, str] = field(default_factory=lambda: {})
 
 
+BlockParamType = Literal["bool", "int", "str", "length", "quantity", "range", "none"]
+BLOCK_PARAM_TYPES: tuple[str, ...] = ("bool", "int", "str", "length", "quantity", "range", "none")
+"""The closed set of ``BlockParam.type`` (change c0251)."""
+
+
+@dataclass(frozen=True, slots=True)
+class BlockParam:
+    """One parameter of a block instance as recorded: its name, its type and its canonical text
+    (``true``, ``3``, ``1000000`` nm, ``3.3V``; empty for ``none``)."""
+
+    name: str
+    type: BlockParamType
+    text: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("a block parameter needs a name")
+        if self.type not in BLOCK_PARAM_TYPES:
+            raise ValueError(
+                f"block parameter {self.name}: type {self.type!r} is not one of "
+                f"{', '.join(BLOCK_PARAM_TYPES)}"
+            )
+
+
 @dataclass(frozen=True, slots=True)
 class Module(Entity):
-    """A node of the design hierarchy (``power/ldo``) and the components it owns."""
+    """A node of the design hierarchy (``power/ldo``) and the components it owns. A module made by a
+    block (change c0251) names it in ``block`` and records its parameters in ``params``, ordered by name."""
 
     path: str
     parent: str | None = None
     component_ids: tuple[str, ...] = ()
+    block: str = ""
+    params: tuple[BlockParam, ...] = field(default=(), metadata={"ordered": True})
+
+    def __post_init__(self) -> None:
+        names = [param.name for param in self.params]
+        if len(set(names)) != len(names):
+            raise ValueError(f"module {self.path}: two block parameters have one name")
+        if names != sorted(names):
+            raise ValueError(f"module {self.path}: block parameters must be ordered by name")
+        if self.params and not self.block:
+            raise ValueError(f"module {self.path}: block parameters need a block name")
+
+
+PortDirection = Literal["in", "out", "inout"]
+PORT_DIRECTIONS: tuple[str, ...] = ("in", "out", "inout")
+
+
+@dataclass(frozen=True, slots=True)
+class Port(Entity):
+    """A port of a block instance (change c0251): its name, its owner (the id of a module, or of a
+    component for a device port), its interface kind (``net``, ``power``, ``i2c``…), its direction, and
+    member name → net id; a member without a net is left out."""
+
+    name: str
+    owner: str
+    kind: str
+    direction: PortDirection = "inout"
+    members: dict[str, str] = field(default_factory=lambda: {})
+    optional: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.name or not self.kind:
+            raise ValueError("a port needs a name and a kind")
+        if self.direction not in PORT_DIRECTIONS:
+            raise ValueError(
+                f"port {self.name}: direction {self.direction!r} is not one of {', '.join(PORT_DIRECTIONS)}"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -265,6 +327,8 @@ class Circuit:
     netclasses: tuple[NetClass, ...] = ()
     interfaces: tuple[Interface, ...] = ()
     modules: tuple[Module, ...] = ()
+    #: The ports of block instances (change c0251).
+    ports: tuple[Port, ...] = ()
     #: Buses, indexed vectors of nets; a bus gives no net and no net member.
     buses: tuple[Bus, ...] = ()
     #: Pins the design leaves unconnected on purpose, in the form of net members: ``pin`` holds a
@@ -284,6 +348,10 @@ def power_interface_nets(circuit: Circuit) -> frozenset[str]:
 
 
 __all__ = [
+    "BLOCK_PARAM_TYPES",
+    "PORT_DIRECTIONS",
+    "BlockParam",
+    "BlockParamType",
     "Bus",
     "BusMember",
     "Circuit",
@@ -296,6 +364,8 @@ __all__ = [
     "Pin",
     "PinRef",
     "PinType",
+    "Port",
+    "PortDirection",
     "RangeUnit",
     "ValueRange",
     "normal_pin_pad_map",

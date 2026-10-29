@@ -35,6 +35,12 @@
         "$ref": "#/$defs/Module"
       }
     },
+    "ports": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Port"
+      }
+    },
     "buses": {
       "type": "array",
       "items": {
@@ -50,6 +56,34 @@
   },
   "additionalProperties": false,
   "$defs": {
+    "BlockParam": {
+      "description": "One parameter of a block instance as recorded: its name, its type and its canonical text",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "bool",
+            "int",
+            "str",
+            "length",
+            "quantity",
+            "range",
+            "none"
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type"
+      ]
+    },
     "Bus": {
       "description": "An indexed vector of nets (``D[0..7]``): ``name`` is the vector's name without its range and",
       "type": "object",
@@ -341,7 +375,7 @@
       ]
     },
     "Module": {
-      "description": "A node of the design hierarchy (``power/ldo``) and the components it owns.",
+      "description": "A node of the design hierarchy (``power/ldo``) and the components it owns. A module made by a",
       "type": "object",
       "properties": {
         "id": {
@@ -387,6 +421,15 @@
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "block": {
+          "type": "string"
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BlockParam"
           }
         }
       },
@@ -639,6 +682,70 @@
       "required": [
         "component_id",
         "pin"
+      ]
+    },
+    "Port": {
+      "description": "A port of a block instance (change c0251): its name, its owner (the id of a module, or of a",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "direction": {
+          "enum": [
+            "in",
+            "out",
+            "inout"
+          ]
+        },
+        "members": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "optional": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "owner",
+        "kind"
       ]
     },
     "Provenance": {

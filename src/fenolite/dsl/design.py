@@ -33,6 +33,7 @@ from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, Ti
 from fenolite.model.rules import HeightLimit, PlacementSeverity, RuleKind, RuleSeverity, Selector
 
 if TYPE_CHECKING:
+    from fenolite.dsl.block import BlockDef, BlockInstance
     from fenolite.dsl.generate import Recorded as Generated
     from fenolite.dsl.intents import MeanderIntent, Recorded
     from fenolite.dsl.rolecopper import RoleCopperIntent
@@ -629,6 +630,10 @@ class Design(Container):
         self.modules: dict[str, Module] = {}
         self.nets: dict[str, Net] = {}
         self.interfaces: dict[str, Interface] = {}
+        self.block_defs: dict[str, object] = {}
+        """The block definitions used by ``use()``, by block name (change c0251)."""
+        self.port_net_names: set[str] = set()
+        """The net names that ``portnets.resolve`` registered for groups of port nets."""
         self.aliases: dict[str, str] = {}
         """``moved()`` aliases: new path → old path, of a part or of a module."""
         self.net_aliases: dict[str, str] = {}
@@ -669,6 +674,13 @@ class Design(Container):
 
         self.role_records = RoleRecords()
         """The net roles, role groups, limits and part classes of the role calls (change c0222)."""
+
+    def use(self, block: BlockDef, name: str, **params: object) -> BlockInstance:
+        """An instance of the block ``block`` named ``name``, with the keyword parameters ``params``: the
+        block is added to the design and its function runs once (``docs/dsl.md``, "Blocks")."""
+        from fenolite.dsl.block import instantiate
+
+        return instantiate(self, block, name, params)
 
     def schematic_layout(self, *, mode: str = "blocks", flow: str = "left-to-right") -> None:
         """Enable presentation-only functional block composition (Altium)."""
@@ -2013,6 +2025,8 @@ class Design(Container):
     # -- registration (called by add(), connect() and netclass())
 
     def register_net(self, net: Net) -> None:
+        if net.deferred:
+            return  # a port net is registered under its group's name by to_model (portnets.resolve)
         known = self.nets.get(net.name)
         if known is not None and known is not net:
             raise DslError(f"two distinct nets are named {net.name!r}")

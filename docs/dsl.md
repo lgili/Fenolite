@@ -432,6 +432,7 @@ Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl"
 | net | `net` | `net:<name>` |
 | net class | `cls` | `netclass:<name>` |
 | interface | `itf` | `interface:<kind>:<name>` |
+| block port | `prt` | `port:<owner path>:<port name>`, the owner path being the block instance path (change c0251) |
 | layer | `lay` | `layer:<KiCad name>` |
 | zone | `zon` | `zone:<zone name>` |
 | rule | `rul` | `rule:<kind>` (board minimum), `rule:<kind>:<class name>` (class minimum), `rule:named:<rule name>` (a rule of `rule()`) |
@@ -1679,6 +1680,84 @@ y = design.part(lib_id="Device:Crystal", footprint="Crystal:HC49", prefix="Y")  
 - `to_model(design, *, refs=None)` takes the refs; without them it assigns against an empty lock. Ids stay
   derived from paths, never from refs. `result.lock` of `build` reports `file`, `exists`, `written`,
   `frozen` and `changes` (`docs/cli-contract.md`, "build").
+
+## Blocks
+
+A block is a reusable circuit with ports and recorded parameters (change c0251; the example is
+`examples/blocks/design.py`). It is a plain function marked with `@block`; nothing is collected behind the
+script's back, and stepping through it in a debugger shows ordinary calls.
+
+```python
+from fenolite.dsl import Design, Net, block, connect, mm, ohm
+
+
+@block
+def channel(b, *, r_en=ohm("10k"), x=mm(20)):
+    vin = b.port("VIN", direction="in")  # kind Net: one member
+    gnd = b.port("GND", direction="in")
+    en = b.port("EN", direction="out", optional=True)
+    fb = b.net("FB")  # the net ch0/FB in the instance ch0
+    r = b.part("R_EN", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value=r_en)
+    connect(vin, r[1])  # a port is wired like a net
+    connect(fb, r[2], en)
+    r.place(x, mm(10))
+
+
+ch0 = design.use(channel, "ch0", x=mm(20))
+connect(Net("VIN"), ch0.VIN)  # the port net takes the name VIN
+```
+
+- **The decorator.** `@block` or `@block(name="buck")` checks the signature when it decorates: the builder is
+  the one positional parameter, every other parameter is keyword-only with a recordable default or none,
+  and there is no `*args` and no `**kwargs`. The block name is the function's name or `name=`. Calling the
+  block directly raises `DslError` naming `design.use`. Two different functions with one block name in one
+  design are refused at the second `use`.
+- **Instances.** `design.use(block, name, **params)` and `b.use(...)` inside a block create a `Block` (a
+  `Module` named `name`, path `<parent path>/<name>`), add it, run the function once with it as `b`, and
+  return a `BlockInstance`. The function must return `None`. If it raises, the block stays added and the
+  error propagates. A block is a module everywhere: its path, its sheet, its model `Module`.
+- **The builder `b`.** `b.part(name, lib_id, *, footprint, value, ref, prefix, properties, pad_map, height)`
+  creates, adds and returns the part of local name `name` (the leaf of its path, `ch0/R_EN`); `b.net(name)`
+  gives the local net `<block path>/<name>`; `b.port(...)`; `b.use(...)`; `b.add(...)`; and the read-only
+  `b.path`, `b.name` and `b.params`. A local part name, or a port or local net name, used twice in one block
+  raises `DslError`. A `Part("R7", ...)` added with `b.add` takes its ref as its local name and gets an
+  allocated board ref like a part of `b.part`. A plain `Net("X")` made inside a block is still the global
+  net `X`.
+- **Parameters.** The keyword arguments are bound to the signature, the defaults applied, before the
+  function runs; an unknown, missing or unrecordable argument raises `DslError` naming it. Each value is
+  recorded on the model `Module` as `BlockParam(name, type, text)`, ordered by name, with `Module.block` the
+  block name: `bool` (`true`/`false`), `int`, `str`, `Length` (integer nm), `Quantity` (`Quantity.text()`)
+  `Range` (`range`, `Range.text()`) and `None` (`none`, empty). A float, a list, a part or a net cannot be
+  recorded: build such objects inside the block.
+- **Ports.** `b.port(name, kind=Net, *, direction="inout", optional=False)`; `direction` is `in`, `out` or
+  `inout`, and `kind` is `Net` or an interface class: `Power` (`hv`, `lv`), `DiffPair` (`p`, `n`), `I2C`
+  (`sda`, `scl`), `UART` (`tx`, `rx`), `USB2` (`dp`, `dn`, `vbus`, `gnd`), `SPI` (`sck`, `mosi`, `miso`,
+  `cs0`; `selects=n` for n chip selects) and `Harness` (`members=(...)`). `handle.sda` or `handle["sda"]`
+  is the port net of one member. A port of one member is net-like: `connect` takes it as its net or as a pin
+  argument. Outside, `inst.VIN` and `inst.port("VIN")` are the same handle. A port name equal to `path`,
+  `block`, `params`, `part`, `port` or `place` raises `DslError`. Each port is a model `Port` with the id
+  `port:<block path>:<port name>`.
+- **Port nets and their names.** A port net has no name of its own: `connect` binds nets and port nets into
+  groups. A group with one script-named net (a `Net` or a local net) takes its name. A group without one
+  takes the path of its preferred port member, an `out` port first, then the smallest path in code-point
+  order: `<block path>/<port>` for a port of one member, `<block path>/<port>.<member>` otherwise. So
+  `connect(buck1.VOUT, buck2.VIN)` gives the net `buck1/VOUT` whatever the order of the calls, and
+  `connect(v33, buck1.VOUT)` gives `3V3`. Joining two script-named nets through ports raises `DslError`:
+  Fenolite never merges named nets. Connecting a group to a named net later renames its copper; record
+  the old name with `moved_net()` to keep it.
+- **Refs.** The board ref of a block part is `ref=` when given (global, checked like any ref), else the
+  lock's ref for its path, else the next free ref of its prefix ("Reference designators and the design
+  lock"). Two instances never type the same ref.
+- **Checks.** Two warnings of the KiCad build (`docs/cli-contract.md`, "build"):
+  - `build.port-unused`: a port that is not `optional` has nothing outside its block (no pin, net, port or
+    interface) on any member; `where` is `<block path>/<port>`.
+  - `build.block-net-escape`: a script-named net joins pins inside and outside a block that no port of the
+    block binds it to, often a global net closed over by the function; the hint is "declare a port".
+- **Schematics.** The KiCad sheet of a block instance is shown as `<name> (<block name>)`, for example
+  `ch0 (channel)`; its file stays `sheets/<path>.kicad_sch`. In Altium block composition each instance that
+  owns parts gives an implicit `schematic_block` (`docs/schematic-composition.md`).
+- **When to keep `Module`.** Use a block for anything repeated or reused; keep `Module` for grouping parts
+  whose refs and nets the script names by hand.
 
 ## Path aliases (`moved()`)
 
