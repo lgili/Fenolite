@@ -413,7 +413,12 @@ def _rows(judged: Judged, nets: Sequence[str], kinds: Sequence[str]) -> list[dic
 
 
 def _relative(path: Path, cwd: Path) -> str:
-    return Path(os.path.relpath(path, cwd)).as_posix()
+    """``path`` relative to ``cwd`` in POSIX form, or absolute when it has no relative form (another drive
+    on Windows)."""
+    try:
+        return Path(os.path.relpath(path, cwd)).as_posix()
+    except ValueError:
+        return path.as_posix()
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:

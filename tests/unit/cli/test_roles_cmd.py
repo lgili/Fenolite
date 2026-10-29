@@ -94,6 +94,25 @@ def test_write_needs_confirmation(
     assert tree_snapshot(board.parent) == before
 
 
+def test_board_on_another_drive(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, boards: dict[str, Built]
+) -> None:
+    """On Windows a board on another drive has no path relative to the working folder: the file to write is
+    shown absolute."""
+    hide_kicad(monkeypatch, tmp_path)
+    board = _copy(boards["buck_bad"], tmp_path / "project", model=False)
+
+    def no_relative(path: object, start: object = None) -> str:
+        raise ValueError("path is on mount 'D:', start on mount 'C:'")
+
+    monkeypatch.setattr("fenolite.cli.cmd_roles.os.path.relpath", no_relative)
+    code, env, error, _ = run(monkeypatch, tmp_path, "roles", str(board), "--accept", "GND", "--dry-run")
+    assert code == 0, error
+    target = board.with_name(board.stem + ".roles.json").as_posix()
+    assert env["result"]["store"]["file"] == target
+    assert [w["path"] for w in env["result"]["plan"]] == [target]
+
+
 def test_usage_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, boards: dict[str, Built]) -> None:
     hide_kicad(monkeypatch, tmp_path)
     code, _, error, _ = run(
