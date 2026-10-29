@@ -150,6 +150,18 @@ item the DSL cannot say exits 7 (`FEN-7001`) unless `--allow-lossy`. Pass `--lic
 `--source` and `--timestamp` for a board you did not author; publish converted boards only where their
 licence allows.
 
+A table is one net's copper, each row in integer nm in the frame of `place()`:
+
+```fenolite-design
+from fenolite.dsl import Design, Net, mm
+
+design = Design("tables")
+design.board(mm(50), mm(30))
+gnd = Net("GND")
+rows = ((10_000_000, 10_000_000, 15_000_000, 10_000_000),)
+design.track_table("GND/F.Cu/1", net=gnd, layer="F.Cu", width=mm("0.25"), rows_nm=rows)
+```
+
 ## The canonical print
 
 ```fenolite-cmd

@@ -23,16 +23,23 @@ from fenolite.importer.codes import issue
 from fenolite.model.base import Opaque
 from fenolite.model.design import Design
 
-INFRASTRUCTURE = frozenset({"general", "paper", "setup", "net", "embedded_fonts", "embedded_files"})
-"""Root fragments of a board file that hold settings, not items (the net table of a KiCad 9 board among
-them: the nets come from the pads): the build writes its own."""
+INFRASTRUCTURE = frozenset(
+    {"general", "paper", "setup", "net", "title_block", "embedded_fonts", "embedded_files"}
+)
+"""Root fragments of a board file that hold settings, not items: the build writes its own. The net table of
+a KiCad 9 board is one (the nets come from the pads), and the title block, which the model holds and the
+emitter writes as ``design.title_block()``."""
 EXPLAINS: Mapping[str, tuple[tuple[int, str], ...]] = {
     "dnp": ((1, "dnp"),),
     "copper-without-net": ((5, "*"),),
     "zero-length-track": ((5, "*"),),
     "degenerate-arc": ((5, "*"),),
     "via-protection": ((5, "*"),),
+    "via-span": ((5, "*"),),
     "pad-net-conflict": ((2, "*"), (5, "*")),
+    "duplicate-ref": ((1, "ref-ambiguous"), (5, "*")),
+    "footprint-ref": ((1, "component-missing"), (1, "ref-ambiguous"), (5, "*")),
+    "footprint": ((1, "component-missing"), (5, "*")),
 }
 """Each kind → the (level, difference kind) it explains in the self-check; ``*`` is any kind."""
 
@@ -78,7 +85,8 @@ def _root_heads(design: Design) -> Iterable[str]:
         if isinstance(slot, Opaque):
             child = slotlib.opaque_child(slot)
             if isinstance(child, Node) and child.name not in INFRASTRUCTURE:
-                yield child.name
+                attr = child.find("attr") if child.name == "zone" else None
+                yield "teardrop" if attr is not None and attr.find("teardrop") is not None else child.name
 
 
 def scan(design: Design, ledger: Ledger) -> None:
@@ -92,8 +100,6 @@ def scan(design: Design, ledger: Ledger) -> None:
         ledger.add("hole", hole.id)
     for dimension in board.dimensions:
         ledger.add("dimension", f"{dimension.kind} on {dimension.layer}")
-    if board.title_block is not None:
-        ledger.add("title-block", "title block")
     for component in design.circuit.components:
         if component.dnp:
             ledger.add("dnp", component.ref)

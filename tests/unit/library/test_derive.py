@@ -76,3 +76,16 @@ def test_drift_of_a_library(tmp_path: Path) -> None:
     path.write_text(edited, encoding="utf-8")
     assert len(read_footprint(path).graphics_on("F.SilkS")) == 1
     assert drift(derived, folder) == (("R_0603", ("silkscreen",)),)
+
+
+def test_a_zero_board_angle_is_turned_back() -> None:
+    """A pad whose board angle is 0 is written without an angle; in a footprint at 90° its angle in the
+    footprint's frame is 270° (change c0275: ``local_footprint`` read no angle as none to turn back)."""
+    text = board_text()
+    start = text.index('\t(footprint "Fenolite_Test:R_0603"')
+    end = text.index('\t(footprint "Fenolite_Test:LED_THT_3mm"')
+    turned = text[start:end].replace("(at 0.8 0 90)", "(at 0.8 0)")
+    derived = derive_library(text[:start] + turned + text[end:], library="lib", target=10)
+    (resistor,) = [fp for fp in derived.footprints if fp.name == "R_0603"]
+    pads = {pad.number: pad.rotation for pad in resistor.definition.pads}
+    assert pads["2"] % 360_000_000 == 270_000_000 and pads["1"] == 0

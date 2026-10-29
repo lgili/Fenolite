@@ -123,12 +123,14 @@ Never silently. The kinds today:
 
 | kind | what |
 |---|---|
-| a root item KiCad keeps that the model does not (`group`, `generated`, `image`, `target`…) | named by its head |
-| `stackup`, `hole`, `dimension`, `title-block`, `net-tie`, `dnp` | model items no emitter writes yet |
-| `custom-rule` | a `.kicad_dru` rule that is not a plain minimum |
-| `zone-setting`, `zone-name`, `zone-layer`, `rule-area-name`, `rule-area-layer` | a zone smoothing or hatch, a repeated zone name, a zone or area off the copper layers, an area name the DSL refuses |
-| `drawing`, `drawing-layer`, `copper-drawing`, `text`, `text-layer` | a drawing the DSL calls refuse, or one on a layer they do not take |
-| `copper-without-net`, `zero-length-track`, `degenerate-arc`, `via-protection`, `copper-layer`, `copper-count` | copper no table holds |
+| a root item KiCad keeps that the model does not (`group`, `generated`, `image`, `target`…) | named by its head; a zone KiCad made as a teardrop is `teardrop` |
+| `hole`, `dimension`, `net-tie`, `dnp` | model items no emitter writes yet |
+| `stackup`, `title-block` | a stack-up row or a title-block field the DSL refuses |
+| `custom-rule` | a `.kicad_dru` rule whose selector the DSL cannot write (a layer leaf, an undeclared class) |
+| `zone-setting`, `zone-name`, `zone-layer`, `zone-outline`, `rule-area-name`, `rule-area-layer` | a zone smoothing or hatch, a repeated zone name, a zone or area off the copper layers or without an outline, an area name the DSL refuses |
+| `drawing`, `drawing-layer`, `copper-drawing`, `text`, `text-layer` | a drawing the DSL calls refuse, or one on a layer they do not take (copper, or a user layer a DSL board does not hold) |
+| `copper-without-net`, `zero-length-track`, `degenerate-arc`, `via-protection`, `via-span`, `copper-layer`, `copper-count` | copper no table holds |
+| `footprint-ref`, `duplicate-ref`, `footprint` | a footprint whose reference the DSL refuses, a second footprint of one reference, one the library derive cannot bring back |
 | `pad-net-unnumbered`, `pad-net-conflict`, `outline` | a pad on a net without a number, a pad number on two nets, no closed outline |
 
 Change c0277 (verbatim items and the DSL coverage holes) is not merged yet: until it is, its kinds stay in

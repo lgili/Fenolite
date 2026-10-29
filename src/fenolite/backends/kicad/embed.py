@@ -562,9 +562,11 @@ def local_footprint(root: Node, rotation: Udeg, side: Side, issues: list[Issue])
             )
         if isinstance(child, Node) and child.name in {"pad", "property", "fp_text"}:
             at = child.find("at")
-            if at is not None and len(at.atoms()) >= 3:
+            # a zero board angle is not written (docs/formats/kicad/board.md): it is turned back too
+            if at is not None and (len(at.atoms()) >= 3 or (len(at.atoms()) == 2 and rotation)):
                 atoms = at.atoms()
-                angle = parse_angle(atoms[2].value + "deg") - rotation
+                stored = parse_angle(atoms[2].value + "deg") if len(atoms) >= 3 else 0
+                angle = stored - rotation
                 replacement = at.with_children((*at.children[:2], angle_atom(angle)))
                 child = child.with_children(tuple(replacement if c is at else c for c in child.children))
         children.append(child)

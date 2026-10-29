@@ -46,7 +46,17 @@ from fenolite.importer.provenance import Provenance
 from fenolite.importer.source import Source
 from fenolite.importer.tables import ORIGIN, Table, copper_tables, protect_arguments
 from fenolite.importer.vendor import natural, vendor
-from fenolite.model.board import Board, Graphic, Keepout, Outline, StackLayer, Text, Zone, ZoneSettings
+from fenolite.model.board import (
+    Board,
+    FootprintInstance,
+    Graphic,
+    Keepout,
+    Outline,
+    StackLayer,
+    Text,
+    Zone,
+    ZoneSettings,
+)
 from fenolite.model.design import Design
 from fenolite.model.rules import Rule, Selector
 
@@ -295,6 +305,29 @@ def _stackup(board: Board, copper: int, writer: _Writer, ledger: Ledger) -> list
         kwargs.append(("impedance_controlled", Raw("True")))
     writer.imports.add("stack")
     return [statement(Call("design.stackup", calls, tuple(kwargs)))]
+
+
+TITLE_FIELDS = ("title", "date", "revision", "organization", "doc_id", "responsible", "approver")
+
+
+def _title_block(board: Board, ledger: Ledger) -> list[list[str]]:
+    """``design.title_block()`` of the board's title block, checked by the DSL before it is written."""
+    block = board.title_block
+    if block is None:
+        return []
+    from fenolite.dsl.design import Design as DslDesign
+    from fenolite.dsl.errors import DslError
+
+    given = {name: getattr(block, name) for name in TITLE_FIELDS if getattr(block, name)}
+    try:
+        DslDesign("probe").title_block(**given, variables=dict(block.params))
+    except DslError as error:
+        ledger.add("title-block", str(error)[:80])
+        return []
+    kwargs: list[tuple[str, Expr]] = [(name, text(value)) for name, value in given.items()]
+    if block.params:
+        kwargs.append(("variables", Dct(tuple((k, text(v)) for k, v in sorted(block.params.items())))))
+    return [statement(Call("design.title_block", (), tuple(kwargs)))] if kwargs else []
 
 
 def _path_of(design: Design, component_id: str, ref: str, sheet: str) -> tuple[str, ...]:
@@ -582,6 +615,8 @@ def _areas(board: Board, layers: Sequence[str], ledger: Ledger) -> list[list[str
 
 def _graphic(graphic: Graphic, key: str) -> Call | None:
     points = graphic.points
+    if graphic.width < 0:
+        return None
     width = length(graphic.width)
     fill = (("fill", Raw("True")),) if graphic.filled else ()
     layer = ("layer", text(graphic.layer))
@@ -624,7 +659,12 @@ def _text(item: Text, key: str) -> Call | None:
 
 
 def _drawings(board: Board, ledger: Ledger) -> list[list[str]]:
-    kinds = _kinds(board)
+    from fenolite.dsl.items import BOARD_LAYER_KINDS
+
+    # a DSL board holds the standard layers only: a drawing on another user layer cannot be written
+    kinds = {
+        name: kind for name, kind in _kinds(board).items() if name in BOARD_LAYER_KINDS or kind == "edge"
+    }
     out: list[list[str]] = []
     counters: dict[tuple[str, str], int] = {}
 
@@ -716,6 +756,7 @@ def emit(source: Source, options: Options) -> Emission:
     header = options.provenance.header()
     board_lines, copper_count = _board(design, writer, ledger)
     board_lines += _stackup(board, copper_count, writer, ledger)
+    board_lines += _title_block(board, ledger)
     layers = _copper_names(copper_count)
     names = {net.id: net.name for net in design.circuit.nets}
     refs = {c.id: c.ref for c in design.circuit.components}
@@ -733,14 +774,25 @@ def emit(source: Source, options: Options) -> Emission:
             ledger.add("copper-layer", "-".join(table.layers), count=len(table.rows))
             continue
         kept_tables.append(table)
+    # the footprints the code writes: one per ref, a ref the DSL takes, a footprint the library derived
+    placed: list[FootprintInstance] = []
+    taken_refs: set[str] = set()
+    for footprint in sorted(board.footprints, key=lambda fp: (natural(refs.get(fp.component_id, "")), fp.id)):
+        ref = refs.get(footprint.component_id, "")
+        if not NAME.fullmatch(ref):
+            ledger.add("footprint-ref", ref or footprint.lib_ref)
+        elif ref in taken_refs:
+            ledger.add("duplicate-ref", ref)
+        elif ref not in vendored.footprints:
+            ledger.add("footprint", ref)
+        else:
+            taken_refs.add(ref)
+            placed.append(footprint)
     # pads by net
     members: dict[str, dict[tuple[str, str], None]] = {}
     seen: dict[tuple[str, str], str] = {}
-    for footprint in board.footprints:
-        ref = refs.get(footprint.component_id, "")
-        if ref not in vendored.footprints:
-            ledger.add("footprint", ref or footprint.lib_ref)
-            continue
+    for footprint in placed:
+        ref = refs[footprint.component_id]
         for pad in footprint.pads:
             net = names.get(pad.net_id or "")
             if net is None:
@@ -792,10 +844,7 @@ def emit(source: Source, options: Options) -> Emission:
     containers: dict[tuple[str, ...], list[str]] = {(): []}
     module_vars: dict[tuple[str, ...], str] = {}
     module_lines: list[list[str]] = []
-    footprints = sorted(
-        (fp for fp in board.footprints if refs.get(fp.component_id, "") in vendored.footprints),
-        key=lambda fp: natural(refs.get(fp.component_id, "")),
-    )
+    footprints = placed
     components = {c.id: c for c in design.circuit.components}
     paths: dict[str, tuple[str, ...]] = {}
     sheets = _sheet_names(board, source.board_text)

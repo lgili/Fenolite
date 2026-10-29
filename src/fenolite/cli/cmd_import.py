@@ -171,6 +171,7 @@ def _build(emission: Emission, name: str, major: int, ctx: Context) -> tuple[lis
             target.write_bytes(data)
         reply = run(
             "build", "design.py", "--out", "built", "--confirm", "--kicad-version", str(major),
+            "--copper-check", "warn", "--schematic", "skip",
             cwd=root, timestamp=ctx.timestamp,
         )  # fmt: skip
         if reply.exit_code != 0:

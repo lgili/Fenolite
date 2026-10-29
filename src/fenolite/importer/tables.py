@@ -115,8 +115,25 @@ def _collinear(a: Point, m: Point, b: Point) -> bool:
     return (m.x - a.x) * (b.y - a.y) - (m.y - a.y) * (b.x - a.x) == 0
 
 
+def span_ok(kind: str, layers: tuple[str, ...], stack: tuple[str, ...]) -> bool:
+    """Whether a via of ``kind`` between ``layers`` fits the copper ``stack`` as the build's resolver
+    requires: a blind via joins one outer layer, a buried one none, a micro via one outer layer and the
+    layer next to it; a through via spans the board."""
+    if kind == "through":
+        return True
+    if len(layers) < 2 or layers[0] not in stack or layers[-1] not in stack:
+        return False
+    first, second = sorted((stack.index(layers[0]), stack.index(layers[-1])))
+    outer = sum(1 for index in (first, second) if index in (0, len(stack) - 1))
+    fits = {"blind": outer == 1, "buried": outer == 0, "micro": outer == 1 and second - first == 1}
+    return first != second and fits.get(kind, False)
+
+
 def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
     """The tables of ``board``'s tracks, arcs and vias; ``net_names`` maps net ids to names."""
+    stack = tuple(
+        layer.name for layer in sorted(board.layers, key=lambda la: la.ordinal) if layer.kind == "copper"
+    )
     left: Counter[str] = Counter()
     lines: dict[tuple[str, str], dict[tuple[int, int, bool], list[Row]]] = {}
     for track in board.tracks:
@@ -164,6 +181,9 @@ def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
             continue
         if not protection_ok(via.protection):
             left["via-protection"] += 1
+            continue
+        if not span_ok(via.via_type, tuple(via.layers), stack):
+            left["via-span"] += 1
             continue
         span = (via.layers[0], via.layers[-1]) if via.via_type != "through" and len(via.layers) >= 2 else None
         group = (via.diameter, via.drill, via.via_type, span or ("", ""), _protection_key(via.protection),
