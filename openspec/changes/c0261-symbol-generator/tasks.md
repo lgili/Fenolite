@@ -60,9 +60,11 @@
 
   2026-10-29: `write_symbol_library` writes one sub-symbol per unit and body style, `unit_name`, `(hide yes)`, alternates, the non-standard properties (sorted, hidden) and derived symbols (`extends` and own properties, after the base); the reader keeps the unit and body style of a graphic in a symbol of several units or styles. The catalog library keeps the bytes measured before the change on 9 and 10 (`test_existing_libraries_unchanged`). Proof passed: `tests/unit/backends/kicad/test_sym.py` 27 passed; `tests/unit/test_examples.py` 8 passed; also `tests/unit/lens/test_build_bytes_pinned.py`, `test_build_schematic.py` and `tests/unit/backends/kicad` (3186 passed).
 
-- [ ] 3.2 Add the KiCad oracle `tests/kicad/library/test_symbol_generate_oracle.py` and register `H-K-SYM-UNITS-WRITE` (scenario "Multi-unit library exports"). Proof: `uv run pytest tests/kicad/library/test_symbol_generate_oracle.py -rA` (in CI, `kicad-9` and `kicad-10` jobs).
+- [x] 3.2 Add the KiCad oracle `tests/kicad/library/test_symbol_generate_oracle.py` and register `H-K-SYM-UNITS-WRITE` (scenario "Multi-unit library exports"). Proof: `uv run pytest tests/kicad/library/test_symbol_generate_oracle.py -rA` (in CI, `kicad-9` and `kicad-10` jobs).
 
-  Open (2026-10-29): the oracle and the row `H-K-SYM-UNITS-WRITE` are added, and the test passed locally on kicad-cli 10.0.7 (1 passed). The proof asks for the CI jobs `kicad-9` and `kicad-10`; the task is ticked once both are green on the pushed head, and the row then moves to `KICAD-VERIFIED (9.0.x, 10.0.x)`.
+  2026-10-29: the oracle and the row `H-K-SYM-UNITS-WRITE` are added. Proof passed: locally on kicad-cli
+  10.0.7 (1 passed), and in CI run 40926535342 on commit 2f8f682d, jobs `kicad-9` (9.0.9) and `kicad-10`
+  (10.0.6), both green with `FENOLITE_REQUIRE` naming `kicad`; the row is `KICAD-VERIFIED (9.0.x, 10.0.x)`.
 
 - [x] 3.3 Extend `altsym.from_symbol_def` with per-unit graphics and flattening of derived symbols, and register `H-A-SCHLIB-GEN-PARTS` with its kit step (scenario "Generated MCU to SchLib"). Proof: `uv run pytest tests/unit/backends/altium/test_altsym.py tests/unit/backends/altium/test_schlib.py -q`; `uv run pytest tests/kicad/altium/test_schlib_oracle.py -rA` (in CI).
 
@@ -104,6 +106,9 @@
 
   Open (2026-10-29): `circuits-as-code` is still at 0.6.0, whose release-record guard requires `[Unreleased]` to stay empty; the entry is added once the branch receives `dev`'s `0.7.0.dev0`.
 
-- [ ] 5.6 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
+- [x] 5.6 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
 
-  Open (2026-10-29): `make check-fast` passed before the push; ticked when the required CI jobs (unit and KiCad) are green on the pushed head.
+  2026-10-29: `make check-fast` passed before each push (exit 0, 15 354 passed); CI run 40926535342 on
+  commit 2f8f682d is green in every job (unit on Linux 3.11/3.12/3.13, macOS and Windows, kicad-9, kicad-10,
+  routing 9 and 10, viewer, wheel, mcp, dco). The final head, which only records these results, is
+  checked by its own run.
