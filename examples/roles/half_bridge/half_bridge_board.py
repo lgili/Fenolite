@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: CC0-1.0
 # Authored for Fenolite as an example; no file, value, name or layout comes from any other project.
 """The half-bridge reference board of the net roles (change c0222; ``docs/roles.md``, "Reference boards"),
-shared by ``good.py`` and ``bad.py``.
+shared by ``good.py``, ``bad.py`` and ``open.py``.
 
 A half-bridge on a 70 mm by 50 mm four-layer board: the bus terminal ``J1`` and the bus capacitor ``C1``,
 the switches ``Q1`` (high side) and ``Q2`` (low side) in a package with a Kelvin source, their driver ``U2``
@@ -14,6 +14,10 @@ is a plane on ``B.Cu``.
 - ``bad``: the high side's gate return leaves from the source pour; the low side's gate trace takes a detour
   that encloses over three times its placement bound; the sense pair crosses a pour of the switch node on
   ``In1.Cu``; the bus reaches the high side through one via.
+- ``open`` (change c0244): ``bad`` without its critical copper, for ``fenolite route --roles critical`` to
+  draw: the high side's gate return and its tie to the source pour, the low side's gate trace and the sense
+  pair. The bus via and the pour of the switch node on ``In1.Cu`` stay, since they are power copper
+  (phase 1).
 
 Every value is a round illustrative number, not a design recommendation. Positions are millimetres in the
 frame of ``place()``.
@@ -35,7 +39,10 @@ def ring(*points: tuple[float, float]) -> tuple[tuple[int, int], ...]:
 
 
 def make(design: Design, variant: str) -> Design:
-    """Draws the ``variant`` board into ``design``, which the variant script makes."""
+    """Draws the ``variant`` board (``good``, ``bad`` or ``open``) into ``design``, which the variant script
+    makes."""
+    if variant not in ("good", "bad", "open"):
+        raise ValueError(f"unknown variant {variant!r}")
     good = variant == "good"
     design.board(mm(70), mm(50), copper=4)
     j1 = Part("J1", "Fenolite:Connector_2", footprint="Roles:Roles_Terminal_2P", value="BUS 400V")
@@ -135,16 +142,17 @@ def make(design: Design, variant: str) -> Design:
          (33.5, 30.0), (26.8, 30.0), (26.8, 41.6), (3.0, 41.6), (3.0, 33.6), (13.6, 33.6), (13.6, 22.2),
          (25.7, 22.2))  # fmt: skip
     # the sense pair from the inner halves of the shunt's pads
-    design.track(
-        "sense_p", r1.pad(1).at(mm("0.5")), p(33.1, 38.5), p(34.2, 39.6), u3.pad(3), width=mm("0.25")
-    )
-    design.track(
-        "sense_n", r1.pad(2).at(mm("-0.5")), p(37.9, 38.5), p(36.8, 39.6), u3.pad(4), width=mm("0.25")
-    )
+    if variant != "open":
+        design.track(
+            "sense_p", r1.pad(1).at(mm("0.5")), p(33.1, 38.5), p(34.2, 39.6), u3.pad(3), width=mm("0.25")
+        )
+        design.track(
+            "sense_n", r1.pad(2).at(mm("-0.5")), p(37.9, 38.5), p(36.8, 39.6), u3.pad(4), width=mm("0.25")
+        )
     if good:
         _good(design, q1, q2, u2, vbus, zone)
     else:
-        _bad(design, j1, q1, q2, u2, vbus, sw, zone)
+        _bad(design, j1, q1, q2, u2, vbus, sw, zone, gates=variant == "bad")
     return design
 
 
@@ -158,23 +166,25 @@ def _good(design, q1, q2, u2, vbus, zone):  # type: ignore[no-untyped-def]
     design.track("gl", u2.pad(5), p(37.0, 21.905), p(37.0, 31.0), q2.pad(1), width=mm("0.25"))
 
 
-def _bad(design, j1, q1, q2, u2, vbus, sw, zone):  # type: ignore[no-untyped-def]
+def _bad(design, j1, q1, q2, u2, vbus, sw, zone, gates=True):  # type: ignore[no-untyped-def]
     """The bus reaches the high side's pour through one via; the high side's Kelvin-source pad is tied to the
     source pour and its gate return leaves from that pour; the low side's gate trace takes a detour; a pour
-    of the switch node on ``In1.Cu`` lies under the sense pair."""
+    of the switch node on ``In1.Cu`` lies under the sense pair. Without ``gates``, the two gate faults are
+    left out with the copper they are made of."""
     zone(vbus, "VBUS", (1.5, 9.5), (24.1, 9.5), (24.1, 20.6), (1.5, 20.6))
     design.track("vbus_in", j1.pad(1), p(7.0, 6.0), p(7.0, 14.0), layer="In2.Cu", width=mm(8), net=vbus)
     design.via("vbus_via", *p(7.0, 14.0), net=vbus, **BLIND, layers=("F.Cu", "In2.Cu"))
     design.track("vbus_top", p(7.0, 14.0), p(7.0, 12.0), width=mm(8), net=vbus)
-    design.track("ks_tie", q1.pad(2), p(27.0, 12.5), width=mm("0.25"))
-    design.via("gh_ret_via", *p(31.0, 14.6), net=sw, **BLIND, layers=("F.Cu", "In1.Cu"))
-    design.track(
-        "gh_ret", p(31.0, 14.6), p(31.0, 11.0), p(38.0, 11.0), p(38.0, 20.635),
-        via_step(*p(39.6, 20.635), to="F.Cu", **BLIND), u2.pad(6), layer="In1.Cu", width=mm("0.25"),
-    )  # fmt: skip
-    design.track(
-        "gl", u2.pad(5), p(42.0, 21.905), p(42.0, 26.0), p(52.0, 26.0), p(52.0, 33.0), p(37.0, 33.0),
-        p(37.0, 31.0), q2.pad(1), width=mm("0.25"),
-    )  # fmt: skip
+    if gates:
+        design.track("ks_tie", q1.pad(2), p(27.0, 12.5), width=mm("0.25"))
+        design.via("gh_ret_via", *p(31.0, 14.6), net=sw, **BLIND, layers=("F.Cu", "In1.Cu"))
+        design.track(
+            "gh_ret", p(31.0, 14.6), p(31.0, 11.0), p(38.0, 11.0), p(38.0, 20.635),
+            via_step(*p(39.6, 20.635), to="F.Cu", **BLIND), u2.pad(6), layer="In1.Cu", width=mm("0.25"),
+        )  # fmt: skip
+        design.track(
+            "gl", u2.pad(5), p(42.0, 21.905), p(42.0, 26.0), p(52.0, 26.0), p(52.0, 33.0), p(37.0, 33.0),
+            p(37.0, 31.0), q2.pad(1), width=mm("0.25"),
+        )  # fmt: skip
     zone(sw, "SW_UNDER", (25.4, 37.6), (39.5, 37.6), (39.5, 41.4), (25.4, 41.4), layer="In1.Cu")
     design.via("sw_under", *p(25.8, 40.5), net=sw, **BLIND, layers=("F.Cu", "In1.Cu"))
