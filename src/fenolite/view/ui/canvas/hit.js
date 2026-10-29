@@ -22,7 +22,8 @@ function pick(X, Y) {
       if (hitPrim(pr, x, y, tol)) return { layer: l, pr }; } }
   return null;
 }
-function showInfo(html) { const el = $("info"); if (!html) { el.style.display = "none"; return; } el.innerHTML = html; el.style.display = "block"; }
+function showInfo(html) {   // c0245: the Properties panel; empty, it says that nothing is selected
+  const el = $("info"); if (!html) { el.innerHTML = ""; $("propsEmpty").hidden = false; return; } el.innerHTML = html; $("propsEmpty").hidden = true; }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" })[c]); }
 function linkify(v) { const t = String(v); return /^https?:\/\/\S+$/i.test(t) ? `<a href="${esc(t)}" target="_blank" rel="noopener noreferrer">${esc(t)}</a>` : esc(t); }
 

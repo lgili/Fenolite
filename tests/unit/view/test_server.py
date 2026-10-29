@@ -217,3 +217,35 @@ def test_refinement_publication_checks_generation_under_lock(monkeypatch: pytest
             assert not worker.is_alive()
     assert live.scene("doc1") == latest and live.version("doc1") == version
     assert json.loads(latest or b"{}")["meta"]["sha256"] == "2"
+
+
+def test_a_floated_panel_window_is_the_page(tmp_path: Path) -> None:
+    """Change c0245, decision 4: ``/panel/<name>`` sends the browser to the page, told which panel to show
+    and which document to open; other names are not routes."""
+    board = tmp_path / "board.kicad_pcb"
+    shutil.copy(BOARD, board)
+    live = server.Live(load_tree(board), _build)
+    httpd = server.serve(live, 0)
+    port = httpd.server_address[1]
+    stop = threading.Event()
+    thread = threading.Thread(target=server.run, args=(live, httpd), kwargs={"until": stop}, daemon=True)
+    thread.start()
+
+    class _NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+            return None
+
+    opener = urllib.request.build_opener(_NoRedirect)
+    try:
+        with pytest.raises(urllib.error.HTTPError) as caught:
+            opener.open(f"http://127.0.0.1:{port}/panel/messages?doc=doc1", timeout=10)
+        assert caught.value.code == 302
+        assert caught.value.headers["Location"] == "/#float=messages&doc=doc1"
+        code, body = _get(port, "/panel/messages")
+        assert code == 200 and b"<!doctype html>" in body
+        assert _get(port, "/panel/../project.json")[0] in (200, 404)
+        assert _get(port, "/panel/Bad_Name")[0] == 404
+    finally:
+        stop.set()
+        thread.join(timeout=10)
+        httpd.server_close()

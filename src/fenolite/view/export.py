@@ -9,15 +9,18 @@ import json
 from importlib import resources
 from typing import Any, cast
 
+import fenolite
 from fenolite.view.compact import pack, unpack
 
 DATA_MARK = "/*__DATA__*/null"
 LIVE_MARK = "/*__LIVE__*/false"
+VERSION_MARK = "/*__VERSION__*/"
 
 
 PARTS: tuple[str, ...] = (
     "page/head.html",
     "css/base.css",
+    "css/workbench.css",
     "page/body.html",
     "core/boot.js",
     "canvas/font.js",
@@ -44,6 +47,10 @@ PARTS: tuple[str, ...] = (
     "workspaces/schematic.js",
     "workspaces/project_nets.js",
     "workspaces/library.js",
+    "shell/icons.js",
+    "shell/menubar.js",
+    "shell/docks.js",
+    "shell/workbench.js",
     "shell/start.js",
     "page/tail.html",
 )
@@ -80,6 +87,7 @@ def page(
         packed = {doc_id: pack(scene) for doc_id, scene in (scenes or {}).items()}
         data = {"project": tree, "scenes": packed, "open": open_id, "select": select, "marks": marks or []}
         html = html.replace(DATA_MARK, _json(data), 1)
+    html = html.replace(VERSION_MARK, fenolite.__version__, 1)
     return html.replace(LIVE_MARK, "true" if live else "false", 1)
 
 

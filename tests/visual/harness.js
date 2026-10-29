@@ -36,7 +36,7 @@ async function compare(page, shot, ref) {
       const context = await browser.newContext({ viewport: { width: job.width, height: job.height }, deviceScaleFactor: 1 });
       const page = await context.newPage(); const errors = [];
       page.on("pageerror", e => errors.push(String(e)));
-      await page.goto("file://" + job.page + (job.hash || ""));
+      await page.goto(job.url || "file://" + job.page + (job.hash || ""));   // c0245: a served page by its address
       await page.waitForFunction(() => typeof linkReady !== "undefined" && linkReady && typeof S !== "undefined" && S, null, { timeout: 60000 });
       let result = null;
       if (job.script) result = await page.evaluate(`(async () => { ${job.script} })()`);

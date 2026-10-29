@@ -2,19 +2,21 @@
 # Copyright (c) 2026 Fenolite contributors
 """The local live server of the viewer (capability board-viewer, "Live server").
 
-Routes: ``/`` the page, ``/project.json`` the tree, ``/scene/<id>.json`` the scene of one document (built on
-first request and cached), ``/version/<id>`` its state, and ``/marks`` the review marks (change c0189): a
-``POST`` of one mark is written to the ``--marks`` file, and only when ``view`` was given one. A watcher
-checks the documents whose scene was built: when a file's size and time change and then stay the same for
-one more check (a tool or a sync client may still be writing), the scene is built again and the page reloads
-it, keeping its view. A scene may be refined in the background after it is first served (the body models,
-change c0193): the refined scene is a new version, which the page reloads. Only the loopback address is
+Routes: ``/`` the page, ``/panel/<name>`` the page showing one floated panel (change c0245),
+``/project.json`` the tree, ``/scene/<id>.json`` the scene of one document (built on first request and
+cached), ``/version/<id>`` its state, and ``/marks`` the review marks (change c0189): a ``POST`` of one mark
+is written to the ``--marks`` file, and only when ``view`` was given one. A watcher checks the documents
+whose scene was built: when a file's size and time change and then stay the same for one more check (a tool
+or a sync client may still be writing), the scene is built again and the page reloads it, keeping its view. A
+scene may be refined in the background after it is first served (the body models, change c0193): the
+refined scene is a new version, which the page reloads. Only the loopback address is
 bound; nothing leaves the machine.
 """
 
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
 from collections.abc import Callable
@@ -23,7 +25,7 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, cast
-from urllib.parse import unquote
+from urllib.parse import parse_qsl, quote, unquote
 
 from fenolite.core.errors import FormatError
 from fenolite.view import review
@@ -32,6 +34,8 @@ from fenolite.view.export import page
 from fenolite.view.project import Document, ProjectTree
 
 HOST = "127.0.0.1"
+PANEL_PATH = re.compile(r"/panel/[a-z][a-z0-9-]{0,31}")
+"""The address of a floated panel window (change c0245, decision 4)."""
 PERIOD = 2.0
 MARK_BYTES = 64 * 1024
 """The largest body of a ``POST /marks``."""
@@ -246,6 +250,14 @@ def serve(live: Live, port: int = 8765) -> ThreadingHTTPServer:
             elif path.startswith("/version/"):
                 state = live.version(path[len("/version/") :])
                 self._send(200, json.dumps(state).encode("utf-8"), "application/json")
+            elif PANEL_PATH.fullmatch(path):
+                # c0245: a panel floated into its own window is the same page, told which panel to show
+                self.send_response(302)
+                query = dict(parse_qsl(self.path.split("?", 1)[1])) if "?" in self.path else {}
+                doc = "&doc=" + quote(query["doc"], safe="") if query.get("doc") else ""
+                self.send_header("Location", "/#float=" + path[len("/panel/") :] + doc)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
             else:
                 self._send(404, b"not found", "text/plain")
 

@@ -38,7 +38,7 @@ function linkHash() { if (!DOC) return "";
   q.set("z", view.s.toFixed(3)); q.set("c", `${view.cx.toFixed(4)},${view.cy.toFixed(4)}`); q.set("u", UNIT);
   if (!isSch() && st.cur) q.set("l", st.cur); return q.toString(); }
 let linkTimer = null, linkReady = false;
-function linkLater() { if (!linkReady) return; clearTimeout(linkTimer); linkTimer = setTimeout(() => { const h = linkHash(); if (h && location.hash.slice(1) !== h) try { history.replaceState(null, "", "#" + h); } catch (e) { /* a sandboxed frame */ } }, 400); }
+function linkLater() { if (!linkReady || FLOAT) return; clearTimeout(linkTimer); linkTimer = setTimeout(() => { const h = linkHash(); if (h && location.hash.slice(1) !== h) try { history.replaceState(null, "", "#" + h); } catch (e) { /* a sandboxed frame */ } }, 400); }
 function applySelect(name) { if (!name || !S) return; const n = name.startsWith("net:") ? name.slice(4) : name; find(n); }
 function applyLink(q) {   // after the document of the link is open
   if (q.get("u") === "mil" || q.get("u") === "mm") setUnit(q.get("u"));

@@ -2,63 +2,40 @@
 </head>
 <body>
 <div id="app">
-  <div id="top">
-    <button id="bSidebar" aria-controls="side" aria-expanded="false" title="Show or hide the project panels">Projects</button>
-    <span class="title" id="fname">Board</span>
-    <button id="b3d" class="board-only" title="2D / 3D (D)">3D</button>
-    <button id="bFit" title="Fit to the window (F)">Fit</button>
-    <button id="bFlip" class="board-only" title="View from below / above (B)">View: Top</button>
-    <button id="bMeasure" title="Measure a distance; snaps to pad centres, vertices, then edges (M; hold Alt: no snap)">Measure</button>
-    <button id="bUnit" title="Units: millimetres or mil (Q)">mm</button>
-    <button id="bEdge" class="board-only" title="Edge measure: the gap between the edges of two objects (Shift+M)">Edge</button>
-    <button id="bMark" title="Drop a review mark with a note (N)">Mark</button>
-    <button id="bLink" title="Copy a link to this view: document, selection, zoom and unit">Link</button>
-    <select id="printScale" title="Scale of Print: fit the page, or millimetres on paper per millimetre of the design"><option value="fit">Fit</option><option value="1">1:1</option><option value="2">2:1</option><option value="5">5:1</option><option value="10">10:1</option></select>
-    <button id="bPrint" title="Print the view, or save it as PDF from the print dialog">Print</button>
-    <button id="bSvg" title="Save the view as an SVG file">SVG</button>
-    <select id="variantSel" title="The project's assembly variant" style="display:none"></select>
-    <input id="search" placeholder="Part or net…" title="Enter: find">
-    <button id="bClear" title="Clear the selection (Esc)">Clear</button>
-    <label class="board-only" title="Opacity of the other side"><small>Other side</small> <input id="opac" type="range" min="0" max="100" value="60" style="width:80px;vertical-align:middle"></label>
+  <header id="titlebar"><span class="appname">Fenolite</span><span class="tsep">—</span><span class="title" id="fname">Board</span><span id="titleState"></span></header>
+  <nav id="menubar" role="menubar" aria-label="Menu bar"></nav>
+  <div id="top" role="toolbar" aria-label="Tools">
+    <button id="bSidebar" aria-controls="side" aria-expanded="false" title="Show or hide the panels">Panels</button>
+    <span class="tgroup">
+      <button id="bFit" data-cmd="view.fit" data-icon="fit">Fit</button>
+      <button id="b3d" class="board-only" data-cmd="view.3d" data-icon="cube">3D</button>
+      <button id="bFlip" class="board-only" data-cmd="view.flip" data-icon="flip" data-text="1"><span class="lbl">View: Top</span></button>
+    </span>
+    <span class="tgroup">
+      <button id="bMeasure" data-cmd="place.measure" data-icon="measure">Measure</button>
+      <button id="bEdge" class="board-only" data-cmd="place.edge" data-icon="edge">Edge</button>
+      <button id="bMark" data-cmd="place.mark" data-icon="mark">Mark</button>
+    </span>
+    <span class="tgroup">
+      <select id="netSel" class="board-only" title="Net: highlight one net" aria-label="Net"><option value="">Net: none</option></select>
+      <select id="gridSel" class="board-only" title="Grid: the dot grid of the board" aria-label="Grid"></select>
+      <button id="bUnit" data-cmd="view.units" class="textbtn">mm</button>
+    </span>
+    <span class="tgroup">
+      <button id="bLink" data-cmd="file.link" data-icon="link">Link</button>
+      <button id="bSvg" data-cmd="file.svg" data-icon="svg">SVG</button>
+      <select id="printScale" title="Scale of Print: fit the page, or millimetres on paper per millimetre of the design" aria-label="Print scale"><option value="fit">Print: fit</option><option value="1">Print: 1:1</option><option value="2">Print: 2:1</option><option value="5">Print: 5:1</option><option value="10">Print: 10:1</option></select>
+      <button id="bPrint" data-cmd="file.print" data-icon="print">Print</button>
+    </span>
+    <select id="variantSel" title="The project's assembly variant" aria-label="Variant" style="display:none"></select>
+    <span class="tgroup tsearch"><input id="search" placeholder="Part or net…" title="Enter: find" aria-label="Find a part or a net"><button id="bClear" data-cmd="edit.clear-selection" data-icon="clear">Clear</button></span>
+    <label class="board-only topac" title="Opacity of the other side"><small>Other side</small> <input id="opac" type="range" min="0" max="100" value="60" aria-label="Opacity of the other side"></label>
   </div>
-  <div id="side">
-    <div class="ph">Projects <button id="bProjectReview" aria-controls="projectReview" aria-expanded="false">Review</button></div>
-    <div id="tree"></div>
-    <div id="panels">
-      <div class="lib-only"><div class="navh"><h3 id="libTitle">Library</h3></div>
-        <button id="bCatalogSelection" class="catalog-only">Choose a component…</button>
-        <input id="libFilter" placeholder="Filter the library…"><div id="libList"></div></div>
-      <div class="sch-only nav-panel"><div class="navh"><h3>Navigator</h3></div>
-        <input id="navFilter" placeholder="Filter parts and nets…"><div id="navList"></div></div>
-      <div class="board-only rev-panel"><div class="navh"><h3>Filter</h3>
-          <select id="hlMode" title="Highlight: how the rest of the board shows while something is selected"><option value="dim">Dim</option><option value="mask">Mask</option><option value="normal">Normal</option></select></div>
-        <input id="query" placeholder="net:GND ref:R* side:bottom" title="key:value terms (and), | (or), -term (not), * and ? wildcards, &quot;quoted values&quot;; keys: net, ref, footprint, value, layer, side, or a parameter name. Enter: apply and zoom">
-        <div class="qbar"><button id="bSimilar" title="Fill the filter from the selection">Find similar</button><button id="bQClear" title="Clear the filter and the selection (Shift+C)">Clear</button></div>
-        <div class="notes" id="queryInfo"></div>
-        <div class="navh"><h3 id="compsTitle">Components</h3></div>
-        <input id="compFilter" placeholder="Filter components…"><div id="compList" class="vlist"></div>
-        <div class="navh"><h3 id="netsTitle">Nets</h3></div>
-        <input id="netFilter" placeholder="Filter nets…"><div id="netList" class="vlist"></div></div>
-      <h3 id="diffTitle" style="display:none" title="X: show or hide the changes">Changes</h3>
-      <div id="diffList"></div>
-      <h3 id="msgTitle" style="display:none" title="E: show or hide the markers">Messages</h3>
-      <div id="msgList"></div>
-      <h3 id="marksTitle" style="display:none">Marks</h3>
-      <div id="marksList"></div>
-      <h3 id="ovTitle" style="display:none">Findings</h3>
-      <div id="overlays"></div>
-      <h3>Notes</h3>
-      <div class="notes" id="notes"></div>
-      <h3>Shortcuts</h3>
-      <div class="notes sch-only"><kbd>wheel</kbd>/<kbd>PgUp</kbd>/<kbd>PgDn</kbd> zoom · <kbd>drag</kbd> pan · <kbd>click</kbd> part / net · <kbd>double-click</kbd> open a sheet symbol, cross-probe a part · <kbd>F</kbd> fit · <kbd>M</kbd> measure · <kbd>Q</kbd> mm / mil · <kbd>E</kbd> check markers · <kbd>Esc</kbd> clear</div>
-      <div class="notes"><kbd>Shift+M</kbd> edge measure (board) · <kbd>N</kbd> review mark · Link copies a link to this view</div>
-      <div class="notes board-only"><kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan (2D) / orbit (3D) · <kbd>Shift+drag</kbd> pan (3D) · <kbd>click</kbd> net / part · <kbd>D</kbd> 2D/3D · <kbd>F</kbd> fit · <kbd>B</kbd> flip · <kbd>M</kbd> measure (snaps to pad centres) · <kbd>Q</kbd> mm / mil · <kbd>Shift+S</kbd> single layer · <kbd>+</kbd>/<kbd>-</kbd> next / previous layer · <kbd>Shift+C</kbd> clear the filter · <kbd>E</kbd> check markers · <kbd>Esc</kbd> clear</div>
-    </div>
-  </div>
-  <div id="wrap"><canvas id="cv"></canvas><canvas id="gl"></canvas>
+  <aside id="side" class="dock dock-left" aria-label="Left panels"></aside>
+  <div id="wrap"><canvas id="cv" tabindex="-1"></canvas><canvas id="gl"></canvas><canvas id="ov" aria-hidden="true"></canvas>
     <div id="bar3d"><button id="v3top">Top</button><button id="v3bot">Bottom</button><button id="v3iso">Iso</button>
       <label><input type="checkbox" id="c3body" checked> Bodies</label></div>
-    <div id="info"></div><div id="tablewrap"></div><div id="doccard"><div id="doctext"></div></div>
+    <div id="tablewrap"></div><div id="doccard"><div id="doctext"></div></div>
     <div id="lsmenu"></div>
     <section id="projectReview" aria-label="Project review" hidden>
       <div class="reviewHead"><h2>Project review</h2><button id="reviewClose" aria-label="Close project review">Close</button></div>
@@ -74,8 +51,45 @@
       <div id="reviewFindings"></div><div id="reviewDetail"></div>
     </section>
   </div>
+  <aside id="dockRight" class="dock dock-right" aria-label="Right panels"></aside>
   <div id="tabs"><button id="ls" class="board-only" title="Layer sets">LS</button><div id="tablist" style="display:flex"></div></div>
-  <div id="status"><span id="coord">x — y —</span><span id="zoomv"></span><span id="cur"></span><span id="gen"></span><span id="live"></span></div>
+  <section id="dockBottom" class="dock dock-bottom" aria-label="Bottom panels"></section>
+  <footer id="status">
+    <span id="coord" class="sf" title="Cursor position">x — y —</span><span id="sDelta" class="sf" title="Distance from the last click"></span><span id="sGrid" class="sf" title="Grid"></span>
+    <span id="sNet" class="sf" title="Selected net and its role"></span><span id="cur" class="sf" title="Current layer"></span><span id="keyPending" class="sf"></span><span id="zoomv" class="sf"></span>
+    <span class="sfill"></span><span id="gen" class="sf"></span><span id="live" class="sf" role="status" aria-live="polite"></span><span id="sTool" class="sf" title="The tool that read the document"></span><span id="sEvidence" class="sf" title="The lowest evidence level of what is shown"></span>
+  </footer>
+  <div id="announce" class="sr-only" role="status" aria-live="polite"></div>
+</div>
+<div id="panelStore" hidden>
+  <div id="pProjects"><div class="pbar"><button id="bProjectReview" aria-controls="projectReview" aria-expanded="false" title="The review status of the document shown">Review</button></div><div id="tree"></div></div>
+  <div id="pLibrary"><div class="navh"><h3 id="libTitle">Library</h3></div>
+    <button id="bCatalogSelection" class="catalog-only">Choose a component…</button>
+    <input id="libFilter" placeholder="Filter the library…" aria-label="Filter the library"><div id="libList"></div></div>
+  <div id="pNavigator"><input id="navFilter" placeholder="Filter parts and nets…" aria-label="Filter parts and nets"><div id="navList"></div></div>
+  <div id="pPcb"><div class="navh"><h3>Filter</h3>
+      <select id="hlMode" title="Highlight: how the rest of the board shows while something is selected" aria-label="Highlight mode"><option value="dim">Dim</option><option value="mask">Mask</option><option value="normal">Normal</option></select></div>
+    <input id="query" placeholder="net:GND ref:R* side:bottom" aria-label="Filter query" title="key:value terms (and), | (or), -term (not), * and ? wildcards, &quot;quoted values&quot;; keys: net, ref, footprint, value, layer, side, or a parameter name. Enter: apply and zoom">
+    <div class="qbar"><button id="bSimilar" title="Fill the filter from the selection">Find similar</button><button id="bQClear" title="Clear the filter and the selection (Shift+C)">Clear</button></div>
+    <div class="notes" id="queryInfo"></div>
+    <div class="navh"><h3 id="compsTitle">Components</h3></div>
+    <input id="compFilter" placeholder="Filter components…" aria-label="Filter components"><div id="compList" class="vlist"></div>
+    <div class="navh"><h3 id="netsTitle">Nets</h3></div>
+    <input id="netFilter" placeholder="Filter nets…" aria-label="Filter nets"><div id="netList" class="vlist"></div></div>
+  <div id="pLayers"><div id="layerList" role="list" aria-label="Layers"></div><div class="navh"><h3>Overlays</h3></div><div id="overlayList" role="list" aria-label="Overlay layers"></div></div>
+  <div id="pFindings"><div class="notes" id="ovTitle" style="display:none">Findings</div><div id="overlays"></div><div class="notes" id="ovEmpty">No review findings on this document.</div></div>
+  <div id="pChanges"><div class="notes" id="diffTitle" style="display:none" title="X: show or hide the changes">Changes</div><div id="diffList"></div></div>
+  <div id="pMarks"><div class="notes" id="marksTitle" style="display:none">Marks</div><div id="marksList"></div></div>
+  <div id="pNotes"><div class="notes" id="notes"></div></div>
+  <div id="pShortcuts"><div class="notes">Mouse: <kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan (2D) / orbit (3D) · <kbd>Shift+drag</kbd> pan (3D) · <kbd>click</kbd> net / part · <kbd>double-click</kbd> open a sheet symbol, cross-probe a part · <kbd>Alt</kbd> while measuring: no snap · <kbd>F10</kbd> menu bar</div><table class="grid keys" id="keyTable"><thead><tr><th scope="col">Command</th><th scope="col">Keys</th></tr></thead><tbody></tbody></table></div>
+  <div id="pProperties"><div id="propsEmpty" class="notes">Nothing selected. Click a pad, a track, a part or a finding.</div><div id="info"></div></div>
+  <div id="pMessages">
+    <div class="msghead"><span id="msgTitle">No messages</span><span class="sfill"></span>
+      <select id="msgSeverity" aria-label="Severity of the messages shown"><option value="">All</option><option value="error">Errors</option><option value="warning">Warnings</option><option value="info">Info</option></select>
+      <input id="msgFilter" placeholder="Filter messages…" aria-label="Filter messages"></div>
+    <div class="msgwrap"><table class="grid" id="msgTable" role="grid" aria-label="Messages"><thead><tr><th scope="col" class="sev" aria-label="Severity"></th><th scope="col">Code</th><th scope="col">Object</th><th scope="col">Message</th><th scope="col">Source</th><th scope="col">Layer</th></tr></thead><tbody id="msgBody"></tbody></table>
+      <div class="notes" id="msgEmpty">No messages. Findings appear here with <code>--check</code>, and role findings in the Net Roles workspace.</div></div>
+  </div>
 </div>
 <dialog id="catalogSelection" aria-labelledby="catTitle">
   <div class="catHead"><h2 id="catTitle">Choose a component</h2><button id="catClose">Close</button></div>

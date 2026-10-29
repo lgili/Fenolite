@@ -127,7 +127,9 @@ def test_sidebar_and_toolbar_fit_the_viewport(pages: dict[str, Path], tmp_path: 
       sidebarWidth: $("side").getBoundingClientRect().width,
       toggle: getComputedStyle($("bSidebar")).display,
       expanded: $("bSidebar").getAttribute("aria-expanded"),
-      toolbarWidth: $("top").clientWidth, toolbarContent: $("top").scrollWidth
+      toolbarWidth: $("top").clientWidth, toolbarContent: $("top").scrollWidth,
+      right: $("dockRight").getBoundingClientRect().width,
+        bottom: $("dockBottom").getBoundingClientRect().height
     });
     const initial = size(); $("bSidebar").click(); await settle(); const opened = size();
     key("Escape"); await settle(); const closed = size();
@@ -148,9 +150,10 @@ def test_sidebar_and_toolbar_fit_the_viewport(pages: dict[str, Path], tmp_path: 
         for state in (initial, opened, closed):
             assert state["canvas"] == width
             assert state["toolbarContent"] <= state["toolbarWidth"]
-    else:
+    else:  # scenario "Desktop remains unchanged" (c0245): the left dock keeps 260 px, the right dock is shown
         assert initial["sidebar"] == "flex" and initial["sidebarWidth"] == 260
-        assert initial["toggle"] == "none" and initial["canvas"] == width - 260
+        assert initial["toggle"] == "none" and initial["right"] == 240 and initial["bottom"] > 0
+        assert initial["canvas"] == width - 260 - 240
 
 
 @pytest.mark.parametrize("scene", ("table", "unloaded"))

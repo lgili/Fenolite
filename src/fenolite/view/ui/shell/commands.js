@@ -1,4 +1,4 @@
-function flip() { view.mirror = !view.mirror; $("bFlip").textContent = "View: " + (view.mirror ? "Bottom" : "Top"); draw(); }
+function flip() { view.mirror = !view.mirror; const b = $("bFlip"), l = b.querySelector(".lbl"); (l || b).textContent = "View: " + (view.mirror ? "Bottom" : "Top"); b.classList.toggle("on", view.mirror); draw(); }
 function toggle(key, btn) { st[key] = !st[key]; $(btn).classList.toggle("on", st[key]); if (key === "measure" && !st.measure) st.mpts = []; draw(); }
 function find(q) {
   q = q.trim().toLowerCase(); if (!q || !S) return;

@@ -65,7 +65,8 @@ def test_schematic_interaction_is_in_the_page() -> None:
     html = template()
     for name in ("drawSch", "navList", "sheetTabs", "selNet", "crossProbe", "schDouble", "toMMsch"):
         assert name in html, name
-    assert 'class="sch-only' in html and "board-only" in html
+    # c0245: the Navigator is a docked panel that applies to sheets; board-only controls keep their class
+    assert 'panel("navigator"' in html and "isSch() && !LIB" in html and "board-only" in html
 
 
 def test_the_page_reads_the_theme() -> None:
@@ -137,7 +138,7 @@ def test_check_findings_in_the_page() -> None:
     """Change c0188: markers and the Messages panel of `--check`."""
     html = template()
     for name in (
-        'id="msgList"',
+        'id="msgTable"',
         "function drawCheck",
         "function buildMessages",
         "function checkToMM",

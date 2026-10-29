@@ -94,5 +94,6 @@ def test_catalog_sidebar_remains_usable(catalog_page: Path, tmp_path: Path, widt
     result = reply["result"]
     assert result["visible"] == "flex" and result["matches"] >= 1
     assert "Resistor" in result["name"]
-    assert result["canvas"] == (width if width <= 760 else width - 260)
+    # c0245: above the breakpoint the left dock keeps 260 px and the right dock its default 240 px
+    assert result["canvas"] == (width if width <= 760 else width - 260 - 240)
     assert result["overflow"] is False

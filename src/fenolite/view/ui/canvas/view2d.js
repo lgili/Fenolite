@@ -51,6 +51,7 @@ function draw() {
   const th = S.theme || {};
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = th.background || "#15171b"; ctx.fillRect(0, 0, cv.width, cv.height);
   worldTf(); ctx.globalAlpha = 1; ctx.fillStyle = th.board || "#050505"; ctx.fill(boardPath(), "evenodd");
+  drawDotGrid();
   const qy = st.query && st.query.prims.size ? st.query : null, picked = st.selNet >= 0 || st.selComp >= 0;
   const ord = order(), sel = picked || !!qy, other = HL_ALPHA[st.hl] ?? HL_ALPHA.dim;
   const dim = S.diff && st.diff && S.diff.kind === "board" ? 0.35 : 1;   // c0184: the board steps back while the changes are shown
