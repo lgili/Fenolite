@@ -1,0 +1,19 @@
+# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): Diodes SOD123 package information and suggested pad layout (S-0442).
+schema = "fenolite.package.v0"
+family = "molded"
+name = "SOD123_Diodes"
+evidence = "INFERRED"
+sources = ["S-0442"]
+
+body = { length = "2.55mm..2.85mm", width = "1.4mm..1.7mm" }
+span = "3.55mm..3.85mm"
+lead = { length = "0.25mm..0.4mm", width = "0.52mm..0.62mm" }
+
+[generate]
+lands = 1
+drawing = 1
+
+[land]
+source = "S-0442 Diodes SOD123 package information and suggested pad layout"
+pad = { length = "0.9mm", width = "0.95mm" }
+row_spacing = "3.15mm"

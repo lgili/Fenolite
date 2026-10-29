@@ -1,0 +1,24 @@
+# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI RGT0016C outline and example board layout, TPS62130 data sheet (S-0856).
+schema = "fenolite.package.v0"
+family = "nolead"
+name = "QFN16_TI_RGT0016C"
+evidence = "INFERRED"
+sources = ["S-0856"]
+
+pins = 16
+pitch = "0.5mm"
+arrangement = "quad"
+body = { length = "2.9mm..3.1mm", width = "2.9mm..3.1mm" }
+terminal = { length = "0.3mm..0.5mm", width = "0.18mm..0.3mm" }
+ep = { length = "1.68mm", width = "1.68mm" }
+
+[generate]
+lands = 1
+drawing = 1
+
+[land]
+source = "S-0856 TI RGT0016C outline and example board layout"
+pad = { length = "0.6mm", width = "0.24mm" }
+row_spacing_x = "2.8mm"
+row_spacing_y = "2.8mm"
+ep = { length = "1.68mm", width = "1.68mm" }

@@ -1,0 +1,18 @@
+# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): Vishay D/CRCW e3 dimensions table and recommended reflow solder pads, document 20035 (S-0864).
+schema = "fenolite.package.v0"
+family = "chip"
+name = "Chip0603_Vishay_CRCW"
+evidence = "INFERRED"
+sources = ["S-0864"]
+
+body = { length = "1.5mm..1.65mm", width = "0.75mm..0.95mm" }
+terminal = { length = "0.1mm..0.5mm" }
+
+[generate]
+lands = 1
+drawing = 1
+
+[land]
+source = "S-0864 Vishay D/CRCW e3 dimensions table and recommended reflow solder pads"
+pad = { length = "0.75mm", width = "1.0mm" }
+row_spacing = "1.5mm"

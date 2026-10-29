@@ -1,0 +1,22 @@
+# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI DGK0008A outline and example board layout, LM358 data sheet (S-0860).
+schema = "fenolite.package.v0"
+family = "gullwing"
+name = "VSSOP8_TI_DGK0008A"
+evidence = "INFERRED"
+sources = ["S-0860"]
+
+pins = 8
+pitch = "0.65mm"
+arrangement = "dual"
+body = { length = "2.9mm..3.1mm", width = "2.9mm..3.1mm" }
+span = "4.75mm..5.05mm"
+lead = { length = "0.4mm..0.7mm", width = "0.25mm..0.38mm" }
+
+[generate]
+lands = 1
+drawing = 1
+
+[land]
+source = "S-0860 TI DGK0008A outline and example board layout"
+pad = { length = "1.4mm", width = "0.45mm" }
+row_spacing = "4.4mm"

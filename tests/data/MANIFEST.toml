@@ -2541,3 +2541,165 @@ path = "tests/data/packages/to220.toml"
 origin = "authored"
 corpus_id = ""
 notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/calibration/diodes_sod123.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/diodes_sod123f.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/diodes_sod323.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/diodes_sod523.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/onsemi_751_07.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_d0008a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_d0014a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_dbv0005a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_dck0005a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_dgk0008a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_dgs0010a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_drv0006a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_dsf0006a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_dyy0014a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_pn0080a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_pt0048a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_pw0008a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_pw0014a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_rgc0064b.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_rgt0016c.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/vishay_crcw0402.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/vishay_crcw0603.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/vishay_crcw0805.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/vishay_crcw1206.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/vishay_crcw1210.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/vishay_crcw2010.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/vishay_crcw2512.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"

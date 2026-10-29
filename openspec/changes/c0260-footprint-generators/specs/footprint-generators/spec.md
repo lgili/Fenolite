@@ -84,9 +84,9 @@ When two neighbouring lands of different numbers would be closer than `pad_gap`,
 A `[land]` table with a `source` SHALL win over the calculator: its numbers are used unchanged and the conventions draw the rest. The description MUST end with `land: manufacturer <source>` (else `land: calculated lands/<n> nominal (INFERRED)`). When the class has goals, `land.deltas` MUST hold the difference per number and an info `package.land-override` MUST name the largest.
 
 #### Scenario: Override recorded
-- **GIVEN** `soic8.toml` with `[land]` giving pad 1.55 × 0.60 mm at row spacing 5.40 mm, source `S-0yyy figure 12`
+- **GIVEN** `soic8.toml` with `[land]` giving pad 1.52 × 0.60 mm at row spacing 5.50 mm, source `S-0855 soldering footprint` (the onsemi 751-07 footprint)
 - **WHEN** it is generated
-- **THEN** pads are 1550000 × 600000 nm at x = ±2700000, `land.source == "manufacturer"`, the description ends with `land: manufacturer S-0yyy figure 12`, and one info `package.land-override` is given
+- **THEN** pads are 1520000 × 600000 nm at x = ±2750000, `land.source == "manufacturer"`, the description ends with `land: manufacturer S-0855 soldering footprint`, and one info `package.land-override` is given
 
 ### Requirement: Evidence of generated lands
 A calculated land SHALL be labelled `INFERRED` whatever the record's label. A manufacturer land MUST keep the record's evidence label. No generation MAY raise a label.
