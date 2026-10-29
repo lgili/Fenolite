@@ -395,15 +395,17 @@ reuse these three names.
 
 ## Open questions
 
-1. *Licence of the shipped catalog records: keep `Apache-2.0` or dedicate them to CC0?* Recommended: CC0-1.0,
-   so records move freely between the core and the `fenolite-devices` pack (c0266); until decided the
-   migration writes `Apache-2.0`.
-2. *May a project record use the `Fenolite:` namespace?* Recommended: yes, as an override, as c0248 decided
-   for devices.
-3. *Should `fenolite fmt` rewrite `v0` device files as `v1`?* Recommended: yes, in a follow-up; not needed
-   for this change.
-4. *Should the review `who` be checked against a list (CODEOWNERS)?* Recommended: in the data repository
-   only (c0266); the core cannot know reviewers.
+Decided by the maintainer on 2026-10-29:
+
+1. *Licence of the shipped catalog records: keep `Apache-2.0` or dedicate them to CC0?* Decided: **CC0-1.0**,
+   so records move freely between the core and the `fenolite-devices` pack (c0266). Every shipped record
+   is `CC0-1.0` (task 6.1); the migration first wrote the provisional `Apache-2.0`.
+2. *May a project record use the `Fenolite:` namespace?* Decided: yes, as an override, as c0248 decided
+   for devices (the recommended answer).
+3. *Should `fenolite fmt` rewrite `v0` device files as `v1`?* Decided: **yes, in this change** (task 6.2),
+   not in a follow-up.
+4. *Should the review `who` be checked against a list (CODEOWNERS)?* Decided: in the data repository
+   only (c0266); the core cannot know reviewers (the recommended answer).
 
 ## Relation to the batch
 

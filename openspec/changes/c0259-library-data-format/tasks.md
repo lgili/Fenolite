@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living specs this change touches (`fenolite-component-catalog`, `package-layering`) and the changes it builds on (c0246, c0248, c0249, c0254). Write under this task, with the date and the base commit:
+- [x] 0.1 Read `openspec list`, the living specs this change touches (`fenolite-component-catalog`, `package-layering`) and the changes it builds on (c0246, c0248, c0249, c0254). Write under this task, with the date and the base commit:
   - c0248's final device schema, module names (`catalog/devices.py`, `core/quantities.py`) and project folder rule, and whether it is archived;
   - whether c0254 is merged: if so, `CATALOG_VERSION` and `VERSIONS.toml` exist and this change extends them (design decision 3); if not, this change adds them;
   - whether c0246's `Range` is merged (package dimensions read as ranges, design decision 1);
@@ -15,9 +15,13 @@
   merged, so this change adds `CATALOG_VERSION` and `catalog/data/VERSIONS.toml`. c0246's `Range` is not
   merged: package dimensions keep exact integer bounds (`"a..b"`). No open change holds a delta of "Offline
   Fenolite-authored standard catalog" or "Source and evidence labels" but this one. Next free source number:
-  S-0855 (not registered here: c0266 registers the LibrePCB library). Left open: the maintainer's answers to
-  the open questions of `design.md` are not recorded; the migration writes `Apache-2.0` (question 1) and the
-  recommended answers are implemented for questions 2 to 4.
+  S-0855 (not registered here: c0266 registers the LibrePCB library).
+  Done (2026-10-29, branch head 19d3a001 merged with `cac/c0248-device-catalog` at 8a450021): the maintainer
+  answered the open questions on 2026-10-29, recorded under "Open questions" in `design.md`: (1) shipped
+  records are `CC0-1.0`, not the provisional `Apache-2.0` (task 6.1); (2) a project record may use
+  `Fenolite:` as an override, as implemented; (3) `fenolite fmt` rewrites `v0` device files as `v1` in this
+  change (task 6.2); (4) the review `who` is checked against a list only in the data repository (c0266), as
+  implemented. Proofs passed (`openspec validate c0259-library-data-format --strict`; `make check-fast`).
 
 ## 1. Golden digests before the move
 
@@ -76,8 +80,17 @@
 - [ ] 5.4 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
   Left open (2026-10-29): `dev` is at the unpublished 0.6.0 and `tests/unit/test_release_record_v06.py`
   requires `## [Unreleased]` to stay empty, so the entry waits until `dev` is at `0.7.0.dev0`.
+  Still open (2026-10-29): the maintainer decided on 2026-10-29 that `circuits-as-code` keeps its current base,
+  version 0.6.0, until the line is ready for `dev`; the v0.6 guard requires `## [Unreleased]` to stay empty
+  until then.
 - [x] 5.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
   Done (2026-10-29): `make check-fast` passed (15457 passed, 46 skipped); pushed to
   `cac/c0259-library-data-format`; run 40925071391 on 91d9975b is green in every job (unit on Linux, macOS and
   Windows, kicad-9, kicad-10 with `test_catalog_golden.py` and `test_device_build.py`, routing, mcp, viewer,
   wheel, dco).
+
+## 6. The maintainer's answers of 2026-10-29
+
+- [ ] 6.1 Shipped records are `CC0-1.0` (open question 1): every record under `src/fenolite/catalog/data/` and every example record of this change says `licence = "CC0-1.0"`, a `Fenolite:` record of another licence gives `FEN-3004`, each changed record takes a PATCH version (`tools/catalog/versions.py --update`), and the spec, design, docs and the declarations of authored CC0 data (ADR-0004, `docs/library-records.md`) say so. Proof: `uv run pytest tests/unit/catalog tests/unit/cli/test_catalog.py -q`; `uv run python tools/catalog/versions.py`; `make residue`.
+- [ ] 6.2 `fenolite fmt DEVICE.toml` rewrites a `fenolite.device.v0` file as a `fenolite.device.v1` record under the mutation protocol (open question 3): `--dry-run` shows the plan, `--confirm --plan` writes it, `--check` reports `fmt.would-change`; a `v1` file is left unchanged; the output is deterministic, and v0 → v1 → load gives the same device (scenarios "A v0 device file is rewritten as v1", "A v1 device file is left unchanged"). Contract section, agent-guide line. Proof: `uv run pytest tests/unit/cli/test_fmt_cmd.py tests/unit/catalog/test_records.py -k "fmt or upgrade" -q`; `uv run pytest tests/unit/agent/test_pages.py -q`.
+- [ ] 6.3 Run `make check-fast`, push to `cac/c0259-library-data-format`, and confirm the required CI jobs on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
