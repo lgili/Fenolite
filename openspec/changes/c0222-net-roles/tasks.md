@@ -127,7 +127,11 @@
 
 ## 4. Profile, limits and codes
 
-- [ ] 4.1 Add `roles/profile.py` with the default table, `RoleLimit` resolution, and `docs/roles.md` with the "Default limits" section (scenarios "Every default has a source", "A net override wins"). Proof: `uv run pytest tests/unit/roles/test_profile.py -q`.
+- [x] 4.1 Add `roles/profile.py` with the default table, `RoleLimit` resolution, and `docs/roles.md` with the "Default limits" section (scenarios "Every default has a source", "A net override wins"). Proof: `uv run pytest tests/unit/roles/test_profile.py -q`.
+  Done 2026-10-29. `high_voltage_mv` has no default, so, as the design's profile table says ("no net is
+  high voltage unless the user gives a `working_mv`"), a `power` net with a working voltage is judged as
+  high voltage when no `high_voltage_mv` is given, and only at or above it when one is. Proof passed: 7
+  tests.
 - [ ] 4.2 Add `roles/codes.py` with the seventeen codes, their entries in `fenolite explain`, and the severity rule (scenarios "Codes in the table", "Unconfirmed roles warn only"). Proof: `uv run pytest tests/unit/roles/test_codes.py tests/unit/cli/test_explain_cmd.py -q`.
 
 ## 5. Measures through the analyses, and checks
