@@ -243,7 +243,7 @@
 - [x] 7.5 Evidence: the six hypotheses are in `docs/hypotheses.md` with their measurements, and the evidence matrix is regenerated. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
   Done 2026-10-29. `H-G-ROLE-INFER`, `-LOOP-RATIO`, `-KELVIN-EDGE`, `-KELVIN-PAIR`, `-NEAR-SW` and
   `-CURRENT`, all `INFERRED`, each with its measurement on the reference boards; the matrix needed no
-  change (it lists capabilities, not hypotheses of `general` scope). Proof passed: 38 tests; the
+  change (it shows the register rows that the backends' evidence declarations cite, and none cites these). Proof passed: 38 tests; the
   generator's check is clean.
 - [x] 7.6 Add an entry for the implemented phase 0 to `CHANGELOG.md` under `## [Unreleased]`. Proof: `uv run pytest tests/unit -k changelog -q`.
   Done 2026-10-29. Proof passed: 7 tests.
