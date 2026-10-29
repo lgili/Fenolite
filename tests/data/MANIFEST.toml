@@ -2511,3 +2511,15 @@ path = "examples/devices/devices/example_buck.toml"
 origin = "authored"
 corpus_id = ""
 notes = "illustrative device record of the device example (c0248), authored for Fenolite; not a real product"
+
+[[file]]
+path = "tests/data/catalog/golden.json"
+origin = "authored"
+corpus_id = ""
+notes = "golden digests of the shipped catalog (c0259), written by tools/catalog/golden.py from the Python catalog before its move to data files"
+
+[[file]]
+path = "examples/catalog/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "catalog example of change c0259: a linear supply built from the built-in catalog alone"
