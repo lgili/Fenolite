@@ -55,7 +55,21 @@ from fenolite.dsl.items import RuleArea
 from fenolite.dsl.module import Module
 from fenolite.dsl.panel import Panel
 from fenolite.dsl.part import FieldRequest, Net, PadZoneRequest, Part, Placement, connect, no_connect
-from fenolite.dsl.quantity import Quantity, amp, farad, henry, hertz, ohm, second, volt, watt
+from fenolite.dsl.quantity import (
+    Quantity,
+    Range,
+    Tolerance,
+    amp,
+    between,
+    farad,
+    henry,
+    hertz,
+    ohm,
+    pct,
+    second,
+    volt,
+    watt,
+)
 from fenolite.dsl.symbol import Symbol
 from fenolite.dsl.units import Length, inch, mil, mm, nm
 from fenolite.model.board import MechanicalIntent
@@ -129,6 +143,10 @@ __all__ = [
     "UART",
     "USB2",
     "Quantity",
+    "Range",
+    "Tolerance",
+    "between",
+    "pct",
     "RuleArea",
     "amp",
     "farad",

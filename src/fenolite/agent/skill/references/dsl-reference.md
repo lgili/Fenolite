@@ -62,7 +62,7 @@ A net, named globally and literally; a module-local net is named by the script.
 
 ## Part
 
-Class: `Part(ref: 'str', lib_id: 'str', footprint: 'str \| None' = None, value: 'str \| Quantity' = '', *, properties: 'Mapping[str, str] \| None' = None, pad_map: 'Mapping[str, str \| Sequence[str]] \| None' = None, height: 'object' = None) -> 'None'`
+Class: `Part(ref: 'str', lib_id: 'str', footprint: 'str \| None' = None, value: 'str \| Quantity \| Range' = '', *, properties: 'Mapping[str, str] \| None' = None, pad_map: 'Mapping[str, str \| Sequence[str]] \| None' = None, height: 'object' = None) -> 'None'`
 
 A component: reference, symbol lib id, optional footprint lib id, value and user properties.
 
@@ -71,6 +71,12 @@ A component: reference, symbol lib id, optional footprint lib id, value and user
 Class: `Power(hv: 'Net', lv: 'Net', *, name: 'str \| None' = None) -> 'None'`
 
 A supply: `hv` and `lv` nets; the default name is `<hv>/<lv>`.
+
+## Range
+
+Class: `Range(unit: 'str', low: 'Fraction \| None', high: 'Fraction \| None', nominal: 'Fraction \| None' = None) -> 'None'`
+
+An exact interval of one unit (a unit of `UNITS`, or `"ratio"`) with an optional nominal.
 
 ## SPI
 
@@ -83,6 +89,12 @@ An SPI bus: `sck`, `mosi`, `miso` and one `cs<i>` net per chip select, in the or
 Class: `Symbol(library: 'str', name: 'str', *, reference: 'str', value: 'str' = '', footprint: 'str' = '', description: 'str' = '') -> 'None'`
 
 Author a one-unit symbol.
+
+## Tolerance
+
+Class: `Tolerance(lo: 'Fraction', hi: 'Fraction') -> None`
+
+A per-cent tolerance without unit, from `lo` % to `hi` % (`lo <= 0 <= hi`); build one with `pct()`.
 
 ## UART
 
@@ -107,6 +119,12 @@ A current in amperes: `amp("500m")`; may be negative.
 Function: `arc_to(mid: 'object', end: 'object') -> 'ArcStep'`
 
 An arc from the point of the path element before it through `mid` to `end`, each an `(x, y)` pair of lengths in the frame of `place()` or an anchor; the path continues from `end`.
+
+## between
+
+Function: `between(a: 'Quantity', b: 'Quantity', *, nominal: 'Quantity \| None' = None) -> 'Range'`
+
+The range from `a` to `b`, two quantities of one unit with `a <= b`, with an optional nominal of that unit between them.
 
 ## connect
 
@@ -167,6 +185,12 @@ Mark each pin as intentionally unconnected; a designator that is on a net is ref
 Function: `ohm(value: 'int \| Fraction \| str') -> 'Quantity'`
 
 A resistance: `ohm("4k7")`, `ohm("4.7 kΩ")`, `ohm(4700)`.
+
+## pct
+
+Function: `pct(lo: 'int \| Fraction \| str', hi: 'int \| Fraction \| str \| None' = None) -> 'Tolerance'`
+
+A per-cent tolerance: `pct(5)` is `±5 %`, `pct(-20, 80)` from −20 % to +80 %.
 
 ## protect
 
