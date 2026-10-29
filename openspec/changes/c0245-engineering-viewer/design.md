@@ -256,19 +256,20 @@ There is no `--ui classic` switch: one interface, one set of baselines.
 
   | measure | CI budget | reference PC target | hypothesis |
   |---|---|---|---|
-  | pan or zoom frame, p95 over 120 frames | ≤ 50 ms | ≤ 16.7 ms (60 Hz) | `H-G-WB-FRAME` |
+  | pan or zoom frame, p95 over 120 frames | ≤ 50 ms | ≤ 16.7 ms (60 Hz) | `H-G-WB-FRAME` | A mouse pan or zoom moves the last full frame at once and the board is drawn again at rest, so pan and zoom of the stress board stay within the frame budget | `tests/visual/test_workbench.py -k budget` | p95 ≤ 52.9 ms over 120 mouse pan and zoom events in the CI viewer job (task 0.2 replaced the 50 ms budget that today's page missed), no board paint during them, and ≤ 100 ms from a Messages click to the framed view; the reference PC figure recorded under task 6.4 |
   | crosshair move, p95 | ≤ 4 ms, with no board redraw | ≤ 2 ms | `H-G-WB-CURSOR` |
   | exported page, open to first full draw | ≤ 2.5 s | ≤ 1 s | `H-G-WB-OPEN` |
-  | click on a Messages row to its framed copper | ≤ 100 ms | ≤ 50 ms | `H-G-WB-FRAME` |
+  | click on a Messages row to its framed copper | ≤ 100 ms | ≤ 50 ms | `H-G-WB-FRAME` | A mouse pan or zoom moves the last full frame at once and the board is drawn again at rest, so pan and zoom of the stress board stay within the frame budget | `tests/visual/test_workbench.py -k budget` | p95 ≤ 52.9 ms over 120 mouse pan and zoom events in the CI viewer job (task 0.2 replaced the 50 ms budget that today's page missed), no board paint during them, and ≤ 100 ms from a Messages click to the framed view; the reference PC figure recorded under task 6.4 |
 
   Task 0.2 first measures the current page on the fixture. If the current page already misses a CI budget,
   the budget becomes "no worse than today and 30 % better at phase 6", recorded under the task.
 - **How the budgets are met:**
   - an overlay canvas for the crosshair, hover, rubber band and measure line;
-  - a cached bitmap per visible layer, redrawn only when the view or the layer changes, and composited
-    while panning;
+  - one bitmap of the last full frame, moved and scaled at once by a mouse pan or zoom; the board is drawn in
+    full 120 ms after the last event (implemented in task 6.2 instead of one bitmap per layer: a whole
+    frame needs no compositing order and gives the same picture at rest);
   - a uniform grid spatial index for hit testing;
-  - redraws limited to one per animation frame.
+  - programmatic draws stay full draws, so screenshots and tests see the exact picture.
 
 ### 8. Accessibility
 
@@ -456,7 +457,7 @@ whose project has roles (any KiCad or Altium board: inferred roles exist without
 
 | id | statement | settling test | criterion |
 |---|---|---|---|
-| `H-G-WB-FRAME` | With layer bitmaps and the spatial index, pan and zoom of the stress board stay within the frame budget | `tests/visual/test_workbench.py -k budget` | p95 ≤ 50 ms over 120 frames in the CI viewer job, and ≤ 100 ms from a Messages click to the framed view; the reference PC figure recorded under task 6.4 |
+| `H-G-WB-FRAME` | A mouse pan or zoom moves the last full frame at once and the board is drawn again at rest, so pan and zoom of the stress board stay within the frame budget | `tests/visual/test_workbench.py -k budget` | p95 ≤ 52.9 ms over 120 mouse pan and zoom events in the CI viewer job (task 0.2 replaced the 50 ms budget that today's page missed), no board paint during them, and ≤ 100 ms from a Messages click to the framed view; the reference PC figure recorded under task 6.4 | With layer bitmaps and the spatial index, pan and zoom of the stress board stay within the frame budget | `tests/visual/test_workbench.py -k budget` | p95 ≤ 50 ms over 120 frames in the CI viewer job, and ≤ 100 ms from a Messages click to the framed view; the reference PC figure recorded under task 6.4 |
 | `H-G-WB-CURSOR` | The overlay canvas makes a crosshair move independent of the board | `tests/visual/test_workbench.py -k budget` | p95 ≤ 4 ms in CI, and zero board-layer redraws counted during 200 pointer moves |
 | `H-G-WB-OPEN` | The exported stress page opens to its first full draw within budget | `tests/visual/test_workbench.py -k budget` | ≤ 2.5 s in CI from navigation start to the first full draw mark |
 | `H-G-WB-STABLE` | The workbench renders deterministically in the pinned Chromium and fonts | `tests/visual/test_screens.py -k deterministic` | two renders of every fixture give identical PNG bytes |
