@@ -1420,6 +1420,30 @@ design.part_class(q1, "transistor", terminals={"gate": "1", "kelvin_source": "2"
   `fenolite roles --confirm` stored in `.fenolite/rules.json`. A script without a role call gives the
   model, and the bytes, it gave before.
 
+### Role copper
+
+`design.role_copper()` (change c0243; `docs/roles.md`, "Role copper") asks the build to generate, after
+placement, the copper of the confirmed and declared roles: a band per `power` and `switch_node` net sized
+by its current, ground planes with stitching, via arrays at layer changes, and a clearance rule with a
+keep-out band around each high-voltage net at the distance of your requirements file.
+
+```python
+design.role_copper(requirements="requirements.toml")
+design.role_copper(ground_layers=("In1.Cu", "B.Cu"), stitch_pitch=mm(4), temp_rise=10)
+```
+
+- `role_copper(*, kinds=…, layers=None, ground_layers=None, ground_fill="reference", connection=None,
+  stitch_pitch=None, temp_rise=None, widen=None, corridors=True, keep=(), regenerate=(),
+  requirements=None)` records plain data, returned by `fenolite.dsl.role_copper(design)` as a
+  `RoleCopperIntent`. `kinds` picks among `power`, `switch_node`, `ground` and `high_voltage`; `layers`
+  maps a kind to its layers; `connection` maps a kind to `solid`, `thermal`, `thru_hole_only` or `none`;
+  `temp_rise` is in kelvin; `widen` is per mille; `keep` and `regenerate` name role items; `requirements`
+  names a file beside the script.
+- A second call, an unknown kind, mode or layer raises `DslError`. The build resolves the record after the
+  roles, the script copper and the generated records, and writes ordinary locked zones, rule areas, vias
+  and tracks named `role.*`, and the rules `role.sw.*` and `role.hv.*`; an Altium build resolves it in its
+  in-memory KiCad build.
+
 ## Copper guard
 
 `fenolite build` refuses to write a board whose copper shorts two nets or breaks the clearance in force

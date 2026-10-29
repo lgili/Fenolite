@@ -80,14 +80,19 @@
 
 ## 6. Closing
 
-- [ ] 6.1 Docs: add the sections "Role copper" and "Copper defaults" to `docs/roles.md`, with sources and the S-0863 pitch method; describe the record in `docs/dsl.md`; note generated copper on Altium in `docs/copper.md`. Proof: `uv run pytest tests/unit/roles/test_profile.py tests/unit/test_public_presentation.py -q`.
-- [ ] 6.2 Agent guide (AGENTS.md rule 6):
+- [x] 6.1 Docs: add the sections "Role copper" and "Copper defaults" to `docs/roles.md`, with sources and the S-0863 pitch method; describe the record in `docs/dsl.md`; note generated copper on Altium in `docs/copper.md`. Proof: `uv run pytest tests/unit/roles/test_profile.py tests/unit/test_public_presentation.py -q`.
+  2026-10-29: `docs/roles.md` gains "Role copper" (with S-0860 to S-0863 and the S-0863 pitch method) and "Copper defaults", and names the role scripts under "Reference boards"; `docs/dsl.md` describes `role_copper` under "Net roles"; `docs/copper.md` notes generated copper on Altium and the narrowed `kicad.generate.altium`; 21 passed.
+- [x] 6.2 Agent guide (AGENTS.md rule 6):
   - a tested line for `copper` on `board-power`, in a `fenolite-cmd` block;
   - `design.role_copper` on `board-power`, in a `fenolite-design` block;
   - one line on `board-grounds` (ground layers and stitching) and one on `board-insulation` (distances are the user's).
 
   Then run `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
-- [ ] 6.3 Residue: the six scripts carry their authored-for-Fenolite line, and every new `.py` file starts with its SPDX and copyright lines. Proof: `make residue`.
+  2026-10-29: `board-power` holds a `fenolite-cmd` line for `copper` and `design.role_copper()` in its `fenolite-design` block (the page trimmed to 11 991 bytes, under the 12 000 limit), `board-grounds` one line on ground layers and stitching, `board-insulation` one on distances being the user's; `RoleCopperIntent` and the build call `role_copper` join `DSL_NOT_TAUGHT`; `tools/gen_agent_guide.py` run; 87 passed, `--check` clean.
+- [x] 6.3 Residue: the six scripts carry their authored-for-Fenolite line, and every new `.py` file starts with its SPDX and copyright lines. Proof: `make residue`.
+  2026-10-29: the six scripts carry their authored-for-Fenolite line, every new `.py` file its SPDX and copyright lines, and the six scripts are in `tests/data/MANIFEST.toml`; `make residue`: 0 hits in 4501 files.
 - [ ] 6.4 Run `make check-fast`, then the required CI jobs on the pushed head of the branch. Do not run the full suite on the maintainer's Windows PC. Proof: `make check-fast`, and the required jobs green on the exact commit.
-- [ ] 6.5 Evidence: the six `H-G-ROLE-COPPER-*` hypotheses go into `docs/hypotheses.md` with their measurements; S-0860 to S-0863 go into `src/fenolite/roles/PROVENANCE.md`; regenerate the evidence matrix. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
+- [x] 6.5 Evidence: the six `H-G-ROLE-COPPER-*` hypotheses go into `docs/hypotheses.md` with their measurements; S-0860 to S-0863 go into `src/fenolite/roles/PROVENANCE.md`; regenerate the evidence matrix. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
+  2026-10-29: the six `H-G-ROLE-COPPER-*` rows in `docs/hypotheses.md` with their measurements (CLEAN's first criterion was too strict, recorded there), S-0860 to S-0863 in `src/fenolite/roles/PROVENANCE.md`, the evidence matrix regenerated (no change); 46 passed, `--check` clean.
 - [ ] 6.6 Changelog. `dev` is cut at `0.6.0` and not yet published, and the v0.6 release guard requires `## [Unreleased]` to be empty, so this proposal adds no line. Once `0.7.0.dev0` opens, add the implemented phase 1 under `## [Unreleased]`. Proof: `uv run pytest tests/unit -k changelog -q`.
+  2026-10-29: left open as instructed: `## [Unreleased]` stays empty under the v0.6 release guard; the line is added once `0.7.0.dev0` opens.

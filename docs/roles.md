@@ -235,6 +235,58 @@ designed findings, on the KiCad and the Altium build alike.
 | `half_bridge` | 4 | the high side's gate return taken from the switch-node pour; the low side's gate trace on a detour (about three times its bound); a switch-node pour under the sense pair on the next layer; one bus via where the bus's via limit asks for five |
 | `bms` | 2 | the monitor sensing the four-pad shunt on its force pads; the pack path narrowed to a 1 mm track at 20 A; a slot of the ground plane under a cell tap |
 
+The role-copper scripts `good_roles.py` and `bad_roles.py` of each board (change c0243) leave out the
+power, switch-node, ground and high-voltage copper of their variant and call `design.role_copper()`.
+
+## Role copper
+
+Phase 1 of the intent-driven router (change c0243) generates the copper of the confirmed and declared roles
+of a placed board: `design.role_copper()` in a script, or `fenolite copper PATH` on a KiCad board
+(`docs/cli-contract.md`, "copper"). An inferred role that nobody confirmed gets nothing.
+
+- **Power and switch node.** One locked zone per net and layer: the union of bands along a rectilinear tree
+  between the net's pad clusters, the hot loop's legs first and on the pads' layer (S-0860: the input
+  capacitor first, short and wide). The width comes from the current, by the rule of thumb of S-0851, or
+  with `temp_rise` by the capacity fit of S-0269. A power band widens up to twice its width where the
+  clearance allows; a switch node keeps its width, since all its copper couples noise (S-0860), and keeps
+  `switching_distance_nm` from its victims (`role.sw.*`).
+- **Ground.** A plane per ground layer (`B.Cu` on 2 layers, `In1.Cu` on 4; `ground_fill="all"` also pours
+  the free outer area), and stitching vias between the planes at `stitch_pitch` with at least two vias per
+  overlap. A ground that holds your zones gets no plane unless you name `ground_layers`.
+- **Pitch.** The public method behind a stitching pitch (S-0863): at most one twentieth of the wavelength
+  in the board at the highest significant frequency, one tenth for ordinary ground bonding. Fenolite takes
+  no frequency default; the 5 mm default is a heuristic (`H-G-ROLE-COPPER-STITCH`): set `stitch_pitch`
+  from your frequency.
+- **Connections.** Power, switch-node and high-voltage zones join their pads solid; ground zones relieve
+  through-hole pads only (`thru_hole_only`): a relief eases soldering by its thermal resistance, which a
+  pad that carries current does not want (S-0861, S-0862). One setting holds per net.
+- **Layer changes.** Where a role net with a current has terminals on two layers, a patch of
+  `ceil(milliamps / milliamps_per_via)` vias joins its zones, away from the hot loop's pads (S-0860).
+- **High voltage.** A clearance rule `role.hv.<net>` and a keep-out band at the distance of your
+  `[[distance]]` or `[[step]]` row; without a row, nothing near the net and `roles.limit-missing`.
+- **Critical routes.** Gate loops and Kelvin pairs get a no-pour corridor `role.corridor.<group>.<net>` on a
+  layer the run pours; phase 2's corridors and locked copper are obstacles, never edited.
+- **Verification.** The board is judged before and after on the simulated pour; a new role finding of
+  warning or above is `roles.copper-worse` and nothing is written.
+- **Repeat runs.** `.fenolite/role-copper.json` records a fingerprint of each item a run wrote. A run on its
+  own output plans no change; an item you edited is kept (`roles.copper-kept`) unless `regenerate` names
+  it; nothing without a role key is touched.
+
+## Copper defaults
+
+These are generation parameters of `fenolite.roles.copper`, not limits.
+
+| key | default | source | label |
+|---|---|---|---|
+| width per ampere, vias per current | `width_per_amp_nm`, `milliamps_per_via` of the profile | S-0851 | `INFERRED` |
+| widening | 2000 per mille (power), 1000 (switch node, high voltage) | S-0851, S-0860 | `INFERRED` (`H-G-ROLE-COPPER-SW`) |
+| band margin | one pour grid cell (0.1 mm) over the required width | the judge's raster | `INFERRED` |
+| connection per role | solid; ground `thru_hole_only` | S-0861, S-0862 | `INFERRED` |
+| ground layers | `B.Cu`; `In1.Cu` on 4 layers | S-0851, Fenolite heuristic | `INFERRED` |
+| stitching pitch | 5 mm | Fenolite heuristic; method S-0863 | `INFERRED` (`H-G-ROLE-COPPER-STITCH`) |
+| stitching vias per overlap | at least 2 | S-0863 | `INFERRED` |
+| corridor width | `2 × width + gap + 2 × clearance` of the class | Fenolite heuristic after S-0852, S-0853 | `INFERRED` |
+
 ## Limits
 
 - Loop areas are plan areas of the copper legs: a return under the forward path on the next layer counts
