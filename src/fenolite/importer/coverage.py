@@ -23,8 +23,9 @@ from fenolite.importer.codes import issue
 from fenolite.model.base import Opaque
 from fenolite.model.design import Design
 
-INFRASTRUCTURE = frozenset({"general", "paper", "setup", "embedded_fonts", "embedded_files"})
-"""Root fragments of a board file that hold settings, not items: the build writes its own."""
+INFRASTRUCTURE = frozenset({"general", "paper", "setup", "net", "embedded_fonts", "embedded_files"})
+"""Root fragments of a board file that hold settings, not items (the net table of a KiCad 9 board among
+them: the nets come from the pads): the build writes its own."""
 EXPLAINS: Mapping[str, tuple[tuple[int, str], ...]] = {
     "dnp": ((1, "dnp"),),
     "copper-without-net": ((5, "*"),),

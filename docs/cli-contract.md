@@ -1129,7 +1129,9 @@ plan and `--confirm` receipt protocol, all files or none:
   vendored `lib/<nickname>.pretty` and `lib/<nickname>.kicad_sym`, `PROVENANCE.json`
   (`fenolite.import-provenance.v0`) and a copy of each `--licence-file`.
 - Options: `--name NAME` (default the project stem), `--licence SPDX`, `--copyright TEXT` (repeatable),
-  `--source URL`, `--revision REV`, `--licence-file FILE` (repeatable, copied unchanged), `--no-upgrade`
+  `--source URL`, `--revision REV`, `--licence-file FILE` (repeatable, copied unchanged), `--adopt` (also
+  write `adopted/<name>.kicad_pcb`: the source board with the identities a build derives; refused with
+  `--no-verify`, `FEN-2001`), `--no-upgrade`
   (refuse a file below the read floor: exit 3, `FEN-3003`) and `--no-verify` (skip the self-check); the
   global `--allow-lossy`, `--timestamp` and `--kicad-version` apply.
 - A board below the read floor is upgraded by `kicad-cli pcb upgrade` on a private copy: exit 6 with
@@ -1144,7 +1146,8 @@ plan and `--confirm` receipt protocol, all files or none:
 `design`, `files` (`path`, `bytes`), `modules`, `counts` (`parts`, `nets`, `tracks`, `arcs`, `vias`,
 `zones`, `rule_areas`, `drawings`, `tables`), `unexpressed` (`kind`, `count`, `examples`), `upgrade`,
 `equivalence` (`levels`, `equivalent`; `null` with `--no-verify`), `provenance` (`licence`, `source`,
-`revision`) and `adopted` (`null`); `--limit` and `--cursor` page `files`. Evidence is `INFERRED`
+`revision`) and `adopted` (`null` without `--adopt`, else `board`, `rewritten` by kind, `paths`,
+`unmatched`); `--limit` and `--cursor` page `files`. Evidence is `INFERRED`
 (`H-G-IMPORT-CODE`). The declared inputs are the board, the project file, the rules file and every
 schematic sheet, by their original bytes: a sheet edited after the dry run makes `--confirm --plan` exit 4
 with `FEN-4002`.

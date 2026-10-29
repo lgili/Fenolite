@@ -340,6 +340,7 @@ another type; a flag without a value is a switch.
 - `--source URL`: where the upstream board lives
 - `--revision REV`: the upstream revision imported
 - `--licence-file FILE` (repeatable): an upstream LICENSE, NOTICE or COPYING file, copied unchanged
+- `--adopt`: also write adopted/: the source board with the identities a build derives
 - `--no-upgrade`: refuse a file below the read floor
 - `--no-verify`: skip the self-check build
 

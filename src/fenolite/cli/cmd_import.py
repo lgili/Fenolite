@@ -28,7 +28,8 @@ from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FenoliteError, Issue
 from fenolite.importer import EVIDENCE
-from fenolite.importer.check import SelfCheck, self_check
+from fenolite.importer.adopt import Adopted, adopt
+from fenolite.importer.check import self_check
 from fenolite.importer.codes import issue
 from fenolite.importer.coverage import Unexpressed, lossy_issues
 from fenolite.importer.emit import Emission, Options, emit
@@ -42,7 +43,7 @@ TARGETS = ("python",)
 EXAMPLE = str(Path(__file__).resolve().parents[3] / "tests/data/import_python/two_sheet/two_sheet.kicad_pro")
 """The authored two-sheet project of the test data."""
 WRITE_KINDS = {".py": "python", ".lock": "lock", ".json": "json", ".kicad_mod": "kicad_mod",
-               ".kicad_sym": "kicad_sym"}  # fmt: skip
+               ".kicad_sym": "kicad_sym", ".kicad_pcb": "kicad_pcb", ".kicad_pro": "kicad_pro"}  # fmt: skip
 
 
 class LossyImportError(FenoliteError):
@@ -78,6 +79,11 @@ def _register(parser: argparse.ArgumentParser) -> None:
         action="append",
         default=[],
         help="an upstream LICENSE, NOTICE or COPYING file, copied unchanged",
+    )
+    parser.add_argument(
+        "--adopt",
+        action="store_true",
+        help="also write adopted/: the source board with the identities a build derives",
     )
     parser.add_argument("--no-upgrade", action="store_true", help="refuse a file below the read floor")
     parser.add_argument("--no-verify", action="store_true", help="skip the self-check build")
@@ -116,8 +122,9 @@ def _read(path: Path, args: argparse.Namespace) -> Source:
     return read_kicad(path, upgrade=upgrade)
 
 
-def _build(emission: Emission, name: str, ctx: Context) -> tuple[SelfCheck | None, list[Issue], Any]:
-    """The emitted files built in a private temporary folder, and the read board."""
+def _build(emission: Emission, name: str, major: int, ctx: Context) -> tuple[list[Issue], Any, str]:
+    """The emitted files built in a private temporary folder for KiCad ``major``: the issues, the built
+    design and its board text."""
     with tempfile.TemporaryDirectory(prefix="fenolite-import-") as folder:
         root = Path(folder)
         for relative, data in emission.files.items():
@@ -125,7 +132,7 @@ def _build(emission: Emission, name: str, ctx: Context) -> tuple[SelfCheck | Non
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
         reply = run(
-            "build", "design.py", "--out", "built", "--confirm", "--kicad-version", str(ctx.kicad_target),
+            "build", "design.py", "--out", "built", "--confirm", "--kicad-version", str(major),
             cwd=root, timestamp=ctx.timestamp,
         )  # fmt: skip
         if reply.exit_code != 0:
@@ -133,11 +140,12 @@ def _build(emission: Emission, name: str, ctx: Context) -> tuple[SelfCheck | Non
             found = [i for i in (reply.envelope or {}).get("issues", []) if i.get("severity") == "error"]
             shown = "; ".join(f"{i['code']}: {i['message']}" for i in found[:3]) or message
             return (
-                None,
                 [issue("import.unequal", f"the emitted code does not build: {shown}", where="build")],
                 None,
+                "",
             )
-        return None, [], read_board(root / "built" / f"{name}.kicad_pcb").design
+        board = root / "built" / f"{name}.kicad_pcb"
+        return [], read_board(board).design, board.read_text(encoding="utf-8")
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
@@ -150,6 +158,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     for given in licence_files:
         if not given.is_file():
             raise CliError("FEN-3001", f"--licence-file {given.name} does not exist", where="--licence-file")
+    if args.adopt and args.no_verify:
+        raise CliError(
+            "FEN-2001",
+            "--adopt needs the build of the self-check; it cannot be combined with --no-verify",
+            where="--adopt",
+            hint="drop --no-verify",
+        )
     source = _read(path, args)
     name = design_name(args.name or source.name)
     issues: list[Issue] = list(source.issues)
@@ -210,15 +225,18 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             )
         )
     equivalence: dict[str, object] | None = None
+    adopted: Adopted | None = None
     if args.no_verify:
         issues.append(issue("import.unverified", "--no-verify: the emitted code was not built and compared"))
     else:
-        _, build_issues, built = _build(emission, name, ctx)
+        build_issues, built, built_text = _build(emission, name, target, ctx)
         issues += build_issues
         if built is not None:
             checked = self_check(source.design, built, emission.unexpressed, variants=emission.variants)
             issues += checked.issues
             equivalence = checked.as_json()
+            if args.adopt:
+                adopted = adopt(source.board_text, source.design, built_text, built)
         else:
             equivalence = {"levels": [], "equivalent": False}
     findings = Counter(found.code for found in issues if found.code.startswith("import."))
@@ -236,6 +254,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     ).encode("utf-8")
     for given in licence_files:
         files[given.name] = given.read_bytes()
+    if adopted is not None:
+        files[f"adopted/{name}.kicad_pcb"] = adopted.text.encode("utf-8")
+        project = next((p for p in source.paths if p.suffix == ".kicad_pro"), None)
+        if project is not None:
+            files[f"adopted/{name}.kicad_pro"] = project.read_bytes()
     shown_out = Path(args.out).as_posix()
     writes = tuple(
         PlannedWrite(f"{shown_out}/{relative}", data, WRITE_KINDS.get(Path(relative).suffix, "text"))
@@ -257,7 +280,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "upgrade": [row.as_json() for row in source.upgrades],
         "equivalence": equivalence,
         "provenance": {"licence": provenance.spdx, "source": args.source, "revision": args.revision},
-        "adopted": None,
+        "adopted": None if adopted is None else {"board": f"adopted/{name}.kicad_pcb", **adopted.as_json()},
     }
     return Result(
         result=result,

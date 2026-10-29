@@ -72,6 +72,31 @@ def edited(tmp: Path) -> Path:
     return _variant(tmp, "edited", text[:where] + "(at -0.9 0 180)" + text[where + len(old) :])
 
 
+def built_for(tmp: Path, major: int) -> Path:
+    """The authored two-sheet board built from its script for KiCad ``major`` in ``tmp``."""
+    work = tmp / "data" / "src"
+    shutil.copytree(DATA / "src", work)
+    shutil.copytree(DATA.parent / "libs", tmp / "libs")
+    reply = run(
+        "build", "two_sheet.py", "--out", "../two_sheet", "--confirm", "--kicad-version", str(major),
+        cwd=work, timestamp=STAMP,
+    )  # fmt: skip
+    assert reply.exit_code == 0, reply.error
+    return tmp / "data" / "two_sheet" / "two_sheet.kicad_pcb"
+
+
+def foreign(tmp: Path, board: Path = BOARD) -> Path:
+    """The board as another tool would hold it: no ``fenolite.path`` property, and every uuid replaced by
+    one that no build derives (version 4 form, from a counter)."""
+    text = board.read_text(encoding="utf-8")
+    text = re.sub(r'\n\t+\(property "fenolite\.path" "[^"]*"\n(?:\t\t\t.*\n)*?\t\t\)', "", text)
+    counter = iter(range(1, 1_000_000))
+    stamp = "00000000-0000-4000-8000-"
+    text = re.sub(r'\(uuid "[0-9a-f-]{36}"\)', lambda _: f'(uuid "{stamp}{next(counter):012d}")', text)
+    assert "fenolite.path" not in text
+    return _variant(tmp, "foreign", text)
+
+
 def old(tmp: Path) -> Path:
     """The board with the format version of KiCad 7, below the read floor."""
     text = BOARD.read_text(encoding="utf-8").replace("(version 20260206)", f"(version {OLD_VERSION})", 1)
@@ -103,9 +128,11 @@ __all__ = [
     "TWO_SHEET",
     "board_only",
     "build",
+    "built_for",
     "built_board",
     "copy_project",
     "edited",
+    "foreign",
     "grouped",
     "imported",
     "old",

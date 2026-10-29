@@ -310,7 +310,9 @@ def test_import_python_builds(tmp_path: Path) -> None:
     from fenolite.api import run
 
     folder = ROOT / "examples" / "import_python"
-    reply = run("build", str(folder / "design.py"), "--out", str(tmp_path / "built"), "--dry-run", cwd=tmp_path)
+    reply = run(
+        "build", str(folder / "design.py"), "--out", str(tmp_path / "built"), "--dry-run", cwd=tmp_path
+    )
     assert reply.exit_code == 0, reply.error
     assert set(reply.result["libraries"].values()) == {"project"}
     lines = (folder / "design.py").read_text(encoding="utf-8").splitlines()

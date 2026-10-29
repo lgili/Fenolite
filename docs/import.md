@@ -149,10 +149,21 @@ Each upgrade is a row of `result.upgrade` and `PROVENANCE.json` (tool version, f
 before and after) and one `import.upgraded`. Without `kicad-cli` the import exits 6 with `FEN-6001` and a
 hint naming `--no-upgrade`; a 9.0 `kicad-cli` has no `pcb upgrade` (`FEN-6002`).
 
+## Adoption
+
+`--adopt` also writes `adopted/<name>.kicad_pcb` (and a copy of the project file): the source board, the
+upgraded copy when there was one, rewritten by token edits only. Each footprint takes the uuid and the
+`fenolite.path` property that the build of the emitted code gives it, each pad the build's pad uuid, and
+each track, arc, via, zone, rule area, drawing and text the uuid of its twin in the built board (the same
+reference, the same pad index, or the same geometry: the self-check has proved every item came through).
+Nothing else changes. `fenolite build design.py --out adopted` then matches every footprint by its uuid,
+has no orphan and no board-only footprint, regenerates no copper, and a second build writes the same bytes.
+`result.adopted` gives the board, the counts of rewritten uuids by kind, the added paths and the items left
+without a twin. It needs the self-check build (`--no-verify` refuses it), and is off by default: the copy
+of a third-party board belongs in the library repository or your own folder.
+
 ## Not yet
 
-- **Adoption** (`--adopt`, a copy of the source board stamped with the uuids a build derives, so a build
-  over it changes nothing) is not implemented; `result.adopted` is `null`.
 - **Altium inputs**, **sheet modules** of a KiCad hierarchy and the **drawn schematic** (c0276) follow.
 - **Field placements** of an instance are not written as `Part.field()`: an instance whose fields moved is
   vendored as a variant footprint.
