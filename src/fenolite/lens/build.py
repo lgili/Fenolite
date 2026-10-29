@@ -77,6 +77,7 @@ from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm, Udeg
+from fenolite.lens import edits as edits_mod
 from fenolite.lens import preserve
 from fenolite.lens.fields import FieldRequestLike, apply_requests, merge_fields
 from fenolite.lens.moved import identity_map
@@ -140,6 +141,7 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.impedance-rules-only": "info",
         **{code: severity for code, severity in schgen.ISSUE_CODES.items() if code.startswith("build.")},
         **PRESERVE_ISSUE_CODES,
+        **edits_mod.EDIT_ISSUE_CODES,
     }
 )
 BUILD_EVIDENCE = Evidence(
@@ -940,6 +942,7 @@ def build_design(
     authored_footprints: Mapping[str, FootprintDef] = MappingProxyType({}),
     authored_symbols: Mapping[str, SymbolDef] = MappingProxyType({}),
     source_sha256: str | None = None,
+    source_file: str = "placements.toml",
     drawing_sheet: DrawingSheet | None = None,
     schematic: Literal["write", "skip"] = "write",
     symbol_placements: Mapping[str, SymbolPlacement] | None = None,
@@ -949,8 +952,14 @@ def build_design(
     planes: Mapping[str, str] | None = None,
     lock_outline: bool = False,
     heights: Mapping[str, Nm] | None = None,
+    write_base: bool = False,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
+
+    ``write_base`` adds the base record ``fenolite-base.json`` (change c0250, ``docs/lens.md``, "The base
+    record"): for each written part its code values (``prepared.codes``, else the script's values and the
+    requests of ``placements``) and the values the written board holds. It is hashed into
+    ``.fenolite/build.json`` like every other file.
 
     The outline of the model is judged first (``outline.check_outline``): rings that cross or touch stop
     the build. ``lock_outline`` is ``board(..., locked=True)`` of the script: with an existing board, the
@@ -970,7 +979,8 @@ def build_design(
     is set (``docs/lens.md``, "Via protection across rebuilds"). A default of covering, plugging, capping
     or filling that vias take from the board only gives ``kicad.via.protection-not-exported``.
 
-    ``source_sha256`` is the hash of the ``placements.toml`` that was read, recorded in
+    ``source_sha256`` is the hash of the ``source_file`` (``edits.toml`` or ``placements.toml``) that was
+    read, recorded in
     ``.fenolite/build.json`` so a later check can tell that the layout's source changed.
     ``drawing_sheet`` is the sheet that the script names (``design.sheet(drawing_sheet=…)``), read by the
     caller: it is written as ``<name>.kicad_wks``, the file the project names as its frame.
@@ -1026,10 +1036,10 @@ def build_design(
     board = design.board
     if board is None or board.outline is None:
         issues.append(issue("build.no-board", "the design has no board(); nothing can be placed", "board"))
-        return _refused(design, issues, libraries)
+        return _refused(design, issues, libraries, prepared)
     issues += check_outline(design)
     if any(found.code == "kicad.outline.invalid" for found in issues):
-        return _refused(design, issues, libraries)
+        return _refused(design, issues, libraries, prepared)
     layers = tuple(
         dataclasses.replace(layer, id=derived_id("lay", DSL_BACKEND, f"layer:{layer.name}"))
         for layer in created_layers(copper)
@@ -1303,7 +1313,7 @@ def build_design(
     issues += impedance_checks(target_design, target=target)
     issues += list(target_design.validate())
     if any(i.severity == "error" for i in issues):
-        return _refused(built, issues, libraries)
+        return _refused(built, issues, libraries, prepared)
     generated: GeneratedSchematic | None = None
     symbol_files: dict[str, list[symembed.EmbeddedSymbol]] = {}
     if schematic == "write":
@@ -1321,11 +1331,11 @@ def build_design(
         issues += generated.issues
         symbol_files = _symbol_libraries(generated, authored_symbols, target, allow_lossy, issues)
         if any(i.severity == "error" for i in issues):
-            return _refused(built, issues, libraries)
+            return _refused(built, issues, libraries, prepared)
         differs = schematic_netlist_issue(target_design, generated, name)
         if differs is not None:
             issues.append(differs)
-            return _refused(built, issues, libraries)
+            return _refused(built, issues, libraries, prepared)
         target_design = lower_for_schematic(target_design, generated)
     texts = write_triad(
         target_design,
@@ -1430,12 +1440,21 @@ def build_design(
         files["sym-lib-table"] = write_lib_table(
             LibTable("symbol", tuple(symbol_rows)), target=target
         ).encode("utf-8")
+    if write_base:
+        codes = prepared.codes if prepared is not None and prepared.codes is not None else None
+        files[edits_mod.BASE_FILE] = edits_mod.write_base(
+            edits_mod.base_record(
+                codes if codes is not None else script_codes(design, placements),
+                written_values(layout),
+                target="kicad",
+            )
+        ).encode("utf-8")
     record = {path: hashlib.sha256(data).hexdigest() for path, data in sorted(files.items())}
     for file_name, text in canonical.dump_texts(layout).items():
         files[f"{CACHE_DIR}/{file_name}"] = text.encode("utf-8")
     recorded: dict[str, object] = {"design": name, "files": record, "schema": RECORD_SCHEMA, "target": target}
     if source_sha256 is not None:
-        recorded["source"] = {"placements.toml": source_sha256}
+        recorded["source"] = {source_file: source_sha256}
     files[RECORD_FILE] = (
         json.dumps(
             recorded,
@@ -1539,6 +1558,43 @@ def build_design(
     )
 
 
+def script_codes(
+    design: Design, placements: Mapping[str, PlacementRequest]
+) -> dict[str, dict[str, edits_mod.Value | None]]:
+    """The code side of each part without an edit: its request and its value and footprint."""
+    codes: dict[str, dict[str, edits_mod.Value | None]] = {}
+    for component in design.circuit.components:
+        path = component.properties.get(PATH_PROPERTY)
+        if path is None:
+            continue
+        request = placements.get(path)
+        codes[path] = {
+            "position": (request.at.x, request.at.y) if request is not None else None,
+            "rotation": (request.rotation, request.side) if request is not None else None,
+            "value": component.value,
+            "footprint": component.lib_footprint_ref or None,
+        }
+    return codes
+
+
+def written_values(layout: Design) -> dict[str, dict[str, edits_mod.Value]]:
+    """Component path → the merged properties that ``layout``, the written board read back, holds."""
+    components = {c.id: c for c in layout.circuit.components}
+    written: dict[str, dict[str, edits_mod.Value]] = {}
+    for fp in layout.board.footprints if layout.board is not None else ():
+        component = components.get(fp.component_id)
+        path = component.properties.get(PATH_PROPERTY) if component is not None else None
+        if component is None or path is None or path in written:
+            continue
+        written[path] = {
+            "position": (fp.position.x, fp.position.y),
+            "rotation": (fp.rotation, fp.side),
+            "value": component.value,
+            "footprint": fp.lib_ref,
+        }
+    return written
+
+
 def _sheets(generated: GeneratedSchematic) -> tuple[SchematicSheet, ...]:
     """The root sheet and the child sheets of a generated schematic, in page order."""
     return (generated.sheet, *generated.children.values())
@@ -1637,6 +1693,7 @@ def _preserved(prepared: Prepared | None, merged: Mapping[str, object]) -> dict[
         "fields": merged.get("fields", {"kept": [], "forced": [], "carried": []}),
         "pad_zones": merged.get("pad_zones", {"kept": [], "forced": []}),
         "board_items": merged.get("board_items", {"regenerated": 0, "stale": 0}),
+        "edits": edits_mod.edits_summary(prepared.decisions if prepared is not None else ()),
         "aliases": dict(prepared.aliases) if prepared is not None else {},
         "module_aliases": dict(prepared.module_aliases) if board_read(prepared) else {},
         "net_aliases": dict(prepared.net_aliases) if board_read(prepared) else {},
@@ -1644,7 +1701,9 @@ def _preserved(prepared: Prepared | None, merged: Mapping[str, object]) -> dict[
     }
 
 
-def _refused(design: Design, issues: list[Issue], libraries: Mapping[str, str]) -> BuildOutput:
+def _refused(
+    design: Design, issues: list[Issue], libraries: Mapping[str, str], prepared: Prepared | None = None
+) -> BuildOutput:
     summary: dict[str, object] = {
         "components": len(design.circuit.components),
         "nets": len(design.circuit.nets),
@@ -1652,7 +1711,11 @@ def _refused(design: Design, issues: list[Issue], libraries: Mapping[str, str]) 
         "staged": [],
         "vendored": [],
         "libraries": dict(libraries),
-        "preserved": _preserved(None, {}),
+        "preserved": {
+            **_preserved(None, {}),
+            # the conflicts that refused the build, for the viewer and for --take (change c0250)
+            "edits": edits_mod.edits_summary(prepared.decisions if prepared is not None else ()),
+        },
         "stackup": None,
         "schematic": None,
     }

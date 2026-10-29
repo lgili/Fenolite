@@ -1468,6 +1468,36 @@ meaning = "The board holds no stack-up that Fenolite reads, so the fabrication d
 fix = "Define the stack-up of the board (Board Setup in KiCad), or leave stackup out of [fab] tables in the drawing specification."
 see = "export"
 
+["edit.base-invalid"]
+meaning = "The base record fenolite-base.json of the output folder is not JSON, is of another schema or target, or has a malformed entry; it is read as no record, so every part is merged by the rule of before."
+fix = "Rebuild: the build writes the record again. Do not edit the file by hand."
+see = "build"
+
+["edit.base-missing"]
+meaning = "Parts with a footprint on the board have no entry in fenolite-base.json, as on a board built before change c0250: the board wins for their positions and the script for their values, as before."
+fix = "Nothing to do: this build writes the record, and the next build merges three ways."
+see = "build"
+
+["edit.code-wins"]
+meaning = "A property the script changed since the last build was written over a CAD value nobody edited, for example a changed unlocked place() moved an untouched part."
+fix = "Nothing to do when the change is wanted; otherwise change the script back."
+see = "build"
+
+["edit.legacy-file"]
+meaning = "placements.toml is beside edits.toml and is not read: edits.toml replaces it."
+fix = "Review edits.toml, then delete placements.toml."
+see = "build"
+
+["edit.take-unused"]
+meaning = "A --take matched no sync.conflict of the build and changed nothing."
+fix = "Drop the option, or check its side and target (SIDE[:PATH[#PROPERTY]])."
+see = "build"
+
+["edit.unrecorded"]
+meaning = "A value, footprint or position edited in KiCad is kept over the script's, and edits.toml does not hold it yet."
+fix = "Run fenolite sync --to-source to record it in edits.toml, or change the script to the same value."
+see = "build"
+
 ["equiv.component-missing"]
 meaning = "A component reference exists on one side of the comparison only."
 fix = "Add or remove the component, or leave such references out with --ignore-ref."
@@ -3372,6 +3402,11 @@ meaning = "A clearance or edge-clearance rule names layers. The Specctra file ha
 fix = "Nothing to do; the router keeps at least what the rule asks."
 see = "route"
 
+["sync.conflict"]
+meaning = "A property changed both in the script (or edits.toml) and in the CAD file since the last build, to different values, or an edit of edits.toml was made over a script value that changed since (stale-edit); nothing is written."
+fix = "Choose a side with fenolite build ... --take code:PATH#PROPERTY or --take cad:PATH#PROPERTY (board or schematic when the two CAD sides disagree), then run fenolite sync --to-source."
+see = "build"
+
 ["sync.net-dropped"]
 meaning = "The board holds copper on a net that the design no longer has and that no alias covers; the next build drops that copper."
 fix = "Keep the net in the script, or name its new name with moved_net(old, new) before building."
@@ -3380,6 +3415,11 @@ see = "sync"
 ["sync.orphan"]
 meaning = "A footprint that Fenolite placed is on the board and its part is not in the design; the next build removes it."
 fix = "Keep the part in the script, or name its new path with moved(old, new) before building."
+see = "sync"
+
+["sync.placements-migrated"]
+meaning = "No edits.toml was beside the script: the entries of the legacy placements.toml are carried into the edits.toml that sync writes."
+fix = "Review edits.toml, commit it, then delete placements.toml."
 see = "sync"
 
 ["sync.symbol-off-grid"]

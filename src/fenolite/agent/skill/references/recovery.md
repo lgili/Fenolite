@@ -82,6 +82,15 @@ fenolite route blink/build --router direct --rip --confirm --json  # exit 0
 fenolite check blink/build --stages model.validate,copper.clearance --json  # exit 0
 ```
 
+## Exit 5, `sync.conflict`: both sides changed
+
+KiCad and the script changed one property differently. Take a side, then sync.
+
+```fenolite-recipe conflict
+fenolite build blink/design.py --out blink/build --dry-run --json  # exit 5, has sync.conflict
+fenolite build blink/design.py --out blink/build --take cad:R1#value --confirm --json  # exit 0
+```
+
 ## Exit 5 in general
 
 Exit 5 means the command ran and found problems: read `issues`. For a finding: read the code,
@@ -103,7 +112,7 @@ fenolite route blink/build --router direct --confirm --json  # exit 0
 
 ## Without a tool
 
-`fenolite doctor --json` says which tools are found and where they are looked for. Without
+`fenolite doctor --json` says which tools are found, and where. Without
 `kicad-cli`, `check --stages model.validate,copper.clearance` still judges the copper, and `fill`,
 `export`, `render` and the stages of KiCad's own checks wait for the tool. Install nothing on the
 user's machine without being asked.

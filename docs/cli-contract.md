@@ -481,7 +481,7 @@ A build for either target applies the catalog's default pin-to-pad map (change c
 [--altium-format binary|ascii] [--altium-sheets flat|modules] [--altium-layout grid|blocks] [--altium-outjob on|off]
 [--altium-outjob-preset FILE] [--altium-symbols graphics|generic] [--altium-directions on|off]
 [--altium-bodies off|extruded] [--altium-pour computed|outline]
-[--copper-check refuse|warn]` runs the design script
+[--copper-check refuse|warn] [--take SIDE[:TARGET]]...` runs the design script
 (your own code: never run it on an untrusted script) and plans the files of a KiCad project under `DIR`
 (`docs/dsl.md`). It is mutating. `--discard-layout` replaces outputs edited since the last build.
 `--vendor all` (the default) copies the placed footprints of every library into `DIR/lib/`; the copies
@@ -516,6 +516,22 @@ the setting of a board pad, which wins) and `forced` (a locked request replaced 
 pad); both are empty without an existing board (`docs/lens.md`, "Pad zone connections"). Their issues
 are `kicad.pad.zone-overridden` (info), `kicad.pad.zone-forced` (warning) and
 `kicad.pad.zone-unknown-pad` (error: exit 5, nothing written).
+
+**Edits made in KiCad** (change c0250, `docs/lens.md`, "Three-way merge"). Positions, rotations, values
+and footprints are merged three ways between the script with `edits.toml` (beside the script; a legacy
+`placements.toml` when there is none, `edit.legacy-file` when both are there), the board and schematic
+in `DIR`, and the base record `DIR/fenolite-base.json` that every build writes (a planned write, in the
+receipt and in `.fenolite/build.json`). `result.preserved.edits` holds `kept`, `code`, `taken` and
+`unrecorded` (sorted `"<path>#<property>"` keys) and `conflicts` (records: `key`, `reason`, `base`, `code`,
+`cad`); `result.preserved.source.file` names the file read. A property changed on both sides to
+different values, or an edit of `edits.toml` made over a script value that changed since, is a
+`sync.conflict` (error): exit 5 and nothing written. `--take SIDE[:TARGET]`, repeatable, resolves it:
+`SIDE` is `code`, `cad`, `board` or `schematic`, `TARGET` a component path or a key `PATH#PROPERTY`, none
+for every conflict; the most specific take wins. A malformed value or two sides for one target is a usage
+error (exit 2, `FEN-2001`); a take that matches no conflict gives `edit.take-unused` (warning). The info
+codes `edit.unrecorded`, `edit.code-wins` and `edit.base-missing` never fail a build, and
+`edit.base-invalid` (warning) reads a broken base record as none. A base record changed by hand is
+refused as `build.layout-exists` (exit 7).
 
 The outline of the script is judged before anything is placed (`docs/dsl.md`, "Board"):
 `kicad.outline.invalid` (error: exit 5, nothing written) for rings that cross or touch, a cut-out or slot
@@ -631,26 +647,34 @@ inputs give `sync.altium-unverified`. Both exit 5. The mutation protocol and inp
 native sheet and baseline. Scope, evidence and recovery: `docs/altium-schematic-layout.md`.
 
 `fenolite sync DESIGN.py --out DIR --to-source [--check]` copies the layout of a built project into the
-source tree (`docs/lens.md`, "sync" and "placements.toml"). It is a mutating command: the writes follow
+source tree (`docs/lens.md`, "sync" and "edits.toml"). It is a mutating command: the writes follow
 "Writing files", `.bak` files included. It runs `DESIGN.py` as `build` does and starts no external tool.
+It reads the base record `DIR/fenolite-base.json`, `edits.toml` beside the script (otherwise a legacy
+`placements.toml`, whose entries it carries into `edits.toml`: `sync.placements-migrated`) and the
+schematic; a broken file exits 3 (`FEN-3004`). `--take` is a `build` option: here it is a usage error
+(exit 2, `FEN-2001`, hint "resolve the conflict with fenolite build --take, then sync"). `sync` records;
+it never resolves.
 
 - `--to-source` is required (exit 2, `FEN-2001` without it), so a later direction cannot change what a
   bare `sync` does.
 - The board `DIR/<design name>.kicad_pcb` must exist: otherwise exit 3, `FEN-3001`, with the hint to run
   `fenolite build` first. The refusals of a build over an existing board apply unchanged.
-- **Writes** go beside the design script, not under `DIR`: `placements.toml`, and
-  `schematic-placements.toml` when `DIR` holds the schematic of the design; each only when its text
-  would change. A run that changes nothing plans nothing and asks for no confirmation.
+- **Writes** go beside the design script, not under `DIR`: `edits.toml` (the values the next build would
+  write that differ from the script's, each over the script value), and `schematic-placements.toml` when
+  `DIR` holds the schematic of the design; each only when its text would change. A run that changes
+  nothing plans nothing and asks for no confirmation. A `sync.conflict` plans nothing.
 - **`--check`** plans nothing and reports one `sync.would-change` (error) per file that would change,
-  naming its first differing table: exit 5 when a committed file is stale, 0 otherwise. `--check` with
-  `--confirm` is a usage error (exit 2).
-- **`result`**: `design`, `out`, `board` (the file name), `placements` (the number of entries),
+  naming its first differing table: exit 5 when a committed file is stale or a property is in conflict
+  (`sync.conflict`), 0 otherwise. `--check` with `--confirm` is a usage error (exit 2).
+- **`result`**: `design`, `out`, `board` (the file name), `placements` (the number of parts whose position
+  or rotation `edits.toml` holds), `edits` (the keys captured), `pending` (code changes the next build
+  writes over an unchanged CAD value), `conflicts` (records),
   `unplaced` (matched parts that lie off the board and stay out of the file), `orphans` and `board_only`
   (references), `symbols` (the number of tables of `schematic-placements.toml`, or `null` when `DIR`
   holds no schematic), `files` (the names that change) and `script_output`.
-- **Issues**: those of the board read, and the `sync.*` codes of `docs/lens.md`: `sync.would-change`
-  (error), `sync.orphan`, `sync.net-dropped`, `sync.value-differs` and `sync.symbol-off-grid`
-  (warnings).
+- **Issues**: those of the board read, and the `sync.*` codes of `docs/lens.md`: `sync.would-change` and
+  `sync.conflict` (errors), `sync.orphan`, `sync.net-dropped`, `sync.value-differs` (now only for parts
+  without a base entry) and `sync.symbol-off-grid` (warnings), and `sync.placements-migrated` (info).
 - Two runs on equal inputs plan equal bytes.
 
 `build` writes the drawing sheet that `design.sheet(drawing_sheet=…)` names as `<name>.kicad_wks`

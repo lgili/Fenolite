@@ -7,6 +7,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
 from _buildhelp import blink
 from _layout_edit import D1_SHIFT, edit_blink
 from _preserve_help import board_text
@@ -14,8 +15,9 @@ from _preserve_help import board_text
 from fenolite.dsl import BOARD_ORIGIN, Design, module_moves, moves, net_moves, placements, to_model
 from fenolite.lens import preserve
 from fenolite.lens.altium_schematic import ISSUE_CODES as ALTIUM_ISSUE_CODES
+from fenolite.lens.edits import EDIT_ISSUE_CODES, BaseRecord, read_base, read_edits
 from fenolite.lens.moved import Aliases
-from fenolite.lens.placements import read_placements
+from fenolite.lens.placements import SourcePlacement, write_placements
 from fenolite.lens.preserve import ExistingProject
 from fenolite.lens.sync import EVIDENCE, SYNC_ISSUE_CODES, SyncPlan, plan_sync
 
@@ -23,7 +25,14 @@ ROOT = Path(__file__).resolve().parents[3]
 CODE = re.compile(r'"(sync\.[a-z0-9-]+)"')
 
 
-def plan(design: Design, text: str, current: str | None = None) -> SyncPlan:
+def plan(
+    design: Design,
+    text: str,
+    current: str | None = None,
+    *,
+    base: BaseRecord | None = None,
+    legacy: str | None = None,
+) -> SyncPlan:
     aliases = Aliases(moves(design), module_moves(design), net_moves(design))
     found = plan_sync(
         to_model(design),
@@ -31,7 +40,10 @@ def plan(design: Design, text: str, current: str | None = None) -> SyncPlan:
         name="blink",
         aliases=aliases,
         origin=BOARD_ORIGIN,
-        placements_text=current,
+        edits_text=current,
+        placements_text=legacy,
+        base=base,
+        requests=placements(design),
     )
     assert all(SYNC_ISSUE_CODES[i.code] == i.severity for i in found.issues if i.code.startswith("sync."))
     return found
@@ -46,29 +58,42 @@ def without_r1() -> Design:
     return d
 
 
-def test_edited_board_synced() -> None:
+def fresh_base() -> BaseRecord:
+    from _buildhelp import build
+
+    out = build(blink(), 10, write_base=True)
+    return read_base(out.files["fenolite-base.json"].decode("utf-8"), target="kicad")
+
+
+@pytest.mark.parametrize("with_base", [True, False])
+def test_edited_board_synced(with_base: bool) -> None:
     d = blink()
-    found = plan(d, board_text(edit=edit_blink))
-    assert list(found.files) == ["placements.toml"] and found.issues == ()
-    entries = read_placements(found.files["placements.toml"], origin=BOARD_ORIGIN).entries
-    assert list(entries) == ["D1", "R1", "U1"]
-    assert entries["D1"].at.x == placements(d)["D1"].at.x + D1_SHIFT
+    found = plan(d, board_text(edit=edit_blink), base=fresh_base() if with_base else None)
+    assert list(found.files) == ["edits.toml"] and found.issues == ()
+    parts = read_edits(found.files["edits.toml"], origin=BOARD_ORIGIN).parts
+    assert list(parts) == ["D1"]
+    at = placements(d)["D1"].at
+    assert parts["D1"].values == {"position": (at.x + D1_SHIFT, at.y)}
+    assert parts["D1"].over == {"position": (at.x, at.y)}
     assert dict(found.result) == {
         "board": "blink.kicad_pcb",
-        "placements": 3,
+        "placements": 1,
+        "edits": ["D1#position"],
+        "pending": [],
+        "conflicts": [],
         "unplaced": [],
         "orphans": [],
         "board_only": [],
         "symbols": None,
-        "files": ["placements.toml"],
+        "files": ["edits.toml"],
     }
 
 
 def test_nothing_to_write() -> None:
     text = board_text(edit=edit_blink)
     first = plan(blink(), text)
-    again = plan(blink(), text, first.files["placements.toml"])
-    assert dict(again.files) == {} and again.result["files"] == [] and again.result["placements"] == 3
+    again = plan(blink(), text, first.files["edits.toml"])
+    assert dict(again.files) == {} and again.result["files"] == [] and again.result["placements"] == 1
 
 
 def test_orphaned_complement_reported() -> None:
@@ -78,7 +103,7 @@ def test_orphaned_complement_reported() -> None:
     assert "R1" in by_code["sync.orphan"].message and by_code["sync.orphan"].where == "R1"
     dropped = by_code["sync.net-dropped"]
     assert dropped.where == "LED_A" and "2 tracks" in dropped.message and "1 vias" in dropped.message
-    assert found.result["orphans"] == ["R1"] and found.result["placements"] == 2
+    assert found.result["orphans"] == ["R1"] and found.result["placements"] == 1
 
 
 def test_net_alias_covers_the_copper() -> None:
@@ -124,7 +149,7 @@ def test_board_only_and_unplaced_in_the_result() -> None:
     again.parts["R1"].request = None
     found = plan(again, text)
     assert found.result["unplaced"] == ["R1"] and found.result["board_only"] == ["H1"]
-    assert found.result["placements"] == 2 and '[part."R1"]' not in found.files["placements.toml"]
+    assert found.result["placements"] == 0 and '[part."R1"]' not in found.files["edits.toml"]
 
 
 def test_evidence() -> None:
@@ -134,10 +159,12 @@ def test_evidence() -> None:
 def test_closed_set() -> None:
     assert dict(SYNC_ISSUE_CODES) == {
         "sync.would-change": "error",
+        "sync.conflict": "error",
         "sync.orphan": "warning",
         "sync.net-dropped": "warning",
         "sync.value-differs": "warning",
         "sync.symbol-off-grid": "warning",
+        "sync.placements-migrated": "info",
     }
     produced: set[str] = set()
     for path in (Path(__file__), ROOT / "tests" / "unit" / "cli" / "test_sync_cmd.py"):
@@ -145,7 +172,11 @@ def test_closed_set() -> None:
     assert produced == set(SYNC_ISSUE_CODES)
     source = (ROOT / "src" / "fenolite").rglob("*.py")
     used = {code for path in source for code in CODE.findall(path.read_text(encoding="utf-8"))}
-    assert used == set(SYNC_ISSUE_CODES) | {code for code in ALTIUM_ISSUE_CODES if code.startswith("sync.")}
+    assert used == (
+        set(SYNC_ISSUE_CODES)
+        | {code for code in ALTIUM_ISSUE_CODES if code.startswith("sync.")}
+        | {code for code in EDIT_ISSUE_CODES if code.startswith("sync.")}
+    )
 
 
 def test_symbol_placements_are_planned_with_the_sheets() -> None:
@@ -176,3 +207,65 @@ def test_symbol_placements_are_planned_with_the_sheets() -> None:
     assert sorted(read_symbols(first.files[SYMBOL_FILE_NAME])) == ["D1", "R1", "U1"]
     assert SYMBOL_FILE_NAME not in run(first.files[SYMBOL_FILE_NAME]).files
     assert plan(blink(), files["blink.kicad_pcb"].decode("utf-8")).result["symbols"] is None
+
+
+# --- the edits of change c0250 --------------------------------------------------------------------
+
+
+def _value(text: str, ref: str, value: str) -> str:
+    from _layout_edit import edit_properties
+
+    edited, _ = edit_properties(text, None, {ref: {"value": value}})
+    assert edited is not None
+    return edited
+
+
+def test_value_edited_in_kicad_with_a_base() -> None:
+    found = plan(blink(), _value(board_text(), "R1", "4k7"), base=fresh_base())
+    assert found.issues == ()
+    parts = read_edits(found.files["edits.toml"], origin=BOARD_ORIGIN).parts
+    assert parts["R1"].values == {"value": "4k7"} and parts["R1"].over == {"value": "330"}
+    assert found.result["edits"] == ["R1#value"]
+
+
+def test_value_edited_in_kicad_without_a_base() -> None:
+    found = plan(blink(), _value(board_text(), "R1", "4k7"))
+    (issue,) = found.issues
+    assert (issue.code, issue.where) == ("sync.value-differs", "R1")
+    assert all(word in issue.message for word in ("R1", "value", "4k7", "330"))
+    assert "value" not in found.files["edits.toml"]
+
+
+def test_conflict_blocks_the_sync() -> None:
+    d = blink()
+    d.parts["R1"].value = "470"
+    found = plan(d, _value(board_text(), "R1", "4k7"), base=fresh_base())
+    (conflict,) = [i for i in found.issues if i.code == "sync.conflict"]
+    assert conflict.where == "R1#value" and all(v in conflict.message for v in ("'330'", "'470'", "'4k7'"))
+    assert dict(found.files) == {} and found.result["conflicts"][0]["key"] == "R1#value"  # type: ignore[index]
+
+
+def test_pending_code_change_is_not_captured() -> None:
+    d = blink()
+    d.parts["R1"].value = "470"
+    found = plan(d, board_text(), base=fresh_base())
+    assert found.result["pending"] == ["R1#value"] and "value" not in found.files["edits.toml"]
+
+
+def test_legacy_placements_migrated() -> None:
+    d = blink()
+    text = board_text(edit=edit_blink)
+    at = placements(d)["R1"].at
+    legacy = write_placements(
+        {
+            "D1": SourcePlacement(placements(d)["D1"].at, 0, "bottom", False),
+            "R2": SourcePlacement(at, 0, "top", False),
+        },
+        origin=BOARD_ORIGIN,
+    )
+    found = plan(d, text, legacy=legacy)
+    assert list(found.files) == ["edits.toml"]
+    (migrated,) = [i for i in found.issues if i.code == "sync.placements-migrated"]
+    assert migrated.where == "placements.toml" and migrated.severity == "info"
+    parts = read_edits(found.files["edits.toml"], origin=BOARD_ORIGIN).parts
+    assert list(parts) == ["D1"]  # R2 is no part of the design, so its entry goes

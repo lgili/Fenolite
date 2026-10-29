@@ -16,6 +16,7 @@ from fenolite.core.evidence import Level
 from fenolite.core.ids import derived_id
 from fenolite.lens.altium_schematic import ISSUE_CODES as ALTIUM_ISSUE_CODES
 from fenolite.lens.build import BUILD_EVIDENCE, BUILD_ISSUE_CODES, plane_issues
+from fenolite.lens.edits import EDIT_ISSUE_CODES
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES
 from fenolite.model.board import Zone
 from fenolite.model.circuit import Net
@@ -57,6 +58,7 @@ def test_closed_set() -> None:
         "build.pad-map-default": "warning",  # c0147: the catalog's default pin-to-pad map
         "build.area-unknown": "error",  # c0103: a rule names no rule area
         **PRESERVE_ISSUE_CODES,  # c0019
+        **EDIT_ISSUE_CODES,  # c0250: the edit merge passes through
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table
     literals: set[str] = set()
@@ -70,13 +72,16 @@ def test_closed_set() -> None:
         literals |= set(
             re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
         )
-    assert literals == set(table) | {code for code in ALTIUM_ISSUE_CODES if code.startswith("build.")}
+    assert literals == set(table) - set(EDIT_ISSUE_CODES) | {
+        code for code in ALTIUM_ISSUE_CODES if code.startswith("build.")
+    }
     tested: set[str] = set()
     cli_tests = TESTS.parent / "cli" / "test_build_schematic_cmd.py"
     layout_tests = TESTS.parent / "backends" / "kicad" / "test_schlayout.py"
     for path in [*TESTS.glob("test_build_*.py"), *TESTS.glob("test_preserve_*.py"), cli_tests, layout_tests]:
         tested |= set(re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8")))
-    assert set(table) - set(PRESERVE_ISSUE_CODES) <= tested, set(table) - tested
+    owned = set(table) - set(PRESERVE_ISSUE_CODES) - set(EDIT_ISSUE_CODES)
+    assert owned <= tested, owned - tested
 
 
 def test_warnings_do_not_fail() -> None:
