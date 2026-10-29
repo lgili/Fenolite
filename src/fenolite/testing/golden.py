@@ -68,9 +68,9 @@ def assert_render(
         raise TestingError(f"invalid golden {reference}: {error}") from error
     args = ["fenolite", "render", str(path)]
     for name in highlighted:
-        args += ["--net", name]
+        args += [f"--net={name}"]
     if region is not None or not highlighted:
-        args += ["--region", ",".join(mm(v) + "mm" for v in (rect.x0, rect.y0, rect.x1, rect.y1))]
+        args += ["--region=" + ",".join(mm(v) + "mm" for v in (rect.x0, rect.y0, rect.x1, rect.y1))]
     if layers is not None:
         args += ["--layers", ",".join(layers)]
     args += ["--seed", str(seed), "--timestamp", timestamp, "-o", str(reference.parent)]

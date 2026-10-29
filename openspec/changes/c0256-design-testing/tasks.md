@@ -50,6 +50,7 @@
 - [x] 4.6 `svgdiff.py` and `assert_render` (scenarios "A moved track fails the golden test", "Same bytes, same verdict"). Proof: `uv run pytest tests/unit/testing/test_golden.py -q`.
 
   - 2026-10-29: golden proof passed, exit 0 (3 tests); exact bytes, no reference writes, missing-file diagnostics and one-element track changes are covered.
+  - 2026-10-30: final review reproduced a regeneration-command failure for a negative region (FEN-2001, exit 2). Emit --region=VALUE and --net=NAME to keep leading minus signs inside option values. The focused golden proof passed, exit 0 (5 tests), including execution of the suggested dry-run command for both negative coordinates and a net named -GND; neither writes the reference folder. Fresh check-fast after the fix passed, exit 0 (15315 passed, 42 skipped, 422.04 s with four workers), before the corrective commit/push.
 
 ## 5. Example, docs and guide
 

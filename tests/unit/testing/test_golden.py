@@ -2,6 +2,7 @@
 # Copyright (c) 2026 Fenolite contributors
 """Golden assertions are exact, deterministic and never rewrite references."""
 
+import shlex
 from pathlib import Path
 
 import pytest
@@ -55,3 +56,25 @@ def test_moved_track_is_one_changed_element():
     diff = compare(old, new)
     assert (diff.added, diff.removed, diff.changed) == (0, 0, 1)
     assert "track-a" in diff.lines[0]
+
+
+@pytest.mark.parametrize("negative", ["region", "net"])
+def test_regeneration_command_accepts_negative_values(script: Path, tmp_path: Path, monkeypatch, negative):
+    monkeypatch.setenv("FENOLITE_STATE_DIR", str(tmp_path / "state"))
+    golden = tmp_path / "golden/region.svg"
+    if negative == "net":
+        script.write_text(script.read_text().replace('Net("GND")', 'Net("-GND")'))
+        options = {"net": "-GND"}
+    else:
+        options = {"region": (-1_000_000, -1_000_000, 31_000_000, 21_000_000)}
+    with pytest.raises(TestingError) as error:
+        assert_render(script, golden, **options)
+    command = next(
+        line.strip()
+        for line in str(error.value).splitlines()
+        if line.strip().startswith("fenolite render") and line.endswith("--dry-run")
+    )
+    args = shlex.split(command)
+    reply = run(args[1], *args[2:])
+    assert reply.exit_code == 0, reply.error
+    assert not golden.parent.exists()
