@@ -31,3 +31,16 @@ def edited(stem: str, edit: Callable[[Raw], None] | None = None) -> Package:
     if edit is not None:
         edit(raw)
     return package_from(raw, file=f"{stem}.toml")
+
+
+CALIBRATION = PACKAGES / "calibration"
+CALIBRATION_RECORDS = tuple(sorted(path.stem for path in CALIBRATION.glob("*.toml")))
+
+
+def every_record() -> list[Package]:
+    """Every authored test record and calibration record, parsed."""
+    found = [edited(stem) for stem in RECORDS]
+    for stem in CALIBRATION_RECORDS:
+        raw = tomllib.loads((CALIBRATION / f"{stem}.toml").read_text(encoding="utf-8"), parse_float=Decimal)
+        found.append(package_from(raw, file=f"calibration/{stem}.toml"))
+    return found
