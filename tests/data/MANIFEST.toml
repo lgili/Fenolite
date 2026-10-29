@@ -2577,3 +2577,28 @@ path = "tests/data/fidelity/sensor/sensor.kicad_dru"
 origin = "authored"
 corpus_id = ""
 notes = "custom rules of the same build (c0278): the rule sig_gap of the script"
+
+[[file]]
+path = "examples/blocks/design.py"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "examples/blocks/design.lock"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "examples/lock/design.py"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "examples/lock/design.lock"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/lens/sync_minimal/fenolite-base.json"
+origin = "authored"
+corpus_id = ""
