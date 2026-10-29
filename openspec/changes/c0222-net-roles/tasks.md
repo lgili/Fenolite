@@ -132,7 +132,10 @@
   high voltage unless the user gives a `working_mv`"), a `power` net with a working voltage is judged as
   high voltage when no `high_voltage_mv` is given, and only at or above it when one is. Proof passed: 7
   tests.
-- [ ] 4.2 Add `roles/codes.py` with the seventeen codes, their entries in `fenolite explain`, and the severity rule (scenarios "Codes in the table", "Unconfirmed roles warn only"). Proof: `uv run pytest tests/unit/roles/test_codes.py tests/unit/cli/test_explain_cmd.py -q`.
+- [x] 4.2 Add `roles/codes.py` with the seventeen codes, their entries in `fenolite explain`, and the severity rule (scenarios "Codes in the table", "Unconfirmed roles warn only"). Proof: `uv run pytest tests/unit/roles/test_codes.py tests/unit/cli/test_explain_cmd.py -q`.
+  Done 2026-10-29. The explanations point to `check` until task 6.1 adds the `roles` heading to
+  `docs/cli-contract.md`. "Unconfirmed roles warn only" is checked here on the judge; its exit code is
+  checked on the command in task 6.1. Proof passed: 28 tests.
 
 ## 5. Measures through the analyses, and checks
 
