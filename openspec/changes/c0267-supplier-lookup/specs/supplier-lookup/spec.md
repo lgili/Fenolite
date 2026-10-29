@@ -14,7 +14,7 @@ A plugin SHALL read credentials only from the variables `FENOLITE_<SOURCE>_<NAME
 #### Scenario: A secret never leaks
 - **GIVEN** a canary secret in `FENOLITE_DIGIKEY_CLIENT_SECRET` and a fake transport answering 401
 - **WHEN** `uv run pytest tests/unit/suppliers/test_credentials.py -k canary` runs the proposal
-- **THEN** the exit code is 6 with `FEN-6004`, and the canary appears in none of stdout, stderr, the plan or any file under the project
+- **THEN** the exit code is 6 with `FEN-6005`, and the canary appears in none of stdout, stderr, the plan or any file under the project
 
 ### Requirement: Source policy as data
 Each plugin SHALL declare one `SourcePolicy` with `terms`, `attribution`, `cache`, `terms_max_age_s`, `rate`, `sends`, `persist` and `evidence`, equal to the values recorded with their sources in `docs/formats/suppliers/<name>.md`. A cache age MUST NOT exceed `terms_max_age_s`, and Farnell's cache MUST be `none`.
@@ -71,7 +71,7 @@ Every proposal in `result.proposals`, in the text view and in a written row's pr
 - **THEN** each reply entry and each written row holds its source's attribution text
 
 ### Requirement: Rate limits and failures
-A plugin SHALL enforce its policy's rate per process, honour one `Retry-After` within `--timeout` with `supplier.rate-limited`, and map failures: 401/403 to `FEN-6004`, network errors, timeouts, 5xx and a repeated 429 to `FEN-6003` (retryable), an undocumented response shape to `FEN-3004`.
+A plugin SHALL enforce its policy's rate per process, honour one `Retry-After` within `--timeout` with `supplier.rate-limited`, and map failures: 401/403 to `FEN-6005`, network errors, timeouts, 5xx and a repeated 429 to `FEN-6003` (retryable), an undocumented response shape to `FEN-3004`.
 
 #### Scenario: A repeated 429
 - **GIVEN** a fake transport answering 429 with `Retry-After: 1` twice and a fake clock

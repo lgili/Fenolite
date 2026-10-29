@@ -113,7 +113,7 @@ def voltage_divider_block(
     b,
     *,
     vout=param(volt("3.3").pct(5), doc="target output range"),
-    vin=param(volt("12").pct(10), doc="input range"),
+    vin=param(volt("12").pct(2), doc="input range"),
     current=param(ua(100), doc="bias current at nominal input", min=ua(1), max=ma(10)),
     series=param("E96", choices=("E24", "E96"), doc="resistor series"),
 ):

@@ -12,7 +12,7 @@
 ## 1. Package and shared machinery
 
 - [ ] 1.1 Add `src/fenolite/suppliers/`, its row in the import-graph test, the extra `suppliers = ["keyring>=25"]` and the entry points in `pyproject.toml`, and the extras invariant test (scenarios "Plugins without the extra", "Suppliers stay behind the entry points"). Proof: `uv run pytest tests/unit/test_import_graph.py tests/unit/test_pyproject_invariants.py tests/unit/suppliers/test_registry.py -q`.
-- [ ] 1.2 `policy.py`, `credentials.py` (`Secret`, variables, keyring), `FEN-6004` in `cli/errors.py` (scenario "A secret never leaks"). Proof: `uv run pytest tests/unit/suppliers/test_credentials.py tests/unit/cli/test_errors.py -q`.
+- [ ] 1.2 `policy.py`, `credentials.py` (`Secret`, variables, keyring), `FEN-6005` in `cli/errors.py` (scenario "A secret never leaks"). Proof: `uv run pytest tests/unit/suppliers/test_credentials.py tests/unit/cli/test_errors.py -q`.
 - [ ] 1.3 `http.py` (`Transport`, `UrllibTransport`, size cap, host list, redaction), `ratelimit.py`, `cache.py`, `FakeTransport` in `tests/unit/suppliers/conftest.py` (scenarios "A repeated 429", "Nothing outlives the run"). Proof: `uv run pytest tests/unit/suppliers/test_http.py tests/unit/suppliers/test_cache.py -q`.
 - [ ] 1.4 `rows.py`: proposal rows with the `persist` fields, provenance, attribution and c0263 decode (scenarios "Offers are shown, not written", "A decoded and an unknown MPN", "Attribution travels with the row", "No request on confirm"). Proof: `uv run pytest tests/unit/suppliers/test_rows.py -q`.
 
@@ -30,8 +30,8 @@
 
 ## 4. Docs and guide
 
-- [ ] 4.1 `docs/suppliers.md` (setup per source with the user's own account, what is sent, cached and written, attribution, no shared keys), `docs/cli-contract.md` (`FEN-6004`, `result.suppliers`) and `docs/picking.md` ("Supplier proposals"). Proof: `uv run pytest tests/consistency -q`.
-- [ ] 4.2 Agent guide: a tested line for `--supplier` proposals on `parts`, and for `FEN-6004` and the `supplier.*` codes on `recovery`; then `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
+- [ ] 4.1 `docs/suppliers.md` (setup per source with the user's own account, what is sent, cached and written, attribution, no shared keys), `docs/cli-contract.md` (`FEN-6005`, `result.suppliers`) and `docs/picking.md` ("Supplier proposals"). Proof: `uv run pytest tests/consistency -q`.
+- [ ] 4.2 Agent guide: a tested line for `--supplier` proposals on `parts`, and for `FEN-6005` and the `supplier.*` codes on `recovery`; then `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
 
 ## 5. JLC (gated)
 

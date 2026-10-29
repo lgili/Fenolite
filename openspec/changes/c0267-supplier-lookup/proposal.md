@@ -63,6 +63,6 @@ an MPN into parameters) when it is present. Independent of c0259–c0266 otherwi
   `ratelimit.py`, `rows.py`, `digikey.py`, `mouser.py`, `nexar.py`, `farnell.py`), `tests/unit/suppliers/`,
   `tests/fixtures/suppliers/`, `docs/formats/suppliers/`, `docs/suppliers.md`.
 - Changed: `pyproject.toml` (extra `suppliers`, entry points), the extras invariant test, the import-graph
-  test, `cmd_capabilities.py`, `cli/errors.py` (`FEN-6004`), `explain.toml`, guide pages `parts` and
+  test, `cmd_capabilities.py`, `cli/errors.py` (`FEN-6005`), `explain.toml`, guide pages `parts` and
   `recovery`.
 - Size: about 5 design-days.
