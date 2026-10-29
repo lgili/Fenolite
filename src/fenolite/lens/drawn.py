@@ -17,10 +17,11 @@ import re
 import tomllib
 from collections.abc import Callable, Mapping, Sequence
 from decimal import Decimal
-from typing import Any, cast
+from typing import Any, cast, get_args
 
 from fenolite.core.coords import Point, Size
 from fenolite.core.errors import FormatError
+from fenolite.model.presentation import PaperSize
 from fenolite.model.drawn import (
     FIELD_ROTATIONS,
     JUSTIFY_WORDS,
@@ -84,6 +85,8 @@ CLOSED_KEYS: Mapping[str, tuple[str, ...]] = {
 SHEET_KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_.-]*")
 """The pattern of a sheet key and of a sheet reference key."""
 SHAPES: frozenset[str] = frozenset({"input", "output", "bidirectional", "tri_state", "passive"})
+PAPERS: tuple[str, ...] = tuple(p for p in get_args(PaperSize) if p != "custom")
+"""The papers of a drawn sheet: the named papers of ``SheetFrameRef``."""
 _NM = Decimal(1_000_000)
 _UDEG = 1_000_000
 _BARE = re.compile(r"[A-Za-z0-9_-]+")
@@ -207,6 +210,9 @@ class _Reader:
                     raise self.fail(f"{at}.params.{name}", f"a parameter is a text, not {value!r}")
                 pairs.append((f"param.{name}", value))
             block = tuple(pairs)
+        paper = self.text(data, "paper", where)
+        if paper not in PAPERS:
+            raise self.fail(f"{where}.paper", f"paper is one of {', '.join(PAPERS)}, not {paper!r}")
         symbols = [self.symbol(item, at) for at, item in self.items(data, "symbol", where)]
         powers = [self.power(item, at) for at, item in self.items(data, "power", where)]
         wires = [self.polyline(item, at, "wire") for at, item in self.items(data, "wire", where)]

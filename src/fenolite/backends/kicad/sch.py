@@ -1386,7 +1386,8 @@ def _created_symbol(
         children.append(_yes_no("in_pos_files", symbol.on_board))
     children += [*items["dnp"], node("uuid", Atom.string(kicad_uuid(symbol)))]
     poses = field_poses(symbol)
-    anchor = _text_anchor(symbol, definition, labels) if not {"Reference", "Value"} <= poses.keys() else None
+    # a drawn symbol with field poses shows the posed fields only; the others are hidden at its origin
+    anchor = _text_anchor(symbol, definition, labels) if not poses else None
     names = [k for k in FIRST_PROPERTIES if k in symbol.properties]
     names += sorted(k for k in symbol.properties if k not in FIRST_PROPERTIES)
     for key in names:
@@ -1404,7 +1405,7 @@ def _created_symbol(
                 )
             )
             continue
-        visible = key in VISIBLE_PROPERTIES
+        visible = key in VISIBLE_PROPERTIES and not poses
         at = symbol.position
         if visible and anchor is not None:
             at = {"Reference": anchor.reference, "Value": anchor.value}[key]

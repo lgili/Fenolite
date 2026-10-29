@@ -17,7 +17,11 @@ from fenolite.lens.build import BuildOutput
 from fenolite.lens.drawn import read_drawn
 from fenolite.model.circuit import Circuit
 from fenolite.model.drawn import DrawnSchematic
-from fenolite.model.drawn_connect import DrawnNetlist, resolve
+from fenolite.backends.kicad.schlayout import pin_point
+from fenolite.backends.kicad.sym import read_symbol_library
+from fenolite.dsl import to_model
+from fenolite.model.drawn_connect import DrawnNetlist, PinKey, PinPoint, component_path, resolve
+from fenolite.model.library import SymbolDef
 from fenolite.model.schematic import SchematicSheet
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -66,6 +70,61 @@ def sheets(output: BuildOutput) -> tuple[SchematicSheet, dict[str, SchematicShee
     root = sch.read_schematic(texts[root_file], file=root_file)
     children = {p: sch.read_schematic(t, file=p) for p, t in texts.items() if p != root_file}
     return root, children
+
+
+def library() -> dict[str, SymbolDef]:
+    """The authored mini library by lib id (``Mini:<name>``)."""
+    text = (ROOT / "tests" / "data" / "libs" / "Mini_v9.kicad_sym").read_text(encoding="utf-8")
+    return {f"Mini:{symbol.name}": symbol for symbol in read_symbol_library(text, library="Mini")}
+
+
+def pins(value: DrawnSchematic, name: str) -> dict[PinKey, tuple[PinPoint, ...]]:
+    """The pin points of every drawn item of ``value``, from the mini library and the components of fixture
+    ``name``: no build, no file but the library."""
+    symbols = library()
+    components = {component_path(c): c for c in to_model(design(name)).circuit.components}
+    found: dict[PinKey, tuple[PinPoint, ...]] = {}
+    for instance in value.walk()[0]:
+        sheet = value.sheet(instance.sheet)
+        assert sheet is not None
+        for k, symbol in enumerate(sheet.symbols):
+            component = components.get(instance.component(symbol.part))
+            if component is None or (sheet.key, "symbol", k) in found:
+                continue
+            definition = symbols[component.lib_symbol_ref]
+            found[(sheet.key, "symbol", k)] = tuple(
+                PinPoint(
+                    pin.number,
+                    pin_point(symbol.at, pin.position, symbol.rotation // 1_000_000, symbol.mirror),
+                    pin.etype,
+                    pin.hidden,
+                    pin.name,
+                )  # fmt: skip
+                for pin in definition.pins_of(symbol.unit, 1)
+            )
+        for k, power in enumerate(sheet.powers):
+            definition = symbols[power.symbol]
+            found[(sheet.key, "power", k)] = tuple(
+                PinPoint(
+                    pin.number,
+                    pin_point(power.at, pin.position, power.rotation // 1_000_000),
+                    pin.etype,
+                    pin.hidden,
+                    pin.name,
+                )  # fmt: skip
+                for pin in definition.pins_of(1, 1)
+            )
+    return found
+
+
+def netlist(name: str, value: DrawnSchematic | None = None) -> DrawnNetlist:
+    """The nets of fixture ``name`` (or of ``value`` with the components of ``name``), from the file alone."""
+    found = value if value is not None else drawn(name)
+    return resolve(found, pins(found, name), design_name=name)
+
+
+def circuit(name: str) -> Circuit:
+    return to_model(design(name)).circuit
 
 
 def root_name(output: BuildOutput) -> str:

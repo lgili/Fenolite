@@ -174,3 +174,25 @@ def test_float_rejected_in_a_sheet_document() -> None:
     data["symbols"][0]["position"]["x"] = 1.5
     problems = _schema.validate(data, schema)
     assert problems and all("/symbols/0/position/x" in p for p in problems)
+
+
+def test_drawn_entities_hold_no_float() -> None:
+    """Scenario "No float" of "Drawn schematic entities" (c0276)."""
+    from fenolite.model.schematic import BusAlias, BusEntry, BusWire, Junction
+
+    with pytest.raises((TypeError, ValueError)):
+        Junction(Point(0, 0), 0.5, id=_id("wir", "j"))  # type: ignore[arg-type]
+    with pytest.raises(ValueError):
+        BusWire(Point(0, 0), Point(0, 0), id=_id("bus", "b"))
+    sheet = SchematicSheet(
+        id=derived_id("sch", "fenolite", "drawn"),
+        name="drawn",
+        junctions=(Junction(Point(MM, MM), id=_id("wir", "j")),),
+        buses=(BusWire(Point(0, 0), Point(5 * MM, 5 * MM), id=_id("bus", "w")),),
+        bus_entries=(BusEntry(Point(0, 0), Point(MM, -MM), id=_id("bus", "e")),),
+        bus_aliases=(BusAlias("DATA", ("D0", "D1"), id=_id("bus", "a")),),
+    )
+    text = canonical.dumps(sheet)
+    assert canonical.loads(text, SchematicSheet) == sheet and "junctions" in text
+    # empty collections are omitted, so the text of older sheets does not change (scenario "Older sheet data")
+    assert "junctions" not in canonical.dumps(_sheet())
