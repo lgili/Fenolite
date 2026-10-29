@@ -28,7 +28,7 @@ tr.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault
 $("tblCount").textContent = `${idx.length} of ${sc.rows.length} rows`;
 }
 async function tableRow(i) {
-TBL.selected = i; renderRows(); selectionChanged();
+TBL.selected = i; if (S.kind === "table" && S.rows) { renderRows(); selectionChanged(); }
 const docs = (S.docs || [])[i] || [], refs = (S.refs || [])[i] || [];
 if (docs.length) { const d = docs[0] === "[bom]" ? allDocs().find(x => x.kind === "bom") : docByFile(docs[0]); if (d) await openDoc(d); else showInfo(`${esc(docs[0])} is not a document of this project.`); return; }
 

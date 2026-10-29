@@ -192,3 +192,21 @@
   is not a pass. The next reached 15,320 passes / 42 skips but found six failures: the capabilities
   extra allowlist and comment delimiters used by five JS oracle tests. It too was stopped for repair;
   no interrupted run authorizes a push. A fresh complete gate is required after the focused repairs.
+
+- CI continuation (2026-10-30, fe49c4a99f16cb40e22e25d9dc244ed10ccf756b, run 40913291075):
+  the viewer passed 110 tests and found five Linux-font reference differences, one minimal-BOM
+  navigation regression and four strict determinism failures. The five new references were reviewed
+  from `viewer-differences` artifact 12915043068 and adopted. The original `roles_workspace.png`
+  from run 40884483891 remains unchanged. The BOM helper now updates table DOM only for a loaded
+  table; all 26 navigation tests pass. Native input corner rendering caused 2×2-pixel differences
+  (and one input's left border); explicit appearance and square input borders remove it without
+  changing PNG equality: all 14 independent screenshot pairs pass locally. Pushed CI proof pending.
+- Pre-push gate (2026-10-30, fe49c4a9): `PYTEST_MAX_WORKERS=4 make check-fast` completed exit 0,
+  15,330 passed / 42 skipped in 647.56 s. The commit has one required sign-off, no co-author trailer.
+
+- Determinism refinement (2026-10-30): repeat captures isolated the remaining differences to
+  rounded button/select corners as well as inputs (six pixels, 1–2 channel levels). All controls
+  now use square borders; select arrows remain native. Three fresh 14-fixture runs with separate
+  retained temporary directories each passed strict PNG-byte equality (42 pairs). No threshold or
+  equality assertion was relaxed. The quick run in progress during this refinement was interrupted
+  (9,627 passes / 36 skips), not counted as passed; a fresh final gate follows.

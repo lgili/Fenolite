@@ -175,3 +175,6 @@ table.roles td {max-width:120px;}
 #side .pgroup {flex:0 0 auto !important;max-height:none;}
 #side .pbody {max-height:50vh;}
 }
+
+input:not([type="range"]):not([type="checkbox"]) {appearance:none;border-radius:0;}
+button, select {border-radius:0;}
