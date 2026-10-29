@@ -2,7 +2,7 @@
 
 ## Current status — 2026-10-29
 
-**Released: 0.5.0. Prepared: 0.6.0 (change c0242), waiting for the maintainer's verdict, merge and tag.**
+**Released: 0.6.0 (tag `v0.6.0`, 2026-10-29; PyPI and the GitHub Release by the release workflow). In development: `0.7.0.dev0`.**
 By the maintainer's decision of 2026-10-29 the v1.0 freeze (c0216 to c0220) is held, and `0.6.0` ships what
 `dev` implemented after `0.5.0`: the MCP server and `fenolite edit` (c0195, c0196), the board engineering
 tools of c0175 in their own changes (c0197 to c0214, c0223 to c0229), computed Altium pours (c0215,
