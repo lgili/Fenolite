@@ -235,7 +235,15 @@
   Done 2026-10-29. The `checks` lines came with the command in task 6.1. The `board-power` design block
   uses catalog parts only (it builds with no library table) and leaves the page at 11 994 of its 12 000
   bytes. Proof passed: 87 tests, 13 skipped (they need `kicad-cli`); the generator's check is clean.
-- [ ] 7.3 Residue: every authored file carries its authored-for-Fenolite line, and no name, value or layout comes from another project. Proof: `make residue`.
+- [x] 7.3 Residue: every authored file carries its authored-for-Fenolite line, and no name, value or layout comes from another project. Proof: `make residue`.
+  Done 2026-10-29. The scripts and the requirements file of `examples/roles`, the CC0 library files and
+  the boards written by the tests carry the authored line; every new `.py` starts with its SPDX line.
+  Proof passed: 0 hits in 4449 files.
 - [ ] 7.4 Run `make check-fast`, then the required CI jobs on the pushed head of the branch. Proof: `make check-fast`, and the required jobs green on the exact commit.
-- [ ] 7.5 Evidence: the six hypotheses are in `docs/hypotheses.md` with their measurements, and the evidence matrix is regenerated. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
-- [ ] 7.6 Add an entry for the implemented phase 0 to `CHANGELOG.md` under `## [Unreleased]`. Proof: `uv run pytest tests/unit -k changelog -q`.
+- [x] 7.5 Evidence: the six hypotheses are in `docs/hypotheses.md` with their measurements, and the evidence matrix is regenerated. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
+  Done 2026-10-29. `H-G-ROLE-INFER`, `-LOOP-RATIO`, `-KELVIN-EDGE`, `-KELVIN-PAIR`, `-NEAR-SW` and
+  `-CURRENT`, all `INFERRED`, each with its measurement on the reference boards; the matrix needed no
+  change (it lists capabilities, not hypotheses of `general` scope). Proof passed: 38 tests; the
+  generator's check is clean.
+- [x] 7.6 Add an entry for the implemented phase 0 to `CHANGELOG.md` under `## [Unreleased]`. Proof: `uv run pytest tests/unit -k changelog -q`.
+  Done 2026-10-29. Proof passed: 7 tests.
