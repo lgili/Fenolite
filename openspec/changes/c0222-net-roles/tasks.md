@@ -239,7 +239,13 @@
   Done 2026-10-29. The scripts and the requirements file of `examples/roles`, the CC0 library files and
   the boards written by the tests carry the authored line; every new `.py` starts with its SPDX line.
   Proof passed: 0 hits in 4449 files.
-- [ ] 7.4 Run `make check-fast`, then the required CI jobs on the pushed head of the branch. Proof: `make check-fast`, and the required jobs green on the exact commit.
+- [x] 7.4 Run `make check-fast`, then the required CI jobs on the pushed head of the branch. Proof: `make check-fast`, and the required jobs green on the exact commit.
+  Done 2026-10-29. The first CI run of the batch (40822248378, on 678f2dab) failed: the new data files
+  were not declared in `tests/data/MANIFEST.toml`, two KiCad check tests pinned the stage list without
+  `roles.rules`, and on Windows `fenolite roles` failed with `FEN-1001` on a board on another drive than
+  the working folder (now shown absolute, as `edit` and `library` do). Proof passed: `make check-fast`
+  (15 218 passed, 46 skipped); CI run 40833231429 green on 005ec3d9 in all thirteen jobs (unit on
+  Linux 3.11 to 3.13, macOS and Windows, kicad-9, kicad-10, both routing jobs, wheel, viewer, mcp, dco).
 - [x] 7.5 Evidence: the six hypotheses are in `docs/hypotheses.md` with their measurements, and the evidence matrix is regenerated. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
   Done 2026-10-29. `H-G-ROLE-INFER`, `-LOOP-RATIO`, `-KELVIN-EDGE`, `-KELVIN-PAIR`, `-NEAR-SW` and
   `-CURRENT`, all `INFERRED`, each with its measurement on the reference boards; the matrix needed no
