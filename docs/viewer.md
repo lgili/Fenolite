@@ -45,37 +45,98 @@ copied (`docs/formats/kicad/color-theme.md`).
 
 ## The page
 
-- **Projects panel** (left). The project's documents, grouped as the native tools group them: Source
-  Documents (schematics, boards, harnesses), Libraries, Settings (output jobs, rules, stack-ups, library
-  tables), Documentation (drawings, annotations) and Other. A board opens on click; any other document
-  shows its kind, path and size. A document listed by the project but missing from the folder is grey.
-- **Narrow windows.** At 760 CSS pixels or below, **Projects** shows or hides the sidebar over the view;
-  it starts closed so the board keeps the window's width. The toolbar wraps into rows. Choose a document,
-  use Projects again, or press `Esc` outside a form field to close the sidebar. Desktop layout is unchanged.
+The page is one HTML file with its styles and script inline and no external URL, served by `--serve` and
+written by `--export`. It is built from the TypeScript sources in `viewer/src/` into `src/fenolite/view/static/`
+(change c0272; `CONTRIBUTING.md`, "The viewer page's sources"); installing Fenolite needs no Node.
+
+- **Toolbar** (change c0268). The document's name with **About this document** (the ⓘ button), then three
+  groups: **View** (2D / 3D `D`, Fit `F`, Top / Bottom `B` with the far side's opacity in its menu), **Tools**
+  (Measure `M`, whose menu also offers Edge gap `Shift+M`; Mark `N`; the unit, mm or mil, `Q`) and **Share**
+  (Copy link; Export: Save as SVG, Print fitted to the page or at 1:1, 2:1, 5:1 or 10:1). At the right: **Run
+  checks** when the server runs them (change c0270), the assembly variant, the search field, the interface
+  theme and the shortcut sheet. Every button has an icon, a name for screen readers and a tooltip with its
+  shortcut; a control that does not apply to what is shown (Measure in 3D, Top / Bottom on a sheet) is not
+  shown. The selection clears with `Esc` or from the palette.
+- **Command palette.** `Ctrl+K` (`Cmd+K` on macOS), or typing in the search field, opens one search box over
+  the commands of the toolbar and the parts, nets, documents and library items of the open project. Arrows
+  move, `Enter` runs the command or selects and frames the part or net (or opens the document), `Esc` closes.
+  A leading `>` keeps commands, `@` parts and `#` nets. `Ctrl+K` works from a text field too; no other
+  shortcut does.
+- **Shortcut sheet.** `?` lists every shortcut by group, with the pointer gestures; the toolbar, the palette
+  and the sheet are built from one command registry, so what one offers the others offer.
+- **Interface theme.** The page follows the system's light or dark setting until a theme is chosen in the
+  toolbar's theme menu or the palette; the choice is kept in the browser. Only the interface changes: a
+  document keeps its own colours (see "Colours").
+- **Side bar** (left). **Project review** at its head, with the states of its cards ("1 failed · 7 not run");
+  then one section per panel, each with a count, that folds open or closed and stays so on the next visit:
+  Project, Library or Navigator, Filter, Components, Nets, Changes, Messages, Marks, Findings and Document
+  notes. A list with nothing to show says why ("No nets match 'x'").
+- **Projects** (the Project section). The project's documents, grouped as the native tools group them:
+  Source Documents (schematics, boards, harnesses), Libraries, Settings (output jobs, rules, stack-ups, library
+  tables), Documentation (drawings, annotations) and Other. A board opens on click; any other document shows a
+  card with its kind, path and size and the kinds the viewer opens. A document listed by the project but
+  missing from the folder is grey.
+- **Loading and errors.** While a document is read, a card names it and a thin bar runs under the toolbar. A
+  read that fails shows its error with **Retry**, which reads the same document again if it is still the one
+  chosen.
+- **Status bar** (bottom). The cursor position in the page's unit, the grid of a sheet, the zoom, the current
+  layer, the selection, the unit and the live state ("Live · updated 12:03", "Building…" or the read error).
+- **About this document.** The file's name and path, size, full SHA-256 with **Copy**, the backend, the
+  evidence level of the read, the scene version of a served page and the number of notes.
+- **Narrow windows.** At 760 CSS pixels or below, the side bar button shows or hides the side bar over the
+  view; it starts closed so the board keeps the window's width. The toolbar wraps into rows and shows icons;
+  Share moves into the **More** menu. Choose a document, use the button again, or press `Esc` outside a form
+  field to close the side bar.
 - **Keyboard focus.** Viewer shortcuts pause while editing a text field, choosing a select value or using
-  Ctrl, Command/Meta or Alt combinations. Existing Shift shortcuts remain available outside form controls.
-- **Layer tabs** (bottom). One tab per layer with its colour.
-  - A click on a tab makes that layer current: it is drawn last, above the others.
-  - A click on the swatch, or a right click, shows or hides the layer.
+  Ctrl, Command/Meta or Alt combinations, except `Ctrl+K` for the palette. Shift shortcuts remain available
+  outside form controls.
+- **Inspector** (right dock, change c0269). Beside the drawing, never over it: the **Properties** tab shows
+  what a click selected in sections (Part, Pad, Track, Arc, Via, Zone, Net, Keep-out, Finding; on sheets the
+  component or the object with its net and project net; on libraries the item), each value in the page's unit
+  with a copy control, and **Copy all** copies every row as `label: value` lines. A value the file does not
+  hold is left out, never shown as 0. With nothing selected it shows the document's summary. Above the
+  sections are the actions on the selection: **Zoom to**, **Highlight net**, **Select part**, **Find
+  similar**, **Show in schematic** or **Show on board** (the cross-probe of a double click), **Open in
+  review** for a finding, and on a page served with `--allow-actions` **Move part…** and **Waive finding…**
+  (see "Actions"); the palette lists them too. `I` hides or shows the dock; its left edge resizes it (240 to
+  480 px); both are kept. At 760 CSS pixels or below it is a sheet over the lower part of the window (at most
+  60 % of its height) that a selection opens and `Esc` or its close button dismisses.
+- **Layers panel** (the dock's Layers tab on boards and footprints). The layers in groups (copper, mask and
+  paste, silkscreen, mechanical and fabrication, view layers), each row with its colour, its full name (the
+  native name of an Altium layer), whether it is current, its opacity and its visibility; a group's eye shows
+  or hides the group.
+  - A click on a name or its radio makes that layer current: it is drawn last, above the others.
   - `Shift+S` shows the current layer alone; `+` and `-` step through the visible layers.
-  - **LS** offers layer sets: all layers, signal layers, the top side, the bottom side, the defaults.
+  - **Presets** offers layer sets: all layers, signal layers, the top side, the bottom side, the defaults, and
+    the current layer alone. Sheets keep their document tabs in the bottom bar.
+- **Net emphasis.** A selected net or part, or the filter's result, is drawn in its own layer colours at full
+  opacity with a thin outline, while the rest of the board steps back by the highlight mode (Dim 22 %, Mask or
+  Normal); the zone fills of a selected net are drawn lighter and outlined, so its tracks and pads stay visible
+  over the pour.
 - **Board view.** Wheel to zoom, drag to pan, click a pad or track to highlight its net (or a part's own
-  drawing to highlight the part). **View: Top / Bottom** (`B`) turns the board over: the other side is drawn
-  under the visible one at the opacity of the **Other side** slider. **Search** finds a part by reference or
-  a net by name.
+  drawing to highlight the part). **Top / Bottom** (`B`) turns the board over: the other side is drawn under
+  the visible one at the opacity set in the button's menu. The palette finds a part by reference or a net by
+  name.
 - **Measure** (`M`): see "Units and measurement" below. Change c0193 adds the edges: without a point target
   within reach, a click snaps to the nearest point of an edge (a pad or fill border, a track border or axis, a
   circle, an outline), and the readout names what each end snapped to. Hold `Alt` to measure without snapping.
 - **3D** (`D`). The board is a slab of its stack-up's thickness (1.6 mm, stated, when the file has none). Its
-  faces are textured with the copper, mask, silkscreen and drills of each side.
+  faces are textured with the copper, mask, silkscreen and drills of each side. The controls that only act in
+  2D (Measure, Mark, Top / Bottom, the Layers tab, Find similar) are hidden. The **view cube** at the top right
+  turns with the camera: a click on a face sets that view (top, bottom, front, back, left, right), a click on a
+  corner the iso view from it. The dock's **3D view** tab has the same views, Reset, and shows or hides the
+  bodies, the board, the silkscreen and the copper. The light is an ambient term with a key light from the
+  upper left and a fill light from the other side.
   - **Models.** A board that embeds 3D models (an Altium `PcbDoc`) shows them, in their colours, placed as
     the native tool places them (change c0193). A model whose stored placement does not match its body's
     outline is fitted to it, and the info says how.
-  - **Extruded bodies.** Any other body is extruded from its outline between its standoff and its height.
+  - **Extruded bodies.** Any other body is extruded from its outline between its standoff and its height,
+    in Fenolite's dark body colour with a lighter top face.
   - **gmsh.** Models are meshed by `gmsh` (`FENOLITE_GMSH`, or `gmsh` on `PATH`), run as a separate
     program. Meshes are kept in the state folder. Without gmsh every body is extruded, and the notes say so.
 - **Findings** (left), by group. The box beside a group shows or hides it on the board, a click on its title
   lists its items, a click on an item fits the view to it, and the tooltip says the group's rule and model.
+  Groups with no finding fold into one line, "n groups with no findings", that lists them with their 0.
   - **Review groups** (`--no-review` leaves them out): 45° corners (acute, 90° and in-between turns of two
     tracks, tracks off 0/45/90°, zone outline corners); silkscreen near a mask opening, near other silkscreen
     or outside the board; copper outside the board; the open connections of `fenolite analyze`'s
@@ -88,7 +149,7 @@ copied (`docs/formats/kicad/color-theme.md`).
     `{"schema", "groups": [{"id", "title", "color", "note"}], "items": [{"group", "kind": "line" | "path" |
     "point", "points_nm": [[x, y], ...], "label", "layer"}]}`, in the board frame of the model (nanometres,
     Y down).
-- **Notes** (left): what the scene had to assume.
+- **Document notes** (left): what the scene had to assume.
 
 ## What the scene shows, and what it states
 
@@ -183,6 +244,68 @@ equivalence record and must state nonexperimental, nonlossy scope before its rec
 An export reply records artifact generation; it currently does not attest successful readback, so the
 fabrication-export card remains limited even when generation succeeded.
 
+#### Running checks from the page (change c0270)
+
+A page served with `--serve` can run the checks itself. Each card whose stages the server can run has a
+**Run** control, and **Run from this page**, under the cards, picks the stages of `check` (**Run checks**,
+**Run all checks** for the default stages), the kinds of `analyze`, a readiness check (`ready`) and a
+comparison with another document of the project (`equivalent`). Nothing runs unless you ask: opening a
+document or saving a file runs nothing.
+
+One job runs at a time. A strip over the drawing shows the command, its last progress record, the elapsed
+time and **Cancel**; a cancelled run, or one that passes `--run-timeout SECONDS` (default 600), changes
+nothing and says so. A failure shows the command's message and hint; when `kicad-cli` is missing the stages
+that need it could not run. A `check` run replaces the stages it ran, with their findings, and keeps the
+other stages with their own input hash, so a stage run on an older revision reads **Limited**; the cards, the
+Messages panel and the markers are drawn again. `analyze` paths become finding groups; `ready` and
+`equivalent` findings join the review list with **Locate** when they name a part, pad or net. Results stay in
+the server's memory for the session; a finding is never marked fixed, the next run replaces it.
+
+The server runs only `check`, `analyze`, `ready` and `equivalent`, read-only, on the files of the project,
+with options checked against the commands' own choices; it never takes a command line, a path or
+`check --exclude` from the page. Each run is a child process in the project folder. Requests must come from
+the page of this server (`Host` and `Origin` checked, the header `X-Fenolite-Run: 1`). Serve with `--no-run`
+to show recorded results only; an exported page never runs anything.
+
+```sh
+fenolite view board.kicad_pro --serve --run-timeout 1200   # a slow DRC on a large board
+```
+
+#### Actions: writing from the page (change c0271)
+
+`fenolite view board.kicad_pro --serve --allow-actions` lets the page write the project's files, always
+through a plan you review first. Without `--allow-actions` the page offers no action and the server refuses
+every one. The **Actions** section of the review panel holds **Fill zones**, **Tidy copper** (prune,
+straighten, chamfer; each edit kept only when KiCad's DRC accepts it, `--gate drc`), **Silkscreen**
+(designators, clipping), **Place test points**, **Export fabrication files** and **Bill of materials** (into
+`fab/` or another folder under the project), **Move or rotate a part** (the selected part's position and
+rotation filled in, in the page's unit; the arrow keys nudge it, Shift for ten steps), and **Move** or
+**Turn parts with their copper**. A finding of KiCad's DRC in **Review findings**, or in the inspector, gets
+**Waive finding** with a required one-line reason, stored as a KiCad DRC exclusion in the project file. Waive
+is not offered on a finding of a check of an earlier revision of the file (its index may name another
+violation now): the page says so and offers **Run again**. A write that changes a project file the checks read
+(a waiver writes the `.kicad_pro`, not the board) marks the document's results stale: the run strip, the
+Project review and the inspector say so and offer **Run again**, which repeats the document's last run, until
+a check runs again (fixes of 2026-10-29).
+
+**Review plan…** runs the command's dry run. The plan dialog names every file it would write (path, kind,
+size, new SHA-256 and the SHA-256 it replaces), the issues by severity and the evidence, and draws the
+changes of the staged board over the current one: added copper in green, removed in magenta, moved parts as
+arrows, listed under Changes. An error finding plans no write and disables **Confirm and write**, the only
+control that writes. Confirm writes exactly the reviewed bytes (`--confirm --plan`); when a file changed
+since the review the dialog says so and offers **Review again**. After a write the dialog shows the
+receipt (files, digests, backups kept) and the board is read again at once. **Undo…**, on the receipt or in
+**Writes of this session**, plans `fenolite restore` on that receipt and is reviewed and confirmed the same
+way; `restore` refuses when a written file changed since. Each receipt is also kept in
+`view-receipts/` of the state folder.
+
+Security: the server listens on `127.0.0.1` only, checks `Host` and `Origin`, needs the header
+`X-Fenolite-Action: 1` and a per-session token that only this server's page can read, runs only the fixed
+templates of these actions with typed options (lengths with a unit, angles, part references of the board,
+a reason of one line, output paths under the project folder), confirms only plans it made in this session
+whose every write lies under the project folder, never sets `--no-backup`, and writes no Altium document
+(the actions show as unavailable there). Every write keeps a backup. Stop the server when you are done.
+
 Use **Review findings** to jump from the status cards to the problem list. Filter by severity, stage or
 text; Previous/Next visits matching messages with their original hints and evidence. **Locate in drawing**
 reveals the finding's layer and marker and closes the panel so the drawing is visible. Unplaced findings
@@ -204,23 +327,61 @@ shown; `--check run` runs `check` first, in the same process and read-only (chan
   else on the sheet whose file stem is the last segment of the path), and findings of the board stages on
   boards.
 - A DRC that `summary.limits` capped is a lower bound; the panel says so.
+- **Role findings.** A finding of the stage `roles.rules` (`docs/roles.md`) is placed on the pads of the role
+  group it names (`hot_SW`), or on one of them (`kelvin_R12:R12-1`), when the board has role data.
+
+## Net roles
+
+`fenolite view BOARD --roles run` runs `fenolite roles BOARD --check` first, in the same process and
+read-only, and draws its reply on the board; `--roles FILE` reads a saved `--json` reply of it (change c0273,
+which brings over the role view of c0245-engineering-viewer). The numbers on the page are the reply's: every
+role, group, measure and finding as the command gives it, with its evidence (`INFERRED`).
+- **Net roles panel.** A side bar section: the counts by state (declared by a script, confirmed by a person,
+  inferred), a legend with the colour, glyph (`P` power, `SW` switch node, `G` ground, `HV` high voltage, `GT`
+  gate, `K` Kelvin, `S` signal), name and count of each role kind (a click lists that kind only), one row per
+  net (glyph, net, kind and current, confidence, state: ✓ confirmed, ◆ declared, ? inferred), the groups (hot
+  loops, gate loops, Kelvin pairs) and the role findings by code. A net row highlights the net and opens it in
+  the inspector, where a **Role** section follows the Net section (kind, state, rule, confidence, the pads the
+  inference read, current, working voltage, sensitivity, the groups that hold the net); a group row frames its
+  pads and shows its pads, net and loop area against its placement bound; a finding row selects its marker.
+- **Overlays.** The Layers tab of the dock gets a **Roles** group: **Role colours** (the copper of each role
+  net in its role's colour; signal nets keep their layer colours; a picked net still shows in its own
+  emphasis), **Loops** (each hot loop hatched at 45° and each gate loop at 135°, a polygon through the centres
+  of its pads in loop order, labelled from 12 px/mm with the loop area the analysis measured along the
+  copper), **Kelvin pairs** (dashed sense lines from the element's pads to the receiver's) and **Role
+  findings** (rings with a cross, in the colour of their severity). Colour is never the only cue: each role
+  has a glyph, each overlay its own hatch or dash. The palette commands **Roles: …** toggle the same.
+- **From a served page.** The panel's **Run roles again** (or the palette's **Roles: run fenolite roles
+  --check**) runs the command in a child process like the other runs; a board without role data shows the
+  section with that one control. With `--allow-actions`, **Confirm N inferred…** plans `fenolite roles
+  --accept NETS --accept-group NAMES` for every inferred row, and **Confirm role…** in the inspector for one
+  net: the plan dialog names the role document it writes (`<board>.roles.json`, or `.fenolite/rules.json` of
+  a project Fenolite built), Confirm writes it, and the board is read again with its roles run again (a
+  `--roles FILE` reply stays until **Run roles again**). Undo is
+  `fenolite restore` on the receipt; it deletes no file, so undoing the write that created a role document
+  leaves the file in place. A script's declared roles are never written from the page.
+
+```sh
+fenolite view build/board.kicad_pcb --roles run --export roles.html --confirm   # a page with the roles
+fenolite view build/ --serve --roles run --allow-actions                          # confirm roles from the page
+```
 
 ## Review tools
 
 Change c0189 adds what a review in Altium relies on:
-- **Edge measure.** `Shift+M` (or Edge) measures the shortest distance between the edges of two clicked
+- **Edge measure.** `Shift+M` (or Edge gap in the Measure menu) measures the shortest distance between the edges of two clicked
   objects: pads (all of a pad's copper on the layer clicked), tracks, arcs, vias, zone fills, board edges. A
   line joins the two closest points and the gap reads in the page's unit; overlapping objects read 0. Arcs are
   sampled every 2°, the rest is exact; on the authored test pair and against the gap `fenolite analyze` reports
   for a pad and a track the two agree within 1 µm. Objects on two layers are measured in the plane.
 - **Links.** The address of the page keeps the document, the selection, the zoom, the centre, the unit and the
-  current layer (`#doc=doc1&sel=U5&z=23.438&c=106.045,68.575&u=mm&l=F.Cu`); Link copies it, and opening it
+  current layer (`#doc=doc1&sel=U5&z=23.438&c=106.045,68.575&u=mm&l=F.Cu`); Copy link copies it, and opening it
   restores the view. `fenolite view PATH --select U12` opens at a part or a net.
 - **Review marks.** `N` (or Mark) drops a mark with a note where you click; the Marks panel lists them, a click
   zooms, `×` deletes. With `fenolite view PATH --serve --marks review.json` the server saves them to that
   file (`fenolite.review.v0`, positions in nanometres); an exported page keeps them in the browser and
   Download marks saves the file. `fenolite view PATH --marks review.json --json` lists them for an agent.
-- **SVG and print.** SVG saves the view as a vector file: the page draws it again into a recorder of its own
+- **SVG and print** (the Export menu). Save as SVG saves the view as a vector file: the page draws it again into a recorder of its own
   drawing calls, so the file shows what the screen shows (layers, selection, markers). Print prints that SVG,
   fitted to the page or at 1:1, 2:1, 5:1 or 10:1 on paper; the print dialog's Save as PDF gives a PDF. Both
   need the 2D view.
@@ -305,18 +466,20 @@ An Altium board is shown as Altium shows it (change c0181):
 ## Units and measurement
 
 Every length the page shows can be read in millimetres or in mil (change c0179). The **mm / mil** button in
-the top bar and the key `Q` switch it, as in Altium. The choice is kept for the next visit of the page. It
-applies to:
-- the cursor position and the grid;
+the toolbar's Tools group and the key `Q` switch it, as in Altium. The choice is kept for the next visit of
+the page, and the status bar names it. It applies to:
+- the cursor position in the status bar and the grid of a sheet;
 - measurements;
-- the Properties panel: track width and length, arc radius, via and hole diameter, pad size, corner radius,
-  drill and slot, part position and extent, a footprint's copper and courtyard extent.
+- the inspector's rows: track width, length and ends, arc width, radius and length, via diameter and drill,
+  hole diameter, pad size, corner radius, drill and slot, mask and paste expansion and the mask opening, part
+  position and extent, a net's routed length, a zone's filled area, a footprint's copper and courtyard extent.
+  A row's copy control copies the value as it reads.
 
 **Measure** (`M`) works on boards, sheets and library items. Each click snaps to the nearest pad centre, line
 end, vertex, circle centre or text anchor within 8 px. A pitch therefore reads centre to centre, and the
 readout gives the distance with Δx and Δy. A third click starts a new measurement, and `Esc` ends it.
 
-A click on a pad shows its exact size from the model:
+A click on a pad shows its exact size from the model, in the inspector's Pad section:
 - width × height, shape and corner radius;
 - drill, and slot length;
 - centre, rotation and layers.

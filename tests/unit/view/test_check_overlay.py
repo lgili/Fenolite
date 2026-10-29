@@ -112,3 +112,37 @@ def test_sheet_findings() -> None:
 def test_not_a_check_reply() -> None:
     with pytest.raises(FormatError, match="analyze"):
         read_reply({"command": "analyze", "issues": []}, name="a.json")
+
+
+def test_roles_findings_through_group_aliases() -> None:
+    """Scenario "A Kelvin finding located" (c0273): ``roles.*`` codes belong to the stage ``roles.rules``, and
+    a ``where`` that names a role group, or one pad of it, is placed through the groups given as aliases."""
+    pads = [
+        {"label": label, "x": x, "y": y}
+        for label, x, y in (
+            ("R12-1", 1000, 2000),
+            ("R12-2", 3000, 2000),
+            ("C1-1", 0, 0),
+            ("Q1-3", 4000, 5000),
+        )
+    ]
+    scene = {"prims": [], "pads": pads, "comps": [], "nets": [], "meta": {}}
+    reply = _reply(
+        {
+            "code": "roles.kelvin-outer",
+            "severity": "warning",
+            "message": "outer half",
+            "where": "kelvin_R12:R12-1",
+        },
+        {"code": "roles.loop-area", "severity": "warning", "message": "too large", "where": "hot_SW"},
+        {"code": "roles.unconfirmed", "severity": "info", "message": "not confirmed", "where": "roles"},
+    )
+    groups = {"kelvin_R12": ["R12-1", "R12-2"], "hot_SW": ["C1-1", "Q1-3"]}
+    placed = {f["code"]: f for f in overlay(reply, scene, aliases=groups)["findings"]}
+    kelvin, loop = placed["roles.kelvin-outer"], placed["roles.loop-area"]
+    assert {f["stage"] for f in placed.values()} == {"roles.rules"}
+    assert kelvin["at"] == [1000, 2000] and kelvin["where"] == "kelvin_R12:R12-1"
+    assert loop["box"] == [0, 0, 4000, 5000] and loop["at"] == [2000.0, 2500.0]
+    assert placed["roles.unconfirmed"]["at"] is None
+    bare = {f["code"]: f for f in overlay(reply, scene)["findings"]}
+    assert bare["roles.kelvin-outer"]["at"] is None and bare["roles.loop-area"]["stage"] == "roles.rules"

@@ -1,0 +1,22 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Copyright (c) 2026 Fenolite contributors */
+.catalog-only { display:none; }
+body.catalog .catalog-only { display:block; }
+#catalogSelection { width:min(1040px,96vw); max-height:94vh; padding:16px; background:var(--surface-1); color:var(--text-1); border:1px solid var(--border); border-radius:12px; }
+#catalogSelection::backdrop { background:var(--backdrop); }
+#catalogSelection h2 { font-size:17px; margin:0; }
+#catalogSelection h3 { font-size:14px; margin:8px 0; }
+#catalogSelection .catHead { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+#catalogSelection p { font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+#catalogSelection label { display:flex; flex-direction:column; gap:4px; font-size:12px; }
+#catalogSelection input, #catalogSelection select { min-width:0; width:100%; }
+.catPair { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; margin-top:12px; }
+.catFilters { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:8px 0; }
+.catWide { grid-column:1/3; }
+#catalogSelection details { font-size:12px; margin-top:8px; }
+#catalogSelection summary { cursor:pointer; }
+.catPreview { width:100%; height:220px; border:1px solid var(--border); border-radius:6px; margin-top:8px; background:var(--surface-0); }
+#catMap { display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; }
+#catSnippet { width:100%; min-height:190px; margin-top:10px; font:12px ui-monospace,monospace; white-space:pre; }
+#catMessage { color:var(--warn); }
+@media (max-width:700px) { .catPair { grid-template-columns:minmax(0,1fr); } #catMap { grid-template-columns:minmax(0,1fr); } }

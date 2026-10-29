@@ -1,1 +1,5 @@
 Fenolite — Copyright (c) 2026 Fenolite contributors
+
+This product bundles Preact 10.29.8 in src/fenolite/view/static/viewer.js (the script of the viewer page),
+Copyright (c) 2015-present Jason Miller, under the MIT License. Its copyright and permission notice is
+reproduced at the head of that file.

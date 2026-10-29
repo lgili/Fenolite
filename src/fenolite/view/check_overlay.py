@@ -17,6 +17,7 @@ listed only. Each finding carries the evidence of the stage its code belongs to.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
 from fenolite.core.errors import FormatError
@@ -34,6 +35,7 @@ STAGE_OF = (
     ("model.", "model.validate"),
     ("netlist.", "netlist.assignment_compare"),
     ("zone.", "zone.fill"),
+    ("roles.", "roles.rules"),
 )
 """The stage a finding's code comes from, by the code's prefix; the first match wins."""
 
@@ -70,7 +72,9 @@ def _label(evidence: Any) -> str:
     return f"{level}({oracle})" if level and oracle and "(" not in level else level
 
 
-BOARD_STAGES = frozenset({"drc.kicad", "copper.clearance", "zone.fill", "placement.rules", "length.rules"})
+BOARD_STAGES = frozenset(
+    {"drc.kicad", "copper.clearance", "zone.fill", "placement.rules", "length.rules", "roles.rules"}
+)
 SHEET_STAGES = frozenset({"erc.kicad", "erc.lite"})
 """Stages whose findings are placed only on a board, and only on a sheet; the others are placed on either."""
 
@@ -182,10 +186,32 @@ def _sheet_matches(path: str, document: str) -> bool:
     return not segments or segments[-1].casefold() == stem
 
 
-def overlay(reply: dict[str, Any], scene: dict[str, Any], *, root_sheet: bool = True) -> dict[str, Any]:
+def _expand(parts: list[str], aliases: Mapping[str, Sequence[str]]) -> list[str]:
+    """``parts`` of a ``where`` with each alias replaced by its names, and ``alias:name`` by ``name`` (the
+    role groups of change c0273: ``hot_SW`` stands for its pads, ``kelvin_R12:R12-1`` for one of them)."""
+    out: list[str] = []
+    for part in parts:
+        head, colon, tail = part.partition(":")
+        if part in aliases:
+            out += list(aliases[part])
+        elif colon and head in aliases and tail:
+            out.append(tail)
+        else:
+            out.append(part)
+    return out
+
+
+def overlay(
+    reply: dict[str, Any],
+    scene: dict[str, Any],
+    *,
+    root_sheet: bool = True,
+    aliases: Mapping[str, Sequence[str]] | None = None,
+) -> dict[str, Any]:
     """The findings of the ``check`` reply placed on ``scene`` (module docstring): ``findings`` sorted by
     severity then code, ``counts`` per severity, ``placed`` and ``notes``. ``root_sheet`` says whether a sheet
-    scene is the project's root sheet (ERC findings of path ``/``)."""
+    scene is the project's root sheet (ERC findings of path ``/``). ``aliases`` maps a name a finding may give
+    (a role group, change c0273) to the names of the scene it stands for."""
     sheet = scene.get("kind") == "schematic"
     index: _BoardIndex | _SheetIndex = _SheetIndex(scene) if sheet else _BoardIndex(scene)
     meta = cast("dict[str, Any]", scene.get("meta", {}))
@@ -216,6 +242,8 @@ def overlay(reply: dict[str, Any], scene: dict[str, Any], *, root_sheet: bool = 
             layer = said["layer"]
         named: list[Box] = []
         parts = [] if elsewhere else [p.strip() for p in where.split(", ") if p.strip()]
+        if aliases:
+            parts = _expand(parts, aliases)
         for part in parts:
             point = _AT.match(part)
             if point:

@@ -777,6 +777,24 @@ c0186, the GUI save of c0105, the agent runs of c0081, his MCP client of c0195) 
 The maintainer decides the scope of `0.7.0` after `0.6.0`. Its candidates are the tests he owes, listed under
 "Deferred after v0.6" of `docs/release/v0.6.md`, and the proposal c0222 (net roles).
 
+The viewer part of v0.7 is proposed as four changes (2026-10-29), each shippable in this order; the scope
+stays the maintainer's:
+- c0268 (`viewer-shell`): interface tokens with a light theme, a grouped toolbar with icons, a command
+  palette, collapsible side bar sections, a cleaner status bar;
+- c0269 (`viewer-inspector`): a docked inspector with copyable values and actions, net emphasis, a Layers
+  panel, 3D controls;
+- c0270 (`viewer-run-checks`): read-only commands (`check`, `analyze`, `ready`, `equivalent`) run from a
+  served page, with progress and cancel, filling the project review;
+- c0271 (`viewer-actions`): writing actions behind `fenolite view --serve --allow-actions`, each a reviewed
+  plan with a board overlay, written on Confirm and undone through `restore`; needs c0270.
+
+c0272 (`viewer-build`) moved the page to TypeScript modules before c0268 and c0269. These five were written as
+c0243 to c0247 and renumbered on 2026-10-29; c0243 to c0245 are now another session's changes. With the role view
+they were renumbered again the same day, c0250 to c0255 becoming c0268 to c0273: the `circuits-as-code` line
+owns c0246 to c0267. c0273
+(`viewer-roles`) brings the role view of c0245-engineering-viewer, superseded otherwise, into this viewer: net
+roles, loops, Kelvin pairs and role findings on the board, and roles confirmed from a served page.
+
 ### v1.0: the freeze (proposed on 2026-10-27; held on 2026-10-29)
 
 **Held by the maintainer's decision of 2026-10-29.** The five changes below stay open and are not implemented

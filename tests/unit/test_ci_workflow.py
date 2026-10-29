@@ -381,6 +381,7 @@ WHEEL_STEPS = [
     ("starter", "fenolite init blink --dry-run --json"),
     ("starter plan", "== ['blink/design.py']"),
     ("wheel contents", 'n.startswith(("tests/", "private/", "examples/"))'),
+    ("viewer bundle", 'f"fenolite/view/static/{n}"'),
 ]
 
 
@@ -450,6 +451,15 @@ def test_wheel_job() -> None:
     no_starter = job.replace("fenolite init blink --dry-run --json", "fenolite init --help")
     assert "wheel: step 'starter' missing" in ordered_problems(no_starter, "wheel", WHEEL_STEPS)
     assert "cd /tmp/empty-project" in job and job.index("cd /tmp/empty-project") < job.index("guide start")
+
+
+def test_viewer_job_checks_the_bundle() -> None:
+    """Scenario "The viewer job rebuilds" (change c0272): the drift check runs before the visual tests, in the
+    job that sets up Node 22."""
+    job = job_text(WORKFLOW.read_text(encoding="utf-8"), "viewer")
+    check = job.find("run: uv run python tools/build_viewer.py --check")
+    assert 'node-version: "22"' in job and check > job.find("uses: actions/setup-node@v4") > 0
+    assert 0 < check < job.find("run: uv run pytest tests/visual")
 
 
 def test_dco_job() -> None:

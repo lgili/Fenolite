@@ -1,0 +1,14 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Copyright (c) 2026 Fenolite contributors */
+/* The bottom bar: layer tabs of a board, document tabs of a sheet. */
+#tabs { grid-column:2/3; grid-row:3/4; display:flex; align-items:stretch; height:32px; background:var(--surface-1); border-top:1px solid var(--border); overflow-x:auto; overflow-y:hidden; }
+#ls { flex:none; margin:4px 6px; padding:0 8px; font-weight:600; min-height:0; }
+.tab { flex:none; display:flex; align-items:center; gap:6px; padding:0 12px; border-right:1px solid var(--border); cursor:pointer; white-space:nowrap; color:var(--text-2);
+  user-select:none; border-bottom:2px solid transparent; font-size:var(--text-sm); }
+.tab:hover { background:var(--hover); color:var(--text-1); }
+.tab.cur { background:var(--surface-2); color:var(--text-1); font-weight:600; }
+.tab.off { color:var(--text-3); }
+.tab.off .sw { opacity:.25; }
+#lsmenu { position:absolute; left:6px; bottom:8px; background:var(--surface-1); border:1px solid var(--border); border-radius:var(--radius-l); display:none; z-index:5; padding:var(--space-1); box-shadow:0 8px 24px var(--shadow); }
+#lsmenu div { padding:5px 12px; cursor:pointer; white-space:nowrap; border-radius:var(--radius-m); }
+#lsmenu div:hover { background:var(--surface-3); }

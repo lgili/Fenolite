@@ -84,7 +84,7 @@ def test_catalog_sidebar_remains_usable(catalog_page: Path, tmp_path: Path, widt
     if (narrow) $("bSidebar").click();
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     return {visible, matches, name: $("fname").textContent,
-      canvas: $("wrap").getBoundingClientRect().width,
+      canvas: $("wrap").getBoundingClientRect().width, dock: $("dock").getBoundingClientRect().width,
       overflow: $("top").scrollWidth > $("top").clientWidth};
     """
     (reply,) = run(
@@ -94,5 +94,5 @@ def test_catalog_sidebar_remains_usable(catalog_page: Path, tmp_path: Path, widt
     result = reply["result"]
     assert result["visible"] == "flex" and result["matches"] >= 1
     assert "Resistor" in result["name"]
-    assert result["canvas"] == (width if width <= 760 else width - 260)
+    assert result["canvas"] == (width if width <= 760 else width - 260 - result["dock"])  # c0269: the dock
     assert result["overflow"] is False

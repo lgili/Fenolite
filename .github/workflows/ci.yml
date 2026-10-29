@@ -68,6 +68,8 @@ jobs:
           enable-cache: true
       - name: Sync (locked)
         run: uv sync --locked --extra dev
+      - name: The viewer bundle is a fresh build of viewer/src (c0272)
+        run: uv run python tools/build_viewer.py --check
       - name: Playwright and its Chromium
         run: |
           mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
@@ -149,6 +151,10 @@ jobs:
           (wheel,) = glob.glob("dist/fenolite-*.whl")
           bad = [n for n in zipfile.ZipFile(wheel).namelist() if n.startswith(("tests/", "private/", "examples/"))]
           assert not bad, bad
+          names = set(zipfile.ZipFile(wheel).namelist())
+          assert not [n for n in names if n.startswith("viewer/")], "the viewer's sources ship in the wheel"
+          static = {f"fenolite/view/static/{n}" for n in ("page.html", "viewer.js", "viewer.css", "manifest.json")}
+          assert static <= names, static - names  # the bundle of the viewer page (c0272)
           PY
 
   dco:

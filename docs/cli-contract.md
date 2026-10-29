@@ -3611,7 +3611,7 @@ commands as tools to a client of the Model Context Protocol on standard input an
 ## view
 
 `fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--cache user|project|off]
-[--compare OLD] [--variant NAME] [--check FILE|run] [--report FILE]... [--select REF] [--marks FILE] [--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]] [--no-review] [--no-models]
+[--compare OLD] [--variant NAME] [--check FILE|run] [--roles FILE|run] [--report FILE]... [--select REF] [--marks FILE] [--serve [--port N] [--no-browser] [--run-timeout SECONDS] [--no-run] [--allow-actions]] [--export FILE [--docs ID,...]] [--no-review] [--no-models]
 [--silk-gap MM] [--mask-expansion MM]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
 c0177, c0178 and c0193; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
 board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbLib`, `.kicad_sym`,
@@ -3678,7 +3678,19 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbL
   first, with its stage and that stage's evidence. `result.check` gives `error`, `warning`, `info`, `total`
   and `placed` (the findings with a position on the document shown). A file that is not a `check` reply is
   `FEN-3004`; a missing one is `FEN-3001`. ERC findings are placed on sheets only, and the findings of the board
-  stages on boards only.
+  stages on boards only. A finding of the stage `roles.rules` that names a role group, or `group:pad`, is placed
+  on that group's pads when the board has role data (`--roles`).
+- **`--roles FILE|run`** (change c0273) joins the net roles to each board shown: the reply of `fenolite roles
+  BOARD --check --json` (`FILE`, for the board it names), or with `run` that command run first in the same
+  process, read-only, for every board of the page. The scene gets `roles` (`fenolite.view_roles.v0`: the
+  reply's role rows with their state and net, the hot loops, gate loops and Kelvin pairs with their pad points
+  and loop measures, the role findings placed), drawn as a Net roles panel, role colours, loop and Kelvin
+  overlays and role markers (`docs/viewer.md`, "Net roles"). `result.roles` gives `document`, `roles` (counts
+  by state: `confirmed`, `declared`, `inferred`), `findings` (by severity), `groups` and `evidence`; the
+  reply's `evidence.level` is the lower of the board's and the roles' (`INFERRED`). A file that is not a
+  `roles` reply, the role document itself included, is `FEN-3004`; a missing one is `FEN-3001`. A reply made
+  for another revision of the board is drawn with a note. A served page runs the reply again when the board or
+  its role document changed.
 - **`--select REF`** (change c0189) opens the page at the part or net `REF` (`net:NAME` for a net whose name
   is also a reference), and replies with `result.select`: `name` and `found` (whether the document shown holds
   it; when it does not, a note says so). An exported page carries it.
@@ -3702,6 +3714,36 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbL
   8765, or any free port with `--port 0`) until it is interrupted, reloading a document when its file is
   saved, and then replies with `result.serve` (`url`, `seconds`). It opens a browser unless
   `--no-browser`.
+- **Runs** (change c0270). A served page may run `check`, `analyze`, `ready`, `equivalent` and `roles` (change
+  c0273: `roles --check` on a board, with no option) on a document of the tree, read-only, one job at a time: `GET /runs` says what it may run, `POST /run` takes a command name, a
+  document id and typed options (never a command line or a path; `check --exclude` and `--reason` are refused),
+  `GET /run/<job>` reports the job's state, progress records and results, and `POST /run/<job>/cancel` stops
+  it. Each run is `python -m fenolite <command> --json --progress` in a child process in the project folder,
+  stopped after `--run-timeout SECONDS` (default 600, above 0). Every `POST` needs this server's `Host`, a
+  same-server `Origin` when one is sent, the header `X-Fenolite-Run: 1`, a JSON type and at most 16 KiB.
+  A `check` run replaces, stage by stage, the stages of the same name of the document's session reply, each
+  stage keeping its own input hash and evidence; the results stay in the server's memory. `--no-run` serves
+  recorded results only. `result.serve.runs` counts the runs by final state (`done`, `failed`, `cancelled`,
+  `timeout`). `--run-timeout` or `--no-run` without `--serve` is `FEN-2001`.
+- **Actions** (change c0271). With `--allow-actions` a served page may write the project's files through
+  reviewed plans; without it every action route answers 403. `GET /actions?doc=ID` lists the actions of a
+  document (`fill`, `tidy` with `--gate drc` by default, `silk`, `testpoints --place`, `waive` as `check
+  --exclude CODE:A:B --reason TEXT` of a `drc.kicad` finding of the session, `move` as `place --move`,
+  `shift` and `turn` as `place --shift` and `--turn`, `export` and `bom` into a folder under the project,
+  `roles` as `roles --accept NETS --accept-group NAMES` on the board, naming only roles and groups the
+  session's role data shows as inferred, change c0273) with
+  their typed options and, for an Altium document, `available: false` with the reason; to a request with the
+  header `X-Fenolite-Action: 1` it also gives the session token. `POST /action/plan` runs the action's fixed
+  template with `--dry-run`; the job reports the plan (files with sizes and digests, issues, evidence,
+  `confirmable`) and, when it replaces the open board, `preview`, the revision compare of the staged bytes
+  with the board. `POST /action/confirm` with that job writes the plan by `--confirm --plan ID`, only a plan
+  of this session, of the same command, whose every write lies under the project root, and only once;
+  `FEN-4002` asks for a new review. `POST /action/undo` with a receipt id of the session plans `restore` on
+  it. Every action request needs the run guard with `X-Fenolite-Action: 1` and `X-Fenolite-Token`; no
+  command line, path outside the project, external tool, `--no-backup` or global flag comes from the page.
+  The receipt of each write is kept as `view-receipts/<id>.json` of the state folder, and
+  `result.serve.writes` lists the session's receipts (`id`, `action`, `files`). `--allow-actions` without
+  `--serve` is `FEN-2001`.
 - **Review** (change c0193). Unless `--no-review`, a board's review findings are drawn by group (45° corners,
   silkscreen near a mask opening, near other silkscreen or the edge, copper outside the board) with the open
   connections of `analysis.connectivity`, ground nets apart. `--silk-gap MM` is the silkscreen gap (default: the
