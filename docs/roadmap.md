@@ -777,6 +777,17 @@ c0186, the GUI save of c0105, the agent runs of c0081, his MCP client of c0195) 
 The maintainer decides the scope of `0.7.0` after `0.6.0`. Its candidates are the tests he owes, listed under
 "Deferred after v0.6" of `docs/release/v0.6.md`, and the proposal c0222 (net roles).
 
+The viewer part of v0.7 is proposed as four changes (2026-10-29), each shippable in this order; the scope
+stays the maintainer's:
+- c0243 (`viewer-shell`): interface tokens with a light theme, a grouped toolbar with icons, a command
+  palette, collapsible side bar sections, a cleaner status bar;
+- c0244 (`viewer-inspector`): a docked inspector with copyable values and actions, net emphasis, a Layers
+  panel, 3D controls;
+- c0245 (`viewer-run-checks`): read-only commands (`check`, `analyze`, `ready`, `equivalent`) run from a
+  served page, with progress and cancel, filling the project review;
+- c0246 (`viewer-actions`): writing actions behind `fenolite view --serve --allow-actions`, each a reviewed
+  plan with a board overlay, written on Confirm and undone through `restore`; needs c0245.
+
 ### v1.0: the freeze (proposed on 2026-10-27; held on 2026-10-29)
 
 **Held by the maintainer's decision of 2026-10-29.** The five changes below stay open and are not implemented
