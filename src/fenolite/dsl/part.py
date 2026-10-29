@@ -24,7 +24,9 @@ if TYPE_CHECKING:
 
 Side = Literal["top", "bottom"]
 NAME = re.compile(r"[A-Za-z0-9_.+-]+")
-"""Module names and refs."""
+"""Module names, part names and refs."""
+PREFIX = re.compile(r"[A-Z][A-Z_]*")
+"""Reference prefixes (``prefix=``)."""
 RESERVED_PROPERTIES: frozenset[str] = frozenset(
     {"Reference", "Value", "Footprint", "Datasheet", "Description"}
 )
@@ -77,6 +79,15 @@ def _properties(ref: str, properties: object) -> Mapping[str, str]:
         folded[key] = name
     names = cast(Mapping[str, str], properties)
     return MappingProxyType({name: names[name] for name in sorted(names)})
+
+
+def catalog_prefix(lib_id: str) -> str | None:
+    """The ``reference`` of the ``Fenolite:`` catalog symbol ``lib_id``, or ``None`` for another symbol."""
+    if not lib_id.startswith("Fenolite:"):
+        return None
+    from fenolite.catalog import symbol_reference
+
+    return symbol_reference(lib_id)
 
 
 def check_name(value: object, what: str) -> str:
@@ -187,18 +198,36 @@ class Part:
 
     def __init__(
         self,
-        ref: str,
-        lib_id: str,
+        ref: str | None = None,
+        lib_id: str | None = None,
         footprint: str | None = None,
         value: str | Quantity = "",
         *,
+        name: str | None = None,
+        prefix: str | None = None,
         properties: Mapping[str, str] | None = None,
         pad_map: Mapping[str, str | Sequence[str]] | None = None,
         height: object = None,
     ) -> None:
-        self.ref = check_name(ref, "ref")
+        self.explicit_ref: str | None = None if ref is None else check_name(ref, "ref")
+        """The ref the script wrote, or ``None``: the build then assigns one (``docs/dsl.md``, "Reference
+        designators and the design lock")."""
+        self.ref: str | None = self.explicit_ref
+        """The explicit ref, or the ref the build assigned (``to_model``); ``None`` before that."""
+        self.name: str | None = None if name is None else check_name(name, "part name")
+        if prefix is not None and (not isinstance(prefix, str) or not PREFIX.fullmatch(prefix)):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part prefix {prefix!r} must match {PREFIX.pattern}")
+        label = ref or name or prefix or lib_id
         if not isinstance(lib_id, str) or not lib_id:  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise DslError(f"part {ref}: lib_id must be a non-empty string")
+            raise DslError(f"part {label}: lib_id must be a non-empty string")
+        self.prefix: str | None = prefix if prefix is not None else catalog_prefix(lib_id)
+        """The reference prefix: ``prefix=``, else the ``reference`` of a ``Fenolite:`` catalog symbol."""
+        if self.explicit_ref is None and self.prefix is None:
+            raise DslError(
+                f"part {label}: give a ref, a prefix or a device; {lib_id} is not a catalog symbol, so its "
+                "reference prefix is unknown"
+            )
+        ref = cast(str, label)
         if footprint is not None and (not isinstance(footprint, str) or not footprint):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part {ref}: footprint must be a non-empty string or None")
         if isinstance(value, Quantity):
@@ -256,12 +285,22 @@ class Part:
         """Designators marked as intentionally unconnected, as written (``no_connect``)."""
 
     @property
+    def key(self) -> str:
+        """The last segment of the path: ``name``, else the explicit ref, else the reference prefix."""
+        return cast(str, self.name or self.explicit_ref or self.prefix)
+
+    @property
+    def label(self) -> str:
+        """The part as messages name it: its ref when known, else its path."""
+        return self.ref if self.ref is not None else self.path
+
+    @property
     def path(self) -> str:
         from fenolite.dsl.module import Module
 
         if isinstance(self.parent, Module):
-            return f"{self.parent.path}/{self.ref}"
-        return self.ref
+            return f"{self.parent.path}/{self.key}"
+        return self.key
 
     @property
     def design(self) -> Design | None:
@@ -270,10 +309,10 @@ class Part:
 
     def __getitem__(self, designator: str | int) -> PinHandle:
         if isinstance(designator, bool) or not isinstance(designator, (str, int)):  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise DslError(f"part {self.ref}: a designator is a pin number or name, not {designator!r}")
+            raise DslError(f"part {self.label}: a designator is a pin number or name, not {designator!r}")
         text = str(designator)
         if not text:
-            raise DslError(f"part {self.ref}: empty designator")
+            raise DslError(f"part {self.label}: empty designator")
         return PinHandle(self, text)
 
     def pad(self, number: str | int, *, index: int | None = None) -> PadRef:
@@ -305,15 +344,15 @@ class Part:
     ) -> None:
         """Request a placement in the board frame (origin at the outline's top-left corner, Y down)."""
         if self.request is not None:
-            raise DslError(f"part {self.ref} is already placed")
+            raise DslError(f"part {self.label} is already placed")
         if side not in ("top", "bottom"):
-            raise DslError(f"part {self.ref}: side must be 'top' or 'bottom', not {side!r}")
+            raise DslError(f"part {self.label}: side must be 'top' or 'bottom', not {side!r}")
         if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise DslError(f"part {self.ref}: locked must be a bool")
+            raise DslError(f"part {self.label}: locked must be a bool")
         if anchor is not None and not locked:
-            raise DslError(f"part {self.ref}: an anchor requires locked=True")
+            raise DslError(f"part {self.label}: an anchor requires locked=True")
         if anchor is not None and not isinstance(anchor, MechanicalIntent):  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise DslError(f"part {self.ref}: anchor must be MechanicalIntent")
+            raise DslError(f"part {self.label}: anchor must be MechanicalIntent")
         self.request = Request(
             as_nm(x, name="x"), as_nm(y, name="y"), as_udeg(rot, name="rot"), side, locked, anchor
         )
@@ -341,11 +380,11 @@ class Part:
         turns. ``outside`` puts the field beside the courtyard on one side instead; ``gap`` is its
         distance. ``locked`` makes the request win over a field edited in KiCad (``docs/lens.md``).
         """
-        what = f"part {self.ref}: field {name!r}"
+        what = f"part {self.label}: field {name!r}"
         if name not in FIELD_NAMES:
             raise DslError(f"{what}: only {' and '.join(FIELD_NAMES)} can be placed")
         if name in self.field_requests:
-            raise DslError(f"part {self.ref}: field {name} already has a placement request")
+            raise DslError(f"part {self.label}: field {name} already has a placement request")
         for label, flag in (("visible", visible), ("locked", locked)):
             if flag is not None and not isinstance(flag, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
                 raise DslError(f"{what}: {label} must be a bool, not {flag!r}")
@@ -405,9 +444,9 @@ class Part:
         number, in the footprint's pad order. On a rebuild a setting made in KiCad wins unless the
         request is ``locked`` (``docs/lens.md``)."""
         if isinstance(number, bool) or not isinstance(number, (str, int)) or str(number) == "":  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise DslError(f"part {self.ref}: a pad number is a non-empty str or an int, not {number!r}")
+            raise DslError(f"part {self.label}: a pad number is a non-empty str or an int, not {number!r}")
         text = str(number)
-        what = f"part {self.ref}: zone connection of pad {text}"
+        what = f"part {self.label}: zone connection of pad {text}"
         if index is not None and (isinstance(index, bool) or not isinstance(index, int) or index < 0):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"{what}: index is None or a non-negative int, not {index!r}")
         if connection not in PAD_ZONE_CONNECTIONS:
@@ -418,11 +457,11 @@ class Part:
             raise DslError(f"{what}: locked must be a bool, not {locked!r}")
         if (text, index) in self.pad_zone_requests:
             where = "" if index is None else f" index {index}"
-            raise DslError(f"part {self.ref}: pad {text}{where} already has a zone connection request")
+            raise DslError(f"part {self.label}: pad {text}{where} already has a zone connection request")
         taken = [key for key in self.pad_zone_requests if key[0] == text]
         if taken and (index is None or any(key[1] is None for key in taken)):
             raise DslError(
-                f"part {self.ref}: pad {text} has a zone connection request with an index and one without: "
+                f"part {self.label}: pad {text} has a zone connection request with an index and one without: "
                 "the two would name the same pad"
             )
         self.pad_zone_requests[(text, index)] = PadZoneRequest(text, index, connection, locked)
@@ -441,12 +480,12 @@ def connect(net: Net, *pins: PinHandle) -> Net:
         current = pin.part.connections.get(pin.designator)
         if current is not None and current is not net:
             raise DslError(
-                f"pin {pin.part.ref} {pin.designator} is already on net {current.name}; "
+                f"pin {pin.part.label} {pin.designator} is already on net {current.name}; "
                 f"cannot join {net.name}"
             )
         if pin.designator in pin.part.no_connects:
             raise DslError(
-                f"pin {pin.part.ref} {pin.designator} is marked as not connected; cannot join {net.name}"
+                f"pin {pin.part.label} {pin.designator} is marked as not connected; cannot join {net.name}"
             )
         pin.part.connections[pin.designator] = net
         design = pin.part.design
@@ -467,7 +506,7 @@ def no_connect(*pins: PinHandle) -> None:
         net = pin.part.connections.get(pin.designator)
         if net is not None:
             raise DslError(
-                f"pin {pin.part.ref} {pin.designator} is on net {net.name}; cannot mark it as not connected"
+                f"pin {pin.part.label} {pin.designator} is on net {net.name}; cannot mark it as not connected"
             )
     for pin in pins:
         pin.part.no_connects.add(pin.designator)
@@ -479,6 +518,7 @@ __all__ = [
     "FIELD_NAMES",
     "FIELD_SIDES",
     "NAME",
+    "PREFIX",
     "FieldRequest",
     "PAD_ZONE_CONNECTIONS",
     "PadZoneRequest",
@@ -488,6 +528,7 @@ __all__ = [
     "Placement",
     "Request",
     "Side",
+    "catalog_prefix",
     "check_name",
     "connect",
     "no_connect",

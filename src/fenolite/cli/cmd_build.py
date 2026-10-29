@@ -91,6 +91,7 @@ from fenolite.checks.copper import (
     waived_issues,
 )
 from fenolite.checks.waivers import copper_waivers
+from fenolite.cli._lock import lock_location, plan_lock, with_lock
 from fenolite.cli._padmap import DefaultPadMap, apply_default_pad_maps
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
@@ -224,6 +225,17 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "--discard-layout",
         action="store_true",
         help="replace outputs changed since the last build (backups kept)",
+    )
+    parser.add_argument(
+        "--lock",
+        metavar="FILE",
+        default=None,
+        help="the design lock to read and write, in place of <script stem>.lock beside the script",
+    )
+    parser.add_argument(
+        "--frozen",
+        action="store_true",
+        help="refuse with exit 7 (FEN-7004) when the design lock would change; never write it",
     )
     parser.add_argument(
         "--target",
@@ -708,7 +720,11 @@ def source_summary(prepared: Prepared | None, issues: Sequence[Issue], *, read: 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     # the inputs a review can see: the design script and, when the build reads one, the copper source
     read = depends_on(
-        ctx.cwd, args.design, getattr(args, "copper_from", None), getattr(args, "altium_template", None)
+        ctx.cwd,
+        args.design,
+        getattr(args, "copper_from", None),
+        getattr(args, "altium_template", None),
+        lock_location(args.design, getattr(args, "lock", None), ctx.cwd)[1],
     )
     built = _built(args, ctx)
     return dataclasses.replace(built, depends=tuple(sorted(set((*read, *built.depends)))))
@@ -831,9 +847,17 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             where="--altium-layout",
             hint="select blocks or remove the script's layout declarations",
         )
+    lock_given, lock_path = lock_location(args.design, getattr(args, "lock", None), ctx.cwd)
     try:
         schematic_composition(design, target=args.target, enabled=args.altium_layout == "blocks")
-        model = to_model(design)
+        lock = plan_lock(
+            design,
+            script=script_path,
+            given=lock_given,
+            path=lock_path,
+            frozen=bool(getattr(args, "frozen", False)),
+        )
+        model = to_model(design, refs=lock.refs)
         requested = placements(design)
         aliases = moves(design)
         module_aliases = module_moves(design)
@@ -889,10 +913,13 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             sheet_result,
             meanders=meander_intents,
         )
-        return dataclasses.replace(
-            made,
-            issues=(*source_issues, *sheet_issues, *default_issues, *from_file.issues, *made.issues),
-            writes=() if refused else made.writes,
+        return with_lock(
+            dataclasses.replace(
+                made,
+                issues=(*source_issues, *sheet_issues, *default_issues, *from_file.issues, *made.issues),
+                writes=() if refused else made.writes,
+            ),
+            lock,
         )
     resolver = LibraryResolver(
         LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
@@ -1011,7 +1038,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         "source": source_summary(prepared, built.issues, read=source_sha is not None),
     }
     data = script_path.read_bytes()
-    return Result(
+    built_result = Result(
         result=result,
         issues=(
             *sheet_issues,
@@ -1032,6 +1059,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         ),
         writes=writes,
     )
+    return with_lock(built_result, lock)
 
 
 def _child_sheet(rel: str) -> bool:

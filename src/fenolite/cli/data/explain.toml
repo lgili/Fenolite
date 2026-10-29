@@ -124,6 +124,11 @@ meaning = "The input comes from KiCad 8.0, which Fenolite reads but does not wri
 fix = "Convert it with 'kicad-cli pcb upgrade' of KiCad 10, or re-save it in KiCad 9, then run again."
 see = "KiCad output"
 
+["FEN-7004"]
+meaning = "fenolite build --frozen found that the design lock would change: a new, released, moved or replaced ref, or another design name. A frozen build never writes the lock, and nothing was written."
+fix = "Build without --frozen, review result.lock.changes and the planned lock, commit the lock, then build frozen again."
+see = "build"
+
 ["altium.bus-flattened"]
 meaning = "A bus of the design is drawn as its nets: its nets are not one stem followed by consecutive integers, or one of them is a power net, a harness net or a net of another bus."
 fix = "Nothing to do; name the nets <stem><n> with consecutive integers to have the bus drawn as a bus."
@@ -2686,6 +2691,41 @@ see = "check"
 meaning = "A net's length differs from the longest net of its group by more than the max of the skew rule that governs it. A skew rule groups every net it governs; a diff_pair_skew rule each pair among them. The longest net is never reported; the rule sets the severity."
 fix = "Lengthen the shorter net (Design.meander), shorten the longer one, or change the rule."
 see = "check"
+
+["lock.changed"]
+meaning = "Under build --frozen, one change of the design lock: the section, the key, the value before and after, and the reason (assigned, released, moved, explicit, taken, prefix-changed or design-renamed)."
+fix = "Build without --frozen, review the change, commit the lock, then build frozen again."
+see = "build"
+
+["lock.design-renamed"]
+meaning = "The design lock names another design than the script; the lock is rewritten with the script's design name."
+fix = "Nothing to do; commit the rewritten lock."
+see = "build"
+
+["lock.ref-explicit"]
+meaning = "An explicit ref of the script replaced the different ref the lock held for that path; the lock records the explicit ref."
+fix = "Nothing to do; commit the lock."
+see = "build"
+
+["lock.ref-moved"]
+meaning = "A design.moved() alias carried a lock entry from the old path to the new one, so the part keeps its ref."
+fix = "Nothing to do; commit the lock. The alias can be removed after one build."
+see = "build"
+
+["lock.ref-prefix-changed"]
+meaning = "The reference prefix of a part changed, so its locked ref, which does not start with the new prefix, was replaced by a new one."
+fix = "Nothing to do if the new prefix is intended; commit the lock."
+see = "build"
+
+["lock.ref-released"]
+meaning = "A lock entry names a path that is no longer a part, and no moved() alias carries it, so its ref is released and may be given to another part later."
+fix = "If the part was renamed, add design.moved(old, new) and build again; otherwise commit the lock."
+see = "build"
+
+["lock.ref-taken"]
+meaning = "A ref held by the lock for one part is now the explicit ref of another part, so the first part was given a new ref."
+fix = "Keep the new ref, or edit the lock or the script so that each part has the ref you want, then build again."
+see = "build"
 
 ["manifest.changed"]
 meaning = "A file is not the one its manifest lists: its SHA-256 differs. Under 'manifest --verify' it is an error. When 'fenolite manifest' writes, it is a warning: the file is listed as it is now, without its tool and source, so it stays 'generated'."
