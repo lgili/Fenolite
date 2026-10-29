@@ -2493,3 +2493,21 @@ path = "tests/data/pins/example_dual.toml"
 origin = "authored"
 corpus_id = ""
 notes = "pin table of an illustrative dual buffer with explicit units, alternates, a hidden pin and a variant (change c0261)"
+
+[[file]]
+path = "examples/symbols/pins/EXB6202.toml"
+origin = "authored"
+corpus_id = ""
+notes = "pin table of the illustrative regulator of examples/symbols (change c0261)"
+
+[[file]]
+path = "examples/symbols/pins/EXM120.toml"
+origin = "authored"
+corpus_id = ""
+notes = "pin table of an illustrative 120-pin microcontroller, split into three units (change c0261)"
+
+[[file]]
+path = "examples/symbols/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design script of examples/symbols: two symbols generated from pin tables (change c0261)"

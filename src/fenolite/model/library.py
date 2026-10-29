@@ -10,7 +10,8 @@ Unit 0 and body style 0 mean "common to all units" and "common to all body style
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Sequence
+from dataclasses import dataclass, field, replace
 from typing import Literal
 
 from fenolite.core.coords import Point
@@ -201,6 +202,33 @@ class SymbolDef(Entity):
         return tuple(p for p in self.pins if p.unit in (0, unit) and p.body_style in (0, body_style))
 
 
+def flatten_symbol(symbol: SymbolDef, parents: Sequence[SymbolDef] = ()) -> SymbolDef:
+    """``symbol`` with the body of the root of its ``extends`` chain (change c0261): the root's flags, units,
+    pins and graphics, ``extends`` cleared, and the properties of the chain, the nearest first. ``parents``
+    holds the symbols it may extend, in any order; a symbol without ``extends`` is returned as it is.
+    ``ValueError`` names a missing parent or a loop."""
+    by_name = {parent.name: parent for parent in parents}
+    chain = [symbol]
+    while chain[-1].extends:
+        parent = by_name.get(chain[-1].extends)
+        if parent is None or parent in chain:
+            raise ValueError(f"{symbol.lib_id}: cannot resolve the symbol {chain[-1].extends!r} it extends")
+        chain.append(parent)
+    if len(chain) == 1:
+        return symbol
+    properties: dict[str, str] = {}
+    for item in reversed(chain):
+        properties.update(item.properties)
+    return replace(
+        chain[-1],
+        id=symbol.id,
+        native_ids=symbol.native_ids,
+        name=symbol.name,
+        library=symbol.library,
+        properties=properties,
+    )
+
+
 PinGroup = Literal["", "supply", "ground", "input", "control", "output", "io", "passive", "nc"]
 """The function group of a pin-table row (change c0261); ``""`` takes the default group of its type."""
 PinSide = Literal["", "left", "right", "top", "bottom"]
@@ -293,4 +321,5 @@ __all__ = [
     "SymbolGraphic",
     "SymbolPin",
     "SymbolUnit",
+    "flatten_symbol",
 ]

@@ -1062,6 +1062,34 @@ Evidence is `INFERRED` (`H-K-LIB-FROM-BOARD`). The exit code is 5 when a footpri
 | `library.instances-differ` | warning | two instances of one name differ; the second is written as `<name>_2` |
 | `library.not-local` | warning | a bottom-side footprint could not be flipped back; it is left out |
 
+### Action words and `library symbol`
+
+Since change c0261 the first positional of `fenolite library` is an **action** when it is one of `symbol`,
+`check`, `review`, `import`, `propose` or `fetch`, and the board `PATH` of the form above otherwise (a board
+folder named like an action is passed as `./check`). Only `symbol` runs in this version; the others are
+reserved for later changes and exit 2 with `FEN-2001` ("not available in this version"), writing nothing.
+The board form takes exactly one `PATH` and no `--library`.
+
+`fenolite library symbol PINS... --out FILE [--library NAME]` generates the symbols of one or more pin
+tables (`fenolite.pins.v0`, [`docs/symbols.md`](symbols.md)) and plans one library file holding them:
+`--out` is a relative `.kicad_sym` (written for `--target`) or `.SchLib` path (`FEN-2001` otherwise).
+`--library` names the library (default: the stem of `--out`). The usual `--dry-run` plan and
+`--confirm --plan <plan_id>` receipt protocol applies. A malformed table exits 3 with `FEN-3004` (a newer
+schema with `FEN-3002`); two tables that give one symbol name exit 3 with `FEN-3004`. In a `.SchLib`
+every derived symbol is written flat and alternates are dropped (`altium.symbol-simplified`).
+
+`result` holds `library`, `out`, `format` (`kicad_sym` or `altium_schlib`) and `symbols`, one row per
+generated symbol in table order: `name`, `extends` for a variant, `units` (`unit`, `name`, and `pins` with
+the visible pin names of the `left`, `right`, `top` and `bottom` sides) and `issues` (the codes of the
+generator's findings). `--limit` and `--cursor` page `symbols`. Evidence is `INFERRED`
+(`H-G-SYMBOL-LAYOUT`; KiCad's reading `H-K-SYM-UNITS-WRITE`, Altium's `H-A-SCHLIB-GEN-PARTS`).
+
+| code | severity | when |
+|---|---|---|
+| `symbol.units-split` | info | the table has more visible rows than `split_above`; the message names the pins per unit |
+| `symbol.bus-split` | warning | a bus larger than `unit_pins` was cut across units |
+| `symbol.bus-gap` | info | a bus skips an index (`D0`, `D1`, `D3`) |
+
 ## check
 
 `fenolite check PATH [--stages A,B] [--kicad-cli PATH] [--timeout SECONDS]` checks a KiCad project

@@ -152,6 +152,7 @@ from fenolite.lens.schplacements import FILE_NAME as SYMBOL_PLACEMENTS_FILE
 from fenolite.lens.schplacements import read_placements as read_symbol_placements
 from fenolite.model.design import Design as ModelDesign
 from fenolite.model.findings import Waiver
+from fenolite.model.library import flatten_symbol
 from fenolite.model.presentation import DrawingSheet
 from fenolite.placement import legality
 from fenolite.templates import build_sheet, load_spec
@@ -545,6 +546,11 @@ def _catalog_definitions(
             symbols[symbol_id] = catalog_symbol(symbol_id)
             used_builtin.add(symbol_id)
         symbol = authored_symbols.get(symbol_id) or symbols.get(symbol_id)
+        if symbol is not None and getattr(symbol, "extends", ""):
+            # a derived authored symbol names the footprint of its base unless it names one (change c0261)
+            symbol = flatten_symbol(
+                symbol, [s for s in authored_symbols.values() if s.library == symbol.library]
+            )
         fp_id = component.lib_footprint_ref or (symbol.properties.get("Footprint", "") if symbol else "")
         if fp_id in footprint_ids and fp_id not in authored_footprints:
             footprints[fp_id] = catalog_footprint(fp_id)

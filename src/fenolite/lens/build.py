@@ -85,7 +85,7 @@ from fenolite.model import canonical, pairs
 from fenolite.model.board import ComponentBody, FootprintInstance, Pad, Side, ViaProtection
 from fenolite.model.circuit import Component, Interface, Net, NetClass, Pin, PinRef
 from fenolite.model.design import Design
-from fenolite.model.library import FootprintDef, SymbolDef
+from fenolite.model.library import FootprintDef, SymbolDef, flatten_symbol
 from fenolite.model.presentation import DrawingSheet
 from fenolite.model.rules import ImpedanceTarget, Rule, RuleSubject, Selector, TraceGeometry
 from fenolite.model.schematic import SchematicSheet
@@ -266,6 +266,13 @@ def _path(component: Component) -> str:
     return component.properties.get(PATH_PROPERTY, component.ref)
 
 
+def _flat(symbol: SymbolDef, authored: Mapping[str, SymbolDef]) -> SymbolDef:
+    """An authored symbol, a derived one flattened onto its base of the same library (change c0261)."""
+    if not symbol.extends:
+        return symbol
+    return flatten_symbol(symbol, [s for s in authored.values() if s.library == symbol.library])
+
+
 def _resolve(
     design: Design,
     resolver: LibraryResolver,
@@ -280,7 +287,7 @@ def _resolve(
         parents: tuple[SymbolDef, ...] = ()
         try:
             if component.lib_symbol_ref in authored_symbols:
-                symbol = authored_symbols[component.lib_symbol_ref]
+                symbol = _flat(authored_symbols[component.lib_symbol_ref], authored_symbols)
                 libraries[component.lib_symbol_ref] = "authored"
             else:
                 chain = resolver.symbol_chain(component.lib_symbol_ref)
@@ -1708,10 +1715,18 @@ def _symbol_libraries(
                 )
             )
             continue
-        if all(found.lib_id != definition.lib_id for found in held):
-            held.append(
-                symembed.embed_symbol(definition, target=target, allow_lossy=allow_lossy, issues=issues)
+        same = [index for index, found in enumerate(held) if found.lib_id == definition.lib_id]
+        if same and definition.extends and held[same[0]].authored is not None:
+            # the sheet embeds a derived symbol flat; its library keeps it as written (change c0261)
+            held[same[0]] = dataclasses.replace(held[same[0]], authored=definition)
+        if not same:
+            embedded = symembed.embed_symbol(
+                _flat(definition, authored), target=target, allow_lossy=allow_lossy, issues=issues
             )
+            if definition.extends and embedded.authored is not None:
+                # the library keeps the derived symbol as written; the sheet embeds it flat (change c0261)
+                embedded = dataclasses.replace(embedded, authored=definition)
+            held.append(embedded)
     folded: dict[str, str] = {}
     for nickname in sorted(libraries):
         if (

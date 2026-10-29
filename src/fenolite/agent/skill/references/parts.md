@@ -155,13 +155,59 @@ j1.place(mm(22), mm(10), rot=90)
   that joins no pin yet.
 - Interfaces are kept in the design data (`.fenolite/`); the board and the schematic do not change.
 
+## Symbols from pin tables
+
+A pin table (`fenolite.pins.v0`, TOML) lists each pin's `number`, `name` and `type`; the generator draws
+the symbol: supply on top, ground at the bottom, inputs left, outputs right, every pin on the 2.54 mm
+grid, units above 100 pins. `stacked` adds a hidden pin per further pad; `[[variant]]` rows give derived
+symbols.
+
+```fenolite-design
+from fenolite.catalog.pins import parse_pins
+from fenolite.dsl import Design, Net, Part, Symbol, connect, mm
+
+ROWS = [("1", "VIN", "power_in", ""), ("2", "GND", "power_in", 'stacked = ["4"]'), ("3", "EN", "input", "")]
+TABLE = """schema = "fenolite.pins.v0"
+id = "Local:EXB1"
+version = "1.0.0"
+summary = "Illustrative regulator"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"
+""" + "".join(f'[[pin]]\nnumber = "{n}"\nname = "{a}"\ntype = "{t}"\n{x}\n' for n, a, t, x in ROWS)
+
+design = Design("pins")
+design.board(mm(20), mm(16))
+reg = Symbol.from_pins(parse_pins(TABLE), library="Local", footprint="Fenolite:SOIC_8")
+tr = reg.derive("EXB1_TR", value="EXB1-TR")  # a derived symbol: the base's drawing and pins
+dual = Symbol("Local", "DUAL", reference="U")  # a hand-drawn symbol of two units
+dual.unit(1, "A")
+dual.unit(2, "B")
+dual.pin("1", "A", etype="input", at=(mm(-5.08), mm(0)), length=mm(2.54), unit=1)
+dual.pin("2", "B", etype="input", at=(mm(-5.08), mm(0)), length=mm(2.54), unit=2)
+dual.pin("3", "V+", etype="power_in", at=(mm(0), mm(5.08)), length=mm(2.54), rotation=270, unit=0)
+design.add(reg, tr, dual)
+u1 = Part("U1", "Local:EXB1_TR")
+design.add(u1)
+connect(Net("VIN"), u1["VIN"])
+connect(Net("GND"), u1["GND"])  # pins 2 and 4: the stacked pad has the name of its pin
+u1.place(mm(10), mm(8))
+```
+
+- `Symbol.from_pins(table, library=, footprint=)` is finished: change the table, not the code.
+- `Symbol.pin(..., unit=0)` is common to every unit; `hidden=True` is refused on a `power_in` pin.
+- `fenolite library symbol` writes the tables' symbols as one library (`.kicad_sym` or `.SchLib`):
+
+  ```fenolite-cmd
+  fenolite library symbol pins/EXB1.toml --out lib/Local.kicad_sym --dry-run --json
+  ```
+
 ## What the checks still say
 
-Both scripts build, and neither is a finished board. With KiCad 10, `fenolite check` reports for the
+The scripts build, and none is a finished board. With KiCad 10, `fenolite check` reports for the
 first one `kicad.erc.power-pin-not-driven`: the supply pins of the regulator are fed by a connector,
 whose pins are passive, and KiCad's electrical check asks for a power output on such a net. For the
 second one it reports `kicad.erc.pin-not-connected`: pins of `U1` are neither connected nor marked with
-`no_connect`. Both have open connections until they are routed. The pin types come from the symbols:
+`no_connect`. The pin-table script reports both, and `kicad.erc.pin-not-driven` as well. All have open connections until they are routed. The pin types come from the symbols:
 `fenolite catalog show` gives them.
 
 Read next: `footprints`, `placement`, `rules`.

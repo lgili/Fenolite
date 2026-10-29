@@ -735,7 +735,7 @@ fix = "Use a symbol drawn on the 10 mil grid, or correct the symbol."
 see = "Build target"
 
 ["altium.symbol-simplified"]
-meaning = "A symbol is drawn as one rectangle per part (--altium-symbols generic, no graphics, a graphic without a record such as an arc, or several units or body styles), or its other body styles or alternates were dropped."
+meaning = "A symbol is drawn as one rectangle per part (--altium-symbols generic, no graphics, a graphic without a record such as an arc, or a part of a multi-unit symbol without a graphic of its own), or its other body styles or alternates were dropped."
 fix = "Nothing to do; redraw the symbol in Altium if its look matters."
 see = "Build target"
 

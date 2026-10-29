@@ -191,9 +191,7 @@ def test_old_canonical_json_unchanged() -> None:
 
 
 def test_two_bodies_keep_their_units() -> None:
-    bodies = tuple(
-        SymbolGraphic("rect", (Point(-1, -1), Point(1, 1)), unit=u, body_style=1) for u in (1, 2)
-    )
+    bodies = tuple(SymbolGraphic("rect", (Point(-1, -1), Point(1, 1)), unit=u, body_style=1) for u in (1, 2))
     sym = SymbolDef(id=derived_id("sym", "dsl", "L:Two"), name="Two", library="L", graphics=bodies)
     back = loads(dumps(Library(symbols=(sym,))), Library)
     assert [(g.unit, g.body_style) for g in back.symbols[0].graphics] == [(1, 1), (2, 1)]

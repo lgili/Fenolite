@@ -82,7 +82,7 @@ An SPI bus: `sck`, `mosi`, `miso` and one `cs<i>` net per chip select, in the or
 
 Class: `Symbol(library: 'str', name: 'str', *, reference: 'str', value: 'str' = '', footprint: 'str' = '', description: 'str' = '') -> 'None'`
 
-Author a one-unit symbol.
+Author a symbol.
 
 ## UART
 

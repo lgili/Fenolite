@@ -374,7 +374,7 @@ def generate_symbol(
                 1 if many else 0,
             )
         )
-    ordered = [pin for _, found in sorted(pins, key=lambda item: item[0]) for pin in found]
+    ordered = [pin for _, found in sorted(pins, key=lambda item: (item[1][0].unit, item[0])) for pin in found]
     names = dict(table.unit_names)
     properties = {
         "Reference": table.reference,

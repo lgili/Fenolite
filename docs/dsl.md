@@ -128,7 +128,8 @@ design.tooling_hole("TH1", mm(46), mm(4), drill=mm(3), clear=mm(5))
 
 ## Authored symbols (c0058)
 
-`Symbol` declares a project-local one-unit symbol without reading any files. Add pins with exact DSL
+`Symbol` declares a project-local symbol without reading any files (one unit unless pins name others, see
+"Multi-unit and derived symbols"). Add pins with exact DSL
 lengths, then attach the definition to the design. A KiCad build resolves matching `Part.lib_id`s from
 these definitions and plans a `.kicad_sym` library and `sym-lib-table` row:
 
@@ -151,6 +152,35 @@ symbols available to KiCad project consumers. KiCad file facts follow S-0043 in
 `Symbol.line`, `Symbol.rect`, `Symbol.circle` and `Symbol.polygon` add ordered symbol-local graphics
 in integer nanometres. When present, these draw the symbol body; the generated pin-bounds rectangle
 is retained only for older definitions without explicit graphics.
+
+## Multi-unit and derived symbols (c0261)
+
+`Symbol.pin(..., unit=1, hidden=False, alternates=())` puts a pin in a unit (0: common to every unit),
+hides it (refused on a `power_in` pin) and gives it alternate functions as `(name, etype)` or
+`(name, etype, shape)` tuples. `Symbol.unit(number, name="")` names a unit, and `Symbol.graphic` and its
+shortcuts take `unit=` (0, the default, draws in every unit). Without these arguments a symbol keeps its
+one-unit definition and its library bytes.
+
+```python
+from fenolite.dsl import Symbol, mm
+
+q = Symbol("Example", "DUAL_OPAMP", reference="U")
+q.unit(1, "A")
+q.unit(2, "B")
+q.pin("1", "OUTA", etype="output", at=(mm(7.62), mm(0)), length=mm(2.54), rotation=180, unit=1)
+q.pin("7", "OUTB", etype="output", at=(mm(7.62), mm(0)), length=mm(2.54), rotation=180, unit=2)
+q.pin("8", "V+", etype="power_in", at=(mm(0), mm(7.62)), length=mm(2.54), rotation=270, unit=0)
+q.rect((mm(-5.08), mm(-5.08)), (mm(5.08), mm(5.08)), unit=1)
+q.rect((mm(-5.08), mm(-5.08)), (mm(5.08), mm(5.08)), unit=2)
+dr = q.derive("DUAL_OPAMP_TR", value="DUAL-OPAMP-TR")
+```
+
+`Symbol.derive(name, *, value="", footprint="", description="", datasheet="")` returns a `DerivedSymbol`:
+the base's drawing and pins, its own properties, written as `(extends "<base>")` in the base's library.
+`Design.add` takes it after its base (`DslError` otherwise). `Symbol.from_pins(table, *, library,
+footprint="", fp_filters=())` returns the symbol generated from a pin table, finished (its `pin`, `unit`
+and `graphic` raise `DslError`), with the table's variants in `variants` and the generator's findings in
+`issues`; see [Symbols from pin tables](symbols.md).
 
 ## Security: `build` executes the script
 

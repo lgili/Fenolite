@@ -29,6 +29,12 @@ ERRORS: dict[tuple[str, int], set[str]] = {
     ("footprints", 0): {OPEN},
     ("parts", 0): {OPEN, "kicad.erc.power-pin-not-driven"},
     ("parts", 1): {OPEN, "kicad.erc.pin-not-connected"},
+    ("parts", 2): {
+        OPEN,
+        "kicad.erc.pin-not-connected",
+        "kicad.erc.pin-not-driven",
+        "kicad.erc.power-pin-not-driven",
+    },
     ("placement", 0): {OPEN},
     ("routing", 0): {OPEN},
     ("rules", 0): {OPEN},

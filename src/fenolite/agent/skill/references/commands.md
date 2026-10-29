@@ -38,7 +38,7 @@ another type; a flag without a value is a switch.
 | `init` | yes | write a starter project (a design script that builds with the built-in catalog) into a folder |
 | `inspect` | no | summarise a KiCad or an Altium file, or list a compound file's streams (runs no tool) |
 | `kit` | yes | build the Altium verification kit, check the files a run left, record the run, list the runs |
-| `library` | yes | write a footprint library made from a KiCad board, or report how a library differs from it |
+| `library` | yes | write a footprint library made from a KiCad board, or report how a library differs from it; 'library symbol PINS... --out FILE' writes symbols generated from pin tables |
 | `manifest` | yes | write the project manifest: every design file and artefact with its SHA-256 and a state |
 | `mcp` | no | serve Fenolite's commands as tools to an MCP client on standard input and output |
 | `models` | yes | list the 3D model files a board's footprints name and where each is found (runs no tool) |
@@ -333,9 +333,10 @@ another type; a flag without a value is a switch.
 
 `fenolite library [OPTIONS] PATH`
 
-- `PATH`: a .kicad_pcb, .kicad_pro or project folder
-- `--out LIB.pretty`: the library folder to write, relative
+- `PATH` (repeatable): a .kicad_pcb, .kicad_pro or project folder; or the action 'symbol' followed by pin tables
+- `--out LIB.pretty`: the library folder to write, relative; for 'symbol', a relative .kicad_sym or .SchLib file
 - `--diff LIBRARY`: a .pretty folder to compare with the board; writes nothing
+- `--library NAME`: 'symbol' only: the library name (default: the stem of --out)
 
 ## manifest
 
