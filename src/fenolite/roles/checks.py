@@ -243,6 +243,9 @@ def _element(board: RoleBoard, measure: Measure) -> list[Issue]:
             have = (
                 f"it carries {capacity} mA at a rise of {values['temp_rise_mk']} mK, below the {milliamps} mA"
             )
+        size = values["width"] if element in ("track", "arc") else values["section"] if fill else None
+        if size is not None:
+            have = f"{mm(size)} mm {'wide' if not fill else 'at its narrowest section'}: {have}"
         user = True
         method = "by the capacity fit of S-0269"
     level = severity(code, source=source, limit_source="override" if user else "profile")
@@ -359,7 +362,7 @@ def judge(board: RoleBoard, done: Measured) -> list[Issue]:
             case "path":
                 found += _element(board, measure)
             case "neck":
-                found += _neck(board, measure)
+                pass  # judged below, once the sections of the paths are known
             case "near":
                 pass  # judged together below, one finding per victim and node
             case "return":
@@ -404,6 +407,15 @@ def judge(board: RoleBoard, done: Measured) -> list[Issue]:
                 )
             case _:
                 pass
+    narrow = {
+        zone
+        for measure, issues in ((m, _element(board, m)) for m in done.measures if m.kind == "path")
+        if issues and measure.values["element"] == "fill"
+        for zone in measure.values.get("zones", ())
+    }
+    for measure in done.measures:
+        if measure.kind == "neck" and not set(measure.values.get("zones", ())) & narrow:
+            found += _neck(board, measure)  # a fill already judged narrow by its section is not repeated
     found += _near(board, [measure for measure in done.measures if measure.kind == "near"])
     found += _attachments(board, done)
     for role in board.roles.nets:

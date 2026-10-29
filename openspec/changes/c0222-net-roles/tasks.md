@@ -163,7 +163,12 @@
   `roles.near-switching` names the pair and gives each branch's overlap. No reference variant has a split
   sense pair, so `H-G-ROLE-KELVIN-PAIR` is measured on an authored shunt and amplifier as well (coupled
   927 ‰, split 7121 ‰). Proof passed: 6 tests.
-- [ ] 5.5 Add the current checks on `analyze_power`, `analyze_split` and `analyze_necks` by both methods, and register `H-G-ROLE-CURRENT` (scenarios "A thin track on a 2 A net", "No analysis finding from the profile"). Proof: `uv run pytest tests/unit/roles/test_current.py -q`.
+- [x] 5.5 Add the current checks on `analyze_power`, `analyze_split` and `analyze_necks` by both methods, and register `H-G-ROLE-CURRENT` (scenarios "A thin track on a 2 A net", "No analysis finding from the profile"). Proof: `uv run pytest tests/unit/roles/test_current.py -q`.
+  Done 2026-10-29. The authored board's via is 1 mm with a 0.6 mm drill, so that by the fit (25 µm of
+  plating) it carries the 2 A and only the rule-of-thumb run asks for 10 vias, as the scenario says. A
+  fill whose section a path element already reports is not reported again by the neck screen (each neck
+  names the zones it lies in), and a finding by the fit names the width or section as well. Proof passed:
+  9 tests.
 - [ ] 5.6 Add the return and high-voltage checks on `analyze_returns` and `analyze_distances` (scenarios "A high-voltage bus without a requirement", "A cell tap across a ground gap"). Proof: `uv run pytest tests/unit/roles/test_returns_hv.py -q`.
 - [ ] 5.7 Run the whole check on the six variants (scenario "Good and bad variants"). Proof: `uv run pytest tests/unit/roles/test_reference_boards.py -q`.
 

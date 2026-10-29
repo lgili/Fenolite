@@ -359,35 +359,23 @@ def measure_currents(board: RoleBoard, pour: PourCopper, inputs: Inputs, done: M
                     for entity in element.entity_ids
                 )
             widths = {element.where: element.width for element in network.elements}
+            zones = {
+                element.where: list(element.entity_ids)
+                for element in network.elements
+                if element.kind == "fill"
+            }
             vias = {group.where: len(group.vias) for group in network.groups}
             ports = {use.region.where: len(use.active_ports) for use in network.regions}
             shares = _shares(board, pour, report, inputs, done) if inputs.split and rise is not None else {}
             for row in report.rows:
                 for element in row.elements:
-                    done.measures.append(
-                        Measure(
-                            "path",
-                            role.net,
-                            "analyze_split" if element.where in shares else "analyze_power",
-                            states,
-                            _element_values(
-                                element,
-                                widths,
-                                vias,
-                                ports,
-                                shares,
-                                role,
-                                rise,
-                                rise_source,
-                                width,
-                                per_amp,
-                                per_via,
-                                path_source,
-                                start,
-                                end,
-                            ),  # fmt: skip
-                        )
-                    )
+                    values = _element_values(
+                        element, widths, vias, ports, shares, role, rise, rise_source, width, per_amp,
+                        per_via, path_source, start, end,
+                    )  # fmt: skip
+                    values["zones"] = zones.get(element.where, [])
+                    analysis = "analyze_split" if element.where in shares else "analyze_power"
+                    done.measures.append(Measure("path", role.net, analysis, states, values))
         _necks(board, pour, role, width, per_amp, done, states, active)
 
 
@@ -536,9 +524,10 @@ def _necks(
     ]
     for row in report.rows:
         assert isinstance(row, NeckRow)
-        if active is not None and not any(
-            shape.layer == row.layer and covers(shape.shape, row.at) for shape in fills
-        ):
+        inside = [
+            shape.entity_id for shape in fills if shape.layer == row.layer and covers(shape.shape, row.at)
+        ]
+        if active is not None and not inside:
             continue
         done.measures.append(
             Measure(
@@ -555,6 +544,7 @@ def _necks(
                     "extent": row.extent,
                     "milliamps": role.milliamps,
                     "width_limit": per_amp.text(),
+                    "zones": sorted(set(inside)),
                 },
             )
         )
