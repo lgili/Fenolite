@@ -1,8 +1,8 @@
 ## MODIFIED Requirements
 
 ### Requirement: Viewer page
-`src/fenolite/view/page.html` SHALL be one HTML file with inline styles and scripts and no external URL, assembled by `fenolite.view.export.page(tree, scenes)` from `src/fenolite/view/ui/` in a fixed order, that draws a scene in 2D (canvas) and 3D (WebGL) inside the workbench of "Workbench shell" and embeds a tree and its scenes.
-- The page MUST read a scene either embedded (export) or from the server routes of "Live server".
+The viewer page SHALL be one HTML file with inline styles and scripts and no URL, joined by `fenolite.view.export.template()` from the parts of `src/fenolite/view/ui/` in `PARTS` order, drawing a scene in 2D (canvas) and 3D (WebGL) in the workbench of "Workbench shell"; `fenolite.view.export.page(tree, scenes)` SHALL embed a tree and its scenes.
+- The page MUST read a scene embedded (export) or from the routes of "Live server".
 - Texts MUST be drawn with Fenolite's own single-stroke font.
 
 #### Scenario: Standalone page round-trips

@@ -13,7 +13,12 @@
   - No open change on `dev` or any branch holds a delta of "Viewer page", "Context-aware viewer shortcuts" or "Review in narrow windows"; the MODIFIED blocks stand as written.
   - S-0920 to S-0933 are this proposal's rows; no branch uses S-0934 to S-0949.
   - The maintainer approved the change on 2026-10-29 and accepted every recommended answer of open questions 1 to 8; they are recorded as decisions in `design.md`, "Open Questions". Implementation runs in parallel with c0243 and c0244.
-- [ ] 0.2 Add the authored stress fixture `tests/_stress_board.py` (decision 7) and the budget harness, and measure today's page on it in the `viewer` job. Record the p95 frame, cursor and open times under this task. Where today misses a CI budget of `design.md`, record the replacement budget (no worse than today, and 30 % better at task 6.4). Proof: `uv run pytest tests/visual/test_workbench.py -k budget_baseline -q` in the `viewer` job on the pushed commit.
+- [x] 0.2 Add the authored stress fixture `tests/_stress_board.py` (decision 7) and the budget harness, and measure today's page on it in the `viewer` job. Record the p95 frame, cursor and open times under this task. Where today misses a CI budget of `design.md`, record the replacement budget (no worse than today, and 30 % better at task 6.4). Proof: `uv run pytest tests/visual/test_workbench.py -k budget_baseline -q` in the `viewer` job on the pushed commit.
+
+  Note (2026-10-29): the stress board (2 000 pads, 10 000 tracks, 1 500 vias, 40 zone fills; 23 584 scene primitives) measured on today's page, canvas 840 x 606 px:
+  - `viewer` job, commit `bbbcdab3` (run 40863901856): open 333 ms; pan/zoom frame p95 75.5 ms (median 74.7); cursor move p95 0.10 ms; 0 board paints during 200 moves.
+  - this machine (Chromium of Playwright 1.56.1): open 366–384 ms; frame p95 82.4–86.5 ms; cursor p95 0.10 ms.
+  - The frame budget of 50 ms is missed today. Replacement budget for task 6.4: p95 ≤ 52.9 ms in the `viewer` job (30 % under 75.5 ms), measured at the same canvas size of 840 x 606 px (the budget test widens its viewport by the docks). The cursor (≤ 4 ms) and open (≤ 2.5 s) budgets stand; the cursor figure is low today because the page draws no crosshair, so task 6.1 holds the crosshair to it.
 
 ## 1. UI sources
 

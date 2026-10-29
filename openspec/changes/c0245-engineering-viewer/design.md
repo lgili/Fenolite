@@ -421,8 +421,8 @@ whose project has roles (any KiCad or Altium board: inferred roles exist without
   - `canvas/` (2D, overlay, 3D, SVG recorder);
   - `panels/` (one file per panel);
   - `workspaces/` (board, sheet, library, drawing, table, roles).
-- `fenolite.view.export.page()` concatenates them in a fixed order into the same one file, with no URL and
-  no framework.
+- `fenolite.view.export.template()` joins them in the order of `PARTS` into the same one file, with no URL
+  and no framework. `page.html` is no longer a file of the repository: the page exists only as that join.
 - Phase 1's first step proves that the assembled page equals today's `page.html` byte for byte, before any
   change.
 - The served page and the exported page come from the same assembly.
