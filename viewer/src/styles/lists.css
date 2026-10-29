@@ -1,0 +1,36 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Copyright (c) 2026 Fenolite contributors */
+.navh { display:flex; gap:6px; align-items:center; margin:12px 0 6px; }
+.navh h3 { margin:0 !important; flex:1; }
+#navFilter { width:100%; margin-bottom:4px; }
+.navg { margin-top:6px; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+.navi { padding:1px 4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#cfd3da; border-radius:3px; }
+.navi:hover { background:#ffffff12; }
+.navi.sel { background:#1f4e7a; color:#fff; }
+.navi small { color:var(--muted); }
+.tab.doc-tab .sw { border-radius:2px; }
+.sheetlink { color:#8cc4ff; }
+#tablewrap { position:absolute; inset:0; overflow:auto; background:var(--bg); display:none; padding:12px 16px; }
+.tblhead { display:flex; gap:10px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+.tblhead b { color:#fff; font-size:15px; }
+table.tbl { border-collapse:collapse; font-size:12px; width:100%; }
+table.tbl th { position:sticky; top:0; background:var(--panel2); text-align:left; padding:4px 8px; cursor:pointer; white-space:nowrap; border-bottom:1px solid var(--line); }
+table.tbl td { padding:3px 8px; border-bottom:1px solid #ffffff10; vertical-align:top; }
+table.tbl tr.link { cursor:pointer; } table.tbl tr.link:hover { background:#1f4e7a55; }
+table.tbl a { color:#8cc4ff; }
+body.table .board-only, body.table #tabs > * { display:none !important; }
+#msgList .navg { cursor:pointer; text-transform:none; letter-spacing:0; color:#cfd3da; }
+#msgList .navi { white-space:normal; padding:2px 4px 2px 14px; }
+body.sch .board-only { display:none !important; }
+body:not(.sch) .sch-only { display:none !important; }
+body:not(.lib) .lib-only { display:none !important; }
+body.lib .nav-panel { display:none !important; }
+#libFilter { width:100%; margin-bottom:4px; }
+#query, #compFilter, #netFilter { width:100%; margin-bottom:4px; }
+.vlist { max-height:240px; overflow:auto; position:relative; }
+.qbar { display:flex; gap:6px; margin:2px 0 4px; }
+body.lib .rev-panel { display:none !important; }
+#info a { color:#8cc4ff; }
+#info table { border-collapse:collapse; }
+#info td { padding:1px 8px 1px 0; vertical-align:top; }
+#info td:first-child { color:var(--muted); white-space:nowrap; }

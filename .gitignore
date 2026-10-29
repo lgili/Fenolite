@@ -10,6 +10,9 @@ dogfood/
 # Fenolite derived cache
 .fenolite/
 
+# The viewer's Node packages (change c0247): installed by `npm ci` in viewer/, never committed
+/viewer/node_modules/
+
 # Python / tooling
 .venv/
 __pycache__/
