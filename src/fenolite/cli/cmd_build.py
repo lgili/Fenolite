@@ -63,6 +63,7 @@ from fenolite.backends.kicad import copperrules, wks
 from fenolite.backends.kicad import frame as kicad_frame
 from fenolite.backends.kicad import generate as kicad_generate
 from fenolite.backends.kicad import pcb as kicad_pcb
+from fenolite.backends.kicad import sch as kicad_sch
 from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.copper import CopperIntentLike
 from fenolite.backends.kicad.embed import PATH_PROPERTY
@@ -126,6 +127,7 @@ from fenolite.dsl import (
 from fenolite.dsl import Design as DslDesign
 from fenolite.dsl.convert import two_terminal, unused_marks
 from fenolite.geometry.errors import BackendUnavailable
+from fenolite.lens import edits as edits_mod
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
 from fenolite.lens.altium import (
     CopperSource,
@@ -147,17 +149,26 @@ from fenolite.lens.build import (
     check_existing,
     plane_issues,
     read_record,
+    script_codes,
 )
 from fenolite.lens.build import issue as build_issue
 from fenolite.lens.placements import FILE_NAME as PLACEMENTS_FILE
 from fenolite.lens.placements import SourcePlacement, read_placements
-from fenolite.lens.preserve import ExistingProject, FilePlacement, Prepared, prepare, read_existing
+from fenolite.lens.preserve import (
+    ExistingProject,
+    FilePlacement,
+    Prepared,
+    legacy_edits,
+    prepare,
+    read_existing,
+)
 from fenolite.lens.rolecopper import RoleCopperPlanner
 from fenolite.lens.schplacements import FILE_NAME as SYMBOL_PLACEMENTS_FILE
 from fenolite.lens.schplacements import read_placements as read_symbol_placements
 from fenolite.model.design import Design as ModelDesign
 from fenolite.model.findings import Waiver
 from fenolite.model.presentation import DrawingSheet
+from fenolite.model.schematic import SchematicSheet
 from fenolite.placement import legality
 from fenolite.templates import build_sheet, load_spec
 
@@ -248,6 +259,14 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "--frozen",
         action="store_true",
         help="refuse with exit 7 (FEN-7004) when the design lock would change; never write it",
+    )
+    parser.add_argument(
+        "--take",
+        action="append",
+        default=None,
+        metavar="SIDE[:TARGET]",
+        help="resolve a sync.conflict: SIDE is code, cad, board or schematic, TARGET a component path or "
+        "PATH#PROPERTY (every conflict without one); repeatable",
     )
     parser.add_argument(
         "--target",
@@ -698,6 +717,73 @@ def read_source(
     return found.entries, found.issues, hashlib.sha256(data).hexdigest()
 
 
+def read_edit_source(
+    script_path: Path,
+) -> tuple[Mapping[str, edits_mod.PartEdits] | None, str | None, tuple[Issue, ...], str | None]:
+    """The edits beside the script (``design-dsl``, "Placements file in a build"): those of ``edits.toml``
+    when it exists, otherwise the entries of ``placements.toml`` as legacy position edits. Returns the
+    edits (``None`` without a file), the name of the file read, its issues and its SHA-256."""
+    folder = script_path.resolve().parent
+    path = folder / edits_mod.EDITS_FILE
+    legacy = folder / PLACEMENTS_FILE
+    if not path.is_file():
+        entries, issues, sha = read_source(script_path)
+        if sha is None:
+            return None, None, (), None
+        return legacy_edits(entries), PLACEMENTS_FILE, issues, sha
+    data = path.read_bytes()
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise FormatError(f"not UTF-8 text: {error}", file=edits_mod.EDITS_FILE) from error
+    found = edits_mod.read_edits(text, origin=BOARD_ORIGIN, file=edits_mod.EDITS_FILE)
+    issues = list(found.issues)
+    if legacy.is_file():
+        issues.append(
+            edits_mod.issue(
+                "edit.legacy-file",
+                f"{PLACEMENTS_FILE} is not read: {edits_mod.EDITS_FILE} is beside it",
+                PLACEMENTS_FILE,
+                f"delete {PLACEMENTS_FILE}; {edits_mod.EDITS_FILE} replaces it",
+            )
+        )
+    return found.parts, edits_mod.EDITS_FILE, tuple(issues), hashlib.sha256(data).hexdigest()
+
+
+def read_base_record(out_dir: Path) -> edits_mod.BaseRecord:
+    """The base record of the output folder, or ``BaseRecord.absent`` when it holds none."""
+    path = out_dir / edits_mod.BASE_FILE
+    if not path.is_file():
+        return edits_mod.BaseRecord.absent("kicad")
+    try:
+        text = path.read_bytes().decode("utf-8")
+    except UnicodeDecodeError as error:
+        return edits_mod.read_base(f"\0{error}", target="kicad", file=edits_mod.BASE_FILE)
+    return edits_mod.read_base(text, target="kicad", file=edits_mod.BASE_FILE)
+
+
+def schematic_sheets(root: Path) -> list[SchematicSheet] | None:
+    """The sheets of the schematic ``root``: the root file and every sheet file it names, each read once.
+    ``None`` when the project has no schematic."""
+    if not root.is_file():
+        return None
+    tree = kicad_sch.sheet_files(root)
+    return [kicad_sch.read_schematic(root.parent / name, file=name) for name in tree.files]
+
+
+def parse_take_option(values: Sequence[str] | None) -> tuple[edits_mod.Take, ...]:
+    """The takes of ``--take``; a malformed or contradictory value is a usage error."""
+    try:
+        return edits_mod.parse_takes(values or ())
+    except ValueError as error:
+        raise CliError(
+            "FEN-2001",
+            str(error),
+            where="--take",
+            hint="give --take code|cad|board|schematic[:PATH[#PROPERTY]], one side per target",
+        ) from None
+
+
 def read_drawing_sheet_source(
     design: DslDesign, script_path: Path
 ) -> tuple[DrawingSheet | None, tuple[Issue, ...], dict[str, object] | None]:
@@ -737,12 +823,14 @@ def read_drawing_sheet_source(
     return sheet, tuple(found), result
 
 
-def source_summary(prepared: Prepared | None, issues: Sequence[Issue], *, read: bool) -> dict[str, object]:
+def source_summary(
+    prepared: Prepared | None, issues: Sequence[Issue], *, read: bool, file: str | None = None
+) -> dict[str, object]:
     """``result.preserved.source``: the file read, the parts placed from it, and its stale and unknown
     tables."""
     placed: Mapping[str, object] = prepared.placements if prepared is not None else {}
     return {
-        "file": PLACEMENTS_FILE if read else None,
+        "file": (file or PLACEMENTS_FILE) if read else None,
         "used": sorted(path for path, found in placed.items() if isinstance(found, FilePlacement)),
         "stale": sorted(i.where for i in issues if i.code == "layout.source-stale"),
         "unknown": sorted(i.where for i in issues if i.code == "layout.source-unknown"),
@@ -918,7 +1006,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             "FEN-2001", "--altium-template conflicts with sheet(drawing_sheet=...)", where="--altium-template"
         )
     frame_sheet, sheet_issues, sheet_result = read_drawing_sheet_source(design, script_path)
-    source, source_issues, source_sha = read_source(script_path)
+    takes = parse_take_option(getattr(args, "take", None))
+    edits, edits_file, source_issues, source_sha = read_edit_source(script_path)
     refused = any(found.severity == "error" for found in source_issues)
     if args.target == ALTIUM_TARGET:
         if (generated_records or role_record is not None) and board_path is not None:
@@ -938,13 +1027,22 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
                 ),
             ]
             refused = True
-        # both targets place a part from the file: the lens runs without an existing project (c0069)
-        from_file = prepare(model, requested, ExistingProject(), name=design.name, source=source)
+        # both targets place a part from the file, and apply its value and footprint edits: the lens runs
+        # without an existing project (c0069, c0250)
+        from_file = prepare(
+            model,
+            requested,
+            ExistingProject(),
+            name=design.name,
+            edits=edits or {},
+            edits_file=edits_file,
+            takes=takes,
+        )
         made = _run_altium(
             args,
             ctx,
             run,
-            model,
+            from_file.design or model,
             cast(Mapping[str, PlacementRequest], from_file.placements),
             plane_nets,
             script_path,
@@ -957,7 +1055,11 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             meanders=meander_intents,
             generated_records=generated_records,
             role_record=role_record,
+            codes=from_file.codes,
         )
+        if edits is not None:
+            made = dataclasses.replace(made, evidence=Evidence.combine(made.evidence, edits_mod.EVIDENCE))
+        refused = refused or any(found.severity == "error" for found in from_file.issues)
         return with_lock(
             dataclasses.replace(
                 made,
@@ -970,27 +1072,42 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
     )
     record = read_record(out_dir)
+    schematic = cast(Literal["write", "skip"], args.schematic or SCHEMATIC_MODES[0])
     prepared = None
+    base: edits_mod.BaseRecord | None = None
     if not args.discard_layout:
+        existing = read_existing(out_dir, design.name)
+        base = read_base_record(out_dir) if existing.board is not None else None
+        sheets = (
+            schematic_sheets(out_dir / f"{design.name}.kicad_sch")
+            if existing.board is not None and schematic == "write"
+            else None
+        )
         prepared = prepare(
             model,
             requested,
-            read_existing(out_dir, design.name),
+            existing,
             name=design.name,
             moves=aliases,
             module_moves=module_aliases,
             net_moves=net_aliases,
-            source=source,
+            edits=edits or {},
+            edits_file=edits_file,
+            base=base,
+            takes=takes,
+            sheets=sheets,
         )
-    elif source:
+    elif edits or takes:
         # the file is source, like the script: it applies to a discarded layout too, and no output is read
-        prepared = prepare(model, requested, ExistingProject(), name=design.name, source=source)
+        prepared = prepare(
+            model, requested, ExistingProject(), name=design.name, edits=edits or {}, edits_file=edits_file,
+            takes=takes,
+        )  # fmt: skip
     authored_footprints, authored_symbols, builtin_ids = _catalog_definitions(
         model,
         {key: fp.definition for key, fp in design.footprints.items()},
         {key: symbol.definition for key, symbol in design.symbols.items()},  # type: ignore[attr-defined]
     )
-    schematic = cast(Literal["write", "skip"], args.schematic or SCHEMATIC_MODES[0])
     symbol_issues: list[Issue] = []
     symbol_placements = None
     placements_path = script_path.resolve().parent / SYMBOL_PLACEMENTS_FILE
@@ -999,7 +1116,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             placements_path.read_text(encoding="utf-8"), file=SYMBOL_PLACEMENTS_FILE, issues=symbol_issues
         )
     built = build_design(
-        model,
+        prepared.design if prepared is not None and prepared.design is not None else model,
         prepared.placements if prepared is not None else requested,
         name=design.name,
         copper=design.copper,
@@ -1019,6 +1136,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         authored_footprints=authored_footprints,
         authored_symbols=authored_symbols,
         source_sha256=source_sha,
+        source_file=edits_file or PLACEMENTS_FILE,
         drawing_sheet=frame_sheet,
         schematic=schematic,
         symbol_placements=symbol_placements,
@@ -1030,6 +1148,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         heights=heights(design),
         unused=unused_marks(design),
         two_terminal=two_terminal(design),
+        write_base=True,
     )
     files = {} if refused else dict(built.files)
     _keep_confirmed_roles(out_dir, files)
@@ -1061,6 +1180,10 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         sheets = [f"{design.name}.kicad_sch", *sorted(rel for rel in files if _child_sheet(rel))]
         merged = {f"{design.name}{suffix}" for suffix in (".kicad_pcb", ".kicad_pro", ".kicad_dru")}
         guarded = {rel: data for rel, data in files.items() if rel not in merged and rel not in sheets}
+        if record is None:
+            # without the cache the base record cannot be told from a hand edit; the merge never needs the
+            # cache, so a clone without .fenolite/ builds as the original does (change c0250)
+            guarded.pop(edits_mod.BASE_FILE, None)
         check_existing(out_dir, guarded, record=record, discard_layout=bool(args.discard_layout))
         for sheet in sheets:
             symbol_issues += _replaced_sheet(out_dir, out, sheet, files.get(sheet), record)
@@ -1084,7 +1207,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
     }
     result["preserved"] = {
         **cast(Mapping[str, object], built.summary["preserved"]),
-        "source": source_summary(prepared, built.issues, read=source_sha is not None),
+        "source": source_summary(prepared, built.issues, read=source_sha is not None, file=edits_file),
     }
     data = script_path.read_bytes()
     built_result = Result(
@@ -1099,7 +1222,9 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             *copper_issues,
             *placement_issues,
         ),
-        evidence=built.evidence,
+        evidence=Evidence.combine(built.evidence, edits_mod.EVIDENCE)
+        if edits is not None or (base is not None and base.present)
+        else built.evidence,
         input=InputRef(
             path=str(args.design),
             sha256=hashlib.sha256(data).hexdigest(),
@@ -1191,6 +1316,21 @@ def _hand_over(model: ModelDesign, resolved: ModelDesign) -> tuple[ModelDesign, 
     return model, dataclasses.replace(resolved, board=dataclasses.replace(done, keepouts=()))
 
 
+def altium_base(
+    model: ModelDesign,
+    placements: Mapping[str, PlacementRequest],
+    codes: Mapping[str, Mapping[str, edits_mod.Value | None]] | None,
+) -> str:
+    """The base record of an Altium build: the code values and the values written, which are the code
+    values there, since an Altium build has no CAD side (change c0250)."""
+    script = script_codes(model, placements)
+    written: dict[str, dict[str, edits_mod.Value]] = {}
+    for path, values in script.items():
+        written[path] = {prop: value for prop, value in values.items() if value is not None}
+    held = {path: {**values, **(codes or {}).get(path, {})} for path, values in script.items()}
+    return edits_mod.write_base(edits_mod.base_record(held, written, target="altium"))
+
+
 def _run_altium(
     args: argparse.Namespace,
     ctx: Context,
@@ -1209,6 +1349,7 @@ def _run_altium(
     meanders: Sequence[MeanderIntentLike] = (),
     generated_records: Sequence[kicad_generate.GeneratedLike] = (),
     role_record: object | None = None,
+    codes: Mapping[str, Mapping[str, edits_mod.Value | None]] | None = None,
 ) -> Result:
     """The ``--target altium`` branch (capability altium-build, "Altium build target"): only the symbol
     libraries of KiCad lib ids and the footprint libraries of KiCad footprint links are read, through a
@@ -1386,6 +1527,14 @@ def _run_altium(
             ) from error
     files = dict(built.files)
     _keep_confirmed_roles(out_dir, files)
+    if files and RECORD_FILE in files:
+        # the base record of the Altium folder: what the build was given and wrote (change c0250)
+        files[edits_mod.BASE_FILE] = altium_base(model, requested, codes).encode("utf-8")
+        record = json.loads(files[RECORD_FILE])
+        record["files"][edits_mod.BASE_FILE] = hashlib.sha256(files[edits_mod.BASE_FILE]).hexdigest()
+        files[RECORD_FILE] = (json.dumps(record, sort_keys=True, indent=2, ensure_ascii=False) + "\n").encode(
+            "utf-8"
+        )
     native_info: dict[str, object] | None = None
     native_path = getattr(args, "altium_template", None)
     if native_path is not None:

@@ -17,6 +17,7 @@ from fenolite.core.ids import derived_id
 from fenolite.dsl.lock import LOCK_CODES
 from fenolite.lens.altium_schematic import ISSUE_CODES as ALTIUM_ISSUE_CODES
 from fenolite.lens.build import BUILD_EVIDENCE, BUILD_ISSUE_CODES, plane_issues
+from fenolite.lens.edits import EDIT_ISSUE_CODES
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES
 from fenolite.model.board import Zone
 from fenolite.model.circuit import Net
@@ -63,6 +64,7 @@ def test_closed_set() -> None:
         "lock.ref-explicit": "info", "lock.ref-prefix-changed": "info", "lock.design-renamed": "info",
         "lock.changed": "error",
         **PRESERVE_ISSUE_CODES,  # c0019
+        **EDIT_ISSUE_CODES,  # c0250: the edit merge passes through
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table
     assert {code: BUILD_ISSUE_CODES[code] for code in LOCK_CODES} == dict(LOCK_CODES)
@@ -77,14 +79,16 @@ def test_closed_set() -> None:
         literals |= set(
             re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
         )
-    own = set(table) - set(LOCK_CODES)  # the lock's codes are raised by fenolite.dsl.lock (c0249)
+    # the lock's codes are raised by fenolite.dsl.lock (c0249), the edit codes by fenolite.lens.edits (c0250)
+    own = set(table) - set(LOCK_CODES) - set(EDIT_ISSUE_CODES)
     assert literals == own | {code for code in ALTIUM_ISSUE_CODES if code.startswith("build.")}
     tested: set[str] = set()
     cli_tests = TESTS.parent / "cli" / "test_build_schematic_cmd.py"
     layout_tests = TESTS.parent / "backends" / "kicad" / "test_schlayout.py"
     for path in [*TESTS.glob("test_build_*.py"), *TESTS.glob("test_preserve_*.py"), cli_tests, layout_tests]:
         tested |= set(re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8")))
-    assert own - set(PRESERVE_ISSUE_CODES) <= tested, own - tested
+    owned = own - set(PRESERVE_ISSUE_CODES)
+    assert owned <= tested, owned - tested
 
 
 def test_warnings_do_not_fail() -> None:

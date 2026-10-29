@@ -71,6 +71,19 @@ fenolite diff base/board.kicad_pcb mine/board.kicad_pcb --three-way theirs/board
   file, bisect with variants that each hold a single change.
 - **Pin the version of Fenolite** that a chain uses, and record it with the outputs.
 
+## Edits made in KiCad
+
+- **Edits in KiCad survive a build.** Values, footprints and positions are merged three ways against
+  `fenolite-base.json`, and `edit.unrecorded` names each kept edit. Record them with `sync --to-source`
+  in `edits.toml`, and commit it.
+- **A change on both sides is a `sync.conflict`.** Nothing is written. Choose a side with `--take`,
+  build, then sync.
+
+```fenolite-cmd
+fenolite build design.py --out build --take cad:R1#value --dry-run --json
+fenolite sync design.py --out build --to-source --dry-run --json
+```
+
 ## Files that a person has open
 
 - **The open copy wins.** A CAD tool holds the file it opened in memory. When it saves, it writes that
