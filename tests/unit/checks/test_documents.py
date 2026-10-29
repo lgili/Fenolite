@@ -107,6 +107,7 @@ def test_stage_names() -> None:
         "erc.lite",
         "copper.clearance",
         "placement.rules",
+        "roles.rules",
         "parity",
         "netlist.assignment_compare",
         "roundtrip.rta0",
@@ -115,11 +116,13 @@ def test_stage_names() -> None:
     )
     assert "roundtrip.rta0" not in STAGE_ORDER  # the KiCad pipeline is unchanged
     # ``erc.lite`` is a stage of the document pipeline only: the KiCad one asks KiCad's ERC (c0062); the
-    # stages that need no tool on any backend are in both (c0088, and placement.rules of c0113)
+    # stages that need no tool on any backend are in both (c0088, placement.rules of c0113 and roles.rules
+    # of c0222)
     assert set(DOCUMENT_STAGES) & set(STAGE_ORDER) == {
         "model.validate",
         "copper.clearance",
         "placement.rules",
+        "roles.rules",
         "parity",
         "netlist.assignment_compare",
     }
@@ -190,6 +193,7 @@ def test_library_alone_is_not_judged_by_the_model_stages() -> None:
         "erc.lite": ("skipped", "no-schematic"),
         "copper.clearance": ("skipped", "single-source"),
         "placement.rules": ("skipped", "single-source"),
+        "roles.rules": ("skipped", "single-source"),
         "parity": ("skipped", "no-schematic"),
         "netlist.assignment_compare": ("skipped", "single-source"),
         "roundtrip.rta0": ("ok", ""),
@@ -314,13 +318,18 @@ def test_built_input_compares_the_model_with_both_sides() -> None:
     report = _run(fake, ("model.validate", "erc.lite", "netlist.assignment_compare"), model=model, built=True)
     validate, erc, compare = report.stages
     assert validate.summary == {"model": {"components": 3, "nets": 3}}
-    assert validate.evidence == Evidence(Level.INFERRED) and erc.evidence == erc_lite.EVIDENCE
+    assert (
+        validate.evidence == Evidence(Level.INFERRED, hypotheses=("H-G-MODEL-OWN",))
+        and erc.evidence == erc_lite.EVIDENCE
+    )
     pairs = compare.summary["pairs"]
     assert [(p["a"], p["b"], p["differences"]) for p in pairs] == [  # type: ignore[index,union-attr]
         ("model", "schematic", 0),
         ("model", "pcb", 0),
     ]
-    assert compare.evidence == Evidence(Level.INFERRED, hypotheses=("H-FAKE-NET", "H-FAKE-PCB", "H-FAKE-SCH"))
+    assert compare.evidence == Evidence(
+        Level.INFERRED, hypotheses=("H-FAKE-NET", "H-FAKE-PCB", "H-FAKE-SCH", "H-G-MODEL-OWN")
+    )
     assert len(fake.read_calls) == 1
 
 

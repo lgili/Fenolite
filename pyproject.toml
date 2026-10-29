@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "fenolite"
 dynamic = ["version"]
-description = "Headless, agent-first PCB design automation in Python: generate, open, verify, compare, convert and export KiCad (and later Altium) projects from code or the CLI."
+description = "PCB automation in Python for engineers and AI agents: create, inspect, compare and convert KiCad and Altium projects, with a browser viewer."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
@@ -38,8 +38,8 @@ dependencies = []
 # copyleft tools are used behind a process boundary and never appear here (ADR-0004).
 geo = ["shapely>=2.1", "pyclipper>=1.3"]
 kicad-ipc = ["kicad-python>=0.8"]
-mcp = ["mcp>=1.0"]
-oracles = ["gerbonara>=1.6; python_version >= '3.12'", "pygerber>=2.4"]
+# oracles: read-back of fabrication files, and the official MCP SDK whose client checks `fenolite mcp` (c0195)
+oracles = ["gerbonara>=1.6; python_version >= '3.12'", "pygerber>=2.4", "mcp==2.3.0"]
 dev = [
     "pytest>=8.3",
     "pytest-xdist>=3.6",
@@ -52,12 +52,14 @@ dev = [
 direct = "fenolite.routing.direct:DirectRouter"
 freerouting = "fenolite.routing.plugins.specctra.freerouting:FreeroutingRouter"
 kicadroutingtools = "fenolite.routing.plugins.kicad.routingtools:KicadRoutingToolsRouter"
+octilinear = "fenolite.routing.octilinear:OctilinearRouter"
 
 [project.urls]
 Homepage = "https://github.com/lgili/Fenolite"
 Source = "https://github.com/lgili/Fenolite"
 Issues = "https://github.com/lgili/Fenolite/issues"
 Changelog = "https://github.com/lgili/Fenolite/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/lgili/Fenolite/blob/main/docs/index.md"
 
 [project.scripts]
 fenolite = "fenolite.cli.main:main"

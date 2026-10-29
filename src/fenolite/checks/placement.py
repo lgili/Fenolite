@@ -37,7 +37,7 @@ from fenolite.model.design import Design
 from fenolite.model.rules import HeightLimit, PadSelection, ProximityRule
 
 STAGE = "placement.rules"
-EVIDENCE = Evidence(Level.INFERRED)
+EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-PLACE-RULES",))
 """The evidence of a judged placement rule: Fenolite's own definition, which no oracle judges."""
 PATH_PROPERTY = "fenolite.path"
 """The component property that holds the component path on a board built by Fenolite."""

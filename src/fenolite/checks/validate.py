@@ -17,7 +17,7 @@ from fenolite.model.design import Design
 PATH_KEY = "fenolite.path"
 """The property that marks a part of the script; equal to ``backends.kicad.embed.PATH_PROPERTY``, spelled
 as a literal because ``checks`` may not import ``backends.kicad`` (``package-layering``)."""
-BUILT_EVIDENCE = Evidence(Level.INFERRED)
+BUILT_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-MODEL-OWN",))
 """Built input is judged by Fenolite's own structural rules: no format claim."""
 
 

@@ -107,7 +107,7 @@
 #### Scenario: A real agent needs consent
 - **GIVEN** no variable `CI`, and a row `fake-agent` with a `budget_flag` added to a copy of `runners.toml`
 - **WHEN** the runner runs it without `--yes`
-- **THEN** it prints the task, the runner, the time budget and the cost cap, exits 2 with a message that names `--yes`, and has built and started nothing; the committed row `claude-code`, which is `unconfigured`, exits 2 with `--yes` as well
+- **THEN** it prints the task, the runner, the time budget and the cost cap, exits 2 with a message that names `--yes`, and has built and started nothing; a row that holds `unconfigured` exits 2 with `--yes` as well
 
 #### Scenario: The whole prompt on Windows
 - **GIVEN** a row whose program `claude` resolves to `claude.cmd` on a simulated Windows `PATH`, and a prompt of several lines

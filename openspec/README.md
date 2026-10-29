@@ -171,7 +171,7 @@ On 2026-10-16 the maintainer's requests for native Altium Draftsman documents an
 | c0172 | `altium-draftsman` | native Altium Draftsman documents for `0.5.0` (the maintainer's request of 2026-10-16): the reader of `.PCBDwf` (an LZ4-chunked XML document) and its census, a writer behind `draftsman.NATIVE_WRITE` driven by c0117's drawing specification, `build --altium-draftsman` and `--drawing-spec`, the `PCBDrawing` output, kit Part F (F0, FP1 to FP5, F1 to F8); the release waits for its native document | c0087, c0101, c0117, c0138 |
 | c0173 | `board-panels` | board panels for `0.5.0` (the maintainer's request of 2026-10-16): the panel script and model, `fenolite panel` with its checks, the KiCad panel board, the flattened Altium panel, the Embedded Board Array behind `pcbdoc.EMBEDDED_ARRAYS` and kit Part Q (Q1 to Q12), the score layer in Gerber exports; the release waits for its native array | c0167, c0118 |
 | c0174 | `board-design-guide` | practice pages of the agent guide (board-practice to board-workflow), in `0.5.0` by the decision of 2026-10-25 | c0077 |
-| c0175 | `board-engineering-tools` | proposal of the board engineering tools; not implemented, v0.6 | c0174 |
+| c0175 | `board-engineering-tools` | the board engineering tools: proposed before `0.5.0`, implemented package by package in c0197–c0214, c0223–c0229 and c0241; in `0.6.0` with tasks 0.1, 10.4, 14.1 and 14.3 open | c0174 |
 | c0176 | `board-viewer` | `fenolite view`: boards of every backend in 2D and 3D, the project tree, `--serve`, `--export` | c0007, c0043 |
 | c0177 | `schematic-viewer` | Altium sheets in the viewer, the Navigator and cross-probing | c0176 |
 | c0178 | `native-themes` | KiCad and Altium colours, a user's KiCad theme, KiCad sheets in the viewer | c0176, c0177 |
@@ -191,7 +191,64 @@ On 2026-10-16 the maintainer's requests for native Altium Draftsman documents an
 | c0192 | `guide-room` | a compact generated command page in the agent guide | c0079 |
 | c0193 | `viewer-review` | review findings, measurement with snap and embedded 3D models in the viewer | c0176 |
 | c0194 | `ci-push-scope` | CI on branch pushes but backups, never on a tag | — |
+| c0195 | `mcp-server` | `fenolite mcp`: the commands as tools of an MCP server on stdio | c0079 |
+| c0196 | `mcp-design-and-images` | `fenolite edit`, the opt-in `fenolite_edit` and PNG views as images in MCP replies | c0195 |
+| c0197 | `router-input` | a board-wide preferred width and a one-sided clearance in the router's design file; `--order` with several globs (package 1 of c0175) | c0107, c0175 |
+| c0198 | `ground-ties` | `analyze --kinds ties,domains`: a tie proved by removing its own copper, sense nets, isolation islands (package 2 of c0175) | c0108, c0114, c0175 |
+| c0199 | `barrier-crossings` | `analyze --kinds crossings`: the free ways across a cut on each layer, the tracks they fit and the connections that must cross (package 3 of c0175) | c0108, c0175 |
+| c0200 | `inferred-hypotheses` | every `INFERRED` evidence names a registered hypothesis, kept by a source test | — |
+| c0201 | `file-safety` | `snapshot`, `publish` guarded by receipts, open-session warnings, online-only files, `refs --repoint` (package 9 of c0175) | c0175 |
+| c0202 | `return-paths` | `analyze --kinds returns`: tracks across a gap of their plane, vias without a reference via | c0199 |
+| c0203 | `fabrication-readback` | `export --readback`: the Gerber, drill and position files read back and compared with the board (task 12.1 of c0175) | c0175 |
+| c0204 | `practice-checks` | `analyze --kinds decoupling,connectivity,bodies,relief,dead,coupling`: the copper states and the simulated pour, decoupling distances, copper under bodies, relief widths, dead copper and the coupling screen (package 7 of c0175) | c0175 |
+| c0205 | `region-placement` | `place --strategy regions`: each domain of parts (isolation islands or `--group`) in its own region, barrier parts across the boundary, crossings counted | c0022, c0198 |
+| c0206 | `python-api` | `fenolite.api.run`: every command in process with the envelope of `--json`; typed reads and analyses; `docs/api.md`, frozen for 1.0 | c0158 |
+| c0207 | `diff-gates` | `diff --allow` gates a difference by kind, `diff --three-way` merges KiCad boards by item, Altium resave records left out (task 4.6 of c0175) | c0175 |
+| c0208 | `copper-tidy` | `fenolite tidy`: prune dangling copper and chamfer right-angle joints, each edit checked for groups and clearance, `--drc` (package 5 of c0175) | c0175 |
+| c0209 | `drc-trials` | `check --exclude` writes a KiCad DRC exclusion in both item orders; `fenolite.api.trial` judges an edit by DRC and gates its items (tasks 12.2 and 12.3 of c0175) | c0175 |
+| c0210 | `layout-reuse` | `place --strategy reuse` (`--from`): a block of a reference board copied by a rigid fit over its pads, with `--copper` its tracks and vias pruned and checked, `--drc` (package 4 of c0175) | c0175 |
+| c0211 | `region-renders` | `render --region`: one rectangle of the board drawn by Fenolite from the model with net labels, open connections, zones in their state, a grid in board millimetres and a `--cut` overlay of the crossing analysis (task 12.4 of c0175) | c0175 |
+| c0212 | `assembly-marks` | `fenolite silk --designators`: text ink measured with `kicad-cli` (glyph-table estimate without it), designators placed clear of pads, holes, silkscreen, courtyards and the edge, each one checked, `--drc` (tasks 9.1 and 9.2 of c0175) | c0175 |
+| c0213 | `pour-shapes` | `analyze --kinds necks,loops,balance` and `power --split`: necks, tips and slivers of pours, declared loop areas, the copper of two-pad parts, the share of the current of each path and via (rest of package 7 of c0175) | c0175, c0204 |
+| c0214 | `copper-tidy` | `tidy --straighten`: runs on the 0/45/90° lattice by turn costs; T-joint and `--zones` chamfers; `tidy --report --compare`, the style report (tasks 7.2 to 7.5 of c0175) | c0175, c0208 |
+| c0215 | `altium-repour` | the maintainer's decision of 2026-10-26 (roadmap, "Open decisions", row 48): Fenolite pours the polygons it writes into a `.PcbDoc` with Altium's rules and algorithm and writes the regions, compared with Altium's own repour in kit group K6 and on the public corpus; supersedes row 23 of c0085 | c0085, c0122, c0130 |
+| c0216 | `contract-v1` | v1.0 freeze: the CLI surface written and judged (with `fenolite.dsl` and `fenolite.api`), envelope and error `v1` behind one constant, deprecation, the maintainer's pre-freeze review | — |
+| c0217 | `result-schemas-v1` | v1.0 freeze: a result schema for every command and schemas of the public file formats (roadmap, "Open decisions", row 14) | c0216 |
+| c0218 | `model-schema-1-0` | v1.0 freeze: model schema version `1.0`, migrators from every `0.x` release, `fenolite migrate`, the pre-freeze review of the model | — |
+| c0219 | `conformance-matrix` | v1.0 freeze: format versions in the evidence matrix, the published conformance matrix, the evidence rules on every reply | c0200, c0216 |
+| c0220 | `legal-history-1-0` | v1.0 freeze: the residue scan over the whole history in the release and the nightly, the licence inventory, the legal review record | — |
+| c0221 | `release-automation` | a pushed tag runs the release: checks, build, PyPI and the GitHub Release with notes and checksums | c0154, c0171 |
+| c0222 | `net-roles` | the maintainer's request of 2026-10-28: phase 0 of a router that works from electrical intent. Net roles inferred from parts and topology and confirmed by the user, stored in the model; their checks fed to the analyses of `dev` (c0213 loops, necks and split, power paths, distances, returns, coupling, sense nets) and judged against role limits from public sources, plus the Kelvin and gate-return attachments; three authored reference boards; phases 1 to 4 planned on c0224, c0228, c0225 and c0208 (revised on 2026-10-29 on `1559f1b0`) | c0175, c0202, c0204, c0213, c0224, c0228 |
+| c0223 | `library-fidelity` | imported pads get their mask and paste layers and margins, embedded Altium models extracted and placed in the derived library, `fenolite library --diff` (tasks 10.1 to 10.3 of c0175) | c0175, c0193 |
+| c0224 | `generated-copper` | `Design.band`, `keepout_ring`, `barrier`, `body_keepout`, `fanout_zone` and `stitch_pieces`: zones, rule areas and vias generated by the build after placement (package 6 of c0175) | c0028, c0175 |
+| c0225 | `drc-gate` | `route --gate drc` and `tidy --gate drc`: the edit judged through `fenolite.api.trial(..., gate=True)`, the items that bring new DRC findings dropped and reported (the rest of task 12.2 of c0175) | c0175, c0209 |
+| c0226 | `silk-clip` | `fenolite silk --clip`: silkscreen strokes of the board and of its footprints cut at mask openings and pad holes with the project's silkscreen margin, each piece checked, footprints cut alike so `fenolite library` stays in step (task 9.3 of c0175) | c0175, c0212, c0223 |
+| c0227 | `layout-reuse` | pads paired by net partition in the fit, zones of a copied block (an outline rebuilt from its fill), and `place --turn`, `--shift` and `--pose-search`: a group moved rigidly with its copper (tasks 8.4 to 8.6 of c0175) | c0175, c0210 |
+| c0228 | `octilinear-router` | `route --router octilinear`: a built-in router of short connections in 0°, 45° and 90° segments, five shapes per connection in clearance, rounds that put failed connections first, pairs at their gap, each result judged by the copper check (task 7.6 of c0175) | c0175, c0225 |
+| c0229 | `assembly-test-features` | `fenolite testpoints --place`: a probe of `design.test_point` and its track for each net a side does not reach, on a grid site clear of copper, holes, edge, courtyards and silkscreen, checked before write, kept by a rebuild as a board-only footprint (task 9.4 of c0175) | c0118, c0175, c0212 |
+| c0241 | `altium-edit-sessions` | edit sessions of Altium documents: hypotheses `H-A-EDIT-*` and `H-A-INTEG-*` and kit Part J measured first, then `fenolite check --stages altium.integrity`, typed and asserted edits with index upkeep and commit gates, each operation gated by its kit case (package 12 of c0175) | c0175, c0092, c0207 |
+| c0242 | `release-0-6-0` | release of what `dev` implemented after `0.5.0` as `0.6.0` (the maintainer's decision of 2026-10-29, which holds the v1.0 freeze c0216–c0220): the record `docs/release/v0.6.md` with the verdict per change and the maintainer's tests deferred to v0.7, its guard, the version, the changelog cut, the README, the roadmap (v0.7 to be scoped, v1.0 held) | c0171, c0221 |
 
-The id c0164 is held by two archived changes (the two c0164 rows of the table); new changes start at c0195.
+The id c0164 is held by two archived changes (the two c0164 rows of the table). c0215 was written on `dev` as c0196 before PR #20 took that id, then as c0204 before the branch `dev-c0204-c0209` took c0204 to c0209; the five changes of the v1.0 freeze were written as c0198 to c0202 before c0197 to c0203 took those, then as c0205 to c0209. All six were renumbered on 2026-10-28. c0210 to c0214 and c0223 to c0229 were archived on 2026-10-28 with c0204 to c0209; c0223 and c0224 had been written as c0215 (`library-fidelity`) and c0216 (`generated-copper`) on the branch `dev-c0213-c0216`, and c0222 is held by the branch `c0222-net-roles`. The release of `1.0.0` takes a change of its own when it is cut, as `0.5.0` took c0171. Consult the current audit allocation below before choosing another ID. c0241 is `altium-edit-sessions` (package 12 of c0175, 2026-10-29). c0242 is `release-0-6-0` (2026-10-29). New changes start at c0243.
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
+
+## Audit batch allocation — updated 2026-10-29
+
+The maintainer authorized consolidation of these nine changes on current dev, full CI, archival, and a single squash into dev. Prior allocation and proof records remain in each change.
+
+All nine are archived under `changes/archive/2026-10-28-c0232-*` through `2026-10-28-c0240-*` after the implementation CI passed; OpenSpec uses a UTC archive date. Their final revision must pass its own CI before dev advances. The integration proof is in `docs/evidence/adoption-reliability-integration.md`.
+
+| id | change | prior draft ID |
+|---|---|---|
+| c0232 | `snapshot-consistency` | c0223; c0210, originally c0205 |
+| c0233 | `viewer-review-reliability` | c0224; c0211, originally c0206 |
+| c0234 | `catalog-visual-browser` | c0225; c0212 |
+| c0235 | `viewer-navigation-consistency` | c0226; c0213 |
+| c0236 | `documentation-reconciliation` | c0227; c0215, originally c0207 |
+| c0237 | `public-presentation` | c0228; c0216, earlier c0208/c0197 |
+| c0238 | `write-recovery` | c0229; c0217, earlier c0209/c0204 |
+| c0239 | `project-review-status` | c0230; c0218 |
+| c0240 | `catalog-selection` | c0231; c0219 |
+
+Fetched refs already reserve c0210-layout-reuse, c0211-region-renders and c0212-assembly-marks; another agent holds c0214. Current dev's c0215–c0221 and remote c0222-net-roles are preserved. A final fetch also found c0223-library-fidelity, c0224-generated-copper and c0225–c0229 (drc-gate, silk-clip, reuse-moves, octilinear-router and testpoint-place) on other agents' branches. Only this batch moved to c0232–c0240. Its implementation CI passed all 13 jobs on 8c2fa270 under the earlier c0223–c0231 identities; those proof records remain aliases. The final archived revision requires its own CI before dev advances. The next free number in these inspected refs is c0241; fetch and inspect active/archive changes before allocating it. Earlier committed collisions remain identified by full slug and commit, including the two archived c0164 changes.

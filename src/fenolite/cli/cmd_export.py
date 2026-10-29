@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import hashlib
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +50,7 @@ from fenolite.exports import preset as presets
 from fenolite.exports.codes import issue as export_issue
 from fenolite.exports.drawing_layout import Obstacles
 from fenolite.exports.plan import DOCUMENT_KINDS, FAB_KINDS, KINDS, Artifact, run_kind, stackup_note
+from fenolite.model.design import Design
 from fenolite.model.presentation import DrawingSheet
 
 HELP = "export fabrication files through kicad-cli on a copy of the project (writes under DIR)"
@@ -108,6 +110,12 @@ def _register(parser: argparse.ArgumentParser) -> None:
         metavar="FILE",
         default=None,
         help="a TOML file of your fabrication options for the Gerber, drill and position exports",
+    )
+    parser.add_argument(
+        "--readback",
+        action="store_true",
+        help="read the Gerber, drill and position files back and compare them with the board before "
+        "anything is written (export.readback-*)",
     )
     parser.add_argument("--kicad-cli", dest="kicad_cli", metavar="PATH", help="the kicad-cli to run")
     parser.add_argument(
@@ -261,6 +269,39 @@ def _page(page: drawings.Page) -> dict[str, Any]:
     return found
 
 
+READBACK_FILTER: Callable[[list[Artifact]], list[Artifact]] = list
+"""What the read-back sees of the artefacts: all of them as written (a test seam that stands for a writer
+defect, change c0203)."""
+
+
+def _readback(backend: Any, board: Path, artifacts: list[Artifact]) -> list[Issue]:
+    """The read-back findings of the Gerber, drill and position files of this export."""
+    from fenolite.analysis.boundary import board_boundary
+    from fenolite.analysis.copper import copper_layers, loose_copper, net_copper
+    from fenolite.backends.base import BoardFrame
+    from fenolite.exports.readback import TOLERANCE_NM, readback
+
+    read = backend.read(board)
+    design = read.content
+    if not isinstance(design, Design) or design.board is None:
+        return [
+            Issue("export.readback-unsupported", "error", f"{board.name} is not a board", where=board.name)
+        ]
+    pads = backend.board_pads(design) if isinstance(backend, BoardFrame) else ()
+    boundary = board_boundary(design.board)
+    used = {shape.layer for held in net_copper(design, pads=pads).by_net.values() for shape in held}
+    used |= {shape.layer for shape in loose_copper(design, pads=pads)}
+    return readback(
+        READBACK_FILTER(list(artifacts)),
+        design,
+        pads=pads,
+        rings=boundary.rings(),
+        ring_tolerance=boundary.band + TOLERANCE_NM,
+        copper_layers=copper_layers(design.board),
+        used_layers=used,
+    )
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     kinds = [
         kind for kind in KINDS if (args.all and kind in FAB_KINDS) or getattr(args, kind.replace("-", "_"))
@@ -275,6 +316,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             "FEN-2001",
             "--drawing-spec is given without a drawing kind",
             hint="pass --fab-drawing or --assembly-drawing, or leave --drawing-spec out",
+        )
+    if args.readback and not {"gerbers", "drill", "pos"} & set(kinds):
+        raise CliError(
+            "FEN-2001",
+            "--readback reads the Gerber, drill and position files, and none is selected",
+            where="--readback",
+            hint="add --gerbers, --drill or --pos",
         )
     preset, preset_result = _preset(args.preset, ctx.cwd)
     given = Path(args.path)
@@ -337,6 +385,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             issues += drawn.issues
             tool_writes.update(drawn.tool_writes)
             pages += drawn.pages
+    if args.readback and not any(found.severity == "error" for found in issues):
+        issues += _readback(backend, board, artifacts)
     rule_file = _rule_file(board, issues) if args.altium_rul else None
     if rule_file is not None and rule_file.data:
         artifacts.append(Artifact(rule_file.path, altium_rul.KIND, None, rule_file.data, True))

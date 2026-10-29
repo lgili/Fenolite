@@ -256,6 +256,7 @@ def routed_build(root: Path, model: ModelDesign | None = None, **kwargs: object)
         project = blink_tree(root)
     requested = routed_placements()
     kwargs.setdefault("copper", 4)
+    kwargs.setdefault("pour", "outline")  # the written bytes of the earlier changes (c0215 tests "computed")
     kwargs.setdefault("placed", tuple(requested))
     kwargs.setdefault("placements", requested)
     return build_altium(

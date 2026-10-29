@@ -14,6 +14,7 @@ and are reported as not lowered.
 from __future__ import annotations
 
 import dataclasses
+import functools
 import hashlib
 import json
 from collections import Counter
@@ -24,6 +25,7 @@ from typing import Literal
 
 from fenolite.backends.altium import (
     binary,
+    connectstyle,
     hierarchy,
     lower,
     pcbdoc,
@@ -40,6 +42,7 @@ from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
 from fenolite.backends.altium.cutouts import CUTOUT_HINT, cutout_items, not_written
 from fenolite.backends.altium.hierarchy import ProjectSheets
+from fenolite.backends.altium.pour import BackendUnavailable, PourMode
 from fenolite.backends.altium.project import WRITE_KINDS, component_path, split_link, unique_id
 from fenolite.backends.altium.read.outjob import OutputGroup, record_fields
 from fenolite.backends.altium.symbols import natural_key
@@ -1997,8 +2000,17 @@ def build_altium(
     body_form: pcbrecords.BodyForm = "saved",
     heights: Mapping[str, Nm] | None = None,
     composition: CompositionIntent | None = None,
+    pour: PourMode | None = None,
+    pour_regions: bool = True,
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
+
+    ``pour`` (change c0215, ``--altium-pour``) is the pour mode of the PCB document (``pour_regions`` off
+    leaves out the regions of a computed pour: the kit's reference input, no command asks for it): ``None`` is
+    ``computed`` (the maintainer's decision of 2026-10-26), which writes the outline with one
+    ``altium.pour-unavailable`` warning when the ``geo`` extra is missing; ``computed`` given explicitly
+    raises ``BackendUnavailable`` then; ``outline`` writes every polygon unpoured, as earlier versions did.
+    ``result.pcb.pour`` says what the pour did.
 
     ``bodies`` (change c0121, ``--altium-bodies``) is ``extruded`` (the default since change c0155: the
     extruded component bodies of the board's footprints are written into the PCB document and those of the
@@ -2286,7 +2298,9 @@ def build_altium(
                 if sheet.plan.composition is not None
                 for i in sheet.plan.composition.issues
             )
-        files = project.write_project(
+        pour_results: list[pcbdoc.PcbDocResult] = []
+        writing = functools.partial(
+            project.write_project,
             model,
             name=name,
             project=not project_exists or relist,
@@ -2301,7 +2315,26 @@ def build_altium(
             directions=directions,
             composition=composition,
             composition_margins=margins,
+            pour_results=pour_results,
+            pour_regions=pour_regions,
         )
+        pour_mode: PourMode = pour or "computed"
+        try:
+            files = writing(pour=pour_mode)
+        except BackendUnavailable:
+            if pour is not None:
+                raise
+            pour_mode = "outline"
+            pour_results.clear()
+            files = writing(pour=pour_mode)
+            issues.append(altium_copper.pour_unavailable(f"{name}.PcbDoc"))
+        pour_info = altium_copper.pour_outcome(pour_mode, pour_results, f"{name}.PcbDoc", issues)
+        if pour_mode == "computed":
+            issues.extend(connectstyle.pad_overrides(model.board))
+        poured = pour_results[0].pour if pour_results else None
+        if poured is not None and poured.poured:  # the copper of a polygon is Fenolite's
+            evidence = Evidence.combine(evidence, poured.evidence)
+            input_evidence.append(poured.evidence)
     except CompositionError as error:
         return BuildOutput(
             model, {}, (*issues, *error.issues), evidence, _summary(model, kept, None, form, sheets=sheets)
@@ -2393,7 +2426,7 @@ def build_altium(
         pcb_document=f"{name}.PcbDoc" if spec is not None else None,
         sheets=sheets,
         copper=copper_info,
-        pcb={**pcb_account, "bodies": body_mode} if spec is not None else None,
+        pcb={**pcb_account, "bodies": body_mode, "pour": pour_info} if spec is not None else None,
         outjob=job_info,
         drawing_sheet=sheet_info,
         rules=rules_info,
@@ -2409,18 +2442,21 @@ def build_altium(
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary, layout=stored)
 
 
-def write_model(design: Design, *, allow_lossy: bool = False, bodies: str = "off") -> lower.ProjectWrite:
+def write_model(
+    design: Design, *, allow_lossy: bool = False, bodies: str = "off", pour: PourMode | None = None
+) -> lower.ProjectWrite:
     """The Altium project of ``design``, written from the model alone (``backends.altium.lower.write_design``,
     change c0090): the write of a design that was read from a KiCad board. Such a design keeps the drawings
     of its footprints and the corner ratios of its pads in KiCad's own slots, which a backend does not
     read, so the design is projected first (``backends.kicad.fpitems.with_footprint_items``, change c0126):
     the written footprints then hold their silkscreen and their rounded pads. ``AltiumBackend.write`` is
     the same write without the projection, for a design that carries its items (one read from an Altium
-    document) or holds none."""
+    document) or holds none. ``pour`` passes the backend's mode through: ``None`` retains its default,
+    ``outline`` reproduces an unpoured write, and explicit ``computed`` requires the geo extra."""
     from fenolite.backends.kicad import fpitems
 
     projected = fpitems.with_footprint_items(design).design
-    return lower.write_design(projected, allow_lossy=allow_lossy, bodies=bodies)
+    return lower.write_design(projected, allow_lossy=allow_lossy, bodies=bodies, pour=pour)
 
 
 __all__ = [

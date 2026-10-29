@@ -1,0 +1,113 @@
+(footprint "Roles_MOSFET_K4"
+	(version 20241229)
+	(generator "fenolite-tests")
+	(generator_version "9.0")
+	(layer "F.Cu")
+	(descr "Authored for Fenolite (CC0-1.0); synthetic geometry for the net-role reference boards, not a validated land pattern. Power MOSFET in a four-pin package with a Kelvin source: pad 1 gate, pad 2 Kelvin source, pad 3 source, pad 4 drain tab")
+	(tags "mosfet power kelvin roles")
+	(property "Reference" "REF**"
+		(at 0 -5.75 0)
+		(layer "F.SilkS")
+		(uuid "a2220000-0000-4000-8000-000200000001")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "Roles_MOSFET_K4"
+		(at 0 5.75 0)
+		(layer "F.Fab")
+		(uuid "a2220000-0000-4000-8000-000200000002")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "a2220000-0000-4000-8000-000200000003")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" "Authored for Fenolite (CC0-1.0); synthetic geometry for the net-role reference boards, not a validated land pattern. Power MOSFET in a four-pin package with a Kelvin source: pad 1 gate, pad 2 Kelvin source, pad 3 source, pad 4 drain tab"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "a2220000-0000-4000-8000-000200000004")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd)
+	(fp_rect
+		(start -7.75 -4.75)
+		(end 7.25 4.75)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "a2220000-0000-4000-8000-000200000005")
+	)
+	(fp_rect
+		(start -5 -4.5)
+		(end 7 4.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "a2220000-0000-4000-8000-000200000006")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(uuid "a2220000-0000-4000-8000-000200000007")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(pad "1" smd rect
+		(at -6.5 3)
+		(size 2 1)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "a2220000-0000-4000-8000-000200000008")
+	)
+	(pad "2" smd rect
+		(at -6.5 1.5)
+		(size 2 1)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "a2220000-0000-4000-8000-000200000009")
+	)
+	(pad "3" smd rect
+		(at -6.5 -2)
+		(size 2 5)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "a2220000-0000-4000-8000-000200000010")
+	)
+	(pad "4" smd rect
+		(at 2.5 0)
+		(size 9 9)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "a2220000-0000-4000-8000-000200000011")
+	)
+	(embedded_fonts no)
+)

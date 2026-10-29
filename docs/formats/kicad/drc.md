@@ -269,8 +269,44 @@ excluded entry ends with its comment, and a stored exclusion that no longer appl
 `check.exclusion-stale`, `moved` when an entry of its type and uuids is reported again and `gone` when
 none is. Exclusions of the types `clearance`, `hole_clearance`, `unconnected_items` and `shorting_items`
 are not judged, because KiCad does not repeat their entries from run to run (`H-K-DRC-REPEAT`,
-`H-K-VIA-RENET`). Fenolite reads exclusions and never writes one: the key needs the marker position,
-which the report gives only as item positions.
+`H-K-VIA-RENET`). Change c0209 writes exclusions ("Written exclusions" below); two keys of one exclusion
+in both item orders are judged together, so a written exclusion of those types is live when applied.
+
+## Written exclusions (c0209)
+
+The key needs the marker position, and the report gives only item positions (the `pos` of an item is the
+item's own position: a track's start, a via's or a pad's centre). Measured with `kicad-cli` 10.0.7 on
+2026-10-28 on the bench of `tests/kicad/check/test_exclusions_write.py`: two tracks of one net 1 mm
+apart, two 0.25 mm tracks of two nets 0.1 mm apart, pad 1 of two resistors on one net with no track,
+and a lone via; each fact below is a test of that file, which passed on 10.0.7 (6 passed). The 9.0.x
+half runs in the `kicad-9` job of CI and is pending.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The marker of an `unconnected_items` entry between two tracks is at the end of the first track that faces the second (the end of the ratsnest line), not at either item's reported `pos`: a key at a reported position excludes nothing | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-EXCLUSION |
+| At its marker position, a key of an `unconnected_items` entry applies in either order of its two uuids, whichever uuid sorts first; the report lists the two tracks in board order | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-EXCLUSION |
+| A `clearance` key applies only with the uuids in the report's order at the first item's reported position; with the second track's uuid made the lowest, the report names that track first and only the key at its position, in that order, applies | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-EXCLUSION |
+| Among several stored keys with comments, an entry that one of them matches carries that key's comment, so a run with one probe key per candidate position and order names the key that applies | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-EXCLUSION |
+| A key written by Fenolite for an unconnected track pair, an unconnected pad pair, a clearance pair and a one-item `via_dangling` entry, in the pair form with the reason, makes the next run report the entry `excluded` with that comment | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-EXCLUSION |
+
+`fenolite check --exclude` therefore finds the position by trial (`backends/kicad/exclusions.py`): the
+anchors of the two items (reported positions, track and arc ends, via, pad and footprint positions, zone
+corners) each give a probe key in both orders in the project of a copy, and the probe comment on the entry
+names the position. It writes the key in both orders: for a missing connection both apply, and for a
+clearance the second costs nothing (`pcb drc` ignores a key that matches nothing, `H-K-DRC-EXCL`) and
+covers a report that names the items the other way. A last run on a copy confirms the written keys.
+
+## Generated copper (c0224)
+
+Measured with `kicad-cli` 10.0.7 on 2026-10-28 (`pcb drc --refill-zones`) on the bench of
+`tests/kicad/dsl/test_generate_fill.py`, boards written for both formats; the 9.0.x half runs in the
+`kicad-9` job of CI and is pending.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Two zones on one layer whose outlines overlap and whose priorities are equal are reported as `zones_intersect` ("intersecting zones must have distinct priorities") even when both are on one net; a band written as one zone per segment and per joint gave three entries | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-GEN-DRC |
+| A zone of a net that reaches a through-hole pad of the net from one side only, its outline ending at the pad's centre, is reported as `starved_thermal` (one spoke where the zone's minimum is two); the same zone running past the pad is not | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-GEN-DRC |
+| A zone whose fill touches no pad of its net is reported as `isolated_copper` | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-GEN-DRC |
 
 ## Tuning profiles (c0105)
 
@@ -284,3 +320,33 @@ which the report gives only as item positions.
 
 The probes `pro-tuning-*` of `tests/kicad/impedance/test_tuning_drc.py` settle these rows; they are written
 and await their first recorded run (`docs/evidence/impedance.md`).
+
+## Silkscreen over pads (c0226)
+
+What `pcb drc` measures for silkscreen over a pad, probed with `kicad-cli` 10.0.7 (S-0020) on 2026-10-28 on
+an authored board of one pad of 1 mm x 1 mm and one silkscreen line of 0.1 mm stroke at a chosen distance
+(`tests/kicad/silk/test_clip_oracle.py -k mask`). `fenolite silk --clip` relies on them (`docs/assembly.md`).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Silkscreen ink that meets the copper of a pad with a mask opening on its side is reported as `silk_over_copper` ("Silkscreen clipped by solder mask"); ink that only touches the copper is not, ink 1 µm over it is | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-SILK-MASK |
+| The check measures to the pad's copper: a pad's `solder_mask_margin` or the board's `pad_to_mask_clearance` of 0.3 mm, which the `F.Mask` plot draws, does not make a line 0.05 mm from the copper a finding | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-SILK-MASK |
+| A pad without the side's mask layer is not checked: a line over its copper is no finding | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-SILK-MASK |
+| The board's `min_silk_clearance` (0.3 mm in the project) does not apply between silkscreen and a pad; a `silk_clearance` rule of the `.kicad_dru` does, and the finding names the rule, its limit and the distance to the copper (0.05 mm against 0.1 mm); at 0.15 mm there is none | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-SILK-MASK |
+| With `kicad-cli` 9.0.9 (CI job `kicad-9`, 2026-10-28) the same probes differ: the line 0.05 mm from the copper of a pad with a `solder_mask_margin`, or of a board with a `pad_to_mask_clearance`, of 0.3 mm is reported as `silk_over_copper`, so 9.0 measures to the mask opening; the `silk_clearance` rule probe also reports `silk_overlap`. The clip keeps its strokes clear of the copper grown by the positive mask expansion, which holds for both | S-0020 | KICAD-VERIFIED (9.0.x) | H-K-SILK-MASK |
+
+The 9.0 side of every row waits for the `kicad-9` job of CI.
+
+## Placed test points (c0229)
+
+What `pcb drc` reports on a board that `fenolite testpoints --place` gave probes, run with `kicad-cli` 10.0.7
+(S-0020) on 2026-10-28 on the authored benches of `tests/_tpbench.py`
+(`tests/kicad/assembly/test_testpoint_place_oracle.py`). `--place --drc` relies on them (`docs/assembly.md`).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A footprint whose library nickname is in no footprint library table of the project (a board checked without its `fp-lib-table`) gives one `lib_footprint_issues` ("The current configuration does not include the footprint library …"): six probes of `Fenolite_Assembly` add six | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-TP-PLACE |
+| A footprint `Reference` on the silkscreen at the place a footprint's default field takes, 1.5 mm below a probe, can lie over a neighbour's pad and give `silk_over_copper`; one on the fabrication layer is not checked | S-0020 | INFERRED | H-K-TP-PLACE |
+| A probe pad placed over a part's `Reference` text on the silkscreen gives `silk_over_copper` naming the text and the probe's pad | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-SILK-MASK |
+
+The 9.0 side of every row waits for the `kicad-9` job of CI.

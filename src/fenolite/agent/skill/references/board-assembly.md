@@ -19,9 +19,31 @@ board from working. They stop it from being built right, tested, or accepted in 
   with the target tool's real text box, then run that tool's own check: a text box estimated by eye is
   often too small.
 - **Use one text height and stroke for every designator,** at or above the fabricator's minimum.
+- **Let `fenolite silk` place the designators** of a KiCad board: beside each part, clear of pads,
+  holes, silkscreen, courtyards and the edge, at 0 or 90°, a row of equal parts on one line. It measures
+  each text with `kicad-cli`, checks every place it writes, and `--drc` has KiCad judge the result.
+  `--keep` moves only the texts that sit on something; `silk.no-place` names a part without room.
+
+```fenolite-cmd
+fenolite silk board --designators --dry-run --json
+fenolite silk board --designators --sizes 1mm,0.8mm --angles 0,90 --clearance 0.15mm --drc --confirm --json
+fenolite silk board --designators --keep --refs "R*" --measure estimate --dry-run --json
+fenolite explain silk.no-place
+```
+
 - **Clip silkscreen from pads, mask openings, drills, slots and the edge,** and check again after every
   placement change. Clip the footprint's own outline too, then keep the library in step (see
   "Libraries"), or the next update brings the ink back.
+- **Let `fenolite silk --clip` cut the silkscreen** of a KiCad board at every mask opening and pad hole,
+  the footprints' own outlines too, alike on every instance. `silk.footprint-changed` names each footprint
+  whose library must then be written again from the board; `silk.cut-by-other` names parts too close.
+
+```fenolite-cmd
+fenolite silk board --clip --dry-run --json
+fenolite silk board --clip --margin 0.1mm --designators --drc --confirm --json
+fenolite library board --out lib.pretty --dry-run --json
+fenolite explain silk.footprint-changed
+```
 - **Mark polarity and pin 1 where they stay visible after assembly:** outside the body, not under it.
   Put these marks in the library footprint, not only on the board. Check after every clean-up that
   each mark survived.
@@ -54,6 +76,14 @@ board from working. They stop it from being built right, tested, or accepted in 
 ```fenolite-cmd
 fenolite testpoints board --side bottom --min-coverage 100 --min-pitch 1.27mm --json
 fenolite testpoints board --min-fiducials 3 -o board/testpoints.csv --dry-run --json
+```
+
+- **Close the gaps** with `--place`: one probe and its track per uncovered net, checked before it is written,
+  kept by a rebuild. Read `result.place.unplaced` and each `testpoint.no-site` for the nets left over.
+
+```fenolite-cmd
+fenolite testpoints board --place --side bottom --drc --dry-run --json
+fenolite testpoints board --place --nets 'SENSE_*' --grid 2.54mm --reach 5mm --size 1mm --dry-run --json
 ```
 
 - **Fiducials are for the placement machines.** Each face with parts gets three global fiducials, not in
@@ -89,6 +119,12 @@ fenolite testpoints board --min-fiducials 3 -o board/testpoints.csv --dry-run --
 
 - **The board is the master** once anyone has edited footprints, silkscreen or 3D bodies on it. Make the
   library from the board. Never push an older library onto the board (`board-workflow`).
+  `library --diff` lists how a library differs from the board's footprints, and writes nothing.
+
+```fenolite-cmd
+fenolite library board --diff lib.pretty --json
+```
+
 - **Keep the project library self-contained,** versioned, and compared by hash at every rebuild.
 
 ## Manufacturing data

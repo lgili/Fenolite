@@ -28,7 +28,7 @@ the last line of its `SKILL.md`: when that differs from `fenolite --version`, re
    | exit | meaning | what to do |
    |---|---|---|
    | 0 | done | read `result` |
-   | 1 | internal failure | read `retryable`: when it is false (`FEN-1001`) this is a bug in Fenolite, so stop and report the error object. `FEN-1002` (a write failed) and `FEN-1003` (stopped by a signal) changed nothing: remove the cause and run the same command again |
+   | 1 | internal failure | `FEN-1001`: stop and report the bug. `FEN-1002` and `FEN-1003`: nothing changed; remove the cause and retry. `FEN-1004`: rollback incomplete, do not retry; keep `result.recovery.preserved` and inspect `result.recovery.failed` before restoring and reviewing a new plan |
    | 2 | wrong usage | read `hint` in the error object and fix the command line |
    | 3 | bad input | the file named in `where` is missing or malformed: fix the input, not the command |
    | 4 | confirmation required | nothing was written. `FEN-4001`: a writing command ran without `--dry-run` or `--confirm`, see rule 3. `FEN-4002`: the plan named by `--plan` is no longer the one you reviewed (a file changed): run `--dry-run` again and confirm the new id |
@@ -44,7 +44,8 @@ the last line of its `SKILL.md`: when that differs from `fenolite --version`, re
    returns a `receipt` with the SHA-256 of each. Look at the plan first whenever the files already exist:
    a confirmed write replaces them. After a review, write with `--confirm --plan <plan_id>` and the same
    arguments: it writes the reviewed bytes without running the command, and its tools, a second time. A
-   command writes all its files or none, and it writes none when it reports an `error`.
+   command rolls back a failed write; `FEN-1004` reports incomplete rollback and retains recovery files.
+   Error findings plan no write.
 4. **Evidence.** Every envelope carries `evidence.level`. `KICAD-VERIFIED` means `kicad-cli` judged the
    result. Treat every level below it (`ORACLE-VERIFIED`, `CORPUS-VERIFIED`, `INFERRED`, `UNKNOWN`,
    `UNVERIFIED`) as unconfirmed: say so when you report, and let `fenolite check` decide.
@@ -182,7 +183,7 @@ real board, read `board-practice`: the order of work and the practice pages (`bo
 - `files`: Read a file Fenolite did not write, tell whether editing it is safe, compare two files or two designs, and undo a confirmed write.
 - `footprints`: Footprint and Symbol from dimensions when no library has the part, and what a person must still check against the datasheet.
 - `parts`: Where symbols and footprints come from, how a pin is named, pad_map, values with units, user properties and typed interfaces.
-- `placement`: place() in the script, staged parts and the grid strategy, moving a part on the board, where the pads are, and text fields.
+- `placement`: place() in the script, staged parts and the grid strategy, moving a part on the board, copying a block by its pads, where the pads are, and text fields.
 - `recovery`: One tested recipe per exit code from 2 to 7 and for shorted copper, the table of every error code, and reading the guide itself.
 - `routing`: Which router does what, route with --nets and --rip, what unrouted means, copper written in the script, zones and fill.
 - `rules`: Net classes against minimums, rules with selectors, the stack-up, whose numbers apply, and analyze for current, clearance and creepage.

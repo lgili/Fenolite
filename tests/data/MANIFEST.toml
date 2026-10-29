@@ -1157,6 +1157,18 @@ corpus_id = ""
 notes = "kit sample: the circuit of flat with tracks, vias, a polygon, five rules and two planted violations (c0091)"
 
 [[file]]
+path = "examples/kit/pour/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "kit sample: eleven independent polygon-pour probes on two copper layers, authored for Fenolite (c0215)"
+
+[[file]]
+path = "examples/kit/pour4/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "kit sample: independent polygon-pour probes on the inner layers of a four-layer board, authored for Fenolite (c0215)"
+
+[[file]]
 path = "examples/kit/tree/design.py"
 origin = "authored"
 corpus_id = ""
@@ -2295,3 +2307,177 @@ path = "tests/data/panels/kit/README-phase-a.md"
 origin = "authored"
 corpus_id = ""
 notes = "the steps Q1 to Q6 of Part Q in Portuguese for the maintainer's kit (c0173)"
+
+[[file]]
+path = "tests/data/altium_edit/edit.py"
+origin = "authored"
+corpus_id = ""
+notes = "the board of Part J, the Altium edit sessions (c0241): a 40 x 30 mm two-layer rectangle, two resistors and an LED, the GND track probe, two polygons, a free text, a mechanical line and region, one clearance rule; all values Fenolite choices"
+
+[[file]]
+path = "tests/data/altium_edit/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "library table of the Part J board, naming the authored Mini library"
+
+[[file]]
+path = "tests/data/altium_edit/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "library table of the Part J board, naming the authored Mini library"
+
+[[file]]
+path = "tests/data/altium_edit/kit/README-phase-a.md"
+origin = "authored"
+corpus_id = ""
+notes = "the steps J1 to J22 of Part J in Brazilian Portuguese for the maintainer's kit (c0241)"
+
+[[file]]
+path = "tests/data/kicad/tidy/stub.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "the copper-tidy bench of tests/_tidybench.py written for KiCad 10 (c0208): a dangling stub, a dangling via and right-angle joints; a test keeps it equal to a fresh write"
+
+[[file]]
+path = "tests/data/kicad/silk/row.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "the silkscreen bench row() of tests/_silkbench.py written for KiCad 10 (c0212): ten two-pad parts in a row with every designator over its pads; the example board of fenolite silk in the agent guide"
+
+[[file]]
+path = "tests/data/libs/Roles.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic symbols of the net-role reference boards (c0222)"
+
+[[file]]
+path = "tests/data/libs/Roles.pretty/Roles_Inductor_7x7.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic footprint of the net-role reference boards (c0222); not a validated land pattern"
+
+[[file]]
+path = "tests/data/libs/Roles.pretty/Roles_MOSFET_K4.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic footprint of the net-role reference boards (c0222); not a validated land pattern"
+
+[[file]]
+path = "tests/data/libs/Roles.pretty/Roles_MOSFET_SO8.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic footprint of the net-role reference boards (c0222); not a validated land pattern"
+
+[[file]]
+path = "tests/data/libs/Roles.pretty/Roles_Shunt_2512.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic footprint of the net-role reference boards (c0222); not a validated land pattern"
+
+[[file]]
+path = "tests/data/libs/Roles.pretty/Roles_Shunt_4T.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic footprint of the net-role reference boards (c0222); not a validated land pattern"
+
+[[file]]
+path = "tests/data/libs/Roles.pretty/Roles_Terminal_2P.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic footprint of the net-role reference boards (c0222); not a validated land pattern"
+
+[[file]]
+path = "examples/roles/bms/bad.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, bad variant (c0222; DSL source)"
+
+[[file]]
+path = "examples/roles/bms/bms_board.py"
+origin = "authored"
+corpus_id = ""
+notes = "the shared drawing of a net-role reference board (c0222)"
+
+[[file]]
+path = "examples/roles/bms/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of a net-role reference board (c0222) naming the authored libraries through ${KIPRJMOD}"
+
+[[file]]
+path = "examples/roles/bms/good.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, good variant (c0222; DSL source)"
+
+[[file]]
+path = "examples/roles/bms/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of a net-role reference board (c0222) naming the authored libraries through ${KIPRJMOD}"
+
+[[file]]
+path = "examples/roles/buck_shunt/bad.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, bad variant (c0222; DSL source)"
+
+[[file]]
+path = "examples/roles/buck_shunt/buck_shunt_board.py"
+origin = "authored"
+corpus_id = ""
+notes = "the shared drawing of a net-role reference board (c0222)"
+
+[[file]]
+path = "examples/roles/buck_shunt/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of a net-role reference board (c0222) naming the authored libraries through ${KIPRJMOD}"
+
+[[file]]
+path = "examples/roles/buck_shunt/good.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, good variant (c0222; DSL source)"
+
+[[file]]
+path = "examples/roles/buck_shunt/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of a net-role reference board (c0222) naming the authored libraries through ${KIPRJMOD}"
+
+[[file]]
+path = "examples/roles/half_bridge/bad.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, bad variant (c0222; DSL source)"
+
+[[file]]
+path = "examples/roles/half_bridge/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of a net-role reference board (c0222) naming the authored libraries through ${KIPRJMOD}"
+
+[[file]]
+path = "examples/roles/half_bridge/good.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, good variant (c0222; DSL source)"
+
+[[file]]
+path = "examples/roles/half_bridge/half_bridge_board.py"
+origin = "authored"
+corpus_id = ""
+notes = "the shared drawing of a net-role reference board (c0222)"
+
+[[file]]
+path = "examples/roles/half_bridge/requirements.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative requirements of the half-bridge reference board (c0222)"
+
+[[file]]
+path = "examples/roles/half_bridge/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of a net-role reference board (c0222) naming the authored libraries through ${KIPRJMOD}"

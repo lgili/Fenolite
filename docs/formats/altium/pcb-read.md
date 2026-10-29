@@ -290,3 +290,24 @@ These are choices of the reader, not format facts:
   doubles; `to_nm` (half to even, `fenolite.core.units.u_to_nm`) and `to_nm_exact` convert.
 - **Lossless.** Every record keeps its bytes (`raw`); a typed field is a view. Two stack views are given,
   the numbered keys and the physical list, without merging them.
+
+## Resave differences (c0207)
+
+`fenolite diff A B --view records` leaves out of `differences` a changed record whose differing keys all
+hold two spellings of one value, and counts it in `result.resave` (`fenolite.backends.altium.resave`).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A length in property text is decimal mils with the suffix `mil`, and a binary length is an integer of 1/10 000 mil, so two mil texts that give one integer of 1/10 000 mil give one length | S-0002, S-0163 | INFERRED | H-A-RD-RESAVE |
+| A boolean is `TRUE` or `FALSE`, and `T` or `F` in older files; an angle is a decimal number in a scientific form with a leading space | S-0163, census of S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-RD-RESAVE |
+
+Fenolite's choices, not format facts:
+
+- **One rule for both sides.** Two values are one value when both are mil text with one value rounded
+  half to even to 1/10 000 mil, both are decimal numbers with one exact value, or both are booleans of
+  one value. `10mil` and `10` are two values.
+- **Free text is never decoded.** A key that ends with `NAME`, `TEXT`, `DESIGNATOR`, `DESCRIPTION`,
+  `COMMENT`, `PATTERN`, `PATH`, `UNIQUEID`, `GUID`, `IDENTIFIER`, `REFERENCE` or `LIBRARY` is compared as
+  written: `1.0` and `1` are two pad names.
+- **Only property records.** A record kept as bytes and a stream kept whole are compared by their bytes.
+- **The model view needs no rule.** It compares decoded values, so a resave gives it no change.

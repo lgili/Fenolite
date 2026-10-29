@@ -67,6 +67,7 @@ def test_canary(tmp_path: Path) -> None:
         "copper.clearance",
         "length.rules",
         "placement.rules",
+        "roles.rules",
         "zone.fill",
         "drc.kicad",
         "parity",

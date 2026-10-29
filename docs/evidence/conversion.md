@@ -2,11 +2,16 @@
 
 The record of `H-G-CONV-LEDGER` (change c0159, capability design-conversion): each KiCad 10.0.6 demo board
 of the corpus (S-0058, the rows `kicad-demo-10-0-6-pcb-01` to `-18` of `tests/corpus/manifest.toml`) is
-converted to Altium with `fenolite.api.convert(board, to="altium", allow_lossy=True)`, and the PCB
+converted to Altium with `fenolite.api.convert(board, to="altium", allow_lossy=True, pour="outline")`, and the PCB
 document it writes is read back with the Altium backend and compared with the design that was written, at
 the highest level both hold, under the profile `kicad-to-altium` (`src/fenolite/convert/data/profiles.toml`:
 relative frame, 3 nm, 20 ppm). The page holds counts and the writer's reasons only; no content of a board
 is written here. The corpus holds the boards without their project files, so each is read alone.
+
+These are the historical outline-mode measurements. The census names that compatibility mode
+explicitly after c0215 changed the default to computed pours; its counts and assertions remain fixed.
+Computed-pour behavior is tested separately by the pour-mode, conversion and public Altium pour census
+tests described in [the pour evidence](altium-pour.md). This ledger does not verify computed pours.
 
 `tests/corpus/test_convert_census.py` reads the two tables between the markers below and fails when a
 conversion gives other rows, or any `convert.unexplained`. Regenerate them by running the census and

@@ -35,6 +35,7 @@ from fenolite.backends.kicad._edgesign import edge_text, edge_uuid, outline_dige
 from fenolite.backends.kicad._fpmap import (
     GR_GRAPHIC_HEADS,
     GRAPHIC_FIELDS,
+    MARGIN_HEADS,
     NET_TIES,
     PAD_FIELDS,
     PAD_POSITIONAL,
@@ -44,6 +45,7 @@ from fenolite.backends.kicad._fpmap import (
     emit_graphic,
     emit_pad,
     layers_node,
+    margin_disagrees,
     net_tie_groups,
     node,
     opaque_fab_properties,
@@ -2005,8 +2007,8 @@ FLOOR_HEADS: tuple[str, ...] = (
     "hatch_smoothing_level", "hatch_smoothing_value", "hatch_thickness", "height", "hide", "island",
     "island_area_min", "island_removal_mode", "justify", "keepout", "locked", "loss_tangent", "material",
     "mid", "mode", "name", "orientation", "pads", "path", "precision", "prefix", "priority", "radius", "rev",
-    "smoothing", "stackup", "style", "suffix", "text_position_mode", "title", "title_block", "tracks",
-    "units", "units_format", "vias", "zone_connect",
+    "smoothing", "solder_mask_margin", "solder_paste_margin", "stackup", "style", "suffix",
+    "text_position_mode", "title", "title_block", "tracks", "units", "units_format", "vias", "zone_connect",
 )  # fmt: skip
 """Names the writer creates that the 8.0 format already has and that neither the token inventory nor
 the skeleton holds (``board.md``, S-0021 and S-0033 at tag 8.0.0). The names of a linear dimension
@@ -2028,7 +2030,8 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "effects": ("font", "justify"),
         "font": ("size", "thickness"),
         "pad": (
-            *PAD_POSITIONAL, "at", "size", "drill", "property", "layers", "net", "zone_connect", "uuid",
+            *PAD_POSITIONAL, "at", "size", "drill", "property", "layers", "net", *MARGIN_HEADS,
+            "zone_connect", "uuid",
         ),
         "segment": ("start", "end", "width", "locked", "layer", "net", "uuid"),
         "arc": ("start", "mid", "end", "width", "locked", "layer", "net", "uuid"),
@@ -2104,7 +2107,7 @@ _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyT
         },
         "footprint": {**FOOTPRINT_FIELDS, "locked": "locked", "property": ("fields", "properties")},
         "property": {**FIELD_FIELDS},
-        "pad": BOARD_PAD_FIELDS,
+        "pad": {**BOARD_PAD_FIELDS, **MARGIN_HEADS},
         "segment": TRACK_FIELDS,
         "arc": TRACK_FIELDS,
         "via": VIA_FIELDS,
@@ -3126,6 +3129,12 @@ class _Writer:
                 where = _child_locator(entity, slots, i, name, "fab_property")
                 self.read_only("fab_property", where, "the pad property is written as read")
             return "fab_property"
+        if isinstance(entity, Pad) and name in MARGIN_HEADS:
+            # a margin is kept as read (change c0223): a field set to another value cannot be written
+            if margin_disagrees(entity, name, child):
+                where = _child_locator(entity, slots, i, name, MARGIN_HEADS[name])
+                self.read_only(MARGIN_HEADS[name], where, "the pad margin is written as read")
+            return MARGIN_HEADS[name]
         if isinstance(entity, Pad) and name == "padstack":
             model = entity.padstack
             expected = (

@@ -102,4 +102,16 @@ Say so when you report a board that uses authored or catalog geometry.
 - A two-pin passive, a header, a common package: look in the catalog first.
 - Anything else: author it, and list it for review.
 
+## A library from the board
+
+```fenolite-cmd
+fenolite library blink/build --diff lib/Mini.pretty --json
+fenolite library blink/build --out board.pretty --confirm --json
+```
+
+A footprint edited on the board (silkscreen clipped, a pad moved) drifts from its library. `--diff`
+names each footprint that differs and the kinds (`pads`, `silkscreen`, `courtyard`, `models`, `fields`,
+`missing`), exits 5 on drift and writes nothing. `--out` writes each footprint back at its origin,
+rotation 0 and top side; a second instance that differs becomes `<name>_2` (`library.instances-differ`).
+
 Read next: `parts`, `placement`, `checks`.

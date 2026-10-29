@@ -137,6 +137,17 @@ electrical rules check, and carry KiCad's message. `fenolite check blink/build -
 - `kicad.drc.clearance` and `kicad.drc.shorting-items`: as `copper.clearance` and `copper.short` above.
 - `kicad.erc.pin-not-connected`: a pin is on no net. Connect it, or mark it with `no_connect`.
 
+## Incomplete write recovery
+
+`FEN-1004` has `retryable: false`: a write failed or was interrupted, and rollback also failed.
+Keep every file named in `result.recovery.preserved` and inspect the paths in `result.recovery.failed`.
+Resolve those paths from the command's working directory; they can include `../` or an absolute path
+when Windows volumes differ. Copy the remaining files to a safe place before recovering the project. A `.keep` can hold an original
+target or an earlier backup; a `.tmp` holds proposed new bytes; a `.bak` may have moved during the failed
+write. Compare contents and any earlier receipts before choosing which generation to restore. A successful
+receipt was not issued for the partial write. Do not run automatic retries or delete these files. After
+restoring the intended state, run a fresh dry run and review its plan.
+
 ## Every error code
 
 | code | exit | what happened | what to do |
@@ -144,6 +155,7 @@ electrical rules check, and carry KiCad's message. `fenolite check blink/build -
 | `FEN-1001` | 1 | a bug in Fenolite | stop and report the error object with the command line; do not retry |
 | `FEN-1002` | 1 | a write failed; every file of the command was put back | fix the cause the message names and run the same command again |
 | `FEN-1003` | 1 | the command was stopped by a signal; nothing was written | run the same command again: `route` goes on with the router runs that finished |
+| `FEN-1004` | 1 | rollback was incomplete; some files may have changed | preserve the listed recovery files, recover the intended state manually, then review a new plan; do not retry automatically |
 | `FEN-2001` | 2 | an invalid command line | recipe above |
 | `FEN-2002` | 2 | `--fields` names a key the result does not have | run with `--json` alone and read the keys |
 | `FEN-2003` | 2 | `--dry-run` and `--confirm` together | use one |
@@ -154,6 +166,7 @@ electrical rules check, and carry KiCad's message. `fenolite check blink/build -
 | `FEN-3004` | 3 | a malformed input, or a script that raises | recipe above |
 | `FEN-3005` | 3 | geometry of the input cannot be represented | the message names the geometry and the points |
 | `FEN-3006` | 3 | a fetched file does not match its pinned size or SHA-256 | fetch again, or name a good copy with `--from` |
+| `FEN-3007` | 3 | a file to read is kept only online by a sync client | ask the owner to make the folder available offline, then run again |
 | `FEN-4001` | 4 | a write without `--dry-run` or `--confirm` | recipe above |
 | `FEN-4002` | 4 | the plan named by `--plan` cannot be written as reviewed: a target, an input or the command line changed, or no plan has that id | run the command with `--dry-run` again, read the new plan and confirm it with its `plan_id` |
 | `FEN-5001` | 5 | findings of severity `error` | read `issues`; recipe above |
@@ -179,5 +192,19 @@ fenolite skill install --agent claude-code --agents-md --confirm --json
 them into a folder that an agent reads skills from, and `--agents-md` adds a pointer to the `AGENTS.md`
 of the project. The copy names the version it came from in the last line of its `SKILL.md`; when that
 differs from the installed version, read `fenolite guide`.
+
+## Without a shell: the MCP server
+
+```fenolite-cmd
+fenolite mcp --list --json
+fenolite mcp --read-only --tools check,inspect --list --json
+```
+
+`fenolite mcp --root DIR` serves every command as a tool to an MCP client that starts it, and `--list`
+names the tools it would serve. A tool's reply is the command's envelope, with the exit code in `_meta`
+`fenolite/exit`; a writing tool is a dry run until it gets `confirm: true` and the `plan` that run returned,
+and never writes outside `--root`. The pages of this guide are its resources `fenolite://guide/<topic>`.
+With `--allow-edit` it also serves `fenolite_edit` (the design script), and a reply that plans PNG views
+carries them as images.
 
 Read next: `checks`, `routing`, `design-script`.

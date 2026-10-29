@@ -6,6 +6,7 @@ geometry-boolean-backends, "Clipper union backend", "Backend selection"; change 
 from __future__ import annotations
 
 import importlib.util
+import math
 import sys
 
 import pytest
@@ -98,18 +99,49 @@ def test_a_ring_of_four_bars_has_a_hole() -> None:
     assert set(union.holes[0]) == {Point(10, 10), Point(30, 10), Point(30, 30), Point(10, 30)}
 
 
+def _square(x0: int, y0: int, size: int) -> Polygon:
+    return Polygon((Point(x0, y0), Point(x0 + size, y0), Point(x0 + size, y0 + size), Point(x0, y0 + size)))
+
+
 @needs_geo
 def test_other_operations_and_domain() -> None:
-    square = Polygon((Point(0, 0), Point(10, 0), Point(10, 10), Point(0, 10)))
-    for call in (
-        lambda: ClipperBackend().intersection(square, square),
-        lambda: ClipperBackend().difference(square, square),
-        lambda: ClipperBackend().xor(square, square),
-        lambda: ClipperBackend().offset(square, 1),
-    ):
-        with pytest.raises(BackendUnavailable):
-            call()
+    """Scenario "Intersection, difference and xor" of "Clipper backend" (change c0215)."""
+    backend = ClipperBackend()
+    assert backend.operations == frozenset({"union", "intersection", "difference", "xor", "offset"})
+    a, b = _square(0, 0, 10), _square(5, 5, 10)
+    assert backend.intersection(a, b) == (_square(5, 5, 5),)
+    (rest,) = backend.difference(a, b)
+    assert rest.outer == (Point(0, 0), Point(10, 0), Point(10, 5), Point(5, 5), Point(5, 10), Point(0, 10))
+    assert len(backend.xor(a, b)) == 2
+    assert backend.difference(a, ()) == (a,)
+    assert backend.intersection(a, _square(20, 20, 5)) == ()
     far = Polygon((Point(0, 0), Point(2**31, 0), Point(0, 10)))
-    with pytest.raises(GeometryError) as info:
-        ClipperBackend().union(far)
-    assert info.value.code == "geometry.out-of-range"
+    for call in (lambda: backend.union(far), lambda: backend.difference(a, far), lambda: backend.xor(far, a)):
+        with pytest.raises(GeometryError) as info:
+            call()
+        assert info.value.code == "geometry.out-of-range"
+
+
+@needs_geo
+def test_offset_and_stroke_stay_within_their_tolerance() -> None:
+    """Scenario "Offsets and strokes" of "Clipper backend": a round offset and a stroke place their vertices
+    on the true arcs, so every chord lies at most ``tol`` inside the arc; a stroke of one point is a disc."""
+    backend = ClipperBackend()
+    (grown,) = backend.offset(_square(0, 0, 10_000), 1_000, tol=10)
+    assert grown.bbox() == _square(-1_000, -1_000, 12_000).bbox()
+    (shrunk,) = backend.offset(_square(0, 0, 10_000), -1_000, join="miter", tol=10)
+    assert shrunk == _square(1_000, 1_000, 8_000)
+    (disc,) = backend.stroke([[Point(0, 0)]], 100_000, tol=50)
+    radii = [math.hypot(p.x, p.y) for p in disc.outer]
+    assert all(abs(r - 100_000) <= 1 for r in radii)
+    sag = 100_000 * (1 - math.cos(math.pi / len(disc.outer)))
+    assert sag <= 50 + 1
+    (bar,) = backend.stroke([[Point(0, 0), Point(10_000, 0)]], 500, tol=10)
+    assert (
+        bar.bbox()
+        == Polygon((Point(-500, -500), Point(10_500, -500), Point(10_500, 500), Point(-500, 500))).bbox()
+    )
+    with pytest.raises(ValueError):
+        backend.stroke([[Point(0, 0)]], 0)
+    with pytest.raises(ValueError):
+        backend.offset(_square(0, 0, 10), 1, tol=0)

@@ -36,7 +36,8 @@ STDLIB_ALLOWED = {
     "typing",
 }  # fmt: skip
 """``decimal``, ``fractions`` and ``types`` serve the PCB writers (change c0035)."""
-READING_MODULES = {"backend.py", "docset.py", "frame.py", "models3d.py", "roundtrip.py", "rta3.py"}
+READING_MODULES = {"backend.py", "docset.py", "frame.py", "models3d.py", "pour.py", "roundtrip.py", "rta3.py"}
+"""The modules of the reading side; ``pour.py`` (change c0215) pours the document it reads back."""
 """The modules of the reading side (changes c0043, c0044, c0088, c0090 and c0193): the registered backend, the
 document sets, the board frame of an import, the round-trip levels and the embedded body models.
 ``test_backend.py``, ``test_docset.py``, ``test_frame.py``, ``test_roundtrip.py``, ``test_rta3.py`` and

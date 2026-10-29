@@ -211,6 +211,7 @@ def test_board6_golden_files() -> None:
         },
         "not_lowered": {},
         "bodies": "extruded",  # the default since change c0155; board6 holds no body
+        "pour": {"mode": "outline", "poured": 0, "unpoured": {}, "evidence": None, "hypotheses": []},  # c0215
     }  # fmt: skip
     assert output.summary["copper"]["layers"] == 6  # type: ignore[index]
     assert not [i for i in output.issues if i.code == "altium.not-lowered"]
@@ -447,7 +448,9 @@ def test_altium_samples_of_earlier_changes_keep_their_bytes() -> None:
     added bit 0x20 to the ``PINCONGLOMERATE`` of every written pin: the schematic files and the copies are
     compared with the base record by record and may differ in that bit alone (``_pin_bits``).
     C0166 regenerates SchLib model records, so their historical pin-bit comparison uses the c0148
-    snapshot; the current libraries are checked byte for byte by the fresh-build golden tests."""
+    snapshot; the current libraries are checked byte for byte by the fresh-build golden tests.
+    C0166 commit 5a75bc73 added exactly two hierarchy naming flags; compare that file against the
+    base plus those exact lines instead of permitting arbitrary project changes (c0236)."""
 
     def pin_visibility_snapshot(path: str) -> bytes:
         if not path.lower().endswith(".schlib"):
@@ -464,6 +467,8 @@ def test_altium_samples_of_earlier_changes_keep_their_bytes() -> None:
 
     paths = [f"tests/data/altium/{name}/" for name in SAMPLES]
     exclude = [f":(exclude)tests/data/altium/{name}" for name in REGENERATED]
+    naming_project = "tests/data/altium/hier/altium_hier.PrjPcb"
+    exclude.append(f":(exclude){naming_project}")
     pins = [":(exclude,glob)tests/data/altium/**/*.SchDoc", ":(exclude,glob)tests/data/altium/**/*.SchLib"]
     proc = subprocess.run(
         ["git", "diff", "--exit-code", "--quiet", "6cdf0aea", "--", *paths, *exclude, *pins],
@@ -471,6 +476,17 @@ def test_altium_samples_of_earlier_changes_keep_their_bytes() -> None:
     )  # fmt: skip
     if proc.returncode in (0, 1):
         assert proc.returncode == 0, "a sample of an earlier change differs from the base of change c0085"
+        base_project = subprocess.run(
+            ["git", "show", f"6cdf0aea:{naming_project}"], cwd=ROOT, capture_output=True, check=False
+        )
+        assert base_project.returncode == 0
+        header = b"Version=1.0\r\n"
+        assert base_project.stdout.count(header) == 1
+        expected_project = base_project.stdout.replace(
+            header, header + b"AllowPortNetNames=0\r\nAllowSheetEntryNetNames=0\r\n", 1
+        )
+        assert (ROOT / naming_project).read_bytes() == expected_project
+
     for path in _schematic_files_at_base(paths):
         if path.removeprefix("tests/data/altium/") in REGENERATED:
             continue

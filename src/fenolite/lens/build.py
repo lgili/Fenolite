@@ -41,6 +41,7 @@ from fenolite.backends.kicad import (
     wks,
 )
 from fenolite.backends.kicad import copper as copper_mod
+from fenolite.backends.kicad import generate as generate_mod
 from fenolite.backends.kicad import lengths as lengths_mod
 from fenolite.backends.kicad import meander as meander_mod
 from fenolite.backends.kicad import stackup as stacklib
@@ -933,6 +934,7 @@ def build_design(
     prepared: Prepared | None = None,
     copper_intents: Sequence[CopperIntentLike] = (),
     meanders: Sequence[MeanderIntentLike] = (),
+    generated_copper: Sequence[generate_mod.GeneratedLike] = (),
     fields: Mapping[str, Sequence[FieldRequestLike]] = MappingProxyType({}),
     pad_zones: Mapping[str, Sequence[PadZoneRequestLike]] = MappingProxyType({}),
     authored_footprints: Mapping[str, FootprintDef] = MappingProxyType({}),
@@ -980,6 +982,10 @@ def build_design(
     ``meanders`` are resolved right after them (``meander.resolve_meanders``): each replaces one straight
     segment of a script track by a meander that brings the track to its target length, counted as KiCad
     ``target`` counts it; an error of a meander is an error of the build.
+    ``generated_copper`` are the records of the script's generated-copper calls (``band``,
+    ``keepout_ring``, ``barrier``, ``body_keepout``, ``fanout_zone`` and ``stitch_pieces``), resolved after
+    the meanders by ``generate.resolve_generated`` into locked zones, rule areas, tracks and vias; an error
+    of a record is an error of the build (``docs/copper.md``, "Generated copper").
     ``fields`` maps a component path to the field placement requests of its part, applied to the placed or
     staged footprint (``docs/dsl.md``, "Field placement"); a footprint without the field raises
     ``FormatError``.
@@ -1191,6 +1197,38 @@ def build_design(
         copper_counts["tracks"] = sum(
             1 for i in built.board.tracks if is_copper_uuid(i.native_ids.get("kicad", ""))
         )
+    generated_counts: dict[str, int] = {}
+    if generated_copper:
+        assert built.board is not None
+        held = prepared.board if prepared is not None else None
+        project_text = prepared.existing.project if prepared is not None else None
+        project_data = (
+            pro.read_project_text(project_text) if project_text is not None else pro.template(target)
+        )
+        before = built.board
+        built = generate_mod.resolve_generated(
+            built,
+            generated_copper,
+            unplaced=staged,
+            issues=issues,
+            keepouts=[
+                area
+                for area in (held.board.keepouts if held is not None and held.board is not None else ())
+                if not boarditems.is_item_uuid(area.native_ids.get("kicad", ""))
+            ],
+            outline=_kept_outline(held, built, lock_outline),
+            edge_floor=pro.project_minimums(project_data).get("min_copper_edge_clearance", 0),
+        )
+        assert built.board is not None
+        generated_counts = {
+            "records": len(generated_copper),
+            **{
+                kind: len(getattr(built.board, name)) - len(getattr(before, name))
+                for kind, name in (
+                    ("zones", "zones"), ("rule_areas", "keepouts"), ("tracks", "tracks"), ("vias", "vias")
+                )
+            },
+        }  # fmt: skip
     existing = prepared.existing if prepared is not None else preserve.ExistingProject()
     board_read = prepared is not None and prepared.board is not None
     preserved: dict[str, object] = {}
@@ -1433,6 +1471,8 @@ def build_design(
         evidence_items.append(boarditems.EVIDENCE)  # the script declares rule areas or drawings
     if meanders:
         evidence_items += [meander_mod.EVIDENCE, lengths_mod.EVIDENCE]
+    if generated_copper:
+        evidence_items.append(generate_mod.EVIDENCE)
     written_stack = target_design.board.stackup if target_design.board is not None else None
     if written_stack is not None:
         evidence_items.append(stacklib.EVIDENCE)
@@ -1486,6 +1526,8 @@ def build_design(
             "unconnected_pads": len(generated.pad_nets),
         },
     }
+    if generated_counts:
+        summary["generated"] = generated_counts
     return BuildOutput(
         built,
         dict(sorted(files.items())),

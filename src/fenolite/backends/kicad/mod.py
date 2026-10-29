@@ -22,6 +22,7 @@ from fenolite.backends.kicad._fpmap import (
     DEF_POSITIONAL,
     FP_GRAPHIC_HEADS,
     GRAPHIC_FIELDS,
+    MARGIN_HEADS,
     NET_TIES,
     PAD_FIELDS,
     PAD_KINDS,
@@ -30,6 +31,7 @@ from fenolite.backends.kicad._fpmap import (
     Ids,
     aligned_slot_pad,
     emit_footprint,
+    margin_disagrees,
     net_tie_groups,
     padstack_key,
     projected_fab_property,
@@ -297,6 +299,8 @@ def prepare_authored_definition(defn: FootprintDef) -> FootprintDef:
     root.extend(Modeled("pads") for _ in defn.pads)
     root.extend(Modeled("graphics") for _ in defn.graphics)
     root.extend(Modeled("models") for _ in defn.models)
+    if defn.placements:
+        root.append(Modeled("placements"))
     pads = tuple(
         dataclasses.replace(
             pad,
@@ -312,6 +316,8 @@ def prepare_authored_definition(defn: FootprintDef) -> FootprintDef:
                         Modeled("drill"),
                         *([] if pad.fab_property is None else [Modeled("fab_property")]),
                         Modeled("layers"),
+                        *([] if pad.mask_margin is None else [Modeled("mask_margin")]),
+                        *([] if pad.paste_margin is None else [Modeled("paste_margin")]),
                         Modeled("native_ids"),
                     ]
                 ),
@@ -436,6 +442,10 @@ class _Projections:
             self.read_only("net_ties", where, "the net-tie groups are written as read")
         if tuple(models) != defn.models:
             self.read_only("models", base, "3D model references are written as read")
+        if models and defn.placements:
+            self.read_only(
+                "placements", base, "a footprint whose model children are kept as read holds no placement"
+            )
         for key in sorted(set(found) | set(defn.properties)):
             value, loc = found.get(key, (None, base))
             if value != defn.properties.get(key):
@@ -468,6 +478,9 @@ class _Projections:
         marks = [loc for _, loc, child in self.children(slots, base) if child.name == "property"]
         if marks and projected_fab_property(slots) != pad.fab_property:
             self.read_only("fab_property", marks[0], "the pad property is written as read")
+        for _, loc, child in self.children(slots, base):
+            if child.name in MARGIN_HEADS and margin_disagrees(pad, child.name, child):
+                self.read_only(MARGIN_HEADS[child.name], loc, "the pad margin is written as read")
 
     def graphic(self, graphic: Graphic, slots: list[Slot]) -> None:
         base = _locator(graphic, "/footprint")
@@ -534,6 +547,8 @@ def write_footprint(
             pads.append(pad)  # the existing projection check supplies the refusal
     defn = prepare_authored_definition(dataclasses.replace(defn, pads=tuple(pads)))
     slots = _slots(defn)
+    if defn.placements and not any(isinstance(s, Modeled) and s.field == "placements" for s in slots):
+        slots.append(Modeled("placements"))  # the models of a footprint read from another format, last
     version = _source_version(defn, slots)
     down = False
     if version is not None:

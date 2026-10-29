@@ -16,9 +16,19 @@ from fenolite.core.errors import Issue, Severity
 ISSUE_CODES: Mapping[str, Severity | tuple[Severity, ...]] = MappingProxyType(
     {
         "export.failed": "error",
+        # fabrication read-back (change c0203)
+        "export.readback-outline": "error",
+        "export.readback-drill": "error",
+        "export.readback-position": "error",
+        "export.readback-layer": "error",
+        "export.readback-empty": "error",
+        "export.readback-unsupported": "error",
         "export.kind-unavailable": "error",
         "export.stackup-default": "info",
         "render.failed": "warning",
+        # region renders (change c0211)
+        "render.region-empty": "warning",
+        "render.copper-simulated": "info",
         "export.sheet-missing": "error",
         "export.model-unread": "warning",
         "export.page-too-small": "warning",
@@ -43,6 +53,11 @@ ISSUE_CODES: Mapping[str, Severity | tuple[Severity, ...]] = MappingProxyType(
         "testpoint.none": "info",
         "testpoint.coverage-low": "error",
         "testpoint.too-close": "error",
+        # test-point placement (change c0229)
+        "testpoint.no-site": "warning",
+        "testpoint.check-failed": "warning",
+        "testpoint.drc-new": "error",
+        "testpoint.board-only": "info",
         "fiducial.too-few": "error",
     }
 )

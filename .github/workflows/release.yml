@@ -1,39 +1,105 @@
 name: release
 
-# Publishes `fenolite` and its alias `phenolite` to PyPI when a GitHub Release is published.
-# Uses PyPI trusted publishing (OIDC): no token is stored in GitHub. On PyPI, register a
-# (pending) trusted publisher for EACH project name with: owner `lgili`, repository `Fenolite`,
-# workflow `release.yml`, environment `pypi`.
+# Releases Fenolite from a tag (change c0221): pushing `vX.Y.Z` checks that the versions and the changelog
+# agree with the tag, builds `fenolite` and its alias `phenolite` from the tagged commit, installs the wheel
+# alone, publishes both to PyPI and creates the GitHub Release with the changelog section, the install lines
+# and the SHA-256 of every attached file.
+#
+# Run it by hand (Actions » release » Run workflow) to release a tag again or one that has no GitHub
+# Release yet: when PyPI already holds the version, nothing is uploaded and the files attached to the
+# release are PyPI's, checked against its digests. With `create_tag`, the run first tags the head of
+# `main` when the tag does not exist (a tag made by the workflow starts no other run; this run carries on).
+#
+# PyPI uses trusted publishing (OIDC), no stored token: register for EACH project name a publisher with
+# owner `lgili`, repository `Fenolite`, workflow `release.yml`, environment `pypi`.
 on:
-  release:
-    types: [published]
+  push:
+    tags: ["v*.*.*"]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release, e.g. v0.6.0"
+        required: true
+        type: string
+      create_tag:
+        description: "Create the tag on the head of main when it does not exist"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # only to create the tag when asked
+    outputs:
+      on_pypi: ${{ steps.pypi.outputs.on_pypi }}
     steps:
-      - uses: actions/checkout@v4
+      - name: The workflow's own tools
+        uses: actions/checkout@v4
+        with:
+          path: tooling
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.12"
-      - name: Versions match the release tag
-        if: github.event_name == 'release'
+      - name: Create the tag on main when asked
+        if: github.event_name == 'workflow_dispatch' && inputs.create_tag
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          tag="${GITHUB_REF_NAME#v}"
-          core=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' src/fenolite/__init__.py)
-          alias=$(sed -n 's/^version = "\(.*\)"$/\1/p' packaging/phenolite/pyproject.toml)
-          echo "tag=$tag fenolite=$core phenolite=$alias"
-          test "$tag" = "$core" && test "$tag" = "$alias"
-      - name: Build fenolite
-        run: uv build --out-dir dist
-      - name: Build phenolite (alias)
-        run: uv build packaging/phenolite --out-dir dist
-      - name: Residue scan of the built artefacts
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" >/dev/null 2>&1; then
+            echo "tag ${TAG} exists"
+          else
+            sha=$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)
+            gh api "repos/${GITHUB_REPOSITORY}/git/refs" -f ref="refs/tags/${TAG}" -f sha="${sha}" >/dev/null
+            echo "tagged ${sha} as ${TAG}"
+          fi
+      - name: The tagged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+          path: source
+          fetch-depth: 0
+      - name: The tagged commit is on main
+        working-directory: source
+        run: git merge-base --is-ancestor "$(git rev-parse "${TAG}^{commit}")" origin/main
+      - name: Versions and changelog agree with the tag
+        run: python3 tooling/tools/release.py check --tag "$TAG" --source source
+      # Every blob reachable from any ref, on the public patterns (c0220): a hit fails the build, so nothing
+      # is published. The private gate stays the maintainer's run (`make residue-history`).
+      - name: Residue scan over the history
+        working-directory: source
+        run: uv run --no-project python tools/residue/scan.py --history
+      - name: Build fenolite and phenolite
+        working-directory: source
+        run: |
+          uv build --out-dir ../dist
+          uv build packaging/phenolite --out-dir ../dist
+      - name: Residue scan
+        working-directory: source
         run: uv run --no-project python tools/residue/scan.py
+      - name: Metadata of the distributions
+        run: uvx twine check --strict dist/*
+      - name: The wheel installs alone and reports its version
+        run: |
+          uv venv /tmp/smoke
+          uv pip install --python /tmp/smoke/bin/python dist/fenolite-*.whl
+          test "$(/tmp/smoke/bin/fenolite --version)" = "fenolite ${TAG#v}"
+      - name: Is the version on PyPI already
+        id: pypi
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/fenolite/${TAG#v}/json")
+          echo "on_pypi=$([ "$code" = 200 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
           name: dist
@@ -41,6 +107,7 @@ jobs:
 
   publish:
     needs: build
+    if: needs.build.outputs.on_pypi != 'true'
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -50,8 +117,59 @@ jobs:
         with:
           name: dist
           path: dist/
-      # A version already on PyPI (published earlier, e.g. by a workflow_dispatch run) is skipped, so a
-      # GitHub Release made afterwards for that version still ends green; a new version is uploaded.
+      # A version that PyPI already holds is skipped, so a run made again for it still ends green.
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
+
+  github-release:
+    needs: [build, publish]
+    if: always() && needs.build.result == 'success' && needs.publish.result != 'failure' && needs.publish.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: The workflow's own tools
+        uses: actions/checkout@v4
+        with:
+          path: tooling
+      - name: The tagged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+          path: source
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Attach the files PyPI holds
+        run: python3 tooling/tools/release.py pypi-files --tag "$TAG" --dist dist
+      - name: Notes, checksums and latest
+        id: notes
+        working-directory: source
+        run: |
+          previous=$(git tag --list 'v*.*.*' --sort=-version:refname --merged "${TAG}" \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -vx "${TAG}" | head -n 1 || true)
+          git tag --list 'v*' > ../tags.txt
+          python3 ../tooling/tools/release.py notes --tag "$TAG" --dist ../dist --source . \
+            --previous "$previous" --pypi \
+            --run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" > ../notes.md
+          (cd ../dist && sha256sum -- * > SHA256SUMS)
+          echo "latest=$(python3 ../tooling/tools/release.py latest --tag "$TAG" --tags ../tags.txt)" >> "$GITHUB_OUTPUT"
+      - name: Create or update the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LATEST: ${{ steps.notes.outputs.latest }}
+        run: |
+          version="${TAG#v}"
+          prerelease=$([[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && echo false || echo true)
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Fenolite ${version}" \
+              --notes-file notes.md --prerelease="$prerelease" --latest="$LATEST"
+            gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --title "Fenolite ${version}" --notes-file notes.md \
+              --prerelease="$prerelease" --latest="$LATEST"
+          fi

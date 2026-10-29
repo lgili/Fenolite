@@ -55,11 +55,13 @@ The repository SHALL contain the directories `src/fenolite/`, `tests/unit/`, `do
 - **THEN** the file is not listed and `git check-ignore private/notes.md` succeeds
 
 ### Requirement: Package metadata
-`pyproject.toml` SHALL declare `[project.urls]` with exactly the keys `Homepage`, `Source`, `Issues` and `Changelog`. `Homepage` and `Source` MUST be `https://github.com/lgili/Fenolite`, `Issues` that address followed by `/issues`, and `Changelog` that address followed by `/blob/main/CHANGELOG.md`. The classifiers MUST hold exactly one `Development Status ::` entry, and it MUST be `Development Status :: 3 - Alpha` until a later change raises it.
+
+`pyproject.toml` SHALL declare `[project.urls]` with exactly the keys `Homepage`, `Source`, `Issues`, `Changelog` and `Documentation`. `Homepage` and `Source` MUST be `https://github.com/lgili/Fenolite`, `Issues` that address followed by `/issues`, `Changelog` that address followed by `/blob/main/CHANGELOG.md`, and `Documentation` that address followed by `/blob/main/docs/index.md`. The classifiers MUST hold exactly one `Development Status ::` entry, and it MUST be `Development Status :: 3 - Alpha` until a later change raises it.
 
 #### Scenario: Metadata checked
+
 - **WHEN** `uv run pytest tests/unit/test_pyproject_invariants.py -k "urls or classifier"` runs
-- **THEN** it passes, and the checks it calls report a problem for a missing key of `[project.urls]`, for an address outside the repository and for the status `2 - Pre-Alpha`
+- **THEN** it passes, and the checks report a problem for a missing Documentation link, an address outside the repository or the status `2 - Pre-Alpha`
 
 ### Requirement: Source distribution contents
 The `sdist` target of `pyproject.toml` SHALL use an allowlist (`[tool.hatch.build.targets.sdist] include`) and no `exclude` list, so that a file left in the repository root never ships. The allowlist MUST be exactly `/src`, `/tests`, `/docs`, `/examples`, `/schemas`, `/tools`, `/README.md`, `/CHANGELOG.md`, `/CONTRIBUTING.md`, `/LEGAL.md`, `/LEGAL-ANNEX.md`, `/LICENSE` and `/NOTICE`.
@@ -74,4 +76,3 @@ The `sdist` target of `pyproject.toml` SHALL use an allowlist (`[tool.hatch.buil
 - **GIVEN** a working tree that holds an untracked file `AGENTS.md.bak-1` in the root
 - **WHEN** `uv build --out-dir <scratch>` runs and the archive is listed with `tar tzf`
 - **THEN** the top-level names are `src`, `tests`, `docs`, `examples`, `schemas`, `tools`, the seven documents of the allowlist, and the files the build backend adds itself (`pyproject.toml`, `PKG-INFO`, `.gitignore`); the wheel is built from the archive
-

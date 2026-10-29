@@ -1157,9 +1157,11 @@ def symbol_scene(
     name: str,
     palette: dict[str, Any],
     evidence: str = "INFERRED",
+    show_properties: bool = True,
 ) -> dict[str, Any]:
     """The scene of one unit of a library symbol (change c0179), at the origin, on a sheet the size of the
-    symbol grown by 2.54 mm; ``sheet.origin`` is the symbol's origin."""
+    symbol grown by 2.54 mm; ``sheet.origin`` is the symbol's origin. Catalog previews may hide
+    property text while retaining it in component metadata; ordinary libraries draw it as stored."""
     b = _Builder(palette)
     big = 10**12
     b.box = [big, big, -big, -big]
@@ -1197,6 +1199,8 @@ def symbol_scene(
                 b.current = oid
                 _graphic(b, graphic, IDENT, "component_outline", lib=True)
     for key, prop in props.items():
+        if not show_properties:
+            continue
         size, h, v, hidden = _effects(prop)
         text = _text(prop, 1)
         values = _nums(prop.find("at"))

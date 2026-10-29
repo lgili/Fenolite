@@ -9,7 +9,11 @@ requirements. The normative text is in `openspec/specs/board-analyses/spec.md`; 
 **Fenolite measures; you decide.** No analysis claims conformance to a safety or design standard.
 Fenolite ships no requirement value: no table from voltage to distance, no default temperature rise, no
 default copper, plating or board thickness. A finding exists only against a requirement that you give.
-Every reply carries `evidence.level` `INFERRED` or lower.
+Every reply carries `evidence.level` `INFERRED` or lower. The one exception is the role profile of the net
+roles (`docs/roles.md`, "Default limits"): it lives outside `src/fenolite/analysis/`, serves only
+`fenolite roles --check` and the stage `roles.rules` of `check`, and `fenolite analyze` never reads it. The
+rows that the roles derive from it and pass to these analyses give no `analysis.*` finding; the roles judge
+their measures themselves.
 
 ## Current capacity
 
@@ -153,6 +157,232 @@ and on the readable corpus boards (`docs/evidence/routing.md`, "Open connections
 query has no cap. An item that cannot be shaped is counted per net in `unsupported`, gives one
 `analysis.item-unsupported` warning per kind, and lowers the reply to `UNVERIFIED`.
 
+## Ground ties
+
+Is this tie the only joint between the two areas of a ground? `fenolite analyze --kinds ties` (change c0198)
+proves it by removing exactly the tie's own copper and looking at what is left. A test that removes copper by
+area also removes copper of the sides beside the tie, and so tests another board.
+
+```console
+fenolite analyze board.kicad_pcb --kinds ties --tie NT1
+fenolite analyze board.kicad_pcb --kinds ties --tie-item 0de2fc2f-48ed-41e7-86ba-40f1ba9b6711 --domains PWR=Q*,CTL=U*
+fenolite analyze board.kicad_pcb --kinds ties --sense ISENSE_P,ISENSE_N
+fenolite analyze board.kicad_pcb --kinds domains --barrier U5,T1
+```
+
+- **What the tie is.** `--tie REF` names a part, often a net-tie part: its pads are removed.
+  `--tie-item ID[,ID...]` names tracks, arcs, vias or zones by model id, KiCad uuid or locator. A zone's id
+  removes all its fill polygons. One option is one tie, and both options repeat. Nothing else is removed, even
+  copper inside the tie's box.
+- **The graph** holds the tie's nets: one node per pad, track, arc and via, and one per fill polygon, joined
+  where copper touches on a layer, as in "Open connections". Fills are taken as stored. An unfilled zone of
+  those nets is named in the row (`zones: "unfilled"`) with `analysis.input-missing`: fill the board first.
+- **The groups** are the connected parts, after the removal, that touch the tie. Each lists its pads
+  (`REF-PIN`). Two or more groups: the tie splits the net (`split: true`).
+- **A second joint.** One group means another path joins the tie's sides: `analysis.tie-parallel` (error),
+  with the shortest such path in `path` (in items), for example fill → via → track → via → fill. The sides
+  of a part are its pads by net. The sides of copper items are the free ends of their chain. A tie that
+  touches fewer than two items joins nothing (`analysis.tie-dangling`), and a name that matches nothing is
+  `analysis.tie-unmatched`.
+- **Domains.** `--domains PWR=Q*,CTL=U*` names two groups of pads by `REF-PIN` pattern; a name may repeat
+  to add a pattern. After a split, a group that holds pads of both domains has an extra joint:
+  `analysis.tie-extra` (error) names the stray pad (the domain with fewer pads there) and the path to the
+  other domain. The pad is listed in the row's `extra`.
+- **Sense nets.** `--sense ISENSE_P,ISENSE_N` checks a Kelvin connection. Copper of a sense net that touches
+  copper of another net is `analysis.sense-shared` (error), naming both items: for example a sense track
+  that starts on the pour of the bus beside the shunt pad. The one exception is two pads of one footprint
+  in one net-tie group: the sense pad of a shunt footprint built as a net tie.
+- **Isolation islands.** `--kinds domains --barrier U5` reads no copper. Every part but the barriers
+  joins the nets of its pins. The reply lists the islands of nets that remain, each with the barrier parts
+  that bound it, so that a plan of domains can be compared with the circuit.
+
+The level is `INFERRED`: graph reasoning on the board's own copper, proved on authored benches
+(`tests/_groundties.py`). Without board-frame pads, or with copper that could not be shaped, it is
+`UNVERIFIED`. `fenolite check` and KiCad's DRC still judge the board; a net tie that KiCad accepts is not
+proved to be the only joint by the DRC.
+
+## Barrier crossings
+
+How many tracks can still cross this barrier, and how many must? `fenolite analyze --kinds crossings`
+(change c0199) answers it for a cut: a segment drawn across a row of pads, a gap between two regions or a
+slot.
+
+```console
+fenolite analyze board.kicad_pcb --kinds crossings --cut 10mm,20mm,27.78mm,20mm --width 0.25mm
+```
+
+- **The cut** is `--cut X1,Y1,X2,Y2`, each value a length with its unit (repeatable). Positions along it
+  are nanometres from its first end.
+- **The new track** has the width `--width` and the clearance `--clearance`. By default they are the
+  narrowest width of the board's net classes and that class's clearance; without either nothing is
+  counted, and `analysis.input-missing` says so.
+- **The obstacles** on each copper layer:
+  - the copper of every item, grown by the larger of that clearance and the clearance of the item's class;
+  - the board edge and the cut-outs, grown by a board-wide `edge_clearance` rule, else by the clearance,
+    and everything outside the outline;
+  - holes without copper, grown by the clearance;
+  - rule areas that forbid tracks on that layer.
+- **The ways** are the free intervals left. A way of length `L` fits `⌊(L + c) / (w + c)⌋` tracks,
+  because `n` tracks take `n·w + (n − 1)·c`. Example: 1 mm pads at a 2.54 mm pitch leave 1.54 mm of
+  board, 1.14 mm of way at 0.2 mm, and two tracks of 0.25 mm.
+- **The demand** per net: the open connections whose straight line crosses the cut (those of "Open
+  connections"), and the tracks and arcs that already cross it. Routed copper is also an obstacle.
+- **Short.** When the open connections exceed the tracks of all layers together,
+  `analysis.crossings-short` (warning) names the cut and both counts.
+
+The answer is an upper bound on what a router can do: it ignores vias and the turns before and after the
+cut. Intersections are rounded outward, so an obstacle is never shorter than its exact interval. Each way
+carries its two ends on the board (`a`, `b`) and each layer its obstacles, so a drawing can be made from
+the reply. The level is `INFERRED`, proved on benches whose ways are counted by hand
+(`tests/_crossbench.py`).
+
+## Return paths
+
+Does every signal have its plane under it? `fenolite analyze --kinds returns --net GLOB` (change c0202) reads
+the board's own copper.
+
+```console
+fenolite analyze board.kicad_pcb --kinds returns --net 'SPI_*' --net 'ADC_*'
+fenolite analyze board.kicad_pcb --kinds returns --net CLK --reference GND --via-distance 1mm
+```
+
+- **The reference.** The reference layers of a copper layer are the copper layers next to it in the
+  board's order: one for an outer layer, two for an inner one. The reference copper is the stored fill
+  of the nets of `--reference` on those layers, or by default of every other net that has a fill there.
+  Fill the zones first: an unfilled zone is no reference.
+- **Spans.** A track or an arc is referenced where its centre line lies over reference copper on at least
+  one reference layer. The rest are spans, each with its layer, its item, its two ends and its length:
+  - a `split` span lies inside the track, with reference copper on both sides: the track crosses a gap or
+    a split. It is `analysis.return-split` (warning);
+  - an `edge` span reaches an end of the track, where it leaves the plane (toward a connector, say). It is
+    listed, not judged.
+- **Vias.** Each via of a net is paired with the nearest via of a reference net. With `--via-distance
+  LENGTH`, a farther one, or none, is `analysis.return-via` (warning).
+
+The row of a net holds `length` (its centre lines), `unreferenced`, `spans` and `vias`. A span at the joint
+of two tracks counts as an edge of each. The level is `INFERRED` (`H-G-RETURN-PATH`), on the bench
+`tests/_returnbench.py`.
+
+## Practice checks
+
+Six kinds of change c0204 check the practice that a design rule does not express. Each reports facts; an
+error comes only from a row of your requirements file. They run only when you name them.
+
+```console
+fenolite analyze board.kicad_pcb --kinds connectivity,dead --dead-distance 5mm
+fenolite analyze board.kicad_pcb --kinds decoupling,bodies,relief --requirements requirements.toml --copper-thickness 35um
+```
+
+- **Copper states.** `connectivity`, `dead`, `bodies` and `relief` take each zone layer in one of three
+  states, listed in `result.pours` and named in every row (`copper`):
+  - `saved_fill`: the fill stored in the file;
+  - `simulated`: the file holds no fill on the layer (`no-fill`), or the stored fill is stale: it puts copper
+    outside its zone outline, outside the board or in a cut-out, inside a keep-out that forbids pours, or on
+    copper of another net (`stale: …`). Fenolite then pours the zone itself;
+  - `outline`: the pour would need more than 4 000 000 cells; the zone outline is taken as the copper, an
+    upper bound.
+- **The simulated pour** is a raster of square cells, 0.1 mm unless `--pour-grid` says otherwise, aligned
+  on the board origin. Zones are poured by priority, highest first. A cell is copper when its centre lies
+  inside the zone outline, inside the board and at least the clearance from its edge, outside the
+  keep-outs that forbid pours, at least the clearance plus half the width from copper of another net, and
+  at least the clearance plus one cell from a cell of an earlier zone of another net. The clearance is the
+  largest of the zone's own and the class clearances of the two nets. Cells joined by a side are islands;
+  an island that touches no pad, track, arc or via of the net is dropped and counted (`dropped`). The pour
+  has no thermal spokes, no minimum width and no clearance around holes without copper: it joins its pads
+  solidly, and says where the copper is to within one cell (`H-G-PRACTICE-POUR`). Refill the board to
+  measure the real fill.
+- **`connectivity`.** The copper of each net is joined where items touch on a layer, and through the
+  islands of its simulated pours. One row per net that owns a zone or falls apart: its `groups` of pads and
+  `split`. A net in two or more groups is `analysis.net-split` (warning): a cut-out drawn after the last
+  fill typically leaves a pin open (`H-G-PRACTICE-GROUPS`).
+- **`dead`.** A fill polygon whose group holds no pad is `analysis.copper-dead` (warning). With
+  `--dead-distance LENGTH`, every track, arc, via and fill polygon farther than that from every pad of its
+  net is `analysis.copper-far` (warning), with its distance (`H-G-PRACTICE-DEAD`).
+- **`decoupling`.** For each pad of a pin of type power input, the nearest capacitor pad on its net (a
+  capacitor is a part whose reference is `C` and a digit), the `distance` along copper and the `straight`
+  distance, the part's `ret` pad on the net of the capacitor's other pad, and `loop_area_nm2`, the area of
+  the polygon pin, capacitor, capacitor's other pad, return pad. The distance along copper is the shortest
+  chain of straight steps between points that lie on one copper item: exact along straight tracks, a lower
+  bound through pads, arcs and pours. It reads the stored fills; a simulated pour is not walked. A
+  `[[decoupling]]` row that names the part makes a larger distance, or no capacitor, an
+  `analysis.decoupling-far` error (`H-G-PRACTICE-DECOUPLING`).
+- **`bodies`.** For each `[[body_copper]]` row, each part it names and each layer it forbids: the copper of
+  the nets of its class inside the part's plan view, the part's own pads left out. The plan view is the
+  outline of the part's bodies (an Altium board holds them), else its courtyard (`plan`). Copper found is
+  `analysis.body-copper` (error). A KiCad board file holds no net class (they live in the project file,
+  which `analyze` does not read), so on a KiCad board every net is in `Default` (`H-G-PRACTICE-BODIES`).
+- **`relief`.** For each pad joined to a zone of its net by thermal relief (the pad's connection, else the
+  zone's), the copper of the stored fill that crosses a ring at the pad's edge (the box of its copper grown
+  by half the thermal gap): the `spokes` and their total `width`. With a `[[current]]` row of the net and a
+  copper thickness, the capacity of that width by the fit of "Current capacity"; a capacity below the row's
+  current, or no spoke, is `analysis.relief-exceeded` (error). A simulated pour has no spokes: its width is
+  `null` (`H-G-PRACTICE-RELIEF`).
+
+The level of each kind is `INFERRED`, `UNVERIFIED` when an item could not be shaped, on the benches of
+`tests/_practicebench.py`.
+
+## Pour shapes
+
+Three kinds of change c0213 look at the shape of the copper. They run only when you name them, and take the
+zones in the copper states of "Practice checks", on the same raster (`--pour-grid`).
+
+```console
+fenolite analyze board.kicad_pcb --kinds necks,loops,balance --requirements requirements.toml --pour-grid 0.05mm
+```
+
+- **Widths.** The copper of a net on a layer is the cells of its stored fills and of the kept islands of its
+  simulated pours; an `outline` zone layer is skipped and counted (`skipped`). The width of a cell is the
+  shortest run of copper cells through it along the two axes (`n·g`) and the two diagonals (`n·g·√2`). It
+  measures a band crossed within 22.5° of a run to within one cell and 8 %; make the grid a fifth of the
+  width or less.
+- **`necks`.** For each net with a zone that a `[[neck]]` row selects (the matching row with the largest
+  width governs), the places narrower than its `min_width_nm`, each an `analysis.neck-narrow` error:
+  - a `neck`: a thin cell that joins two wider parts of one island, the cells added widest first; it is the
+    narrowest place of the widest path between them. A narrowing beside a wider parallel path is no neck;
+  - a `tip`: thin cells that reach at least the width from one patch of wider copper (`extent`): a finger,
+    or a tip sharper than about 50°. The convex corner of a pour is no tip;
+  - a `sliver`: an island narrower than the width everywhere.
+
+  Without a row the kind measures nothing and reports `analysis.input-missing` (`H-G-SHAPE-NECK`).
+- **`loops`.** For each `[[loop]]` row, the area of the closed path through its pads in order. A leg
+  between two pads of one net that copper joins follows the shortest path along copper of `decoupling`
+  (stored fills walked, a simulated pour not); any other leg is straight, through a part or across a gap,
+  and says so. An area above `max_area_nm2` is `analysis.loop-area` (error). `--loop-baseline FILE`
+  measures the same rows on another board, an earlier version for example, and gives `baseline_nm2` and
+  `change_nm2` (`H-G-SHAPE-LOOP`).
+- **`balance`.** For each part with exactly two SMD pads on one layer, the copper of each pad's net joined
+  to the pad inside the box of the pad grown by its larger side, the pad left out (`copper_nm2`), and the
+  ratio of the larger to the smaller in permille: a pad in a pour beside a pad on a thin track warms
+  unevenly and may tombstone. Nothing is judged (`H-G-SHAPE-BALANCE`).
+
+The level of each kind is `INFERRED`, `UNVERIFIED` when an item could not be shaped, on the benches of
+`tests/_shapebench.py`.
+
+## Coupling screen
+
+Which aggressor runs beside which victim? `fenolite analyze --kinds coupling --aggressor GLOB --victim
+GLOB` (both repeatable and required; change c0204) ranks the pairs.
+
+```console
+fenolite analyze board.kicad_pcb --kinds coupling --aggressor 'PHASE_*' --aggressor LED --victim ISENSE --board-thickness 1.6mm
+```
+
+- **Parallel stretches.** Two pieces of the tracks and arcs of an aggressor and a victim on one layer run in
+  parallel where their directions differ by at most 1 % in sine, over the overlap of their projections.
+  `s` is the edge gap there, the smaller of the gaps at the two ends of the overlap. A stretch counts when
+  `s` is at most ten times `h`; beyond that its weight is below 1 %.
+- **Score.** `Σ ℓ / (1 + (s/h)²)` over the stretches, rounded down, with `h` the depth through the stack-up
+  from the layer to the nearest other copper layer that holds a fill, else the board thickness
+  (`--board-thickness` or the stack-up's). Without either, nothing is scored and `analysis.input-missing`
+  says so. **The score ranks pairs. It is not a voltage**, and the reply's summary says so.
+- **Broadside.** Pieces on neighbouring copper layers whose centre lines lie closer in plan than the sum of
+  their half-widths overlap broadside; `broadside` is that length.
+- **Victims.** `result.coupling_victims` gives each victim's length and the share of it, in per mille, with
+  reference copper under it, as "Return paths" measures it.
+
+Rows are sorted by score, highest first. Nothing is judged: there is no requirement row for coupling. The
+level is `INFERRED` (`H-G-PRACTICE-COUPLING`).
+
 ## Power paths
 
 A `[[current]]` row says that every item of a net carries the row's current, a branch to a capacitor
@@ -217,6 +447,30 @@ Limits of the power paths:
   `analysis.path-open`. A via counts at one diameter on every layer of its span, also where the document
   holds no pad shape for it.
 - **Copper graphics**, those of a footprint included, are counted and not used.
+
+### The split of the current
+
+`--split` (with `--kinds power`, change c0213) solves each power path on the raster of its net's copper and
+gives each track, arc, fill and via its share of the path's current in permille (`result.split`), and the
+current of each with a `[[path]]` row.
+
+```console
+fenolite analyze board.kicad_pcb --kinds power --split --path J1-1 U1-1 --copper-thickness 35um --via-plating 25um
+```
+
+- The cells are nodes of a network of resistors. The cells of a pad or a via on a layer are one ideal
+  contact; contacts that touch are one. Neighbour cells are joined by the conductance of a square of copper
+  of the layer, doubled at the edge of a contact; the layers of a via are joined by its barrel, with the
+  plating you give and the depths of the stack-up. Fenolite assumes no thickness, plating or stack-up:
+  without one, the path is not split and `analysis.input-missing` says what is missing.
+- The start pads are held at one potential and the end pads at another; the potentials are found by
+  over-relaxation in integers. A via carries the flow through its barrel; a track, an arc or a fill the
+  current into the cells it alone covers. A row says how many passes it took and whether it `converged`.
+- With `--resistivity`, `resistance_uohm` is the path's resistance on the raster, and `within` says whether
+  it lies in the interval of the power path (`bounds`). Both hold the pads as contacts on fills; on a path
+  of tracks the interval counts the track from the centres of its pads, so the solve can lie below it.
+- It is an estimate on a raster, not a field simulation, and judges nothing: a share does not decide an
+  `analysis.path-undecided` element. The level is `INFERRED` (`H-G-POWER-SPLIT`).
 
 ## Insulation between layers
 
@@ -547,6 +801,50 @@ groove_nm = 1000000
   the creepage path of the pair ("Grooves"). The largest of the matching rows and of `--groove-width`
   governs.
 
+Change c0204 adds two optional tables for the practice checks, neither with a default. This example is
+authored for Fenolite; its values are illustrative, not requirements:
+
+```toml
+# authored for Fenolite; illustrative values, not requirements
+schema = "fenolite.requirements.v0"
+
+[[decoupling]]
+parts = "U*"
+max_distance_nm = 2000000
+
+[[body_copper]]
+netclass = "HV"
+parts = "C*"
+layers = ["F.Cu"]
+```
+
+- **`[[decoupling]]`.** `parts`, a glob of references, and `max_distance_nm`, the largest distance along
+  copper from a supply pin of those parts to its nearest capacitor ("Practice checks").
+- **`[[body_copper]]`.** `netclass`, a glob of net classes; `parts`, a glob of references; `layers`, the
+  copper layers (names or globs) where that class may not lie under those parts.
+
+Change c0213 adds two more for the pour shapes, neither with a default. This example is authored for
+Fenolite; its values are illustrative, not requirements:
+
+```toml
+# authored for Fenolite; illustrative values, not requirements
+schema = "fenolite.requirements.v0"
+
+[[neck]]
+select = { net = "GND" }
+min_width_nm = 500000
+
+[[loop]]
+name = "input"
+pads = ["U1-4", "C1-1", "C1-2", "U1-2"]
+max_area_nm2 = 10000000000000
+```
+
+- **`[[neck]]`.** `select`, a net or net-class glob as in `[[current]]`, and `min_width_nm`, the narrowest
+  width a pour of those nets may have ("Pour shapes").
+- **`[[loop]]`.** `name`, unique; `pads`, two or more pad names `REF-PIN` in order around the loop; and
+  `max_area_nm2`, optional, the largest area of the loop.
+
 ## The command
 
 ```console
@@ -557,9 +855,16 @@ fenolite analyze board.kicad_pcb --kinds clearance --within 0.5mm
 fenolite analyze board.kicad_pcb --kinds power --path J1-1 U1-1 --temp-rise 10 --copper-thickness 35um
 fenolite analyze board.kicad_pcb --kinds creepage,insulation --pair HV LV --groove-width 1mm
 fenolite analyze board.kicad_pcb --kinds length --net 'USB_*' --from U1
+fenolite analyze board.kicad_pcb --kinds ties --tie NT1 --domains 'PWR=Q*,CTL=U*'
+fenolite analyze board.kicad_pcb --kinds domains --barrier U5
+fenolite analyze board.kicad_pcb --kinds crossings --cut 10mm,20mm,40mm,20mm --width 0.25mm
+fenolite analyze board.kicad_pcb --kinds connectivity,dead --pour-grid 0.25mm
+fenolite analyze board.kicad_pcb --kinds loops --requirements requirements.toml --loop-baseline old.kicad_pcb
 ```
 
-The kinds `power`, `insulation` and `length` run only when you name them.
+The kinds `power`, `insulation`, `length`, `ties`, `domains`, `crossings`, `returns`, `decoupling`,
+`connectivity`, `bodies`, `relief`, `dead`, `coupling`, `necks`, `loops` and `balance` run only when you
+name them.
 
 The command is read-only: it runs no tool and writes no file. An error finding gives exit code 5. The
 options and the result keys are in `docs/cli-contract.md`.

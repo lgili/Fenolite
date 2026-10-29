@@ -291,13 +291,20 @@ def subrecord(data: bytes) -> bytes:
     return struct.pack("<I", len(data)) + data
 
 
-def prefix(layer: int, *, net: int = NO_INDEX, component: int = NO_INDEX, locked: bool = False) -> bytes:
-    """The common 13 bytes: layer, the two flag bytes, net, polygon (none), component and ``FF FF FF FF``.
-    ``locked`` clears bit 2 of the first flag byte."""
+def prefix(
+    layer: int,
+    *,
+    net: int = NO_INDEX,
+    component: int = NO_INDEX,
+    locked: bool = False,
+    polygon: int = NO_INDEX,
+) -> bytes:
+    """The common 13 bytes: layer, the two flag bytes, net, polygon (none unless ``polygon``, change c0215),
+    component and ``FF FF FF FF``. ``locked`` clears bit 2 of the first flag byte."""
     if not 0 < layer < 256:
         raise ValueError(f"layer id {layer} is not one byte")
     flags = LOCKED_FLAGS if locked else FLAGS
-    return struct.pack("<BBBHHH", layer, *flags, net, NO_INDEX, component) + b"\xff" * 4
+    return struct.pack("<BBBHHH", layer, *flags, net, polygon, component) + b"\xff" * 4
 
 
 def lock_written(kind: str, locked: bool) -> bool:
@@ -765,6 +772,51 @@ def region_record(
             body += struct.pack("<B5i2d", 0, x, y, 0, 0, 0, 0.0, 0.0)
     else:
         for x, y in vertices:
+            body += struct.pack("<2d", float(x), float(y))
+    return bytes((REGION,)) + subrecord(body)
+
+
+def polygon_region(
+    layer: int,
+    outer: Sequence[tuple[int, int]],
+    holes: Sequence[Sequence[tuple[int, int]]],
+    *,
+    polygon: int,
+    piece: int,
+    arc_resolution: str,
+    shape_based: bool = False,
+) -> bytes:
+    """One piece of the pour of a polygon (change c0215; ``pcb-pour.md``, "Saved poured regions" and
+    "Fenolite's choices"): a region whose prefix names no net and the polygon's position ``polygon`` in
+    ``Polygons6``, with the keys of a free region, ``SUBPOLYINDEX`` the piece's number and ``ARCRESOLUTION``
+    the polygon's text. ``outer`` runs clockwise and each hole anticlockwise in the file's frame, in binary
+    units, without a closing vertex. The holes follow the outline as plain vertex lists in both forms; the
+    shape-based form repeats the first vertex of the outline after the last."""
+    if len(outer) < 3 or any(len(hole) < 3 for hole in holes):
+        raise ValueError("a poured region needs rings of at least three vertices")
+    fields: list[Field] = [
+        ("V7_LAYER", v7_layer(layer)),
+        ("NAME", " "),
+        ("KIND", "0"),
+        ("SUBPOLYINDEX", str(piece)),
+        ("UNIONINDEX", "0"),
+        ("ARCRESOLUTION", arc_resolution),
+        ("ISSHAPEBASED", "FALSE"),
+        ("CAVITYHEIGHT", "0mil"),
+    ]
+    text = "|".join(f"{key}={value}" for key, value in fields).encode("ascii") + b"\0"
+    head = prefix(layer, polygon=polygon)
+    body = head + b"\0" + struct.pack("<H", len(holes)) + bytes(2)
+    body += struct.pack("<I", len(text)) + text + struct.pack("<I", len(outer))
+    if shape_based:
+        for x, y in (*outer, outer[0]):
+            body += struct.pack("<B5i2d", 0, x, y, 0, 0, 0, 0.0, 0.0)
+    else:
+        for x, y in outer:
+            body += struct.pack("<2d", float(x), float(y))
+    for hole in holes:
+        body += struct.pack("<I", len(hole))
+        for x, y in hole:
             body += struct.pack("<2d", float(x), float(y))
     return bytes((REGION,)) + subrecord(body)
 

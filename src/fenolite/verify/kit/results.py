@@ -32,7 +32,7 @@ from typing import Any, Literal, cast
 from fenolite.core.io import sha256_bytes
 from fenolite.verify.kit.manifest import EXPECTED_FILE, FORM_FILE, FORM_SCHEMA, Kit, load_kit
 from fenolite.verify.kit.script import DONE, LOG, log_outcomes
-from fenolite.verify.kit.steps import KIT_SAMPLE, PENDING_REASONS, RESULTS, Step
+from fenolite.verify.kit.steps import KIT_SAMPLE, PENDING_REASONS, PROBE_ROWS, RESULTS, Step
 
 Outcome = Literal["pass", "fail", "skipped"]
 HypothesisOutcome = Literal["pass", "fail", "skipped", "pending"]
@@ -40,7 +40,19 @@ DocumentJudge = Callable[[str, Path, Path], Sequence[str]]
 """``judge(check, own, saved)``: the problems the machine check ``check`` finds on the file ``saved`` that
 a run left, against the kit's document ``own``; empty for a pass."""
 
-JUDGED_CHECKS = frozenset({"resave", "netlist", "parity", "poured", "copper.clearance"})
+JUDGED_CHECKS = frozenset(
+    {
+        "resave",
+        "netlist",
+        "parity",
+        "poured",
+        "copper.clearance",
+        "repoured",
+        "pour-match",
+        "pour-same",
+        "pour-kept",
+    }
+)
 """The checks that read a document; the others read text or only look for the file."""
 ALTIUM_VERSION = re.compile(r"AD [0-9]+\.[0-9]+")
 OS_FAMILIES = ("Windows", "Linux", "macOS")
@@ -362,7 +374,11 @@ def _strays(saved: Path, asked: frozenset[str], root: Path) -> list[str]:
 
 
 def _file_step(
-    step: Step, root: Path, judge: DocumentJudge, asked: frozenset[str] = frozenset()
+    step: Step,
+    root: Path,
+    judge: DocumentJudge,
+    asked: frozenset[str] = frozenset(),
+    steps: Mapping[str, Step] | None = None,
 ) -> tuple[Outcome, tuple[str, ...]]:
     saved = root.joinpath(RESULTS, *PurePosixPath(step.result).parts)
     if not saved.is_file():
@@ -380,7 +396,15 @@ def _file_step(
     reasons: list[str] = []
     told: set[str] = set()
     for check in step.checks:
-        if check in JUDGED_CHECKS:
+        if check == "pour-same":
+            # the board of the named step is the other side (change c0215)
+            other = (steps or {}).get(step.same_as)
+            board = root.joinpath(RESULTS, *PurePosixPath(other.result).parts) if other is not None else None
+            if board is None or not board.is_file():
+                reasons.append(f"{check}: the saved board of {step.same_as} does not exist")
+            else:
+                reasons += [f"{check}: {text}" for text in judge(check, board, saved)]
+        elif check in JUDGED_CHECKS:
             # two checks of one step may find the same thing (a file of another kind): it is said once
             found = [text for text in judge(check, own, saved) if text not in told]
             told.update(found)
@@ -390,6 +414,26 @@ def _file_step(
         elif check == "listing":
             reasons += [f"{check}: {text}" for text in _listing(data)]
     return ("fail", tuple(reasons)) if reasons else ("pass", ())
+
+
+PROBE_REASON = re.compile(r"pour-match: probe (P[0-9]+)\b")
+"""How a reason of ``pour-match`` names a failing probe (``cli._kit.judge_document``)."""
+
+
+def _probe_outcome(verdict: StepVerdict, probes: Sequence[str]) -> Outcome:
+    """The outcome of a step for an input row that its ``probes`` settle (change c0215): only ``repoured``
+    and ``pour-match`` judge the row. A failure of ``pour-match`` that names another probe leaves it passing;
+    one that names no probe, and a repour that did not run, fail it."""
+    if verdict.outcome != "fail":
+        return verdict.outcome
+    for reason in verdict.reasons:
+        if reason.startswith("repoured:"):
+            return "fail"
+        if reason.startswith("pour-match:"):
+            match = PROBE_REASON.match(reason)
+            if match is None or match.group(1) in probes:
+                return "fail"
+    return "pass"
 
 
 def _hypotheses(kit: Kit, steps: Sequence[StepVerdict]) -> tuple[HypothesisVerdict, ...]:
@@ -403,6 +447,8 @@ def _hypotheses(kit: Kit, steps: Sequence[StepVerdict]) -> tuple[HypothesisVerdi
         members = named[ident]
         outcomes = [by_id[step.id].outcome for step in members]
         outcome: HypothesisOutcome
+        if ident in PROBE_ROWS:
+            outcomes = [_probe_outcome(by_id[step.id], PROBE_ROWS[ident]) for step in members]
         if "fail" in outcomes:
             outcome = "fail"
         elif "skipped" in outcomes:
@@ -474,7 +520,7 @@ def verify_results(folder: Path, *, judge: DocumentJudge) -> KitVerdict:
         elif step.kind == "form":
             outcome, reasons = _typed(step, values.get(step.result))
         else:
-            outcome, reasons = _file_step(step, root, judge, asked)
+            outcome, reasons = _file_step(step, root, judge, asked, {item.id: item for item in kit.steps})
         verdicts.append(
             StepVerdict(step.id, step.sample, step.kind, outcome, reasons, scripted, _pending(step))
         )

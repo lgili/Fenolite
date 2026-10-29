@@ -77,6 +77,25 @@ board thickness, and the finish `None`. `export --gerbers` then gives one `expor
 (`where` `gerbers`), so the default is not taken for the design's; declare the stack-up with
 `design.stackup()` or in KiCad's Board Setup. The note changes no file and does not stop the writes: only an error does (change c0101; measurements in `docs/evidence/kicad-stackup.md`).
 
+## Read-back
+
+`fenolite export ... --readback` (change c0203) reads the files back before they are written, with
+Fenolite's own readers of what `kicad-cli` writes (`docs/formats/kicad/gerber.md`,
+`docs/formats/kicad/drill.md`), and checks:
+
+- the outline (file function `Profile`) closes into one contour per ring of the board, the outer edge,
+  each cut-out and each slot, matched by their boxes within the band of the board's arcs;
+- each drill hit and slot matches a hole of the board, a drilled pad or a via, in position and diameter
+  (1 µm) and plating (the `Plated` or `NonPlated` file), and each hole has one;
+- each row of the position file matches its footprint's position, rotation and side;
+- each copper layer has a Gerber file with the function `Copper,L<n>,…`, and the file of a layer that
+  holds copper draws something.
+
+A finding is an `export.readback-*` error and the export writes nothing. A construct outside the readers'
+subset (another coordinate format, inches, step and repeat, a zero-suppressed drill coordinate) is
+`export.readback-unsupported`: the readers never guess. A preset that changes those formats cannot be read
+back. The level is `KICAD-VERIFIED` for the subset (`H-K-READBACK-SUBSET`).
+
 ## Documents
 
 Six more kinds are documents for a manufacturer or an enclosure designer. Each is selected by its own
@@ -406,6 +425,24 @@ proportions, so a PNG may be smaller than the size asked for.
 
 `fenolite check PATH --stages render` proves that the board plots without writing anything: the stage
 reports the size and SHA-256 of each view. It runs only when named.
+
+### Region renders
+
+```
+fenolite render build/blink --out views --region 0mm,0mm,20mm,20mm --nets --open --confirm
+fenolite render build/blink --out views --region 5mm,5mm,35mm,35mm --cut 10mm,20mm,27.78mm,20mm --confirm
+```
+
+`--region` draws one rectangle of the board into `views/region.svg`. Fenolite draws it from the model
+without `kicad-cli`, for looking at a crowded area. It holds the pads, tracks, arcs, vias, holes, slots,
+zone copper and board edge, and a grid labelled in millimetres of board coordinates (`--grid 1mm` sets its
+step). `--nets` labels each pad with its net, and `--open` draws each open connection as a straight line
+between its two ends. `--cut` draws a barrier cut with its free ways on each layer, from the crossing
+analysis (`--cut-width` and `--cut-clearance` give the track to fit).
+
+A zone is drawn as its saved fill. When it has no fill, or a stale one, it is drawn as the simulated pour
+of the practice checks; `result.region.copper` and the info `render.copper-simulated` say so. Each element
+of the SVG has a `class` and `data-*` attributes, so the file can be read as data as well as looked at.
 
 ## Where they sit in the loop
 

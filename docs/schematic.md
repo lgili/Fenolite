@@ -255,4 +255,7 @@ only gains the name of its unconnected pin does not make a fill stale.
   function and type to each pad, and moved nothing. A rebuild over a board with such additions keeps
   every position and track (`H-K-SCH-UPDATE`). For a part of a module the path that the update writes
   was not measured either; the build writes the path of KiCad's netlist.
-- `fenolite check` does not run KiCad's ERC yet; run `kicad-cli sch erc` on the built folder.
+- `fenolite check` includes KiCad's ERC by default through the `erc.kicad` stage. It requires a
+  compatible `kicad-cli`; use `fenolite check build/blink --stages erc.kicad --json` to select only
+  that stage. A missing tool or a skipped stage is not a successful ERC. See
+  [the command contract](cli-contract.md) for stage selection and external-tool errors.

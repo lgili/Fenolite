@@ -18,6 +18,7 @@ CODE = ("check.", "erc.lite.", "netlist.", "render.", "copper.", "zone.", "parit
 TABLE = {
     "check.read-refused": ("error",),
     "check.cache-unreadable": ("warning",),
+    "check.roles-unreadable": ("error",),  # c0222
     "check.footprint-unresolved": ("error",),
     "check.symbol-unresolved": ("error",),
     "check.rt1-failed": ("error",),
@@ -68,6 +69,10 @@ TABLE = {
     "parity.pad-without-pin": ("info",),
     "check.waiver-unmatched": ("warning",),
     "check.exclusion-stale": ("warning",),
+    "check.exclusion-unmatched": ("error",),
+    "check.exclusion-ambiguous": ("error",),
+    "check.exclusion-unlocated": ("error",),
+    "check.exclusion-present": ("info",),
     "placement.too-far": ("error", "warning"),
     "placement.rule-unresolved": ("error",),
     "placement.rule-skipped": ("info",),

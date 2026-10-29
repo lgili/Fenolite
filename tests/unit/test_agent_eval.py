@@ -762,17 +762,32 @@ def test_consent_with_yes_reaches_the_start(monkeypatch: pytest.MonkeyPatch, tmp
 
 
 def test_unconfigured_row_is_refused(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The committed row of the first real agent cannot start, even with ``--yes``, until it is completed."""
+    """A row with ``unconfigured`` cannot start, even with ``--yes``."""
     tried = _no_start(monkeypatch)
     monkeypatch.delenv("CI", raising=False)
-    row = run.load_runners()["claude-code"]
-    assert row.unconfigured and row.version_argv == () and row.source == "S-0618"
-    assert run.main(["--task", "led-indicator", "--runner", "claude-code", "--yes"]) == 2
+    path = _runners(tmp_path)
+    path.write_text(
+        path.read_text(encoding="utf-8")
+        + '\n[half-done]\nargv = ["x", "{prompt}"]\nskill = "none"\nsource = "S-0618"\n'
+        'unconfigured = "the version flag is unknown"\n',
+        encoding="utf-8",
+    )
+    assert run.main(["--task", "led-indicator", "--runner", "half-done", "--yes"], runners=path) == 2
     said = capsys.readouterr()
     assert "not configured" in said.err and said.out == ""
     assert tried == []
+
+
+def test_claude_code_row_is_configured() -> None:
+    """The committed row of the first real agent is complete: checked against the help of an
+    installed version, isolated, capped, and given the guide that --bare does not discover (c0081, task
+    4.2)."""
+    row = run.load_runners()["claude-code"]
+    assert not row.unconfigured and row.version_argv == ("claude", "--version") and row.source == "S-0832"
+    assert "--bare" in row.isolation and row.budget_flag == ("--max-budget-usd", "2")
+    assert "{workdir}/.claude/skills/fenolite/SKILL.md" in row.argv
 
 
 def test_usage_guards(

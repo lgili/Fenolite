@@ -37,6 +37,11 @@ EXPECTED = {
     "place.constraint": "error",
     "place.incomplete": "warning",
     "place.objective": "warning",
+    "place.region-unassigned": "warning",
+    "place.region-barrier": "warning",
+    "place.region-crossing": "warning",
+    "place.group-failed": "error",
+    "place.fill-stale": "info",
 }
 BOTH_MAJORS = "KICAD-VERIFIED (9.0.x, 10.0.x)"
 
@@ -46,6 +51,7 @@ def sources() -> list[Path]:
     named = [
         SRC / "backends" / "kicad" / "replace.py",
         SRC / "cli" / "cmd_place.py",
+        SRC / "cli" / "place_group.py",
         SRC / "cli" / "cmd_build.py",
     ]
     return [*sorted((SRC / "placement").glob("*.py")), *(path for path in named if path.is_file())]

@@ -206,7 +206,7 @@ def test_zone_and_intents_in_one_script(monkeypatch: pytest.MonkeyPatch, tmp_pat
     copper intents"): the zone travels with the script source, so the build still takes one source."""
     routed = Routed(tmp_path, monkeypatch, confirm=False)
     routed.script.write_text(routed.script.read_text(encoding="utf-8") + ZONE, encoding="utf-8")
-    code, envelope, _ = altium(routed, "--confirm")
+    code, envelope, _ = altium(routed, "--altium-pour", "outline", "--confirm")  # unpoured (change c0215)
     assert code == 0, envelope.get("issues")
     found = envelope["result"]["copper"]
     assert (found["source"], found["tracks"], found["vias"], found["zones"]) == ("script", 11, 7, 1)

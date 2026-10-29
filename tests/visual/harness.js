@@ -29,7 +29,7 @@ async function compare(page, shot, ref) {
 
 (async () => {
   const jobs = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-  const browser = await chromium.launch({ args: ["--disable-gpu", "--font-render-hinting=none", "--disable-lcd-text"] });
+  const browser = await chromium.launch({ ...(process.env.FENOLITE_CHROMIUM ? { executablePath: process.env.FENOLITE_CHROMIUM } : {}), args: ["--disable-gpu", "--font-render-hinting=none", "--disable-lcd-text"] });
   const replies = [];
   try {
     for (const job of jobs) {
@@ -42,6 +42,13 @@ async function compare(page, shot, ref) {
       if (job.script) result = await page.evaluate(`(async () => { ${job.script} })()`);
       await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
       const reply = { name: job.name, result, errors };
+      if (job.frameScript) {
+        reply.frames = [];
+        for (const frame of page.frames().filter(f => f.parentFrame() === page.mainFrame())) {
+          await frame.waitForFunction(() => typeof linkReady !== "undefined" && linkReady && typeof S !== "undefined" && S, null, { timeout: 15000 });
+          reply.frames.push(await frame.evaluate(`(async () => { ${job.frameScript} })()`));
+        }
+      }
       if (job.shot) {
         const png = await page.screenshot({ path: job.shot });
         if (job.ref && fs.existsSync(job.ref)) {

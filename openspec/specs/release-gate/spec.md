@@ -2,9 +2,7 @@
 
 ## Purpose
 What a Fenolite release has to prove before it is tagged: a second example board, the acceptance loop on both examples and both KiCad majors, an agent guide whose commands are run by tests, a release record that names the proof and the limits of every acceptance item, a build from a clean checkout, and the version change.
-
 ## Requirements
-
 ### Requirement: Second example board
 `examples/board_40parts/design.py` SHALL be an authored design of exactly forty parts that builds with no fetch, from the authored mini library through the folder's own `fp-lib-table` and `sym-lib-table`.
 - The file MUST start with `# SPDX-License-Identifier: CC0-1.0` and the line stating that it was authored for Fenolite.
@@ -182,7 +180,7 @@ The release artefacts SHALL be built from the tagged commit in a clean checkout,
 ### Requirement: README describes the released version
 `README.md` SHALL describe what the newest release does, in the same pull request as its release record.
 - The status paragraph MUST start with `**Status: version 0.5.**`, MUST say what works (a design script becomes a KiCad project with a board and a schematic for KiCad 9.0 and 10.0, the loop of the agent guide, KiCad's own checks of the schematic, and the conversion of a project between KiCad and Altium or to the older KiCad major), MUST link to `docs/release/v0.5.md` for the limits, MUST say what is experimental, and MUST NOT hold the words `pre-alpha` or `being bootstrapped`.
-- A section `## What version 0.5 does` MUST name the schematic written by `build`, the checks (ERC, netlist, parity), the BOM and placement tables, the manifest, the inspection commands, the kept layout, the reading of Altium files, the writing of Altium files, `fenolite convert` with its report, the KiCad downgrade, the public `equivalent`, board slots and the copper-to-edge check, each with the page that describes it, and MUST send the reader to the release record for what is proved of the Altium reading, writing and conversion.
+- Workflow sections SHALL explain browser review, Python authoring and conversion, link the detailed support/limits record, and provide navigation to checks, assembly, exports and the agent guide. Detailed command inventories MAY live in the linked documentation index; no shipped feature is described as a future plan.
 - A section `## Install` MUST hold the line `pip install fenolite` and say that it installs no other package; the development install stays under its own heading.
 - The file MUST NOT say that Fenolite's output is byte-identical to a file re-saved by KiCad: only tree identity is claimed (`H-K-FMT-INDENT`).
 - `tests/unit/test_agent_skill.py` MUST check the status paragraph, the install section and the byte-identity rule textually.
@@ -729,3 +727,34 @@ The version SHALL become `0.5.0` in the commit of change c0171, in `src/fenolite
 - **GIVEN** `__version__ == "0.5.0"` and a copy of `docs/evidence/residue-history.md` without the `v0.5.0` row
 - **WHEN** the guard runs on it
 - **THEN** it fails and names `docs/evidence/residue-history.md`
+
+### Requirement: Release from a tag
+`.github/workflows/release.yml` SHALL start on a pushed tag `v*.*.*` and by hand with a tag, and SHALL NOT start on a published GitHub Release. Before publishing it MUST refuse a tag whose commit is not on `main`, or that `tools/release.py check` refuses, and MUST run the residue scan, `twine check --strict` and an install of the wheel alone that prints `fenolite X.Y.Z`.
+
+#### Scenario: A tag releases
+- **WHEN** `uv run pytest tests/unit/test_ci_workflow.py -k release_flow` reads the workflow
+- **THEN** it finds the tag trigger, the checks of the build and the job that creates the GitHub Release, and fails for a copy without the trigger, with a release trigger, without the check or without `--verify-tag`
+
+#### Scenario: Versions disagree
+- **GIVEN** a tree whose alias pins another version than the tag, or whose changelog has no section of it
+- **WHEN** `tools/release.py check --tag vX.Y.Z` runs
+- **THEN** it exits 1 and names each disagreement
+
+### Requirement: Release notes and files
+The workflow SHALL create the GitHub Release `Fenolite X.Y.Z` from the existing tag with notes from `tools/release.py notes`: the PyPI links, install lines, links to the release record, the diff and the changelog, the changelog section, and each attached file with its SHA-256. The attached files MUST be the ones PyPI serves for the version, each checked against PyPI's digest, with `SHA256SUMS`.
+
+#### Scenario: Notes of a version
+- **WHEN** `uv run pytest tests/unit/test_release_tool.py -k notes` writes the notes of `v1.2.0`
+- **THEN** they hold the install line, the PyPI link of both packages, the diff from `v1.1.0`, the section of 1.2.0 only and the digest of each file, below GitHub's limit
+
+#### Scenario: A file differs from PyPI
+- **GIVEN** a downloaded file whose SHA-256 is not PyPI's
+- **WHEN** `release.py pypi-files` runs
+- **THEN** it fails naming the file
+
+### Requirement: Release made again
+A manual run for a tag SHALL end in the same release page: PyPI is not uploaded to when it holds the version, an existing release is edited with its files replaced, and the release is latest only for the highest final version.
+
+#### Scenario: Latest only for the highest final version
+- **WHEN** `uv run pytest tests/unit/test_release_tool.py -k latest` runs
+- **THEN** `v0.5.0` among `v0.4.0` and `v0.5.0` is latest, `v0.4.1` is not, and `v0.6.0rc1` is not

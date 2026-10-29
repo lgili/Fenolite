@@ -74,7 +74,7 @@ and still fail creepage.
 - **A copper ring around an unplated hole is a new conductor.** Give it a class, or remove it.
 - **Keep high voltage off the face under a part** whose body sits on the board, such as a capacitor
   can, a relay or a heat sink. Make the pour cut-outs real, so that a refill cannot bring the copper
-  back.
+  back. `analyze --kinds bodies` lists the copper under each body against your `[[body_copper]]` rows.
 - **Mind the second face and the inner layers.** A distance on the top face says nothing about the
   bottom face. Inner layers of a multilayer board follow the rules for distance through insulation,
   not creepage. Check the distances across layers too.
@@ -95,6 +95,9 @@ fenolite analyze board/board.kicad_pcb --kinds insulation --requirements board/i
   Fenolite.
 - **Measure pads as well as tracks:** through-hole leads, exposed pads, mounting holes.
 - **Report the reply's evidence level** and the items it left out (`analysis.input-missing`).
+- **Give the working voltage as a role.** `design.net_role(net, "power", voltage=volt(400))` (an example
+  value) makes `fenolite roles PATH --check` measure that net's distances against your rows;
+  `roles.limit-missing` says that no row covers it, since Fenolite ships no table.
 - **Look at the worst pairs.** Check by eye that the path the tool found is the real one
   (`fenolite render`, `fenolite region`).
 - **Put the material group into the fabrication order.** Give the laminate's material group, or its

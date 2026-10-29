@@ -896,3 +896,26 @@ probes are recorded on 9.0.9 and 10.0.6 and passed in CI run 37772583226 (2026-1
 
 Fenolite assigns mechanical layers to successive user rows and preserves their Altium name as the
 row's user name. It reports overflow rather than merging unrelated drawings.
+
+## Three-way merge of boards (c0207)
+
+`fenolite diff BASE OURS --three-way THEIRS --out FILE` merges three saves of one board item by item
+(`fenolite.backends.kicad.merge`).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Footprints, drawings, texts, tracks, vias, zones and groups are root children with a `uuid` (`tstamp` in old files), and a `uuid` is meant to be globally unique | S-0001, S-0021 | INFERRED | H-K-PCB-UUID |
+| A 10.0.6 re-save keeps the uuid of every item it keeps | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-UUID-KEEP-2 |
+| From board version `20251028` items name their nets; before it they give a number of the board's net table | S-0030, S-0020 | INFERRED | H-K-PCB-READ |
+
+Fenolite's choices, not format facts:
+
+- **Keys.** A root child is `<head> <uuid>`; a head without a uuid that each of the three files holds at
+  most once is its own key (`general`, `setup`, …); any other child is keyed by its compact text.
+- **A footprint is one item.** A pad changed on one side and the footprint moved on the other is a
+  conflict (`diff.conflict`), never a merge inside the footprint.
+- **Refused, not guessed.** Boards of two versions, or with numbered net tables that differ, are
+  `diff.unmergeable`: a number would name another net in THEIRS.
+- **THEIRS keeps its bytes.** The text of each changed item of OURS is spliced in, with the line ends of
+  THEIRS; an added item follows the nearest item before it in OURS. The result must parse to the merged
+  items, or the merge fails as a bug.

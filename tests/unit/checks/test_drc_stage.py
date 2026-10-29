@@ -18,6 +18,7 @@ from fenolite.core.evidence import Level
 TWO_LAYER = Path(__file__).resolve().parents[2] / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
 
 SUMMARY_KEYS = {
+    "accepted",
     "tool_version",
     "canary",
     "canary_reason",

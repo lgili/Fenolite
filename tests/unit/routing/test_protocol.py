@@ -108,4 +108,5 @@ def test_router_features_of_routers_without_a_valid_set() -> None:
     assert router_features(Listed()) == frozenset()
     assert router_features(DirectRouter()) == frozenset()
     assert router_features(Unknown()) == frozenset()
-    assert router_features(Both()) == ROUTER_FEATURES == frozenset({"pairs", "escape"})
+    assert router_features(Both()) == frozenset({"pairs", "escape"})
+    assert ROUTER_FEATURES == frozenset({"pairs", "escape", "short"})

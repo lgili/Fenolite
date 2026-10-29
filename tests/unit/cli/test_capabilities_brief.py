@@ -71,7 +71,7 @@ def test_brief_view(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert all(list(entry) == ["name", "summary", "mutates"] for entry in result["commands"])
     assert all(entry["summary"] == discover()[name].help for name, entry in commands.items())
     assert commands["build"]["summary"] and commands["build"]["mutates"] is True
-    assert commands["check"]["mutates"] is False
+    assert commands["inspect"]["mutates"] is False
     assert result["targets"] == {"build": ["altium", "kicad"], "kicad": [9, 10], "default": 10}
     assert result["tools"] == {} and result["sends_data_offsite"] is False
     assert [r["name"] for r in result["routers"]] == sorted(routers())

@@ -64,6 +64,16 @@
       "items": {
         "$ref": "#/$defs/ImpedanceTarget"
       }
+    },
+    "roles": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RoleSet"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "additionalProperties": false,
@@ -138,6 +148,59 @@
       },
       "additionalProperties": false
     },
+    "GateLoop": {
+      "description": "A gate loop (change c0222): the driver's output pad, the switch's gate pad, its source pad (the",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "drive": {
+          "type": "string"
+        },
+        "gate": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "ret": {
+          "type": "string"
+        },
+        "resistor": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "origin": {
+          "enum": [
+            "inferred",
+            "confirmed",
+            "declared"
+          ]
+        },
+        "rule": {
+          "type": "string"
+        },
+        "confidence": {
+          "enum": [
+            "",
+            "high",
+            "medium",
+            "low"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "drive",
+        "gate",
+        "source",
+        "ret"
+      ]
+    },
     "HeightLimit": {
       "description": "A height limit: the parts under every rule area named ``area`` stay at most ``max`` tall.",
       "type": "object",
@@ -159,6 +222,44 @@
       "required": [
         "area",
         "max"
+      ]
+    },
+    "HotLoop": {
+      "description": "A commutation loop (change c0222): its name and its pads (``REF-PIN``) in loop order, at least",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "pads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "origin": {
+          "enum": [
+            "inferred",
+            "confirmed",
+            "declared"
+          ]
+        },
+        "rule": {
+          "type": "string"
+        },
+        "confidence": {
+          "enum": [
+            "",
+            "high",
+            "medium",
+            "low"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "pads"
       ]
     },
     "ImpedanceTarget": {
@@ -228,6 +329,124 @@
         "ohms"
       ]
     },
+    "KelvinPair": {
+      "description": "A Kelvin connection (change c0222): the two sense pads of the shunt (``element``), the two inputs of",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "element": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "receiver": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "force": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "origin": {
+          "enum": [
+            "inferred",
+            "confirmed",
+            "declared"
+          ]
+        },
+        "rule": {
+          "type": "string"
+        },
+        "confidence": {
+          "enum": [
+            "",
+            "high",
+            "medium",
+            "low"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "element",
+        "receiver"
+      ]
+    },
+    "NetRole": {
+      "description": "The role of one net (change c0222): its kind, where it comes from, the inference rule and its",
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "power",
+            "switch_node",
+            "ground",
+            "kelvin",
+            "gate",
+            "signal",
+            "high_voltage"
+          ]
+        },
+        "source": {
+          "enum": [
+            "inferred",
+            "confirmed",
+            "declared"
+          ]
+        },
+        "rule": {
+          "type": "string"
+        },
+        "confidence": {
+          "enum": [
+            "",
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "milliamps": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "working_mv": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sensitive": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "net",
+        "kind",
+        "source"
+      ]
+    },
     "PadSelection": {
       "description": "Pads of one part, named by its component path.",
       "type": "object",
@@ -252,6 +471,42 @@
       "additionalProperties": false,
       "required": [
         "path"
+      ]
+    },
+    "PartClass": {
+      "description": "The class of a part that the user states (change c0222; ``design.part_class``, ``--class``): the",
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string"
+        },
+        "cls": {
+          "enum": [
+            "transistor",
+            "diode",
+            "inductor",
+            "capacitor",
+            "resistor",
+            "shunt",
+            "driver",
+            "amplifier",
+            "controller",
+            "connector",
+            "net_tie",
+            "other"
+          ]
+        },
+        "terminals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Terminal"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "cls"
       ]
     },
     "Provenance": {
@@ -319,6 +574,100 @@
         "anchor",
         "within"
       ]
+    },
+    "RoleLimit": {
+      "description": "An override of a key of the role profile (change c0222) for the design, for one kind (``kind``) or",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "type": "integer"
+        },
+        "net": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "power",
+                "switch_node",
+                "ground",
+                "kelvin",
+                "gate",
+                "signal",
+                "high_voltage"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "value"
+      ]
+    },
+    "RoleSet": {
+      "description": "The net roles of a design (change c0222): one role per net, the three kinds of role groups, the",
+      "type": "object",
+      "properties": {
+        "nets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NetRole"
+          }
+        },
+        "loops": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/HotLoop"
+          }
+        },
+        "kelvins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/KelvinPair"
+          }
+        },
+        "gates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GateLoop"
+          }
+        },
+        "limits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RoleLimit"
+          }
+        },
+        "classes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PartClass"
+          }
+        },
+        "rejected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
     },
     "Rule": {
       "description": "One design rule. Binary rules (clearance, creepage) use ``selector_b`` for the second object.",
@@ -475,6 +824,26 @@
       "additionalProperties": false,
       "required": [
         "op"
+      ]
+    },
+    "Terminal": {
+      "description": "A terminal of a part class and the pins (numbers) it names.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "pins": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "pins"
       ]
     },
     "TraceGeometry": {

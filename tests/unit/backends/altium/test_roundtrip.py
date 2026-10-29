@@ -387,6 +387,7 @@ def test_roundtrip_module_works_on_bytes_only() -> None:
         "fenolite.backends.altium",
         "fenolite.backends.altium.read",
         "fenolite.backends.altium.read.pcbprims",
+        "fenolite.backends.altium.resave",  # the spellings of one value (change c0207), no file
         "fenolite.backends.base",
         "fenolite.core.errors",
         "fenolite.core.evidence",

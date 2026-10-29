@@ -33,6 +33,7 @@ from fenolite.backends.kicad.outline import edge_outline
 from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.kicad.versions import TARGET_MAJORS
 from fenolite.convert.direction import Direction, Options, Written
+from fenolite.convert.models import Placed, place_models
 from fenolite.convert.report import (
     DOWNGRADE_KINDS,
     DOWNGRADE_PREFIX,
@@ -52,7 +53,7 @@ from fenolite.model import holes as model_holes
 from fenolite.model.board import FootprintAttribute, FootprintInstance, Hole, OutlineArc
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
-from fenolite.model.library import FootprintDef
+from fenolite.model.library import FootprintDef, ModelPlacement
 
 EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-CONV-RETARGET", "H-K-PCB-WRITE"))
 """The board writer's re-target: a KiCad 9 project converted to 10 loads in 10.0.6 and gives the DRC of the
@@ -263,6 +264,10 @@ if TYPE_CHECKING:
 EDGE_LAYER = "Edge.Cuts"
 HOLE_KIND = "hole"
 CUTOUT_KIND = "cutout"
+PAD_MARGIN_KIND = "pad-margin"
+"""The report kind of an imported pad whose margin is not certain (change c0223, ``convert.openings``)."""
+MODEL_KIND = "model"
+"""The report kind of an embedded 3D model of an imported footprint (change c0223, ``convert.models``)."""
 PLATED_REASON = "a plated hole is written as a pad of its footprint without a net"
 """The reason a plated board hole is counted changed under ``hole`` (change c0170): KiCad holds it as the
 numbered pad of a generated footprint, which no net reaches."""
@@ -420,6 +425,11 @@ def write_altium(source: SourceProject, options: Options) -> Written:
 
     ledger = Ledger()
     counts = census(source.design)
+    source_board = source.design.board
+    if source_board is not None:  # change c0223: the openings and the models of the imported footprints
+        counts[PAD_MARGIN_KIND] = sum(len(fp.pads) for fp in source_board.footprints)
+        bodies = [body for fp in source_board.footprints for body in fp.bodies]
+        counts[MODEL_KIND] = sum(1 for body in bodies if body.kind == "model")
     merged, cutouts = merged_cutouts(source.design, ledger)
     if cutouts:
         counts[CUTOUT_KIND] = cutouts
@@ -439,9 +449,24 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         ledger.change(HOLE_KIND, ident, PLATED_REASON)
     issues: list[Issue] = []
     texts = write_triad(design, name=name, target=options.kicad_version, allow_lossy=True, issues=issues)
+    placed = _placed_models(source, design, name)
     texts.update(
-        footprint_files(design, texts[f"{name}.kicad_pcb"], name, options.kicad_version, ledger, holes=holes)
+        footprint_files(
+            design,
+            texts[f"{name}.kicad_pcb"],
+            name,
+            options.kicad_version,
+            ledger,
+            holes=holes,
+            placements=placed.placements,
+        )
     )
+    used = {p.path.removeprefix("${KIPRJMOD}/") for key, text in texts.items() for p in placed_in(text, key)}
+    model_files = {path: data for path, data in placed.files.items() if path in used}
+    for body, reason in placed.changed.items():
+        ledger.change(MODEL_KIND, body, reason)
+    for body, reason in placed.lost.items():
+        ledger.drop(MODEL_KIND, body, reason)
     for key, definition in holes.items():
         texts[f"{HOLE_FOLDER}/{key}{FOOTPRINT_SUFFIX}"] = write_footprint(
             definition, target=options.kicad_version
@@ -461,14 +486,46 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         },
         lost={kind: {r: tuple(ids) for r, ids in reasons.items()} for kind, reasons in ledger.lost.items()},
     )
+    files = {key: value.encode("utf-8") for key, value in texts.items()}
+    files.update(model_files)
     return Written(
-        {key: value.encode("utf-8") for key, value in sorted(texts.items())},
+        dict(sorted(files.items())),
         report,
         design,
         f"{name}.kicad_pcb",
         tuple(issues),
         schematic=f"{name}.kicad_sch" if schematic else None,
     )
+
+
+def _placed_models(source: SourceProject, design: Design, name: str) -> Placed:
+    """The embedded models of the source board's bodies, placed for the derived library ``name`` (change
+    c0223, ``convert.models``); none when the source has no PCB document."""
+    from fenolite.backends.altium.backend import AltiumBackend
+    from fenolite.convert.altium_to_kicad import board_document
+
+    board, prepared = source.design.board, design.board
+    document = board_document(source, source.design)
+    if board is None or prepared is None or document is None:
+        return Placed()
+    names = {fp.id: fp.lib_ref.rsplit(":", 1)[-1] for fp in prepared.footprints}
+    return place_models(
+        board.footprints,
+        AltiumBackend().body_models(document),
+        name,
+        lambda fp: names.get(fp.id, fp.lib_ref.rsplit(":", 1)[-1]),
+    )
+
+
+def placed_in(text: str, key: str) -> list[ModelPlacement]:
+    """The ``model`` paths of a written library footprint ``key`` (``.kicad_mod``), as placements."""
+    if not key.endswith(".kicad_mod"):
+        return []
+    from fenolite.backends.kicad.sexpr import parse
+
+    return [
+        ModelPlacement(path=child.atoms()[0].value) for child in parse(text).nodes("model") if child.atoms()
+    ]
 
 
 ALTIUM_EVIDENCE = Evidence(
@@ -489,5 +546,5 @@ ALTIUM_DIRECTION = Direction(
     experimental=True,
     profile="altium-to-kicad",
     targets=TARGET_MAJORS,
-    kinds=("schematic", HOLE_KIND, CUTOUT_KIND),
+    kinds=("schematic", HOLE_KIND, CUTOUT_KIND, PAD_MARGIN_KIND, MODEL_KIND),
 )

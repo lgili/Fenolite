@@ -8,6 +8,12 @@ A difference is a result, not a finding: the exit code is 0 either way and ``res
 The inputs of a backend whose project is a set of documents are read too (change c0044; "Diff of document
 inputs and the records view"): an Altium document, library, project file or project folder in the model
 view, and two Altium files of one kind, record by record, in the records view.
+
+Change c0207 (capability file-safety, "Gated differences", "Three-way difference of KiCad boards" and
+"Resave differences of Altium documents"): ``--allow KINDS`` makes each change of another kind an error
+finding (exit 5); ``--three-way THEIRS --out FILE`` plans ``THEIRS`` with the root items that changed from
+``A`` to ``B`` applied, under the mutation protocol; and the records view leaves out the records that differ
+only in the spelling of their values (``resave``).
 """
 
 from __future__ import annotations
@@ -20,12 +26,16 @@ from pathlib import Path
 from typing import Any
 
 from fenolite.backends import registry
+from fenolite.backends.kicad import merge as kicad_merge
 from fenolite.backends.kicad import sch, versions
 from fenolite.backends.kicad.sexpr import Node, first_difference, parse_bytes, tree_equal
-from fenolite.checks.diff import DiffReport, diff_designs, diff_libraries, diff_sheets
+from fenolite.checks.diff import Change, DiffReport, diff_designs, diff_libraries, diff_sheets
+from fenolite.checks.diffgate import ISSUE_CODES as DIFF_CODES
+from fenolite.checks.diffgate import gate, parse_kinds
 from fenolite.cli._documents import find_documents, validator_for
 from fenolite.cli._examples import EXAMPLE_BOARD
-from fenolite.cli.api import Command, Context, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
+from fenolite.cli.cmd_snapshot import shown
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import Issue
@@ -35,9 +45,12 @@ from fenolite.model.design import Design
 from fenolite.model.library import Library
 from fenolite.model.schematic import SchematicSheet
 
-HELP = "list the differences between two boards, libraries, built models or Altium files (runs no tool)"
+HELP = (
+    "list the differences between two boards, libraries, built models or Altium files, gate them by kind, "
+    "or merge them into a third KiCad board (runs no tool)"
+)
 MODEL_KIND = "fenolite_model"
-MODEL_EVIDENCE = Evidence(Level.INFERRED)
+MODEL_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-MODEL-OWN",))
 TREE_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-SEXPR-STRICT",))
 TREE_KINDS = frozenset(
     {
@@ -55,6 +68,9 @@ READS = (
 RECORDS_HINT = "the records view compares two Altium files of one kind; use --view model for these inputs"
 TREE_READS = "it reads .kicad_pcb, .kicad_mod, .kicad_sch, .kicad_sym and .kicad_wks; else use --view model"
 DEFAULT_LIMIT = 200
+THREE_WAY_HINT = (
+    "--three-way merges three KiCad boards (.kicad_pcb) in the model view; see docs/cli-contract.md"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +98,19 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help="model entities (default), the trees of two KiCad files, or the records of two Altium files",
     )
     parser.add_argument("--ext", action="store_true", help="also compare the opaque content, as a hash")
+    parser.add_argument(
+        "--allow",
+        default=None,
+        metavar="KINDS",
+        help="comma-separated change kinds (track,via,...); a change of any other kind is an error (exit 5)",
+    )
+    parser.add_argument(
+        "--three-way",
+        default=None,
+        metavar="THEIRS",
+        help="a third KiCad board: write it with the changes from A to B applied (needs --out)",
+    )
+    parser.add_argument("--out", default=None, metavar="FILE", help="the merged board of --three-way")
 
 
 def _path(given: str, ctx: Context) -> Path:
@@ -220,7 +249,10 @@ def _records_view(a: Path, b: Path) -> Result:
             f"{a.name} ({kind_a}) and {b.name} ({kind_b}) are not of one kind",
             hint=RECORDS_HINT,
         )
-    report = diff_records(a.read_bytes(), b.read_bytes(), kind=kind_a)
+    from fenolite.backends.altium.resave import EVIDENCE as RESAVE_EVIDENCE
+
+    resave: list[Change] = []
+    report = diff_records(a.read_bytes(), b.read_bytes(), kind=kind_a, resave=resave)
     result: dict[str, Any] = {
         "view": "records",
         "equal": report.equal,
@@ -229,15 +261,108 @@ def _records_view(a: Path, b: Path) -> Result:
     }
     body = report.to_json(None)
     result.update({key: body[key] for key in ("summary", "differences", "total", "truncated")})
+    streams: dict[str, int] = {}
+    for change in resave:
+        stream = change.path[1:].rpartition("#")[0]
+        streams[stream] = streams.get(stream, 0) + 1
+    result["resave"] = {"total": len(resave), "streams": dict(sorted(streams.items()))}
     return Result(
         result=result,
-        evidence=READER_EVIDENCE[kind_a],
+        evidence=Evidence.combine(READER_EVIDENCE[kind_a], RESAVE_EVIDENCE)
+        if resave
+        else READER_EVIDENCE[kind_a],
         input=InputRef(path=a.name, sha256=_digest(a), kind=kind_a, format_version=None),
     )
 
 
+@dataclass(frozen=True, slots=True)
+class _Merged:
+    """What ``--three-way`` adds to a result: the ``merge`` object, findings, a write and the inputs."""
+
+    result: dict[str, Any]
+    issues: tuple[Issue, ...]
+    writes: tuple[PlannedWrite, ...]
+    depends: tuple[str, ...]
+
+
+def _merge_issues(merged: kicad_merge.Merge, names: tuple[str, str, str]) -> list[Issue]:
+    base, ours, theirs = names
+    issues: list[Issue] = []
+    if merged.refused is not None:
+        issues.append(
+            Issue(
+                "diff.unmergeable",
+                DIFF_CODES["diff.unmergeable"],
+                f"{base}, {ours} and {theirs} cannot be merged: {merged.refused}",
+                where=theirs,
+                hint="re-save the three boards with one KiCad version, then merge again",
+            )
+        )
+    issues += [
+        Issue(
+            "diff.conflict",
+            DIFF_CODES["diff.conflict"],
+            f"{item.key}: {item.change} from {base} to {ours}, and changed in {theirs}",
+            where=item.key,
+            hint="merge this item by hand in KiCad, or undo it on one side, then merge again",
+        )
+        for item in merged.conflicts
+    ]
+    return issues
+
+
+def _three_way(path_a: Path, path_b: Path, args: argparse.Namespace, ctx: Context) -> _Merged:
+    """The merge of ``--three-way`` into ``--out``."""
+    if args.out is None:
+        raise CliError("FEN-2001", "--three-way needs --out FILE", where="--out", hint=THREE_WAY_HINT)
+    theirs = _path(args.three_way, ctx)
+    out = Path(args.out) if Path(args.out).is_absolute() else ctx.cwd / args.out
+    for path in (path_a, path_b, theirs, out):
+        if path.is_dir() or versions.kind_for_suffix(path.name) is not versions.FileKind.BOARD:
+            raise CliError(
+                "FEN-2001", f"--three-way does not merge {path.name}", where=path.name, hint=THREE_WAY_HINT
+            )
+    merged = kicad_merge.three_way(path_a.read_bytes(), path_b.read_bytes(), theirs.read_bytes())
+    result: dict[str, Any] = {
+        "theirs": theirs.name,
+        "out": shown(out, ctx.cwd),
+        "items": [{"key": i.key, "change": i.change, "status": i.status} for i in merged.items],
+        "applied": sum(1 for i in merged.items if i.status == "applied"),
+        "already": sum(1 for i in merged.items if i.status == "already"),
+        "conflicts": len(merged.conflicts),
+        "refused": merged.refused,
+    }
+    writes: tuple[PlannedWrite, ...] = ()
+    if merged.data is not None:
+        writes = (PlannedWrite(shown(out, ctx.cwd), merged.data, versions.FileKind.BOARD.value),)
+    inputs = [path for path in (path_a, path_b, theirs) if path.resolve() != out.resolve()]
+    issues = _merge_issues(merged, (path_a.name, path_b.name, theirs.name))
+    return _Merged(result, tuple(issues), writes, depends_on(ctx.cwd, *inputs))
+
+
+def _allowed(args: argparse.Namespace) -> frozenset[str] | None:
+    if args.view != "model":
+        for flag, value in (("--allow", args.allow), ("--three-way", args.three_way)):
+            if value is not None:
+                raise CliError("FEN-2001", f"{flag} belongs to the model view", where=flag)
+    if args.out is not None and args.three_way is None:
+        raise CliError("FEN-2001", "--out names the merged board of --three-way", where="--out")
+    if args.allow is None:
+        return None
+    try:
+        return parse_kinds(args.allow)
+    except ValueError as exc:
+        raise CliError(
+            "FEN-2001",
+            f"--allow: {exc}",
+            where="--allow",
+            hint="the kinds are the keys of result.summary: track, via, footprint, rule, ...",
+        ) from exc
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     path_a, path_b = _path(args.a, ctx), _path(args.b, ctx)
+    allowed = _allowed(args)
     if args.view == "records":
         if args.ext:
             raise CliError("FEN-2001", "--ext belongs to the model view; the records view compares every key")
@@ -256,21 +381,42 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     }
     body = report.to_json(None)
     result.update({key: body[key] for key in ("summary", "differences", "total", "truncated")})
+    issues: list[Issue] = [*a.issues, *b.issues]
+    evidence = Evidence.combine(a.evidence, b.evidence)
+    if allowed is not None:
+        issues += gate(report, allowed)
+        result["allow"] = sorted(allowed)
+    merged = _Merged({}, (), (), ())
+    if args.three_way is not None:
+        merged = _three_way(path_a, path_b, args, ctx)
+        result["merge"] = merged.result
+        issues += merged.issues
+        evidence = Evidence.combine(evidence, kicad_merge.EVIDENCE)
     return Result(
         result=result,
-        issues=(*a.issues, *b.issues),
-        evidence=Evidence.combine(a.evidence, b.evidence),
+        issues=tuple(issues),
+        evidence=evidence,
         input=InputRef(path=a.name, sha256=a.sha256, kind=a.kind, format_version=None),
+        writes=merged.writes,
+        depends=merged.depends,
     )
 
 
 COMMAND = Command(
     name="diff",
     help=HELP,
-    mutates=False,
+    mutates=True,
     register=_register,
     run=_run,
     paged="differences",
     default_limit=DEFAULT_LIMIT,
     example_args=(EXAMPLE_BOARD, EXAMPLE_BOARD),
+    mutation_example_args=(
+        EXAMPLE_BOARD,
+        EXAMPLE_BOARD,
+        "--three-way",
+        EXAMPLE_BOARD,
+        "--out",
+        "merged.kicad_pcb",
+    ),
 )

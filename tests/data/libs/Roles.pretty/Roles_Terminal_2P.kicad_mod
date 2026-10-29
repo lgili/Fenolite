@@ -1,0 +1,105 @@
+(footprint "Roles_Terminal_2P"
+	(version 20241229)
+	(generator "fenolite-tests")
+	(generator_version "9.0")
+	(layer "F.Cu")
+	(descr "Authored for Fenolite (CC0-1.0); synthetic geometry for the net-role reference boards, not a validated land pattern. Two-position power terminal land, 10 mm pitch, 5 mm pads")
+	(tags "terminal power roles")
+	(property "Reference" "REF**"
+		(at 0 -4 0)
+		(layer "F.SilkS")
+		(uuid "a2220000-0000-4000-8000-000600000001")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "Roles_Terminal_2P"
+		(at 0 4 0)
+		(layer "F.Fab")
+		(uuid "a2220000-0000-4000-8000-000600000002")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "a2220000-0000-4000-8000-000600000003")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" "Authored for Fenolite (CC0-1.0); synthetic geometry for the net-role reference boards, not a validated land pattern. Two-position power terminal land, 10 mm pitch, 5 mm pads"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "a2220000-0000-4000-8000-000600000004")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr through_hole)
+	(fp_rect
+		(start -8 -3)
+		(end 8 3)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "a2220000-0000-4000-8000-000600000005")
+	)
+	(fp_rect
+		(start -7.75 -2.75)
+		(end 7.75 2.75)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "a2220000-0000-4000-8000-000600000006")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(uuid "a2220000-0000-4000-8000-000600000007")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(pad "1" thru_hole circle
+		(at -5 0)
+		(size 5 5)
+		(drill 2.5)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "a2220000-0000-4000-8000-000600000008")
+	)
+	(pad "2" thru_hole circle
+		(at 5 0)
+		(size 5 5)
+		(drill 2.5)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "a2220000-0000-4000-8000-000600000009")
+	)
+	(embedded_fonts no)
+)

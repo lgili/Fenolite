@@ -1,0 +1,96 @@
+# silkscreen-layout Specification
+
+## Purpose
+The silkscreen is laid out by `fenolite silk`: designators placed beside their parts with measured text extents (`--designators`), and silkscreen strokes cut where they meet pad openings and holes (`--clip`), each result checked and, with `--drc`, judged by KiCad's DRC.
+
+## Requirements
+
+### Requirement: Text ink extents
+`fenolite.silk.extents.ink_box(text, *, size, stroke, measure=None, cache=None) -> Ink` SHALL give the box of a stroke text's ink relative to its anchor in its reading frame, half the drawn stroke included. With `measure` (a `kicad-cli` render of a scratch board) the box MUST be read from the plot, cached per tool version, string, size, stroke and justification, and be `KICAD-VERIFIED`; without it, estimated and `INFERRED`.
+
+#### Scenario: Extent of a designator
+- **GIVEN** `kicad-cli` and the text `R12` at 1 mm with a 0.15 mm stroke
+- **WHEN** `uv run pytest tests/kicad/silk/test_extents.py -k r12` measures it
+- **THEN** the box equals the ink of the same text drawn on a board within 10 µm, and a second call reads it from the cache
+
+### Requirement: Glyph table
+`fenolite.silk.extents.estimate(key)` SHALL lay out the text's glyphs by the advances and ink boxes that `tools/measure_glyphs.py` measured with `kicad-cli` (`silk/data/glyphs.toml`), with the measured baseline, stroke clamp and justification shifts, grown by 1 µm. A glyph the table lacks MUST only grow the box. The table MUST hold boxes and advances only.
+
+#### Scenario: The estimate holds the render
+- **GIVEN** `kicad-cli` and thirteen designators at three widths, strokes and justifications
+- **WHEN** `uv run pytest tests/kicad/silk/test_extents.py -k "estimate or table"` runs
+- **THEN** each estimate holds the drawn ink within 10 µm, and the table measured again equals the shipped one
+
+### Requirement: Designator placement
+For each part whose visible `Reference` field is on a silkscreen layer, the search SHALL try twelve places beside its courtyard box per height and board angle (0 or 90°), on its side's silkscreen, mirrored on the bottom. A place MUST keep the clearance from pad copper of that side, holes, silkscreen strokes, other texts, other parts' courtyards and the board edge, and lie inside the board.
+
+#### Scenario: Dense row of resistors
+- **GIVEN** an authored board with ten two-pad parts in a row at 1.6 mm pitch, each designator over its pads
+- **WHEN** `uv run pytest tests/unit/silk/test_designators.py -k dense` runs `fenolite silk <board> --designators --confirm`
+- **THEN** no text comes within the clearance of a pad or another text, each is nearer to its own part than to any other, and the edges of the texts that face the row lie on one line
+
+### Requirement: Designator search
+The cost SHALL grow with distance and offset from the own part, nearness to a foreign part, an angle across the part's long side and a smaller size. Identical parts in a row or column MUST share one slot when all are free there; the others go greedily, most constrained first, then a blocked part may push one text aside. `--keep` MUST keep every free text; a part without room keeps its text with `silk.no-place`.
+
+#### Scenario: Search rules
+- **GIVEN** parts and obstacles written out as rectangles
+- **WHEN** `uv run pytest tests/unit/silk/test_layout.py` runs the search
+- **THEN** a row shares one slot, an obstacle moves a text, a repair pushes one text aside, `keep` holds a free text, and a text that stays is kept clear
+
+### Requirement: Placed designators checked
+Before writing, each placed designator SHALL be boxed again from its written field and MUST keep the clearance from every obstacle and every other designator, lie inside the board, read at 0 or 90°, be mirrored exactly on the bottom, and be at least the project's `min_text_height` and `min_text_thickness` (else 0.8 mm and 0.08 mm). A miss MUST be `silk.check-failed` (error) and nothing is written.
+
+#### Scenario: KiCad finds no silkscreen fault
+- **GIVEN** the row bench and a bench of top and bottom parts at 0°, 90° and 30° with a hole, every designator over its pads
+- **WHEN** `uv run pytest tests/kicad/silk/test_designators_oracle.py` runs `fenolite silk --designators --drc --confirm`
+- **THEN** KiCad reports `silk_over_copper` and `silk_overlap` before and no silkscreen or text finding after, and draws each designator within 1 µm of Fenolite's box
+
+#### Scenario: A failed check writes nothing
+- **GIVEN** a search that puts a designator on its own pads
+- **WHEN** `uv run pytest tests/unit/silk/test_designators.py -k failed_check` runs the command
+- **THEN** it exits 5 with `silk.check-failed` and the board is unchanged
+
+### Requirement: Silk command
+`fenolite silk PATH --designators [--keep] [--refs GLOB]... [--sizes LENGTHS] [--angles 0,90] [--clearance LENGTH] [--gap LENGTH] [--measure auto|kicad|estimate] [-o FILE] [--drc]` SHALL place designators under the mutation protocol (schema `fenolite.silk.v0`). `--drc` MUST compare `kicad-cli` DRC before and after: a grown type is `silk.drc-new`, else `KICAD-VERIFIED`.
+
+#### Scenario: Options and refusals
+- **GIVEN** the authored benches
+- **WHEN** `uv run pytest tests/unit/silk/test_designators.py` runs the command with `--keep`, `--refs`, `--sizes`, `--angles` and bad values
+- **THEN** only the asked texts move, the looks follow the options, and a missing `--designators`, an angle of 45 or a size below the least text height exits 2
+
+### Requirement: Silkscreen clipping
+`fenolite silk BOARD --clip` SHALL cut every silkscreen line, arc, circle and rectangle or polygon outline of the board and of its footprints where its ink comes within the margin of a mask opening of its side (a pad's copper grown by its positive mask expansion) or of a pad's hole, writing the rest as lines and arcs. A piece shorter than its stroke MUST be dropped; a filled shape MUST NOT be cut.
+
+#### Scenario: Outline over a pad
+- **GIVEN** a footprint whose silkscreen outline crosses its pads
+- **WHEN** `uv run pytest tests/unit/silk/test_clip.py -k outline` runs `fenolite silk <board> --clip --confirm`
+- **THEN** no silkscreen stroke lies inside a mask opening, and the result holds one `silk.footprint-changed` for that footprint
+
+#### Scenario: Pieces of a line, an arc and a circle
+- **GIVEN** a line, an arc and a circle written out with openings across them
+- **WHEN** `uv run pytest tests/unit/silk/test_cut.py` cuts them
+- **THEN** each piece keeps the reach from every opening, the arc pieces lie on the circle, and a short piece is dropped
+
+### Requirement: Clipped strokes checked
+Before writing, every piece SHALL be judged again from what was written, as a thick stroke, against every opening of its side with the margin; a miss MUST be `silk.check-failed` (error) and nothing is written. An uncut item MUST be written byte for byte as read.
+
+#### Scenario: KiCad finds no silkscreen over copper
+- **GIVEN** benches whose outlines cross their own pads and a neighbour's pads, on both sides
+- **WHEN** `uv run pytest tests/kicad/silk/test_clip_oracle.py` runs `fenolite silk --clip --drc --confirm`
+- **THEN** KiCad reports `silk_over_copper` before and none after, and `silk_overlap` and `silk_edge_clearance` do not grow
+
+### Requirement: Clipped footprints and their library
+A footprint's own graphics SHALL be cut by its own openings once per group of identical instances and written alike into each, so that `fenolite library` derives one footprint. Each changed footprint name MUST be one `silk.footprint-changed` (info) naming its references; a further cut by another part's opening MUST be `silk.cut-by-other` (warning).
+
+#### Scenario: One footprint for the library
+- **GIVEN** three instances of one footprint at 0, 90 and 30 degrees, and one of them beside a foreign pad
+- **WHEN** `uv run pytest tests/unit/silk/test_clip.py -k library` clips the board and derives its library
+- **THEN** the clean instances give one footprint whose silkscreen drifts from the old library, and the crossed one is `silk.cut-by-other`
+
+### Requirement: Clip options
+`--margin LENGTH` SHALL default to the largest `min` of the project's `silk_clearance` rules, else 0. `silk` MUST need `--designators` or `--clip`; with both, the clip MUST run first and the designators be placed against the clipped strokes. Without `--drc` the evidence is `INFERRED` (`H-K-SILK-CLIP`).
+
+#### Scenario: Margin and refusals
+- **GIVEN** the authored clip bench with a project rule `silk_clearance` of 0.1 mm
+- **WHEN** `uv run pytest tests/unit/silk/test_clip.py -k "margin or refus or both"` runs the command
+- **THEN** the rule is the default margin, `--margin` overrides it, a negative margin and a run with neither option exit 2, and both options together place the designators on the clipped board

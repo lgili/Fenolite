@@ -41,14 +41,14 @@ from fenolite.backends.altium.read.sch import read_schematic
 from fenolite.backends.altium.read.variants import read_variants
 from fenolite.backends.base import BoardFrame, BodyModel, BodyModelSource, PlacedExtent
 from fenolite.cli._examples import EXAMPLE_BOARD
-from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 from fenolite.placement import legality
-from fenolite.view import export, meshes, models, review, server, themes
+from fenolite.view import export, meshes, models, project_review, review, server, themes
 from fenolite.view.altium_layers import native_view
 from fenolite.view.bom import bom_scene
 from fenolite.view.bom import with_parts as bom_with_parts
@@ -131,6 +131,13 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--variant", metavar="NAME", help="show an Altium project's variant")
     parser.add_argument("--compare", metavar="OLD", help="draw what changed since the board or sheet OLD")
     parser.add_argument("--check", metavar="FILE|run", help="draw a check reply's findings; run: check first")
+    parser.add_argument(
+        "--report",
+        metavar="FILE",
+        action="append",
+        default=[],
+        help="recorded convert/export JSON for project review; repeat for different commands",
+    )
     parser.add_argument("--select", metavar="REF", help="open at this part or net")
     parser.add_argument(
         "--marks", metavar="FILE", help="review marks: list them; --serve saves new ones there"
@@ -658,6 +665,7 @@ def check_reply(
             "result": found.result,
             "issues": [dataclasses.asdict(issue) for issue in found.issues],
             "evidence": {"level": found.evidence.level.value, "oracle": found.evidence.oracle},
+            "input": dataclasses.asdict(found.input) if found.input is not None else None,
         }
     path = Path(argument) if Path(argument).is_absolute() else ctx.cwd / argument
     if not path.is_file():
@@ -671,6 +679,30 @@ def check_reply(
             where=argument,
             hint="pass the JSON reply of `fenolite check ... --json`, or `--check run`",
         ) from exc
+
+
+def reports_of(arguments: list[str], ctx: Context) -> list[dict[str, Any]]:
+    """Load recorded operation replies for review without running or writing anything."""
+    reports: list[dict[str, Any]] = []
+    for argument in arguments:
+        path = Path(argument) if Path(argument).is_absolute() else ctx.cwd / argument
+        if not path.is_file():
+            raise CliError("FEN-3001", f"--report: {argument} does not exist", where="--report")
+        try:
+            report = project_review.read_report(json.loads(path.read_text(encoding="utf-8")), name=path.name)
+        except (ValueError, FormatError) as exc:
+            raise CliError(
+                "FEN-3004",
+                f"--report: {exc}",
+                where=argument,
+                hint="pass a complete convert or export JSON reply; use --check for check results",
+            ) from exc
+        if any(item["command"] == report["command"] for item in reports):
+            raise CliError(
+                "FEN-2001", f"--report: more than one {report['command']} report", where="--report"
+            )
+        reports.append(report)
+    return reports
 
 
 def marks_of(
@@ -766,6 +798,13 @@ def _mm_option(text: str | None, name: str) -> int | None:
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    if args.serve and ctx.in_process:
+        raise CliError(
+            "FEN-2001",
+            "--serve runs until stopped, and fenolite.api.run does not block",
+            where="--serve",
+            hint="run 'fenolite view --serve' as a process, or export the page with --export",
+        )
     if args.serve and args.export:
         raise CliError(
             "FEN-2001",
@@ -810,10 +849,15 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if args.doc and doc is None:
         raise CliError("FEN-2001", f"--doc: the project holds no document {args.doc!r}", where="--doc")
     reply = check_reply(args.check, ctx, tree, doc.file if doc is not None else None)
+    reports = reports_of(args.report, ctx)
     marks_file, marks = marks_of(args.marks, ctx, serving=bool(args.serve))
 
     def cached(path: Path) -> dict[str, Any]:
-        return _with_check(reply, tree, path, nets_of.annotate(path, plain(path)))
+        scene = _with_check(reply, tree, path, nets_of.annotate(path, plain(path)))
+        review_status = project_review.status(scene, reply, reports)
+        if "check" in scene and review_status["binding"] and not review_status["binding"]["matched"]:
+            scene["check"]["notes"].append(review_status["binding"]["note"])
+        return scene | {"project_review": review_status}
 
     result: dict[str, Any] = {
         "project": tree.to_json(),
@@ -822,7 +866,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "notes": [],
         "theme": None,
     }
-    evidence = Evidence(Level.INFERRED)
+    evidence = Evidence(Level.INFERRED, hypotheses=("H-G-VIEW-SCENE",))
     ref: InputRef | None = None
     scenes: dict[str, dict[str, Any]] = {}
     if doc is not None and doc.viewable and doc.file is not None and doc.present:
@@ -837,6 +881,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             result["check"] = check_summary(scene["check"])
         scenes[doc.id] = scene
         result["summary"] = _summary(scene)
+        result["review"] = scene["project_review"]
         if scene.get("kind") is None:  # a board: its findings by group, and no model meshed in this form
             result["summary"] |= {
                 "findings": {g["id"]: g["n"] for g in scene["meta"]["findings"]},
@@ -934,7 +979,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         result["serve"] = {"url": url, "seconds": round(time.monotonic() - started, 1)}
         if marks_file is not None:
             result["serve"]["marks_written"] = live.written
-    return Result(result=result, evidence=evidence, input=ref, writes=writes)
+    dependencies = [*args.report, *([args.check] if args.check and args.check != "run" else [])]
+    return Result(
+        result=result,
+        evidence=evidence,
+        input=ref,
+        writes=writes,
+        depends=depends_on(ctx.cwd, *dependencies),
+    )
 
 
 SERVE_STOP: threading.Event | None = None

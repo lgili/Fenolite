@@ -274,6 +274,12 @@
               "type": "string"
             }
           }
+        },
+        "placements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ModelPlacement"
+          }
         }
       },
       "additionalProperties": false,
@@ -343,6 +349,64 @@
         "kind",
         "layer",
         "points"
+      ]
+    },
+    "ModelPlacement": {
+      "description": "A 3D model of a footprint with its placement (change c0223). ``path`` names the model file as the",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false
+        },
+        "rotation": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false
+        },
+        "scale": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path"
       ]
     },
     "Pad": {
@@ -479,6 +543,26 @@
                 "mechanical",
                 "press_fit"
               ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mask_margin": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "paste_margin": {
+          "anyOf": [
+            {
+              "type": "integer"
             },
             {
               "type": "null"

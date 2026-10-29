@@ -254,6 +254,7 @@ def test_evidence() -> None:
         "H-A-PRJ-VARIANT",
         "H-A-PRJ-BOMDOC",
     }  # read by `fenolite view` (c0186, c0190), never by the build
+    viewer |= {"H-A-CONV-PADMASK"}  # read by the conversion of a document (c0223), never by the build
     rows = {r.id for r in register if r.id.startswith(stems)} - refuted - viewer
     # change c0173: the PCB document writer writes the flattened panel; the array rows that its kit has not
     # measured (H-A-PANEL-RECORD, H-A-PANEL-LAYERKIND) are no claim of the build yet

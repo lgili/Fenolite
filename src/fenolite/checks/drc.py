@@ -126,6 +126,70 @@ def _pair(uuids: Sequence[str]) -> tuple[str, str]:
     return padded[0], padded[1]
 
 
+def mirrored(exclusions: Sequence[StoredExclusion]) -> dict[int, int]:
+    """``index → index of its mirror`` for each stored exclusion of two items whose key in the other item
+    order, at the same type and position, is stored too: one accepted exception written in both orders
+    ("DRC exclusions written", change c0209)."""
+    keys: dict[tuple[str, int, int, tuple[str, str]], int] = {}
+    for index, exclusion in enumerate(exclusions):
+        at = exclusion.position
+        keys.setdefault((exclusion.type, at.x, at.y, _pair(exclusion.uuids)), index)
+    found: dict[int, int] = {}
+    for index, exclusion in enumerate(exclusions):
+        first, second = _pair(exclusion.uuids)
+        if second == NIL_UUID or first == second:
+            continue
+        at = exclusion.position
+        other = keys.get((exclusion.type, at.x, at.y, (second, first)))
+        if other is not None and other != index:
+            found[index] = other
+    return found
+
+
+def accepted_rows(
+    exclusions: Sequence[StoredExclusion], report: DrcReport | None
+) -> tuple[list[dict[str, object]], dict[int, str]]:
+    """``summary.accepted``: one row per exclusion stored in both item orders (``mirrored``), in file order
+    of its first key: ``type``, ``items`` (the two uuids of the first key), ``comment`` and ``state``.
+    The state is ``live`` when the report marks an entry of that type and those two items, in either order,
+    as excluded; else ``unjudged`` for one of ``UNREPEATABLE_TYPES`` or without a report, and ``stale``
+    otherwise. Also returns the state of every key that belongs to such a row."""
+    pairs = mirrored(exclusions)
+    excluded: set[tuple[str, frozenset[str]]] = set()
+    reported: set[tuple[str, frozenset[str]]] = set()
+    if report is not None:
+        for entry in (*report.violations, *report.unconnected_items, *report.schematic_parity):
+            key = (entry.type, frozenset(_pair([item.uuid for item in entry.items])))
+            reported.add(key)
+            if entry.excluded:
+                excluded.add(key)
+    rows: list[dict[str, object]] = []
+    states: dict[int, str] = {}
+    for index, exclusion in enumerate(exclusions):
+        other = pairs.get(index)
+        if other is None or index in states:
+            continue
+        pair = _pair(exclusion.uuids)
+        key = (exclusion.type, frozenset(pair))
+        if key in excluded:
+            state = "live"
+        elif report is None or exclusion.type in UNREPEATABLE_TYPES:
+            state = "unjudged"
+        else:
+            state = "stale"
+        states[index] = states[other] = state
+        rows.append(
+            {
+                "type": exclusion.type,
+                "items": list(pair),
+                "comment": exclusion.comment,
+                "state": state,
+                "reported": key in reported,
+            }
+        )
+    return rows, states
+
+
 def exclusion_issues(
     exclusions: Sequence[StoredExclusion], report: DrcReport | None, *, oracle: str, design: Design | None
 ) -> tuple[list[Issue], dict[str, int]]:
@@ -135,7 +199,10 @@ def exclusion_issues(
     in order. Otherwise it is stale and gives one ``check.exclusion-stale`` warning: ``moved`` when an
     entry of that type and those uuids is reported without ``excluded`` (the tool matches the marker
     position to the nanometre), ``gone`` when none is. An exclusion of one of ``UNREPEATABLE_TYPES`` is
-    not judged, and without a report none is. Returns the issues and ``summary.exclusions``."""
+    not judged, and without a report none is. Returns the issues and ``summary.exclusions``.
+
+    The two keys of an exclusion stored in both item orders (``mirrored``; change c0209) are judged
+    together, as ``accepted_rows`` says: both live, both unjudged, or both stale with one warning."""
     counts = {"stored": len(exclusions), "live": 0, "stale": 0, "unjudged": 0}
     if report is None:
         return [], counts
@@ -145,17 +212,27 @@ def exclusion_issues(
         key = (entry.type, _pair([item.uuid for item in entry.items]))
         reported.setdefault(key, []).append(entry.excluded)
     locations = item_locations(design, oracle)
+    _, states = accepted_rows(exclusions, report)
+    pairs = mirrored(exclusions)
     issues: list[Issue] = []
-    for exclusion in exclusions:
-        if exclusion.type in UNREPEATABLE_TYPES:
+    for index, exclusion in enumerate(exclusions):
+        state = states.get(index)
+        if state in ("live", "unjudged"):
+            counts[state] += 1
+            continue
+        if state is None and exclusion.type in UNREPEATABLE_TYPES:
             counts["unjudged"] += 1
             continue
         pair = _pair(exclusion.uuids)
         found = reported.get((exclusion.type, pair))
-        if found and any(found):
+        if state is None and found and any(found):
             counts["live"] += 1
             continue
         counts["stale"] += 1
+        if state is not None:
+            if pairs[index] < index:  # the pair's warning is given once, at its first key
+                continue
+            found = reported.get((exclusion.type, pair)) or reported.get((exclusion.type, (pair[1], pair[0])))
         reason = "moved" if found else "gone"
         names = [
             locations.get(uuid) or format_position(exclusion.position)
@@ -243,6 +320,7 @@ def drc_stage(
     stale_exclusions, summary["exclusions"] = exclusion_issues(
         exclusions, outcome.report, oracle=oracle.name, design=design
     )
+    summary["accepted"] = accepted_rows(exclusions, outcome.report)[0]
     issues += stale_exclusions
     evidence = outcome.evidence if outcome.report is not None and not rules_issue else Evidence()
     result = ran("drc.kicad", issues, evidence, summary)
@@ -250,4 +328,4 @@ def drc_stage(
     return dataclasses.replace(result, issues=result.issues + tuple(_limit_issues(limits, oracle.name)))
 
 
-__all__ = ["STALE", "drc_stage", "exclusion_issues"]
+__all__ = ["STALE", "accepted_rows", "drc_stage", "exclusion_issues", "mirrored"]

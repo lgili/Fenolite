@@ -7,7 +7,8 @@ The adapter holds no rule table: ``read.rules.map_rules`` decides what maps. The
 rule and replaces its header: the id and native id of the import's tables, the provenance, and a bag with
 ``rule_kind``, ``scope1`` and ``scope2``, and the pairs the mapper added beside the record text (the cell
 of a cell rule, the entries of a matrix that no rule holds; change c0130). Unmapped rules are counted per
-rule kind.
+rule kind. The Polygon Connect Style records, which no model rule holds, are kept on the board as text
+(``connect_texts``, change c0215).
 """
 
 # evidence: see import_evidence
@@ -34,6 +35,24 @@ from fenolite.model.rules import Rule, RuleSet
 MAPPER_PER_RULE = "altium.rule.unmapped"
 RECORD_PAIR = "record"
 STORAGE = "Rules6"
+
+
+POLYGON_CONNECT = "PolygonConnect"
+"""The rule kind of Polygon Connect Style records (``connectstyle.RULE_KIND``), which the model holds no
+rule of: the board keeps them as ``polygon_connect`` pairs (change c0215)."""
+
+
+def connect_texts(records: Sequence[Sequence[Field]]) -> tuple[str, ...]:
+    """The Polygon Connect Style records among ``records`` (the field lists of a document's rules), each as
+    the text of the board's ``polygon_connect`` pair: its keys from ``RULEKIND`` on, ``KEY=VALUE`` joined by
+    ``|``. Enabled or not, in record order."""
+    found: list[str] = []
+    for fields in records:
+        keys = [key for key, _ in fields]
+        if "RULEKIND" not in keys or _get(fields, "RULEKIND") != POLYGON_CONNECT:
+            continue
+        found.append("|".join(f"{key}={value or ''}" for key, value in fields[keys.index("RULEKIND") :]))
+    return tuple(found)
 
 
 def _mapper_pairs(rule: Rule) -> tuple[tuple[str, str], ...]:

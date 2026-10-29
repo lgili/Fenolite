@@ -1106,6 +1106,39 @@ def _resolve_stitch(
     else:
         assert isinstance(origin, Point)  # an anchor gave a frame above
         candidates = _region(region, origin, intent.pitch, reach_inside)
+    kept, dropped = _keep_vias(
+        board, key, net, candidates, (diameter, drill), clearance, obstacles, barriers, protection, exempt
+    )
+    if dropped:
+        issues.append(
+            _issue(
+                "kicad.copper.stitch-skipped",
+                f"{key}: {dropped} stitch candidate(s) dropped to keep {_format(clearance)} mm from other "
+                "copper, out of the rule areas that forbid vias and off the board edge",
+                key,
+            )
+        )
+    if not kept:
+        issues.append(_issue("kicad.copper.stitch-empty", f"{key}: the stitch keeps no via", key))
+    return kept
+
+
+def _keep_vias(
+    board: _Board,
+    key: str,
+    net: Net,
+    candidates: Sequence[tuple[str, Point]],
+    sizes: tuple[int, int],
+    clearance: int,
+    obstacles: Sequence[_Obstacle],
+    barriers: _Barriers | None,
+    protection: ViaProtection,
+    exempt: frozenset[tuple[str, str]] = frozenset(),
+) -> tuple[list[Via], int]:
+    """The vias of ``net`` at the ``candidates`` that keep ``clearance`` from other copper, touch no via of
+    their own net, stay out of the ``barriers`` and are a diameter apart from each other, in candidate
+    order, and how many candidates were dropped."""
+    diameter = sizes[0]
     index = SpatialIndex[_Obstacle].build((obstacle.bbox(), obstacle) for obstacle in obstacles)
     reach = clearance + -(-diameter // 2)
     kept: list[Via] = []
@@ -1132,19 +1165,45 @@ def _resolve_stitch(
             dropped += 1
             continue
         cells.setdefault(cell, []).append(point)
-        kept.append(_via(key, locator, point, (diameter, drill), board, net, protection=protection))
-    if dropped:
-        issues.append(
-            _issue(
-                "kicad.copper.stitch-skipped",
-                f"{key}: {dropped} stitch candidate(s) dropped to keep {_format(clearance)} mm from other "
-                "copper, out of the rule areas that forbid vias and off the board edge",
-                key,
-            )
-        )
-    if not kept:
-        issues.append(_issue("kicad.copper.stitch-empty", f"{key}: the stitch keeps no via", key))
-    return kept
+        kept.append(_via(key, locator, point, sizes, board, net, protection=protection))
+    return kept, dropped
+
+
+def stitch_vias(
+    design: Design,
+    key: str,
+    net: str,
+    candidates: Sequence[tuple[str, Point]],
+    *,
+    sizes: tuple[Nm, Nm],
+    clearance: Nm,
+    unplaced: Collection[str] = (),
+    keepouts: Sequence[Keepout] = (),
+    outline: BoardOutline | None = None,
+    edge_floor: Nm = 0,
+) -> tuple[tuple[Via, ...], int]:
+    """The through vias of ``net`` (diameter and drill ``sizes``) that ``stitch()`` would keep at the
+    ``candidates`` (locator, board point), judged against every track, arc, via and pad of ``design`` and
+    against its rule areas that forbid vias, the ``keepouts`` given besides and the board edge, as
+    ``resolve_copper`` judges a stitch; and how many candidates were dropped. Each via has the uuid
+    ``copper_uuid(key, locator)``. An unknown net raises ``KeyError``."""
+    if design.board is None:
+        return (), len(candidates)
+    board = _board(design, unplaced)
+    found = board.nets.get(net)
+    if found is None:
+        raise KeyError(net)
+    barriers = _barriers(
+        board,
+        (*design.board.keepouts, *keepouts),
+        outline if outline is not None else board_outline(design),
+        edge_clearance_in_force(design, edge_floor),
+    )
+    obstacles = _obstacles(board, design.board.tracks, design.board.arcs, design.board.vias)
+    kept, dropped = _keep_vias(
+        board, key, found, candidates, sizes, clearance, obstacles, barriers, ViaProtection()
+    )
+    return tuple(kept), dropped
 
 
 # --- the merge with existing copper ---------------------------------------------------------------
@@ -1382,4 +1441,5 @@ __all__ = [
     "is_copper_uuid",
     "merge_copper",
     "resolve_copper",
+    "stitch_vias",
 ]

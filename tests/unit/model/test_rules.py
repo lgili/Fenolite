@@ -13,7 +13,18 @@ import pytest
 from fenolite.core.errors import FormatError
 from fenolite.core.ids import new_id
 from fenolite.model import Design, Rule, RuleSubject, Selector, canonical
-from fenolite.model.rules import HeightLimit, PadSelection, ProximityRule, RuleSet
+from fenolite.model.rules import (
+    GateLoop,
+    HeightLimit,
+    HotLoop,
+    KelvinPair,
+    NetRole,
+    PadSelection,
+    ProximityRule,
+    RoleLimit,
+    RoleSet,
+    RuleSet,
+)
 
 PWR_TRACK = RuleSubject(item_kind="track", net="PWR_3V3", netclass="power", ref=None, layer="F.Cu")
 SIG_VIA = RuleSubject(item_kind="via", net="SDA", netclass="default", ref=None, layer="B.Cu")
@@ -200,3 +211,108 @@ def test_height_compatibility_is_documented() -> None:
     flat = " ".join(section.split())
     assert "`HeightLimit(" in flat and "`heights`" in flat
     assert "0.2.x and 0.3.0 cannot read a `rules.json` that carries `heights`" in flat
+
+
+# ------------------------------------------------------------------ net roles (change c0222)
+
+BUCK_PADS = ("C1-1", "Q1-3", "Q1-1", "Q2-3", "Q2-1", "C1-2")
+
+
+def _roles() -> RoleSet:
+    return RoleSet(
+        nets=(
+            NetRole("VIN", "power", "confirmed", milliamps=2000, working_mv=12000),
+            NetRole("SW", "switch_node", "declared"),
+            NetRole("FB", "signal", "inferred", "SIG-0", "low", sensitive=True),
+        ),
+        loops=(HotLoop("buck", BUCK_PADS, "inferred", "HL-1", "high"),),
+        kelvins=(KelvinPair("isense", ("R12-1", "R12-2"), ("U3-3", "U3-4")),),
+        gates=(GateLoop("hs", "U2-7", "Q1-2", "Q1-4", "U2-6", ("R5-1", "R5-2"), "confirmed"),),
+        limits=(RoleLimit("loop_max", 60_000_000_000_000, kind="switch_node"), RoleLimit("loop_max", 1)),
+    )
+
+
+def test_roles_round_trip(tmp_path: Path) -> None:
+    """Scenario "Roles round trip": the roles load equal to the originals, under the key ``roles``."""
+    design = Design.new("roles", seed=7)
+    assert design.rules is not None
+    design = dataclasses.replace(design, rules=dataclasses.replace(design.rules, roles=_roles()))
+    canonical.dump_dir(design, tmp_path)
+    loaded = canonical.load_dir(tmp_path)
+    assert loaded.rules is not None and loaded.rules.roles == _roles()
+    data = json.loads((tmp_path / "rules.json").read_text(encoding="utf-8"))
+    roles = data["roles"]
+    assert [row["net"] for row in roles["nets"]] == ["FB", "SW", "VIN"]  # sorted by net
+    assert roles["nets"][1] == {"net": "SW", "kind": "switch_node", "source": "declared"}
+    assert roles["loops"] == [
+        {"name": "buck", "pads": list(BUCK_PADS), "origin": "inferred", "rule": "HL-1", "confidence": "high"}
+    ]
+    assert [row.get("kind") for row in roles["limits"]] == [None, "switch_node"]  # by key, kind, net
+    assert _schema.validate(data, _schema.load("fenolite.model.v0/rules.json")) == []
+    assert _roles().gates[0].pads == ("U2-7", "R5-1", "R5-2", "Q1-2", "Q1-4", "U2-6")
+    assert _roles().kelvins[0].pads == ("R12-1", "U3-3", "U3-4", "R12-2")
+
+
+def test_roles_of_an_older_build() -> None:
+    """Scenario "Files of an older build": no key gives ``None``, and the bytes are written back; an empty
+    role set is stored as ``None``."""
+    older = '{\n  "id": "' + RST + '"\n}\n'
+    loaded = canonical.loads(older, RuleSet)
+    assert loaded.roles is None
+    assert _schema.validate(json.loads(older), _schema.load("fenolite.model.v0/rules.json")) == []
+    assert canonical.dumps(loaded) == older
+    assert RuleSet(id=RST, roles=RoleSet()).roles is None
+    assert "roles" not in canonical.dumps(RuleSet(id=RST, roles=RoleSet()))
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda: NetRole("SW", "motor", "declared"),  # type: ignore[arg-type]
+        lambda: NetRole("SW", "power", "guessed"),  # type: ignore[arg-type]
+        lambda: NetRole("SW", "power", "inferred", "PWR-1", "sure"),  # type: ignore[arg-type]
+        lambda: NetRole("SW", "power", "declared", milliamps=0),
+        lambda: NetRole("SW", "power", "declared", working_mv=-1),
+        lambda: NetRole("SW", "power", "declared", sensitive=True),
+        lambda: NetRole("", "power", "declared"),
+        lambda: HotLoop("buck", ("C1-1", "Q1-3")),
+        lambda: HotLoop("buck loop", BUCK_PADS),
+        lambda: HotLoop("buck", ("C1-1", "Q1", "Q2-1")),
+        lambda: KelvinPair("i", ("R1-1", "R2-2"), ("U1-3", "U1-4")),
+        lambda: KelvinPair("i", ("R1-1",), ("U1-3", "U1-4")),
+        lambda: GateLoop("g", "U2-7", "Q1-2", "Q2-4", "U2-6"),
+        lambda: RoleLimit("loop_area", 1),
+        lambda: RoleLimit("loop_max", -1),
+        lambda: RoleLimit("loop_max", 1, net="SW", kind="power"),
+        lambda: RoleSet(loops=(HotLoop("buck", BUCK_PADS), HotLoop("buck", BUCK_PADS[::-1]))),
+        lambda: RoleSet(nets=(NetRole("SW", "power", "declared"), NetRole("SW", "signal", "declared"))),
+    ],
+)
+def test_roles_refused_values(build: object) -> None:
+    """Scenario "Refused values": a kind ``motor``, a loop of two pads and two loops named ``buck``, among
+    the other values the model refuses, raise ``ValueError``."""
+    with pytest.raises(ValueError):
+        build()  # type: ignore[operator]
+
+
+def test_roles_refused_in_a_file_is_a_format_error() -> None:
+    text = '{"id": "' + RST + '", "roles": {"nets": [{"net": "SW", "kind": "motor", "source": "declared"}]}}'
+    with pytest.raises(FormatError):
+        canonical.loads(text, RuleSet)
+
+
+def test_roles_compatibility_is_documented() -> None:
+    text = (Path(__file__).resolve().parents[3] / "docs" / "design-model.md").read_text(encoding="utf-8")
+    section = text.split("## Net roles", 1)[1].split("\n## ", 1)[0]
+    flat = " ".join(section.split())
+    for name in (
+        "`NetRole(",
+        "`HotLoop(",
+        "`KelvinPair(",
+        "`GateLoop(",
+        "`RoleLimit(",
+        "`RoleSet(",
+        "`roles`",
+    ):
+        assert name in flat
+    assert "0.5.0 cannot read a `rules.json` that carries `roles`" in flat

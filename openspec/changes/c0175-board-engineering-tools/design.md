@@ -77,6 +77,12 @@
 
 ### 4. Layout reuse (`layout-reuse`, `src/fenolite/reuse/`)
 
+The fit over pads with unique numbers, the copy of the placement and of the tracks, arcs and vias, and the
+command moved on 2026-10-28 to change c0210 (`openspec/changes/c0210-layout-reuse/`), whose design records
+how they are proved; the command became the strategy `place --strategy reuse` (`--from`), and DRC runs there
+with `--drc` only. Pads matched by net partition, zones and group moves moved on 2026-10-28 to change
+c0227 (`openspec/changes/c0227-reuse-moves/`), whose design records how they are proved.
+
 - **Command.** `fenolite reuse TARGET --from REFERENCE --parts REF[,REF...] [--anchor REF] [--map REF=REF ...] [--copper] --dry-run|--confirm`. TARGET is a KiCad board. REFERENCE is any board that a backend reads.
 - **Method.**
   1. Fit one rigid transform on the anchor's pads: four quarter turns, a side, and a translation. Fit by least squares on pads matched by number, within `--tolerance` (default 0.05 mm).
@@ -92,6 +98,13 @@
 - **Evidence.** `KICAD-VERIFIED` (DRC on the written board), on an authored reference and target pair that holds one mirrored case.
 
 ### 5. Copper tidy (`copper-tidy`, `src/fenolite/tidy/`, `routing/octilinear.py`)
+
+Prune, the right-angle chamfer and the command with `--prune`, `--chamfer`, `--leg` and `--drc` moved on
+2026-10-28 to change c0208 (`openspec/changes/c0208-copper-tidy/`), whose design records how they are proved;
+DRC runs there with `--drc` only. Straighten, T-joint and zone chamfers and the report moved on the same day to
+change c0214 (`openspec/changes/c0214-tidy-straighten/`), whose design narrows the search to a list of
+shapes of at most three segments. The router moved on 2026-10-28 to change c0228
+(`openspec/changes/c0228-octilinear-router/`), whose design records how it is checked and proved.
 
 - **Command.** `fenolite tidy BOARD [--nets GLOB] [--keep-locked] [--prune] [--straighten] [--chamfer] --dry-run|--confirm`. `fenolite tidy BOARD --report` writes nothing and reports the style.
 - **Prune.** Remove, again and again until nothing changes, the unlocked copper with a free end, and the vias joined on fewer than two layers. Locked and scripted copper are never touched.
@@ -121,6 +134,9 @@
   - The style report is `INFERRED`, on benches with known angle counts.
 
 ### 6. Generated copper and keep-outs (`design-dsl`, `src/fenolite/dsl/generate.py`)
+
+Moved on 2026-10-28 to change c0224 (`openspec/changes/c0224-generated-copper/`), whose design records
+how the calls are resolved by the build and proved; the text below is the plan it started from.
 
 Calls of a design script. Each one records ordinary zones and rule areas, so builds, checks and conversions need nothing new.
 - **`design.band(net, spine, *, width, max_width=None, layers, clearance=None)`.** A power band along a spine path.
@@ -159,6 +175,14 @@ New kinds of `analyze`. Each reports facts, and is a finding only against the us
 
 ### 8. Assembly marks (`silkscreen-layout`, `assembly-test-features`)
 
+The text extents and `fenolite silk --designators` moved on 2026-10-28 to change c0212
+(`openspec/changes/c0212-assembly-marks/`), whose design records how they are measured and proved; it writes
+no placement record, and replaces the sweeps by a repair. `--clip` moved on 2026-10-28 to change c0226
+(`openspec/changes/c0226-silk-clip/`), whose design records the openings, the margin and how the library
+stays in step. `testpoints --place` moved on 2026-10-28 to change c0229
+(`openspec/changes/c0229-testpoint-place/`), whose design records the sites, the obstacles and why a
+rebuild keeps the probes without `sync`.
+
 - **Text extents.** `src/fenolite/silk/extents.py` measures the ink box of a stroke text. It renders the text once with `kicad-cli pcb export svg` on a scratch board, caches the result per font, size and string, and adds half the stroke on each side. With no `kicad-cli`, it uses a stated estimate, labelled `INFERRED`.
 - **`fenolite silk BOARD --designators [--keep] --dry-run|--confirm`.**
   - **Obstacles per silk side:** pads with their mask margin, drills, other silk, part bodies, the edge and slots.
@@ -187,6 +211,9 @@ New kinds of `analyze`. Each reports facts, and is a finding only against the us
 - **Evidence.** `INFERRED` for detection. The writes follow the mutation protocol, with receipts.
 
 ### 10. Library fidelity (`design-conversion`, KiCad footprint writer)
+
+The three items below moved on 2026-10-28 to change c0223 (`openspec/changes/c0223-library-fidelity/`), whose
+design narrows them; the body copy and the coverage report of "Additions from the survey" stay here.
 
 - **Mask and paste of imported pads.** A pad read from Altium takes its mask and paste layers from its kind:
   - a surface pad gets its side's copper, paste and mask;
@@ -217,7 +244,11 @@ New kinds of `analyze`. Each reports facts, and is a finding only against the us
 
   A command that writes copper may pass `--gate drc` to drop the items that bring new findings, and report them.
 - **Exclusions.** `fenolite check BOARD --exclude CODE:ITEM_A:ITEM_B --reason TEXT --confirm` stores a DRC exclusion in the project, written in both item orders, because KiCad does not keep their order.
+- **Moved.** On 2026-10-28 the exclusions and the library call `fenolite.api.trial` with its gate moved to
+  change c0209 (`openspec/changes/c0209-drc-trials/`), and the `--gate drc` option of the writing commands
+  to change c0225 (`openspec/changes/c0225-drc-gate/`).
 - **Region renders.** `fenolite render BOARD --region X1,Y1,X2,Y2 --nets --open` draws one region with pad net names, tracks, vias, slots, filled zones and the open connections, on a grid labelled in board coordinates.
+  Moved on 2026-10-28 to change c0211 (`openspec/changes/c0211-region-renders/`).
 - **Evidence.** `KICAD-VERIFIED` (`kicad-cli` writes the files, and DRC is the oracle).
 
 ### 12. Native Altium edit sessions (`altium-edit`, `src/fenolite/backends/altium/edit/`)
@@ -255,6 +286,9 @@ In the maintainer's work, every change to an Altium board that the owner kept ed
   - Experimental.
   - Each operation needs a kit case: the document opens, is saved and is reopened in Altium, and the decoded content is equal.
   - Until then, the session refuses to write over a document that the user names as a master (`--master`).
+- **Moved.** On 2026-10-29 the whole package, with tasks 6.1 to 6.7 and the `altium-edit` delta, moved to
+  change c0241 (`openspec/changes/c0241-altium-edit-sessions/`), which registers the hypotheses `H-A-EDIT-*`
+  and `H-A-INTEG-*` and holds kit Part J (`docs/evidence/altium-edit.md`).
 
 ### Additions from the survey to packages 4 to 11
 

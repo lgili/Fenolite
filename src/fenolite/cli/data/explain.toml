@@ -10,13 +10,18 @@ fix = "Report the command line and the input; do not retry the same call unchang
 see = "Exit codes"
 
 ["FEN-1002"]
-meaning = "A file of the plan could not be written: the folder or the file refused it, the disk is full, or a path is blocked. Everything was put back: every file holds what it held before the command, and no new file or folder is left."
+meaning = "A file of the plan could not be written: the folder or the file refused it, the disk is full, or a path is blocked. Every target and backup was put back. Temporary-file cleanup is best effort if the filesystem also refuses deletion."
 fix = "Read the path and the reason in the message, remove the cause, and run the same command again; under --plan the staged plan is still there. This is not a bug of Fenolite: retryable is true."
 see = "Writing files"
 
 ["FEN-1003"]
 meaning = "The command was stopped by a signal (SIGTERM, or SIGINT from Ctrl+C). The tools it had started were stopped, a write in progress was put back, and nothing was written."
 fix = "Run the same command again. A stopped route goes on from the router runs that had finished."
+see = "Writing files"
+
+["FEN-1004"]
+meaning = "A write failed or was interrupted, and restoring a target or backup also failed. Some files may have changed. Remaining recovery files were retained; retryable is false."
+fix = "Do not retry or delete recovery files. Inspect result.recovery.failed and result.recovery.preserved, copy the retained files to a safe place, and restore the intended project state. Review a new plan only after recovery."
 see = "Writing files"
 
 ["FEN-2001"]
@@ -68,6 +73,11 @@ see = "Exit codes"
 meaning = "A file that 'fenolite fetch' obtained, from the network or from --from FILE, does not have the size or the SHA-256 pinned for the tool. Nothing was written. The message holds the digest that was expected and the one that was found."
 fix = "Run the command again; a download may have been cut or altered on the way. With --from, name the file of the pinned version, downloaded from the address that --dry-run shows."
 see = "fetch"
+
+["FEN-3007"]
+meaning = "A file the command would read is kept only online by a sync client (OneDrive, iCloud Drive and the like): its operating system marks it as a placeholder. Reading it would make the client download it, and may block. Nothing was read."
+fix = "Make the project folder available offline in the sync client, wait until it is downloaded, and run the command again."
+see = "snapshot"
 
 ["FEN-4001"]
 meaning = "The command would write files and was given neither --dry-run nor --confirm, so it wrote nothing."
@@ -759,9 +769,24 @@ meaning = "A zone has fewer than three outline points, or names no layer."
 fix = "Correct the zone's outline and layers."
 see = "Build target"
 
+["altium.pour-unavailable"]
+meaning = "The default pour mode computed needs the geo extra, which is not installed, so the polygons are written without poured copper."
+fix = "Install fenolite[geo] and build again, or ask for --altium-pour outline to write the polygons unpoured without this warning."
+see = "Build target"
+
+["altium.zone-unpoured"]
+meaning = "Fenolite could not compute the pour of this polygon (the message names the reason), so it is written with its outline only."
+fix = "Repour the polygon in Altium (Tools » Polygon Pours » Repour All), or remove what the reason names."
+see = "Build target"
+
+["altium.zones-poured"]
+meaning = "Fenolite computed the poured copper of these polygons with Altium's rules; the pour is experimental until a kit round settles it."
+fix = "Nothing is needed; Tools » Polygon Pours » Repour All in Altium gives Altium's own copper, and --altium-pour outline writes the polygons unpoured."
+see = "Build target"
+
 ["altium.zones-unpoured"]
-meaning = "Polygons are written without poured copper, because Fenolite does not pour for Altium."
-fix = "Repour the polygons in Altium."
+meaning = "Polygons are written without poured copper: the pour mode is outline, or the geo extra is missing."
+fix = "Repour the polygons in Altium, or build with the geo extra and the default --altium-pour computed."
 see = "Build target"
 
 ["analysis.clearance-below"]
@@ -787,6 +812,11 @@ see = "analyze"
 ["analysis.creepage-undecided"]
 meaning = "The requirement lies inside the interval for the creepage, or the search was cut short."
 fix = "Measure the path by hand, or increase the distance until the lower bound passes."
+see = "analyze"
+
+["analysis.crossings-short"]
+meaning = "A cut of `--kinds crossings` must carry more open connections than the tracks its free ways fit on all copper layers together: the barrier it crosses (a row of pads, a gap, a slot, a rule area) leaves too little room for the nets that still have to pass."
+fix = "Widen the gaps or move the parts, open another layer, use a narrower class where it is allowed, or route some nets around the barrier; then run the crossing analysis again."
 see = "analyze"
 
 ["analysis.current-exceeded"]
@@ -867,6 +897,81 @@ see = "analyze"
 ["analysis.requirement-unmatched"]
 meaning = "A row of the requirements matches no net, or a voltage is above every step of the table."
 fix = "Correct the net pattern or extend the table."
+see = "analyze"
+
+["analysis.body-copper"]
+meaning = "Copper of a net class that a `[[body_copper]]` row of the requirements file names lies inside the plan view of a part it names, on a layer it forbids (`--kinds bodies`): high voltage under a metal-cased part, for example. The plan view is the outline of the part's bodies, or its courtyard when the board holds no body. The message names the part, the layer and the items."
+fix = "Route the class around the part on that layer, move the part, or change the row if the part may sit over that copper."
+see = "analyze"
+
+["analysis.copper-dead"]
+meaning = "A fill polygon of a zone is joined to no pad of its net through any copper (`--kinds dead`): an island that conducts nothing and floats."
+fix = "Refill the zone with island removal, delete the island, or join it to its net with a via."
+see = "analyze"
+
+["analysis.copper-far"]
+meaning = "A track, an arc, a via or a fill polygon lies farther than `--dead-distance` from every pad of its net, or its net has no pad (`--kinds dead`)."
+fix = "Remove the copper, or bring it to the pads it serves."
+see = "analyze"
+
+["analysis.decoupling-far"]
+meaning = "A supply pin (a pin of type power input) of a part that a `[[decoupling]]` row names has its nearest capacitor on the same net farther along copper than `max_distance_nm`, or no capacitor joined by copper (`--kinds decoupling`)."
+fix = "Place the capacitor next to the pin and route the pin to the capacitor first, then on to the supply."
+see = "analyze"
+
+["analysis.loop-area"]
+meaning = "The closed path through the pads of a `[[loop]]` row of the requirements file encloses more than its `max_area_nm2` (`--kinds loops`). Each leg between two pads of one net that copper joins follows the shortest path along that copper; any other leg is straight, through a part or across a gap. The message names the loop, its pads and its area."
+fix = "Place the loop's parts closer together, and route the return path under or beside the forward path; then measure again."
+see = "analyze"
+
+["analysis.neck-narrow"]
+meaning = "The pour of a net that a `[[neck]]` row of the requirements file selects narrows below its `min_width_nm` (`--kinds necks`): a neck between two wider parts, a thin tip that reaches at least that width from the rest, or a sliver narrower everywhere. Widths are measured on the raster of `--pour-grid`, to within one cell. The message gives the place and the width."
+fix = "Widen the pour there, move the cut-out or keep-out that narrows it, or remove the tip or sliver if it carries nothing; then refill and measure again."
+see = "analyze"
+
+["analysis.net-split"]
+meaning = "The copper of a net falls into more than one group of pads once every zone is taken in its copper state: a saved fill, or the simulated pour of a zone whose fill is missing or stale (`--kinds connectivity`). A cut-out or a keep-out drawn after the last fill often does it. The message names the pads that are apart."
+fix = "Refill the zones and look again; join the groups with a track or a via, or move the cut-out or keep-out that separates them."
+see = "analyze"
+
+["analysis.return-split"]
+meaning = "A track of a net of `--kinds returns` crosses a gap of its reference copper on the neighbouring layer: the plane under it is split or cut there. Its return current goes around the gap, and the loop radiates and picks up noise. The message gives the layer, the item and the two ends of the span."
+fix = "Route the track around the gap, close the plane under it, or bridge the two planes with a stitching capacitor next to the crossing."
+see = "analyze"
+
+["analysis.return-via"]
+meaning = "A via of a net of `--kinds returns` has no via of a reference net within `--via-distance`: where the signal changes layer, its return cannot follow next to it."
+fix = "Put a reference (ground) via next to the signal via."
+see = "analyze"
+
+["analysis.relief-exceeded"]
+meaning = "The spokes of the thermal relief of a pad, measured where they cross a ring at the pad's edge, carry less current by the capacity fit than the `[[current]]` row of the pad's net asks (`--kinds relief`), or no spoke crosses the ring."
+fix = "Widen the spokes, add spokes, or join the pad to the zone solidly."
+see = "analyze"
+
+["analysis.sense-shared"]
+meaning = "Copper of a sense net (`--sense`) touches copper of another net, outside the net-tie group of one footprint: for example a sense track that starts on the pour of the bus beside the shunt pad. The sense voltage then includes the drop along that copper."
+fix = "Start the sense track on the sense pad of the element, built as a net tie, and keep pours and other tracks off the sense copper."
+see = "analyze"
+
+["analysis.tie-dangling"]
+meaning = "A tie of `--kinds ties` touches fewer than two copper items, so removing it separates nothing: it joins nothing on the board."
+fix = "Check that the ids name the tie's copper; a tie between two areas touches both."
+see = "analyze"
+
+["analysis.tie-extra"]
+meaning = "After the tie is removed and the net splits, one group still holds pads of both `--domains`: a second joint, or a part on the wrong ground. The message names the stray pad and the path that joins it."
+fix = "Remove the extra joint the path shows, or move the part to its own ground; then run the tie analysis again."
+see = "analyze"
+
+["analysis.tie-parallel"]
+meaning = "Removing exactly the tie's copper leaves the net in one piece: another path (a second tie, a via, a pour) joins the two sides. The row's `path` gives the shortest one, item by item."
+fix = "Remove the other joint, or name it in the tie if it is intended; then run the tie analysis again."
+see = "analyze"
+
+["analysis.tie-unmatched"]
+meaning = "A `--tie` part, a `--tie-item` id, a `--sense` net or a `--barrier` part names nothing on the board, so it takes no part in the analysis."
+fix = "Use the reference, the model id, the KiCad uuid or the locator as `fenolite inspect` or `fenolite net` shows it."
 see = "analyze"
 
 ["assembly.template-invalid"]
@@ -1113,9 +1218,29 @@ meaning = "The project file lists a document that is not a file in the project f
 fix = "Restore the document, or remove it from the project in Altium; the other documents are still checked."
 see = "check"
 
+["check.exclusion-ambiguous"]
+meaning = "check --exclude names more than one finding of the current DRC report: its code and item names fit several entries. Nothing is written."
+fix = "Name the two items by their KiCad uuids (the finding's where, or 'fenolite inspect'), so that one entry matches."
+see = "check"
+
+["check.exclusion-present"]
+meaning = "check --exclude found the exclusion already stored in the project in both item orders: nothing is written."
+fix = "Nothing to do; 'fenolite check' lists the exclusion in summary.accepted of drc.kicad."
+see = "check"
+
 ["check.exclusion-stale"]
 meaning = "The project file stores a KiCad DRC exclusion that KiCad no longer applies: 'moved' when the entry is reported again at another marker position, 'gone' when no entry of that type names those items. KiCad ignores such an exclusion without a message."
 fix = "Open the DRC dialog in KiCad and remove the exclusion, or exclude the entry again there. For a project that Fenolite builds, prefer design.waive() in the script, which matches by name."
+see = "check"
+
+["check.exclusion-unlocated"]
+meaning = "check --exclude found the finding, but no exclusion key at an anchor of its items (report positions, track and arc ends, via, pad and footprint positions, zone corners) was applied by kicad-cli on a copy, so the marker position KiCad keys it with is unknown. Nothing is written."
+fix = "Exclude the entry in KiCad's DRC dialog, which knows the marker position; 'fenolite check' then judges it as any stored exclusion."
+see = "check"
+
+["check.exclusion-unmatched"]
+meaning = "check --exclude names no finding of the current DRC report: no entry has that type or code and those items, in either order. Nothing is written."
+fix = "Run 'fenolite check' and copy the finding's code and the item names of its where, or give the items' KiCad uuids; for an entry of one item leave ITEM_B out."
 see = "check"
 
 ["check.footprint-unresolved"]
@@ -1136,6 +1261,11 @@ see = "check"
 ["check.report-limit"]
 meaning = "KiCad's DRC report stops at a fixed number of entries per type: 499 of clearance and of unconnected items, 199 of any other type. The count of the type named in where reached that limit, so the board holds at least that many findings of the type, and the report does not show the others."
 fix = "Read the count as a lower bound. Repair the reported findings of the type and run check again: the next ones then appear. summary.limits of the stage drc.kicad lists every such type."
+see = "check"
+
+["check.roles-unreadable"]
+meaning = "The stage `roles.rules` could not read the stored roles of the board: its role document (`<board stem>.roles.json`) or the roles of `.fenolite/rules.json` is not valid. The message names the file and the place."
+fix = "Correct or delete the role document, or store the roles again with `fenolite roles PATH --accept ... --confirm`."
 see = "check"
 
 ["check.roundtrip-unjudged"]
@@ -1272,6 +1402,21 @@ see = "check"
 meaning = "Zones of different nets and equal priority overlap on a shared layer, so their fill order is undefined."
 fix = "Give the zones different priorities or separate their outlines."
 see = "check"
+
+["diff.conflict"]
+meaning = "An item of the board (a track, a footprint, a zone, ...) changed from BASE to OURS and was also changed in THEIRS, so diff --three-way cannot take one side. Nothing was written."
+fix = "Merge that item by hand in KiCad, or undo the change on one side, then run the merge again. The where field is the item: its head and uuid."
+see = "diff"
+
+["diff.not-allowed"]
+meaning = "The difference holds a change of a kind that --allow does not list, such as a rule change when only tracks were expected."
+fix = "Review the change named in where. When it is expected, add its kind to --allow; else undo it before you accept the file."
+see = "diff"
+
+["diff.unmergeable"]
+meaning = "diff --three-way cannot merge these boards: their format versions differ, their numbered net tables differ, or the merge would leave THEIRS empty. Nothing was written."
+fix = "Re-save the three boards with one KiCad version (KiCad 10 names nets, so its boards need no equal net table), then run the merge again."
+see = "diff"
 
 ["doctor.help-unparsed"]
 meaning = "A help page of kicad-cli did not parse, so Fenolite cannot tell which options that command has."
@@ -1498,6 +1643,36 @@ meaning = "The outline of the board does not fit the page of its drawing sheet, 
 fix = "Choose a larger paper for the board (Design.sheet(paper=...) in a script, or Page Settings in KiCad), or move the board onto the page, and export again."
 see = "export"
 
+["export.readback-drill"]
+meaning = "A hole of the drill files matches no hole of the board in position, diameter and plating, or a hole of the board (a drilled pad, a via, a slot) is in no drill file. Nothing was written."
+fix = "Read the message: it names the hole and the file. Fix the board, or report the file if the board is right."
+see = "export"
+
+["export.readback-empty"]
+meaning = "The Gerber file of a copper layer that holds copper draws nothing. Nothing was written."
+fix = "Check the layer in KiCad; report the file if the board holds copper there."
+see = "export"
+
+["export.readback-layer"]
+meaning = "A copper layer of the board, or the outline, has no Gerber file with its file function. Nothing was written."
+fix = "Export the Gerber files of every layer (no layer list that leaves one out), and report it if they were all asked."
+see = "export"
+
+["export.readback-outline"]
+meaning = "The outline file that kicad-cli wrote does not close into one contour per ring of the board (the outer edge, each cut-out and each slot), compared by their boxes. The fabricator would cut another shape. Nothing was written."
+fix = "Check the Edge.Cuts drawing of the board (an open corner, a stray line), fix it, and export again."
+see = "export"
+
+["export.readback-position"]
+meaning = "A row of the position file does not match its footprint: position, rotation or side. The assembler would place that part elsewhere. Nothing was written."
+fix = "Report the file with the board; check the part's placement and side in KiCad."
+see = "export"
+
+["export.readback-unsupported"]
+meaning = "A file holds a construct outside the subset that Fenolite's readers take: another coordinate format, inches, step and repeat, a zero-suppressed drill coordinate. The readers refuse instead of guessing. Nothing was written."
+fix = "Export without a preset that changes those formats, or without --readback, and report the file."
+see = "export"
+
 ["export.sheet-missing"]
 meaning = "The schematic PDF was refused: the hierarchy names a sheet file that is missing, outside the project folder, part of a cycle or too large to copy. kicad-cli would plot an empty page for it and report nothing."
 fix = "Restore the sheet file that 'where' names inside the project folder, or export without --sch-pdf. No file of the export was written."
@@ -1517,6 +1692,16 @@ see = "testpoints"
 meaning = "The file is not in Fenolite's canonical print; 'where' names the first line that differs."
 fix = "Run 'fenolite fmt' on the file with --confirm; its tree does not change."
 see = "fmt"
+
+["gate.dropped"]
+meaning = "With --gate drc, kicad-cli DRC found on the edited board a finding that the board without the edit lacks and that names this item of the edit, so the command left the item out (a tidy edit whole); the message gives the first finding, and result.gate.dropped lists them all."
+fix = "Nothing to do for the rest of the board, which is written. Route or tidy that copper again after moving what it clashes with, or lay it by hand."
+see = "route"
+
+["gate.unnamed"]
+meaning = "With --gate drc, kicad-cli DRC found on the edited board a finding that the board without the edit lacks but that names no item of the edit; KiCad can report clearance and unconnected entries differently between two runs of one board, so it may be noise of the tool."
+fix = "Run 'fenolite check' on the written board and look at the finding; the edit was written."
+see = "route"
 
 ["impedance.estimate-unsupported"]
 meaning = "Some rows have no closed form: differential rows, one reference on an inner layer, or two references on an outer layer. Fenolite estimates single-ended surface microstrip and stripline only."
@@ -1822,6 +2007,76 @@ see = "place"
 meaning = "A pad's copper is given as a shape that is at least as large as the real one."
 fix = "Nothing to do; distances to that pad may be reported slightly short."
 see = "check"
+
+["kicad.generate.altium"]
+meaning = "The script holds generated-copper calls (band, keepout_ring, barrier, body_keepout, fanout_zone, stitch_pieces), which only a KiCad build resolves; the Altium build writes nothing."
+fix = "Build for a KiCad target, or draw the zones and rule areas with zone() and rule_area()."
+see = "build"
+
+["kicad.generate.band-narrow"]
+meaning = "Some cells of a band() cannot keep the clearance from other nets' copper even at the base width; the zone fill carves the copper there."
+fix = "Move the spine away from the copper of other nets, or narrow the band."
+see = "build"
+
+["kicad.generate.crossing"]
+meaning = "The outline of a band() crosses itself: two runs of its spine lie closer than the band is wide."
+fix = "Space the runs of the spine at least max_width apart."
+see = "build"
+
+["kicad.generate.encloses"]
+meaning = "The convex envelope of a barrier() closes around pads of other nets: their tracks cannot leave without crossing the band."
+fix = "Pass pieces=True, a smaller setback, or move those parts."
+see = "build"
+
+["kicad.generate.name-taken"]
+meaning = "A zone or a rule area of the design already holds the name a generated-copper call would give its zone or rule area."
+fix = "Pass another name= to the call, or rename the zone or the rule area."
+see = "build"
+
+["kicad.generate.no-hole"]
+meaning = "keepout_ring() names a part without a drilled hole."
+fix = "Name a hole() or a part with a hole."
+see = "build"
+
+["kicad.generate.no-plan"]
+meaning = "body_keepout() names a part whose footprint has no body outline and no courtyard, so its plan view is unknown."
+fix = "Give the footprint a courtyard."
+see = "build"
+
+["kicad.generate.no-zone"]
+meaning = "fanout_zone() finds no zone of its net on a layer other than its side, or stitch_pieces() finds no two zones of its net on different layers that overlap."
+fix = "Declare the zones of the net first, with zone() or band()."
+see = "build"
+
+["kicad.generate.off-board"]
+meaning = "A point of the spine of a band() lies off the board or inside a cut-out."
+fix = "Move the spine inside the board outline."
+see = "build"
+
+["kicad.generate.pieces"]
+meaning = "The copper of the class of a barrier() lies in several pieces, so one band would close over the ground between them; nothing is written."
+fix = "Pass pieces=True for one band per piece, or a larger setback."
+see = "build"
+
+["kicad.generate.size-missing"]
+meaning = "A generated-copper call needs a clearance, a track width or a via size that neither the call nor the class of its net gives."
+fix = "Pass the size to the call, or give the net a class with it."
+see = "build"
+
+["kicad.generate.stitch-short"]
+meaning = "An overlap of two zones of a stitch_pieces() call holds fewer vias than min_vias."
+fix = "Reduce the pitch, the margin or the via size, or enlarge the overlap."
+see = "build"
+
+["kicad.generate.unknown"]
+meaning = "A generated-copper call names a net, a part or a net class that the built design does not hold, or a class without copper."
+fix = "Name what the script declares, and place the part."
+see = "build"
+
+["kicad.generate.unplaced"]
+meaning = "A generated-copper call names a part that the build staged instead of placing, so nothing is generated for it."
+fix = "Place the part in the script or in placements.toml, then build again."
+see = "build"
 
 ["kicad.layers.added"]
 meaning = "The script declares more copper layers than the existing board has, and both tables are ones that Fenolite creates: the board got the new inner layers and kept its layout."
@@ -2527,6 +2782,16 @@ meaning = "A courtyard is closer to the board edge than the edge clearance."
 fix = "Move the part away from the edge."
 see = "place"
 
+["place.fill-stale"]
+meaning = "A zone moved with a group by --turn or --shift keeps its fill moved with it, so the fill may not match what the filler would make around the copper that stayed."
+fix = "Run 'fenolite fill' on the written board before 'fenolite check'."
+see = "place"
+
+["place.group-failed"]
+meaning = "After --turn or --shift, a pad of a moved part lies more than 1 um from the move of its old position, the copper check finds a short or a clearance violation that the board before lacks, or the project or rules file beside the board could not be read for that check. Nothing is written."
+fix = "Move the copper or the part named in where out of the way, pick another pose (--pose-search ranks them), or repair the file; report the board when a pad is off its goal."
+see = "place"
+
 ["place.keepout"]
 meaning = "The courtyard of a footprint enters a rule area that forbids footprints, on the face the area's copper layer judges (F.Cu the front, B.Cu the back); KiCad's DRC reports the same part as 'items not allowed'. An area that only touches the courtyard does not count."
 fix = "Move the part out of the area; 'fenolite place' refuses the move unless --force is given, and its grid leaves such areas free."
@@ -2565,6 +2830,21 @@ see = "place"
 ["place.outside-outline"]
 meaning = "A courtyard leaves the board outline or enters a cut-out."
 fix = "Move the part inside the board."
+see = "place"
+
+["place.region-barrier"]
+meaning = "The region strategy could not put a barrier part (an isolator, a transformer) across the boundary between the two regions it joins: it has pins in one domain only, or in more than two, or its regions do not touch. It is packed inside the region of its first domain."
+fix = "Order the groups so the barrier's two domains are neighbouring bands, or give --region boxes that touch, and run again; or move the part with --move."
+see = "place"
+
+["place.region-crossing"]
+meaning = "After a region placement, open connections join pads in two different regions: the routing must cross the boundary there. Across an isolation barrier only the barrier part itself should join its two sides."
+fix = "Check the groups: a part in the wrong region pulls its nets across the boundary. Move it with --move or change --group, then count the ways with 'fenolite analyze --kinds crossings'."
+see = "place"
+
+["place.region-unassigned"]
+meaning = "A staged part belongs to no domain of the region strategy: it has no net, or no --group matches its reference. It stays where it was."
+fix = "Add a --group that matches it, or place it with --move or with the grid (--only REF)."
 see = "place"
 
 ["place.script-locked"]
@@ -2637,9 +2917,39 @@ meaning = "A power net (named by a Power interface, or holding a power input or 
 fix = "Put the net in a net class with a track width, add a track_width rule for it, or pour a zone on it."
 see = "ready"
 
+["refs.missing"]
+meaning = "A document of the project names a path that resolves to no file or folder: a library, a sheet, a 3D model or a drawing sheet that was moved or never copied."
+fix = "Copy the missing file into the project, or point the document at it again; `fenolite refs --repoint OLD=NEW` rewrites a common prefix."
+see = "refs"
+
+["refs.not-writable"]
+meaning = "A document holds paths that start with the --repoint prefix, but Fenolite does not rewrite documents of its format (an Altium project file). It was left as it is."
+fix = "Change those paths in the tool that owns the document."
+see = "refs"
+
+["refs.outside"]
+meaning = "A document of the project names a path outside the project folder. A copy of the project still depends on that folder, and a moved project may lose the file."
+fix = "Copy the file into the project and point the document at it, with `fenolite refs --repoint OLD=NEW`, or keep the dependency on purpose."
+see = "refs"
+
+["refs.unresolved"]
+meaning = "A document names a path through a variable other than ${KIPRJMOD} (a library folder of the installation, for example). Fenolite does not know its value, so it does not say whether the path resolves."
+fix = "Nothing to do when the variable is set in the tool; otherwise define it there."
+see = "refs"
+
 ["render.failed"]
 meaning = "A view could not be produced; 'where' is the view. It is never an error: a render is not a gate."
 fix = "Run again; check that kicad-cli of the running version has the render command."
+see = "render"
+
+["render.region-empty"]
+meaning = "The rectangle of 'render --region' holds no copper, hole or open connection of the board, so the view shows only the grid. The file is still written."
+fix = "Check the corners and their units against the board's coordinates; 'fenolite inspect' and 'fenolite pads' give positions in millimetres."
+see = "render"
+
+["render.copper-simulated"]
+meaning = "A zone in the region has no stored fill, or a stale one, so the region render draws its simulated pour (or its outline when the pour is too large), not a saved fill; the open connections follow that copper."
+fix = "Run 'fenolite fill' to store the fill KiCad computes, then render again to see the saved fill."
 see = "render"
 
 ["restore.backup-missing"]
@@ -2661,6 +2971,131 @@ see = "restore"
 meaning = "The receipt kept no backup: the write created its files or ran with --no-backup, so there is nothing to put back."
 fix = "Remove a created file by hand if it is unwanted; restore never deletes."
 see = "restore"
+
+["reuse.check-failed"]
+meaning = "The copper check finds on the board with the moved parts a short or a clearance violation that the board before lacks, or a pad of a moved part lies farther than the tolerance from where the fit put it. Nothing is written."
+fix = "Move the copper or the part named in where out of the way, or copy the placement first and route the block after; report the boards when a pad is off its goal."
+see = "place"
+
+["reuse.copper-dropped"]
+meaning = "Reference copper of the block was not copied: it ended nowhere on the target board (free-end, via-under-two-layers), it formed an island, its net maps to two target nets (net-ambiguous), its layer has no image (layer-unknown), its target net could not be shaped (net-skipped), or the copper check found it too close (a copper.* code). where is the reason; result.copper.dropped lists each item."
+fix = "Nothing is needed when the reason is expected; route the missing connections, or map the nets so that each reference net has one target net."
+see = "place"
+
+["reuse.drc-new"]
+meaning = "With --drc, kicad-cli DRC finds more violations of one type on the board reuse would write than on the board as it is. Nothing is written."
+fix = "Read the type in where; copy the placement without --copper, or fewer parts, and route the rest."
+see = "place"
+
+["reuse.fill-stale"]
+meaning = "Reuse copied copper onto a board whose zones are filled, so the fills no longer match the copper."
+fix = "Run 'fenolite fill' on the written board before 'fenolite check'."
+see = "place"
+
+["reuse.mirror-suspected"]
+meaning = "A part fits its reference part only on the side opposite to the one the block gives it: one of the two footprints is likely the mirror of the other. The part is placed on the side its pads fit."
+fix = "Compare the two footprints with fenolite pads; correct the footprint, or keep the placement when the mirror is intended."
+see = "place"
+
+["reuse.no-fit"]
+meaning = "A part (or the anchor) has no pad whose number occurs once in both it and its reference part, or the best rigid fit leaves a pad farther than --tolerance from its goal. The part is not placed; for the anchor nothing is placed."
+fix = "Map the part to a reference part of the same footprint with --map, pick another --anchor, or raise --tolerance only for a known small difference."
+see = "place"
+
+["reuse.project-unread"]
+meaning = "The project file or the rules file beside the target board could not be read, so the copper check that judges the copy runs without its net classes and rules."
+fix = "Repair or remove the file named in where, then run reuse again."
+see = "place"
+
+["reuse.unknown-part"]
+meaning = "A part of --parts is not on the target board, or its reference part (the same reference, or the one --map gives) is not on the reference board."
+fix = "List the parts with fenolite inspect or fenolite pads, and correct --parts or --map."
+see = "place"
+
+["roles.ambiguous"]
+meaning = "Two rules of the role inference gave a net different roles at one confidence; the first is kept (`docs/roles.md`, \"Inference rules\"). The message names the net, the two kinds and the rules."
+fix = "Confirm the net's role with `fenolite roles PATH --set NET=KIND --confirm`, or declare it in the script with `design.net_role(...)`."
+see = "roles"
+
+["roles.current-missing"]
+meaning = "A `power`, `switch_node` or `ground` role has no current: no `milliamps` on the role, no `[[current]]` row and no `--current`. Its copper is not judged for current."
+fix = "Give the current with `--current NET=AMPS`, a `[[current]]` row, or `design.net_role(net, ..., current=amp(...))`."
+see = "roles"
+
+["roles.declared-differs"]
+meaning = "The script declares a net's role differently from the role it overrides (the confirmed one or the inferred one); the declaration wins. The message names both kinds and the rule of the inferred one."
+fix = "Nothing to do if the declaration is right; otherwise change `design.net_role(...)` in the script and build again."
+see = "roles"
+
+["roles.gate-loop"]
+meaning = "A gate loop (driver output, gate, source or Kelvin source, driver return) encloses more than your `gate_max`, or more than `gate_ratio_max` times its placement bound, the area of the polygon through its pad centres. The message names the limit and its source."
+fix = "Place the driver next to the switch and run the gate return beside or under the gate trace, on the next layer."
+see = "roles"
+
+["roles.gate-return-shared"]
+meaning = "The return of a gate loop reaches the switch's power source copper (its source pour or track) before the loop's source pad: load current then flows in the gate loop (S-0852, S-0853). An error on a confirmed or declared group."
+fix = "Take the gate return from the Kelvin-source pad, or from the source pad itself, with its own trace to the driver's return pin."
+see = "roles"
+
+["roles.kelvin-apart"]
+meaning = "The two sense branches of a Kelvin pair enclose more than `pair_ratio_max` times their placement bound: they do not run as a coupled pair. The message names the pair, the area and its longest leg."
+fix = "Route the two sense lines side by side from the shunt to the amplifier, as a pair."
+see = "roles"
+
+["roles.kelvin-outer"]
+meaning = "A sense line attaches to its shunt pad on the outer half, away from the other sense pad: the load current's path through the pad and the solder is in the measurement (S-0850). The message gives the offset t from the pad's centre. An error on a confirmed or declared pair."
+fix = "Start the sense line on the inner half of the pad, toward the other sense pad."
+see = "roles"
+
+["roles.kelvin-shared"]
+meaning = "A sense branch of a Kelvin pair reaches the power copper of the shunt's net (a pour, a power track or another power pad), or the receiver sits on a force pad's net, before the sense pad (S-0850). An error on a confirmed or declared pair."
+fix = "Run the sense line from the shunt's own pad (a four-pad shunt: its sense pad), apart from the power copper, to the receiver."
+see = "roles"
+
+["roles.limit-missing"]
+meaning = "A high-voltage net (a `high_voltage` role, or a `power` role with a working voltage) has no `[[distance]]` or `[[step]]` row: Fenolite ships no creepage or clearance table, so its distances are not judged."
+fix = "Add `[[distance]]` rows for the net, or a `[[step]]` table by voltage, from the standard that applies to the product (S-0854 explains the method)."
+see = "roles"
+
+["roles.loop-area"]
+meaning = "A hot loop (the input capacitor across the switches) encloses more than your `loop_max`, or more than `loop_ratio_max` times its placement bound, the area of the polygon through its pad centres. The message names the loop, its area and the limit with its source."
+fix = "Place the input capacitor across the switch pair and keep the return directly under the supply path."
+see = "roles"
+
+["roles.loop-open"]
+meaning = "A leg of a role loop, or a sense or return branch, has no copper on the board: the connection is not routed, or a zone's fill is missing. That part of the loop is not judged."
+fix = "Route the connection, or refill the zones (`fenolite fill`), then check again."
+see = "roles"
+
+["roles.near-switching"]
+meaning = "Sense, gate or sensitive copper runs nearer than `switching_distance_nm` to switch-node copper on its layer, or over it on a neighbouring layer (its length over the switch node's fill, or its broadside overlap with its tracks). The coupling score is shown and judges nothing."
+fix = "Move the sensitive copper away from the switch node, or put ground copper between them."
+see = "roles"
+
+["roles.return-gap"]
+meaning = "A gate net or a sensitive signal crosses a gap of its ground copper on the neighbouring layer: its return current goes around the gap. It replaces `analysis.return-split` for those nets. The message gives the layer, the item and the span."
+fix = "Route the net over unbroken ground, or close the gap in the ground under it."
+see = "roles"
+
+["roles.section-current"]
+meaning = "A pour on the path of a role with a current narrows below the width the method asks for: by the rule of thumb (`width_per_amp_nm`) without a temperature rise, by the capacity fit of S-0269 with one. The message gives the width and the method."
+fix = "Widen the pour there, or remove the cut-out that narrows it; above 1 A, give a temperature rise to judge by the fit."
+see = "roles"
+
+["roles.unconfirmed"]
+meaning = "Some roles and groups are inferred and not confirmed: their findings are at most warnings. The message gives their count."
+fix = "Review them with `fenolite roles PATH`, then confirm (`--accept`, `--accept-all`), correct (`--set`) or reject them through a reviewed plan."
+see = "roles"
+
+["roles.via-current"]
+meaning = "A layer change on the path of a role with a current has fewer vias than `ceil(milliamps / milliamps_per_via)` by the rule of thumb, or vias whose barrels carry less than the current by the fit of S-0270 with a rise."
+fix = "Add vias at the layer change, or give your via size's current with `design.role_limits(milliamps_per_via=...)`."
+see = "roles"
+
+["roles.width-current"]
+meaning = "A track or arc on the path of a role with a current is narrower than the method asks for: `width_per_amp_nm` times the current by the rule of thumb (S-0851), or below the current by the capacity fit of S-0269 with a rise. The message names the width and the method."
+fix = "Widen the track, or replace it with a pour; above 1 A, give a temperature rise (`--temp-rise`) to judge by the fit."
+see = "roles"
 
 ["roundtrip.failed"]
 meaning = "The file does not survive the level named in the message: reading it and writing it back would change it. 'where' is the first difference."
@@ -2700,6 +3135,16 @@ see = "route"
 ["route.pair-skipped"]
 meaning = "A differential pair was not given to the router, and neither were its two nets: the router does not route pairs, only one net of the pair was selected, the two nets are in different classes, the class has no pair width or gap, or the router does not pair names of that form. Half a pair routed alone, or a pair routed as two single nets, is uncoupled copper that KiCad's pair rules reject."
 fix = "Route with a router that lists the feature pairs in fenolite capabilities, select both nets, give their class a pair width and gap, or pass --pairs-as-nets to route them as two single nets on purpose."
+see = "route"
+
+["route.pair-not-routed"]
+meaning = "The octilinear router left a differential pair open: no shape of its centre line gave two coupled tracks at the pair gap that keep the clearance, every shape was longer than max-length, or a net of the pair has other than two pads. Both nets stay open."
+fix = "Give the pair room with fenolite place --move, raise --router-option max-length, or route the pair with another router that lists the feature pairs."
+see = "route"
+
+["route.check-refused"]
+meaning = "The copper check judged the copper the octilinear router placed and found a short or clearance finding that the board did not have before; the copper of that connection was removed and the net stays open."
+fix = "Read the finding in the message, give the connection room with fenolite place --move, or route it with another router; fenolite check shows the board's findings."
 see = "route"
 
 ["route.pair-uncoupled"]
@@ -2811,6 +3256,76 @@ see = "KiCad output"
 meaning = "A rule selects items in a way that cannot be written as a KiCad rule condition for the target."
 fix = "Simplify the selector to nets, net classes, layers and item kinds."
 see = "KiCad output"
+
+["safety.changed-since-receipt"]
+meaning = "A file of the destination differs from the hash the receipt recorded: someone saved it after the snapshot or after Fenolite's last write, or the receipt does not name it. Publishing would overwrite that work, so nothing was written."
+fix = "Merge that file by hand, or take a new snapshot and edit it again; `--skip-changed` publishes the other files and leaves this one."
+see = "publish"
+
+["safety.open-session"]
+meaning = "A file the command would write has a CAD tool's lock file beside it: the file is open in that tool (or was, before a crash). A save in the tool would overwrite this write, or this write would be lost on the tool's next save."
+fix = "Close the file in the tool and run the command again. A lock file left by a crash may be deleted once the tool is closed."
+see = "doctor"
+
+["safety.placeholder"]
+meaning = "`fenolite doctor --sessions` found a file that a sync client keeps only online."
+fix = "Make it available offline before a command reads it; a command that would read it exits 3 with FEN-3007."
+see = "doctor"
+
+["safety.skipped"]
+meaning = "With --skip-changed, a file of the destination that changed since the receipt was left as it is, and the other files were published."
+fix = "Merge that file by hand from the copy."
+see = "publish"
+
+["safety.unstable"]
+meaning = "After three shared retry rounds, a complete-set hash check still found a file whose observed hash differs from the collected bytes. That file need not have changed in every round. No copy was made."
+fix = "Close the tool that keeps saving, or wait until it is done, and run the snapshot again."
+see = "snapshot"
+
+["silk.check-failed"]
+meaning = "A designator that silk placed, or a silkscreen piece that --clip cut, fails the check of the written board: a designator within the clearance of a pad, a hole, other silkscreen, a courtyard, the edge or another designator, too small, turned or mirrored wrongly; a piece within the margin of a mask opening. Nothing is written."
+fix = "Report the board and the command line; every candidate is checked before it is chosen, so this is a bug. Meanwhile place that part's text by hand and run silk with --keep."
+see = "silk"
+
+["silk.clip-skipped"]
+meaning = "With --clip, a filled silkscreen shape (a filled rectangle, polygon or circle) meets a mask opening or a pad hole. A filled shape is not cut, so it stays as it is."
+fix = "Edit the shape by hand (draw it as an outline, or move it off the pad), then run silk --clip again; --drc has KiCad judge the board."
+see = "silk"
+
+["silk.cut-by-other"]
+meaning = "With --clip, the silkscreen of a footprint was also cut at another part's pad. That cut depends on where the parts sit, so this instance now differs from the other instances of its footprint, and fenolite library would make it a footprint of its own."
+fix = "Move the parts apart so that no outline crosses another part's pads, then run silk --clip on the board again."
+see = "silk"
+
+["silk.drc-new"]
+meaning = "With --drc, kicad-cli DRC finds more violations of one type on the board as silk would write it (placed designators, cut silkscreen) than on the board as it is. Nothing is written."
+fix = "Read the type in where and report the board; a larger --clearance may avoid it."
+see = "silk"
+
+["silk.estimated"]
+meaning = "No kicad-cli was found (or --measure estimate was given), so the ink of every text was estimated from Fenolite's glyph table instead of measured. The estimate holds the ink KiCad draws for the glyphs of the table; another glyph is taken as the widest."
+fix = "Install KiCad 9 or 10, set FENOLITE_KICAD_CLI or pass --kicad-cli to measure; add --drc to have KiCad judge the result."
+see = "silk"
+
+["silk.footprint-changed"]
+meaning = "With --clip, the silkscreen of a footprint was cut at its own pads, the same way on every instance. The board now differs from the footprint's library copy: the next update or rebuild from that library brings the cut ink back."
+fix = "Write the library from the board with fenolite library BOARD --out LIB.pretty, or compare it with fenolite library BOARD --diff LIB.pretty, before the next rebuild."
+see = "silk"
+
+["silk.item-skipped"]
+meaning = "A footprint holds drawn items that Fenolite does not model (a text box, a curve, a dimension, or a stroke that is not solid), so designators are not kept clear of them and --clip does not cut them."
+fix = "Check the result with --drc, or look at the part named in where."
+see = "silk"
+
+["silk.no-outline"]
+meaning = "The board has no closed edge, so silk cannot keep the designators inside it."
+fix = "Close the outline on Edge.Cuts, then run silk again."
+see = "silk"
+
+["silk.no-place"]
+meaning = "No candidate place beside the part is free: each one meets a pad, a hole, other silkscreen, a courtyard, the edge or another designator. The text stays where it was, and stands in the way of the others."
+fix = "Allow a smaller size (--sizes) or both angles (--angles 0,90), lower --clearance, or move the part; the message names what blocks its best place."
+see = "silk"
 
 ["specctra.pad-approximated"]
 meaning = "A pad shape has no exact Specctra form and was given to the router as a larger simple shape."
@@ -2932,6 +3447,85 @@ meaning = "A listed page size would need more than 8 letter rows for its zones."
 fix = "Use fewer rows, or drop that page size."
 see = "template"
 
+["tidy.acute"]
+meaning = "The style report (fenolite tidy --report) found two tracks of one net that meet at an angle below 90°. Acute joints trap etchant and are hard to inspect; where names the two tracks and the message the point."
+fix = "Route the joint again, or run fenolite tidy --straighten and look at the report once more."
+see = "tidy"
+
+["tidy.chamfer-undone"]
+meaning = "A chamfer of a right-angle joint, a 45° entry of a T-joint or a cut of a zone corner was undone: it would have changed the connected groups of its net, or the copper check found something with it that the board before lacked. The message names the two tracks, the leg and the finding."
+fix = "Nothing is needed: the joint stays a right angle. A shorter --leg may fit; or move the copper that is too close."
+see = "tidy"
+
+["tidy.check-failed"]
+meaning = "The copper check finds a short or a clearance violation on the tidied board that the board before lacks, although every chamfer was checked on its own. Nothing is written."
+fix = "Report the board and the command line; run tidy with one step at a time (--prune or --chamfer) meanwhile."
+see = "tidy"
+
+["tidy.drc-new"]
+meaning = "With --drc, kicad-cli DRC finds more violations of one type on the tidied board than on the board as it is. Nothing is written."
+fix = "Read the type in where, run tidy without the step that made it, and report the board."
+see = "tidy"
+
+["tidy.fill-stale"]
+meaning = "Tidy changed copper of a board whose zones are filled, so the fills no longer match the copper."
+fix = "Run 'fenolite fill' on the written board before 'fenolite check'."
+see = "tidy"
+
+["tidy.kept"]
+meaning = "A track or an arc has a free end, but removing it would split the copper of its net: it is the only path between two parts of the net, so prune keeps it."
+fix = "Trim the part past the last joint by hand, or route the net again."
+see = "tidy"
+
+["tidy.net-skipped"]
+meaning = "A selected net holds a copper item that could not be shaped (a pad without copper entries, a degenerate track or zone outline), so tidy leaves the whole net as it is."
+fix = "Read the issues of the board read; tidy the other nets with --nets."
+see = "tidy"
+
+["tidy.project-unread"]
+meaning = "The project file or the rules file beside the board could not be read, so the copper check that judges each edit runs without its net classes and rules."
+fix = "Repair or remove the file named in where, then run tidy again."
+see = "tidy"
+
+["tidy.straighten-skipped"]
+meaning = "A net is in a differential pair, or a length, skew or pair-skew rule selects it, so straighten leaves its runs as they are: a new shape would change its length or its coupling."
+fix = "Nothing is needed. Tidy a pair by hand, or route it again with the router."
+see = "tidy"
+["library.drift"]
+meaning = "With --diff, a footprint made from the board differs from the library's footprint of the same name in the kinds the message names (pads, silkscreen, courtyard, models, fields), or the library lacks it (missing). Nothing is written."
+fix = "Write the library again from the board with fenolite library --out, or edit the board's instances to match the library."
+see = "library"
+
+["library.instances-differ"]
+meaning = "Two placed instances of one footprint name differ once brought back to their origin, rotation 0 and the top side, so the second is written as <name>_2 (then _3)."
+fix = "Make the instances equal on the board if they should be one footprint; otherwise keep both footprints."
+see = "library"
+
+["library.not-local"]
+meaning = "A bottom-side footprint could not be flipped back to the top side, so it is left out of the library."
+fix = "Report the board; meanwhile copy that footprint from its library by hand."
+see = "library"
+
+["testpoint.board-only"]
+meaning = "testpoints --place wrote its probes as footprints of the board only, without fenolite.path: a rebuild of the design script keeps them and their tracks (layout.board-only); 'where' names the probes."
+fix = "Nothing to do. To author the probes in the design script instead, add design.test_point() calls and delete the probes from the board."
+see = "testpoints"
+
+["testpoint.check-failed"]
+meaning = "Fenolite's copper check, with the project's rules, finds a short or a clearance finding with a probe or its track that testpoints --place chose, so that probe is not written; 'where' is its net."
+fix = "A clearance rule of the project is larger than the clearance of the search; report the board."
+see = "testpoints"
+
+["testpoint.drc-new"]
+meaning = "With --drc, kicad-cli DRC finds more of a type on the board with the probes than on the board as it is (library-table types aside), so nothing is written; 'where' is the type."
+fix = "Report the board: every probe and track passed Fenolite's own copper check."
+see = "testpoints"
+
+["testpoint.no-site"]
+meaning = "testpoints --place found no grid site for a probe of a net within --reach of its copper on the side's outer layer; the message names the nearest site and what blocks it. 'where' is the net."
+fix = "Raise --reach, lower --size or --grid, or make room near the net's copper."
+see = "testpoints"
+
 ["testpoint.coverage-low"]
 meaning = "Fewer nets hold a reachable test point than --min-coverage asks. A net counts when it has two pads or more, and it is covered when a pad marked as a test point on it is open on the asked side."
 fix = "Add test points to the nets the hint names with design.test_point(), or lower --min-coverage."
@@ -2956,6 +3550,11 @@ see = "testpoints"
 meaning = "Two test points that share an access side are closer, centre to centre, than --min-pitch asks; 'where' names both."
 fix = "Move one of the two, or lower --min-pitch to the pitch of the test fixture."
 see = "testpoints"
+
+["trial.not-refilled"]
+meaning = "fenolite.api.trial ran with refill on a kicad-cli older than 10.0, which cannot refill zones: both copies were checked with their stored fills, so a new finding against a zone may be one a refill would remove."
+fix = "Run the trial with kicad-cli 10, or refill the board with 'fenolite fill' first and pass refill=False."
+see = "check"
 
 ["zone.fill-mismatch"]
 meaning = "A zone exists in only one of the two boards, so the refilled board is not a refill of this one."

@@ -27,6 +27,7 @@ DEFAULT = [
     "copper.clearance",
     "length.rules",
     "placement.rules",
+    "roles.rules",
     "zone.fill",
     "drc.kicad",
     "parity",

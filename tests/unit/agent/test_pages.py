@@ -69,7 +69,7 @@ WRITTEN = (*TOOLS, *PRACTICE)
 GENERATED = guide.GENERATED_TOPICS
 RUN_TAGS = ("fenolite-loop", "fenolite-cmd", "fenolite-recipe")
 """The tags whose lines are commands: a public command needs a line in one of them."""
-WRITTEN_LINES, WRITTEN_BYTES, GENERATED_LINES, START_LINES, FOLDER_BYTES = 250, 12_000, 600, 200, 260_000
+WRITTEN_LINES, WRITTEN_BYTES, GENERATED_LINES, START_LINES, FOLDER_BYTES = 250, 12_000, 750, 200, 300_000
 KICAD_TARGETS = ("9", "10")
 LABELS = ("KICAD-VERIFIED", "ORACLE-VERIFIED", "CORPUS-VERIFIED", "ALTIUM-VERIFIED", "INFERRED", "UNVERIFIED")
 RULE = "adds a tested line to a page of the agent guide"
@@ -78,9 +78,9 @@ RULE = "adds a tested line to a page of the agent guide"
 HOME: Mapping[str, tuple[str, ...]] = {
     "design-script": ("init", "build", "sync", "template"),
     "parts": ("catalog",),
-    "footprints": (),
+    "footprints": ("library",),
     "placement": ("place", "pads", "neighbors", "region"),
-    "routing": ("route", "fill", "net", "fetch"),
+    "routing": ("route", "tidy", "fill", "net", "fetch"),
     "rules": ("analyze",),
     "checks": ("check", "ready", "explain", "netlist", "parity", "doctor", "capabilities"),
     "files": ("inspect", "diff", "equivalent", "roundtrip", "fmt", "restore", "view"),
@@ -105,7 +105,7 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
     "footprints": ("Footprint(", "Symbol(", "`INFERRED`", "datasheet"),
     "placement": (
         "place(", "side=", "rot=", "locked=True", "place --strategy grid", "place --move", "fenolite pads",
-        "field(",
+        "field(", "place --from",
     ),
     "routing": (
         "`direct`", "`freerouting`", "--nets", "--rip", "result.unrouted", "design.track", "design.via",
@@ -153,7 +153,7 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
     ),
     "board-assembly": (
         "designator", "polarity", "pin 1", "fenolite testpoints", "Fiducials", "IPC-7351", "courtyard", "3D",
-        "The board is the master",
+        "The board is the master", "fenolite silk",
     ),
     "board-schematic": (
         "One master", "pin sets", "net class", "single-pin nets", "DC rating", "test condition",
@@ -674,11 +674,11 @@ def test_budget_holds() -> None:
     assert any("at most 12000" in problem for problem in budget_problems([wide]))
     generated = guide.SkillFile("references/commands.md", b"line\n" * (GENERATED_LINES + 1))
     assert budget_problems([generated]) == [
-        "references/commands.md: 601 lines; a generated page has at most 600"
+        "references/commands.md: 751 lines; a generated page has at most 750"
     ]
     assert budget_problems([guide.SkillFile("SKILL.md", b"line\n" * START_LINES)])
     assert any(
-        "stays under 260000" in p for p in budget_problems([guide.SkillFile("x.bin", b"x" * FOLDER_BYTES)])
+        "stays under 300000" in p for p in budget_problems([guide.SkillFile("x.bin", b"x" * FOLDER_BYTES)])
     )
 
 
@@ -733,7 +733,7 @@ def test_generated_pages_are_current() -> None:
         assert (SKILL / path).read_text(encoding="utf-8") == first[path]
     commands = guide.page("commands").text
     assert re.findall(r"^## (\S+)$", commands, re.MULTILINE) == public
-    assert "| `build` | yes |" in commands and "| `check` | no |" in commands
+    assert "| `build` | yes |" in commands and "| `inspect` | no |" in commands
     assert "`fenolite route [OPTIONS] --router NAME PATH`" in commands and "- `--router NAME`: " in commands
     assert "- `--kind {footprint,symbol}`" in commands and "[--" not in commands
     names = re.findall(r"^## (\S+)$", guide.page("dsl-reference").text, re.MULTILINE)

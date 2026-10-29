@@ -16,6 +16,7 @@ They write under the folder that `-o` names.
 fenolite export blink/build -o blink/build/fab --all --manifest --dry-run --json
 fenolite export blink/build -o blink/build/fab --all --manifest --confirm --json
 fenolite export blink/build -o blink/build/fab --gerbers --drill --confirm --json
+fenolite export blink/build -o blink/build/fab --gerbers --drill --pos --readback --confirm --json
 fenolite export blink/build -o blink/build/fab --step --pdf --sch-pdf --confirm --json
 ```
 
@@ -38,6 +39,10 @@ fenolite export blink/build -o blink/build/fab --step --pdf --sch-pdf --confirm 
 - A board without a declared stack-up gets KiCad's default one in the Gerber job file
   (`export.stackup-default`, info). Declare yours in the script (page `rules`).
 - Fenolite writes no Gerber itself: the files are KiCad's, so they show the board as KiCad sees it.
+- `--readback` reads the Gerber, drill and position files back before anything is written, and compares
+  them with the board: the outline's contours, every hole and slot (position, diameter, plating), every
+  position row, and a file for every copper layer. A mismatch is an `export.readback-*` error and no file
+  is written. Use it for the files you send to a fabricator.
 
 ## 3D models
 
@@ -127,6 +132,17 @@ fenolite render blink/build -o blink/views --png --width 800 --height 600 --conf
 `render` writes `front.svg` and `back.svg` (plots of the copper, silkscreen and outline) and `top.png`
 and `bottom.png` (rendered images). They are for looking at a board, yours or the user's; they are not
 fabrication data. A view shows what no finding says: a part across the outline, a text over a pad.
+
+To look at one crowded area, draw it with `--region`. Fenolite draws `region.svg` from the model, with
+no tool: copper, holes, slots, zones in their state, and a grid in board millimetres. `--nets` labels the
+pads, `--open` draws the open connections, and `--cut` draws a barrier's ways per layer.
+
+```fenolite-cmd
+fenolite render blink/build -o blink/views --region 0mm,0mm,20mm,20mm --nets --open --confirm --json
+```
+
+Each element carries `class` and `data-net`, so read the file as data too. A `render.copper-simulated`
+info means a zone had no saved fill: run `fenolite fill` for KiCad's own.
 
 ## Filled and capped vias
 

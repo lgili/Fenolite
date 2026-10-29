@@ -55,29 +55,41 @@ drawn yet.
 9. **Review.** Review your own board against the checklist before handing it over, and record every
    decision and open item. See `board-review`.
 
+After the pours (step 6) and before the review, run the practice kinds of `analyze`. A zone whose fill is
+missing or older than its cut-outs is poured again on a raster, and every row says which copper it used.
+Rows of your requirements file (`[[decoupling]]`, `[[body_copper]]`, `[[current]]`) turn facts into
+findings; the coupling score only ranks pairs. `--pour-grid` sets the cell of that raster.
+
+```fenolite-cmd
+fenolite analyze board.kicad_pcb --kinds connectivity,dead,decoupling,relief --dead-distance 5mm --json
+fenolite analyze board.kicad_pcb --kinds bodies --requirements req.toml --pour-grid 0.05mm --json
+fenolite analyze board.kicad_pcb --kinds coupling --aggressor 'SW_*' --victim 'ADC_*' --json
+```
+
 Throughout, keep the habits of `board-workflow`. The owner edits the same files, and a lost edit costs
 more than any layout fault.
 
 ## What a check cannot see
 
-Look for these yourself. Each one is on a practice page with the way to look for it.
+Look for these yourself. Each one is on a practice page with the way to look for it. Where a command
+now measures it, the last column names it: its rows are facts, and judging them stays yours.
 
-| fault | why no rule finds it | page |
-|---|---|---|
-| a net class that exists only on the board | the next update removes it, and the default rule then holds | `board-schematic` |
-| an AC-rated part interrupting a DC bus | ratings are not in the board file | `board-schematic` |
-| a large loop area in a switching path | every track is wide enough and every gap is legal | `board-power` |
-| filtered and raw mains copper overlapping through the board | they are different nets at a legal distance | `board-emc` |
-| two grounds tied in several places | the nets are one net, as the schematic says | `board-grounds` |
-| a sense pair that also carries the power current | the connection exists, so nothing is open | `board-grounds` |
-| high voltage under a metal-cased part | the part's body is not copper | `board-insulation` |
-| a creepage path around the end of a slot | the clearance rule measures through air on one face | `board-insulation` |
-| a signal routed across a split plane | the plane is not its net | `board-routing` |
-| a barrier that nets cannot cross | the router reports open nets, not why | `board-routing` |
-| decoupling far from its pin | the capacitor is connected | `board-floorplan` |
-| unreadable or misplaced designators | silkscreen rules check overlap, not meaning | `board-assembly` |
-| a net that no probe can reach | nothing requires a test point | `board-assembly` |
-| a library that differs from the board | the board is valid on its own | `board-workflow` |
+| fault | why no rule finds it | page | measured by |
+|---|---|---|---|
+| a net class that exists only on the board | the next update removes it, and the default rule then holds | `board-schematic` | none |
+| an AC-rated part interrupting a DC bus | ratings are not in the board file | `board-schematic` | none |
+| a large loop area in a switching path | every track is wide enough and every gap is legal | `board-power` | `analyze --kinds loops` |
+| filtered and raw mains copper overlapping through the board | they are different nets at a legal distance | `board-emc` | `analyze --kinds coupling` |
+| two grounds tied in several places | the nets are one net, as the schematic says | `board-grounds` | `analyze --kinds ties` |
+| a sense pair that also carries the power current | the connection exists, so nothing is open | `board-grounds` | `analyze --kinds ties --sense` |
+| high voltage under a metal-cased part | the part's body is not copper | `board-insulation` | `analyze --kinds bodies` |
+| a creepage path around the end of a slot | the clearance rule measures through air on one face | `board-insulation` | `analyze --kinds creepage` |
+| a signal routed across a split plane | the plane is not its net | `board-routing` | `analyze --kinds returns` |
+| a barrier that nets cannot cross | the router reports open nets, not why | `board-routing` | `analyze --kinds crossings` |
+| decoupling far from its pin | the capacitor is connected | `board-floorplan` | `analyze --kinds decoupling` |
+| unreadable or misplaced designators | silkscreen rules check overlap, not meaning | `board-assembly` | `silk --designators` |
+| a net that no probe can reach | nothing requires a test point | `board-assembly` | `testpoints` |
+| a library that differs from the board | the board is valid on its own | `board-workflow` | `library --diff` |
 
 ## The habits that matter most
 
@@ -88,7 +100,7 @@ Look for these yourself. Each one is on a practice page with the way to look for
 - **One change, then check.** After each change run the check that judges it, and look at the result.
   A batch of ten changes that fails cannot be untangled.
 - **Look at the board.** Render it (`fenolite render`) and look at each region at the scale of a
-  reviewer. Many faults on these pages are obvious in a picture and invisible in a report.
+  reviewer; `render --region` draws one area with its nets and open connections. Many faults on these pages are obvious in a picture and invisible in a report.
 - **Say what you did not do.** A board handed over with "creepage not measured on the bottom face" is
   honest; one handed over as "done" is not.
 - **Ask before you change the owner's decisions.** A placement, a part choice or a copper shape that

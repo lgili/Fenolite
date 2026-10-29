@@ -347,6 +347,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `bodydiff` | see `roundtrip` |
 | `cfb` | see `binary`, `pcbdoc`, `pcblib`, `schlib` |
 | `composition` | see `project` |
+| `connectstyle` | `EVIDENCE` INFERRED: `H-A-POUR-CONNECT`, `H-A-POUR-RELIEF` |
 | `cutouts` | see `pcbdoc` |
 | `docboard` | see `pcbdoc` |
 | `docset` | see `import_evidence` |
@@ -363,6 +364,8 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `pcbdoc` | `EVIDENCE` INFERRED: `H-A-CONV-DIFAT`, `H-A-CONV-PADSTACK`, `H-A-ECO-COMPCLASS`, `H-A-ECO-SHEETCLASS`, `H-A-PCB-CU-CLASS`, `H-A-PCB-CU-KICAD`, `H-A-PCB-CU-LOCK`, `H-A-PCB-CU-PLANE`, `H-A-PCB-CU-REPOUR`, `H-A-PCB-CU-ROUNDTRIP`, `H-A-PCB-CU-RULES`, `H-A-PCB-CU-STACK`, `H-A-PCB-CU-TRACK`, `H-A-PCB-CU-VIA`, `H-A-PCB-CU-VIATENT`, `H-A-PCB-CU-VIEWER`, `H-A-PCB-DOC-BOTTOM`, `H-A-PCB-DOC-LINK`, `H-A-PCB-DOC-NETS`, `H-A-PCB-DOC-OPEN`, `H-A-PCB-DOC-VIEWER`, `H-A-PCB-KICAD-DOC`, `H-A-PCBX-BODY-2D`, `H-A-PCBX-BODY-FORM`, `H-A-PCBX-BODY-ID`, `H-A-PCBX-BODY-KICAD`, `H-A-PCBX-BODY-OPEN`, `H-A-PCBX-BODY-READBACK`, `H-A-PCBX-BODY-SHORT`, `H-A-PCBX-BUILD-LOWER`, `H-A-PCBX-FPGFX`, `H-A-PCBX-FPGFX-AD`, `H-A-PCBX-FPGFX-KICAD`, `H-A-PCBX-FPTEXT`, `H-A-PCBX-HOLE`, `H-A-PCBX-KEEPOUT`, `H-A-PCBX-KICAD`, `H-A-PCBX-MECH`, `H-A-PCBX-READBACK`, `H-A-PCBX-REPOUR`, `H-A-PCBX-STACK`, `H-A-PCBX-TEXT`, `H-A-PCBX-VIA-FULL`, `H-A-PCBX-VIASPAN`, `H-A-SLOT-PAD`, `H-A-CUTOUT-REGION`, `H-A-SLOT-KIT`, `H-A-PANEL-FLAT`, `H-A-PANEL-KIT` |
 | `pcblib` | `EVIDENCE` INFERRED: `H-A-CONV-DIFAT`, `H-A-CONV-LIBRARY`, `H-A-CONV-PADSTACK`, `H-A-PCB-GRAPHICS`, `H-A-PCB-KICAD-LIB`, `H-A-PCBX-BODY-FORM`, `H-A-PCBX-BODY-LIB`, `H-A-PCB-LIB-NAME`, `H-A-PCB-LIB-OPEN`, `H-A-PCB-PAD` |
 | `pcbrecords` | `EVIDENCE` INFERRED: `H-A-PCB-DOC-BOTTOM`, `H-A-PCB-DOC-LINK`, `H-A-PCB-DOC-NETS`, `H-A-PCB-DOC-OPEN`, `H-A-PCB-DOC-VIEWER`, `H-A-PCB-ECO`, `H-A-PCB-GRAPHICS`, `H-A-PCB-KICAD-DOC`, `H-A-PCB-KICAD-LIB`, `H-A-PCB-LIB-NAME`, `H-A-PCB-LIB-OPEN`, `H-A-PCB-PAD`, `H-A-PCB-PRJ`<br>`VIA_TENTING_EVIDENCE` INFERRED: `H-A-PCB-CU-VIATENT` |
+| `pour` | `EVIDENCE` INFERRED: `H-A-POUR-OPEN`, `H-A-POUR-REGION`, `H-A-POUR-CLEARANCE`, `H-A-POUR-CONNECT`, `H-A-POUR-RELIEF`, `H-A-POUR-OVER`, `H-A-POUR-ORDER`, `H-A-POUR-NECK`, `H-A-POUR-STEPS`, `H-A-POUR-ISLAND`, `H-A-POUR-DEAD`, `H-A-POUR-ARC`, `H-A-POUR-VOIDROT`, `H-A-POUR-KEEPOUT`, `H-A-POUR-EDGE`, `H-A-POUR-VIAPAD` |
+| `pourcompare` | none: it compares two readings of one board and states nothing of a file format or a tool |
 | `prjpcb` | see `project` |
 | `project` | `BUILD_EVIDENCE` INFERRED: `H-A-ECO-NETCLASS`, `H-A-ECO-PRJ-KEYS`, `H-A-ECO-ROOMS`, `H-A-ECO-SUPPLY`, `H-A-PRJ-KEEP`, `H-A-PRJ-OPEN`, `H-A-SCH-ECO`, `H-A-SCH-LINEEND`, `H-A-SCH-LINK`, `H-A-SCH-NC-ERC`, `H-A-SCH-NC-RECORD`, `H-A-SCH-NC-VIEWER`, `H-A-SCH-NETS`, `H-A-SCH-OPEN`, `H-A-SCH-RELINK`, `H-A-SCH-UID`, `H-A-SCH-UPDATE`, `H-A-SCHX-BUS`, `H-A-SCHX-DIR`, `H-A-SCHX-ECO`, `H-A-SCHX-GRAPHICS`, `H-A-SCHX-PINMAP`, `H-A-SCHX-PINMAP-FORM`, `H-A-SCHX-READBACK`, `H-A-SCHX-TEXT`, `H-A-SCHX-TREE`<br>`EVIDENCE` INFERRED: `H-A-CONV-SCHEMATIC`, `H-A-ECO-NETCLASS`, `H-A-ECO-PRJ-KEYS`, `H-A-ECO-ROOMS`, `H-A-ECO-SUPPLY`, `H-A-PRJ-OPEN`, `H-A-SCH-LINEEND`, `H-A-SCH-LINK`, `H-A-SCH-NETS`, `H-A-SCH-OPEN`, `H-A-SCH-UID`, `H-A-SCHX-BUS`, `H-A-SCHX-DIR`, `H-A-SCHX-ECO`, `H-A-SCHX-GRAPHICS`, `H-A-SCHX-READBACK`, `H-A-SCHX-TEXT`, `H-A-SCHX-TREE` |
 | `read.annotation` | `EVIDENCE` INFERRED: `H-A-IMP-RPT-ANNOT-2` |
@@ -399,6 +402,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `read.stackup` | see `read.project` |
 | `read.textfile` | see `read.project` |
 | `read.variants` | `EVIDENCE` INFERRED: `H-A-PRJ-VARIANT` |
+| `resave` | `EVIDENCE` INFERRED: `H-A-RD-RESAVE` |
 | `roundtrip` | `EVIDENCE_BODIES` INFERRED: `H-A-PCBX-BODY-READBACK`<br>`EVIDENCE_RT_A0` INFERRED: `H-A-VER-RTA0`<br>`EVIDENCE_RT_A2` INFERRED: `H-A-VER-RTA2-3`<br>`EVIDENCE_RT_A3` CORPUS-VERIFIED: `H-A-VER-RTA3`<br>`PROJECT_READ_EVIDENCE` CORPUS-VERIFIED: `H-A-RD-PRJ-INI`<br>`_RT_A1` INFERRED: `H-A-VER-RTA1` |
 | `rta3` | see `roundtrip`, `import_evidence` |
 | `rulemap` | `EVIDENCE` INFERRED: `H-A-RULE-CLEARANCE-CELLS`, `H-A-RULE-CLEARANCE-FORMS`, `H-A-RULE-FILE`, `H-A-RULE-KINDS`, `H-A-RULE-PRIORITY`, `H-A-RULE-READBACK`, `H-A-RULE-SCOPE` |
@@ -431,11 +435,13 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `dru` | `EVIDENCE` KICAD-VERIFIED: `H-K-DRU-DIALECT`, `H-K-DRU-ORDER`, `H-K-DRU-COND`, `H-K-DRU-KIND` |
 | `embed` | `EVIDENCE` KICAD-VERIFIED: `H-G-BOTTOM-STORE`, `H-G-FLIP`, `H-G-PAD-ANGLE-ABS` |
 | `erc` | `EVIDENCE` KICAD-VERIFIED: `H-K-ERC-JSON`, `H-K-ERC-POS`, `H-K-ERC-COPYSET` |
+| `exclusions` | `EVIDENCE` KICAD-VERIFIED: `H-K-DRC-EXCLUSION` |
 | `fanout` | `EVIDENCE` KICAD-VERIFIED: `H-K-FANOUT` |
 | `fields` | `EVIDENCE` INFERRED: `H-K-FIELD-FRAME`, `H-K-FIELD-JUSTIFY`, `H-K-FIELD-OUTSIDE` |
 | `fill` | `EVIDENCE` KICAD-VERIFIED: `H-K-FILL-SAVE`, `H-K-FILL-LIFT`, `H-K-FILL-REPEAT` |
 | `fpitems` | `EVIDENCE` INFERRED: `H-K-PCB-FPGFX` |
 | `frame` | `EVIDENCE` INFERRED: `H-G-ROT-DIR`, `H-G-BOTTOM-PLACE`, `H-G-PAD-ANGLE-ABS`, `H-G-FRAME-SHAPE`, `H-G-FRAME-CRTYD-2` |
+| `generate` | `EVIDENCE` INFERRED: `H-K-GEN-DRC` |
 | `helpmatrix` | `EVIDENCE` KICAD-VERIFIED: `H-K-CLI-HELP` |
 | `ipcd356` | see `padnets` |
 | `layers` | see `pcb` |
@@ -445,6 +451,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `libs` | `EVIDENCE` INFERRED: `H-K-LIB-COMMON`, `H-K-LIB-CONFIGHOME`, `H-K-LIB-FALLBACK`, `H-K-LIB-NESTED`, `H-K-LIB-RELPATH-2`, `H-K-LIB-SCAN`<br>`WRITE_EVIDENCE` INFERRED: `H-K-BUILD-LIBTABLE` |
 | `lowering` | `EVIDENCE` KICAD-VERIFIED: `H-K-DRU-DIALECT`, `H-K-DRU-ORDER`, `H-K-DRU-COND`, `H-K-DRU-KIND`, `H-K-DRU-PAIR` |
 | `meander` | `EVIDENCE` INFERRED: `H-K-NETLEN-MEANDER` |
+| `merge` | `EVIDENCE` INFERRED: `H-K-MERGE-ITEMS` |
 | `mod` | `AUTHORING_EVIDENCE` INFERRED: `H-K-DSL-FOOTPRINT`<br>`EVIDENCE` INFERRED: `H-K-LIB-READ` |
 | `models` | `EVIDENCE` KICAD-VERIFIED: `H-K-EXPORT-MODELS` |
 | `netlist` | `EVIDENCE` KICAD-VERIFIED: `H-K-NETLIST-SHAPE` |
@@ -471,6 +478,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `stackup` | `EVIDENCE` KICAD-VERIFIED: `H-K-STACKUP-JOB`, `H-K-STACKUP-COMPLETE`, `H-K-STACKUP-DEFAULT`, `H-K-STACKUP-RESAVE` |
 | `sym` | `EVIDENCE` INFERRED: `H-K-LIB-READ`<br>`WRITE_EVIDENCE` UNVERIFIED: — |
 | `symembed` | see `schgen` |
+| `textink` | `EVIDENCE` KICAD-VERIFIED: `H-K-SILK-INK` |
 | `triad` | see `dru`, `pcb`, `pro` |
 | `tuning` | `EVIDENCE` INFERRED: `H-K-PRO-TUNING-DRC`, `H-K-PRO-TUNING-KEYS` |
 | `versions` | `EVIDENCE` INFERRED: `H-K-TOK-CONSTANTS` |

@@ -172,9 +172,17 @@ def test_unavailable_kind_runs_no_subprocess(tmp_path: Path, monkeypatch: pytest
 def test_issue_codes() -> None:
     assert dict(ISSUE_CODES) == {
         "export.failed": "error",
+        "export.readback-outline": "error",
+        "export.readback-drill": "error",
+        "export.readback-position": "error",
+        "export.readback-layer": "error",
+        "export.readback-empty": "error",
+        "export.readback-unsupported": "error",
         "export.kind-unavailable": "error",
         "export.stackup-default": "info",
         "render.failed": "warning",
+        "render.region-empty": "warning",  # the two codes of region renders (c0211)
+        "render.copper-simulated": "info",
         "export.sheet-missing": "error",
         "export.model-unread": "warning",
         "export.page-too-small": "warning",
@@ -199,6 +207,10 @@ def test_issue_codes() -> None:
         "testpoint.none": "info",
         "testpoint.coverage-low": "error",
         "testpoint.too-close": "error",
+        "testpoint.no-site": "warning",
+        "testpoint.check-failed": "warning",
+        "testpoint.drc-new": "error",
+        "testpoint.board-only": "info",
         "fiducial.too-few": "error",
     }
     assert issue("manifest.missing", "m").severity == "warning"

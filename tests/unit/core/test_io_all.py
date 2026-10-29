@@ -273,3 +273,100 @@ def test_any_single_failure_changes_nothing(
                 assert snapshot(folder) == before, at
             else:  # a failed link is answered by a copy: the write succeeds
                 assert snapshot(folder) == written, at
+
+
+@pytest.mark.parametrize("backup", [True, False])
+@pytest.mark.parametrize("interrupted", [False, True])
+@pytest.mark.parametrize("recovery_interrupted", [False, True])
+def test_failed_rollback_preserves_originals_and_continues(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    backup: bool,
+    interrupted: bool,
+    recovery_interrupted: bool,
+) -> None:
+    """c0238: a second failure must not delete the last original or hide behind FEN-1002/FEN-1003."""
+    a, b, c = (tmp_path / name for name in ("a.txt", "b.txt", "c.txt"))
+    for path in (a, b, c):
+        path.write_bytes(path.name.encode() + b"-old")
+    replace = os.replace
+
+    def fail(src: Any, dst: Any) -> None:
+        src, dst = Path(src), Path(dst)
+        if dst == c and src.suffix == ".tmp":
+            if interrupted:
+                raise KeyboardInterrupt
+            raise OSError(5, "Input/output error")
+        if dst == b and src.suffix == ".keep":
+            if recovery_interrupted:
+                raise KeyboardInterrupt
+            raise OSError(5, "Input/output error")
+        replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", fail)
+    with pytest.raises(fio.RecoveryError) as caught:
+        fio.atomic_write_all([(a, b"new-a"), (b, b"new-b"), (c, b"new-c")], backup=backup)
+    error = caught.value
+    assert isinstance(error, FenoliteError) and error.cli_code == "FEN-1004"
+    assert error.path == c and error.failed == (b,)
+    assert a.read_bytes() == b"a.txt-old", "a restore after the failed one is still attempted"
+    assert b.read_bytes() == b"new-b" and c.read_bytes() == b"c.txt-old"
+    assert any(p.read_bytes() == b"b.txt-old" for p in error.preserved)
+    assert all(p.exists() for p in error.preserved)
+    assert str(tmp_path) not in str(error)
+
+
+@pytest.mark.parametrize("undo_part", ["target-copy", "previous-backup"])
+def test_failed_backup_rollback_keeps_both_generations(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, undo_part: str
+) -> None:
+    """A backup undo has two renames; a failure in either retains every original generation."""
+    a, b = tmp_path / "a.txt", tmp_path / "b.txt"
+    a_bak, b_bak = tmp_path / "a.txt.bak", tmp_path / "b.txt.bak"
+    originals = {a: b"a-old", b: b"b-old", a_bak: b"a-older", b_bak: b"b-older"}
+    for path, data in originals.items():
+        path.write_bytes(data)
+    replace = os.replace
+
+    def fail(src: Any, dst: Any) -> None:
+        src, dst = Path(src), Path(dst)
+        if dst == b_bak and src.suffix == ".keep":
+            raise OSError(5, "backup commit failed")
+        if undo_part == "target-copy" and src == a_bak:
+            raise OSError(5, "backup undo failed")
+        if undo_part == "previous-backup" and dst == a_bak and src.name.startswith(".a.txt.bak."):
+            raise OSError(5, "previous backup restore failed")
+        replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", fail)
+    with pytest.raises(fio.RecoveryError) as caught:
+        fio.atomic_write_all([(a, b"a-new"), (b, b"b-new")])
+    error = caught.value
+    assert a_bak in error.failed
+    assert b.read_bytes() == b"b-old" and b_bak.read_bytes() == b"b-older"
+    remaining = {p.read_bytes() for p in tmp_path.iterdir() if p.is_file()}
+    assert set(originals.values()) <= remaining, "no original target or previous backup is deleted"
+    assert any(p.read_bytes() == b"a-older" for p in error.preserved)
+
+
+def test_failed_removal_of_new_target_is_incomplete_recovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    a, b = tmp_path / "a.txt", tmp_path / "b.txt"
+    replace, unlink = os.replace, Path.unlink
+
+    def fail_replace(src: Any, dst: Any) -> None:
+        if Path(dst) == b and Path(src).suffix == ".tmp":
+            raise OSError(5, "write failed")
+        replace(src, dst)
+
+    def fail_unlink(path: Path, *args: Any, **kwargs: Any) -> None:
+        if path == a:
+            raise PermissionError(13, "Permission denied")
+        unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "replace", fail_replace)
+    monkeypatch.setattr(Path, "unlink", fail_unlink)
+    with pytest.raises(fio.RecoveryError) as caught:
+        fio.atomic_write_all([(a, b"a-new"), (b, b"b-new")])
+    assert caught.value.failed == (a,) and a.read_bytes() == b"a-new"

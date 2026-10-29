@@ -2,9 +2,7 @@
 
 ## Purpose
 A board that a backend read is drawn in a browser without KiCad or Altium: the scene is built from the design model in plain JSON, the project tree lists the documents beside it, a single offline page draws them, and a local server keeps the page live while files change (change c0176).
-
 ## Requirements
-
 ### Requirement: Board scene
 `fenolite.view.scene.build_scene(design, frame, *, name, data=b"") -> dict` SHALL turn a board design that a backend read, with that backend's `BoardFrame`, into a scene of plain JSON values in integer micrometres of the board frame: the board's layers in drawing order with a colour each, its primitives, texts, components, nets, outline and cut-outs, and its part bodies; it SHALL run no tool and import nothing outside the standard library.
 - Every pad copper entry, track, arc, via, zone fill polygon, graphic (board and footprint), text, visible footprint field and hole of the design MUST appear in the scene, each on its layer, with its net and its component where it has them.
@@ -114,3 +112,142 @@ The page SHALL snap a measurement point to the nearest point target within 10 pi
 - **GIVEN** a findings file with one group and one line item
 - **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k findings_file` runs `fenolite view <board> --overlay FILE --json`
 - **THEN** the exit code is 0 and `result.summary.findings` names the group with one item
+
+### Requirement: Generation-safe scene refinement
+
+A live document SHALL assign a new generation when rebuilding starts. A background refinement SHALL retain the generation of its originating rebuild. Publishing a scene SHALL compare the expected generation and replace scene bytes/version under the same lock; a stale worker SHALL NOT change scene, error or building state.
+
+#### Scenario: A refinement starts after a new rebuild
+
+- **GIVEN** an old scene whose refinement worker is delayed before running
+- **WHEN** a new rebuild is published and the old worker runs
+- **THEN** the new scene remains published
+
+#### Scenario: A refinement pauses before publication
+
+- **GIVEN** a refinement paused during serialization
+- **WHEN** a newer rebuild publishes and the old refinement resumes
+- **THEN** generation comparison and publication are atomic and the newer bytes remain
+
+### Requirement: Context-aware viewer shortcuts
+
+Viewer shortcuts SHALL NOT run while an input, select, textarea or editable descendant has focus, during composition, after default prevention, or with Ctrl, Meta or Alt pressed. Existing plain and Shift shortcuts SHALL continue to work outside those contexts.
+
+#### Scenario: Selecting a highlight mode
+
+- **WHEN** M is pressed with the highlight select focused
+- **THEN** the viewer does not enter Measure, and an ordinary M outside form controls still toggles Measure
+
+### Requirement: Review in narrow windows
+
+At viewport widths of 760 CSS pixels or below the viewer SHALL offer a labelled, keyboard-operable sidebar toggle, collapse the sidebar initially, and adapt the toolbar so the canvas retains the viewport width. The open sidebar SHALL fit the viewport and remain dismissible. Above the breakpoint the existing desktop layout SHALL remain.
+
+#### Scenario: A 390-pixel window
+
+- **WHEN** the viewer opens at 390 CSS pixels and the sidebar is toggled open and closed
+- **THEN** the canvas uses the full available width, controls remain reachable, and the toggle exposes its expanded state
+
+#### Scenario: Desktop remains unchanged
+
+- **WHEN** the viewer opens at 1100 CSS pixels
+- **THEN** the sidebar is 260 pixels wide and the narrow-screen toggle is hidden
+
+#### Scenario: Sidebar dismissal does not require a CAD scene
+
+- **GIVEN** a narrow window with the sidebar open and focus outside a form field
+- **WHEN** Escape is pressed while a table document is open or no scene is loaded
+- **THEN** the sidebar closes and focus returns to its toggle
+
+### Requirement: Current browser navigation owns the view
+
+Every document-open request SHALL have a new navigation generation. Only the current generation SHALL publish a loaded scene, a missing-scene card or a read failure. Selecting A, then B, then A again SHALL not allow the first request for A to replace the final request. Deferred selection actions SHALL verify their navigation is still current before changing selection or fitting the view. New-document loading SHALL identify the requested document while preserving the existing rendering layout.
+
+#### Scenario: Late success, error or missing scene
+- **GIVEN** a request for document A is waiting
+- **WHEN** B is selected and rendered before A returns a scene, fails or returns no scene
+- **THEN** B remains selected and displayed, and no card or error from A covers it
+
+#### Scenario: Repeated selection
+- **GIVEN** two requests for A separated by selection of B
+- **WHEN** the newest A renders and the first A finishes later
+- **THEN** the newest scene of A remains displayed
+
+#### Scenario: Delayed cross-probe is superseded
+- **GIVEN** a cross-probe is waiting for a candidate scene
+- **WHEN** the user selects another document before it completes
+- **THEN** the cross-probe does not change the selected document, its selection or the view
+
+### Requirement: Current scene reads own their cache entry
+
+Each document's asynchronous read or decode SHALL retain a read generation. An older completion SHALL not overwrite a newer cached scene or remove a newer raw source. Invalidation SHALL advance the generation before a refresh starts. A later selection SHALL use the newer cached scene.
+
+#### Scenario: Cache responses arrive out of order
+- **GIVEN** old and new scene requests for the same document
+- **WHEN** the new request completes first and the old request completes later
+- **THEN** the cache retains the new scene and a subsequent selection displays it
+
+### Requirement: Version polling belongs to its navigation
+
+Version polling SHALL capture the selected document and navigation before requesting. Only the current poll request for that document and current navigation SHALL change status or version or start a refresh. Refresh completion SHALL check navigation again. Stale failed requests SHALL not replace the status of the current document.
+
+The first available version response SHALL revalidate the displayed scene before adopting that version, including when a cached document is selected again. A response reporting that the server is still building SHALL NOT adopt an unread version. Polling SHALL wait while the current scene is loading, so a slow read is not repeatedly superseded by automatic refreshes. A failed scene read SHALL NOT adopt the requested version.
+
+#### Scenario: A poll completes after document selection changes
+- **GIVEN** a version request for A is waiting
+- **WHEN** B is selected before A's response or failure arrives
+- **THEN** B's version, status and scene remain untouched by that response
+
+#### Scenario: Poll replies arrive out of order
+- **GIVEN** two version requests for the current document
+- **WHEN** the newer request completes first
+- **THEN** the older response does not roll back version or status or trigger another refresh
+
+#### Scenario: Navigation changes during refresh
+- **GIVEN** a current poll starts refreshing A
+- **WHEN** B is selected before that scene read completes
+- **THEN** the refresh does not change B's scene, status, selection or version
+
+#### Scenario: Returning to an older cached scene
+- **GIVEN** A's old scene is cached and its server version changes while B is selected
+- **WHEN** A is selected again and its first version response arrives
+- **THEN** the viewer reloads A before adopting the response version
+
+#### Scenario: Refinement finishes before the first poll
+- **GIVEN** the displayed scene was read before the server finished its refinement
+- **WHEN** the first version response reports the refined scene's version
+- **THEN** the viewer reloads and displays that scene
+
+#### Scenario: A slow scene read spans polling intervals
+- **GIVEN** the current navigation is loading a scene
+- **WHEN** another poll is requested before the scene completes
+- **THEN** it does not issue another version request or start a competing scene read
+
+### Requirement: Project review status and finding workflow
+
+The viewer SHALL display explicit not-run, passed, failed and limited states for its available validation categories. It SHALL preserve stage evidence, limits and scope, SHALL NOT interpret absent or skipped checks as passes, and SHALL NOT declare fabrication readiness from artifact generation. A report without a matching input hash for the current document SHALL NOT establish a current passed state.
+
+#### Scenario: No check was supplied
+- **WHEN** a user opens an ordinary document
+- **THEN** reading is reported for the current scene and validation categories say not run
+- **AND** the panel explains how to supply check results without running checks on opening
+
+#### Scenario: Limited and failed checks
+- **WHEN** stages include skipped results, warnings, capped counts, unknown statuses, incomplete category coverage or insufficient scope
+- **THEN** the affected card is limited and exposes the reason and original evidence
+- **AND** reported errors remain failed, while every missing category stays not run
+
+#### Scenario: Review a finding
+- **WHEN** a user filters findings and moves through matching results
+- **THEN** each result retains its original message, code, severity, stage, evidence, location and hint
+- **AND** Locate uses the existing geometry marker or states that no location exists
+- **AND** reviewing an item never records that the underlying error was corrected
+
+#### Scenario: Document changed after a check
+- **WHEN** a saved report is attached to a different current input hash, including after a live save
+- **THEN** previously passing report cards are limited and the revision mismatch is visible
+- **AND** old findings remain identifiable as historical report data
+
+#### Scenario: Review on keyboard and narrow screens
+- **WHEN** review is opened with native controls by keyboard or on a narrow viewport
+- **THEN** the panel can be navigated, filtered and closed, and Locate makes the drawing available
+- **AND** ordinary document selection remains consistent with asynchronous navigation guards

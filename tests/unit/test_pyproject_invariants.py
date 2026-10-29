@@ -12,7 +12,7 @@ from typing import Any
 import fenolite
 
 ROOT = Path(__file__).resolve().parents[2]
-ALLOWED_EXTRAS = {"geo", "kicad-ipc", "mcp", "dev", "oracles"}
+ALLOWED_EXTRAS = {"geo", "kicad-ipc", "dev", "oracles"}
 
 
 REPOSITORY = "https://github.com/lgili/Fenolite"
@@ -21,6 +21,7 @@ URLS = {
     "Source": REPOSITORY,
     "Issues": f"{REPOSITORY}/issues",
     "Changelog": f"{REPOSITORY}/blob/main/CHANGELOG.md",
+    "Documentation": f"{REPOSITORY}/blob/main/docs/index.md",
 }
 STATUS = "Development Status :: 3 - Alpha"
 

@@ -8,6 +8,7 @@ import dataclasses
 import re
 from collections import defaultdict
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any, cast
 
 from fenolite.backends.kicad import layers
@@ -18,7 +19,7 @@ from fenolite.model.base import ExtBag
 from fenolite.model.board import FootprintInstance, Layer, Pad
 from fenolite.model.circuit import Component, Net, PinRef
 from fenolite.model.design import Design
-from fenolite.model.library import FootprintDef, SymbolDef
+from fenolite.model.library import FootprintDef, ModelPlacement, SymbolDef
 from fenolite.model.rules import Rule
 
 
@@ -342,8 +343,42 @@ def _name(value: str) -> str:
     return text
 
 
+def board_document(source: SourceProject, design: Design) -> Path | None:
+    """The PCB document of an Altium source: the file read, or the board's file beside the project."""
+    if source.path.suffix.lower() == ".pcbdoc":
+        return source.path
+    board = design.board
+    where = board.provenance if board is not None else None
+    if where is None or not where.file:
+        return None
+    path = source.root / where.file
+    return path if path.is_file() else None
+
+
+def rule_records(source: SourceProject, design: Design) -> tuple[dict[str, str], ...]:
+    """The rule records of the source's PCB document as key-value maps; none when it cannot be read."""
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+    from fenolite.core.errors import FenoliteError
+
+    path = board_document(source, design)
+    if path is None:
+        return ()
+    try:
+        document = read_pcbdoc(path.read_bytes(), file=path.name)
+    except (OSError, FenoliteError):
+        return ()
+    return tuple({key: value or "" for key, value in record.fields} for record in document.rules)
+
+
 def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> Design:
     from fenolite.backends.kicad._fpmap import aligned_slot_pad
+    from fenolite.convert import openings
+
+    records = rule_records(source, source.design)
+    expansions = openings.RuleExpansions(
+        mask=openings.rule_expansion(records, openings.MASK_RULE),
+        paste=openings.rule_expansion(records, openings.PASTE_RULE),
+    )
 
     design = map_layers(
         keepouts(_clean(zone_outlines(source, source.design, ledger)), ledger), target, ledger
@@ -379,7 +414,10 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
                 continue
             if aligned is not pad:
                 ledger.change("pad", pad.id, "the circular pad rotates to its slot axis")
-            pads.append(aligned)
+            opened, reasons = openings.open_pad(aligned, expansions)
+            for reason in reasons:
+                ledger.drop(openings.KIND, pad.id, reason)
+            pads.append(opened)
         for body in fp.bodies:
             ledger.drop("body", body.id, "the imported body has no portable KiCad model file")
         footprints.append(dataclasses.replace(fp, lib_ref=link, pads=tuple(pads), bodies=()))
@@ -430,17 +468,17 @@ def footprint_files(
     ledger: Ledger,
     *,
     holes: Mapping[str, FootprintDef] | None = None,
+    placements: Mapping[str, tuple[ModelPlacement, ...]] | None = None,
 ) -> dict[str, str]:
     """The derived footprint library ``<name>.pretty`` of the board's footprints and the ``fp-lib-table``
     that names it; with ``holes`` (change c0170) the table also names the library of the generated hole
     footprints, ``lib/Fenolite_Holes.pretty``, whose instances are not derived."""
-    from fenolite.backends.kicad._fpmap import angle_atom, node
-    from fenolite.backends.kicad.embed import flip_footprint_tree
+    from fenolite.backends.kicad._fpmap import node
+    from fenolite.backends.kicad.embed import local_footprint
     from fenolite.backends.kicad.libs import LibRow, LibTable, write_lib_table
     from fenolite.backends.kicad.mod import read_footprint, write_footprint
-    from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse
+    from fenolite.backends.kicad.sexpr import Atom, dumps, parse
     from fenolite.backends.kicad.versions import FORMAT_VERSIONS, FileKind
-    from fenolite.core.units import parse_angle
 
     board = design.board
     assert board is not None
@@ -450,41 +488,10 @@ def footprint_files(
     for fp, root in zip(board.footprints, definitions, strict=True):
         if fp.lib_ref.startswith(HOLE_PREFIX):
             continue
-        children: list[Node | Atom] = []
-        for child in root.children[1:]:
-            if isinstance(child, Node) and child.name in {
-                "at",
-                "layer",
-                "uuid",
-                "locked",
-                "path",
-                "sheetname",
-                "sheetfile",
-                "tstamp",
-            }:
-                continue
-            if isinstance(child, Node) and child.name == "pad":
-                child = child.with_children(
-                    tuple(
-                        c
-                        for c in child.children
-                        if not isinstance(c, Node) or c.name not in {"net", "pinfunction", "pintype"}
-                    )
-                )
-            if isinstance(child, Node) and child.name in {"pad", "property", "fp_text"}:
-                at = child.find("at")
-                if at is not None and len(at.atoms()) >= 3:
-                    atoms = at.atoms()
-                    angle = parse_angle(atoms[2].value + "deg") - fp.rotation
-                    replacement = at.with_children((*at.children[:2], angle_atom(angle)))
-                    child = child.with_children(tuple(replacement if c is at else c for c in child.children))
-            children.append(child)
-        local = root.with_children((root.children[0], *children))
-        if fp.side == "bottom":
-            flip_issues: list[Issue] = []
-            local = flip_footprint_tree(local, flip_issues)
-            if flip_issues:
-                raise ValueError("the derived library cannot mirror this footprint")
+        flip_issues: list[Issue] = []
+        local = local_footprint(root, fp.rotation, fp.side, flip_issues)
+        if flip_issues:
+            raise ValueError("the derived library cannot mirror this footprint")
         local = local.with_children(
             (
                 local.children[0],
@@ -495,7 +502,13 @@ def footprint_files(
         definition = read_footprint(dumps(local))
         pattern = fp.lib_ref.rsplit(":", 1)[-1]
         properties = {**definition.properties, "Reference": "REF**", "Value": pattern}
-        definition = dataclasses.replace(definition, name=pattern, library=name, properties=properties)
+        definition = dataclasses.replace(
+            definition,
+            name=pattern,
+            library=name,
+            properties=properties,
+            placements=(placements or {}).get(fp.id, ()),
+        )
         written = write_footprint(definition, target=target, allow_lossy=True)
         # Reference/value positions are useful in the library; board-specific identifiers are not.
         signature = re.sub(r'\(uuid "[^"]*"\)', "", written)

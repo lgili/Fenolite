@@ -243,7 +243,8 @@ def test_records_view_of_a_file_against_itself(monkeypatch: pytest.MonkeyPatch, 
     sheet = str(BLINK / "blink.SchDoc")
     code, env, _, raw = run(monkeypatch, tmp_path, "diff", sheet, sheet, "--view", "records")
     result = env["result"]
-    assert code == 0 and set(result) - {"page"} == KEYS
+    assert code == 0 and set(result) - {"page"} == KEYS | {"resave"}
+    assert result["resave"] == {"total": 0, "streams": {}}  # change c0207
     assert (result["view"], result["equal"], result["total"], result["differences"]) == (
         "records",
         True,

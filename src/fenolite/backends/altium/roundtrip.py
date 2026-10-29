@@ -31,6 +31,7 @@ from fenolite.backends.altium import cfb as compound_writer
 from fenolite.backends.altium import import_evidence
 from fenolite.backends.altium.read import cfb, pcb, pcblib, project, sch, schlib
 from fenolite.backends.altium.read.pcbprims import RawPrimitive
+from fenolite.backends.altium.resave import same_value
 from fenolite.backends.base import (
     Change,
     ContainerLevel,
@@ -615,6 +616,17 @@ def record_fields(record: Any) -> tuple[str, dict[str, Any]]:
     return kind, {"value": record}
 
 
+def _property_record(record: Any) -> bool:
+    """Whether ``record_fields`` gives the keys of a property list for ``record`` (not dataclass fields)."""
+    props = getattr(record, "props", None)
+    if props is not None and hasattr(props, "items"):
+        return True
+    listed = getattr(record, "fields", None)
+    if not isinstance(listed, tuple):
+        listed = getattr(getattr(record, "record", None), "fields", None)
+    return isinstance(listed, tuple)
+
+
 def _text_of(kind: str, fields: Mapping[str, Any]) -> str:
     shown = {key: _shown(_plain(value)) for key, value in fields.items()}
     return json.dumps({"kind": kind, "fields": shown}, ensure_ascii=False, separators=(",", ":"))
@@ -634,12 +646,19 @@ def _whole(record: Any) -> str:
     return _text_of(kind, fields)
 
 
-def _changed(a: Any, b: Any) -> tuple[str, str]:
-    """The texts of two records of one kind: the kind and the keys or fields that differ, with both values."""
+def _changed(a: Any, b: Any, *, resave: bool = False) -> tuple[str, str] | None:
+    """The texts of two records of one kind: the kind and the keys or fields that differ, with both values.
+    With ``resave``, a key of a property record whose two values decode to one value is left out, and
+    ``None`` says that every key that differs is such a key (``resave.same_value``; change c0207)."""
     kind, left = record_fields(a)
     _, right = record_fields(b)
     keys = [key for key in left if key not in right or not _same(left[key], right[key])]
     keys += [key for key in right if key not in left]
+    if resave and keys and _property_record(a) and _property_record(b):
+        kept = [k for k in keys if k not in left or k not in right or not same_value(k, left[k], right[k])]
+        if not kept:
+            return None
+        keys = kept
     if not keys:  # equal fields in another order, or bytes outside the fields
         keys = ["(order or layout)"]
         left, right = {keys[0]: list(left)}, {keys[0]: list(right)}
@@ -703,8 +722,11 @@ def _aligned(a: Sequence[Any], b: Sequence[Any]) -> list[tuple[int, int]]:
     return pairs
 
 
-def _record_changes(stream: str, a: Sequence[Any], b: Sequence[Any]) -> list[tuple[int, Change]]:
-    """The changes between the records of one stream, each with the index it sorts by."""
+def _record_changes(
+    stream: str, a: Sequence[Any], b: Sequence[Any], resave: list[Change] | None = None
+) -> list[tuple[int, Change]]:
+    """The changes between the records of one stream, each with the index it sorts by. With a ``resave``
+    list, a changed record whose keys all differ only in spelling goes there instead."""
     changes: list[tuple[int, Change]] = []
     last_a = last_b = 0
     content_a, content_b = [record_content(r) for r in a], [record_content(r) for r in b]
@@ -718,7 +740,14 @@ def _record_changes(stream: str, a: Sequence[Any], b: Sequence[Any]) -> list[tup
             i = gap_a[offset] if offset < len(gap_a) else None
             j = gap_b[offset] if offset < len(gap_b) else None
             if i is not None and j is not None and record_fields(a[i])[0] == record_fields(b[j])[0]:
-                changes.append((i, Change(f"/{stream}#{i}", "changed", *_changed(a[i], b[j]))))
+                texts = _changed(a[i], b[j], resave=resave is not None)
+                if texts is None:
+                    assert resave is not None
+                    whole = _changed(a[i], b[j])
+                    assert whole is not None
+                    resave.append(Change(f"/{stream}#{i}", "changed", *whole))
+                else:
+                    changes.append((i, Change(f"/{stream}#{i}", "changed", *texts)))
                 continue
             if i is not None:
                 changes.append((i, Change(f"/{stream}#{i}", "removed", _whole(a[i]), "")))
@@ -728,7 +757,7 @@ def _record_changes(stream: str, a: Sequence[Any], b: Sequence[Any]) -> list[tup
     return changes
 
 
-def diff_records(a: bytes, b: bytes, *, kind: str) -> DiffReport:
+def diff_records(a: bytes, b: bytes, *, kind: str, resave: list[Change] | None = None) -> DiffReport:
     """The differences between two Altium files of the read kind ``kind``, stream by stream (capability
     altium-verification, "Records view of two Altium files").
 
@@ -739,6 +768,11 @@ def diff_records(a: bytes, b: bytes, *, kind: str) -> DiffReport:
     records at the same place of one record kind are one ``changed`` at ``/<stream>#<index of a>``. The
     changes are in stream order and, in a stream, in record order; ``summary`` maps each stream that has a
     change to its counts. The readers' ``FormatError`` is raised unchanged.
+
+    With a ``resave`` list, a changed record of a property stream whose differing keys all hold two
+    spellings of one value (``resave.same_value``) is appended there and left out of the report, and a
+    changed record keeps only its other keys (capability file-safety, "Resave differences of Altium
+    documents"; change c0207).
     """
     codec = _codec(kind)
     first, second = codec.read(a, ""), codec.read(b, "")
@@ -761,7 +795,7 @@ def diff_records(a: bytes, b: bytes, *, kind: str) -> DiffReport:
             before = codec.records(first, typed_a[folded])
             after = codec.records(second, typed_b[folded])
             ordered = sorted(
-                _record_changes(stream, before, after), key=lambda item: (item[0], item[1].change)
+                _record_changes(stream, before, after, resave), key=lambda item: (item[0], item[1].change)
             )
             found += [change for _, change in ordered]
         elif bytes_a[folded] != bytes_b[folded]:

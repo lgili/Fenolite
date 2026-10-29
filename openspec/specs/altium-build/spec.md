@@ -1649,3 +1649,15 @@ until an Altium author report or verification kit proves application.
 #### Scenario: Pins move by the stored board alone
 - **WHEN** `uv run pytest tests/unit/lens/test_build_bytes_pinned.py -k altium` runs after the switch
 - **THEN** for each of the ten entries of the `ALTIUM` table the digest of the files outside `.fenolite/` is the one measured before this change, and the entry is changed with the reason "`.fenolite/board.json` holds the footprint graphics and corner ratios (c0126)"
+
+### Requirement: Model write helper exposes the existing pour mode
+
+`fenolite.lens.altium.write_model` SHALL accept the same optional `pour` mode as the backend write it delegates to. Omitting the option SHALL retain the backend's current default and missing-extra behavior. Explicit `outline` SHALL let callers reproduce historical unpoured measurements without changing the product default or weakening their comparisons.
+
+#### Scenario: Historical model measurement selects outline
+- **WHEN** a caller writes the authored routed sample with `write_model(..., pour="outline")`
+- **THEN** the written PCB document has no polygon pour regions and the historical triangle's strict piece comparisons remain in force
+
+#### Scenario: The model helper retains computed behavior
+- **WHEN** the geo extra is installed and the same sample is written with omitted `pour` or explicit `computed`
+- **THEN** both polygon pours are present and the result identifies computed mode

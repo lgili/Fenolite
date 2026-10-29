@@ -22,6 +22,7 @@ from fenolite.cli.errors import REGISTRY
 
 TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.analysis.codes", "ISSUE_CODES"),
+    ("fenolite.api.trials", "ISSUE_CODES"),
     ("fenolite.backends.altium.adapter.codes", "IMPORT_ISSUE_CODES"),
     ("fenolite.backends.altium.read.pcbprops", "PCB_READ_ISSUE_CODES"),
     ("fenolite.backends.altium.read.sch.issues", "ISSUE_CODES"),
@@ -32,6 +33,7 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.backends.kicad.fanout", "FANOUT_ISSUE_CODES"),
     ("fenolite.backends.kicad.fill", "ISSUE_CODES"),
     ("fenolite.backends.kicad.frame", "FRAME_ISSUE_CODES"),
+    ("fenolite.backends.kicad.generate", "GENERATE_ISSUE_CODES"),
     ("fenolite.backends.kicad.layers", "MERGE_ISSUE_CODES"),
     ("fenolite.backends.kicad.lengths", "LENGTH_ISSUE_CODES"),
     ("fenolite.backends.kicad.liberrors", "ISSUE_CODES"),
@@ -58,9 +60,11 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.backends.kicad.zones", "PAD_ZONE_ISSUE_CODES"),
     ("fenolite.backends.specctra.dsn", "ISSUE_CODES"),
     ("fenolite.checks.codes", "ISSUE_CODES"),
+    ("fenolite.checks.diffgate", "ISSUE_CODES"),
     ("fenolite.checks.equivalence.codes", "ISSUE_CODES"),
     ("fenolite.checks.parity", "PARITY_ISSUE_CODES"),
     ("fenolite.checks.readiness", "READY_ISSUE_CODES"),
+    ("fenolite.cli._gate", "ISSUE_CODES"),
     ("fenolite.cli.cmd_doctor", "ISSUE_CODES"),
     ("fenolite.cli.cmd_fmt", "ISSUE_CODES"),
     ("fenolite.cli.cmd_kit", "ISSUE_CODES"),
@@ -76,12 +80,18 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.lens.build", "BUILD_ISSUE_CODES"),
     ("fenolite.lens.preserve", "PRESERVE_ISSUE_CODES"),
     ("fenolite.lens.sync", "SYNC_ISSUE_CODES"),
+    ("fenolite.library.codes", "ISSUE_CODES"),
     ("fenolite.model.design", "MODEL_ISSUE_CODES"),
     ("fenolite.panel.codes", "ISSUE_CODES"),
     ("fenolite.placement.codes", "ISSUE_CODES"),
+    ("fenolite.reuse.codes", "ISSUE_CODES"),
+    ("fenolite.roles.codes", "ISSUE_CODES"),
     ("fenolite.routing.codes", "ISSUE_CODES"),
+    ("fenolite.safety.codes", "ISSUE_CODES"),
     ("fenolite.schematic.composition", "ISSUE_CODES"),
+    ("fenolite.silk.codes", "ISSUE_CODES"),
     ("fenolite.templates.spec", "ISSUE_CODES"),
+    ("fenolite.tidy.codes", "ISSUE_CODES"),
 )
 """``(module, name)`` of every mapping of the package whose name ends in ``ISSUE_CODES``, sorted."""
 

@@ -9,9 +9,11 @@ Thank you for helping. Fenolite is spec-driven, agent-friendly and strict about 
    without one. See `openspec/README.md`.
 2. Implement the tasks in order; each task names the command that proves it.
 3. While you work, run `make check-fast`: ruff, ruff format, pyright, the residue scan and the tests
-   that need no `kicad-cli`, corpus or KiCad libraries. Run `make check` (the same checks and every
-   test) once before pushing; CI runs the same steps. Both run the tests on parallel workers; see
-   `tests/README.md`, "Parallel runs".
+   that need no `kicad-cli`, corpus or KiCad libraries, plus focused tests for the affected files.
+   Complete validation (`make check`) runs in GitHub CI, including when working on the maintainer's
+   Windows PC or in another local worktree. Publish an authorized batch to its working branch and
+   verify the required CI jobs on that exact commit before merge or archive. Never treat an
+   interrupted local run as passed. See `tests/README.md`, "Parallel runs".
 4. Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
    (`feat(model): …`, `fix(kicad): …`, `docs: …`, `test: …`, `chore: …`).
 5. **Agent evaluation.** `tools/agent_eval` measures whether a fresh AI agent can use Fenolite
@@ -56,8 +58,9 @@ suite uses every core, so two of them at once are slower than one after the othe
 
 - While working on a task, run `make check-fast` and the tests of the files you touched, for
   example `uv run pytest tests/kicad/board/test_x.py -q`.
-- Run `make check` once, on the rebased branch, right before the merge.
-- Never start several full suites at the same time on one machine. If one is running, wait for it.
+- Complete validation runs in CI on the rebased branch; check the required jobs on that exact commit
+  before the merge. Keep local work to `make check-fast` and focused proofs.
+- Never start several full suites on one machine. CI's parallel jobs use separate runners.
 
 ## Developer Certificate of Origin
 
@@ -96,3 +99,8 @@ the Apache License 2.0.
 - Python ≥ 3.11, stdlib-only core, full type hints (`pyright` strict on `src/`).
 - Every `.py` file starts with the SPDX and copyright lines (see any existing file).
 - Lengths are integer nanometres; angles are integer microdegrees; no floats in the model.
+
+## Releases
+
+A release is a pushed tag `vX.Y.Z`: the release workflow checks, builds, publishes to PyPI and creates
+the GitHub Release. The steps are in [`docs/releasing.md`](docs/releasing.md).

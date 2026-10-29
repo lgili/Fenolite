@@ -145,6 +145,7 @@ def test_stage_order() -> None:
         "erc.lite",
         "copper.clearance",
         "placement.rules",
+        "roles.rules",
         "parity",
         "netlist.assignment_compare",
         "roundtrip.rta0",

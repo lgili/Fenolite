@@ -10,18 +10,23 @@ Document input (change c0044) is looked for first: a file or a project folder of
 a set of documents (an Altium document, library, project file or project folder). It is checked by
 ``checks.documents.run_document_checks`` without any external tool; since change c0088 its stages include
 ``copper.clearance`` and ``parity``.
+
+Change c0209: ``--exclude CODE:ITEM_A:ITEM_B --reason TEXT`` runs no stage; it writes one KiCad DRC
+exclusion into the board's project file under the mutation protocol (``cli._exclude``). Without it the
+command plans no write, so ``--dry-run`` and ``--confirm`` change nothing.
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from fenolite.backends import registry
-from fenolite.backends.base import DocumentSet, DocumentValidator, ProjectSet, Validator
+from fenolite.backends.base import BoardPad, DocumentSet, DocumentValidator, ProjectSet, Validator
 from fenolite.backends.kicad import versions
 from fenolite.backends.kicad.oracle import KicadOracle
 from fenolite.backends.kicad.projectset import project_set, resolve_board
@@ -30,11 +35,13 @@ from fenolite.checks.documents import ALL_DOCUMENT_STAGES, DOCUMENT_STAGES, run_
 from fenolite.checks.stages import CheckReport, relative_file
 from fenolite.cli._documents import built_cache, find_documents, input_ref, project_result
 from fenolite.cli._examples import EXAMPLE_BOARD
+from fenolite.cli._exclude import run_exclude
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, preflight
 from fenolite.cli.api import Command, Context, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FormatError, Issue
+from fenolite.core.evidence import Evidence
 from fenolite.core.progress import NULL_PROGRESS, Progress
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
@@ -42,7 +49,7 @@ from fenolite.model.findings import Waiver
 HELP = (
     "check a KiCad project (model, KiCad ERC and DRC findings, pad nets, round trips) or an Altium "
     "project or document (model, ERC lite, copper shorts and clearance, schematic parity, pad nets, round "
-    "trips RT-A0 to RT-A2), read-only"
+    "trips RT-A0 to RT-A2), read-only; --exclude writes one KiCad DRC exclusion into the project"
 )
 NO_TOOL_HINT = (
     "install KiCad 9 or 10, set FENOLITE_KICAD_CLI or pass --kicad-cli, or run "
@@ -89,6 +96,13 @@ def _register(parser: argparse.ArgumentParser) -> None:
         metavar="SECONDS",
         help="kicad-cli timeout (300; unused for Altium input)",
     )
+    parser.add_argument(
+        "--exclude",
+        metavar="CODE:ITEM_A:ITEM_B",
+        help="store a KiCad DRC exclusion of this finding in the project (both item orders) instead of "
+        "checking; needs --reason and the mutation protocol (KiCad input only)",
+    )
+    parser.add_argument("--reason", metavar="TEXT", help="with --exclude: the comment stored with it")
 
 
 def parse_stages(text: str | None) -> tuple[str, ...]:
@@ -118,6 +132,16 @@ def _document_stages(text: str | None) -> tuple[str, ...]:
     return tuple(names)
 
 
+def roles_judge(
+    design: Design, model: Design | None, project: ProjectSet, pads: Sequence[BoardPad] | None
+) -> tuple[tuple[Issue, ...], Mapping[str, object], Evidence]:
+    """The ``RolesJudge`` of the stage ``roles.rules``: ``fenolite.roles.judge.judge``, imported when the
+    stage runs (``checks`` imports neither ``roles`` nor ``analysis``; change c0222)."""
+    from fenolite.roles.judge import judge
+
+    return judge(design, model, project, pads)
+
+
 def _cache(root: Path) -> tuple[bool, Design | None, str]:
     """``(built, model, cache_error)`` from ``<root>/.fenolite/``."""
     return built_cache(root)
@@ -144,6 +168,7 @@ def _run_documents(
         validator=backend,
         cache_error=cache_error,
         waivers=_waivers(model, cache_error),
+        roles_judge=roles_judge,
     )
     error = report.read_error
     if isinstance(error, FormatError):
@@ -195,7 +220,8 @@ def run_stages(
                         oracle=oracle, cache_error=cache_error,
                         plotter=oracle if "render" in stages else None,
                         fill_oracle=oracle if "zone.fill" in stages else None,
-                        waivers=_waivers(model, cache_error), progress=progress)  # fmt: skip
+                        waivers=_waivers(model, cache_error), progress=progress,
+                        roles_judge=roles_judge)  # fmt: skip
     error = report.read_error
     if isinstance(error, FormatError) and not report.drc_reported:
         old = isinstance(error, versions.UnsupportedFormatError)
@@ -209,7 +235,16 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     path = given if given.is_absolute() else ctx.cwd / given
     found = find_documents(path)
     if found is not None:
+        if args.exclude is not None:
+            raise CliError("FEN-2001", "--exclude writes a KiCad project: pass a KiCad board",
+                           where="--exclude")  # fmt: skip
         return _run_documents(args, path, *found)
+    if args.reason is not None and args.exclude is None:
+        raise CliError("FEN-2001", "--reason goes with --exclude", where="--reason")
+    if args.exclude is not None:
+        if args.stages is not None:
+            raise CliError("FEN-2001", "--exclude runs no stage: leave out --stages", where="--stages")
+        return run_exclude(args, ctx, resolve_board(path))
     stages = parse_stages(args.stages)
     board = resolve_board(path)
     checked = run_stages(board, stages, kicad_cli=args.kicad_cli, timeout=args.timeout, progress=ctx.progress)
@@ -240,9 +275,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
 COMMAND = Command(
     name="check",
     help=HELP,
-    mutates=False,
+    mutates=True,
     register=_register,
     run=_run,
     paged="issues",
     example_args=(EXAMPLE_BOARD, "--stages", "model.validate,roundtrip"),
+    mutation_example_args=(EXAMPLE_BOARD, "--stages", "model.validate,roundtrip"),
 )

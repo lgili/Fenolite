@@ -350,6 +350,96 @@ design; a build calls it for you (`build_design(…, meanders=…)`; `fenolite b
 Checked on `kicad-cli` 10.0.6 (`H-K-NETLEN-MEANDER`, probes `length-meander-*`): KiCad's length of the
 meandered net lies within 1 µm of the target, and the meander adds no violation.
 
+## Copper tidy
+
+`fenolite tidy BOARD` (changes c0208 and c0214; package `fenolite.tidy`; command reference in
+`docs/cli-contract.md`, "tidy") cleans copper that a router or a hand left behind. It edits board copper
+only: locked items and script copper (the copper uuids above) stay as they are, since the next build
+would write script copper again.
+
+- **The connected groups.** Each net's copper is cut into pieces as the copper check shapes it (a track
+  is its segment, a via a disc on every layer of its span, a pad its copper entries, a fill its ring), and
+  two pieces are joined when they touch on one layer, as in `docs/analyses.md`, "Open connections". An
+  edit is kept only when the pieces it leaves are grouped exactly as before, and a piece it adds joins an
+  existing group.
+- **Prune.** A track or an arc has a free end when the disc of its width at that end touches no other
+  piece of its net and no zone outline of its net; a via dangles when it touches something of its net on
+  fewer than two layers. A zone outline counts as joined although its fill may be stale or missing, so
+  a stitching via in an unfilled plane stays. Passes repeat until nothing more goes: a dead branch is
+  taken back segment by segment. A track with a free end that is still the only path between two parts
+  of its net stays with `tidy.kept`; tidy never trims a track to its last joint.
+- **Straighten.** A run is a chain of two or more unlocked tracks of one net, layer and width whose inner
+  joints join nothing else; its ends (pads, vias, joints of three, locked items) stay. A run whose tracks
+  touch other copper of the net between its ends stays too. Between the ends, shapes of at most three
+  segments at 0°, 45° and 90° are tried: straight, diagonal then straight and the reverse, a diagonal
+  between two straight parts (at 1/2, 1/4 and 3/4), the two L shapes and the two L shapes with a 45° cut.
+  A 45° turn weighs 1, a 90° turn 3; a turn inside a pad the run ends on is free; joints with tracks that
+  end at or pass through the run's ends count; an acute angle is never made. Only shapes lighter than the
+  run are tried, lightest and then shortest first; the first that touches of its net only what the ends
+  touched, keeps the groups and adds no copper-check finding replaces the run. Runs go by net, layer and
+  track id, each against the copper of the ones before. A net of a differential pair (an interface, or
+  KiCad's name rule) or selected by a `length`, `skew` or `diff_pair_skew` rule stays
+  (`tidy.straighten-skipped`): a new shape changes its length.
+- **Chamfer.** A corner of exactly two horizontal or vertical tracks of one net, layer and width at 90°,
+  with nothing else of the net at the point, becomes a 45° track between the two ends moved back by the
+  leg (`--leg`, else twice the width, at most half of the shorter track). A T-joint, a horizontal or
+  vertical stem that ends at 90° on the middle of a track of its net, layer and width or on the joint of
+  two collinear ones, gets a 45° entry: the stem is shortened by the leg (at most half of it and of the
+  bar's side) and joined to the bar on the side with more bar; the bar does not change. Corners on a pad
+  or a via, tracks at other angles and arcs are left alone. Each chamfer is first judged alone for the groups;
+  then the board with every chamfer goes through the copper check with the project's rules, and a chamfer
+  whose tracks a new finding names is undone (`tidy.chamfer-undone`) until the check finds nothing new.
+- **Zone corners** (`--zones`, with the chamfer). Each convex corner of a horizontal and a vertical edge of
+  the outline of an unlocked zone of a selected net is cut by a 45° edge (legs `--leg`, else 1 mm, at most
+  half of each edge); a reflex corner would add copper and stays. A cut that leaves a pad, via, track or
+  arc of the net that touched the outline without contact is undone. A cut zone loses its stored fill:
+  run `fill`.
+- **The style report** (`--report`, writes nothing). Per net class and copper layer: the joints where two
+  track ends of a net meet, by angle (`joints_45`, `joints_90`, `acute` below 90°, `other`; straight ones
+  are not counted; at three or more ends each acute pair counts), the jogs (tracks shorter than three
+  widths between two turning joints), the length per width, and per class the vias; `tidy.acute` marks
+  each acute joint. `--compare REFERENCE` gives the table of another KiCad board, so a house style can be
+  matched by measurement (`H-G-TIDY-STYLE`).
+- **The last guard.** The whole tidied board is checked once more against the board as read; a new finding
+  writes nothing (`tidy.check-failed`). With `--drc`, `kicad-cli` judges both boards in copies, and a DRC
+  violation type that grows writes nothing (`tidy.drc-new`).
+
+Measured with `kicad-cli` 10.0.7 on the bench of `tests/_tidybench.py` (`H-K-TIDY-DRC`,
+`tests/kicad/tidy/test_tidy_oracle.py`): pruning the stub, the lead and its via leaves one `track_dangling`
+(KiCad counts the lead as joined to its via) and one `via_dangling` fewer, and the chamfer adds nothing.
+The chamfer that the copper check undoes beside `V1-1` is one KiCad refuses too: forced, it adds a
+`clearance` violation. Change c0214 adds three cases with the same tool: the bench with all three steps
+(the L of `SIG` straightened, the T-joint of `BUS` entered), the staircase of `tests/_tidybench.py`
+straightened to one 45° corner, and an unfilled zone with its four corners cut; no violation type grows.
+The octilinear router stays with change c0175.
+
+## Generated copper
+
+Six calls of a design script (change c0224; module `fenolite.dsl.generate`, resolver
+`fenolite.backends.kicad.generate`) generate copper from the placed board instead of points written by
+hand. Each records plain data (`fenolite.dsl.generated`); the KiCad build resolves the records after the
+script copper and the meanders, so they see every pad and script track, and writes ordinary items: a
+locked zone or a rule area named `<call>.<name>` (with a suffix per piece), and tracks and vias with
+copper uuids of the key `<call>.<name>`. A rebuild replaces them and nothing else. The Altium target
+refuses them (`kicad.generate.altium`).
+
+| call | what the build writes |
+|---|---|
+| `band(net, spine, width=, layers=, max_width=, step=, clearance=, priority=)` | one zone along a spine of horizontal and vertical segments; each side widens in levels of `step` up to `max_width / 2` where it keeps `clearance` (else the class clearance) from other nets' copper, a change of level is a 45° edge, outer corners and ends are bevelled, and a segment shorter than five widths widens one level at most |
+| `keepout_ring(part, setback=, sides=32)` | a rule area of `sides` sides around each hole of the part, whose every edge keeps `drill / 2 + setback` from the centre |
+| `barrier(netclass, setback=, pieces=False)` | around the class's copper, the band between its convex envelope and that envelope grown by `setback`, as two rule areas; several pieces are refused unless `pieces=True` |
+| `body_keepout(part, setback=)` | one rule area: the convex hull of the part's body outlines, else its courtyard, grown by `setback` |
+| `fanout_zone(net, side="top", refs=None)` | the plane fan-out of `route` (one track and one through via per SMD pad of the net on the side) towards the net's zone on another layer |
+| `stitch_pieces(net, pitch=, min_vias=2)` | through vias on a grid of `pitch` inside each overlap of two zones of the net on different layers, clear of other nets' zones and filtered as `stitch()` filters its vias |
+
+The three keep-out calls forbid `tracks`, `vias` and `pours` unless `forbid=` says otherwise, on every
+copper layer unless `layers=` does. Without a polygon union in the core, a barrier and a body keep-out are
+convex: `kicad.generate.encloses` names the pads of other nets that a barrier closes around. Measured with
+`kicad-cli` 10.0.7 on the bench of `tests/kicad/dsl/test_generate_fill.py` (`H-K-GEN-DRC`): with the six
+calls, no DRC violation type grows after the refill, and the fan-out joins the `GND` pad it serves. KiCad
+reports two overlapping zones of one priority even on one net (`docs/formats/kicad/drc.md`, "Generated
+copper"), which is why a band is one zone.
+
 ## Issue codes
 
 | code | severity | when |
@@ -372,6 +462,20 @@ meandered net lies within 1 µm of the target, and the meander adds no violation
 | `kicad.copper.regenerated` | info | script copper differs from its regenerated copy and is replaced |
 | `kicad.copper.duplicate` | info | an item equal to script copper is removed |
 | `kicad.copper.stitch-skipped` | info | stitch candidates are dropped for clearance, a rule area that forbids vias or the board edge (with the count) |
+| `kicad.generate.altium` | error | the Altium target holds generated-copper calls; nothing is written |
+| `kicad.generate.unknown` | error | a call names a net, part or class the design lacks, or a class without copper |
+| `kicad.generate.off-board` | error | a point of a band's spine lies off the board |
+| `kicad.generate.no-hole` | error | `keepout_ring` names a part without a hole |
+| `kicad.generate.no-plan` | error | `body_keepout` names a part without body outlines and courtyard |
+| `kicad.generate.no-zone` | error | `fanout_zone` finds no zone of its net on another layer, or `stitch_pieces` no two overlapping zones |
+| `kicad.generate.size-missing` | error | a clearance, width or via size is neither given nor set by the net's class |
+| `kicad.generate.pieces` | error | a barrier's class lies in several pieces and `pieces=True` is not given |
+| `kicad.generate.name-taken` | error | a zone or rule area of the design holds the generated name |
+| `kicad.generate.crossing` | error | a band's outline crosses itself |
+| `kicad.generate.unplaced` | warning | a call names a staged part and generates nothing for it |
+| `kicad.generate.band-narrow` | warning | cells of a band break the clearance even at the base width |
+| `kicad.generate.encloses` | warning | a barrier's envelope closes around pads of other nets |
+| `kicad.generate.stitch-short` | warning | an overlap of `stitch_pieces` holds fewer than `min_vias` vias |
 
 Anchors and pad regions add no code. They use five rows of the table, each with its severity:
 

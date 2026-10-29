@@ -279,7 +279,7 @@ For two nets with copper on opposite outer faces, `analyze_distances` SHALL repo
 - **THEN** the insulation requirement is 0.4 mm and the groove width is 1 mm
 
 ### Requirement: No shipped requirement values
-Fenolite SHALL ship no requirement value: no table from voltage to distance, no pollution degree, material group or altitude factor, no default temperature rise, copper thickness, plating thickness or board thickness, and no default current. `src/fenolite/analysis/` MUST hold no data file, and the only numeric constants of the capacity fit MUST be those of the table "Capacity fit". Example requirement files in tests and docs MUST be authored for Fenolite with round illustrative numbers, and MUST say so in a comment.
+Fenolite SHALL ship no requirement value: no table from voltage to distance, no pollution degree, material group or altitude factor, no default temperature rise, copper thickness, plating thickness or board thickness, and no default current. `src/fenolite/analysis/` MUST hold no data file, and the only numeric constants of the capacity fit MUST be those of the table "Capacity fit". Example requirement files in tests and docs MUST be authored for Fenolite with round illustrative numbers, and MUST say so in a comment. The one exception is the role profile of `net-roles` (`fenolite.roles.profile`), which lives outside `src/fenolite/analysis/`, serves only `fenolite roles --check` and the stage `roles.rules`, and is never read by `fenolite analyze`; a row that `fenolite.roles` derives from it and passes to an analysis function MUST NOT give an `analysis.*` finding.
 
 #### Scenario: No data files
 - **WHEN** `uv run pytest tests/unit/analysis/test_facts_page.py -k no_data` lists `src/fenolite/analysis/`
@@ -288,6 +288,11 @@ Fenolite SHALL ship no requirement value: no table from voltage to distance, no 
 #### Scenario: Example is marked as authored
 - **WHEN** the same test reads `tests/data/analysis/requirements_example.toml`
 - **THEN** its first comment line holds the words `authored for Fenolite; illustrative values, not requirements`
+
+#### Scenario: Analyze ignores the role profile
+- **GIVEN** a board with a 0.3 mm track on a net confirmed as a 2 A `power` role, and no requirements file
+- **WHEN** `uv run pytest tests/unit/analysis/test_facts_page.py -k role_profile` runs `fenolite analyze <board> --kinds current,power,necks --temp-rise 10 --copper-thickness 35um --json`
+- **THEN** no issue is a finding against a width, a section or a neck, no `roles.*` code is reported, and no module of `src/fenolite/analysis/` imports `fenolite.roles`
 
 ### Requirement: Findings and issue codes
 `fenolite.analysis.codes.ISSUE_CODES` SHALL be the closed table of the codes this capability emits, and `issue(code, message, …)` MUST refuse a code or a severity outside it:
@@ -869,3 +874,350 @@ A slot SHALL give the same creepage as the same stadium drawn with `cutout(shape
 - **GIVEN** two copies of the shared fixture with two pads of different nets on either side of slot `S1`, one with `S1` and one with `cutout(shape.stadium(…))` of the same size
 - **WHEN** `uv run pytest tests/unit/analysis/test_creepage_slots.py` runs the creepage analysis on both
 - **THEN** the two reported creepages are equal to the nanometre, and with `--groove-width` above 2 mm both bridge the slot
+
+### Requirement: Tie removal by id
+`fenolite.analysis.ties.analyze_ties(design, *, pads, ties)` SHALL prove whether named items are the only joint of their nets' copper.
+- A tie MUST be a part (`Tie.of_part(REF)`, its pads) or copper items (`Tie.of_items(IDS)`: tracks, arcs, vias or zones by model id, native id or locator).
+- Items MUST be removed by their ids alone, never because their copper lies near a tie or inside its box.
+- The graph MUST join the copper items of the tie's nets that touch on a layer, as `touch_groups` does.
+
+#### Scenario: Removal by area is not used
+- **GIVEN** the authored board `ground()` of `tests/_groundties.py`, where the track `t2` of the power area ends inside the box of the tie `t1` without touching its copper
+- **WHEN** `uv run pytest tests/unit/analysis/test_ties.py -k area` proves the tie `t1`
+- **THEN** `t2` is not removed and `Q2-1` stays in the power group
+
+### Requirement: Tie groups
+`analyze_ties` SHALL give one `TieRow` per tie that names something on the board.
+- The row MUST hold the removed items and `groups`: the sorted `REF-PIN` pads of each connected part that touches the tie after the removal, the groups sorted.
+- `split` MUST be true with two or more groups.
+- `zones` MUST be `filled`, `unfilled` (a zone of the tie's nets without fill, which also adds `analysis.input-missing`) or `none`.
+
+#### Scenario: A single tie splits the net
+- **GIVEN** the authored board `ground()` of `tests/_groundties.py`, whose `GND` copper is a power area and a control area joined only by the track `t1`
+- **WHEN** `uv run pytest tests/unit/analysis/test_ties.py -k single` proves the tie `t1` with the domains `PWR=Q*` and `CTL=U*`
+- **THEN** the row holds the two groups `Q1-1, Q2-1` and `U1-1`, `split` is true, and no issue is reported
+
+### Requirement: Tie findings
+`analyze_ties` SHALL report a tie that is not the only joint, or that names or joins nothing.
+- One group MUST be `analysis.tie-parallel` (error), with the shortest other path between the tie's sides in the row's `path`.
+- A tie that touches fewer than two items MUST be `analysis.tie-dangling` (warning), and a name that matches nothing `analysis.tie-unmatched` (warning).
+#### Scenario: A parallel tie through a via
+- **GIVEN** the board `ground(via=True)`: the board of "Removal by area is not used" with a via in each area and a `B.Cu` track between them
+- **WHEN** `uv run pytest tests/unit/analysis/test_ties.py -k parallel` proves the tie `t1`
+- **THEN** the row holds one group, and the issues hold one `analysis.tie-parallel` whose path runs fill, via, track, via, fill
+
+### Requirement: Tie domains
+`analyze_ties(..., domains=DOMAINS)` SHALL check that a split leaves each domain on its own side.
+- `DOMAINS` MUST name two domains, each a list of `REF-PIN` patterns.
+- After a split, a group that holds pads of both domains MUST be `analysis.tie-extra` (error), naming the stray pad of the domain with fewer pads in the group.
+
+#### Scenario: A control pad in the power area
+- **GIVEN** the board `ground(intruder=True)`, with the control pad `U2-1` inside the power area
+- **WHEN** `uv run pytest tests/unit/analysis/test_ties.py -k extra` proves the tie `t1` with the domains `PWR=Q*` and `CTL=U*`
+- **THEN** the row is split, its `extra` is `U2-1`, and one `analysis.tie-extra` names `U2-1`
+
+### Requirement: Sense nets
+`analyze_ties(..., sense=NETS)` SHALL check that the copper of each sense net touches another net only through a net-tie part.
+- A node of a sense net that touches a node of another net MUST be `analysis.sense-shared` (error), naming both, unless the two are pads of one footprint in one net-tie group.
+- A sense net without copper MUST be `analysis.tie-unmatched` (warning).
+
+#### Scenario: A sense track that leaves from a pour
+- **GIVEN** the authored board `sense()`, where `ISENSE_P` starts on the pour of `DC_BUS` beside the shunt pad
+- **WHEN** `uv run pytest tests/unit/analysis/test_ties.py -k sense` checks the sense nets `ISENSE_P` and `ISENSE_N`
+- **THEN** the issues hold one `analysis.sense-shared` naming the track and the fill, and `ISENSE_N`, which leaves through the net tie of the shunt, has none
+
+### Requirement: Isolation islands
+`fenolite.analysis.ties.isolation_islands(design, *, barriers)` SHALL report the islands of the nets of the circuit once the barrier parts are removed.
+- Every part that is not a barrier MUST join the nets of its pins; nets without a pin are left out.
+- Each island MUST hold its sorted nets and the barrier parts with a pin on it. It MUST read no copper.
+
+#### Scenario: Islands across an isolator
+- **GIVEN** the authored design `isolated()`, whose nets on the two sides of `U5` are joined only through `U5`
+- **WHEN** `uv run pytest tests/unit/analysis/test_ties.py -k islands` runs with the barrier `U5`
+- **THEN** the result holds two islands, `A1, A2` and `B1, B2`, each bounded by `U5`
+
+### Requirement: Ties and domains kinds in the analyze command
+`fenolite analyze` SHALL accept `ties` and `domains` in `--kinds` as kinds that are not in the default set.
+- `ties` takes `--tie REF` (repeatable), `--tie-item ID[,ID...]` (one tie per option, repeatable), `--domains A=GLOB,B=GLOB` and `--sense NET[,NET...]` (repeatable), and needs a tie or a sense net.
+- `domains` takes `--barrier REF[,REF...]` (repeatable) and needs it.
+- `docs/cli-contract.md` MUST document the kinds and their options under `analyze`.
+
+#### Scenario: Usage errors of the kinds
+- **WHEN** `fenolite analyze <board> --kinds current --tie NT1` or `fenolite analyze <board> --kinds domains` runs
+- **THEN** the exit code is 2 and stderr holds `FEN-2001`
+
+### Requirement: Ties and domains results
+With the kinds `ties` and `domains`, `fenolite analyze` SHALL return their rows and judge their findings.
+- `result.ties`, `result.sense` and `result.domains` MUST hold the rows, and `result.summary` their counts; `result.inputs` gains the options of the kinds that ran.
+- An option without its kind, a kind without its option, `--domains` without two names, or an empty name MUST be `FEN-2001` (exit 2). An error finding gives exit 5.
+
+#### Scenario: Ties through the command
+- **GIVEN** the boards of `tests/_groundties.py` written as KiCad boards in `tmp_path`
+- **WHEN** `uv run pytest tests/unit/cli/test_analyze_ties.py` runs `fenolite analyze <board> --kinds ties --tie-item <uuid of t1> --json`, and the same with the parallel via
+- **THEN** the first exits 0 with a split row and the folder unchanged, and the second exits 5 with `analysis.tie-parallel`
+
+### Requirement: Ties analysis codes
+The table of analysis issue codes SHALL hold `analysis.tie-parallel`, `analysis.tie-extra` and `analysis.sense-shared` with severity `error`, and `analysis.tie-dangling` and `analysis.tie-unmatched` with severity `warning`.
+
+#### Scenario: Tie codes in the table
+- **WHEN** `uv run pytest tests/unit/analysis/test_findings.py -k tie_codes` runs
+- **THEN** each of the five codes has its one severity, and `issue("analysis.tie-parallel", ..., severity="warning")` raises `ValueError`
+
+### Requirement: Barrier crossings
+`fenolite.analysis.crossings.analyze_crossings(design, *, pads, cuts, width=None, clearance=None)` SHALL count the free ways across each cut on each copper layer.
+- `width` and `clearance` are those of a new track; by default the narrowest class width and its class's clearance. Without either, no way MUST be counted, with `analysis.input-missing`.
+- A way is a free interval of the cut between obstacles. It MUST fit `⌊(L + c) / (w + c)⌋` tracks for its length `L`.
+
+#### Scenario: Ways counted by hand
+- **GIVEN** the authored board `row()` of `tests/_crossbench.py`: eight through-hole pads of 1 mm at a pitch of 2.54 mm, a clearance of 0.2 mm, and a width of 0.25 mm
+- **WHEN** `uv run pytest tests/unit/analysis/test_crossings.py -k row` runs the analysis with the cut from the centre of the first pad to the centre of the last
+- **THEN** each of the seven gaps fits two tracks on each layer, as counted by hand in the bench, and the supply is 28
+
+### Requirement: Crossing obstacles
+`analyze_crossings` SHALL block the cut, on each copper layer, where a new track may not lie.
+- Item copper MUST grow by the larger of `clearance` and the item's class clearance.
+- The board edge and the cut-outs MUST grow by the board-wide edge clearance, else `clearance`; the cut outside the outline is blocked.
+- Holes without copper MUST grow by `clearance`, and rule areas that forbid tracks block their layers.
+
+#### Scenario: A cut that leaves the board
+- **GIVEN** the board `row()` and a cut from x −5 mm to x 65 mm at y 5 mm, beyond the 60 mm board
+- **WHEN** `uv run pytest tests/unit/analysis/test_crossings.py -k edge` runs the analysis
+- **THEN** each layer holds one way, from 0.2 mm inside the left edge to 0.2 mm inside the right edge
+
+### Requirement: Crossing ways and demand
+`analyze_crossings` SHALL give one `CrossingRow` per cut with its ways, its supply and its demand.
+- Each layer MUST list its ways and its obstacles; `supply` is the tracks of all layers.
+- The demand MUST list, per net, the open connections whose line meets the cut and the tracks and arcs that touch it.
+- When the open connections exceed the supply, the report MUST hold `analysis.crossings-short` (warning) naming the cut and both counts.
+
+#### Scenario: More nets than ways
+- **GIVEN** the board `row(links=20, top_only=True)`: twenty open connections across the row, and a rule area that forbids tracks on `B.Cu`
+- **WHEN** `uv run pytest tests/unit/analysis/test_crossings.py -k more_nets` runs the analysis
+- **THEN** `B.Cu` has no way, and the report holds one `analysis.crossings-short` naming 20 and 14
+
+### Requirement: Crossings kind in the analyze command
+`fenolite analyze` SHALL accept `crossings` in `--kinds` as a kind that is not in the default set.
+- It needs `--cut X1,Y1,X2,Y2` (repeatable, lengths with units); `--width` and `--clearance` are optional.
+- `result.crossings` MUST hold the rows and `result.summary.crossings` the counts; `result.inputs` gains the options.
+- An option without the kind, the kind without `--cut`, or a malformed cut MUST be `FEN-2001` (exit 2).
+
+#### Scenario: Ways through the command
+- **GIVEN** the board `row()` written as a KiCad board in `tmp_path`
+- **WHEN** `uv run pytest tests/unit/cli/test_analyze_crossings.py -k row` runs `fenolite analyze <board> --kinds crossings --cut 10mm,20mm,27.78mm,20mm --width 0.25mm --clearance 0.2mm --json`
+- **THEN** the exit code is 0, the row's supply is 28, and the folder is unchanged
+
+#### Scenario: Usage errors of the crossings kind
+- **WHEN** `fenolite analyze <board> --kinds crossings` or `fenolite analyze <board> --kinds crossings --cut 10mm,20mm,27mm` runs
+- **THEN** the exit code is 2 and stderr holds `FEN-2001`
+
+### Requirement: Crossings analysis code
+The table of analysis issue codes SHALL hold `analysis.crossings-short` with severity `warning`.
+
+#### Scenario: Crossings code in the table
+- **WHEN** `uv run pytest tests/unit/analysis/test_findings.py -k crossings_code` runs
+- **THEN** the code has severity `warning`, and `issue("analysis.crossings-short", ..., severity="error")` raises `ValueError`
+
+### Requirement: Return paths
+`fenolite.analysis.returns.analyze_returns(design, *, pads, nets)` SHALL report, per selected net, the parts of its tracks with no reference copper under them.
+- The reference layers MUST be the neighbours in the copper layer order; the reference copper is the stored fill of the `reference` nets there, else of every other net.
+- A span is a part of a centre line over no reference copper. It MUST be `split` when it lies inside its track, else `edge`.
+
+#### Scenario: A track across a split plane
+- **GIVEN** the authored bench of `tests/_returnbench.py`: a `GND` plane on `B.Cu` in two halves 4 mm apart, and `SIG1` on `F.Cu` across the gap
+- **WHEN** `uv run pytest tests/unit/analysis/test_returns.py -k gap` runs the analysis for `SIG*`
+- **THEN** `SIG1` has one `split` span of 4 mm between x 28 mm and x 32 mm, and the issues hold one `analysis.return-split`
+
+#### Scenario: A track that leaves the plane
+- **GIVEN** the same bench, where `SIG2` ends 1.5 mm beyond the plane
+- **WHEN** `uv run pytest tests/unit/analysis/test_returns.py -k edge` runs the analysis
+- **THEN** `SIG2` has one `edge` span of 1.5 mm and no finding
+
+### Requirement: Via returns
+`analyze_returns` SHALL pair each via of a selected net with the nearest via of a reference net, with the distance between their centres; with `via_distance`, a farther or missing one MUST be `analysis.return-via` (warning).
+
+#### Scenario: A signal via and its ground via
+- **GIVEN** the bench, where the via of `SIG4` lies 1 mm from a via of `GND`
+- **WHEN** `uv run pytest tests/unit/analysis/test_returns.py -k vias` runs the analysis without a distance, with 2 mm and with 0.5 mm
+- **THEN** the distance is 1 mm, and only the run with 0.5 mm holds one `analysis.return-via`
+
+### Requirement: Returns kind in the analyze command
+`fenolite analyze` SHALL accept `returns` in `--kinds` as a kind that is not in the default set.
+- It needs `--net GLOB` (repeatable, shared with `length`); `--reference NET[,NET...]` and `--via-distance LENGTH` are optional and need the kind.
+- `result.returns` MUST hold the rows, `result.summary.returns` the counts of nets, split and edge spans, and `result.inputs` its options. A violation of the option rules MUST be `FEN-2001` (exit 2).
+
+#### Scenario: Returns through the command
+- **GIVEN** the bench written as a KiCad board in `tmp_path`
+- **WHEN** `uv run pytest tests/unit/cli/test_analyze_returns.py` runs `fenolite analyze <board> --kinds returns --net SIG1 --json`, and the same for `SIG4` with `--via-distance 0.5mm`
+- **THEN** the first exits 0 with one split span and the folder unchanged, and the second holds one `analysis.return-via`
+
+### Requirement: Return path codes
+The table of analysis issue codes SHALL hold `analysis.return-split` and `analysis.return-via`, both with severity `warning`.
+
+#### Scenario: Return codes in the table
+- **WHEN** `uv run pytest tests/unit/analysis/test_findings.py -k return_codes` runs
+- **THEN** each code has the severity `warning`
+
+### Requirement: Copper states of the practice checks
+`fenolite.analysis.pour.pour_copper(design, *, pads, boundary, grid)` SHALL give each zone layer of a zone with a net one state: `saved_fill`, `simulated` (no fill, reason `no-fill`, or a stale fill, reason `stale: …`) or `outline` (reason `too-large`).
+- A fill MUST be stale when a cell centre of it lies outside its zone outline, outside the board, in a cut-out, in a no-pour keep-out of its layer, or on a pad, track, arc or via of another net.
+
+#### Scenario: A stale fill is simulated
+- **GIVEN** the bench `cutout()` of `tests/_practicebench.py`, whose `BUS` fill was made before the keep-out `CUT`
+- **WHEN** `uv run pytest tests/unit/analysis/test_practice.py -k cutout` pours it
+- **THEN** the zone layer is `simulated` with the reason `stale: fill inside the keep-out CUT`
+
+#### Scenario: Saved, unfilled and too large
+- **GIVEN** `cutout(keepout=False)`, `cutout(keepout=False, fill=False)` and `cutout(fill=False)` with `MAX_CELLS` set to 100
+- **WHEN** `uv run pytest tests/unit/analysis/test_practice.py -k states` pours them
+- **THEN** the states are `saved_fill`, `simulated` (`no-fill`) and `outline` (`too-large`)
+
+### Requirement: Simulated pour
+The simulated pour SHALL be a raster of square cells of side `grid`, aligned on the board origin, poured by zone priority. A cell MUST be copper when its centre lies inside the zone outline and the board, at least the clearance from the board edge, outside no-pour keep-outs, and clear of other nets' copper and earlier zones by the clearance in force. Cells joined by a side are islands; an island no item of the net covers MUST be dropped.
+
+#### Scenario: The cells of an unfilled zone
+- **GIVEN** `cutout(keepout=False, fill=False)`, a zone of 52 mm by 36 mm with no copper of another net inside
+- **WHEN** `uv run pytest tests/unit/analysis/test_practice.py -k states` pours it on a raster of 0.25 mm
+- **THEN** the zone layer keeps 208 × 144 cells and its one island joins `J1-1` and `D1-2`
+
+### Requirement: Connectivity kind
+`fenolite.analysis.practice.analyze_groups(design, *, pads, pour)` SHALL give one row per net that owns a zone or whose copper falls into two or more groups of pads: `groups` (the sorted pads of each group), `split` and `copper` (the states of its zone layers).
+- Items MUST join where they touch on a layer, and through the islands that they cover.
+- A split net MUST be `analysis.net-split` (warning).
+
+#### Scenario: A pin left open by a cut-out
+- **GIVEN** `cutout()`, whose only copper joining `D1-2` to `J1-1` crosses the keep-out drawn after the fill
+- **WHEN** `uv run pytest tests/unit/analysis/test_practice.py -k cutout` runs the kind
+- **THEN** the row of `BUS` says `simulated`, holds the groups `D1-2` and `J1-1`, and the issues hold one `analysis.net-split`
+
+### Requirement: Dead copper
+`fenolite.analysis.practice.analyze_dead(design, *, pads, pour, distance)` SHALL report each fill polygon whose group holds no pad (`analysis.copper-dead`, warning) and, with `distance`, each track, arc, via and fill polygon whose gap to every pad of its net is larger (`analysis.copper-far`, warning), with that gap.
+
+#### Scenario: An island and far copper
+- **GIVEN** the bench `dead()`, with a fill island joined to nothing and a `B.Cu` track far from the pads
+- **WHEN** `uv run pytest tests/unit/analysis/test_practice.py -k dead` runs the kind with 5 mm
+- **THEN** the island is one `analysis.copper-dead`, and the track (14.375 mm) and the island are two `analysis.copper-far`
+
+### Requirement: Decoupling distance
+`fenolite.analysis.practice.analyze_decoupling(design, *, pads, pour, requirements)` SHALL give, for each pad of a pin of type power input, the nearest capacitor pad (reference `C` and a digit) on its net, the distance along copper and straight, the return pad and the loop area. A `[[decoupling]]` row of the part MUST make a larger distance, or none, `analysis.decoupling-far` (error).
+
+#### Scenario: Decoupling distance reported without a finding
+- **GIVEN** the bench `decoupling()`, with `U1` pin 4 on `+3V3` and `C1` 1.5 mm away along a track
+- **WHEN** `uv run pytest tests/unit/analysis/test_practice.py -k decoupling` runs the kind without and with a row of 1 mm
+- **THEN** the row of `U1-4` names `C1-1` at 1 500 000 nm with a loop of 3 mm², no issue without the row, and `analysis.decoupling-far` with it
+
+### Requirement: Copper under part bodies
+`fenolite.analysis.practice.analyze_bodies(design, *, pads, pour, extents, requirements)` SHALL report, for each `[[body_copper]]` row, part and forbidden layer, the copper of the nets of its class inside the part's plan view (its bodies, else its courtyard), the part's own pads left out, as `analysis.body-copper` (error). Without a row it MUST report `analysis.input-missing`.
+
+#### Scenario: Copper of a class under a can
+- **GIVEN** the bench `bodies()`, with an `HV` track on `F.Cu` and a `Default` track on `B.Cu` under the 10 mm body of `C1`, and a row `netclass = "HV"`, `parts = "C*"`, `layers = ["F.Cu", "B.Cu"]`
+- **WHEN** `uv run pytest tests/unit/analysis/test_practice.py -k bodies` runs the kind
+- **THEN** one `analysis.body-copper` names `C1`, the track and `F.Cu`, with the plan `body`, and `courtyard` once the body is removed
+
+### Requirement: Thermal relief width
+`fenolite.analysis.practice.analyze_relief(design, *, pads, pour, requirements, copper_thickness)` SHALL give, for each pad joined to a zone of its net by thermal relief, the spokes of stored fill crossing the box of its copper grown by half the thermal gap, and their width. With a `[[current]]` row and a thickness, a capacity below the current MUST be `analysis.relief-exceeded` (error).
+
+#### Scenario: Four spokes of 0.5 mm
+- **GIVEN** the bench `relief()`, a 2 mm pad in a 0.5 mm gap crossed by four spokes of 0.5 mm
+- **WHEN** `uv run pytest tests/unit/analysis/test_practice.py -k relief` runs the kind with 35 um of copper and a row of one milliampere above the capacity
+- **THEN** the row holds 4 spokes and 2 000 000 nm, the issues one `analysis.relief-exceeded`, and the unfilled zone a `simulated` row without width
+
+### Requirement: Coupling screen
+`fenolite.analysis.coupling.analyze_coupling(design, *, pads, aggressors, victims, board_thickness)` SHALL rank the pairs of aggressor and victim nets by `Σ ℓ / (1 + (s/h)²)` over their parallel stretches on one layer, with their parallel length, narrowest gap and broadside overlap, and give each victim's referenced share. It MUST judge nothing and say that the score ranks pairs, not a voltage.
+
+#### Scenario: A sense net beside a phase track
+- **GIVEN** the bench `coupling()`, where `ISENSE` runs 10 mm beside `PHASE_U` at 0.5 mm and 30 mm beside `LED` at 3 mm, with h 1.6 mm
+- **WHEN** `uv run pytest tests/unit/analysis/test_coupling.py` runs the screen for `PHASE_*` and `LED` against `ISENSE`
+- **THEN** the first row is `PHASE_U` against `ISENSE` with the score 9 110 320, and the summary says that the score ranks pairs
+
+### Requirement: Practice requirement tables
+The requirements file SHALL accept the optional tables `[[decoupling]]` (`parts`, a glob; `max_distance_nm`) and `[[body_copper]]` (`netclass` and `parts`, globs; `layers`, a non-empty array of names or globs), neither with a default value; a float, an empty array or an unknown key MUST be refused with the key named.
+
+#### Scenario: The two tables load
+- **WHEN** `uv run pytest tests/unit/analysis/test_practice.py -k tables` loads a row of each, a float distance and an empty layer list
+- **THEN** the rows load, and the two faulty files are refused naming `max_distance_nm` and `layers`
+
+### Requirement: Practice kinds in the analyze command
+`fenolite analyze` SHALL accept `decoupling`, `connectivity`, `bodies`, `relief`, `dead` and `coupling` in `--kinds`, none in the default set, with `--pour-grid LENGTH`, `--dead-distance LENGTH`, `--aggressor GLOB` and `--victim GLOB`. `result` MUST hold one key per kind, `pours` and the summaries. An option without its kind, or `coupling` without both globs, MUST be `FEN-2001` (exit 2).
+
+#### Scenario: Practice kinds through the command
+- **GIVEN** the benches written as KiCad boards in `tmp_path`
+- **WHEN** `uv run pytest tests/unit/cli/test_analyze_practice.py` runs each kind
+- **THEN** `connectivity` exits 0 with the split `BUS`, `bodies` and `relief` exit 5 with their errors, the folder is unchanged, and the usage errors exit 2
+
+### Requirement: Practice check codes
+The table of analysis issue codes SHALL hold `analysis.net-split`, `analysis.copper-dead` and `analysis.copper-far` with severity `warning`, and `analysis.decoupling-far`, `analysis.body-copper` and `analysis.relief-exceeded` with severity `error`.
+
+#### Scenario: Practice codes in the table
+- **WHEN** `uv run pytest tests/unit/analysis/test_findings.py -k practice_codes` runs
+- **THEN** each code has its one severity
+
+### Requirement: Neck kind
+`fenolite.analysis.shapes.analyze_necks(design, *, pour, requirements)` SHALL measure the copper of each net with a zone, per layer, on the raster of `pour`: the width of a cell is its shortest run of copper along the two axes and the two diagonals. A cell that joins two sets of wide cells, adding cells widest first, MUST be a neck of its width, and a neck below the `[[neck]]` row of its net MUST be `analysis.neck-narrow` (error).
+
+#### Scenario: A neck of a pour
+- **GIVEN** the bench `neck()` of `tests/_shapebench.py`, whose `GND` fill narrows to 0.3 mm between two keep-outs, and a row `[[neck]]` with `min_width_nm = 500000`
+- **WHEN** `uv run pytest tests/unit/analysis/test_shapes.py -k necks` measures it on a raster of 0.05 mm
+- **THEN** one row is a `neck` of 300 000 nm between x 20 mm and 22 mm, and the issues hold one `analysis.neck-narrow`
+
+#### Scenario: Neck rows missing or unmatched
+- **WHEN** `uv run pytest tests/unit/analysis/test_shapes.py -k necks` measures `neck()` without a row, and with a row for the net `VBUS`
+- **THEN** the first reports `analysis.input-missing` and the second `analysis.requirement-unmatched`, with no row
+
+### Requirement: Tips and slivers
+In an island with wide cells, thin cells joined by a side whose wide neighbours form one patch MUST be a `tip` when they reach at least the row's width from it. An island without a wide cell MUST be a `sliver` of the width of its widest cell. Both below the row SHALL be `analysis.neck-narrow`.
+
+#### Scenario: A finger and a strip
+- **GIVEN** the bench `tips()`, a 10 mm square fill with a finger 0.3 mm wide and 3 mm long, and a separate fill 0.3 mm by 5 mm
+- **WHEN** `uv run pytest tests/unit/analysis/test_shapes.py -k tips` measures it with a row of 0.5 mm
+- **THEN** the rows are one `tip` and one `sliver`, each 300 000 nm wide, and no corner of the square is a tip
+
+### Requirement: Loop kind
+`fenolite.analysis.shapes.analyze_loops(design, *, pads, pour, requirements, baseline)` SHALL give, for each `[[loop]]` row, the area of the closed path through its pads in order: a leg between pads of one net that copper joins follows the shortest path along copper, any other leg is straight. An area above `max_area_nm2` MUST be `analysis.loop-area` (error); `baseline` adds the area on another board and the change.
+
+#### Scenario: Two decoupling loops
+- **GIVEN** the bench `loop()`, with `U1-4` and `C1-1` 1.5 mm apart along a track, `C2` 10 mm away, the `GND` pads 2 mm below, and rows `C1` and `C2` with `max_area_nm2` of 10 mm²
+- **WHEN** `uv run pytest tests/unit/analysis/test_shapes.py -k loops` runs the kind, then with the baseline of `loop(far=25)`
+- **THEN** `C1` holds 3 mm² and `C2` 20 mm² with one `analysis.loop-area`, and the change of `C2` is +10 mm²
+
+### Requirement: Balance kind
+`fenolite.analysis.shapes.analyze_balance(design, *, pads, pour)` SHALL give, for each part with exactly two SMD pads on one layer, the area of the copper of each pad's net joined to the pad inside the box of the pad grown by its larger side, the pad left out, and the ratio of the larger to the smaller in permille. It MUST judge nothing.
+
+#### Scenario: A pad on a pour and a pad on a track
+- **GIVEN** the bench `balance()`, `R1` with pad 1 in a `GND` fill and pad 2 on a 0.5 mm track
+- **WHEN** `uv run pytest tests/unit/analysis/test_shapes.py -k balance` runs the kind on a raster of 0.25 mm
+- **THEN** the row of `R1` holds 8 mm² and 0.5 mm², the ratio 16 000 permille, and no issue
+
+### Requirement: Current split
+`fenolite.analysis.split.analyze_split(design, *, pads, pour, power, ...)` SHALL solve each row of the power report on a raster of its net's copper, pads and vias as contacts, and give each track, arc, fill and via its share of the path's current in permille. With a resistivity it MUST give the path's resistance and whether it lies in the interval of the power row. A missing thickness, plating or stack-up MUST be `analysis.input-missing`.
+
+#### Scenario: Two strips share by thickness
+- **GIVEN** `two_strips()` of `tests/_power.py` with 70 µm of copper on `F.Cu` and 35 µm on `B.Cu`
+- **WHEN** `uv run pytest tests/unit/analysis/test_power_split.py` solves the path `J1-1` to `U1-1`
+- **THEN** the strips carry 667 and 333 permille, and the resistance lies within the interval of `power`
+
+#### Scenario: Vias in parallel
+- **GIVEN** `via_array(4)` with a stack-up and a plating of 25 µm
+- **WHEN** `uv run pytest tests/unit/analysis/test_power_split.py` solves it, then without the plating
+- **THEN** the four vias carry the whole current between them, the resistance lies within the interval of `power`, and without the plating the row is not solved and the issues name `via plating`
+
+### Requirement: Pour shape tables
+The requirements file SHALL accept the optional tables `[[neck]]` (`select`, a net or net-class glob table; `min_width_nm`) and `[[loop]]` (`name`; `pads`, two or more pad names; optional `max_area_nm2`), neither with a default value; a float, a short pad list, a repeated loop name or an unknown key MUST be refused with the key named.
+
+#### Scenario: The two tables load
+- **WHEN** `uv run pytest tests/unit/analysis/test_shapes.py -k tables` loads a row of each and three faulty files
+- **THEN** the rows load, and the faulty files are refused naming `min_width_nm`, `pads` and `name`
+
+### Requirement: Pour shape kinds in the analyze command
+`fenolite analyze` SHALL accept `necks`, `loops` and `balance` in `--kinds`, none in the default set, `--split` with `power` and `--loop-baseline FILE` with `loops`; `--pour-grid` serves them. `result` MUST hold `necks`, `loops`, `balance` and `split`. An option without its kind MUST be `FEN-2001` (exit 2).
+
+#### Scenario: Pour shape kinds through the command
+- **GIVEN** the benches written as KiCad boards in `tmp_path`
+- **WHEN** `uv run pytest tests/unit/cli/test_analyze_shapes.py` runs each kind and `--split`
+- **THEN** `necks` and `loops` exit 5 with their errors, `balance` and `power --split` exit 0, the folder is unchanged, and the usage errors exit 2
+
+### Requirement: Pour shape codes
+The table of analysis issue codes SHALL hold `analysis.neck-narrow` and `analysis.loop-area`, each with the severity `error`.
+
+#### Scenario: Pour shape codes in the table
+- **WHEN** `uv run pytest tests/unit/analysis/test_findings.py -k shape_codes` runs
+- **THEN** each code has the one severity `error`

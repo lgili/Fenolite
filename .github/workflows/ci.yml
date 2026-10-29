@@ -40,7 +40,7 @@ jobs:
           python-version: ${{ matrix.python }}
           enable-cache: true
       - name: Sync (locked)
-        run: uv sync --locked --extra dev
+        run: uv sync --locked --extra dev --extra geo
       - name: Lint
         run: uv run ruff check .
       - name: Format
@@ -88,6 +88,25 @@ jobs:
         with:
           name: viewer-differences
           path: ${{ runner.temp }}/visual/**/*.png
+
+  mcp:
+    # change c0195: the official MCP SDK's client (the oracles extra) against fenolite mcp, a legacy and a
+    # modern session, with the server's own tests
+    name: mcp (the official MCP client against fenolite mcp)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Sync (locked, with the oracles)
+        run: uv sync --locked --extra dev --extra oracles
+      - name: MCP tests
+        env:
+          FENOLITE_REQUIRE: mcp-sdk
+        run: uv run pytest tests/unit/mcp tests/unit/cli/test_mcp_cmd.py -q
 
   wheel:
     name: wheel (the built package installs alone)
@@ -160,7 +179,7 @@ jobs:
       - name: kicad-cli version
         run: kicad-cli version
       - name: Sync (locked)
-        run: uv sync --locked --extra dev
+        run: uv sync --locked --extra dev --extra geo
       - name: Corpus cache
         uses: actions/cache@v4
         with:

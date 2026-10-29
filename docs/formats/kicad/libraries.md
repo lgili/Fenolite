@@ -57,6 +57,12 @@ copied into a field; the child stays an opaque slot) or *opaque* (kept verbatim,
 
 `(pad "NUMBER" TYPE SHAPE (at X Y [ANGLE]) (size W H) [(drill …)] (layers …) …)` (S-0001).
 
+The format page lists a pad's optional children in this order after `layers`: `property`, the corner and
+chamfer settings, `net`, `uuid`, `pinfunction`, `pintype`, `die_length`, `solder_mask_margin`,
+`solder_paste_margin`, `solder_paste_margin_ratio`, `clearance`, `zone_connect` and the thermal settings;
+a margin is a length in millimetres, and may be negative (S-0001; INFERRED, `H-K-PAD-MARGIN`). A board pad
+written with both margins after its `net` loads in `kicad-cli` 10.0.7 (probe of change c0223).
+
 | part | field | treatment |
 |---|---|---|
 | number, type, shape (leading atoms) | `number`, `kind`, `shape` | modelled; the number as written, possibly empty or repeated (S-0018) |
@@ -71,7 +77,8 @@ copied into a field; the child stays an opaque slot) or *opaque* (kept verbatim,
 | `padstack` | `padstack` | projected, `kicad.lib.kept-opaque` |
 | `(zone_connect N)`, N from 0 to 3 | `zone_connection` (`none`, `thermal`, `solid`, `thru_hole_only`; c0031, `board.md`, "Zone settings") | modelled; written before `uuid` when a pad without it gains a value |
 | `(zone_connect N)` with another value, or repeated | `zone_connection` from the first child when it is a code from 0 to 3, else `None` | projected, `kicad.lib.kept-opaque` |
-| everything else (`roundrect_rratio`, `chamfer*`, `options`, `primitives`, margins, pad properties, `thermal_bridge_width`, `thermal_gap`, `thermal_bridge_angle`) | — | opaque |
+| `(solder_mask_margin M)`, `(solder_paste_margin M)` | `mask_margin`, `paste_margin` from the first child of each (c0223) | projected; a pad without the child gains one from a set field, after `layers` and before `zone_connect` |
+| everything else (`roundrect_rratio`, `chamfer*`, `options`, `primitives`, `solder_paste_margin_ratio`, `clearance`, `thermal_bridge_width`, `thermal_gap`, `thermal_bridge_angle`) | — | opaque |
 
 - **Drill forms** are `(drill [oval] DIAMETER [WIDTH] [(offset X Y)])` (S-0001). Oval drills occur in
   the official library (S-0018).
@@ -123,6 +130,17 @@ opaque child of the footprint and adds `kicad.lib.kept-opaque`. This covers:
   one, and marking its placed copy makes KiCad's DRC report `lib_footprint_mismatch`
   (`H-K-PAD-FABPROP-LIB`, `board.md`, "Pad fabrication properties"). `Panelization.pretty` holds 31
   footprints. The reader maps the mark of a library pad to `Pad.fab_property` as it does for a board pad.
+
+### Model placement
+
+`(model "PATH" (offset (xyz X Y Z)) (scale (xyz SX SY SZ)) (rotate (xyz RX RY RZ)))` places a 3D model in the
+footprint's frame (S-0001). A footprint read from KiCad keeps its `model` children as read (`models`, the
+paths). `FootprintDef.placements` (change c0223) holds the models of a footprint read from another format;
+the writer appends one `model` child per placement after the footprint's other children:
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The offset is in mm in the footprint's frame with Y up (the board's −Y) and Z up from the face; `rotate` Z turns the model clockwise seen from above. Measured with `kicad-cli pcb export vrml` 10.0.7: a footprint at (10, 20) of a 30 × 30 board with offset (1, 2, 3) and rotate (0, 0, 90) puts the model at (−4, −3) around the board centre (VRML's Y up), 3 mm above the top face, turned by −90° about Z. The writer therefore writes the model's −Y and the negated angles; the turns about X and Y are not measured. A VRML shape without an appearance is not exported With `kicad-cli` 9.0.9 the same export placed no model (CI job `kicad-9`, 2026-10-28), so the frame is measured on 10.0.x only. | S-0001, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.7; 2026-10-28; test_library_fidelity.py) | H-K-MODEL-PLACE |
 
 ## Symbol libraries
 

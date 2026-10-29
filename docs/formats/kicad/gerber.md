@@ -23,6 +23,13 @@ Layer Format Specification, read for facts only.
 | `pcb export gerbers -l F.Mask,B.Mask` of `kicad-cli` 9.0.9 and 10.0.6 plots the mask opening of a via as one flash at the via's centre (X as on the board, Y negated), and nothing for a side on which the via is tented | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-VIAPROT-MASK |
 | The drill side files of `pcb export drill --format gerber --generate-tenting` of `kicad-cli` 10.0.6 are Gerber files in the same coordinate format, with the file function `Other,<Feature>-<Side>` (`Other,Tenting-Front` for example), and hold one flash per via that carries the feature | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-VIAPROT-OUTPUTS |
 
+## The outline and the file functions (change c0203)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| `pcb export gerbers` writes the outline as the file function `Profile,NP`, each edge a `D02` move to its start followed by a `D01` draw, so a contour is found by joining the pieces end to end; an arc is `G75*`, `G02*` or `G03*`, then `X<x>Y<y>I<i>J<j>D01*` with the centre at the start plus `(I, J)`, then `G01*` | S-0020, S-0125 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-READBACK-SUBSET |
+| A copper layer's file has the function `Copper,L<n>,Top`, `Copper,L<n>,Inr` or `Copper,L<n>,Bot`, `n` counting the copper layers from the top from 1 | S-0020, S-0125 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-READBACK-SUBSET |
+
 ## Panels (change c0173)
 
 What the Gerber specification says about panels, read for the exports of a panel board (`panel.md`).

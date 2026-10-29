@@ -45,7 +45,7 @@ sheets are on `connectivity.md`, component bodies on `pcb-bodies.md`, the rule k
 | Stack mode 0 is Simple (one shape on all layers), 1 Top-Middle-Bottom (three sizes and shapes), 2 Full Stack (a size and a shape per signal layer: the top, the mid layers in order, the bottom). In Full Stack, Mid-Layer 1 uses the main middle geometry; the 29 extended sizes and shapes supply Mid-Layer n at n − 2 for n = 2 … 30. Alternate shapes, corner percentages and hole offsets use 0 for the top, the layer id − 1 for a mid layer and 31 for the bottom. The association is inferred from the public fields and thirty mid-layer ids; see `pcb-records.md`, "Full Stack layer association" | S-0002, S-0160, S-0302 | INFERRED | H-A-IMP-PADSTACK |
 | Hole shape 0 is round, 1 square (rectangular), 2 a slot with round ends; a slot has a length along its axis, and the hole has a rotation, which the import reads as relative to the pad | S-0160, S-0302 | INFERRED | H-A-IMP-PADSTACK |
 | The copper of a pad may be offset from its hole centre, per layer | S-0160, S-0302 | INFERRED | H-A-IMP-PADSTACK |
-| Paste and solder mask expansions follow a rule or a manual value; the model lists no mask or paste layer for a pad, the modes and values go to the bag | S-0302 | INFERRED | H-A-IMP-PADSTACK |
+| Paste and solder mask expansions follow a rule or a manual value; the import lists no mask or paste layer for a pad, the modes and values go to the bag. The conversion to KiCad (change c0223; `docs/conversion.md`, "Pad openings") adds the openings by the pad's kind and takes the margins from the bag and the rules | S-0302 | INFERRED | H-A-IMP-PADSTACK |
 
 ## Vias, zones and shapes
 
@@ -116,6 +116,7 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `plane_net` | layer | the net of an internal plane |
 | `plane_cuts` | layer | the number of free primitives on the layer of an internal plane that the import left out: they cut the plane and are no copper |
 | `origin` | board | `ORIGINX,ORIGINY` as written |
+| `polygon_connect` | board | one pair per Polygon Connect Style record (rule kind 20), in record order: its keys from `RULEKIND` on, as written, `KEY=VALUE` joined by `\|`. A rewrite with a computed pour writes the records back when every one maps (change c0215; `pcb-pour.md`, "Polygon Connect Style records"); it enters no id |
 | `stack_mode` | pad | the stack mode when it is not 0 |
 | `corner_percent` | pad | the corner percentage of a rounded rectangle |
 | `shape` | pad | the shape number of a `custom` pad |
@@ -129,6 +130,7 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `net` | graphic | the net name of a copper shape |
 | `pour_index` | zone | `POURINDEX` |
 | `hatch_style` | zone | `HATCHSTYLE` |
+| `pour_over` | zone | `POUROVERSTYLE`: what of its own net the pour covers, `0` nothing, `1` every object, `2` only polygons (`pcb-pour.md`, input I8); a write gives it back, and a zone without the pair is written with `1` (change c0215) |
 | `component_kind` | component | `COMPONENTKIND` when it is not 0 |
 | `part_ids` | component | the unique ids of its parts, joined by commas |
 | `pin_pads` | component | one pair per pin map record that `pin_pad_map` does not say in full: `<pin>=<pad>,<pad>…` (no pad, or a pad that another pin holds; a record of several pads is in the map since change c0123) |

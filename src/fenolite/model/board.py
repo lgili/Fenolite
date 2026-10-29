@@ -250,6 +250,12 @@ class Pad(Entity):
     fab_property: PadFabProperty | None = None
     """The fabrication mark of the pad (fiducial, test point, BGA ball and the like); ``None`` for no mark.
     The model does not check it against the pad's kind or layers."""
+    mask_margin: Nm | None = None
+    """The growth of the pad's solder-mask opening beyond its copper, which may be negative (change c0223);
+    ``None`` follows the board. A KiCad reader projects the pad's margin child into the field and keeps the
+    child as read, so a write keeps it unless the field disagrees (refused) or is ``None`` (kept)."""
+    paste_margin: Nm | None = None
+    """The growth of the pad's paste opening beyond its copper, as ``mask_margin``."""
 
 
 @dataclass(frozen=True, slots=True)

@@ -23,6 +23,8 @@ the machine; `fenolite route` requires explicit permission for such a router. Ro
   KiCad file: Fenolite writes a Specctra design file of its own from the model and reads the session
   Freerouting writes back (`fenolite.backends.specctra`, [format notes](formats/specctra/dsn.md)).
   See [Freerouting](#freerouting) below.
+- `octilinear` routes short connections, such as a gate loop or a sense pair, in 0°, 45° and 90°
+  segments that keep the clearance, with no tool and no via. See [octilinear](#octilinear) below.
 
 Discover routers with `fenolite capabilities --json`; `fenolite doctor --json` checks their local
 availability. Route with `fenolite route BOARD --router NAME --dry-run`, inspect the plan, then rerun
@@ -385,6 +387,33 @@ for Freerouting names `fanout=off`.
 than asked; the tool may leave skew, which KiCad's `diff_pair_skew` rule reports; per-part escape is not
 declared by any router (Freerouting's fanout stage, on by default, is the escape it has: on the gate's QFN
 and BGA benches it left fewer connections open with the stage than without, `H-G-DSN-FANOUT-2`). No model field and no schema change come with pairs or escape.
+
+## octilinear
+
+`fenolite route BOARD --router octilinear --nets GATE --confirm` (change c0228) is built in and meant for
+the few connections a person routes first, not for a whole board (its features are `pairs` and `short`).
+
+- **Connections.** The pads of a net, the pads already joined by its copper counting as one group, are
+  joined by the edges of a minimum spanning tree, shortest first, each on a copper layer that both pads
+  reach, is no plane layer and is allowed for the net. No via is placed.
+- **Shapes.** Between the two pad centres it tries, in this order and each on every allowed layer: the
+  straight segment (when the pads lie on one 0°, 45° or 90° line), 45° then straight, straight then 45°,
+  and the two L shapes. The first shape that keeps the clearance in force plus 2 µm from every other net's
+  pad, track, arc, via and hole, keeps the edge clearance from the outline, and makes no acute angle with a
+  track of its net at its ends is placed. Zone fills are no obstacle: `fill` pours them again. These are
+  the fixed patterns of one or two bends of pattern routing (S-0837).
+- **Limits.** `--router-option max-length=LENGTH` (default 20 mm): a connection longer by every shape stays
+  open with `route.unrouted`. `--router-option rounds=N` (default 3): each round starts again without the
+  router's own copper, with the connections that failed for lack of room first, as rip-up and reroute does
+  (S-0838); the round that routed the most is kept. Copper it did not place is never removed.
+- **Pairs.** A pair of two pads per net is routed as two tracks of the pair width at the pair gap (rounded
+  up by 1 nm), offset from one shape between the middles of its two ends and joined to its pads by short
+  entries; otherwise `route.pair-not-routed`. The skew is not tuned.
+- **Checked.** `route` gives every router the clearance in force and the copper check of the project's
+  rules in the job's `extra` (`clearance`, `copper_check`). The octilinear router judges its result with the
+  check and removes the copper of each connection that brings a new finding (`route.check-refused`).
+  `--gate drc` then has KiCad judge the written copper (`H-K-OCTI-DRC`).
+- Equal inputs give equal copper: nothing is random, so `--seed` changes nothing.
 
 ## Loop order
 

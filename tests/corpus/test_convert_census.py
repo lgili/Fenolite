@@ -4,15 +4,16 @@
 capability design-conversion, scenario "Demo boards are explained").
 
 The ledger (task 4.2): each board is converted with ``fenolite.api.convert(board, to="altium",
-allow_lossy=True)``. No board may give ``convert.unexplained``, and the report's rows per kind and reason
-and the explained differences per kind must equal the two tables of ``docs/evidence/conversion.md``.
+allow_lossy=True, pour="outline")``. No board may give ``convert.unexplained``, and the report's rows per
+kind and reason and the explained differences per kind must equal the two tables of
+``docs/evidence/conversion.md``.
 
 The measurement of the design (task 1.2): each board of the corpus is read with the KiCad backend (the
 corpus holds the boards without their project files), written as an Altium project with
-``lens.altium.write_model(design, allow_lossy=True)``, and its PCB document read back with the Altium
-backend and compared with the board through ``compare_designs`` at the highest level both hold, in the
-relative frame, within 10 nm and 20 ppm (the measurement of the design, "Context"). The test records, per
-board, the items the write leaves out per kind and the differences per kind, and the largest
+``lens.altium.write_model(design, allow_lossy=True, pour="outline")``, and its PCB document read back with
+the Altium backend and compared with the board through ``compare_designs`` at the highest level both
+hold, in the relative frame, within 10 nm and 20 ppm (the measurement of the design, "Context").
+The test records, per board, items left out per kind, differences per kind, and the largest
 per-coordinate difference of a placement, a pad position, a pad size or a drill without tolerance, which
 sets ``tolerance_nm`` of the conversion profile. Since task 2.1 the write also counts the components not
 fitted under ``dnp``.
@@ -139,7 +140,7 @@ _NUMBER = re.compile(r"-?\d+")
 def _sides(key: str) -> tuple[Design, Design]:
     path = require(ITEMS[key])
     design = read_board(path.read_text(encoding="utf-8"), file=path.name)
-    written = write_model(design, allow_lossy=True)
+    written = write_model(design, allow_lossy=True, pour="outline")
     with tempfile.TemporaryDirectory() as tmp:
         for name, data in written.files.items():
             (Path(tmp) / name).write_bytes(data)
@@ -155,7 +156,7 @@ def _sides(key: str) -> tuple[Design, Design]:
 def _not_written(key: str) -> dict[str, int]:
     path = require(ITEMS[key])
     design = read_board(path.read_text(encoding="utf-8"), file=path.name)
-    return dict(sorted(write_model(design, allow_lossy=True).inputs.counts().items()))
+    return dict(sorted(write_model(design, allow_lossy=True, pour="outline").inputs.counts().items()))
 
 
 def _largest(report: EquivalenceReport) -> int:
@@ -178,7 +179,7 @@ def _largest(report: EquivalenceReport) -> int:
 def test_difat_boards(key: str) -> None:
     path = require(ITEMS[key])
     design = read_board(path.read_text(encoding="utf-8"), file=path.name)
-    written = write_model(design, allow_lossy=True)
+    written = write_model(design, allow_lossy=True, pour="outline")
     document = next(data for name, data in written.files.items() if name.endswith(".PcbDoc"))
     assert open_compound(document).header.difat_sectors > 0
 
@@ -223,7 +224,7 @@ def test_conversion_is_explained(key: str) -> None:
     """Scenario "Demo boards are explained": no ``convert.unexplained``, and the report and the explained
     differences of the board are the ledger's."""
     path = require(ITEMS[key])
-    result = convert(path, to="altium", allow_lossy=True)
+    result = convert(path, to="altium", allow_lossy=True, pour="outline")
     assert result.unexplained == ()
     assert not [i for i in result.issues if i.code == "convert.unexplained"]
     board = path.stem
@@ -240,7 +241,7 @@ def test_conversion_is_explained(key: str) -> None:
 
 @pytest.mark.parametrize("key", sorted(CONVERT_TOO_LARGE))
 def test_difat_boards_are_converted(key: str) -> None:
-    result = convert(require(ITEMS[key]), to="altium", allow_lossy=True)
+    result = convert(require(ITEMS[key]), to="altium", allow_lossy=True, pour="outline")
     assert result.unexplained == ()
     assert any(name.endswith(".PcbLib") for name in result.conversion.files)
 
@@ -251,7 +252,18 @@ def test_exit_7_without_consent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     ``convert.lossy`` warning per kind."""
     board = require(ITEMS["13"])
     monkeypatch.chdir(tmp_path)
-    argv = ["convert", str(board), "--to", "altium", "--out", "out", "--dry-run", "--json"]
+    argv = [
+        "convert",
+        str(board),
+        "--to",
+        "altium",
+        "--altium-pour",
+        "outline",
+        "--out",
+        "out",
+        "--dry-run",
+        "--json",
+    ]
     out, err = io.StringIO(), io.StringIO()
     monkeypatch.setattr("sys.stdout", out)
     monkeypatch.setattr("sys.stderr", err)
@@ -279,7 +291,7 @@ def test_complex_hierarchy_schematic(tmp_path: Path) -> None:
         pytest.skip("public project is absent from corpus cache")
     folder = project_folder(tmp_path, row, 10)
     assert folder is not None
-    result = convert(folder / "complex_hierarchy.kicad_pro", to="altium", allow_lossy=True)
+    result = convert(folder / "complex_hierarchy.kicad_pro", to="altium", allow_lossy=True, pour="outline")
     assert result.unexplained == (), result.unexplained
     assert not [i for i in result.issues if i.code == "convert.schematic-unverified"], result.issues
     tree = sheet_files(folder / "complex_hierarchy.kicad_sch")

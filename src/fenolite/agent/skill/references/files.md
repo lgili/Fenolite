@@ -7,7 +7,7 @@ summary: Read a file Fenolite did not write, tell whether editing it is safe, co
 # Reading, comparing and undoing
 
 The commands of this page read files and answer. None runs a tool unless the page says so, and only
-`fmt`, `convert`, `restore` and `view --export` write.
+`fmt`, `convert`, `restore`, `view --export` and `diff --three-way` write.
 
 ## What is in a file
 
@@ -29,11 +29,18 @@ KiCad board. To look at a board or an Altium sheet, or at every one of a project
 fenolite view blink/altium/blink.PrjPcb --json
 fenolite view blink/altium/blink.PrjPcb --doc blink.SchDoc --json
 fenolite view blink/build/blink.kicad_pcb --export blink/views/board.html --dry-run --json
+fenolite view blink/build/blink.kicad_pcb --check checks.json --report conversion.json --report fabrication.json --json
 ```
 
 `view` replies with the project's documents and a summary of one board, or of the one `--doc` names;
 `--compare OLD` draws what changed since OLD (a board or sheet) and counts it in `result.compare`; `--variant NAME` shows an Altium variant; `--check FILE|run` draws `check` findings and counts them in `result.check`; `--select REF` opens at a part or net; `--marks FILE` lists a person's review marks (`fenolite.review.v0`) in `result.marks`; `--theme` takes a KiCad colour theme; `--export` plans one HTML page that a person opens, and `--serve`
 (for a person, not an agent) serves it live.
+
+`result.review` and the page's Review panel distinguish not-run, passed, failed and limited stages.
+`--report FILE` loads a recorded convert/export reply, once per command; use `--check` for checks.
+Loading does not run the operation. Missing/mismatched input hashes remain historical and limited;
+a matching hash binds only the named document. Original hints and Locate support reviewing findings,
+not marking them fixed. Export generation alone does not attest successful readback or fabrication readiness.
 
 ## Is it safe to edit this file?
 
@@ -54,6 +61,32 @@ only:
 `result.level` is the highest level that holds. Exit 5 with `roundtrip.failed` (`where`: the first
 difference) means the write would change the file: edit it in KiCad, not with Fenolite.
 
+## Working on the owner's project
+
+```fenolite-cmd
+fenolite doctor --sessions project --json
+fenolite snapshot project/board.kicad_pcb --out work --confirm --json
+fenolite publish work --to project --receipt work/snapshot.json --dry-run --json
+fenolite refs work --json
+fenolite refs work --repoint C:/old/libs=C:/new/libs --dry-run --json
+```
+
+Do not edit the owner's files in place while they may be open:
+
+1. `doctor --sessions` lists the files open in KiCad (`safety.open-session`) and the files a sync client
+   keeps only online. Ask the owner to close them; every writing command repeats that warning for a file
+   of its plan.
+2. `snapshot` copies the board with its companions only when no save fell inside the copy, and writes
+   `snapshot.json`. Work on the copy.
+3. `publish` puts the copy back. It replaces a file only when its hash is still the one of
+   `snapshot.json`. A file the owner saved since is `safety.changed-since-receipt`, and nothing is written:
+   tell the owner, take a new snapshot, and do the edit again. Keep the envelope of the publish: it is the
+   receipt of the next one.
+4. `refs` lists the paths the documents hold. `refs.outside` means the copy still depends on another folder;
+   `--repoint OLD=NEW` rewrites a prefix in the KiCad documents.
+
+Exit 3 with `FEN-3007` means a file is kept only online: ask the owner to make the folder available offline.
+
 ## What changed between two files?
 
 ```fenolite-cmd
@@ -66,6 +99,20 @@ fenolite diff blink/build/blink.kicad_pcb blink/other/blink.kicad_pcb --view tre
 designs) or Altium files by meaning: `result.equal`, a `summary` per kind and `differences`, each with a
 `path` and a `change` (a moved footprint is one change). `--view tree` gives the `first_difference` of
 the two trees. It exits 0 either way: read `result.equal`.
+
+```fenolite-cmd
+fenolite diff blink/build/blink.kicad_pcb blink/routed/blink.kicad_pcb --allow track,via,arc --json
+fenolite diff blink/base.kicad_pcb blink/ours.kicad_pcb --three-way blink/theirs.kicad_pcb --out blink/merged.kicad_pcb --dry-run --json
+fenolite diff blink/altium/blink.PcbDoc blink/saved/blink.PcbDoc --view records --json
+```
+
+- `--allow KINDS` gates the difference: each change of another kind is a `diff.not-allowed` error (exit
+  5) naming its path. Use it after a step that should only route, to prove that nothing else moved.
+- `--three-way THEIRS --out FILE` plans `THEIRS` with the changes from `A` to `B` applied, item by item
+  (KiCad boards only). An item that `THEIRS` changed too is `diff.conflict` and nothing is written: ask
+  the owner, never pick a side. `diff.unmergeable` means the boards are of two KiCad versions.
+- In the records view, records that differ only in the spelling of a value (`10mil` and `10.0mil`) are
+  counted in `result.resave` and left out of `differences`: a plain save, not an edit.
 
 ## Are two designs equivalent?
 

@@ -16,6 +16,54 @@ pass `get_footprint(lib_id)` definitions in `authored_footprints` and symbol def
 overrides the catalog for that build only. Other component packs can be added without requiring a
 CAD installation or network access.
 
+## Browse the installed catalog
+
+This browser command is in the development version after 0.5.0; it is not in the published 0.5.0
+package. `catalog list` and `catalog show` remain available there.
+
+Generate a standalone HTML browser with the same installed definitions that builds use:
+
+```sh
+fenolite catalog view --out catalog.html --dry-run --json
+fenolite catalog view --out catalog.html --confirm --plan PLAN_ID --json
+```
+
+Replace `PLAN_ID` with `result.plan_id` from the reviewed dry run, then open `catalog.html` in a
+browser. The page works offline and embeds the selected symbols and footprints; it needs no CAD
+installation, global libraries or repository scripts. The output bytes are deterministic.
+
+Use `--kind symbol` or `--kind footprint` to select one group, and `--query TEXT` to search the
+ID, category and summary before exporting. The filters match `catalog list`. No matches produce
+`FEN-3001` with no output or overwrite; remove or change the filters and try `catalog list` first.
+`view` requires `--out` and takes no positional ID; `list` and `show` remain read-only and reject `--out`.
+
+Choose Symbols or Footprints, filter the item list, and select an entry. Click Properties, or focus it
+with Tab and press Enter or Space, to expand the exact `Fenolite:` ID, category, summary and source IDs.
+The collapsed summary keeps `INFERRED` evidence visible while leaving the drawing clear. Symbols list
+their pin roles;
+click a footprint pad to inspect its dimensions, shape, rotation, hole and layers. Existing viewer
+measurement, millimetre/mil switching, zoom and layer controls are available. The page renders the
+actual definitions through Fenolite's existing library viewer. Generic pin roles are not a specific
+device's pinout, and displaying a pattern does not qualify it for fabrication.
+
+Symbol properties stay in the details instead of covering the drawing. Footprints initially show the
+fabrication outline and courtyard together with their pads; layer controls can hide them individually.
+
+Choose **Choose a component…** to select a symbol and footprint together. Two offline previews use the
+same library renderer. Search the families by text, then filter footprints by mounting, distinct numbered
+pads and geometry in millimetres. Centre spacing is the minimum distance between distinct numbered-pad
+centres, rounded down by less than 1 nm; it is not the manufacturer's nominal pitch. Width/height bounds
+apply to every numbered pad in its local axes. Unknown spacing cannot match an active spacing filter.
+Invalid ranges and empty results are explicit; a selected item outside the filters remains identified.
+
+The pin map starts empty. Enter one or more comma-separated pad numbers for each pin, or explicitly
+choose **Fill equal numbers for review** as a starting point. Every pin and every distinct numbered pad
+must be covered, with no unknown or repeated pad assignment; unnumbered mechanical pads are excluded.
+This validates structure only. Check the actual device's datasheet and explicitly confirm that review
+before copying/downloading the Python `Part` snippet. Changing a definition or map clears confirmation.
+The snippet includes exact lib IDs and `pad_map`; add the part to a `Design` and connect its pins before
+building a circuit. The selection workspace never changes a project or upgrades `INFERRED` evidence.
+
 A catalog footprint definition holds no text field. The KiCad build generates the two a KiCad
 footprint needs (change c0077): `Reference` (`REF**` in the project library, the part's reference on the
 board) on `F.SilkS`, 1 mm above the footprint's courtyard box, and `Value` (the footprint's name in the

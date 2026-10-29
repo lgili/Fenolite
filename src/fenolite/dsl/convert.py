@@ -24,6 +24,7 @@ from fenolite.dsl.items import DimensionSpec, GraphicSpec, TextSpec
 from fenolite.dsl.module import Module as DslModule
 from fenolite.dsl.panel import Panel
 from fenolite.dsl.part import FieldRequest, PadZoneRequest, Part, Placement, pad_pairs
+from fenolite.dsl.roles import to_roles
 from fenolite.dsl.schematic import extract as schematic_composition
 from fenolite.dsl.shape import ring_box
 from fenolite.model.board import (
@@ -413,6 +414,7 @@ def _design_model(design: Design) -> ModelDesign:
             proximity=_proximity(design),
             heights=tuple(limit for _, limit in sorted(design.height_limits.items())),
             impedance=targets,
+            roles=to_roles(design),
         ),
         findings=Findings(waivers=tuple(waiver for _, waiver in sorted(design.waivers.items()))),
         manufacturing=Manifest(id=key_id("manifest")),

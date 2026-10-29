@@ -36,7 +36,7 @@ from fenolite.model.design import Design
 
 NO_NET = ""
 """The label of a pad on no net; each such pad is a block of its own in the partition."""
-MODEL_EVIDENCE = Evidence(Level.INFERRED)
+MODEL_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-MODEL-OWN",))
 """Fenolite's own model rules on built input: checked by its tests, not by an oracle."""
 SHOWN = 5
 

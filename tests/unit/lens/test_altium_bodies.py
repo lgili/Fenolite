@@ -179,7 +179,7 @@ def test_body2_golden_files() -> None:
     are written, and the one that names a model is reported."""
     output = built()
     pcb = output.summary["pcb"]
-    assert isinstance(pcb, dict) and list(pcb) == ["written", "not_lowered", "bodies"]
+    assert isinstance(pcb, dict) and list(pcb) == ["written", "not_lowered", "bodies", "pour"]  # pour: c0215
     assert pcb["bodies"] == "extruded" and pcb["written"]["body"] == 3 and pcb["not_lowered"] == {"body": 1}
     (reported,) = _body_issues(output)
     assert reported.where == f"body/{body('b4').id}" and reported.severity == "info"

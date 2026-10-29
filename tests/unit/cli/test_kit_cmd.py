@@ -68,7 +68,8 @@ def test_build_is_deterministic_and_follows_the_write_rules(
     assert run(monkeypatch, tmp_path, *args, "--out", "b", "--confirm")[0] == 0
     assert snapshot(tmp_path / "a") == snapshot(tmp_path / "b")
     result = env["result"]
-    assert [s["name"] for s in result["samples"]] == ["flat", "tree", "routed", "board6", "libs"]
+    names = ["flat", "tree", "routed", "board6", "libs", "pour", "pour4"]
+    assert [s["name"] for s in result["samples"]] == names
     assert result["kit_sha256"] == load_kit(tmp_path / "a").digest and result["seed"] == 1
     assert result["scripted"] == ["K2.1", "K2.2", "K2.3", "K2.4", "K2.5"]
     assert env["evidence"]["level"] == "INFERRED" and env["evidence"]["hypotheses"] == ["H-A-KIT-STABLE"]

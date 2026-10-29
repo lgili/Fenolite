@@ -133,6 +133,7 @@ def altium_pin(design: object, project_dir: Path, form: str) -> str:
         placements=placements(design),  # type: ignore[arg-type]
         form=form,  # type: ignore[arg-type]
         resolver=resolver(10, project_dir),
+        pour="outline",  # the pinned bytes of the earlier changes (c0215 tests "computed")
     )
     errors = [issue.code for issue in output.issues if issue.severity == "error"]
     assert not errors, errors

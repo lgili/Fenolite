@@ -8,6 +8,11 @@ summary: Altium builds, blocks, native sync, evidence and the verification kit.
 
 `build --target altium` flags the experimental kinds (`altium.experimental`); `capabilities` lists `missing` proofs.
 
+For a model already in memory, `fenolite.lens.altium.write_model(design, pour="outline")` selects the
+backend's unpoured compatibility mode. Omit `pour` to keep its computed default and missing-extra
+fallback, or use `pour="computed"` to require the geo extra. Historical outline measurements do not
+verify computed-pour equivalence.
+
 ## A script and its build
 
 ```fenolite-design altium
@@ -55,6 +60,10 @@ see `result.native_template`.
 
 `--altium-format ascii` writes text, not binary. `--altium-sheets modules` splits sheets
 and draws `Harness` interfaces. `--copper-from BOARD.kicad_pcb` copies routed copper.
+
+Polygons are poured by Fenolite with Altium's rules (`--altium-pour computed`, the default; needs
+`fenolite[geo]`); `altium.zones-poured` marks that copper experimental, and Repour All in Altium gives
+Altium's own. `altium.zone-unpoured` names a polygon left unpoured; `--altium-pour outline` pours none.
 
 Read `altium.not-lowered` locators. A `track_width` rule needs both limits (page `rules`).
 

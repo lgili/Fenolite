@@ -14,6 +14,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from fenolite.backends import registry
 from fenolite.backends.base import BoardFrame
 from fenolite.view import server
@@ -125,3 +127,93 @@ def test_marks_are_written_by_the_server_only(tmp_path: Path) -> None:
         assert [p.name for p in tmp_path.iterdir()] == ["review.json"]  # no temporary file left
     finally:
         stop.set()
+
+
+class _DeferredThread:
+    """Capture background work so the test controls when its first instruction runs."""
+
+    jobs: list[_DeferredThread] = []
+
+    def __init__(self, *, target: Any, args: tuple[Any, ...], daemon: bool) -> None:
+        self.target, self.args = target, args
+        self.jobs.append(self)
+
+    def start(self) -> None:
+        pass
+
+    def run(self) -> None:
+        self.target(*self.args)
+
+
+def test_delayed_refiner_does_not_adopt_a_newer_generation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An old worker may first run after the second build; it must not publish over that build."""
+    _DeferredThread.jobs = []
+    monkeypatch.setattr(server.threading, "Thread", _DeferredThread)
+    serial = 0
+
+    def build(_path: Path) -> dict[str, Any]:
+        nonlocal serial
+        serial += 1
+        return {"meta": {"sha256": str(serial)}}
+
+    def refine(_path: Path, scene: dict[str, Any]) -> dict[str, Any]:
+        return scene | {"refined": True}
+
+    live = server.Live(load_tree(BOARD), build, refine=refine)
+    live.scene("doc1")
+    doc = live.tree.document("doc1")
+    assert doc is not None
+    live._rebuild(doc, live.states["doc1"])
+    latest = live.scene("doc1")
+    version = live.version("doc1")
+    _DeferredThread.jobs[0].run()
+    assert live.scene("doc1") == latest and live.version("doc1") == version
+    _DeferredThread.jobs[1].run()
+    assert json.loads(live.scene("doc1") or b"{}")["refined"] is True
+    assert json.loads(live.scene("doc1") or b"{}")["meta"]["sha256"] == "2"
+
+
+def test_refinement_publication_checks_generation_under_lock(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A newer scene may publish while old refined bytes are being serialized, before the store lock."""
+    entered, release = threading.Event(), threading.Event()
+    original_compact, original_thread = server.compact, threading.Thread
+    workers: list[threading.Thread] = []
+    serial = 0
+
+    def build(_path: Path) -> dict[str, Any]:
+        nonlocal serial
+        serial += 1
+        return {"meta": {"sha256": str(serial)}}
+
+    def refine(_path: Path, scene: dict[str, Any]) -> dict[str, Any] | None:
+        return scene | {"refined": True} if scene["meta"]["sha256"] == "1" else None
+
+    def compact(scene: dict[str, Any]) -> dict[str, Any]:
+        if scene.get("refined"):
+            entered.set()
+            assert release.wait(10), "the test did not release the paused refinement"
+        return original_compact(scene)
+
+    def thread(**kwargs: Any) -> threading.Thread:
+        worker = original_thread(**kwargs)
+        workers.append(worker)
+        return worker
+
+    monkeypatch.setattr(server, "compact", compact)
+    monkeypatch.setattr(server.threading, "Thread", thread)
+    live = server.Live(load_tree(BOARD), build, refine=refine)
+    try:
+        live.scene("doc1")
+        assert entered.wait(10), "refinement did not reach serialization"
+        doc = live.tree.document("doc1")
+        assert doc is not None
+        live._rebuild(doc, live.states["doc1"])
+        latest = live.scene("doc1")
+        version = live.version("doc1")
+    finally:
+        release.set()
+        for worker in workers:
+            worker.join(10)
+            assert not worker.is_alive()
+    assert live.scene("doc1") == latest and live.version("doc1") == version
+    assert json.loads(latest or b"{}")["meta"]["sha256"] == "2"

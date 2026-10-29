@@ -48,8 +48,8 @@ The global flag `--fields a,b.c` SHALL restrict `result` to the listed dotted pa
 ### Requirement: Typed errors on stderr
 Whenever a command exits with a non-zero code, stderr MUST carry exactly one error object `{code, message, hint, retryable, where}` (JSON in JSON mode, one line `error <code>: <message> (<hint>)` in text mode). `code` MUST match `FEN-[1-7][0-9]{3}` and its first digit MUST equal the exit code.
 - Without `--progress`, the error object MUST be the only thing Fenolite writes on stderr. With `--progress`, stderr MAY hold progress records before it ("Progress on stderr"), each on a line of its own, and the error object MUST be the last line.
-- No exit MUST leave stderr without an error object or with a traceback: an exception that no handler maps, a failed write and a signal each end in one registered code (`FEN-1001`, `FEN-1002`, `FEN-1003`).
-- The registry MUST hold `FEN-1002` (exit 1, `retryable` true: a write failed and nothing was changed), `FEN-1003` (exit 1, `retryable` true: the command was stopped by a signal and nothing was written) and `FEN-4002` (exit 4, `retryable` false: the plan named by `--plan` cannot be written as reviewed). `src/fenolite/cli/data/explain.toml` MUST hold one table for each, and `docs/cli-contract.md` MUST say that exit 1 is a bug only when `retryable` is false.
+- No exit MUST leave stderr without an error object or with a traceback: an exception that no handler maps, a failed write and a signal each end in one registered code (`FEN-1001`, `FEN-1002`, `FEN-1003`, or `FEN-1004` for incomplete rollback).
+- The registry MUST hold `FEN-1002` (exit 1, `retryable` true: a write failed and nothing was changed), `FEN-1003` (exit 1, `retryable` true: the command was stopped by a signal and nothing was written) and `FEN-4002` (exit 4, `retryable` false: the plan named by `--plan` cannot be written as reviewed). `src/fenolite/cli/data/explain.toml` MUST hold one table for each, and `docs/cli-contract.md` MUST distinguish FEN-1001 (software bug) from FEN-1004 (incomplete rollback requiring manual recovery). The registry MUST also hold FEN-1004 with exit 1 and retryable false, with an explain table and agent-guide entry.
 
 #### Scenario: Internal exception
 - **GIVEN** the hidden `_echo` command is invoked with `--raise`
@@ -91,7 +91,7 @@ Commands MUST use only these exit codes: `0` success; `1` internal failure; `2` 
 A command declared as mutating MUST accept `--dry-run` and `--confirm`. With `--dry-run` it MUST return the plan of intended writes in `result.plan` with exit 0 and write nothing. Without `--confirm` it MUST return the plan with exit 4 and error `FEN-4001` and write nothing. With `--confirm` it MUST write atomically (temporary file then rename), keep a `.bak` of any overwritten file unless `--no-backup` is given, and fill `receipt.written` with `{path, sha256}` for every file written.
 - Whenever a plan is returned and not written (`--dry-run`, and the refusal of exit 4), `result.plan_id` MUST name it ("Staged plans"), and the hint of `FEN-4001` MUST name `--confirm --plan <id>`.
 - `--confirm` without `--plan` MUST keep its meaning: one run that plans and writes. `--confirm --plan ID` MUST write the plan that a review saw, under the checks of "Staged plans". `--plan` without `--confirm`, and `--plan` with `--dry-run`, MUST exit 2 with `FEN-2001`.
-- The files of one command MUST be written all or none ("All-or-nothing writes"), and a command whose issues hold an error MUST write none ("Error findings plan no write").
+- The files of one command MUST be written together or rolled back ("All-or-nothing writes"). If rollback itself fails, RecoveryError / FEN-1004 MUST report incomplete recovery and preserve remaining recovery files; no receipt or no-change claim is allowed. A command whose issues hold an error MUST write none ("Error findings plan no write").
 
 #### Scenario: Dry run writes nothing
 - **GIVEN** `_echo --write out.txt --dry-run`
@@ -119,6 +119,10 @@ A command declared as mutating MUST accept `--dry-run` and `--confirm`. With `--
 #### Scenario: A plan needs a confirmation
 - **WHEN** `_echo --write out.txt --plan 0123456789abcdef` runs without `--confirm`, and again with `--dry-run`
 - **THEN** both exit 2 with `FEN-2001`, and nothing is written
+
+#### Scenario: Recovery files outside the working directory remain locatable
+- **WHEN** incomplete rollback affects output outside cwd, including names also present in other folders
+- **THEN** result.recovery names each file unambiguously with paths relative to cwd, or absolute paths only when volumes differ; error text still holds no absolute path
 
 ### Requirement: Determinism flags
 The global flags `--seed INT` and `--timestamp ISO8601` SHALL be accepted by every command, and commands that generate identifiers or dates MUST take them from these flags.
@@ -1142,15 +1146,15 @@ The dispatcher SHALL accept the global flag `--format concise|detailed`, default
 - **THEN** `issues` holds four issues, and `result` has no `issues_summary`
 
 ### Requirement: Diff command
-`fenolite diff A B [--view model|tree] [--ext]` SHALL be registered by `src/fenolite/cli/cmd_diff.py` with `mutates=False`, `paged = "differences"` and `default_limit = 200`, and SHALL list the differences between two inputs without writing a file and without running any external tool.
+`fenolite diff A B [--view model|tree] [--ext] [--allow KINDS] [--three-way THEIRS --out FILE]` SHALL be registered by `src/fenolite/cli/cmd_diff.py` with `mutates=True`, `paged = "differences"` and `default_limit = 200`, and SHALL list the differences between two inputs without running any external tool. It SHALL plan a write only for `--three-way` (`file-safety`, "Three-way difference of KiCad boards"); without it, no write is planned and no confirmation is asked.
 - **Inputs.** `A` and `B` MUST each be a KiCad board, footprint file, symbol library or schematic (`.kicad_sch`, read with `sch.read_schematic`), or a folder that holds `.fenolite/meta.json` (the built model, loaded with `model.canonical.load_dir`). A missing path MUST exit 3 with `FEN-3001`, an input that nothing reads MUST exit 2 with `FEN-2001`, and a read error MUST exit 3 with its code.
 - **Model view** (the default). Two designs MUST be compared with `checks.diff.diff_designs`, two libraries with `diff_libraries` and two sheets with `diff_sheets` (`verification-loop`, "Model difference report"). Inputs of two families MUST exit 2 with `FEN-2001`. `--ext` MUST pass `ext=True`.
 - **Tree view.** `--view tree` MUST take two KiCad S-expression files of one kind and compare their parsed trees: `result.equal` is `tree_equal`, `result.first_difference` the locator of `sexpr.first_difference` or `null`, and `result.heads` the root child heads whose counts differ, each with its count in `a` and in `b`. Its `differences` list MUST be empty. A `.fenolite/` folder MUST exit 2 with `FEN-2001` and a hint that names `--view model`.
 - **Result.** `result` MUST hold `view`, `equal`, `a` and `b` (each `{path, kind}`, `path` being the file or folder name without its parent), `summary` (per entity kind, the counts `added`, `removed` and `changed`), `differences` (objects `{path, change, a, b}`, in report order), `total` and `truncated` (true when the page is not the whole list).
-- **Exit code.** A difference is a result, not a finding: the exit code MUST be 0 whether or not the inputs differ, and `issues` MUST hold only the readers' issues, those of `A` first.
+- **Exit code.** A difference is a result, not a finding: the exit code MUST be 0 whether or not the inputs differ, unless `--allow` or `--three-way` reports an error finding (`file-safety`, "Gated differences" and "Three-way conflicts"). `issues` MUST hold the readers' issues, those of `A` first, then those findings.
 - **Evidence.** The envelope evidence MUST be `Evidence.combine` of the two readings; a `.fenolite/` model counts as `INFERRED`. `input` MUST describe `A`.
 - **Determinism.** Two runs on the same inputs MUST give the same stdout apart from `elapsed_ms`, and the output MUST hold no absolute path.
-- `example_args` MUST be `(EXAMPLE_BOARD, EXAMPLE_BOARD)` and MUST run no subprocess from any working directory. `docs/cli-contract.md` MUST have a section "diff" with the views, the result keys and the matching keys.
+- `example_args` MUST be `(EXAMPLE_BOARD, EXAMPLE_BOARD)` and MUST run no subprocess from any working directory. `mutation_example_args` MUST merge `EXAMPLE_BOARD` three ways into `merged.kicad_pcb`. `docs/cli-contract.md` MUST have a section "diff" with the views, the result keys and the matching keys.
 
 #### Scenario: A file against itself
 - **WHEN** `uv run fenolite diff tests/data/kicad/board/two_layer.kicad_pcb tests/data/kicad/board/two_layer.kicad_pcb --json` runs
@@ -1797,10 +1801,11 @@ The dispatcher SHALL give every plan that is returned and not written an id, SHA
 - **THEN** `out.txt` holds `one` again and the exit code is 0
 
 ### Requirement: All-or-nothing writes
-The dispatcher SHALL write the files of one command with `core.io.atomic_write_all` (`core-primitives`, "Atomic writes of several files"), so that a command writes every file of its plan or none, and a failed write SHALL end in an envelope and one error object.
+The dispatcher SHALL write the files of one command with `core.io.atomic_write_all` (`core-primitives`, "Atomic writes of several files"), so that a command writes every file of its plan or rolls back, with incomplete rollback reported separately, and a failed write SHALL end in an envelope and one error object.
 - When the write raises `WriteError`, the dispatcher MUST print the envelope with `ok` false, the command's `result` (with `plan` and `plan_id`) and `receipt` `null`, and one `FEN-1002` object: exit 1, `retryable` true, a message that names the failing path relative to the working folder and the system's reason, and the hint "nothing was written; fix the cause and run the same command again". Neither MUST hold an absolute path or a traceback.
-- After such a failure every target MUST hold the bytes it held before the command, every `.bak` that existed MUST be unchanged, and no target, temporary file or folder that the command created MUST remain. A receipt returned by an earlier command MUST therefore still restore.
-- Under `--plan`, the stage MUST stay for the retry.
+- After such a failure every target MUST hold the bytes it held before the command, every `.bak` that existed MUST be unchanged, and no newly written target MUST remain. Cleanup of temporary and kept files is best effort if the filesystem refuses deletion; it MUST NOT replace or conceal a failed target or backup restoration. A receipt returned by an earlier command MUST therefore still restore.
+- On RecoveryError the dispatcher MUST return ok=false, receipt=null and FEN-1004 (exit 1, retryable false), with result.recovery.failed and result.recovery.preserved path lists and an instruction to inspect and recover manually before a new review. Recovery result paths MUST resolve from cwd, including ../ for locations outside cwd; when Windows volumes differ, they MUST retain the absolute path in the structured result. Error text MUST hold no absolute path or traceback, and MUST NOT claim nothing changed.
+- Under `--plan`, the stage MUST stay for the retry after complete rollback, or inspection after incomplete rollback.
 - `main()` MUST map every exception that is not a `CliError` to `FEN-1001` through "Library errors map to registered codes", printing no traceback.
 
 #### Scenario: A build that fails in the middle changes nothing
@@ -1817,6 +1822,11 @@ The dispatcher SHALL write the files of one command with `core.io.atomic_write_a
 - **GIVEN** a plan P whose replay fails with `FEN-1002`
 - **WHEN** the cause is removed and `--confirm --plan P` runs again
 - **THEN** the files are written with the reviewed bytes
+
+#### Scenario: Incomplete rollback is not retryable
+- **GIVEN** a staged command whose write and restoration both fail
+- **WHEN** the dispatcher handles RecoveryError
+- **THEN** stderr ends in FEN-1004 with retryable false, stdout has ok=false and receipt=null, and recovery files remain listed for manual review
 
 ### Requirement: Error findings plan no write
 The dispatcher SHALL plan, stage and write nothing for a command whose issues hold one of severity `error`, unless the command sets `Result.write_on_error`.
@@ -1839,11 +1849,11 @@ The dispatcher SHALL plan, stage and write nothing for a command whose issues ho
 - **THEN** it fails for a mutating command other than `place`, `manifest` and `kit` whose module sets `write_on_error`
 
 ### Requirement: Interrupted commands write nothing and stop their tools
-On POSIX, `main()` SHALL turn SIGTERM and SIGINT into `fenolite.cli.main.Interrupted`, raised in the main thread, and a command stopped so SHALL stop the tool processes it started, write nothing, and end in one error object.
+On POSIX, `main()` SHALL turn SIGTERM and SIGINT into `fenolite.cli.main.Interrupted`, raised in the main thread, and a command stopped so SHALL stop the tool processes it started, roll back its writes, and end in one error object; an incomplete rollback follows FEN-1004 instead.
 - `Interrupted` MUST be a `KeyboardInterrupt`, so that no handler of `Exception` catches it and code that lets Ctrl+C pass lets it pass. After the first signal both signals MUST be ignored until the command has ended, so that a second one cuts neither the roll back nor the error object; `main()` MUST put the caller's handlers back when it returns.
 - Every tool process that Fenolite starts through `subprocess.run`, the KiCad runner or a routing plugin MUST be killed when the exception passes through its call, so that no `kicad-cli`, `java` or router process outlives the `fenolite` process that started it.
 - A write in progress MUST roll back ("All-or-nothing writes"). The job record of a route MUST keep the runs that finished ("Resumable route jobs").
-- The dispatcher MUST print the envelope with `ok` false and `receipt` `null`, and one `FEN-1003` object: exit 1, `retryable` true, the message "stopped by a signal; nothing was written".
+- After a completed rollback the dispatcher MUST print the envelope with `ok` false and `receipt` `null`, and one `FEN-1003` object: exit 1, `retryable` true, the message "stopped by a signal; nothing was written".
 - On Windows a Ctrl+C MUST be handled the same way; a forced stop of the process cannot be handled, and `docs/cli-contract.md` MUST say so. A stop by SIGKILL is outside this requirement on every system.
 
 #### Scenario: A stopped route stops its router
@@ -2090,10 +2100,10 @@ The global flag `--progress` SHALL make a command write progress records on stde
 ### Requirement: Route command budget and tiers
 `fenolite route` SHALL bound the routing step by one budget and SHALL let the caller route some nets first.
 - **Budget.** `--timeout SECONDS` MUST set `RoutingJob.budget` for every router (`routing`, "Routing time budget"); without it the job's budget is `None`, which gives the plugin's `DEFAULT_BUDGET`. The command MUST build a router with the given value whatever it is: `--timeout 600` gives 600 s to Freerouting too. A value that is not a positive number MUST exit 2 with `FEN-2001`.
-- **Tiers.** `--order GLOB` (repeatable, `fnmatch` on the net name) MUST set `JobNet.tier` (`routing`, "Routing tiers"): a selected net takes the index of the first `--order` glob it matches, and a net that matches none takes the count of globs. `--order` changes no selection: it orders the nets that `--nets` and the selection give.
+- **Tiers.** `--order GLOBS` (repeatable) MUST set `JobNet.tier` (`routing`, "Routing tiers"). `GLOBS` is one `fnmatch` glob on the net name or several, separated by commas: a selected net takes the index of the first `--order` whose globs it matches, and a net that matches none takes the count of `--order` options. `--order` changes no selection: it orders the nets that `--nets` and the selection give. An empty glob in the list MUST exit 2 with `FEN-2001`.
 - **Result.** `result` MUST hold `budget` (`seconds`, the budget used; `spent`, seconds rounded to 0.1; `exhausted`, a boolean), `runs` (one object per `RouterRun`: `tier`, `nets` as a count, `seconds` rounded to 0.1, `outcome`) and `not_attempted` (net names), beside the keys of "Route command".
 - **Write.** When the budget ended, the copper of the finished runs MUST be merged and planned as any routed copper; the exit code MUST stay 0 when no issue of severity error is present.
-- `docs/cli-contract.md` MUST describe `--timeout` as the budget of the step, `--order`, the three result keys, `route.budget-exhausted` and `route.optimizer-cut`.
+- `docs/cli-contract.md` MUST describe `--timeout` as the budget of the step, `--order` with its comma-separated globs, the three result keys, `route.budget-exhausted` and `route.optimizer-cut`.
 
 #### Scenario: Finished run written, cut run reported
 - **GIVEN** the fake KiCadRoutingTools in a mode that sleeps 5 s when its `--nets` names a net of the second group, and an authored board with two size groups
@@ -2107,6 +2117,10 @@ The global flag `--progress` SHALL make a command write progress records on stde
 #### Scenario: Order in tiers
 - **WHEN** `fenolite route <board> --router <recording router> --order 'CLK*' --order 'D*' --dry-run` runs on a board with unrouted nets `A`, `CLK1`, `D0`
 - **THEN** the recorded job holds `CLK1` with tier 0, `D0` with tier 1 and `A` with tier 2, in that order
+
+#### Scenario: Several globs in one tier
+- **WHEN** `fenolite route <board> --router <recording router> --order 'CLK*,D*' --dry-run` runs on a board with unrouted nets `A`, `CLK1`, `D0`
+- **THEN** the recorded job holds `CLK1` and `D0` with tier 0 and `A` with tier 1
 
 #### Scenario: Bad budget
 - **WHEN** `fenolite route <board> --router direct --timeout 0 --dry-run` runs
@@ -2260,3 +2274,64 @@ The `equivalent` entry of `result.commands` of `fenolite capabilities` SHALL hol
 - **GIVEN** a socket bound on a port of `127.0.0.1`
 - **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k port_in_use` serves on that port
 - **THEN** the exit code is 2 with `FEN-2001` and the hint names `--port 0`
+
+### Requirement: Recorded operation reports in view
+
+`fenolite view PATH --report FILE` SHALL accept a recorded convert or export reply, MAY be repeated for different commands, and SHALL expose the reports' scope and limitations in JSON, live viewing and offline HTML. Duplicate command reports or malformed envelopes SHALL be refused before an output write. Loading a report SHALL NOT run the recorded command. Existing dry-run and confirmed staged replay SHALL govern HTML output.
+
+#### Scenario: Recorded conversion and export
+- **WHEN** view receives one valid convert report and one valid export report
+- **THEN** both are available in project review with original evidence, revision binding and limitations
+- **AND** absent verification or receipt information cannot create a passed card
+
+#### Scenario: Invalid or duplicate report
+- **WHEN** a report file is missing, malformed, unsupported or duplicates another report's command
+- **THEN** view returns an existing input/usage error and plans no output
+
+### Requirement: Region strategy in the place command
+`fenolite place --strategy regions` SHALL place the staged parts, or those of `--only`, by domain: the islands of `isolation_islands` without the `--barrier` parts, or `--group NAME=GLOB[,GLOB...]`. A domain's region MUST be its `--region NAME=X1,Y1,X2,Y2` (needs `--group`, same names) or one band of the outline along `--split`. A part in no domain stays, with `place.region-unassigned`. These options without the strategy MUST be `FEN-2001`.
+
+#### Scenario: Bands by isolation islands
+- **GIVEN** the bench of `tests/_regionbench.py` written as a KiCad board: `R1`, `R3` on nets `A*`, `R2`, `R4` on nets `B*`, the isolator `U5` on `A1` and `B1`, and `H1` without a net, all staged
+- **WHEN** `uv run pytest tests/unit/cli/test_place_regions.py -k islands` runs `fenolite place <board> --strategy regions --barrier U5 --confirm`
+- **THEN** it exits 0, `D1` is x 0 to 30 mm with `R1` and `R3`, `D2` is x 30 to 60 mm with `R2` and `R4`, `U5` is at x 30 mm with status `boundary`, and `H1` stays with `place.region-unassigned`
+
+#### Scenario: Region options without the strategy
+- **WHEN** `uv run pytest tests/unit/cli/test_place_regions.py -k "usage or need_the_strategy"` runs malformed or inconsistent `--group` and `--region` values, and `--barrier` without `--strategy regions`
+- **THEN** each exits 2 with `FEN-2001`
+
+### Requirement: Region report
+`result.regions` SHALL be `null` when nothing was staged, else hold per region its `box` (relative to the outline's top-left corner), `nets`, `parts`, `placed`, `unplaced`, `area`, `used` and `fill_permille`; the barriers with `sides` and `status`; `unassigned`; and `crossings`. A crossing MUST be an open connection of `analysis.connectivity` after the moves whose two ends lie in two regions; each pair MUST give one `place.region-crossing`.
+
+#### Scenario: Crossings between groups
+- **GIVEN** the same bench
+- **WHEN** `uv run pytest tests/unit/cli/test_place_regions.py -k crossings` runs `--group a=R1,R2 --group b=R3,R4 --split y --dry-run`
+- **THEN** `crossings` is one row between `a` and `b` with 2 open connections on `A2` and `B2`, and `issues` holds one `place.region-crossing` warning at `a|b`
+
+#### Scenario: A region without room through the command
+- **GIVEN** the same bench
+- **WHEN** `uv run pytest tests/unit/cli/test_place_regions.py -k without_room` runs `--group a=R* --region a=0mm,0mm,5mm,5mm --dry-run`
+- **THEN** it exits 0 with no plan, four `place.no-room` warnings and `fill_permille` 0
+
+### Requirement: Roles command
+`fenolite roles PATH` SHALL infer, show, confirm and check net roles (schema `fenolite.roles.v0`, `src/fenolite/cli/cmd_roles.py`). It MUST be read-only without an accept, set or reject option, and a writing command of "Mutation protocol" with one. `--check` MUST add `measures` and `summary` and run no tool. A bad option MUST be `FEN-2001`. `docs/cli-contract.md` MUST document it under the heading `roles`.
+
+#### Scenario: Read-only by default
+- **GIVEN** `subprocess.run` patched to raise and a snapshot of the folder of a reference board
+- **WHEN** `uv run pytest tests/unit/cli/test_roles_cmd.py -k readonly` runs `fenolite roles <board> --check --json`
+- **THEN** it exits 0 and the folder is unchanged
+
+#### Scenario: Write needs confirmation
+- **WHEN** `fenolite roles <board> --accept SW --json` runs without `--dry-run` or `--confirm`
+- **THEN** the exit code is 4, stderr holds `FEN-4001`, and nothing is written
+
+#### Scenario: Usage error
+- **WHEN** `fenolite roles <board> --set SW=motor` runs
+- **THEN** the exit code is 2 and stderr holds `FEN-2001`
+
+### Requirement: Roles measuring options
+`fenolite roles --check` SHALL accept the measuring options of `fenolite analyze` that its analyses use (`--requirements`, `--temp-rise`, `--copper-thickness`, `--via-plating`, `--board-thickness`, `--pour-grid`, `--split`, `--arc-tol`), parsed by the same code with the same errors. Without `--check`, each of them MUST be `FEN-2001`.
+
+#### Scenario: Options shared with analyze
+- **WHEN** `uv run pytest tests/unit/cli/test_roles_cmd.py -k options` runs `fenolite roles <board> --check --temp-rise 1.2345` and `fenolite roles <board> --split`
+- **THEN** both exit 2 with `FEN-2001`, the first with the message that `analyze` gives for the same value

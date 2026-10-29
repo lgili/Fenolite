@@ -1,7 +1,7 @@
 ---
 topic: placement
 title: Placing parts
-summary: place() in the script, staged parts and the grid strategy, moving a part on the board, where the pads are, and text fields.
+summary: place() in the script, staged parts and the grid strategy, moving a part on the board, copying a block by its pads, where the pads are, and text fields.
 ---
 
 # Placing parts
@@ -104,6 +104,45 @@ fenolite place blink/build --move R1=15mm,14mm --move D1=15mm,6mm,180,bottom --c
   warning). Route again with `--rip` afterwards (page `routing`).
 - The script does not change. `fenolite sync --to-source` writes the positions beside it (page
   `design-script`).
+
+## Copying a block
+
+```fenolite-cmd
+fenolite place blink/build --from reference.kicad_pcb --only U1,R1,R2 --copper --dry-run --json
+fenolite place blink/build --from reference.kicad_pcb --only U11,R11 --map U11=U1 --map R11=R1 --confirm --json
+```
+
+- **`place --from REFERENCE`** (`--strategy reuse`) copies a block of a reference board (a datasheet
+  layout, a channel already done) onto the `--only` parts. Place the anchor (`--anchor`, default the
+  first part) first: the block is fitted on its pads, and each other part is put where its pads land on
+  the reference pads, turned and on the side the fit finds. `--map` pairs parts whose references
+  differ, for a second channel.
+- Read `result.reuse.parts`: `matched` pads, `within` the tolerance, and `residual`, the farthest pad in
+  nm. `reuse.no-fit` (exit 5) means a footprint differs; `reuse.mirror-suspected` means a part fits only
+  mirrored: compare both footprints with `fenolite pads` before routing.
+- **`--copper`** copies the tracks and vias joined to the block's pads, locked; copper that would end
+  nowhere, or that the copper check finds too close, is left out and listed in
+  `result.reuse.copper.dropped`. `--drc` asks KiCad's DRC too.
+- Pads that share a number (three `GND` pads) pair by their nets (`by_net`). A small pour of the block
+  is copied with its fill (`kind` `zone`); a plane that reaches pads outside the block is not
+  (`zone-beyond-block`). Run `fenolite fill` after a copied zone (`reuse.fill-stale`).
+
+## Moving a group
+
+```fenolite-cmd
+fenolite place blink/build --turn U1,C1,C2 --about 20mm,20mm --pose-search --within 2mm --json
+fenolite place blink/build --turn U1,C1,C2 --about 20mm,20mm --angle 90 --dry-run --json
+fenolite place blink/build --shift U1,C1,C2 --by 1mm,0mm --confirm --json
+fenolite explain place.group-failed --json
+```
+
+- **`--turn` and `--shift`** move a module and its satellites as one piece, each part's angle from its
+  pads, so parts on the bottom turn right. Tracks, vias and zones that join only the group's pads move
+  with it; copper to other parts stays (`place.copper-left`). `place.group-failed` (exit 5) means a
+  new short or clearance violation: nothing is written.
+- **`--pose-search`** writes nothing: `result.group.search.poses` ranks the four turns and the shifts
+  within `--within` by `demand`, the distance from the group to the rest of each net. Apply the best
+  pose with `--turn ... --angle` and `--shift`.
 
 ## Where things are
 

@@ -8,6 +8,8 @@ from __future__ import annotations
 import argparse
 import contextlib
 import dataclasses
+import io
+import json
 import os
 import random
 import signal
@@ -40,10 +42,11 @@ from fenolite.cli.output import (
     render_json,
     render_text,
     resolve_mode,
+    to_jsonable,
     write_error,
 )
 from fenolite.core.errors import FenoliteError, Issue
-from fenolite.core.io import WriteError, atomic_write_all, sha256_bytes
+from fenolite.core.io import RecoveryError, WriteError, atomic_write_all, sha256_bytes
 from fenolite.core.state import state_dir
 
 KICAD_TARGETS = (9, 10)
@@ -63,11 +66,29 @@ class Interrupted(KeyboardInterrupt):
     error catches it, and code that lets Ctrl+C pass lets it pass."""
 
 
+IN_PROCESS_HELP = "--help prints for a terminal; fenolite.api.run returns envelopes only"
+"""Why ``fenolite.api.run`` refuses ``--help`` (change c0206)."""
+
+
 class _Parser(argparse.ArgumentParser):
-    """argparse that raises typed usage errors instead of printing and exiting."""
+    """argparse that raises typed usage errors instead of printing and exiting. A parser built for
+    ``fenolite.api.run`` (``in_process``) prints nothing: ``--help`` is a usage error."""
+
+    in_process: bool = False
 
     def error(self, message: str) -> NoReturn:
         raise CliError("FEN-2001", message, hint=f"run '{self.prog} --help'")
+
+    def _print_message(self, message: str, file: Any = None) -> None:
+        if not self.in_process:
+            super()._print_message(message, file)
+
+    def exit(self, status: int = 0, message: str | None = None) -> NoReturn:
+        if self.in_process:
+            raise CliError(
+                "FEN-2001", IN_PROCESS_HELP, hint="call run('capabilities') or run('guide', 'start')"
+            )
+        super().exit(status, message)
 
 
 def _add_global_options(parser: argparse.ArgumentParser, *, top_level: bool) -> None:
@@ -101,8 +122,11 @@ def _add_global_options(parser: argparse.ArgumentParser, *, top_level: bool) -> 
                        help="drop content the target KiCad version cannot read, with a warning")  # fmt: skip
 
 
-def build_parser(commands: dict[str, Command]) -> argparse.ArgumentParser:
+def build_parser(commands: dict[str, Command], *, in_process: bool = False) -> argparse.ArgumentParser:
+    """The parser of every command; ``in_process`` builds the one of ``fenolite.api.run``, which prints
+    nothing."""
     parser = _Parser(prog="fenolite", description="Headless, agent-first PCB design automation.")
+    parser.in_process = in_process
     parser.add_argument("--version", action="version", version=f"fenolite {__version__}")
     _add_global_options(parser, top_level=True)
     sub = parser.add_subparsers(dest="command", metavar="COMMAND", parser_class=_Parser)
@@ -111,6 +135,7 @@ def build_parser(commands: dict[str, Command]) -> argparse.ArgumentParser:
             child = sub.add_parser(command.name)
         else:
             child = sub.add_parser(command.name, help=command.help, description=command.help)
+        child.in_process = in_process
         _add_global_options(child, top_level=False)
         if command.mutates:
             protocol = child.add_argument_group("writing files")
@@ -143,7 +168,8 @@ def _timestamp(value: str | None) -> datetime:
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
-def _context(args: argparse.Namespace, mode: OutputMode, err: TextIO) -> Context:
+def _context(args: argparse.Namespace, mode: OutputMode, err: TextIO, cwd: Path, *,
+             in_process: bool = False) -> Context:  # fmt: skip
     seed: int | None = args.seed
     rng = random.Random(seed) if seed is not None else random.Random()
     ctx = Context(
@@ -152,10 +178,11 @@ def _context(args: argparse.Namespace, mode: OutputMode, err: TextIO) -> Context
         timestamp=_timestamp(args.timestamp),
         rng=rng,
         no_backup=bool(args.no_backup),
-        cwd=Path.cwd(),
+        cwd=cwd,
         kicad_target=int(args.kicad_version),
         allow_lossy=bool(args.allow_lossy),
         state=state_dir(),
+        in_process=in_process,
     )
     if not args.progress:
         return ctx
@@ -171,10 +198,30 @@ def _quiet(ctx: Context) -> None:
         close()
 
 
+@dataclasses.dataclass(frozen=True, slots=True)
+class _Reply:
+    """One run of a command, before it is printed: the exit code, the envelope (``None`` when stdout stays
+    empty), the error object (``None`` on exit 0) and ``Result.text`` for text mode. ``main`` prints it;
+    ``invoke`` returns it as JSON values (change c0206)."""
+
+    code: int
+    envelope: Envelope | None = None
+    error: ErrorInfo | None = None
+    text: str | None = None
+
+
 def _emit(envelope: Envelope, ctx: Context, out: TextIO, text: str | None = None) -> None:
     """Print the envelope. ``text`` (``Result.text``) is used by text mode only."""
     _quiet(ctx)
     out.write((render_json(envelope) if ctx.mode == "json" else render_text(envelope, text)) + "\n")
+
+
+def _print(reply: _Reply, ctx: Context, out: TextIO, err: TextIO) -> None:
+    """Print a reply: the envelope on ``out``, then the error object on ``err``."""
+    if reply.envelope is not None:
+        _emit(reply.envelope, ctx, out, reply.text)
+    if reply.error is not None:
+        write_error(reply.error, ctx.mode, err)
 
 
 def _envelope(command: Command, outcome: Result, result: dict[str, object], *, ok: bool,
@@ -432,28 +479,44 @@ def _stage(
     return None
 
 
-def _failed(command: Command, exc: Exception, ctx: Context, started: float, out: TextIO, err: TextIO,
-            outcome: Result | None = None) -> int:  # fmt: skip
+def _failed(command: Command, exc: Exception, started: float, outcome: Result | None = None) -> _Reply:
     """The reply of a command that raised: the envelope with ``ok`` false and one error object."""
     failure = exc if isinstance(exc, CliError) else from_exception(exc, command.name)
     shown = _refusal(exc) if outcome is None else outcome
-    _emit(_envelope(command, shown, {}, ok=False, receipt=None, started=started), ctx, out)
-    write_error(failure.info(), ctx.mode, err)
-    return int(failure.exit_code)
+    envelope = _envelope(command, shown, {}, ok=False, receipt=None, started=started)
+    return _Reply(int(failure.exit_code), envelope, failure.info())
 
 
-def _dispatch(command: Command, args: argparse.Namespace, ctx: Context, started: float,
-              out: TextIO, err: TextIO) -> int:  # fmt: skip
+def _dispatch(command: Command, args: argparse.Namespace, ctx: Context, started: float) -> _Reply:
     try:
-        return _perform(command, args, ctx, started, out, err)
+        return _perform(command, args, ctx, started)
     except KeyboardInterrupt:  # Interrupted, or a Ctrl+C where the handler is not installed
-        _emit(_envelope(command, Result(), {}, ok=False, receipt=None, started=started), ctx, out)
-        write_error(CliError("FEN-1003", where=command.name).info(), ctx.mode, err)
-        return int(ExitCode.INTERNAL)
+        envelope = _envelope(command, Result(), {}, ok=False, receipt=None, started=started)
+        return _Reply(int(ExitCode.INTERNAL), envelope, CliError("FEN-1003", where=command.name).info())
 
 
-def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: float,
-             out: TextIO, err: TextIO) -> int:  # fmt: skip
+def _open_sessions(writes: Sequence[PlannedWrite], cwd: Path) -> list[Issue]:
+    """One ``safety.open-session`` warning per planned file that has a CAD tool's lock file beside it."""
+    from fenolite.safety.codes import ISSUE_CODES as SAFETY_CODES
+    from fenolite.safety.sessions import open_sessions
+
+    found: list[Issue] = []
+    for session in open_sessions([cwd / w.path for w in writes]):
+        where = _relative(session.path, cwd)
+        found.append(
+            Issue(
+                code="safety.open-session",
+                severity=SAFETY_CODES["safety.open-session"],
+                message=f"{where} is open in {session.tool} ({_relative(session.lock, cwd)} lies beside it); "
+                "a save there would overwrite this write, and this write may be lost on its next save",
+                where=where,
+                hint="close the file in the tool first; a lock left by a crash may be deleted once closed",
+            )
+        )
+    return found
+
+
+def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: float) -> _Reply:
     dry_run = bool(getattr(args, "dry_run", False))
     confirm = bool(getattr(args, "confirm", False))
     plan: str | None = getattr(args, "plan", None)
@@ -475,11 +538,13 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
             if outcome.writes and not command.mutates:
                 raise RuntimeError(f"command {command.name!r} returned writes but is not declared mutating")
     except Exception as exc:  # library errors keep their code; any other exception is a bug (FEN-1001)
-        return _failed(command, exc, ctx, started, out, err, Result() if isinstance(exc, CliError) else None)
+        return _failed(command, exc, started, Result() if isinstance(exc, CliError) else None)
 
     n_errors = sum(1 for issue in outcome.issues if issue.severity == "error")
     # a command that reports an error plans, stages and writes nothing, `place --force` excepted
     writes = outcome.writes if not n_errors or outcome.write_on_error else ()
+    if writes:  # a file open in a CAD tool is about to be replaced (capability file-safety)
+        outcome = dataclasses.replace(outcome, issues=(*outcome.issues, *_open_sessions(writes, ctx.cwd)))
     rows = _rows(writes, ctx.cwd)
     plan_id: str | None = None
     if writes:
@@ -491,8 +556,8 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
                 outcome = dataclasses.replace(outcome, issues=(*outcome.issues, warning))
     if plan is not None and plan_id != plan:  # not staged: planned again, and the new plan is another one
         made = "the command plans no write now" if plan_id is None else f"the plan made now is {plan_id}"
-        return _failed(command, _stale(f"no staged plan has the id {plan}, and {made}", "--plan"),
-                       ctx, started, out, err, Result())  # fmt: skip
+        stale = _stale(f"no staged plan has the id {plan}, and {made}", "--plan")
+        return _failed(command, stale, started, Result())
 
     code = ExitCode.OK
     error: ErrorInfo | None = None
@@ -527,20 +592,34 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
         try:  # every deferred write is resolved and checked before any file of the command is written
             payloads = [_payload(w) for w in writes]
         except Exception as exc:
-            return _failed(command, exc, ctx, started, out, err, Result())
+            return _failed(command, exc, started, Result())
         try:
             done = atomic_write_all(
                 [(ctx.cwd / w.path, data) for w, data in zip(writes, payloads, strict=True)],
                 backup=not ctx.no_backup,
             )
-        except WriteError as exc:  # everything was put back; under --plan the stage stays for the retry
-            _emit(
-                _envelope(command, shown_outcome, result, ok=False, receipt=None, started=started), ctx, out
+        except RecoveryError as exc:
+            recovery = {
+                "failed": [_recovery_path(path, ctx.cwd) for path in exc.failed],
+                "preserved": [_recovery_path(path, ctx.cwd) for path in exc.preserved],
+            }
+            result["recovery"] = recovery
+            envelope = _envelope(command, shown_outcome, result, ok=False, receipt=None, started=started)
+            where = _relative(exc.path, ctx.cwd)
+            failure = CliError(
+                "FEN-1004",
+                f"rollback incomplete for {', '.join(_relative(path, ctx.cwd) for path in exc.failed)}; "
+                "some files may have changed",
+                where=where,
+                hint="do not retry; keep the files in result.recovery.preserved and inspect "
+                "result.recovery.failed; restore the affected files before reviewing a new plan",
             )
+            return _Reply(int(failure.exit_code), envelope, failure.info())
+        except WriteError as exc:  # everything was put back; under --plan the stage stays for the retry
+            envelope = _envelope(command, shown_outcome, result, ok=False, receipt=None, started=started)
             where = _relative(exc.path, ctx.cwd)
             failure = CliError("FEN-1002", f"{where}: {exc.reason}; nothing was written", where=where)
-            write_error(failure.info(), ctx.mode, err)
-            return int(failure.exit_code)
+            return _Reply(int(failure.exit_code), envelope, failure.info())
         files = [WrittenFile(path=w.path, sha256=r.sha256) for w, r in zip(writes, done, strict=True)]
         backups = [w.path + ".bak" for w, r in zip(writes, done, strict=True) if r.backup_path is not None]
         receipt = make_receipt(files, backups, plan)
@@ -554,15 +633,17 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
         code = ExitCode.FINDINGS
         error = CliError("FEN-5001", f"{n_errors} finding(s) of severity error", where=command.name).info()
 
-    _emit(
-        _envelope(command, shown_outcome, result, ok=code is ExitCode.OK, receipt=receipt, started=started),
-        ctx,
-        out,
-        outcome.text,
-    )
-    if error is not None:
-        write_error(error, ctx.mode, err)
-    return int(code)
+    ok = code is ExitCode.OK
+    envelope = _envelope(command, shown_outcome, result, ok=ok, receipt=receipt, started=started)
+    return _Reply(int(code), envelope, error, outcome.text)
+
+
+def _recovery_path(path: Path, cwd: Path) -> str:
+    """A locatable result path; other Windows volumes cannot be expressed relative to cwd."""
+    try:
+        return Path(os.path.relpath(path, cwd)).as_posix()
+    except ValueError:
+        return Path(os.path.abspath(path)).as_posix()
 
 
 def _relative(path: Path, cwd: Path) -> str:
@@ -599,6 +680,16 @@ def _signals() -> Generator[None]:
                 signal.signal(number, handler)
 
 
+def _failure(exc: BaseException) -> CliError:
+    """The error object of an exception that reached the top: a ``CliError`` as it is, an interrupt as
+    ``FEN-1003``, any other exception as ``FEN-1001`` (never a traceback)."""
+    if isinstance(exc, CliError):
+        return exc
+    if isinstance(exc, Exception):
+        return from_exception(exc, "fenolite")
+    return CliError("FEN-1003", where="fenolite")  # Interrupted, or a Ctrl+C where no handler is installed
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run ``fenolite`` with ``argv`` (defaults to ``sys.argv[1:]``) and return the exit code. Every
     non-zero exit leaves one error object on stderr and no traceback."""
@@ -621,19 +712,50 @@ def main(argv: Sequence[str] | None = None) -> int:
             if args.command is None:
                 parser.print_help(out)
                 return int(ExitCode.OK)
-            ctx = _context(args, mode, err)
-            return _dispatch(commands[args.command], args, ctx, started, out, err)
-        except CliError as exc:
-            failure = exc
-        except KeyboardInterrupt:  # Interrupted, or a Ctrl+C where the handler is not installed
-            failure = CliError("FEN-1003", where="fenolite")
-        except Exception as exc:  # never a traceback: an exception that no handler maps is FEN-1001
-            failure = from_exception(exc, "fenolite")
+            ctx = _context(args, mode, err, Path.cwd())
+            reply = _dispatch(commands[args.command], args, ctx, started)
+            _print(reply, ctx, out, err)
+            return reply.code
+        except (Exception, KeyboardInterrupt) as exc:  # never a traceback
+            failure = _failure(exc)
         finally:
             if ctx is not None:
                 _quiet(ctx)
         write_error(failure.info(), mode, err)
         return int(failure.exit_code)
+
+
+def invoke(argv: Sequence[str], *, cwd: Path) -> tuple[int, dict[str, Any] | None, dict[str, Any] | None]:
+    """Run one command line in this process, the path of ``fenolite.api.run`` (change c0206): the exit
+    code, the envelope and the error object, as the JSON values that ``main`` prints with ``--json``.
+
+    The run is ``main``'s dispatch in JSON mode with ``cwd`` as the working folder. It installs no signal
+    handler, writes nothing on stdout or stderr (``--progress`` records are dropped), does not change the
+    process's working folder, and refuses ``--help`` and ``--text`` with ``FEN-2001``.
+    ``Context.in_process`` is set, so ``restore -`` and ``view --serve`` refuse too."""
+    started = time.perf_counter()
+    ctx: Context | None = None
+    try:
+        try:
+            commands = discover()
+            args = build_parser(commands, in_process=True).parse_args(list(argv))
+            if args.text:
+                raise CliError(
+                    "FEN-2001", "--text: fenolite.api.run returns the JSON envelope", where="--text"
+                )
+            if args.command is None:
+                raise CliError("FEN-2001", "no command was named", where="fenolite")
+            ctx = _context(args, "json", io.StringIO(), cwd, in_process=True)
+            reply = _dispatch(commands[args.command], args, ctx, started)
+            envelope = None if reply.envelope is None else json.loads(render_json(reply.envelope))
+            error = None if reply.error is None else to_jsonable(reply.error)
+            return reply.code, envelope, error
+        finally:
+            if ctx is not None:
+                _quiet(ctx)
+    except (Exception, KeyboardInterrupt) as exc:  # never a traceback
+        failure = _failure(exc)
+        return int(failure.exit_code), None, to_jsonable(failure.info())
 
 
 __all__ = [
@@ -644,5 +766,6 @@ __all__ = [
     "Interrupted",
     "build_parser",
     "global_flags",
+    "invoke",
     "main",
 ]

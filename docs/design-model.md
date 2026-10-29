@@ -197,6 +197,7 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
 | `Zone.locked` | the zone is locked against edits in the board editor |
 | `Pad.zone_connection` | how zones connect to the pad: `solid`, `thermal`, `none` or `thru_hole_only`; `None` means that the pad follows its footprint and the zone |
 | `Pad.fab_property` | the fabrication mark of the pad (change c0118), what KiCad calls the fabrication property of a pad: `bga`, `fiducial_global`, `fiducial_local`, `test_point`, `heatsink`, `castellated`, `mechanical` or `press_fit`; `None` for no mark. Board pads and library pads carry it; the model does not check it against the pad's kind or layers. The key is written only when a mark is set, so a design without marks serialises to the bytes it had. Releases 0.2.x and 0.3.0 cannot read a model document that carries the key `fab_property`: their reader refuses an unknown key |
+| `Pad.mask_margin`, `Pad.paste_margin` | the growth of the pad's solder-mask and paste openings beyond its copper, in nm, possibly negative (change c0223); `None` follows the board. A KiCad reader projects the first margin child of a pad into its field and keeps the child as read; a writer writes the field of a pad without such a child and refuses a field that disagrees with a kept one. The keys are written only when set |
 
 - **Pad frame.** `Pad.position` is footprint-local: absolute = `instance.position +
   R(instance.rotation)·pad.position`, with no further mirror, so a bottom footprint keeps its stored,
@@ -510,6 +511,45 @@ pads. `fenolite.model.rules` defines two frozen value objects for it, without an
   writes the bytes it wrote before, a `rules.json` written before the field loads unchanged, and
   `schema_version` stays `"0"`. The other direction does not hold. Fenolite 0.2.x and 0.3.0 cannot read a
   `rules.json` that carries `heights`: their reader of the canonical form is strict.
+
+## Net roles
+
+`RuleSet.roles` holds the net roles of a design (change c0222; guide `docs/roles.md`): what each net is for,
+which pads form a hot loop, a Kelvin connection or a gate loop, and the user's limits for the role checks.
+`fenolite.model.rules` defines frozen value objects for it, without an entity header. Every value is text or
+an integer (nm, nm², mA, mV, mK, per mille).
+
+- `NetRole(net, kind, source, rule="", confidence="", milliamps=None, working_mv=None, sensitive=False)`:
+  the role of the net named `net`. `kind` is one of `ROLE_KINDS` (`power`, `switch_node`, `ground`,
+  `kelvin`, `gate`, `signal`, `high_voltage`); `source` is `inferred`, `confirmed` or `declared`;
+  `confidence` is `high`, `medium`, `low`, or `""` for a role the user stated. `milliamps` and
+  `working_mv` are above 0 when given, and `sensitive` is a flag of a `signal` role only.
+- `HotLoop(name, pads, origin="declared", rule="", confidence="")`: at least three distinct pads
+  `REF-PIN`, in loop order.
+- `KelvinPair(name, element, receiver, force=(), origin=…)`: the two sense pads of one shunt part, the
+  two receiver inputs, and the two force pads of a four-terminal shunt.
+- `GateLoop(name, drive, gate, source, ret, resistor=(), origin=…)`: the driver's output pad, the
+  switch's gate pad and its source (or Kelvin-source) pad of the same part, the driver's return pad, and
+  the two pads of a gate resistor. A group's provenance is `origin`, since `source` names a pad here.
+- `RoleLimit(key, value, net=None, kind=None)`: an override of a key of the role profile for the whole
+  design, for one kind or for one net (not both); `ROLE_LIMIT_UNITS` lists the keys and the unit of each.
+- `PartClass(ref, cls, terminals=())`: the class of a part that the user states (`design.part_class`,
+  `--class`), one of `PART_CLASSES`, with `Terminal(name, pins)` naming which pins are which terminal of
+  the class (`PART_TERMINALS`: `gate`, `drain`, `source` and `kelvin_source` of a transistor, `force` and
+  `sense` of a shunt, and so on). It is the strongest evidence of the inference (`docs/roles.md`).
+- `RoleSet(nets=(), loops=(), kelvins=(), gates=(), limits=(), classes=(), rejected=())`: each tuple is
+  sorted by its key (a net role by its net, a group by its name, a limit by key, kind and net, a class by its
+  reference), and two members of one key are refused. A group name matches the copper key pattern of the
+  DSL. `rejected` names the inferred groups the user rejected (`fenolite roles --reject-group`), so they
+  are not inferred again.
+- A role is a value, not an entity: it has no id, no backend lowers it, and a board read from a file has
+  none. `to_model` writes the declarations of a script with source `declared` (`docs/dsl.md`, "Net
+  roles"); a board that Fenolite did not build keeps its roles in a role document beside it
+  (`fenolite.roles.v0`, `docs/roles.md`).
+- The field is additive: an empty `RoleSet` is stored as `None` and `canonical` omits `roles` then, so a
+  design without roles writes the bytes it wrote before, a `rules.json` written before the field loads
+  with `roles` `None`, and `schema_version` stays `"0"`. The other direction does not hold. Fenolite
+  0.5.0 cannot read a `rules.json` that carries `roles`: its reader of the canonical form is strict.
 
 ## Impedance targets
 

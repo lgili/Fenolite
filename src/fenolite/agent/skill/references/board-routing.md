@@ -22,7 +22,13 @@ Before you route, find each barrier on the board:
 For each barrier, count the nets that must cross it, and the ways across it on each face. A way is a
 gap wide enough for one track and its clearances. If there are more nets than ways, move parts now:
 routing will not find ways that do not exist. Then assign each crossing net to a way, and route those
-nets first.
+nets first. `analyze --kinds crossings --cut` counts the ways of one cut per layer, and `render --region
+--cut` draws them.
+
+```fenolite-cmd
+fenolite analyze board.kicad_pcb --kinds crossings --cut 10mm,20mm,40mm,20mm --json
+fenolite render board -o board/views --region 0mm,0mm,40mm,30mm --cut 10mm,20mm,40mm,20mm --dry-run --json
+```
 
 Watch for limits that are not copper:
 - a via is not allowed near a part whose pins swing at high voltage;
@@ -45,7 +51,8 @@ a rule to make a route pass. A route that needs a smaller clearance needs a deci
 4. **Ground last.** Make the final fix-up of a ground domain (stitching, the single tie) after the
    signals are in. A ground pour placed early takes the ways that signals need.
 
-Check each group with `fenolite check` before the next one. Treat a router's output as a draft that you
+Check each group with `fenolite check` before the next one, or let `--gate drc` drop each new track or
+via that brings a DRC finding. Treat a router's output as a draft that you
 review, straighten and accept, not as a result. Keep hand routes as data, each with its reason, so that a
 later step can lay them again.
 
@@ -58,6 +65,7 @@ later step can lay them again.
 ```fenolite-cmd
 fenolite route board --router freerouting --nets "SENSE_*" --require-complete --dry-run --json
 fenolite route board --router freerouting --nets "*" --order "GATE_*" --order "SENSE_*" --dry-run --json
+fenolite route board --router freerouting --order "GATE_*,SENSE_*" --gate drc --dry-run --json
 fenolite net board SENSE_P --json
 ```
 
@@ -76,6 +84,14 @@ A reviewer reads routing as a drawing. Clean copper is easier to check, to probe
 - **Stay on a grid** where the parts allow it. Bend on the grid. A turn hidden inside a pad or a via is
   acceptable.
 - **Use pours that look drawn:** bands of straight edges and chamfered steps (`board-power`).
+
+`fenolite tidy` prunes, straightens and chamfers edit by edit, keeping an edit only when its nets stay joined; `--report`
+gives the style figures and writes nothing.
+
+```fenolite-cmd
+fenolite tidy board --report --json
+fenolite tidy board --prune --straighten --chamfer --gate drc --dry-run --json
+```
 
 ## Sensitive nets
 
@@ -99,6 +115,9 @@ placement for a poor result, read what the router was given:
   can be raised to the largest clearance for every pair in the export. A dense region then closes.
 - **Pours and keep-outs.** A router that does not see a pour, or that treats it as passable, routes
   through it. Block the real shape of the pour, not a large rectangle around it.
+- **Fenolite's own export** keeps a preferred width only for classes without a width, and a one-sided
+  clearance off the class itself; each adjustment is named (`specctra.rule-widened`,
+  `specctra.rule-not-sent`).
 - **Item identities.** Items that are named by their index in a list change names after a deletion.
   Identify them by position or by a stable id.
 

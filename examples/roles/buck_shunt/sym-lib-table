@@ -1,0 +1,4 @@
+(sym_lib_table
+	(version 7)
+	(lib (name "Roles") (type "KiCad") (uri "${KIPRJMOD}/../../../tests/data/libs/Roles.kicad_sym") (options "") (descr "Authored CC0 library of the net-role reference boards"))
+)

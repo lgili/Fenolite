@@ -48,8 +48,11 @@ A rule check sees one net and cannot tell one tie from three. Prove it yourself:
 3. List the pads of each group. Every pad that is on the wrong side is a second tie, or a part that
    is connected to the wrong ground.
 
-`fenolite net` lists the pads, the copper, the vias and the open connections of a net. On the copy
-without the tie, the ground net reports the split as an open connection between the two groups.
+`fenolite analyze --kinds ties` runs these three steps without a copy. `--tie REF` removes a net-tie
+part's pads, and `--tie-item ID` removes tracks, vias or zones by id or KiCad uuid. The row lists the
+groups and their pads. One group is `analysis.tie-parallel`, with the other path item by item. With
+`--domains PWR=Q*,CTL=U*`, a pad on the wrong side is `analysis.tie-extra`. `fenolite net` lists the pads,
+the copper, the vias and the open connections of a net.
 
 Run this test again after every change to pours, bands or power copper, as a regression test. A refill
 that floods past a gap creates a second tie, and no other check notices it.
@@ -64,6 +67,9 @@ that floods past a gap creates a second tie, and no other check notices it.
   pour to its other face with several vias, not one.
 
 ```fenolite-cmd
+fenolite analyze board.kicad_pcb --kinds ties --tie NT1 --domains PWR=Q*,CTL=U* --json
+fenolite analyze board.kicad_pcb --kinds domains --barrier U5 --json
+fenolite analyze board.kicad_pcb --kinds ties --sense ISENSE_P,ISENSE_N --json
 fenolite net board GND --json
 fenolite pads board R10 --json
 ```
@@ -79,7 +85,9 @@ fenolite pads board R10 --json
   tolerates length. A single-ended output, its supply and its ground crossing the same barrier do not
   (`board-floorplan`, typical failures).
 - **Give the sense return its own net,** joined to the ground net by a net tie at the shunt's pad. Then
-  no rule and no pour can merge it with the power return somewhere else.
+  no rule and no pour can merge it with the power return somewhere else. `fenolite analyze --kinds ties
+  --sense ISENSE_P,ISENSE_N` names every place where a sense net touches other copper
+  (`analysis.sense-shared`).
 - **Reference the amplifier's ground to the shunt's low side,** and keep the generated pours off the
   sense tracks and their vias. A fragment of pour that hangs on a sense track or a tie track becomes an
   antenna, or a second tie.
@@ -95,6 +103,18 @@ fenolite pads board R10 --json
 - **Stitch the planes of a domain** with vias along their edges and through their area, so that the two
   faces act as one.
 - **Do not stitch across domains.** A stitching via in the gap between two domains is a second tie.
+
+```fenolite-cmd
+fenolite analyze board.kicad_pcb --kinds returns --net CLK --net SPI_* --via-distance 1mm --json
+```
+
+`analyze --kinds returns` finds each track that crosses a gap of its plane (`analysis.return-split`, with
+the span and its two ends) and each via without a reference via near it (`analysis.return-via`). Fill the
+zones first: only stored fill counts as reference.
+
+`fenolite roles PATH --check` does the same for every gate net and every signal declared sensitive
+(`design.net_role(net, "signal", sensitive=True)`), against the ground nets, and reports
+`roles.return-gap` instead.
 
 ## Typical failures
 

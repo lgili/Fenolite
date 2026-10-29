@@ -192,3 +192,50 @@ def test_impedance_table_equals_the_code() -> None:
     assert module_constants == set(impedance.CONSTANTS)
     for limit in ("solder mask", "etch angle", "frequency", "loss", "copper roughness"):
         assert limit in text.split("## Impedance estimates", 1)[1].split("\n## ", 1)[0].lower(), limit
+
+
+ROLE_BOARD = """\
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as a test board; no file, value, name or layout comes from any other project.
+from fenolite.dsl import Design, Net, Part, amp, connect, mm
+
+design = Design("thin_power")
+design.board(mm(30), mm(20))
+j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="IN")
+j2 = Part("J2", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="OUT")
+design.add(j1, j2)
+vout = Net("VOUT")
+connect(vout, j1[1], j2[1])
+j1.place(mm(5), mm(10))
+j2.place(mm(25), mm(10))
+design.track("neck", j1.pad(1), j2.pad(1), width=mm("0.3"))
+design.net_role(vout, "power", current=amp(2))
+"""
+
+
+def test_role_profile(tmp_path: Path) -> None:
+    """``fenolite analyze`` ignores the role profile: a 0.3 mm track of a 2 A ``power`` role gives no finding
+    against a width, a section or a neck, and no ``roles.*`` code (change c0222)."""
+    import contextlib
+    import io
+    import json
+
+    import fenolite.cli.main as cli_main
+
+    script = tmp_path / "board.py"
+    script.write_text(ROLE_BOARD, encoding="utf-8")
+    out = tmp_path / "out"
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        assert cli_main.main(["build", str(script), "--out", str(out), "--confirm", "--json"]) == 0
+    stdout = io.StringIO()
+    board = str(out / "thin_power.kicad_pcb")
+    args = ["analyze", board, "--kinds", "current,power,necks", "--temp-rise", "10"]
+    args += ["--copper-thickness", "35um", "--json"]
+    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(io.StringIO()):
+        cli_main.main(args)
+    codes = {found["code"] for found in json.loads(stdout.getvalue())["issues"]}
+    assert not codes & {"analysis.path-exceeded", "analysis.path-undecided", "analysis.neck-narrow"}
+    assert not [code for code in codes if code.startswith("roles.") or code.startswith("analysis.current-")]
+    for path in (ROOT / "src" / "fenolite" / "analysis").rglob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        assert "fenolite.roles" not in text and "from fenolite import roles" not in text, path.name

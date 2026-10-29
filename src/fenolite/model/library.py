@@ -31,6 +31,23 @@ def _lib_id(library: str, name: str) -> str:
     return f"{library}:{name}" if library else name
 
 
+PPM = 1_000_000
+"""The scale 1 of a ``ModelPlacement``, in parts per million."""
+
+
+@dataclass(frozen=True, slots=True)
+class ModelPlacement:
+    """A 3D model of a footprint with its placement (change c0223). ``path`` names the model file as the
+    target writes it; ``offset`` is ``(x, y, z)`` in nm in the footprint frame (Y down, as every point of the
+    model; Z up from the face the footprint is on); ``rotation`` the turns ``(x, y, z)`` in µdeg,
+    counter-clockwise seen from the positive axis; ``scale`` ``(x, y, z)`` in ppm."""
+
+    path: str
+    offset: tuple[Nm, Nm, Nm] = (0, 0, 0)
+    rotation: tuple[Udeg, Udeg, Udeg] = (0, 0, 0)
+    scale: tuple[int, int, int] = (PPM, PPM, PPM)
+
+
 @dataclass(frozen=True, slots=True)
 class FootprintDef(Entity):
     """A footprint of a library. ``properties`` is sorted by key in the canonical form."""
@@ -48,6 +65,9 @@ class FootprintDef(Entity):
     bodies: tuple[ComponentBody, ...] = field(default=(), metadata=ORDERED)
     net_ties: tuple[tuple[str, ...], ...] = field(default=(), metadata=ORDERED)
     """The net-tie groups of the footprint (change c0114), as ``FootprintInstance.net_ties``."""
+    placements: tuple[ModelPlacement, ...] = field(default=(), metadata=ORDERED)
+    """The 3D models of a footprint read from another format, each with its placement (change c0223); a
+    footprint read from KiCad keeps its ``model`` children as read in ``models`` and holds none here."""
 
     @property
     def lib_id(self) -> str:
@@ -188,9 +208,11 @@ class Library:
 
 
 __all__ = [
+    "PPM",
     "FootprintDef",
     "FootprintKind",
     "Library",
+    "ModelPlacement",
     "PinAlternate",
     "PinShape",
     "PowerKind",

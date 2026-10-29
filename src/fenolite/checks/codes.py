@@ -17,9 +17,11 @@ stage issue codes", change c0062). ``type_suffix`` is the one rule that turns a 
 last part of a code, for DRC and ERC alike.
 The ``parity.*`` codes are those of the parity comparison and its stage (``checks.parity``; "Parity issue
 codes", change c0072).
-The last two codes report a waiver and a stored exclusion that no longer match a finding ("Waiver and
-exclusion issue codes", change c0114); the ``info`` severity of the three copper finding codes is that of a
-finding a waiver accepted (``checks.waivers``), which the copper check itself never gives.
+``check.waiver-unmatched`` and ``check.exclusion-stale`` report a waiver and a stored exclusion that no
+longer match a finding ("Waiver and exclusion issue codes", change c0114), and the four codes after them
+are those of ``check --exclude`` ("DRC exclusions written", change c0209); the ``info`` severity of the
+three copper finding codes is that of a finding a waiver accepted (``checks.waivers``), which the copper
+check itself never gives.
 The ``placement.*`` codes are those of the placement rules (``checks.placement``; "Placement stage issue
 codes", change c0113, and "Height limit issue codes", change c0140); ``place`` and the placement guard of
 ``build`` report them at most as warnings.
@@ -46,6 +48,7 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
     {
         "check.read-refused": ("error",),
         "check.cache-unreadable": ("warning",),
+        "check.roles-unreadable": ("error",),
         "check.footprint-unresolved": ("error",),
         "check.symbol-unresolved": ("error",),
         "check.rt1-failed": ("error",),
@@ -96,6 +99,10 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "parity.pad-without-pin": ("info",),
         "check.waiver-unmatched": ("warning",),
         "check.exclusion-stale": ("warning",),
+        "check.exclusion-unmatched": ("error",),
+        "check.exclusion-ambiguous": ("error",),
+        "check.exclusion-unlocated": ("error",),
+        "check.exclusion-present": ("info",),
         "placement.too-far": ("error", "warning"),
         "placement.rule-unresolved": ("error",),
         "placement.rule-skipped": ("info",),

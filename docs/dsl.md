@@ -865,8 +865,8 @@ design.zone(
   `(zone_connect N)` of a solid exposed pad. On a rebuild, a setting made in KiCad wins unless the
   request says `locked=True`, as for zones (`docs/lens.md`, "Pad zone connections"). `--target altium`
   does not read these requests, as it does not read field requests.
-- **Altium.** `--target altium` writes the script's zones as unpoured polygon pours
-  (`docs/altium.md`, "Copper"). With `--copper-from`, the zones of the routed board are written
+- **Altium.** `--target altium` writes the script's zones as polygon pours, poured by Fenolite with
+  Altium's rules by default and unpoured with `--altium-pour outline` (`docs/altium.md`, "Copper"). With `--copper-from`, the zones of the routed board are written
   instead: that board already holds the script's zones.
 - `to_model` puts one `Zone` per call into `Board.zones`, in name order, with the id
   `derived_id("zon", "dsl", "zone:<name>")`.
@@ -1380,6 +1380,45 @@ design.height_limit("LID", max=mm(5))  # severity="warning" reports without gati
   forbids nothing serves as the area of a limit.
 - `fenolite check` judges the limits in its stage `placement.rules`; `build` and `place` report them as
   warnings. A design without either call gives the model, and the bytes, it gave before.
+
+## Net roles
+
+A script may declare the role of a net and the role groups of a power board (change c0222;
+`docs/roles.md`). What it does not declare is inferred from the circuit; a declaration wins over an
+inferred role and over one the user confirmed with `fenolite roles`.
+
+```python
+design.net_role(vbus, "power", current=amp(20), voltage=volt(400))
+design.net_role(sw, "switch_node")
+design.net_role(tap1, "signal", sensitive=True)
+design.hot_loop("buck", [c3.pad(1), q1.pad(3), q1.pad(1), q2.pad(3), q2.pad(1), c3.pad(2)])
+design.kelvin("isense", element=(r12.pad(1), r12.pad(2)), receiver=(u3.pad(3), u3.pad(4)))
+design.gate_loop("hs", drive=u2.pad(7), gate=q1.pad(1), source=q1.pad(2), ret=u2.pad(6))
+design.role_limits(loop_max="60mm2", kind="switch_node")
+design.role_limits(net=vbus, milliamps_per_via=amp(4))
+design.part_class(q1, "transistor", terminals={"gate": "1", "kelvin_source": "2", "source": "3"})
+```
+
+- `net_role(net, kind, *, current=None, voltage=None, sensitive=False)`: `kind` is one of `power`,
+  `switch_node`, `ground`, `kelvin`, `gate`, `signal` and `high_voltage`. `current` is an `amp(...)` and
+  `voltage` a `volt(...)` (the working voltage against ground), stored as whole mA and mV; `sensitive`
+  marks a `signal`. A net takes one role.
+- `hot_loop(name, pads)`, `kelvin(name, element, receiver, force=())` and `gate_loop(name, drive, gate,
+  source, ret, resistor=())` name pads as `part.pad(<number>)`, kept as `REF-PIN` with the pad number; a
+  pin (`part["G"]`) is refused. A hot loop has at least three pads in loop order; a Kelvin pair's two
+  element pads (and its force pads) belong to one part; a gate loop's gate and source pads belong to one
+  part, its drive and return pads to another, and a resistor's two pads to a third. A name follows the
+  pattern of copper keys and is used once per kind of group.
+- `role_limits(*, net=None, kind=None, **limits)` overrides keys of the role profile for the design, one
+  kind or one net (`docs/roles.md`, "Default limits"): areas as `"60mm2"`, lengths as lengths, currents as
+  `amp(...)`, voltages as `volt(...)`, the shunt limit as `ohm(...)`, ratios as whole per mille, the two
+  Kelvin flags as `True` or `False`, and a temperature rise in kelvin. A key is given once per scope.
+- `part_class(part, cls, terminals=None)` states a part's class for the inference, with the pin numbers
+  of each terminal of the class.
+- A bad kind, key, unit or pad, or a name used twice, raises `DslError` at the call. `to_model` writes the
+  declarations to `RuleSet.roles` with the source `declared`; the build keeps beside them the roles that
+  `fenolite roles --confirm` stored in `.fenolite/rules.json`. A script without a role call gives the
+  model, and the bytes, it gave before.
 
 ## Copper guard
 

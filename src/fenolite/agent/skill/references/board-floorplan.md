@@ -47,6 +47,18 @@ limit as a height rule, so that later steps respect them (`design.rule_area`, `d
 - **Put the control region next to its connector** and as far as practical from the switching nodes.
   Put the power region next to the power connectors and the heat sink.
 
+A first placement by region puts each insulation domain in its own band of the board, with the isolator
+across the border between the two bands it joins:
+
+```fenolite-cmd
+fenolite place board --strategy regions --barrier U5 --dry-run
+fenolite place board --strategy regions --group hv=J1,R1* --group lv=U2,C* --region hv=0mm,0mm,25mm,40mm --region lv=25mm,0mm,60mm,40mm --barrier U5 --dry-run
+```
+
+Read `result.regions`: the parts of each region, those that did not fit (`place.no-room`), and the open
+connections that cross a border (`place.region-crossing`). Across an isolation border only the barrier
+part should join the two sides. Then confirm with `--confirm --plan <plan_id>`, and move parts by hand.
+
 ## 3. A power flow in one direction
 
 Arrange the power path as a line, in the order the current flows:
@@ -108,10 +120,17 @@ clearance check does not see two pads of one net that overlap.
 When a datasheet or a reference board gives a layout for a block (a regulator, a gate driver, a power
 module and its capacitors), reproduce it. Do not redraw it by eye.
 - **Copy by the pads.** Fit the copied parts so that their pads land on the reference pads (a rigid fit
-  over pads with unique names). Then copy the reference copper. A copy that matches only the part
-  centres can be mirrored or turned without anyone noticing.
+  over pads with unique names), then copy the reference copper: `fenolite place --from REFERENCE --copper` does both
+  (page `placement`). A copy that matches only the part centres can be mirrored or turned without anyone
+  noticing.
 - **Check the copy** by counting the pads that match the reference within a small tolerance, before you
-  route. `fenolite pads` lists the pads of a part in the board frame.
+  route. `fenolite pads` lists the pads of a part in the board frame. `result.reuse.parts` counts the
+  pads within `--tolerance`, and `--turn` or `--shift` moves a placed block with its copper.
+
+```fenolite-cmd
+fenolite place board --from ref.kicad_pcb --only U1,C1,C2 --anchor U1 --tolerance 0.05mm --copper --drc --dry-run --json
+fenolite place board --turn U1,C1,C2 --about 20mm,20mm --angle 90 --dry-run --json
+```
 - **Show the owner an overlay** of the proposal on the reference before routing, when the owner judges
   the layout against a physical sample.
 
@@ -121,10 +140,13 @@ module and its capacitors), reproduce it. Do not redraw it by eye.
 fenolite neighbors board U1 --radius 5mm --json
 fenolite region board --box 10mm,5mm,40mm,30mm --kinds footprint,pad --json
 fenolite pads board U1 --json
+fenolite analyze board.kicad_pcb --kinds crossings --cut 10mm,20mm,40mm,20mm --width 0.25mm --json
 ```
 
 `neighbors` lists the parts near one part by courtyard distance. `region` lists what touches a
-rectangle. Use them to confirm that a decoupling capacitor is the nearest part to its pin, and that a
+rectangle. `analyze --kinds crossings` counts the tracks that fit across a barrier (a row of pads, a gap
+between regions) on each layer, against the open connections that must cross it. When it reports
+`analysis.crossings-short`, move parts before you route. Use them to confirm that a decoupling capacitor is the nearest part to its pin, and that a
 keep-out is empty. Render the board (`fenolite render`) after each region is placed, and look at it.
 
 ## Typical failures

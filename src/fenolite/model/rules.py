@@ -9,6 +9,8 @@ records). Priority 1 is the highest; backends preserve that meaning when lowerin
 from __future__ import annotations
 
 import fnmatch
+import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -241,6 +243,361 @@ class HeightLimit:
             raise ValueError(f"height limit {self.area!r}: severity is 'error' or 'warning'")
 
 
+RoleKind = Literal["power", "switch_node", "ground", "kelvin", "gate", "signal", "high_voltage"]
+"""The kind of a net's role (change c0222; ``docs/roles.md``)."""
+ROLE_KINDS: tuple[RoleKind, ...] = (
+    "power",
+    "switch_node",
+    "ground",
+    "kelvin",
+    "gate",
+    "signal",
+    "high_voltage",
+)
+RoleSource = Literal["inferred", "confirmed", "declared"]
+"""Where a role or a role group comes from: inferred by Fenolite, confirmed by the user through
+``fenolite roles``, or declared by a design script."""
+ROLE_SOURCES: tuple[RoleSource, ...] = ("inferred", "confirmed", "declared")
+Confidence = Literal["", "high", "medium", "low"]
+"""The confidence of an inferred role or group; ``""`` for one the user stated."""
+CONFIDENCES: tuple[Confidence, ...] = ("", "high", "medium", "low")
+ROLE_KEY = re.compile(r"^[A-Za-z0-9_.+-]+(/[A-Za-z0-9_.+-]+)*$")
+"""The pattern of a role group's name: the copper key pattern of the DSL (``dsl.intents.KEY``)."""
+ROLE_LIMIT_UNITS: dict[str, str] = {
+    "width_per_amp_nm": "nm per ampere",
+    "milliamps_per_via": "mA",
+    "kelvin_inner_edge": "flag (1 judges, 0 does not)",
+    "kelvin_pair": "flag (1 judges, 0 does not)",
+    "loop_ratio_max": "per mille",
+    "loop_bound_floor_nm2": "nm²",
+    "pair_ratio_max": "per mille",
+    "switching_distance_nm": "nm",
+    "gate_ratio_max": "per mille",
+    "shunt_max_mohm": "mΩ",
+    "high_voltage_mv": "mV",
+    "loop_max": "nm²",
+    "gate_max": "nm²",
+    "temp_rise_mk": "mK",
+}
+"""The keys of a ``RoleLimit`` and the unit of each value. The defaults and their sources are the role
+profile's (``fenolite.roles.profile``); ``high_voltage_mv``, ``loop_max``, ``gate_max`` and ``temp_rise_mk``
+have none."""
+
+
+def _pad_name(text: object) -> bool:
+    if not isinstance(text, str):
+        return False
+    ref, dash, pin = text.rpartition("-")
+    return bool(dash and ref and pin)
+
+
+def _whole(value: object, what: str, *, positive: bool = False) -> None:
+    if value is None:
+        return
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{what} must be an integer")
+    if value < 0 or (positive and value == 0):
+        raise ValueError(f"{what} must be {'above' if positive else 'at least'} 0")
+
+
+def _check_origin(what: str, origin: object, confidence: object) -> None:
+    if origin not in ROLE_SOURCES:
+        raise ValueError(f"{what}: source {origin!r} is not one of {', '.join(ROLE_SOURCES)}")
+    if confidence not in CONFIDENCES:
+        raise ValueError(f"{what}: confidence {confidence!r} is not one of high, medium, low")
+
+
+def _check_pads(what: str, pads: Sequence[str], count: int | None = None, least: int = 0) -> None:
+    for pad in pads:
+        if not _pad_name(pad):
+            raise ValueError(f"{what}: {pad!r} is not a pad name REF-PIN")
+    if count is not None and len(pads) != count:
+        raise ValueError(f"{what}: names {len(pads)} pad(s), not {count}")
+    if len(pads) < least:
+        raise ValueError(f"{what}: names {len(pads)} pad(s); it needs at least {least}")
+    if len(set(pads)) != len(pads):
+        raise ValueError(f"{what}: names a pad twice")
+
+
+def _check_name(what: str, name: object) -> None:
+    if not isinstance(name, str) or not ROLE_KEY.fullmatch(name):
+        raise ValueError(f"{what}: the name {name!r} must match {ROLE_KEY.pattern}")
+
+
+@dataclass(frozen=True, slots=True)
+class NetRole:
+    """The role of one net (change c0222): its kind, where it comes from, the inference rule and its
+    confidence (``""`` for a role the user stated), and the optional current (mA), working voltage against
+    the design's ground (mV) and the ``sensitive`` flag of a ``signal``. A value object keyed by the net's
+    name; no backend lowers it."""
+
+    net: str
+    kind: RoleKind
+    source: RoleSource
+    rule: str = ""
+    confidence: Confidence = ""
+    milliamps: int | None = None
+    working_mv: int | None = None
+    sensitive: bool = False
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.net, str) or not self.net:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise ValueError("a net role needs a net name")
+        if self.kind not in ROLE_KINDS:
+            raise ValueError(
+                f"net role {self.net!r}: kind {self.kind!r} is not one of {', '.join(ROLE_KINDS)}"
+            )
+        _check_origin(f"net role {self.net!r}", self.source, self.confidence)
+        _whole(self.milliamps, f"net role {self.net!r}: milliamps", positive=True)
+        _whole(self.working_mv, f"net role {self.net!r}: working_mv", positive=True)
+        if self.sensitive and self.kind != "signal":
+            raise ValueError(f"net role {self.net!r}: sensitive is a flag of a signal role")
+
+
+@dataclass(frozen=True, slots=True)
+class HotLoop:
+    """A commutation loop (change c0222): its name and its pads (``REF-PIN``) in loop order, at least
+    three. ``origin`` says where the group comes from, ``rule`` and ``confidence`` how it was inferred."""
+
+    name: str
+    pads: tuple[str, ...] = field(metadata={"ordered": True})
+    origin: RoleSource = "declared"
+    rule: str = ""
+    confidence: Confidence = ""
+
+    def __post_init__(self) -> None:
+        _check_name("hot loop", self.name)
+        _check_pads(f"hot loop {self.name!r}", self.pads, least=3)
+        _check_origin(f"hot loop {self.name!r}", self.origin, self.confidence)
+
+
+@dataclass(frozen=True, slots=True)
+class KelvinPair:
+    """A Kelvin connection (change c0222): the two sense pads of the shunt (``element``), the two inputs of
+    the receiver (``receiver``), and for a four-terminal shunt its two force pads (``force``)."""
+
+    name: str
+    element: tuple[str, ...] = field(metadata={"ordered": True})
+    receiver: tuple[str, ...] = field(metadata={"ordered": True})
+    force: tuple[str, ...] = field(default=(), metadata={"ordered": True})
+    origin: RoleSource = "declared"
+    rule: str = ""
+    confidence: Confidence = ""
+
+    def __post_init__(self) -> None:
+        _check_name("kelvin pair", self.name)
+        what = f"kelvin pair {self.name!r}"
+        _check_pads(f"{what}: element", self.element, 2)
+        _check_pads(f"{what}: receiver", self.receiver, 2)
+        if self.force:
+            _check_pads(f"{what}: force", self.force, 2)
+        if self.element[0].rpartition("-")[0] != self.element[1].rpartition("-")[0]:
+            raise ValueError(f"{what}: both element pads must belong to one part")
+        _check_pads(what, (*self.element, *self.receiver, *self.force))
+        _check_origin(what, self.origin, self.confidence)
+
+    @property
+    def pads(self) -> tuple[str, ...]:
+        """The pads of the pair's loop: element ``+``, receiver ``+``, receiver ``-``, element ``-``."""
+        return (self.element[0], self.receiver[0], self.receiver[1], self.element[1])
+
+
+@dataclass(frozen=True, slots=True)
+class GateLoop:
+    """A gate loop (change c0222): the driver's output pad, the switch's gate pad, its source pad (the
+    Kelvin-source pad when the package has one), the driver's return pad, and the two pads of the gate
+    resistor when there is one. The loop runs drive, resistor, gate, source, return."""
+
+    name: str
+    drive: str
+    gate: str
+    source: str
+    ret: str
+    resistor: tuple[str, ...] = field(default=(), metadata={"ordered": True})
+    origin: RoleSource = "declared"
+    rule: str = ""
+    confidence: Confidence = ""
+
+    def __post_init__(self) -> None:
+        _check_name("gate loop", self.name)
+        what = f"gate loop {self.name!r}"
+        if self.resistor:
+            _check_pads(f"{what}: resistor", self.resistor, 2)
+        _check_pads(what, (self.drive, self.gate, self.source, self.ret, *self.resistor))
+        if self.gate.rpartition("-")[0] != self.source.rpartition("-")[0]:
+            raise ValueError(f"{what}: the gate and source pads must belong to one part")
+        _check_origin(what, self.origin, self.confidence)
+
+    @property
+    def pads(self) -> tuple[str, ...]:
+        """The pads in loop order: drive, the resistor's two pads, gate, source, return."""
+        return (self.drive, *self.resistor, self.gate, self.source, self.ret)
+
+
+@dataclass(frozen=True, slots=True)
+class RoleLimit:
+    """An override of a key of the role profile (change c0222) for the design, for one kind (``kind``) or
+    for one net (``net``); the unit of ``value`` is the key's (``ROLE_LIMIT_UNITS``)."""
+
+    key: str
+    value: int
+    net: str | None = None
+    kind: RoleKind | None = None
+
+    def __post_init__(self) -> None:
+        if self.key not in ROLE_LIMIT_UNITS:
+            raise ValueError(f"role limit: unknown key {self.key!r}; keys: {', '.join(ROLE_LIMIT_UNITS)}")
+        if self.value is None:  # pyright: ignore[reportUnnecessaryComparison]
+            raise ValueError(f"role limit {self.key!r} needs a value")
+        _whole(self.value, f"role limit {self.key!r}")
+        if self.net is not None and self.kind is not None:
+            raise ValueError(f"role limit {self.key!r}: give a net or a kind, not both")
+        if self.net is not None and not self.net:
+            raise ValueError(f"role limit {self.key!r}: the net name is empty")
+        if self.kind is not None and self.kind not in ROLE_KINDS:
+            raise ValueError(
+                f"role limit {self.key!r}: kind {self.kind!r} is not one of {', '.join(ROLE_KINDS)}"
+            )
+
+
+PartClassName = Literal[
+    "transistor",
+    "diode",
+    "inductor",
+    "capacitor",
+    "resistor",
+    "shunt",
+    "driver",
+    "amplifier",
+    "controller",
+    "connector",
+    "net_tie",
+    "other",
+]
+"""The class of a part for the inference of net roles (change c0222; ``fenolite.roles.classify``)."""
+PART_CLASSES: tuple[PartClassName, ...] = (
+    "transistor",
+    "diode",
+    "inductor",
+    "capacitor",
+    "resistor",
+    "shunt",
+    "driver",
+    "amplifier",
+    "controller",
+    "connector",
+    "net_tie",
+    "other",
+)
+PART_TERMINALS: dict[str, tuple[str, ...]] = {
+    "transistor": ("gate", "drain", "source", "kelvin_source"),
+    "diode": ("anode", "cathode"),
+    "shunt": ("force", "sense"),
+    "amplifier": ("in_p", "in_n", "out"),
+    "driver": ("drive", "ret", "sw", "in_p", "in_n"),
+    "controller": ("drive", "ret", "sw", "in_p", "in_n"),
+}
+"""The terminals of each class that has any; a terminal names one or more pins of the part."""
+
+
+@dataclass(frozen=True, slots=True)
+class Terminal:
+    """A terminal of a part class and the pins (numbers) it names."""
+
+    name: str
+    pins: tuple[str, ...] = field(metadata={"ordered": True})
+
+    def __post_init__(self) -> None:
+        if not self.pins or not all(isinstance(pin, str) and pin for pin in self.pins):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise ValueError(f"terminal {self.name!r} names no pin")
+
+
+@dataclass(frozen=True, slots=True)
+class PartClass:
+    """The class of a part that the user states (change c0222; ``design.part_class``, ``--class``): the
+    reference, the class and, for a class with terminals, which pins are which terminal. The strongest
+    evidence of the inference; a value keyed by the reference."""
+
+    ref: str
+    cls: PartClassName
+    terminals: tuple[Terminal, ...] = field(default=(), metadata={"ordered": True})
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.ref, str) or not self.ref:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise ValueError("a part class needs a reference")
+        if self.cls not in PART_CLASSES:
+            raise ValueError(f"part class {self.ref!r}: {self.cls!r} is not one of {', '.join(PART_CLASSES)}")
+        allowed = PART_TERMINALS.get(self.cls, ())
+        names = [terminal.name for terminal in self.terminals]
+        for name in names:
+            if name not in allowed:
+                shown = ", ".join(allowed) or "none"
+                raise ValueError(
+                    f"part class {self.ref!r}: {self.cls} has no terminal {name!r} (terminals: {shown})"
+                )
+        if len(set(names)) != len(names):
+            raise ValueError(f"part class {self.ref!r}: a terminal is named twice")
+
+
+def _limit_order(limit: RoleLimit) -> tuple[str, str, str]:
+    return (limit.key, limit.kind or "", limit.net or "")
+
+
+@dataclass(frozen=True, slots=True)
+class RoleSet:
+    """The net roles of a design (change c0222): one role per net, the three kinds of role groups, the
+    limit overrides, the part classes the user states and the names of the inferred groups the user rejected,
+    each sorted by its key (a net role by its net, a group by its name, a limit by key, kind and net, a class
+    by its reference). A value, not an entity;
+    ``RuleSet`` stores it under ``roles``, and the role document ``fenolite.roles.v0`` beside a board holds
+    one."""
+
+    nets: tuple[NetRole, ...] = field(default=(), metadata={"ordered": True})
+    loops: tuple[HotLoop, ...] = field(default=(), metadata={"ordered": True})
+    kelvins: tuple[KelvinPair, ...] = field(default=(), metadata={"ordered": True})
+    gates: tuple[GateLoop, ...] = field(default=(), metadata={"ordered": True})
+    limits: tuple[RoleLimit, ...] = field(default=(), metadata={"ordered": True})
+    classes: tuple[PartClass, ...] = field(default=(), metadata={"ordered": True})
+    rejected: tuple[str, ...] = field(default=(), metadata={"ordered": True})
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "classes", tuple(sorted(self.classes, key=lambda found: found.ref)))
+        object.__setattr__(self, "rejected", tuple(sorted(set(self.rejected))))
+        for name in self.rejected:
+            _check_name("rejected group", name)
+        object.__setattr__(self, "nets", tuple(sorted(self.nets, key=lambda role: role.net)))
+        object.__setattr__(self, "loops", tuple(sorted(self.loops, key=lambda group: group.name)))
+        object.__setattr__(self, "kelvins", tuple(sorted(self.kelvins, key=lambda group: group.name)))
+        object.__setattr__(self, "gates", tuple(sorted(self.gates, key=lambda group: group.name)))
+        object.__setattr__(self, "limits", tuple(sorted(self.limits, key=_limit_order)))
+        for what, names in (
+            ("net roles", [role.net for role in self.nets]),
+            ("hot loops", [group.name for group in self.loops]),
+            ("kelvin pairs", [group.name for group in self.kelvins]),
+            ("gate loops", [group.name for group in self.gates]),
+            ("role limits", ["/".join(_limit_order(limit)) for limit in self.limits]),
+            ("part classes", [found.ref for found in self.classes]),
+        ):
+            twice = sorted({name for name in names if names.count(name) > 1})
+            if twice:
+                raise ValueError(f"two {what} have the key {twice[0]!r}")
+
+    def __bool__(self) -> bool:
+        return bool(
+            self.nets
+            or self.loops
+            or self.kelvins
+            or self.gates
+            or self.limits
+            or self.classes
+            or self.rejected
+        )
+
+    def role_of(self, net: str) -> NetRole | None:
+        """The role of ``net``, or ``None``."""
+        return next((role for role in self.nets if role.net == net), None)
+
+
 @dataclass(frozen=True, slots=True)
 class RuleSet(Entity):
     """The rules layer of a design (``rules.json``). ``severities`` gives the checks of a design-rule tool
@@ -250,7 +607,8 @@ class RuleSet(Entity):
     ``proximity`` holds the placement rules, in name order; it is left out of the file when empty
     (change c0113). ``heights`` holds the height limits, in area order, left out when empty (change c0140).
     ``impedance`` holds the impedance targets in declaration order; it is left out of the file when empty
-    (change c0105).
+    (change c0105). ``roles`` holds the net roles (change c0222); an empty ``RoleSet`` is stored as ``None``,
+    so the key is left out of the file.
     """
 
     rules: tuple[Rule, ...] = ()
@@ -258,8 +616,11 @@ class RuleSet(Entity):
     proximity: tuple[ProximityRule, ...] = field(default=(), metadata={"ordered": True})
     heights: tuple[HeightLimit, ...] = field(default=(), metadata={"ordered": True})
     impedance: tuple[ImpedanceTarget, ...] = field(default=(), metadata={"ordered": True})
+    roles: RoleSet | None = None
 
     def __post_init__(self) -> None:
+        if self.roles is not None and not self.roles:
+            object.__setattr__(self, "roles", None)
         seen: set[str] = set()
         for rule in self.proximity:
             if rule.name in seen:
@@ -273,13 +634,31 @@ class RuleSet(Entity):
 
 
 __all__ = [
+    "CONFIDENCES",
     "LEAF_OPS",
+    "ROLE_KEY",
+    "ROLE_KINDS",
+    "ROLE_LIMIT_UNITS",
+    "ROLE_SOURCES",
+    "Confidence",
+    "GateLoop",
     "HeightLimit",
+    "HotLoop",
     "ImpedanceKind",
     "ImpedanceTarget",
+    "KelvinPair",
+    "NetRole",
+    "PART_CLASSES",
+    "PART_TERMINALS",
     "PadSelection",
+    "PartClass",
+    "PartClassName",
     "PlacementSeverity",
     "ProximityRule",
+    "RoleKind",
+    "RoleLimit",
+    "RoleSet",
+    "RoleSource",
     "Rule",
     "RuleKind",
     "RuleSet",
@@ -287,5 +666,6 @@ __all__ = [
     "RuleSubject",
     "Selector",
     "SelectorOp",
+    "Terminal",
     "TraceGeometry",
 ]

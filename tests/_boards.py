@@ -279,7 +279,7 @@ def created_board(copper: int = 2) -> Design:
         Pad(id=new_id("pad", rng), number="1", shape="rect", size=size, position=mm(-1.27, 0),
             layers=("F.Cu", "F.Mask"), net_id=gnd, zone_connection="solid"),
         Pad(id=new_id("pad", rng), number="2", shape="rect", size=size, position=mm(1.27, 0),
-            layers=("F.Cu", "F.Mask"), net_id=led),
+            layers=("F.Cu", "F.Mask"), net_id=led, mask_margin=50_000, paste_margin=-25_000),
     )  # fmt: skip
     fields = (
         FootprintField(id=new_id("fld", rng), name="Reference", position=mm(0, -1.5), layer="F.SilkS",

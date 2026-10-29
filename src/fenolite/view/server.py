@@ -49,6 +49,7 @@ keeps the scene as it was."""
 @dataclass
 class _State:
     scene: bytes = b""
+    generation: int = 0
     version: str | None = None
     building: bool = False
     error: str | None = None
@@ -116,40 +117,52 @@ class Live:
             return None
         return (s.st_size, s.st_mtime_ns)
 
-    def _store(self, state: _State, scene: dict[str, Any]) -> None:
+    def _store(self, state: _State, scene: dict[str, Any], generation: int) -> bool:
         data = json.dumps(compact(scene), separators=(",", ":"), ensure_ascii=False).encode("utf-8")
         with self.lock:
+            if state.generation != generation:
+                return False
             state.scene = data
             state.version = f"{scene['meta'].get('sha256', '')[:12]}-{time.time_ns()}"
             state.error = None
             state.updated = datetime.now().strftime("%H:%M:%S")
+            return True
 
     def _rebuild(self, doc: Document, state: _State) -> None:
-        state.building = True
+        with self.lock:
+            state.generation += 1
+            generation = state.generation
+            state.building = True
         try:
             assert doc.file is not None
             scene = self.build(doc.file)
             scene["overlays"] = list(scene.get("overlays", [])) + self.overlays
-            self._store(state, scene)
-            if self.refine is not None:
-                threading.Thread(target=self._refine, args=(doc, state, scene), daemon=True).start()
+            stored = self._store(state, scene, generation)
+            if stored and self.refine is not None:
+                threading.Thread(
+                    target=self._refine, args=(doc, state, scene, generation), daemon=True
+                ).start()
         except Exception as exc:  # keep serving the last good scene, and say why the new one failed
-            state.error = f"{type(exc).__name__}: {exc}"
-            self.log(f"view: {doc.name} could not be read: {state.error}")
+            error = f"{type(exc).__name__}: {exc}"
+            with self.lock:
+                if state.generation == generation:
+                    state.error = error
+            self.log(f"view: {doc.name} could not be read: {error}")
         finally:
-            state.building = False
+            with self.lock:
+                if state.generation == generation:
+                    state.building = False
 
-    def _refine(self, doc: Document, state: _State, scene: dict[str, Any]) -> None:
-        """Refine ``scene`` and store the result unless a newer scene of the document was stored meanwhile."""
+    def _refine(self, doc: Document, state: _State, scene: dict[str, Any], generation: int) -> None:
+        """Publish only in the generation captured by the rebuild, even if this worker starts late."""
         assert doc.file is not None and self.refine is not None
-        version = state.version
         try:
             refined = self.refine(doc.file, scene)
         except Exception as exc:  # the scene already served stays; the reason is logged
             self.log(f"view: {doc.name}: models not placed: {type(exc).__name__}: {exc}")
             return
-        if refined is not None and state.version == version:
-            self._store(state, refined)
+        if refined is not None:
+            self._store(state, refined, generation)
 
     def scene(self, doc_id: str) -> bytes | None:
         """The scene of a viewable document, built when first asked for; ``None`` for any other id."""

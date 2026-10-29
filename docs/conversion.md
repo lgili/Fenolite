@@ -101,6 +101,8 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
 | `footprint-graphic` | footprint | report |
 | `footprint-text` | footprint | report |
 | `net-tie` | footprint | report |
+| `pad-margin` | footprint | report |
+| `model` | footprint | report |
 | `track` | copper | refuse |
 | `arc` | copper | refuse |
 | `via` | copper | refuse |
@@ -139,8 +141,10 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
   `geo` extra, or a union that is not one ring) is a `refuse` loss (`report.REFUSE_REASONS`): KiCad would
   call the outline malformed, so the rings are not written and the conversion exits 7 without
   `--allow-lossy`. The kind `outline` keeps only the losses of the board ring.
-- **Changes of KiCad to Altium.** `zone-fill`: a polygon is written unpoured, and Altium fills it on a
-  repour (decision of 2026-10-06). `schematic`: the schematic is generated from the circuit on one sheet
+- **Changes of KiCad to Altium.** `zone-fill`: with `--altium-pour computed` (the default since change
+  c0215) the polygon is poured by Fenolite from the written document (experimental), and a polygon the engine
+  refuses, or every polygon with `--altium-pour outline`, is written unpoured, and Altium fills it on a
+  repour. `schematic`: the schematic is generated from the circuit on one sheet
   with generic symbols. A schematic that the writer refuses is a loss, and the writer's message stays an
   `altium.not-lowered` issue.
 
@@ -298,6 +302,25 @@ back loads with no `invalid_outline` and drills what the source drills (`H-K-CON
 instances that differ are reported without replacing board geometry. Filename collisions are disambiguated.
 Symbols are taken from available SchLib definitions or generated from the circuit pins. Positions and
 wires are regenerated. Duplicate designators refuse the schematic alone, with an explicit report.
+**Pad openings** (change c0223). An imported pad keeps its copper layers and gains its openings by its
+kind: a surface pad on `F.Cu` gets `F.Paste` and `F.Mask` (on `B.Cu` the bottom ones), a plated or unplated
+through-hole pad `F.Mask` and `B.Mask` and no paste; a surface pad on an inner layer gets none. Its mask and
+paste expansions become `Pad.mask_margin` and `Pad.paste_margin`, written as `solder_mask_margin` and
+`solder_paste_margin`: a manual expansion as it is, an expansion "from the rules" as the first enabled
+`SolderMaskExpansion` or `PasteMaskExpansion` rule of scope `All`, none without one. A pad that a rule of
+another scope may govern takes the `All` rule and is a `pad-margin` loss: the scope is not evaluated, but
+a rule whose scope selects no pad (`IsVia`, `IsTrack`, in the closed scope grammar) is left out. The
+paste `Enabled` switch and the solder `Tented` option are not read (`docs/formats/altium/pcb-library.md`,
+U1 and U2), so a tented pad of the source is open in KiCad (`H-A-CONV-PADMASK`).
+
+**3D models** (change c0223). The model that the PCB document embeds for a body of a top-side part
+(`models3d.body_models`) is written beside the derived library as `<name>.3dshapes/<footprint>_<sha12>.step`
+(`sha12`, the first 12 hex digits of the SHA-256 of the model's bytes) and named in the library footprint
+with its placement: the offset of the model from the footprint origin, its height `MODEL.3D.DZ` and its turn
+about Z less the part's (`H-K-MODEL-PLACE`, `H-A-BODY-MODEL-PLACE`); a placed model is a `model` change. A
+model of a bottom-side part or turned about X or Y is a `model` loss. The board's own footprints carry no
+model: KiCad's "update footprints from library" brings them. The bodies stay `body` losses.
+
 Unsupported imported rules and nonportable component bodies are reported. Libraries and projects use
 relative paths. Loading with DRC (9.0.9 and 10.0.6), agreement with KiCad 10.0.6's own importer and
 the generated schematics' netlist and ERC are KICAD-VERIFIED on the public corpus (2026-10-15); the
