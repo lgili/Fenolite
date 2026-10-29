@@ -46,9 +46,52 @@ TABLE = (
     (5, "route-length", "length"),
     (5, "route-stub", "stubs"),
     (5, "route-unjudged", "zones"),
+    (5, "track-missing", "track"),
+    (5, "track-width", "width"),
+    (5, "track-net", "net"),
+    (5, "arc-missing", "arc"),
+    (5, "arc-width", "width"),
+    (5, "arc-net", "net"),
+    (5, "via-missing", "via"),
+    (5, "via-size", "diameter"),
+    (5, "via-drill", "drill"),
+    (5, "via-span", "layers"),
+    (5, "via-net", "net"),
+    (5, "copper-locked", "locked"),
+    (6, "netclass-missing", "name"),
+    (6, "netclass-field", "field"),
+    (6, "netclass-members", "nets"),
+    (6, "rule-missing", "name"),
+    (6, "rule-field", "field"),
+    (6, "ruleset-field", "field"),
+    (6, "stackup-missing", "layer"),
+    (6, "stackup-field", "field"),
+    (6, "layer-missing", "layer"),
+    (7, "outline-missing", "ring"),
+    (7, "zone-missing", "zone"),
+    (7, "zone-field", "field"),
+    (7, "keepout-missing", "keepout"),
+    (7, "keepout-field", "field"),
+    (7, "graphic-missing", "graphic"),
+    (7, "text-missing", "text"),
+    (7, "text-field", "field"),
+    (7, "field-pose", "field"),
+    (7, "hole-missing", "hole"),
+    (7, "dimension-missing", "dimension"),
+    (8, "render-missing", "layer"),
+    (8, "render-pixels", "pixels"),
+    ("S", "sheet-missing", "sheet"),
+    ("S", "symbol-missing", "symbol"),
+    ("S", "symbol-pose", "field"),
+    ("S", "symbol-field", "field"),
+    ("S", "item-missing", "item"),
+    ("S", "item-field", "field"),
+    ("S", "drawn-net", "net"),
 )
 """The table of the requirement, written out a second time."""
-NOTICES = {"route-stub": "warning", "route-unjudged": "info"}
+NOTICES = {"route-stub": "warning", "route-unjudged": "info", "copper-locked": "warning"}
+SHOWN = {"field": "the field", "item": "the item kind"}
+"""How the documentation's table writes a field placeholder of the table."""
 """The kinds that are notices, with their severity; every other kind is an error."""
 OTHER = {
     "equiv.excluded": ("info",),
@@ -61,16 +104,20 @@ OTHER = {
 def test_kinds_table_is_closed() -> None:
     assert levels.KINDS == TABLE and levels.KINDS is model.KINDS
     assert len({kind for _, kind, _ in TABLE}) == len(TABLE)
-    assert model.LEVELS == (1, 2, 3, 4, 5)
+    assert model.LEVELS == (1, 2, 3, 4, 5, 6, 7)
     assert dict(model.LEVEL_NAMES) == {
         1: "components",
         2: "netlist",
         3: "footprints",
         4: "placement",
         5: "routing",
+        6: "rules",
+        7: "geometry",
     }
+    assert (model.PRESENTATION_LEVEL, model.SCHEMATIC_LEVEL) == (8, "S")
+    assert model.ALL_LEVEL_NAMES[8] == "presentation" and model.ALL_LEVEL_NAMES["S"] == "schematic"
     assert dict(model.NOTICE_SEVERITY) == NOTICES
-    assert {level for level, _, _ in TABLE} == set(model.LEVELS)
+    assert {level for level, _, _ in TABLE} == {*model.LEVELS, 8, "S"}
 
 
 def test_codes_table() -> None:
@@ -90,10 +137,11 @@ def test_every_kind_gives_an_issue_of_its_code() -> None:
     notices = tuple(d for d in found if d.kind in NOTICES)
     report = EquivalenceReport((LevelResult(1, 0, differences, notices=notices),))
     issues = difference_issues(report)
+    order = [d.kind for d in (*differences, *notices)]
     assert [i.code for i in issues] == [
-        "netlist.assignment-differs" if kind == "net" else f"equiv.{kind}" for _, kind, _ in TABLE
+        "netlist.assignment-differs" if kind == "net" else f"equiv.{kind}" for kind in order
     ]
-    assert [i.severity for i in issues] == [NOTICES.get(kind, "error") for _, kind, _ in TABLE]
+    assert [i.severity for i in issues] == [NOTICES.get(kind, "error") for kind in order]
     assert {i.where for i in issues} == {"R1-1"} and report.equivalent is False
     assert EquivalenceReport((LevelResult(5, 0, notices=notices),)).equivalent
     assert (
@@ -108,10 +156,10 @@ def test_docs_list_every_kind() -> None:
     rows = [
         tuple(cell.strip() for cell in line.strip("|").split("|")[:3])
         for line in page.split("## Kinds of difference", 1)[1].split("\n## ", 1)[0].splitlines()
-        if line.startswith("| ") and line[2].isdigit()
+        if line.startswith("| ") and (line[2].isdigit() or line[2:4] == "S ")
     ]
-    assert rows == [(str(level), f"`{kind}`", f"`{field}`") for level, kind, field in TABLE]
-    for name in ("components", "netlist", "footprints", "placement", "routing"):
+    assert rows == [(str(level), f"`{kind}`", SHOWN.get(field, f"`{field}`")) for level, kind, field in TABLE]
+    for name in ("components", "netlist", "footprints", "placement", "routing", "rules", "geometry"):
         assert f"`{name}`" in page.split("## Levels", 1)[1].split("\n## ", 1)[0]
 
 

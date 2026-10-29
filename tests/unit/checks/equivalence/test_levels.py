@@ -308,7 +308,7 @@ def test_a_design_compared_with_itself() -> None:
     assert report.equivalent and report.translation == Point(0, 0) and report.frame == "absolute"
     assert [level.compared for level in report.levels] == [2, 4, 4, 2]
     assert difference_issues(report) == ()
-    assert [len(compare_designs(design, design, level=n).levels) for n in LEVELS] == [1, 2, 3, 4, 5]
+    assert [len(compare_designs(design, design, level=n).levels) for n in LEVELS] == [1, 2, 3, 4, 5, 6, 7]
 
 
 def test_level_above_what_both_sides_hold() -> None:
@@ -323,8 +323,8 @@ def test_level_above_what_both_sides_hold() -> None:
         compare_designs(board, empty, level=4)
     with pytest.raises(ValueError, match="side a and b holds none"):
         compare_designs(bare, empty, level=3)
-    for level in (0, 6, True, "4"):
-        with pytest.raises(ValueError, match="level is one of 1, 2, 3, 4, 5"):
+    for level in (0, 8, True, "4", "S"):
+        with pytest.raises(ValueError, match="level is one of 1, 2, 3, 4, 5, 6, 7"):
             compare_designs(board, board, level=level)  # type: ignore[arg-type]
 
 

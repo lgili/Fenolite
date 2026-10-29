@@ -16,7 +16,7 @@ import dataclasses
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from fenolite.checks.equivalence.model import KINDS, LEVEL_NAMES
+from fenolite.checks.equivalence.model import ALL_LEVEL_NAMES, KINDS
 
 KIND_NAMES: tuple[str, ...] = tuple(dict.fromkeys(kind for _, kind, _ in KINDS))
 NETLIST_SOURCES = ("board", "circuit", "schematic")
@@ -64,7 +64,7 @@ class ReplyLevel:
     """One level that ran, with its counts and summary."""
 
     level: int = dataclasses.field(metadata={"minimum": 1})
-    name: str = dataclasses.field(metadata={"enum": list(LEVEL_NAMES.values())})
+    name: str = dataclasses.field(metadata={"enum": list(ALL_LEVEL_NAMES.values())})
     compared: int = dataclasses.field(metadata=_COUNT)
     differences: int = dataclasses.field(metadata=_COUNT)
     excluded: int = dataclasses.field(metadata=_COUNT)

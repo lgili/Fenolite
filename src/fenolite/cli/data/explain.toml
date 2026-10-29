@@ -1608,6 +1608,211 @@ meaning = "A net holds a zone without a fill on a side, and its pads are not joi
 fix = "Fill the zones (fenolite fill) and compare again."
 see = "equivalent"
 
+["equiv.track-missing"]
+meaning = "Strict level 5: a track (by copper span and its two ends) exists on one side only. A track drawn on another path, or cut into other segments, is such a difference."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.track-width"]
+meaning = "Strict level 5: two matched tracks have different widths."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.track-net"]
+meaning = "Strict level 5: two matched tracks lie on nets of different names."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.arc-missing"]
+meaning = "Strict level 5: an arc (by copper span, ends and mid) exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.arc-width"]
+meaning = "Strict level 5: two matched arcs have different widths."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.arc-net"]
+meaning = "Strict level 5: two matched arcs lie on nets of different names."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.via-missing"]
+meaning = "Strict level 5: a via (by position and copper span) exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.via-size"]
+meaning = "Strict level 5: two matched vias have different diameters."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.via-drill"]
+meaning = "Strict level 5: two matched vias have different drills."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.via-span"]
+meaning = "Strict level 5: two matched vias span other copper layers or are of other types (through, blind, buried, micro)."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.via-net"]
+meaning = "Strict level 5: two matched vias lie on nets of different names."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.copper-locked"]
+meaning = "Strict level 5: two matched tracks, arcs or vias differ only in their lock. It is a warning and does not fail the comparison: a lock is the state of an editor, not of the design."
+fix = "Nothing to do, or lock the item on the side that should hold the lock."
+see = "equivalent"
+
+["equiv.netclass-missing"]
+meaning = "Level 6: a net class exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.netclass-field"]
+meaning = "Level 6: a field of a net class (clearance, track width, via sizes, pair values) differs; field names it."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.netclass-members"]
+meaning = "Level 6: the nets assigned to a net class differ."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.rule-missing"]
+meaning = "Level 6: a custom design rule exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.rule-field"]
+meaning = "Level 6: a field of a custom design rule differs; field names it as a dotted path."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.ruleset-field"]
+meaning = "Level 6: a board-wide rule, severity or limit of the rule set differs; field names it as a dotted path."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.stackup-missing"]
+meaning = "Level 6: a stack-up layer exists on one side only, or the layers come in another order."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.stackup-field"]
+meaning = "Level 6: a field of a stack-up layer, or the finish of the stack-up, differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.layer-missing"]
+meaning = "Level 6: a board layer of one kind and ordinal exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.outline-missing"]
+meaning = "Level 7: an outline ring, cut-out or slot exists on one side only, after the rings were normalised (start point and direction do not matter)."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.zone-missing"]
+meaning = "Level 7: a zone (by net, layers and outline) exists on one side only. Fills are never compared."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.zone-field"]
+meaning = "Level 7: a field of two matched zones (name, priority, settings) differs. Fills are never compared."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.keepout-missing"]
+meaning = "Level 7: a rule area (keep-out) exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.keepout-field"]
+meaning = "Level 7: a field of two matched rule areas differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.graphic-missing"]
+meaning = "Level 7: a board graphic, or a graphic of a footprint, exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.text-missing"]
+meaning = "Level 7: a board text, or a text of a footprint, exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.text-field"]
+meaning = "Level 7: the position, size, thickness, rotation or justification of two matched texts differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.field-pose"]
+meaning = "Level 7: the pose of a footprint field (reference, value or user field) differs: position, layer, size, rotation, visibility or justification."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.hole-missing"]
+meaning = "Level 7: a board hole exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.dimension-missing"]
+meaning = "Level 7: a dimension exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.render-missing"]
+meaning = "Level 8: a layer or sheet is rendered by one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.render-pixels"]
+meaning = "Level 8: the rendered masks of a layer or sheet differ beyond the pixel tolerance (parts per million of the inked pixels, after a tolerance of one pixel); where names the box of the largest differing region."
+fix = "Look at the box on both sides (fenolite view NEW --compare OLD names the changed primitives); raise --pixel-ppm only for a known rendering difference."
+see = "equivalent"
+
+["equiv.sheet-missing"]
+meaning = "Level S: a sheet instance exists in one drawn schematic only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.symbol-missing"]
+meaning = "Level S: a symbol unit is drawn on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.symbol-pose"]
+meaning = "Level S: the position, rotation or mirror of a matched symbol differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.symbol-field"]
+meaning = "Level S: the pose of a field of a matched symbol differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.item-missing"]
+meaning = "Level S: a wire, bus, bus entry, junction, no-connect flag, label, power symbol, sheet reference, sheet pin or opaque item is drawn on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.item-field"]
+meaning = "Level S: a field of a matched label, sheet reference or sheet pin differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.drawn-net"]
+meaning = "Level S: the drawn connectivity differs: a pin joins another group of pins."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
 ["equiv.route-vias"]
 meaning = "For the same joined pads, the count of vias per pair of copper layers differs."
 fix = "Restore the via that was lost, or remove the one that was added."

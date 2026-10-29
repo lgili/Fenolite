@@ -19,18 +19,28 @@ from pathlib import Path
 
 from fenolite.api.equivalence import AGAINST, equivalent
 from fenolite.api.sides import READS, SIDE_KINDS, SideError
-from fenolite.checks.equivalence import LEVELS, Profile, load_profiles
+from fenolite.checks.equivalence import LEVELS, PRESENTATION_LEVEL, SCHEMATIC_LEVEL, Profile, load_profiles
 from fenolite.checks.equivalence.model import FRAMES
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT
+from fenolite.cli._presentation import side_presentation
 from fenolite.cli.api import Command, Context, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 
 HELP = "say whether two designs are equivalent, level by level, and locate each difference"
+LEVEL_CHOICES: tuple[str, ...] = (*map(str, LEVELS), str(PRESENTATION_LEVEL), SCHEMATIC_LEVEL)
+"""What ``--level`` takes: 1 to 7 compare the models, 8 renders the boards, S compares drawn schematics."""
+DEFAULT_PIXEL_PPM = 1000
+DEFAULT_PITCH_UM = 50
+NO_DRAWN = (
+    "level S compares two drawn schematics, which needs the extraction of change c0276, not part of this "
+    "version"
+)
 PCB_DOCUMENT = ".pcbdoc"
 OPTIONS = {
     "level": "--level",
+    "strict": "--strict",
     "b": "B",
     "profile": "--exclusions",
     "frame": "--frame",
@@ -44,7 +54,27 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("a", metavar="A", help=READS)
     parser.add_argument("b", metavar="B", nargs="?", help="the design to compare with A")
     parser.add_argument(
-        "--level", type=int, metavar="N", help="run the levels 1 to N (default: the highest available)"
+        "--level",
+        metavar="N",
+        help="run the levels 1 to N, N of 1 to 8, or S for the drawn schematics (default: the highest "
+        "available of 1 to 5)",
+    )
+    parser.add_argument(
+        "--strict", action="store_true", help="level 5 also matches every track, arc and via item by item"
+    )
+    parser.add_argument(
+        "--pixel-ppm",
+        type=int,
+        default=DEFAULT_PIXEL_PPM,
+        metavar="N",
+        help="level 8: the differing pixels a layer may hold, in ppm of its inked pixels (default 1000)",
+    )
+    parser.add_argument(
+        "--render-pitch-um",
+        type=int,
+        default=DEFAULT_PITCH_UM,
+        metavar="N",
+        help="level 8: the pixel pitch of a board layer in micrometres (default 50)",
     )
     parser.add_argument("--tolerance-nm", type=int, metavar="N", help="length tolerance per coordinate")
     parser.add_argument("--tolerance-udeg", type=int, metavar="N", help="angle tolerance in microdegrees")
@@ -136,13 +166,22 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 hint="pass a .PcbDoc file",
             )
     tolerances = _tolerances(args)
-    if args.level is not None and args.level not in LEVELS:
-        raise _usage(f"--level is one of {', '.join(map(str, LEVELS))}", where="--level")
+    if args.level is not None and args.level not in LEVEL_CHOICES:
+        raise _usage(f"--level is one of {', '.join(LEVEL_CHOICES)}", where="--level")
+    if args.level == SCHEMATIC_LEVEL:
+        raise _usage(f"{NO_DRAWN}: side a has no drawn schematic it reads", where="--level")
+    level = None if args.level is None else int(args.level)
+    for flag, value in (("--pixel-ppm", args.pixel_ppm), ("--render-pitch-um", args.render_pitch_um)):
+        if value < 0 or (flag == "--render-pitch-um" and value == 0):
+            raise _usage(f"{flag} is a {'positive' if value == 0 else 'non-negative'} integer", where=flag)
+    presentation = None
+    if level == PRESENTATION_LEVEL:
+        presentation = side_presentation(args.pixel_ppm, args.render_pitch_um * 1000)
     try:
         found = equivalent(
             path_a,
             path_b,
-            level=args.level,
+            level=level,
             tolerances=tolerances,
             frame=args.frame,
             ignore_refs=tuple(args.ignore_ref),
@@ -150,6 +189,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             against=args.against,
             kicad_cli=args.kicad_cli,
             timeout=args.timeout,
+            strict=args.strict,
+            presentation=presentation,
         )
     except SideError as error:
         where = OPTIONS.get(error.where, error.where)
@@ -169,7 +210,7 @@ COMMAND = Command(
     register=_register,
     run=_run,
     example_args=(EXAMPLE_BOARD, EXAMPLE_BOARD, "--level", "4"),
-    discovery=(("levels", LEVELS), ("sides", SIDE_KINDS)),
+    discovery=(("levels", (*LEVELS, PRESENTATION_LEVEL, SCHEMATIC_LEVEL)), ("sides", SIDE_KINDS)),
 )
 
 __all__ = ["COMMAND"]
