@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The reference variants checked as the tests check them (change c0222): what each board's scripts declare,
-the inferred roles and groups confirmed, and the board's requirements file."""
+"""The reference variants checked as the tests check them (change c0222): the roles their scripts declare
+(stored by the build in ``.fenolite/rules.json``), the inferred roles and groups confirmed, and the board's
+requirements file."""
 
 from __future__ import annotations
 
@@ -12,43 +13,23 @@ from pathlib import Path
 from _roleboards import EXAMPLES, Built, judge
 
 from fenolite.analysis.requirements import load_requirements
-from fenolite.model.rules import NetRole, RoleLimit, RoleSet
+from fenolite.model.rules import RoleSet
 from fenolite.roles.judge import Judged
 from fenolite.roles.measure import Inputs
 
-AMP20 = 20_000
-DECLARED: Mapping[str, RoleSet] = {
-    "buck_shunt": RoleSet(
-        nets=(
-            NetRole("VIN", "power", "declared", milliamps=1000),
-            NetRole("SW", "switch_node", "declared", milliamps=2000),
-            NetRole("VL", "power", "declared", milliamps=2000),
-            NetRole("VOUT", "power", "declared", milliamps=2000),
-        )
-    ),
-    "half_bridge": RoleSet(
-        nets=(NetRole("VBUS", "power", "declared", milliamps=AMP20, working_mv=400_000),),
-        limits=(RoleLimit("milliamps_per_via", 4000, net="VBUS"),),
-    ),
-    "bms": RoleSet(
-        nets=(
-            *(NetRole(net, "power", "declared", milliamps=AMP20) for net in ("BAT_P", "PACK_N", "SHUNT_N")),
-            NetRole("GND", "ground", "declared", milliamps=AMP20),
-            *(NetRole(f"TAP{k}", "signal", "declared", sensitive=True) for k in range(4)),
-        )
-    ),
-}
-"""What each board's scripts declare."""
-
 
 def confirmed(judged: Judged) -> RoleSet:
-    """The resolved roles and groups of a run, as the user confirms them all."""
+    """The inferred roles and groups of a run, as the user confirms them all (``--accept-all``)."""
     roles = judged.resolved.roles
     return RoleSet(
-        nets=tuple(replace(role, source="confirmed", milliamps=None) for role in roles.nets),
-        loops=tuple(replace(group, origin="confirmed") for group in roles.loops),
-        kelvins=tuple(replace(group, origin="confirmed") for group in roles.kelvins),
-        gates=tuple(replace(group, origin="confirmed") for group in roles.gates),
+        nets=tuple(replace(role, source="confirmed") for role in roles.nets if role.source == "inferred"),
+        loops=tuple(
+            replace(group, origin="confirmed") for group in roles.loops if group.origin == "inferred"
+        ),
+        kelvins=tuple(replace(g, origin="confirmed") for g in roles.kelvins if g.origin == "inferred"),
+        gates=tuple(
+            replace(group, origin="confirmed") for group in roles.gates if group.origin == "inferred"
+        ),
     )
 
 
@@ -66,8 +47,8 @@ def checked(reference: Callable[..., Built], board: str, variant: str) -> Judged
     built = reference(board, variant)
     key = (board, variant, built.out)
     if key not in _RUNS:
-        found = judge(built, declared=DECLARED[board], check=False)
-        _RUNS[key] = judge(built, declared=DECLARED[board], stored=confirmed(found), inputs=inputs(board))
+        found = judge(built, check=False)
+        _RUNS[key] = judge(built, stored=confirmed(found), inputs=inputs(board))
     return _RUNS[key]
 
 

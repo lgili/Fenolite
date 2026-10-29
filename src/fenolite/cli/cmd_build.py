@@ -344,6 +344,16 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _keep_confirmed_roles(out_dir: Path, files: dict[str, bytes]) -> None:
+    """Keep in the planned ``.fenolite/rules.json`` the net roles that ``fenolite roles`` confirmed in the
+    project's current one (change c0222; ``docs/roles.md``, "Where roles are kept")."""
+    rel = ".fenolite/rules.json"
+    if rel in files and (out_dir / rel).is_file():
+        from fenolite.roles.store import kept_confirmed
+
+        files[rel] = kept_confirmed(files[rel], out_dir / rel)
+
+
 def _kind(rel: str, form: SchematicForm | None = None) -> str:
     if rel.startswith(".fenolite/"):
         return "fenolite"
@@ -946,6 +956,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         heights=heights(design),
     )
     files = {} if refused else dict(built.files)
+    _keep_confirmed_roles(out_dir, files)
     if any(found.severity == "error" for found in symbol_issues):
         files = {}  # a placements file with an error plans no write
     mode = args.copper_check or COPPER_CHECK_MODES[0]
@@ -1263,6 +1274,7 @@ def _run_altium(
                 hint="pip install 'fenolite[geo]', or use --altium-pour outline",
             ) from error
     files = dict(built.files)
+    _keep_confirmed_roles(out_dir, files)
     native_info: dict[str, object] | None = None
     native_path = getattr(args, "altium_template", None)
     if native_path is not None:

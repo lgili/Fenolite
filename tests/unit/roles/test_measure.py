@@ -60,7 +60,7 @@ def test_a_missing_input_is_the_analysis_warning(reference: Callable[..., Built]
     assert "stackup" not in built.board.read_text(encoding="utf-8")
     judged = judge(built, currents={"VOUT": 2000}, inputs=Inputs(temp_rise_mk=10_000))
     missing = [found for found in judged.issues if found.code == "analysis.input-missing"]
-    assert [found.where for found in missing] == ["copper thickness"]
+    assert missing and {found.where for found in missing} == {"copper thickness"}
     assert not [found for found in judged.issues if found.code == "roles.input-missing"]
 
 

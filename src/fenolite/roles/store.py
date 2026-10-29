@@ -16,13 +16,14 @@ Inferred roles that the user has not confirmed are never stored: they are comput
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, cast
 
 from fenolite.core.errors import FormatError
 from fenolite.model import canonical
-from fenolite.model.rules import RoleSet, RuleSet
+from fenolite.model.rules import PartClass, RoleSet, RuleSet
 
 SCHEMA = "fenolite.roles.v0"
 SUFFIX = ".roles.json"
@@ -117,6 +118,64 @@ def stored_roles(
     return Stored(None, None, beside, False)
 
 
+def merged(declared: RoleSet | None, confirmed: RoleSet | None, classes: Sequence[PartClass] = ()) -> RoleSet:
+    """The roles of ``rules.json`` of a built project: the script's declarations and the roles the user
+    confirmed, a declaration winning on its key (a net, a group's name, a part's reference); the limits are
+    the script's, the rejected group names the user's. ``classes`` are classes stated besides."""
+    mine = declared or RoleSet()
+    other = confirmed or RoleSet()
+    names = {role.net for role in mine.nets}
+
+    def groups(own: Sequence[Any], more: Sequence[Any]) -> tuple[Any, ...]:
+        taken = {group.name for group in own}
+        return (*own, *(group for group in more if group.name not in taken))
+
+    refs = {found.ref for found in mine.classes}
+    extra = {found.ref: found for found in (*other.classes, *classes) if found.ref not in refs}
+    return RoleSet(
+        nets=(
+            *mine.nets,
+            *(role for role in other.nets if role.net not in names and role.source != "declared"),
+        ),
+        loops=groups(mine.loops, [g for g in other.loops if g.origin != "declared"]),
+        kelvins=groups(mine.kelvins, [g for g in other.kelvins if g.origin != "declared"]),
+        gates=groups(mine.gates, [g for g in other.gates if g.origin != "declared"]),
+        limits=mine.limits,
+        classes=(*mine.classes, *extra.values()),
+        rejected=other.rejected,
+    )
+
+
+def kept_confirmed(new_rules: bytes, old_rules: Path) -> bytes:
+    """The bytes of a new build's ``.fenolite/rules.json`` with the roles that the user confirmed in the
+    previous one (``old_rules``) kept: the build writes the script's declarations, and ``fenolite roles``
+    stores the confirmed roles beside them (``docs/roles.md``, "Where roles are kept"). Unchanged when the
+    old file is missing, unreadable or holds no confirmed role."""
+    try:
+        old = canonical.loads(old_rules.read_text(encoding="utf-8"), RuleSet, file=old_rules.name)
+    except (OSError, UnicodeDecodeError, FormatError, ValueError):
+        return new_rules
+    assert isinstance(old, RuleSet)
+    roles = old.roles
+    confirmed = (
+        None
+        if roles is None
+        else RoleSet(
+            nets=tuple(role for role in roles.nets if role.source == "confirmed"),
+            loops=tuple(g for g in roles.loops if g.origin == "confirmed"),
+            kelvins=tuple(g for g in roles.kelvins if g.origin == "confirmed"),
+            gates=tuple(g for g in roles.gates if g.origin == "confirmed"),
+            rejected=roles.rejected,
+        )
+    )
+    if not confirmed:
+        return new_rules
+    text = new_rules.decode("utf-8")
+    loaded = canonical.loads(text, RuleSet, file="rules.json")
+    assert isinstance(loaded, RuleSet)
+    return updated_rules(text, merged(loaded.roles, confirmed, old.roles.classes if old.roles else ()))
+
+
 def updated_rules(text: str, roles: RoleSet, *, file: str = "rules.json") -> bytes:
     """The bytes of ``.fenolite/rules.json`` (``text``) with its ``roles`` replaced by ``roles``; every other
     key keeps its value."""
@@ -131,7 +190,9 @@ __all__ = [
     "Stored",
     "document_path",
     "dumps_document",
+    "kept_confirmed",
     "loads_document",
+    "merged",
     "read_document",
     "stored_roles",
     "updated_rules",

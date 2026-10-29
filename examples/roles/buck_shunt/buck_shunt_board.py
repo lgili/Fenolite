@@ -19,7 +19,7 @@ Every value is a round illustrative number, not a design recommendation. Positio
 frame of ``place()``.
 """
 
-from fenolite.dsl import Design, Net, Part, Power, connect, mm, via_step
+from fenolite.dsl import Design, Net, Part, Power, amp, connect, mm, via_step
 
 VIA = {"diameter": mm("0.6"), "drill": mm("0.3")}
 
@@ -68,6 +68,11 @@ def make(variant: str) -> Design:
     connect(pwm_l, j3[3], u1["LIN"])
     connect(isns, j3[4], u3["OUT"])
     design.add(Power(vin, gnd), Power(vout, gnd, name="VOUT/GND"))
+    # the roles the script knows: the currents (illustrative); everything else is inferred
+    design.net_role(vin, "power", current=amp(1))
+    design.net_role(sw, "switch_node", current=amp(2))
+    design.net_role(vl, "power", current=amp(2))
+    design.net_role(vout, "power", current=amp(2))
     design.rules.netclass("POWER", clearance=mm("0.3"), track_width=mm(1), nets=(vin, gnd, sw, vl, vout))
     design.rules.netclass(
         "SIGNAL",

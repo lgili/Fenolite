@@ -662,6 +662,10 @@ class Design(Container):
         """Proximity rules by key, as declared by ``near()``."""
         self.height_limits: dict[str, HeightLimit] = {}
         """Height limits by area name, as declared by ``height_limit()`` (change c0140)."""
+        from fenolite.dsl.roles import RoleRecords
+
+        self.role_records = RoleRecords()
+        """The net roles, role groups, limits and part classes of the role calls (change c0222)."""
 
     def schematic_layout(self, *, mode: str = "blocks", flow: str = "left-to-right") -> None:
         """Enable presentation-only functional block composition (Altium)."""
@@ -1882,6 +1886,67 @@ class Design(Container):
         if severity not in PLACEMENT_SEVERITIES:
             raise DslError(f"{what}: severity {severity!r} is not one of {', '.join(PLACEMENT_SEVERITIES)}")
         self.height_limits[area] = HeightLimit(area, length, cast(PlacementSeverity, severity))
+
+    # -- net roles (change c0222; docs/dsl.md, "Net roles")
+
+    def net_role(
+        self, net: Net, kind: str, *, current: object = None, voltage: object = None, sensitive: bool = False
+    ) -> None:
+        """Declare the role of ``net``: ``power``, ``switch_node``, ``ground``, ``kelvin``, ``gate``,
+        ``signal`` or ``high_voltage``. ``current`` (``amp(...)``) and ``voltage`` (``volt(...)``, the working
+        voltage against ground) are stored as whole mA and mV; ``sensitive`` marks a ``signal`` whose return
+        and distance from switch nodes are judged. The build stores the role as ``declared``; it wins over a
+        confirmed or an inferred one (``docs/roles.md``)."""
+        from fenolite.dsl import roles
+
+        roles.net_role(self, net, kind, current, voltage, sensitive)
+
+    def hot_loop(self, name: str, pads: Sequence[object]) -> None:
+        """Declare a hot loop: its pads (``part.pad(<number>)``) in loop order, at least three, such as the
+        input capacitor's two pads and the switches' drain and source pads."""
+        from fenolite.dsl import roles
+
+        roles.hot_loop(self, name, pads)
+
+    def kelvin(
+        self, name: str, element: Sequence[object], receiver: Sequence[object], force: Sequence[object] = ()
+    ) -> None:
+        """Declare a Kelvin connection: the shunt's two sense pads (``element``, of one part), the two inputs
+        of the receiver (``receiver``), and for a four-pad shunt its two force pads (``force``)."""
+        from fenolite.dsl import roles
+
+        roles.kelvin(self, name, element, receiver, force)
+
+    def gate_loop(
+        self,
+        name: str,
+        drive: object,
+        gate: object,
+        source: object,
+        ret: object,
+        resistor: Sequence[object] = (),
+    ) -> None:
+        """Declare a gate loop: the driver's output pad, the switch's gate and source pads (the Kelvin-source
+        pad when there is one), the driver's return pad, and the two pads of a gate resistor."""
+        from fenolite.dsl import roles
+
+        roles.gate_loop(self, name, drive, gate, source, ret, resistor)
+
+    def role_limits(self, *, net: Net | None = None, kind: str | None = None, **limits: object) -> None:
+        """Override keys of the role profile for the whole design, for one role ``kind`` or for one ``net``,
+        such as ``loop_max="60mm2"`` or ``milliamps_per_via=amp(4)``; the most specific wins
+        (``docs/roles.md``, "Default limits")."""
+        from fenolite.dsl import roles
+
+        roles.role_limits(self, net, kind, limits)
+
+    def part_class(self, part: Part, cls: str, terminals: Mapping[str, object] | None = None) -> None:
+        """State the class of ``part`` for the role inference (``transistor``, ``shunt``, ``driver`` and
+        the others of ``docs/roles.md``), with its terminals as pin numbers, such as
+        ``{"gate": "1", "source": "3", "kelvin_source": "2", "drain": "4"}``."""
+        from fenolite.dsl import roles
+
+        roles.part_class(self, part, cls, terminals)
 
     @staticmethod
     def _near_side(value: object, what: str) -> tuple[object, ...]:

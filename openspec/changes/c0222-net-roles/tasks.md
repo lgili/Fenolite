@@ -198,7 +198,15 @@
   command, since the coverage test requires it. "A declaration wins" is checked here on a built project
   whose `rules.json` holds the declaration, before task 6.2 lets a script write one. Proof passed: 12 +
   489 tests.
-- [ ] 6.2 Add the DSL calls and their section in `docs/dsl.md` (scenarios "Declared roles are built", "A pad of another part is refused"). Proof: `uv run pytest tests/unit/dsl/test_roles.py -q`.
+- [x] 6.2 Add the DSL calls and their section in `docs/dsl.md` (scenarios "Declared roles are built", "A pad of another part is refused"). Proof: `uv run pytest tests/unit/dsl/test_roles.py -q`.
+  Done 2026-10-29. The calls live in `src/fenolite/dsl/roles.py` and record on `Design.role_records`;
+  `to_model` writes `RuleSet.roles`. Groups take `part.pad(<number>)` only: the model keeps `REF-PIN`
+  with the pad number, and `to_model` has no library to turn a pin name into a pad (the design's example
+  `q1.pad("D")` would name a pad numbered `D`); a pin handle is refused with that hint. The build keeps
+  the roles that `fenolite roles --confirm` stored in `.fenolite/rules.json` (`roles.store.kept_confirmed`,
+  for both targets). The three reference boards now declare their currents, the bus's working voltage and
+  via limit, and the sensitive cell taps; the tests read them from the build instead of a table of their
+  own. Proof passed: 20 tests.
 - [ ] 6.3 Add `checks/roles.py` with `RolesJudge` and the stage `roles.rules` in both pipelines, and `fenolite.roles.judge` passed by `cmd_check` (scenarios "A board without roles is unchanged", "Confirmed roles are judged", "A fake judge"). Proof: `uv run pytest tests/unit/checks/test_roles_stage.py tests/unit/checks/test_stages.py tests/unit/test_import_graph.py -q`.
 - [ ] 6.4 Amend "No shipped requirement values" in `docs/analyses.md` and the facts-page test (scenario "Analyze ignores the role profile"). Proof: `uv run pytest tests/unit/analysis/test_facts_page.py -q`.
 - [ ] 6.5 Compare the roles and measures of the KiCad and Altium builds of each variant (scenarios "Same roles from both builds", "Evidence of a check"). Proof: `uv run pytest tests/unit/roles/test_backends.py -q`.

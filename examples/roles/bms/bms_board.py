@@ -19,7 +19,7 @@ Every value is a round illustrative number, not a design recommendation. Positio
 frame of ``place()``.
 """
 
-from fenolite.dsl import Design, Net, Part, connect, mm
+from fenolite.dsl import Design, Net, Part, amp, connect, mm
 
 VIA = {"diameter": mm("0.6"), "drill": mm("0.3")}
 
@@ -66,6 +66,12 @@ def make(variant: str) -> Design:
     connect(tap2, j2[2], u1["VC2"])
     connect(tap1, j2[3], u1["VC1"])
     connect(tap0, j2[4], u1["VC0"])
+    # the pack current (illustrative) and the cell taps, whose returns are judged
+    for net in (bat_p, pack_n, shunt_n):
+        design.net_role(net, "power", current=amp(20))
+    design.net_role(gnd, "ground", current=amp(20))
+    for net in (tap3, tap2, tap1, tap0):
+        design.net_role(net, "signal", sensitive=True)
     design.rules.netclass(
         "PACK", clearance=mm("0.3"), track_width=mm(1), nets=(bat_p, gnd, shunt_n, fet_s, pack_n)
     )

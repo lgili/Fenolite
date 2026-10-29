@@ -55,7 +55,7 @@ from fenolite.model.rules import (
 )
 from fenolite.roles.judge import EVIDENCE, Judged, run, split_roles
 from fenolite.roles.measure import Inputs
-from fenolite.roles.store import Stored, dumps_document, stored_roles, updated_rules
+from fenolite.roles.store import Stored, dumps_document, merged, stored_roles, updated_rules
 
 HELP = "infer, show, confirm and check the net roles of a board (read-only without an accept or set)"
 SET_KEYS = ("milliamps", "working_mv", "sensitive")
@@ -292,29 +292,6 @@ def _board(path: Path) -> Path:
         ) from None
 
 
-def _merged(declared: RoleSet | None, confirmed: RoleSet | None, classes: Sequence[PartClass]) -> RoleSet:
-    """The roles to store in ``rules.json`` of a built project: the script's declarations and the confirmed
-    roles, a declaration winning on its key."""
-    mine = declared or RoleSet()
-    other = confirmed or RoleSet()
-    names = {role.net for role in mine.nets}
-
-    def groups(own: Sequence[Any], more: Sequence[Any]) -> tuple[Any, ...]:
-        taken = {group.name for group in own}
-        return (*own, *(group for group in more if group.name not in taken))
-
-    refs = {found.ref for found in mine.classes}
-    return RoleSet(
-        nets=(*mine.nets, *(role for role in other.nets if role.net not in names)),
-        loops=groups(mine.loops, other.loops),
-        kelvins=groups(mine.kelvins, other.kelvins),
-        gates=groups(mine.gates, other.gates),
-        limits=mine.limits,
-        classes=(*mine.classes, *(found for found in (*other.classes, *classes) if found.ref not in refs)),
-        rejected=other.rejected,
-    )
-
-
 def _changed(
     args: argparse.Namespace, judged: Judged, declared: RoleSet | None, confirmed: RoleSet | None
 ) -> RoleSet | None:
@@ -526,7 +503,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         target = _relative(stored.target, ctx.cwd)
         if stored.built:
             text = stored.target.read_text(encoding="utf-8")
-            data = updated_rules(text, _merged(declared, confirmed, classes), file=stored.target.name)
+            data = updated_rules(text, merged(declared, confirmed, classes), file=stored.target.name)
             writes = (PlannedWrite(target, data, "json"),)
         else:
             mine = confirmed if confirmed is not None else RoleSet()

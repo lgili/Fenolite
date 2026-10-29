@@ -19,7 +19,7 @@ Every value is a round illustrative number, not a design recommendation. Positio
 frame of ``place()``.
 """
 
-from fenolite.dsl import Design, Net, Part, Power, connect, mm, via_step
+from fenolite.dsl import Design, Net, Part, Power, amp, connect, mm, via_step, volt
 
 VIA = {"diameter": mm("0.6"), "drill": mm("0.3")}
 BLIND = {"diameter": mm("0.6"), "drill": mm("0.3"), "kind": "blind"}
@@ -67,6 +67,9 @@ def make(variant: str) -> Design:
     connect(pwm_l, j3[3], u2["LIN"])
     connect(isns, j3[4], u3["OUT"])
     design.add(Power(vbus, gnd))
+    # the bus: 20 A at 400 V (illustrative), and the current of one of its vias (an illustrative via size)
+    design.net_role(vbus, "power", current=amp(20), voltage=volt(400))
+    design.role_limits(net=vbus, milliamps_per_via=amp(4))
     design.rules.netclass("BUS", clearance=mm("1.5"), track_width=mm(1), nets=(vbus,))
     design.rules.netclass("POWER", clearance=mm("0.3"), track_width=mm(1), nets=(gnd, sw, src))
     design.rules.netclass(

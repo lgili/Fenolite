@@ -157,16 +157,17 @@ def test_confirm_in_a_built_project(
     signal; a stored current is the role's."""
     hide_kicad(monkeypatch, tmp_path)
     board = _copy(boards["buck_bad"], tmp_path / "project")
-    args = ("roles", str(board.parent), "--accept", "SW,VIN", "--reject", "ISNS", "--current", "VOUT=2")
+    args = ("roles", str(board.parent), "--accept", "GND,GH", "--reject", "ISNS", "--current", "VDRV=0.5")
     code, env, error, _ = run(monkeypatch, tmp_path, *args, "--confirm")
     assert code == 0, error
     assert [w["path"] for w in env["receipt"]["written"]] == ["project/.fenolite/rules.json"]
     code, env, error, _ = run(monkeypatch, tmp_path, "roles", str(board.parent))
     rows = {row["net"]: row for row in env["result"]["roles"]}
-    assert (rows["SW"]["kind"], rows["SW"]["source"]) == ("switch_node", "confirmed")
+    assert (rows["GND"]["kind"], rows["GND"]["source"]) == ("ground", "confirmed")
     assert (rows["ISNS"]["kind"], rows["ISNS"]["source"]) == ("signal", "confirmed")
-    assert (rows["VOUT"]["source"], rows["VOUT"]["milliamps"]) == ("confirmed", 2000)
-    assert rows["GND"]["source"] == "inferred"
+    assert (rows["VDRV"]["source"], rows["VDRV"]["milliamps"]) == ("confirmed", 500)
+    assert (rows["SW"]["source"], rows["SW"]["milliamps"]) == ("declared", 2000)  # the script's
+    assert rows["PWM_H"]["source"] == "inferred"
     assert env["result"]["store"] == {
         "file": ".fenolite/rules.json",
         "built": True,
@@ -214,8 +215,12 @@ def test_roles_beside_a_hand_routed_board(
 def test_a_power_net_without_a_current(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, boards: dict[str, Built]
 ) -> None:
+    """The good battery board without the currents its script declares and without a requirements file."""
     hide_kicad(monkeypatch, tmp_path)
-    code, env, error, _ = run(monkeypatch, tmp_path, "roles", str(boards["bms_good"].out), "--check")
+    board = _copy(boards["bms_good"], tmp_path / "project")
+    rules = board.parent / ".fenolite" / "rules.json"
+    rules.write_bytes(updated_rules(rules.read_text(encoding="utf-8"), RoleSet()))
+    code, env, error, _ = run(monkeypatch, tmp_path, "roles", str(board.parent), "--check")
     assert code == 0, error
     codes = [i["code"] for i in env["issues"]]
     assert "roles.width-current" not in codes
@@ -242,8 +247,7 @@ def test_evidence_of_a_check(
 ) -> None:
     hide_kicad(monkeypatch, tmp_path)
     board = _copy(boards["buck_bad"], tmp_path / "project")
-    args = ("roles", str(board.parent), "--check", "--current", "VOUT=2", "--dry-run")
-    code, env, error, _ = run(monkeypatch, tmp_path, *args)
+    code, env, error, _ = run(monkeypatch, tmp_path, "roles", str(board.parent), "--check")
     assert code == 0, error
     assert env["evidence"]["level"] == "INFERRED"
     assert {"H-G-ROLE-LOOP-RATIO", "H-G-SHAPE-LOOP"} <= set(env["evidence"]["hypotheses"])
