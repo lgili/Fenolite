@@ -1171,3 +1171,91 @@ def test_narrower_copper_reported(monkeypatch, tmp_path: Path) -> None:
                                          net_id="n1"),))  # fmt: skip
     (hinted,) = guard(narrow, [cmd_route.JobNet("A", "n1", (), 200, 1, 1, 1)], (), "freerouting")
     assert "fanout=off" in (hinted.hint or "")
+
+
+# --- role mode (change c0244) ------------------------------------------------------------------------------
+
+TWO_PADS = ROOT / "tests/data/kicad/routing/two_pads.kicad_pcb"
+
+
+def test_roles_wrong_router(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "Wrong router" of "Route command role mode"."""
+    code, _, error, _ = run(
+        monkeypatch,
+        tmp_path,
+        "route",
+        str(TWO_PADS),
+        "--router",
+        "direct",
+        "--roles",
+        "critical",
+        "--dry-run",
+    )
+    assert code == 2 and error["code"] == "FEN-2001" and "octilinear" in error["hint"]
+
+
+@pytest.mark.parametrize(
+    ("given", "option"),
+    [
+        (("--group", "kelvin_R1"), "--group"),
+        (("--roles-file", "x.roles.json"), "--roles-file"),
+        (("--roles", "critical", "--nets", "ROUTE_ME"), "--nets"),
+        (("--roles", "critical", "--escape", "U1"), "--escape"),
+        (("--roles", "critical", "--order", "ROUTE_ME"), "--order"),
+        (("--roles", "critical", "--pairs-as-nets"), "--pairs-as-nets"),
+    ],
+)
+def test_roles_option_misuse(monkeypatch, tmp_path: Path, given: tuple[str, ...], option: str) -> None:
+    code, _, error, _ = run(
+        monkeypatch, tmp_path, "route", str(TWO_PADS), "--router", "octilinear", *given, "--dry-run"
+    )
+    assert code == 2 and error["code"] == "FEN-2001" and error["where"] == option
+
+
+def test_roles_none(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "No roles": a board with no stored or declared role plans nothing."""
+    board = tmp_path / "two_pads.kicad_pcb"
+    board.write_bytes(TWO_PADS.read_bytes())
+    code, env, error, _ = run(
+        monkeypatch,
+        tmp_path,
+        "route",
+        str(board),
+        "--router",
+        "octilinear",
+        "--roles",
+        "critical",
+        "--dry-run",
+    )
+    assert code == 0, error
+    assert [i["code"] for i in env["issues"] if i["code"].startswith("route.role")] == ["route.role-none"]
+    assert env["result"]["roles"] == [] and not env["result"].get("plan")
+    assert env["result"]["selected"] == [] and env["result"]["tracks"] == 0
+
+
+def test_roles_file_with_missing_pads(monkeypatch, tmp_path: Path) -> None:
+    """``--roles-file`` names the role document; a group whose pads the board lacks is ``unrouted`` with
+    reason ``pads``, its proposal and one ``route.role-unrouted``."""
+    board = tmp_path / "two_pads.kicad_pcb"
+    board.write_bytes(TWO_PADS.read_bytes())
+    document = {
+        "schema": "fenolite.roles.v0",
+        "roles": {
+            "gates": [{"name": "gate_X", "drive": "U9-1", "gate": "Q9-1", "source": "Q9-2", "ret": "U9-2"}]
+        },
+    }
+    (tmp_path / "mine.roles.json").write_text(json.dumps(document), encoding="utf-8")
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", str(board), "--router", "octilinear", "--roles", "critical",
+        "--roles-file", "mine.roles.json", "--dry-run",
+    )  # fmt: skip
+    assert code == 0, error
+    (entry,) = env["result"]["roles"]
+    assert (entry["group"], entry["status"], entry["reason"]) == ("gate_X", "unrouted", "pads")
+    assert entry["proposal"]["kind"] == "move-part"
+    assert [i["code"] for i in env["issues"] if i["code"].startswith("route.role")] == ["route.role-unrouted"]
+    code, _, error, _ = run(
+        monkeypatch, tmp_path, "route", str(board), "--router", "octilinear", "--roles", "critical",
+        "--roles-file", "mine.roles.json", "--require-complete", "--dry-run",
+    )  # fmt: skip
+    assert code == 5 and error["code"] == "FEN-5001"
