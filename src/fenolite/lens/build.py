@@ -842,7 +842,9 @@ def block_checks(design: Design) -> list[Issue]:
             if net is None:
                 continue
             pins_out = any(not _inside(paths.get(m.component_id, ""), block) for m in net.members)
-            ports_out = any(owner != block and not _inside(owner, block) for owner, _ in ports_on.get(net_id, ()))
+            ports_out = any(
+                owner != block and not _inside(owner, block) for owner, _ in ports_on.get(net_id, ())
+            )
             named_out = net_id not in port_named and not _inside(net.name, block)
             if pins_out or ports_out or named_out or net_id in in_interfaces:
                 wired = True

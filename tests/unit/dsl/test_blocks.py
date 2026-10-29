@@ -227,3 +227,36 @@ def test_placement_inside_a_block() -> None:
     design = example()
     assert design.parts["ch1/R_EN"].request is not None
     assert design.parts["ch1/R_EN"].request.x == mm(40).nm
+
+
+def test_schematic_implicit_altium_groups() -> None:
+    from fenolite.dsl import schematic_composition
+
+    design = example()
+    design.schematic_layout(mode="blocks")
+    intent = schematic_composition(design, target="altium")
+    assert intent is not None
+    groups = {b.key: b for b in intent.blocks}
+    assert set(groups) == {"ch0", "ch0/led", "ch1", "ch1/led"}
+    assert groups["ch0"].members == ("ch0/C_FB", "ch0/R_EN") and groups["ch0"].title == "ch0 (channel)"
+    assert groups["ch1/led"].members == ("ch1/led/D", "ch1/led/R") and groups["ch1/led"].anchor is None
+
+
+def test_schematic_declared_block_replaces_and_takes_members() -> None:
+    from fenolite.dsl import schematic_composition
+
+    design = example()
+    design.schematic_layout(mode="blocks")
+    design.schematic_block("ch0", members=[design.parts["ch0/R_EN"]], title="first")
+    design.schematic_block("rest", members=[design.parts["ch1/R_EN"]])
+    intent = schematic_composition(design, target="altium")
+    assert intent is not None
+    groups = {b.key: b for b in intent.blocks}
+    assert groups["ch0"].title == "first" and groups["ch0"].members == ("ch0/R_EN",)
+    assert groups["ch1"].members == ("ch1/C_FB",) and groups["rest"].members == ("ch1/R_EN",)
+
+
+def test_schematic_no_mode_no_implicit_intent() -> None:
+    from fenolite.dsl import schematic_composition
+
+    assert schematic_composition(example(), target="altium") is None

@@ -110,3 +110,48 @@ def test_block_net_escape_needs_no_port_binding() -> None:
     issues = build(design).issues
     assert len(found(list(issues), "build.block-net-escape")) == 0  # the port binds GND
     assert not found(list(issues), "build.port-unused")
+
+
+def altium(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *extra: str) -> tuple[int, dict[str, Any]]:
+    monkeypatch.setenv("FENOLITE_STATE_DIR", str(tmp_path / "state"))
+    script = tmp_path / "design.py"
+    if not script.exists():
+        # an Altium comment holds Windows-1252 only, so the values are plain strings here, not Ω quantities
+        text = example_text()
+        for value in ("1k", "10k", "22k"):
+            text = text.replace(f'ohm("{value}")', f'"{value}"')
+        script.write_text(text, encoding="utf-8")
+    stdout = io.StringIO()
+    monkeypatch.setattr("sys.stdout", stdout)
+    out = tmp_path / ("out" + "_".join(extra))
+    args = ["build", str(script), "--out", str(out), "--target", "altium", "--dry-run", "--json", *extra]
+    code = cli_main.main(args)
+    return code, json.loads(stdout.getvalue())
+
+
+def test_example_implicit_altium_groups(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    code, env = altium(tmp_path, monkeypatch, "--altium-layout", "blocks")
+    assert code == 0, env
+    assert "schematic_composition" in env["result"]
+    assert not [i for i in env["issues"] if "unused" in i["code"]]
+
+
+def test_example_no_mode_no_implicit_intent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    code, env = altium(tmp_path, monkeypatch)
+    assert code == 0, env
+    assert "schematic_composition" not in env["result"]
+    assert not [i for i in env["issues"] if "unused" in i["code"] or "intent" in i["code"]]
+
+
+def test_sheet_named_after_the_block(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    script = tmp_path / "design.py"
+    script.write_text(example_text(), encoding="utf-8")
+    stdout = io.StringIO()
+    monkeypatch.setattr("sys.stdout", stdout)
+    out = tmp_path / "out"
+    assert cli_main.main(["build", str(script), "--out", str(out), "--confirm", "--json"]) == 0
+    assert (out / "sheets" / "ch0.kicad_sch").is_file() and (out / "sheets" / "ch0.led.kicad_sch").is_file()
+    root = (out / "blocks_demo.kicad_sch").read_text(encoding="utf-8")
+    assert '(property "Sheetname" "ch0 (channel)"' in root
+    child = (out / "sheets" / "ch0.kicad_sch").read_text(encoding="utf-8")
+    assert '(property "Sheetname" "led (indicator)"' in child
