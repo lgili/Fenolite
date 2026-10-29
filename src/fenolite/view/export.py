@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+from functools import cache
 from importlib import resources
 from typing import Any, cast
 
@@ -13,11 +14,20 @@ from fenolite.view.compact import pack, unpack
 
 DATA_MARK = "/*__DATA__*/null"
 LIVE_MARK = "/*__LIVE__*/false"
+CSS_MARK = "/*__CSS__*/"
+JS_MARK = "/*__JS__*/"
 
 
+@cache
 def template() -> str:
-    """The page as packaged, with its two placeholders."""
-    return resources.files("fenolite.view").joinpath("page.html").read_text(encoding="utf-8")
+    """The page as packaged, with its two placeholders: the shell ``static/page.html`` with the committed
+    bundles ``static/viewer.css`` and ``static/viewer.js`` inlined (change c0304; ``viewer/build.mjs``
+    makes the three files from ``viewer/src``)."""
+    static = resources.files("fenolite.view").joinpath("static")
+    shell, css, js = (
+        static.joinpath(name).read_text(encoding="utf-8") for name in ("page.html", "viewer.css", "viewer.js")
+    )
+    return shell.replace(CSS_MARK, css, 1).replace(JS_MARK, js, 1)
 
 
 def _json(value: Any) -> str:

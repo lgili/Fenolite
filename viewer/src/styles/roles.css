@@ -1,0 +1,29 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Copyright (c) 2026 Fenolite contributors */
+/* The Net roles panel (c0305): the legend, the rows of nets, groups and findings, and its foot. A role chip takes
+   its colour from the canvas palette of roles/roles (an inline style), never from a literal here. */
+.rsum { display:flex; align-items:center; gap:var(--space-2); flex-wrap:wrap; margin:0; color:var(--text-2); font-size:var(--text-sm); }
+.rev { padding:0 6px; border-radius:9px; background:var(--surface-3); color:var(--text-2); font:600 var(--text-xs)/18px var(--mono); }
+.rlegend { display:flex; flex-wrap:wrap; gap:var(--space-1); }
+.rleg { display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 8px 0 4px; border:1px solid var(--border); border-radius:13px;
+  background:var(--surface-2); color:var(--text-1); font-size:var(--text-sm); cursor:pointer; }
+.rleg:hover { border-color:var(--border-strong); }
+.rleg.on { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft); }
+.rlegN { color:var(--text-3); font-variant-numeric:tabular-nums; font-size:var(--text-xs); font-weight:600; }
+.rchip { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:18px; padding:0 3px; border-radius:var(--radius-s);
+  font:700 10px/18px var(--mono); letter-spacing:0; flex:none; box-shadow:inset 0 0 0 1px var(--shadow); }
+.rlist { max-height:260px; overflow:auto; }
+.rrow { display:grid; grid-template-columns:26px minmax(0,1.4fr) minmax(0,.9fr) auto 14px; align-items:center; gap:6px; }
+.rnet { overflow:hidden; text-overflow:ellipsis; font-weight:500; }
+.rkind { overflow:hidden; text-overflow:ellipsis; color:var(--text-2); font-size:var(--text-sm); }
+.rkind small { margin-left:4px; color:var(--text-3); }
+.rconf { padding:0 5px; border-radius:var(--radius-s); background:var(--surface-3); color:var(--text-2); font-size:var(--text-xs); line-height:16px; }
+.rconf.c-high { color:var(--ok); } .rconf.c-medium { color:var(--warn); } .rconf.c-low { color:var(--err); }
+.rstate { text-align:center; color:var(--text-3); font-weight:700; }
+.rstate.s-confirmed { color:var(--ok); } .rstate.s-declared { color:var(--info); } .rstate.s-inferred { color:var(--warn); }
+.rcode { display:flex; align-items:center; gap:6px; margin-top:var(--space-1); color:var(--text-1); font-size:var(--text-sm); }
+#roleList .rfind { white-space:normal; line-height:1.4; padding:3px 6px 3px 20px; color:var(--text-2); font-size:var(--text-sm); }
+#roleList .rfind.sel { color:var(--text-1); }
+.rfoot { display:flex; flex-wrap:wrap; gap:var(--space-2); align-items:center; }
+.rfoot:empty { display:none; }
+.rlrow { grid-template-columns:20px 12px minmax(0,1fr) 0 24px; }

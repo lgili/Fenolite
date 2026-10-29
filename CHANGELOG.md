@@ -10,6 +10,85 @@ All notable changes to Fenolite are documented here. The format follows
 
 - **Net roles, phase 1: role copper** (c0243): `fenolite copper PATH` (KiCad board or built project, through the reviewed-plan protocol, with `--gate drc`) and the DSL call `design.role_copper(...)` (resolved by the build after placement, for the KiCad and the Altium target) generate the copper of the confirmed and declared net roles (c0222) of a placed board. Each `power` net gets one locked zone per layer, the union of bands along a rectilinear tree between its pads, hot-loop legs first, sized from the role's current by the S-0851 rule of thumb or, with a temperature rise, the S-0269 capacity fit, and widened up to twice that where the clearance allows; a `switch_node` keeps exactly its required width and the switching distance from its victims (`role.sw.*`); ground gets a plane per reference layer with stitching vias (at least two per overlap, 5 mm pitch by default); pads connect solid for power, switch-node and high-voltage nets and by thermal relief on through-hole ground pads only; via arrays where a net changes layer are counted from its current (`milliamps_per_via`); each `high_voltage` net gets a clearance rule and a keep-out band at the user's own distance (`roles.limit-missing` without one). Phase 2's locked routes and `role.corridor.<group>.<net>` areas are obstacles; run first, phase 1 writes provisional corridors of the same names, which `route --roles critical` replaces. The result is judged by c0222's role judge on the simulated pour (`roles.copper-worse`, nothing written); a manifest of fingerprints in `.fenolite/role-copper.json` keeps items the user edited (`roles.copper-kept`, `--regenerate`) and makes a second run plan nothing. The Altium build now resolves generated and role copper in its in-memory KiCad build (zones as polygons poured by c0215, keep-outs, Polygon Connect Style rules); `kicad.generate.altium` remains only for `--copper-from`. Each reference board of `examples/roles/` gains `good_roles.py` and `bad_roles.py`; eight issue codes (`roles.copper-*`, `roles.corridor-blocked`), hypotheses `H-G-ROLE-COPPER-*` and sources S-0860 to S-0863.
 - **Net roles, phase 2: critical routes** (c0244): `fenolite route PATH --router octilinear --roles critical [--group NAME]... [--rip] [--gate drc]` routes the gate loops and Kelvin pairs of the confirmed or declared net roles (c0222) before anything else, through the reviewed-plan protocol. c0228's octilinear router gains a role mode (feature `roles`, `RoutingJob.roles`, one `RoleOutcome` per route): gate loops first, then Kelvin pairs; a Kelvin branch enters its sense pad on the inner half, a gate return starts at the source or Kelvin-source pad, branches touch their own power copper only at their end pads, keep the profile's distance from switching copper, take the smallest gate-loop area or the shortest Kelvin pair, and the pattern-routing Z shapes join the five shapes. A `role_check` extra judges the roles before and after the job and removes a group that gets worse (`route.role-refused`); every written item is locked and every branch gets a corridor `role.corridor.<group>.<net>` that pours fill around. `result.roles` gives each group's status, findings before and after and its copper; a group that cannot be routed gets `route.role-unrouted` with a reason and a proposal from closed sets, and unconfirmed inferred groups are listed and not routed (`route.role-unconfirmed`).
+- **Net roles in the viewer** (c0305; the role view of c0245-engineering-viewer, brought into this viewer by
+  the maintainer's decision of 2026-10-29): `fenolite view BOARD --roles run` runs `fenolite roles BOARD
+  --check` read-only (or `--roles FILE` reads its reply) and joins it to the board as `scene.roles`
+  (`fenolite.view_roles.v0`, `fenolite.view.roles`); `result.roles` counts roles and findings, and the reply's
+  evidence is the lower of the board's and the roles'. A Net roles panel lists a legend of the role kinds with
+  colours and glyphs, each net's role, the hot loops, gate loops and Kelvin pairs and the role findings; the
+  Layers tab gets role colours of the copper, hatched loops with their measured area, dashed Kelvin sense lines
+  and role markers; the inspector shows a Role section after a net's Net section. `check_overlay` places
+  `roles.*` findings (stage `roles.rules`) on the group or `group:pad` they name. A served page runs `roles`
+  (`roles --check`, no option) and, with `--allow-actions`, plans Confirm roles (`roles --accept`,
+  `--accept-group`, only names its role data shows as inferred) through the plan, confirm and undo of c0303.
+- **Checks run from the viewer** (c0302): a page served by `fenolite view --serve` can run `check`, `analyze`, `ready` and `equivalent` itself, read-only, one job at a time. Each Project review card whose stages the server can run gets a **Run** control, and **Run from this page** picks the stages, the analyze kinds, a readiness check or a comparison with another document. A strip shows the command, its progress, the elapsed time and **Cancel**; a cancelled or timed-out run changes nothing. A `check` run replaces, stage by stage, the stages of the same name (`fenolite.view.project_review.merge`), each stage keeping its own input hash and evidence, so a stage of an older revision reads Limited; `analyze` paths become finding groups, `ready` and `equivalent` findings join the review list with Locate. Server routes `GET /runs`, `POST /run`, `GET /run/<job>`, `POST /run/<job>/cancel` behind the guard of `POST /marks` (`Host`, `Origin`, `X-Fenolite-Run: 1`, JSON, 16 KiB); the allow-list `fenolite.view.runs` takes a command name, a document id and typed options, never a command line or a path. Each run is a child process through the runner core shared with `fenolite mcp`, now `fenolite.cli.childrun`. New options `--run-timeout SECONDS` (default 600) and `--no-run`; `result.serve.runs` counts the runs by final state. `docs/viewer.md`, "Running checks from the page".
+- **Writing actions from the viewer** (c0303): `fenolite view --serve --allow-actions` lets the page fill zones, tidy copper (with `--gate drc`), place designators or clip silkscreen, place test points, waive a KiCad DRC finding with a reason (`check --exclude`), move or rotate a part (`place --move`), shift or turn parts with their copper, and export fabrication files or the BOM under the project. Each action is a dry run first: a plan dialog lists the files (sizes, new and replaced SHA-256), the issues and the evidence, and draws the staged board's changes over the current one with the revision compare; Confirm writes exactly that plan (`--confirm --plan`), a changed file asks for a new review (`FEN-4002`), and the receipt follows, kept in `view-receipts/` of the state folder so that Undo plans `fenolite restore` on it. Routes `GET /actions`, `POST /action/plan`, `/action/confirm`, `/action/undo`, behind the run guard with `X-Fenolite-Action: 1` and a per-session token; the allow-list `fenolite.view.actions` fills fixed templates with typed options, confines outputs to the project root and writes no Altium document. `result.serve.writes` lists the session's receipts. `docs/viewer.md`, "Actions: writing from the page".
+- **A professional shell for the viewer** (c0300): one set of interface tokens (spacing, type, radii,
+  surfaces, text, accent, focus, severity) with a dark and a light theme that follows the system until the user
+  picks one (`fenolite.view.theme`), each text colour at 4.5:1 or more on its surface; a document keeps its own
+  colours. The toolbar is grouped as View (2D/3D, Fit, Top/Bottom with the far side's opacity), Tools
+  (Measure with Point and Edge gap, Mark, mm/mil) and Share (Copy link, Export: SVG and Print at a scale), each
+  button with an icon drawn for Fenolite, an accessible name and a tooltip with its shortcut; the duplicate
+  "Fit" and "Clear" controls are gone. One command registry (`viewer/src/core/commands.ts`) feeds the toolbar,
+  the shortcuts, the shortcut sheet (`?`) and a command palette (`Ctrl+K`, `Cmd+K` on macOS) that also jumps to
+  parts, nets, documents and library items (`>` commands, `@` parts, `#` nets). The side bar opens with the
+  Project review and its card states, then one remembered disclosure per panel with a count; Components and
+  Nets sort (reference in natural order, value, footprint; name, pads, routed length) and finding groups at 0
+  fold into one line. The status bar shows the cursor, the grid, the zoom, the layer, the selection, the unit
+  and the live state; the SHA-256, size, backend and evidence moved to "About this document". Loading shows a
+  progress bar, a failed read offers Retry, empty lists say why. Run checks of c0302 is in the toolbar and the
+  palette. The visual tests run in the dark interface theme, `kicad_board_light.png` covers the light one, and
+  the references were regenerated. `docs/viewer.md`, "The page".
+- **The viewer's inspector, Layers panel and 3D controls** (c0301): a dock at the right of the drawing, never over
+  it, with a Properties tab (the inspector) and, on boards and footprints, a Layers tab that the 3D panel replaces
+  in 3D; `I` hides it, its edge resizes it (240 to 480 px), and at 760 px and below it is a bottom sheet that a
+  selection opens and `Esc` closes. The inspector shows the selection in sections (Part, Pad, Track, Arc, Via,
+  Zone, Net, Keep-out, Finding; sheets, libraries and drawings alike), each value in the page's unit with a copy
+  control, "Copy all", values the file does not hold left out, and the document's summary when nothing is
+  selected; its actions are registry commands also listed in the palette: Zoom to, Highlight net, Select part,
+  Find similar, Show in schematic or Show on board, Open in review, and with `--allow-actions` Move part and
+  Waive finding (c0303). A selected net, part or filter result is drawn in its own colours with an outline in the
+  `--emphasis` token instead of being lightened, its zone fills lighter and outlined, the rest dimmed at 22 %.
+  The Layers panel lists every layer by its full name in groups with visibility, opacity, the current layer and
+  the presets, so the layer tabs leave the bottom bar of boards (sheets keep their document tabs). In 3D the
+  2D-only controls are hidden, a view cube sets the six face views and the corner views (animated), the light is
+  an ambient, a key and a fill term, extruded bodies take a charcoal body colour with a lighter top, and the 3D
+  panel shows or hides bodies, board, silkscreen and copper. New visual tests (`test_inspector.py`,
+  `test_layers.py`, `test_3d.py`) and the reference `kicad_board_net.png`; the references were regenerated with
+  the dock. `docs/viewer.md`, "The page" and "Units and measurement".
+- **Waive and stale results in the viewer** (c0303, two fixes found in testing): Waive is not offered on a
+  finding of a check of an earlier revision of the file, and the page says why; after an action writes a project
+  file the checks read (a waiver writes the `.kicad_pro`), the document's review results are marked stale until a
+  check runs again, and the run strip, the Project review and the inspector offer Run again.
+
+### Changed
+
+- **The viewer page is built from TypeScript modules** (c0304; the maintainer's decision of 2026-10-29, before
+  the redesign of c0300 and c0301): the old single `src/fenolite/view/page.html` (188 KB of inline CSS, markup
+  and vanilla JavaScript) is now about fifty modules under `viewer/src/` (`core`, `board`, `measure`, `three`,
+  `sch`, `panels`, `dialogs`, `table`, `library`, `export`), type-checked by the TypeScript compiler and linked
+  by `viewer/build.mjs` into one script whose top-level names stay page globals; the board, sheet and WebGL
+  renderers are moved, not rewritten. Preact (MIT, bundled, listed in `NOTICE`) renders the Changes, Messages,
+  Findings and Navigator panels. The build writes `src/fenolite/view/static/` (`page.html`, `viewer.js`,
+  `viewer.css`, `manifest.json`), which is committed and inlined by `fenolite.view.export.template()`, so the
+  served page and `--export` stay one offline file and installing Fenolite needs no Node. `make viewer`
+  rebuilds (Node 22, `tools/build_viewer.py`), `make viewer-check` fails on a stale bundle and runs in the
+  `viewer` CI job, and `tests/unit/view/test_viewer_bundle.py` checks the recorded digests without Node.
+  Nothing changes on screen: the page's unit tests and the 69 visual tests with their references pass unchanged.
+  The page code of c0302 and c0303 lives in `review/runs.ts`, `panels/run-strip.tsx` and the Run controls of
+  `panels/project-review.ts`, and in `actions/actions.ts`, `dialogs/plan-review.tsx` and `panels/receipts.tsx`.
+- **The viewer changes of v0.7 renumbered** (2026-10-29): written as c0243 to c0247 (and c0255 for
+  `viewer-roles`), renumbered c0250 to c0255 (which freed c0243 to c0245 for another session's changes), then
+  c0268 to c0273, they are now c0300 (`viewer-shell`), c0301 (`viewer-inspector`), c0302 (`viewer-run-checks`),
+  c0303 (`viewer-actions`), c0304 (`viewer-build`) and c0305 (`viewer-roles`): on 2026-10-29 the range c0300 to
+  c0305 was reserved for the viewer, away from the c0246 to c0279 of the maintainer's `circuits-as-code` line
+  (which continues from c0280 in its own line). New changes on this branch start at c0306.
+
+### Fixed
+
+- **The viewer's Node-run tests on Windows**: the tests that run `node` (`tests/unit/view/`, `tests/_visual.py`)
+  decode its output as UTF-8 instead of the locale's code page, so `×` and `²` no longer turn into cp1252
+  garbage in `unit (windows-latest, py3.12)`.
 
 ## [0.6.0] - 2026-10-29
 
