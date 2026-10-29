@@ -1,14 +1,14 @@
 ## ADDED Requirements
 
 ### Requirement: Library action words
-`fenolite library` SHALL read its first positional as an action when it is `symbol`, `check`, `review`, `import`, `propose` or `fetch`, and as the board path of the existing form otherwise. An action that is not available in the installed version MUST exit 2 with `FEN-2001`. The forms `fenolite library BOARD --out LIB.pretty` and `--diff LIBRARY` MUST behave as before.
+`fenolite library` SHALL read its first positional as an action when it is `symbol`, `check`, `review`, `import`, `propose` or `seed`, and as the board path of the existing form otherwise. An action that is not available in the installed version MUST exit 2 with `FEN-2001`. The forms `fenolite library BOARD --out LIB.pretty` and `--diff LIBRARY` MUST behave as before.
 
 #### Scenario: Existing form unchanged
 - **WHEN** `fenolite library board.kicad_pcb --out lib.pretty --dry-run --json` runs on the example board
 - **THEN** its result and plan equal those of the base commit
 
 #### Scenario: Reserved action
-- **WHEN** `fenolite library fetch --json` runs before c0266 lands
+- **WHEN** `fenolite library seed --json` runs before c0266 lands
 - **THEN** it exits 2 with `FEN-2001` and writes nothing
 
 ### Requirement: Library symbol command

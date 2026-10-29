@@ -290,7 +290,7 @@ q.pin("8", "V+", etype="power_in", at=("0mm", "7.62mm"), length="2.54mm", rotati
   given; they share one library file. The result lists per symbol its units, the pins per side and the
   findings. `--out` must be relative and end in `.kicad_sym` or `.SchLib` (`FEN-2001`).
 - **Action words of `fenolite library`.** The first positional is an action when it is one of `symbol`,
-  `check`, `review`, `import`, `propose`, `fetch` (the last five are reserved here for c0262, c0264,
+  `check`, `review`, `import`, `propose`, `seed` (the last five are reserved here for c0262, c0264,
   c0265 and c0266, and give `FEN-2001` "not available in this version" until those land). Any other first
   positional is the board path of the existing form, which keeps working; a board folder literally named
   like an action is passed as `./check`. *Alternative considered:* a new top-level command

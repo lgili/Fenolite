@@ -10,7 +10,7 @@ Research section 4.1 of `docs/research/component-library.md` proposes one data f
 library, after LibrePCB and Horizon EDA (concepts only): **pins**, **package**, **device** and **part**
 records as TOML files, each with a stable id, a semantic version, a licence, its sources, its evidence and
 its reviews; an interface change makes a new id and deprecates the old one. The later library changes
-(c0260 to c0267) all read and write this format, and c0266 ships it in a separate data repository.
+(c0260 to c0267) all read and write this format, and c0266 ships it in `fenolite-library` (c0279).
 
 The maintainer decided on 2026-10-29 that data from a source whose licence is CC0-1.0, such as the
 LibrePCB official libraries, may seed the data, openly and with its origin recorded. The living catalog
@@ -56,7 +56,7 @@ requirement forbids copying from any other CAD library, so it is changed here.
 - No `fenolite library check`, review command or visual diff (c0262); this change only defines the
   `reviewed_by` entry those write.
 - No family grammar (c0254 owns `fenolite.family.v0`, c0263 extends it); families join the same tree.
-- No data repository, fetch or pack precedence (c0266). No import of user files (c0264).
+- No library repository, `fenolite get` or vendored-record precedence (c0266, c0279). No import of user files (c0264).
 - No seeding from LibrePCB here: the converter is c0266's. No STEP bodies (c0260).
 
 ## Evidence level required

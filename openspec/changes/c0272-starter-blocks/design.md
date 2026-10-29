@@ -283,7 +283,7 @@ It joins `checks.codes.ISSUE_CODES`, explained by `fenolite explain`, listed in 
 3. Should `circuit.pullup-parallel` be part of c0252 instead? **Recommended:** keep it here, where the first
    block that can cause it ships; c0252's stage owns the code table either way.
 4. Should the starter blocks live in a separate package from the start? **Recommended:** no (research
-   question 1): in the core, versioned with Fenolite; c0273 serves further blocks.
+   question 1): in the core, versioned with Fenolite; c0273 serves further blocks from `fenolite-library` (c0279).
 
 ## Relation to the other changes of this batch
 
@@ -292,5 +292,5 @@ It joins `checks.codes.ISSUE_CODES`, explained by `fenolite explain`, listed in 
 - **c0270**: the usage examples, tests and golden files follow its convention and run in its CI.
 - **c0271**: one layout per block, captured from the usage board; the LED polarity and the protection
   layout properties are tests on it.
-- **c0273**: further blocks in a package; the starter blocks are the model for its CI.
+- **c0273**: further blocks in `fenolite-library`; the starter blocks are the model for its CI.
 - **c0254**: the generators and constants; **c0253**: the expectations; **c0252**: rails, buses and the stage.

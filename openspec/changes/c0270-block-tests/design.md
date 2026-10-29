@@ -23,7 +23,7 @@
 
 **Goals**
 
-- One convention, the same for the shipped library, a block package (c0273) and a project's blocks.
+- One convention, the same for the shipped library, a library block item (c0273) and a project's blocks.
 - A test states the outside world in one argument and reads the verdicts of the block's own
   expectations.
 - A block's output is pinned by a reviewed golden file and changes only through plan and confirm.
@@ -249,5 +249,5 @@ Each code is explained by `fenolite explain` and listed in `docs/cli-contract.md
 - **c0271** (block layouts): layout property tests use `PartView.at` and c0271's layout reader; c0271's
   KiCad DRC test of laid-out usage boards runs in the same CI folder.
 - **c0272** (starter blocks): the first library under this convention.
-- **c0273** (block packages): `fenolite blocks test` runs a package's blocks the same way; a package's CI
+- **c0273** (library blocks): `fenolite blocks test` runs vendored library blocks the same way; `fenolite-library`'s CI
   runs the command.

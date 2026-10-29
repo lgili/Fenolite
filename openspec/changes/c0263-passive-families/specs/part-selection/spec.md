@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Grammar family rows
-A `fenolite.family.v1` record SHALL be a row source of c0254, read from the same places as v0 families and from installed packs. Its candidates MUST be the encode candidates of the query, each an in-memory c0248 device with `id = "<family id>@<MPN>"`, `manufacturer`, `mpn`, symbol, footprint, the pins `1` and `2`, `kind`, `value` and ratings in c0248's integer units.
+A `fenolite.family.v1` record SHALL be a row source of c0254, read from the same places as v0 families and from family items vendored from `fenolite-library` (c0266). Its candidates MUST be the encode candidates of the query, each an in-memory c0248 device with `id = "<family id>@<MPN>"`, `manufacturer`, `mpn`, symbol, footprint, the pins `1` and `2`, `kind`, `value` and ratings in c0248's integer units.
 
 #### Scenario: A pick of an exact MPN
 - **GIVEN** `examples/families/` holding `example_mlcc.toml` beside a script that asks `capacitor(farad("100n"), rating=volt(25), case="0603", dielectric="X7R")` with an empty lock

@@ -216,8 +216,9 @@ SHA-256 per instance.
    1 µm; a part without a fit, or a copied item that the settling drops, is `blocks.capture-check-failed`
    (error), and nothing is written.
 6. **Output.** `-o FILE`, or `<folder of the block's module>/layouts/<name>.toml` when that folder lies under
-   the working directory; for a block of the installed package or of a block package (c0273), `-o` is
-   required (`FEN-2001`). The file is written through the plan and confirm protocol with a receipt; keys in
+   the working directory; for a block of the installed package, `-o` is required (`FEN-2001`). A vendored
+   library block (c0273) lies under the working directory, so the default writes into its vendored folder,
+   which then differs from its pin (c0279's `library.item-modified` on the next `fenolite get`). The file is written through the plan and confirm protocol with a receipt; keys in
    a fixed order, parts by local path, items by layer, net and coordinates, so equal inputs give equal bytes.
 
 `result.capture`: `instance`, `block`, `version`, `file`, `parts`, `tracks`, `arcs`, `vias`, `zones`,
@@ -314,5 +315,5 @@ code.
 - **c0270** tests layouts: `PartView.at` and `read_block_layout` in a block's tests; the KiCad DRC test runs in
   `tests/kicad/blocks/`.
 - **c0272** ships one layout per starter block, captured from its usage example.
-- **c0273**: a block package ships its layouts as package data; `capture` needs `-o` for it.
+- **c0273**: a library block item ships its layouts in its item folder; capturing into a vendored copy edits it.
 - **c0250**: decision 7.

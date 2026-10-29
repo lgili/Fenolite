@@ -4,116 +4,65 @@ c0268 gives blocks records, versions and a catalog, but the catalog only knows t
 Fenolite and Python files named on the command line. A block library must grow beyond the core without
 making the core heavier. It must not tie a block fix to a Fenolite release, and it must not let a project
 build differently on another machine. The research of 2026-10-29 (`docs/research/circuit-blocks.md`, section
-2 gap 6, section 3.7 and row c0273 of section 4) proposes three tiers:
+2 gap 6, section 3.7 and row c0273 of section 4) proposes three tiers: a small starter library in the core,
+further blocks outside it, and a project's own blocks.
 
-- a small starter library `fenolite.blocks` in the core;
-- further blocks in a separate Python package `fenolite-blocks`, which a project declares as its own
-  dependency;
-- a project's own blocks beside its script.
+The maintainer decided on 2026-10-29 that blocks outside the core live in **`fenolite-library`**
+(github.com/lgili/fenolite-library, c0279), the single repository for all third-party-derived and library
+material, as its kind `blocks`, pulled into a project by `fenolite get block <id>`. The separate
+distribution `fenolite-blocks` with entry points, first proposed here, is dropped. Discovery without import,
+pinned versions and a reviewed upgrade stay.
 
-Blocks are code, so the data-only packs of c0266 cannot carry them. Discovery must find installed packages
-without running their code, the lock must pin the versions that served a build, and an upgrade must be
-planned and reviewed.
-
-atopile ships blocks as versioned packages with a manifest and a registry, and Altium offers push-or-stay
-updates with Where-Used. Only these concepts are taken. Fenolite uses standard Python packaging (entry
-points, S-0218) and its own lock, and copies no manifest schema, registry protocol or package content.
+Only concepts are taken from atopile (versioned packages) and Altium (push-or-stay updates).
 
 ## What Changes
 
 - **Three tiers, one catalog.**
   - **Starter library.** `fenolite.blocks` in the core: Apache-2.0, stdlib only, namespace `Fenolite`,
     versioned with Fenolite. c0272 fills it.
-  - **Block packages.** A Python distribution declares an entry point in the group `fenolite.blocks`, whose
-    name is the namespace and whose value is a top-level package. It ships a generated, static index
-    `fenolite-blocks-index.json` beside its code. The official package is `fenolite-blocks` (namespace
-    `FenoliteBlocks`, Apache-2.0, separate repository). Other authors use the same mechanism with their own
-    namespaces.
+  - **Library blocks.** The `blocks` kind of `fenolite-library`. One item is one block: a Python package
+    folder with the block's code, its c0268 record file `block.json`, and c0270/c0271 files.
+    Fenolite-authored items use the namespace `FenoliteBlocks` and Apache-2.0. `fenolite get block ID`
+    vendors an item into `fenolite_library/blocks/<Namespace>/<name>/` beside the script, and the script
+    imports it from there.
   - **Project blocks.** Plain Python modules beside the script, as in c0251 and c0268.
-- **Discovery without import side effects.** `blocks list`, `show`, `doc` and `capabilities` read
-  installed packages through `importlib.metadata` entry points and `importlib.util.find_spec` of a
-  top-level package, and read the index file. No module of a package is imported. Only a design script that
-  imports a block runs package code, as it runs any Python.
-- **The index.** `fenolite blocks index PACKAGE_DIR --out FILE` describes every block of a package
-  (c0268's `describe`) and writes `fenolite.block-index.v0` through plan and confirm. `--check` fails on a
-  stale index, for the package's own CI.
-- **Pinned in the lock.**
-  - c0249's lock gains `[block-packages."<distribution>"]` with `version`, `namespace` and `index` (the
-    SHA-256 of the index file). It is written only for packages that served a block instance of the build.
-  - Instance versions stay in c0268's `[blocks]`, and a changed block version still stops the build
-    (`lock.block-version`).
-  - A changed package version whose used blocks kept their versions moves the pin with
-    `lock.block-package-moved` (info). `--frozen` refuses that, as any lock change.
-  - A pinned package that is not installed exits 6 with a new code, `FEN-6006`, whose hint names the
-    install command.
-- **`fenolite blocks upgrade SCRIPT`** runs the script as a build does, without writing outputs. It plans
-  the lock rewrite that takes the installed versions, for all instances or for `--block ID` and
-  `--package NAME`.
-  - The plan lists each instance's version step (patch or minor), the installed record, its deprecation,
-    and the build issues under the new versions.
-  - With `--out DIR`, it also lists the circuit differences of each instance against the last build in
-    `DIR`.
-  - It writes only the lock, through plan and confirm, with a receipt. It never edits the script.
-- **Namespaces.** `Fenolite` stays reserved for the core. Two distributions that claim one namespace give
-  `blocks.namespace-conflict` (error). A record whose namespace differs from its entry point's name is
-  refused.
-
-## Capabilities
-
-### New Capabilities
-
-None. `block-library` is created by c0268.
-
-### Modified Capabilities
-
-- `block-library`: ADDED "Starter library in the core", "Block package entry points", "Block package
-  index", "Discovery without import", "Block package namespaces", "Index matches the installed blocks".
-- `design-dsl`: ADDED "Block packages in the design lock", "Missing pinned block package".
-- `cli-contract`: ADDED "Blocks index command", "Blocks upgrade command", "Upgrade review content", "Block
-  package error code", "Block packages in capabilities and doctor".
-
-## Dependencies
-
-- **c0268 block-records** (required): records, `describe`, `record_json`, digests, the catalog sources,
-  the `[blocks]` section and `lock.block-version`.
-- **c0249 design-lock** (required): `LockSection`, plan and confirm of the lock, `--frozen`.
-- **c0266 device-packs**: the model this change follows for "pin only what is used" and for discovery
-  through `importlib.metadata` without import. Packs carry data; block packages carry code.
-- Independent of c0269 to c0272. c0272's blocks are the first content of the starter library.
+- **Discovery without import.** `blocks list`, `show` and `doc` read vendored blocks from their
+  `block.json` files (the catalog source `library`), without importing any module. Only a design script
+  that imports a block runs its code, as it runs any Python.
+- **The record file.** `fenolite blocks index ITEM_DIR --out FILE` describes the item's block (c0268's
+  `describe`) and writes `fenolite.block-item.v0` through plan and confirm. `--check` fails on a stale file,
+  for the library's CI. A build compares each used vendored block with its record file.
+- **Pinned in the lock.** c0268's `[blocks]` keeps instance versions. c0279's `[library.items."block/<id>"]`
+  pins the item version, release and tree digest. A missing vendored folder exits 6 with c0279's
+  `FEN-6004`.
+- **`fenolite blocks upgrade SCRIPT`** plans the `[blocks]` rewrite after a `fenolite get block --version`,
+  with each instance's version step, the new record, deprecations, build issues and, with `--out DIR`,
+  circuit differences. It writes only the lock, through plan and confirm.
+- **Namespaces.** `Fenolite` stays reserved for the core; a vendored item claiming it is ignored with
+  `blocks.namespace-reserved`.
+- **The library's CI for blocks:** record-file check, c0268 version rules, c0270 tests, no-side-effect
+  import test.
 
 ## Non-goals
 
-- No registry service, no download command and no package installation by Fenolite. Installing a package
-  is the project's tool's job (`uv add fenolite-blocks`, `pip install`).
-- No content of `fenolite-blocks` is specified here. Its first release is decided in its repository, under
-  the rules of c0268 and c0272.
-- No two versions of one package in one environment. Python imports one.
-- No change of `pyproject.toml` `dependencies` or extras of Fenolite. The core never depends on a block
-  package.
+- No entry-point packages, no `fenolite-blocks` distribution, no `[block-packages]` lock section and no
+  `FEN-6006` (dropped from the first version).
+- No content of the library's blocks is specified here; the first items follow c0268 and c0272.
+- No two versions of one block id in one project.
+- No change of `pyproject.toml` `dependencies` or extras.
 
 ## Evidence level required
 
-- Discovery, index, namespaces, lock pins and upgrade plans: `INFERRED`, unit-tested with a test
-  distribution installed into a temporary environment, and no network (`H-G-BLOCK-PACKAGES`).
+- Discovery, record files, namespaces, lock pins and upgrade plans: `INFERRED`, unit-tested with blocks
+  vendored from a local release built from authored fixtures, no network (`H-G-BLOCK-PACKAGES`).
 
 ## Impact
 
-- New:
-  - `src/fenolite/cli/blockpkg.py` (entry points, `find_spec`, index reading);
-  - `src/fenolite/dsl/blockindex.py` (index schema, canonical text);
-  - the verbs `blocks index` and `blocks upgrade` in `cli/cmd_blocks.py`;
-  - `tests/data/blocks/pkg/` (an authored test distribution, CC0) and tests under `tests/unit/cli` and
-    `tests/unit/blocks`;
-  - `docs/blocks.md` sections "Packages" and "Upgrading".
-  - Outside this repository: the `fenolite-blocks` repository with its CI (index check, version rules,
-    usage builds of c0270).
-- Changed:
-  - `cli/blocksrc.py` (the source `package`);
-  - `dsl/lock.py` (section `block-packages`);
-  - `cli/cmd_build.py` and `cli/_script.py` (package pins, `FEN-6006` mapping);
-  - `cli/errors.py` and `cli/data/explain.toml`;
-  - `cli/cmd_capabilities.py` and `cli/cmd_doctor.py`;
-  - `docs/cli-contract.md`;
-  - the guide page `commands.md`;
-  - `CHANGELOG.md`.
+- New: `src/fenolite/cli/blockvendored.py`, `src/fenolite/dsl/blockitem.py`, the verbs `blocks index` and
+  `blocks upgrade`, `tests/data/library/demo/blocks/` (authored, CC0), tests, `docs/blocks.md` sections
+  "Library blocks" and "Upgrading". Outside: the blocks jobs of `lgili/fenolite-library`'s CI.
+- Changed: `cli/blocksrc.py` (source `library`), `cli/cmd_build.py` and `cli/_script.py` (record-file
+  check, `get` hint), `cli/cmd_blocks.py`, `docs/cli-contract.md`, the guide page `commands.md`,
+  `CHANGELOG.md`.
+- Depends on: c0268 (required), c0249 (lock), c0279 phase A (`get`, `[library.items]`, `FEN-6004`).
 - Size: about 4 design-days (S).

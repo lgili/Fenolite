@@ -37,7 +37,7 @@ few generic blocks, and none ships requirements that are judged on every build.
 - No block for a specific IC, no vendor device record, no value table copied from any source.
 - No derating number: power and voltage are judged against ratings at 100 % in expectations (c0253 applies
   the user's policy to its own ratings checks).
-- No second package (`fenolite-blocks`, c0273).
+- No library blocks: those are items of `fenolite-library`, pulled by `fenolite get block` (c0273, c0279).
 
 ## Evidence level required
 

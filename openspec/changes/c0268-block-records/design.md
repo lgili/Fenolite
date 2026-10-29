@@ -287,7 +287,7 @@ test), not the build.
 The package `fenolite.blocks` is created empty here. It may import only `fenolite.dsl`, `fenolite.model`
 and `core`, and only `cli` and the root modules import it (`package-layering`, "Allowed import edges").
 
-c0273 adds a third source, `package`, read from installed metadata without import. Two entries with one id
+c0273 adds a third source, `library`, read from the record files of blocks vendored from `fenolite-library` (c0279), without import. Two entries with one id
 give `blocks.duplicate-id` (error) naming both sources. `list` still lists both, and `show` exits 3.
 
 ### 12. Commands
@@ -381,7 +381,7 @@ unit, outside its range or not a choice. No new `FEN-` code.
 - **Describe runs the block.** A block with a heavy or failing body slows or breaks `show`. Blocks are
   small by design. The error is reported, not raised, and `list` needs no elaboration.
 - **`--from` imports code.** A design script given by mistake is executed. The documentation warns about
-  it, and the command never writes anything during listing. c0273's package source needs no import.
+  it, and the command never writes anything during listing. c0273's `library` source needs no import.
 - **Version discipline for behaviour.** The digests see the record, not formulas inside the function.
   This is mitigated by c0270's golden JSON and by review. The version test catches every visible change.
 - **Hard stop on version mismatch.** Updating Fenolite updates the shipped blocks, so a project that
@@ -397,8 +397,8 @@ unit, outside its range or not a choice. No new `FEN-` code.
    Parsing texts into values needs the c0246 parser in the CLI, and defaults cover the catalog.
 3. **Should a PATCH difference also stop a build?** Recommended: yes, for 0.7. Every difference is a lock
    review, which is one command. Revisit if it proves noisy.
-4. **Licence of shipped blocks.** Recommended: Apache-2.0 like the code (research question 2). CC0 stays
-   for data packs (c0266).
+4. **Licence of shipped blocks.** Recommended: Apache-2.0 like the code (research question 2). Items of
+   `fenolite-library` keep their own licences (c0279).
 
 ## Relation to the other changes of this batch
 
@@ -407,10 +407,10 @@ unit, outside its range or not a choice. No new `FEN-` code.
 - **c0249:** a new lock section through `LockSection`, and one more case for "a lock exists".
 - **c0259:** the same header vocabulary and version discipline, applied to code records. A block is not a
   c0259 record kind and has no TOML form.
-- **c0266:** the same "pin only what is used" rule. Packs pin data; this pins blocks.
+- **c0266:** the same "pin only what is used" rule. c0279's `[library.items]` pins vendored items; this pins block instances.
 - **c0269 block-schematic:** independent. It reads ports, not records.
 - **c0270 block-tests:** adds `blocks test` and the usage and golden conventions.
 - **c0271 block-layouts:** ties a layout to `block` and `block_version` from the model.
 - **c0272 starter-blocks:** the first records, sources, pages and `VERSIONS.toml` rows.
-- **c0273 block-packages:** the `package` source, the static index (from `describe`), package pins and
-  `fenolite blocks upgrade`.
+- **c0273 block-packages:** the `library` source for blocks vendored from `fenolite-library` (c0279), their record files (from
+  `describe`) and `fenolite blocks upgrade`.

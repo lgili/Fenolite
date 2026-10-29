@@ -1,26 +1,21 @@
 ## ADDED Requirements
 
-### Requirement: Block packages in the design lock
-c0249's lock SHALL hold `[block-packages."<distribution>"]` with `version`, `namespace` and `index` (the index's SHA-256) for each distribution whose blocks an instance of the build uses, registered as a `LockSection`. A changed version or index whose used blocks keep their `[blocks]` versions MUST move the entry with `lock.block-package-moved` (info), and an unused entry MUST be dropped with `lock.block-package-released` (info).
+### Requirement: Library blocks in the design lock
+A build that uses a vendored library block SHALL record its instances in c0268's `[blocks]` and SHALL rely on c0279's `[library.items."block/<id>"]`, written by `fenolite get`, for the item version, release and tree digest. A build MUST NOT write any other lock section for library blocks, and blocks of the starter library or of the project get no `[library.items]` entry.
 
-#### Scenario: First use pins the package
-- **GIVEN** a design using `Acme:led` 1.0.0 from `acme-blocks` 0.3.0 and no lock
+#### Scenario: Vendored block pinned twice over
+- **GIVEN** a design using `Demo:led` 1.0.0 vendored by `fenolite get`, and no `[blocks]` entry yet
 - **WHEN** `fenolite build design.py --dry-run --json` runs
-- **THEN** the planned lock holds `[blocks]` with the instance and `[block-packages."acme-blocks"]` with version `0.3.0`, namespace `Acme` and the index digest
+- **THEN** the planned lock holds `"led1" = "Demo:led@1.0.0"` in `[blocks]`, keeps `[library.items."block/Demo:led"]` unchanged, and holds no `[block-packages]` section
 
-#### Scenario: Package release with unchanged blocks
-- **GIVEN** that lock and `acme-blocks` 0.4.0 installed, in which `Acme:led` is still 1.0.0
-- **WHEN** the design is built
-- **THEN** the build succeeds, the lock's entry moves to `0.4.0`, and `issues` hold `lock.block-package-moved`; with `--frozen` it exits 7 with `FEN-7004` instead
-
-#### Scenario: Starter blocks are not pinned as a package
+#### Scenario: Starter blocks are not pinned as items
 - **WHEN** a design that uses only `Fenolite:` blocks is built
-- **THEN** its lock holds `[blocks]` entries and no `[block-packages]` section
+- **THEN** its lock holds `[blocks]` entries and no `[library.items]` entry
 
-### Requirement: Missing pinned block package
-When a design script raises `ModuleNotFoundError` for a package that a `[block-packages]` entry pins, the build SHALL exit 6 with `FEN-6006`, naming the distribution and version, with a hint naming the install command of that exact version, and MUST write nothing. Any other `ModuleNotFoundError` MUST keep the script-error behaviour.
+### Requirement: Missing library block module
+When a design script raises `ModuleNotFoundError` for a module under `fenolite_library.blocks.` that no lock entry pins, the build SHALL keep the script-error behaviour and its hint SHALL name `fenolite get block <Namespace>:<name> --dry-run`, derived from the module path. A pinned but missing folder SHALL be reported by c0279's check with `FEN-6004` before the script runs.
 
-#### Scenario: Package not installed
-- **GIVEN** a lock pinning `acme-blocks` 0.3.0 and an environment without it
+#### Scenario: Block never vendored
+- **GIVEN** a script importing `fenolite_library.blocks.Demo.led` in a project without that folder and without a lock entry
 - **WHEN** `fenolite build design.py --json` runs
-- **THEN** it exits 6, stderr holds `FEN-6006` whose hint names `acme-blocks==0.3.0`, and no file is written
+- **THEN** it fails as a script error whose hint names `fenolite get block Demo:led --dry-run`, and no file is written

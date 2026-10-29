@@ -47,7 +47,7 @@ manifest schema, field list or API name of another tool is copied.
   paths of one design lock or one built `.fenolite/circuit.json`.
 - **Shipped versions file.** `src/fenolite/blocks/VERSIONS.toml` records the version and digests of each
   shipped block, and a test enforces the version rules. The package `fenolite.blocks` is created empty
-  here. c0272 adds the starter blocks, and c0273 adds external packages.
+  here. c0272 adds the starter blocks, and c0273 adds library blocks vendored from `fenolite-library` (c0279).
 
 ## Capabilities
 
@@ -78,11 +78,11 @@ manifest schema, field list or API name of another tool is copied.
 - **c0248, c0254**: device ids and query texts listed under `requires`.
 - Later changes of the block batch build on this one: c0270 block-tests (`fenolite blocks test`), c0271
   block-layouts (layout tied to `block_version`), c0272 starter-blocks (the first records and their pages)
-  and c0273 block-packages (installed packages as a catalog source, `fenolite blocks upgrade`).
+  and c0273 block-packages (vendored library blocks as a catalog source, `fenolite blocks upgrade`).
 
 ## Non-goals
 
-- No starter blocks (c0272), no shipped tests (c0270), no layout artefact (c0271), no external package
+- No starter blocks (c0272), no shipped tests (c0270), no layout artefact (c0271), no library block
   discovery and no upgrade command (c0273).
 - No class-based records and no record file beside the code. The decorator is the record.
 - No parameter solver and no automatic choice of a block from requirements.

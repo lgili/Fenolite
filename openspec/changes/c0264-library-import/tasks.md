@@ -3,7 +3,7 @@
 - [ ] 0.1 Read `openspec list` and the changes and living specs this change builds on, and record under this task, with the date and the base commit:
   - whether c0248, c0259, c0260 and c0261 are archived. If c0248 is not, move its `catalog import` code into `fenolite.library.importer` as part of its own implementation (design decision 9). Take the device tree, the record keys (`origin`, `licence`, `shippable`) and the stable-id rule from c0259 as archived, and adapt the paths of this change if c0259 kept flat `devices/*.toml` files;
   - the package and function names of c0260's generators and whether `fenolite.library` needs an import edge to them or to `catalog` (update "Allowed import edges" through the change that owns it if so);
-  - whether another library change (c0262, c0265, c0266) already added the subcommand dispatch of `fenolite library`;
+  - whether another library change (c0262, c0265, c0266, c0279) already added the subcommand dispatch of `fenolite library`;
   - the maintainer's answers to the open questions of `design.md`.
 
   Proof: `openspec validate c0264-library-import --strict`; `make check-fast`.
