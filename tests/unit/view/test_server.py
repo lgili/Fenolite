@@ -9,6 +9,7 @@ import json
 import os
 import shutil
 import threading
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -21,6 +22,7 @@ from fenolite.backends.base import BoardFrame
 from fenolite.view import server
 from fenolite.view.compact import expand
 from fenolite.view.project import load_tree
+from fenolite.view.runs import Choices, Outcome
 from fenolite.view.scene import build_scene
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -217,3 +219,226 @@ def test_refinement_publication_checks_generation_under_lock(monkeypatch: pytest
             assert not worker.is_alive()
     assert live.scene("doc1") == latest and live.version("doc1") == version
     assert json.loads(latest or b"{}")["meta"]["sha256"] == "2"
+
+
+# ---------------------------------------------------------------------------------------------- runs (c0245)
+
+RUN_OK = {"Content-Type": "application/json", "X-Fenolite-Run": "1"}
+
+
+class _Handle:
+    def __init__(self, runner: _FakeRunner) -> None:
+        self.runner, self.cancelled = runner, threading.Event()
+
+    def cancel(self) -> None:
+        self.cancelled.set()
+
+    def wait(self) -> Outcome:
+        while not self.cancelled.wait(0.02):
+            if self.runner.release.is_set():
+                return Outcome("done", 5, self.runner.reply)
+        return Outcome("cancelled", 1, error={"code": "FEN-1003", "message": "the call was cancelled"})
+
+
+class _FakeRunner:
+    """Blocks each job until ``release`` is set (then ends with ``reply``) or the job is cancelled."""
+
+    def __init__(self, reply: dict[str, Any] | None = None) -> None:
+        self.release = threading.Event()
+        self.reply = reply or {"command": "check", "issues": [], "result": {"stages": []}}
+        self.started: list[Any] = []
+
+    def start(self, request: Any, on_progress: Any) -> _Handle:
+        self.started.append(request)
+        on_progress({"command": getattr(request, "command", "?"), "event": "step", "step": "drc.kicad"})
+        return _Handle(self)
+
+
+def _serve_runs(live: server.Live) -> tuple[int, threading.Event]:
+    httpd = server.serve(live, 0)
+    stop = threading.Event()
+    threading.Thread(target=server.run, args=(live, httpd), kwargs={"until": stop}, daemon=True).start()
+    return int(httpd.server_address[1]), stop
+
+
+def _call(port: int, route: str, body: Any = None, headers: dict[str, str] | None = None) -> tuple[int, Any]:
+    data = None if body is None else (body if isinstance(body, bytes) else json.dumps(body).encode())
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{port}{route}",
+        data=data,
+        headers=headers or {},
+        method="GET" if data is None else "POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as reply:
+            return reply.status, json.loads(reply.read())
+    except urllib.error.HTTPError as error:
+        return error.code, json.loads(error.read() or b"{}")
+
+
+def _until(port: int, job: str, *, seconds: float = 10) -> dict[str, Any]:
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        state = _call(port, f"/run/{job}")[1]
+        if state["state"] != "running":
+            return state
+        time.sleep(0.02)
+    raise AssertionError(f"job {job} did not end")
+
+
+def _live_runs(tmp_path: Path, runner: Any, **kwargs: Any) -> server.Live:
+    board = tmp_path / BOARD.name
+    shutil.copy(BOARD, board)
+    choices = Choices(stages=("drc.kicad", "copper.clearance", "model.validate"))
+    return server.Live(load_tree(board), _build, runner=runner, choices=choices, **kwargs)
+
+
+CHECK_DRC = {"command": "check", "doc": "doc1", "options": {"stages": ["drc.kicad"]}}
+
+
+def test_run_guard_refuses_other_origins_and_starts_nothing(tmp_path: Path) -> None:
+    """Scenario "A request from another origin"."""
+    runner = _FakeRunner()
+    port, stop = _serve_runs(_live_runs(tmp_path, runner))
+    try:
+        assert _call(port, "/run", CHECK_DRC, RUN_OK | {"Origin": "http://evil.example"})[0] == 403
+        assert _call(port, "/run", CHECK_DRC, {"Content-Type": "application/json"})[0] == 403
+        assert _call(port, "/run", CHECK_DRC, RUN_OK | {"Content-Type": "text/plain"})[0] == 403
+        assert _call(port, "/run", CHECK_DRC, RUN_OK | {"Host": f"evil.example:{port}"})[0] == 403
+        assert _call(port, "/run", b"x" * (17 * 1024), RUN_OK)[0] == 413
+        assert _call(port, "/runs", None, {"Host": "rebound.example"})[0] == 403
+        assert runner.started == []
+    finally:
+        stop.set()
+
+
+def test_run_one_at_a_time_and_cancel(tmp_path: Path) -> None:
+    """Scenarios "One run at a time" and "Cancel a blocked run"."""
+    runner = _FakeRunner()
+    live = _live_runs(tmp_path, runner)
+    port, stop = _serve_runs(live)
+    try:
+        offer = _call(port, "/runs")[1]
+        assert offer["enabled"] is True and offer["busy"] is None and "check" in offer["commands"]
+        code, started = _call(port, "/run", CHECK_DRC, RUN_OK)
+        assert code == 202
+        job = started["job"]
+        code, busy = _call(port, "/run", CHECK_DRC, RUN_OK)
+        assert code == 409 and busy["job"] == job
+        running = _call(port, f"/run/{job}")[1]
+        assert running["state"] == "running" and running["progress"][0]["step"] == "drc.kicad"
+        assert _call(port, "/runs")[1]["busy"]["job"] == job
+        assert _call(port, f"/run/{job}/cancel", {}, RUN_OK)[0] == 202
+        ended = _until(port, job)
+        assert ended["state"] == "cancelled" and "review" not in ended and live.checks == {}
+        code, again = _call(port, "/run", CHECK_DRC, RUN_OK)
+        assert code == 202 and again["job"] != job
+        runner.release.set()
+        assert _until(port, again["job"])["state"] == "done"
+        assert _call(port, "/run/" + "0" * 32)[0] == 404
+        assert _call(port, "/run", {"command": "tidy", "doc": "doc1"}, RUN_OK)[0] == 400
+        assert live.jobs.counts == {"cancelled": 1, "done": 1}
+    finally:
+        stop.set()
+
+
+def test_run_refused_with_no_run(tmp_path: Path) -> None:
+    """``--no-run``: the run routes answer 403 and ``GET /runs`` says why."""
+    runner = _FakeRunner()
+    port, stop = _serve_runs(_live_runs(tmp_path, runner, runs_enabled=False))
+    bare_port, bare_stop = _serve_runs(server.Live(load_tree(BOARD), _build))
+    try:
+        offer = _call(port, "/runs")[1]
+        assert offer["enabled"] is False and "--no-run" in offer["reason"]
+        assert _call(port, "/run", CHECK_DRC, RUN_OK)[0] == 403
+        assert _call(bare_port, "/run", CHECK_DRC, RUN_OK)[0] == 403
+        assert runner.started == []
+    finally:
+        stop.set()
+        bare_stop.set()
+
+
+def test_run_result_fills_review_and_check_of_its_document_only(tmp_path: Path) -> None:
+    """A finished run's derived results: the review and the check of its own document (a stale document's
+    result does not replace another's), with the reply's evidence unchanged."""
+    reply = {
+        "command": "check",
+        "issues": [{"code": "kicad.drc.clearance", "severity": "error", "message": "gap", "where": "@1,2"}],
+        "result": {
+            "stages": [{"name": "drc.kicad", "status": "errors", "evidence": {"level": "KICAD-VERIFIED"}}]
+        },
+        "evidence": {"level": "KICAD-VERIFIED", "oracle": "kicad-cli 10.0.7"},
+    }
+    runner = _FakeRunner(reply)
+    seen: list[tuple[str, str]] = []
+
+    def derive(path: Path, command: str, envelope: dict[str, Any]) -> dict[str, Any]:
+        seen.append((path.name, command))
+        cards = [{"id": "drc", "state": "failed"}]
+        return {"check": {"findings": envelope["issues"]}, "review": {"cards": cards}}
+
+    folder = tmp_path / "a"
+    folder.mkdir()
+    shutil.copy(BOARD, folder / BOARD.name)
+    (folder / "b.kicad_pcb").write_bytes(BOARD.read_bytes())
+    live = server.Live(
+        load_tree(folder), _build, runner=runner, choices=Choices(stages=("drc.kicad",)), derive=derive
+    )
+    port, stop = _serve_runs(live)
+    try:
+        runner.release.set()
+        job = _call(port, "/run", CHECK_DRC | {"doc": "doc2"}, RUN_OK)[1]["job"]
+        state = _until(port, job)
+        assert state["doc"] == "doc2" and state["exit"] == 5
+        assert state["review"]["cards"][0]["state"] == "failed"
+        assert state["check"]["findings"][0]["code"] == "kicad.drc.clearance"
+        assert state["envelope"]["evidence"]["oracle"] == "kicad-cli 10.0.7"
+        assert list(live.checks) == ["doc2"] and seen == [(BOARD.name, "check")]
+    finally:
+        stop.set()
+
+
+def test_run_check_with_the_real_runner(tmp_path: Path) -> None:
+    """Scenario "A check run from the page": the real child-process runner runs ``check --stages
+    model.validate,copper.clearance`` and the review holds those two stages with their evidence."""
+    from fenolite.cli._viewrun import ChildRunner
+    from fenolite.cli.api import discover
+    from fenolite.view import check_overlay, project_review
+
+    board = tmp_path / BOARD.name
+    shutil.copy(BOARD, board)
+    tree = load_tree(board)
+    session: dict[str, Any] = {}
+
+    def derive(path: Path, command: str, envelope: dict[str, Any]) -> dict[str, Any]:
+        scene = _build(path)
+        session["reply"] = project_review.merge(session.get("reply"), envelope)
+        return {
+            "check": check_overlay.overlay(session["reply"], scene),
+            "review": project_review.status(scene, session["reply"]),
+        }
+
+    runner = ChildRunner(discover(), root=tree.root, timeout=300)
+    choices = Choices(stages=("model.validate", "copper.clearance", "drc.kicad"))
+    live = server.Live(tree, _build, runner=runner, choices=choices, derive=derive)
+    port, stop = _serve_runs(live)
+    try:
+        body = {
+            "command": "check",
+            "doc": "doc1",
+            "options": {"stages": ["model.validate", "copper.clearance"]},
+        }
+        code, started = _call(port, "/run", body, RUN_OK)
+        assert code == 202, started
+        state = _until(port, started["job"], seconds=300)
+        assert state["state"] == "done" and state["exit"] in (0, 5), state
+        assert state["progress"], "the --progress records reach the job"
+        stages = {s["name"]: s for s in state["review"]["stages"]}
+        assert set(stages) == {"model.validate", "copper.clearance"}
+        recorded = {s["name"]: s for s in state["envelope"]["result"]["stages"]}
+        for name, stage in stages.items():
+            assert stage["evidence"] == project_review.evidence(recorded[name]["evidence"])
+        cards = {c["id"]: c["state"] for c in state["review"]["cards"]}
+        assert cards["drc"] == "not-run" and cards["model"] != "not-run" and cards["clearance"] != "not-run"
+    finally:
+        stop.set()

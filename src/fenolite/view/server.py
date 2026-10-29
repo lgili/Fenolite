@@ -10,10 +10,17 @@ one more check (a tool or a sync client may still be writing), the scene is buil
 it, keeping its view. A scene may be refined in the background after it is first served (the body models,
 change c0193): the refined scene is a new version, which the page reloads. Only the loopback address is
 bound; nothing leaves the machine.
+
+Change c0245 adds the run routes: ``GET /runs`` (what the page may run), ``POST /run`` (start one read-only
+command of ``fenolite.view.runs.ALLOWED`` on a document of the tree), ``GET /run/<job>`` (its state,
+progress and results) and ``POST /run/<job>/cancel``. Every ``POST`` passes one guard (:func:`guarded`): this
+server's ``Host``, a same-server ``Origin`` when one is sent, the route's custom header, a JSON type and a
+bounded body. The runner is injected by ``cmd_view``, as the scene builder is.
 """
 
 from __future__ import annotations
 
+import hmac
 import json
 import threading
 import time
@@ -26,10 +33,12 @@ from typing import Any, cast
 from urllib.parse import unquote
 
 from fenolite.core.errors import FormatError
-from fenolite.view import review
+from fenolite.view import review, runs
 from fenolite.view.compact import compact
 from fenolite.view.export import page
+from fenolite.view.jobs import Busy, Job, Jobs
 from fenolite.view.project import Document, ProjectTree
+from fenolite.view.runs import Choices, Outcome, ProgressSink, Runner, RunRefused, RunRequest
 
 HOST = "127.0.0.1"
 PERIOD = 2.0
@@ -44,6 +53,19 @@ SceneBuilder = Callable[[Path], dict[str, Any]]
 SceneRefiner = Callable[[Path, dict[str, Any]], "dict[str, Any] | None"]
 """Refines a built scene in the background (``cmd_view`` places the body models, change c0193); ``None``
 keeps the scene as it was."""
+ResultDeriver = Callable[[Path, str, dict[str, Any]], dict[str, Any]]
+"""What the server shows of a finished run (``cmd_view``; change c0245): given the document's file, the
+command and its envelope, the keys ``check`` and ``review`` (a ``check`` run, merged by stage with the earlier
+ones), ``overlays`` and ``groups`` (an ``analyze`` run) or ``findings`` (``ready``, ``equivalent``)."""
+NO_RUN = "this page was served with --no-run: run fenolite check in a terminal and reopen with --check FILE"
+
+
+class Refused(Exception):
+    """A request the server answers with ``code`` and ``message`` (and ``extra`` keys)."""
+
+    def __init__(self, code: int, message: str, **extra: Any) -> None:
+        super().__init__(message)
+        self.code, self.message, self.extra = code, message, extra
 
 
 @dataclass
@@ -72,6 +94,10 @@ class Live:
         marks_file: Path | None = None,
         select: str | None = None,
         refine: SceneRefiner | None = None,
+        runner: Runner | None = None,
+        runs_enabled: bool = True,
+        choices: Choices | None = None,
+        derive: ResultDeriver | None = None,
     ) -> None:
         self.tree, self.build, self.overlays, self.open_id, self.log = (
             tree,
@@ -86,6 +112,113 @@ class Live:
         self.marks_file, self.select = marks_file, select
         self.written = 0
         """How many marks the server wrote (``result.serve.marks_written``)."""
+        self.runner, self.choices, self.derive = runner, choices or Choices(), derive
+        self.runs_enabled = runs_enabled and runner is not None
+        self.jobs = Jobs()
+        self.checks: dict[str, dict[str, Any]] = {}
+        """The check findings of a document as placed by its last run (c0245), by document id."""
+
+    # ------------------------------------------------------------------ runs (change c0245)
+
+    def runs(self) -> dict[str, Any]:
+        """``GET /runs``: whether the page may run commands, which, and the running job."""
+        busy = self.jobs.running()
+        out: dict[str, Any] = {
+            "enabled": self.runs_enabled,
+            "commands": runs.offered(self.choices) if self.runs_enabled else {},
+            "busy": busy.to_json() if busy is not None else None,
+        }
+        if not self.runs_enabled:
+            out["reason"] = NO_RUN
+        return out
+
+    def start_run(self, body: bytes) -> Job:
+        """``POST /run``: validate the request and start its job; :class:`Refused` says why not."""
+        runner = self.runner
+        if not self.runs_enabled or runner is None:
+            raise Refused(403, NO_RUN)
+        found = runs.request(_json_body(body), self.tree, self.choices)
+        if isinstance(found, RunRefused):
+            raise Refused(400, found.reason)
+        job = self._begin("run", found.command, found.doc)
+        self.log(f"view: run {found.command} on {found.path.name}")
+        self._launch(job, lambda sink: runner.start(found, sink), lambda j, o: self._after_run(j, o, found))
+        return job
+
+    def _begin(self, kind: str, command: str, doc: str, action: str | None = None) -> Job:
+        try:
+            return self.jobs.begin(kind, command, doc, action)
+        except Busy as busy:
+            raise Refused(409, "a job runs already; wait for it or cancel it", job=busy.job.id) from busy
+
+    def _launch(
+        self,
+        job: Job,
+        start: Callable[[ProgressSink], Any],
+        after: Callable[[Job, Outcome], dict[str, Any]],
+    ) -> None:
+        """Start ``job`` through ``start`` and finish it in a daemon thread with what ``after`` derives."""
+
+        def sink(record: dict[str, Any]) -> None:
+            self.jobs.progress(job, record)
+
+        try:
+            handle = start(sink)
+        except Exception as exc:  # the runner could not start the child: the job fails, the server stays
+            self.jobs.finish(job, Outcome("failed", error={"message": f"{type(exc).__name__}: {exc}"}))
+            return
+        self.jobs.attach(job, handle)
+
+        def finish() -> None:
+            try:
+                outcome = handle.wait()
+            except Exception as exc:  # a fault of the runner ends the job, not the server
+                outcome = Outcome("failed", error={"message": f"{type(exc).__name__}: {exc}"})
+            derived: dict[str, Any] = {}
+            try:
+                derived = after(job, outcome)
+            except Exception as exc:  # the job keeps its envelope; the page says the results were not placed
+                derived = {"note": f"the results could not be shown: {type(exc).__name__}: {exc}"}
+                self.log(f"view: {job.command}: {derived['note']}")
+            self.jobs.finish(job, outcome, derived)
+
+        threading.Thread(target=finish, daemon=True).start()
+
+    def _after_run(self, job: Job, outcome: Outcome, found: RunRequest) -> dict[str, Any]:
+        doc = self.tree.document(job.doc)
+        if outcome.exit not in (0, 5) or outcome.envelope is None or self.derive is None or doc is None:
+            return {}
+        assert doc.file is not None
+        derived = self.derive(doc.file, found.command, outcome.envelope)
+        if "check" in derived:
+            with self.lock:
+                self.checks[job.doc] = derived["check"]
+            others = [d for d in self.states if d != job.doc]
+            if others:  # the other documents built so far take the merged reply when they are read again
+                threading.Thread(target=self._rebuild_ids, args=(others,), daemon=True).start()
+        return derived
+
+    def _rebuild_ids(self, ids: list[str]) -> None:
+        for doc_id in ids:
+            doc, state = self.tree.document(doc_id), self.states.get(doc_id)
+            if doc is not None and state is not None and doc.file is not None:
+                self._rebuild(doc, state)
+
+    def job(self, job_id: str) -> dict[str, Any] | None:
+        """``GET /run/<job>``: the job's state, progress and results; ``None`` for an unknown id."""
+        found = self.jobs.get(job_id)
+        if found is None:
+            return None
+        with self.jobs.lock:
+            return found.to_json()
+
+    def cancel(self, job_id: str) -> dict[str, Any]:
+        """``POST /run/<job>/cancel``: ask the job to stop; it ends ``cancelled``."""
+        found = self.jobs.get(job_id)
+        if found is None:
+            raise Refused(404, "no job of that id")
+        self.jobs.cancel(found)
+        return {"job": found.id, "state": found.state}
 
     def marks(self) -> list[dict[str, Any]]:
         """The marks of the ``--marks`` file; empty without one."""
@@ -211,10 +344,57 @@ class Live:
             self.check()
 
 
+def _json_body(body: bytes) -> Any:
+    try:
+        return json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise Refused(400, f"the request is not JSON: {exc}") from exc
+
+
+def _hosts(handler: BaseHTTPRequestHandler) -> set[str]:
+    port = int(cast("tuple[str, int]", handler.server.server_address)[1])
+    return {f"{HOST}:{port}", f"localhost:{port}"}
+
+
+def own_host(handler: BaseHTTPRequestHandler) -> bool:
+    """Whether a request names this server as its ``Host`` and, when it sends one, as its ``Origin`` (the
+    reads of the run and action routes check it)."""
+    allowed, origin = _hosts(handler), handler.headers.get("Origin")
+    return handler.headers.get("Host") in allowed and not (
+        origin and origin.split("//", 1)[-1] not in allowed
+    )
+
+
+def guarded(
+    handler: BaseHTTPRequestHandler, header: str, limit: int, *, extra: dict[str, str] | None = None
+) -> bytes:
+    """The body of a ``POST`` that passes the guard of this server's writes and runs: its ``Host`` is this
+    server's, its ``Origin`` (when sent) the same, it carries ``header: 1`` (and every ``extra`` header with
+    its value), it is JSON and its body is 1 to ``limit`` bytes; :class:`Refused` (403 or 413) otherwise. A
+    page of another site cannot send a custom header without a preflight, which this server never answers,
+    and the ``Host`` check stops a name that resolves to this address (DNS rebinding)."""
+    if not own_host(handler):
+        raise Refused(403, "accepted from this server's own page only")
+    if handler.headers.get(header) != "1" or not str(handler.headers.get("Content-Type", "")).startswith(
+        "application/json"
+    ):
+        raise Refused(403, f"a request is JSON sent with {header}: 1")
+    for name, value in (extra or {}).items():
+        sent = handler.headers.get(name) or ""
+        if not value or not hmac.compare_digest(sent.encode("utf-8"), value.encode("utf-8")):
+            raise Refused(403, f"the request lacks this session's {name}")
+    try:
+        length = int(handler.headers.get("Content-Length") or 0)
+    except ValueError:
+        length = 0
+    if not 0 < length <= limit:
+        raise Refused(413, f"a request is 1 to {limit} bytes")
+    return handler.rfile.read(length)
+
+
 def serve(live: Live, port: int = 8765) -> ThreadingHTTPServer:
     """A server for ``live`` on the loopback address, not yet serving; ``port`` 0 takes a free port."""
     tree_json = live.tree.to_json() | {"open": live.open_id, "select": live.select}
-    hosts = {f"{HOST}:{{port}}", "localhost:{port}"}
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 - the silent request log
@@ -227,6 +407,9 @@ def serve(live: Live, port: int = 8765) -> ThreadingHTTPServer:
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+
+        def _json(self, code: int, value: Any) -> None:
+            self._send(code, json.dumps(value).encode("utf-8"), "application/json")
 
         def do_GET(self) -> None:  # noqa: N802 - the name http.server calls
             path = unquote(self.path.split("?", 1)[0])
@@ -246,41 +429,53 @@ def serve(live: Live, port: int = 8765) -> ThreadingHTTPServer:
             elif path.startswith("/version/"):
                 state = live.version(path[len("/version/") :])
                 self._send(200, json.dumps(state).encode("utf-8"), "application/json")
+            elif path == "/runs" or path.startswith("/run/"):
+                self._run_read(path)
             else:
                 self._send(404, b"not found", "text/plain")
 
-        def _refuse(self, code: int, message: str) -> None:
-            self._send(code, json.dumps({"error": message}).encode("utf-8"), "application/json")
+        def _run_read(self, path: str) -> None:
+            if not own_host(self):
+                self._refuse(403, "accepted from this server's own page only")
+            elif path == "/runs":
+                self._json(200, live.runs())
+            else:
+                found = live.job(path[len("/run/") :])
+                if found is None:
+                    self._refuse(404, "no job of that id")
+                else:
+                    self._json(200, found)
+
+        def _refuse(self, code: int, message: str, **extra: Any) -> None:
+            self._json(code, {"error": message, **extra})
 
         def do_POST(self) -> None:  # noqa: N802 - the name http.server calls
-            port = int(cast("tuple[str, int]", self.server.server_address)[1])
-            allowed = {h.format(port=port) for h in hosts}
-            origin = self.headers.get("Origin")
-            if unquote(self.path.split("?", 1)[0]) != "/marks":
-                self._refuse(404, "not found")
-            elif self.headers.get("Host") not in allowed or (
-                origin and origin.split("//", 1)[-1] not in allowed
-            ):
-                self._refuse(403, "marks are accepted from this server's own page only")
-            elif self.headers.get(REVIEW_HEADER) != "1" or not str(
-                self.headers.get("Content-Type", "")
-            ).startswith("application/json"):
-                self._refuse(403, f"a mark is JSON sent with {REVIEW_HEADER}: 1")
-            else:
-                length = int(self.headers.get("Content-Length") or 0)
-                if not 0 < length <= MARK_BYTES:
-                    self._refuse(413, f"a mark is at most {MARK_BYTES} bytes")
-                    return
-                try:
-                    marks = live.post_mark(self.rfile.read(length))
-                except PermissionError as exc:
-                    self._refuse(403, str(exc))
-                except FormatError as exc:
-                    self._refuse(400, str(exc))
-                except OSError as exc:
-                    self._refuse(500, f"the review file was not written: {type(exc).__name__}")
+            path = unquote(self.path.split("?", 1)[0])
+            try:
+                if path == "/marks":
+                    self._marks(guarded(self, REVIEW_HEADER, MARK_BYTES))
+                elif path == "/run":
+                    job = live.start_run(guarded(self, runs.RUN_HEADER, runs.RUN_BYTES))
+                    self._json(202, {"job": job.id})
+                elif path.startswith("/run/") and path.endswith("/cancel"):
+                    guarded(self, runs.RUN_HEADER, runs.RUN_BYTES)
+                    self._json(202, live.cancel(path[len("/run/") : -len("/cancel")]))
                 else:
-                    self._send(200, json.dumps({"marks": marks}).encode("utf-8"), "application/json")
+                    self._refuse(404, "not found")
+            except Refused as refused:
+                self._refuse(refused.code, refused.message, **refused.extra)
+
+        def _marks(self, body: bytes) -> None:
+            try:
+                marks = live.post_mark(body)
+            except PermissionError as exc:
+                self._refuse(403, str(exc))
+            except FormatError as exc:
+                self._refuse(400, str(exc))
+            except OSError as exc:
+                self._refuse(500, f"the review file was not written: {type(exc).__name__}")
+            else:
+                self._send(200, json.dumps({"marks": marks}).encode("utf-8"), "application/json")
 
     return ThreadingHTTPServer((HOST, port), Handler)
 
@@ -303,4 +498,4 @@ def run(live: Live, httpd: ThreadingHTTPServer, *, until: threading.Event | None
         httpd.server_close()
 
 
-__all__ = ["HOST", "Live", "run", "serve"]
+__all__ = ["HOST", "Live", "Refused", "guarded", "own_host", "run", "serve"]

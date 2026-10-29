@@ -82,7 +82,43 @@ def _issue_stage(issue: dict[str, Any]) -> str:
     return next((stage for prefix, stage in STAGE_OF if code.startswith(prefix)), "")
 
 
-def _stages(reply: dict[str, Any], bound: dict[str, Any]) -> list[dict[str, Any]]:
+def merge(previous: dict[str, Any] | None, reply: dict[str, Any]) -> dict[str, Any]:
+    """The session reply after ``reply`` (a page run, change c0245): its stages replace the stages of the
+    same name in ``previous``, with their findings; the other stages of ``previous`` stay with their
+    findings. Each stage keeps the input it was run on (``input`` of its stage record), so a stage run on an
+    older revision shows Limited for the current one."""
+    fresh = _dict(reply)
+    stamp = fresh.get("input")
+    new = [
+        _dict(s) | ({"input": stamp} if "input" not in _dict(s) else {})
+        for s in _list(_dict(fresh.get("result")).get("stages"))
+    ]
+    names = {str(stage.get("name") or "") for stage in new}
+    names |= {_issue_stage(_dict(item)) for item in _list(fresh.get("issues"))} - {""}
+    if previous is None:
+        return fresh | {"result": _dict(fresh.get("result")) | {"stages": new}}
+    old = _dict(previous)
+    before = old.get("input")
+    kept: list[dict[str, Any]] = []
+    for raw in _list(_dict(old.get("result")).get("stages")):
+        stage = _dict(raw)
+        name = str(stage.get("name") or "")
+        if name in names:
+            kept += [s for s in new if s.get("name") == name]
+        else:
+            kept.append(stage | ({"input": before} if "input" not in stage else {}))
+    kept += [s for s in new if s not in kept]
+    issues = [
+        item
+        for item in _list(old.get("issues"))
+        if _issue_stage(_dict(item)) and _issue_stage(_dict(item)) not in names
+    ] + _list(fresh.get("issues"))
+    return fresh | {"result": _dict(fresh.get("result")) | {"stages": kept}, "issues": issues}
+
+
+def _stages(
+    reply: dict[str, Any], bound: dict[str, Any], scene: dict[str, Any] | None = None
+) -> list[dict[str, Any]]:
     issues = [_dict(item) for item in _list(reply.get("issues"))]
     out: list[dict[str, Any]] = []
     recorded = [_dict(raw) for raw in _list(_dict(reply.get("result")).get("stages"))]
@@ -107,8 +143,9 @@ def _stages(reply: dict[str, Any], bound: dict[str, Any]) -> list[dict[str, Any]
         status, label = stage.get("status"), evidence(stage.get("evidence"))
         limits = _dict(stage.get("summary")).get("limits")
         reasons = [str(stage["reason"])] if stage.get("reason") else []
-        if not bound["matched"]:
-            reasons.append(bound["note"])
+        own_bound = _binding(stage, scene) if scene is not None and "input" in stage else bound
+        if not own_bound["matched"]:
+            reasons.append(own_bound["note"])
         if limits:
             reasons.append("Report counts are lower bounds; this stage was capped.")
         if label in {"UNKNOWN", "UNVERIFIED"}:
@@ -191,7 +228,7 @@ def status(
 ) -> dict[str, Any]:
     """Status scoped to the current scene and supplied evidence; no absent check is a pass."""
     bound = _binding(check, scene) if check is not None else None
-    stages = _stages(check, cast("dict[str, Any]", bound)) if check is not None else []
+    stages = _stages(check, cast("dict[str, Any]", bound), scene) if check is not None else []
     meta = _dict(scene.get("meta"))
     cards = [
         {
@@ -250,4 +287,4 @@ def status(
     }
 
 
-__all__ = ["CATEGORIES", "read_report", "status"]
+__all__ = ["CATEGORIES", "merge", "read_report", "status"]

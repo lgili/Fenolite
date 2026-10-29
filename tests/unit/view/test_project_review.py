@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from fenolite.core.errors import FormatError
-from fenolite.view.project_review import read_report, status
+from fenolite.view.project_review import merge, read_report, status
 
 DIGEST = "a" * 64
 SCENE = {"meta": {"name": "sample.kicad_pcb", "sha256": DIGEST, "evidence": "INFERRED"}}
@@ -128,3 +128,34 @@ def test_convert_and_export_keep_their_limits() -> None:
 def test_bad_report_is_refused(data: Any) -> None:
     with pytest.raises(FormatError, match="complete convert or export"):
         read_report(data)
+
+
+def test_merge_replaces_stages_by_name_and_keeps_each_input() -> None:
+    """Scenario "Stages merged by name" (change c0245)."""
+    new_digest = "b" * 64
+    old = reply(
+        stage("model.validate"),
+        stage("copper.clearance", status="errors"),
+        issues=[
+            {"code": "copper.short", "severity": "error", "message": "old short"},
+            {"code": "model.dangling", "severity": "info", "message": "kept"},
+        ],
+    )
+    new = reply(stage("copper.clearance"), issues=[{"code": "copper.clearance-unset", "severity": "info"}])
+    new["input"] = {"path": "sample.kicad_pcb", "sha256": new_digest}
+    merged = merge(old, new)
+    names = [s["name"] for s in merged["result"]["stages"]]
+    assert names == ["model.validate", "copper.clearance"]
+    by_name = {s["name"]: s for s in merged["result"]["stages"]}
+    assert by_name["copper.clearance"]["status"] == "ok"
+    assert by_name["copper.clearance"]["input"]["sha256"] == new_digest
+    assert by_name["model.validate"]["input"]["sha256"] == DIGEST
+    assert [i["message"] for i in merged["issues"] if i["code"].startswith("model.")] == ["kept"]
+    assert not [i for i in merged["issues"] if i["code"] == "copper.short"]
+    scene = {"meta": SCENE["meta"] | {"sha256": new_digest}}
+    found = {card["id"]: card for card in status(scene, merged)["cards"]}
+    assert found["clearance"]["state"] == "passed"
+    assert found["model"]["state"] == "limited"
+    assert any("does not match" in r for r in found["model"]["stages"][0]["reasons"])
+    first = merge(None, new)
+    assert first["result"]["stages"][0]["input"]["sha256"] == new_digest
