@@ -1,0 +1,86 @@
+# Drawn schematic of a Fenolite design (docs/drawn-schematic.md). Code owns the nets.
+schema = "fenolite.drawn-schematic.v0"
+root = "root"
+
+[[sheet]]
+key = "root"
+paper = "A4"
+
+[[sheet.symbol]]
+part = "U1"
+unit = 1
+at = [101.6, 88.9]
+rotation = 0
+
+[[sheet.power]]
+symbol = "Mini:Mini_GND"
+net = "GND"
+at = [88.9, 92.71]
+rotation = 0
+
+[[sheet.wire]]
+pts = [[76.2, 74.93], [88.9, 74.93]]
+
+[[sheet.label]]
+kind = "global"
+text = "VCC"
+at = [88.9, 90.17]
+rotation = 180
+shape = "input"
+
+[[sheet.sheet_ref]]
+key = "child"
+sheet = "child"
+module = "child"
+name = "child"
+at = [50.8, 68.58]
+size = [25.4, 12.7]
+page = "2"
+
+[[sheet.sheet_ref.pin]]
+name = "IN"
+shape = "input"
+at = [76.2, 74.93]
+rotation = 0
+
+[[sheet]]
+key = "child"
+paper = "A4"
+
+[[sheet.symbol]]
+part = "R2"
+unit = 1
+at = [101.6, 76.2]
+rotation = 0
+
+[[sheet.symbol]]
+part = "R3"
+unit = 1
+at = [127, 76.2]
+rotation = 0
+
+[[sheet.label]]
+kind = "hierarchical"
+text = "IN"
+at = [101.6, 72.39]
+rotation = 90
+shape = "input"
+
+[[sheet.label]]
+kind = "local"
+text = "FB"
+at = [101.6, 80.01]
+rotation = 270
+
+[[sheet.label]]
+kind = "local"
+text = "FB"
+at = [127, 72.39]
+rotation = 90
+
+[[sheet.label]]
+kind = "global"
+text = "VCC"
+at = [127, 80.01]
+rotation = 270
+shape = "input"

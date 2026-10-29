@@ -4273,3 +4273,78 @@ see = "catalog"
 meaning = "fenolite catalog import: a footprint pad is named by no symbol pin and is left out of the device."
 fix = "Nothing for a mechanical pad (list it in unused_pads when you review the file); else map it with --pin."
 see = "catalog"
+
+["drawn.netlist-differs"]
+meaning = "The drawn schematic does not mean the netlist of the code: a pin is in another group in the drawing than in code, or open on one side only. The message names the first REF-PIN, both nets and the reason (open, split or merged). Code is the only source of nets."
+fix = "Change the code (or fenolite edit) so that it means the drawing, or redraw schematic.toml (or the sheet in KiCad) so that it means the code."
+see = "check"
+
+["drawn.symbol-missing"]
+meaning = "A unit of a code component with a symbol, which has a pin on a net, is not drawn in schematic.toml for one instance of its module."
+fix = "Draw the unit (place it in KiCad and run fenolite sync --to-source), or remove the part from the code."
+see = "build"
+
+["drawn.part-unknown"]
+meaning = "A drawn symbol stands for no component of the code (or one without a symbol, or a unit the symbol lacks), a unit is drawn twice, or a power symbol is in no library."
+fix = "Add the part to the code, remove or fix the symbol in the drawing, or add the power symbol's library to sym-lib-table."
+see = "build"
+
+["drawn.sheet-pin-unmatched"]
+meaning = "A sheet pin of a drawn sheet reference has no hierarchical label of its name on the instance's sheet, or a hierarchical label has no sheet pin of its name."
+fix = "Add the missing label or pin, or rename one of them so that the names match."
+see = "build"
+
+["drawn.sheet-unknown"]
+meaning = "A sheet reference of the drawing names no sheet, sheets reference each other in a cycle, a sheet is reached by no reference, or its file lies outside the project folder."
+fix = "Fix the sheet and file names of the references in schematic.toml, and remove sheets nothing references."
+see = "build"
+
+["drawn.repeated-value-differs"]
+meaning = "One symbol of a repeated drawn sheet stands for components whose values or footprints differ. A KiCad repeated sheet carries one value per symbol."
+fix = "Give the parts equal values and footprints, or give each instance its own drawn sheet."
+see = "build"
+
+["drawn.net-name-differs"]
+meaning = "A drawn net has the pins of a code net, but none of its labels carries the code net's name. The board keeps the code's name."
+fix = "Rename the label, or the net in the code; nothing else is needed."
+see = "check"
+
+["drawn.unit-missing"]
+meaning = "A unit of a code component is not drawn; it has no pin on a net, so the drawing still means the code."
+fix = "Nothing to do; draw the unit if the sheet should show it."
+see = "build"
+
+["drawn.dangling"]
+meaning = "A wire end of the drawing joins nothing: no other wire, pin, label, sheet pin, junction or bus entry lies on it."
+fix = "Connect or remove the wire end."
+see = "check"
+
+["drawn.label-unconnected"]
+meaning = "A label of the drawing touches no wire and no pin, so it names nothing."
+fix = "Move the label onto a wire or a pin, or remove it."
+see = "check"
+
+["drawn.bus-member-unknown"]
+meaning = "A bus member of the drawing is carried by no label of its name on the sheet, or a bus label names a member that no alias or vector defines."
+fix = "Label the wire of the member on its bus entry, or define the alias."
+see = "check"
+
+["drawn.placements-ignored"]
+meaning = "schematic-placements.toml lies beside a script that loads a drawn schematic; the drawing owns the symbol positions, so the placements file is not read."
+fix = "Delete schematic-placements.toml; move symbols in schematic.toml or in KiCad and run fenolite sync --to-source."
+see = "build"
+
+["drawn.opaque-dropped"]
+meaning = "An opaque item of the drawing (text or graphics kept verbatim for KiCad) has no form for the target and is not written."
+fix = "Nothing to do for the nets; give the item an altium text if the target should show it."
+see = "build"
+
+["drawn.frozen"]
+meaning = "fenolite sync --to-source --freeze-schematic wrote schematic.toml from the generated schematic of the built project."
+fix = "Add design.load_schematic(\"schematic.toml\") to the script so that the next build draws the sheets from the file."
+see = "sync"
+
+["drawn.altium-repeat-flattened"]
+meaning = "A repeated drawn sheet is written once per instance for Altium."
+fix = "Nothing to do."
+see = "build"

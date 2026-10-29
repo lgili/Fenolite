@@ -42,6 +42,7 @@ from fenolite.backends.kicad import (
     wks,
 )
 from fenolite.backends.kicad import copper as copper_mod
+from fenolite.backends.kicad import drawn as drawn_mod
 from fenolite.backends.kicad import generate as generate_mod
 from fenolite.backends.kicad import lengths as lengths_mod
 from fenolite.backends.kicad import meander as meander_mod
@@ -85,10 +86,11 @@ from fenolite.lens.fields import FieldRequestLike, apply_requests, merge_fields
 from fenolite.lens.moved import identity_map
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
 from fenolite.lens.rolecopper import RoleCopperPlanner, apply_plan
-from fenolite.model import canonical, pairs
+from fenolite.model import canonical, drawn_connect, pairs
 from fenolite.model.board import ComponentBody, FootprintInstance, Pad, Side, ViaProtection
 from fenolite.model.circuit import Component, Interface, Net, NetClass, Pin, PinRef
 from fenolite.model.design import Design
+from fenolite.model.drawn import DrawnSchematic
 from fenolite.model.library import DeviceDef, FootprintDef, SymbolDef, flatten_symbol
 from fenolite.model.presentation import DrawingSheet
 from fenolite.model.rules import ImpedanceTarget, Rule, RuleSubject, Selector, TraceGeometry
@@ -160,6 +162,8 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         **{code: severity for code, severity in schgen.ISSUE_CODES.items() if code.startswith("build.")},
         **PRESERVE_ISSUE_CODES,
         **edits_mod.EDIT_ISSUE_CODES,
+        # the drawn schematic (c0276; the table of fenolite.model.drawn_connect.ISSUE_CODES)
+        **drawn_connect.ISSUE_CODES,
     }
 )
 BUILD_EVIDENCE = Evidence(
@@ -1199,6 +1203,8 @@ def build_design(
     devices: Mapping[str, DeviceDef] = MappingProxyType({}),
     device_check: DeviceCheck | None = None,
     layout_record: Mapping[str, object] | None = None,
+    drawn: DrawnSchematic | None = None,
+    drawn_file: str = "schematic.toml",
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
 
@@ -1276,6 +1282,10 @@ def build_design(
     ``layout_record`` is the placement in code of the build (change c0255: the resolved block poses and the
     digest of the resolved placements), kept under ``layout`` in ``.fenolite/build.json`` so the next build
     can move a block whose pose changed.
+    ``drawn`` is the drawn schematic of ``design.load_schematic()``, read from ``drawn_file`` by the caller
+    (change c0276): the sheets come from it (``backends.kicad.drawn.lower_drawn``) instead of the generator,
+    and the guard reads back the sheet texts it plans and compares their nets with the circuit
+    (``drawn_netlist_issues``); ``symbol_placements`` and ``schematic_layout`` are then not used.
     """
     if vendor not in VENDOR_MODES:  # pyright: ignore[reportUnnecessaryContains]
         raise ValueError(f"unknown vendoring policy {vendor!r}; use one of: {', '.join(VENDOR_MODES)}")
@@ -1639,7 +1649,28 @@ def build_design(
         return _refused(built, issues, libraries, prepared)
     generated: GeneratedSchematic | None = None
     symbol_files: dict[str, list[symembed.EmbeddedSymbol]] = {}
-    if schematic == "write":
+    drawn_texts: dict[str, str] | None = None
+    if schematic == "write" and drawn is not None:
+        generated = drawn_mod.lower_drawn(
+            drawn,
+            target_design,
+            parts,
+            name=name,
+            target=target,
+            vendor=vendor,
+            allow_lossy=allow_lossy,
+            power_symbols=_power_symbols(drawn, resolver, authored_symbols),
+        )
+        issues += generated.issues
+        symbol_files = _symbol_libraries(generated, authored_symbols, target, allow_lossy, issues)
+        if any(i.severity == "error" for i in issues):
+            return _refused(built, issues, libraries)
+        drawn_texts, found = drawn_netlist_issues(target_design, generated, name, target, allow_lossy)
+        issues += found
+        if any(i.severity == "error" for i in issues):
+            return _refused(built, issues, libraries)
+        target_design = lower_for_schematic(target_design, generated)
+    elif schematic == "write":
         generated = schgen.generate_schematic(
             target_design,
             parts,
@@ -1716,7 +1747,10 @@ def build_design(
         LibRow(nick, "KiCad", f"${{KIPRJMOD}}/lib/{nick}.pretty") for nick in sorted({n for n, _ in vendored})
     )
     files["fp-lib-table"] = write_lib_table(LibTable("footprint", rows), target=target).encode("utf-8")
-    if generated is not None:
+    if generated is not None and drawn_texts is not None:
+        for path, text in drawn_texts.items():
+            files[path] = text.encode("utf-8")
+    elif generated is not None:
         written = sch.write_schematic(generated.sheet, target=target, allow_lossy=allow_lossy)
         issues += written.issues
         files[f"{name}.kicad_sch"] = written.text.encode("utf-8")
@@ -1724,6 +1758,7 @@ def build_design(
             written = sch.write_schematic(child, target=target, allow_lossy=allow_lossy)
             issues += [found for found in written.issues if found not in issues]
             files[path] = written.text.encode("utf-8")
+    if generated is not None:
         issues += stale_sheets(record, files)
         for nickname, found in sorted(symbol_files.items()):
             path = f"lib/{nickname}.kicad_sym"
@@ -1780,6 +1815,8 @@ def build_design(
         recorded["source"] = {source_file: source_sha256}
     if layout_record is not None:
         recorded["layout"] = dict(layout_record)
+    if drawn_texts is not None:
+        recorded["schematic"] = {"source": "drawn", "file": drawn_file}
     files[RECORD_FILE] = (
         json.dumps(
             recorded,
@@ -1828,7 +1865,9 @@ def build_design(
         via.protection != ViaProtection() for via in (built.board.vias if built.board is not None else ())
     ):
         evidence_items.append(vialib.EVIDENCE)  # the script states a via protection
-    if generated is not None:
+    if generated is not None and drawn_texts is not None:
+        evidence_items += [drawn_mod.EVIDENCE, sch.WRITE_EVIDENCE]
+    elif generated is not None:
         evidence_items += [schgen.EVIDENCE, sch.WRITE_EVIDENCE]
         # a design with a pin bonded to several pads rests on what KiCad does with stacked pins (c0123);
         # a design of one pad per pin adds nothing, so its envelope is the one it was
@@ -1872,6 +1911,8 @@ def build_design(
             "power_flags": generated.power_flags,
             "libraries": [f"lib/{nick}.kicad_sym" for nick in sorted(symbol_files)],
             "unconnected_pads": len(generated.pad_nets),
+            "source": "generated" if drawn is None else "drawn",
+            "drawn": None if drawn is None else {"file": drawn_file, **drawn_mod.drawn_counts(drawn)},
         },
     }
     if generated_counts:
@@ -2219,6 +2260,82 @@ def schematic_netlist_issue(design: Design, generated: GeneratedSchematic, name:
         element,
         GUARD_HINT,
     )
+
+
+def _power_symbols(
+    drawn: DrawnSchematic, resolver: LibraryResolver, authored: Mapping[str, SymbolDef]
+) -> dict[str, drawn_mod.PowerSymbol]:
+    """The power symbols that ``drawn`` names, resolved like part symbols: the design's own first, then the
+    symbol libraries. A symbol that no library holds is left out; ``lower_drawn`` reports it."""
+    found: dict[str, drawn_mod.PowerSymbol] = {}
+    for sheet in drawn.sheets:
+        for power in sheet.powers:
+            lib_id = power.symbol
+            if lib_id in found:
+                continue
+            library, _, symbol_name = lib_id.partition(":")
+            if symbol_name == symembed.FLAG_NAME and library.casefold() == symembed.FLAG_LIBRARY:
+                continue
+            if lib_id in authored:
+                found[lib_id] = drawn_mod.PowerSymbol(authored[lib_id], (), "authored")
+                continue
+            try:
+                chain = resolver.symbol_chain(lib_id)
+                origin = resolver.locate(lib_id, "symbol").origin
+            except LibraryError:
+                continue
+            found[lib_id] = drawn_mod.PowerSymbol(sym.resolve_extends(chain)[0], tuple(chain[1:]), origin)
+    return found
+
+
+def drawn_netlist_issues(
+    design: Design, generated: GeneratedSchematic, name: str, target: int, allow_lossy: bool
+) -> tuple[dict[str, str], list[Issue]]:
+    """The sheet texts of a drawn schematic and the guard's issues (capability design-dsl, "Drawn schematic
+    build guard"; change c0276).
+
+    The texts the build would write are read back with ``sch.read_schematic``, extracted and resolved
+    (``backends.kicad.drawn.resolve_sheets``), without any tool, and the nets are compared with the circuit
+    of ``design`` (``drawn_connect.compare``): a connectivity difference gives
+    ``build.schematic-netlist-differs`` naming the first ``REF-PIN``. The resolver's warnings (dangling
+    wire ends, unconnected labels, bus members no label carries) and its errors (unmatched sheet pins) are
+    returned too, and so are the warnings of the comparison (net names)."""
+    issues: list[Issue] = []
+    texts: dict[str, str] = {}
+    written = sch.write_schematic(generated.sheet, target=target, allow_lossy=allow_lossy)
+    issues += written.issues
+    root_file = f"{name}.kicad_sch"
+    texts[root_file] = written.text
+    for path, child in generated.children.items():
+        written = sch.write_schematic(child, target=target, allow_lossy=allow_lossy)
+        issues += [found for found in written.issues if found not in issues]
+        texts[path] = written.text
+    root = sch.read_schematic(texts[root_file], file=root_file, issues=[])
+    children = {
+        path: sch.read_schematic(text, file=path, issues=[])
+        for path, text in texts.items()
+        if path != root_file
+    }
+    _drawn, netlist, found = drawn_mod.resolve_sheets(
+        root, children, circuit=design.circuit, name=name, root_file=root_file
+    )
+    issues += [i for i in found if i.code.startswith("drawn.")]
+    for compared in drawn_connect.compare(netlist, design.circuit):
+        if compared.code == "drawn.netlist-differs":
+            detail = compared.message.removeprefix("the drawing does not mean the code: ")
+            issues.append(
+                issue(
+                    GUARD_CODE,
+                    f"the drawn schematic as written does not mean the circuit: {detail}; nothing is written",
+                    compared.where,
+                    "redraw schematic.toml so that it means the code, or change the code; a lowering "
+                    "defect is "
+                    "a Fenolite bug: report it with the script",
+                )
+            )
+        else:
+            issues.append(compared)
+    return texts, issues
 
 
 def lower_for_schematic(design: Design, generated: GeneratedSchematic) -> Design:

@@ -21,6 +21,7 @@ Create PCB projects from Python, inspect KiCad and Altium files, and review desi
 | Preserve editor changes and sync placement into source | [Layout and rebuilds](lens.md) |
 | Produce fabrication and assembly files | [Exports](exports.md), [assembly](assembly.md), [drawings](drawings.md) |
 | Use my own sheet template | [Sheet templates](sheet-templates.md) |
+| Keep a schematic drawn by hand beside the code | [Drawn schematics](drawn-schematic.md) |
 | Work with Altium files | [Altium support](altium.md) |
 | Let a coding agent use Fenolite | [Packaged agent guide](../src/fenolite/agent/skill/SKILL.md) |
 

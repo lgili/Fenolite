@@ -682,6 +682,12 @@ def _sheet(design: Design) -> SheetFrameRef | None:
     return dataclasses.replace(frame, drawing_sheet=f"{design.name}{SHEET_SUFFIX}")
 
 
+def drawn_schematic(design: Design) -> str | None:
+    """The drawn schematic that ``load_schematic()`` names, as written in the script (a path relative to
+    the script's folder), or ``None`` for a generated schematic (change c0276)."""
+    return design.drawn_source
+
+
 def drawing_sheet_source(design: Design) -> str | None:
     """The drawing sheet that ``sheet()`` names, as written in the script (a path relative to the script's
     folder), or ``None``."""
@@ -860,6 +866,7 @@ __all__ = [
     "KEYS",
     "PATH_PROPERTY",
     "drawing_sheet_source",
+    "drawn_schematic",
     "schematic_composition",
     "fields",
     "pad_zones",

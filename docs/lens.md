@@ -717,6 +717,17 @@ drop or overwrite:
 - A schematic edited in KiCad is replaced by the next build, so run `sync` first: the build then draws
   the schematic again with every symbol where the file says.
 
+### The drawn schematic in the source tree
+
+For a design that loads a drawn schematic (change c0276), the drawing is CAD-owned like the layout: `sync
+--to-source` extracts the sheets of the built project and plans the drawn file beside the script when its
+canonical text differs, and plans no `schematic-placements.toml`. A sync never changes nets: it first
+resolves the sheets and compares them with the recorded circuit, and a connectivity difference plans
+nothing (`drawn.netlist-differs`, exit 5). Values, footprints and references edited in KiCad keep the rules
+of `edits.toml` (change c0250); the drawn file holds none of them. `--freeze-schematic` writes
+`schematic.toml` from a generated schematic, with `drawn.frozen` and the hint to call
+`design.load_schematic`; the script is never rewritten (`docs/drawn-schematic.md`).
+
 ## Issue codes
 
 | code | severity | when |

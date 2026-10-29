@@ -2633,11 +2633,6 @@ corpus_id = ""
 notes = "blocks example (c0251): one circuit written once and used twice, authored for Fenolite (CC0)"
 
 [[file]]
-path = "examples/blocks/design.py"
-origin = "authored"
-corpus_id = ""
-
-[[file]]
 path = "examples/blocks/design.lock"
 origin = "authored"
 corpus_id = ""
@@ -2872,23 +2867,6 @@ corpus_id = ""
 notes = "import example (c0275): a footprint the import vendored from the authored source"
 
 [[file]]
-
-[[file]]
-path = "examples/lock/design.py"
-origin = "authored"
-corpus_id = ""
-
-[[file]]
-path = "examples/lock/design.lock"
-origin = "authored"
-corpus_id = ""
-
-[[file]]
-path = "tests/data/lens/sync_minimal/fenolite-base.json"
-origin = "authored"
-corpus_id = ""
-
-[[file]]
 path = "examples/relative/pads.py"
 origin = "authored"
 corpus_id = ""
@@ -2923,3 +2901,147 @@ path = "examples/relative/bench/channel.lock"
 origin = "authored"
 corpus_id = ""
 notes = "the committed design lock of examples/relative/bench (c0255, lock of c0249), written by fenolite build"
+
+[[file]]
+path = "examples/drawn/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design script of the drawn schematic fixture examples/drawn (c0276; authored for Fenolite)"
+
+[[file]]
+path = "examples/drawn/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of the drawn fixture examples/drawn naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "examples/drawn/schematic.toml"
+origin = "authored"
+corpus_id = ""
+notes = "drawn schematic (fenolite.drawn-schematic.v0) of the fixture examples/drawn (c0276; authored for Fenolite)"
+
+[[file]]
+path = "examples/drawn/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of the drawn fixture examples/drawn naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/bus/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design script of the drawn schematic fixture bus (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/bus/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of the drawn fixture bus naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/bus/schematic.toml"
+origin = "authored"
+corpus_id = ""
+notes = "drawn schematic (fenolite.drawn-schematic.v0) of the fixture bus (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/bus/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of the drawn fixture bus naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/flat/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design script of the drawn schematic fixture flat (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/flat/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of the drawn fixture flat naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/flat/schematic.toml"
+origin = "authored"
+corpus_id = ""
+notes = "drawn schematic (fenolite.drawn-schematic.v0) of the fixture flat (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/flat/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of the drawn fixture flat naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/full/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design script of the drawn schematic fixture full (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/full/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of the drawn fixture full naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/full/schematic.toml"
+origin = "authored"
+corpus_id = ""
+notes = "drawn schematic (fenolite.drawn-schematic.v0) of the fixture full (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/full/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of the drawn fixture full naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/hier/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design script of the drawn schematic fixture hier (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/hier/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of the drawn fixture hier naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/hier/schematic.toml"
+origin = "authored"
+corpus_id = ""
+notes = "drawn schematic (fenolite.drawn-schematic.v0) of the fixture hier (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/hier/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of the drawn fixture hier naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/repeat/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design script of the drawn schematic fixture repeat (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/repeat/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of the drawn fixture repeat naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/repeat/schematic.toml"
+origin = "authored"
+corpus_id = ""
+notes = "drawn schematic (fenolite.drawn-schematic.v0) of the fixture repeat (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/repeat/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of the drawn fixture repeat naming the authored mini library through ${KIPRJMOD} (c0276)"

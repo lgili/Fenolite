@@ -43,6 +43,7 @@ def test_stage_order() -> None:
         "zone.fill",
         "drc.kicad",
         "parity",
+        "schematic.drawn",  # c0276: needs no tool; listed by fenolite check for drawn input only
         "netlist.assignment_compare",
         "roundtrip",
         "roundtrip.rt2",
