@@ -9,7 +9,11 @@ requirements. The normative text is in `openspec/specs/board-analyses/spec.md`; 
 **Fenolite measures; you decide.** No analysis claims conformance to a safety or design standard.
 Fenolite ships no requirement value: no table from voltage to distance, no default temperature rise, no
 default copper, plating or board thickness. A finding exists only against a requirement that you give.
-Every reply carries `evidence.level` `INFERRED` or lower.
+Every reply carries `evidence.level` `INFERRED` or lower. The one exception is the role profile of the net
+roles (`docs/roles.md`, "Default limits"): it lives outside `src/fenolite/analysis/`, serves only
+`fenolite roles --check` and the stage `roles.rules` of `check`, and `fenolite analyze` never reads it. The
+rows that the roles derive from it and pass to these analyses give no `analysis.*` finding; the roles judge
+their measures themselves.
 
 ## Current capacity
 

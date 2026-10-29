@@ -215,7 +215,9 @@
   are judged" runs `check --stages model.validate,copper.clearance,placement.rules,roles.rules`, since the
   default stages need `kicad-cli`. The tests that list the default stages of both pipelines now name
   `roles.rules`. Proof passed: 78 tests.
-- [ ] 6.4 Amend "No shipped requirement values" in `docs/analyses.md` and the facts-page test (scenario "Analyze ignores the role profile"). Proof: `uv run pytest tests/unit/analysis/test_facts_page.py -q`.
+- [x] 6.4 Amend "No shipped requirement values" in `docs/analyses.md` and the facts-page test (scenario "Analyze ignores the role profile"). Proof: `uv run pytest tests/unit/analysis/test_facts_page.py -q`.
+  Done 2026-10-29. The half-bridge's requirements file now opens with the authored mark of the
+  requirement examples. Proof passed: 10 tests.
 - [ ] 6.5 Compare the roles and measures of the KiCad and Altium builds of each variant (scenarios "Same roles from both builds", "Evidence of a check"). Proof: `uv run pytest tests/unit/roles/test_backends.py -q`.
 
 ## 7. Closing
