@@ -601,7 +601,8 @@ def critical_copper(design: Design, roles: RoleSet) -> CriticalCopper:
         areas: list[Keepout] = [area for area in board.keepouts if area.name.startswith(prefix)]
         items: set[str] = set()
         for area in areas:
-            nets = by_safe.get(area.name[len(prefix) :], set())
+            # the net part; phase 1 names the further pieces of a provisional corridor ``<name>.<n>``
+            nets = by_safe.get(area.name[len(prefix) :].split(".", 1)[0], set())
             ring = area.outline
             if len(ring) < 3:
                 continue

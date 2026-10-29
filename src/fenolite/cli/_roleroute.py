@@ -419,12 +419,18 @@ def _area(name: str, ring: Sequence[Point], layers: Sequence[str]) -> Keepout:
 
 
 def _with_corridors(design: Design, made: Mapping[str, Sequence[Keepout]]) -> Design:
-    """``design`` with the corridors of ``made``, each replacing every rule area of its name."""
+    """``design`` with the corridors of ``made``, each replacing every rule area of its name, and the further
+    pieces ``<name>.<n>`` of a provisional corridor of phase 1 (``fenolite copper``, change c0243)."""
     board = design.board
     if board is None or not made:
         return design
     names = {area.name for areas in made.values() for area in areas}
-    kept = tuple(area for area in board.keepouts if area.name not in names)
+
+    def replaced(name: str) -> bool:
+        base, _, number = name.rpartition(".")
+        return name in names or (number.isdigit() and base in names)
+
+    kept = tuple(area for area in board.keepouts if not replaced(area.name))
     added = tuple(area for group in sorted(made) for area in made[group])
     return dataclasses.replace(design, board=dataclasses.replace(board, keepouts=(*kept, *added)))
 

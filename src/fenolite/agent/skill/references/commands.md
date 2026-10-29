@@ -24,6 +24,7 @@ another type; a flag without a value is a switch.
 | `catalog` | yes | inspect the built-in component catalog or export its visual browser (view --out FILE) |
 | `check` | yes | check a KiCad project (model, KiCad ERC and DRC findings, pad nets, round trips) or an Altium project or document (model, ERC lite, copper shorts and clearance, schematic parity, pad nets, round trips RT-A0 to RT-A2), read-only; --exclude writes one KiCad DRC exclusion into the project |
 | `convert` | yes | convert a project to another backend or KiCad major, reporting what is lost |
+| `copper` | yes | generate the power and ground copper of a KiCad board from its net roles (writes with --confirm) |
 | `diff` | yes | list the differences between two boards, libraries, built models or Altium files, gate them by kind, or merge them into a third KiCad board (runs no tool) |
 | `doctor` | no | report the external tools Fenolite can use: kicad-cli candidates and their commands, java, docker |
 | `edit` | yes | write a design script, a TOML file or a library table from a new text or exact edits, through a plan |
@@ -182,6 +183,28 @@ another type; a flag without a value is a switch.
 - `--altium-pour {computed,outline}`: Altium polygons: computed pours them with Altium's rules (default, experimental; needs the geo extra, without which the default writes the outline with a warning), outline writes them unpoured; a usage error with --to kicad
 - `--report-ids`: list item ids in the report
 - `--no-verify`: skip the read-back (evidence UNVERIFIED)
+
+## copper
+
+`fenolite copper [OPTIONS] PATH`
+
+- `PATH`: a .kicad_pcb, a .kicad_pro or a built project folder
+- `--roles FILE`: the role document to read
+- `--requirements FILE`: your distance and current rows
+- `--kinds KIND,KIND`: of power,switch_node,ground,high_voltage
+- `--net GLOB` (repeatable): only these nets (repeatable)
+- `--layers KIND=L,L` (repeatable): the layers of a kind (repeatable)
+- `--ground-layers L,L`: the layers of the ground planes
+- `--ground-fill {all,reference}`: all: pour the outer area too
+- `--connection KIND=MODE` (repeatable): the pad connection of a kind, MODE of solid,thermal,thru_hole_only,none (repeatable)
+- `--stitch-pitch LENGTH`: the ground stitching pitch
+- `--temp-rise KELVIN`: size by the fit of S-0269
+- `--widen PERMILLE`: how far power copper widens
+- `--no-corridors`: write no provisional corridor
+- `--regenerate KEY` (repeatable): generate this edited role item again (repeatable)
+- `--gate {drc}`: drc: judge the edit with kicad-cli DRC and write it without the items that bring new findings
+- `--kicad-cli PATH`: kicad-cli binary or docker:<image> for --gate
+- `--timeout SECONDS` (number, default `300.0`): per kicad-cli run
 
 ## diff
 

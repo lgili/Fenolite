@@ -109,6 +109,31 @@ def test_corridor_names() -> None:
     assert safe_net("/top/V+ (a)") == "_top_V+__a_"
 
 
+def test_phase_1_and_phase_2_corridors_share_names() -> None:
+    """Phase 1's provisional corridor (c0243) and phase 2's corridor (c0244) of a branch carry one name, so
+    phase 2 replaces every piece of the provisional one (``<name>.<n>`` included) and leaves the others."""
+    from fenolite.cli._roleroute import _with_corridors  # pyright: ignore[reportPrivateUsage]
+    from fenolite.roles.copper import Corridor
+
+    assert Corridor("kelvin_R1", "V+.a", "kelvin", "F.Cu", (), 1, "provisional").key == corridor_name(
+        "kelvin_R1", "V+.a"
+    )
+    ring = (Point(0, 0), Point(1_000_000, 0), Point(1_000_000, 1_000_000))
+    name = corridor_name("k", "VA")
+
+    def area(ident: str, area_name: str) -> Keepout:
+        return Keepout(id=ident, outline=ring, layers=("F.Cu",), no_copper_pour=True, name=area_name)
+
+    design = Design.new("corridors", seed=1)
+    assert design.board is not None
+    old = (area("rul_0", name), area("rul_1", f"{name}.1"), area("rul_x", f"{name}.x"),
+           area("rul_o", corridor_name("k", "VB")))  # fmt: skip
+    design = replace(design, board=replace(design.board, keepouts=old))
+    merged = _with_corridors(design, {"k": [area("rul_new", name)]})
+    assert merged.board is not None
+    assert [k.id for k in merged.board.keepouts] == ["rul_x", "rul_o", "rul_new"]
+
+
 def test_critical_copper_on_a_drawn_board() -> None:
     """``critical_copper`` reads the corridors by name and the locked copper of their net inside them."""
     net = Net(id="net_a", name="VA")

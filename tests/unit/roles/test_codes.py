@@ -23,8 +23,15 @@ SEVENTEEN = {
 }  # fmt: skip
 
 
+COPPER = {
+    "roles.copper-skipped", "roles.copper-blocked", "roles.copper-extra", "roles.copper-kept",
+    "roles.copper-worse", "roles.copper-placement", "roles.copper-narrow", "roles.corridor-blocked",
+}  # fmt: skip
+"""The eight codes of the role copper (change c0243, decision 14)."""
+
+
 def test_codes_in_the_table() -> None:
-    assert set(ISSUE_CODES) == SEVENTEEN
+    assert set(ISSUE_CODES) == SEVENTEEN | COPPER and len(ISSUE_CODES) == 25
     assert ISSUE_CODES["roles.kelvin-outer"] == ("warning", "error")
     assert "roles.input-missing" not in ISSUE_CODES
     codes = explain.all_codes()
@@ -43,7 +50,7 @@ def test_an_issue_outside_the_table_is_refused() -> None:
     assert issue("roles.loop-area", "x").severity == "warning"
 
 
-@pytest.mark.parametrize("code", sorted(ISSUE_CODES))
+@pytest.mark.parametrize("code", sorted(SEVENTEEN))  # the findings; the copper codes take no severity rule
 def test_severity_rule(code: str) -> None:
     for limit in ("profile", "override", "requirements", "rule"):
         assert severity(code, source="inferred", limit_source=limit) != "error"
@@ -66,3 +73,12 @@ def test_unconfirmed_roles_warn_only(tmp_path: Path) -> None:
     count = len(judged.resolved.roles.nets) + len(judged.resolved.roles.loops)
     count += len(judged.resolved.roles.gates) + len(judged.resolved.roles.kelvins)
     assert unconfirmed.message.startswith(f"{count} inferred role(s) and group(s)")
+
+
+def test_copper_codes_in_the_table() -> None:
+    """Scenario "Copper codes in the table" (change c0243)."""
+    assert ISSUE_CODES["roles.copper-worse"] == ("error",)
+    assert ISSUE_CODES["roles.copper-skipped"] == ("info", "warning")
+    for code in COPPER:
+        found = explain.explain(code)
+        assert found is not None and found.meaning and found.fix, code

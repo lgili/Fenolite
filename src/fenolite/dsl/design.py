@@ -35,6 +35,7 @@ from fenolite.model.rules import HeightLimit, PlacementSeverity, RuleKind, RuleS
 if TYPE_CHECKING:
     from fenolite.dsl.generate import Recorded as Generated
     from fenolite.dsl.intents import MeanderIntent, Recorded
+    from fenolite.dsl.rolecopper import RoleCopperIntent
 
 DESIGN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 """A design name becomes the stem of the KiCad files."""
@@ -645,6 +646,8 @@ class Design(Container):
         self.generated: dict[str, Generated] = {}
         """Generated-copper records by key ``<call>.<name>``, as recorded by ``band()``, ``keepout_ring()``,
         ``barrier()``, ``body_keepout()``, ``fanout_zone()`` and ``stitch_pieces()``."""
+        self.role_copper_intent: RoleCopperIntent | None = None
+        """The record of ``role_copper()`` (change c0243), or ``None``."""
         self.zones: dict[str, ZoneSpec] = {}
         """Copper zones by name, as declared by ``zone()``."""
         self.stack: StackupSpec | None = None
@@ -1939,6 +1942,40 @@ class Design(Container):
         from fenolite.dsl import roles
 
         roles.role_limits(self, net, kind, limits)
+
+    def role_copper(
+        self,
+        *,
+        kinds: Sequence[str] = ("power", "switch_node", "ground", "high_voltage"),
+        layers: Mapping[str, Sequence[str]] | None = None,
+        ground_layers: Sequence[str] | None = None,
+        ground_fill: str = "reference",
+        connection: Mapping[str, str] | None = None,
+        stitch_pitch: object = None,
+        temp_rise: object = None,
+        widen: int | None = None,
+        corridors: bool = True,
+        keep: Sequence[str] = (),
+        regenerate: Sequence[str] = (),
+        requirements: str | None = None,
+    ) -> None:
+        """Generate the copper of the confirmed and declared roles after placement (change c0243;
+        ``docs/roles.md``, "Role copper"): a zone per ``power`` and ``switch_node`` net and layer sized by its
+        current, a plane per ``ground`` layer with stitching, via arrays at layer changes, and a clearance
+        rule with a keep-out band around each ``high_voltage`` net at the distance of ``requirements`` (a
+        requirements file beside the script). ``layers`` and ``connection`` override the layers and the pad
+        connection of a kind, ``ground_layers`` the ground planes (``B.Cu`` on 2 layers, ``In1.Cu`` on 4),
+        ``ground_fill="all"`` also pours the free outer area, ``stitch_pitch`` the ground stitching (5 mm),
+        ``temp_rise`` (kelvin) sizes by the fit of S-0269, ``widen`` (per mille) how far power copper widens,
+        ``corridors=False`` writes no corridor of the critical routes, and ``keep`` and ``regenerate`` name
+        role items to keep or to force back. A second call raises ``DslError``."""
+        from fenolite.dsl import rolecopper
+
+        rolecopper.record_role_copper(
+            self, kinds=kinds, layers=layers, ground_layers=ground_layers, ground_fill=ground_fill,
+            connection=connection, stitch_pitch=stitch_pitch, temp_rise=temp_rise, widen=widen,
+            corridors=corridors, keep=keep, regenerate=regenerate, requirements=requirements,
+        )  # fmt: skip
 
     def part_class(self, part: Part, cls: str, terminals: Mapping[str, object] | None = None) -> None:
         """State the class of ``part`` for the role inference (``transistor``, ``shunt``, ``driver`` and
