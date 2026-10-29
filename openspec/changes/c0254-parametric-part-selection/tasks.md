@@ -96,4 +96,4 @@
 - [x] 7.3 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits for `0.7.0.dev0` on `dev` (the guard of v0.6 keeps `[Unreleased]` empty until then). Proof: `uv run pytest tests/unit -k changelog -q`.
   2026-10-29: entry under `## [Unreleased]` (dev is at 0.7.0.dev0 on circuits-as-code); `-k changelog` passes.
 - [ ] 7.4 Run `make check-fast`, publish the batch to its working branch, and read the required CI jobs on the exact commit. Proof: `make check-fast`; the required jobs green on the pushed head.
-  2026-10-29: `make check-fast` result in the next note. Not pushed: CI runs with the batch.
+  2026-10-29: `make check-fast PYTEST_WORKERS=2` passes (16199 passed, 49 skipped) on the head of this change. Not pushed: CI runs with the batch.
