@@ -690,8 +690,8 @@
 		)
 		(symbol "Roles_Sense_Amplifier_0_1"
 			(rectangle
-				(start -7.62 5.08)
-				(end 7.62 -5.08)
+				(start -10.16 5.08)
+				(end 10.16 -5.08)
 				(stroke
 					(width 0.254)
 					(type default)
@@ -703,8 +703,8 @@
 		)
 		(symbol "Roles_Sense_Amplifier_1_1"
 			(pin input line
-				(at -10.16 2.54 0)
-				(length 2.54)
+				(at -13.97 2.54 0)
+				(length 3.81)
 				(name "IN+"
 					(effects
 						(font
@@ -721,8 +721,8 @@
 				)
 			)
 			(pin input line
-				(at -10.16 0 0)
-				(length 2.54)
+				(at -13.97 0 0)
+				(length 3.81)
 				(name "IN-"
 					(effects
 						(font
@@ -739,8 +739,8 @@
 				)
 			)
 			(pin power_in line
-				(at 10.16 2.54 180)
-				(length 2.54)
+				(at 13.97 2.54 180)
+				(length 3.81)
 				(name "VCC"
 					(effects
 						(font
@@ -757,8 +757,8 @@
 				)
 			)
 			(pin output line
-				(at 10.16 0 180)
-				(length 2.54)
+				(at 13.97 0 180)
+				(length 3.81)
 				(name "OUT"
 					(effects
 						(font
@@ -775,8 +775,8 @@
 				)
 			)
 			(pin power_in line
-				(at 10.16 -2.54 180)
-				(length 2.54)
+				(at 13.97 -2.54 180)
+				(length 3.81)
 				(name "GND"
 					(effects
 						(font
@@ -852,8 +852,8 @@
 		)
 		(symbol "Roles_Cell_Monitor_0_1"
 			(rectangle
-				(start -7.62 10.16)
-				(end 7.62 -10.16)
+				(start -10.16 10.16)
+				(end 10.16 -10.16)
 				(stroke
 					(width 0.254)
 					(type default)
@@ -865,8 +865,8 @@
 		)
 		(symbol "Roles_Cell_Monitor_1_1"
 			(pin power_in line
-				(at -10.16 7.62 0)
-				(length 2.54)
+				(at -13.97 7.62 0)
+				(length 3.81)
 				(name "BAT"
 					(effects
 						(font
@@ -883,8 +883,8 @@
 				)
 			)
 			(pin input line
-				(at -10.16 5.08 0)
-				(length 2.54)
+				(at -13.97 5.08 0)
+				(length 3.81)
 				(name "VC3"
 					(effects
 						(font
@@ -901,8 +901,8 @@
 				)
 			)
 			(pin input line
-				(at -10.16 2.54 0)
-				(length 2.54)
+				(at -13.97 2.54 0)
+				(length 3.81)
 				(name "VC2"
 					(effects
 						(font
@@ -919,8 +919,8 @@
 				)
 			)
 			(pin input line
-				(at -10.16 0 0)
-				(length 2.54)
+				(at -13.97 0 0)
+				(length 3.81)
 				(name "VC1"
 					(effects
 						(font
@@ -937,8 +937,8 @@
 				)
 			)
 			(pin input line
-				(at -10.16 -2.54 0)
-				(length 2.54)
+				(at -13.97 -2.54 0)
+				(length 3.81)
 				(name "VC0"
 					(effects
 						(font
@@ -955,8 +955,8 @@
 				)
 			)
 			(pin power_in line
-				(at -10.16 -5.08 0)
-				(length 2.54)
+				(at -13.97 -5.08 0)
+				(length 3.81)
 				(name "VSS"
 					(effects
 						(font
@@ -973,8 +973,8 @@
 				)
 			)
 			(pin input line
-				(at -10.16 -7.62 0)
-				(length 2.54)
+				(at -13.97 -7.62 0)
+				(length 3.81)
 				(name "SRP"
 					(effects
 						(font
@@ -991,8 +991,8 @@
 				)
 			)
 			(pin bidirectional line
-				(at 10.16 7.62 180)
-				(length 2.54)
+				(at 13.97 7.62 180)
+				(length 3.81)
 				(name "SDA"
 					(effects
 						(font
@@ -1009,8 +1009,8 @@
 				)
 			)
 			(pin input line
-				(at 10.16 5.08 180)
-				(length 2.54)
+				(at 13.97 5.08 180)
+				(length 3.81)
 				(name "SCL"
 					(effects
 						(font
@@ -1027,8 +1027,8 @@
 				)
 			)
 			(pin power_out line
-				(at 10.16 2.54 180)
-				(length 2.54)
+				(at 13.97 2.54 180)
+				(length 3.81)
 				(name "REG"
 					(effects
 						(font
@@ -1045,8 +1045,8 @@
 				)
 			)
 			(pin output line
-				(at 10.16 0 180)
-				(length 2.54)
+				(at 13.97 0 180)
+				(length 3.81)
 				(name "CHG"
 					(effects
 						(font
@@ -1063,8 +1063,8 @@
 				)
 			)
 			(pin passive line
-				(at 10.16 -2.54 180)
-				(length 2.54)
+				(at 13.97 -2.54 180)
+				(length 3.81)
 				(name "COM"
 					(effects
 						(font
@@ -1081,8 +1081,8 @@
 				)
 			)
 			(pin output line
-				(at 10.16 -5.08 180)
-				(length 2.54)
+				(at 13.97 -5.08 180)
+				(length 3.81)
 				(name "DSG"
 					(effects
 						(font
@@ -1099,8 +1099,8 @@
 				)
 			)
 			(pin input line
-				(at 10.16 -7.62 180)
-				(length 2.54)
+				(at 13.97 -7.62 180)
+				(length 3.81)
 				(name "SRN"
 					(effects
 						(font

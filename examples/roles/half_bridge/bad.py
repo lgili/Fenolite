@@ -4,4 +4,6 @@
 
 from half_bridge_board import make
 
-design = make("bad")
+from fenolite.dsl import Design
+
+design = make(Design("half_bridge_bad"), "bad")

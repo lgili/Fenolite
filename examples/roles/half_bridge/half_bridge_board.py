@@ -34,9 +34,9 @@ def ring(*points: tuple[float, float]) -> tuple[tuple[int, int], ...]:
     return tuple(p(x, y) for x, y in points)
 
 
-def make(variant: str) -> Design:
+def make(design: Design, variant: str) -> Design:
+    """Draws the ``variant`` board into ``design``, which the variant script makes."""
     good = variant == "good"
-    design = Design(f"half_bridge_{variant}")
     design.board(mm(70), mm(50), copper=4)
     j1 = Part("J1", "Fenolite:Connector_2", footprint="Roles:Roles_Terminal_2P", value="BUS 400V")
     c1 = Part("C1", "Fenolite:Capacitor", footprint="Fenolite:Chip_1812_TDK_CGA8", value="1uF")

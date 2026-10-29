@@ -4,4 +4,6 @@
 
 from buck_shunt_board import make
 
-design = make("good")
+from fenolite.dsl import Design
+
+design = make(Design("buck_shunt_good"), "good")

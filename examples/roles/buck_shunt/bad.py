@@ -6,4 +6,6 @@ output pour, and a 0.3 mm track on the 2 A output path."""
 
 from buck_shunt_board import make
 
-design = make("bad")
+from fenolite.dsl import Design
+
+design = make(Design("buck_shunt_bad"), "bad")

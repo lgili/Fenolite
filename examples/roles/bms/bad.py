@@ -5,4 +5,6 @@ boards")."""
 
 from bms_board import make
 
-design = make("bad")
+from fenolite.dsl import Design
+
+design = make(Design("bms_bad"), "bad")
