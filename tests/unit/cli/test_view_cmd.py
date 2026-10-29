@@ -492,7 +492,7 @@ class _Served:
         shutil.copy(BOARD, tmp_path / BOARD.name)
         self.stop = threading.Event()
         monkeypatch.setattr(cmd_view, "SERVE_STOP", self.stop)
-        monkeypatch.setattr(cmd_view, "_runner", lambda tree, timeout: runner)
+        monkeypatch.setattr(cmd_view, "_runner", lambda *_args: runner)
         self.served: list[Any] = []
         original = cmd_view.server.serve
 
@@ -571,3 +571,9 @@ def test_run_results_of_each_command(monkeypatch: pytest.MonkeyPatch, tmp_path: 
         assert {g["id"] for g in job["groups"]} == {"analyze_clearance", "analyze_creepage"}
         job = _job(port, _post(port, "/run", {"command": "ready", "doc": "doc1"})["job"])
         assert job["findings"][0]["stage"] == "ready" and job["findings"][0]["at"] is not None
+
+
+def test_allow_actions_needs_serve(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Option without serve" (change c0246)."""
+    code, _, error, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--allow-actions")
+    assert code == 2 and error["code"] == "FEN-2001" and error["where"] == "--allow-actions"

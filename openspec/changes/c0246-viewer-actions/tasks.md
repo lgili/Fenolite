@@ -5,14 +5,14 @@
 ## 2. Allow-list and guard
 
 - [x] 2.1 Add `fenolite.view.actions` with `ACTIONS`, the templates, the typed options, the root confinement of outputs and the Altium refusal (requirement "Allowed actions", scenario "Refused actions"). Proof: `uv run pytest tests/unit/view/test_actions.py tests/unit/test_import_graph.py -q -n 2`.
-- [ ] 2.2 Add `--allow-actions`, the session token, `GET /actions` and the action guard; refuse every action route without the option (requirements "Writing actions are opt-in", "Action request guard", "View command allows writing actions"). Proof: `uv run pytest tests/unit/view/test_server.py -k "actions_off or action_guard" tests/unit/cli/test_view_cmd.py -k allow_actions -q -n 2`.
+- [x] 2.2 Add `--allow-actions`, the session token, `GET /actions` and the action guard; refuse every action route without the option (requirements "Writing actions are opt-in", "Action request guard", "View command allows writing actions"). Proof: `uv run pytest tests/unit/view/test_server.py -k "actions_off or action_guard" tests/unit/cli/test_view_cmd.py -k allow_actions -q -n 2`.
 
 ## 3. Plan, confirm, undo
 
-- [ ] 3.1 Add `POST /action/plan`: the dry run through the runner core, the plan check against the command and the root, and the preview from the staged board (scenario "A designator plan previewed"). Proof: `uv run pytest tests/unit/cli/test_view_actions.py -k silk_plan -q -n 2`.
-- [ ] 3.2 Add `POST /action/confirm` for plans of the session, with `FEN-4002` passed through (scenario "The file changed after the review"). Proof: `uv run pytest tests/unit/cli/test_view_actions.py -k "confirm or changed" -q -n 2`.
-- [ ] 3.3 Keep the receipts, write them to the state folder, add `POST /action/undo` through `restore`, and `result.serve.writes` (scenarios "Write and undo", "Receipts in the reply"). Proof: `uv run pytest tests/unit/cli/test_view_actions.py -k "undo or reply" -q -n 2`.
-- [ ] 3.4 Cover `move`, `shift` and `turn` (one moved part in the preview), `export` and `bom` (writes under `fab/` only) and `testpoints`; mark `fill` and `tidy --gate drc` as needing `kicad-cli`. Proof: `uv run pytest tests/unit/cli/test_view_actions.py -q -n 2`; the KiCad CI jobs for the tests that need `kicad-cli`.
+- [x] 3.1 Add `POST /action/plan`: the dry run through the runner core, the plan check against the command and the root, and the preview from the staged board (scenario "A designator plan previewed"). Proof: `uv run pytest tests/unit/cli/test_view_actions.py -k silk_plan -q -n 2`.
+- [x] 3.2 Add `POST /action/confirm` for plans of the session, with `FEN-4002` passed through (scenario "The file changed after the review"). Proof: `uv run pytest tests/unit/cli/test_view_actions.py -k "confirm or changed" -q -n 2`.
+- [x] 3.3 Keep the receipts, write them to the state folder, add `POST /action/undo` through `restore`, and `result.serve.writes` (scenarios "Write and undo", "Receipts in the reply"). Proof: `uv run pytest tests/unit/cli/test_view_actions.py -k "undo or reply" -q -n 2`.
+- [x] 3.4 Cover `move`, `shift` and `turn` (one moved part in the preview), `export` and `bom` (writes under `fab/` only) and `testpoints`; mark `fill` and `tidy --gate drc` as needing `kicad-cli`. Proof: `uv run pytest tests/unit/cli/test_view_actions.py -q -n 2`; the KiCad CI jobs for the tests that need `kicad-cli`.
 
 ## 4. Page
 

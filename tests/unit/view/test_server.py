@@ -442,3 +442,94 @@ def test_run_check_with_the_real_runner_keeps_each_stage_evidence(tmp_path: Path
         assert cards["drc"] == "not-run" and cards["model"] != "not-run" and cards["clearance"] != "not-run"
     finally:
         stop.set()
+
+
+# ------------------------------------------------------------------------------------------ actions (c0246)
+
+ACTION_OK = {"Content-Type": "application/json", "X-Fenolite-Action": "1"}
+SILK = {"action": "silk", "doc": "doc1", "options": {"designators": True}}
+
+
+class _FakeTools(_FakeRunner):
+    """A fake runner that also answers the action tools; ``words`` records every command line."""
+
+    def __init__(self) -> None:
+        super().__init__({"command": "silk", "issues": [], "result": {}})
+        self.words: list[list[str]] = []
+
+    def start_words(self, words: list[str], on_progress: Any) -> _Handle:
+        self.words.append(list(words))
+        return _Handle(self)
+
+    def staged(self, plan_id: str) -> dict[str, Any] | None:
+        return None
+
+    def staged_bytes(self, plan_id: str, row: dict[str, Any]) -> bytes | None:
+        return None
+
+    def preview(self, board: Path, data: bytes) -> dict[str, Any] | None:
+        return None
+
+    def keep_receipt(self, envelope: dict[str, Any]) -> Path:
+        return Path("unused")
+
+    def receipt_file(self, receipt_id: str) -> Path:
+        return Path("unused")
+
+
+def test_actions_off_refuses_every_action_route(tmp_path: Path) -> None:
+    """Scenario "Actions not allowed"."""
+    runner = _FakeTools()
+    port, stop = _serve_runs(_live_runs(tmp_path, runner))
+    try:
+        offer = _call(port, "/actions?doc=doc1", None, {"X-Fenolite-Action": "1"})[1]
+        assert offer["enabled"] is False and "--allow-actions" in offer["reason"] and "token" not in offer
+        for route in ("/action/plan", "/action/confirm", "/action/undo"):
+            assert _call(port, route, SILK, ACTION_OK | {"X-Fenolite-Token": "x"})[0] == 403
+        assert runner.words == [] and runner.started == []
+    finally:
+        stop.set()
+
+
+def test_action_guard_needs_the_token_and_one_job_at_a_time(tmp_path: Path) -> None:
+    """Scenario "A request without the token"."""
+    runner = _FakeTools()
+    live = _live_runs(tmp_path, runner, actions=runner)
+    port, stop = _serve_runs(live)
+    try:
+        bare = _call(port, "/actions?doc=doc1")[1]
+        assert bare["enabled"] is True and "token" not in bare
+        assert _call(port, "/actions", None, {"X-Fenolite-Action": "1", "Host": "evil.example"})[0] == 403
+        offer = _call(port, "/actions?doc=doc1", None, {"X-Fenolite-Action": "1"})[1]
+        token = offer["token"]
+        assert len(token) == 32 and offer["actions"]["silk"]["available"] is True
+        assert _call(port, "/action/plan", SILK, ACTION_OK)[0] == 403
+        assert _call(port, "/action/plan", SILK, ACTION_OK | {"X-Fenolite-Token": "0" * 32})[0] == 403
+        signed = ACTION_OK | {"X-Fenolite-Token": token}
+        assert _call(port, "/action/plan", SILK, signed | {"Origin": "http://evil.example"})[0] == 403
+        assert (
+            _call(
+                port, "/action/plan", SILK, {"Content-Type": "application/json", "X-Fenolite-Token": token}
+            )[0]
+            == 403
+        )
+        assert runner.words == []
+        code, started = _call(port, "/run", CHECK_DRC, RUN_OK)
+        assert code == 202
+        code, busy = _call(port, "/action/plan", SILK, signed)
+        assert code == 409 and busy["job"] == started["job"] and runner.words == []
+        assert _call(port, "/action/confirm", {"job": started["job"]}, signed)[0] in (400, 409)
+        runner.release.set()
+        _until(port, started["job"])
+        code, planned = _call(port, "/action/plan", SILK, signed)
+        assert code == 202
+        assert runner.words == [["silk", "--designators", "--dry-run", "--", BOARD.name]]
+        state = _until(port, planned["job"])
+        assert state["kind"] == "plan" and state["plan"] is None  # the fake reply holds no plan
+        code, refused = _call(port, "/action/confirm", {"job": planned["job"]}, signed)
+        assert code == 400 and "cannot be confirmed" in refused["error"]
+        assert _call(port, "/action/confirm", {"job": "f" * 32}, signed)[0] == 400
+        assert _call(port, "/action/undo", {"receipt": "0123456789abcdef"}, signed)[0] == 400
+        assert _call(port, "/action/plan", SILK | {"options": {"no_backup": True}}, signed)[0] == 400
+    finally:
+        stop.set()

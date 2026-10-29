@@ -132,6 +132,12 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--no-run", action="store_true", help="with --serve: the page runs no check (recorded results only)"
     )
+    parser.add_argument(
+        "--allow-actions",
+        action="store_true",
+        help="with --serve: the page can write the project's files through reviewed plans (fill, tidy, "
+        "silk, test points, waivers, moves, exports, BOM); each write keeps a backup and can be undone",
+    )
     parser.add_argument("--export", metavar="FILE", help="write one standalone page")
     parser.add_argument(
         "--cache",
@@ -829,7 +835,11 @@ def _serve_options(args: argparse.Namespace) -> float:
     """The run time limit of ``--run-timeout``; ``FEN-2001`` for a serve option without ``--serve``."""
     given = [
         flag
-        for flag, value in (("--run-timeout", args.run_timeout is not None), ("--no-run", args.no_run))
+        for flag, value in (
+            ("--run-timeout", args.run_timeout is not None),
+            ("--no-run", args.no_run),
+            ("--allow-actions", args.allow_actions),
+        )
         if value
     ]
     if given and not args.serve:
@@ -849,12 +859,12 @@ def _serve_options(args: argparse.Namespace) -> float:
     return seconds
 
 
-def _runner(tree: ProjectTree, timeout: float) -> Any:
+def _runner(tree: ProjectTree, timeout: float, preview: Any = None) -> Any:
     """The child-process runner of the page's jobs (``cli/_viewrun.py``), imported only when serving."""
     from fenolite.cli._viewrun import ChildRunner  # noqa: PLC0415 - the catalog parses every command
     from fenolite.cli.api import discover  # noqa: PLC0415
 
-    return ChildRunner(discover(), root=tree.root, timeout=timeout)
+    return ChildRunner(discover(), root=tree.root, timeout=timeout, preview=preview)
 
 
 def _choices() -> Choices:
@@ -1052,12 +1062,24 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                     envelope, "Paths of an analyze run from the page.", source="run:analyze"
                 )
                 return {"overlays": items, "groups": groups}
-            listed: dict[str, Any] = {"command": "check", "issues": list(envelope.get("issues") or []),
-                                      "result": {"stages": []}, "evidence": envelope.get("evidence")}  # fmt: skip
+            listed: dict[str, Any] = {
+                "command": "check",
+                "issues": list(envelope.get("issues") or []),
+                "result": {"stages": []},
+                "evidence": envelope.get("evidence"),
+            }
             placed = check_overlay(listed, cached(path))
             return {"findings": [f | {"stage": command} for f in placed["findings"]]}
 
-        runner = None if args.no_run else _runner(tree, run_timeout)
+        def preview(staged: Path, board: Path) -> dict[str, Any] | None:
+            """The changes a plan makes to the board shown (change c0246), drawn over the current scene."""
+            new = scene_of(staged, kicad)
+            if new.get("kind") is not None:
+                return None
+            new["meta"]["name"] = board.name
+            return compare(new, plain(board))
+
+        runner = None if args.no_run and not args.allow_actions else _runner(tree, run_timeout, preview)
         live = server.Live(
             tree,
             build,
@@ -1070,6 +1092,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             runs_enabled=not args.no_run,
             choices=_choices(),
             derive=derive,
+            actions=runner if args.allow_actions else None,
         )
         try:
             httpd = server.serve(live, port)
@@ -1094,6 +1117,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if marks_file is not None:
             result["serve"]["marks_written"] = live.written
         result["serve"]["runs"] = runs_counts(live.jobs.counts)
+        if args.allow_actions:
+            result["serve"]["writes"] = [
+                {"id": r["id"], "action": r["action"], "files": r["files"]} for r in reversed(live.receipts)
+            ]
     dependencies = [*args.report, *([args.check] if args.check and args.check != "run" else [])]
     return Result(
         result=result,

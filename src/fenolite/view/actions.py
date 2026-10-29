@@ -108,7 +108,7 @@ ACTIONS: Mapping[str, Action] = {
             "ref": Option("ref", required=True, label="part"),
             "x": Option("length", required=True, label="X from the outline's left"),
             "y": Option("length", required=True, label="Y from the outline's top"),
-            "rot": Option("angle", "0", label="rotation, degrees"),
+            "rot": Option("angle", None, label="rotation, degrees (kept when empty)"),
             "side": Option("choice", None, choices=SIDES, label="side"),
         },
     ),
@@ -385,7 +385,9 @@ def _flags(name: str, v: Json) -> list[str] | ActionRefused:  # noqa: PLR0911 - 
     if name == "waive":
         return [f"--exclude={v['finding']}", f"--reason={v['reason']}"]
     if name == "move":
-        spec = ",".join([f"{v['ref']}={v['x']}", v["y"], v["rot"], *([v["side"]] if "side" in v else [])])
+        if "side" in v and "rot" not in v:
+            return ActionRefused("move: a side goes with a rotation")
+        spec = ",".join([f"{v['ref']}={v['x']}", v["y"], *(v[k] for k in ("rot", "side") if k in v)])
         return [f"--move={spec}"]
     if name == "shift":
         return [f"--shift={v['refs']}", f"--by={v['dx']},{v['dy']}"]
