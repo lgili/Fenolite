@@ -101,7 +101,7 @@ def test_schlib(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert {c.name for c in library.components} >= {"EXM120", "EXM120-T"}
 
 
-@pytest.mark.parametrize("out", ["lib/Example.lib", "Example", "/tmp/Example.kicad_sym"])
+@pytest.mark.parametrize("out", ["lib/Example.lib", "Example", "ABSOLUTE"])
 def test_wrong_suffix(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, out: str) -> None:
     _tables(tmp_path)
     before = _files(tmp_path)
@@ -130,10 +130,12 @@ def test_reserved_action(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, action
 
 def test_existing_form_unchanged(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """The board form keeps its result and plan; two boards or ``--library`` are refused."""
-    from test_derive import board_text  # pyright: ignore[reportMissingImports]
-    from test_library_cmd import _board  # pyright: ignore[reportMissingImports]
+    import sys
 
-    _board(tmp_path, board_text())
+    sys.path.insert(0, str(ROOT / "tests" / "unit" / "library"))
+    from test_derive import board_text  # pyright: ignore[reportMissingImports]
+
+    (tmp_path / "board.kicad_pcb").write_text(board_text(), encoding="utf-8", newline="\n")
     code, env, _, _ = run(
         monkeypatch, tmp_path, "library", "board.kicad_pcb", "--out", "lib.pretty", "--dry-run"
     )
