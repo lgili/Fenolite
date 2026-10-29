@@ -116,7 +116,9 @@ def test_hermetic(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
 def test_no_temporary_residue(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """The temporary folder is gone and no temporary path is in the reply."""
-    system = Path(tempfile.gettempdir())
+    system = tmp_path / "system-tmp"  # a private temporary root: parallel runs share the real one
+    system.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(system))
     before = {p.name for p in system.glob("fenolite-verify-*")}
     _, _, _, out = verify(monkeypatch, tmp_path, str(SCRIPT), "--against", str(ORIGINAL))
     assert {p.name for p in system.glob("fenolite-verify-*")} == before
