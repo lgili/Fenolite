@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example; an illustrative device, not a real product. Its values are chosen
+# for the example and come from no datasheet.
+schema = "fenolite.device.v0"
+id = "Example:IND_3A"
+summary = "1210 power inductor rated 3A (illustrative)"
+symbol = "Fenolite:Inductor"
+footprint = "Fenolite:Chip_1210_Vishay_Draloric"
+ref_prefix = "L"
+evidence = "UNVERIFIED"
+class = "inductor"
+ends = ["P1", "P2"]
+
+[pins]
+P1 = "1"
+P2 = "2"
+
+[ratings]
+current = { abs_max = "3A" }

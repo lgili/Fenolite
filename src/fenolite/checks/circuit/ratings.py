@@ -173,7 +173,7 @@ class RatingJudge:
         judged without a rule."""
         unit, low, high = to_unit(rating)
         device = part.device
-        basis = f"{device.id} {label} {rating.limit}"
+        basis = " ".join(part for part in (device.id, label, rating.limit) if part)
         kind: LimitKind = rating.limit
         if rating.limit == "operating":
             side = Side(

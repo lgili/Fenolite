@@ -82,11 +82,6 @@ def ground_nets(design: Design) -> dict[str, tuple[Source, str]]:
     return found
 
 
-def _rail_name(view: View, net_id: str) -> str:
-    rail = view.rails[net_id]
-    return rail.interfaces[0].name if rail.interfaces else view.net_name(net_id)
-
-
 def resolve(
     design: Design,
     view: View,
@@ -123,7 +118,7 @@ def resolve(
                 amps.append(Value(None, bounds(element.current)[1], "user", f"rig {element.name}", "rig"))
         rail = view.rails.get(net_id)
         if rail is not None:
-            label = f"rail {_rail_name(view, net_id)}"
+            label = f"rail {name}"
             if rail.voltage is not None:
                 reads = frozenset(r.name for r in rail.rig_sources)
                 volts.append(Value(rail.voltage[0], rail.voltage[1], "user", label, "rail", reads))

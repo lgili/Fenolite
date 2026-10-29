@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example; an illustrative device, not a real product. Its values are chosen
+# for the example and come from no datasheet.
+schema = "fenolite.device.v0"
+id = "Example:CAP_16V"
+summary = "1206 ceramic capacitor rated 16V (illustrative)"
+symbol = "Fenolite:Capacitor"
+footprint = "Fenolite:Chip_1206"
+ref_prefix = "C"
+evidence = "UNVERIFIED"
+class = "capacitor"
+ends = ["P1", "P2"]
+
+[pins]
+P1 = "1"
+P2 = "2"
+
+[ratings]
+voltage = { abs_max = "16V" }

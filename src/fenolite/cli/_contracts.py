@@ -29,7 +29,8 @@ def devices_of(
     model: Design, folder: Path | None = None, records: Mapping[str, DeviceDef] | None = None
 ) -> dict[str, DeviceDef]:
     """The record of each device id the model's components name: from ``records`` (the design's own and the
-    build's), then the ``devices/`` folder of ``folder``, then the shipped devices. An id no source holds is
+    build's), then the ``devices/`` folder of ``folder``, then that of its parent (a build folder beside the
+    script, ``--out <script folder>/build``), then the shipped devices. An id no source holds is
     left out, and the stage counts its parts in ``circuit.rating-missing``; a malformed project file is left
     out the same way."""
     wanted = {
@@ -38,9 +39,11 @@ def devices_of(
     if not wanted:
         return {}
     found: dict[str, DeviceDef] = {key: value for key, value in (records or {}).items() if key in wanted}
-    if folder is not None and wanted - set(found):
+    for place in () if folder is None else (folder, folder.parent):
+        if not wanted - set(found):
+            break
         try:
-            project, _issues = load_devices(folder / DEVICES_DIR)
+            project, _issues = load_devices(place / DEVICES_DIR)
         except FormatError:
             project = ()
         for device in project:
