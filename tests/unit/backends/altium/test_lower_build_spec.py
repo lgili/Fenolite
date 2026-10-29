@@ -37,7 +37,7 @@ import fenolite.lens.altium as lens_altium
 from fenolite.backends.altium import pcbdoc, pcblib
 from fenolite.backends.altium import pcbrecords as rec
 
-SCRIPTS = tuple(sorted(EXAMPLES.rglob("*.py")))
+SCRIPTS = tuple(sorted(p for p in EXAMPLES.rglob("*.py") if not p.name.startswith("test_")))
 SHEET_MODES = ("flat", "modules")
 INTERNAL = ("id", "native_ids", "provenance", "ext", "net_id", "corner_ratio")
 """Fields of a pad or a graphic of a placed footprint that no record is written from. A pad record takes

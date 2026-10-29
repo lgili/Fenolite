@@ -33,6 +33,7 @@ FORMS = {"binary": (), "ascii": ("--altium-format", "ascii")}
 OFFICIAL = "blink_official/design.py"
 """The one example that needs the official KiCad libraries: built only where they are installed."""
 WITH_PCB = {
+    "testing/design.py",
     "acceptance_v03/design.py",
     "altium_hier_board/design.py",
     "blink_2layer/design.py",
@@ -60,7 +61,11 @@ REFUSED = {
 2026-10-08): nothing is written, so there is nothing for RT-A2 to judge. ``test_refused_example_is_refused``
 holds each entry to its reason where the libraries are installed, so that an example which starts to build
 fails there and is moved to ``WITH_PCB`` or ``SCHEMATIC_ONLY``."""
-SCRIPTS = sorted(path.relative_to(EXAMPLES).as_posix() for path in EXAMPLES.glob("*/*.py"))
+SCRIPTS = sorted(
+    path.relative_to(EXAMPLES).as_posix()
+    for path in EXAMPLES.glob("*/*.py")
+    if not path.name.startswith("test_")
+)
 PCB_KINDS = sorted(kind for kind in RT_A2_SCOPE.fields if kind not in CIRCUIT_KINDS)
 """The kinds compared with the PCB reading: every other kind of the scope."""
 ROUTED = EXAMPLES / "blink_routed" / "design.py"
@@ -108,7 +113,7 @@ def test_example_holds_rta2(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, scr
         # the stored model holds the board that was written: every kind of the scope is compared
         assert summary["compared"]["pcb"] == PCB_KINDS
         board = load_dir(folder / ".fenolite").board
-        assert board is not None and len(board.footprints) >= 3
+        assert board is not None and len(board.footprints) >= (2 if script == "testing/design.py" else 3)
         assert sum(len(footprint.pads) for footprint in board.footprints) >= 3
 
 

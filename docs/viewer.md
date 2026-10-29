@@ -427,3 +427,10 @@ pads, tracks, zones, fills, texts and bodies, and the notes), or `--doc SHEET` f
 (parts, pins, wires, labels, ports, sheet symbols and nets), or `--doc LIBRARY` for the names of a library's
 symbols or footprints, or `--doc DRAWING` for the sheets and item counts of a Draftsman document. Use `--export` to hand a person one page to
 review. `--serve` keeps running until it is interrupted; it is for a person at a browser.
+
+## Finding subjects
+
+Check replies can include `result.subjects`: issue indices and model entities with kind, id and name.
+The check overlay resolves these identities first, then names, and falls back to the existing `where`
+forms if none is present in the scene. The Messages panel lists the subject names. Replies without
+subjects remain supported; the envelope issue object is unchanged.

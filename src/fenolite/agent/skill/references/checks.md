@@ -186,4 +186,16 @@ fenolite capabilities --json --fields matrix
   data; the long reply holds `matrix`, which says for each file kind what Fenolite can do with it and at
   which evidence level.
 
+
+## Net render assertions
+
+```fenolite-cmd
+fenolite render blink/build --net GND --layers F.Cu,B.Cu -o views --dry-run --json
+```
+
+`--net` highlights a literal net (repeatable); `--nets` still adds labels. A model render accepts a
+script with `--net` or `--region` and needs no tool. `check.result.subjects` maps issue indices to
+model ids and names; use those identities before parsing `where`. Missing circuit-contract stages
+are unavailable, not a passing electrical test.
+
 Read next: `recovery`, `routing`, `files`.

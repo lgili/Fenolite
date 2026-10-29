@@ -456,7 +456,7 @@ def test_topics_load() -> None:
     pages = guide.pages()
     topics = [page.topic for page in pages]
     assert topics == [guide.START, *sorted((*WRITTEN, *GENERATED))]
-    assert len(TOOLS) == 11 and len(PRACTICE) == 11 and len(GENERATED) == 2
+    assert len(TOOLS) == 11 and len(PRACTICE) == 11 and len(GENERATED) == 6
     for page in pages:
         assert page.title and page.summary and "\n" not in page.summary, page.topic
         assert page.text.startswith(f"# {page.title}\n"), page.topic
@@ -723,7 +723,7 @@ def test_generated_pages_are_current() -> None:
     assert tool.stale() == []
     assert tool.main(["--check"]) == 0
     first, second = tool.render(), tool.render()
-    assert first == second and set(first) == {tool.COMMANDS, tool.DSL, tool.START}
+    assert first == second and set(first) == {tool.COMMANDS, tool.DSL, tool.START, *tool.COMMAND_DETAILS}
     registry = discover()
     public = sorted(name for name in registry if not registry[name].hidden)
     for path, topic in ((tool.COMMANDS, "commands"), (tool.DSL, "dsl-reference")):
@@ -732,10 +732,11 @@ def test_generated_pages_are_current() -> None:
         assert guide.blocks(page) == () and tag_problems(page) == []
         assert (SKILL / path).read_text(encoding="utf-8") == first[path]
     commands = guide.page("commands").text
-    assert re.findall(r"^## (\S+)$", commands, re.MULTILINE) == public
+    arguments = "\n".join(guide.page(f"commands-{n}").text for n in range(1, 5))
+    assert re.findall(r"^## (\S+)$", arguments, re.MULTILINE) == public
     assert "| `build` | yes |" in commands and "| `inspect` | no |" in commands
-    assert "`fenolite route [OPTIONS] --router NAME PATH`" in commands and "- `--router NAME`: " in commands
-    assert "- `--kind {footprint,symbol}`" in commands and "[--" not in commands
+    assert "`fenolite route [OPTIONS] --router NAME PATH`" in arguments and "- `--router NAME`: " in arguments
+    assert "- `--kind {footprint,symbol}`" in arguments and "[--" not in arguments
     names = re.findall(r"^## (\S+)$", guide.page("dsl-reference").text, re.MULTILINE)
     assert names == sorted(set(fenolite.dsl.__all__) - set(guide.DSL_NOT_TAUGHT))
     reference = guide.page("dsl-reference").text
@@ -883,3 +884,8 @@ def test_coverage_rule_is_stated_for_contributors() -> None:
         assert RULE in flat
         for words in ("public command", "public DSL name", "`FEN-` code", "tests/unit/agent/test_pages.py"):
             assert words in flat, words
+
+
+def test_every_reference_page_within_byte_limit():
+    for file in guide.skill_files():
+        assert len(file.data) <= 12000, file.path

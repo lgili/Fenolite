@@ -177,4 +177,28 @@ ships no frame; this command turns your specification into a KiCad drawing sheet
 fenolite template build blink/frame.sheet.toml --target kicad -o blink/frame.kicad_wks --dry-run --json
 ```
 
+
+## Test a design separately
+
+In a test file use `fenolite.testing`; it builds privately through the reviewed plan protocol. This
+sample is exercised by the testing suite:
+
+```text
+from fenolite.testing import load
+with load("design.py") as d:
+    assert d.connected("R1-1", "R2-1")
+    assert not d.findings("build.unattached")
+```
+
+Use `assert_render` for exact SVG goldens; a mismatch prints a diff and regeneration commands, never
+updates the reference. `connected(..., copper=True)` tests actual copper, including the pin-to-pad map.
+`instantiate` awaits block support; device/rail fields remain None until their defining changes land.
+
+```fenolite-cmd
+fenolite explain build.unattached --json
+```
+
+`build.unattached` warns at `file:line:N` about a live Part, Net or Interface never added or connected.
+Add it, connect it, or delete it. Tracking is scoped to the build and ignores already collected objects.
+
 Read next: `parts`, `placement`, `routing`.

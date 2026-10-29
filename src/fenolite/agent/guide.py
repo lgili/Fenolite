@@ -68,7 +68,7 @@ hold, which the build for target 9 refuses with exit 7)."""
 PAGES_BEGIN = "<!-- pages:begin -->"
 PAGES_END = "<!-- pages:end -->"
 """The two marker lines of the start page; ``tools/gen_agent_guide.py`` writes the index between them."""
-GENERATED_TOPICS = ("commands", "dsl-reference")
+GENERATED_TOPICS = ("commands", "commands-1", "commands-2", "commands-3", "commands-4", "dsl-reference")
 """The topics that ``tools/gen_agent_guide.py`` writes; every other reference page is written by hand."""
 
 _BUILD_CALLS = "the build calls it; a script never does"

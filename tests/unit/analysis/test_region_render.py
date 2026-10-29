@@ -155,3 +155,32 @@ def test_drawing_is_deterministic_and_exact() -> None:
     assert EVIDENCE.hypotheses == ("H-G-REGION-RENDER",)
     with pytest.raises(ValueError):
         Region(0, 0, 0, MM)
+
+
+def test_highlight_layers_and_stable_element_ids():
+    drawing, root = drawn(rv.bench(), highlight=("GND",), layers=("B.Cu",))
+    assert root.get("data-render") == "fenolite.region.v1"
+    copper = [e for e in root.iter() if e.get("data-item")]
+    assert copper
+    for element in copper:
+        assert ("net-hi" in element.get("class", "")) == (element.get("data-net") == "GND")
+        assert element.get("data-layer") in (None, "B.Cu")
+    assert of_class(root, "edge") and of_class(root, "hole")
+    assert drawing.svg == drawn(rv.bench(), highlight=("GND",), layers=("B.Cu",))[0].svg
+
+
+def test_merged_simulated_zones_count_entities_once():
+    import dataclasses
+
+    from fenolite.core.coords import Point
+
+    design = rv.bench(fill=False)
+    zone = design.board.zones[0]
+    other = dataclasses.replace(
+        zone,
+        id="zon_00000000-0000-4000-8000-000000000002",
+        outline=tuple(Point(p.x + MM, p.y) for p in zone.outline),
+    )
+    design = dataclasses.replace(design, board=dataclasses.replace(design.board, zones=(zone, other)))
+    drawing, _ = drawn(design, highlight=("GND",))
+    assert drawing.highlighted["zones"] == 2

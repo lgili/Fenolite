@@ -20,6 +20,7 @@ from pathlib import Path
 
 from fenolite.core.errors import FormatError
 from fenolite.dsl import Design, Panel
+from fenolite.dsl._sites import Site, recording
 
 SCRIPT_OUTPUT_LIMIT = 4000
 TRUNCATED = "…[truncated]"
@@ -34,6 +35,7 @@ class DesignScriptError(FormatError):
 class ScriptRun:
     design: Design
     output: str
+    unattached: tuple[Site, ...] = ()
 
 
 def _inside(path: str | None, folder: Path) -> bool:
@@ -96,7 +98,8 @@ def _run_script(path: Path, what: str) -> tuple[dict[str, object], str]:
 
 def run_design_script(path: Path) -> ScriptRun:
     """The module-level ``design`` of the script at ``path`` and its captured stdout and stderr."""
-    namespace, output = _run_script(path, "design")
+    with recording(Path(path).resolve().parent) as recorder:
+        namespace, output = _run_script(path, "design")
     design = namespace.get("design")
     if not isinstance(design, Design):
         found = "nothing" if design is None else type(design).__name__
@@ -104,7 +107,7 @@ def run_design_script(path: Path) -> ScriptRun:
             f"design script binds no module-level 'design' of type fenolite.dsl.Design (found {found})",
             file=os.fspath(path),
         )
-    return ScriptRun(design, output)
+    return ScriptRun(design, output, recorder.unattached(design))
 
 
 @dataclass(frozen=True)

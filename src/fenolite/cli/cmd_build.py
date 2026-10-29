@@ -849,7 +849,16 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
     model, defaulted = apply_default_pad_maps(
         model, authored_symbols=design.symbols, authored_footprints=design.footprints
     )
-    default_issues = pad_map_issues(defaulted)
+    default_issues = [
+        Issue(
+            "build.unattached",
+            "warning",
+            f"{site.kind} {site.name} never reached the design",
+            where=site.where,
+            hint="add it with design.add(...) or connect it, or delete it",
+        )
+        for site in run.unattached
+    ] + pad_map_issues(defaulted)
     if native_path is not None and drawing_sheet_source(design) is not None:
         raise CliError(
             "FEN-2001", "--altium-template conflicts with sheet(drawing_sheet=...)", where="--altium-template"

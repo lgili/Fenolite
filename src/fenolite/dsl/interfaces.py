@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import cast
 
+from fenolite.dsl._sites import record
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.part import Net, Part, PinHandle, connect
 
@@ -28,6 +29,7 @@ class Interface:
         self.name = name
         self.kind = kind
         self.members = dict(members)
+        record(self, "Interface", self.name)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.name!r})"

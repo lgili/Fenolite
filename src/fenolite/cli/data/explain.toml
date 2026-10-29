@@ -3747,3 +3747,8 @@ see = "panel"
 meaning = "A file that the last fenolite panel wrote was changed since; the panel is not written over it."
 fix = "Run again with --discard-layout to replace it (a .bak copy is kept), or write the panel to another --out."
 see = "panel"
+
+["build.unattached"]
+meaning = "A Part, Net or Interface created by the script never reached the design; where names its creation file and line."
+fix = "Add it with design.add(...), connect it, or delete it."
+see = "build"

@@ -27,7 +27,11 @@ from fenolite.lens.altium import build_altium
 from fenolite.model.rules import Rule, Selector
 
 EXAMPLES = Path(__file__).resolve().parents[3] / "examples"
-SCRIPTS = sorted(path.relative_to(EXAMPLES).as_posix() for path in EXAMPLES.glob("*/*.py"))
+SCRIPTS = sorted(
+    path.relative_to(EXAMPLES).as_posix()
+    for path in EXAMPLES.glob("*/*.py")
+    if not path.name.startswith("test_")
+)
 OFFICIAL = "blink_official/design.py"
 """The one example that resolves its parts from the official KiCad libraries when it is built; its rules
 need no library, so it is read here like the others."""

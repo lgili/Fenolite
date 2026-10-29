@@ -84,6 +84,7 @@ class RegionDrawing:
     counts: Mapping[str, int] = field(default_factory=lambda: {})
     zones: tuple[ZoneLayer, ...] = ()
     open: tuple[tuple[str, OpenConnection], ...] = ()
+    highlighted: Mapping[str, int] = field(default_factory=lambda: {})
 
 
 def mm(value: int) -> str:
@@ -199,6 +200,19 @@ def _pad_name(record: BoardPad) -> str:
     return f"{holder}-{record.number}" if record.number else holder
 
 
+def whole_region(boundary: BoardBoundary | None) -> Region:
+    """The board outline plus one millimetre, with a bounded fallback for an empty outline."""
+    points = [p for ring in boundary.rings() for p in ring] if boundary is not None else []
+    if not points:
+        return Region(-MM, -MM, 11 * MM, 11 * MM)
+    return Region(
+        min(p.x for p in points) - MM,
+        min(p.y for p in points) - MM,
+        max(p.x for p in points) + MM,
+        max(p.y for p in points) + MM,
+    )
+
+
 def draw_region(
     design: Design,
     *,
@@ -211,6 +225,8 @@ def draw_region(
     opened: ConnectivityReport | None = None,
     crossings: CrossingReport | None = None,
     width_px: int = 1600,
+    highlight: Sequence[str] = (),
+    layers: Sequence[str] | None = None,
 ) -> RegionDrawing:
     """The SVG of ``region`` of ``design.board``. ``pour`` is the copper of ``analysis.pour``; ``nets`` adds
     one net label per pad whose position lies in the region; ``opened`` adds the open connections that meet
@@ -219,7 +235,23 @@ def draw_region(
     board = design.board
     step = auto_grid(region) if grid is None else grid
     check_grid(region, step)
-    layers = copper_layers(board) if board is not None else ()
+    all_layers = copper_layers(board) if board is not None else ()
+    selected_layers = (
+        all_layers if layers is None else tuple(layer for layer in all_layers if layer in layers)
+    )
+    highlighted: dict[str, set[str]] = {kind: set() for kind in ("pads", "tracks", "arcs", "vias", "zones")}
+
+    def marked(data: dict[str, object], kind: str, identity: str) -> dict[str, object]:
+        if highlight:
+            hi = data.get("data-net") in highlight
+            data["class"] = str(data["class"]) + (" net-hi" if hi else " net-dim")
+            if hi and kind in highlighted:
+                if kind == "zones":
+                    highlighted[kind].update(identity.split())
+                else:
+                    highlighted[kind].add(identity)
+        return data
+
     width, height = region.x1 - region.x0, region.y1 - region.y0
     font = max(width, height) // 60
     counts: dict[str, int] = {}
@@ -240,10 +272,12 @@ def draw_region(
                 "data-region": ",".join(mm(v) for v in (region.x0, region.y0, region.x1, region.y1)),
                 "data-grid": mm(step),
                 "data-units": "mm",
+                "data-render": "fenolite.region.v1",
             }
         )
         + ">"
     )
+    out.append("<style>.net-dim{opacity:0.2}.net-hi{opacity:1}</style>")
     out.append(f"<title>region {mm(region.x0)},{mm(region.y0)} to {mm(region.x1)},{mm(region.y1)} mm</title>")
     out.append(
         '<defs><clipPath id="region">'
@@ -309,8 +343,8 @@ def draw_region(
         xs, ys = [p.x for p in zone.outline], [p.y for p in zone.outline]
         if region.meets(min(xs), min(ys), max(xs), max(ys)):
             zone_layers.append(state)
-    for layer in reversed(layers):
-        colour = layer_colour(layer, layers)
+    for layer in reversed(selected_layers):
+        colour = layer_colour(layer, all_layers)
         out.append(f"<g{_attrs({'class': 'layer', 'data-layer': layer, 'opacity': '0.8'})}>")
         for state in zone_layers:
             if state.layer != layer:
@@ -318,10 +352,12 @@ def draw_region(
             zone = next(z for z in zones if z.id == state.zone_id)
             data = {
                 "class": "zone-outline",
+                "data-item": state.zone_id,
                 "data-zone": state.where,
                 "data-net": state.net,
                 "data-layer": layer,
             }
+            data = marked(data, "zones", state.zone_id)
             out.append(
                 _el(
                     "path",
@@ -342,11 +378,13 @@ def draw_region(
             if path:
                 data = {
                     "class": "zone",
+                    "data-item": " ".join(island.zones),
                     "data-state": "simulated",
                     "data-zone": " ".join(island.zones),
                     "data-net": island.net,
                     "data-layer": layer,
                 }
+                data = marked(data, "zones", str(data["data-item"]))
                 out.append(f"<path{_attrs({**data, 'd': path, 'fill': colour, 'fill-opacity': '0.5'})}/>")
                 count("zone")
         for net, shape in sorted(by_layer.get(layer, ()), key=lambda pair: pair[1].kind != "fill"):
@@ -357,6 +395,7 @@ def draw_region(
                 "data-net": net,
                 "data-layer": layer,
                 "data-where": shape.where,
+                "data-item": shape.entity_id,
             }
             if shape.kind == "fill":
                 state = pour.state_of(shape.entity_id, layer) or "saved_fill"
@@ -364,6 +403,11 @@ def draw_region(
                 count("zone")
             else:
                 count(shape.kind)
+            data = marked(
+                data,
+                {"fill": "zones", "pad": "pads", "track": "tracks", "arc": "arcs"}.get(shape.kind, ""),
+                shape.entity_id,
+            )
             out.append(_shape(shape.shape, colour, data))
         out.append("</g>")
     # vias once, then the holes and slots, then the edge
@@ -371,15 +415,19 @@ def draw_region(
     out.append('<g id="vias">')
     for via in board.vias if board is not None else ():
         disc = Thick((via.position,), via.diameter)
-        if not _meets(region, disc):
+        if not _meets(region, disc) or not any(
+            s.entity_id == via.id for layer in selected_layers for _, s in by_layer.get(layer, ())
+        ):
             continue
         net = names.get(via.net_id or "", via.net_id or "")
         data = {
             "class": "via",
             "data-net": net,
+            "data-item": via.id,
             "data-where": _where(via),
             "data-layers": " ".join(via.layers),
         }
+        data = marked(data, "vias", via.id)
         out.append(_shape(disc, "#b0b0b0", data))
         count("via")
     out.append("</g>")
@@ -468,7 +516,7 @@ def draw_region(
                         "y1": mm(way.a.y),
                         "x2": mm(way.b.x),
                         "y2": mm(way.b.y),
-                        "stroke": layer_colour(entry.layer, layers),
+                        "stroke": layer_colour(entry.layer, all_layers),
                         "stroke-width": mm(max(1, font // 4)),
                     }
                     out.append(f"<line{_attrs(data)}/>")
@@ -496,7 +544,14 @@ def draw_region(
         out.append("</g>")
     out.append("</svg>")
     svg = ("\n".join(out) + "\n").encode("utf-8")
-    return RegionDrawing(svg, step, dict(sorted(counts.items())), tuple(zone_layers), tuple(drawn))
+    return RegionDrawing(
+        svg,
+        step,
+        dict(sorted(counts.items())),
+        tuple(zone_layers),
+        tuple(drawn),
+        {k: len(v) for k, v in highlighted.items()},
+    )
 
 
 __all__ = [

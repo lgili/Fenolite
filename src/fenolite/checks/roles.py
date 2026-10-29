@@ -13,12 +13,14 @@ keeps its result, and with ``not-judged`` when no judge is given. A role documen
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Mapping, Sequence
 from typing import Protocol
 
 from fenolite.backends.base import BoardFrame, BoardPad, ProjectSet
 from fenolite.checks.codes import issue
 from fenolite.checks.stages import StageResult, ran, skipped
+from fenolite.checks.subjects import for_issues
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.model.design import Design
@@ -69,7 +71,8 @@ def roles_stage(
         where = ":".join(part for part in (error.file, error.locator) if part)
         found = issue("check.roles-unreadable", f"the roles cannot be read: {error.message}", where=where)
         return ran(NAME, [found], Evidence(), {})
-    return ran(NAME, (*pad_issues, *issues), evidence, summary)
+    result = ran(NAME, (*pad_issues, *issues), evidence, summary)
+    return dataclasses.replace(result, subjects=for_issues(design, result.issues))
 
 
 __all__ = ["DOCUMENT_SUFFIX", "NAME", "RolesJudge", "has_roles", "roles_stage"]

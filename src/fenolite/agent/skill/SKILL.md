@@ -5,62 +5,51 @@ description: Build, place, route, fill, check and export a printed-circuit board
 
 # Fenolite: the board loop for an agent
 
-Fenolite turns a Python design script into a KiCad 9 or 10 project and takes it to fabrication files.
-Every command prints one JSON envelope, never asks a question, and writes only when told to.
+Build a KiCad 9 or 10 project from a Python script, inspect it and produce fabrication files.
+Commands return JSON and never ask interactive questions. Start with this installed guide;
+`fenolite guide --text` lists its pages, and `fenolite guide <topic> --text` prints one. The pages belong to the
+installed version. A copied skill names the version it came from. If an installed
+skill's version footer differs from `fenolite --version`, use the installed command's guide.
 
-This page is the start page of the agent guide. `fenolite guide --text` lists the other pages and
-`fenolite guide <topic> --text` prints one. The pages that `fenolite guide` prints always belong to the
-installed version. A skill folder copied by `fenolite skill install` names the version it came from in
-the last line of its `SKILL.md`: when that differs from `fenolite --version`, read `fenolite guide`.
+## Rules for every command
 
-## Rules that hold for every command
+1. Run `fenolite capabilities --brief --json` first. Check available tools and targets. Use
+   `fenolite capabilities --command NAME --json` for arguments and the full reply's `result.matrix`
+   for per-format read/write/round-trip status and evidence. Read Altium write status there.
+2. Read the exit code before output:
 
-1. **`fenolite capabilities --brief --json` first.** It lists the commands with one line each, the build
-   targets, the routers and the external tools found on this machine, the pages of this guide and the
-   starter projects. Do not assume a tool is there. `fenolite capabilities --command NAME --json` gives
-   one command's arguments as data. `fenolite capabilities --json`, the long reply, holds
-   `result.matrix`: read it before choosing an operation on a file kind. It says, per backend and kind,
-   whether `detect`, `read`, `write` and the two round trips exist (`null` when they do not), at which
-   evidence level, and which of them may still change. The status of each Altium write kind is read
-   there and nowhere else.
-2. **Read the exit code before the output.**
+   | exit | meaning and action |
+   |---|---|
+   | 0 | done; read result |
+   | 1 | `FEN-1001`: report a bug; `FEN-1002`/`FEN-1003`: nothing changed, fix the cause and retry; `FEN-1004`: rollback incomplete, retain recovery files and inspect before retrying |
+   | 2 | wrong usage; fix the command using hint |
+   | 3 | bad input; inspect where and repair the input |
+   | 4 | confirmation needed; `FEN-4001`: review a dry run; `FEN-4002`: inputs or targets changed, review a new plan |
+   | 5 | findings; read issues, fix one problem, check again |
+   | 6 | an external tool is missing; install the named tool or choose an available operation |
+   | 7 | loss refused; accept --allow-lossy only after reviewing the specific loss |
 
-   | exit | meaning | what to do |
-   |---|---|---|
-   | 0 | done | read `result` |
-   | 1 | internal failure | `FEN-1001`: stop and report the bug. `FEN-1002` and `FEN-1003`: nothing changed; remove the cause and retry. `FEN-1004`: rollback incomplete, do not retry; keep `result.recovery.preserved` and inspect `result.recovery.failed` before restoring and reviewing a new plan |
-   | 2 | wrong usage | read `hint` in the error object and fix the command line |
-   | 3 | bad input | the file named in `where` is missing or malformed: fix the input, not the command |
-   | 4 | confirmation required | nothing was written. `FEN-4001`: a writing command ran without `--dry-run` or `--confirm`, see rule 3. `FEN-4002`: the plan named by `--plan` is no longer the one you reviewed (a file changed): run `--dry-run` again and confirm the new id |
-   | 5 | findings | the command worked and found problems: read `issues`, fix the design, run again |
-   | 6 | an external tool is missing | install what `hint` names (`kicad-cli`, Java, a router), or choose another router |
-   | 7 | a lossy operation was refused | nothing was written; pass `--allow-lossy` only if the loss named in `issues` is acceptable |
-
-   On a non-zero exit, stderr holds one error object: `code`, `message`, `hint`, `retryable`. With
-   `--progress` a long step also writes progress records there, one JSON line each, and the error
-   object is the last line.
-3. **`--dry-run`, then `--confirm`.** A writing command writes nothing by default. `--dry-run` returns
-   `result.plan`, the list of files it would write, and `result.plan_id`; `--confirm` writes them and
-   returns a `receipt` with the SHA-256 of each. Look at the plan first whenever the files already exist:
-   a confirmed write replaces them. After a review, write with `--confirm --plan <plan_id>` and the same
-   arguments: it writes the reviewed bytes without running the command, and its tools, a second time. A
-   command rolls back a failed write; `FEN-1004` reports incomplete rollback and retains recovery files.
-   Error findings plan no write.
-4. **Evidence.** Every envelope carries `evidence.level`. `KICAD-VERIFIED` means `kicad-cli` judged the
-   result. Treat every level below it (`ORACLE-VERIFIED`, `CORPUS-VERIFIED`, `INFERRED`, `UNKNOWN`,
-   `UNVERIFIED`) as unconfirmed: say so when you report, and let `fenolite check` decide.
-5. **Issues.** `issues` is a list of `{code, severity, message, where}`. An `error` makes the exit code
-   5; a `warning` or an `info` does not. `where` names a reference such as `R1-2`, or a place in a file.
-6. **One fix per iteration.** Change one thing, then run `fenolite check` again: it is the judge of
-   every change. `--format concise` keeps one issue per code with the counts, which is what this needs.
-   `--fields a,b.c` keeps only the named parts of `result`, and `--limit N` cuts a long list to a page;
-   the exit code still comes from the whole result.
-7. **Same bytes twice.** Pass `--seed` and `--timestamp` when two runs must give identical files.
+   On nonzero exit stderr ends with an error object: code, message, hint, retryable. With `--progress`,
+   earlier stderr lines are progress records. Preserve `result.recovery.preserved` and inspect
+   `result.recovery.failed` on incomplete rollback.
+3. Writes require `--dry-run` or `--confirm`. Preview first; inspect `result.plan` and `result.plan_id`.
+   Confirm with the same arguments and `--confirm --plan ID` to write the reviewed bytes without rerunning
+   the command or its tools. Error findings plan no write. Receipts hold written hashes and backups;
+   keep them for `fenolite restore`. Failed writes roll back; incomplete rollback is `FEN-1004`.
+4. Read `evidence.level`. Only `KICAD-VERIFIED` states that KiCad judged the result. Treat lower levels
+   (`ORACLE-VERIFIED`, `CORPUS-VERIFIED`, `INFERRED`, `UNKNOWN`, `UNVERIFIED`) as unconfirmed and say so.
+5. Issues carry code, severity, message, where, hint and retryable. Errors cause exit 5; warnings and
+   info do not. Use structured codes and subject identities rather than deciding from message wording.
+6. **One fix per iteration.** Make one focused change, then check. `--format concise` groups findings; `--fields a,b.c` selects
+   result fields and `--limit N` paginates. The exit code still judges the full result.
+7. Supply `--seed` and `--timestamp` for reproducible bytes. Build executes trusted Python as your own
+   code. Preserve manual changes and inspect rebuild plans before replacing existing files.
 
 ## The loop
 
-Ten commands take a new project from an empty folder to fabrication files. Run them in this order, in a
-folder of your own, and stop at the first non-zero exit code. Only `kicad-cli` has to be installed.
+Run these ten commands in order in a new folder. Stop on a nonzero exit and read its diagnostic.
+Build/view need no CAD installation; fill, full check, fabrication export and plot views need KiCad.
+The direct router is an educational straight-line router: it does not check clearances.
 
 ```fenolite-loop
 fenolite capabilities --brief --json
@@ -75,92 +64,51 @@ fenolite export blink/build -o blink/fab --all --manifest --confirm --json
 fenolite render blink/build -o blink/views --svg --png --confirm --json
 ```
 
-What each step is for:
+`init` creates a catalog-only header/resistor/LED starter. Edit its script; `build` writes the board,
+schematic, rules and local libraries. Parts without positions are staged beside the board. Rebuilds
+preserve supported editor changes; `design-script` explains the limits and precedence.
 
-- `init` writes `blink/design.py`, a starter script: a header, a resistor and a LED from the built-in
-  catalog, which needs no KiCad library. Edit that script to make your own board;
-  `fenolite catalog list` shows the parts it can name.
-- `build` runs the design script and writes the project, the board, the schematic, the rules file and
-  the library tables. Parts without a position are left beside the board; a second build keeps what was
-  placed, routed and filled since.
-- `place --strategy grid` puts those parts on the board. The starter places every part itself, so
-  `build` reports `result.staged` empty and this step changes nothing here; it matters as soon as a
-  script leaves a part without `place()`. `--move REF=X,Y` moves one part by hand.
-- `route` closes the open nets: it selects every net that still has an open connection, also one that
-  already holds copper. `--router direct` is built in: it joins the two pads of a net with one straight
-  track and checks nothing, which is enough for the starter because its placement was chosen for it. A
-  real board needs a real router (`capabilities --brief` says which are available and why not) or
-  copper written in the script. `--router freerouting` needs Java 25 or newer and the Freerouting jar:
-  `fenolite fetch freerouting --confirm` installs it once (or name your own with
-  `FENOLITE_FREEROUTING_JAR`). `result.unrouted` lists the nets that are still open after the run and
-  `result.open` their connections; an empty list is not yet a proof, which is the job of `check`.
-- `fill` refills the copper zones through `kicad-cli`. The starter has no zone, so the step changes
-  nothing here; it matters on every board with a zone, after each change of its copper.
-- `check` is the judge: the model, the electrical rules, the copper clearances, KiCad's own design-rule
-  check, and the comparison of the nets between the script and the board. Exit code 0 means no error.
-  Before `export`, `fenolite ready blink/build --json` answers "is it electrically ready?" in one reply:
-  open nets, KiCad's ERC and DRC, unconnected pins, power nets without a width or a zone, parts without
-  a footprint or a value. It writes nothing; exit 5 lists what is missing (page `checks`).
-- `export` writes Gerber, drill, position and netlist files with a manifest; `render` writes views to
-  look at.
+`place` positions staged parts; the starter already places them, so this step changes nothing here. Before scripting copper, query pads:
+`fenolite pads blink/build D1 --origin 100mm,100mm --json` returns script-frame positions, layers and nets.
 
-Before you write a track by hand in the script (`design.track`, `design.via`), ask where the pads are:
-`fenolite pads blink/build D1 --origin 100mm,100mm --json` lists each pad of `D1` with its position,
-layers and net. With `--origin 100mm,100mm` the positions are in the frame of `place()`, so they go into
-the script as they are. It reads the board and runs no tool.
+For production routing use an external router or declare copper in Python. `route` keeps existing copper
+and selects remaining open connections; `--rip` deliberately removes selected copper. Freerouting needs
+Java and its jar; `fenolite fetch freerouting --confirm` installs the supported version. Read `routing`.
 
-## When a step fails
+`fill` refreshes zones after copper edits. `check` judges model, electrical rules, copper, native DRC
+and assignment parity. `fenolite ready blink/build --json` gives a readiness summary before export.
+A clean check does not prove the circuit's function: read `board-practice` before designing a real board.
+`export` writes manufacturing files and a manifest; `render` writes review views.
 
-- **`check` exits 5.** Read `issues`. `kicad.drc.unconnected-items` means copper is missing between the
-  two items of `where`: run `route` again (open nets are selected again, and the copper already there
-  stays; add `--rip` only when that copper is in the way), or add the copper in the script.
-  `kicad.drc.*` codes carry KiCad's own message. `netlist.assignment-differs` means a pad is on another
-  net than the script says. A count that `summary.limits` of the stage `drc.kicad` names (one
-  `check.report-limit` warning per type) is a lower bound: KiCad's report stops at 499 or 199 entries
-  per type, so repair the reported findings and check again to see the next ones.
-- **`route` lists nets under `unrouted`.** Run `route` again: the copper of the first run is kept and
-  the second run completes those nets from it. If they stay open, give the router more room (move parts
-  with `place --move`), choose another router, or script the copper for those nets in the design file
-  and build again. `fenolite net BOARD NAME --json` shows which connections of a net are open, without
-  running a tool; `--require-complete` makes `route` exit 5 and write nothing when a net stays open.
-- **`route` reports `route.budget-exhausted`.** `fenolite route … --timeout S` bounds the whole step; the
-  copper of the router runs that finished is written. Run `route` again to continue with the nets still
-  open, or raise `--timeout`.
-- **`build` exits 5 with `copper.short` or `copper.clearance`.** Copper on the board now collides with
-  the design: a part was moved onto a track or onto an old zone fill. Refill (`fenolite fill`) or move
-  the part, then build again.
-- **Exit 6.** The envelope of `fenolite doctor --json` says which tool is missing and where it is
-  looked for.
+## Responding to failures
 
-## Small questions between the steps
+- Missing copper: `kicad.drc.unconnected-items`; inspect where, route again, move parts or script copper.
+  `fenolite net BOARD NAME --json` shows remaining islands. `route --require-complete` refuses an
+  incomplete write. `netlist.assignment-differs` means a pad disagrees with the source netlist.
+- A `check.report-limit` count in `drc.kicad.summary.limits` is a lower bound. Fix reported findings and
+  check again; a truncated report cannot establish the total number of violations.
+- `route.budget-exhausted`: completed work can be retained; rerun or increase the budget.
+- `build` reports copper conflicts: inspect changed placement and stale fills, refill or move the part
+  and rebuild. Never waive a conflict without understanding it.
+- Exit 6: `fenolite doctor --json` shows external-tool discovery. Exit 1 or damaged recovery: follow
+  `recovery` before writing again.
+  The Altium verification kit (`fenolite kit`) is a run that a person performs in Altium Designer;
+  commands can prepare/judge its files but cannot perform the manual acceptance.
 
-These commands read and answer; none of them runs a tool unless its page says so. Each page holds their
-command lines, which the tests run.
-
-- `checks`: `fenolite explain CODE` says what an error code or an issue code means and what to do about
-  it; `fenolite netlist`, `fenolite parity` and `fenolite doctor` are there too.
-- `placement`: `fenolite pads` (above), `fenolite region` and `fenolite neighbors` say what is where.
-- `routing`: `fenolite net BOARD NAME` describes one net and its open connections.
-- `files`: `fenolite inspect` reads a file back; `fenolite roundtrip FILE` before you edit a file that
-  Fenolite did not write; `fenolite diff` and `fenolite equivalent` compare; `fenolite fmt --check`;
-  `fenolite restore ENVELOPE.json --confirm` undoes a confirmed write, so keep its envelope.
-- `fabrication`: `fenolite manifest`, after `export`, lists every file with its SHA-256 and a state;
-  `fenolite bom` and `fenolite pnp` give the assembly tables.
-- `recovery`: one tested recipe per exit code, and `fenolite skill install --dir DIR --confirm`, which
-  copies this guide into a folder that an agent reads skills from.
-- `altium`: The Altium verification kit (`fenolite kit`) is a run that a person performs in Altium Designer
-  and is not this guide: `fenolite kit build` writes its files and `fenolite kit verify` judges what the
-  run left, but nothing starts Altium, so you cannot perform it.
+Read files with `fenolite inspect`, `fenolite roundtrip`, `fenolite diff` and `fenolite fmt --check`.
+Use `fenolite explain CODE` for diagnostics, `fenolite neighbors` and `fenolite region` for geometry,
+`fenolite netlist` for connections, and `fenolite manifest` for exported-file hashes.
+`fenolite skill install` copies the installed guide for an agent.
 
 ## Designing a good board
 
-A board on which `fenolite check` exits 0 is not therefore a good board. Before you place a part of a
-real board, read `board-practice`: the order of work and the practice pages (`board-…`) of each step.
+Read `board-practice` before placing parts on a real board; it links the engineering practice pages.
 
 ## The pages
 
-`fenolite guide <topic> --text` prints one of these. Read `design-script` before you write a script and
-`recovery` when a command exits with a code that is not 0.
+Read `design-script` before authoring and `recovery` for failed commands. The command index links to
+complete argument descriptions in bounded pages. Practice pages describe engineering judgement and
+limits; their example numbers are not universal requirements.
 
 <!-- pages:begin -->
 - `altium`: Altium builds, blocks, native sync, evidence and the verification kit.
@@ -177,6 +125,10 @@ real board, read `board-practice`: the order of work and the practice pages (`bo
 - `board-workflow`: Copies and versions, a SHA-256 before every write, files a person has open, references between files, parallel editors, and honest reports.
 - `checks`: The stages of check, how to read an issue and explain it, evidence levels, keeping replies small, the netlist, parity and doctor.
 - `commands`: The complete list: each public command, whether it writes, and every argument with its help.
+- `commands-1`: Generated argument descriptions; use commands for the command index.
+- `commands-2`: Generated argument descriptions; use commands for the command index.
+- `commands-3`: Generated argument descriptions; use commands for the command index.
+- `commands-4`: Generated argument descriptions; use commands for the command index.
 - `design-script`: The shape of a script: design, modules, nets, parts, lengths with units, the board frame, and the edit and build cycle.
 - `dsl-reference`: The complete list: each name a design script imports from fenolite.dsl, with its signature.
 - `fabrication`: export, the bill of materials, the position table, the manifest and its states, render, and what is not produced.
@@ -191,9 +143,7 @@ real board, read `board-practice`: the order of work and the practice pages (`bo
 
 ## Limits
 
-- The releases prove the loop on two-layer boards, for KiCad 9.0 and 10.0. `build --target altium` also
-  writes an Altium project: the status and the evidence level of each of its file kinds are in
-  `result.matrix` of `fenolite capabilities --json`; all nine remain experimental, with missing proofs per kind.
-- The `direct` router is for the starter and for boards as simple. It never looks at clearances.
-- The full contract of the command line (`docs/cli-contract.md`), the design script (`docs/dsl.md`) and
-  what was and was not proved for each release (`docs/release/`) are in the source repository.
+The direct router is suitable for simple examples. Conversion and Altium writes retain their reported
+limitations and evidence; inspect capabilities before choosing them. The complete CLI contract, DSL,
+release scope and format evidence are in the repository's docs. A review image or golden comparison
+establishes presentation stability, not electrical correctness.

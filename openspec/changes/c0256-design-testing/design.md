@@ -271,3 +271,11 @@ Alternative considered: an error. A lost object is often scaffolding while a des
    by a rule or an interface reached the design; only a net that nothing in the design holds is reported.
 5. `--net` next to the existing `--nets`, or `--highlight NET`? **Recommended:** `--net`, as the research
    and `fenolite net` name it; the help text of `--nets` says "labels", that of `--net` "highlight".
+
+## Implementation measurements — 2026-10-29
+
+Creation sites on the largest Python example by bytes, `examples/yardstick/design.py` (388 parts), measured by `test_unattached.py -k cost`: three interleaved runs, median 0.026594 s with recording and 0.018650 s with recording calls disabled. This is one local measurement, not a cross-platform performance claim. The test records timings without a flaky wall-clock threshold.
+
+The example golden uses `net-GND.svg`, the renderer's canonical filename, correcting the proposal's `gnd.svg` typo. Net names in filenames are percent-encoded; highlighted counts count each entity once across layers.
+
+The user requires each guide page to fit 12000 bytes. The pre-existing generated commands page was about 44 KB; task 5.3 splits its argument sections into linked generated pages without dropping descriptions. The added agent-guide requirement records this necessary supporting change.

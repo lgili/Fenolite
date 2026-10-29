@@ -73,3 +73,8 @@ reason = "board coordinates in nanometres of the example board, 100 mm to 150 mm
 path = "tests/data/model/v0.2.1/blink_2layer.board.json"
 pattern = "numeric-code"
 reason = "integer nanometre coordinates of a board larger than 100 mm (the board origin of a design script is at 100 mm, 100 mm), in a model document written by release 0.2.1: the board.json of examples/blink_2layer, kept byte for byte as the fixture of additive model keys (c0101; approved per file on 2026-10-07)"
+
+[[waiver]]
+path = "examples/testing/golden/net-GND.svg"
+pattern = "numeric-code"
+reason = "Authored c0256 canonical SVG: data-at attributes are grid coordinates in integer nanometres (100000000 through 130000000), not component codes or private data; generated from examples/testing/design.py through reviewed render plan/confirm. All other residue patterns still apply."

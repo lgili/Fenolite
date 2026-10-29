@@ -1684,3 +1684,8 @@ that these calls stand, so c0096 offers no hole or keep-out call of its own. `Ho
 `Keepout.intent` remain in the model for model callers and readers; no script call fills them.
 The anchor's metadata is in `placements` output; a build and rebuild do not retain it in native files
 or the regenerable `.fenolite/` cache, and the physical locked position remains enforced.
+
+## Tests of a design
+
+Use [fenolite.testing](testing.md) to query a built design, assert connectivity, inspect tool-free findings
+and compare canonical SVG goldens. The helpers are separate from design scripts and require no pytest plugin.

@@ -32,6 +32,8 @@ STAGE_OF = (
     ("placement.", "placement.rules"),
     ("parity.", "parity"),
     ("model.", "model.validate"),
+    ("roles.", "roles.rules"),
+    ("circuit.", "circuit.rules"),
     ("netlist.", "netlist.assignment_compare"),
     ("zone.", "zone.fill"),
 )
@@ -121,9 +123,13 @@ class _BoardIndex:
         for pad in cast("list[dict[str, Any]]", scene.get("pads", [])):
             x, y = pad["x"], pad["y"]
             self.names.setdefault(str(pad["label"]), ([x, y, x, y], None))
+            if pad.get("id"):
+                self.names[str(pad["id"])] = ([x, y, x, y], None)
         for comp in cast("list[dict[str, Any]]", scene.get("comps", [])):
             if comp.get("bbox"):
                 self.names.setdefault(str(comp["ref"]), (list(comp["bbox"]), None))
+                if comp.get("id"):
+                    self.names[str(comp["id"])] = (list(comp["bbox"]), None)
         nets = cast("list[str]", scene.get("nets", []))
         net_boxes: dict[int, Box] = {}
         for prim in cast("list[list[Any]]", scene.get("prims", [])):
@@ -198,7 +204,18 @@ def overlay(reply: dict[str, Any], scene: dict[str, Any], *, root_sheet: bool = 
             stages[str(stage.get("name"))] = stage
     default = _label(reply.get("evidence"))
     findings: list[dict[str, Any]] = []
-    for raw in cast("list[Any]", reply["issues"]):
+    subject_rows = cast("dict[str, Any]", reply.get("result") or {}).get("subjects", [])
+    subjects_by_issue: dict[int, list[dict[str, Any]]] = {}
+    if isinstance(subject_rows, list):
+        for raw_row in cast("list[Any]", subject_rows):
+            if not isinstance(raw_row, dict):
+                continue
+            row = cast("dict[str, Any]", raw_row)
+            if isinstance(row.get("issue"), int) and isinstance(row.get("items"), list):
+                subjects_by_issue[row["issue"]] = [
+                    cast("dict[str, Any]", s) for s in cast("list[Any]", row["items"]) if isinstance(s, dict)
+                ]
+    for issue_index, raw in enumerate(cast("list[Any]", reply["issues"])):
         if not isinstance(raw, dict):
             continue
         item = cast("dict[str, Any]", raw)
@@ -210,12 +227,26 @@ def overlay(reply: dict[str, Any], scene: dict[str, Any], *, root_sheet: bool = 
         box: Box | None = None
         layer: str | None = None
         elsewhere = stage in (BOARD_STAGES if sheet else SHEET_STAGES)  # a finding of the other document kind
-        said = None if elsewhere else _MESSAGE_AT.search(message)
+        subjects = subjects_by_issue.get(issue_index, [])
+        located_subjects = (
+            []
+            if elsewhere
+            else [
+                found
+                for subject in subjects
+                if (
+                    found := index.find(str(subject.get("id", "")))
+                    or index.find(str(subject.get("name", "")))
+                )
+                is not None
+            ]
+        )
+        said = None if elsewhere or located_subjects else _MESSAGE_AT.search(message)
         if said and not sheet:
             at = [float(said["x"]) * UM_PER_MM, float(said["y"]) * UM_PER_MM]
             layer = said["layer"]
-        named: list[Box] = []
-        parts = [] if elsewhere else [p.strip() for p in where.split(", ") if p.strip()]
+        named: list[Box] = [found[0] for found in located_subjects]
+        parts = [] if elsewhere or located_subjects else [p.strip() for p in where.split(", ") if p.strip()]
         for part in parts:
             point = _AT.match(part)
             if point:
@@ -250,6 +281,7 @@ def overlay(reply: dict[str, Any], scene: dict[str, Any], *, root_sheet: bool = 
                 "message": message,
                 "hint": str(item.get("hint") or ""),
                 "where": where,
+                "subjects": subjects,
                 "stage": stage,
                 "evidence": level,
                 "layer": layer,

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Literal, cast
 
 from fenolite.core.coords import Point
 from fenolite.core.units import Nm, Udeg
+from fenolite.dsl._sites import record
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.quantity import Quantity
 from fenolite.dsl.units import as_nm, as_udeg
@@ -94,6 +95,7 @@ class Net:
         self.name = name
         self.design: Design | None = None
         self.netclass: str | None = None
+        record(self, "Net", self.name)
 
     def __repr__(self) -> str:
         return f"Net({self.name!r})"
@@ -252,6 +254,7 @@ class Part:
         self.pad_zone_requests: dict[tuple[str, int | None], PadZoneRequest] = {}
         """The requests of ``zone_connection()``, by pad number and index."""
         self.connections: dict[str, Net] = {}
+        record(self, "Part", self.ref)
         self.no_connects: set[str] = set()
         """Designators marked as intentionally unconnected, as written (``no_connect``)."""
 
