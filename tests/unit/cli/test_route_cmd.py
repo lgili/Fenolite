@@ -1361,3 +1361,39 @@ def test_role_gate(monkeypatch, tmp_path: Path) -> None:
     assert len(group) >= 6 + 2  # three tracks per branch, two corridors
     assert entry["copper"] == [] and env["result"]["tracks"] == 0
     assert not env["result"].get("plan")
+
+
+GATE_BENCH = """\
+from fenolite.dsl import Design, Net, Part, connect, mm
+
+design = Design("placement_bench")
+design.board(mm(40), mm(30))
+r5 = Part("R5", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="SWITCH")
+r6 = Part("R6", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="DRIVER")
+design.add(r5, r6)
+gh, sw = Net("GH"), Net("SW")
+connect(gh, r5[1], r6[1])
+connect(sw, r5[2], r6[2])
+design.net_role(gh, "gate")
+design.net_role(sw, "switch_node")
+design.gate_loop("gate_R5", drive=r6.pad(1), gate=r5.pad(1), source=r5.pad(2), ret=r6.pad(2))
+design.role_limits(kind="gate", gate_max="1mm2")
+r5.place(mm(10), mm(20))
+r6.place(mm(25), mm(10), rot=270)
+"""
+
+
+def test_role_placement(monkeypatch, tmp_path: Path) -> None:
+    """A gate loop whose placement bound is above the user's ``gate_max`` gives ``route.role-placement``
+    (info): no route brings its area under the limit."""
+    sys.path.insert(0, str(ROOT / "tests" / "unit" / "roles"))
+    from _critical import bench
+
+    built = bench(tmp_path, "placement_bench", GATE_BENCH)
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", str(built.board), "--router", "octilinear", "--roles", "critical",
+        "--dry-run",
+    )  # fmt: skip
+    assert code == 0, error
+    (found,) = [i for i in env["issues"] if i["code"] == "route.role-placement"]
+    assert found["severity"] == "info" and found["where"] == "gate_R5" and "gate_max" in found["message"]

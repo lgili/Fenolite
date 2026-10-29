@@ -34,9 +34,9 @@ A role route SHALL end at `JobRoleEnd.at`, not at the pad centre. For a Kelvin r
 For an `isolated` role route, every item of its own net (pad copper, track, arc, via and zone outline on its layer) other than its two end pads SHALL be an obstacle at the clearance in force. A connection whose every shape is refused by this test MUST report reason `isolation`.
 
 #### Scenario: A sense branch beside its own pour
-- **GIVEN** a Kelvin route of net `VOUT` whose straight shape crosses the outline of a `VOUT` zone
+- **GIVEN** a Kelvin pair of the power nets `VA` and `VB` whose shortest shapes cross the outline of a `VB` zone
 - **WHEN** `uv run pytest tests/unit/routing/test_roleroute.py -k isolated` routes it
-- **THEN** the placed branch keeps the clearance in force from the zone outline and touches only its end pads
+- **THEN** the placed `VB` branch does not touch the zone outline
 
 ### Requirement: Octilinear switching keep-away
 A role route with aggressors SHALL keep `keep_away` from aggressor copper and zone outlines on its layer, and MUST NOT overlap aggressor copper or zone outlines on an adjacent copper layer. A connection whose every clear shape breaks this MUST report reason `near-switching`.
@@ -47,7 +47,7 @@ A role route with aggressors SHALL keep `keep_away` from aggressor copper and zo
 - **THEN** the first run reports `near-switching` and the second places the pair clear of the zone
 
 ### Requirement: Octilinear Z shapes
-In role mode the router SHALL try, after c0228's five shapes, at most 8 Z shapes per layer whose middle segment runs on a line taken from the keep-away and blocking bounding boxes, made octilinear with no acute joint. `--router-option z-shapes=off` MUST turn them off; a job without role routes MUST keep its five shapes and bytes.
+In role mode the router SHALL try, after c0228's five shapes, at most 8 Z shapes per layer (90° corners, no acute joint) whose middle segment runs on a line taken from the partner's segments and from the keep-away and blocking bounding boxes. `--router-option z-shapes=off` MUST turn them off; a job without role routes MUST keep its five shapes and bytes.
 
 #### Scenario: Plain jobs unchanged
 - **WHEN** `uv run pytest tests/unit/routing/test_octilinear.py` runs after the role mode lands
@@ -57,15 +57,15 @@ In role mode the router SHALL try, after c0228's five shapes, at most 8 Z shapes
 Among the accepted shapes of a gate route the router SHALL keep the one of least gate-loop area (the absolute shoelace area of its centre polyline closed by the route's loop points, the partner's placed polyline in place of its straight line), then the least length, then the first in shape order; among those of a Kelvin pair, the shortest centre line, then the first in shape order.
 
 #### Scenario: The smaller loop wins
-- **GIVEN** a bench gate loop whose return has two clear shapes, one beside the drive trace and one around an obstacle on the far side
+- **GIVEN** a bench gate loop whose drawn drive turns a corner, and whose return has several clear shapes
 - **WHEN** `uv run pytest tests/unit/routing/test_roleroute.py -k smaller` routes it
-- **THEN** the return takes the shape beside the drive trace, whose loop encloses less
+- **THEN** the return takes the L inside the drive's L, whose loop encloses least, where c0228 would keep the first shape that passes
 
 ### Requirement: Octilinear gate pairs
 A gate loop SHALL be routed as its open `gate-out` routes, then its open `gate-return`: side by side on the pad layer, with Z lines at the pair pitch beside the out route, else stacked under the out route on the adjacent layer through one via at each end when no side-by-side shape passes and the route may place two vias. A `ground` return net with a zone under the whole out route on the adjacent layer MUST NOT be routed, and its outcome MUST be `plane-return`.
 
 #### Scenario: Stacked when the side is blocked
-- **GIVEN** a bench gate loop with a pad of another net beside the out route on both sides
+- **GIVEN** a bench gate loop with rings of another net's copper around its source pad and its return pad
 - **WHEN** `uv run pytest tests/unit/routing/test_roleroute.py -k gate` routes it
 - **THEN** the return runs under the out route on the adjacent layer with two vias, and its form is `stacked`
 
@@ -78,12 +78,12 @@ A role route SHALL place at most its `vias`: 0 by default for `gate-out` and `ke
 - **THEN** the first gives `no-layer`, and the second places one via per branch
 
 ### Requirement: Role check in job extras
-In role mode, `fenolite route` SHALL add `role_check` to `RoutingJob.extra`: a callable from a design to findings `(code, group, severity, measure)` from `fenolite.roles.judge`. The router MUST remove the whole copper of a group that has a new code or a larger measure after routing, with one `route.role-refused` and the outcome `refused`; `roles.loop-open` MUST count as no finding.
+In role mode, `fenolite route` SHALL add `role_check` to `RoutingJob.extra`: a callable from a design to findings `(code, group, severity, measure)` from `fenolite.roles.judge`. The router MUST remove the whole copper of a group that has a new code or a larger measure after routing and give its routes the outcome `refused`, and the reply MUST hold one `route.role-refused` for the group; `roles.loop-open` MUST count as no finding.
 
 #### Scenario: A worse group is removed
-- **GIVEN** a test `role_check` that reports a new `roles.near-switching` on group `isense` after routing
+- **GIVEN** a test `role_check` that reports a new `roles.near-switching` on the bench's Kelvin pair `kelvin_R1` after routing
 - **WHEN** `uv run pytest tests/unit/routing/test_roleroute.py -k refused` routes the job
-- **THEN** the result holds no copper of `isense`'s two routes and one `route.role-refused` naming it
+- **THEN** the result holds no copper of the pair's two routes, and both outcomes are `refused` with reason `role-check` and the finding
 
 ### Requirement: Role route codes
 `ISSUE_CODES` SHALL hold `route.role-unrouted` and `route.role-refused` (warnings, which `--require-complete` turns into one `route.incomplete` error), and `route.role-unconfirmed`, `route.role-kept`, `route.role-placement` and `route.role-none` (info), each with an `explain.toml` entry and a row in `docs/cli-contract.md`. Equal inputs MUST give equal results.

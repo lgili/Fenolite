@@ -132,6 +132,7 @@ class JobRoleRoute:
     gap: Nm = 0               # the pair's gap, when partner is set
     loop: tuple[Point, ...] = ()       # the rest of the role loop, from b back to a, for the area cost
     key: str = ""             # f"{group}:{kind}:{a.ref}-{a.number}:{b.ref}-{b.number}"
+    plane: bool = False       # a gate return of a ground net, which a zone under the drive may carry
 
 @dataclass(frozen=True, slots=True)
 class RoleOutcome:
