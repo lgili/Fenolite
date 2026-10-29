@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: CC0-1.0
 # Authored for Fenolite as an example; no file, value, name or layout comes from any other project.
 """The buck reference board of the net roles (change c0222; ``docs/roles.md``, "Reference boards"), shared
-by ``good.py`` and ``bad.py``.
+by ``good.py``, ``bad.py`` and ``open.py``.
 
 A synchronous buck on a 60 mm by 40 mm two-layer board: the input terminal ``J1`` and the input capacitor
 ``C1``, the switches ``Q1`` (high side) and ``Q2`` (low side) with their driver ``U1``, the inductor ``L1``,
@@ -14,6 +14,9 @@ the same file.
 - ``bad``: ``C1`` stands 15 mm away and its return runs apart from its supply, so the hot loop encloses
   about 180 mm²; one sense line leaves the outer end of ``R12``'s pad and the other leaves the output pour;
   the output path narrows to a 0.3 mm track.
+- ``open`` (change c0244): ``bad`` without its critical copper, the two sense lines, for the critical routes
+  of ``fenolite route --roles critical`` to draw; the hot loop and the narrow output track stay, since they
+  are power copper (phase 1).
 
 Every value is a round illustrative number, not a design recommendation. Positions are millimetres in the
 frame of ``place()``.
@@ -34,7 +37,10 @@ def ring(*points: tuple[float, float]) -> tuple[tuple[int, int], ...]:
 
 
 def make(design: Design, variant: str) -> Design:
-    """Draws the ``variant`` board into ``design``, which the variant script makes."""
+    """Draws the ``variant`` board (``good``, ``bad`` or ``open``) into ``design``, which the variant script
+    makes."""
+    if variant not in ("good", "bad", "open"):
+        raise ValueError(f"unknown variant {variant!r}")
     good = variant == "good"
     design.board(mm(60), mm(40))
     j1 = Part("J1", "Fenolite:Connector_2", footprint="Roles:Roles_Terminal_2P", value="VIN 12V")
@@ -154,7 +160,7 @@ def make(design: Design, variant: str) -> Design:
     if good:
         _good(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone)
     else:
-        _bad(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone)
+        _bad(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone, sense=variant == "bad")
     return design
 
 
@@ -181,9 +187,9 @@ def _good(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone):  # type: ignore[no
     )
 
 
-def _bad(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone):  # type: ignore[no-untyped-def]
+def _bad(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone, sense=True):  # type: ignore[no-untyped-def]
     """``C1`` 15 mm away with its supply and its return apart, the sense lines from the outer end of one pad
-    and from the output pour, and the output path through a 0.3 mm track."""
+    and from the output pour (left out without ``sense``), and the output path through a 0.3 mm track."""
     j1.place(mm(44), mm(6))
     c1.place(mm("4.5"), mm(9), rot=270)
     zone(vin, "VIN", (23.0, 1.2), (41.6, 1.2), (41.6, 13.45), (23.0, 13.45))
@@ -200,6 +206,8 @@ def _bad(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone):  # type: ignore[no-
     zone(vout, "VOUT", (36.5, 23.8), (42.7, 23.8), (42.7, 25.5), (57.5, 25.5), (57.5, 36.5), (33.2, 36.5),
          (33.2, 28.4), (36.5, 28.4))  # fmt: skip
     design.track("vout_narrow", r12.pad(2), p(37.0, 26.0), width=mm("0.3"))
+    if not sense:
+        return
     # the sense lines: one from the outer end of R12's pad 1, the other from the output pour
     design.track(
         "sense_p", r12.pad(1).at(mm("-0.55")), p(26.55, 29.2), p(27.2, 29.7), u3.pad(3),

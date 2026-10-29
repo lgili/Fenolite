@@ -7,8 +7,7 @@ summary: Current loops and loop area, copper sized by a public method, pours as 
 # Power paths, current and copper
 
 A power path has two jobs: to carry its current without overheating, and to keep the area of every
-switching loop small. The first is a matter of copper area. The second is a matter of placement, and no
-amount of copper fixes it later.
+switching loop small. The first takes copper area; the second takes placement, which no copper fixes.
 
 ## Loops first
 
@@ -28,10 +27,14 @@ amount of copper fixes it later.
    Kelvin source, when the part has one) to the driver, beside the gate track. It does not run through
    the power ground.
 4. **Put the bootstrap and supply capacitors of a driver at its pins.** Their pins swing with the switch
-   node. Keep other signals and vias out of the area around them, and keep the clearance that their
-   voltage needs.
+   node. Keep other signals and vias away from them, at the clearance that their voltage needs.
 
-Declare what you know; `fenolite roles PATH --check` infers the rest and measures it.
+Declare what you know; `fenolite roles PATH --check` infers the rest and measures it. Route gate loops
+and Kelvin pairs first, then power copper around them:
+
+```fenolite-cmd
+fenolite route board/board.kicad_pcb --router octilinear --roles critical --dry-run --json
+```
 
 ```fenolite-design
 from fenolite.dsl import Design, Net, Part, amp, connect, mm, volt
@@ -124,10 +127,10 @@ design.stitch_pieces(gnd, pitch=mm(4))  # vias that tie the two GND pours togeth
 - **Thermal reliefs on power pads** cut the current path to the width of their spokes. Agree with the
   owner whether a power pad is connected solid (better for current, harder to solder by hand) or with
   wide spokes.
-- **Change layers with vias in parallel.** One via carries far less than a band. Use an array, spread
+- **Change layers with vias in parallel.** One via carries far less than a band. Spread an array
   across the band's width, near the part that the current leaves.
-- **Remove copper that carries nothing.** Remove isolated islands, fingers that end nowhere, and pour
-  far from any connection. Dead copper does not cool much, and it shortens clearances.
+- **Remove copper that carries nothing:** isolated islands, fingers that end nowhere, and pour far from
+  any connection. Dead copper does not cool much, and it shortens clearances.
 - **Share the current in a bank.** In a bank of parallel capacitors, give each capacitor a similar
   path. The nearest capacitor of a lopsided bank takes most of the ripple current and ages first.
 
@@ -162,15 +165,15 @@ fenolite analyze board.kicad_pcb --kinds loops --requirements req.toml --loop-ba
 ## After pours and cut-outs
 
 Pour cut-outs, keep-outs and slots remove copper. After every change to them, check that every pad of a
-poured net is still connected, and that each band is still continuous. A rule check that runs only on
-the copper you drew, without the cut-outs, misses this. `fenolite net` lists the open connections of a
+poured net is still connected, and that each band is still continuous. A check of the drawn copper
+alone misses this. `fenolite net` lists the open connections of a
 net; `analyze --kinds connectivity,dead` pours the zones again and lists cut-off pads and dead copper.
 - **Refill and check before any output or measurement.** The saved fill is what gets fabricated. An
   outline edited after its last refill holds an old fill, and every distance, connection and current
   measured on it is wrong.
 - **Keep a pour out of an area with a pour cut-out,** not with a drawing on a keep-out layer that the
   pour may ignore.
-- **Look at the refilled pour:** the relief spokes, the slivers, the slits and the acute tips.
+- **Look at the refilled pour:** relief spokes, slivers, slits and acute tips.
 - **Judge a change of a switching path by its loop inductance**, not by its milliohms.
 
 ```fenolite-cmd
@@ -181,16 +184,16 @@ fenolite analyze board.kicad_pcb --kinds connectivity,dead --dead-distance 5mm -
 
 ## Priorities between power and signals
 
-When power copper and a signal compete for the same face, the power copper normally wins, and the
-signal moves.
+When power copper and a signal compete for one face, the power copper wins and the signal moves.
 
 ## Typical failures
 
 - **A rectifier pin left open.** Pour cut-outs under a bank of capacitors removed the only copper that
   joined a rectifier pin to the bus. A preview model without the cut-outs showed the pin connected. The
   fix was a neck on the other face and a connectivity check with the cut-outs applied.
-- **A switching loop closed late.** The DC-link film capacitor first sat away from the power module. It
-  was moved next to the module's positive supply pin, with the shunt beside it. The loop of capacitor, module and shunt became as short as the parts allow.
+- **A switching loop closed late.** The DC-link film capacitor first sat away from the power module.
+  Moved next to the module's supply pin, with the shunt beside it, the loop became as short as the
+  parts allow.
 - **Pours rejected as "free-form".** Pours that filled every free area were rejected; straight bands
   with chamfered steps, the same nets and clearances, were accepted.
 

@@ -134,7 +134,7 @@ def test_registry_lists_the_router_with_its_features() -> None:
     """Scenario "Listed with its features"."""
     router = routers()["octilinear"]
     assert isinstance(router, OctilinearRouter) and router.available().available
-    assert router_features(router) == frozenset({"pairs", "short"})
+    assert router_features(router) == frozenset({"pairs", "short", "roles"})
     assert router.sends_data_offsite is False
 
 

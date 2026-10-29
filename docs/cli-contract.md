@@ -824,7 +824,8 @@ Each entry of `result.routers` holds `name`, `description`, `sends_data_offsite`
 attribute lists none. `direct` and `freerouting` list none; `kicadroutingtools` lists the features whose
 gate outcomes hold (`docs/evidence/routing.md`, "Pairs and escape (c0110)"). `route` gives a router no
 differential pair and no escape request unless it lists the feature. `short` (change c0228) marks a router
-of short connections, not of whole boards: `octilinear` lists `pairs` and `short`.
+of short connections, not of whole boards, and `roles` (change c0244) a router that takes the role routes of
+`--roles`: `octilinear` lists `pairs`, `roles` and `short`.
 
 ### The brief view and the command view
 
@@ -930,7 +931,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 
 ## route
 
-`fenolite route PATH --router NAME [--nets GLOB]... [--order GLOBS]... [--rip] [--include-zone-nets] [--no-plane-fanout] [--require-complete] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [--escape REF[=grid|perimeter]]... [--pairs-as-nets] [--gate drc [--kicad-cli PATH]] [-o FILE]` routes the nets that still have open connections. `PATH` accepts a board, matching project or folder. External tools receive a temporary model-authored project copy; only routed tracks, arcs and vias are merged back. `--out` is relative to the working directory. The normal dry-run/confirm receipt protocol applies.
+`fenolite route PATH --router NAME [--nets GLOB]... [--order GLOBS]... [--rip] [--include-zone-nets] [--no-plane-fanout] [--require-complete] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [--escape REF[=grid|perimeter]]... [--pairs-as-nets] [--roles critical [--group NAME]... [--roles-file FILE]] [--gate drc [--kicad-cli PATH]] [-o FILE]` routes the nets that still have open connections. `PATH` accepts a board, matching project or folder. External tools receive a temporary model-authored project copy; only routed tracks, arcs and vias are merged back. `--out` is relative to the working directory. The normal dry-run/confirm receipt protocol applies.
 
 - **Selection.** A net is selected when it matches `--nets`, has two or more pads and has an open connection on the board, computed from the board after the rip (`docs/analyses.md`, "Open connections"). Copper of its own does not exclude a net; a closed net is never given to the router; a zone net needs `--include-zone-nets`.
 - **`--rip`** removes the tracks, arcs and vias of the matching nets first, but keeps locked copper and script copper (`result.rip_kept`).
@@ -972,6 +973,12 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `route.plane-net` | info | a plane net that `--nets` selects is not given to a router; its pads reach the plane through fan-out vias |
 | `route.project-unread` | warning | the project file or the rules file beside the board could not be read: without the project every net takes the default class values, without the rules file the rules are not given to the router |
 | `route.resumed` | info | the copper of router runs that finished in an earlier call of the same job was reused; the message gives the number of runs and of nets |
+| `route.role-kept` | info | role mode: a group that copper already joins still has role findings and was left as it is; the message names the findings, the hint `--rip` |
+| `route.role-none` | info | role mode: no confirmed or declared gate loop or Kelvin pair to route; nothing is planned |
+| `route.role-placement` | info | role mode: a gate loop's placement bound is above the user's `gate_max`; the message gives both |
+| `route.role-refused` | warning | role mode: a routed group was removed whole because a role finding got worse; the message names the group, the code and both measures |
+| `route.role-unconfirmed` | info | role mode: inferred groups were not routed; the message gives their count and names |
+| `route.role-unrouted` | warning | role mode: a gate loop or Kelvin pair was not routed; the message gives the reason, and `result.roles` the proposal and its commands |
 | `route.tool-failed` | error | the external router failed |
 | `route.tool-missing` | error | the configured router is unavailable |
 | `route.tool-unpinned` | warning | external router checkout is not the supported pinned version |
@@ -980,7 +987,28 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `route.zone-net-skipped` | info | a zone net was omitted without the inclusion flag |
 | `kicad.fanout.failed` | warning | no fan-out via fits beside an SMD pad of a plane net; the pad stays open, and the message names the pad, the net and what blocked the first candidate |
 
-`fenolite route --router octilinear` (change c0228) is built in, runs no process and places no via: for each open connection it tries a straight segment, 45° then straight, straight then 45° and the two L shapes on each allowed layer, and keeps the first that keeps the clearance in force plus 2 µm from other nets' copper and holes, the edge clearance, and no acute angle at its ends. `--router-option max-length=LENGTH` (default 20 mm) bounds a shape: a connection longer by every shape stays open with `route.unrouted`; `--router-option rounds=N` (default 3) routes the failed connections first in the next round. A pair of two pads per net is routed as two tracks at the pair gap (`route.pair-not-routed` otherwise). The copper check judges the result, and a connection with a new finding is removed (`route.check-refused`). Its features are `pairs` and `short` (a router of short connections, not of whole boards). The job's `extra` gives every router `clearance` and `copper_check` (`docs/routing.md`, "octilinear").
+**Role mode** (change c0244). `--roles critical` routes the open connections of the board's confirmed or
+declared gate loops and Kelvin pairs, and nothing else, with a router whose features list `roles`
+(`octilinear`); another router is `FEN-2001` with a hint naming those that have it. The roles come from
+`.fenolite/rules.json` of a built project, else the role document beside the board, or `--roles-file FILE`;
+`--group NAME` (repeatable) limits the plan to the named groups. `--group` or `--roles-file` without
+`--roles`, and `--nets`, `--escape`, `--order` or `--pairs-as-nets` with it, are `FEN-2001`. No group to
+route gives exit 0 with one `route.role-none`. The routed tracks and vias are locked; each routed branch
+gets a rule area `role.corridor.<group>.<net>` that forbids pours only, replacing one of that name.
+`--rip` removes the branches of the planned groups first, keeping locked and script copper (`rip_kept`).
+`--gate drc` judges each group's copper and corridors together. `--require-complete` adds one
+`route.incomplete` (exit 5, nothing written) when a group stays unrouted or refused. The verdict counts
+role connections: `selected`, `routed` and `unrouted` hold the nets of the role routes, `connections` the
+role connections before and after, and no `route.unrouted` is given. `result.roles` holds one entry per
+group of the plan, sorted by tier and name: `group`, `kind` (`gate_loop`, `kelvin_pair`, `hot_loop`),
+`status` (`routed`, `complete`, `kept`, `refused`, `unrouted`, `skipped`), `connections` (`key`, `net`, `a`,
+`b`, `layer`, `form`: `single`, `pair`, `side-by-side`, `stacked` or `plane-return`, `length`, `vias`),
+`findings_before` and `findings_after` (`code`, `severity`, `measure`), `reason` and `proposal` (`kind`,
+`text`, `command`, `region`) when not routed, `copper` and `corridors` (ids). `plane_fanout` is `null`. The
+role options of `octilinear` are `gate-vias`, `kelvin-vias`, `keep-away`, `z-shapes`, `rounds` and
+`max-length` (no default in role mode); see `docs/routing.md`, "Role mode".
+
+`fenolite route --router octilinear` (change c0228) is built in, runs no process and places no via: for each open connection it tries a straight segment, 45° then straight, straight then 45° and the two L shapes on each allowed layer, and keeps the first that keeps the clearance in force plus 2 µm from other nets' copper and holes, the edge clearance, and no acute angle at its ends. `--router-option max-length=LENGTH` (default 20 mm) bounds a shape: a connection longer by every shape stays open with `route.unrouted`; `--router-option rounds=N` (default 3) routes the failed connections first in the next round. A pair of two pads per net is routed as two tracks at the pair gap (`route.pair-not-routed` otherwise). The copper check judges the result, and a connection with a new finding is removed (`route.check-refused`). Its features are `pairs`, `short` (a router of short connections, not of whole boards) and `roles` (the role mode of `--roles critical`, change c0244). The job's `extra` gives every router `clearance` and `copper_check` (`docs/routing.md`, "octilinear").
 
 `fenolite route --router freerouting` runs Freerouting through a Specctra design file. `--router-path` names its jar (or `docker:<image>`), `--router-option max-passes=N` its passes, `--router-option optimize=on` adds a run with its optimizer on the time left (the optimizer is off otherwise), and `--router-option fanout=off` turns its fanout stage off (it is on by default); its automatic neck-down is always off; the board needs a closed outline. The design file declares only the nets of the job, and one run is made per tier. `--router kicadroutingtools` runs one process per group of nets of equal track width and via sizes; `--router-option group-nets=N` splits a group, and its options `nets`, `output` and `overwrite` are ignored. Its issues also carry the `specctra.*` codes: `specctra.unknown-padstack` and `specctra.session-moved` (error, no copper is taken), `specctra.pad-approximated` and `specctra.plane-skipped` (warning: a zone on a plane layer without an outline gives no plane), `specctra.rounded`, `specctra.renamed`, `specctra.unknown-list`, `specctra.rule-not-sent` (a rule the file cannot carry) and `specctra.rule-widened` (a layer clause dropped from a clearance rule) (info). The file declares the plane layers `(type power)` with one plane per zone, keeps nets to their layers with `use_layer`, and carries class clearances, class-to-class clearances, widths per layer and the edge clearance (`docs/routing.md`, "What each router is given"). While the router is listed with `sends_data_offsite: true`, the command exits 2 without `--allow-offsite`. See `docs/routing.md`. The jar is `--router-path`, else `FENOLITE_FREEROUTING_JAR`, else the file that `fenolite fetch freerouting --confirm` installed in the tools folder ([fetch](#fetch)); without a jar the command exits 6 with `FEN-6001` and the hint `run 'fenolite fetch freerouting --confirm'`. `route` itself opens no network connection.
 
