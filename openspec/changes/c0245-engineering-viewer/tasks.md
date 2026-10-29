@@ -134,7 +134,7 @@
 
 ## 10. Other workspaces
 
-- [ ] 10.1 Move the sheet, library, drawing, BOM and output job, compare and project review views onto the shell's panels, the shared selection and the Messages panel, with their references rebaselined after review. Proof: `uv run pytest tests/visual -q` in the `viewer` job on the pushed commit.
+- [x] 10.1 Move the sheet, library, drawing, BOM and output job, compare and project review views onto the shell's panels, the shared selection and the Messages panel, with their references rebaselined after review. Proof: `uv run pytest tests/visual -q` in the `viewer` job on the pushed commit.
 
 ## 11. Optional native window (cut first)
 
@@ -142,7 +142,7 @@
 
 ## 12. Closing
 
-- [ ] 12.1 Add the visual references of "Workbench references" with `tools/update_view_refs.py`, reviewed, and the determinism check (`H-G-WB-STABLE`). Record the size of the assembled page (at most 120 KB more than at task 1.1). Proof: `uv run pytest tests/visual -q` in the `viewer` job on the pushed commit.
+- [x] 12.1 Add the visual references of "Workbench references" with `tools/update_view_refs.py`, reviewed, and the determinism check (`H-G-WB-STABLE`). Record the size of the assembled page (at most 120 KB more than at task 1.1). Proof: `uv run pytest tests/visual -q` in the `viewer` job on the pushed commit.
 - [x] 12.2 Docs:
   - `docs/viewer.md`: rewritten around the workbench (menus, docks, layouts, keymaps with their sources, themes, Messages, the Net Roles workspace, writes and undo, budgets);
   - `docs/roles.md`: the workspace and `--forget`;
@@ -155,7 +155,7 @@
 
   Then run `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
 - [x] 12.4 Residue: every new `.py` starts with its SPDX and copyright lines, the fixtures carry the authored-for-Fenolite line, and no vendor icon, colour file or layout is present. Proof: `make residue`.
-- [ ] 12.5 Run `make check-fast` and the focused tests of the touched files, then push the batch and confirm the required CI jobs, `viewer` included, on the exact commit (AGENTS.md rule 4; no full suite on the maintainer's machine). Proof: `make check-fast`, and the required jobs green on the exact commit.
+- [x] 12.5 Run `make check-fast` and the focused tests of the touched files, then push the batch and confirm the required CI jobs, `viewer` included, on the exact commit (AGENTS.md rule 4; no full suite on the maintainer's machine). Proof: `make check-fast`, and the required jobs green on the exact commit.
 - [x] 12.6 Evidence: the six `H-G-WB-*` hypotheses in `docs/hypotheses.md` with their measurements; S-0920 to S-0935 cited from a new `src/fenolite/view/PROVENANCE.md` (the package has none today) and from `docs/viewer.md`; the evidence matrix regenerated. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
 - [ ] 12.7 Add an entry under `## [Unreleased]` in `CHANGELOG.md`, only after `0.7.0.dev0` has opened. The v0.6 guard requires `[Unreleased]` to be empty while `0.6.0` is cut and not published. Proof: `uv run pytest tests/unit -k changelog -q`; `uv run pytest tests/unit/test_release_record_v06.py -q` until 0.6.0 is published.
 
@@ -226,3 +226,21 @@
 - Task 12.6 proof (2026-10-30): hypothesis/provenance tests passed (46 tests), and the regenerated
   evidence matrix passes `--check`. All six workbench hypotheses retain explicit measurements;
   the maintainer-PC half of 6.4 is still open, and no claim of native-engine rendering was added.
+
+- Tasks 10.1 and 12.1 proof (2026-10-30): viewer job 123619239962 in run 40922277054,
+  SHA d9d32153b2ff0d4a45f4857c68bca670f3cfbb2b, passed all 120 visual tests in 210.94 s.
+  This includes every document workspace, navigation, Messages, the six workbench references and
+  all 14 independent PNG pairs with identical bytes. The page is 306,885 bytes: growth 119,214,
+  below the 120,000-byte limit over 187,671 bytes at task 1.1. No threshold changed. Task 12.5
+  still waits for the remaining required CI jobs; the final notes will get their own quick gate.
+
+- Task 12.5 proof (2026-10-30): `PYTEST_MAX_WORKERS=4 make check-fast` completed exit 0
+  before the d9d32153b2ff0d4a45f4857c68bca670f3cfbb2b push: 15,330 passed / 42 skipped
+  in 446.59 s. All 13 required jobs in run 40922277054 then passed on that exact SHA,
+  including the five OS/Python unit jobs, wheel, MCP, DCO, viewer, KiCad 9, KiCad 10/corpus
+  and both routing jobs. No full local suite was run. A final notes-only commit will receive
+  its own quick gate and exact-SHA CI confirmation. Tasks 6.4, 9.1–9.3 and 12.7 remain open
+  with the dependency/manual/release deferrals above; no dev merge was performed.
+- Final notes gate (2026-10-30): `PYTEST_MAX_WORKERS=4 make check-fast` completed exit 0,
+  15,330 passed / 42 skipped in 437.09 s. Guide/evidence generator checks passed and OpenSpec
+  1.3.0 strict validation passed. This commit changes only task checkboxes and dated proof notes.
