@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Fenolite contributors
+// The page's entry (change c0247): every module, imported for its effect in link order, then start().
+import "./core/env";
+import "./core/dom";
+import "./core/state";
+import "./core/font";
+import "./core/units";
+import "./board/decode";
+import "./board/scene";
+import "./board/geometry";
+import "./board/cache";
+import "./core/viewport";
+import "./board/draw";
+import "./board/diff";
+import "./panels/changes";
+import "./review/check";
+import "./panels/messages";
+import "./panels/project-review";
+import "./review/runs";
+import "./panels/run-strip";
+import "./actions/actions";
+import "./dialogs/plan-review";
+import "./panels/receipts";
+import "./dialogs/catalog-selection";
+import "./board/overlays";
+import "./measure/snap";
+import "./measure/measure";
+import "./board/hit";
+import "./board/query";
+import "./measure/edge";
+import "./board/variants";
+import "./board/info";
+import "./three/math";
+import "./three/view3d";
+import "./board/tabs";
+import "./panels/tree";
+import "./core/documents";
+import "./panels/findings";
+import "./board/load";
+import "./panels/review";
+import "./measure/edge-tool";
+import "./core/links";
+import "./panels/marks";
+import "./export/svg";
+import "./table/table";
+import "./core/input";
+import "./sch/scene";
+import "./sch/draw";
+import "./sch/hit";
+import "./sch/select";
+import "./sch/project-nets";
+import "./panels/navigator";
+import "./sch/load";
+import "./library/library";
+import { start } from "./core/start";
+
+start();

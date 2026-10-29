@@ -11,6 +11,23 @@ All notable changes to Fenolite are documented here. The format follows
 - **Checks run from the viewer** (c0245): a page served by `fenolite view --serve` can run `check`, `analyze`, `ready` and `equivalent` itself, read-only, one job at a time. Each Project review card whose stages the server can run gets a **Run** control, and **Run from this page** picks the stages, the analyze kinds, a readiness check or a comparison with another document. A strip shows the command, its progress, the elapsed time and **Cancel**; a cancelled or timed-out run changes nothing. A `check` run replaces, stage by stage, the stages of the same name (`fenolite.view.project_review.merge`), each stage keeping its own input hash and evidence, so a stage of an older revision reads Limited; `analyze` paths become finding groups, `ready` and `equivalent` findings join the review list with Locate. Server routes `GET /runs`, `POST /run`, `GET /run/<job>`, `POST /run/<job>/cancel` behind the guard of `POST /marks` (`Host`, `Origin`, `X-Fenolite-Run: 1`, JSON, 16 KiB); the allow-list `fenolite.view.runs` takes a command name, a document id and typed options, never a command line or a path. Each run is a child process through the runner core shared with `fenolite mcp`, now `fenolite.cli.childrun`. New options `--run-timeout SECONDS` (default 600) and `--no-run`; `result.serve.runs` counts the runs by final state. `docs/viewer.md`, "Running checks from the page".
 - **Writing actions from the viewer** (c0246): `fenolite view --serve --allow-actions` lets the page fill zones, tidy copper (with `--gate drc`), place designators or clip silkscreen, place test points, waive a KiCad DRC finding with a reason (`check --exclude`), move or rotate a part (`place --move`), shift or turn parts with their copper, and export fabrication files or the BOM under the project. Each action is a dry run first: a plan dialog lists the files (sizes, new and replaced SHA-256), the issues and the evidence, and draws the staged board's changes over the current one with the revision compare; Confirm writes exactly that plan (`--confirm --plan`), a changed file asks for a new review (`FEN-4002`), and the receipt follows, kept in `view-receipts/` of the state folder so that Undo plans `fenolite restore` on it. Routes `GET /actions`, `POST /action/plan`, `/action/confirm`, `/action/undo`, behind the run guard with `X-Fenolite-Action: 1` and a per-session token; the allow-list `fenolite.view.actions` fills fixed templates with typed options, confines outputs to the project root and writes no Altium document. `result.serve.writes` lists the session's receipts. `docs/viewer.md`, "Actions: writing from the page".
 
+### Changed
+
+- **The viewer page is built from TypeScript modules** (c0247; the maintainer's decision of 2026-10-29, before
+  the redesign of c0243 and c0244): the old single `src/fenolite/view/page.html` (188 KB of inline CSS, markup
+  and vanilla JavaScript) is now about fifty modules under `viewer/src/` (`core`, `board`, `measure`, `three`,
+  `sch`, `panels`, `dialogs`, `table`, `library`, `export`), type-checked by the TypeScript compiler and linked
+  by `viewer/build.mjs` into one script whose top-level names stay page globals; the board, sheet and WebGL
+  renderers are moved, not rewritten. Preact (MIT, bundled, listed in `NOTICE`) renders the Changes, Messages,
+  Findings and Navigator panels. The build writes `src/fenolite/view/static/` (`page.html`, `viewer.js`,
+  `viewer.css`, `manifest.json`), which is committed and inlined by `fenolite.view.export.template()`, so the
+  served page and `--export` stay one offline file and installing Fenolite needs no Node. `make viewer`
+  rebuilds (Node 22, `tools/build_viewer.py`), `make viewer-check` fails on a stale bundle and runs in the
+  `viewer` CI job, and `tests/unit/view/test_viewer_bundle.py` checks the recorded digests without Node.
+  Nothing changes on screen: the page's unit tests and the 69 visual tests with their references pass unchanged.
+  The page code of c0245 and c0246 lives in `review/runs.ts`, `panels/run-strip.tsx` and the Run controls of
+  `panels/project-review.ts`, and in `actions/actions.ts`, `dialogs/plan-review.tsx` and `panels/receipts.tsx`.
+
 ## [0.6.0] - 2026-10-29
 
 ### Added

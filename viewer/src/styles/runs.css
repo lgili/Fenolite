@@ -1,0 +1,20 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Copyright (c) 2026 Fenolite contributors */
+/* Runs from the page (c0245): the Run panel, the Run control of a card and the run strip. */
+#runPanel { border-top:1px solid var(--line); margin-top:10px; }
+#runPanel[hidden], #runStrip[hidden] { display:none; }
+.runBox { border:1px solid var(--line); border-radius:6px; padding:8px; margin:8px 0; background:var(--panel2); }
+.runBox h4 { margin:0 0 6px; font-size:12px; }
+.runGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:3px 8px; font-size:12px; margin-bottom:6px; }
+.runGrid label, .runOpt { display:flex; align-items:center; gap:5px; overflow-wrap:anywhere; font-size:12px; }
+.runRow { display:flex; gap:6px; flex-wrap:wrap; }
+.runBox select { max-width:100%; margin-right:6px; }
+button.runCard { margin-left:auto; font-size:11px; padding:1px 8px; }
+button:disabled { opacity:.5; cursor:default; }
+#runStrip { position:absolute; left:50%; top:8px; transform:translateX(-50%); z-index:8; display:flex; align-items:center; gap:10px; max-width:min(680px,calc(100% - 24px));
+  background:#24272ef2; border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:6px; padding:6px 10px; font-size:12px; box-shadow:0 4px 16px #0006; }
+#runStrip.done { border-left-color:#7ee787; } #runStrip.failed { border-left-color:#ff7b72; } #runStrip.cancelled { border-left-color:#e3b341; }
+#runStrip small { color:var(--muted); }
+#runStrip span { overflow-wrap:anywhere; }
+.runSpin { width:10px; height:10px; border:2px solid var(--accent); border-right-color:transparent; border-radius:50%; flex:none; animation:runspin 1s linear infinite; }
+@keyframes runspin { to { transform:rotate(360deg); } }

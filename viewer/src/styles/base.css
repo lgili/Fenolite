@@ -1,0 +1,17 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Copyright (c) 2026 Fenolite contributors */
+:root { --bg:#1b1d22; --panel:#24272e; --panel2:#2b2f37; --line:#3a3f49; --text:#e6e6e6; --muted:#9aa0aa; --accent:#4da3ff; }
+* { box-sizing: border-box; }
+html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:13px system-ui, -apple-system, "Segoe UI", Arial, sans-serif; }
+#app { display:grid; grid-template-columns: 260px 1fr; grid-template-rows: 40px 1fr 30px 24px; height:100%; }
+#top { grid-column:1/3; display:flex; align-items:center; gap:8px; padding:0 10px; background:var(--panel); border-bottom:1px solid var(--line); overflow-x:auto; }
+#top .title { font-weight:600; white-space:nowrap; margin-right:6px; }
+button, select, input { background:#2e323b; color:var(--text); border:1px solid var(--line); border-radius:5px; padding:3px 8px; font:inherit; }
+button:hover { border-color:var(--accent); }
+button.on { background:#1f4e7a; border-color:var(--accent); }
+#search { width:180px; }
+#bSidebar { display:none; }
+#side { grid-row:2/3; background:var(--panel); border-right:1px solid var(--line); overflow:auto; display:flex; flex-direction:column; }
+.ph { padding:6px 10px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); background:var(--panel2); border-bottom:1px solid var(--line); }
+.ph { position:relative; }
+.ph button { position:absolute; right:10px; top:50%; transform:translateY(-50%); font-size:11px; padding:0 5px; line-height:16px; background:transparent; border-color:transparent; text-decoration:underline; text-underline-offset:2px; }

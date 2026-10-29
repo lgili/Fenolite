@@ -1,0 +1,26 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Copyright (c) 2026 Fenolite contributors */
+/* Writing actions (c0246): the Actions panel, the receipts and the plan dialog. */
+#actionPanel { border-top:1px solid var(--line); margin-top:10px; }
+#actionPanel[hidden] { display:none; }
+#actionPanel h4 { font-size:12px; margin:10px 0 4px; }
+.actBox { border:1px solid var(--line) !important; border-radius:6px; margin:6px 0; padding:0 8px 8px; background:var(--panel2); }
+.actBox summary { font-weight:600; }
+.actField { display:flex; flex-direction:column; gap:3px; font-size:12px; margin:4px 0; }
+.actField input, .actField select { min-width:0; width:100%; }
+.actReceipt { display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:12px; padding:3px 0; border-bottom:1px solid #ffffff10; }
+.actWaive { border-top:1px solid var(--line); margin-top:8px; padding-top:6px; }
+#planDialog { position:fixed; inset:56px 16px auto auto; margin:0; width:min(520px,calc(100vw - 32px)); max-height:calc(100vh - 110px); overflow:auto; padding:0;
+  background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:8px; box-shadow:0 10px 36px #000a; }
+#planDialog::backdrop { background:#0003; }
+#planDialog header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 14px; border-bottom:1px solid var(--line); background:var(--panel2); }
+#planDialog h2 { margin:0; font-size:15px; }
+#planBody { padding:10px 14px; font-size:12px; line-height:1.5; }
+#planBody p { margin:6px 0; overflow-wrap:anywhere; }
+#planFoot { display:flex; justify-content:flex-end; gap:8px; padding:10px 14px; border-top:1px solid var(--line); }
+#planFoot button.primary { background:#1f4e7a; border-color:var(--accent); font-weight:600; }
+table.planFiles { border-collapse:collapse; width:100%; margin:6px 0; font-size:12px; }
+table.planFiles th { text-align:left; color:var(--muted); font-weight:500; border-bottom:1px solid var(--line); padding:3px 6px; }
+table.planFiles td { padding:3px 6px; border-bottom:1px solid #ffffff10; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.planIssues { margin:6px 0; padding-left:18px; } .planIssues li { margin:2px 0; overflow-wrap:anywhere; }
+.planIssues li.error, .planError { color:#ff7b72; } .planIssues li.warning { color:#e3b341; }

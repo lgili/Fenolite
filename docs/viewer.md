@@ -45,6 +45,10 @@ copied (`docs/formats/kicad/color-theme.md`).
 
 ## The page
 
+The page is one HTML file with its styles and script inline and no external URL, served by `--serve` and
+written by `--export`. It is built from the TypeScript sources in `viewer/src/` into `src/fenolite/view/static/`
+(change c0247; `CONTRIBUTING.md`, "The viewer page's sources"); installing Fenolite needs no Node.
+
 - **Projects panel** (left). The project's documents, grouped as the native tools group them: Source
   Documents (schematics, boards, harnesses), Libraries, Settings (output jobs, rules, stack-ups, library
   tables), Documentation (drawings, annotations) and Other. A board opens on click; any other document

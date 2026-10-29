@@ -58,7 +58,7 @@ At viewport widths of 760 CSS pixels or below the dock SHALL become a bottom she
 ## MODIFIED Requirements
 
 ### Requirement: Viewer page
-`src/fenolite/view/page.html` SHALL be one HTML file with inline styles and scripts and no external URL, drawing a scene in 2D (canvas) and 3D (WebGL), with the project tree at the left, the inspector and Layers panel docked at the right, Top and Bottom views, highlight, search, measurement and overlays; `fenolite.view.export.page(tree, scenes)` SHALL embed a tree and its scenes.
+`fenolite.view.export.template()` SHALL give one HTML file with inline styles and scripts and no external URL, assembled from the committed bundles of `src/fenolite/view/static/`, drawing a scene in 2D and 3D with the project tree at the left, the inspector and Layers panel docked at the right, Top and Bottom views, highlight, search, measurement and overlays; `page(tree, scenes)` SHALL embed a tree and its scenes.
 - It MUST read a scene embedded (export) or from "Live server".
 - Texts MUST use Fenolite's single-stroke font.
 
@@ -66,3 +66,8 @@ At viewport widths of 760 CSS pixels or below the dock SHALL become a bottom she
 - **GIVEN** the tree and the scene of `two_layer.kicad_pcb`
 - **WHEN** `uv run pytest tests/unit/view/test_page.py` exports the page and reads the embedded JSON back
 - **THEN** the JSON equals the scene, and the page holds no `http://` or `https://` URL
+
+#### Scenario: The served page is the assembled page
+- **GIVEN** the committed shell, `viewer.js` and `viewer.css`
+- **WHEN** `uv run pytest tests/unit/view/test_viewer_bundle.py -k assembled` builds `page(live=True)`
+- **THEN** the page holds the CSS bundle inside its `<style>` element and the JS bundle inside its last `<script>` element, and no placeholder of the shell is left

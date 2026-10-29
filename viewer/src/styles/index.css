@@ -1,0 +1,15 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Copyright (c) 2026 Fenolite contributors */
+/* The page's stylesheet in its original rule order (change c0247): the order is the cascade. */
+@import "./base.css";
+@import "./review.css";
+@import "./catalog.css";
+@import "./preview.css";
+@import "./side.css";
+@import "./canvas.css";
+@import "./tabs.css";
+@import "./lists.css";
+@import "./status.css";
+@import "./responsive.css";
+@import "./runs.css";
+@import "./actions.css";

@@ -1,0 +1,14 @@
+{
+  "schema": "fenolite.viewer_build.v1",
+  "sources": "42eb0f5e4ccf70ac67147b43b72cff8d13698f6bf27ad9a8fc8183a6c2c8079c",
+  "outputs": {
+    "page.html": "62055d3dd8fe9f952408fe3ce971b95261e1fd6ba9b5b3b78dcb17dd2b6d8c84",
+    "viewer.css": "365b5dbdc19c8a2200f63e7e9779db62df5d2148aeef6020532879fe5dfdb4d5",
+    "viewer.js": "fe3ad93204db4c6811dd13040fc8ddabdc4354e440c89c3f7b67d5aec86af1c9"
+  },
+  "tools": {
+    "esbuild": "0.28.2",
+    "preact": "10.29.8",
+    "typescript": "5.9.3"
+  }
+}

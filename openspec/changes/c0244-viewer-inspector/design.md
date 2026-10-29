@@ -1,24 +1,37 @@
 ## Context
 
-- **What exists** on `dev` at `5191911`, in `src/fenolite/view/page.html`:
-  - `select(h, at)` builds an HTML string for the hit primitive (layer, net, `compInfo`, track width and
-    length, arc radius, `padInfo`, hole or circle diameter) and passes it to `showInfo(html)`, which fills
+- **What exists** on `dev` at `5191911`, in the modules of `viewer/src/` that c0247 (`viewer-build`) made
+  from the old `page.html` (built into `src/fenolite/view/static/` and committed):
+  - `select(h, at)` (`board/info.ts`, with `compInfo`, `padInfo`) builds an HTML string for the hit primitive (layer, net, `compInfo`, track width and
+    length, arc radius, `padInfo`, hole or circle diameter) and passes it to `showInfo(html)`, (`core/dom.ts`) which fills
     `#info`, an absolutely placed box at the top right of `#wrap`. Sheets (`schSelect`), libraries,
     Draftsman drawings, keep-outs, findings (`selectFinding`) and the catalog fill the same box.
-  - `draw()` paints every layer at `alpha × HL_ALPHA[st.hl]` (Dim 0.28, Mask 0.06, Normal 1) while something
+  - `draw()` (`board/draw.ts`, with `paintCache` of `board/cache.ts`) paints every layer at `alpha × HL_ALPHA[st.hl]` (Dim 0.28, Mask 0.06, Normal 1) while something
     is picked, then repaints the picked net or part with `lighten(l.color, 0.45)` at opacity 1. A pour of the
     net becomes a pale sheet over the board.
-  - `buildTabs()` fills `#tablist` in the bottom bar `#tabs` with one `.tab` per layer of `tabLayers()`;
+  - `buildTabs()` (`board/tabs.ts`) fills `#tablist` in the bottom bar `#tabs` with one `.tab` per layer of `tabLayers()`;
     `#ls` opens `#lsmenu` (layer sets). Each layer has `l.alpha` (used by `draw`), `vis` holds visibility,
     `st.cur` the current layer, `st.single` single-layer mode. In schematic view `#tablist` holds the sheet
     tabs instead.
-  - 3D: `init3D()` builds two programs whose fragment shaders light by `abs(dot(N, uL))` with an ambient of
+  - 3D (`three/view3d.ts`, matrices in `three/math.ts`): `init3D()` builds two programs whose fragment shaders light by `abs(dot(N, uL))` with an ambient of
     0.42; `#bar3d` holds Top, Bottom, Iso and a Bodies checkbox; `camPreset(kind)` sets yaw and pitch. Bodies
     without a model are extruded outlines drawn with `uBody`, a grey.
   - Tests read `$("info")` (`tests/visual/test_interaction.py`, `test_catalog.py`, `test_navigation.py`) and
     `test_page.py` requires the ids `tree`, `tablist`, `ls`, `cv`, `gl`, `status`.
 - **Builds on c0243**: tokens (`--accent`, `--focus`, the new `--emphasis`), the command registry and the
   toolbar groups. This change can land without c0245 and c0246.
+- **Module structure (c0247).** UI is Preact, the renderers stay hand-written; a module's top-level names stay
+  page globals; every change of `viewer/` is committed with its rebuilt bundle (`make viewer`). Where each part
+  goes:
+
+| part | module | form |
+|---|---|---|
+| dock, tabs, resize | `viewer/src/panels/dock.tsx`; the grid column in `styles/` | Preact |
+| inspector model and rendering | `viewer/src/inspect/model.ts` (models from hits: `board/info.ts`, `sch/select.ts`, `library/library.ts`, `review/check.ts`), `panels/inspector.tsx` (`renderInspector`) | TS, Preact |
+| inspector actions | registry commands in `core/commands.ts` (c0243) with a `target` | TS |
+| net emphasis | `board/draw.ts`, `board/cache.ts` (hand-written canvas code) | TS |
+| Layers panel | `viewer/src/panels/layers.tsx`; `board/tabs.ts` keeps `tabLayers()`, the sheet tabs stay in `sch/load.ts` | Preact |
+| 3D controls | `three/view3d.ts` (lighting, presets), `three/view-cube.ts` (the cube, canvas), `panels/view3d-panel.tsx` | TS, Preact |
 
 ## Goals / Non-goals
 
@@ -42,8 +55,8 @@ selection and dismissed by `Esc` or its close button; the canvas keeps the full 
 ### 2. Inspector model
 
 `select()` and its siblings build an inspector model instead of HTML: `{kind, title, sections: [{title,
-rows: [{label, value, raw, unit?, copy?, link?}]}], actions: [...]}`, rendered by one function
-`renderInspector(model)`. Sections by hit: **Part** (reference, value, footprint, side, position, rotation,
+rows: [{label, value, raw, unit?, copy?, link?}]}], actions: [...]}`, rendered by one Preact component,
+`renderInspector(model)` in `panels/inspector.tsx`. Sections by hit: **Part** (reference, value, footprint, side, position, rotation,
 extent, parameters, variant state), **Pad** (number, shape, size, corner radius, drill and slot, layers,
 mask and paste openings with their source), **Track** (width, length, layer, net), **Arc** (width, radius,
 angle), **Via** (diameter, drill, layers, tenting), **Zone** (net, layer, filled area, unfilled flag),
@@ -100,8 +113,9 @@ On boards and footprints the bottom bar no longer lists layers; on sheets it kee
 
 ### 7. Tests
 
-- `tests/unit/view/test_page.py`: `layerList` and `dock` exist; `renderInspector` under Node renders an
-  authored model with copy controls and leaves out missing values; the 3D shaders compile is left to
+- `tests/unit/view/test_page.py` (on the assembled `template()`): `layerList` and `dock` exist; the model
+  builder of `inspect/model.ts`, cut out of the bundle between Node-test markers as `test_filter.py` cuts the
+  query functions, turns an authored hit into a model with copy controls and leaves out missing values; the 3D shaders compile is left to
   Chromium.
 - `tests/visual/test_inspector.py` (new): a pad of `R1` shows Pad and Part sections with its size in mm,
   then mil after `Q`; Copy copies the size (clipboard permission granted to the context); Zoom to frames the
