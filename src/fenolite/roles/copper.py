@@ -589,6 +589,61 @@ def _mm(value: int) -> str:
     return f"{sign}{whole}.{text}" if text else f"{sign}{whole}"
 
 
+def _without_union(ctx: _Ctx, records: Sequence[RoleRecord]) -> list[RoleRecord]:
+    """Without the ``geo`` extra the bands of a group cannot be united into one zone: each group keeps its
+    longest band (``roles.copper-extra``), and a via array whose patch no kept band covers on each of its
+    layers is left out with it."""
+    groups: dict[str, list[RoleBand]] = {}
+    for record in records:
+        if isinstance(record, RoleBand) and record.group:
+            groups.setdefault(record.group, []).append(record)
+    dropped: set[str] = set()
+    for group, bands in sorted(groups.items()):
+        if len(bands) < 2:
+            continue
+        best = max(bands, key=lambda band: (length(band.spine), band.name))
+        dropped |= {band.name for band in bands if band is not best}
+        ctx.issues.append(
+            issue(
+                "roles.copper-extra",
+                f"uniting the {len(bands)} bands of {group} needs the geo extra, so only its longest band "
+                "was generated",
+                where=group,
+                hint="install the geo extra (pip install fenolite[geo])",
+            )
+        )
+    if not dropped:
+        return list(records)
+    kept_bands = [r for r in records if isinstance(r, RoleBand) and r.name not in dropped]
+
+    def covered(record: RoleStitch) -> bool:
+        if record.patch is None:
+            return True
+        xs, ys = [p.x for p in record.patch], [p.y for p in record.patch]
+        centre = Thick((Point((min(xs) + max(xs)) // 2, (min(ys) + max(ys)) // 2),), 2)
+        return all(
+            any(
+                layer in band.layers
+                and any(
+                    thick_closer_than(centre, slab(a, b, band.width), 1)
+                    for a, b in zip(band.spine, band.spine[1:], strict=False)
+                    if a != b
+                )
+                for band in kept_bands
+            )
+            for layer in record.layers
+        )
+
+    found: list[RoleRecord] = []
+    for record in records:
+        if isinstance(record, RoleBand) and record.name in dropped:
+            continue
+        if isinstance(record, RoleStitch) and not covered(record):
+            continue
+        found.append(record)
+    return found
+
+
 def _fenced(ctx: _Ctx, records: Sequence[RoleRecord]) -> list[RoleRecord]:
     """Each band with the bases of the other nets' bands on its layer added to the rings it does not widen
     over: a band widens only where the base of no later band will lie, whatever their order. Each via array
@@ -2221,6 +2276,8 @@ def plan(
         plans += _plan_ground(ctx, grounds, records, zones)
     tracks = _join_loose(ctx, records)
     records = _fenced(ctx, records)
+    if "clipper" not in available_backends():
+        records = _without_union(ctx, records)
     if asked.keep:
         # a kept role item (``keep``, or edited by the user) is not generated again
         keeps = set(asked.keep)

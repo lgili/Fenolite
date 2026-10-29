@@ -23,7 +23,7 @@ Each role band SHALL be drawn one pour grid cell (0.1 mm) wider than the require
 - **THEN** every `SW` band has `width` and `max_width` equal to the required width plus 0.1 mm
 
 ### Requirement: Power and switch-node copper
-Each `power` and `switch_node` net SHALL get one locked zone per layer: the union of c0224 bands along a rectilinear tree between its pad clusters, hot-loop legs first on the pads' layer. `max_width` MUST be twice the width for `power` and equal to it for `switch_node` and `high_voltage`. An edge without a path MUST give `roles.copper-blocked`; a branching tree without the `geo` extra, `roles.copper-extra`.
+Each `power` and `switch_node` net SHALL get one locked zone per layer: the union of c0224 bands along a rectilinear tree between its pad clusters, hot-loop legs first on the pads' layer. `max_width` MUST be twice the width for `power` and equal to it for `switch_node` and `high_voltage`. An edge without a path MUST give `roles.copper-blocked`. Without the `geo` extra a group of several bands MUST keep its longest band, with `roles.copper-extra`.
 
 #### Scenario: One zone per net and layer
 - **WHEN** `uv run pytest tests/unit/roles/test_copper_plan.py -k zones` resolves the role copper of the bare good buck

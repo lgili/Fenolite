@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import replace
 
+import pytest
 from _roleboards import Built
 from _rolecopper import board, outcome, plan_on, resolved
 
@@ -135,3 +136,19 @@ def test_loose_ends_joined(role_copper: Callable[..., Built]) -> None:
     assert held.design.board is not None
     written = {(t.start, t.end, t.width, t.layer) for t in held.design.board.tracks if t.locked}
     assert {(t.start, t.end, t.width, t.layer) for t in done.plan.tracks} <= written
+
+
+def test_without_the_geo_extra(role_copper: Callable[..., Built], monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without the ``geo`` extra no group unites bands: each keeps its longest band, with
+    ``roles.copper-extra``, and no via array is left without its band."""
+    from fenolite.roles import copper
+
+    built = role_copper("buck_shunt", "good")
+    monkeypatch.setattr(copper, "available_backends", lambda: ())
+    plan = plan_on(built, "buck_shunt")
+    groups: dict[str, int] = {}
+    for record in plan.records:
+        if isinstance(record, RoleBand):
+            groups[record.group] = groups.get(record.group, 0) + 1
+    assert groups and all(count == 1 for count in groups.values()), groups
+    assert any(i.code == "roles.copper-extra" for i in plan.issues)

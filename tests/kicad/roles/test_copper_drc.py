@@ -74,7 +74,9 @@ def _violations(script: Path, out: Path, cli: str, major: int) -> Counter[str]:
     code, envelope = _fenolite(
         "build", str(script), "--out", str(out), "--kicad-version", str(major), "--confirm"
     )
-    assert code == 0, envelope
+    assert code == 0, [
+        i for i in envelope.get("issues", []) if isinstance(i, dict) and i["severity"] == "error"
+    ]
     if major >= 10:
         code, envelope = _fenolite("fill", str(out), "--kicad-cli", cli, "--confirm")
         assert code == 0, envelope
