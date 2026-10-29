@@ -74,6 +74,16 @@
           "type": "null"
         }
       ]
+    },
+    "contracts": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ContractSet"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "additionalProperties": false,
@@ -81,6 +91,96 @@
     "id"
   ],
   "$defs": {
+    "ContractSet": {
+      "description": "The electrical contracts of a design (change c0253; ``docs/contracts.md``): the derating rules in call",
+      "type": "object",
+      "properties": {
+        "derating": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeratingRule"
+          }
+        },
+        "operating": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OperatingRange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unknown": {
+          "enum": [
+            "info",
+            "warning"
+          ]
+        },
+        "expects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Expectation"
+          }
+        },
+        "rig": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RigSupply"
+              },
+              {
+                "$ref": "#/$defs/RigSink"
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Decimal10": {
+      "description": "The exact decimal m · 10^e in its one canonical form (change c0246).",
+      "type": "object",
+      "properties": {
+        "m": {
+          "type": "integer"
+        },
+        "e": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "m",
+        "e"
+      ]
+    },
+    "DeratingRule": {
+      "description": "A derating rule of the user (change c0253): its key (``DERATING_KEYS``), its ratio in per-mille",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "permille": {
+          "type": "integer"
+        },
+        "margin_mk": {
+          "type": "integer"
+        },
+        "parts": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key"
+      ]
+    },
     "Evidence": {
       "description": "A level plus the oracle that produced it and the hypotheses it depends on.",
       "type": "object",
@@ -115,6 +215,99 @@
         }
       },
       "additionalProperties": false
+    },
+    "ExpectNode": {
+      "description": "One node of an expectation's tree (change c0253): an operation ``op`` with operands ``a`` and ``b``",
+      "type": "object",
+      "properties": {
+        "op": {
+          "type": "string"
+        },
+        "a": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpectNode"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "b": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpectNode"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ValueRange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "num": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "ref": {
+          "type": "string"
+        },
+        "component": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "pin": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Expectation": {
+      "description": "An expectation (change c0253): ``id`` (``<instance path>/expect#<n>``), the block instance path (or",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "instance": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "test": {
+          "$ref": "#/$defs/ExpectNode"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "instance",
+        "reason",
+        "origin",
+        "test"
+      ]
     },
     "ExtBag": {
       "description": "What a backend knows about an object and the model does not: verbatim fragments.",
@@ -447,6 +640,19 @@
         "source"
       ]
     },
+    "OperatingRange": {
+      "description": "The design's operating conditions (change c0253): the ambient temperature range, in kelvin.",
+      "type": "object",
+      "properties": {
+        "ambient": {
+          "$ref": "#/$defs/ValueRange"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ambient"
+      ]
+    },
     "PadSelection": {
       "description": "Pads of one part, named by its component path.",
       "type": "object",
@@ -573,6 +779,78 @@
         "parts",
         "anchor",
         "within"
+      ]
+    },
+    "RigSink": {
+      "description": "A test-rig sink (change c0253): the outside world draws ``current`` from ``net`` to ``ret``.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "sink"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "ret": {
+          "type": "string"
+        },
+        "current": {
+          "$ref": "#/$defs/ValueRange"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "name",
+        "net",
+        "ret",
+        "current"
+      ]
+    },
+    "RigSupply": {
+      "description": "A test-rig supply (change c0253): the outside world holds the net ``pos`` at ``voltage`` against",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "supply"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "pos": {
+          "type": "string"
+        },
+        "neg": {
+          "type": "string"
+        },
+        "voltage": {
+          "$ref": "#/$defs/ValueRange"
+        },
+        "current": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ValueRange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "name",
+        "pos",
+        "neg",
+        "voltage"
       ]
     },
     "RoleLimit": {
@@ -878,6 +1156,59 @@
         "layer",
         "references",
         "width"
+      ]
+    },
+    "ValueRange": {
+      "description": "An exact range of an electrical value: unit, low, nominal and high, at least one bound given.",
+      "type": "object",
+      "properties": {
+        "unit": {
+          "enum": [
+            "ohm",
+            "farad",
+            "henry",
+            "volt",
+            "ampere",
+            "hertz",
+            "watt",
+            "second",
+            "kelvin"
+          ]
+        },
+        "low": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nominal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "high": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "unit"
       ]
     }
   }

@@ -177,3 +177,66 @@ def test_insulation_and_groove_keys() -> None:
         )
     # every file of the earlier schema loads as before
     assert pair(HEAD + STEPS + distance(230_000)) == (None, 3_000_000, None)
+
+
+UNIT_ROWS = (
+    '[[current]]\nselect = { net = "VBUS" }\ncurrent = "2A"\ntemp_rise = "10K"\n'
+    '[[distance]]\na = { net = "L" }\nb = { net = "N" }\nclearance = "1.2mm"\n'
+    '[[path]]\nfrom = ["J1-1"]\nto = ["Q1-2"]\ncurrent = "2A"\ntemp_rise = "10K"\ndrop = "50mV"\n'
+    '[[step]]\nup_to = "230V"\ncreepage = "3mm"\n'
+    '[[loop]]\nname = "hot"\npads = ["C1-1", "Q1-1"]\nmax_area = "60mm2"\n'
+    '[[neck]]\nselect = { net = "VBUS" }\nmin_width = "0.5mm"\n'
+    '[[decoupling]]\nparts = "U*"\nmax_distance = "2mm"\n'
+)
+RAW_ROWS = (
+    '[[current]]\nselect = { net = "VBUS" }\nmilliamps = 2000\ntemp_rise_mk = 10000\n'
+    '[[distance]]\na = { net = "L" }\nb = { net = "N" }\nclearance_nm = 1200000\n'
+    '[[path]]\nfrom = ["J1-1"]\nto = ["Q1-2"]\nmilliamps = 2000\ntemp_rise_mk = 10000\ndrop_mv = 50\n'
+    '[[step]]\nup_to_mv = 230000\ncreepage_nm = 3000000\n'
+    '[[loop]]\nname = "hot"\npads = ["C1-1", "Q1-1"]\nmax_area_nm2 = 60000000000000\n'
+    '[[neck]]\nselect = { net = "VBUS" }\nmin_width_nm = 500000\n'
+    '[[decoupling]]\nparts = "U*"\nmax_distance_nm = 2000000\n'
+)
+
+
+def test_units_equal_raw_keys() -> None:
+    """Change c0253, "Unit keys equal raw keys"."""
+    assert load_requirements(HEAD + UNIT_ROWS) == load_requirements(HEAD + RAW_ROWS)
+
+
+@pytest.mark.parametrize(
+    "value",
+    ['clearance = "1.2"', 'clearance = "1.2A"', 'clearance = "0.0001nm"', "clearance = 1.2",
+     'clearance = "1.2mm"\nclearance_nm = 1200000'],
+)  # fmt: skip
+def test_units_errors(value: str) -> None:
+    """Change c0253, "Unit errors"."""
+    text = HEAD + f'[[distance]]\na = {{ net = "L" }}\nb = {{ net = "N" }}\n{value}\n'
+    with pytest.raises(FormatError) as info:
+        load_requirements(text, file="req.toml")
+    assert info.value.locator == "distance[0].clearance" and info.value.file == "req.toml"
+
+
+@pytest.mark.parametrize(
+    ("value", "why"),
+    [('current = "2.0005A"', "whole number of mA"), ('current = "2"', "no unit"),
+     ('current = "2V"', "another unit"), ('temp_rise = "10degC"', "difference")],
+)  # fmt: skip
+def test_units_electrical_errors(value: str, why: str) -> None:
+    key = value.split(" ")[0]
+    other = 'temp_rise = "10K"' if key == "current" else 'current = "2A"'
+    text = HEAD + f'[[current]]\nselect = {{ net = "V" }}\n{value}\n{other}\n'
+    with pytest.raises(FormatError, match=why) as info:
+        load_requirements(text)
+    assert info.value.locator == f"current[0].{key}"
+
+
+def test_units_source_text() -> None:
+    """Change c0253, "Source text"."""
+    row = '[[distance]]\na = { net = "L" }\nb = { net = "N" }\nclearance = "1.2mm"\n'
+    found = load_requirements(HEAD + row + 'source = "project insulation decision"\n')
+    assert found.distances[0].source == "project insulation decision"
+    assert load_requirements(HEAD + row).distances[0].source == ""
+    with pytest.raises(FormatError) as info:
+        load_requirements(HEAD + row + 'source = ""\n')
+    assert info.value.locator == "distance[0].source"

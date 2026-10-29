@@ -768,6 +768,35 @@ creepage_nm = 3000000
   does not choose between peak, RMS or working voltage.
 - A float, an unknown key or a missing key is an error that names the key.
 
+**Unit keys** (change c0253). Every raw key has a unit form that takes a string with its unit, parsed
+exactly: `clearance`, `creepage`, `embedded`, `insulation`, `groove`, `max_distance` and `min_width`
+(lengths, such as `"1.2mm"`), `max_area` (`"60mm2"`), `current` (`"2A"`), `temp_rise` (a difference in
+kelvin, `"10K"`), and `voltage`, `up_to` and `drop` (`"230V"`, `"50mV"`). The value must be a whole number
+of the raw key's unit (nm, nm², mA, mK, mV). Electrical values and temperature differences are read by
+`fenolite.core.quantities`, lengths and areas by `fenolite.core.units`. A string without its unit, with
+another unit or not whole in the raw unit, a float, and both forms of one key in a row are errors that
+name the unit key. Every row may also hold `source`, a non-empty text that names where your numbers come
+from; it becomes the basis of the row's limits in the requirement table (`docs/contracts.md`). A loader
+that predates unit keys refuses a file that uses them. This example is authored for Fenolite; its values
+are illustrative, not requirements:
+
+```toml
+# authored for Fenolite; illustrative values, not requirements
+schema = "fenolite.requirements.v0"
+
+[[current]]
+select = { net = "V12" }
+current = "3A"
+temp_rise = "10K"
+source = "bench supply limit"
+
+[[distance]]
+a = { net = "VBUS" }
+b = { net = "*" }
+clearance = "1.2mm"
+source = "project insulation decision 2026-10"
+```
+
 Three additions of change c0115 use the same schema name. They are optional, so every earlier file loads
 unchanged; the other direction does not hold: **Fenolite 0.2.x and 0.3.0 refuse a requirements file that
 holds a `[[path]]` row, `insulation_nm` or `groove_nm`**, because their key sets are closed. This example
