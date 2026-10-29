@@ -5,13 +5,19 @@ roles of a build with its inferred groups confirmed, and its critical plan."""
 
 from __future__ import annotations
 
+import contextlib
+import io
+import json
+import shutil
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 from _roleboards import EXAMPLES, Built, build_script, judge
 from _rolecheck import confirmed
 
+import fenolite.cli.main as cli_main
 from fenolite.backends.base import BoardPad
 from fenolite.backends.kicad.frame import board_pads
 from fenolite.backends.kicad.outline import board_outline
@@ -126,3 +132,40 @@ def role_job(
 def route_job(built: Built, **given: object) -> RoutingResult:
     """The result of the octilinear router on ``role_job(built, **given)``."""
     return OctilinearRouter().route(role_job(built, **given))  # type: ignore[arg-type]
+
+
+ROUTE = ("--router", "octilinear", "--roles", "critical")
+
+
+def cli(*args: str) -> tuple[int, dict[str, Any], str]:
+    """``fenolite <args> --json`` in-process: the exit code, the envelope and stderr."""
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        code = cli_main.main([*args, "--json"])
+    return code, json.loads(out.getvalue() or "{}"), err.getvalue()
+
+
+def confirmed_copy(built: Built, into: Path) -> Built:
+    """A copy of a build whose inferred roles and groups are stored as confirmed."""
+    out = into / "out"
+    shutil.copytree(built.out, out)
+    copy = Built(out, out / built.board.name)
+    code, _, err = cli("roles", str(copy.board), "--accept-all", "--confirm")
+    assert code == 0, err
+    return copy
+
+
+def route(board: Path, *more: str) -> tuple[int, dict[str, Any], str]:
+    return cli("route", str(board), *ROUTE, *more)
+
+
+def routed(board: Path, *more: str) -> dict[str, Any]:
+    """Route ``board`` through the reviewed plan: the dry run, then ``--confirm --plan``; the dry run's
+    envelope."""
+    code, env, err = route(board, *more, "--dry-run")
+    assert code == 0, err
+    plan = env["result"].get("plan_id")
+    if plan:
+        code, _, err = route(board, *more, "--confirm", "--plan", plan)
+        assert code == 0, err
+    return env

@@ -7,8 +7,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import replace
+from pathlib import Path
 
-from _critical import plan, roles_of, unconfirmed
+from _critical import confirmed_copy, plan, roles_of, routed, unconfirmed
 from _roleboards import Built, read
 
 from fenolite.core.coords import Point
@@ -137,3 +138,22 @@ def test_critical_copper_on_a_drawn_board() -> None:
     found = critical_copper(design, roles)
     group = found.group("k")
     assert group is not None and group.corridors == ("rul_c",) and group.items == ("trk_in", "via_in")
+
+
+def test_critical_copper_of_a_routed_group(reference: Callable[..., Built], tmp_path: Path) -> None:
+    """Scenario "Copper and corridors of a routed group": on the routed open buck read back from its KiCad
+    board, ``critical_copper`` gives the Kelvin pair its two corridors and every locked track of its
+    branches, and the gate loops no copper written by role mode."""
+    built = confirmed_copy(reference("buck_shunt", "open"), tmp_path)
+    routed(built.board)
+    design, _ = read(built)
+    assert design.board is not None
+    found = critical_copper(design, roles_of(built))
+    kelvin = found.group("kelvin_R12")
+    assert kelvin is not None and len(kelvin.corridors) == 2
+    locked = sorted(track.id for track in design.board.tracks if track.locked)
+    assert locked and list(kelvin.items) == locked
+    assert {(g.group, g.items, g.corridors) for g in found.groups if g.kind == "gate_loop"} == {
+        ("gate_Q1", (), ()),
+        ("gate_Q2", (), ()),
+    }
