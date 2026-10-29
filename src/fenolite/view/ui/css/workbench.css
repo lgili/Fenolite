@@ -152,6 +152,14 @@
   .rmeas { margin:4px 0 8px; } .rmeas small { color:var(--muted); }
   #info h4 { margin:8px 0 3px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
   #info table.rphases td:last-child { color:var(--text); }
+  .ractions { display:flex; flex-wrap:wrap; gap:3px; margin-bottom:4px; }
+  .ractions button, .ractions select, .ractions input { padding:1px 5px; font-size:11px; }
+  .ractions .notes { align-self:center; }
+  #pendingBody .pendhead { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+  #pendingBody button.primary { background:var(--sel); border-color:var(--accent); color:var(--sel-text); }
+  #pendingBody .err { color:var(--err); } #pendingBody .warn { color:var(--warn); }
+  #pendingBody ul.files { margin:2px 0 6px 18px; padding:0; }
+  #pendingBody .cmdline { width:100%; font:11px ui-monospace, monospace; }
   @media (max-width:760px) {
     #app { grid-template-columns:minmax(0, 1fr); grid-template-rows:22px auto auto minmax(0, 1fr) 30px 24px; }
     #titlebar, #menubar, #top, #wrap, #tabs, #status { grid-column:1; min-width:0; }

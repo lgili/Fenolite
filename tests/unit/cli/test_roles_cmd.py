@@ -272,3 +272,42 @@ def test_evidence_of_a_check(
     assert {"H-G-ROLE-LOOP-RATIO", "H-G-SHAPE-LOOP"} <= set(env["evidence"]["hypotheses"])
     (width,) = [i for i in env["issues"] if i["code"] == "roles.width-current"]
     assert "S-0851" in width["message"]
+
+
+def test_forget(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, boards: dict[str, Built]) -> None:
+    """Scenario "Forget after accept" (c0245): `--forget` and `--forget-group` drop a stored decision through
+    a plan, so the net or group is inferred again; a declared role cannot be forgotten."""
+    hide_kicad(monkeypatch, tmp_path)
+    board = _copy(boards["buck_bad"], tmp_path / "project")
+    rules = board.parent / ".fenolite" / "rules.json"
+    before = rules.read_bytes()
+    code, _, error, _ = run(monkeypatch, tmp_path, "roles", str(board.parent), "--accept", "GH", "--confirm")
+    assert code == 0, error
+    assert rules.read_bytes() != before
+    args = ("roles", str(board.parent), "--forget", "GH")
+    code, env, error, _ = run(monkeypatch, tmp_path, *args, "--dry-run")
+    assert code == 0, error and rules.read_bytes() != before  # the dry run writes nothing
+    code, env, error, _ = run(monkeypatch, tmp_path, *args, "--confirm", "--plan", env["result"]["plan_id"])
+    assert code == 0, error
+    assert rules.read_bytes() == before
+    rows = {
+        row["net"]: row
+        for row in run(monkeypatch, tmp_path, "roles", str(board.parent))[1]["result"]["roles"]
+    }
+    assert rows["GH"]["source"] == "inferred"
+    for accept, forget in (("--accept-group", "gate_Q1"), ("--reject-group", "gate_Q2")):
+        code, _, error, _ = run(
+            monkeypatch, tmp_path, "roles", str(board.parent), accept, forget, "--confirm"
+        )
+        assert code == 0, error
+        code, _, error, _ = run(
+            monkeypatch, tmp_path, "roles", str(board.parent), "--forget-group", forget, "--confirm"
+        )
+        assert code == 0, error
+        assert rules.read_bytes() == before, forget
+    code, _, error, _ = run(monkeypatch, tmp_path, "roles", str(board.parent), "--forget", "SW", "--confirm")
+    assert code == 2 and error["code"] == "FEN-2001" and "script" in error["message"]
+    code, _, error, _ = run(
+        monkeypatch, tmp_path, "roles", str(board.parent), "--forget-group", "nope", "--confirm"
+    )
+    assert code == 2 and error["code"] == "FEN-2001"

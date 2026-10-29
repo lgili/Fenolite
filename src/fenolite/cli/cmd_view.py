@@ -320,6 +320,20 @@ def roles_reply(board: Path, roles_file: str | None, ctx: Context) -> dict[str, 
     }
 
 
+def roles_write(
+    board: Path, argv: list[str], plan_id: str | None, roles_file: str | None
+) -> tuple[int, dict[str, Any]]:
+    """``fenolite roles BOARD ARGV --check`` run in this process for a served page (change c0245, decision
+    11): with ``--dry-run`` when ``plan_id`` is ``None``, else ``--confirm --plan PLAN_ID``, which writes the
+    reviewed bytes. ``argv`` holds role options only (``fenolite.view.roles.write_argv``)."""
+    from fenolite.cli.main import invoke  # noqa: PLC0415  (a command line, as the page's user would type it)
+
+    line = ["roles", str(board), *argv, "--check", *(["--roles", roles_file] if roles_file else [])]
+    line += ["--dry-run"] if plan_id is None else ["--confirm", "--plan", plan_id]
+    code, envelope, error = invoke(line, cwd=board.parent)
+    return code, (envelope or {}) | ({"error": error} if error else {})
+
+
 def roles_payload(board: Path, roles_file: str | None, ctx: Context) -> dict[str, Any]:
     """The data of the Net Roles workspace for ``board``: the roles reply, its explanations and the board's
     locked copper (``fenolite.view.roles``)."""
@@ -1089,6 +1103,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             refined = json.loads(json.dumps(scene))
             return refined if add_models(read_board(path), refined, log=_log) is not None else None
 
+        roles_abs = (
+            str(Path(args.roles) if Path(args.roles).is_absolute() else ctx.cwd / args.roles)
+            if args.roles
+            else None
+        )
         live = server.Live(
             tree,
             build,
@@ -1099,6 +1118,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             refine=None if args.no_models else refine,
             settings=settings,
             roles=lambda path: roles_payload(path, args.roles, ctx),
+            roles_writer=lambda path, argv, plan_id: roles_write(path, argv, plan_id, roles_abs),
         )
         try:
             httpd = server.serve(live, port)

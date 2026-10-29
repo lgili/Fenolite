@@ -555,6 +555,8 @@ another type; a flag without a value is a switch.
 - `--reject NET` (repeatable): store the net as a confirmed signal, so it is not inferred again (repeatable)
 - `--accept-group NAME` (repeatable): store this inferred group as confirmed (repeatable)
 - `--reject-group NAME` (repeatable): never infer this group again (repeatable)
+- `--forget NET[,NET...]` (repeatable): drop the stored role of these nets, so they are inferred again (repeatable)
+- `--forget-group NAME` (repeatable): drop the stored decision on this group, so it is inferred again (repeatable)
 
 ## roundtrip
 

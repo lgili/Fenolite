@@ -15,7 +15,7 @@ function menuItems(name) {   // the entries of a menu of the bar, from the regis
   const out = []; let group = null; const subs = new Map();
   for (const c of COMMANDS) {
     if (c.menu !== name || c.hidden) continue;
-    const item = { id: c.id, label: c.label, key: keysOf(c)[0] || "", disabled: !c.when(), checked: c.checked ? !!c.checked() : null, run: e => { if (c.when()) c.run(e); } };
+    const item = { id: c.id, label: c.label, note: c.note || "", key: keysOf(c)[0] || "", disabled: !c.when(), checked: c.checked ? !!c.checked() : null, run: e => { if (c.when()) c.run(e); } };
     if (c.sub) { if (!subs.has(c.sub)) { const s = { label: c.sub, sub: [] }; subs.set(c.sub, s); if (group !== null && c.group !== group) out.push({ sep: true }); group = c.group; out.push(s); } subs.get(c.sub).sub.push(item); continue; }
     if (group !== null && c.group !== group) out.push({ sep: true });
     group = c.group; out.push(item);
@@ -32,7 +32,7 @@ function openMenu(items, anchor, opts = {}) {   // a popup menu under `anchor` (
     const b = document.createElement("button"); b.className = "mitem"; b.tabIndex = -1;
     b.setAttribute("role", it.checked == null ? "menuitem" : "menuitemcheckbox"); if (it.checked != null) b.setAttribute("aria-checked", String(it.checked));
     if (it.disabled) b.setAttribute("aria-disabled", "true");
-    if (it.id) b.dataset.cmd = it.id;
+    if (it.id) b.dataset.cmd = it.id; if (it.note) b.title = it.note;
     b.innerHTML = `<span class="mchk">${it.checked ? "✓" : ""}</span><span class="mlbl">${esc(it.label)}</span><span class="mkey">${esc(it.sub ? "▸" : keyLabel(it.key || ""))}</span>`;
     if (it.sub) b.setAttribute("aria-haspopup", "menu");
     b.onclick = e => { e.stopPropagation(); if (it.disabled) return; if (it.sub) { openSub(it, b); return; } closeMenu(false); if (opts.refocus) opts.refocus.focus(); it.run(e); };

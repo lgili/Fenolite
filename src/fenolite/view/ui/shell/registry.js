@@ -92,8 +92,8 @@ command({ id: "view.next-layer", menu: "View", group: "layers", label: "Next Lay
 command({ id: "view.prev-layer", menu: "View", group: "layers", label: "Previous Layer", keys: ["-", "_"], when: () => on2D() && !isSch(), run: () => stepCurrent(-1) });
 command({ id: "view.flip", menu: "View", group: "mode", label: "Flip Board (Top / Bottom)", keys: ["B", "Shift+B"], when: () => on2D() && !isSch(), run: flip, checked: () => view.mirror });
 command({ id: "edit.clear-filter", menu: "Edit", label: "Clear Filter", keys: ["Shift+C"], when: () => on2D() && !isSch(), run: clearQuery });
-command({ id: "edit.undo", menu: "Edit", group: "history", label: "Undo", keys: ["Ctrl+Z", "Meta+Z"], run: undoLast });
-command({ id: "edit.redo", menu: "Edit", group: "history", label: "Redo", keys: ["Ctrl+Y", "Ctrl+Shift+Z", "Meta+Shift+Z"], run: redoLast });
+command({ id: "edit.undo", menu: "Edit", group: "history", label: "Undo", note: "The history is this page's: a reload forgets it.", keys: ["Ctrl+Z", "Meta+Z"], run: undoLast });
+command({ id: "edit.redo", menu: "Edit", group: "history", label: "Redo", note: "The history is this page's: a reload forgets it.", keys: ["Ctrl+Y", "Ctrl+Shift+Z", "Meta+Shift+Z"], run: redoLast });
 
 // ---- the keyboard: a chord, or a sequence of chords, runs the command bound to it
 let KEY_PREFIX = null, KEY_TIMER = 0;

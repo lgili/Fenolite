@@ -179,6 +179,20 @@ def _register(parser: argparse.ArgumentParser) -> None:
         metavar="NAME",
         help="never infer this group again (repeatable)",
     )
+    parser.add_argument(
+        "--forget",
+        action="append",
+        default=[],
+        metavar="NET[,NET...]",
+        help="drop the stored role of these nets, so they are inferred again (repeatable)",
+    )
+    parser.add_argument(
+        "--forget-group",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="drop the stored decision on this group, so it is inferred again (repeatable)",
+    )
 
 
 def _names(values: Sequence[str], option: str) -> tuple[str, ...]:
@@ -305,7 +319,18 @@ def _changed(
     )
     if args.min_confidence is not None and not args.accept_all:
         raise CliError("FEN-2001", "--min-confidence goes with --accept-all", where="--min-confidence")
-    if not (sets or currents or accept or reject or accept_groups or reject_groups or args.accept_all):
+    forget, forget_groups = _names(args.forget, "--forget"), _names(args.forget_group, "--forget-group")
+    if not (
+        sets
+        or currents
+        or accept
+        or reject
+        or accept_groups
+        or reject_groups
+        or forget
+        or forget_groups
+        or args.accept_all
+    ):
         return None
     roles = judged.resolved.roles
     by_net = {role.net: role for role in roles.nets}
@@ -315,6 +340,7 @@ def _changed(
         ("--reject", reject),
         ("--set", tuple(sets)),
         ("--current", tuple(currents)),
+        ("--forget", forget),
     ):
         for name in names:
             if name not in by_net:
@@ -327,6 +353,16 @@ def _changed(
                     hint="change design.net_role(...) in the script and build again",
                 )
     groups: dict[str, Any] = {group.name: group for group in (*roles.loops, *roles.kelvins, *roles.gates)}
+    old = confirmed or RoleSet()
+    known = set(groups) | {group.name for group in (*old.loops, *old.kelvins, *old.gates)} | set(old.rejected)
+    for name in forget_groups:
+        if name not in known:
+            raise CliError(
+                "FEN-2001",
+                f"--forget-group: no stored or inferred group {name!r}",
+                where="--forget-group",
+                hint=f"groups: {', '.join(sorted(known)) or 'none'}",
+            )
     for option, names in (("--accept-group", accept_groups), ("--reject-group", reject_groups)):
         for name in names:
             if name not in groups:
@@ -337,8 +373,9 @@ def _changed(
                     hint=f"groups: {', '.join(sorted(groups)) or 'none'}",
                 )
     floor = _LEVELS[args.min_confidence or "low"]
-    old = confirmed or RoleSet()
     nets: dict[str, NetRole] = {role.net: role for role in old.nets}
+    for name in forget:  # change c0245: back to the inferred role, the exact inverse of a confirmation
+        nets.pop(name, None)
     for role in roles.nets:
         if role.net in stated:
             continue
@@ -356,7 +393,9 @@ def _changed(
             continue
         if name in accept_groups or (args.accept_all and _LEVELS[group.confidence] >= floor):
             stored[name] = replace(group, origin="confirmed")
-    rejected = set(old.rejected) | set(reject_groups)
+    for name in forget_groups:
+        stored.pop(name, None)
+    rejected = (set(old.rejected) - set(forget_groups)) | set(reject_groups)
     for name in reject_groups:
         stored.pop(name, None)
     return RoleSet(

@@ -110,3 +110,99 @@ def test_roles_workspace(buck_roles_page: Path, tmp_path: Path) -> None:
         f"roles_workspace: {reply.get('differing')} pixels differ "
         f"({reply.get('ratio', 0):.4%} > {MAX_RATIO:.1%}); difference image {reply.get('diff')}"
     )
+
+
+PENDING = """
+const until = async (f, ms) => { const end = Date.now() + (ms || 60000);
+  while (!f()) { if (Date.now() > end) throw new Error("timed out");
+    await new Promise(ok => setTimeout(ok, 50)); } };
+const pend = () => $("pendingBody").textContent;
+selectRoleNet("GH"); await act("accept");
+const planned = { text: pend(), shown: findPanel("pending")[0], apply: !!$("pendApply") };
+$("pendApply").click(); await until(() => !EDIT.pending && !EDIT.busy);
+const gh = () => rolesData().roles.find(r => r.net === "GH").state;
+const applied = { state: gh(), receipt: [...$("msgBody").querySelectorAll("tr[data-key]")]
+  .some(t => t.textContent.includes("roles.write")), text: pend() };
+await undoLast(); await until(() => !EDIT.busy && gh() === "inferred");
+const undone = gh();
+selectRoleNet("GL"); await act("accept"); await post("roles/discard", { doc: DOC.id });
+await applyPending();
+const stale = { again: !!$("pendAgain"), disabled: $("pendApply").disabled, text: pend() };
+discardPending();
+return { planned, applied, undone, stale, after: gh() };
+"""
+
+
+def test_pending(buck_page: Path, buck_roles_page: Path, tmp_path: Path) -> None:
+    """The Pending panel of a page served with --edit: an action plans and writes nothing; Apply writes and
+    logs its receipt in Messages; Ctrl+Z undoes it at once while the file is unchanged; a plan the server no
+    longer holds reads FEN-4002 with Review again; an exported page offers the command line instead."""
+    import shutil
+    import threading
+
+    from fenolite.cli.cmd_view import roles_payload, roles_write, scene_of
+    from fenolite.view import server
+    from fenolite.view.project import load_tree
+
+    project = tmp_path / "project"
+    shutil.copytree(buck_page.parent / "build", project)
+    board = project / "buck_shunt_bad.kicad_pcb"
+    rules = project / ".fenolite" / "rules.json"
+    before = rules.read_bytes()
+    from datetime import UTC, datetime
+    from random import Random
+
+    from fenolite.cli.api import Context
+
+    ctx = Context(
+        mode="json", seed=None, timestamp=datetime.now(UTC), rng=Random(0), no_backup=False, cwd=project
+    )
+    live = server.Live(
+        load_tree(board),
+        lambda path: scene_of(path),
+        settings={"edit": True, "workspace": "roles"},
+        roles=lambda path: roles_payload(path, None, ctx),
+        roles_writer=lambda path, argv, plan_id: roles_write(path, argv, plan_id, None),
+    )
+    httpd = server.serve(live, 0)
+    stop = threading.Event()
+    thread = threading.Thread(target=server.run, args=(live, httpd), kwargs={"until": stop}, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}/"
+        (reply,) = run(
+            [
+                job(
+                    "pending",
+                    tmp_path / "none.html",
+                    tmp_path,
+                    script=READY + PENDING,
+                    shot="",
+                    url=url,
+                    **SIZE,
+                )
+            ],
+            tmp_path,
+        )
+    finally:
+        stop.set()
+        thread.join(timeout=10)
+        httpd.server_close()
+    assert reply["errors"] == [], reply["errors"]
+    result = reply["result"]
+    assert "accept GH" in result["planned"]["text"] and ".fenolite/rules.json" in result["planned"]["text"]
+    assert result["planned"]["shown"] == "bottom" and result["planned"]["apply"]
+    assert result["applied"]["state"] == "confirmed" and result["applied"]["receipt"]
+    assert "Written here" in result["applied"]["text"]
+    assert result["undone"] == "inferred" and result["after"] == "inferred"
+    assert result["stale"]["again"] and result["stale"]["disabled"]
+    assert "not staged" in result["stale"]["text"]
+    assert rules.read_bytes() == before
+    readonly = _act(
+        buck_roles_page,
+        tmp_path,
+        'selectRoleNet("GH"); const a = { kind: "accept", nets: ["GH"] };'
+        ' return { line: actionLine(a), can: canWrite(), text: $("roleActions").textContent };',
+    )
+    assert readonly["line"].startswith("fenolite roles buck_shunt_bad.kicad_pcb --accept GH --dry-run")
+    assert "copy only" in readonly["text"] and readonly["can"] is False

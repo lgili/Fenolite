@@ -56,6 +56,7 @@ PARTS: tuple[str, ...] = (
     "shell/themes.js",
     "shell/workbench.js",
     "workspaces/roles.js",
+    "workspaces/role_writes.js",
     "shell/start.js",
     "page/tail.html",
 )

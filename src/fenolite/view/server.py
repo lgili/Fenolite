@@ -15,7 +15,9 @@ bound; nothing leaves the machine.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import re
 import threading
 import time
@@ -29,12 +31,15 @@ from urllib.parse import parse_qsl, quote, unquote
 
 from fenolite.core.errors import FormatError
 from fenolite.view import review
+from fenolite.view import roles as roles_view
 from fenolite.view.compact import compact
 from fenolite.view.export import page
 from fenolite.view.project import Document, ProjectTree
 
 HOST = "127.0.0.1"
 PANEL_PATH = re.compile(r"/panel/[a-z][a-z0-9-]{0,31}")
+ROLE_ROUTES = ("/roles/plan", "/roles/confirm", "/roles/discard")
+"""The role writes of the Net Roles workspace (change c0245, decision 11), with ``--edit`` only."""
 """The address of a floated panel window (change c0245, decision 4)."""
 PERIOD = 2.0
 MARK_BYTES = 64 * 1024
@@ -47,6 +52,9 @@ SceneBuilder = Callable[[Path], dict[str, Any]]
 """Builds the scene of a board file (``cmd_view`` passes the backend read; tests pass their own)."""
 SceneRefiner = Callable[[Path, dict[str, Any]], "dict[str, Any] | None"]
 RolesBuilder = Callable[[Path], dict[str, Any]]
+RolesWriter = Callable[[Path, list[str], "str | None"], tuple[int, dict[str, Any]]]
+"""Runs ``fenolite roles BOARD ARGV --check`` with ``--dry-run`` (no plan id) or ``--confirm --plan ID``, in
+this process: the exit code and the envelope (``cmd_view`` passes it)."""
 """The data of the Net Roles workspace of a board file (``cmd_view`` passes ``roles --check`` run here)."""
 """Refines a built scene in the background (``cmd_view`` places the body models, change c0193); ``None``
 keeps the scene as it was."""
@@ -80,6 +88,7 @@ class Live:
         refine: SceneRefiner | None = None,
         settings: dict[str, Any] | None = None,
         roles: RolesBuilder | None = None,
+        roles_writer: RolesWriter | None = None,
     ) -> None:
         self.tree, self.build, self.overlays, self.open_id, self.log = (
             tree,
@@ -94,7 +103,10 @@ class Live:
         self.marks_file, self.select = marks_file, select
         self.settings: dict[str, Any] = settings or {}
         self.roles_builder = roles
-        self.roles_cache: dict[str, tuple[tuple[int, int], bytes]] = {}
+        self.roles_cache: dict[str, tuple[tuple[tuple[int, int] | None, ...], bytes]] = {}
+        self.roles_writer = roles_writer
+        self.pending: dict[str, tuple[str, list[str]]] = {}
+        """The one plan each board may have staged: its id and its options (decision 11)."""
         """The workbench options of change c0245 that the page reads from ``/project.json``."""
         self.written = 0
         """How many marks the server wrote (``result.serve.marks_written``)."""
@@ -105,8 +117,10 @@ class Live:
         doc = next((d for d in self.tree.documents if d.id == doc_id), None)
         if self.roles_builder is None or doc is None or doc.file is None or not doc.file.is_file():
             return 404, json.dumps({"error": "no board of that id has roles here"}).encode("utf-8")
-        stat = doc.file.stat()
-        signature = (stat.st_size, stat.st_mtime_ns)
+        stored = doc.file.parent / ".fenolite" / "rules.json"
+        signature = tuple(
+            (s.st_size, s.st_mtime_ns) if (s := _stat(f)) else None for f in (doc.file, stored)
+        )  # the board and its role document: a write from the command line shows on reload
         cached = self.roles_cache.get(doc_id)
         if cached is not None and cached[0] == signature:
             return 200, cached[1]
@@ -117,6 +131,69 @@ class Live:
             return 422, json.dumps({"error": message}).encode("utf-8")
         self.roles_cache[doc_id] = (signature, body)
         return 200, body
+
+    def role_write(self, route: str, raw: bytes) -> tuple[int, dict[str, Any]]:
+        """A role write of the page (change c0245): plan it (``/roles/plan``), write the plan staged here
+        (``/roles/confirm``), or drop it (``/roles/discard``). Only with ``--edit``; only the options of
+        ``fenolite.view.roles.WRITE_FLAGS``; a confirm writes only the plan this server staged."""
+        if not self.settings.get("edit") or self.roles_writer is None:
+            return 403, {"error": "this page writes nothing: serve it with --serve --edit"}
+        try:
+            body = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return 400, {"error": "a role write is a JSON object"}
+        if not isinstance(body, dict):
+            return 400, {"error": "a role write is a JSON object"}
+        request = cast("dict[str, Any]", body)
+        doc = next((d for d in self.tree.documents if d.id == request.get("doc")), None)
+        if doc is None or doc.file is None or not doc.file.is_file():
+            return 404, {"error": "no board of that id"}
+        if route == "/roles/discard":
+            self.pending.pop(doc.id, None)
+            return 200, {"discarded": True}
+        if route == "/roles/plan":
+            try:
+                argv = roles_view.write_argv(request.get("argv"))
+            except ValueError as exc:
+                return 400, {"error": str(exc)}
+            status, before = self.roles(doc.id)
+            inverse = roles_view.inverse(json.loads(before), argv) if status == 200 else []
+            code, envelope = self.roles_writer(doc.file, argv, None)
+            if code != 0:
+                return 422, {"error": _message(envelope), "code": _code(envelope)}
+            plan = cast("dict[str, Any]", envelope.get("result") or {})
+            self.pending[doc.id] = (str(plan.get("plan_id")), argv)
+            folder = doc.file.parent
+            current = [
+                {"path": str(item.get("path")), "sha256": _sha256(folder / str(item.get("path")))}
+                for item in cast("list[dict[str, Any]]", plan.get("plan") or [])
+            ]
+            issues = cast("list[dict[str, Any]]", envelope.get("issues") or [])
+            counts = {
+                sev: sum(1 for i in issues if i.get("severity") == sev)
+                for sev in ("error", "warning", "info")
+            }
+            return 200, envelope | {
+                "plan_id": plan.get("plan_id"),
+                "current": current,
+                "counts": counts,
+                "inverse": inverse,
+            }
+        staged = self.pending.get(doc.id)
+        if staged is None or staged[0] != request.get("plan_id"):
+            return 409, {
+                "error": "that plan was not staged by this server; plan the write again",
+                "code": "FEN-4002",
+            }
+        code, envelope = self.roles_writer(doc.file, staged[1], staged[0])
+        self.pending.pop(doc.id, None)
+        if code != 0:
+            return 409 if _code(envelope) == "FEN-4002" else 422, {
+                "error": _message(envelope),
+                "code": _code(envelope),
+            }
+        self.roles_cache.pop(doc.id, None)
+        return 200, envelope
 
     def marks(self) -> list[dict[str, Any]]:
         """The marks of the ``--marks`` file; empty without one."""
@@ -242,6 +319,29 @@ class Live:
             self.check()
 
 
+def _message(envelope: dict[str, Any]) -> str:
+    error = cast("dict[str, Any]", envelope.get("error") or {})
+    return str(error.get("message") or envelope.get("message") or "the command failed")
+
+
+def _code(envelope: dict[str, Any]) -> str:
+    return str(cast("dict[str, Any]", envelope.get("error") or {}).get("code") or "")
+
+
+def _stat(path: Path) -> os.stat_result | None:
+    try:
+        return path.stat()
+    except OSError:
+        return None
+
+
+def _sha256(path: Path) -> str | None:
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
 def serve(live: Live, port: int = 8765) -> ThreadingHTTPServer:
     """A server for ``live`` on the loopback address, not yet serving; ``port`` 0 takes a free port."""
     tree_json = live.tree.to_json() | {"open": live.open_id, "select": live.select}
@@ -300,7 +400,8 @@ def serve(live: Live, port: int = 8765) -> ThreadingHTTPServer:
             port = int(cast("tuple[str, int]", self.server.server_address)[1])
             allowed = {h.format(port=port) for h in hosts}
             origin = self.headers.get("Origin")
-            if unquote(self.path.split("?", 1)[0]) != "/marks":
+            route = unquote(self.path.split("?", 1)[0])
+            if route not in ("/marks", *ROLE_ROUTES):
                 self._refuse(404, "not found")
             elif self.headers.get("Host") not in allowed or (
                 origin and origin.split("//", 1)[-1] not in allowed
@@ -310,6 +411,13 @@ def serve(live: Live, port: int = 8765) -> ThreadingHTTPServer:
                 self.headers.get("Content-Type", "")
             ).startswith("application/json"):
                 self._refuse(403, f"a mark is JSON sent with {REVIEW_HEADER}: 1")
+            elif route in ROLE_ROUTES:
+                length = int(self.headers.get("Content-Length") or 0)
+                if not 0 < length <= MARK_BYTES:
+                    self._refuse(413, f"a role write is at most {MARK_BYTES} bytes")
+                    return
+                code, body = live.role_write(route, self.rfile.read(length))
+                self._send(code, json.dumps(body).encode("utf-8"), "application/json")
             else:
                 length = int(self.headers.get("Content-Length") or 0)
                 if not 0 < length <= MARK_BYTES:
