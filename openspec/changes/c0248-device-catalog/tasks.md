@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list` and the living specs this change touches (`fenolite-component-catalog`, `design-dsl`, `design-model`, `package-layering`), and record under this task, with the date and the base commit:
+- [x] 0.1 Read `openspec list` and the living specs this change touches (`fenolite-component-catalog`, `design-dsl`, `design-model`, `package-layering`), and record under this task, with the date and the base commit:
   - whether c0246 and c0247 are archived. If c0246 is, rebase the move of the unit parser (task 1.1) on its `Range`. Check that c0247's hooks `Part._end(index)` and `must_connect_pins(component, device)` are the ones `design.md` extends;
   - which open change holds a delta of "Allowed import edges" (c0173, c0195, c0222's successors, c0251 and others in this batch). If one was archived, regenerate the MODIFIED block from the living text. Record that the living text names `dsl` → `model` while the import-graph test also allows `schematic`, and align the block with the test;
   - which open change holds a delta of "Connections and pin designators";
@@ -13,10 +13,13 @@
   `dsl.devices.must_connect_pins` for them to call. Open deltas of "Allowed import edges": c0173, c0195,
   c0254, c0256, c0267 and this change; none is archived, so the MODIFIED block stays on the living text, now
   aligned with the import-graph test (`dsl` → `model`, `schematic`, `catalog`; `schematic` → nothing else).
-  Open deltas of "Connections and pin designators": this change and c0251. Left open: the maintainer's answers
-  to the open questions of `design.md` are not recorded yet; the recommended answers are implemented
-  (project devices may override `Fenolite:` ids; the envelope level is not lowered; no browser export; no
-  case folding of attribute names). `openspec validate --strict` passes.
+  Open deltas of "Connections and pin designators": this change and c0251. `openspec validate --strict` passes.
+  Done (2026-10-29, branch head 635bc180): the maintainer answered the four open questions on 2026-10-29 and
+  chose every recommended answer, which this change already implements: project devices may override
+  `Fenolite:` ids with `device.overrides-builtin`; the envelope level is not lowered (per-device
+  `result.devices[].evidence`); the browser export is a follow-up change; attribute names do not fold case and
+  the error suggests the exact spelling. Recorded under "Open questions" in `design.md`. c0246 and c0247 are
+  still open, as above. Proofs passed (`openspec validate c0248-device-catalog --strict`; `make check-fast`).
 
 ## 1. Units, model and layering
 
@@ -87,6 +90,9 @@
 - [ ] 6.4 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
   Left open (2026-10-29): `dev` is at the unpublished 0.6.0 and `tests/unit/test_release_record_v06.py`
   requires `## [Unreleased]` to stay empty, so the entry waits until `dev` is at `0.7.0.dev0`.
+  Still open (2026-10-29): the maintainer decided on 2026-10-29 that `circuits-as-code` keeps its current base,
+  version 0.6.0, until the line is ready for `dev`; the v0.6 guard requires `## [Unreleased]` to stay empty
+  until then.
 - [x] 6.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
   Done (2026-10-29): `make check-fast` passed (15398 passed, 46 skipped); pushed to `cac/c0248-device-catalog`;
   run 40907010241 on 5657bde7 is green in every job (unit on Linux, macOS and Windows, kicad-9, kicad-10,
