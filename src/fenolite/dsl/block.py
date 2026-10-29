@@ -135,16 +135,22 @@ def block(function: Callable[..., None], /) -> BlockDef: ...
 def block(*, name: str | None = None) -> Callable[[Callable[..., None]], BlockDef]: ...
 
 
-def block(
-    function: Callable[..., None] | None = None, /, *, name: str | None = None
-) -> BlockDef | Callable[[Callable[..., None]], BlockDef]:
-    """Mark ``def name(b, *, param=default, ...)`` as a block (``@block`` or ``@block(name="buck")``).
+def block(f: object = None, /, *, name: object = None) -> object:
+    """Mark a block function.
 
-    The signature is checked here: the builder is the one positional parameter, every other parameter is
-    keyword-only with a recordable default or none, and there is no ``*args`` and no ``**kwargs``."""
-    if function is None:
-        return lambda found: _define(found, name)
-    return _define(function, name)
+    ``@block`` or ``@block(name="buck")``. The signature is checked here: the builder is the one positional parameter, every other parameter is
+    keyword-only with a recordable default or none, and there is no ``*args`` and no ``**kwargs``. The
+    loose annotations keep the agent guide's line short; the overloads above give the types."""
+    if name is not None and not isinstance(name, str):
+        raise DslError(f"@block(name=...) takes a str, not {name!r}")
+    label = name
+    if f is None:
+
+        def decorate(found: object) -> BlockDef:
+            return _define(found, label)
+
+        return decorate
+    return _define(f, label)
 
 
 class Block(Module):

@@ -1,7 +1,7 @@
 ---
 topic: parts
 title: Parts, pins, values and interfaces
-summary: Where symbols and footprints come from, how a pin is named, pad_map, values with units, user properties and typed interfaces.
+summary: Where symbols and footprints come from, how a pin is named, pad_map, values with units, user properties, typed interfaces and blocks.
 ---
 
 # Parts, pins, values and interfaces
@@ -154,6 +154,46 @@ j1.place(mm(22), mm(10), rot=90)
   two-pin part between a bus line and the high net of a `Power`), and `model.dangling-net` for each net
   that joins no pin yet.
 - Interfaces are kept in the design data (`.fenolite/`); the board and the schematic do not change.
+
+## Blocks
+
+A block is a circuit written once and used many times: a function marked `@block`, its ports typed.
+
+```fenolite-design
+from fenolite.dsl import Design, Net, block, connect, mm, ohm
+
+design = Design("blocks")
+design.board(mm(40), mm(20))
+
+
+@block
+def divider(b, *, r_top=ohm("10k")):  # parameters are keyword-only and recorded
+    vin = b.port("VIN", direction="in")
+    gnd = b.port("GND", direction="in")
+    mid = b.net("MID")  # a local net: div0/MID
+    top = b.part("R_TOP", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value=r_top)
+    low = b.part("R_LOW", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="10k")
+    connect(vin, top[1])  # a port is wired like a net
+    connect(mid, top[2], low[1])
+    connect(gnd, low[2])
+
+
+vin, gnd = Net("VIN"), Net("GND")
+for n in range(2):
+    div = design.use(divider, f"div{n}", r_top=ohm("22k"))  # the paths div0/R_TOP, div1/R_TOP
+    connect(vin, div.VIN)  # the port net takes the name VIN
+    connect(gnd, div.GND)
+    div.part("R_TOP").place(mm(10 + 15 * n), mm(6))
+    div.part("R_LOW").place(mm(10 + 15 * n), mm(14))
+```
+
+- `design.use(block, name, **params)` runs the function once with a fresh block `b`; refs come from the
+  design lock, so two instances never collide. `b.part(name, ...)` names a part locally.
+- `b.port(name, kind=Net, direction=...)` takes `Net` or an interface class (`I2C` gives `.sda`, `.scl`).
+  An unwired group of port nets is named `<instance>/<port>`, an `out` port first.
+- `build.port-unused` (warning): a port has nothing outside its block; pass `optional=True` when that is
+  meant. `build.block-net-escape` (warning): a global net joins pins inside and outside a block without a
+  port; declare a port.
 
 ## What the checks still say
 

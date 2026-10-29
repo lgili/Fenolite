@@ -108,9 +108,15 @@ Function: `arc_to(mid: 'object', end: 'object') -> 'ArcStep'`
 
 An arc from the point of the path element before it through `mid` to `end`, each an `(x, y)` pair of lengths in the frame of `place()` or an anchor; the path continues from `end`.
 
+## block
+
+Function: `block(f: 'object' = None, /, *, name: 'object' = None) -> 'object'`
+
+Mark a block function.
+
 ## connect
 
-Function: `connect(net: 'Net', *pins: 'PinHandle') -> 'Net'`
+Function: `connect(net: 'object', *pins: 'object') -> 'Net'`
 
 Join each pin to `net`; one designator of one part on two nets is refused.
 

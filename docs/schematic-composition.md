@@ -17,6 +17,11 @@ Both supported flows (`left-to-right` and `top-to-bottom`) use integer coordinat
 Every symbol unit is retained. Composition currently supports Altium only; an explicit `grid` selection
 contradicting script declarations is a usage error. Without selection or declarations, legacy bytes remain.
 
+Each block instance of the script (`docs/dsl.md`, "Blocks") that owns parts gives an implicit block when
+composition is in force: key its path, members the parts it owns directly minus those of declared blocks,
+title `<path> (<block name>)`, no anchor and no `after`. A declared block with the same key replaces it.
+Without composition no implicit block is made, so no unused-intent diagnostic can arise.
+
 Explicit blocks take precedence over module groups. Remaining root components form signal-connected
 groups, ignoring power-interface nets and nets reaching more than eight components. The engine does
 not infer circuit function. It records deterministic ambiguous branch choices in the report.
