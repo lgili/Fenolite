@@ -475,3 +475,56 @@ def test_hit(stress_page: Path, tmp_path: Path) -> None:
     result = _act(stress_page, tmp_path, script, width=1340, height=860)
     assert result["differ"] == 0 and result["hits"] > 100
     assert result["grid_ms"] < result["scan_ms"]
+
+
+@pytest.mark.parametrize(
+    "name", ("altium_sheet", "footprint_library", "symbol_library", "draftsman", "output_job")
+)
+def test_other_workspaces(pages: dict[str, Path], tmp_path: Path, name: str) -> None:
+    """Task 10.1: the scene kinds share docks and selection; reports and changes reach Messages."""
+    script = """
+    const kind = workspaceOf();
+    setProjectReview(true);
+    const docked = findPanel("review")[0] === "right" && $("projectReview").closest(".pgroup") !== null;
+    setProjectReview(false);
+    if (S.kind === "table") { await tableRow(0); }
+    selectionChanged(); const selected = selectionState();
+    return {kind, docked, selected, messages:!!findPanel("messages")};
+    """
+    result = _act(pages[name], tmp_path, script)
+    assert result["docked"] and result["messages"]
+    assert result["kind"] in ("sheet", "library", "drawing", "table")
+    if result["kind"] in ("library", "drawing"):
+        assert result["selected"]["item"]
+
+
+def test_compare_and_recorded_messages(pages: dict[str, Path], tmp_path: Path) -> None:
+    script = """
+    S.diff = {changes:[{kind:"changed",text:"Authored comparison",box:[1,1,2,2]}]};
+    S.project_review = {operation_findings:[{code:"convert.loss",severity:"warning",
+      message:"Authored operation",
+      stage:"convert",evidence:"INFERRED"}]};
+    buildMessages(); $("msgBody").querySelector('[data-key="change:0"]').click();
+    const change = selectionState().finding;
+    $("msgBody").querySelector('[data-key="operation:0"]').click();
+    return {change, operation:selectionState().finding, text:$("info").textContent};
+    """
+    result = _act(pages["kicad_board"], tmp_path, script)
+    assert result["change"] == "change:0" and result["operation"] == "operation:0"
+    assert "No position" in result["text"]
+
+
+def test_table_keyboard_selection(pages: dict[str, Path], tmp_path: Path) -> None:
+    """Table selection is available before any pointer action and Escape clears the shared state."""
+    script = """
+    loadTable({kind:"table",meta:{name:"Authored table",backend:"altium",evidence:"INFERRED"},
+      columns:["Value"],rows:[["first"],["second"]],docs:[],refs:[]});
+    $("tblBody").querySelector("tr").dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}));
+    const chosen = {row:selectionState().row, announcement:$("announce").textContent,
+      marked:$("tblBody").querySelector('[aria-selected="true"]').dataset.i};
+    key("Escape");
+    return {chosen, cleared:selectionState().row};
+    """
+    result = _act(pages["output_job"], tmp_path, script)
+    assert result["chosen"] == {"row": 0, "announcement": "Selected row 1", "marked": "0"}
+    assert result["cleared"] == -1

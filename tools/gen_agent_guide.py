@@ -141,6 +141,23 @@ def commands_page(registry: Mapping[str, Command]) -> str:
         own = [argument for argument in entry.arguments if not set(argument.flags) & PROTOCOL_FLAGS]
         values = _placeholders(words)
         lines += [_argument(argument, values) for argument in own] or ["It takes no argument of its own."]
+        if entry.name == "view":
+            lines += [
+                "",
+                "```fenolite-cmd",
+                "fenolite view board.kicad_pcb --workspace roles --json",
+                "fenolite view board.kicad_pcb --keymap kicad --layout layout.json --roles roles.json --json",
+                "fenolite view board.kicad_pcb --serve --edit --window --json",
+                "```",
+            ]
+        elif entry.name == "roles":
+            lines += [
+                "",
+                "```fenolite-cmd",
+                "fenolite roles board.kicad_pcb --forget SW --forget-group hot_SW --dry-run --json",
+                "```",
+            ]
+
     return "\n".join(lines) + "\n"
 
 

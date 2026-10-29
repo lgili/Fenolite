@@ -519,3 +519,48 @@ def test_layout_option(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert code == 3 and err["code"] == "FEN-3004"
     code, _, err, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--layout", "missing.json")
     assert code == 3 and err["code"] == "FEN-3001"
+
+
+def test_window_requires_serve(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    code, _, error, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--window")
+    assert code == 2 and error["code"] == "FEN-2001" and "--serve" in error["message"]
+
+
+def test_window_missing_extra(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    original = cmd_view.importlib.import_module
+
+    def without_window(name: str):
+        if name == "webview":
+            raise ImportError("not installed")
+        return original(name)
+
+    monkeypatch.setattr(cmd_view.importlib, "import_module", without_window)
+    code, _, error, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--serve", "--window")
+    assert code == 6 and error["code"] == "FEN-6001" and "fenolite[view-app]" in error["hint"]
+    # Ordinary summaries never import the native host.
+    code, _, _, _ = run(monkeypatch, tmp_path, "view", str(BOARD))
+    assert code == 0
+
+
+def test_window_serves_and_closes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from types import SimpleNamespace
+    from urllib.request import urlopen
+
+    shown = []
+
+    def create_window(title: str, url: str, **kwargs: int) -> None:
+        shown.append((title, url))
+        with urlopen(url, timeout=5) as response:
+            assert response.status == 200 and b"<html" in response.read()
+
+    native = SimpleNamespace(create_window=create_window, start=lambda: None)
+    monkeypatch.setattr(cmd_view, "_window_module", lambda: native)
+    monkeypatch.setattr(cmd_view.webbrowser, "open", lambda url: pytest.fail("opened a browser"))
+    code, envelope, _, _ = run(
+        monkeypatch, tmp_path, "view", str(BOARD), "--serve", "--window", "--port", "0"
+    )
+    assert code == 0 and len(shown) == 1
+    assert shown[0][0] == BOARD.name + " · Fenolite"
+    url = envelope["result"]["serve"]["url"]
+    with pytest.raises(OSError):
+        urlopen(url, timeout=1)

@@ -138,23 +138,57 @@
 
 ## 11. Optional native window (cut first)
 
-- [ ] 11.1 Add the extra `view-app` (pywebview, imported lazily) and `--serve --window`. With the extra missing, the reply is exit 6 with its hint. Add its line to `docs/viewer.md`, `docs/cli-contract.md` and the agent guide page `commands` (AGENTS.md rule 6). `pyproject.toml` `dependencies` stays empty. Proof: `uv run pytest tests/unit/cli/test_view_cmd.py -k window -q`; `uv run pytest tests/unit/test_pyproject_invariants.py tests/unit/test_no_copyleft_deps.py -q`.
+- [x] 11.1 Add the extra `view-app` (pywebview, imported lazily) and `--serve --window`. With the extra missing, the reply is exit 6 with its hint. Add its line to `docs/viewer.md`, `docs/cli-contract.md` and the agent guide page `commands` (AGENTS.md rule 6). `pyproject.toml` `dependencies` stays empty. Proof: `uv run pytest tests/unit/cli/test_view_cmd.py -k window -q`; `uv run pytest tests/unit/test_pyproject_invariants.py tests/unit/test_no_copyleft_deps.py -q`.
 
 ## 12. Closing
 
 - [ ] 12.1 Add the visual references of "Workbench references" with `tools/update_view_refs.py`, reviewed, and the determinism check (`H-G-WB-STABLE`). Record the size of the assembled page (at most 120 KB more than at task 1.1). Proof: `uv run pytest tests/visual -q` in the `viewer` job on the pushed commit.
-- [ ] 12.2 Docs:
+- [x] 12.2 Docs:
   - `docs/viewer.md`: rewritten around the workbench (menus, docks, layouts, keymaps with their sources, themes, Messages, the Net Roles workspace, writes and undo, budgets);
   - `docs/roles.md`: the workspace and `--forget`;
   - `docs/cli-contract.md`: the view options, `result.roles` and the roles options.
 
   Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/cli -k "contract or view or roles" -q`.
-- [ ] 12.3 Agent guide (AGENTS.md rule 6):
+- [x] 12.3 Agent guide (AGENTS.md rule 6):
   - on the page `commands`, a tested line for `view --workspace roles --json`, and one for `roles --forget`, each with a `fenolite-cmd` block;
   - on `board-review`, the review loop "roles in the workspace, confirm through a plan".
 
   Then run `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
-- [ ] 12.4 Residue: every new `.py` starts with its SPDX and copyright lines, the fixtures carry the authored-for-Fenolite line, and no vendor icon, colour file or layout is present. Proof: `make residue`.
+- [x] 12.4 Residue: every new `.py` starts with its SPDX and copyright lines, the fixtures carry the authored-for-Fenolite line, and no vendor icon, colour file or layout is present. Proof: `make residue`.
 - [ ] 12.5 Run `make check-fast` and the focused tests of the touched files, then push the batch and confirm the required CI jobs, `viewer` included, on the exact commit (AGENTS.md rule 4; no full suite on the maintainer's machine). Proof: `make check-fast`, and the required jobs green on the exact commit.
 - [ ] 12.6 Evidence: the six `H-G-WB-*` hypotheses in `docs/hypotheses.md` with their measurements; S-0920 to S-0935 cited from a new `src/fenolite/view/PROVENANCE.md` (the package has none today) and from `docs/viewer.md`; the evidence matrix regenerated. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
 - [ ] 12.7 Add an entry under `## [Unreleased]` in `CHANGELOG.md`, only after `0.7.0.dev0` has opened. The v0.6 guard requires `[Unreleased]` to be empty while `0.6.0` is cut and not published. Proof: `uv run pytest tests/unit -k changelog -q`; `uv run pytest tests/unit/test_release_record_v06.py -q` until 0.6.0 is published.
+
+
+## Continuation evidence (2026-10-30)
+
+- 7.3: downloaded `viewer-differences` from the branch's latest pre-continuation run 40884483891,
+  SHA b7f6f08985dbb92c9033067e392bdac51639416f. Reviewed `roles_workspace.png` and copied the CI
+  Chromium screenshot unchanged into refs. Existing overlays are retained. Browser behaviour proofs
+  pass locally; the macOS pixels differ from CI fonts, so the checkbox awaits the pushed viewer proof.
+- 10.1: Project Review now occupies a movable dock; comparison and recorded operation findings use
+  Messages. Sheet findings clear sheet selection; library items and table rows enter the selection
+  store. Reviewed existing/new screenshots; the checkbox awaits the complete viewer proof in CI.
+- 11.1: proof passed: three window CLI tests (serve required, missing extra, server/window lifecycle),
+  pyproject and copyleft invariants, and pyright. `view-app` is optional and imported only for `--window`.
+  The test host exercises lifecycle; no platform-engine rendering claim is made.
+- 12.1: authored the six workbench views, including stronger role hatches; reviewed the local renders.
+  CI-font references and the whole visual proof remain to be adopted on the pushed SHA. Independent
+  contexts check PNG equality. The assembly budget is tested against task 1.1's 187,671 exact bytes.
+- 12.2: contract/view/roles proof passed, 123 tests; docs now cover the workbench and options.
+- 12.3: generator and tested command lines updated, including workspace/role-file/layout/keymap/edit/window
+  and forget/group. Generated commands inventory already exceeds 12 KB on this branch; c0256 owns its
+  split on a separate branch, intentionally not copied here. Full agent proof remains under validation.
+- 6.4 remains open: maintainer PC measurement is unavailable here; existing CI measurements are retained.
+- Phase 9 remains open: c0244 is in dev, c0243 is not; no dev merge was performed to bypass that dependency.
+- 12.7 remains open as requested: no changelog entry until dev is merged into this branch and its release
+  guard permits it. This explicit deferral overrides the usual per-change Unreleased update for this batch.
+
+- 12.2/12.3/12.4 proofs (2026-10-30): 123 contract/view/roles tests passed; the complete focused
+  agent suite passed 101 tests; guide generation `--check` passed. Residue found 0 hits in 4,533
+  scanned files. The optional native dependency remains isolated in its extra. The six comment
+  delimiters used by the decoder/query/edge unit oracles are preserved in the compact sources.
+- Quick iteration note (2026-10-30): an initial 4-worker run was interrupted after code changes and
+  is not a pass. The next reached 15,320 passes / 42 skips but found six failures: the capabilities
+  extra allowlist and comment delimiters used by five JS oracle tests. It too was stopped for repair;
+  no interrupted run authorizes a push. A fresh complete gate is required after the focused repairs.

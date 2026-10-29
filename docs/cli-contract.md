@@ -3611,12 +3611,21 @@ commands as tools to a client of the Model Context Protocol on standard input an
 ## view
 
 `fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--cache user|project|off]
-[--compare OLD] [--variant NAME] [--check FILE|run] [--report FILE]... [--select REF] [--marks FILE] [--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]] [--no-review] [--no-models]
+[--compare OLD] [--variant NAME] [--check FILE|run] [--report FILE]... [--select REF] [--marks FILE] [--workspace board|roles] [--roles FILE] [--keymap NAME|FILE] [--layout FILE]
+[--serve [--port N] [--no-browser] [--window] [--edit]] [--export FILE [--docs ID,...]] [--no-review] [--no-models]
 [--silk-gap MM] [--mask-expansion MM]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
 c0177, c0178 and c0193; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
 board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbLib`, `.kicad_sym`,
 `.kicad_mod` or a `.pretty` folder (change c0179), or an Altium Draftsman drawing, `.PCBDwf` (change c0180).
 
+- **Workbench options.** `--workspace roles --json` adds `result.roles` (counts by state, findings
+  by severity, groups and locked items), with `INFERRED` evidence and no write. `--workspace board`
+  uses the ordinary workspace; roles requires a board. `--roles FILE` chooses its role document.
+  `--keymap fenolite|altium|kicad|FILE` and `--layout FILE` load the initial workbench settings;
+  malformed files are `FEN-3004`, missing files `FEN-3001`. `--edit` requires `--serve` (`FEN-2001`
+  otherwise) and enables reviewed role plans only. `--window` also requires `--serve`; it imports the
+  optional `view-app` extra lazily, or returns exit 6 / `FEN-6001` with an install hint. Closing its
+  native window stops the loopback server.
 - **Reply.** Without `--serve` and `--export` nothing is written. `result.project` is the project tree
   (`name`, `source`, `project_file`, `groups` of documents with `id`, `name`, `path`, `kind`, `present`,
   `viewable`, `size`), `result.document` the id of the document shown (`--doc`, else the board named as the
@@ -3948,3 +3957,6 @@ every part placed so that `fenolite route --router direct` closes its three nets
 | 0 | none | a dry run or a confirmed write |
 | 2 | `FEN-2001` | an unknown starter (the hint names them); a name that is not a design name (the hint names `--name`); `DIR/design.py` exists and `--force` is not given |
 | 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |
+
+The roles options `--forget NET[,NET]` and `--forget-group NAME` remove stored decisions through the
+reviewed-plan protocol. They are repeatable; a declared script role cannot be forgotten (`FEN-2001`).

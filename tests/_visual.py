@@ -90,7 +90,20 @@ FIXTURES = (
     Fixture("draftsman", "@draftsman"),
     Fixture("output_job", "@outjob"),
 )
-NAMES = tuple(f.name for f in FIXTURES)
+WORKBENCH = (
+    "workbench_board_dark",
+    "workbench_board_light",
+    "workbench_messages",
+    "workbench_narrow",
+    "roles_workspace",
+    "roles_workspace_cvd",
+)
+NAMES = tuple(f.name for f in FIXTURES) + WORKBENCH
+ROLES_SCRIPT = """
+await new Promise(ok => { const t = () => WS === 'roles' && rolesData() ? ok() : setTimeout(t, 20); t(); });
+selectRoleGroup("hot_SW"); ROLES.ptab = "measures"; showRoleProps();
+await new Promise(ok => setTimeout(ok, 300));
+"""
 
 
 def browser_missing() -> str | None:
@@ -148,6 +161,28 @@ def pages(folder: Path) -> dict[str, Path]:
     out["blink_project"] = export(
         blink / "blink.PrjPcb", folder / "blink_project.html", "--doc", "blink.PcbDoc"
     )
+    for name in WORKBENCH:
+        if not name.startswith("roles_"):
+            out[name] = out["kicad_board"]
+    buck = folder / "buck"
+    script = ROOT / "examples" / "roles" / "buck_shunt" / "bad.py"
+    base = (
+        "build",
+        str(script),
+        "--out",
+        str(buck),
+        "--json",
+        "--seed",
+        "0",
+        "--timestamp",
+        "2026-10-29T00:00:00Z",
+    )
+    plan = _cli(*base, "--dry-run")["result"]["plan_id"]
+    _cli(*base, "--confirm", "--plan", plan)
+    role_page = export(
+        buck / "buck_shunt_bad.kicad_pro", folder / "roles.html", "--no-models", "--workspace", "roles"
+    )
+    out["roles_workspace"] = out["roles_workspace_cvd"] = role_page
     return out
 
 
@@ -155,18 +190,43 @@ def job(
     name: str, page: Path, out: Path, *, script: str = "", ref: Path | None = None, **extra: Any
 ) -> dict[str, Any]:
     """A screenshot job of the harness: ``ref`` defaults to the committed reference of ``name``."""
-    return {
-        "name": name,
-        "page": str(page),
-        "width": WIDTH,
-        "height": HEIGHT,
-        "script": script,
-        "shot": str(out / f"{name}.png"),
-        "ref": str(ref if ref is not None else REFS / f"{name}.png"),
-        "diff": str(out / f"{name}.diff.png"),
-        "threshold": THRESHOLD,
-        "max_ratio": MAX_RATIO,
-    } | extra
+    defaults: dict[str, Any] = {}
+    if name.startswith("roles_workspace"):
+        defaults = {"width": 1400, "height": 860}
+        if not script:
+            script = ROLES_SCRIPT
+        if name.endswith("_cvd"):
+            script += "ROLES.cvd = true; draw();"
+    elif name == "workbench_board_light":
+        script = 'applyTheme("light", false); draw();' + script
+    elif name == "workbench_narrow":
+        defaults = {"width": 390, "height": 760}
+    elif name == "workbench_messages":
+        script = (
+            """
+        S.check = {mm:true, findings:[{code:"copper.clearance", severity:"warning",
+          message:"Authored gap for viewer review",
+          stage:"visual fixture", evidence:"INFERRED", at:[10,12], box:[9,11,11,13], layer:"F.Cu"}]};
+        selectFinding(0); await new Promise(ok => setTimeout(ok, 300));
+        """
+            + script
+        )
+    return (
+        {
+            "name": name,
+            "page": str(page),
+            "width": WIDTH,
+            "height": HEIGHT,
+            "script": script,
+            "shot": str(out / f"{name}.png"),
+            "ref": str(ref if ref is not None else REFS / f"{name}.png"),
+            "diff": str(out / f"{name}.diff.png"),
+            "threshold": THRESHOLD,
+            "max_ratio": MAX_RATIO,
+        }
+        | defaults
+        | extra
+    )
 
 
 def run(jobs: list[dict[str, Any]], folder: Path) -> list[dict[str, Any]]:

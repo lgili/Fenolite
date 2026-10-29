@@ -40,6 +40,7 @@ async function compare(page, shot, ref) {
       await page.waitForFunction(() => typeof linkReady !== "undefined" && linkReady && typeof S !== "undefined" && S, null, { timeout: 60000 });
       let result = null;
       if (job.script) result = await page.evaluate(`(async () => { ${job.script} })()`);
+      await page.addStyleTag({ content: "*,*::before,*::after { animation:none!important;transition:none!important;caret-color:transparent!important; }" });
       await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
       const reply = { name: job.name, result, errors };
       if (job.frameScript) {
@@ -50,7 +51,9 @@ async function compare(page, shot, ref) {
         }
       }
       if (job.shot) {
-        const png = await page.screenshot({ path: job.shot });
+        await page.evaluate(async () => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); await document.fonts.ready; });
+        await page.screenshot({ caret: "hide", animations: "disabled" });
+        const png = await page.screenshot({ path: job.shot, caret: "hide", animations: "disabled" });
         if (job.ref && fs.existsSync(job.ref)) {
           await page.evaluate(t => { window.THRESHOLD = t; }, job.threshold);
           const data = u => "data:image/png;base64," + u.toString("base64");

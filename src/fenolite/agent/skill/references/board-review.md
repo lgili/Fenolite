@@ -43,6 +43,20 @@ the floor, not the review. In the third line, the requirements file is the user'
 - **Review a frozen snapshot** with its hashes, never a file that is still being edited. Compare it with
   the previous released revision; `diff --allow` fails on any change of a kind you did not plan.
 
+## Roles in the workbench
+
+```fenolite-cmd
+fenolite view board/board.kicad_pcb --workspace roles --json
+fenolite view board/board.kicad_pcb --serve --edit --json
+fenolite roles board/board.kicad_pcb --forget SW --dry-run --json
+```
+
+Read each net's role, origin, evidence, measures and limits in the Net Roles workspace. For a person,
+`--serve --edit` enables role actions: Confirm creates a plan in Pending; inspect its before/after
+values and file hashes, then Apply confirms that plan. A stale plan must be reviewed again. Undo stops
+in Pending if the role file changed since its receipt. A role finding remains an inference; run the
+native CAD checks after any design change.
+
 ## The checklist
 
 Walk through the board region by region, with a render at a reviewer's scale and this list.

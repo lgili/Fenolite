@@ -558,6 +558,10 @@ another type; a flag without a value is a switch.
 - `--forget NET[,NET...]` (repeatable): drop the stored role of these nets, so they are inferred again (repeatable)
 - `--forget-group NAME` (repeatable): drop the stored decision on this group, so it is inferred again (repeatable)
 
+```fenolite-cmd
+fenolite roles board.kicad_pcb --forget SW --forget-group hot_SW --dry-run --json
+```
+
 ## roundtrip
 
 `fenolite roundtrip [OPTIONS] PATH`
@@ -695,6 +699,7 @@ another type; a flag without a value is a switch.
 - `--overlay FILE` (repeatable): draw an analyze reply or a findings file (JSON)
 - `--serve`: serve on 127.0.0.1 until stopped
 - `--port N` (default `8765`): with --serve: port (default 8765; 0 = any free)
+- `--window`: with --serve: native window (view-app extra)
 - `--no-browser`: with --serve: no browser
 - `--export FILE`: write one standalone page
 - `--cache {off,project,user}` (default `user`): scene cache
@@ -715,3 +720,9 @@ another type; a flag without a value is a switch.
 - `--no-models`: no 3D models (gmsh)
 - `--silk-gap MM`: silkscreen gap (default: the rule)
 - `--mask-expansion MM` (default `0`): mask opening growth
+
+```fenolite-cmd
+fenolite view board.kicad_pcb --workspace roles --json
+fenolite view board.kicad_pcb --keymap kicad --layout layout.json --roles roles.json --json
+fenolite view board.kicad_pcb --serve --edit --window --json
+```

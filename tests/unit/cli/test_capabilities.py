@@ -42,7 +42,7 @@ def test_lists_itself_and_hidden_commands(capsys: pytest.CaptureFixture[str]) ->
     freerouting = next(router for router in result["routers"] if router["name"] == "freerouting")
     assert freerouting["sends_data_offsite"] is False and freerouting["builtin"] is True
     assert next(router for router in result["routers"] if router["name"] == "direct")["builtin"] is True
-    assert set(result["extras"]) == {"dev", "geo", "kicad-ipc", "oracles"}  # type: ignore[arg-type]
+    assert set(result["extras"]) == {"dev", "geo", "kicad-ipc", "oracles", "view-app"}  # type: ignore[arg-type]
 
 
 def test_levels_and_sides_of_equivalent(capsys: pytest.CaptureFixture[str]) -> None:

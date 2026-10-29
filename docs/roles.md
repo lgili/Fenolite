@@ -106,6 +106,15 @@ NET=KIND[:KEY=N]`, `--reject` (stored as a confirmed `signal`), `--accept-group`
 they will be stored, `--confirm --plan ID` writes them. A script's declarations are changed in the script.
 Until you confirm them, the findings of inferred roles are at most warnings.
 
+`--forget NET[,NET]` and `--forget-group NAME` are repeatable. They remove stored role/current or
+group decisions through the same dry-run/confirm protocol, so inference runs again. A declared role
+must be changed in its script; forgetting it is `FEN-2001`.
+
+For a person, `fenolite view BOARD --serve --workspace roles --edit` shows the same roles, groups,
+measures, limits and findings in the workbench. Role actions stage a plan in Pending; Apply confirms
+its id. Without `--edit` the viewer offers a command to copy. Undo stages the exact inverse and stops
+for review if the stored role file changed since the receipt. See [the viewer](viewer.md#net-roles).
+
 ## What measures what
 
 Every measure is an analysis of [analyses](analyses.md), called with inputs that the roles derive; the

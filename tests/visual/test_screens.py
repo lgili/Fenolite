@@ -31,3 +31,14 @@ def test_a_changed_colour_fails(pages: dict[str, Path], tmp_path: Path) -> None:
     (reply,) = run([job("altium_sheet", pages["altium_sheet"], tmp_path, script=script)], tmp_path)
     assert reply["ok"] is False and reply["ratio"] > MAX_RATIO
     assert Path(reply["diff"]).is_file()  # the difference image
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_deterministic(name: str, pages: dict[str, Path], tmp_path: Path) -> None:
+    """H-G-WB-STABLE: independent contexts render the same authored fixture to identical PNG bytes."""
+    from hashlib import sha256
+
+    first, second = tmp_path / "first.png", tmp_path / "second.png"
+    replies = run([job(name, pages[name], tmp_path, shot=str(path)) for path in (first, second)], tmp_path)
+    assert all(reply["errors"] == [] for reply in replies)
+    assert sha256(first.read_bytes()).digest() == sha256(second.read_bytes()).digest()

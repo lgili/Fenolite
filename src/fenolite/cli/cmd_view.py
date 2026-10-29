@@ -23,6 +23,7 @@ import argparse
 import dataclasses
 import errno
 import hashlib
+import importlib
 import json
 import re
 import sys
@@ -121,6 +122,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
         default=str(DEFAULT_PORT),
         help=f"with --serve: port (default {DEFAULT_PORT}; 0 = any free)",
     )
+    parser.add_argument("--window", action="store_true", help="with --serve: native window (view-app extra)")
     parser.add_argument("--no-browser", action="store_true", help="with --serve: no browser")
     parser.add_argument("--export", metavar="FILE", help="write one standalone page")
     parser.add_argument(
@@ -911,7 +913,41 @@ def _mm_option(text: str | None, name: str) -> int | None:
     return round(value * 1_000_000)
 
 
+def _window_module() -> Any:
+    """Load the optional native host only when a window was requested."""
+    try:
+        return importlib.import_module("webview")
+    except ImportError as exc:
+        raise CliError(
+            "FEN-6001",
+            "--window needs the optional view-app extra",
+            where="--window",
+            hint="install fenolite[view-app], then run view PATH --serve --window",
+        ) from exc
+
+
+def _serve_window(native: Any, live: server.Live, httpd: Any, url: str, title: str) -> None:
+    """The native event loop owns the main thread; closing it stops the loopback server."""
+    stop = SERVE_STOP or threading.Event()
+    thread = threading.Thread(target=server.run, args=(live, httpd), kwargs={"until": stop}, daemon=True)
+    thread.start()
+    try:
+        native.create_window(title, url, width=1400, height=860)
+        native.start()
+    finally:
+        stop.set()
+        thread.join(timeout=10)
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    if args.window and not args.serve:
+        raise CliError(
+            "FEN-2001",
+            "--window requires --serve",
+            where="--window",
+            hint="fenolite view PATH --serve --window",
+        )
+    native = _window_module() if args.window else None
     if args.serve and ctx.in_process:
         raise CliError(
             "FEN-2001",
@@ -1133,10 +1169,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             raise
         url = f"http://{server.HOST}:{httpd.server_address[1]}/"
         _progress(ctx, url)
-        if not args.no_browser:
+        if not args.no_browser and native is None:
             webbrowser.open(url)
         started = time.monotonic()
-        server.run(live, httpd, until=SERVE_STOP)
+        if native is not None:
+            _serve_window(native, live, httpd, url, (doc.name if doc else tree.name) + " · Fenolite")
+        else:
+            server.run(live, httpd, until=SERVE_STOP)
         result["serve"] = {"url": url, "seconds": round(time.monotonic() - started, 1)}
         if marks_file is not None:
             result["serve"]["marks_written"] = live.written

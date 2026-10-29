@@ -1,4 +1,4 @@
-# Board and schematic viewer
+# Engineering workbench viewer
 
 `fenolite view` shows the boards, the sheets, the libraries and the Altium Draftsman drawings of a project in a web browser, without the tool that made
 them: an Altium project on a machine without Altium, a KiCad board in a review, a board or a sheet an agent
@@ -27,6 +27,52 @@ another navigation supersedes them. Live polling revalidates a scene before adop
 (including a cached scene opened again), waits during scene loading, and ignores older replies. Failed
 reads retain their error and can be retried by a later poll without marking the failed version as loaded.
 
+## Workbench
+
+Every board, sheet, library, drawing, BOM and output job uses the same offline workbench. The title,
+eleven menus, toolbar, left/right/bottom docks, layer tabs and status fields remain available when
+switching document kinds. Project Review is a docked panel; Reports opens it. Comparisons and recorded
+operation findings also appear in Messages. Selecting a message frames its geometry when present;
+unplaced findings say so. The Properties panel and status follow the shared selection.
+
+A panel's title collapses it. Its menu moves it between docks or closes it; Window ▸ Panels reopens it.
+Drag the title or tab to move it, or use the menu with the keyboard. Drag a splitter or use its arrows.
+Layouts are kept per workspace in this browser; Window ▸ Save Layout As downloads
+`fenolite.view_layout.v0`, and `--layout FILE` loads one. Reset Layout restores the default.
+Served panels can float into their own windows. At widths up to 760 pixels, Panels opens the combined
+drawer and Escape closes it.
+
+Tools ▸ Keymap chooses `fenolite`, `altium` or `kicad`; `--keymap NAME|FILE` sets the initial map.
+Keyboard Preferences lists commands, their sources, conflicts and reserved keys, and saves custom
+`fenolite.view_keymap.v0` files. View ▸ Theme offers dark, light and high contrast chrome. Document
+colours remain tool-specific. Roles add glyphs, names and hatches; View ▸ Stronger Role Hatches doubles
+their stroke. Menus, panel tabs and splitters have keyboard paths; shortcuts pause inside form fields.
+
+## Net Roles
+
+`fenolite view BOARD --workspace roles --json` returns `result.roles`: counts by state, findings by
+severity, groups and locked items. `--roles FILE` selects a role document. Window ▸ Workspace ▸ Net Roles
+opens the same view for a person: Nets/Groups/Classes on the left, Net/Role/Measures in Properties,
+role findings in Messages, and Loop areas, Measures, Corridors, Locked copper and Role copper overlays.
+Selecting a net or group dims the rest. Measure and limit values name their analysis, rule, default or
+override and evidence; the status shows the lowest evidence displayed.
+
+With `--serve --edit`, Confirm, Set role, Reject, Forget and Current stage a `fenolite roles --dry-run`
+plan. Pending shows before/after values, files and hashes; Apply writes the reviewed plan and logs the
+receipt. Discard writes nothing. A stale plan offers Review again. Ctrl+Z plans the inverse and applies
+it only while the file still matches its receipt; otherwise it waits in Pending. Ctrl+Y redoes.
+History belongs to this page and is lost on reload. Exported pages and servers without `--edit` offer
+commands to copy. Phase 0 uses the current check; integration with c0243/c0244 phase replies remains
+pending until both dependencies are in dev.
+
+## Native window
+
+Install the optional `fenolite[view-app]` extra, then use `fenolite view BOARD --serve --window`.
+The same loopback page opens in pywebview's native window (S-0931); closing the window stops its server.
+Without the extra, this returns exit 6, `FEN-6001`, with the installation hint. `--window` without
+`--serve` is `FEN-2001`. The core stays dependency-free and imports pywebview only on this path. Native
+engines differ across operating systems; the visual references are proved in pinned Chromium.
+
 ## Colours
 
 Each document is drawn in the colours of the tool that made it (change c0178):
@@ -49,11 +95,11 @@ copied (`docs/formats/kicad/color-theme.md`).
   Documents (schematics, boards, harnesses), Libraries, Settings (output jobs, rules, stack-ups, library
   tables), Documentation (drawings, annotations) and Other. A board opens on click; any other document
   shows its kind, path and size. A document listed by the project but missing from the folder is grey.
-- **Narrow windows.** At 760 CSS pixels or below, **Projects** shows or hides the sidebar over the view;
+- **Narrow windows.** At 760 CSS pixels or below, **Panels** shows or hides the sidebar over the view;
   it starts closed so the board keeps the window's width. The toolbar wraps into rows. Choose a document,
-  use Projects again, or press `Esc` outside a form field to close the sidebar. Desktop layout is unchanged.
+  use Panels again, or press `Esc` outside a form field to close the sidebar. Desktop layout is unchanged.
 - **Keyboard focus.** Viewer shortcuts pause while editing a text field, choosing a select value or using
-  Ctrl, Command/Meta or Alt combinations. Existing Shift shortcuts remain available outside form controls.
+  an unbound Ctrl, Command/Meta or Alt combination. Bound combinations use the active keymap.
 - **Layer tabs** (bottom). One tab per layer with its colour.
   - A click on a tab makes that layer current: it is drawn last, above the others.
   - A click on the swatch, or a right click, shows or hides the layer.
@@ -88,7 +134,7 @@ copied (`docs/formats/kicad/color-theme.md`).
     `{"schema", "groups": [{"id", "title", "color", "note"}], "items": [{"group", "kind": "line" | "path" |
     "point", "points_nm": [[x, y], ...], "label", "layer"}]}`, in the board frame of the model (nanometres,
     Y down).
-- **Notes** (left): what the scene had to assume.
+- **Notes** (right): what the scene had to assume.
 
 ## What the scene shows, and what it states
 
@@ -441,3 +487,26 @@ pads, tracks, zones, fills, texts and bodies, and the notes), or `--doc SHEET` f
 (parts, pins, wires, labels, ports, sheet symbols and nets), or `--doc LIBRARY` for the names of a library's
 symbols or footprints, or `--doc DRAWING` for the sheets and item counts of a Draftsman document. Use `--export` to hand a person one page to
 review. `--serve` keeps running until it is interrupted; it is for a person at a browser.
+
+## Workbench evidence and sources
+
+The public behaviour sources are S-0920 (KiCad panels/keys), S-0921 (Altium accelerators), S-0922
+(docking), S-0923 (filtering), S-0924 (Messages), S-0925 (WCAG), S-0926 (ARIA patterns), S-0927
+(redundant colour cues), S-0928 (CVD simulation), S-0929 (standalone manifest), S-0930 (loopback),
+S-0931 (pywebview), S-0932 (Qt alternative), S-0933 (Tk alternative), S-0934 (Chrome keys) and S-0935
+(Safari keys). Their licences and precise uses are in `src/fenolite/view/PROVENANCE.md` and
+`docs/evidence/sources.md`; no vendor icon, palette or layout is included.
+
+On the authored stress board the viewer job on 8ae0c27e measured open 416 ms, pan/zoom event p95
+1.5 ms, cursor p95 0.10 ms with no board repaint, and a Messages click 8.3 ms. Hypotheses
+H-G-WB-FRAME/CURSOR/OPEN retain `INFERRED`; the maintainer PC measurement is still pending.
+Contrast tests measure minimum dark text 4.55:1 and controls 3.51:1. Role colour separation under
+severity-1 CVD simulation is at least 20.9 (dark) and 15.8 (light), against criterion 12.
+H-G-WB-STABLE compares independent screenshots byte for byte with animation, transition and caret
+suppressed. Native-window tests exercise server lifecycle with a test host; platform rendering is
+not attested by the Chromium screenshots.
+
+Task 1.1's assembled page was 187,671 bytes; the closing page is checked against a 120,000-byte growth
+budget. JavaScript comments and presentation indentation were removed from the packaged sources to
+meet it; behaviour remains described here and in the OpenSpec design. Assembly remains a deterministic
+stdlib-only join, with no framework or additional build tool.

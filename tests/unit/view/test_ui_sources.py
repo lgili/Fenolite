@@ -107,3 +107,8 @@ def test_the_page_script_parses(tmp_path: Path) -> None:
         [node, "--check", str(script)], capture_output=True, text=True, timeout=60, check=False
     )
     assert done.returncode == 0, done.stderr
+
+
+def test_assembled_size_budget() -> None:
+    """Task 12.1: no more than 120 KB over the task-1.1 page, whose exact bytes were recorded."""
+    assert len(export.template().encode("utf-8")) <= 187_671 + 120_000
