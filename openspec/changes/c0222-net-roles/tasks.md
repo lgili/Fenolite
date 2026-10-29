@@ -46,7 +46,15 @@
   `analysis` in `ALLOWED`. No other row names `roles`, so only `cli` and the root modules may import it;
   `test_rule_table` holds the new edges and `test_roles_read_the_analyses_checks_do_not` the scenario.
   Proof passed: 52 tests.
-- [ ] 1.3 Add `roles/store.py`: the companion document `fenolite.roles.v0`, its loader and writer, and `--roles FILE` resolution (scenario "Roles beside a hand-routed board"). Proof: `uv run pytest tests/unit/roles/test_store.py -q`.
+- [x] 1.3 Add `roles/store.py`: the companion document `fenolite.roles.v0`, its loader and writer, and `--roles FILE` resolution (scenario "Roles beside a hand-routed board"). Proof: `uv run pytest tests/unit/roles/test_store.py -q`.
+
+  2026-10-29: `roles/store.py` writes and reads `<stem>.roles.json` (`{"schema": "fenolite.roles.v0",
+  "roles": RoleSet}` in canonical JSON), refuses to store an inferred role or group, and resolves the stored
+  roles in the order `--roles FILE`, `.fenolite/rules.json` of a built project, the document beside the
+  board; `updated_rules` replaces only `roles` in `.fenolite/rules.json`. A malformed document is a
+  `FormatError` with its JSON pointer (`FEN-3004` at the command). The scenario is tested here on a copy of
+  `tests/data/kicad/board/two_layer.kicad_pcb` through the store; its run through `fenolite roles` on the
+  bad buck is in `tests/unit/cli/test_roles_cmd.py` (task 6.1). Proof passed: 13 tests.
 
 ## 2. Classes and inference
 
