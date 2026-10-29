@@ -177,3 +177,15 @@ def test_port_values_refused() -> None:
     with pytest.raises(ValueError, match="name and a kind"):
         Port(id=new_id("prt", random.Random(9)), name="", owner="mod_x", kind="net")
     assert new_id("prt", random.Random(1)).startswith("prt_")
+
+
+def test_kelvin_value_range_round_trips() -> None:
+    """c0274: ``RangeUnit`` holds ``kelvin``; an ambient range of -20 °C to 70 °C is stored in exact
+    decimals of kelvin, and the DSL-only squared units are no range unit."""
+    from fenolite.model.circuit import Decimal10, ValueRange
+
+    ambient = ValueRange("kelvin", Decimal10(25315, -2), None, Decimal10(34315, -2))
+    assert loads(dumps(ambient), ValueRange) == ambient
+    assert '"unit": "kelvin"' in dumps(ambient)
+    with pytest.raises(ValueError, match="volt_squared"):
+        ValueRange("volt_squared", Decimal10(1, 0), None, None)  # type: ignore[arg-type]

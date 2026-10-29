@@ -49,7 +49,6 @@ from fenolite.dsl import Design, Net, Part, connect, farad, henry, hertz, mm, oh
 design = Design("supply")
 design.board(mm(36), mm(20))
 vin, vf, v33, gnd = Net("VIN"), Net("VIN_F"), Net("V3V3"), Net("GND")
-
 j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="IN")
 l1 = Part("L1", "Fenolite:Inductor", footprint="Fenolite:Chip_0805", value=henry("4u7"))
 # The symbol's pins are 1 IN, 2 GND, 3 OUT. Say this device has GND on pad 1, OUT on 2 and IN on 3.
@@ -92,7 +91,7 @@ r1.place(mm(29), mm(14), rot=90)
 A range is an exact interval of one unit, computed forwards with worst-case bounds; there is no solver.
 
 ```fenolite-design
-from fenolite.dsl import Design, Net, Part, Range, Tolerance, amp, between, connect, mm, ohm, pct, volt
+from fenolite.dsl import Design, Net, Part, Range, Tolerance, amp, between, celsius, connect, kelvin, mm, ohm, pct, volt
 
 design = Design("divider")
 design.board(mm(24), mm(16))
@@ -103,6 +102,7 @@ v_in = volt("5").pct(5)  # 5V (4.75V..5.25V)
 v_out: Range = v_in * (r_bot / (r_top + r_bot))  # Ω/Ω is a ratio; V·Ω is no unit
 assert v_out.within(between(volt("1"), volt("1.5")))
 assert (v_in / (r_top + r_bot)).within(amp("50u").max())  # at most 50 µA
+assert celsius(25) - celsius(10) == kelvin(15) and celsius(70).temperature_text() == "70°C"
 vin, mid, gnd = Net("VIN"), Net("MID"), Net("GND")
 j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="IN")
 r1 = Part("R1", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value=r_top)
@@ -119,8 +119,8 @@ r2.place(mm(13), mm(11))
 - `q.pct(p)`, `q.pct(lo, hi)` and `q.pct(pct(...))` give a range with nominal `q`; `q.max()` is `0..q`,
   `q.min()` is `q..`; `between(a, b, nominal=None)` takes two quantities of one unit.
 - `+ - * /` mix ranges, quantities and exact numbers; a result may be wider than the truth, never narrower.
-  Units follow a closed table (V/Ω is A, V·A is W); another pair raises `TypeError`, a divisor that holds
-  zero or an unbounded operand `DslError`. `a.within(b)` asks whether every value of `a` lies in `b`.
+  Units follow a closed table (V/Ω is A, V·A is W, V·V/Ω is W); another pair raises `TypeError`, a divisor
+  that holds zero `DslError`. A one-sided range enters while the result keeps a bound. `a.within(b)` asks whether every value of `a` lies in `b`.
 - A ranged part value writes the nominal text (`100kΩ`) and keeps the range in `.fenolite/circuit.json`.
 
 ## Parts from devices

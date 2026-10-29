@@ -15,11 +15,15 @@ ground = "GND"
 [pins]
 BST = "1"
 GND = "2"
-FB  = { pins = ["3"], voltage = { max = "6V" } }
-EN  = { pins = ["4"], voltage = { max = "6V" }, must_connect = true }
-VIN = { pins = ["5"], voltage = { min = "2.7V", max = "6V" } }
+FB  = { pins = ["3"], voltage = { abs_max = "6.5V" } }
+EN  = { pins = ["4"], voltage = { abs_max = "6.5V" }, input_high_min = "1.2V", input_low_max = "0.4V", must_connect = true }
+VIN = { pins = ["5"], voltage = { operating = { min = "2.7V", max = "6V" }, abs_max = "6.5V" } }
 SW  = "6"
 
+[[limits]]
+between = ["BST", "SW"]
+voltage = { abs_max = "6V" }
+
 [ratings]
-current = { max = "2A" }
-temperature = { min = "-40degC", max = "125degC" }
+current = { abs_max = "2.5A", operating = "2A" }
+temperature = { operating = { min = "-40degC", max = "125degC" } }

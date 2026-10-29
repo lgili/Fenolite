@@ -240,8 +240,8 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   signal harness with `--altium-sheets modules` (`docs/altium.md`, "Sheets and harnesses").
 - `I2C(sda, scl)`, `SPI(sck, mosi, miso, cs=(...))`, `UART(tx, rx)` and `USB2(dp, dn, vbus=None, gnd=None)`:
   buses with fixed roles, each with `attach(part, ...)` ("Typed interfaces").
-- `Quantity` and `ohm()`, `farad()`, `henry()`, `volt()`, `amp()`, `hertz()`, `watt()`, `second()`: exact
-  electrical values ("Quantities").
+- `Quantity` and `ohm()`, `farad()`, `henry()`, `volt()`, `amp()`, `hertz()`, `watt()`, `second()`,
+  `kelvin()` and `celsius()`: exact electrical values and temperatures ("Quantities", "Temperatures").
 - `Range`, `Tolerance`, `between()` and `pct()`: exact value ranges with worst-case arithmetic ("Ranges").
 - `to_model(design)` and `placements(design)` turn a DSL design into a model `Design` and the
   placement requests; `build` calls them.
@@ -286,11 +286,18 @@ Nothing of the DSL is re-exported from the root `fenolite` package: the DSL `Des
   `m`, `k`, `M`, `G`) and optionally the unit's symbol (`Ω`, `ohm` or `R`; `F`; `H`; `V`; `A`; `Hz`; `W`;
   `s`), with blanks allowed after the number; or the letter code of IEC 60062, where the prefix letter, or
   `R` for ohms, stands for the decimal point (`4k7`, `2R2`, `1n5`). A `float`, a `bool`, another unit's
-  symbol or a text that does not parse raises `DslError` naming the input. Only volts and amperes may be
-  negative.
+  symbol or a text that does not parse raises `DslError` naming the input. Only volts, amperes and kelvin
+  (a temperature difference) may be negative.
 - **Comparison.** `ohm("4k7") == ohm("4.7k") == ohm("4.7 kΩ") == ohm(4700)`, with one hash. Ordering needs
   one unit (`TypeError` otherwise). `+` and `-` take two quantities of one unit; `*` and `/` take an `int`
-  or a `Fraction`.
+  or a `Fraction`. The one product of two quantities is a square (change c0274): `volt(a) * volt(b)` and
+  `amp(a) * amp(b)` give a range of `volt_squared` or `ampere_squared` ("Ranges"); any other pair raises
+  `TypeError`.
+- **Temperatures** (change c0274). `kelvin(x)` is a value in kelvin and `celsius(x)` is `kelvin(x + 273.15)`
+  exactly; `celsius` takes an `int`, a `Fraction` or a decimal text, and a value below absolute zero raises
+  `DslError`. An absolute temperature and a difference share the unit, as in SI; the text tells them apart:
+  `temperature_text()` of a quantity or a range prints degrees Celsius (`between(celsius(-20), celsius(70))`
+  prints `-20°C..70°C`), and `text()` prints kelvin, the form of a difference (`kelvin(15)` prints `15K`).
 - **Text.** `text()` scales the value by the largest prefix from `p` to `G` that keeps it at least 1 and
   prints the shortest exact decimal, the prefix (`u` for micro) and the symbol: `4.7kΩ`, `100nF`, `3.3V`,
   `16MHz`. A value that is not a terminating decimal (`ohm(1) / 3`) raises `DslError` when printed.
@@ -333,8 +340,15 @@ assert vout.within(volt("3.3").pct(5))
 - **Arithmetic.** `+`, `-`, `*`, `/` and unary `-` take ranges, quantities, `int` and `Fraction` (a ratio)
   on either side and give the exact worst-case range: `[a0+b0, a1+b1]`, `[a0−b1, a1−b0]`, the minimum
   and maximum of the four bound products, and `a · [1/b1, 1/b0]`. The nominal of a result is the same
-  operation on the nominals when both have one. Dividing by a range that holds zero, or computing with
-  an unbounded range, raises `DslError`. Interval arithmetic does not know that two operands are the
+  operation on the nominals when both have one. Dividing by a range that holds zero raises `DslError`.
+- **One-sided ranges** (change c0274). A range with an unbounded side enters arithmetic when the result
+  keeps a bound: `+` and `-` combine bounds side by side, a side being unbounded when an operand is
+  (`volt("4.5").min() + volt("0.2")` is `4.7V..`), and unary `-` swaps the sides. `*` and `/` apply when
+  both operands have a low bound of at least 0: `[a0·b0, a1·b1]` and `[a0/b1, a1/b0]`, an unbounded high
+  staying unbounded and `a0/b1` taken as 0 when `b1` is (`amp("1").min() * ohm("2")` is `2V..`). A
+  signed one-sided product, a divisor whose low bound is 0, and a result unbounded on both sides
+  (`volt("4.5").min() - volt("1").min()`) raise `DslError` naming the operation. One-sided results carry no
+  nominal. Interval arithmetic does not know that two operands are the
   same value, so `r / r` is wider than `[1, 1]`: a result can be wider than the true range, never
   narrower.
 - **Units.** `+` and `-` take one unit. `*` and `/` follow the closed tables `quantity.UNIT_PRODUCTS` and
@@ -348,8 +362,14 @@ assert vout.within(volt("3.3").pct(5))
   | ampere · ohm | volt | volt / ohm, watt / volt | ampere |
   | ohm · farad | second | volt / ampere | ohm |
   | hertz · second | ratio | watt / ampere | volt |
-  | | | henry / ohm, ratio / hertz | second |
-  | | | ratio / second | hertz |
+  | volt · volt | volt_squared | henry / ohm, ratio / hertz | second |
+  | ampere · ampere | ampere_squared | ratio / second | hertz |
+  | ampere_squared · ohm | watt | volt_squared / ohm | watt |
+  | | | watt / ohm | ampere_squared |
+
+  `volt_squared` and `ampere_squared` (change c0274) exist in the DSL and the judge only: they print `V²`
+  and `A²`, their bounds are read as `low` and `high` (not as quantities), and lowering such a range to
+  the model raises `DslError`: `volt("13.2") * volt("13.2") / ohm("990")` is exactly 176 mW.
 
 - **Containment.** `a.within(b)` is true when every value of `a` lies in `b`, an unbounded side of `b`
   holding everything on that side; `a` and `b` are ranges or quantities of one unit (`TypeError`

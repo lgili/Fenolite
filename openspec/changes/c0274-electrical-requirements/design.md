@@ -334,15 +334,43 @@ Both are registered in `docs/hypotheses.md` by the tasks, as `INFERRED`. This ch
 
 1. **Refuse c0248's single `{ min, max }` form, or read it as `abs_max`?** Recommended: refuse with a
    hint; no record has shipped, and either reading is a guess.
+   Decided 2026-10-29: refuse with `FEN-3004` and the hint "say abs_max ... or operating ..."
+   (`DeviceLimitFormError`); implemented in phase A.
 2. **Should the digest cover the device record's digest too,** so that a record edit expires a waiver even
    when the judged numbers are equal? Recommended: no; the waiver accepts numbers, and an unchanged
    number is the same risk.
+   Decided 2026-10-29: no; the digest covers the judged numbers only (phase C).
 3. **Should propagation subtract a stated drop** (a ferrite's DC resistance times the current bound)?
    Recommended: not now; a later change can add it once records state DC resistance, with c0246 ranges.
+   Decided 2026-10-29: not now (phase D copies the source range unchanged).
 4. **Should the matrix also be written as a file** (CSV or JSON) for a requirements portal?
    Recommended: later, as `fenolite export matrix` under the plan and confirm protocol, if users ask.
+   Decided 2026-10-29: later; `--matrix` stays a read-only reply of `check` (phase F).
 5. **Should an open jumper be stated** (`design.part_class(jp, "jumper", closed=False)`)? Recommended: no;
    an undeclared jumper is not crossed, which is the safe reading.
+   Decided 2026-10-29: no; an undeclared jumper is not crossed (phase D).
+
+### Decisions taken while implementing phase A (2026-10-29)
+
+- **Products of two quantities.** c0246's scenario "Two quantities of different units still refused"
+  (`volt("1") * amp("1")` raises `TypeError`) is kept: the one product of two quantities is a square,
+  `volt(a) * volt(b)` or `amp(a) * amp(b)`, which gives a degenerate range of `volt_squared` or
+  `ampere_squared` (scenario "The power of a bleeder"). Every other product needs a range operand, as in
+  c0246.
+- **One-sided quotients.** Decision 2's "the high bound that of the high bounds" is read as worst-case
+  interval division, which is what c0246 does for bounded ranges: `a / b` is `[a0/b1, a1/b0]`, `a0/b1`
+  taken as 0 when `b1` is unbounded and `a1/b0` unbounded when `a1` is. A one-sided result carries no
+  nominal.
+- **A repeated pair** of `[[limits]]` is the same two functions in either order: `["BST", "SW"]` and
+  `["SW", "BST"]` in one record are refused, since one is the negated other.
+- **Temperatures.** A device text in `degC` takes no SI prefix and cannot lie below absolute zero; a value
+  in kelvin is signed in the DSL (a difference) and unsigned in a device record (an absolute
+  temperature). The canonical device text prints temperatures in `degC`.
+- **Where records are documented.** Device records are documented in `docs/devices.md` (c0248), not in
+  `docs/catalog/README.md`, which covers the symbol and footprint catalog; phase A's record changes are
+  written there.
+- **The ferrite scenario in phase A.** `class = "ferrite"` needs phase B's vocabulary; phase A tests the
+  `class` key with `controller` and refuses `bead`.
 
 ## Relation to the other changes of this batch
 

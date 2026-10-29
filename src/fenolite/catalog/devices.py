@@ -9,6 +9,10 @@ pads, an identity, ratings and an evidence label. ``parse_device`` reads one rec
 provenance, ``load_devices`` reads the ``*.toml`` files of a folder and ``check_device`` compares a device
 with the symbol and the footprint it names. The shipped ``Fenolite:`` devices live in ``devices/`` beside
 this module and are read by ``shipped_devices``.
+
+Change c0274 splits every limit into ``abs_max`` and ``operating`` (the single ``{ min, max }`` form is
+refused), adds ``[[limits]]`` between two functions, logic thresholds on pins, the ``class`` key and
+temperatures in millikelvin.
 """
 
 from __future__ import annotations
@@ -28,17 +32,22 @@ from pathlib import Path
 from typing import cast
 
 from fenolite.core.errors import FormatError, Issue
-from fenolite.core.quantities import MICRO_UNITS, QuantityError, decimal_digits, micro_units
+from fenolite.core.quantities import MICRO_UNITS, QuantityError, celsius_text, decimal_digits, micro_units
 from fenolite.model import canonical
 from fenolite.model.library import (
     DeviceDef,
     DevicePin,
     DeviceProvenance,
     FootprintDef,
+    LimitKind,
+    PinPairLimit,
     Rating,
     RatingUnit,
     SymbolDef,
+    Threshold,
+    ThresholdKey,
 )
+from fenolite.model.rules import PART_CLASSES
 
 SCHEMA = "fenolite.device.v0"
 SHIPPED_NAMESPACE = "Fenolite"
@@ -52,6 +61,7 @@ KEYS: tuple[str, ...] = (
     "symbol",
     "footprint",
     "ref_prefix",
+    "class",
     "value",
     "evidence",
     "sources",
@@ -61,6 +71,7 @@ KEYS: tuple[str, ...] = (
     "properties",
     "pins",
     "ratings",
+    "limits",
     "provenance",
 )
 """Every key of a record, in the order of the canonical text."""
@@ -80,11 +91,24 @@ RATINGS: Mapping[str, str] = {
     "voltage": "volt",
     "current": "ampere",
     "power": "watt",
-    "temperature": "celsius",
+    "temperature": "kelvin",
 }
-"""Rating key → the unit its values are read in."""
+"""Rating key → the unit its values are read in (a temperature in kelvin, from ``K`` or ``degC`` texts)."""
+LIMIT_KINDS: tuple[LimitKind, ...] = ("abs_max", "operating")
+"""The kinds of a limit (change c0274), in the order of the canonical text."""
+THRESHOLDS: Mapping[str, str] = {
+    "input_high_min": "volt",
+    "input_low_max": "volt",
+    "output_current_max": "ampere",
+    "output_high_min": "volt",
+    "output_low_max": "volt",
+}
+"""Logic threshold of a pin → the unit it is read in (change c0274)."""
 PIN_RATINGS: tuple[str, ...] = ("voltage", "current")
-PIN_KEYS: tuple[str, ...] = ("pins", "map", "voltage", "current", "must_connect")
+PIN_KEYS: tuple[str, ...] = ("pins", "map", "voltage", "current", *THRESHOLDS, "must_connect")
+LIMIT_KEYS: tuple[str, ...] = ("between", "voltage")
+"""The keys of a ``[[limits]]`` table."""
+SPLIT_HINT = "say abs_max (an absolute maximum rating) or operating (the range the part needs to work)"
 RESERVED_PROPERTIES: frozenset[str] = frozenset(
     {"Reference", "Value", "Footprint", "Datasheet", "Description", "Manufacturer", "MPN"}
 )
@@ -107,6 +131,12 @@ class DeviceFormatError(FormatError):
     @property
     def code(self) -> str:
         return self.cli_code
+
+
+class DeviceLimitFormError(DeviceFormatError):
+    """A limit that does not say ``abs_max`` or ``operating`` (FEN-3004; change c0274)."""
+
+    hint = SPLIT_HINT
 
 
 class DeviceFormatTooNewError(DeviceFormatError):
@@ -165,26 +195,69 @@ def _kind(value: object) -> str:
     return type(value).__name__
 
 
-def _rating(read: _Reader, key: str, value: object, where: str) -> Rating:
+def _amount_of(read: _Reader, key: str, unit: str, value: object, where: str) -> int:
+    text = read.text(value, where)
+    try:
+        return micro_units(unit, text)
+    except QuantityError as error:
+        raise read.fail(where, f"{error} (a {key} is read in {unit})") from None
+
+
+def _bounds(read: _Reader, key: str, value: object, where: str) -> tuple[int | None, int | None]:
+    """The bounds of one kind of a limit: a string is the maximum, a table holds ``min``, ``max`` or both."""
+    unit = RATINGS[key]
+    if isinstance(value, str):
+        return None, _amount_of(read, key, unit, value, where)
     table = read.table(value, where)
     unknown = sorted(set(table) - {"min", "max"})
     if unknown:
-        raise read.fail(f"{where}.{unknown[0]}", "unknown key; a rating takes min and max")
+        raise read.fail(f"{where}.{unknown[0]}", "unknown key; a limit takes min and max")
     if not table:
         raise read.fail(where, "needs min, max or both")
-    unit = RATINGS[key]
-    bounds: dict[str, int] = {}
-    for bound in ("min", "max"):
-        if bound in table:
-            text = read.text(table[bound], f"{where}.{bound}")
-            try:
-                bounds[bound] = micro_units(unit, text)
-            except QuantityError as error:
-                raise read.fail(f"{where}.{bound}", f"{error} (a {key} is read in {unit})") from None
-    low, high = bounds.get("min"), bounds.get("max")
+    low = _amount_of(read, key, unit, table["min"], f"{where}.min") if "min" in table else None
+    high = _amount_of(read, key, unit, table["max"], f"{where}.max") if "max" in table else None
     if low is not None and high is not None and low > high:
         raise read.fail(where, "min is above max")
-    return Rating(key, cast(RatingUnit, MICRO_UNITS[unit][0]), low, high)
+    return low, high
+
+
+def _limit(read: _Reader, key: str, value: object, where: str) -> tuple[Rating, ...]:
+    """The limits of ``key``: a table of ``abs_max`` and/or ``operating`` (change c0274). The single
+    ``{ min, max }`` form, and an ``operating`` range outside its ``abs_max`` range, are refused."""
+    if not isinstance(value, dict):
+        message = f"{where}: must be a table of abs_max and/or operating, not {_kind(value)}; {SPLIT_HINT}"
+        raise DeviceLimitFormError(message, file=read.file, locator=where)
+    table = cast(dict[str, object], value)
+    if "min" in table or "max" in table:
+        message = f"{where}: a limit is not a bare {{ min, max }} table; {SPLIT_HINT}"
+        raise DeviceLimitFormError(message, file=read.file, locator=where)
+    unknown = sorted(set(table) - set(LIMIT_KINDS))
+    if unknown:
+        raise read.fail(f"{where}.{unknown[0]}", "unknown key; a limit takes abs_max and operating")
+    if not table:
+        raise read.fail(where, f"needs abs_max, operating or both; {SPLIT_HINT}")
+    unit = cast(RatingUnit, MICRO_UNITS[RATINGS[key]][0])
+    found: dict[str, Rating] = {}
+    for kind in LIMIT_KINDS:
+        if kind in table:
+            low, high = _bounds(read, key, table[kind], f"{where}.{kind}")
+            found[kind] = Rating(key, unit, low, high, kind)
+    absolute, operating = found.get("abs_max"), found.get("operating")
+    if absolute is not None and operating is not None:
+        below = absolute.min is not None and operating.min is not None and operating.min < absolute.min
+        above = absolute.max is not None and operating.max is not None and operating.max > absolute.max
+        if below or above:
+            raise read.fail(f"{where}.operating", "lies outside the abs_max range")
+    return tuple(found.values())
+
+
+def _thresholds(read: _Reader, table: Mapping[str, object], where: str) -> tuple[Threshold, ...]:
+    found: list[Threshold] = []
+    for key in sorted(set(table) & set(THRESHOLDS)):
+        unit = THRESHOLDS[key]
+        value = _amount_of(read, key, unit, table[key], f"{where}.{key}")
+        found.append(Threshold(cast(ThresholdKey, key), cast(RatingUnit, MICRO_UNITS[unit][0]), value))
+    return tuple(found)
 
 
 def _pin(read: _Reader, function: str, value: object) -> DevicePin:
@@ -222,11 +295,44 @@ def _pin(read: _Reader, function: str, value: object) -> DevicePin:
             if not pads:
                 raise read.fail(f"{where}.map.{pin}", "gives the pin no pad")
             pairs += [(pin, pad) for pad in pads]
-    ratings = {key: _rating(read, key, table[key], f"{where}.{key}") for key in PIN_RATINGS if key in table}
+    ratings = [
+        rating
+        for key in PIN_RATINGS
+        if key in table
+        for rating in _limit(read, key, table[key], f"{where}.{key}")
+    ]
+    thresholds = _thresholds(read, table, where)
     must_connect = table.get("must_connect", False)
     if not isinstance(must_connect, bool):
         raise read.fail(f"{where}.must_connect", f"must be a boolean, not {_kind(must_connect)}")
-    return DevicePin(function, tuple(pairs), ratings.get("voltage"), ratings.get("current"), must_connect)
+    ratings.sort(key=lambda rating: (rating.key, rating.limit))
+    return DevicePin(function, tuple(pairs), tuple(ratings), thresholds, must_connect)
+
+
+def _pair_limits(read: _Reader, value: object, functions: set[str]) -> tuple[PinPairLimit, ...]:
+    """The ``[[limits]]`` tables (change c0274): each names two distinct functions and a voltage limit."""
+    if not isinstance(value, list):
+        raise read.fail("limits", f"must be an array of tables ([[limits]]), not {_kind(value)}")
+    found: dict[tuple[str, ...], PinPairLimit] = {}
+    for index, item in enumerate(cast(list[object], value)):
+        where = f"limits[{index}]"
+        table = read.table(item, where)
+        unknown = sorted(set(table) - set(LIMIT_KEYS))
+        if unknown:
+            raise read.fail(f"{where}.{unknown[0]}", f"unknown key; [[limits]] takes {', '.join(LIMIT_KEYS)}")
+        for key in LIMIT_KEYS:
+            if key not in table:
+                raise read.fail(f"{where}.{key}", "is missing")
+        between = read.texts(table["between"], f"{where}.between")
+        if len(between) != 2:
+            raise read.fail(f"{where}.between", "names exactly two distinct functions")
+        for function in between:
+            if function not in functions:
+                raise read.fail(f"{where}.between", f"names no function of the device: {function!r}")
+        if tuple(sorted(between)) in {tuple(sorted(pair)) for pair in found}:
+            raise read.fail(f"{where}.between", f"the pair {between[0]}, {between[1]} has a limit already")
+        found[between] = PinPairLimit(between, _limit(read, "voltage", table["voltage"], f"{where}.voltage"))
+    return tuple(found[pair] for pair in sorted(found))
 
 
 def _pins(read: _Reader, value: object) -> tuple[DevicePin, ...]:
@@ -401,7 +507,11 @@ def parse_device(text: str, *, file: str = "") -> DeviceDef:
         for key in sorted(table):
             if key not in RATINGS:
                 raise read.fail(f"ratings.{key}", f"unknown rating; use {', '.join(RATINGS)}")
-            ratings.append(_rating(read, key, table[key], f"ratings.{key}"))
+            ratings += _limit(read, key, table[key], f"ratings.{key}")
+    limits = _pair_limits(read, data["limits"], functions) if "limits" in data else ()
+    cls = read.text(data.get("class", ""), "class", empty=True)
+    if cls and cls not in PART_CLASSES:
+        raise read.fail("class", f"{cls!r} is not a part class; use one of: {', '.join(PART_CLASSES)}")
     return DeviceDef(
         id=device_id,
         summary=fields["summary"],
@@ -420,6 +530,8 @@ def parse_device(text: str, *, file: str = "") -> DeviceDef:
         properties=_properties(read, data["properties"]) if "properties" in data else {},
         pins=pins,
         ratings=tuple(ratings),
+        limits=limits,
+        cls=cls,
         provenance=_provenance(read, data["provenance"]) if "provenance" in data else None,
     )
 
@@ -439,31 +551,45 @@ def _strings(values: Sequence[str]) -> str:
     return "[" + ", ".join(_string(value) for value in values) + "]"
 
 
-def _amount(rating: Rating, value: int) -> str:
-    """The text of one bound in the unit of its key, at the largest SI prefix (``u``, ``m``, none, ``k``)
-    that keeps the number at least 1, the way ``Quantity.text()`` prints; a temperature takes no prefix."""
-    unit = RATINGS[rating.key]
+def _amount(unit: str, value: int) -> str:
+    """The text of one bound or threshold in ``unit``, at the largest SI prefix (``u``, ``m``, none, ``k``)
+    that keeps the number at least 1, the way ``Quantity.text()`` prints; a temperature prints in degrees
+    Celsius without prefix (``-40degC``)."""
     _, exponent = MICRO_UNITS[unit]
+    if unit == "kelvin":
+        return celsius_text(Fraction(value, 10**exponent), "degC")
     size = Fraction(abs(value), 10**exponent)
     prefix, scale = "", 0
-    if unit != "celsius" and size:
+    if size:
         prefix, scale = "u", -6
         for name, power in (("m", -3), ("", 0), ("k", 3)):
             if size >= Fraction(10**power) if power >= 0 else size >= Fraction(1, 10**-power):
                 prefix, scale = name, power
     shown = size / (Fraction(10**scale) if scale >= 0 else Fraction(1, 10**-scale))
     whole, part = decimal_digits(shown, "a rating")
-    symbol = {"volt": "V", "ampere": "A", "watt": "W", "celsius": "degC"}[unit]
+    symbol = {"volt": "V", "ampere": "A", "watt": "W"}[unit]
     return f"{'-' if value < 0 else ''}{whole}{'.' + part if part else ''}{prefix}{symbol}"
 
 
-def _rating_text(rating: Rating) -> str:
+def _bounds_text(rating: Rating) -> str:
+    unit = RATINGS[rating.key]
+    if rating.min is None and rating.max is not None:
+        return _string(_amount(unit, rating.max))
     bounds = [
-        f"{name} = {_string(_amount(rating, bound))}"
+        f"{name} = {_string(_amount(unit, bound))}"
         for name, bound in (("min", rating.min), ("max", rating.max))
         if bound is not None
     ]
     return "{ " + ", ".join(bounds) + " }"
+
+
+def _limit_lines(ratings: Sequence[Rating]) -> list[str]:
+    """One ``key = { abs_max = ..., operating = ... }`` line per key of ``ratings``, in key order."""
+    lines: list[str] = []
+    for key in sorted({rating.key for rating in ratings}):
+        kinds = sorted((rating for rating in ratings if rating.key == key), key=lambda rating: rating.limit)
+        lines.append(f"{key} = {{ " + ", ".join(f"{r.limit} = {_bounds_text(r)}" for r in kinds) + " }")
+    return lines
 
 
 def _identity(pin: DevicePin) -> bool:
@@ -483,6 +609,7 @@ def device_text(device: DeviceDef) -> str:
         ("symbol", device.symbol),
         ("footprint", device.footprint),
         ("ref_prefix", device.ref_prefix),
+        ("class", device.cls),
         ("value", device.value),
         ("evidence", device.evidence),
     )
@@ -503,7 +630,7 @@ def device_text(device: DeviceDef) -> str:
     lines += ["", "[pins]"]
     long_form: list[DevicePin] = []
     for pin in device.pins:
-        plain = _identity(pin) and pin.voltage is None and pin.current is None and not pin.must_connect
+        plain = _identity(pin) and not pin.ratings and not pin.thresholds and not pin.must_connect
         if not plain:
             long_form.append(pin)
         elif len(pin.pins) == 1:
@@ -521,14 +648,20 @@ def device_text(device: DeviceDef) -> str:
                 target = _string(pads[0]) if len(pads) == 1 else _strings(pads)
                 entries.append(f"{_string(number)} = {target}")
             lines.append("map = { " + ", ".join(entries) + " }")
-        for rating in (pin.voltage, pin.current):
-            if rating is not None:
-                lines.append(f"{rating.key} = {_rating_text(rating)}")
+        lines += _limit_lines([rating for rating in pin.ratings if rating.key == "voltage"])
+        lines += _limit_lines([rating for rating in pin.ratings if rating.key == "current"])
+        lines += [
+            f"{found.key} = {_string(_amount(THRESHOLDS[found.key], found.value))}"
+            for found in pin.thresholds
+        ]
         if pin.must_connect:
             lines.append("must_connect = true")
     if device.ratings:
         lines += ["", "[ratings]"]
-        lines += [f"{rating.key} = {_rating_text(rating)}" for rating in device.ratings]
+        lines += _limit_lines(device.ratings)
+    for limit in device.limits:
+        lines += ["", "[[limits]]", f"between = {_strings(limit.between)}"]
+        lines += _limit_lines(limit.ratings)
     if device.provenance is not None:
         stamp = device.provenance
         lines += ["", "[provenance]"]
@@ -673,11 +806,14 @@ __all__ = [
     "EDITED_CODE",
     "IMPORT_TOOL",
     "KEYS",
+    "LIMIT_KINDS",
     "MISMATCH_CODE",
     "RATINGS",
     "SCHEMA",
+    "THRESHOLDS",
     "DeviceFormatError",
     "DeviceFormatTooNewError",
+    "DeviceLimitFormError",
     "check_device",
     "device_digest",
     "device_text",

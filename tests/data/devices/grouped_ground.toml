@@ -17,11 +17,11 @@ ends = ["VIN", "VOUT"]
 GND = ["9", "2"]
 VIN = "1"
 VOUT = "3"
-EN = { pins = ["4"], must_connect = true, current = { max = "1mA" } }
+EN = { pins = ["4"], must_connect = true, current = { abs_max = "1mA" } }
 NC5 = "5"
 NC6 = "6"
 NC7 = "7"
 NC8 = "8"
 
 [ratings]
-power = { max = "250mW" }
+power = { abs_max = "250mW" }

@@ -198,31 +198,51 @@ class SymbolDef(Entity):
         return tuple(p for p in self.pins if p.unit in (0, unit) and p.body_style in (0, body_style))
 
 
-RatingUnit = Literal["uV", "uA", "uW", "mdegC"]
-"""The integer units of a device rating: µV, µA, µW and millidegrees Celsius (change c0248)."""
+RatingUnit = Literal["uV", "uA", "uW", "mK"]
+"""The integer units of a device rating: µV, µA, µW and millikelvin (changes c0248 and c0274)."""
+LimitKind = Literal["abs_max", "operating"]
+"""The kind of a device limit (change c0274): ``abs_max``, beyond which the part may be damaged, or
+``operating``, the range in which the part works as specified."""
+ThresholdKey = Literal[
+    "input_high_min", "input_low_max", "output_current_max", "output_high_min", "output_low_max"
+]
+"""The logic thresholds of a device pin (change c0274)."""
 
 
 @dataclass(frozen=True, slots=True)
 class Rating:
-    """One rating of a device or of a device pin: ``key`` (``voltage``, ``current``, ``power`` or
-    ``temperature``), its integer ``unit``, and the bounds, each an ``int`` in that unit or ``None``."""
+    """One limit of a device, of a device pin or of a pair of pins: ``key`` (``voltage``, ``current``,
+    ``power`` or ``temperature``), its integer ``unit``, the bounds, each an ``int`` in that unit or
+    ``None``, and its ``limit`` kind (change c0274)."""
 
     key: str
     unit: RatingUnit
     min: int | None = None
     max: int | None = None
+    limit: LimitKind = "abs_max"
+
+
+@dataclass(frozen=True, slots=True)
+class Threshold:
+    """One logic threshold of a device pin (change c0274): ``key``, its integer ``unit`` (``uV`` for a
+    voltage measured from the device's ``ground``, ``uA`` for ``output_current_max``) and the value."""
+
+    key: ThresholdKey
+    unit: RatingUnit
+    value: int
 
 
 @dataclass(frozen=True, slots=True)
 class DevicePin:
     """One function of a device: its name, the symbol pins it joins and their pads as ordered
-    ``(pin, pad)`` pairs in the form of ``Component.pin_pad_map``, its pin ratings (``voltage`` measured
-    from the device's ``ground``) and whether it must be connected."""
+    ``(pin, pad)`` pairs in the form of ``Component.pin_pad_map``, its limits (``voltage`` measured from the
+    device's ``ground``; sorted by key then kind), its logic thresholds (sorted by key) and whether it must
+    be connected."""
 
     function: str
     pin_pads: tuple[tuple[str, str], ...] = field(default=(), metadata=ORDERED)
-    voltage: Rating | None = None
-    current: Rating | None = None
+    ratings: tuple[Rating, ...] = field(default=(), metadata=ORDERED)
+    thresholds: tuple[Threshold, ...] = field(default=(), metadata=ORDERED)
     must_connect: bool = False
 
     @property
@@ -234,6 +254,23 @@ class DevicePin:
     def pads(self) -> tuple[str, ...]:
         """The pads of the function, in map order."""
         return tuple(pad for _, pad in self.pin_pads)
+
+    def rating(self, key: str, limit: LimitKind = "abs_max") -> Rating | None:
+        """The pin limit of ``key`` and kind ``limit``, or ``None``."""
+        return next((found for found in self.ratings if (found.key, found.limit) == (key, limit)), None)
+
+    def threshold(self, key: str) -> Threshold | None:
+        """The logic threshold ``key``, or ``None``."""
+        return next((found for found in self.thresholds if found.key == key), None)
+
+
+@dataclass(frozen=True, slots=True)
+class PinPairLimit:
+    """A limit between two functions of a device (change c0274): ``between`` names them, the voltage being
+    the first's minus the second's; ``ratings`` are ``voltage`` limits, sorted by kind."""
+
+    between: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    ratings: tuple[Rating, ...] = field(default=(), metadata=ORDERED)
 
 
 @dataclass(frozen=True, slots=True)
@@ -251,9 +288,9 @@ class DeviceProvenance:
 class DeviceDef:
     """A device (change c0248): one reviewed record that joins a symbol, a footprint, the map from pin
     function to pins and pads, an identity, ratings and an evidence label. ``pins`` are in code-point order
-    of their functions and ``ratings`` in order of their keys. A device is library data: it is never part
-    of a ``Design``, and a built component names it only through the properties ``fenolite.device`` and
-    ``fenolite.device.sha256``."""
+    of their functions and ``ratings`` in order of their keys then kinds. A device is library data: it is
+    never part of a ``Design``, and a built component names it only through the properties
+    ``fenolite.device`` and ``fenolite.device.sha256``."""
 
     id: str
     summary: str = ""
@@ -273,6 +310,11 @@ class DeviceDef:
     properties: dict[str, str] = field(default_factory=lambda: {})
     pins: tuple[DevicePin, ...] = field(default=(), metadata=ORDERED)
     ratings: tuple[Rating, ...] = field(default=(), metadata=ORDERED)
+    limits: tuple[PinPairLimit, ...] = field(default=(), metadata=ORDERED)
+    """The limits between two functions, sorted by ``between`` (change c0274)."""
+    cls: str = ""
+    """The part class of the roles' vocabulary (TOML key ``class``), evidence for ``roles.classify``, or
+    ``""`` (change c0274)."""
     provenance: DeviceProvenance | None = None
 
     @property
@@ -290,9 +332,9 @@ class DeviceDef:
                 return found
         raise KeyError(function)
 
-    def rating(self, key: str) -> Rating | None:
-        """The device rating of ``key``, or ``None``."""
-        return next((found for found in self.ratings if found.key == key), None)
+    def rating(self, key: str, limit: LimitKind = "abs_max") -> Rating | None:
+        """The device rating of ``key`` and kind ``limit``, or ``None``."""
+        return next((found for found in self.ratings if (found.key, found.limit) == (key, limit)), None)
 
 
 @dataclass(frozen=True, slots=True)
@@ -314,8 +356,10 @@ __all__ = [
     "FootprintDef",
     "FootprintKind",
     "Library",
+    "LimitKind",
     "ModelPlacement",
     "PinAlternate",
+    "PinPairLimit",
     "PinShape",
     "PowerKind",
     "Rating",
@@ -324,4 +368,6 @@ __all__ = [
     "SymbolGraphic",
     "SymbolPin",
     "SymbolUnit",
+    "Threshold",
+    "ThresholdKey",
 ]

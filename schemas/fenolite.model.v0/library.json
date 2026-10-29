@@ -190,6 +190,15 @@
             "$ref": "#/$defs/Rating"
           }
         },
+        "limits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PinPairLimit"
+          }
+        },
+        "cls": {
+          "type": "string"
+        },
         "provenance": {
           "anyOf": [
             {
@@ -228,25 +237,17 @@
             "items": false
           }
         },
-        "voltage": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Rating"
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "ratings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Rating"
+          }
         },
-        "current": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Rating"
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "thresholds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Threshold"
+          }
         },
         "must_connect": {
           "type": "boolean"
@@ -887,6 +888,25 @@
         "shape"
       ]
     },
+    "PinPairLimit": {
+      "description": "A limit between two functions of a device (change c0274): ``between`` names them, the voltage being",
+      "type": "object",
+      "properties": {
+        "between": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ratings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Rating"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "Point": {
       "description": "A position in nanometres.",
       "type": "object",
@@ -934,7 +954,7 @@
       ]
     },
     "Rating": {
-      "description": "One rating of a device or of a device pin: ``key`` (``voltage``, ``current``, ``power`` or",
+      "description": "One limit of a device, of a device pin or of a pair of pins: ``key`` (``voltage``, ``current``,",
       "type": "object",
       "properties": {
         "key": {
@@ -945,7 +965,7 @@
             "uV",
             "uA",
             "uW",
-            "mdegC"
+            "mK"
           ]
         },
         "min": {
@@ -966,6 +986,12 @@
             {
               "type": "null"
             }
+          ]
+        },
+        "limit": {
+          "enum": [
+            "abs_max",
+            "operating"
           ]
         }
       },
@@ -1215,6 +1241,38 @@
       "required": [
         "unit",
         "body_style"
+      ]
+    },
+    "Threshold": {
+      "description": "One logic threshold of a device pin (change c0274): ``key``, its integer ``unit`` (``uV`` for a",
+      "type": "object",
+      "properties": {
+        "key": {
+          "enum": [
+            "input_high_min",
+            "input_low_max",
+            "output_current_max",
+            "output_high_min",
+            "output_low_max"
+          ]
+        },
+        "unit": {
+          "enum": [
+            "uV",
+            "uA",
+            "uW",
+            "mK"
+          ]
+        },
+        "value": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "unit",
+        "value"
       ]
     }
   }
