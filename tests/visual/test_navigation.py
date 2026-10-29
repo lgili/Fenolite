@@ -126,7 +126,7 @@ return {version:st.version,status:$("live").textContent,loads};
 """.replace("NEW_VERSION", repr(new_version)).replace("OLD_FAILS", str(old_fails).lower())
     assert _act(pages, tmp_path, script) == {
         "version": new_version,
-        "status": "live · updated new update",
+        "status": "Live · updated new update",
         "loads": int(new_version != "a0"),
     }
 
