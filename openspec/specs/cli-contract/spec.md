@@ -2,7 +2,9 @@
 
 ## Purpose
 Define the machine-readable contract every `fenolite` command follows (output modes, envelope, typed errors, exit codes, mutation protocol, determinism flags, capability discovery) so that AI agents and CI pipelines can drive the tool without parsing human text.
+
 ## Requirements
+
 ### Requirement: Output mode selection
 Every `fenolite` command SHALL emit JSON on stdout when stdout is not a TTY and human-readable text when it is. The flags `--json` and `--text` SHALL override the detection. JSON output MUST be exactly one JSON document followed by a newline.
 
@@ -2310,3 +2312,26 @@ The `equivalent` entry of `result.commands` of `fenolite capabilities` SHALL hol
 - **GIVEN** the same bench
 - **WHEN** `uv run pytest tests/unit/cli/test_place_regions.py -k without_room` runs `--group a=R* --region a=0mm,0mm,5mm,5mm --dry-run`
 - **THEN** it exits 0 with no plan, four `place.no-room` warnings and `fill_permille` 0
+
+### Requirement: Roles command
+`fenolite roles PATH` SHALL infer, show, confirm and check net roles (schema `fenolite.roles.v0`, `src/fenolite/cli/cmd_roles.py`). It MUST be read-only without an accept, set or reject option, and a writing command of "Mutation protocol" with one. `--check` MUST add `measures` and `summary` and run no tool. A bad option MUST be `FEN-2001`. `docs/cli-contract.md` MUST document it under the heading `roles`.
+
+#### Scenario: Read-only by default
+- **GIVEN** `subprocess.run` patched to raise and a snapshot of the folder of a reference board
+- **WHEN** `uv run pytest tests/unit/cli/test_roles_cmd.py -k readonly` runs `fenolite roles <board> --check --json`
+- **THEN** it exits 0 and the folder is unchanged
+
+#### Scenario: Write needs confirmation
+- **WHEN** `fenolite roles <board> --accept SW --json` runs without `--dry-run` or `--confirm`
+- **THEN** the exit code is 4, stderr holds `FEN-4001`, and nothing is written
+
+#### Scenario: Usage error
+- **WHEN** `fenolite roles <board> --set SW=motor` runs
+- **THEN** the exit code is 2 and stderr holds `FEN-2001`
+
+### Requirement: Roles measuring options
+`fenolite roles --check` SHALL accept the measuring options of `fenolite analyze` that its analyses use (`--requirements`, `--temp-rise`, `--copper-thickness`, `--via-plating`, `--board-thickness`, `--pour-grid`, `--split`, `--arc-tol`), parsed by the same code with the same errors. Without `--check`, each of them MUST be `FEN-2001`.
+
+#### Scenario: Options shared with analyze
+- **WHEN** `uv run pytest tests/unit/cli/test_roles_cmd.py -k options` runs `fenolite roles <board> --check --temp-rise 1.2345` and `fenolite roles <board> --split`
+- **THEN** both exit 2 with `FEN-2001`, the first with the message that `analyze` gives for the same value
