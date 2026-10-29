@@ -32,6 +32,7 @@ fenolite view blink/build/blink.kicad_pcb --export blink/views/board.html --dry-
 fenolite view blink/build/blink.kicad_pcb --check checks.json --report conversion.json --report fabrication.json --json
 fenolite view blink/build/blink.kicad_pcb --serve --run-timeout 900 --no-browser --port 0
 fenolite view blink/build/blink.kicad_pcb --serve --no-run --no-browser
+fenolite view blink/build/blink.kicad_pcb --serve --allow-actions --no-browser
 ```
 
 `view` replies with the project's documents and a summary of one board, or of the one `--doc` names;
@@ -39,6 +40,9 @@ fenolite view blink/build/blink.kicad_pcb --serve --no-run --no-browser
 (for a person, not an agent) serves it live. A served page can run `check`, `analyze`, `ready` and
 `equivalent` itself, read-only, one at a time, stopped after `--run-timeout SECONDS` (600); `--no-run`
 serves recorded results only, and `result.serve.runs` counts the runs by final state.
+`--allow-actions` lets the person write through the page: fill, tidy, silk, test points, DRC waivers,
+moves, exports and BOM, each a reviewed plan confirmed with `--confirm --plan`; `result.serve.writes`
+lists the receipts, and `fenolite restore` undoes one.
 
 `result.review` and the page's Review panel distinguish not-run, passed, failed and limited stages.
 `--report FILE` loads a recorded convert/export reply, once per command; use `--check` for checks.

@@ -30,3 +30,5 @@
 - [ ] 7.1 Run the tests and the residue scan. Proof: `make check-fast`, then the CI jobs of the branch, `viewer` and the KiCad jobs included.
 - [x] 7.2 Confirm that run results keep each stage's evidence label unchanged and that no label of the matrix changes. Proof: `uv run pytest tests/unit/view/test_server.py -k evidence -q -n 2`; `uv run python tools/gen_evidence_matrix.py --check`.
 - [ ] 7.3 Add an entry to `CHANGELOG.md` under `## [Unreleased]` for each closed task. Proof: `uv run pytest tests/unit -k "release_record or changelog" -q -n 2`.
+
+Open on the branch (2026-10-29): 7.1 waits for `make check-fast` on the maintainer's machine and the CI jobs (only focused tests ran here: ruff, ruff format, pyright of the changed packages, the residue scan, `tests/unit/view`, `tests/unit/cli/test_view_cmd.py`, the new tests, `tests/unit/agent`, `tests/consistency`, `tests/unit/mcp`, `tests/visual`). 7.3: the entry is written under `## [Unreleased]`, but `tests/unit/test_release_record_v06.py::test_changelog_section` requires `[Unreleased]` empty while `fenolite.__version__` is still `0.6.0`; it passes once the version moves on.

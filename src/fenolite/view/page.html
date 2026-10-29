@@ -172,6 +172,33 @@
   @keyframes runspin { to { transform:rotate(360deg); } }
 /* c0245 end */
 </style>
+<style>
+/* c0246 begin: writing actions, plan dialog, receipt */
+  #actionPanel { border-top:1px solid var(--line); margin-top:10px; }
+  #actionPanel[hidden] { display:none; }
+  #actionPanel h4 { font-size:12px; margin:10px 0 4px; }
+  .actBox { border:1px solid var(--line) !important; border-radius:6px; margin:6px 0; padding:0 8px 8px; background:var(--panel2); }
+  .actBox summary { font-weight:600; }
+  .actField { display:flex; flex-direction:column; gap:3px; font-size:12px; margin:4px 0; }
+  .actField input, .actField select { min-width:0; width:100%; }
+  .actReceipt { display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:12px; padding:3px 0; border-bottom:1px solid #ffffff10; }
+  .actWaive { border-top:1px solid var(--line); margin-top:8px; padding-top:6px; }
+  #planDialog { position:fixed; inset:56px 16px auto auto; margin:0; width:min(520px,calc(100vw - 32px)); max-height:calc(100vh - 110px); overflow:auto; padding:0;
+    background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:8px; box-shadow:0 10px 36px #000a; }
+  #planDialog::backdrop { background:#0003; }
+  #planDialog header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 14px; border-bottom:1px solid var(--line); background:var(--panel2); }
+  #planDialog h2 { margin:0; font-size:15px; }
+  #planBody { padding:10px 14px; font-size:12px; line-height:1.5; }
+  #planBody p { margin:6px 0; overflow-wrap:anywhere; }
+  #planFoot { display:flex; justify-content:flex-end; gap:8px; padding:10px 14px; border-top:1px solid var(--line); }
+  #planFoot button.primary { background:#1f4e7a; border-color:var(--accent); font-weight:600; }
+  table.planFiles { border-collapse:collapse; width:100%; margin:6px 0; font-size:12px; }
+  table.planFiles th { text-align:left; color:var(--muted); font-weight:500; border-bottom:1px solid var(--line); padding:3px 6px; }
+  table.planFiles td { padding:3px 6px; border-bottom:1px solid #ffffff10; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+  .planIssues { margin:6px 0; padding-left:18px; } .planIssues li { margin:2px 0; overflow-wrap:anywhere; }
+  .planIssues li.error, .planError { color:#ff7b72; } .planIssues li.warning { color:#e3b341; }
+/* c0246 end */
+</style>
 </head>
 <body>
 <div id="app">
@@ -238,6 +265,7 @@
       <div class="reviewHead"><h2>Project review</h2><button id="reviewClose" aria-label="Close project review">Close</button></div>
       <p id="reviewScope" class="notes"></p><button id="reviewJump">Review findings</button><div id="reviewCards"></div>
       <!-- c0245 hook --><section id="runPanel" aria-label="Run from this page" hidden></section>
+      <!-- c0246 hook --><section id="actionPanel" aria-label="Actions" hidden></section>
       <h3 id="reviewFindingHeading" tabindex="-1">Review findings</h3>
       <div class="reviewFilters">
         <select id="reviewSeverity" aria-label="Finding severity"><option value="">All severities</option><option value="error">Errors</option><option value="warning">Warnings</option><option value="info">Information</option></select>
@@ -252,6 +280,7 @@
   <div id="tabs"><button id="ls" class="board-only" title="Layer sets">LS</button><div id="tablist" style="display:flex"></div></div>
   <div id="status"><span id="coord">x — y —</span><span id="zoomv"></span><span id="cur"></span><span id="gen"></span><span id="live"></span></div>
 </div>
+<!-- c0246 hook --><dialog id="planDialog" aria-labelledby="planTitle"><header><h2 id="planTitle">Plan</h2></header><div id="planBody"></div><div id="planFoot"></div></dialog>
 <dialog id="catalogSelection" aria-labelledby="catTitle">
   <div class="catHead"><h2 id="catTitle">Choose a component</h2><button id="catClose">Close</button></div>
   <p>Review the actual symbol and footprint together. Generic roles and matching pad counts do not establish device compatibility; evidence remains INFERRED.</p>
@@ -671,6 +700,7 @@ function buildProjectReview() {
     runCardControl(details, card); box.appendChild(details);   // c0245 hook
   }
   buildRunPanel();   // c0245 hook
+  buildActionPanel();   // c0246 hook
   REVIEW.items = ready ? [ ...(S.check?.findings || []).map((item, i) => ({...item, checkIndex:i})), ...(S.run_findings || []).map((item, i) => ({...item, runIndex:i})), ...(data?.operation_findings || []) ] : [];   // c0245 hook (run findings)
   const stage = $("reviewStage"), chosen = stage.value;
   stage.innerHTML = '<option value="">All stages</option>';
@@ -708,6 +738,7 @@ function filterReviewFindings() {
     button.onclick = () => { st.checks = true; setProjectReview(false); selectFinding(x.checkIndex); }; detail.appendChild(button);
   }
   runLocateButton(x, detail);   // c0245 hook
+  actWaiveButton(x, detail);   // c0246 hook
 }
 for (const id of ["reviewSeverity", "reviewStage"]) $(id).onchange = filterReviewFindings;
 $("reviewSearch").oninput = filterReviewFindings;
@@ -2320,6 +2351,212 @@ function runLocateButton(x, detail) {   // Locate for a finding of a ready or eq
   detail.appendChild(button);
 }
 /* c0245 end */
+/* c0246 begin: writing actions, plan review, receipt and undo */
+// ================================================================== writing actions (c0246)
+// Only a page served with --allow-actions offers them (GET /actions). Every action is a dry run first: the
+// plan dialog names the files, the issues and the evidence, and draws the staged board's changes over the
+// current one. Confirm writes exactly that plan (--confirm --plan); the receipt follows, then the document is
+// read again. Undo plans `restore` on a receipt of this session, reviewed and confirmed the same way.
+const ACTS = { enabled:false, token:"", offer:null, doc:null, reason:"", receipts:[], job:null, timer:0, request:null, saved:null, open:null };
+const ACT_FORMS = ["fill", "tidy", "silk", "testpoints", "export", "bom"];
+function actHeaders() { return { "Content-Type": "application/json", "X-Fenolite-Action": "1", "X-Fenolite-Token": ACTS.token }; }
+async function actionsLoad() {
+  if (!LIVE || PREVIEW_MODE || !DOC) return;
+  const doc = DOC.id;
+  try { const r = await fetch(`actions?doc=${encodeURIComponent(doc)}`, { cache: "no-store", headers: { "X-Fenolite-Action": "1" } });
+    const data = await r.json(); if (!DOC || DOC.id !== doc) return;
+    ACTS.enabled = !!data.enabled; ACTS.token = data.token || ""; ACTS.offer = data.actions || {}; ACTS.receipts = data.receipts || [];
+    ACTS.reason = data.reason || ""; ACTS.doc = doc;
+  } catch (e) { ACTS.enabled = false; ACTS.doc = doc; }
+  buildActionPanel();
+}
+function actLen(mm) { return UNIT === "mil" ? `${(mm / MIL_MM).toFixed(2)}mil` : `${mm.toFixed(3)}mm`; }
+function actField(key, o, value) {   // one typed field of an action form, built from the server's option table
+  const id = `act_${key}`, label = esc(o.label || key);
+  if (o.type === "boolean") return `<label class="runOpt"><input type="checkbox" data-opt="${key}" ${(value ?? o.default) ? "checked" : ""}> ${label}</label>`;
+  if (o.type === "choice") return `<label class="actField">${label}<select data-opt="${key}"><option value="">default</option>${o.choices.map(c => `<option ${c === value ? "selected" : ""}>${esc(c)}</option>`).join("")}</select></label>`;
+  if (o.type === "kinds") return `<div class="runGrid">${o.choices.map(c => `<label><input type="checkbox" data-kind="${key}" value="${esc(c)}" ${(o.default || []).includes(c) ? "checked" : ""}> ${esc(c)}</label>`).join("")}</div>`;
+  const hint = o.type === "length" ? (UNIT === "mil" ? "e.g. 100mil" : "e.g. 2.54mm") : o.type === "angle" ? "degrees" : "";
+  return `<label class="actField">${label}<input id="${id}" data-opt="${key}" value="${esc(value ?? (typeof o.default === "string" ? o.default : ""))}" placeholder="${hint}" ${o.required ? "required" : ""}></label>`;
+}
+function actOptions(box) {   // the typed values of a form: empty fields are left to the server's defaults
+  const out = {};
+  for (const el of box.querySelectorAll("[data-opt]")) { const k = el.dataset.opt;
+    if (el.type === "checkbox") out[k] = el.checked; else if (el.value.trim() !== "") out[k] = k === "refs" ? el.value.split(",").map(s => s.trim()).filter(Boolean) : el.value.trim(); }
+  const kinds = {}; for (const el of box.querySelectorAll("[data-kind]:checked")) (kinds[el.dataset.kind] = kinds[el.dataset.kind] || []).push(el.value);
+  return { ...out, ...kinds };
+}
+function actForm(name, values) {   // a details box: the options of one action and its Plan button
+  const a = ACTS.offer[name], d = document.createElement("details"); d.className = "actBox"; d.dataset.action = name;
+  const fields = Object.entries(a.options).map(([k, o]) => actField(k, o, values && values[k])).join("");
+  d.innerHTML = `<summary>${esc(a.title)}</summary>${a.note ? `<p class="notes">${esc(a.note)}</p>` : ""}${fields}<div class="runRow"><button class="actPlan">Review plan…</button></div>`;
+  d.querySelector(".actPlan").onclick = () => actPlan(name, actOptions(d));
+  if (!a.available) { d.querySelector(".actPlan").disabled = true; d.title = a.why || ""; }
+  if (name === "move") actNudge(d);
+  return d;
+}
+function actNudge(box) {   // arrow keys in the move form shift the part by one step of the page unit
+  box.addEventListener("keydown", e => {
+    const map = { ArrowLeft:["x", -1], ArrowRight:["x", 1], ArrowUp:["y", -1], ArrowDown:["y", 1] }, m = map[e.key];
+    if (!m || !(e.target instanceof HTMLInputElement) || !["x", "y"].includes(e.target.dataset.opt)) return;
+    const f = box.querySelector(`[data-opt="${m[0]}"]`), v = /^(-?\d+(?:\.\d+)?)(mm|mil|um)$/.exec(f.value.trim()); if (!v) return;
+    e.preventDefault(); const step = v[2] === "mil" ? 1 : v[2] === "um" ? 100 : 0.1;
+    f.value = `${(+v[1] + m[1] * step * (e.shiftKey ? 10 : 1)).toFixed(v[2] === "mm" ? 3 : 1)}${v[2]}`;
+  });
+}
+function buildActionPanel() {
+  const panel = $("actionPanel"); if (!panel) return;
+  if (LIVE && DOC && ACTS.doc !== DOC.id) { ACTS.doc = DOC.id; actionsLoad(); }
+  panel.innerHTML = ""; panel.hidden = !ACTS.enabled || !DOC || ACTS.doc !== DOC.id; if (panel.hidden) return;
+  const head = document.createElement("h3"); head.textContent = "Actions (writes files)"; panel.appendChild(head);
+  const unavailable = Object.values(ACTS.offer).find(a => !a.available);
+  const note = document.createElement("p"); note.className = "notes";
+  note.textContent = unavailable ? unavailable.why : "Each action shows its plan on the board first; nothing is written until you confirm. Every write keeps a backup and can be undone.";
+  panel.appendChild(note); if (unavailable) return;
+  for (const name of ACT_FORMS) if (ACTS.offer[name]) panel.appendChild(actForm(name));
+  const sel = st.selComp >= 0 && S && S.comps ? S.comps[st.selComp] : null;
+  if (ACTS.offer.move && S && S.comps) panel.appendChild(actForm("move", sel ? { ref: sel.ref, x: actLen(sel.x), y: actLen(sel.y), rot: String(sel.rotation ?? "") } : {}));
+  if (ACTS.offer.shift) panel.appendChild(actForm("shift", { refs: sel ? sel.ref : "", dx: actLen(1), dy: actLen(0) }));
+  if (ACTS.offer.turn) panel.appendChild(actForm("turn", sel ? { refs: sel.ref, about_x: actLen(sel.x), about_y: actLen(sel.y), angle: "90" } : {}));
+  if (ACTS.receipts.length) {
+    const h = document.createElement("h4"); h.textContent = "Writes of this session"; panel.appendChild(h);
+    for (const r of ACTS.receipts) { const row = document.createElement("div"); row.className = "actReceipt";
+      row.innerHTML = `<span>${esc(r.time || "")} · ${esc(r.action)} · ${esc((r.files || []).join(", "))}</span>`;
+      const b = document.createElement("button"); b.textContent = "Undo…"; b.onclick = () => actUndo(r.id); row.appendChild(b); panel.appendChild(row); }
+  }
+  for (const b of panel.querySelectorAll("button")) if (ACTS.job) b.disabled = true;
+}
+function actWaiveButton(x, detail) {   // Waive finding, for a finding of KiCad's DRC listed in the review
+  if (!ACTS.enabled || x.checkIndex == null || x.stage !== "drc.kicad" || !ACTS.offer?.waive?.available) return;
+  const box = document.createElement("div"); box.className = "actWaive";
+  box.innerHTML = '<label class="actField">Reason for the waiver (stored in the project)<input id="actReason" maxlength="300" placeholder="Accepted by design: …"></label><button id="actWaive">Waive finding…</button>';
+  box.querySelector("#actWaive").onclick = () => { const reason = box.querySelector("#actReason").value.trim();
+    if (!reason) { box.querySelector("#actReason").focus(); return; } actPlan("waive", { finding: x.checkIndex, reason }); };
+  detail.appendChild(box);
+}
+async function actPost(path, body) {
+  const r = await fetch(path, { method: "POST", headers: actHeaders(), body: JSON.stringify(body) });
+  let data = {}; try { data = await r.json(); } catch (e) { data = {}; } return { ok: r.ok, status: r.status, data };
+}
+async function actPlan(action, options) {
+  if (!ACTS.enabled || ACTS.job || !DOC) return;
+  ACTS.request = { action, options, doc: DOC.id };
+  actDialog({ phase: "planning", title: ACTS.offer[action]?.title || action });
+  const r = await actPost("action/plan", { action, doc: DOC.id, options });
+  if (!r.ok) return actDialog({ phase: "error", title: ACTS.offer[action]?.title || action, message: r.data.error || `the server answered ${r.status}` });
+  actFollow(r.data.job, "plan");
+}
+async function actUndo(receipt) {
+  if (!ACTS.enabled || ACTS.job) return;
+  ACTS.request = { undo: receipt };
+  actDialog({ phase: "planning", title: "Undo a write" });
+  const r = await actPost("action/undo", { receipt });
+  if (!r.ok) return actDialog({ phase: "error", title: "Undo a write", message: r.data.error || `the server answered ${r.status}` });
+  actFollow(r.data.job, "plan");
+}
+function actFollow(job, phase) {   // poll a job of the dialog until it ends
+  ACTS.job = { job, phase }; buildActionPanel(); clearTimeout(ACTS.timer);
+  const step = async () => {
+    const mine = ACTS.job; if (!mine) return;
+    let r; try { r = await runCall(`run/${encodeURIComponent(mine.job)}`); } catch (e) { r = { ok:false, data:{} }; }
+    if (ACTS.job !== mine) return;
+    if (r.ok && r.data.state === "running") { actProgress(r.data); ACTS.timer = setTimeout(step, 400); return; }
+    ACTS.job = null; buildActionPanel();
+    if (!ACTS.open) return;   // the dialog was closed: a cancelled job says nothing more
+    if (!r.ok) return actDialog({ phase: "error", title: "Action", message: "The server no longer knows this job." });
+    if (mine.phase === "plan") actPlanned(r.data); else actWritten(r.data);
+  };
+  ACTS.timer = setTimeout(step, 300);
+}
+function actProgress(job) { const p = $("planStatus"); if (!p) return; const last = (job.progress || []).slice(-1)[0];
+  p.textContent = `${job.command} running · ${last ? [last.step, last.detail].filter(Boolean).join(" · ") : "starting"} · ${Number(job.elapsed || 0).toFixed(0)} s`; }
+function actPreview(diff) {   // the staged board's changes, drawn as the --compare overlay of the current scene
+  if (!S || S.kind != null) return;
+  if (ACTS.saved === null) ACTS.saved = { diff: S.diff || null, on: st.diff };
+  if (diff) { const holder = { diff: JSON.parse(JSON.stringify(diff)) }; diffToMM(holder); S.diff = holder.diff; S.diff.old = { name: "the plan (staged bytes)" }; st.diff = true; }
+  else S.diff = ACTS.saved.diff;
+  buildDiffList(); draw();
+}
+function actPreviewOff() { if (ACTS.saved && S) { S.diff = ACTS.saved.diff; st.diff = ACTS.saved.on; buildDiffList(); draw(); } ACTS.saved = null; }
+function actPlanned(job) {
+  const title = job.action === "undo" ? "Undo a write" : ACTS.offer[job.action]?.title || job.action;
+  if (job.state !== "done") return actDialog({ phase: "error", title, message: actError(job) });
+  actPreview(job.preview || null);
+  actDialog({ phase: "plan", title, job });
+}
+function actWritten(job) {
+  const title = job.action === "undo" ? "Undo a write" : ACTS.offer[job.action]?.title || job.action;
+  actPreviewOff();
+  if (job.review_again) return actDialog({ phase: "changed", title, message: actError(job), hint: job.hint });
+  if (job.state !== "done") return actDialog({ phase: "error", title, message: actError(job) });
+  actDialog({ phase: "receipt", title, job });
+  if (DOC && DOC.id === job.doc) { invalidateScene(job.doc); openDoc(DOC, true); }
+  actionsLoad();
+}
+function actError(job) { const e = job.error || {}; return `${job.command} ${job.state}${e.code ? ` (${e.code})` : ""}: ${e.message || "no reason given"}${e.hint ? `. ${e.hint}` : ""}`; }
+const actShort = h => h ? `${String(h).slice(0, 12)}…` : "new file";
+function actDialog(view) {
+  const dlg = $("planDialog"); ACTS.open = view;
+  const body = $("planBody"), foot = $("planFoot"); body.innerHTML = ""; foot.innerHTML = "";
+  $("planTitle").textContent = { planning: "Planning", plan: "Review the plan", receipt: "Written", changed: "The file changed", error: "Not planned" }[view.phase] + ` · ${view.title}`;
+  const p = (text, cls) => { const el = document.createElement("p"); if (cls) el.className = cls; el.textContent = text; body.appendChild(el); return el; };
+  const button = (label, fn, primary) => { const b = document.createElement("button"); b.textContent = label; if (primary) b.className = "primary"; b.onclick = fn; foot.appendChild(b); return b; };
+  if (view.phase === "planning") { p("Running the dry run; nothing is written.", "notes").id = "planStatus";
+    button("Cancel", async () => { const j = ACTS.job; actClose(); if (j) await runCall(`run/${encodeURIComponent(j.job)}/cancel`, {}); }); }
+  if (view.phase === "error") { p(view.message, "planError"); button("Close", actClose); }
+  if (view.phase === "changed") { p(view.message, "planError"); p(view.hint || "The file changed since the review.", "notes"); button("Review again", actAgain, true); button("Close", actClose); }
+  if (view.phase === "plan") {
+    const plan = view.job.plan;
+    if (!plan) { p("The command planned no write.", "notes"); actIssues(body, view.job.envelope?.issues || []); button("Close", actClose); }
+    else {
+      const q = ACTS.request || {}, note = ACTS.offer?.[view.job.action]?.note;
+      if (q.undo) p(`Puts back the backups of write ${q.undo}; restore refuses if a written file changed since.`);
+      else if (note) p(note[0].toUpperCase() + note.slice(1) + (q.options?.reason ? `, with the reason “${q.options.reason}”.` : "."));
+      const t = document.createElement("table"); t.className = "planFiles";
+      t.innerHTML = `<thead><tr><th>Writes</th><th>Kind</th><th>Bytes</th><th>New SHA-256</th><th>Replaces</th></tr></thead><tbody>${plan.writes.map(w =>
+        `<tr><td>${esc(w.path)}</td><td>${esc(w.kind || "")}</td><td>${esc(w.bytes)}</td><td title="${esc(w.sha256)}">${esc(actShort(w.sha256))}</td><td title="${esc(w.replaces || "")}">${esc(actShort(w.replaces))}</td></tr>`).join("")}</tbody>`;
+      body.appendChild(t);
+      actIssues(body, plan.issues);
+      p(`Evidence: ${plan.evidence ? plan.evidence.level + (plan.evidence.oracle ? ` (${plan.evidence.oracle})` : "") : "UNKNOWN"}`, "notes");
+      if (view.job.preview) p(`On the board: ${view.job.preview.changes.length} change(s) — added in green, removed in magenta, moved parts as arrows; listed under Changes.`, "notes");
+      else if (view.job.preview_note) p(view.job.preview_note, "notes");
+      if (plan.refused) p(plan.refused, "planError");
+      if (!plan.confirmable && !plan.refused) p("An error finding plans no write: Confirm is disabled.", "planError");
+      const c = button("Confirm and write", () => actConfirm(view.job.job), true); c.id = "planConfirm"; c.disabled = !plan.confirmable;
+      button("Cancel", actClose);
+    }
+  }
+  if (view.phase === "receipt") {
+    const r = view.job.receipt || {};
+    p(`Receipt ${r.id || "?"}: the plan was written; the document is read again.`);
+    const t = document.createElement("table"); t.className = "planFiles";
+    t.innerHTML = `<thead><tr><th>Written</th><th>SHA-256</th></tr></thead><tbody>${(r.written || []).map(w => `<tr><td>${esc(w.path)}</td><td title="${esc(w.sha256)}">${esc(actShort(w.sha256))}</td></tr>`).join("")}</tbody>`;
+    body.appendChild(t);
+    p((r.backup || []).length ? `Backups kept: ${r.backup.join(", ")}` : "No backup was needed (new files only).", "notes");
+    if (r.id && view.job.action !== "undo") button("Undo…", () => actUndo(r.id));
+    button("Close", actClose, true);
+  }
+  if (!dlg.open) dlg.showModal();
+  (foot.querySelector("button.primary:not([disabled])") || foot.querySelector("button")).focus();
+}
+function actIssues(body, issues) {
+  if (!issues.length) { const el = document.createElement("p"); el.className = "notes"; el.textContent = "No issue reported."; body.appendChild(el); return; }
+  const order = { error: 0, warning: 1, info: 2 }, list = document.createElement("ul"); list.className = "planIssues";
+  for (const x of [...issues].sort((a, b) => (order[a.severity] ?? 3) - (order[b.severity] ?? 3))) {
+    const li = document.createElement("li"); li.className = x.severity; li.textContent = `${x.severity}: ${x.code} — ${x.message}`; list.appendChild(li); }
+  body.appendChild(list);
+}
+async function actConfirm(job) {
+  $("planConfirm").disabled = true; actDialog({ phase: "planning", title: ACTS.open?.title || "Action" }); $("planStatus").textContent = "Writing the reviewed plan…";
+  const r = await actPost("action/confirm", { job });
+  if (!r.ok) { actPreviewOff(); return actDialog({ phase: "error", title: "Action", message: r.data.error || `the server answered ${r.status}` }); }
+  actFollow(r.data.job, "confirm");
+}
+function actAgain() { const q = ACTS.request; if (!q) return actClose(); if (q.undo) actUndo(q.undo); else actPlan(q.action, q.options); }
+function actClose() { actPreviewOff(); const dlg = $("planDialog"); if (dlg.open) dlg.close(); ACTS.open = null; }
+$("planDialog").addEventListener("cancel", e => { e.preventDefault(); actClose(); });
+window.FenoliteActions = { plan: actPlan, undo: actUndo, state: ACTS };   // for the toolbar, palette and inspector (c0243, c0244)
+/* c0246 end */
 
 // ================================================================== start: embedded data or the live server
 async function start() {

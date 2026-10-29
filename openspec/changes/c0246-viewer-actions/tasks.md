@@ -16,14 +16,16 @@
 
 ## 4. Page
 
-- [ ] 4.1 Add the Actions group, the forms, the inspector actions (Move or rotate, Move with copper, Waive finding), the review dialog with the board preview, Confirm, the receipt view with reload, Undo and Review again on `FEN-4002`; no action control on exported pages or when actions are not enabled. Proof: `uv run pytest tests/visual/test_actions.py tests/visual/test_run.py -q` in the `viewer` CI job.
+- [x] 4.1 Add the Actions group, the forms, the inspector actions (Move or rotate, Move with copper, Waive finding), the review dialog with the board preview, Confirm, the receipt view with reload, Undo and Review again on `FEN-4002`; no action control on exported pages or when actions are not enabled. Proof: `uv run pytest tests/visual/test_actions.py tests/visual/test_run.py -q` in the `viewer` CI job.
 
 ## 5. Teaching and documentation
 
-- [ ] 5.1 Add a tested line for `--allow-actions` to the closest page of the agent guide and regenerate the command guide; update `docs/viewer.md` (a section "Actions" with the security notes and undo) and `docs/cli-contract.md` ("view"). Proof: `uv run pytest tests/unit/agent -q -n 2`; `uv run python tools/gen_agent_guide.py --check`.
+- [x] 5.1 Add a tested line for `--allow-actions` to the closest page of the agent guide and regenerate the command guide; update `docs/viewer.md` (a section "Actions" with the security notes and undo) and `docs/cli-contract.md` ("view"). Proof: `uv run pytest tests/unit/agent -q -n 2`; `uv run python tools/gen_agent_guide.py --check`.
 
 ## 6. Closing
 
 - [ ] 6.1 Run the tests and the residue scan. Proof: `make check-fast`, then the CI jobs of the branch, `viewer` and the KiCad jobs included.
-- [ ] 6.2 Confirm that each action's reply keeps its command's evidence and that no label of the matrix changes. Proof: `uv run pytest tests/unit/cli/test_view_actions.py -k evidence -q -n 2`; `uv run python tools/gen_evidence_matrix.py --check`.
+- [x] 6.2 Confirm that each action's reply keeps its command's evidence and that no label of the matrix changes. Proof: `uv run pytest tests/unit/cli/test_view_actions.py -k evidence -q -n 2`; `uv run python tools/gen_evidence_matrix.py --check`.
 - [ ] 6.3 Add an entry to `CHANGELOG.md` under `## [Unreleased]` for each closed task. Proof: `uv run pytest tests/unit -k "release_record or changelog" -q -n 2`.
+
+Open on the branch (2026-10-29): 6.1 waits for `make check-fast` on the maintainer's machine and the CI jobs (only focused tests ran here: ruff, ruff format, pyright of the changed packages, the residue scan, `tests/unit/view`, `tests/unit/cli/test_view_cmd.py`, the new tests, `tests/unit/agent`, `tests/consistency`, `tests/unit/mcp`, `tests/visual`). 6.3: the entry is written under `## [Unreleased]`, but `tests/unit/test_release_record_v06.py::test_changelog_section` requires `[Unreleased]` empty while `fenolite.__version__` is still `0.6.0`; it passes once the version moves on.
