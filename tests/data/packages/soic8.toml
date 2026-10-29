@@ -1,0 +1,24 @@
+# Authored for Fenolite (CC0-1.0). Numbers from the onsemi SOIC-8 NB case outline 751-07 (S-0855):
+# A, B, C, H, D, K, J, S and G of its table; [land] from its soldering footprint (7.0 overall, 4.0 inner).
+schema = "fenolite.package.v0"
+family = "gullwing"
+name = "SOIC8_B4.9x3.9_P1.27"
+summary = "8-lead 1.27 mm pitch small outline, 4.9 x 3.9 mm body"
+evidence = "INFERRED"
+sources = ["S-0855"]
+
+pins = 8
+pitch = "1.27mm"
+arrangement = "dual"
+body = { length = "4.80mm..5.00mm", width = "3.80mm..4.00mm", height = "1.35mm..1.75mm", standoff = "0.10mm..0.25mm" }
+span = "5.80mm..6.20mm"
+lead = { length = "0.40mm..1.27mm", width = "0.33mm..0.51mm", thickness = "0.19mm..0.25mm" }
+
+[generate]
+lands = 1
+drawing = 1
+
+[land]
+source = "S-0855 soldering footprint"
+pad = { length = "1.52mm", width = "0.60mm" }
+row_spacing = "5.50mm"

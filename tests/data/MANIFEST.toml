@@ -2481,3 +2481,63 @@ path = "examples/roles/half_bridge/sym-lib-table"
 origin = "authored"
 corpus_id = ""
 notes = "symbol table of a net-role reference board (c0222) naming the authored libraries through ${KIPRJMOD}"
+
+[[file]]
+path = "tests/data/packages/bga12.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/chip0603.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/connector_xh.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/dip8.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/header1x2.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/qfn16.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/sod123.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/soic8.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/sot23_5.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/to220.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"

@@ -1,0 +1,26 @@
+# Authored for Fenolite (CC0-1.0). Numbers from the Texas Instruments RGT0016C package outline and example
+# board layout (drawing 4222419/E) in the TPS62130 data sheet (S-0856).
+schema = "fenolite.package.v0"
+family = "nolead"
+name = "QFN16_B3x3_P0.5_EP1.68x1.68"
+summary = "16-terminal 3 x 3 mm quad flat no-lead, 0.5 mm pitch, exposed pad"
+evidence = "INFERRED"
+sources = ["S-0856"]
+
+pins = 16
+pitch = "0.5mm"
+arrangement = "quad"
+body = { length = "2.90mm..3.10mm", width = "2.90mm..3.10mm", height = "0.80mm..1.00mm", standoff = "0.00mm..0.05mm" }
+terminal = { length = "0.30mm..0.50mm", width = "0.18mm..0.30mm" }
+ep = { length = "1.61mm..1.75mm", width = "1.61mm..1.75mm" }
+
+[generate]
+lands = 1
+drawing = 1
+
+[land]
+source = "S-0856 RGT0016C example board layout"
+pad = { length = "0.60mm", width = "0.24mm" }
+row_spacing_x = "2.80mm"
+row_spacing_y = "2.80mm"
+ep = { length = "1.68mm", width = "1.68mm" }

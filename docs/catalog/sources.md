@@ -210,3 +210,23 @@ Worldsemi WS2812B-V6 resolves the four-terminal 5050 LED slot specifically to an
 See the [exact inventory](target-20-symbols.md) for role assignments and public functional sources. Transistor arrows, isolated enhancement gates, oppositely oriented body diodes, thyristor gates and non-polar TVS follow functional conventions supported by the cited datasheets. Dimensions and paths are independently authored. Background-filled outline arrowheads reproduce the current writer, rather than claiming a foreground-fill primitive. Two winding phase dots use a thick circular stroke. Mechanical coupling is a discontinuous cue, never an electrical connection.
 
 The source transformer has multiple windings; the catalog is deliberately a generic two-winding abstraction. The source relay has duplicate physical COM terminals; the catalog exposes five functions. The crystal exposes electrode functions only, whereas ABM8 has additional case pads. Manufacturer physical numbers must be resolved explicitly in a project symbol or pad map. The build fixtures check role-to-pad mapping and serialization, not an operating circuit or an MPN qualification.
+
+## Generator test records (c0260)
+
+The package records of `tests/data/packages/` are authored for Fenolite (CC0-1.0) to test the footprint
+generators of `fenolite.catalog.footprints`. They are not catalog entries. Each takes its numbers from one
+registered public outline; a record's land is `INFERRED` when the calculator draws it and keeps the record's
+label when its `[land]` gives the manufacturer's pattern.
+
+| Record | Family | Evidence | Sources | Numbers taken |
+|---|---|---|---|---|
+| `soic8.toml` | `gullwing` (dual) | `INFERRED` | S-0855 | onsemi 751-07 dimension table and soldering footprint |
+| `sot23_5.toml` | `gullwing` (sides) | `INFERRED` | S-0858 | TI DBV0005A outline and example board layout |
+| `chip0603.toml` | `chip` | `INFERRED` | S-0315 | YAGEO RC0603 L, W, H and I2; no land given |
+| `sod123.toml` | `molded` | `INFERRED` | S-0442 | Diodes SOD123 dimension table and suggested pad layout |
+| `qfn16.toml` | `nolead` | `INFERRED` | S-0856 | TI RGT0016C outline and example board layout |
+| `bga12.toml` | `grid` | `INFERRED` | S-0857 | TI NMN0012A outline and example land diameter |
+| `dip8.toml` | `dip` | `INFERRED` | S-0859 | onsemi 626-05 dimension table; no land given |
+| `to220.toml` | `to` (THT) | `INFERRED` | S-0377 | Diodes TO220-3 dimension table; pitch is half of e1; no land given |
+| `header1x2.toml` | `header` | `INFERRED` | S-0408 | Würth WR-PHD 61300211121 pin, pitch and insulator; no land given |
+| `connector_xh.toml` | `connector` | `INFERRED` | S-0324 | JST XH top entry header dimensions and board hole |
