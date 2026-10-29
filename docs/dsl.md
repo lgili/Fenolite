@@ -1790,7 +1790,7 @@ A passive may be written by what it must be (change c0254; the full page is `doc
 
 ```python
 design.defaults(resistor={"case": "0603", "tolerance": pct(1)})  # design level
-r = design.part(device=resistor(ohm("10k")))                     # resistor(10kΩ, tolerance<=1%, case=0603)
+r = design.part(device=resistor(ohm("10k")))  # resistor(10kΩ, tolerance<=1%, case=0603)
 c = design.part(device=capacitor(farad("10u"), rating=volt(25), case="0805"))
 ```
 

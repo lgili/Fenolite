@@ -364,13 +364,15 @@ def _record(family: Family, value: Fraction) -> DeviceDef:
                 ratings.append(Rating(rating_key, cast(RatingUnit, MICRO_UNITS[rating_unit][0]), None, micro))
     sources = tuple(sorted({item for ids in family.sources.values() for item in ids}))
     shown = value_text(unit, value)
+    # the part value: the letter code for a resistor (``61k9``), Windows-1252 text that every target writes
+    part_value = value_code(unit, value) if unit == "ohm" else shown
     return DeviceDef(
         id=f"{family.id}@{value_code(unit, value)}",
         summary=f"{family.summary}, {shown}",
         symbol=family.symbol,
         footprint=family.footprint,
         ref_prefix=PREFIXES[family.kind],
-        value=shown,
+        value=part_value,
         kind=family.kind,
         case=family.case,
         tolerance=family.texts["tolerance"],

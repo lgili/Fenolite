@@ -78,7 +78,8 @@ def test_dry_run_of_the_sample(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
         "sheet", "kept", "schematic_format", "sheet_mode", "sheets", "ports", "sheet_entries", "harnesses",
         "schematic", "libraries", "symbols", "footprints", "pcb_document", "copper", "pcb", "copper_check",
         "outjob",
-        "drawing_sheet", "rules", "experimental", "script_output", "lock", "plan", "plan_id",
+        "drawing_sheet", "rules", "experimental", "script_output", "picks", "generators", "lock", "plan",
+        "plan_id",
     ]  # fmt: skip
 
 

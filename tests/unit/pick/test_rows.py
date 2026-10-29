@@ -33,7 +33,7 @@ def test_a_family_expands_to_its_series() -> None:
     )
     assert [row.value for row in found] == sorted(row.value for row in found)
     first = found[0].record
-    assert first.mpn == "" and first.symbol == "Fenolite:Resistor" and first.value == "10Ω"
+    assert first.mpn == "" and first.symbol == "Fenolite:Resistor" and first.value == "10R"
     assert {pin.function: pin.pins for pin in first.pins} == {"P1": ("1",), "P2": ("2",)}
 
 

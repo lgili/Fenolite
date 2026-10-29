@@ -3,9 +3,9 @@
 """The files that a command's examples need in the working directory (change c0066).
 
 Most commands take their example input from the test data and write somewhere new, so their examples run
-in an empty folder. ``fmt``, ``edit`` and ``copper`` rewrite the file they are given, ``pick --propose`` writes beside the
-script it is given, and ``restore`` puts
-back the backups of an earlier write: their examples name files that the suites prepare here first
+in an empty folder. ``fmt``, ``edit`` and ``copper`` rewrite the file they are given, ``pick --propose``
+writes beside the script it is given, and ``restore`` puts back the backups of an earlier write: their
+examples name files that the suites prepare here first
 (capability cli-contract, "Fmt command", "Edit command", "Copper command" and "Restore command").
 """
 
@@ -13,10 +13,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from collections.abc import Callable
 from pathlib import Path
-
-import shutil
 
 from fenolite.cli import cmd_copper, cmd_edit, cmd_pick
 from fenolite.cli._examples import EXAMPLE_PICKS
