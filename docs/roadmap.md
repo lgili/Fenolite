@@ -771,7 +771,7 @@ of `1.0.0` takes a release change of its own when it is cut, as `0.5.0` took c01
 
 | id | slug | scope | state | depends on | days |
 |---|---|---|---|---|---|
-| c0216 | `contract-v1` | the CLI surface written (`docs/cli-surface.json`) and judged against the last release, envelope and error `v1` behind `CONTRACT_VERSION`, deprecation (`cli.deprecated`), the pre-freeze review | proposed | — | 4 |
+| c0216 | `contract-v1` | the CLI surface written (`docs/cli-surface.json`) and judged against the last release, envelope and error `v1` behind `CONTRACT_VERSION`, deprecation (`cli.deprecated`), the pre-freeze review | in progress on 2026-10-29: tasks 0.1 to 1.3 done (`fenolite.cli.surface`, `docs/cli-surface.json`, the judge, the review list); the maintainer's review (task 1.4) is next | — | 4 |
 | c0217 | `result-schemas-v1` | a result schema for every visible command, open when published and closed in the tests; schemas of the public file formats, read in `v0` and `v1` | proposed | c0216 | 8 |
 | c0218 | `model-schema-1-0` | `SCHEMA_VERSION` `"1.0"` (`MAJOR.MINOR`), migrators from the folders of `0.1.0` to `0.5.0`, future versions refused (`FEN-3002`), `fenolite migrate`, the pre-freeze review of the model | proposed | — | 5 |
 | c0219 | `conformance-matrix` | format versions in each matrix cell with their source, `conformance.json` published with each release, the two evidence rules on every reply (`NO_CLAIM`, `cli.evidence-unsound`) | proposed | c0216 | 4 |
