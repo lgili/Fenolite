@@ -54,7 +54,19 @@ from fenolite.dsl.intents import (
     protect,
     via_step,
 )
-from fenolite.dsl.interfaces import I2C, SPI, UART, USB2, DiffPair, Harness, Interface, Power
+from fenolite.dsl.interfaces import (
+    I2C,
+    SPI,
+    UART,
+    USB2,
+    DiffPair,
+    Ground,
+    Harness,
+    Interface,
+    Logic,
+    Power,
+    Rail,
+)
 from fenolite.dsl.items import RuleArea
 from fenolite.dsl.module import Module
 from fenolite.dsl.panel import Panel
@@ -97,9 +109,11 @@ __all__ = [
     "FieldRequest",
     "GeneratedIntent",
     "Footprint",
+    "Ground",
     "Harness",
     "Interface",
     "Length",
+    "Logic",
     "Module",
     "MechanicalIntent",
     "Net",
@@ -112,6 +126,7 @@ __all__ = [
     "PinNameError",
     "Placement",
     "Power",
+    "Rail",
     "StitchIntent",
     "Symbol",
     "Trace",

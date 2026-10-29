@@ -480,7 +480,12 @@ A build for the KiCad target also checks the interfaces of the design (`docs/dsl
 |---|---|---|
 | `build.diff-pair-name` | warning | the two nets of a `diff_pair` or `usb2` interface are not a differential pair for KiCad by name; the hint proposes a name |
 | `build.diff-pair-gap-shadowed` | warning | the two nets of a pair interface are in a net class with a pair gap, and KiCad would report two tracks laid at that gap: a clearance rule above the gap governs between them, or the board minimum clearance is above the gap and no `diff_pair_gap` rule selects the pair; the hint names `design.rules.pair(…, clearance=…, gap_min=…)` |
-| `build.i2c-pullup-missing` | warning | a line of an `i2c` interface has no two-pin part to the `hv` net of a `power` interface |
+| `build.i2c-pullup-missing` | warning | a line of an `i2c` interface has no two-pin part to the `hv` net of a `power` interface or of a `power` port (change c0252) |
+
+A build for either target also runs the circuit rules on the model it builds (change c0252; "Circuit
+stage" under `check`): the nine `circuit.*` codes join the envelope with their severities, and an error
+(`circuit.rail-voltage`, `circuit.rail-current`, `circuit.rail-sources`, `circuit.logic-level`) stops the
+write, so the build exits 5 and writes nothing.
 
 A build for the KiCad target also checks the blocks of the design (`docs/dsl.md`, "Blocks"; change c0251):
 
@@ -1182,12 +1187,13 @@ out. Without `--stages`, every stage runs except `roundtrip.rt2` (`DEFAULT_STAGE
 re-saves and three DRC runs and is selected by name. `erc.kicad`, `drc.kicad`, `netlist.assignment_compare` and
 `roundtrip.rt2` and `zone.fill` need `kicad-cli` (`ORACLE_STAGES`): selecting any of them runs the tool pre-flight.
 `copper.clearance` needs no tool: `--stages copper.clearance` runs on a machine without KiCad.
-`length.rules`, `placement.rules` and `roles.rules` need none either, and are default stages.
-`parity` needs none either for a project that `build` wrote.
+`circuit.rules`, `length.rules`, `placement.rules` and `roles.rules` need none either, and are default
+stages. `parity` needs none either for a project that `build` wrote.
 
 | stage | runs on | evidence |
 |---|---|---|
 | `model.validate` | the board model (native) or the `.fenolite/` model (built) | the reader's level (native), `INFERRED` (built) |
+| `circuit.rules` | Fenolite's own judge of the interface parameters of the `.fenolite/` model (change c0252, "Circuit stage" below): rails, logic levels, bus pull-ups, companions and split device ports; no tool runs and no board is read. Skipped with `no-model` without a model (a native board) and with `no-parameters` when the model holds nothing to judge | `INFERRED`, lowered to the lowest evidence label of the device records whose ports it judged |
 | `erc.kicad` | `kicad-cli sch erc` on the copy set, built and native input alike; every violation becomes a located issue. Skipped with `no-schematic` when the project has no `<stem>.kicad_sch` | ERC report reader and oracle combined, `kicad-cli <version>`; `UNVERIFIED` without a report |
 | `copper.clearance` | Fenolite's own exact check of shorts and clearance on the board model, native and built alike, with the rules of `<stem>.kicad_pro` and `<stem>.kicad_dru`; no tool runs | the lowest of the copper check (`INFERRED`), the board reader and the project and rules readers; `UNVERIFIED` when part of the copper or of the rules went unjudged |
 | `length.rules` | Fenolite's own verdict on the `length`, `skew` and `diff_pair_skew` rules of `<stem>.kicad_dru` (`docs/analyses.md`, "Length rules in check"), on the net lengths as the target KiCad major counts them; no tool runs | the lowest of the stage (`INFERRED`, `H-K-NETLEN-RULES`), the board reader, the rules readers and the length facts; `UNVERIFIED` with `length.input-missing` |
@@ -1206,7 +1212,8 @@ error issue), `errors` (ran, at least one) or `skipped`, with `reason` `native-i
 `cache-unreadable`, `no-schematic` (`erc.kicad` on a project without a schematic of the board's stem),
 `unsupported-oracle`, `oracle-unsupported`, `netlist-unavailable` (`parity` on a schematic that Fenolite
 does not read itself, in a run without `kicad-cli`), `no-frame` (`placement.rules` when the reader gives
-no pad positions), `no-roles` (`roles.rules` on a board without a stored or declared role) or `oracle-unstable` (two refill runs differ; never counted in the
+no pad positions), `no-roles` (`roles.rules` on a board without a stored or declared role), `no-model`
+and `no-parameters` (`circuit.rules`) or `oracle-unstable` (two refill runs differ; never counted in the
 envelope). A skipped stage carries `UNVERIFIED`. The envelope evidence is the lowest level of
 the stages that ran and of those skipped for `read-refused` or `cache-unreadable`; `UNVERIFIED` when
 none counts. `result.project` holds `board`, `built`, `files` and `skipped`, names relative to the
@@ -1220,6 +1227,33 @@ emitted `kicad.drc.<type>` code to KiCad's raw type. The `erc.kicad` summary hol
 `types` and `tool_writes`. The `zone.fill` summary holds `tool_version`, `zones`, `current`, `unfilled` and `stale`. An unrouted board therefore exits 5: its unconnected items are errors. The `render` summary holds
 `tool_version` and `views` (`name`, `bytes`, `sha256`; sorted by name); the hash of an SVG leaves out its
 `<title>` line, where `kicad-cli` 9.0 writes the date, so two checks give the same output.
+
+**Circuit stage.** `circuit.rules` (change c0252) stands right after `model.validate`, in the KiCad and
+the document pipeline alike, and reads only the `.fenolite/` model of a built project; `fenolite build` runs
+the same judge on the model it builds and adds its issues to the envelope, an error stopping the write. A
+rail is the `hv` net of a `power` interface or port: its voltage is the intersection of the values that the
+design rail and the `out` power ports set, its sources are the `out` power ports and its loads the `in`
+ones; a block's `out` port hides the `out` ports inside it on the same rail (its promise replaces them), and
+a block's `in` port that states `current` hides the `in` ports inside it. Two logic ports with the same
+reference rail always pass; otherwise three worst-case comparisons are made (high, low and withstand), and a
+threshold that is not stated is reported, never assumed. On an I2C line the pull-up rail drives the high
+level. The codes:
+
+| code | severity | when |
+|---|---|---|
+| `circuit.rail-voltage` | error | the set voltages of a rail do not meet, or the rail is not within the range an `in` power port accepts |
+| `circuit.rail-current` | error | the sum of the loads' upper draws exceeds the sum of the sources' lower capacities |
+| `circuit.rail-sources` | error | two or more sources drive a rail that is not `shared`, unless every source port has `share` |
+| `circuit.rail-unset` | warning | ports state limits and no voltage is set, or loads state a draw and no source states a capacity |
+| `circuit.logic-level` | error | across reference rails: output high below input high, output low above input low, or the driver's rail above the reader's `abs_max` |
+| `circuit.logic-unknown` | warning | across reference rails, a value one of those comparisons needs is not stated |
+| `circuit.bus-pullup` | warning | an I2C pull-up goes to a rail other than the bus reference, lies outside the accepted `pullup` range, or gives more current than a bus port's `output_current_max` |
+| `circuit.requires-missing` | warning | a declared companion (`pullup`, `supply`, `chip_select`) is absent |
+| `circuit.port-split` | warning | the pins of one member of a device port are on two nets; that member is not judged |
+
+The summary holds `rails`, `judged` (the rails with a voltage to judge against) and `halves`
+(`{"rails": "ran", "contracts": "no-contracts"}`; change c0253 judges the contract half). Waivers of
+`circuit.*` findings come with change c0274.
 
 **Length rules.** `length.rules` (KiCad input only; the Altium pipeline neither runs nor names it)
 judges the rules of the kinds `length`, `skew` and `diff_pair_skew` of the project's rules file on the
@@ -1610,6 +1644,7 @@ it, because it writes a whole project into a temporary folder and reads it again
 | stage | what it does | evidence |
 |---|---|---|
 | `model.validate` | the `model.*` findings of the schematic reading and of the PCB reading (`where` starts with `schematic:` or `pcb:`), with the readers' own issues; on built input, those of the stored model | the readings; `INFERRED` on built input |
+| `circuit.rules` | the circuit rules of `check` ("Circuit stage") on the stored model of a built project; skipped with `no-model` on native documents and with `no-parameters` when the model holds nothing to judge | `INFERRED`, lowered by the device records it judged |
 | `erc.lite` | the three ERC lite rules on the schematic reading (pin types and No ERC marks come from the sheets), or on the stored model of built input | `INFERRED` (`H-K-CHECK-ERC`, `H-A-VER-ERC`) |
 | `copper.clearance` | the copper check of `check` on the PCB reading, built and native input alike: shorts, clearance and zone overlaps, with the pads of the Altium board frame and the Clearance rules the document holds (below) | the reading and the check (`H-A-DRC-SAME`); `UNVERIFIED` when part of the copper or of the rules was not judged |
 | `placement.rules` | the placement rules and measures of `check` on the PCB reading: on built input the `near` rules of the stored model judged on the pad positions of the Altium board frame; on every PCB document the wire length and the congestion. No stage judges a part in a keep-out on Altium input | the reading when no rule was judged; the lowest of it and `INFERRED` when one was |
@@ -1631,7 +1666,7 @@ gives no document of the kind that was read: the schematic writer refuses the ci
 `single-source` (`netlist.assignment_compare` without two sources; `copper.clearance`,
 `placement.rules`, `roles.rules` and `parity` without a PCB document), `no-frame` (`placement.rules` when
 the backend gives no pad positions), `no-roles` (`roles.rules` without a stored or declared role),
-`not-judged` (no document of the set can be judged
+`no-model` and `no-parameters` (`circuit.rules`), `not-judged` (no document of the set can be judged
 by the stage: a project file alone for `roundtrip.rta0`, a library alone for `model.validate`),
 `read-refused` and `cache-unreadable`. Only the last two count in the envelope evidence. No stage
 carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite reads the files.

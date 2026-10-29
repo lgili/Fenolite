@@ -4167,3 +4167,48 @@ see = "catalog"
 meaning = "fenolite catalog import: a footprint pad is named by no symbol pin and is left out of the device."
 fix = "Nothing for a mechanical pad (list it in unused_pads when you review the file); else map it with --pin."
 see = "catalog"
+
+["circuit.rail-voltage"]
+meaning = "A rail's voltage is not what a port on it needs: the voltages set on the rail (by the design rail and by out power ports) do not meet, or the rail's range is not within the operating range an in power port accepts. The message names the rail, the port and both ranges."
+fix = "Change the rail's voltage or its source, choose a part that accepts the rail, or power the port from another rail."
+see = "check"
+
+["circuit.rail-current"]
+meaning = "The loads of a rail can draw more than its sources give, worst case: the sum of the upper bounds of the draws of its in power ports exceeds the sum of the lower bounds of the capacities of its out power ports. A block's out port replaces the out ports inside it."
+fix = "Lower the loads, choose a source of more current, or split the loads over two rails."
+see = "check"
+
+["circuit.rail-sources"]
+meaning = "Two or more out power ports drive one rail, and neither the rail is declared shared nor every source port has share."
+fix = "Drive the rail from one source, or declare the rail shared (design.rail(..., shared=True)) when the sources are made to share it."
+see = "check"
+
+["circuit.rail-unset"]
+meaning = "Something on a rail could not be judged: ports state limits and no voltage is set, or loads state a draw and no source states a capacity, or a draw has no upper bound."
+fix = "Give the rail a voltage (design.rail(..., voltage=...)) or its source port one, and state the source's current."
+see = "check"
+
+["circuit.logic-level"]
+meaning = "A logic driver and a reader on one net refer to different rails, and one of three worst-case comparisons fails: the driver's output_high_min is below the reader's input_high_min, its output_low_max is above the reader's input_low_max, or its rail's upper bound is above the reader's abs_max."
+fix = "Add a level shifter, move both ports to one reference rail, or choose parts whose levels meet."
+see = "check"
+
+["circuit.logic-unknown"]
+meaning = "A logic driver and a reader on one net refer to different rails, and a threshold that a comparison needs is not stated; the comparison is never passed by assuming that the driver's level is its rail."
+fix = "State the missing threshold on the port or in the device record, from the part's datasheet."
+see = "check"
+
+["circuit.bus-pullup"]
+meaning = "A pull-up of an I2C line goes to a rail other than the bus's reference rail, its resistance range is not within the accepted pullup range of the bus and its ports, or its worst-case current exceeds a bus port's output_current_max."
+fix = "Pull the bus up to its reference rail with a resistance in the accepted range."
+see = "check"
+
+["circuit.requires-missing"]
+meaning = "A port declares a companion it needs (requires: pullup, supply or chip_select) and the board does not give it: a line without a pull-up, a reference rail without a voltage and a source, or a chip select that goes nowhere."
+fix = "Connect the companion, or remove the entry when the board does not need it."
+see = "check"
+
+["circuit.port-split"]
+meaning = "The pins of one member of a device port are on two nets (such as VDD and VDDA on separate rails), so the member is left out of the model port and its parameters are not judged."
+fix = "Join the pins of the member, or accept the split."
+see = "check"

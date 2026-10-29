@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from fenolite.dsl.block import BlockDef, BlockInstance
     from fenolite.dsl.generate import Recorded as Generated
     from fenolite.dsl.intents import MeanderIntent, Recorded
+    from fenolite.dsl.interfaces import Ground, Rail
     from fenolite.dsl.rolecopper import RoleCopperIntent
 
 DESIGN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
@@ -684,6 +685,39 @@ class Design(Container):
         from fenolite.dsl.block import instantiate
 
         return instantiate(self, block, name, params)
+
+    def rail(self, name: str, *, voltage: object = None, ground: object = None, shared: bool = False) -> Rail:
+        """Create the net ``name`` and the ``Rail`` on it, add both and return the rail (change c0252).
+        ``ground`` (a ``Ground`` or a ``Net``) gives the member ``lv``; ``voltage`` is the declared range."""
+        from fenolite.dsl.interfaces import Ground, Rail
+
+        net = self._fresh_net(name, "rail()")
+        lv: Net | None
+        if ground is None or isinstance(ground, Net):
+            lv = ground
+        elif isinstance(ground, Ground):
+            lv = ground.members["gnd"]
+        else:
+            raise DslError(f"rail({name!r}): ground is a Ground or a Net, not {ground!r}")
+        made = Rail(net, lv, voltage=voltage, shared=shared)  # type: ignore[arg-type]
+        self.add(net, made)
+        return made
+
+    def ground(self, name: str) -> Ground:
+        """Create the net ``name`` and the ``Ground`` on it, add both and return the ground (change c0252)."""
+        from fenolite.dsl.interfaces import Ground
+
+        net = self._fresh_net(name, "ground()")
+        made = Ground(net)
+        self.add(net, made)
+        return made
+
+    def _fresh_net(self, name: object, call: str) -> Net:
+        if not isinstance(name, str):
+            raise DslError(f"{call}: a net name is a str, not {name!r}")
+        if name in self.nets:
+            raise DslError(f"{call}: the design already has a net named {name!r}")
+        return Net(name)
 
     def schematic_layout(self, *, mode: str = "blocks", flow: str = "left-to-right") -> None:
         """Enable presentation-only functional block composition (Altium)."""
@@ -2055,6 +2089,8 @@ class Design(Container):
         for net in interface.members.values():
             self.register_net(net)
         self.interfaces[interface.name] = interface
+        if isinstance(interface.reference, Interface):
+            self.register_interface(interface.reference)  # the rail a level refers to (change c0252)
 
     def register_tree(self, obj: Part | Module) -> None:
         if isinstance(obj, Part):

@@ -70,8 +70,9 @@ temperature = { abs_max = { min = "-55degC", max = "150degC" }, operating = { mi
 | `pins` | yes | function → pins and pads (below) |
 | `ratings` | no | device ratings (below) |
 | `limits` | no | `[[limits]]` tables: a voltage limit between two functions (below) |
+| `interfaces` | no | `[[interfaces]]` tables: the interface ports of the device (below; change c0252) |
 | `provenance` | no | the stamp of `fenolite catalog import` (below) |
-| `interfaces`, `options` | reserved | refused with `FEN-3002` until later formats define them |
+| `options` | reserved | refused with `FEN-3002` until a later format defines it |
 
 Any other key, a missing key or a wrong type gives `FEN-3004`, naming the file and the key.
 
@@ -124,6 +125,44 @@ in the shape above). An unknown function, a pair stated twice (in either order) 
 A pin may state `input_high_min`, `input_low_max`, `output_high_min`, `output_low_max` (voltages from
 `ground`) and `output_current_max` (a current), each one quantity text from the datasheet. They are stored
 as `Threshold(key, unit, value)` on the pin; no threshold is shipped or assumed.
+
+### Interface ports
+
+`[[interfaces]]` (change c0252) declares the interface ports of the device, which a script reaches as
+`part.port("vdd")` or `part.vdd` (`docs/dsl.md`, "Device ports") and which `fenolite check` judges in the
+stage `circuit.rules`. Each table holds:
+
+| key | required | meaning |
+|---|---|---|
+| `name` | yes | a Python identifier; not a function of the device, not an attribute of `Part` |
+| `kind` | yes | `power`, `ground`, `logic`, `i2c`, `spi`, `uart`, `usb2` or `diff_pair` |
+| `direction` | no | `in`, `out` or `inout` (default) |
+| `members` | yes | member → the device functions it joins (`hv = ["VDD", "VDDA"]`), each function in one member |
+| `reference` | no | another `power` interface of the device that the levels refer to (logic and buses) |
+| `requires` | no | the companions the port needs: `pullup` (`i2c`, `logic`), `supply`, `chip_select` (`spi`) |
+| `evidence` | no | the evidence label of these values; default the device's `evidence` |
+
+and the parameters its kind and direction take (`docs/dsl.md`, "Interface parameters"): `voltage` and
+`current` on a `power` port (`current` only on `in` and `out`), `abs_max` and the thresholds on `logic`
+and bus ports, `pullup` on an `i2c` port. A parameter is a quantity text (the exact value: a threshold) or
+a `{ min, max }` table; a missing `min` reads as 0 for a current or a resistance and as unbounded for a
+voltage. A power `voltage` is an *operating* range, never an absolute rating; the absolute ratings stay on
+the pins and in `[ratings]`.
+
+```toml
+[[interfaces]]
+name = "vdd"
+kind = "power"
+direction = "in"
+members = { hv = ["VDD", "VDDA"], lv = ["VSS"] }
+voltage = { min = "1.71V", max = "3.6V" }
+current = { max = "12mA" }
+```
+
+An unknown kind or member, a function the device lacks or one in two members, a `reference` that names no
+other `power` interface, a parameter the kind and direction do not take (`current` on an `inout` port
+included), a `requires` entry the kind does not take, or a name equal to a function or to an attribute of
+`Part` gives `FEN-3004`, naming the file, the interface and the rule.
 
 ## Where devices come from
 

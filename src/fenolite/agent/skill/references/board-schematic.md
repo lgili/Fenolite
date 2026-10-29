@@ -60,6 +60,41 @@ fenolite equivalent before/board.kicad_pcb after/board.kicad_pcb --json
   Swap pins on an instance only between pins that the datasheet calls equivalent, and record the swap.
   An update of the symbol from its library undoes the swap.
 
+## Rails, levels and interfaces in the script
+
+State each supply's voltage once, and the operating range, draw and thresholds of each port from the
+datasheet; `fenolite build` and the stage `circuit.rules` of `check` then judge every rail and level.
+
+```fenolite-design
+from fenolite.dsl import Design, Ground, Logic, Net, Part, Rail, connect, mm, volt
+
+design = Design("rails")
+design.board(mm(30), mm(20))
+gnd = design.ground("GND")  # the net GND and its Ground
+v5 = design.rail("5V", voltage=volt(5).pct(5), ground=gnd)
+v33 = Rail(Net("3V3"), voltage=volt("3.3").pct(3))
+irq = Logic(Net("IRQ"), reference=v33)  # its levels refer to 3V3
+agnd = Ground(Net("AGND"))
+design.add(v33, irq, agnd)
+j1 = Part("J1", "Fenolite:Connector_4", footprint="Fenolite:Header_1x4_P2.54", value="IN")
+j2 = Part("J2", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="SENSE")
+design.add(j1, j2)
+connect(v5, j1[1])  # a rail, a ground or a logic line stands for its net
+connect(gnd, j1[2], j2[2])
+connect(v33, j1[3])
+connect(irq, j1[4])
+connect(agnd, j2[1])
+```
+
+- A port that states `current` says whether it draws it (`direction="in"`) or sources it (`"out"`):
+  `b.port("VOUT", Rail, direction="out", voltage=vout, current=amp(1))`. A connector port states none.
+- `requires=("pullup", "supply")` names what a port needs; device records declare their ports
+  (`part.vdd`).
+- When every argument of `connect` is an interface or a port, members join by name:
+  `connect(v33, mcu.vdd, sen.vdd)`, `connect(I2C(sda, scl), mcu.i2c1, sen.i2c)`; two UART ports cross.
+- A level is never assumed from a rail: state `output_high_min` and the input thresholds, or read
+  `circuit.logic-unknown`.
+
 ## Ratings and protection
 
 - **Rate each bus part for DC.** Every part on a DC bus or an inverter output needs a DC rating and a

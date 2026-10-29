@@ -34,8 +34,22 @@ from typing import cast
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.quantities import MICRO_UNITS, QuantityError, celsius_text, decimal_digits, micro_units
 from fenolite.model import canonical
+from fenolite.model.circuit import (
+    INTERFACE_PARAMS,
+    KIND_MEMBERS,
+    OPTIONAL_MEMBERS,
+    PARAM_WHERE,
+    PORT_DIRECTIONS,
+    REQUIRES,
+    Decimal10,
+    PortDirection,
+    RangeUnit,
+    ValueRange,
+    exact_decimal10,
+)
 from fenolite.model.library import (
     DeviceDef,
+    DeviceInterface,
     DevicePin,
     DeviceProvenance,
     FootprintDef,
@@ -72,11 +86,12 @@ KEYS: tuple[str, ...] = (
     "pins",
     "ratings",
     "limits",
+    "interfaces",
     "provenance",
 )
 """Every key of a record, in the order of the canonical text."""
 REQUIRED: tuple[str, ...] = ("schema", "id", "summary", "symbol", "footprint", "evidence", "pins")
-RESERVED: Mapping[str, str] = {"interfaces": "c0252", "options": "c0257"}
+RESERVED: Mapping[str, str] = {"options": "c0257"}
 """Keys kept for a later format, with the change that defines each."""
 ID = re.compile(r"[A-Za-z0-9_.+-]+:[A-Za-z0-9_.+-]+")
 FUNCTION = re.compile(r"[A-Za-z_][A-Za-z0-9_+.~-]*")
@@ -335,6 +350,191 @@ def _pair_limits(read: _Reader, value: object, functions: set[str]) -> tuple[Pin
     return tuple(found[pair] for pair in sorted(found))
 
 
+PART_ATTRIBUTES: frozenset[str] = frozenset(
+    {
+        "a", "assigned", "at", "b", "connections", "design", "device", "device_origin", "device_overrides",
+        "explicit_ref",
+        "field", "field_requests", "footprint", "height", "key", "label", "lib_id", "name", "no_connects",
+        "pad", "pad_map", "pad_zone_requests", "parent", "path", "place", "port", "ports", "prefix",
+        "properties", "ref", "request", "two_terminal", "unused_no_connect", "unused_request", "value",
+        "value_range", "zone_connection",
+    }
+)  # fmt: skip
+"""The attributes of a DSL ``Part`` that an interface name cannot shadow (``fenolite.dsl.part.Part``; the
+catalog does not import the DSL, so ``tests/unit/catalog/test_device_ports.py`` compares the two)."""
+INTERFACE_KEYS: tuple[str, ...] = (
+    "name",
+    "kind",
+    "direction",
+    "members",
+    "reference",
+    "requires",
+    "evidence",
+)
+"""The keys of an ``[[interfaces]]`` table besides its parameters (change c0252)."""
+_SPI_SELECT = re.compile(r"cs\d+")
+
+
+def _param(read: _Reader, unit: str, value: object, where: str) -> ValueRange:
+    """One interface parameter: a quantity text is the exact value, a ``{ min, max }`` table a range; a
+    missing ``min`` reads as 0 for a current or a resistance and as unbounded for a voltage."""
+    from fenolite.core.quantities import parse as parse_quantity
+
+    def exact(text: object, key: str) -> Fraction:
+        try:
+            found = parse_quantity(unit, read.text(text, key))
+        except QuantityError as error:
+            raise read.fail(key, f"{error} (read in {unit})") from None
+        if found < 0 and unit not in ("volt", "ampere"):
+            raise read.fail(key, f"a value in {unit} is not negative")
+        return found
+
+    def decimal(found: Fraction | None, key: str) -> Decimal10 | None:
+        try:
+            return None if found is None else exact_decimal10(found)
+        except ValueError as error:
+            raise read.fail(key, str(error)) from None
+
+    if isinstance(value, str):
+        found = exact(value, where)
+        bound = decimal(found, where)
+        return ValueRange(cast(RangeUnit, unit), bound, bound, bound)
+    table = read.table(value, where)
+    unknown = sorted(set(table) - {"min", "max"})
+    if unknown:
+        raise read.fail(f"{where}.{unknown[0]}", "unknown key; a range takes min and max")
+    if not table:
+        raise read.fail(where, "needs min, max or both")
+    low = exact(table["min"], f"{where}.min") if "min" in table else None
+    high = exact(table["max"], f"{where}.max") if "max" in table else None
+    if low is None and unit != "volt":
+        low = Fraction(0)
+    if low is not None and high is not None and low > high:
+        raise read.fail(where, "min is above max")
+    return ValueRange(cast(RangeUnit, unit), decimal(low, where), None, decimal(high, where))
+
+
+def _interface_members(
+    read: _Reader, kind: str, value: object, functions: set[str], where: str
+) -> dict[str, tuple[str, ...]]:
+    table = read.table(value, f"{where}.members")
+    allowed = KIND_MEMBERS[kind]
+    owner: dict[str, str] = {}
+    found: dict[str, tuple[str, ...]] = {}
+    for member in sorted(table):
+        key = f"{where}.members.{member}"
+        if member not in allowed and not (kind == "spi" and _SPI_SELECT.fullmatch(member)):
+            raise read.fail(key, f"a {kind} interface has the members {', '.join(allowed)}, not {member!r}")
+        raw = table[member]
+        names = (read.text(raw, key),) if isinstance(raw, str) else read.texts(raw, key)
+        if not names:
+            raise read.fail(key, "names no function")
+        for name in names:
+            if name not in functions:
+                raise read.fail(key, f"names no function of the device: {name!r}")
+            if name in owner:
+                raise read.fail(key, f"function {name!r} is also in the member {owner[name]!r}")
+            owner[name] = member
+        found[member] = tuple(sorted(names))
+    for member in allowed:
+        if member not in found and member not in OPTIONAL_MEMBERS.get(kind, ()):
+            raise read.fail(f"{where}.members", f"a {kind} interface needs the member {member!r}")
+    return found
+
+
+def _interfaces(
+    read: _Reader, value: object, functions: set[str], evidence: str
+) -> tuple[DeviceInterface, ...]:
+    """The ``[[interfaces]]`` tables of a record (change c0252): the interface ports the device declares."""
+    if not isinstance(value, list):
+        raise read.fail("interfaces", f"must be an array of tables ([[interfaces]]), not {_kind(value)}")
+    tables: list[tuple[str, dict[str, object]]] = []
+    for index, item in enumerate(cast(list[object], value)):
+        where = f"interfaces[{index}]"
+        tables.append((where, read.table(item, where)))
+    names: dict[str, str] = {}
+    for where, table in tables:
+        if "name" not in table:
+            raise read.fail(f"{where}.name", "is missing")
+        name = read.text(table["name"], f"{where}.name")
+        if not name.isidentifier() or name.startswith("_"):
+            raise read.fail(f"{where}.name", f"an interface name is a Python identifier, not {name!r}")
+        if name in functions:
+            raise read.fail(f"{where}.name", f"{name!r} is a function of the device; name the port otherwise")
+        if name in PART_ATTRIBUTES:
+            raise read.fail(f"{where}.name", f"{name!r} is an attribute of Part; name the port otherwise")
+        if name in names:
+            raise read.fail(f"{where}.name", f"the interface {name!r} is declared twice")
+        kind = table.get("kind")
+        names[name] = kind if isinstance(kind, str) else ""
+    found: list[DeviceInterface] = []
+    for where, table in tables:
+        name = cast(str, table["name"])
+        kind = read.text(table.get("kind"), f"{where}.kind")
+        if kind not in KIND_MEMBERS:
+            raise read.fail(
+                f"{where}.kind", f"{kind!r} is not an interface kind; use {', '.join(KIND_MEMBERS)}"
+            )
+        params_of = INTERFACE_PARAMS.get(kind, {})
+        unknown = sorted(set(table) - set(INTERFACE_KEYS) - set(params_of))
+        if unknown:
+            raise read.fail(f"{where}.{unknown[0]}", f"is not a key of a {kind} interface")
+        direction = read.text(table.get("direction", "inout"), f"{where}.direction")
+        if direction not in PORT_DIRECTIONS:
+            raise read.fail(
+                f"{where}.direction", f"is one of {', '.join(PORT_DIRECTIONS)}, not {direction!r}"
+            )
+        if "members" not in table:
+            raise read.fail(f"{where}.members", "is missing")
+        members = _interface_members(read, kind, table["members"], functions, where)
+        params: dict[str, ValueRange] = {}
+        for key in sorted(set(table) & set(params_of)):
+            if direction not in PARAM_WHERE[key]:
+                rule = (
+                    'say direction = "in" (a draw) or "out" (a capacity)'
+                    if key == "current"
+                    else f"it is not set on an {direction} port"
+                )
+                raise read.fail(
+                    f"{where}.{key}", f"{key} is not allowed on an {direction} {kind} interface; {rule}"
+                )
+            params[key] = _param(read, params_of[key], table[key], f"{where}.{key}")
+        reference = ""
+        if "reference" in table:
+            reference = read.text(table["reference"], f"{where}.reference")
+            if kind in ("power", "ground", "diff_pair"):
+                raise read.fail(f"{where}.reference", f"a {kind} interface takes no reference")
+            if names.get(reference) != "power" or reference == name:
+                raise read.fail(
+                    f"{where}.reference", f"names no other power interface of the device: {reference!r}"
+                )
+        requires = read.texts(table.get("requires", _NONE), f"{where}.requires")
+        for entry in requires:
+            kinds = REQUIRES.get(entry)
+            if kinds is None:
+                raise read.fail(f"{where}.requires", f"{entry!r} is not one of {', '.join(REQUIRES)}")
+            if kind not in kinds:
+                raise read.fail(f"{where}.requires", f"{entry!r} is not taken by a {kind} interface")
+            if entry == "supply" and kind == "power" and direction != "in":
+                raise read.fail(f"{where}.requires", "'supply' is taken by an in power interface")
+        label = read.text(table.get("evidence", evidence), f"{where}.evidence")
+        if not EVIDENCE.fullmatch(label):
+            raise read.fail(f"{where}.evidence", f"{label!r} is not a label of the evidence vocabulary")
+        found.append(
+            DeviceInterface(
+                name=name,
+                kind=kind,
+                direction=cast(PortDirection, direction),
+                members=members,
+                params=params,
+                reference=reference,
+                requires=tuple(sorted(requires)),
+                evidence=label,
+            )
+        )
+    return tuple(sorted(found, key=lambda interface: interface.name))
+
+
 def _pins(read: _Reader, value: object) -> tuple[DevicePin, ...]:
     table = read.table(value, "pins")
     if not table:
@@ -509,6 +709,7 @@ def parse_device(text: str, *, file: str = "") -> DeviceDef:
                 raise read.fail(f"ratings.{key}", f"unknown rating; use {', '.join(RATINGS)}")
             ratings += _limit(read, key, table[key], f"ratings.{key}")
     limits = _pair_limits(read, data["limits"], functions) if "limits" in data else ()
+    interfaces = _interfaces(read, data["interfaces"], functions, evidence) if "interfaces" in data else ()
     cls = read.text(data.get("class", ""), "class", empty=True)
     if cls and cls not in PART_CLASSES:
         raise read.fail("class", f"{cls!r} is not a part class; use one of: {', '.join(PART_CLASSES)}")
@@ -532,6 +733,7 @@ def parse_device(text: str, *, file: str = "") -> DeviceDef:
         ratings=tuple(ratings),
         limits=limits,
         cls=cls,
+        interfaces=interfaces,
         provenance=_provenance(read, data["provenance"]) if "provenance" in data else None,
     )
 
@@ -594,6 +796,50 @@ def _limit_lines(ratings: Sequence[Rating]) -> list[str]:
 
 def _identity(pin: DevicePin) -> bool:
     return all(number == pad for number, pad in pin.pin_pads) and len(pin.pins) == len(pin.pin_pads)
+
+
+_PARAM_SYMBOLS = {"volt": "V", "ampere": "A", "ohm": "ohm"}
+
+
+def _param_value(unit: str, value: Decimal10) -> str:
+    exact = value.fraction()
+    whole, part = decimal_digits(abs(exact), "an interface parameter")
+    return f"{'-' if exact < 0 else ''}{whole}{'.' + part if part else ''}{_PARAM_SYMBOLS[unit]}"
+
+
+def _param_text(value: ValueRange) -> str:
+    if value.low is not None and value.low == value.high == value.nominal:
+        return _string(_param_value(value.unit, value.low))
+    bounds = [
+        f"{name} = {_string(_param_value(value.unit, bound))}"
+        for name, bound in (("min", value.low), ("max", value.high))
+        if bound is not None
+    ]
+    return "{ " + ", ".join(bounds) + " }"
+
+
+def _interface_lines(interface: DeviceInterface, evidence: str) -> list[str]:
+    """The ``[[interfaces]]`` table of ``interface`` (change c0252), its evidence left out when it is the
+    device's."""
+    members = ", ".join(
+        f"{_key(name)} = {_strings(funcs)}" for name, funcs in sorted(interface.members.items())
+    )
+    lines = [
+        "",
+        "[[interfaces]]",
+        f"name = {_string(interface.name)}",
+        f"kind = {_string(interface.kind)}",
+        f"direction = {_string(interface.direction)}",
+        "members = { " + members + " }",
+    ]
+    lines += [f"{key} = {_param_text(interface.params[key])}" for key in sorted(interface.params)]
+    if interface.reference:
+        lines.append(f"reference = {_string(interface.reference)}")
+    if interface.requires:
+        lines.append(f"requires = {_strings(interface.requires)}")
+    if interface.evidence and interface.evidence != evidence:
+        lines.append(f"evidence = {_string(interface.evidence)}")
+    return lines
 
 
 def device_text(device: DeviceDef) -> str:
@@ -662,6 +908,8 @@ def device_text(device: DeviceDef) -> str:
     for limit in device.limits:
         lines += ["", "[[limits]]", f"between = {_strings(limit.between)}"]
         lines += _limit_lines(limit.ratings)
+    for interface in device.interfaces:
+        lines += _interface_lines(interface, device.evidence)
     if device.provenance is not None:
         stamp = device.provenance
         lines += ["", "[provenance]"]

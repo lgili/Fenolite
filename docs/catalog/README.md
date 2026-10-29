@@ -16,6 +16,11 @@ pass `get_footprint(lib_id)` definitions in `authored_footprints` and symbol def
 overrides the catalog for that build only. Other component packs can be added without requiring a
 CAD installation or network access.
 
+Device records (`fenolite.device.v0`, `docs/devices.md`) join a symbol, a footprint and a pin map; since
+change c0252 a record may also declare its interface ports in `[[interfaces]]` tables (power, ground, logic
+and bus ports with their operating values and thresholds), which `fenolite check` judges in the stage
+`circuit.rules`. See `docs/devices.md`, "Interface ports".
+
 ## Browse the installed catalog
 
 This browser command is in the development version after 0.5.0; it is not in the published 0.5.0

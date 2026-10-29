@@ -24,11 +24,13 @@ from fenolite.core.units import Nm
 from fenolite.dsl.block import Block, blocks
 from fenolite.dsl.design import MINIMUM_KINDS, Design, ImpedanceSpec
 from fenolite.dsl.errors import DslError
+from fenolite.dsl.interfaces import Interface as DslInterface
 from fenolite.dsl.items import DimensionSpec, GraphicSpec, TextSpec
 from fenolite.dsl.lock import assign_refs, make_lock
 from fenolite.dsl.module import Module as DslModule
 from fenolite.dsl.panel import Panel
 from fenolite.dsl.part import FieldRequest, PadZoneRequest, Part, Placement, check_name, pad_pairs
+from fenolite.dsl.portnets import PortHandle
 from fenolite.dsl.portnets import resolve as resolve_port_nets
 from fenolite.dsl.quantity import UNITS, Range
 from fenolite.dsl.roles import to_roles
@@ -398,9 +400,23 @@ def _apply_refs(design: Design, refs: Mapping[str, str] | None) -> None:
         part.assigned = check_name(ref, f"ref of {path}")
 
 
+def _reference_id(reference: object) -> str | None:
+    """The model id of a reference rail (change c0252): a ``power`` interface or a port handle."""
+    if isinstance(reference, DslInterface):
+        return key_id("interface", reference.kind, reference.name)
+    if isinstance(reference, PortHandle):
+        return key_id("port", reference.owner_path, reference.name)
+    return None
+
+
+def _params(params: Mapping[str, Range]) -> dict[str, ValueRange]:
+    return {name: range_to_model(value) for name, value in sorted(params.items())}
+
+
 def _ports(design: Design) -> tuple[Port, ...]:
     """One model port per port of a block instance, keyed by the block path and the port name; a member
-    whose group became no net (nothing on it) is left out (change c0251)."""
+    whose group became no net (nothing on it) is left out (change c0251). Then one per declared interface
+    port of each device part (change c0252), owned by the component."""
     found: list[Port] = []
     for block in blocks(design):
         for name, port in sorted(block.ports.items()):
@@ -417,9 +433,53 @@ def _ports(design: Design) -> tuple[Port, ...]:
                         if net.name in design.nets
                     },
                     optional=port.optional,
+                    params=_params(port.params),
+                    reference=_reference_id(port.reference),
+                    share=port.share,
+                    requires=port.requires,
                 )
             )
+    for part in sorted(design.parts.values(), key=lambda p: p.path):
+        found += _device_ports(design, part)
     return tuple(found)
+
+
+def _device_ports(design: Design, part: Part) -> list[Port]:
+    """The model ports of the interfaces of ``part``'s device: each member holds the one net of the pins of
+    its functions; a member whose pins are on two nets goes to ``split`` (change c0252)."""
+    device = part.device
+    if device is None or not device.interfaces:
+        return []
+    found: list[Port] = []
+    for spec in device.interfaces:
+        members: dict[str, str] = {}
+        split: dict[str, tuple[str, ...]] = {}
+        for member, functions in sorted(spec.members.items()):
+            names: set[str] = set()
+            for function in functions:
+                designators = (function, *device.pin(function).pins)
+                names |= {part.connections[d].name for d in designators if d in part.connections}
+            names &= set(design.nets)
+            if len(names) == 1:
+                members[member] = key_id("net", next(iter(names)))
+            elif len(names) > 1:
+                split[member] = tuple(sorted(key_id("net", name) for name in names))
+        found.append(
+            Port(
+                id=key_id("port", part.path, spec.name),
+                name=spec.name,
+                owner=key_id("component", part.path),
+                kind=spec.kind,
+                direction=spec.direction,
+                members=members,
+                params=dict(spec.params),
+                reference=key_id("port", part.path, spec.reference) if spec.reference else None,
+                requires=spec.requires,
+                split=split,
+                evidence=spec.evidence,
+            )
+        )
+    return found
 
 
 def _design_model(design: Design) -> ModelDesign:
@@ -462,6 +522,9 @@ def _design_model(design: Design) -> ModelDesign:
             name=name,
             kind=itf.kind,
             members={role: key_id("net", net.name) for role, net in itf.members.items()},
+            params=_params(itf.params),
+            reference=_reference_id(itf.reference),
+            shared=itf.shared,
         )
         for name, itf in sorted(design.interfaces.items())
     )

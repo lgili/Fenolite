@@ -26,6 +26,7 @@ from fenolite.model.library import DeviceDef
 
 if TYPE_CHECKING:
     from fenolite.dsl.part import Part, PinHandle
+    from fenolite.dsl.portnets import PortHandle
 
 Origin = Literal["builtin", "authored"]
 PIN_LIST_LIMIT = 24
@@ -209,6 +210,40 @@ def end_handle(part: Part, index: int) -> PinHandle | None:
     return PinHandle(part, device.ends[index])
 
 
+def device_port(part: Part, name: str) -> PortHandle:
+    """The ``PortHandle`` of the device interface ``name`` of ``part`` (change c0252), made once: each member
+    is a port net owned by the part's path, bound to the pins of the member's functions. A pin already on a
+    net joins that net; a member whose pins are already on two nets is left unbound
+    (``circuit.port-split``)."""
+    from fenolite.dsl.portnets import PortHandle, join, same_net
+
+    found = part.ports.get(name)
+    if found is not None:
+        return found
+    device = part.device
+    spec = None if device is None else next((i for i in device.interfaces if i.name == name), None)
+    if device is None or spec is None:
+        known = ", ".join(i.name for i in device.interfaces) if device is not None else ""
+        owner = f"part {part.label}" + (f" (device {device.id})" if device is not None else "")
+        raise DslError(f"{owner} has no port {name!r}; its ports: {known or 'none'}")
+    handle = PortHandle(part, name, spec.kind, spec.direction, False, tuple(sorted(spec.members)))
+    handle.requires = spec.requires
+    handle.evidence = spec.evidence
+    for member, names in sorted(spec.members.items()):
+        port_net = handle.members[member]
+        designators = [d for function in names for d in (function, *device.pin(function).pins)]
+        current = [part.connections[d] for d in designators if d in part.connections]
+        if any(not same_net(net, current[0]) for net in current[1:]):
+            continue  # split by the script: left to circuit.port-split
+        for net in current[:1]:
+            join(net, port_net)
+        for function in names:
+            if not any(d in part.connections for d in (function, *device.pin(function).pins)):
+                part.connections[function] = port_net
+    part.ports[name] = handle
+    return handle
+
+
 def must_connect_pins(device: DeviceDef | None) -> tuple[str, ...]:
     """The symbol pins of the functions of ``device`` marked ``must_connect``, in code-point order: what
     ``must_connect_pins(component, device)`` of change c0247 reads."""
@@ -228,6 +263,7 @@ __all__ = [
     "closest",
     "design_records",
     "designator",
+    "device_port",
     "end_handle",
     "function_pad",
     "functions",

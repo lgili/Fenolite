@@ -427,10 +427,114 @@ spi.attach(u4, role="peripheral", sck="SCK", mosi="SDI", miso="SDO", cs="CS", cs
   - `build.diff-pair-gap-shadowed`: the nets of a pair are in a class with a `diff_pair_gap`, and KiCad
     would report two tracks laid at that gap ("Differential pairs" below).
   - `build.i2c-pullup-missing`: an I2C line has no part of exactly two pins between it and the `hv` net of
-    a `Power` interface. A pull-up on another board, or in a resistor array, is not seen: ignore the
-    warning then.
+    a `Power` (`Rail`) interface or of a `power` port of a block or a device (change c0252). A pull-up on
+    another board, or in a resistor array, is not seen: ignore the warning then. Whether it is the right
+    rail is `circuit.bus-pullup` ("Interface parameters" below).
 - **Altium build.** The four kinds are kept in the model and named in the `altium.not-lowered` info for
   interfaces; their nets are written as plain nets.
+
+## Rails, grounds and logic
+
+Change c0252 gives supplies, grounds and logic lines their own interfaces:
+
+```python
+from fenolite.dsl import Ground, Logic, Rail, amp, between, ohm, volt
+
+gnd = design.ground("GND")  # the net GND and the Ground on it
+v12 = design.rail("V12", voltage=volt("12").pct(10), ground=gnd)  # the net, the Rail V12/GND
+v33 = design.rail("3V3", ground=gnd)  # its voltage comes from the source port that drives it
+irq = Logic(Net("IRQ"), reference=v33)  # a logic line and the rail its levels refer to
+bus = I2C(sda, scl, reference=v33, pullup=between(ohm("2k"), ohm("10k")))
+```
+
+- `Rail(hv, lv=None, *, name=None, voltage=None, shared=False)` is the kind `power` with the members `hv`
+  and, when given, `lv`; the default name is `<hv>/<lv>` or `<hv>`. `Power` is another name of `Rail`, and a
+  rail without parameters gives the model of `Power(hv, lv)` byte for byte. `shared=True` lets several
+  sources drive the rail.
+- `Ground(gnd, *, name=None)` is the kind `ground` (member `gnd`), `Logic(io, *, name=None, reference=None)`
+  the kind `logic` (member `io`); the default name of each is its net's name. A `reference` is a `Rail` or a
+  power port handle; anything else raises `DslError`. The buses `I2C`, `SPI`, `UART` and `USB2` take
+  `reference=` too, and `I2C` takes `pullup=`, the resistance range it accepts.
+- `design.rail(name, *, voltage=None, ground=None, shared=False)` and `design.ground(name)` create and add
+  the net and the interface in one call; `ground` is a `Ground` or a `Net`. A name already used by a net
+  raises `DslError`.
+- **Net-like interfaces.** A `Rail`, a `Ground`, a `Logic`, and a port of kind `power`, `ground` or
+  `logic`, stand for their main member (`hv`, `gnd`, `io`): `connect(v12, j1[1])`, `decouple(v33, gnd, c1)`.
+
+## Interface parameters
+
+Each kind has a closed parameter table, `fenolite.dsl.interfaces.PARAMETERS`. Every value is a c0246
+range or quantity of the parameter's unit, never a float, and comes from the script or a device record:
+
+| kind | parameter | semantics | unit | `out` port | `in` port | `inout` port | design interface |
+|---|---|---|---|---|---|---|---|
+| `power` | `voltage` | alias | volt | sets (the operating promise) | bounds (the range it accepts) | bounds | sets |
+| `power` | `current` | sum | ampere | adds capacity | adds draw | refused | refused |
+| `logic`, buses | `abs_max` | bound | volt | the range the pin withstands | as `out` | as `out` | refused |
+| `logic`, buses | `input_high_min`, `input_low_max` | bound | volt | refused | thresholds | thresholds | refused |
+| `logic`, buses | `output_high_min`, `output_low_max` | bound | volt | output levels | refused | output levels | refused |
+| `logic`, buses | `output_current_max` | bound | ampere | what the output sinks or sources | refused | as `out` | refused |
+| `logic`, buses | `reference` | link | a rail | the reference rail | the reference rail | the reference rail | the reference rail |
+| `i2c` | `pullup` | bound | ohm | refused | the accepted range | the accepted range | the accepted range |
+
+- **alias**: one value per rail; the design interface and `out` ports set it, and the rail's voltage is
+  their intersection. `in` ports bound it: the rail must lie within each.
+- **sum**: `out` ports add capacity, `in` ports add draw, and the worst case is checked: the sum of the
+  draws' upper bounds against the sum of the capacities' lower bounds. Loads are never added to sources.
+- **Direction.** `current` needs `direction="in"` (a load) or `direction="out"` (a source); on an `inout`
+  port, c0251's default (a connector, a jumper, a test point), it raises `DslError`.
+- A power `voltage` is an *operating* range, judged exactly; the absolute ratings of a part stay on its
+  device pins. A parameter the table does not allow for the kind and direction, or one set twice, raises
+  `DslError`.
+- **Ports.** `b.port("VOUT", Rail, direction="out", voltage=vout, current=amp(1))`, or `port.set(...)` later
+  in the block; `share=True` lets an out power port share its rail; `reference=` names its rail.
+
+## Companions
+
+A port may state what must be connected for it to work: `b.port("I2C", I2C, requires=("pullup",
+"supply"), reference=vdd)`, or `requires = [...]` in a device's `[[interfaces]]` table. The vocabulary is
+closed: `pullup` (`i2c`, `logic`: each line has a pull-up), `supply` (logic and buses with a reference, and
+`in` power ports: the rail has a voltage and a source) and `chip_select` (`spi`: each `cs` net goes
+somewhere). An entry outside it, or one the kind does not take, raises `DslError`; an unmet entry is the
+warning `circuit.requires-missing`.
+
+## Connecting interfaces
+
+`connect` keeps its net form and gains an interface form: when every argument is an interface or a port,
+each member joins the member of the same name of every other argument, through the port nets of blocks.
+
+```python
+connect(v33, mcu.vdd, sen.vdd)  # hv to hv, lv to lv where both sides have it
+connect(I2C(Net("SDA"), Net("SCL")), mcu.i2c1, sen.i2c)  # SDA to SDA, SCL to SCL
+connect(u1.uart, u2.uart)  # two UART ports cross: tx joins rx
+```
+
+- **Compatibility.** Equal kinds join (a harness with equal entries, an SPI with the same chip selects); a
+  net joins the main member of a `power`, `ground` or `logic` interface or port. Any other pair raises
+  `DslError` naming both kinds and names (`cannot connect ground `GND` to power port `buck1/VIN``), and
+  nothing is connected.
+- An optional member (`power.lv`, `usb2.vbus`, `usb2.gnd`) joins only where both sides have it; a missing
+  required member raises `DslError`. A `UART` bus interface joined to a port raises: its side is not known,
+  so use `attach(side=...)`.
+- Net names follow the port-net rule of "Blocks": the group's script-named net, else the path of its
+  preferred port member (`U2/i2c1.sda`). Name a bus interface first for readable names.
+- `pull_up(target, rail, *resistors)` also takes an `i2c` port (two resistors, `sda` then `scl`) and a
+  `Logic` line or `logic` port (one), and a net-like rail.
+
+## Device ports
+
+A device record declares its interface ports in `[[interfaces]]` tables (`docs/devices.md`, "Interface
+ports"). `part.port("vdd")` and `part.vdd` give a port handle whose members are the part's pins, through port
+nets owned by the part's path; an unknown name raises `DslError` naming the device's ports. Every declared
+port becomes a model `Port` owned by the component, with the net of each member, whether the script reached
+it or connected the pins by function. A member whose pins end on two nets (`VDD` and `VDDA` on two rails)
+is left out of the port and gives `circuit.port-split`.
+
+The parameters are judged by the stage `circuit.rules` of `fenolite check` and by `fenolite build`, from the
+model alone (`docs/cli-contract.md`, "Circuit stage"): `circuit.rail-voltage`, `circuit.rail-current`,
+`circuit.rail-sources`, `circuit.rail-unset`, `circuit.logic-level`, `circuit.logic-unknown`,
+`circuit.bus-pullup`, `circuit.requires-missing` and `circuit.port-split`. An error stops the build's
+write. `examples/sensor_rails/` shows a good and a bad variant.
 
 ## Ids: the key table
 

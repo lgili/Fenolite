@@ -66,6 +66,11 @@ def test_closed_set() -> None:
         "lock.changed": "error",
         # c0248: devices
         "build.device-mismatch": "error", "device.edited": "info", "device.overrides-builtin": "info",
+        # c0252: the circuit rules, which cmd_build runs on the model it builds
+        "circuit.rail-voltage": "error", "circuit.rail-current": "error", "circuit.rail-sources": "error",
+        "circuit.rail-unset": "warning", "circuit.logic-level": "error", "circuit.logic-unknown": "warning",
+        "circuit.bus-pullup": "warning", "circuit.requires-missing": "warning",
+        "circuit.port-split": "warning",
         **PRESERVE_ISSUE_CODES,  # c0019
         **EDIT_ISSUE_CODES,  # c0250: the edit merge passes through
     }  # fmt: skip
@@ -84,7 +89,12 @@ def test_closed_set() -> None:
             re.findall(r'"((?:build|layout|zone|device)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
         )
     # the lock's codes are raised by fenolite.dsl.lock (c0249), the edit codes by fenolite.lens.edits (c0250)
-    own = set(table) - set(LOCK_CODES) - set(EDIT_ISSUE_CODES)
+    # the circuit codes are raised by fenolite.checks.circuit (c0252), which cmd_build runs
+    own = {
+        code
+        for code in set(table) - set(LOCK_CODES) - set(EDIT_ISSUE_CODES)
+        if not code.startswith("circuit.")
+    }
     assert literals == own | {code for code in ALTIUM_ISSUE_CODES if code.startswith("build.")}
     tested: set[str] = set()
     cli_tests = TESTS.parent / "cli" / "test_build_schematic_cmd.py"

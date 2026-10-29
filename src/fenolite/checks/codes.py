@@ -27,6 +27,8 @@ codes", change c0113, and "Height limit issue codes", change c0140); ``place`` a
 ``build`` report them at most as warnings.
 The ``length.*`` codes are those of the length rules stage (``checks.length``; "Length stage issue codes",
 change c0106); the governing rule sets the severity of a finding.
+The ``circuit.*`` codes are those of the stage ``circuit.rules`` (``checks.circuit``; change c0252), which the
+build reports too.
 """
 
 from __future__ import annotations
@@ -111,6 +113,15 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "length.out-of-range": ("error", "warning"),
         "length.skew-out-of-range": ("error", "warning"),
         "length.input-missing": ("warning",),
+        "circuit.rail-voltage": ("error",),
+        "circuit.rail-current": ("error",),
+        "circuit.rail-sources": ("error",),
+        "circuit.rail-unset": ("warning",),
+        "circuit.logic-level": ("error",),
+        "circuit.logic-unknown": ("warning",),
+        "circuit.bus-pullup": ("warning",),
+        "circuit.requires-missing": ("warning",),
+        "circuit.port-split": ("warning",),
     }
 )
 

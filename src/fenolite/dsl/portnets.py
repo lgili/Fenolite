@@ -17,10 +17,12 @@ from typing import TYPE_CHECKING, cast
 
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.part import Net
+from fenolite.dsl.quantity import Range
 
 if TYPE_CHECKING:
     from fenolite.dsl.design import Design
     from fenolite.dsl.module import Container
+    from fenolite.dsl.part import Part
 
 DIRECTIONS: tuple[str, ...] = ("in", "out", "inout")
 """The directions of a port."""
@@ -107,13 +109,33 @@ def join(a: Net, b: Net) -> None:
 
 
 class PortHandle:
-    """A port of a block instance: its name, kind, direction and members (``b.port``). A port of one
-    member, or whose kind names a main member, is net-like: ``connect`` takes it as that member."""
+    """A port of a block instance, or of a device part (change c0252): its name, kind, direction and
+    members (``b.port``). A port of one member, or whose kind names a main member, is net-like:
+    ``connect`` takes it as that member. ``params``, ``reference``, ``share`` and ``requires`` are the
+    parameters of change c0252 (``set``)."""
 
-    _FIELDS = ("name", "kind", "direction", "optional", "owner", "members")
+    _FIELDS = (
+        "name",
+        "kind",
+        "direction",
+        "optional",
+        "owner",
+        "members",
+        "params",
+        "reference",
+        "share",
+        "requires",
+        "evidence",
+    )
 
     def __init__(
-        self, owner: Container, name: str, kind: str, direction: str, optional: bool, members: tuple[str, ...]
+        self,
+        owner: Container | Part,
+        name: str,
+        kind: str,
+        direction: str,
+        optional: bool,
+        members: tuple[str, ...],
     ) -> None:
         self.owner = owner
         self.name = name
@@ -121,6 +143,36 @@ class PortHandle:
         self.direction = direction
         self.optional = optional
         self.members: Mapping[str, PortNet] = MappingProxyType({m: PortNet(self, m) for m in members})
+        self.params: dict[str, Range] = {}
+        self.reference: object = None
+        """A ``Rail``, a power ``PortHandle``, or ``None``."""
+        self.share = False
+        self.requires: tuple[str, ...] = ()
+        self.evidence = ""
+        """The evidence label of the device record a device port comes from; empty for a block port."""
+
+    def set(self, *, reference: object = None, share: bool | None = None, **params: object) -> PortHandle:
+        """Set parameters of the port (``PARAMETERS`` of its kind, for its direction), its reference rail
+        and its ``share`` flag; each parameter is set once. Returns the port."""
+        from fenolite.dsl.interfaces import check_params, check_reference
+
+        what = f"port {self.path}"
+        for name, value in params.items():
+            if name in self.params and value is not None:
+                raise DslError(f"{what}: parameter {name} is set twice")
+        found = check_params(self.kind, self.direction, params, what)
+        if reference is not None:
+            if self.reference is not None:
+                raise DslError(f"{what}: reference is set twice")
+            self.reference = check_reference(reference, what)
+        if share is not None:
+            if not isinstance(share, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"{what}: share must be a bool, not {share!r}")
+            if share and (self.kind != "power" or self.direction != "out"):
+                raise DslError(f"{what}: share is stated by an out power port")
+            self.share = share
+        self.params.update(found)
+        return self
 
     @property
     def owner_path(self) -> str:
@@ -152,15 +204,27 @@ class PortHandle:
         return f"PortHandle({self.path!r}, {self.kind!r})"
 
 
-MAIN_MEMBERS: Mapping[str, str] = MappingProxyType({})
-"""Kind → the member a net-like port of several members stands for; c0252 adds its kinds here."""
+MAIN_MEMBERS: Mapping[str, str] = MappingProxyType({"power": "hv", "ground": "gnd", "logic": "io"})
+"""Kind → the member a net-like port or interface of several members stands for (change c0252)."""
 
 
 def as_net(value: object, *, what: str) -> Net | None:
-    """``value`` as a net when it is a ``Net``, a port net or a net-like port; ``None`` for other values.
-    A port of several members without a main member raises ``DslError``."""
+    """``value`` as a net when it is a ``Net``, a port net, a net-like port or a net-like interface (a
+    ``Rail``, a ``Ground`` or a ``Logic``, change c0252); ``None`` for other values. A port or interface of
+    several members without a main member raises ``DslError``."""
+    from fenolite.dsl.interfaces import Interface
+
     if isinstance(value, Net):
         return value
+    if isinstance(value, Interface):
+        main = value.main()
+        if main is None:
+            raise DslError(
+                f"{what}: the {value.kind} interface {value.name} has the members "
+                f"{', '.join(value.members)}; connect it to an interface or a port of its kind, or name one "
+                "of its nets"
+            )
+        return main
     if isinstance(value, PortHandle):
         main = value.main()
         if main is None:
@@ -189,11 +253,12 @@ def resolve(design: Design) -> None:
         if net.group is not None
     }
     seen: set[int] = set()
-    for path in sorted(design.modules):
-        block = design.modules[path]
-        if not isinstance(block, Block):
-            continue
-        for port in block.ports.values():
+    owners: list[tuple[str, Mapping[str, PortHandle]]] = [
+        (path, module.ports) for path, module in design.modules.items() if isinstance(module, Block)
+    ]
+    owners += [(path, part.ports) for path, part in design.parts.items() if part.ports]  # c0252
+    for _, ports in sorted(owners, key=lambda owner: owner[0]):
+        for port in ports.values():
             for member in port.members.values():
                 group = cast(Group, member.group)
                 if id(group) in seen:

@@ -55,10 +55,10 @@ d1.place(mm(15), mm(6), rot=180)
   every pin with that name. A pin joins one net.
 - **`no_connect(*pins)`** marks pins that stay open on purpose, so the electrical check does not
   report them. A pin is either connected or marked, never both.
-- **`Power(hv, lv)`** records a supply: its high net and its low net; `design.add(Power(vin, gnd))` adds
-  it. The design block of the page `altium` uses it. A KiCad build puts a power flag on both nets, so
-  the electrical check takes a supply that comes in through a connector as driven. It builds with
-  parts of the built-in catalog as well: the flag then lies in the catalog's library.
+- **`Power(hv, lv)`** (also named `Rail`) records a supply; `design.add(Power(vin, gnd))` adds it. A KiCad
+  build puts a power flag on both nets, so the electrical check takes a supply through a connector as
+  driven, with parts of the built-in catalog as well. Rails with a voltage, grounds, logic lines and
+  whole interfaces: page `board-schematic`.
 - A wrong call raises an error at its line: a duplicate reference, a second `place()`, a bare
   number where a length is expected. The build reports it as `FEN-3004` with `line:N` (page `recovery`).
 

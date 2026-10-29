@@ -17,7 +17,7 @@ from fenolite.core.coords import Point
 from fenolite.core.units import Nm, Udeg
 from fenolite.model.base import Entity
 from fenolite.model.board import ORDERED, ComponentBody, Graphic, Pad
-from fenolite.model.circuit import PinType
+from fenolite.model.circuit import PinType, PortDirection, ValueRange
 
 FootprintKind = Literal["smd", "through_hole", "unspecified"]
 PinShape = Literal[
@@ -274,6 +274,23 @@ class PinPairLimit:
 
 
 @dataclass(frozen=True, slots=True)
+class DeviceInterface:
+    """An interface port a device declares (``[[interfaces]]``, change c0252): its name, kind and direction,
+    member name → the device functions it joins (in code-point order), its parameters (exact c0246 ranges:
+    operating values and thresholds, never absolute ratings except the logic ``abs_max``), the name of the
+    ``power`` interface its levels refer to, its companions (sorted) and its evidence label."""
+
+    name: str
+    kind: str
+    direction: PortDirection = "inout"
+    members: dict[str, tuple[str, ...]] = field(default_factory=lambda: {})
+    params: dict[str, ValueRange] = field(default_factory=lambda: {})
+    reference: str = ""
+    requires: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    evidence: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class DeviceProvenance:
     """The stamp of a device written by a tool: the tool, its source (lib ids, never a path), the ISO 8601
     date and the SHA-256 of the record as written (``fenolite.catalog.devices.device_digest``)."""
@@ -315,6 +332,8 @@ class DeviceDef:
     cls: str = ""
     """The part class of the roles' vocabulary (TOML key ``class``), evidence for ``roles.classify``, or
     ``""`` (change c0274)."""
+    interfaces: tuple[DeviceInterface, ...] = field(default=(), metadata=ORDERED)
+    """The interface ports of the device, sorted by name (change c0252)."""
     provenance: DeviceProvenance | None = None
 
     @property
@@ -351,6 +370,7 @@ class Library:
 __all__ = [
     "PPM",
     "DeviceDef",
+    "DeviceInterface",
     "DevicePin",
     "DeviceProvenance",
     "FootprintDef",
