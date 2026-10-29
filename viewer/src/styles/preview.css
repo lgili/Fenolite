@@ -1,0 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Copyright (c) 2026 Fenolite contributors */
+body.preview #app { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr); }
+body.preview #top, body.preview #side, body.preview #tabs, body.preview #status, body.preview #info, body.preview #cube, body.preview #dock, body.preview #projectReview, body.preview #catalogSelection { display:none !important; }
+body.preview #wrap { grid-column:1; grid-row:1; }

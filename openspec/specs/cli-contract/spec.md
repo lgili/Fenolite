@@ -2335,3 +2335,42 @@ The `equivalent` entry of `result.commands` of `fenolite capabilities` SHALL hol
 #### Scenario: Options shared with analyze
 - **WHEN** `uv run pytest tests/unit/cli/test_roles_cmd.py -k options` runs `fenolite roles <board> --check --temp-rise 1.2345` and `fenolite roles <board> --split`
 - **THEN** both exit 2 with `FEN-2001`, the first with the message that `analyze` gives for the same value
+
+### Requirement: Route command role mode
+`fenolite route` SHALL take `--roles critical`, `--group NAME` (repeatable) and `--roles-file FILE`. It MUST plan only the open connections of confirmed or declared gate loops and Kelvin pairs, and give the job to a router with feature `roles`, else exit 2 with `FEN-2001`. With `--roles`, `--nets`, `--escape`, `--order` and `--pairs-as-nets` MUST be `FEN-2001`, and `--group` or `--roles-file` without `--roles` MUST be `FEN-2001`. Writes follow the mutation protocol.
+
+#### Scenario: Wrong router
+- **WHEN** `fenolite route <board> --router direct --roles critical --dry-run` runs
+- **THEN** the exit code is 2, stderr carries `FEN-2001`, and the hint names `octilinear`
+
+#### Scenario: No roles
+- **GIVEN** a board with no stored or declared role
+- **WHEN** `fenolite route <board> --router octilinear --roles critical --dry-run` runs
+- **THEN** the exit code is 0, nothing is planned, and the issues hold one `route.role-none`
+
+### Requirement: Role route result
+In role mode `result.roles` SHALL hold one entry per planned group, sorted by tier and name, with `group`, `kind`, `status` (`routed`, `complete`, `kept`, `refused`, `unrouted`, `skipped`), `connections`, `findings_before`, `findings_after`, `copper` and `corridors`, plus `reason` and `proposal` (`kind`, `text`, `command`, `region`) when not routed. The verdict MUST count role connections only.
+
+#### Scenario: The reply of an open buck
+- **GIVEN** the `open` variant of `examples/roles/buck_shunt` with its groups confirmed
+- **WHEN** `uv run pytest tests/unit/roles/test_critical_reference.py -k reply` runs `fenolite route <board> --router octilinear --roles critical --dry-run --json`
+- **THEN** `result.roles` names the Kelvin pair as `routed` and both gate loops as `complete`, holds no hot loop, and no `route.unrouted` is given
+
+### Requirement: Copper command
+`fenolite copper PATH` SHALL plan role copper for a KiCad board or built project (schema `fenolite.copper.v0`, `cli/cmd_copper.py`), a writing command of "Mutation protocol" that writes the board, `.fenolite/role-copper.json` and, when the plan has role rules (`role.sw.*`, `role.hv.*`), the project's `.kicad_dru` together. A `.PcbDoc` and a bad option MUST be `FEN-2001`; `--gate drc` without `kicad-cli` exits 6. `docs/cli-contract.md` MUST document it under `copper`.
+
+#### Scenario: Plan, then write
+- **GIVEN** a KiCad build of the buck reference board without its power, switch-node and ground copper
+- **WHEN** `uv run pytest tests/unit/cli/test_copper_cmd.py -k plan` runs `fenolite copper <board> --dry-run --json`, then `--confirm --plan <plan_id>`
+- **THEN** the first exits 0 with `result.nets` and writes nothing, and the second writes the board and the manifest with both in `receipt`
+
+#### Scenario: Confirmation and refusals
+- **WHEN** `fenolite copper <board>` runs without `--dry-run`, and `fenolite copper board.PcbDoc --dry-run` runs
+- **THEN** the first exits 4 with `FEN-4001`, the second exits 2 with `FEN-2001` and a hint naming `design.role_copper()`
+
+### Requirement: Copper command without change
+When the plan of `fenolite copper` changes nothing on the board, the command SHALL write nothing, give no `plan_id` and report `result.changed` false.
+
+#### Scenario: A run on its own output
+- **WHEN** `uv run pytest tests/unit/roles/test_copper_repeat.py` runs `fenolite copper --dry-run` on the board it has just written
+- **THEN** `result.changed` is false, no `plan_id` is given and the board's bytes are unchanged

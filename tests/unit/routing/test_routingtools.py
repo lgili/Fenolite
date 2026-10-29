@@ -459,4 +459,4 @@ def test_features_are_declared_only_after_the_gate() -> None:
     """The gate of c0110 (CI run 37803522539) held for ``pairs`` on both majors and not for ``escape``
     (``krt-escape-bga-t<M>`` = ``different``, ``H-K-KRT-ESCAPE-2``), so only ``pairs`` is declared."""
     assert router_features(KicadRoutingToolsRouter()) == frozenset({"pairs"})
-    assert GATED_FEATURES == ROUTER_FEATURES - {"short"}
+    assert GATED_FEATURES == ROUTER_FEATURES - {"short", "roles"}

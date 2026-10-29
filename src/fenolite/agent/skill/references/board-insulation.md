@@ -98,6 +98,8 @@ fenolite analyze board/board.kicad_pcb --kinds insulation --requirements board/i
 - **Give the working voltage as a role.** `design.net_role(net, "power", voltage=volt(400))` (an example
   value) makes `fenolite roles PATH --check` measure that net's distances against your rows;
   `roles.limit-missing` says that no row covers it, since Fenolite ships no table.
+- **Role copper keeps your distances, never its own.** `role_copper(requirements=...)` adds a keep-out band
+  and a clearance rule at the distance of your row; without a row it draws nothing near the net.
 - **Look at the worst pairs.** Check by eye that the path the tool found is the real one
   (`fenolite render`, `fenolite region`).
 - **Put the material group into the fabrication order.** Give the laminate's material group, or its

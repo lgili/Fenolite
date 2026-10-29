@@ -2009,8 +2009,8 @@ fix = "Nothing to do; distances to that pad may be reported slightly short."
 see = "check"
 
 ["kicad.generate.altium"]
-meaning = "The script holds generated-copper calls (band, keepout_ring, barrier, body_keepout, fanout_zone, stitch_pieces), which only a KiCad build resolves; the Altium build writes nothing."
-fix = "Build for a KiCad target, or draw the zones and rule areas with zone() and rule_area()."
+meaning = "An Altium build with --copper-from holds generated-copper calls (band, keepout_ring, barrier, body_keepout, fanout_zone, stitch_pieces) or design.role_copper(): the board is the copper source, so the calls would be lost; the Altium build writes nothing."
+fix = "Drop --copper-from to have the script's copper resolved in memory, or build the board for KiCad."
 see = "build"
 
 ["kicad.generate.band-narrow"]
@@ -3017,6 +3017,46 @@ meaning = "Two rules of the role inference gave a net different roles at one con
 fix = "Confirm the net's role with `fenolite roles PATH --set NET=KIND --confirm`, or declare it in the script with `design.net_role(...)`."
 see = "roles"
 
+["roles.copper-blocked"]
+meaning = "The role copper found no free path between two pad clusters of a net on a layer (or no room for a via array): the band would cross the copper of another net, a corridor or a keep-out. Nothing is forced; that connection is missing."
+fix = "Move the parts or the copper between them, or route that connection by hand (phase 2 routes the switch-node connections it leaves)."
+see = "roles"
+
+["roles.copper-extra"]
+meaning = "A net's role copper branches, and uniting its bands into one zone needs the Clipper union of the `geo` extra, which is not installed; only the longest edge (or the single chain) was generated."
+fix = "Install the extra (`pip install fenolite[geo]`) and run again."
+see = "roles"
+
+["roles.copper-kept"]
+meaning = "A role item that you edited since the last run (its fingerprint differs from `.fenolite/role-copper.json`) was kept as it is and treated as an obstacle."
+fix = "Nothing to do; to have the generated item back, pass `--regenerate KEY` or `role_copper(regenerate=(KEY,))`."
+see = "roles"
+
+["roles.copper-narrow"]
+meaning = "A band of role copper cannot keep its clearance from other copper even at its base width in some cells; the fill carves the copper there, so the section there may be below the current's width."
+fix = "Move the spine's neighbours, or check the section with `fenolite fill` then `fenolite check`."
+see = "roles"
+
+["roles.copper-placement"]
+meaning = "The placement bound of a hot loop (the polygon of its pad centres) is already over your `loop_max`: no copper can meet the limit. The copper is still drawn; phase 1 never moves parts."
+fix = "Place the input capacitor across the switches, then run the role copper again."
+see = "roles"
+
+["roles.copper-skipped"]
+meaning = "A role net got no role copper: `unconfirmed` (an inferred role you have not confirmed), `current-missing` (a power or switch-node role without a current; warning), `user-copper` (your own zone holds the net on that layer) or `shared-layer` (the ground planes went to another ground net)."
+fix = "Confirm the role with `fenolite roles PATH --accept`, give it a current, or remove your zone to get role copper there."
+see = "roles"
+
+["roles.copper-worse"]
+meaning = "The role copper would add a role finding of warning or above that the board did not have (judged on the simulated pour, before and after); nothing is written. The topological findings of the routes (Kelvin and gate-return attachments) are not counted."
+fix = "Read the finding it names; move the parts, or pass other layers, widths or `kinds` to the role copper."
+see = "roles"
+
+["roles.corridor-blocked"]
+meaning = "A provisional corridor of a critical route (`role.corridor.<group>.<net>`) would cover another net's pad or a locked item of another net, so it was not written; phase 2 routes around that copper."
+fix = "Nothing to do for phase 1; route the gate loop or the Kelvin pair (phase 2), or move the copper that blocks it."
+see = "roles"
+
 ["roles.current-missing"]
 meaning = "A `power`, `switch_node` or `ground` role has no current: no `milliamps` on the role, no `[[current]]` row and no `--current`. Its copper is not judged for current."
 fix = "Give the current with `--current NET=AMPS`, a `[[current]]` row, or `design.net_role(net, ..., current=amp(...))`."
@@ -3146,6 +3186,36 @@ see = "route"
 meaning = "The copper check judged the copper the octilinear router placed and found a short or clearance finding that the board did not have before; the copper of that connection was removed and the net stays open."
 fix = "Read the finding in the message, give the connection room with fenolite place --move, or route it with another router; fenolite check shows the board's findings."
 see = "route"
+
+["route.role-unrouted"]
+meaning = "In role mode (route --roles critical), a gate loop or Kelvin pair was not routed. The message gives the reason (no-room, too-long, no-layer, near-switching, isolation, drc or pads), and result.roles holds the proposal with its command and a render --region command for the place."
+fix = "Run the proposal's command: free the corridor it names, allow a via with --router-option kelvin-vias=2, raise max-length, or move a part; then run route --roles critical again. Draw the place with the render command first."
+see = "route"
+
+["route.role-refused"]
+meaning = "In role mode, a group was routed, but the role check of c0222 then found a role finding on it that was new or larger than before; the whole copper of the group was removed."
+fix = "Read the finding in the message, free the place it names, and run route --roles critical again; fenolite roles PATH --check shows the role findings."
+see = "route"
+
+["route.role-unconfirmed"]
+meaning = "In role mode, inferred role groups that nobody confirmed were not routed: copper is placed and locked only for confirmed or declared groups. The message names them."
+fix = "Review them with fenolite roles PATH, confirm the right ones with --accept-group NAME, then run route --roles critical again."
+see = "roles"
+
+["route.role-kept"]
+meaning = "In role mode, a group whose connections copper already joins still has role findings; role mode removes no copper on its own, so the group was left as it is."
+fix = "Run route --roles critical again with --rip to replace the group's branches; locked and script copper stay, so change the script when the old copper is script copper."
+see = "route"
+
+["route.role-placement"]
+meaning = "In role mode, the placement bound of a gate loop is above the gate_max you set: no route can bring the loop's area under your limit."
+fix = "Place the driver closer to the switch with fenolite place --move, or raise the limit with fenolite roles."
+see = "roles"
+
+["route.role-none"]
+meaning = "In role mode, the board holds no gate loop or Kelvin pair to route: no role is stored or declared, or the groups named by --group are not among them."
+fix = "Run fenolite roles PATH to see the inferred groups and confirm them with --accept-group or --accept-all; a hot loop is power copper and is not routed here."
+see = "roles"
 
 ["route.pair-uncoupled"]
 meaning = "With --pairs-as-nets, the two nets of a differential pair were given to the router as two single nets: their copper is not coupled at the pair gap."
