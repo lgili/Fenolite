@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from fenolite.backends.base import BoardPad, DesignRules
+from fenolite.backends.kicad.copper import is_copper_uuid
 from fenolite.backends.kicad.frame import board_pads
 from fenolite.backends.kicad.layers import plane_layers as board_plane_layers
 from fenolite.backends.kicad.outline import board_outline
@@ -304,6 +305,63 @@ def pair_clearance(
     return between
 
 
+# --- rip of branches ------------------------------------------------------------------------------------
+
+
+def rip_branches(
+    design: Design, judged: Judged, plan: CriticalPlan, records: Mapping[str, BoardPad]
+) -> tuple[Design, int, dict[str, int]]:
+    """``design`` without the copper of the branches of the plan's gate loops and Kelvin pairs (design
+    decision 9): each Kelvin branch and gate return as c0222's walk finds it from the receiver or the return
+    pad, without entering power copper, and the copper of a gate out net that no pad outside its group
+    lies on. Locked copper and script copper are kept and counted; pours are never touched."""
+    board = design.board
+    if board is None:
+        return design, 0, {"locked": 0, "script": 0}
+    wanted = {group.name for group in plan.groups if group.status in ("planned", "kept")}
+    ids: set[str] = set()
+    for pair, attachments in judged.measured.attachments:
+        if pair.name in wanted:
+            for attachment in attachments:
+                ids.update(attachment.branch)
+    for gate, attachment in judged.measured.returns:
+        if gate.name in wanted:
+            ids.update(attachment.branch)
+    net_ids = {net.name: net.id for net in design.circuit.nets}
+    for gate in judged.resolved.roles.gates:
+        if gate.name not in wanted:
+            continue
+        group = set(gate.pads)
+        for pad in (gate.drive, gate.gate, *gate.resistor):
+            record = records.get(pad)
+            if record is None or not record.net:
+                continue
+            on_net = {name for name, found in records.items() if found.net == record.net}
+            if on_net <= group:
+                net_id = net_ids.get(record.net)
+                ids.update(
+                    item.id for item in (*board.tracks, *board.arcs, *board.vias) if item.net_id == net_id
+                )
+    held = [item for item in (*board.tracks, *board.arcs, *board.vias) if item.id in ids]
+    locked = {item.id for item in held if item.locked}
+    script = {
+        item.id for item in held if item.id not in locked and is_copper_uuid(item.native_ids.get("kicad", ""))
+    }
+    gone = ids - locked - script
+    kept = {"locked": len(locked), "script": len(script)}
+    if not gone:
+        return design, 0, kept
+    trimmed = dataclasses.replace(
+        board,
+        tracks=tuple(item for item in board.tracks if item.id not in gone),
+        arcs=tuple(item for item in board.arcs if item.id not in gone),
+        vias=tuple(item for item in board.vias if item.id not in gone),
+    )
+    count = len(board.tracks) + len(board.arcs) + len(board.vias)
+    count -= len(trimmed.tracks) + len(trimmed.arcs) + len(trimmed.vias)
+    return dataclasses.replace(design, board=trimmed), count, kept
+
+
 # --- corridors ----------------------------------------------------------------------------------------------
 
 
@@ -523,6 +581,21 @@ def run_roles(
         design, roles, pads, layers=routable, clearance=clearance, default_width=defaults[0],
         groups=tuple(args.group), findings=held,
     )  # fmt: skip
+    ripped, rip_kept = 0, {"locked": 0, "script": 0}
+    if args.rip:
+        design, ripped, rip_kept = rip_branches(design, judge.judged(design), plan, records)
+        if ripped:
+            judge = Judge(pads, circuit, confirmed, declared)
+            before = judge.findings(design)
+            roles = judge.judged(design).resolved.roles
+            held = {}
+            for code, group, _severity, _measure in before:
+                if code != "roles.loop-open":
+                    held.setdefault(group, []).append(code)
+            plan = plan_critical(
+                design, roles, pads, layers=routable, clearance=clearance, default_width=defaults[0],
+                groups=tuple(args.group), findings=held,
+            )  # fmt: skip
     board_name = board_path.name
     depends = depends_on(ctx.cwd, board_path, roles_file, None)
     issues: list[Issue] = [*read_issues]
@@ -674,8 +747,8 @@ def run_roles(
             },
             "tracks": len(new_tracks),
             "vias": len(new_vias),
-            "ripped": 0,
-            "rip_kept": {"locked": 0, "script": 0},
+            "ripped": ripped,
+            "rip_kept": rip_kept,
             "log": [],
             "fills_stale": added and zones_stale,
             "budget": {"seconds": None, "spent": 0.0, "exhausted": False},

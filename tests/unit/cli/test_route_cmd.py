@@ -1259,3 +1259,105 @@ def test_roles_file_with_missing_pads(monkeypatch, tmp_path: Path) -> None:
         "--roles-file", "mine.roles.json", "--require-complete", "--dry-run",
     )  # fmt: skip
     assert code == 5 and error["code"] == "FEN-5001"
+
+
+ROLE_BENCH = """\
+from fenolite.dsl import Design, Net, Part, connect, mm
+
+design = Design("rip_bench")
+design.board(mm(40), mm(30))
+r1 = Part("R1", "Fenolite:Resistor", footprint="Roles:Roles_Shunt_2512", value="5m")
+u1 = Part("U1", "Roles:Roles_Sense_Amplifier", footprint="Fenolite:SOT23_5", value="AMP")
+design.add(r1, u1)
+va, vb = Net("VA"), Net("VB")
+connect(va, r1[1], u1["IN+"])
+connect(vb, r1[2], u1["IN-"])
+design.net_role(va, "power")
+design.net_role(vb, "power")
+design.kelvin("kelvin_R1", (r1.pad(1), r1.pad(2)), (u1.pad(3), u1.pad(4)))
+r1.place(mm(8), mm(8), rot=90)
+u1.place(mm(28), mm(20), rot=90)
+{lines}
+"""
+BAD_LINES = """\
+design.track("bad_a", r1.pad(1).at(mm("-0.6")), u1.pad(3), width=mm("0.2"))
+design.track("bad_b", r1.pad(2), u1.pad(4), width=mm("0.2"))
+"""
+
+
+def _role_bench(tmp_path: Path, lines: str) -> Path:
+    sys.path.insert(0, str(ROOT / "tests" / "unit" / "roles"))
+    from _critical import bench
+
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    built = bench(tmp_path, "rip_bench", ROLE_BENCH.format(lines=lines))
+    return built.board
+
+
+def test_role_rip(monkeypatch, tmp_path: Path) -> None:
+    """``--rip`` in role mode (design decision 9): a Kelvin pair joined by copper drawn on the board, with a
+    branch from the outer half of its pad, is ``kept`` with ``route.role-kept`` without ``--rip``; with it,
+    the branches are removed and the pair is routed. Script copper stays and is counted."""
+    board = _role_bench(tmp_path / "drawn", "")
+    design = read_board(board.read_text(encoding="utf-8"), file=board.name)
+    script = _role_bench(tmp_path / "script", BAD_LINES)
+    drawn = read_board(script.read_text(encoding="utf-8"), file=script.name)
+    assert design.board is not None and drawn.board is not None
+    lines = tuple(
+        replace(track, id=derived_id("trk", "test", track.id), native_ids={}) for track in drawn.board.tracks
+    )
+    board.write_text(write_board(replace(design, board=replace(design.board, tracks=lines))).text, "utf-8")
+    route = ("route", str(board), "--router", "octilinear", "--roles", "critical", "--dry-run")
+    code, env, error, _ = run(monkeypatch, tmp_path, *route)
+    assert code == 0, error
+    (entry,) = env["result"]["roles"]
+    assert entry["status"] == "kept" and entry["proposal"]["kind"] == "rip"
+    assert "--rip" in entry["proposal"]["command"]
+    assert [i["code"] for i in env["issues"] if i["code"].startswith("route.role")] == ["route.role-kept"]
+    code, env, error, _ = run(monkeypatch, tmp_path, *route, "--rip")
+    assert code == 0, error
+    (entry,) = env["result"]["roles"]
+    assert entry["status"] == "routed" and env["result"]["ripped"] == 2
+    assert env["result"]["rip_kept"] == {"locked": 0, "script": 0}
+    code, env, error, _ = run(monkeypatch, tmp_path, "route", str(script), *route[2:], "--rip")
+    assert code == 0, error
+    (entry,) = env["result"]["roles"]
+    assert entry["status"] == "kept" and env["result"]["ripped"] == 0
+    assert env["result"]["rip_kept"] == {"locked": 0, "script": 2}
+
+
+def test_role_gate(monkeypatch, tmp_path: Path) -> None:
+    """``--gate drc`` in role mode (design decision 13): the gate gets each group's copper and corridors as
+    one ``together`` set, and a group whose copper it drops is ``unrouted`` with reason ``drc`` (the KiCad
+    part runs in ``tests/kicad/roles/test_critical_drc.py``)."""
+    from fenolite.cli import _gate
+
+    board = _role_bench(tmp_path / "gate", "")
+    seen: list[list[frozenset[str]]] = []
+
+    def fake_gate(board_path, before, after, *, kicad_cli, timeout, together=()):  # type: ignore[no-untyped-def]  # noqa: E501
+        sets = [frozenset(items) for items in together]
+        seen.append(sets)
+        dropped = sets[0]
+        kept = _gate.revert(after, before, dropped)
+        issue = Issue(_gate.DROPPED, "warning", "dropped by the test gate", where=sorted(dropped)[0])
+        listed = [{"id": item, "findings": []} for item in sorted(dropped)]
+        result = {"tool_version": "test", "runs": 1, "refilled": False, "items": len(dropped), "kept": 0,
+                  "dropped": listed, "findings": []}  # fmt: skip
+        return _gate.Gated(kept, dropped, result, (issue,), None)
+
+    monkeypatch.setattr(_gate, "gate", fake_gate)
+    monkeypatch.setattr(_gate, "preflight", lambda *args, **kwargs: None)
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", str(board), "--router", "octilinear", "--roles", "critical",
+        "--gate", "drc", "--dry-run",
+    )  # fmt: skip
+    assert code == 0, error
+    (sets,) = seen
+    (group,) = sets
+    (entry,) = env["result"]["roles"]
+    assert (entry["status"], entry["reason"]) == ("unrouted", "drc")
+    assert {item["id"] for item in env["result"]["gate"]["dropped"]} == set(group)
+    assert len(group) >= 6 + 2  # three tracks per branch, two corridors
+    assert entry["copper"] == [] and env["result"]["tracks"] == 0
+    assert not env["result"].get("plan")
