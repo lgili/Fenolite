@@ -120,11 +120,11 @@ def _source(fixture: Fixture, folder: Path) -> Path:
 
 
 def _cli(*args: str) -> dict[str, Any]:
-    out = io.StringIO()
-    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
         code = cli_main.main(list(args))
     if code != 0:
-        raise RuntimeError(f"fenolite {' '.join(args)} exited {code}")
+        raise RuntimeError(f"fenolite {' '.join(args)} exited {code}: {err.getvalue().strip()[-1500:]}")
     return json.loads(out.getvalue())
 
 

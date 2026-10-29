@@ -101,7 +101,7 @@ function drawDotGrid() {   // dots at the grid, or at a multiple of it that keep
   for (const k of [2, 2.5, 2, 2, 2.5, 2, 2, 2.5, 2]) { if (step * view.s >= 10) break; step *= k; }
   if (step * view.s < 10) return;
   const [ax, ay] = s2w(0, 0), [bx, by] = s2w(W, H), x0 = Math.min(ax, bx), x1 = Math.max(ax, bx), y0 = Math.min(ay, by), y1 = Math.max(ay, by);
-  const th = S.theme || {}; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = th.grid || "#4a5060";
+  const th = boardTheme(S.theme || {}); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = th.grid || "#4a5060";
   const d = Math.max(1, Math.round(dpr)) / dpr;
   for (let gx = Math.ceil(x0 / step) * step; gx <= x1; gx += step) for (let gy = Math.ceil(y0 / step) * step; gy <= y1; gy += step) {
     const [X, Y] = w2s(gx, gy); ctx.fillRect(Math.round(X * dpr) / dpr - d / 2, Math.round(Y * dpr) / dpr - d / 2, d, d);
@@ -180,7 +180,7 @@ function layerRow(name, color, on, cur, onToggle, onPick, hatch) {
 function buildLayers() {
   const list = $("layerList"), ovl = $("overlayList"); list.innerHTML = ""; ovl.innerHTML = "";
   if (!S || !S.layers || isSch()) return;
-  for (const l of tabLayers()) list.appendChild(layerRow(l.name, l.color, !!vis.get(l.id), l.id === st.cur, () => { vis.set(l.id, !vis.get(l.id)); buildTabs(); draw(); }, () => setCurrent(l.id)));
+  for (const l of tabLayers()) list.appendChild(layerRow(l.name, layerColor(l), !!vis.get(l.id), l.id === st.cur, () => { vis.set(l.id, !vis.get(l.id)); buildTabs(); draw(); }, () => setCurrent(l.id)));
   const shown = OVERLAYS.filter(o => o.applies());
   for (const o of shown) ovl.appendChild(layerRow(o.name, o.color, o.on(), false, () => { o.toggle(); buildLayers(); }, null, true));
   if (!shown.length) ovl.innerHTML = '<div class="notes">No overlay on this document.</div>';
@@ -217,4 +217,4 @@ const draw0 = draw;
 draw = function () { draw0(); selectionChanged(); evidenceStatus(); };
 
 // ---- start the workbench before the first document opens
-buildMenubar(); startKeymap(); decorateToolbar(); setWorkspace("board", true); buildGridSel();
+startTheme(); buildMenubar(); startKeymap(); decorateToolbar(); setWorkspace("board", true); buildGridSel();

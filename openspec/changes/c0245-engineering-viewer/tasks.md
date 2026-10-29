@@ -76,8 +76,12 @@
 
 ## 5. Themes
 
-- [ ] 5.1 Add the chrome themes `dark`, `light` and `contrast` as tokens, and the contrast test (`H-G-WB-CONTRAST`). Proof: `uv run pytest tests/unit/view/test_themes.py -k contrast -q`.
-- [ ] 5.2 Author the light variants of the document palettes (Fenolite's own values) and the role palette with glyphs and hatches, and run the colour-blind test with the simulation that task 0.1 settled (`H-G-WB-CVD`). Proof: `uv run pytest tests/unit/view/test_themes.py -k cvd -q`.
+- [x] 5.1 Add the chrome themes `dark`, `light` and `contrast` as tokens, and the contrast test (`H-G-WB-CONTRAST`). Proof: `uv run pytest tests/unit/view/test_themes.py -k contrast -q`.
+
+  Note (2026-10-29): the tokens of `dark`, `light` and `contrast` are in `ui/css/workbench.css`; View ▸ Theme switches, the choice is kept in the browser, and a first visit follows the reader's `prefers-color-scheme` (open question 8). Overrides for the light and contrast themes are scoped to those themes, so the dark references are unchanged; the harness now emulates a dark scheme, as the references were drawn dark. Contrast measured by `test_contrast`: dark text pairs ≥ 4.55:1 (muted on the current tab, the lowest) and controls ≥ 3.51:1; light and contrast pass the same checks. Proof passed.
+- [x] 5.2 Author the light variants of the document palettes (Fenolite's own values) and the role palette with glyphs and hatches, and run the colour-blind test with the simulation that task 0.1 settled (`H-G-WB-CVD`). Proof: `uv run pytest tests/unit/view/test_themes.py -k cvd -q`.
+
+  Note (2026-10-29): `ui/shell/themes.js` holds the role palette for dark and light canvases, a glyph and a hatch per role, and the light variant of a board palette (Fenolite's rule: a light background and board, each layer darkened to lightness 0.22–0.42; sheets keep their paper, the sheet workspace turns light grey). The role colours were searched for separation and checked by `test_cvd` with the severity-1.0 matrices of S-0928 recorded in the test: worst pairwise CIEDE2000 20.9 on the dark canvas and 15.8 on the light one (criterion 12), every colour at 3:1 or more on its canvas. Renders of the light and contrast themes reviewed: `c0245-shots/themes/`. Proof passed.
 
 ## 6. Performance
 

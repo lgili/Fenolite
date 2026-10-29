@@ -6,8 +6,8 @@ function buildTabs() {
   const box = $("tablist"); box.innerHTML = "";
   for (const l of tabLayers()) {
     const t = document.createElement("div"); t.className = "tab" + (l.id === st.cur ? " cur" : "") + (vis.get(l.id) ? "" : " off");
-    t.style.borderBottomColor = l.id === st.cur ? l.color : "transparent"; t.title = `${l.name} (${l.kind}) · click: current layer · click the swatch or right-click: show / hide`;
-    t.innerHTML = `<span class="sw" style="background:${l.color}"></span><span>${esc(l.name)}</span>`;
+    t.style.borderBottomColor = l.id === st.cur ? layerColor(l) : "transparent"; t.title = `${l.name} (${l.kind}) · click: current layer · click the swatch or right-click: show / hide`;
+    t.innerHTML = `<span class="sw" style="background:${layerColor(l)}"></span><span>${esc(l.name)}</span>`;
     t.querySelector(".sw").onclick = e => { e.stopPropagation(); vis.set(l.id, !vis.get(l.id)); buildTabs(); draw(); };
     t.onclick = () => setCurrent(l.id);
     t.oncontextmenu = e => { e.preventDefault(); vis.set(l.id, !vis.get(l.id)); buildTabs(); draw(); };

@@ -143,7 +143,7 @@ function drawGrid(sh) {
 }
 function shade(hex, f) { const n = parseInt(hex.slice(1), 16); const c = [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(v * (1 - f))); return `rgb(${c[0]},${c[1]},${c[2]})`; }
 function drawSch() {
-  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = S.sheet.workspace || WORKSPACE; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = UI_THEME === "light" ? "#c9ccd1" : S.sheet.workspace || WORKSPACE; ctx.fillRect(0, 0, cv.width, cv.height);
   worldTf(); const sh = S.sheet;
   ctx.save(); ctx.shadowColor = "#0008"; ctx.shadowBlur = 12; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 3; ctx.fillStyle = sh.color; ctx.fillRect(sh.x0 || 0, sh.y0 || 0, sh.w, sh.h); ctx.restore();
   drawGrid(sh);

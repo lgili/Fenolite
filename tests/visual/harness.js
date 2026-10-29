@@ -33,7 +33,7 @@ async function compare(page, shot, ref) {
   const replies = [];
   try {
     for (const job of jobs) {
-      const context = await browser.newContext({ viewport: { width: job.width, height: job.height }, deviceScaleFactor: 1 });
+      const context = await browser.newContext({ viewport: { width: job.width, height: job.height }, deviceScaleFactor: 1, colorScheme: job.colorScheme || "dark" });   // c0245: the page follows the reader's scheme; the references are dark
       const page = await context.newPage(); const errors = [];
       page.on("pageerror", e => errors.push(String(e)));
       await page.goto(job.url || "file://" + job.page + (job.hash || ""));   // c0245: a served page by its address

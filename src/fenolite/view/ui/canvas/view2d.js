@@ -48,25 +48,25 @@ function draw() {
   if (S && S.kind === "table") return;
   if (S && S.kind === "schematic") return drawSch();
   if (!S || st.mode3d) return;
-  const th = S.theme || {};
+  const th = boardTheme(S.theme || {});
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = th.background || "#15171b"; ctx.fillRect(0, 0, cv.width, cv.height);
   worldTf(); ctx.globalAlpha = 1; ctx.fillStyle = th.board || "#050505"; ctx.fill(boardPath(), "evenodd");
   drawDotGrid();
   const qy = st.query && st.query.prims.size ? st.query : null, picked = st.selNet >= 0 || st.selComp >= 0;
   const ord = order(), sel = picked || !!qy, other = HL_ALPHA[st.hl] ?? HL_ALPHA.dim;
   const dim = S.diff && st.diff && S.diff.kind === "board" ? 0.35 : 1;   // c0184: the board steps back while the changes are shown
-  for (const [l, a00] of ord) { const a0 = a00 * dim, a = a0 * (l.alpha ?? 1); paintCache(ctx, cache.get(l.id), l.id, l.color, sel ? a * other : a, view.s);
-    if (view.s * 0.4 > 1) paintTexts(ctx, l.id, l.color, sel ? a * other : a, view.s); }
-  if (qy) { const mq = selCache(qCache, qy.text, pr => qy.prims.has(pr)); for (const [l] of ord) paintCache(ctx, mq.get(l.id), l.id, lighten(l.color, 0.45), 1, view.s);
+  for (const [l, a00] of ord) { const a0 = a00 * dim, a = a0 * (l.alpha ?? 1); paintCache(ctx, cache.get(l.id), l.id, layerColor(l), sel ? a * other : a, view.s);
+    if (view.s * 0.4 > 1) paintTexts(ctx, l.id, layerColor(l), sel ? a * other : a, view.s); }
+  if (qy) { const mq = selCache(qCache, qy.text, pr => qy.prims.has(pr)); for (const [l] of ord) paintCache(ctx, mq.get(l.id), l.id, lighten(layerColor(l), 0.45), 1, view.s);
     ctx.globalAlpha = 1; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1 / view.s;
     for (const ci of qy.comps.slice(0, 2000)) { const b = S.comps[ci].bbox; if (b) ctx.strokeRect(b[0] - 0.2, b[1] - 0.2, b[2] - b[0] + 0.4, b[3] - b[1] + 0.4); } }
   if (picked) {
     const mm = st.selNet >= 0 ? selCache(netCache, st.selNet, pr => pr[3] === st.selNet) : selCache(compCache, st.selComp, pr => pr[4] === st.selComp);
-    for (const [l] of ord) paintCache(ctx, mm.get(l.id), l.id, lighten(l.color, 0.45), 1, view.s);
+    for (const [l] of ord) paintCache(ctx, mm.get(l.id), l.id, lighten(layerColor(l), 0.45), 1, view.s);
     if (st.selComp >= 0 && S.comps[st.selComp].bbox) { const b = S.comps[st.selComp].bbox; ctx.globalAlpha = 1; ctx.strokeStyle = "#fff";
       ctx.lineWidth = 1.5 / view.s; ctx.setLineDash([5 / view.s, 3 / view.s]); ctx.strokeRect(b[0] - 0.3, b[1] - 0.3, b[2] - b[0] + 0.6, b[3] - b[1] + 0.6); ctx.setLineDash([]); }
   }
-  if (VARIANT && S.variants) { worldTf(); ctx.globalAlpha = 0.6; ctx.fillStyle = (S.theme || {}).board || "#050505";
+  if (VARIANT && S.variants) { worldTf(); ctx.globalAlpha = 0.6; ctx.fillStyle = th.board || "#050505";
     for (const c of S.comps) if (c.bbox && notFitted(c.ref)) { const b = c.bbox; ctx.fillRect(b[0], b[1], b[2] - b[0], b[3] - b[1]); }
     drawVariantMarks(S.comps.map(c => [c.ref, c.bbox])); }
   drawDiff(); drawOverlays(); drawCheck(); drawEdge(); drawMarks(); drawMeasure(); linkLater();
