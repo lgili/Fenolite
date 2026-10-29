@@ -32,7 +32,14 @@
 
 ## 1. Model, storage and package
 
-- [ ] 1.1 Add the role value objects and `RuleSet.roles` to `model/rules.py`, regenerate the schemas, and describe them in `docs/design-model.md` (scenarios "Roles round trip", "Files of an older build", "Refused values"). Proof: `uv run pytest tests/unit/model/test_rules.py -k roles -q`; `uv run python tools/gen_schemas.py --check`.
+- [x] 1.1 Add the role value objects and `RuleSet.roles` to `model/rules.py`, regenerate the schemas, and describe them in `docs/design-model.md` (scenarios "Roles round trip", "Files of an older build", "Refused values"). Proof: `uv run pytest tests/unit/model/test_rules.py -k roles -q`; `uv run python tools/gen_schemas.py --check`.
+
+  2026-10-29: `NetRole`, `HotLoop`, `KelvinPair`, `GateLoop`, `RoleLimit` and `RoleSet` with `ROLE_KINDS`,
+  `ROLE_SOURCES`, `CONFIDENCES` and `ROLE_LIMIT_UNITS` (the overridable keys and their units; the defaults
+  stay in `roles/profile.py`); `RuleSet.roles`, with an empty set stored as `None`. A group's provenance is
+  the field `origin`, because `GateLoop.source` names the source pad as the design writes it. Section "Net
+  roles" in `docs/design-model.md`; `schemas/fenolite.model.v0/rules.json` regenerated. Proof passed: 22
+  tests (`-k roles`), and the schemas are current.
 - [ ] 1.2 Add the package `src/fenolite/roles/` and its row in the import-graph test (scenario "Roles read the analyses, checks do not"). Proof: `uv run pytest tests/unit/test_import_graph.py -q`.
 - [ ] 1.3 Add `roles/store.py`: the companion document `fenolite.roles.v0`, its loader and writer, and `--roles FILE` resolution (scenario "Roles beside a hand-routed board"). Proof: `uv run pytest tests/unit/roles/test_store.py -q`.
 
