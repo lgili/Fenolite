@@ -597,6 +597,25 @@ def heights(design: Design) -> Mapping[str, Nm]:
     )
 
 
+def unused_marks(design: Design) -> Mapping[str, tuple[str, ...]]:
+    """The requests of ``Part.unused_no_connect()``: component path, in path order, → its ``keep``
+    designators in code-point order. Plain data for the build, which marks the open pins (change c0247);
+    ``to_model`` puts no request into the circuit."""
+    return MappingProxyType(
+        {
+            path: tuple(sorted(part.unused_request))
+            for path, part in sorted(design.parts.items())
+            if part.unused_request is not None
+        }
+    )
+
+
+def two_terminal(design: Design) -> tuple[str, ...]:
+    """The paths of the parts used through their ends ``a`` and ``b`` or a connection helper, in path
+    order: the build checks that each has a symbol of two pins (change c0247)."""
+    return tuple(path for path, part in sorted(design.parts.items()) if part.two_terminal)
+
+
 def fields(design: Design) -> Mapping[str, tuple[FieldRequest, ...]]:
     """The field placement requests of every part that has one: component path, in path order, → its
     requests in name order (``docs/dsl.md``, "Field placement")."""
@@ -721,5 +740,7 @@ __all__ = [
     "planes",
     "stackup_locked",
     "to_model",
+    "two_terminal",
+    "unused_marks",
     "via_protection_locked",
 ]

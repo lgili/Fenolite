@@ -500,6 +500,14 @@ refused: `build.no-connect-on-net` (error) with `--target kicad`, `model.no-conn
 `.fenolite/circuit.json`; in a KiCad build each mark becomes a no-connect flag of the schematic, and no
 other written KiCad file depends on them (`docs/dsl.md`, "No-connect marks").
 
+A part with an unused-pin request (`part.unused_no_connect(keep=...)`, change c0247) gets a mark on every
+pin that is open once nets and explicit marks are resolved, except the kept pins and pins of type
+`no_connect`; both targets resolve the request the same way. An open must-connect pin (type `power_in`)
+gives `build.must-connect-unconnected` (error, exit 5, nothing written) with the hint to connect it or list
+it in `keep=`. A part used through its ends `a`/`b` or a connection helper whose symbol has other than two
+pins gives `build.not-two-terminal` (error, exit 5, nothing written), naming the ref and the pin count
+(`docs/dsl.md`, "Connection helpers").
+
 Over an existing project, `build` preserves the layout (`docs/lens.md`): the board, project and rules
 files are merged, and `build.layout-exists` (`FEN-7001`) now guards only `fp-lib-table`,
 `sym-lib-table` and the vendored footprints and symbol libraries under `lib/`. `--discard-layout` reads no existing file and builds from scratch.

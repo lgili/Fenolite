@@ -343,7 +343,7 @@ def test_unknown_plane_net_stops_the_build(monkeypatch: pytest.MonkeyPatch, tmp_
 
 SIX = ["F.Cu", "In1.Cu", "In2.Cu", "In3.Cu", "In4.Cu", "B.Cu"]
 EIGHT = [*SIX[:-1], "In5.Cu", "In6.Cu", "B.Cu"]
-VIA_IMPORT = "from fenolite.dsl import Design, Net, Part, Power, connect, mm, no_connect"
+VIA_IMPORT = "from fenolite.dsl import Design, Net, Part, Power, connect, mm"
 DEEP_TRACK = """
 design.track(
     "led_a",

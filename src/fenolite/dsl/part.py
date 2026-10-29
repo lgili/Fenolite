@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, cast
@@ -254,6 +254,11 @@ class Part:
         self.connections: dict[str, Net] = {}
         self.no_connects: set[str] = set()
         """Designators marked as intentionally unconnected, as written (``no_connect``)."""
+        self.two_terminal = False
+        """Set when the part is used through its ends ``a`` and ``b`` (or a connection helper): the build
+        then checks that its symbol has exactly two pins (``build.not-two-terminal``; change c0247)."""
+        self.unused_request: frozenset[str] | None = None
+        """The ``keep`` designators of ``unused_no_connect()``, as written; ``None`` without a request."""
 
     @property
     def path(self) -> str:
@@ -275,6 +280,42 @@ class Part:
         if not text:
             raise DslError(f"part {self.ref}: empty designator")
         return PinHandle(self, text)
+
+    def _end(self, index: int) -> PinHandle:
+        """The pin handle of end ``index`` (0 is ``a``, 1 is ``b``): symbol pins ``1`` and ``2``. This is the
+        one lookup of the ends; a catalog device that names its ends (change c0248) is read here."""
+        return self[str(index + 1)]
+
+    @property
+    def a(self) -> PinHandle:
+        """The first end of a two-pin part (pin ``1``); using it marks the part ``two_terminal``."""
+        self.two_terminal = True
+        return self._end(0)
+
+    @property
+    def b(self) -> PinHandle:
+        """The second end of a two-pin part (pin ``2``); using it marks the part ``two_terminal``."""
+        self.two_terminal = True
+        return self._end(1)
+
+    def unused_no_connect(self, *, keep: Iterable[str | int] = ()) -> None:
+        """Ask the build to mark every pin of this part that is open when it runs as not connected, except
+        the designators of ``keep`` (pin numbers or names, as written), pins of type ``no_connect`` and
+        must-connect pins: an open ``power_in`` pin stops the build with ``build.must-connect-unconnected``
+        (``docs/dsl.md``, "Connection helpers"). Once per part; ``connect`` and ``no_connect`` stay
+        allowed after it."""
+        if self.unused_request is not None:
+            raise DslError(f"part {self.ref}: unused_no_connect() is already requested")
+        if isinstance(keep, (str, bytes)) or not isinstance(keep, Iterable):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part {self.ref}: keep is a tuple of designators, not {keep!r}")
+        kept: set[str] = set()
+        for designator in cast("Iterable[object]", keep):
+            if isinstance(designator, bool) or not isinstance(designator, (str, int)) or not str(designator):
+                raise DslError(
+                    f"part {self.ref}: a keep designator is a pin number or name, not {designator!r}"
+                )
+            kept.add(str(designator))
+        self.unused_request = frozenset(kept)
 
     def pad(self, number: str | int, *, index: int | None = None) -> PadRef:
         """The pads of this part numbered ``number``, for a copper intent; ``index`` picks one of several
@@ -459,7 +500,8 @@ def no_connect(*pins: PinHandle) -> None:
     """Mark each pin as intentionally unconnected; a designator that is on a net is refused.
 
     The designators are kept as written in ``Part.no_connects``; a build resolves them to pin numbers.
-    Nothing is marked when one argument is refused.
+    Nothing is marked when one argument is refused. ``Part.unused_no_connect()`` asks the build to mark the
+    open pins of a part; the marks it resolves are marks of this kind, and no mark can be removed.
     """
     for pin in pins:
         if not isinstance(pin, PinHandle):  # pyright: ignore[reportUnnecessaryIsInstance]

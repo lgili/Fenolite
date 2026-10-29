@@ -994,6 +994,16 @@ meaning = "A rule selects a rule area by name (select.area) and the board that t
 fix = "Declare the area with design.rule_area(), draw and name it in KiCad, or remove the selector. Area names are compared with letter case."
 see = "build"
 
+["build.not-two-terminal"]
+meaning = "A part used through its ends part.a and part.b, or passed to series, decouple, pull_up or pull_down, has a symbol with other than two pins, so pins 1 and 2 are not its two ends."
+fix = "Connect the part's pins by number with part[<number>], or use a part whose symbol has two pins."
+see = "build"
+
+["build.must-connect-unconnected"]
+meaning = "part.unused_no_connect() met an open must-connect pin: a pin of type power_in (or a pin a catalog device flags must_connect). Marking it as not connected would hide a missing supply, so the build stops."
+fix = "Connect the pin, or list it in keep= of unused_no_connect() to leave it open without a mark."
+see = "build"
+
 ["build.diff-pair-gap-shadowed"]
 meaning = "The two nets of a pair interface are in a net class with a pair gap, but KiCad would report two tracks laid at that gap: a clearance rule above the gap governs between the two nets, or the board minimum clearance is above the gap and no diff_pair_gap rule selects the pair."
 fix = "Call design.rules.pair(pair, clearance=…, gap_min=…) with values at or below the class gap: it writes a clearance rule and a gap rule for the pair after the rules that shadow it. Or raise the class pair gap."

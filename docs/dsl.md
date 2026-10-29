@@ -186,7 +186,9 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   `Library:Name`; `footprint=None` falls back to the symbol's `Footprint` property, and `value=""` to
   its `Value` property. `properties` maps user property names to text ("User properties").
 - `part[designator]` returns a pin handle; `connect(net, *pins)` joins pins to a net.
-- `no_connect(*pins)` marks pins as intentionally unconnected ("No-connect marks").
+- `no_connect(*pins)` marks pins as intentionally unconnected ("No-connect marks"); `part.unused_no_connect()`
+  asks the build to mark the open pins of a part, and `series`, `decouple`, `pull_up` and `pull_down` wire
+  common patterns ("Connection helpers").
 - `Part.place(x, y, rot=0, side="top", locked=False)`, once per part.
 - `Part.field(name, *, dx, dy, rot, layer, visible, size, thickness, justify, outside, gap, locked)`,
   once per field name: where the `Reference` or the `Value` of the part's footprint goes ("Field
@@ -527,8 +529,9 @@ no_connect(u1[11], u1[12])  # NRST and OSC_IN are left open on purpose
 ```
 
 - `no_connect(*pins)` takes the pin handles that `connect` takes, of one part or of several. A call
-  without arguments does nothing, and marking a designator twice keeps one mark. There is no `Part`
-  method for marks, no automatic marking of unused pins and no way to remove a mark.
+  without arguments does nothing, and marking a designator twice keeps one mark. There is no way to
+  remove a mark. `part.unused_no_connect()` asks the build to mark the part's open pins; the marks it
+  resolves are marks of this section ("Connection helpers").
 - **Errors.** Any argument that is not a pin handle raises `DslError`. Marking a designator that
   `connect` joined to a net raises `DslError` naming the ref, the designator and the net; connecting a
   marked designator raises `DslError` naming the ref and the designator. The earlier call stays in
@@ -549,6 +552,57 @@ no_connect(u1[11], u1[12])  # NRST and OSC_IN are left open on purpose
   as `REF-PIN`.
 - **Altium target.** Each marked pin gets a No ERC directive and no wire stub (`docs/altium.md`,
   "No-connect marks").
+
+## Connection helpers
+
+Plain functions of `fenolite.dsl` (change c0247) that lower to `connect`, no-connect marks and `near()`
+rules; none creates a part, picks a value or adds a model field.
+
+```python
+from fenolite.dsl import I2C, Net, connect, decouple, mm, pull_up, series
+
+connect(led_drv, u1[1])
+series(led_drv, r1, led_a, (d1.b, d1.a), gnd)  # LED_DRV-R1-LED_A, the LED turned around, to GND
+series(vin, f1, d1, vprot)  # returns (Net("F1-D1"),), the joint between F1 and D1
+decouple(v33, gnd, c3, c4, near=u2.pad(4), within=mm(3))  # rules decouple/C3 and decouple/C4
+pull_up(I2C(sda, scl), v33, r3, r4)  # R3 on SDA, R4 on SCL
+u1.unused_no_connect(keep=(5, "PA7"))  # mark every other open pin at build
+```
+
+- **Ends.** `part.a` and `part.b` are the pin handles `part["1"]` and `part["2"]`. Using them, or passing
+  the part to a helper, sets `part.two_terminal`: the build then checks that the symbol has exactly two
+  pins, else `build.not-two-terminal` (error, exit 5, nothing written) names the ref and the pin count. A
+  two-pin symbol numbered otherwise (`A`, `K`) fails with `build.unknown-pin` on `1`.
+- **`series(*chain)`.** The first and last items are nets, with at least one part between. An inner item
+  is a part (entered at `a`, left at `b`), a tuple of two distinct pin handles of one part (entered at the
+  first: `(d1.b, d1.a)` turns it around), or a net that names the joint between the parts beside it.
+  Two parts next to each other are joined by a new net named `<left path>-<right path>` (`F1-D1`,
+  `psu/F1-psu/D1`); the call returns the new nets in chain order. Two nets next to each other, a chain
+  without a part, a bad tuple, any other item, and a generated name another net of the design has raise
+  `DslError`.
+- **`decouple(rail, ground, *capacitors, near=None, within=None, severity="error")`.** Each capacitor's
+  `a` joins `rail` and its `b` joins `ground`. `near` and `within` come together or not at all (there is
+  no default distance); with them each capacitor gets the rule `decouple/<capacitor path>` of
+  `design.near(...)` ("Placement rules"), so a capacitor must be in a design and `near` takes what
+  `near()`'s anchor takes (a pin handle is refused with the hint `part.pad(<number>)`).
+- **`pull_up(target, rail, *resistors)` and `pull_down(target, ground, *resistors)`.** `target` is a net
+  (one resistor) or an `I2C` bus (two resistors: SDA, then SCL). Each resistor's `a` joins its signal net
+  and `b` the rail or ground. A count that differs, a signal net that is the rail, another interface (named
+  by its kind) and a value such as `ohm("4k7")` instead of a part ("a value does not choose a part")
+  raise `DslError`.
+- **Refusals connect nothing.** Every helper checks all its connections first: a pin on another net, a
+  marked pin, or a pin given two nets in one call raises `DslError` before any connection.
+- **`part.unused_no_connect(*, keep=())`.** Records `part.unused_request` (the `keep` designators, `str`
+  or `int`, as written); a second call raises `DslError`, and `connect` and `no_connect` stay allowed
+  after it. `to_model` is unchanged: the build reads `dsl.convert.unused_marks(design)` and
+  `dsl.convert.two_terminal(design)`. After nets and explicit marks are resolved, every pin of the part,
+  in pin-number order, that is on no net, not marked, not in `keep` (resolved like any designator,
+  `build.unknown-pin` when unknown) and not of type `no_connect` becomes an ordinary mark ("No-connect
+  marks"). Both the KiCad and the Altium build resolve it the same way.
+- **Must-connect pins.** A pin of type `power_in` is never marked: open, it gives
+  `build.must-connect-unconnected` (error, exit 5, nothing written) naming the ref, the pin number and
+  the name, with the hint "connect it, or list it in keep=". Only the symbol's pin types are checked: a
+  supply pin typed `passive` escapes the guard. A catalog device may flag more pins (change c0248).
 
 ## User properties
 
