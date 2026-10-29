@@ -169,7 +169,10 @@
   fill whose section a path element already reports is not reported again by the neck screen (each neck
   names the zones it lies in), and a finding by the fit names the width or section as well. Proof passed:
   9 tests.
-- [ ] 5.6 Add the return and high-voltage checks on `analyze_returns` and `analyze_distances` (scenarios "A high-voltage bus without a requirement", "A cell tap across a ground gap"). Proof: `uv run pytest tests/unit/roles/test_returns_hv.py -q`.
+- [x] 5.6 Add the return and high-voltage checks on `analyze_returns` and `analyze_distances` (scenarios "A high-voltage bus without a requirement", "A cell tap across a ground gap"). Proof: `uv run pytest tests/unit/roles/test_returns_hv.py -q`.
+  Done 2026-10-29. The half-bridge's distance row is `examples/roles/half_bridge/requirements.toml`
+  (VBUS to every other net, 1.2 mm each, illustrative); a 2 mm row instead gives the analysis's own
+  `analysis.clearance-below` for the 1.6 mm between the bus and the switch node. Proof passed: 4 tests.
 - [ ] 5.7 Run the whole check on the six variants (scenario "Good and bad variants"). Proof: `uv run pytest tests/unit/roles/test_reference_boards.py -q`.
 
 ## 6. Command line, DSL and stage
