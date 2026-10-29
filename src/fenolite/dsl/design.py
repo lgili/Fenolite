@@ -28,6 +28,7 @@ from fenolite.dsl.units import Length, as_nm, as_nm2, as_udeg
 from fenolite.model.board import IslandRemoval, ViaProtection, ZoneConnection, ZoneSettings
 from fenolite.model.design import presentation_issues
 from fenolite.model.findings import Waiver
+from fenolite.model.library import DeviceDef
 from fenolite.model.pairs import PAIR_ROLES
 from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, TitleBlock
 from fenolite.model.rules import HeightLimit, PlacementSeverity, RuleKind, RuleSeverity, Selector
@@ -623,6 +624,8 @@ class Design(Container):
         self.outline_locked = False
         """``board(locked=True)``: the script's outline replaces one edited in KiCad on a rebuild."""
         self.parts: dict[str, Part] = {}
+        self.device_records: dict[str, DeviceDef] = {}
+        """The devices of ``devices()`` by id: they win over project and shipped devices (change c0248)."""
         self.footprints: dict[str, Footprint] = {}
         self.symbols: dict[str, object] = {}
         self.modules: dict[str, Module] = {}
@@ -749,6 +752,18 @@ class Design(Container):
         self.waivers[label] = Waiver(
             name=label, code=code, items=tuple(names), reason=reason.strip(), min_gap=gap
         )
+
+    def devices(self, *records: DeviceDef) -> None:
+        """Register device records for this design (``fenolite.catalog.devices.parse_device`` or
+        ``load_devices``); ``part(ref, device=id)`` resolves an id against them before the project devices
+        and the shipped ones (``docs/devices.md``, "Where devices come from")."""
+        from fenolite.dsl.devices import check_records
+
+        for record in check_records(records):
+            known = self.device_records.get(record.id)
+            if known is not None and known != record:
+                raise DslError(f"devices(): device {record.id!r} is registered twice with different records")
+            self.device_records[record.id] = record
 
     def add_footprint(self, footprint: Footprint) -> None:
         """Register a project-authored library footprint for backend builds (not model persistence)."""

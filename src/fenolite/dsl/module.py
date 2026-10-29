@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.interfaces import Interface
@@ -25,6 +25,17 @@ class Container:
     @property
     def design(self) -> Design | None:
         raise NotImplementedError
+
+    def part(self, *args: Any, **kwargs: Any) -> Part:
+        """Build a ``Part`` with the arguments of ``Part`` and ``add()`` it here; a device id resolves
+        against the design's ``devices()`` records first (``docs/devices.md``)."""
+        from fenolite.dsl.devices import design_records
+
+        design = self.design
+        with design_records(design.device_records if design is not None else {}):
+            made = Part(*args, **kwargs)
+        self.add(made)
+        return made
 
     def add(self, *objs: Part | Module | Net | Interface) -> None:
         """Attach parts, modules, nets and interfaces; objects join a design only through ``add()``."""

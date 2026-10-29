@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "fenolite.library.v0",
   "title": "Library",
-  "description": "A set of definitions under one name (the schema root of ``library.json``).",
+  "description": "A set of definitions under one name (the schema root of ``library.json``). ``devices`` are sorted",
   "type": "object",
   "properties": {
     "name": {
@@ -18,6 +18,12 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/SymbolDef"
+      }
+    },
+    "devices": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DeviceDef"
       }
     }
   },
@@ -109,6 +115,171 @@
         "id",
         "kind",
         "height"
+      ]
+    },
+    "DeviceDef": {
+      "description": "A device (change c0248): one reviewed record that joins a symbol, a footprint, the map from pin",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "footprint": {
+          "type": "string"
+        },
+        "manufacturer": {
+          "type": "string"
+        },
+        "mpn": {
+          "type": "string"
+        },
+        "datasheet": {
+          "type": "string"
+        },
+        "ref_prefix": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ground": {
+          "type": "string"
+        },
+        "unused_pads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ends": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "pins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DevicePin"
+          }
+        },
+        "ratings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Rating"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DeviceProvenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ]
+    },
+    "DevicePin": {
+      "description": "One function of a device: its name, the symbol pins it joins and their pads as ordered",
+      "type": "object",
+      "properties": {
+        "function": {
+          "type": "string"
+        },
+        "pin_pads": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false
+          }
+        },
+        "voltage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Rating"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "current": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Rating"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "must_connect": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "function"
+      ]
+    },
+    "DeviceProvenance": {
+      "description": "The stamp of a device written by a tool: the tool, its source (lib ids, never a path), the ISO 8601",
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "source",
+        "date",
+        "sha256"
       ]
     },
     "Evidence": {
@@ -760,6 +931,48 @@
         "file",
         "file_sha256",
         "locator"
+      ]
+    },
+    "Rating": {
+      "description": "One rating of a device or of a device pin: ``key`` (``voltage``, ``current``, ``power`` or",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "unit": {
+          "enum": [
+            "uV",
+            "uA",
+            "uW",
+            "mdegC"
+          ]
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "unit"
       ]
     },
     "Size": {

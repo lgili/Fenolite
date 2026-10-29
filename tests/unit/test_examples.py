@@ -251,3 +251,46 @@ def test_yardstick_states_its_lengths_once() -> None:
         and any(isinstance(arg, ast.Constant) for arg in node.args)
     ]
     assert literal == []
+
+
+# -- the device example (change c0248)
+
+DEVICES = ROOT / "examples" / "devices"
+
+
+def test_devices_header_and_listing() -> None:
+    for path in (DEVICES / "design.py", DEVICES / "devices" / "example_buck.toml"):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith(
+            "# Authored for Fenolite"
+        )
+    assert "`devices/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+
+
+def test_devices_parts_come_from_devices() -> None:
+    design = run_design_script(DEVICES / "design.py").design
+    placed = {path: part.device.id for path, part in design.parts.items() if part.device is not None}
+    assert placed["U1"] == "Example:BUCK_6V_2A" and design.parts["U1"].device_origin == "authored"
+    assert {placed[ref] for ref in ("R1", "R2", "R3")} == {"Fenolite:R_0603"}
+    assert placed["D1"] == "Fenolite:LED_0603" and design.parts["L1"].device is None
+    model = to_model(design)
+    u1 = next(c for c in model.circuit.components if c.ref == "U1")
+    assert u1.properties["MPN"] == "EXB6202" and u1.lib_footprint_ref == "Fenolite:SOT23_6_TI_DBV0006A"
+
+
+def test_devices_builds_without_a_subprocess(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise AssertionError(f"a build started a subprocess: {args}")
+
+    monkeypatch.setattr(subprocess, "run", refuse)
+    monkeypatch.setattr(subprocess, "Popen", refuse)
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    code = cli_main.main(
+        ["build", str(DEVICES / "design.py"), "--out", str(tmp_path / "d"), "--confirm", "--json"]
+    )
+    assert code == 0, err.getvalue()
+    envelope = json.loads(out.getvalue())
+    assert not [issue for issue in envelope["issues"] if issue["severity"] != "info"], envelope["issues"]
+    assert [row["id"] for row in envelope["result"]["devices"]][0] == "Example:BUCK_6V_2A"

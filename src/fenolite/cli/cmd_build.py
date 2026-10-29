@@ -80,6 +80,7 @@ from fenolite.catalog import (
 from fenolite.catalog import (
     get_symbol as catalog_symbol,
 )
+from fenolite.catalog.devices import check_device, device_digest, edited_issue, is_edited
 from fenolite.checks import placement as placement_rules
 from fenolite.checks.copper import (
     LOWERING_CODES,
@@ -150,8 +151,10 @@ from fenolite.lens.placements import SourcePlacement, read_placements
 from fenolite.lens.preserve import ExistingProject, FilePlacement, Prepared, prepare, read_existing
 from fenolite.lens.schplacements import FILE_NAME as SYMBOL_PLACEMENTS_FILE
 from fenolite.lens.schplacements import read_placements as read_symbol_placements
+from fenolite.model.circuit import PinRef
 from fenolite.model.design import Design as ModelDesign
 from fenolite.model.findings import Waiver
+from fenolite.model.library import DeviceDef
 from fenolite.model.presentation import DrawingSheet
 from fenolite.placement import legality
 from fenolite.templates import build_sheet, load_spec
@@ -552,6 +555,84 @@ def _catalog_definitions(
     return {**footprints, **authored_footprints}, {**symbols, **authored_symbols}, frozenset(used_builtin)
 
 
+def design_devices(design: DslDesign) -> dict[str, DeviceDef]:
+    """The device of each part placed from one, by component path (change c0248)."""
+    return {path: part.device for path, part in sorted(design.parts.items()) if part.device is not None}
+
+
+def device_rows(design: DslDesign) -> list[dict[str, object]]:
+    """``result.devices``: each device the design uses, in id order, with its origin, evidence label,
+    whether it was edited after its stamp, its digest and the paths of its parts."""
+    rows: dict[str, dict[str, Any]] = {}
+    for path, part in sorted(design.parts.items()):
+        device = part.device
+        if device is None:
+            continue
+        row = rows.setdefault(
+            device.id,
+            {
+                "id": device.id,
+                "origin": part.device_origin,
+                "evidence": device.evidence,
+                "edited": is_edited(device),
+                "sha256": device_digest(device),
+                "parts": [],
+            },
+        )
+        row["parts"].append(path)
+    return [rows[key] for key in sorted(rows)]
+
+
+def device_issues(design: DslDesign) -> list[Issue]:
+    """``device.overrides-builtin`` and ``device.edited`` (info), once per device the design uses."""
+    found: list[Issue] = []
+    seen: set[str] = set()
+    for _path, part in sorted(design.parts.items()):
+        device = part.device
+        if device is None or device.id in seen:
+            continue
+        seen.add(device.id)
+        if part.device_overrides:
+            found.append(
+                build_issue(
+                    "device.overrides-builtin",
+                    f"the project device {device.id} is used in place of the shipped device of that id",
+                    device.id,
+                    "give the project device an id of its own namespace if the override is not meant",
+                )
+            )
+        if is_edited(device):
+            found.append(edited_issue(device))
+    return found
+
+
+def lower_device_functions(model: ModelDesign, devices: Mapping[str, DeviceDef]) -> ModelDesign:
+    """``model`` with each net member and no-connect mark of a device part that names a function replaced
+    by the function's symbol pins, for targets whose writer resolves pin numbers only (the Altium build;
+    the KiCad build resolves functions itself, ``lens.build``)."""
+    functions: dict[str, dict[str, tuple[str, ...]]] = {}
+    for component in model.circuit.components:
+        device = devices.get(component.properties.get(PATH_PROPERTY, component.ref))
+        if device is not None:
+            functions[component.id] = {pin.function: pin.pins for pin in device.pins}
+    if not functions:
+        return model
+
+    def lowered(refs: Sequence[PinRef]) -> tuple[PinRef, ...]:
+        out: list[PinRef] = []
+        for ref in refs:
+            names = functions.get(ref.component_id, {})
+            out += [PinRef(ref.component_id, pin) for pin in names.get(ref.pin, (ref.pin,))]
+        return tuple(sorted(set(out)))
+
+    circuit = model.circuit
+    nets = tuple(dataclasses.replace(net, members=lowered(net.members)) for net in circuit.nets)
+    return dataclasses.replace(
+        model,
+        circuit=dataclasses.replace(circuit, nets=nets, no_connects=lowered(circuit.no_connects)),
+    )
+
+
 def pad_map_issues(applied: Sequence[DefaultPadMap]) -> list[Issue]:
     """One ``build.pad-map-default`` warning per part that got the catalog's default pin-to-pad map
     (capability design-dsl, "Default pin-to-pad map is reported"; change c0147)."""
@@ -711,6 +792,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         ctx.cwd, args.design, getattr(args, "copper_from", None), getattr(args, "altium_template", None)
     )
     built = _built(args, ctx)
+    files = cast(Sequence[Mapping[str, str]], built.result.get("device_files", []))
+    if files:
+        # the project devices beside the script are inputs too: a changed file changes the plan (c0248)
+        script = Path(args.design)
+        folder = (script if script.is_absolute() else ctx.cwd / script).parent
+        read = (*read, *depends_on(ctx.cwd, *(folder / row["path"] for row in files)))
     return dataclasses.replace(built, depends=tuple(sorted(set((*read, *built.depends)))))
 
 
@@ -849,7 +936,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
     model, defaulted = apply_default_pad_maps(
         model, authored_symbols=design.symbols, authored_footprints=design.footprints
     )
-    default_issues = pad_map_issues(defaulted)
+    default_issues = [*pad_map_issues(defaulted), *device_issues(design)]
+    devices = design_devices(design)
     if native_path is not None and drawing_sheet_source(design) is not None:
         raise CliError(
             "FEN-2001", "--altium-template conflicts with sheet(drawing_sheet=...)", where="--altium-template"
@@ -872,6 +960,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             ]
             refused = True
         # both targets place a part from the file: the lens runs without an existing project (c0069)
+        model = lower_device_functions(model, devices)
         from_file = prepare(model, requested, ExistingProject(), name=design.name, source=source)
         made = _run_altium(
             args,
@@ -954,6 +1043,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         planes=plane_nets,
         lock_outline=outline_locked(design),
         heights=heights(design),
+        devices=devices,
+        device_check=check_device,
     )
     files = {} if refused else dict(built.files)
     _keep_confirmed_roles(out_dir, files)
@@ -1005,6 +1096,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         "placement": placement,
         "drawing_sheet": sheet_result,
         "script_output": run.output,
+        "devices": device_rows(design),
+        "device_files": [{"path": file.path, "sha256": file.sha256} for file in run.device_files],
     }
     result["preserved"] = {
         **cast(Mapping[str, object], built.summary["preserved"]),
@@ -1381,6 +1474,8 @@ def _run_altium(
         "rules": summary["rules"],
         "experimental": summary["experimental"],
         "script_output": run.output,
+        "devices": device_rows(run.design),
+        "device_files": [{"path": file.path, "sha256": file.sha256} for file in run.device_files],
     }
     if copper_input is not None:
         result["copper_input"] = copper_input

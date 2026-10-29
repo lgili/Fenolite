@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as test data; an illustrative device, not a real product.
+schema = "fenolite.device.v0"
+id = "Example:LDO_GROUNDS"
+summary = "Regulator with two ground pins (illustrative)"
+symbol = "Example:Reg_9pin"
+footprint = "Example:Pads_9"
+ref_prefix = "U"
+evidence = "UNVERIFIED"
+unused_pads = ["MP"]
+ends = ["VIN", "VOUT"]
+
+[properties]
+"Package note" = "authored test value"
+
+[pins]
+GND = ["9", "2"]
+VIN = "1"
+VOUT = "3"
+EN = { pins = ["4"], must_connect = true, current = { max = "1mA" } }
+NC5 = "5"
+NC6 = "6"
+NC7 = "7"
+NC8 = "8"
+
+[ratings]
+power = { max = "250mW" }

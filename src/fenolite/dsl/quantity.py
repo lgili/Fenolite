@@ -9,68 +9,32 @@ module reaches the model.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from fractions import Fraction
 
+from fenolite.core import quantities as core
 from fenolite.dsl.errors import DslError
 
-UNITS: dict[str, str] = {
-    "ohm": "Ω",
-    "farad": "F",
-    "henry": "H",
-    "volt": "V",
-    "ampere": "A",
-    "hertz": "Hz",
-    "watt": "W",
-    "second": "s",
-}
-"""Unit name → the symbol ``text()`` prints."""
-SYMBOLS: dict[str, tuple[str, ...]] = {
-    **{unit: (symbol,) for unit, symbol in UNITS.items()},
-    "ohm": ("Ω", "ohm", "R"),
-}
+UNITS: dict[str, str] = {unit: symbol for unit, symbol in core.UNITS.items() if unit != "celsius"}
+"""Unit name → the symbol ``text()`` prints (the units of ``fenolite.core.quantities`` that a script
+value takes: a temperature is a device rating, not a part value)."""
+SYMBOLS: dict[str, tuple[str, ...]] = {unit: core.SYMBOLS[unit] for unit in UNITS}
 """Unit name → the symbols a text may end with."""
 SIGNED: frozenset[str] = frozenset({"volt", "ampere"})
 """The units that take a negative value."""
-CODED: frozenset[str] = frozenset({"ohm", "farad", "henry"})
+CODED: frozenset[str] = core.CODED
 """The units that have a letter code."""
-PREFIXES: tuple[tuple[str, int], ...] = (
-    ("p", -12),
-    ("n", -9),
-    ("u", -6),
-    ("m", -3),
-    ("", 0),
-    ("k", 3),
-    ("M", 6),
-    ("G", 9),
-)
+PREFIXES: tuple[tuple[str, int], ...] = core.PREFIXES
 """SI prefix → power of ten, rising; ``u`` is micro."""
-_EXPONENT = {**dict(PREFIXES), "µ": -6}
-_PREFIX = "[pnuµmkMG]"
-_ALIASES = str.maketrans({"\u2126": "Ω", "\u03bc": "µ"})
-"""The ohm sign and the Greek mu, read as the omega and the micro sign."""
-_NUMBER = re.compile(rf"([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*({_PREFIX}?)(.*)")
-_CODE = re.compile(rf"(\d+)({_PREFIX}|R)(\d+)")
-
-
-def _power(exponent: int) -> Fraction:
-    return Fraction(10**exponent) if exponent >= 0 else Fraction(1, 10**-exponent)
+_power = core.power
 
 
 def _decimal(value: Fraction, what: str) -> tuple[str, str]:
     """The whole and fractional digits of the shortest exact decimal of a non-negative ``value``."""
-    places, rest = 0, value.denominator
-    for factor in (2, 5):
-        count = 0
-        while rest % factor == 0:
-            rest //= factor
-            count += 1
-        places = max(places, count)
-    if rest != 1:
-        raise DslError(f"{what} is not a terminating decimal; give a value that is")
-    digits = str(value.numerator * 10**places // value.denominator).rjust(places + 1, "0")
-    return (digits[:-places], digits[-places:]) if places else (digits, "")
+    try:
+        return core.decimal_digits(value, what)
+    except core.QuantityError as error:
+        raise DslError(str(error)) from None
 
 
 def decimal_text(value: Fraction, what: str) -> str:
@@ -164,20 +128,10 @@ class Quantity:
 
 
 def _parse(unit: str, text: str) -> Fraction:
-    body = text.strip().translate(_ALIASES)
-    coded = _CODE.fullmatch(body)
-    if coded is not None and unit in CODED:
-        whole, letter, part = coded.groups()
-        if letter != "R" or unit == "ohm":
-            exponent = 0 if letter == "R" else _EXPONENT[letter]
-            return Fraction(int(whole + part), 10 ** len(part)) * _power(exponent)
-    plain = _NUMBER.fullmatch(body)
-    if plain is None or plain.group(3) not in ("", *SYMBOLS[unit]):
-        raise DslError(
-            f"{text!r} is not a value in {unit}: write a number, an optional prefix (p n u m k M G) "
-            f"and optionally {' or '.join(SYMBOLS[unit])}"
-        )
-    return Fraction(plain.group(1)) * _power(_EXPONENT[plain.group(2)])
+    try:
+        return core.parse(unit, text)
+    except core.QuantityError as error:
+        raise DslError(str(error)) from None
 
 
 def _make(unit: str, value: object) -> Quantity:

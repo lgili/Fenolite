@@ -28,6 +28,7 @@ from fenolite.dsl.convert import (
     via_protection_locked,
 )
 from fenolite.dsl.design import Design
+from fenolite.dsl.devices import PinNameError
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.footprint import Footprint
 from fenolite.dsl.generate import GeneratedIntent, generated
@@ -86,6 +87,7 @@ __all__ = [
     "PadZoneRequest",
     "Panel",
     "Part",
+    "PinNameError",
     "Placement",
     "Power",
     "StitchIntent",

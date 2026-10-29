@@ -56,6 +56,8 @@ def test_closed_set() -> None:
         "build.sheet-stale": "warning",
         "build.pad-map-default": "warning",  # c0147: the catalog's default pin-to-pad map
         "build.area-unknown": "error",  # c0103: a rule names no rule area
+        # c0248: devices
+        "build.device-mismatch": "error", "device.edited": "info", "device.overrides-builtin": "info",
         **PRESERVE_ISSUE_CODES,  # c0019
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table
@@ -65,17 +67,20 @@ def test_closed_set() -> None:
         kicad / "schgen.py",
         kicad / "schlayout.py",
         ROOT / "src" / "fenolite" / "cli" / "cmd_build.py",
+        ROOT / "src" / "fenolite" / "catalog" / "devices.py",  # c0248: device.edited
     ]
     for path in [*(ROOT / "src" / "fenolite" / "lens").glob("*.py"), *generator]:
         literals |= set(
-            re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
+            re.findall(r'"((?:build|layout|zone|device)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
         )
     assert literals == set(table) | {code for code in ALTIUM_ISSUE_CODES if code.startswith("build.")}
     tested: set[str] = set()
     cli_tests = TESTS.parent / "cli" / "test_build_schematic_cmd.py"
     layout_tests = TESTS.parent / "backends" / "kicad" / "test_schlayout.py"
     for path in [*TESTS.glob("test_build_*.py"), *TESTS.glob("test_preserve_*.py"), cli_tests, layout_tests]:
-        tested |= set(re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8")))
+        tested |= set(
+            re.findall(r'"((?:build|layout|zone|device)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
+        )
     assert set(table) - set(PRESERVE_ISSUE_CODES) <= tested, set(table) - tested
 
 

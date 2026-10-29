@@ -2481,3 +2481,33 @@ path = "examples/roles/half_bridge/sym-lib-table"
 origin = "authored"
 corpus_id = ""
 notes = "symbol table of a net-role reference board (c0222) naming the authored libraries through ${KIPRJMOD}"
+
+[[file]]
+path = "tests/data/devices/example_buck.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative device record of change c0248, authored for Fenolite; not a real product"
+
+[[file]]
+path = "tests/data/devices/grouped_ground.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative device record of change c0248, authored for Fenolite; not a real product"
+
+[[file]]
+path = "tests/data/devices/stamped.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative device record of change c0248, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/devices/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "device example of change c0248: a 5 V to 3.3 V board placed from device records"
+
+[[file]]
+path = "examples/devices/devices/example_buck.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative device record of the device example (c0248), authored for Fenolite; not a real product"

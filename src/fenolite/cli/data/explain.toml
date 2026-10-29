@@ -1099,6 +1099,21 @@ meaning = "A pad of the footprint has no symbol pin mapped to it and stays witho
 fix = "Nothing to do for a mechanical pad; else correct the pin-to-pad map."
 see = "build"
 
+["build.device-mismatch"]
+meaning = "A part placed from a device: the device disagrees with the symbol or the footprint it names. A symbol pin is in no function, a function lists a pin the symbol lacks, or a mapped pad is not on the footprint. Nothing is written."
+fix = "Correct the device's [pins] table against the symbol and the footprint (fenolite catalog show), or point the device at the symbol and footprint its pin map was reviewed for."
+see = "build"
+
+["device.edited"]
+meaning = "A device record stamped by fenolite catalog import was changed after the stamp: its SHA-256 no longer matches the provenance. The evidence label stays as written."
+fix = "Nothing, when the edit is your review. A re-import over the file is refused unless --allow-lossy is given."
+see = "build"
+
+["device.overrides-builtin"]
+meaning = "A project device (devices/*.toml beside the script, or design.devices()) has the id of a shipped Fenolite: device and is used in its place."
+fix = "Nothing, if the override is meant; else give the project device an id of its own namespace."
+see = "build"
+
 ["build.pin-ambiguous"]
 meaning = "A pin designator is one pin's number and another pin's name; the number wins."
 fix = "Use the pin number to be exact."
@@ -3747,3 +3762,13 @@ see = "panel"
 meaning = "A file that the last fenolite panel wrote was changed since; the panel is not written over it."
 fix = "Run again with --discard-layout to replace it (a .bak copy is kept), or write the panel to another --out."
 see = "panel"
+
+["catalog.pin-without-pad"]
+meaning = "fenolite catalog import: a symbol pin has no footprint pad of its number, and no --pin maps it. Nothing is written."
+fix = "Map the pin with --pin FUNCTION=PIN:PAD, or pick the footprint the symbol is meant for."
+see = "catalog"
+
+["catalog.pad-unmapped"]
+meaning = "fenolite catalog import: a footprint pad is named by no symbol pin and is left out of the device."
+fix = "Nothing for a mechanical pad (list it in unused_pads when you review the file); else map it with --pin."
+see = "catalog"
