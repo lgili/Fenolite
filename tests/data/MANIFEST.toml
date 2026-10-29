@@ -2481,3 +2481,21 @@ path = "examples/roles/half_bridge/sym-lib-table"
 origin = "authored"
 corpus_id = ""
 notes = "symbol table of a net-role reference board (c0222) naming the authored libraries through ${KIPRJMOD}"
+
+[[file]]
+path = "examples/testing/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "Authored catalog-only two-resistor connectivity fixture for c0256; no source circuit."
+
+[[file]]
+path = "examples/testing/test_design.py"
+origin = "authored"
+corpus_id = ""
+notes = "Authored plain design assertions for the c0256 testing example."
+
+[[file]]
+path = "examples/testing/golden/net-GND.svg"
+origin = "authored"
+corpus_id = ""
+notes = "Canonical SVG generated from the authored c0256 fixture through reviewed render plan/confirm."
