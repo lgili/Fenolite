@@ -191,7 +191,8 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
 - `no_connect(*pins)` marks pins as intentionally unconnected ("No-connect marks"); `part.unused_no_connect()`
   asks the build to mark the open pins of a part, and `series`, `decouple`, `pull_up` and `pull_down` wire
   common patterns ("Connection helpers").
-- `Part.place(x, y, rot=0, side="top", locked=False)`, once per part.
+- `Part.place(x, y, rot=0, side="top", locked=False)`, once per part; with references instead of `x, y`
+  (`right_of=u1`, `left=board.left + mm(2)`, `by=c5.pad(1)`) the build resolves it ("Relative placement").
 - `Part.field(name, *, dx, dy, rot, layer, visible, size, thickness, justify, outside, gap, locked)`,
   once per field name: where the `Reference` or the `Value` of the part's footprint goes ("Field
   placement"). `fields(design)` returns the requests.
@@ -553,7 +554,7 @@ and centring on the paper would move every part when the paper size changes.
 Parts without `place()` are staged in one row, in component-path order, 5 mm right of the outline (of
 the box of its rings, arcs included) and
 top-aligned with it, 2 mm apart, on the top side at 0° and unlocked, each with a `layout.unplaced`
-warning.
+warning. A block with a layout strategy and no pose is staged first, as one box ("Block layout").
 
 ## Scripts
 
@@ -1735,7 +1736,8 @@ connect(Net("VIN"), ch0.VIN)  # the port net takes the name VIN
   `cs0`; `selects=n` for n chip selects) and `Harness` (`members=(...)`). `handle.sda` or `handle["sda"]`
   is the port net of one member. A port of one member is net-like: `connect` takes it as its net or as a pin
   argument. Outside, `inst.VIN` and `inst.port("VIN")` are the same handle. A port name equal to `path`,
-  `block`, `params`, `part`, `port` or `place` raises `DslError`. Each port is a model `Port` with the id
+  `block`, `params`, `part`, `port`, `place`, `layout`, `module` or an edge (`left`, `right`, `top`,
+  `bottom`, `center_x`, `center_y`) raises `DslError`. Each port is a model `Port` with the id
   `port:<block path>:<port name>`.
 - **Port nets and their names.** A port net has no name of its own: `connect` binds nets and port nets into
   groups. A group with one script-named net (a `Net` or a local net) takes its name. A group without one
@@ -1758,6 +1760,102 @@ connect(Net("VIN"), ch0.VIN)  # the port net takes the name VIN
   owns parts gives an implicit `schematic_block` (`docs/schematic-composition.md`).
 - **When to keep `Module`.** Use a block for anything repeated or reused; keep `Module` for grouping parts
   whose refs and nets the script names by hand.
+
+## Relative placement
+
+A part may be placed by references instead of coordinates (change c0255; the example is
+`examples/relative/pads.py`). The script records the request; the build measures the footprints and
+resolves it to integer nanometres, then records how (`result.placement.relative`).
+
+```python
+board = design.board(mm(40), mm(30))  # board() returns the board as a reference
+u1.place(mm(18), mm(15))
+c1.place(left_of=u1.pad(1), gap=mm(2), by=c1.pad(2))  # pad 2 of C1, 2 mm left of U1's pad 1
+c2.place(right_of=u1, gap=mm(1))  # courtyards 1 mm apart, centres aligned
+j1.place(left=board.left + mm(2), center_y=board.center_y)
+r1.place(below=c2, gap=mm(1), align="start")  # left edges equal
+```
+
+- **Relations.** `right_of=R` puts the part's box left edge at `R.right + gap`; `left_of` its right edge at
+  `R.left - gap`; `above` its bottom edge at `R.top - gap`; `below` its top edge at `R.bottom + gap` (Y
+  down). `gap` is a length, 0 by default (touching courtyards are legal). One relation per call. `align`
+  sets the other axis: `"center"` (the default), `"start"` (left or top edges equal) or `"end"`.
+- **References** are a `Part`, a pad (`u1.pad(n)`, `index=` for one of several), a block instance and the
+  board (`design.board(...)` returns it; also `design.board_ref`). Each has the edges `left`, `right`,
+  `top`, `bottom`, `center_x` and `center_y`.
+- **Edge keys** `left`, `right`, `top`, `bottom`, `center_x` and `center_y` put that edge of the part's box
+  at a length of the frame or at an edge expression: one edge plus or minus a length (`board.left +
+  mm(2)`, `u1.right`). Nothing else combines: `board.left * 2` or two edges raise `DslError`.
+- **`by=part.pad(n)`** measures the part by one of its own pads: the relation and the edges use that pad's
+  box, and `align="center"` puts the pad's centre (its position) in line with the reference's centre.
+- **Axes.** Each axis is set by exactly one source: X by `x`, `left`, `right`, `center_x`, `right_of` or
+  `left_of`; Y by `y`, `top`, `bottom`, `center_y`, `above` or `below`. An explicit key wins over `align`.
+  Two sources for an axis, an axis with none, or `gap` or `align` without a relation raise `DslError`.
+- **Boxes.** A part's box is its courtyard box (else its pad boxes) turned by `rot` and mirrored for the
+  bottom side; a turn that is not a quarter turn takes the bounds rounded outward; a centre is
+  `(a + b) // 2`. A block's box is the union of its placed parts' boxes; the board's is the outline's box.
+- **Order.** Requests resolve in the order of their references, ties by path; a cycle is
+  `layout.relative-cycle` (error), and a reference with no placement `layout.relative-unresolved`
+  (warning; the part is staged).
+- **Locked.** `locked=True` makes the request level 1 of "Placement precedence" (`docs/lens.md`); every
+  reference must then be locked too (a locked part, a pad of one, a locked block, or the board), else the
+  build raises `DslError` naming it.
+- **The board wins over an unlocked request**, as over an absolute `place()`; with the base record the
+  request is the code side of the three-way merge, and a request follows the merged position of its
+  reference, so a follower follows a reference moved in KiCad unless it was moved by hand itself.
+
+## Block layout
+
+A block instance can be moved as one piece, arrange its own parts, or bring its proven layout (change
+c0255; the example is `examples/relative/blocks.py`).
+
+```python
+@block
+def channel(b):
+    u = b.part("U", ...)
+    u.place(mm(0), mm(0))  # the block's own frame
+    l = b.part("L", ...)
+    l.place(right_of=u, gap=mm(1))
+    b.layout(row(gap=mm(1)))  # the block's other parts, in a row
+
+
+p1 = design.use(channel, "ch0")
+p1.place(mm(10), mm(8), rot=90)  # the whole block, rigidly
+p2 = design.use(channel, "ch1")
+p2.place(below=p1, gap=mm(2), align="start")
+p3 = design.use(channel, "ch2")
+p3.layout(reuse="channel.kicad_pcb", copper=True)
+```
+
+- **Pose.** `inst.place(x, y, rot=0, locked=False)`, or with the relations and edge keys of a part measured
+  on the block's box, sets the instance's pose in its parent frame. Every placement in the body is in the
+  block's frame and composed with the pose; without a pose the frame is the parent's, so a block written
+  with board coordinates builds unchanged. A block does not place itself: the body has no `b.place`.
+- **References in a body** stay in the block: its own parts and nested instances. A part outside the block,
+  or the board, raises `DslError`, since it would not move with the block.
+- **Strategies.** `row(gap=0, align="start", at=None)`, `column(...)`, `grid(columns, gap=0, at=None)` and
+  `pack(width, gap=0, at=None)` place the frame's parts that have no request (and nested instances without a
+  pose, as one box each), in creation order, from `at` in the frame. A row aligns top edges (`start`),
+  centres or bottom edges; a column left edges, centres or right edges; a grid uses cells of the largest box
+  plus `gap`; `pack` fills shelves within `width`, tallest first, and a box wider than `width` takes its own
+  shelf with `layout.strategy-overflow`. `place(rot=90)` without a position turns a part the strategy
+  places. `b.layout(...)` is the block's default, `inst.layout(...)` wins over it, and `design.layout(...)`
+  is the top level's. One strategy per frame.
+- **Group staging.** A top-level block with a strategy and no pose, when the top has no strategy, is staged
+  as one box at the start of the staging row, its parts keeping their strategy positions; each part still
+  gives `layout.unplaced`.
+- **Reuse.** `layout(reuse=PATH, copper=False)` places the block's parts that nothing else places from a
+  board laid out for the block alone (`PATH` relative to the file that defines the block for `b.layout`, to
+  the script for `inst.layout`). Parts map by block-local path (`C`, `led/R`; a board built from one
+  instance `ch` of the block, whose paths read `ch/C`, maps too), at their positions in that board's frame
+  of `place()` composed with the pose. A part the board lacks is staged with `reuse.unknown-part`
+  (warning); one whose pads differ is `reuse.no-fit`. With `copper=True` its tracks, arcs, vias and zones
+  are copied, nets mapped by port (`VIN`, `PORT.member`) and local net (`A`), each copy locked and
+  regenerated on every build; a net that is neither is `reuse.port-unmapped` (error).
+- **Moving a laid-out block.** `.fenolite/build.json` records each block's resolved pose. When the script
+  changes it, the parts kept from the board move with the block by `new ∘ old⁻¹`, with the copper joined
+  only to their pads, and the build gives `layout.block-moved` (info); copper to other parts stays, with
+  `place.copper-left`.
 
 ## Path aliases (`moved()`)
 

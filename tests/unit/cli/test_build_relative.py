@@ -6,7 +6,6 @@ pose"; capability layout-lens, "Placement precedence")."""
 
 from __future__ import annotations
 
-import io
 import json
 import shutil
 from pathlib import Path
@@ -14,12 +13,11 @@ from typing import Any
 
 import pytest
 from _layout_edit import add_items, move_footprint, net_ref, pad_position
+from _relbench import Bench
 
-import fenolite.cli.main as cli_main
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.core.coords import Point
 from fenolite.dsl.convert import BOARD_ORIGIN
-from fenolite.model.design import Design
 
 ROOT = Path(__file__).resolve().parents[3]
 PADS = ROOT / "examples" / "relative" / "pads.py"
@@ -31,52 +29,6 @@ def isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kicad-config"))
     for name in ("KICAD10_FOOTPRINT_DIR", "KICAD10_SYMBOL_DIR", "KICAD9_FOOTPRINT_DIR", "KICAD9_SYMBOL_DIR"):
         monkeypatch.delenv(name, raising=False)
-
-
-class Bench:
-    """A design script in a folder of its own, built into ``out`` in-process."""
-
-    def __init__(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, text: str, name: str) -> None:
-        self.monkeypatch = monkeypatch
-        self.folder = tmp_path / "src"
-        self.folder.mkdir(parents=True, exist_ok=True)
-        self.script = self.folder / "design.py"
-        self.script.write_text(text, encoding="utf-8")
-        self.out = tmp_path / "out"
-        self.name = name
-
-    def build(self, *flags: str, out: Path | None = None) -> tuple[int, dict[str, Any], str]:
-        stdout, err = io.StringIO(), io.StringIO()
-        self.monkeypatch.setattr("sys.stdout", stdout)
-        self.monkeypatch.setattr("sys.stderr", err)
-        args = ["build", str(self.script), "--out", str(out or self.out), *flags, "--json"]
-        code = cli_main.main(args)
-        return code, json.loads(stdout.getvalue()) if stdout.getvalue() else {}, err.getvalue()
-
-    @property
-    def board(self) -> Path:
-        return self.out / f"{self.name}.kicad_pcb"
-
-    def read(self) -> Design:
-        return read_board(self.board.read_text(encoding="utf-8"))
-
-    def positions(self) -> dict[str, tuple[Point, int, str]]:
-        design = self.read()
-        assert design.board is not None
-        refs = {c.id: c.ref for c in design.circuit.components}
-        return {refs[fp.component_id]: (fp.position, fp.rotation, fp.side) for fp in design.board.footprints}
-
-    def edit_script(self, old: str, new: str) -> None:
-        text = self.script.read_text(encoding="utf-8")
-        assert old in text, old
-        self.script.write_text(text.replace(old, new), encoding="utf-8")
-
-    def files(self) -> dict[str, bytes]:
-        return {
-            str(p.relative_to(self.out)): p.read_bytes()
-            for p in sorted(self.out.rglob("*"))
-            if p.is_file() and not p.name.endswith(".bak")
-        }
 
 
 def _codes(env: dict[str, Any]) -> list[str]:

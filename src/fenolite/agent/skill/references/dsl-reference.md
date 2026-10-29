@@ -132,6 +132,12 @@ Function: `block(function: 'Callable[..., None] \| None' = None, /, *, name: 'st
 
 Mark `def name(b, *, param=default, ...)` as a block: `@block` or `@block(name="buck")`.
 
+## column
+
+Function: `column(gap: 'object' = Length(nm=0), align: 'str' = 'start', at: 'object' = None) -> 'Strategy'`
+
+The frame's unplaced parts top to bottom from `at`, `gap` apart, aligned on their left edges (`start`), centres or right edges (`end`).
+
 ## connect
 
 Function: `connect(net: 'object', *pins: 'object') -> 'Net'`
@@ -149,6 +155,12 @@ Join each capacitor's `a` to `rail` and its `b` to `ground`.
 Function: `farad(value: 'int \| Fraction \| str') -> 'Quantity'`
 
 A capacitance: `farad("100n")`.
+
+## grid
+
+Function: `grid(columns: 'int', gap: 'object' = Length(nm=0), at: 'object' = None) -> 'Strategy'`
+
+Cells of the largest box's size plus `gap`, `columns` per row, each box centred in its cell.
 
 ## henry
 
@@ -198,6 +210,12 @@ Function: `ohm(value: 'int \| Fraction \| str') -> 'Quantity'`
 
 A resistance: `ohm("4k7")`, `ohm("4.7 kΩ")`, `ohm(4700)`.
 
+## pack
+
+Function: `pack(width: 'object', gap: 'object' = Length(nm=0), at: 'object' = None) -> 'Strategy'`
+
+Shelf packing within `width`: tallest boxes first, each right of the previous while it fits, else on a new shelf.
+
 ## pct
 
 Function: `pct(lo: 'int \| Fraction \| str', hi: 'int \| Fraction \| str \| None' = None) -> 'Tolerance'`
@@ -221,6 +239,12 @@ Join each resistor's `a` to a net of `target` and its `b` to `ground`, as `pull_
 Function: `pull_up(target: 'Net \| I2C', rail: 'Net', *resistors: 'Part') -> 'None'`
 
 Join each resistor's `a` to a net of `target` and its `b` to `rail`.
+
+## row
+
+Function: `row(gap: 'object' = Length(nm=0), align: 'str' = 'start', at: 'object' = None) -> 'Strategy'`
+
+The frame's unplaced parts left to right from `at`, `gap` apart, aligned on their top edges (`start`), centres or bottom edges (`end`).
 
 ## schematic_composition
 

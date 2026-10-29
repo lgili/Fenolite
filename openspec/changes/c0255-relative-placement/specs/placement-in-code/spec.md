@@ -56,7 +56,7 @@ When a block's resolved pose differs from the pose recorded by the previous buil
 - **THEN** every part and every track among `buck1`'s pads is 10 mm further right, `issues` hold one `layout.block-moved` naming `buck1`, and copper to parts outside the block stays with `place.copper-left`
 
 ### Requirement: Row and column strategies
-`row` SHALL place the frame's boxes left to right from `at`, `gap` apart, aligned on their top edges, centres or bottom edges; `column` top to bottom, aligned on left edges, centres or right edges. A strategy MUST take only parts with no request and no placement from levels 1 to 3, and instances without a pose as one box, in creation order.
+`row` SHALL place the frame's boxes left to right from `at`, `gap` apart, aligned on their top edges, centres or bottom edges; `column` top to bottom, aligned on left edges, centres or right edges. A strategy MUST take only parts with no request, and instances without a pose as one box, in creation order; a part that the board keeps (level 2) keeps its slot, so a part moved in KiCad never moves the others.
 
 #### Scenario: A row of three
 - **GIVEN** a block with `b.layout(row(gap=mm(1)))` and three unplaced parts created in the order `R1`, `C1`, `R2`

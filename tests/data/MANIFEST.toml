@@ -2602,3 +2602,33 @@ corpus_id = ""
 path = "tests/data/lens/sync_minimal/fenolite-base.json"
 origin = "authored"
 corpus_id = ""
+
+[[file]]
+path = "examples/relative/pads.py"
+origin = "authored"
+corpus_id = ""
+notes = "c0255 placement in code example"
+
+[[file]]
+path = "examples/relative/blocks.py"
+origin = "authored"
+corpus_id = ""
+notes = "c0255 placement in code example"
+
+[[file]]
+path = "examples/relative/blocks.lock"
+origin = "authored"
+corpus_id = ""
+notes = "c0255 placement in code example"
+
+[[file]]
+path = "examples/relative/channel.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "c0255 placement in code example"
+
+[[file]]
+path = "examples/relative/bench/channel.py"
+origin = "authored"
+corpus_id = ""
+notes = "c0255 placement in code example"
