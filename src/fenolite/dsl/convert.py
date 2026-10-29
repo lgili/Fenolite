@@ -21,9 +21,10 @@ from fenolite.core.units import Nm
 from fenolite.dsl.design import MINIMUM_KINDS, Design, ImpedanceSpec
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.items import DimensionSpec, GraphicSpec, TextSpec
+from fenolite.dsl.lock import assign_refs, make_lock
 from fenolite.dsl.module import Module as DslModule
 from fenolite.dsl.panel import Panel
-from fenolite.dsl.part import FieldRequest, PadZoneRequest, Part, Placement, pad_pairs
+from fenolite.dsl.part import FieldRequest, PadZoneRequest, Part, Placement, check_name, pad_pairs
 from fenolite.dsl.roles import to_roles
 from fenolite.dsl.schematic import extract as schematic_composition
 from fenolite.dsl.shape import ring_box
@@ -101,7 +102,7 @@ def key_id(kind: str, *parts: str) -> str:
 def _component(part: Part) -> Component:
     return Component(
         id=key_id("component", part.path),
-        ref=part.ref,
+        ref=part.label,
         value=part.value,
         lib_symbol_ref=part.lib_id,
         lib_footprint_ref=part.footprint or "",
@@ -280,19 +281,38 @@ def _proximity(design: Design) -> tuple[ProximityRule, ...]:
 
 
 @overload
-def to_model(design: Design) -> ModelDesign: ...
+def to_model(design: Design, *, refs: Mapping[str, str] | None = None) -> ModelDesign: ...
 
 
 @overload
 def to_model(design: Panel) -> ModelPanel: ...
 
 
-def to_model(design: Design | Panel) -> ModelDesign | ModelPanel:
+def to_model(design: Design | Panel, *, refs: Mapping[str, str] | None = None) -> ModelDesign | ModelPanel:
     """The model design of ``design``: model types only, no validation, no library access. A panel script's
-    ``Panel`` gives its model panel (change c0173)."""
+    ``Panel`` gives its model panel (change c0173).
+
+    ``refs`` (component path → ref, ``lock.assign_refs``) gives the parts without an explicit ref their
+    refs; without it they are assigned against an empty lock (change c0249). Each part's ``ref`` is set to
+    the ref it is lowered with; ids never depend on refs."""
     if isinstance(design, Panel):
         return design.to_model()
+    _apply_refs(design, refs)
     return _design_model(design)
+
+
+def _apply_refs(design: Design, refs: Mapping[str, str] | None) -> None:
+    if refs is None:
+        if all(part.explicit_ref is not None for part in design.parts.values()):
+            return
+        refs = assign_refs(design, make_lock(design.name), moves={}).refs
+    for path, part in design.parts.items():
+        if part.explicit_ref is not None:
+            continue
+        ref = refs.get(path)
+        if ref is None:
+            raise DslError(f"to_model(): refs gives no ref for the part {path}, which has no explicit ref")
+        part.assigned = check_name(ref, f"ref of {path}")
 
 
 def _design_model(design: Design) -> ModelDesign:

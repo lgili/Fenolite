@@ -165,4 +165,16 @@ when a written file changed since (`restore.changed-since`), never deletes a fil
 (`restore.kept`), and has nothing to do when `receipt.undo` is `null` (`--no-backup`). Its own receipt
 undoes it.
 
+## The design lock
+
+A script with parts written without a ref gets `<script>.lock` beside it: every part path and its ref,
+written by `build` through the plan. Commit it, and review its changes like code. An edit of a ref there
+renumbers that part; deleting the file renumbers all. `--frozen` refuses any change (exit 7,
+`FEN-7004`, page `recovery`): run it in CI or before a release. `--lock FILE` names another file.
+
+```fenolite-cmd
+fenolite build reg/design.py --out reg/build --frozen --dry-run --json
+fenolite build reg/design.py --out reg/build --lock reg/release.lock --dry-run --json
+```
+
 Read next: `checks`, `altium`, `recovery`.

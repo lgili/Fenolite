@@ -38,6 +38,10 @@ their edits"); its uuid then follows the new path, so the alias can be removed a
 that matches nothing, or whose new path was matched by uuid or path, gives `layout.alias-unused`. Aliases
 are not model data: ids and `.fenolite/` do not change. See `docs/dsl.md` for the rules on paths.
 
+A part renumbered through the design lock (`docs/dsl.md`, "Reference designators and the design lock") is
+matched like any part, by uuid and then by its path, so its footprint keeps its position, rotation, side and
+copper and carries the new reference; the lock entries follow `moved()` aliases as the layout does.
+
 ## Module aliases
 
 `design.moved("power", "supply")` on a module path renames every part under it: each part

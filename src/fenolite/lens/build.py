@@ -140,6 +140,14 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.impedance-gap-clearance": "warning",
         "build.impedance-stackup": "warning",
         "build.impedance-rules-only": "info",
+        # the design lock (c0249; the same table as fenolite.dsl.lock.LOCK_CODES)
+        "lock.ref-released": "warning",
+        "lock.ref-taken": "warning",
+        "lock.ref-moved": "info",
+        "lock.ref-explicit": "info",
+        "lock.ref-prefix-changed": "info",
+        "lock.design-renamed": "info",
+        "lock.changed": "error",
         **{code: severity for code, severity in schgen.ISSUE_CODES.items() if code.startswith("build.")},
         **PRESERVE_ISSUE_CODES,
     }

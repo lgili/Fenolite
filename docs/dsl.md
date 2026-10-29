@@ -182,9 +182,11 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
 
 - `Design(name)`, `Module(name)`: containers; `add(*objs)` adds parts, modules, nets and interfaces.
   There is no implicit "current design".
-- `Part(ref, lib_id, footprint=None, value="", *, properties=None)`: `lib_id` is a symbol
-  `Library:Name`; `footprint=None` falls back to the symbol's `Footprint` property, and `value=""` to
-  its `Value` property. `properties` maps user property names to text ("User properties").
+- `Part(ref, lib_id, footprint=None, value="", *, name=None, prefix=None, properties=None)`: `lib_id` is
+  a symbol `Library:Name`; `footprint=None` falls back to the symbol's `Footprint` property, and
+  `value=""` to its `Value` property. `properties` maps user property names to text ("User properties").
+  The ref may be left out: the build then assigns one ("Reference designators and the design lock").
+- `Design.part(...)` and `Module.part(...)` take the arguments of `Part`, create the part and attach it.
 - `part[designator]` returns a pin handle; `connect(net, *pins)` joins pins to a net.
 - `no_connect(*pins)` marks pins as intentionally unconnected ("No-connect marks"); `part.unused_no_connect()`
   asks the build to mark the open pins of a part, and `series`, `decouple`, `pull_up` and `pull_down` wire
@@ -248,9 +250,11 @@ Nothing of the DSL is re-exported from the root `fenolite` package: the DSL `Des
 
 ### Names and paths
 
-- A design name matches `^[A-Za-z0-9][A-Za-z0-9_.-]*$`. Module names and refs match `[A-Za-z0-9_.+-]+`.
+- A design name matches `^[A-Za-z0-9][A-Za-z0-9_.-]*$`. Module names, part names and refs match
+  `[A-Za-z0-9_.+-]+`.
 - A module path is its name at the top and `<parent path>/<name>` below; a component path is
-  `<module path>/<ref>`, or `<ref>` at the top.
+  `<module path>/<key>`, or `<key>` at the top. The key of a part is its `name`, else its explicit ref,
+  else its reference prefix ("Reference designators and the design lock").
 - Net names are global and literal. A module-local net is named by the script, for example
   `Net(f"{m.path}/FB")`.
 - Errors are raised as `DslError` at the offending call, so the traceback points at the script line:
@@ -1537,6 +1541,56 @@ design.title_block(title="Blink", revision="B", variables={"PROJECT_CODE": "X1"}
   script. Without these calls the board keeps the ones it has (`docs/lens.md`).
 - `result.drawing_sheet` of `build` holds `source`, `file` and `items`, or `null`.
 
+## Reference designators and the design lock
+
+A part may be written without a ref (change c0249). Its identity is its path; the build gives it a ref
+and records the ref in the design lock, so that it never changes by itself.
+
+```python
+reg = Module("reg")
+design.add(reg)
+u = reg.part(lib_id="Fenolite:Linear_Regulator", footprint="Fenolite:SOT223_3_Diodes")  # path reg/U
+c_in = reg.part(name="c_in", lib_id="Fenolite:Capacitor", footprint="Fenolite:Chip_0805")  # reg/c_in
+j1 = design.part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54")  # explicit, path J1
+y = design.part(lib_id="Device:Crystal", footprint="Crystal:HC49", prefix="Y")  # path Y
+```
+
+- **Keys.** The last segment of a component path is `name=` when given, else the explicit ref (so the
+  paths of existing scripts do not change), else the part's reference prefix. A second part without a
+  name and with the same prefix in one container raises `DslError` at its call, asking for `name=`: a
+  counter would make a path depend on the order of the statements.
+- **Prefixes.** `prefix=` (matching `[A-Z][A-Z_]*`), else the `reference` of a `Fenolite:` catalog
+  symbol (`Fenolite:Inductor` gives `L`). The device catalog (c0248) adds the device's `ref_prefix`. A part
+  without a ref and without a known prefix raises `DslError` ("give a ref, a prefix or a device").
+- **Assignment.** `fenolite.dsl.lock.assign_refs(design, lock, *, moves)` is pure. Explicit refs are taken
+  as written. A locked ref is kept, unless it is now another part's explicit ref (`lock.ref-taken`) or does
+  not start with the part's prefix (`lock.ref-prefix-changed`). Every other part gets, per prefix, the
+  lowest free number `n ≥ 1`, the parts taken in natural path order.
+- **Natural path order.** A path is split into maximal runs of digits and non-digits, compared in turn:
+  two digit runs by value and then by length, two other runs by code point, a digit run first. So `ch2/R`
+  comes before `ch10/R`. The order does not depend on statement order, `--seed` or `PYTHONHASHSEED`.
+- **The lock file** is `<script stem>.lock` beside the script (`design.py` gives `design.lock`), or the file
+  of `fenolite build --lock FILE`. It is canonical TOML of schema `fenolite.lock.v0`: a header comment,
+  `schema`, `design`, then `[refs]` (path to ref, every part, explicit refs included) with keys in code-point
+  order. The sections `[picks]` (c0254) and `[pins]` (c0257) are reserved: content there is refused
+  (`FEN-3002`) until their change lands. A malformed lock (an unknown key, a wrong type, an invalid ref,
+  two paths with one ref) is `FEN-3004`.
+- **Writing.** `fenolite build` plans the lock as one more write, kind `lock`, only when its bytes change,
+  and only for a design with a part without an explicit ref or one that already has a lock. A design of
+  explicit refs builds exactly as before and gets no lock. An error finding plans no lock write.
+- **Hand edits are honoured.** `"reg/C" = "C7"` renumbers that part on the next build when `C7` is free.
+  Deleting the file renumbers everything from scratch.
+- **`moved()`.** An alias new to old carries the lock entries of `old` to `new` (`lock.ref-moved`); an entry
+  whose path is gone and that no alias carries is released (`lock.ref-released`, warning), and its number
+  may be given to another part later. A changed ref alone never loses layout: footprints are matched by
+  uuid and path (`docs/lens.md`).
+- **`--frozen`.** `fenolite build --frozen` refuses any change of the lock (a new, released, moved or
+  replaced ref, another design name) with exit 7 and `FEN-7004`, one `lock.changed` issue per change, and
+  writes nothing, also with `--dry-run`. A difference of formatting only is no change.
+- `to_model(design, *, refs=None)` takes the refs; without them it assigns against an empty lock. Ids stay
+  derived from paths, never from refs. `result.lock` of `build` reports `file`, `exists`, `written`,
+  `frozen` and `changes` (`docs/cli-contract.md`, "build").
+
 ## Path aliases (`moved()`)
 
 `design.moved(old, new)` records that the part or the module at path `new` was at `old` in an earlier
@@ -1567,9 +1621,11 @@ under a renamed module needs no call: the module alias covers it.
 
 ## Determinism
 
-A build is a pure function of the script and the Fenolite version: ids come from keys, files hold no
-date, and sets are never iterated in hash order, so builds with different `--seed`, `--timestamp` and
-`PYTHONHASHSEED` values (S-0072) are byte-identical. `--seed` and `--timestamp` are accepted and unused.
+A build is a pure function of the script, its design lock and the Fenolite version: ids come from keys,
+files hold no date, and sets are never iterated in hash order, so builds with different `--seed`,
+`--timestamp` and `PYTHONHASHSEED` values (S-0072) are byte-identical. `--seed` and `--timestamp` are
+accepted and unused. A build leaves the script folder unchanged, except for the design lock, which it
+writes only when its content changes.
 
 ## Output layout
 

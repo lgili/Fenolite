@@ -14,6 +14,7 @@ from _buildhelp import blink, build, codes
 from fenolite.backends.kicad import embed
 from fenolite.core.evidence import Level
 from fenolite.core.ids import derived_id
+from fenolite.dsl.lock import LOCK_CODES
 from fenolite.lens.altium_schematic import ISSUE_CODES as ALTIUM_ISSUE_CODES
 from fenolite.lens.build import BUILD_EVIDENCE, BUILD_ISSUE_CODES, plane_issues
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES
@@ -57,9 +58,14 @@ def test_closed_set() -> None:
         "build.pad-map-default": "warning",  # c0147: the catalog's default pin-to-pad map
         "build.area-unknown": "error",  # c0103: a rule names no rule area
         "build.not-two-terminal": "error", "build.must-connect-unconnected": "error",  # c0247
+        # c0249: the design lock
+        "lock.ref-released": "warning", "lock.ref-taken": "warning", "lock.ref-moved": "info",
+        "lock.ref-explicit": "info", "lock.ref-prefix-changed": "info", "lock.design-renamed": "info",
+        "lock.changed": "error",
         **PRESERVE_ISSUE_CODES,  # c0019
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table
+    assert {code: BUILD_ISSUE_CODES[code] for code in LOCK_CODES} == dict(LOCK_CODES)
     literals: set[str] = set()
     kicad = ROOT / "src" / "fenolite" / "backends" / "kicad"
     generator = [
@@ -71,13 +77,14 @@ def test_closed_set() -> None:
         literals |= set(
             re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
         )
-    assert literals == set(table) | {code for code in ALTIUM_ISSUE_CODES if code.startswith("build.")}
+    own = set(table) - set(LOCK_CODES)  # the lock's codes are raised by fenolite.dsl.lock (c0249)
+    assert literals == own | {code for code in ALTIUM_ISSUE_CODES if code.startswith("build.")}
     tested: set[str] = set()
     cli_tests = TESTS.parent / "cli" / "test_build_schematic_cmd.py"
     layout_tests = TESTS.parent / "backends" / "kicad" / "test_schlayout.py"
     for path in [*TESTS.glob("test_build_*.py"), *TESTS.glob("test_preserve_*.py"), cli_tests, layout_tests]:
         tested |= set(re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8")))
-    assert set(table) - set(PRESERVE_ISSUE_CODES) <= tested, set(table) - tested
+    assert own - set(PRESERVE_ISSUE_CODES) <= tested, own - tested
 
 
 def test_warnings_do_not_fail() -> None:

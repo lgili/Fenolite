@@ -82,25 +82,45 @@ connect(v33, j1[1], u1[1])
 connect(gnd, j1[2], u1[2])
 connect(sda, j1[3], u1[4])
 connect(scl, j1[4], u1[5])
-pull_up(I2C(sda, scl), v33, r1, r2)  # R1 on SDA, R2 on SCL: pin 1 on the signal, pin 2 on 3V3
-decouple(v33, gnd, c1, near=u1.pad(1), within=mm(3))  # also the placement rule decouple/C1
+pull_up(I2C(sda, scl), v33, r1, r2)  # R1 on SDA, R2 on SCL
+decouple(v33, gnd, c1, near=u1.pad(1), within=mm(3))  # also rule decouple/C1
 connect(led, u1[8])
-series(led, r3, d1, gnd)  # LED, R3, D1 from A to K, GND; R3 and D1 meet on the new net R3-D1
+series(led, r3, d1, gnd)  # R3 and D1 meet on net R3-D1
 connect(rst, u1[3])
 pull_down(rst, gnd, r4)
-connect(v33, r5.a)  # the ends of a two-pin part: pins 1 and 2
+connect(v33, r5.a)  # a/b: pins 1 and 2
 connect(Net("ADC"), r5.b, u1[7])
-u1.unused_no_connect()  # the build marks CLK (pin 6), the one open pin
+u1.unused_no_connect()  # marks CLK, the one open pin
 ```
 
-- `series` takes nets at both ends; between them a part (in at `a`, out at `b`), a tuple `(d1.b, d1.a)` to
-  turn a part around, or a net that names the joint. `decouple` puts each capacitor between two nets;
-  `pull_up` and `pull_down` take a net and one resistor or an `I2C` bus and two. A refused call connects
-  nothing.
+- `series` takes nets at both ends and parts between (in at `a`, out at `b`; `(d1.b, d1.a)` turns one). `decouple` puts each capacitor between two nets;
+  `pull_up` and `pull_down` take a net and one resistor or an `I2C` bus and two. A refused call connects nothing.
 - `part.unused_no_connect(keep=(...))` marks, at build, every open pin except `keep` and pins of type
   `no_connect`. An open `power_in` pin stops the build with `build.must-connect-unconnected`; a part used
   through `a`/`b` or a helper whose symbol has other than two pins gives `build.not-two-terminal`. Both are
   errors: exit 5, nothing written.
+
+## Parts without a ref
+
+`design.part(...)` and `module.part(...)` create and add a part. Without a ref the build gives one; the
+path is the module path and the prefix (`reg/U`) or `name=`. Two parts of one prefix in a module need
+`name=`; `prefix=` names a prefix outside the catalog. Refs are kept in `design.lock` (page `files`).
+
+```fenolite-design
+from fenolite.dsl import Design, Module, Net, Part, connect, mm
+
+design = Design("reg")
+design.board(mm(30), mm(20))
+j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54")
+design.add(j1)
+reg = Module("reg")
+design.add(reg)
+u = reg.part(lib_id="Fenolite:Linear_Regulator", footprint="Fenolite:SOT223_3_Diodes")  # reg/U, U1
+c_in = reg.part(name="c_in", lib_id="Fenolite:Capacitor", footprint="Fenolite:Chip_0805")  # C1
+vin, gnd = Net("VIN"), Net("GND")
+connect(vin, j1[1], u["IN"], c_in[1])
+connect(gnd, j1[2], u["GND"], c_in[2])
+```
 
 ## Lengths carry a unit
 
