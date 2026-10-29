@@ -171,7 +171,7 @@ another type; a flag without a value is a switch.
 `fenolite check [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder; an Altium document, .PrjPcb or project folder
-- `--stages A,B`: stages to run, of model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,roles.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip,roundtrip.rt2,render (default: model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,roles.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip); for Altium input, of model.validate,erc.lite,copper.clearance,placement.rules,roles.rules,parity,netlist.assignment_compare,roundtrip.rta0,roundtrip.rta1,roundtrip.rta2 (default: all)
+- `--stages A,B`: stages to run, of model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,roles.rules,zone.fill,drc.kicad,parity,schematic.drawn,netlist.assignment_compare,roundtrip,roundtrip.rt2,render (default: model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,roles.rules,zone.fill,drc.kicad,parity,schematic.drawn,netlist.assignment_compare,roundtrip); for Altium input, of model.validate,erc.lite,copper.clearance,placement.rules,roles.rules,parity,netlist.assignment_compare,roundtrip.rta0,roundtrip.rta1,roundtrip.rta2 (default: all)
 - `--kicad-cli PATH`: the kicad-cli to run (unused for Altium input)
 - `--timeout SECONDS` (number, default `300.0`): kicad-cli timeout (300; unused for Altium input)
 - `--exclude CODE:ITEM_A:ITEM_B`: store a KiCad DRC exclusion of this finding in the project (both item orders) instead of checking; needs --reason and the mutation protocol (KiCad input only)
@@ -357,7 +357,7 @@ another type; a flag without a value is a switch.
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
 - `--artifacts DIR` (repeatable): a folder inside the project whose fenolite-artifacts.json lists artefacts to add (repeatable)
-- `--stages A,B`: stages to run, of model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,roles.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip,roundtrip.rt2,render (default: model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,roles.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip)
+- `--stages A,B`: stages to run, of model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,roles.rules,zone.fill,drc.kicad,parity,schematic.drawn,netlist.assignment_compare,roundtrip,roundtrip.rt2,render (default: model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,roles.rules,zone.fill,drc.kicad,parity,schematic.drawn,netlist.assignment_compare,roundtrip)
 - `--no-check`: run no stage: record hashes only
 - `--verify`: compare the manifest with the files on disk; write nothing
 - `-o`, `--out FILE`: the manifest file (default: fenolite-artifacts.json by the board)
@@ -628,6 +628,7 @@ another type; a flag without a value is a switch.
 - `--to-source`: the direction: from the board in DIR to the files beside DESIGN.py (required)
 - `--check`: write nothing; report each file that would change as an error (for CI)
 - `--take SIDE[:TARGET]` (repeatable): refused: sync records and never resolves; resolve a conflict with fenolite build --take
+- `--freeze-schematic`: also write schematic.toml beside DESIGN.py from the project's generated schematic (KiCad only); add design.load_schematic('schematic.toml') to draw the sheets from it
 
 ## template
 `fenolite template [OPTIONS] --target {altium,kicad} -o OUT {build,import} FILE`

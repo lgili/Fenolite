@@ -22,6 +22,7 @@ from fenolite.lens.preserve import PRESERVE_ISSUE_CODES
 from fenolite.model.board import Zone
 from fenolite.model.circuit import Net
 from fenolite.model.design import Design
+from fenolite.model.drawn_connect import ISSUE_CODES as DRAWN_ISSUE_CODES
 
 ROOT = Path(__file__).resolve().parents[3]
 TESTS = ROOT / "tests" / "unit" / "lens"
@@ -68,6 +69,7 @@ def test_closed_set() -> None:
         "build.device-mismatch": "error", "device.edited": "info", "device.overrides-builtin": "info",
         **PRESERVE_ISSUE_CODES,  # c0019
         **EDIT_ISSUE_CODES,  # c0250: the edit merge passes through
+        **DRAWN_ISSUE_CODES,  # c0276: the drawn schematic
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table
     assert {code: BUILD_ISSUE_CODES[code] for code in LOCK_CODES} == dict(LOCK_CODES)
@@ -83,8 +85,9 @@ def test_closed_set() -> None:
         literals |= set(
             re.findall(r'"((?:build|layout|zone|device)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
         )
-    # the lock's codes are raised by fenolite.dsl.lock (c0249), the edit codes by fenolite.lens.edits (c0250)
-    own = set(table) - set(LOCK_CODES) - set(EDIT_ISSUE_CODES)
+    # raised elsewhere: the lock codes by fenolite.dsl.lock (c0249), the edit codes by fenolite.lens.edits
+    # (c0250), the drawn ones by model.drawn_connect (c0276)
+    own = set(table) - set(LOCK_CODES) - set(EDIT_ISSUE_CODES) - set(DRAWN_ISSUE_CODES)
     assert literals == own | {code for code in ALTIUM_ISSUE_CODES if code.startswith("build.")}
     tested: set[str] = set()
     cli_tests = TESTS.parent / "cli" / "test_build_schematic_cmd.py"

@@ -81,6 +81,22 @@ TABLE = {
     "length.out-of-range": ("error", "warning"),
     "length.skew-out-of-range": ("error", "warning"),
     "length.input-missing": ("warning",),
+    # the drawn schematic stage (c0276): the table of fenolite.model.drawn_connect, one severity per code
+    "drawn.netlist-differs": ("error",),
+    "drawn.symbol-missing": ("error",),
+    "drawn.part-unknown": ("error",),
+    "drawn.sheet-pin-unmatched": ("error",),
+    "drawn.sheet-unknown": ("error",),
+    "drawn.repeated-value-differs": ("error",),
+    "drawn.net-name-differs": ("warning",),
+    "drawn.unit-missing": ("warning",),
+    "drawn.dangling": ("warning",),
+    "drawn.label-unconnected": ("warning",),
+    "drawn.bus-member-unknown": ("warning",),
+    "drawn.placements-ignored": ("warning",),
+    "drawn.opaque-dropped": ("info",),
+    "drawn.frozen": ("info",),
+    "drawn.altium-repeat-flattened": ("info",),
 }
 
 
@@ -118,7 +134,10 @@ def test_codes_closed_set() -> None:
     # ``copper.clearance`` is also a stage name, which ``code_literals`` leaves out
     generated = (FINDING, ERC_FINDING)  # built from the report's type, never written as a literal
     wanted = {
-        k for k in TABLE if not k.startswith("erc.lite.") and k not in generated and k not in STAGE_ORDER
+        k
+        for k in TABLE
+        # the drawn codes are emitted by fenolite.model.drawn_connect, whose table the stage reuses (c0276)
+        if not k.startswith(("erc.lite.", "drawn.")) and k not in generated and k not in STAGE_ORDER
     }
     assert code_literals(sources) >= wanted
 

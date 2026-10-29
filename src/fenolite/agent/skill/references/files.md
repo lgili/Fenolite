@@ -177,4 +177,14 @@ fenolite build reg/design.py --out reg/build --frozen --dry-run --json
 fenolite build reg/design.py --out reg/build --lock reg/release.lock --dry-run --json
 ```
 
+## A drawn schematic
+
+`design.load_schematic("schematic.toml")` draws the sheets from that file beside the script instead of
+generating them. The script keeps the nets: `build` and the `check` stage `schematic.drawn` refuse a drawing
+that means other nets. After you redraw in KiCad, copy the drawing back; a generated schematic is frozen once:
+
+```fenolite-cmd
+fenolite sync blink/design.py --out build/blink --to-source --freeze-schematic --dry-run --json
+```
+
 Read next: `checks`, `altium`, `recovery`.

@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Drawn sheets written
-`sch.write_schematic` SHALL write the junctions, buses, bus entries, bus aliases, local labels, power symbols and opaque items of a created sheet in the form of S-0367 for both targets, in the root order no-connect flags, junctions, bus entries, wires, buses, labels, symbols, sheet references, opaque items, `sheet_instances`. Opaque items MUST pass `versions.check_emittable` like every other node.
+`sch.write_schematic` SHALL write the junctions, buses, bus entries, bus aliases, local labels, power symbols and opaque items of a created sheet in the form of S-0367 for both targets, in the root order bus aliases, no-connect flags, junctions, bus entries, wires, buses, labels, symbols, sheet references, opaque items, `sheet_instances`. Opaque items MUST pass `versions.check_emittable` like every other node. `lower_drawn` MUST cut each wire at the junctions on its inside and each bus at its junctions and bus entry ends, the form KiCad's editor keeps (9.0.9 does not join the uncut form; measured on 2026-10-29).
 
 #### Scenario: Every kind written
 - **WHEN** `uv run pytest tests/unit/backends/kicad/test_sch_write_drawn.py` writes the lowered full fixture for targets 9 and 10 and reads each text back
