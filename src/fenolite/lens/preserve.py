@@ -16,7 +16,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
@@ -288,6 +288,40 @@ def _describe(at: Point, rotation: Udeg, side: Side) -> str:
 
 
 @dataclass(frozen=True, slots=True)
+class CodePlacement:
+    """A code placement that the placement resolver gives (change c0255): position, rotation, side and
+    lock, the request's text for a relative one (``layout.place-overridden`` names it), whether the part
+    belongs to a strategy group staged as one box (the build then reports it as staged), and the x at which
+    the staging row continues after the groups."""
+
+    at: Point
+    rotation: Udeg
+    side: Side
+    locked: bool
+    request: str = ""
+    staged: bool = False
+    after: int | None = None
+
+
+def _requested(placement: PlacementLike) -> str:
+    """A ``place()`` as messages name it: its placement, and the text of a relative request."""
+    text = placement.request if isinstance(placement, CodePlacement) else ""
+    described = _describe(placement.at, placement.rotation, placement.side)
+    return f"{described} ({text})" if text else described
+
+
+def staging_after(placements: Mapping[str, PlacementLike]) -> int | None:
+    """Where the staging row continues after the strategy groups staged as one box, or ``None``."""
+    found = [p.after for p in placements.values() if isinstance(p, CodePlacement) and p.after is not None]
+    return max(found) if found else None
+
+
+def is_staged(placement: PlacementLike) -> bool:
+    """Whether a placement belongs to a strategy group staged as one box (change c0255)."""
+    return isinstance(placement, CodePlacement) and placement.staged
+
+
+@dataclass(frozen=True, slots=True)
 class FilePlacement(KeptPlacement):
     """A placement taken from the placements file: a ``KeptPlacement``, so the build writes the entry's
     lock, which gives the entry no precedence."""
@@ -306,6 +340,52 @@ def legacy_edits(source: Mapping[str, PlacementLike]) -> dict[str, PartEdits]:
         )
         for path, e in source.items()
     }
+
+
+PlacementResolver = Callable[[Mapping[str, PlacementLike]], Mapping[str, PlacementLike]]
+"""The placement resolver that ``cmd_build`` injects (change c0255; ``lens`` imports no ``placement``):
+given the placements that the board or the edits file decided (levels 1 to 3 of "Placement precedence"),
+the code placement of every part that a ``place()``, absolute or relative, a block pose, a strategy or a
+block reuse places. A part it leaves out is staged."""
+BoardAdjust = Callable[[Design], tuple[Design, Sequence[Issue]]]
+"""A change of the existing board before it is matched: the rigid move of a block whose pose changed in
+the script (change c0255), injected by ``cmd_build``."""
+RESOLVE_ROUNDS = 8
+"""The most rounds of resolution against the decided placements; a design reaches its fixed point in two
+unless followers of followers were moved by hand."""
+
+
+def _place_key(placement: PlacementLike) -> tuple[Point, Udeg, Side]:
+    return (placement.at, placement.rotation, placement.side)
+
+
+def resolving(
+    placements: Mapping[str, PlacementLike],
+    resolver: PlacementResolver | None,
+    decide: Callable[[Mapping[str, PlacementLike]], Placed],
+) -> Placed:
+    """``decide(placements)``, or with ``resolver`` the code placements resolved again against what each
+    round decided, until the decided parts that differ from their code placement stop changing: a relative
+    request then follows the merged position of its reference (``docs/lens.md``, "Placement
+    precedence")."""
+    if resolver is None:
+        return decide(placements)
+    code = resolver(MappingProxyType({}))
+    placed = decide(code)
+    seen: dict[str, tuple[Point, Udeg, Side]] | None = None
+    for _round in range(RESOLVE_ROUNDS):
+        fixed = {
+            path: chosen
+            for path, chosen in placed.placements.items()
+            if path not in code or _place_key(code[path]) != _place_key(chosen)
+        }
+        keys = {path: _place_key(chosen) for path, chosen in fixed.items()}
+        if not fixed or keys == seen:
+            break
+        seen = keys
+        code = resolver(MappingProxyType(dict(sorted(fixed.items()))))
+        placed = decide(code)
+    return placed
 
 
 @dataclass(frozen=True)
@@ -446,7 +526,7 @@ def decide_placements(
                 issues.append(
                     issue(
                         "layout.place-overridden",
-                        f"{path}: place() {_describe(request.at, request.rotation, request.side)} is "
+                        f"{path}: place() {_requested(request)} is "
                         f"overridden by {where} {_describe(placed.at, placed.rotation, placed.side)}",
                         path,
                         OVERRIDE_HINT if kept else file_hint,
@@ -484,7 +564,7 @@ def decide_placements(
             issues.append(
                 issue(
                     "layout.place-overridden",
-                    f"{path}: place() {_describe(request.at, request.rotation, request.side)} is "
+                    f"{path}: place() {_requested(request)} is "
                     f"overridden by {file}'s {_describe(placed.at, placed.rotation, placed.side)}",
                     path,
                     file_hint,
@@ -521,24 +601,30 @@ def effective_placements(
     base: BaseRecord | None = None,
     takes: Sequence[Take] = (),
     aliases: Mapping[str, str] | None = None,
+    resolver: PlacementResolver | None = None,
 ) -> tuple[Mapping[str, PlacementLike], tuple[Issue, ...]]:
     """Each part's placement and the issues (``decide_placements``). ``source`` holds the entries of a
     legacy placements file; ``edits`` those of an edits file. Without ``base`` the board wins over
     ``place()`` and the file, as before; with it, ``edit.base-missing`` counts the parts without an entry,
-    and ``edit.code-wins`` and ``edit.unrecorded`` name the decided properties."""
+    and ``edit.code-wins`` and ``edit.unrecorded`` name the decided properties. With ``resolver`` the code
+    placements are those it gives, resolved against the decided ones (``resolving``)."""
     held = edits if edits is not None else legacy_edits(source or {})
     name = file or (edits_mod.EDITS_FILE if edits is not None else "placements.toml")
-    placed = decide_placements(
-        placements,
-        match,
-        design=design,
-        board=board,
-        edits=held,
-        file=name,
-        base=base,
-        takes=takes,
-        aliases=aliases,
-    )
+
+    def decide(code: Mapping[str, PlacementLike]) -> Placed:
+        return decide_placements(
+            code,
+            match,
+            design=design,
+            board=board,
+            edits=held,
+            file=name,
+            base=base,
+            takes=takes,
+            aliases=aliases,
+        )
+
+    placed = resolving(placements, resolver, decide)
     more: list[Issue] = []
     if base is not None and placed.missing:
         more.append(edits_mod.missing_issue(placed.missing))
@@ -584,6 +670,8 @@ def prepare(
     base: BaseRecord | None = None,
     takes: Sequence[Take] = (),
     sheets: Sequence[SchematicSheet] | None = None,
+    resolver: PlacementResolver | None = None,
+    adjust: BoardAdjust | None = None,
 ) -> Prepared:
     """Read the existing board, resolve the aliases, match its footprints and decide the effective
     placements. Without a board, only the placements file (``source``) changes the placements.
@@ -592,11 +680,15 @@ def prepare(
     of the output folder, ``BaseRecord.absent`` when it has none) the three-way merge of change c0250 runs:
     values and footprints are decided by ``lens.edits.merge_properties`` against the board and the
     schematic ``sheets``, positions and rotations by ``decide_placements``, both with the same base and
-    ``takes``."""
+    ``takes``.
+
+    ``resolver`` gives the code placements of relative requests, block poses and strategies (change
+    c0255; ``resolving``); ``adjust`` changes the board read before it is matched (the rigid move of a
+    block whose pose changed), and its issues join the result."""
     if edits is None and base is None:
         return _prepare_before(
             design, placements, existing, name=name, moves=moves, module_moves=module_moves,
-            net_moves=net_moves, source=source,
+            net_moves=net_moves, source=source, resolver=resolver, adjust=adjust,
         )  # fmt: skip
     held = dict(edits) if edits is not None else legacy_edits(source or {})
     file = edits_file or (edits_mod.EDITS_FILE if edits is not None else "placements.toml")
@@ -608,6 +700,9 @@ def prepare(
         board = pcb.read_board(existing.board, file=f"{name}.kicad_pcb", issues=found)
         issues += [i for i in found if i.severity != "info"]
         infos = sum(1 for i in found if i.severity == "info")
+        if adjust is not None:
+            board, adjusted = adjust(board)
+            issues += adjusted
     aliases, alias_issues = resolve_aliases(
         design, board, moves=moves, module_moves=module_moves, net_moves=net_moves
     )
@@ -634,17 +729,22 @@ def prepare(
         takes=takes,
         aliases=aliases.parts,
     )
-    placed = decide_placements(
-        placements,
-        match if match is not None else LayoutMatch(MappingProxyType({})),
-        design=design,
-        board=board,
-        edits=held,
-        file=file,
-        base=base if board is not None else None,
-        takes=takes,
-        aliases=aliases.parts,
-    )
+    held_match = match if match is not None else LayoutMatch(MappingProxyType({}))
+
+    def decide(code: Mapping[str, PlacementLike]) -> Placed:
+        return decide_placements(
+            code,
+            held_match,
+            design=design,
+            board=board,
+            edits=held,
+            file=file,
+            base=base if board is not None else None,
+            takes=takes,
+            aliases=aliases.parts,
+        )
+
+    placed = resolving(placements, resolver, decide)
     issues += placed.issues
     issues += merged.issues
     missing = sorted({*placed.missing, *merged.missing})
@@ -698,6 +798,8 @@ def _prepare_before(
     module_moves: Mapping[str, str] | None = None,
     net_moves: Mapping[str, str] | None = None,
     source: Mapping[str, PlacementLike] | None = None,
+    resolver: PlacementResolver | None = None,
+    adjust: BoardAdjust | None = None,
 ) -> Prepared:
     """``prepare`` without the property merge: the precedence of before change c0250."""
     if existing.board is None:
@@ -705,11 +807,15 @@ def _prepare_before(
             design, None, moves=moves, module_moves=module_moves, net_moves=net_moves
         )
         if not source:
-            return Prepared(
-                existing, None, None, placements, aliases=aliases.parts, module_aliases=aliases.modules
-            )
+            code = placements if resolver is None else resolver(MappingProxyType({}))
+            return Prepared(existing, None, None, code, aliases=aliases.parts, module_aliases=aliases.modules)
         effective, more = effective_placements(
-            placements, LayoutMatch(MappingProxyType({})), design=design, board=None, source=source
+            placements,
+            LayoutMatch(MappingProxyType({})),
+            design=design,
+            board=None,
+            source=source,
+            resolver=resolver,
         )
         return Prepared(
             existing, None, None, effective, more, aliases=aliases.parts, module_aliases=aliases.modules
@@ -717,6 +823,9 @@ def _prepare_before(
     found: list[Issue] = []
     board = pcb.read_board(existing.board, file=f"{name}.kicad_pcb", issues=found)
     issues = [i for i in found if i.severity != "info"]
+    if adjust is not None:
+        board, adjusted = adjust(board)
+        issues += adjusted
     aliases, alias_issues = resolve_aliases(
         design, board, moves=moves, module_moves=module_moves, net_moves=net_moves
     )
@@ -730,7 +839,9 @@ def _prepare_before(
                 new,
             )
         )
-    effective, more = effective_placements(placements, match, design=design, board=board, source=source)
+    effective, more = effective_placements(
+        placements, match, design=design, board=board, source=source, resolver=resolver
+    )
     infos = sum(1 for i in found if i.severity == "info")
     return Prepared(
         existing,

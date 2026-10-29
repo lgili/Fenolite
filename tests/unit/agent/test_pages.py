@@ -105,7 +105,7 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
     "footprints": ("Footprint(", "Symbol(", "`INFERRED`", "datasheet"),
     "placement": (
         "place(", "side=", "rot=", "locked=True", "place --strategy grid", "place --move", "fenolite pads",
-        "field(", "place --from",
+        "field(", "place --from", "right_of=", "by=", "Who wins",
     ),
     "routing": (
         "`direct`", "`freerouting`", "--nets", "--rip", "result.unrouted", "design.track", "design.via",
@@ -128,6 +128,7 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
     ),
     "recovery": (
         "kicad.drc.", "kicad.erc.", "fenolite check blink/build --json", "fenolite explain copper.short",
+        "layout.relative-cycle", "reuse.port-unmapped", "layout.block-moved",
     ),
     "board-practice": (
         "The order of work", "What a check cannot see", "The user's standard", "fabricator", "datasheets",
@@ -135,7 +136,7 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
     ),
     "board-floorplan": (
         "domain", "lock them", "power flow in one direction", "The loop parts first", "decoupling capacitor",
-        "fenolite neighbors", "fenolite region", "Copy by the pads",
+        "fenolite neighbors", "fenolite region", "Copy by the pads", "layout(", "Who wins", "reuse=",
     ),
     "board-power": (
         "switching loop", "IPC-2152", "--kinds power", "Find the necks", "vias in parallel",

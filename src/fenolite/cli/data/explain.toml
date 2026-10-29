@@ -2877,6 +2877,11 @@ meaning = "A part was found on the board through a moved() alias and is now kept
 fix = "Nothing to do; the alias can be removed after this build."
 see = "build"
 
+["layout.block-moved"]
+meaning = "A block's pose changed in the script since the last build: its parts kept from the board moved with it as one rigid group, with the copper joined only to their pads."
+fix = "Nothing to do; check the copper that place.copper-left names, which stayed where it was."
+see = "build"
+
 ["layout.board-only"]
 meaning = "A footprint of the board that Fenolite did not create matched no part of the script and is kept."
 fix = "Nothing to do."
@@ -2927,6 +2932,16 @@ meaning = "An unlocked place() differs from the footprint's placement on the boa
 fix = "Nothing to do; lock the place() to make the script win."
 see = "build"
 
+["layout.relative-cycle"]
+meaning = "Relative placements reference each other in a cycle (a right_of b and b right_of a), so none of them can be resolved. The build stops."
+fix = "Place one part of the cycle with x and y, or break the chain of references."
+see = "build"
+
+["layout.relative-unresolved"]
+meaning = "A relative placement references a part or block that has no placement (staged, or itself unresolved), or a pad of by= that the footprint lacks; the part is staged."
+fix = "Place the reference, or give the part a position of its own."
+see = "build"
+
 ["layout.source-invalid"]
 meaning = "A table or a key of placements.toml is not valid: a path that is no component path, an unknown key, a missing x or y, a value that is not a whole number of nanometres or microdegrees, or a side other than top and bottom. The build stops."
 fix = "Correct the entry, or write the file again with fenolite sync --to-source."
@@ -2941,6 +2956,11 @@ see = "sync"
 meaning = "A table of placements.toml names a component path that is not a part of the design."
 fix = "Remove the table, or run fenolite sync --to-source, which writes the parts of the design only."
 see = "sync"
+
+["layout.strategy-overflow"]
+meaning = "A box is wider than the width of a pack() strategy, so it takes a shelf of its own and crosses the width, or a strategy puts a part beyond the outline."
+fix = "Widen the pack, turn the part with place(rot=90), or place it with place()."
+see = "build"
 
 ["layout.unplaced"]
 meaning = "A part has no placement, so its footprint was put in a row beside the board."
@@ -3311,6 +3331,11 @@ see = "place"
 meaning = "A part (or the anchor) has no pad whose number occurs once in both it and its reference part, or the best rigid fit leaves a pad farther than --tolerance from its goal. The part is not placed; for the anchor nothing is placed."
 fix = "Map the part to a reference part of the same footprint with --map, pick another --anchor, or raise --tolerance only for a known small difference."
 see = "place"
+
+["reuse.port-unmapped"]
+meaning = "A net of the reference board of a block reuse with copper=True is neither a port nor a local net of the block, so its copper has no net to land on. The build stops."
+fix = "Name the net after a port or a local net of the block in the reference board, or reuse without copper=True."
+see = "build"
 
 ["reuse.project-unread"]
 meaning = "The project file or the rules file beside the target board could not be read, so the copper check that judges the copy runs without its net classes and rules."

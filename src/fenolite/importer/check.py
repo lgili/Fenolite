@@ -103,7 +103,8 @@ def self_check(
     A level-3 footprint name of a ref in ``variants`` (written as ``<name>_2``) is explained."""
     level = max_level(source, built)
     report = compare_designs(source, built, level=level, tolerances=_tolerances(), frame="absolute")
-    levels = tuple(result.level for result in report.levels)
+    # compare_designs runs only the integer levels 1 to 7 (LevelId also names the schematic level, c0278)
+    levels = tuple(result.level for result in report.levels if isinstance(result.level, int))
     said: list[Difference] = []
     unsaid: list[Difference] = []
     found = [d for result in report.levels for d in result.differences]

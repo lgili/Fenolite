@@ -24,7 +24,7 @@ def test_two_sheet_is_a_fresh_build(tmp_path: Path) -> None:
     fresh = sorted(
         p.relative_to(made).as_posix()
         for p in made.rglob("*")
-        if p.is_file() and ".fenolite" not in p.parts and p.name != BASE_FILE  # the build's own record (c0250)
+        if p.is_file() and ".fenolite" not in p.parts and p.name != BASE_FILE  # the base record (c0250)
     )
     assert committed == fresh
     for name in committed:

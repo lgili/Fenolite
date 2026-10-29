@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad.sexpr import Node
+from fenolite.checks.equivalence.model import LevelId
 from fenolite.core.errors import Issue
 from fenolite.importer.codes import issue
 from fenolite.model.base import Opaque
@@ -122,7 +123,7 @@ def lossy_issues(rows: Iterable[Unexpressed]) -> tuple[Issue, ...]:
     )
 
 
-def explained(level: int, kind: str, rows: Iterable[Unexpressed]) -> bool:
+def explained(level: LevelId, kind: str, rows: Iterable[Unexpressed]) -> bool:
     """Whether a self-check difference of ``kind`` at ``level`` is explained by an unexpressed kind."""
     for row in rows:
         for at, what in EXPLAINS.get(row.kind, ()):

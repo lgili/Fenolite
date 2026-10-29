@@ -529,6 +529,24 @@ in `issues`, and nothing written, also under `--dry-run`; a frozen build never w
 that differs in formatting only is no change. A malformed lock is `FEN-3004`; a newer schema, or content in
 the reserved sections `picks` and `pins`, is `FEN-3002`.
 
+**Placement in code** (change c0255; `docs/dsl.md`, "Relative placement" and "Block layout"). A script
+with a relative `place()`, a block pose, a layout strategy or a block reuse gets `result.placement.relative`
+(one record per resolved request: `path`, the canonical `request` text such as `right_of=U1.pad(1) gap=0.5mm
+by=pad(2)`, `frame`, `refs` with each reference's `box` and `center` in the frame of the request, and `at`
+in the frame of `place()`, `rotation` and `side`), `result.placement.blocks` (per block instance: `path`,
+the pose `at` and `rotation`, `layout` text, `source` `body` or `instance`, and `staged`),
+`result.placement.top` (the text of `design.layout(...)` or `null`) and `result.placement.digest` (SHA-256 of
+the resolved records and poses); `.fenolite/build.json` keeps the poses and the digest under `layout`.
+Equal inputs give equal records and equal bytes. The codes: `layout.relative-cycle` (error: relative
+requests reference each other in a cycle; nothing is written), `layout.relative-unresolved` (warning: a
+reference has no placement and the part is staged), `layout.strategy-overflow` (warning: a box wider than a
+`pack` width, or a strategy that puts a part beyond the outline), `layout.block-moved` (info: a block's pose changed and its kept parts moved with it, with
+the copper joined only to their pads; other copper stays with `place.copper-left`), and for a block reuse
+`reuse.port-unmapped` (error: a net of the reference board that is neither a port nor a local net, with
+`copper=True`), `reuse.unknown-part` (warning here: a part the reference board lacks is staged) and
+`reuse.no-fit` (error: a part whose pads differ from its reference part's). A design without any of these
+builds as before, byte for byte.
+
 Every placed footprint holds a `Reference` and a `Value` field. A footprint of the built-in catalog or
 of `dsl.Footprint` carries both in the project library and on the board (`docs/dsl.md`, "Authored
 footprints"). A footprint read from a library file that lacks one gets it on the board at the same

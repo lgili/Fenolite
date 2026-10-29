@@ -2633,6 +2633,11 @@ corpus_id = ""
 notes = "blocks example (c0251): one circuit written once and used twice, authored for Fenolite (CC0)"
 
 [[file]]
+path = "examples/blocks/design.py"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
 path = "examples/blocks/design.lock"
 origin = "authored"
 corpus_id = ""
@@ -2865,3 +2870,56 @@ path = "examples/import_python/lib/Mini.pretty/Mini_R_0603.kicad_mod"
 origin = "authored"
 corpus_id = ""
 notes = "import example (c0275): a footprint the import vendored from the authored source"
+
+[[file]]
+
+[[file]]
+path = "examples/lock/design.py"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "examples/lock/design.lock"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/lens/sync_minimal/fenolite-base.json"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "examples/relative/pads.py"
+origin = "authored"
+corpus_id = ""
+notes = "c0255 placement in code example"
+
+[[file]]
+path = "examples/relative/blocks.py"
+origin = "authored"
+corpus_id = ""
+notes = "c0255 placement in code example"
+
+[[file]]
+path = "examples/relative/blocks.lock"
+origin = "authored"
+corpus_id = ""
+notes = "c0255 placement in code example"
+
+[[file]]
+path = "examples/relative/channel.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "c0255 placement in code example"
+
+[[file]]
+path = "examples/relative/bench/channel.py"
+origin = "authored"
+corpus_id = ""
+notes = "c0255 placement in code example"
+
+[[file]]
+path = "examples/relative/bench/channel.lock"
+origin = "authored"
+corpus_id = ""
+notes = "the committed design lock of examples/relative/bench (c0255, lock of c0249), written by fenolite build"

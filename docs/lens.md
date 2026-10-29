@@ -93,15 +93,27 @@ exclusion of a renamed footprint has to be made again in KiCad.
 
 ## Placement precedence
 
-A part's placement comes from, in this order:
+A part's placement comes from, in this order (change c0255 wrote the six levels down):
 
-1. a locked `place(…, locked=True)` in the script;
-2. the three-way merge of its position and of its rotation with side ("Three-way merge"), between the
-   board and the part's request (its edit of `edits.toml`, else its unlocked `place()`); without a base
-   entry for the part, the existing board wins, as before;
-3. for a part the board does not place: its edit of `edits.toml` (or entry of a legacy
-   `placements.toml`), then its unlocked `place()`;
-4. the build's staging row beside the outline (later, a placer).
+1. a locked `place(…, locked=True)` in the script, absolute or relative, composed with its block poses;
+2. the existing board: the three-way merge of its position and of its rotation with side ("Three-way
+   merge"), between the board and the part's request (levels 3 to 5); without a base entry for the part,
+   the board wins, as before. A part kept from the board moves rigidly with its block when the block's pose
+   changed in the script (`layout.block-moved`);
+3. for a part the board does not place: its edit of `edits.toml` (or entry of a legacy `placements.toml`);
+4. its unlocked `place()`, absolute or relative, composed with its block poses;
+5. the strategy of the innermost enclosing frame that has one: a layout strategy (`row`, `column`, `grid`,
+   `pack`) or a block layout reuse (`docs/dsl.md`, "Block layout");
+6. the build's staging row beside the outline; a strategy group without a pose is staged as one box.
+
+Levels 3 to 5 form the part's *code* placement. `cmd_build` injects the resolver of relative requests,
+poses and strategies (`fenolite.placement.relative`; `lens` imports no `placement`), and
+`lens.preserve.resolving` resolves them again against what the merge decided, so a relative request
+follows the merged position of its reference: a follower follows a reference moved in KiCad unless the
+follower itself was moved by hand. Positions become known in this order inside a frame: levels 1 to 3, the
+absolute requests, the frame's strategy, the relative requests (which may reference strategy-placed
+parts), staging; which source wins is the list above. A part kept from the board keeps its slot in a
+strategy, so moving one part in KiCad never moves the others of its row.
 
 Once the base record exists, a changed unlocked `place()` moves a part that nobody moved in KiCad
 (`edit.code-wins`); a part moved by hand is never moved by an unchanged script, and a hand move against a
@@ -112,7 +124,8 @@ forces a position. An unlocked `place()` that the board overrides is reported as
 `layout.place-overridden` (info, repeated on every build); a locked one that moves a footprint as
 `layout.place-forced` (warning), because the footprint is then re-placed from its definition. An
 unlocked `place()` that an entry of `placements.toml` overrides gives `layout.place-overridden` too, with
-the hint to lock the placement or edit the file.
+the hint to lock the placement or edit the file. For a relative request the message also names the
+request (`right_of=U1 gap=1mm`).
 
 **Off-board parts.** A footprint whose position lies outside the bounding box of the design's outline
 counts as unplaced: it takes its `place()`, or is staged again. This applies only while the board's edge

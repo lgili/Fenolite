@@ -22,12 +22,26 @@ from fenolite.dsl.module import Container, Module
 from fenolite.dsl.part import Net, Part, check_name
 from fenolite.dsl.portnets import DIRECTIONS, PortHandle
 from fenolite.dsl.quantity import Quantity, Range
-from fenolite.dsl.units import Length
+from fenolite.dsl.relative import (
+    Edges,
+    LiveRequest,
+    Pose,
+    Reuse,
+    Strategy,
+    block_root,
+    check_frame,
+    parse_request,
+    set_layout,
+)
+from fenolite.dsl.units import Length, as_nm, as_udeg
 
 if TYPE_CHECKING:
     from fenolite.dsl.design import Design
 
-RESERVED_PORT_NAMES: tuple[str, ...] = ("path", "block", "params", "part", "port", "place")
+RESERVED_PORT_NAMES: tuple[str, ...] = (
+    "path", "block", "params", "part", "port", "place", "layout", "module",
+    "left", "right", "top", "bottom", "center_x", "center_y",
+)  # fmt: skip
 """Attributes of ``BlockInstance`` that a port name cannot take."""
 PORT_KINDS: Mapping[type, str] = MappingProxyType(
     {
@@ -170,6 +184,12 @@ class Block(Module):
         """``(name, type, text)`` of every parameter, by name (``BlockParam``)."""
         self.ports: dict[str, PortHandle] = {}
         self.local_nets: dict[str, Net] = {}
+        self.pose: Pose | LiveRequest | None = None
+        """The pose of ``inst.place(...)`` in the parent frame (change c0255), or ``None`` (the identity)."""
+        self.body_layout: Strategy | Reuse | None = None
+        """The strategy or reuse of ``b.layout(...)`` in the body: the block's default."""
+        self.instance_layout: Strategy | Reuse | None = None
+        """The strategy or reuse of ``inst.layout(...)``, which wins over the body's."""
 
     @property
     def params(self) -> Mapping[str, object]:
@@ -297,6 +317,16 @@ class Block(Module):
         """A nested instance of ``definition`` named ``name`` inside this block."""
         return instantiate(self, definition, name, params)
 
+    def layout(self, strategy: object = None, *, reuse: object = None, copper: object = False) -> None:
+        """The block's default layout (``docs/dsl.md``, "Block layout"): a strategy (``row()``,
+        ``column()``, ``grid()``, ``pack()``) for its parts that nothing else places, or ``reuse=PATH``, a
+        board laid out for the block alone, relative to the file that defines the block (``copper=True``
+        also copies its copper). An instance's ``layout()`` wins over it."""
+        root = block_root(self) if reuse is not None else None
+        self.body_layout = set_layout(
+            self.body_layout, strategy, reuse, copper, what=f"{self.describe()}: layout()", root=root
+        )
+
     def __repr__(self) -> str:
         return f"Block({self.name!r}, {self.definition.name!r})"
 
@@ -333,9 +363,11 @@ def _members(kind: str, members: Sequence[str] | None, selects: int | None, what
     return PORT_MEMBERS[kind]
 
 
-class BlockInstance:
+class BlockInstance(Edges):
     """What ``use`` returns: the ports of the instance as attributes (``inst.VIN``) and through
-    ``port(name)``, and ``path``, ``block``, ``params`` and ``part(local_name)``."""
+    ``port(name)``, and ``path``, ``block``, ``params`` and ``part(local_name)``; ``place(...)`` and
+    ``layout(...)`` set its pose and its layout, and its edges are placement references of its box
+    (change c0255)."""
 
     __slots__ = ("_block",)
 
@@ -365,6 +397,58 @@ class BlockInstance:
         if found is None:
             raise DslError(f"{self._block.describe()} has no part named {local_name}")
         return found
+
+    def place(
+        self,
+        x: object = None,
+        y: object = None,
+        rot: int | str | float = 0,
+        locked: bool = False,
+        *,
+        right_of: object = None,
+        left_of: object = None,
+        above: object = None,
+        below: object = None,
+        gap: object = None,
+        align: str | None = None,
+        left: object = None,
+        right: object = None,
+        top: object = None,
+        bottom: object = None,
+        center_x: object = None,
+        center_y: object = None,
+    ) -> None:
+        """The pose of the instance in its parent frame: ``(x, y)`` and ``rot``, or a relation or edge keys
+        measured on the block's box, as ``Part.place`` takes them. The placements of the block's parts are
+        in the block's frame and move with it as one rigid group (``docs/dsl.md``, "Block layout")."""
+        block = self._block
+        what = block.describe()
+        if block.pose is not None:
+            raise DslError(f"{what} is already placed")
+        keys = {
+            "right_of": right_of, "left_of": left_of, "above": above, "below": below, "left": left,
+            "right": right, "top": top, "bottom": bottom, "center_x": center_x, "center_y": center_y,
+        }  # fmt: skip
+        live = parse_request(
+            what, x=x, y=y, rot=rot, side="top", locked=locked, keys=keys, gap=gap, align=align
+        )
+        if live is not None:
+            check_frame(block, what, live)
+            block.pose = live
+            return
+        if x is None or y is None:
+            raise DslError(f"{what}: place() needs x and y, or a relation or edge keys")
+        if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: locked must be a bool")
+        block.pose = Pose(as_nm(x, name="x"), as_nm(y, name="y"), as_udeg(rot, name="rot"), locked)
+
+    def layout(self, strategy: object = None, *, reuse: object = None, copper: object = False) -> None:
+        """The layout of this instance, which wins over the body's ``b.layout(...)``: a strategy, or
+        ``reuse=PATH`` relative to the script (``docs/dsl.md``, "Block layout")."""
+        block = self._block
+        block.instance_layout = set_layout(
+            block.instance_layout, strategy, reuse, copper, what=f"{block.describe()}: layout()", root=None
+        )
 
     def port(self, name: str) -> PortHandle:
         found = self._block.ports.get(name)

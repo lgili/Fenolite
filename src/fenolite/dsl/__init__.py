@@ -74,6 +74,7 @@ from fenolite.dsl.quantity import (
     volt,
     watt,
 )
+from fenolite.dsl.relative import column, grid, pack, row
 from fenolite.dsl.rolecopper import RoleCopperIntent, role_copper
 from fenolite.dsl.symbol import Symbol
 from fenolite.dsl.units import Length, inch, mil, mm, nm
@@ -118,6 +119,7 @@ __all__ = [
     "ViaStep",
     "arc_to",
     "block",
+    "column",
     "connect",
     "copper",
     "decouple",
@@ -126,6 +128,7 @@ __all__ = [
     "schematic_composition",
     "fields",
     "generated",
+    "grid",
     "heights",
     "inch",
     "mil",
@@ -136,6 +139,7 @@ __all__ = [
     "nm",
     "no_connect",
     "outline_locked",
+    "pack",
     "pad_zones",
     "placements",
     "planes",
@@ -143,6 +147,7 @@ __all__ = [
     "pull_down",
     "pull_up",
     "role_copper",
+    "row",
     "select",
     "series",
     "shape",

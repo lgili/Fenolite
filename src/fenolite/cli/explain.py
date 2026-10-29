@@ -90,6 +90,7 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.model.design", "MODEL_ISSUE_CODES"),
     ("fenolite.panel.codes", "ISSUE_CODES"),
     ("fenolite.placement.codes", "ISSUE_CODES"),
+    ("fenolite.placement.codes", "LAYOUT_ISSUE_CODES"),
     ("fenolite.reuse.codes", "ISSUE_CODES"),
     ("fenolite.roles.codes", "ISSUE_CODES"),
     ("fenolite.routing.codes", "ISSUE_CODES"),

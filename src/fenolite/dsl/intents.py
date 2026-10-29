@@ -21,6 +21,7 @@ from fenolite.core.coords import Point
 from fenolite.core.units import Nm
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.part import Net, Part
+from fenolite.dsl.relative import Edges
 from fenolite.dsl.units import as_nm
 from fenolite.model.board import ViaProtection
 
@@ -34,8 +35,9 @@ VIA_KINDS = ("through", "blind", "buried", "micro")
 
 
 @dataclass(frozen=True, slots=True)
-class PadRef:
-    """The pads of a part with one number, as a script names them; ``index`` picks one of several."""
+class PadRef(Edges):
+    """The pads of a part with one number, as a script names them; ``index`` picks one of several. Its
+    edges (``u1.pad("VDD").center_y``) are placement references of the pad's box (change c0255)."""
 
     part: Part
     number: str

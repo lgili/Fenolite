@@ -44,6 +44,8 @@ WITH_PCB = {
     "devices/design.py",  # c0248
     "catalog/design.py",  # c0259
     "symbols/design.py",  # c0261
+    "relative/pads.py",  # c0255
+    "relative/blocks.py",  # c0255
 }
 """The examples whose build writes a PCB document."""
 SCHEMATIC_ONLY = {
