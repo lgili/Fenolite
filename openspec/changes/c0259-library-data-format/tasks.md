@@ -9,7 +9,7 @@
   - the next free `S-` number, for the LibrePCB library registration used by c0266.
 
   Proof: `openspec validate c0259-library-data-format --strict`; `make check-fast`.
-  Note (2026-10-29, branch `cac/c0259-library-data-format` from `cac/c0248-device-catalog` at 5657bde7): c0248
+  Note (2026-10-29, branch `cac/c0259-library-data-format` from `cac/c0248-device-catalog` at 635bc180): c0248
   is implemented on its branch and not archived: device schema `fenolite.device.v0`, modules
   `catalog/devices.py` and `core/quantities.py`, project devices in `devices/` beside the script. c0254 is not
   merged, so this change adds `CATALOG_VERSION` and `catalog/data/VERSIONS.toml`. c0246's `Range` is not
@@ -22,7 +22,7 @@
 ## 1. Golden digests before the move
 
 - [x] 1.1 Add `tools/catalog/golden.py` and write `tests/data/catalog/golden.json` from the Python catalog: `output_digest` per lib id (canonical JSON of the definition) and the SHA-256 of each file built for `examples/catalog*` with `--seed 1 --timestamp 2026-01-01T00:00:00Z`. Commit it on its own. Proof: `uv run pytest tests/unit/catalog/test_golden.py -q` (passes against the Python catalog).
-  Done (2026-10-29): `tools/catalog/golden.py` and `tests/data/catalog/golden.json`, committed on its own (1ab43b0f) before any record existed. There was no `examples/catalog*`: this change adds `examples/catalog/design.py`, a supply built from catalog ids alone. `.fenolite/meta.json` is left out of the built files because it names the version of Fenolite. Proof passed (`test_golden.py`, 3 tests, against the Python catalog).
+  Done (2026-10-29): `tools/catalog/golden.py` and `tests/data/catalog/golden.json`, committed on its own (73a33f0c) before any record existed. There was no `examples/catalog*`: this change adds `examples/catalog/design.py`, a supply built from catalog ids alone. `.fenolite/meta.json` is left out of the built files because it names the version of Fenolite. Proof passed (`test_golden.py`, 3 tests, against the Python catalog).
 
 ## 2. Record format
 
