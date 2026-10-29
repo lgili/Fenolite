@@ -47,11 +47,11 @@ vin, sw, gnd = Net("VIN"), Net("SW"), Net("GND")
 connect(vin, c1[1], q1["D"])
 connect(sw, q1["S"], q2["D"])
 connect(gnd, q2["S"], c1[2])
-design.net_role(vin, "power", current=amp(5), voltage=volt(48))  # examples
+design.net_role(vin, "power", current=amp(5), voltage=volt(48))
 design.hot_loop("hs", [c1.pad(1), q1.pad(2), q1.pad(3), q2.pad(2), q2.pad(3), c1.pad(2)])
 design.gate_loop("q1", drive=u1.pad(1), gate=q1.pad(1), source=q1.pad(3), ret=u1.pad(2))
 design.kelvin("isense", element=(r1.pad(1), r1.pad(2)), receiver=(u1.pad(3), u1.pad(4)))
-design.role_limits(loop_max="50mm2", kind="switch_node")  # example
+design.role_limits(loop_max="50mm2", kind="switch_node")
 design.part_class(r1, "shunt")
 ```
 
@@ -150,8 +150,7 @@ fenolite analyze board.kicad_pcb --kinds loops --requirements req.toml --loop-ba
   other face. Rate a rectifier without a heat sink by its free-air rating, not its rating on a heat
   sink, and plan a thermal test.
 - **Spread heat into copper.** A part with a thermal pad needs its pad copper connected to an area on
-  the same face, with vias to the other face when the datasheet asks for them. Compute a regulator's
-  dissipation, and size its copper for this board.
+  the same face, with vias to the other face when the datasheet asks for them.
 - **Keep heat sources apart** from each other, and away from electrolytic capacitors, relays,
   magnetics and the analog parts whose reading must not drift.
 - **Check each bulk capacitor's ripple current** at the real frequency and with the real sharing,
@@ -183,20 +182,16 @@ fenolite analyze board.kicad_pcb --kinds connectivity,dead --dead-distance 5mm -
 ## Priorities between power and signals
 
 When power copper and a signal compete for the same face, the power copper normally wins, and the
-signal moves. Agree this with the owner once, then apply it everywhere. One owner put it this way:
-"if someone has to change face, it is the signals".
+signal moves.
 
 ## Typical failures
 
 - **A rectifier pin left open.** Pour cut-outs under a bank of capacitors removed the only copper that
   joined a rectifier pin to the bus. A preview model without the cut-outs showed the pin connected. The
-  fix was a neck on the other face, fed from an area below the bank, and a rule script that checks the
-  connectivity with the cut-outs applied.
+  fix was a neck on the other face and a connectivity check with the cut-outs applied.
 - **A switching loop closed late.** The DC-link film capacitor first sat away from the power module. It
-  was moved next to the module's positive supply pin, with the shunt turned to sit beside it on the
-  module's side. The loop of capacitor, module and shunt became as short as the parts allow.
-- **Pours rejected as "free-form".** Pours generated to fill every free area were rejected by the
-  owner. Thick straight bands with chamfered steps, the same nets and the same clearances, were
-  accepted.
+  was moved next to the module's positive supply pin, with the shunt beside it. The loop of capacitor, module and shunt became as short as the parts allow.
+- **Pours rejected as "free-form".** Pours that filled every free area were rejected; straight bands
+  with chamfered steps, the same nets and clearances, were accepted.
 
 Read next: `board-grounds`, `board-routing`, `rules`.
