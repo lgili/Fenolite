@@ -3487,8 +3487,8 @@ read's combined with the board frame's (`frame.EVIDENCE`).
 
 ## equivalent
 
-`fenolite equivalent A [B] [--level N] [--tolerance-nm N] [--tolerance-udeg N] [--tolerance-ppm N]
-[--frame absolute|relative] [--ignore-ref GLOB]… [--exclusions FILE --profile NAME] [--against kicad-import]
+`fenolite equivalent A [B] [--level N|S] [--strict] [--tolerance-nm N] [--tolerance-udeg N] [--tolerance-ppm N]
+[--pixel-ppm N] [--render-pitch-um N] [--frame absolute|relative] [--ignore-ref GLOB]… [--exclusions FILE --profile NAME] [--against kicad-import]
 [--kicad-cli PATH] [--timeout SECONDS]` says whether two designs are equivalent, level by level, and locates
 every difference at `REF` or `REF-PIN`, and at the net for routing. It is read-only. With two paths it runs no tool, unless a
 KiCad schematic outside the grammar of Fenolite's own netlist needs `kicad-cli`. `docs/equivalence.md`
@@ -3496,7 +3496,7 @@ defines the levels, the kinds of difference, the tolerance rules, the exclusion 
 side. The command parses its options and calls `fenolite.api.equivalent`, the same comparison as a library
 call; its `result` is `EquivalenceResult.to_json()` and follows the schema
 `schemas/fenolite.equivalent.v0.json`. The entry `equivalent` of `capabilities` lists `levels`
-(`[1, 2, 3, 4, 5]`) and `sides`, the side kinds it reads.
+(`[1, 2, 3, 4, 5, 6, 7, 8, "S"]`) and `sides`, the side kinds it reads.
 
 Each of `A` and `B` is one of:
 
@@ -3510,7 +3510,9 @@ Each of `A` and `B` is one of:
 
 | option | meaning |
 |---|---|
-| `--level N` | run the levels 1 to `N` (1 components, 2 netlist, 3 footprints, 4 placement, 5 routing). The default is the highest level both sides hold: 5 when both have footprints and copper (a track, an arc or a via), 4 when both have footprints, else 2. Pass `--level 4` to compare two routed boards without their routing |
+| `--level N` | run the levels 1 to `N` (1 components, 2 netlist, 3 footprints, 4 placement, 5 routing, 6 rules, 7 geometry, 8 presentation). The default is the highest of 1 to 5 both sides hold: 5 when both have footprints and copper (a track, an arc or a via), 4 when both have footprints, else 2. Pass `--level 4` to compare two routed boards without their routing. Levels 6 and 7 need a footprint on both sides (they run level 5 when both sides hold copper); level 8 runs the levels 1 to 7 and then renders both boards; `--level S` (drawn schematics) needs the extraction of change c0276 and exits 2 naming side `a` in this version |
+| `--strict` | level 5 also matches every track, arc and via item by item (change c0278); exit 2 below level 5 |
+| `--pixel-ppm N`, `--render-pitch-um N` | level 8: the differing pixels a layer may hold in parts per million of its inked pixels (default 1000), and the pixel pitch of a board layer (default 50 µm) |
 | `--tolerance-nm N`, `--tolerance-udeg N` | how far two lengths (per coordinate) and two angles may differ; non-negative integers, default 0 |
 | `--tolerance-ppm N` | level 5 only: two routed lengths are equal within the larger of `--tolerance-nm` and `N` parts per million of the longer one; a non-negative integer, default 0 |
 | `--frame absolute\|relative` | `relative` removes one translation, the per-axis lower median of the footprint positions of `B` minus `A`; default `absolute` |
@@ -3530,7 +3532,7 @@ Each of `A` and `B` is one of:
 | `frame`, `translation` | the frame, and `[x, y]`, the translation removed from side `b` |
 | `levels` | one object per level run: `level`, `name`, `compared`, `differences`, `excluded` and `notices` (counts) and `summary`. The summary of level 5 holds `nets` (compared), `pieces`, `vias` and `length` (totals of side `a` and `b` over those nets), `unjudged`, `nets_unpaired`, `zones_unfilled`, `copper_no_net` and `unshaped` |
 | `differences`, `excluded` | objects `{level, kind, where, field, a, b}`, in level order and then by `where`; an excluded one also has `rule` |
-| `notices` | objects of the same form for what level 5 reports without failing: `route-stub` and `route-unjudged` |
+| `notices` | objects of the same form for what level 5 reports without failing: `route-stub`, `route-unjudged` and, with `--strict`, `copper-locked` |
 | `profile` | `null`, or `name`, `tool_version` and `rules` (the count of rules) |
 
 `issues` holds one error per difference that no rule excludes, then one warning or info per notice, then
@@ -3556,6 +3558,13 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 | `equiv.route-length` | error | for the same joined pads, the routed length on a copper layer differs beyond the tolerance |
 | `equiv.route-stub` | warning | the copper that reaches no pad (stubs, lone vias) differs in number of pieces or in length; it does not fail the comparison |
 | `equiv.route-unjudged` | info | a net whose connectivity depends on a zone without a fill was not judged |
+| `equiv.track-missing`, `equiv.arc-missing`, `equiv.via-missing` | error | `--strict`: a track, an arc or a via that only one side holds (matched by copper span and geometry) |
+| `equiv.track-width`, `equiv.track-net`, `equiv.arc-width`, `equiv.arc-net`, `equiv.via-size`, `equiv.via-drill`, `equiv.via-span`, `equiv.via-net` | error | `--strict`: a field of two matched copper items differs |
+| `equiv.copper-locked` | warning | `--strict`: two matched items differ only in their lock; it does not fail the comparison |
+| `equiv.netclass-missing`, `equiv.netclass-field`, `equiv.netclass-members`, `equiv.rule-missing`, `equiv.rule-field`, `equiv.ruleset-field`, `equiv.stackup-missing`, `equiv.stackup-field`, `equiv.layer-missing` | error | level 6: a net class, a custom rule, the rule set, the stack-up or the layer table differs |
+| `equiv.outline-missing`, `equiv.zone-missing`, `equiv.zone-field`, `equiv.keepout-missing`, `equiv.keepout-field`, `equiv.graphic-missing`, `equiv.text-missing`, `equiv.text-field`, `equiv.field-pose`, `equiv.hole-missing`, `equiv.dimension-missing` | error | level 7: the exact geometry differs (zone fills are never compared) |
+| `equiv.render-missing`, `equiv.render-pixels` | error | level 8: a layer drawn on one side only, or rendered masks that differ beyond `--pixel-ppm` |
+| `equiv.sheet-missing`, `equiv.symbol-missing`, `equiv.symbol-pose`, `equiv.symbol-field`, `equiv.item-missing`, `equiv.item-field`, `equiv.drawn-net` | error | level S: the drawn schematics differ (needs change c0276) |
 | `equiv.excluded` | info | a rule of the profile matched differences (count and reason) |
 | `equiv.import-message` | info | a warning or error of `kicad-cli`'s import report, counted by text |
 | `equiv.no-exclusion-profile` | warning | no profile for the running `kicad-cli` version line: no rule, the relative frame, tolerance 0 |
@@ -3565,11 +3574,61 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 |---|---|---|
 | 0 | none | equivalent up to the level, outside the rules |
 | 5 | none | a difference remains, or `equiv.oracle-failed` |
-| 2 | `FEN-2001` | neither `B` nor `--against`, or both; a level above what both sides hold (the message names the side without footprints, or without copper for level 5) or above 5; a bad value; `--exclusions` without `--profile` or the reverse; a profile the file lacks; an input no backend reads, or a library; `--against` on anything but an Altium PCB document |
+| 2 | `FEN-2001` | neither `B` nor `--against`, or both; a level above what both sides hold (the message names the side without footprints, or without copper for level 5) or outside 1 to 8 and S; `--level S` in this version; `--strict` below level 5; level 8 on a side without a board; a bad value; `--exclusions` without `--profile` or the reverse; a profile the file lacks; an input no backend reads, or a library; `--against` on anything but an Altium PCB document |
 | 3 | `FEN-3001` | an input does not exist |
 | 3 | the reader's code | an input or the exclusion file cannot be read |
 | 6 | `FEN-6001`, `FEN-6002` | `--against` without `kicad-cli`, or with a major other than 10; `FEN-6001` also for a schematic side outside the own netlist's grammar without `kicad-cli` |
 | 3 | `FEN-3004` | `kicad-cli` exported no netlist of a schematic side |
+
+## verify-source
+
+`fenolite verify-source SCRIPT --against ORIGINAL [--levels SPEC] [--tolerance-nm N] [--tolerance-udeg N]
+[--tolerance-ppm N] [--frame absolute|relative] [--pixel-ppm N] [--render-pitch-um N] [--provenance FILE]
+[--record] [--accept KEY --reason TEXT]… [--target 9|10] [--upgrade] [--kicad-cli PATH] [--timeout SECONDS]`
+proves that a design script rebuilds an original project (change c0278; `docs/fidelity.md`). It builds
+`SCRIPT` as `build` does, for the KiCad major of the original or `--target`, into a temporary folder that it
+removes on every exit, reads the build and the original as `equivalent` reads its sides, and compares them
+at levels 1 to 7 (level 5 strict), S and 8. It writes nothing unless `--record` is given, and runs no tool
+unless `--upgrade` is given. Its `result` follows `schemas/fenolite.verify-source.v0.json`.
+
+| option | meaning |
+|---|---|
+| `--against ORIGINAL` | a KiCad project folder or `.kicad_pro`, or an Altium `.PrjPcb` |
+| `--levels SPEC` | the levels to run, comma-separated ranges and `S` (`1-7,S,8`, the default) |
+| `--tolerance-nm N`, `--tolerance-udeg N`, `--tolerance-ppm N`, `--frame` | as `equivalent`; default 0 and `absolute`, or the values of `fidelity.tolerances` of the provenance file; an option overrides the file |
+| `--pixel-ppm N`, `--render-pitch-um N` | level 8: default 1000 ppm (or `fidelity.tolerances.pixel_ppm`) and 50 µm |
+| `--provenance FILE` | the provenance file; default `PROVENANCE.json` beside `SCRIPT` |
+| `--record` | plan one write of the provenance file whose `fidelity.proof` holds the Fenolite version, the date (`--timestamp`), the SHA-256 of the script and of the original's files, the tolerances and each level's status; every other member is kept |
+| `--accept KEY --reason TEXT` | accept the difference `<level>:<kind>:<where>` of this run with a reason (one reason for all, or one per key): the entry is listed under `result.new_accepted` and written by `--record` |
+| `--target 9\|10` | the KiCad major of the build (default: the original's) |
+| `--upgrade` | upgrade a copy of an original older than KiCad 9.0 with `kicad-cli pcb upgrade` |
+
+`result` holds `script` (`name`, `sha256`), `against` (`name`, `backend`, `files`: the SHA-256 of each file
+read), `build` (`target`, `files`), `tolerances`, `provenance` (`path`, `accepted`, `record`), `levels` (one
+object per level: `level`, `name`, `status` of `equal`, `accepted`, `differs` or `skipped`, the counts
+`compared`, `differences`, `excluded` and `notices`, `reason` for a skipped level, and `summary`),
+`equivalent`, `differences`, `accepted` (the differences an accepted entry matched, with its id as `rule`)
+and `notices`. `issues` holds the equivalence issues of every level ("equivalent"), then the `fidelity.*`
+issues, then the readers' and the build's warnings. The evidence combines the reads, the build and
+`INFERRED` for level 8 (one renderer draws both sides).
+
+| code | severity | meaning |
+|---|---|---|
+| `fidelity.build-failed` | error | the build of the script wrote no file; no level ran |
+| `fidelity.accepted-unused` | warning | an accepted entry matched no difference in a level that ran |
+| `fidelity.level-skipped` | info | a level a side cannot reach, with its reason (`no-footprints`, `no-copper`, `no-board`, `no-schematic`, `drawn-unavailable`, `altium-drawing-unread`, `build-failed`) |
+| `fidelity.input-upgraded` | info | `--upgrade` upgraded a copy of the original |
+
+| exit | error | when |
+|---|---|---|
+| 0 | none | every level run is `equal` or `accepted` |
+| 5 | none | a difference is neither excluded nor accepted, or `fidelity.build-failed` |
+| 2 | `FEN-2001` | a script that is not a `.py` file; an original no backend reads; a bad `--levels`, tolerance or pitch; `--accept` without `--reason` |
+| 3 | `FEN-3001` | an input does not exist |
+| 3 | `FEN-3003` | an original older than KiCad 9.0 without `--upgrade` (the hint names `--upgrade` and `kicad-cli pcb upgrade`) |
+| 3 | `FEN-3004` | a malformed provenance file, or an accepted entry of a kind of another level (the message names its id) |
+| 4 | `FEN-4001`, `FEN-4002` | `--record` without `--confirm`, or a stale plan |
+| 6 | `FEN-6001` | `--upgrade` without `kicad-cli` |
 
 ## convert
 

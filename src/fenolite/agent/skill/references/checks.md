@@ -170,6 +170,18 @@ fenolite equivalent blink/build blink/altium/blink.PrjPcb --frame relative --tol
 - `capabilities --command equivalent` lists the `levels` and the `sides` it reads; the reply follows the
   schema `fenolite.equivalent.v0`. In Python, `fenolite.api.equivalent(a, b)` gives the same result.
 
+```fenolite-cmd
+fenolite equivalent a.kicad_pcb b.kicad_pcb --level 7 --strict --json
+fenolite verify-source boards/sensor/design.py --against upstream/sensor --json
+```
+
+- `--level 6` compares rules, `7` exact geometry (zones by outline), `8` the rendered layers;
+  `--strict` matches every track, arc and via.
+- `verify-source` builds the script in a temporary folder and proves it at every level. Exit 5 lists the
+  differences; accept one with a reason in `fidelity.accepted` of `PROVENANCE.json`, and `--record` writes
+  `fidelity.proof` through a plan. Codes: `fidelity.build-failed`, `fidelity.accepted-unused`,
+  `fidelity.level-skipped` (read its reason), `fidelity.input-upgraded`.
+
 ## What is installed
 
 ```fenolite-cmd

@@ -286,14 +286,20 @@ No new `FEN-` code: usage `FEN-2001`, missing input `FEN-3001`, malformed proven
 
 1. **Default pixel tolerance**: 1000 ppm, as the viewer tests, or tighter for boards? Recommended: 1000 ppm,
    per-board override through `fidelity.tolerances`.
+   Decided 2026-10-29: 1000 ppm, overridden by `fidelity.tolerances.pixel_ppm` or `--pixel-ppm`.
 2. **KiCad plots as a second level-8 oracle** (SVG rasterised through an optional extra)? Recommended:
    later, as its own change with `H-K-FID-PLOT-AGREE`.
+   Decided 2026-10-29: later, as its own change; `H-K-FID-PLOT-AGREE` stays open.
 3. **A merged-segment mode of strict level 5** for originals whose tracks KiCad split on save?
    Recommended: only as an option (`--strict-merge`), never in the library proof.
+   Decided 2026-10-29: only as a later option; not built in this change, never in the library proof.
 4. **Who may write accepted entries** in `fenolite-library`? Recommended: only through a reviewed pull
    request; `--accept` prints the entry, `--record` writes it.
+   Decided 2026-10-29: as recommended; `--accept` lists the entry under `result.new_accepted`, `--record`
+   writes it.
 5. **Compare `locked` as an error** instead of a notice? Recommended: notice; c0275 locks everything, and a
    lock is lens state, not design.
+   Decided 2026-10-29: a notice (`copper-locked`, warning).
 
 ## Relation to the other changes of this batch
 

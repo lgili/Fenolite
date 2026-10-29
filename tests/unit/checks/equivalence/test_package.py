@@ -13,7 +13,10 @@ from fenolite.checks import equivalence
 
 ROOT = Path(__file__).resolve().parents[4]
 PACKAGE = ROOT / "src" / "fenolite" / "checks" / "equivalence"
-MODULES = ("__init__.py", "codes.py", "exclusions.py", "levels.py", "model.py", "norm.py", "routing.py")
+MODULES = (
+    "__init__.py", "codes.py", "exclusions.py", "levels.py", "model.py", "norm.py", "routing.py", "rules.py",
+    "shapes.py", "strict.py",
+)  # fmt: skip
 ALLOWED = (
     "fenolite.core",
     "fenolite.model",
@@ -24,7 +27,7 @@ ALLOWED = (
 EXPORTS = (
     "LEVELS", "LEVEL_NAMES", "Tolerances", "Difference", "Excluded", "LevelResult", "EquivalenceReport",
     "compare_designs", "max_level", "difference_issues", "Rule", "Profile", "load_profiles", "select_profile",
-    "EQUIVALENCE_CODES",
+    "EQUIVALENCE_CODES", "PRESENTATION_LEVEL", "SCHEMATIC_LEVEL", "accepted_rules",
 )  # fmt: skip
 BACKENDS = ("kicad", "altium")
 NO_IO = {"subprocess", "os", "shutil", "tempfile", "socket", "pathlib", "io"}

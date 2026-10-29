@@ -67,6 +67,7 @@ another type; a flag without a value is a switch.
 | `template` | yes | build a drawing sheet from a *.sheet.toml specification, or import an Altium sheet template (writes OUT) |
 | `testpoints` | yes | the test points, fiducials and holes of a board, and its net coverage, from its pad marks (writes FILE with --out) |
 | `tidy` | yes | prune, straighten and chamfer the routed copper of a KiCad board, edit by edit; or report its style |
+| `verify-source` | yes | prove that a design script rebuilds an original project, level by level (writes PROVENANCE.json with --record) |
 | `view` | yes | show a project's boards, sheets and drawings in a web page (writes FILE with --export) |
 
 ## analyze
@@ -243,7 +244,10 @@ another type; a flag without a value is a switch.
 
 - `A`: a KiCad board, project file, folder or root schematic, an Altium document or project, or a .fenolite/ folder of a built design
 - `B`: the design to compare with A
-- `--level N` (integer): run the levels 1 to N (default: the highest available)
+- `--level N`: run the levels 1 to N, N of 1 to 8, or S for the drawn schematics (default: the highest available of 1 to 5)
+- `--strict`: level 5 also matches every track, arc and via item by item
+- `--pixel-ppm N` (integer, default `1000`): level 8: the differing pixels a layer may hold, in ppm of its inked pixels (default 1000)
+- `--render-pitch-um N` (integer, default `50`): level 8: the pixel pitch of a board layer in micrometres (default 50)
 - `--tolerance-nm N` (integer): length tolerance per coordinate
 - `--tolerance-udeg N` (integer): angle tolerance in microdegrees
 - `--tolerance-ppm N` (integer): tolerance of a routed length of level 5, in parts per million of the length
@@ -713,6 +717,28 @@ another type; a flag without a value is a switch.
 - `--gate {drc}`: drc: judge the edit with kicad-cli DRC and write it without the items that bring new findings
 - `--report`: write nothing; report the routing style
 - `--compare REFERENCE`: also report this KiCad board (implies --report)
+
+## verify-source
+
+`fenolite verify-source [OPTIONS] --against ORIGINAL SCRIPT`
+
+- `SCRIPT`: the design script (executed in-process, as build does)
+- `--against ORIGINAL`: the original: a KiCad project folder or .kicad_pro, or an Altium .PrjPcb
+- `--levels SPEC`: the levels to run, e.g. 1-7,S,8 (default: all)
+- `--tolerance-nm N` (integer): length tolerance per coordinate
+- `--tolerance-udeg N` (integer): angle tolerance in microdegrees
+- `--tolerance-ppm N` (integer): tolerance of a routed length (ppm)
+- `--frame {absolute,relative}`: relative removes one translation (default absolute)
+- `--pixel-ppm N` (integer): level 8 pixel tolerance (default 1000)
+- `--render-pitch-um N` (integer): level 8 pixel pitch (default 50)
+- `--provenance FILE`: the provenance file (default: PROVENANCE.json beside SCRIPT)
+- `--record`: write fidelity.proof to the provenance file
+- `--accept KEY` (repeatable): accept the difference <level>:<kind>:<where>
+- `--reason TEXT` (repeatable): why --accept accepts
+- `--target {9,10}` (integer): the KiCad major to build for
+- `--upgrade`: upgrade a copy of an older original (kicad-cli)
+- `--kicad-cli PATH`: the kicad-cli of --upgrade
+- `--timeout SECONDS` (number, default `300.0`)
 
 ## view
 
