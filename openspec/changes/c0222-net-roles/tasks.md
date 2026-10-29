@@ -231,7 +231,10 @@
   Done 2026-10-29. Also linked from `docs/index.md`. `src/fenolite/roles/PROVENANCE.md` records the five
   sources of the profile, and `roles` joins the packages that `tests/unit/test_provenance.py` holds to a
   provenance file. Proof passed: 7 + 22 tests.
-- [ ] 7.2 Agent guide: add tested lines for `roles` on `checks`, for the six DSL calls on `board-power`, and for `roles.return-gap` and `roles.limit-missing` on `board-grounds` and `board-insulation`. Then run `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
+- [x] 7.2 Agent guide: add tested lines for `roles` on `checks`, for the six DSL calls on `board-power`, and for `roles.return-gap` and `roles.limit-missing` on `board-grounds` and `board-insulation`. Then run `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
+  Done 2026-10-29. The `checks` lines came with the command in task 6.1. The `board-power` design block
+  uses catalog parts only (it builds with no library table) and leaves the page at 11 994 of its 12 000
+  bytes. Proof passed: 87 tests, 13 skipped (they need `kicad-cli`); the generator's check is clean.
 - [ ] 7.3 Residue: every authored file carries its authored-for-Fenolite line, and no name, value or layout comes from another project. Proof: `make residue`.
 - [ ] 7.4 Run `make check-fast`, then the required CI jobs on the pushed head of the branch. Proof: `make check-fast`, and the required jobs green on the exact commit.
 - [ ] 7.5 Evidence: the six hypotheses are in `docs/hypotheses.md` with their measurements, and the evidence matrix is regenerated. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.

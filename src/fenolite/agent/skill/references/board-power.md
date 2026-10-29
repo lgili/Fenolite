@@ -31,6 +31,30 @@ amount of copper fixes it later.
    node. Keep other signals and vias out of the area around them, and keep the clearance that their
    voltage needs.
 
+Declare what you know; `fenolite roles PATH --check` infers the rest and measures it.
+
+```fenolite-design
+from fenolite.dsl import Design, Net, Part, amp, connect, mm, volt
+
+design = Design("power_roles")
+design.board(mm(30), mm(20))
+q1, q2 = (Part(r, "Fenolite:MOSFET_N_Channel", footprint="Fenolite:SOT23_3", value="NMOS") for r in ("Q1", "Q2"))
+c1 = Part("C1", "Fenolite:Capacitor", footprint="Fenolite:Chip_0603", value="1uF")
+r1 = Part("R1", "Fenolite:Resistor", footprint="Fenolite:Chip_1206", value="10m")
+u1 = Part("U1", "Fenolite:Connector_4", footprint="Fenolite:Header_1x4_P2.54", value="DRV")
+design.add(q1, q2, c1, r1, u1)
+vin, sw, gnd = Net("VIN"), Net("SW"), Net("GND")
+connect(vin, c1[1], q1["D"])
+connect(sw, q1["S"], q2["D"])
+connect(gnd, q2["S"], c1[2])
+design.net_role(vin, "power", current=amp(5), voltage=volt(48))  # examples
+design.hot_loop("hs", [c1.pad(1), q1.pad(2), q1.pad(3), q2.pad(2), q2.pad(3), c1.pad(2)])
+design.gate_loop("q1", drive=u1.pad(1), gate=q1.pad(1), source=q1.pad(3), ret=u1.pad(2))
+design.kelvin("isense", element=(r1.pad(1), r1.pad(2)), receiver=(u1.pad(3), u1.pad(4)))
+design.role_limits(loop_max="50mm2", kind="switch_node")  # example
+design.part_class(r1, "shunt")
+```
+
 ## Copper for the current
 
 - **Size the copper by a method, not by habit.** IPC-2152 is the public method that relates a

@@ -111,6 +111,10 @@ fenolite analyze board.kicad_pcb --kinds returns --net CLK --net SPI_* --via-dis
 the span and its two ends) and each via without a reference via near it (`analysis.return-via`). Fill the
 zones first: only stored fill counts as reference.
 
+`fenolite roles PATH --check` does the same for every gate net and every signal declared sensitive
+(`design.net_role(net, "signal", sensitive=True)`), against the ground nets, and reports
+`roles.return-gap` instead.
+
 ## Typical failures
 
 - **Ties in more than one place.** The control ground of a board met the power ground at a bulk
