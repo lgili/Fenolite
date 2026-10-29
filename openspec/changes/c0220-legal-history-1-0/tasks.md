@@ -1,17 +1,29 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec/specs/residue-scan/spec.md`, `openspec/specs/licensing-and-notices/spec.md`,
+- [x] 0.1 Read `openspec/specs/residue-scan/spec.md`, `openspec/specs/licensing-and-notices/spec.md`,
   `LEGAL.md`, `NOTICE` and the open questions of the design; record the maintainer's answers under this task.
   Proof: `openspec validate c0220-legal-history-1-0 --strict`.
   - 2026-10-27: the maintainer accepted every recommended answer (roadmap, "Open decisions", row 49): no lawyer's
     review is a condition of `1.0.0` and the record says so, and a private-gate hit in history is decided per hit.
+  - 2026-10-29: read the living specs, `LEGAL.md` and `NOTICE`. The MODIFIED "Integration points" keeps the
+    living requirement and its scenario "Hook blocks a commit" and adds the history runs. The two ADDED
+    requirements of `licensing-and-notices` were shortened below the 500-character limit of
+    `openspec validate --strict`; their details moved into scenarios ("A stale inventory fails the check",
+    "A package that is not installed", "Each fetched asset has a row"), nothing was dropped.
 
 ## 1. History scan
 
-- [ ] 1.1 `--history` in `release.yml` before the build and in `nightly.yml` as a job of its own (scenario "The
+- [x] 1.1 `--history` in `release.yml` before the build and in `nightly.yml` as a job of its own (scenario "The
   release scans the history"). Proof: `uv run pytest tests/unit/test_ci_workflow.py -q`.
-- [ ] 1.2 `make residue-history` (scenario "The private run prints counts"). Proof: `make residue-history`
+- [x] 1.2 `make residue-history` (scenario "The private run prints counts"). Proof: `make residue-history`
   without private lists prints the summary with `private gate: skipped`.
+  - 2026-10-29, public patterns only (`private gate: skipped`), on `dev` at 1559f1b:
+    - the refs of `dev` alone: `residue: 0 hit(s) in 0 file(s); 6339 file(s) scanned; waivers: 11`;
+    - every ref of the GitHub repository (26 branches and tags, what the checkout of the two jobs fetches):
+      2 hits, 12 232 blobs, 11 waivers. Both hits are `docs/mcp.md:554:abs-user-path` in commits reachable
+      only from the branch `c0195-mcp-server` (an example path of a client configuration, gone from `dev`).
+      Until that branch is deleted or the hit is decided by open question 2, the nightly job and a release
+      fail at this step.
 - [ ] 1.3 **Maintainer.** Run `make residue-history` with the private lists on the commit to be released, and
   record the summary line and the commit under this task; decide each hit by open question 2. Proof: the
   record under this task.

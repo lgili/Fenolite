@@ -110,10 +110,12 @@ design.stitch_pieces(gnd, pitch=mm(4))  # vias that tie the two GND pours togeth
 Measure these with `analyze`. `necks` finds the places narrower than a `[[neck]]` row of the user's
 requirements, `loops` measures the area of each `[[loop]]` row, and `balance` compares the copper at the
 two pads of each two-pad part. `--split` gives each parallel path and via its share of a path's current.
+`--loop-baseline` gives each loop's change against an earlier board.
 
 ```fenolite-cmd
 fenolite analyze board.kicad_pcb --kinds necks,loops,balance --requirements req.toml --json
 fenolite analyze board.kicad_pcb --kinds power --split --path J1-1 Q1-2 --copper-thickness 35um --json
+fenolite analyze board.kicad_pcb --kinds loops --requirements req.toml --loop-baseline before.kicad_pcb --json
 ```
 
 ## Heat
@@ -139,7 +141,7 @@ fenolite analyze board.kicad_pcb --kinds power --split --path J1-1 Q1-2 --copper
 Pour cut-outs, keep-outs and slots remove copper. After every change to them, check that every pad of a
 poured net is still connected, and that each band is still continuous. A rule check that runs only on
 the copper you drew, without the cut-outs, misses this. `fenolite net` lists the open connections of a
-net.
+net; `analyze --kinds connectivity,dead` pours the zones again and lists cut-off pads and dead copper.
 - **Refill and check before any output or measurement.** The saved fill is what gets fabricated. An
   outline edited after its last refill holds an old fill, and every distance, connection and current
   measured on it is wrong.
@@ -151,6 +153,7 @@ net.
 ```fenolite-cmd
 fenolite net board DC_BUS --json
 fenolite fill board --dry-run --json
+fenolite analyze board.kicad_pcb --kinds connectivity,dead --dead-distance 5mm --json
 ```
 
 ## Priorities between power and signals

@@ -94,7 +94,7 @@ fenolite convert board.PcbDoc --to kicad --out converted --dry-run --json
 fenolite equivalent before.kicad_pcb after.kicad_pcb --level 5 --json
 ```
 
-**Conversions and Altium writes are experimental in 0.5.** Lossy conversion requires explicit consent.
+**Conversions and Altium writes are experimental in 0.6.** Lossy conversion requires explicit consent.
 Support depends on the constructs in the input; review the report and the resulting design.
 Read the [conversion guide](https://github.com/lgili/Fenolite/blob/main/docs/conversion.md).
 
@@ -139,12 +139,13 @@ and [assembly](https://github.com/lgili/Fenolite/blob/main/docs/assembly.md).
 
 ## Support at a glance
 
-> **Status: version 0.5.** Python scripts build KiCad 9/10 PCB and schematic projects. The agent loop
-> uses KiCad's ERC/DRC checks; conversion supports KiCad/Altium and the older KiCad major.
-> Altium writes and conversions are experimental. See the [release scope and limits](https://github.com/lgili/Fenolite/blob/main/docs/release/v0.5.md).
+> **Status: version 0.6.** Python scripts build KiCad 9/10 PCB and schematic projects. The agent loop
+> uses KiCad's ERC/DRC checks, the board engineering analyses and an MCP server; conversion supports
+> KiCad/Altium and the older KiCad major. Altium writes, computed Altium pours and conversions are
+> experimental. See the [release scope and limits](https://github.com/lgili/Fenolite/blob/main/docs/release/v0.6.md).
 
 
-| Workflow | What you need | Status in 0.5 |
+| Workflow | What you need | Status in 0.6 |
 |---|---|---|
 | Build the starter; inspect and view supported files | Python 3.11+, browser for the viewer | Shipped; format-specific rendering limits apply |
 | KiCad project generation | Python; KiCad 9 or 10 to open in the editor | Shipped |
@@ -154,14 +155,15 @@ and [assembly](https://github.com/lgili/Fenolite/blob/main/docs/assembly.md).
 | Altium project generation | Python; Altium for native validation | Experimental |
 
 Linux, macOS and Windows are supported. Optional extras include `geo` for polygon operations
-and `kicad-ipc` for a live KiCad session. The MCP server is not part of the published 0.5 package;
-development builds include the stdlib-only server, script editing and image replies described in
+and `kicad-ipc` for a live KiCad session. Since 0.6 the package includes the stdlib-only MCP server
+(`fenolite mcp`), script editing and image replies described in the
 [MCP documentation](https://github.com/lgili/Fenolite/blob/main/docs/mcp.md). See
 [installation and prerequisites](https://github.com/lgili/Fenolite/blob/main/docs/quickstart.md).
 
-The viewer, conversion, board panels, slots and review tools ship in 0.5. Native Draftsman writing and
-Embedded Board Arrays remain gated. Detailed scope and deferred checks are in the
-[release record](https://github.com/lgili/Fenolite/blob/main/docs/release/v0.5.md).
+The viewer, conversion, board panels, slots and review tools ship since 0.5; 0.6 adds the MCP server, the
+board engineering tools (analyses, tidy, reuse, silkscreen, test points, DRC gates) and the Python API.
+Native Draftsman writing and Embedded Board Arrays remain gated. Detailed scope and deferred checks are in the
+[release record](https://github.com/lgili/Fenolite/blob/main/docs/release/v0.6.md).
 
 ## Help and contribute
 

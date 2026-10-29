@@ -47,13 +47,14 @@ package. The widths there are measured on the raster of c0204 (c0213's design, d
 
 ## 6. Native Altium edit sessions (package 12)
 
-- [ ] 6.1 Write the hypotheses of the edit session and of the integrity rules into `docs/hypotheses.md`, each with its kit case. Build kit phase A, with documents authored for Fenolite and the cases to open, save and reopen in Altium. No write code before this task is ticked. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_altium_verification_docs.py -q`.
-- [ ] 6.2 **Maintainer, in Altium Designer.** Run the kit cases and send back the saved files with their hashes. Record the report. OPEN until Altium was run. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -q`.
-- [ ] 6.3 Add the integrity check stage, with warnings for unconfirmed rules (scenario "A gap in polygon sub-indices"). Proof: `uv run pytest tests/unit/backends/altium/edit/test_integrity.py -q`.
-- [ ] 6.4 Add the session with `delete`, `move`, `rotate` and `set_property`, the assertions, the cloning and the index upkeep, behind a gate that is off by default (scenario "A move refused on a wrong old value"). Proof: `uv run pytest tests/unit/backends/altium/edit/test_session.py -q`.
-- [ ] 6.5 Add the commit gates (scenario "An undeclared connectivity change"). Proof: `uv run pytest tests/unit/backends/altium/edit/test_commit.py -q`.
-- [ ] 6.6 Add `flip`, `clone`, `add_component`, `remap_layer` and `set_rule`, each behind its own gate. Proof: `uv run pytest tests/unit/backends/altium/edit -q`.
-- [ ] 6.7 Add the schematic session with the net-signature guard. Proof: `uv run pytest tests/unit/backends/altium/edit/test_schematic.py -q`.
+Moved on 2026-10-29 to change c0241 (`openspec/changes/c0241-altium-edit-sessions/`), with its tasks 6.1 to 6.7
+(renumbered there 1.1, 1.2, 2.1 and 3.1 to 3.4) and the whole `altium-edit` delta, whose requirements "Edit
+session on an Altium document" and "Integrity check" were over 500 characters and are split there into
+"Edit session on an Altium document", "Asserted edits", "Records cloned from the document", "Index upkeep",
+"Operations gated by their hypotheses", "Integrity check", "Integrity rules of indices" and "Integrity rules
+of parameters, models and layers". c0241 adds "Kit cases for edit sessions" (Part J of
+`docs/evidence/altium-edit.md`) and the phase B tasks of its kit. This change no longer holds a delta of
+`altium-edit`.
 
 ## 7. Copper tidy (package 5)
 
@@ -117,7 +118,7 @@ three ADDED requirements of this change's `design-conversion` delta ("Mask and p
 reported as losses, and `fenolite library` reads KiCad boards. This change no longer holds a delta of
 `design-conversion`. Task 10.4 stays here:
 
-- [ ] 10.4 Add body copy by pad fit, with one model-store entry per rotation (Altium, behind the gates of package 12), and a coverage report against a house library that the user names. Proof: `uv run pytest tests/unit/reuse/test_bodies.py tests/unit/catalog/test_coverage.py -q`.
+- [ ] 10.4 Add body copy by pad fit, with one model-store entry per rotation (Altium, behind the gates of c0241), and a coverage report against a house library that the user names. Proof: `uv run pytest tests/unit/reuse/test_bodies.py tests/unit/catalog/test_coverage.py -q`.
 
 ## 11. Generated copper (package 6)
 
@@ -150,10 +151,12 @@ crossing analysis), with the requirement "Region renders" of `manufacturing-expo
 
 ## 13. Teaching
 
-- [ ] 13.1 Add a tested line for each new command and DSL name to the closest page of the agent guide. Point the practice pages of c0174 to the commands that now answer their checks. Run `tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
+- [x] 13.1 Add a tested line for each new command and DSL name to the closest page of the agent guide. Point the practice pages of c0174 to the commands that now answer their checks. Run `tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
+  - 2026-10-28: the commands and DSL names of c0197 to c0229 already had their tested lines (`test_coverage_holds`); the tool pages held lines for `tidy`, `route --gate drc`, `render --region`, `check --exclude`, `export --readback`, `library --diff`, `diff --allow`/`--three-way` and `place --strategy regions`/`reuse`/`group`. Options without a run line (`analyze --kinds bodies`, `--pour-grid`, `--loop-baseline`, `--reference`, `--sense`; `render --cut`; `place --anchor`/`--tolerance`; `testpoints --grid`/`--reach`/`--size`/`--nets`) got one on a practice page. The table of `board-practice` gains a column "measured by"; nine other practice pages point to the commands that answer their checks (`board-schematic` unchanged: no command checks ratings or schematic classes). Skill folder 268 742 bytes; largest written page `board-power`, 178 lines, 11 137 bytes. Proof passed: `uv run pytest tests/unit/agent -q -n 2` (98 passed), `uv run python tools/gen_agent_guide.py --check` (exit 0).
 
 ## 14. Closing
 
 - [ ] 14.1 Run the tests and the residue scan. Proof: `make check-fast`, then the CI jobs of the branch.
-- [ ] 14.2 Update the evidence labels: the hypotheses of packages 1, 2, 7 and 12 in `docs/hypotheses.md`, and the matrix. Proof: `uv run python tools/gen_evidence_matrix.py --check`; `uv run pytest tests/unit/test_hypotheses_register.py -q`.
+- [x] 14.2 Update the evidence labels: the hypotheses of packages 1, 2 and 7 in `docs/hypotheses.md` (package 12's are c0241's), and the matrix. Proof: `uv run python tools/gen_evidence_matrix.py --check`; `uv run pytest tests/unit/test_hypotheses_register.py -q`.
+  - 2026-10-28: package 1: `H-G-DSN-WIDTH-ALL` and `H-G-DSN-ONE-SIDED` stay `ORACLE-VERIFIED(freerouting 2.4.1)`, their proof moved from the local run to CI: both `routing` jobs passed `test_router_input_bench`, which asserts the criterion, in runs 40355527379 (`aaea7b4`) and 40703612332 (`01068dd`); `docs/evidence/routing.md` names the runs. Packages 2 and 7: `H-G-TIES`, `H-G-PRACTICE-*`, `H-G-SHAPE-*` and `H-G-POWER-SPLIT` stay `INFERRED`: only authored unit benches prove them, and no oracle or corpus test compares them with KiCad. Package 12 is not updated here: it moves to change c0241, which registers its rows. The matrix lists no `H-G-` row and is unchanged. Proof passed: `uv run python tools/gen_evidence_matrix.py --check` (exit 0), `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/verify/test_register.py -q -n 2` (53 passed).
 - [ ] 14.3 Add an entry to `CHANGELOG.md` under `## [Unreleased]` once the maintainer has opened the version after 0.5.0. Proof: `uv run pytest tests/unit -k "release_record or changelog" -q`.

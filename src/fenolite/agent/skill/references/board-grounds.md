@@ -69,6 +69,7 @@ that floods past a gap creates a second tie, and no other check notices it.
 ```fenolite-cmd
 fenolite analyze board.kicad_pcb --kinds ties --tie NT1 --domains PWR=Q*,CTL=U* --json
 fenolite analyze board.kicad_pcb --kinds domains --barrier U5 --json
+fenolite analyze board.kicad_pcb --kinds ties --sense ISENSE_P,ISENSE_N --json
 fenolite net board GND --json
 fenolite pads board R10 --json
 ```

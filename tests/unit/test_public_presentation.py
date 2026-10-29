@@ -54,7 +54,7 @@ def test_release_claims_and_entry_points() -> None:
     assert "After 0.5" not in readme
     assert "second backend for another" not in readme
     assert readme.index("## Install") < readme.index("## Three ways")
-    assert "**Conversions and Altium writes are experimental in 0.5.**" in readme
+    assert "**Conversions and Altium writes are experimental in 0.6.**" in readme
     assert "Draftsman writing and" in readme and "remain gated" in readme
     for page in ("docs/quickstart.md", "docs/launch/v0.5.md"):
         text = (ROOT / page).read_text(encoding="utf-8")
