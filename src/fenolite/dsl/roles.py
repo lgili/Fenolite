@@ -231,9 +231,7 @@ def role_limits(design: Design, net: object, kind: object, limits: Mapping[str, 
         order = (key, kind or "", name or "")
         if order in found.limits:
             raise DslError(f"{what}: {key} is given twice")
-        found.limits[order] = RoleLimit(
-            key, _limit(key, value, what), net=name, kind=kind
-        )
+        found.limits[order] = RoleLimit(key, _limit(key, value, what), net=name, kind=kind)
 
 
 def part_class(design: Design, part: object, cls: object, terminals: object) -> None:
