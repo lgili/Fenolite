@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list` and the living specs this change touches (`design-model`, `design-dsl`, `cli-contract`, `verification-loop`, `board-analyses`, `package-layering`). The proposal was revised on dev base `1559f1b0`; write under this task, with the date and the base commit the implementation starts from:
+- [x] 0.1 Read `openspec list` and the living specs this change touches (`design-model`, `design-dsl`, `cli-contract`, `verification-loop`, `board-analyses`, `package-layering`). The proposal was revised on dev base `1559f1b0`; write under this task, with the date and the base commit the implementation starts from:
   - the commits between `1559f1b0` and that base that touch `src/fenolite/analysis/` (`shapes.py`, `power.py`, `split.py`, `practice.py`, `pour.py`, `distance.py`, `returns.py`, `coupling.py`, `ties.py`) or `checks/stages.py`, and whether a signature that decision 8 of `design.md` calls has changed;
   - which open change holds a delta of "No shipped requirement values" or "Allowed import edges" (if one was archived, regenerate the MODIFIED block from the living text);
   - whether a change has inserted a stage between `placement.rules` and `zone.fill`, or between `placement.rules` and `parity` in `DOCUMENT_STAGES`;
@@ -10,6 +10,25 @@
   On 2026-10-29, on `1559f1b0`: no other open change holds a delta of either requirement; no stage stands between `placement.rules` and `zone.fill`; S-0850 to S-0854 are free on `dev` and registered by this change; questions 8 and 9 are open.
 
   Proof: `openspec validate c0222-net-roles --strict --no-interactive`; `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py -q`.
+
+  2026-10-29, implementation base `1559f1b0` (`origin/dev` has not moved, so no rebase):
+  - no commit lies between `1559f1b0` and the base, so no file of `src/fenolite/analysis/` or
+    `checks/stages.py` changed, and every signature that decision 8 calls is the one the design read;
+  - "No shipped requirement values": no other open change holds a delta (c0105's `board-analyses` delta
+    adds other requirements). "Allowed import edges": c0173 (`panel` row) and c0195 (`mcp` row) hold
+    MODIFIED deltas that are not archived; none of the three is archived, so this block stays written from
+    the living text, and whichever change archives later must merge the three rows (the import-graph test
+    already holds `panel` and `mcp`);
+  - no stage stands between `placement.rules` and `zone.fill` in `STAGE_ORDER`, or between
+    `placement.rules` and `parity` in `DOCUMENT_STAGES`;
+  - S-0850 to S-0854 are the five rows this proposal registered in `docs/evidence/sources.md`;
+  - the maintainer answered on 2026-10-29: question 8 yes (`fenolite.roles` is its own package that may
+    import the analyses, and `fenolite check` passes its judge into the stage `roles.rules`), question 9
+    yes (phase 0 uses c0213's flat loop area, no stacked-layer term, paths through pours as a lower bound;
+    a stacked-area measure only later, if the half-bridge reference board shows it is needed); phase 0
+    starts now. Recorded in `design.md`, "Decided by the maintainer on 2026-10-29".
+
+  Proof passed: the change is valid (strict); 46 provenance and hypothesis-register tests pass.
 
 ## 1. Model, storage and package
 

@@ -653,7 +653,7 @@ Every decision of 2026-10-28 above stands unchanged. What changed:
 | finishing and review | c0208/c0214 tidy, c0211 region renders, c0199 crossings, copper locks | phase 4: propose and lock |
 | general routing | c0228 five shapes and rounds; external routers | phase 3: multi-layer search, role cost fields, negotiated rip-up |
 
-**Open for the maintainer (2026-10-29).**
+**Asked of the maintainer on 2026-10-29.**
 
 8. May `fenolite.roles` be a new package that imports `analysis`, with the check stage taking its judge from
    `cmd_check`? **Recommended:** yes. The alternative, the stage inside `analysis`, would put a check stage
@@ -662,3 +662,12 @@ Every decision of 2026-10-28 above stands unchanged. What changed:
    the draft's non-zero winding area with a stacked term? **Recommended:** yes for phase 0; a stacked area
    goes to `analysis` by its own change only if the half-bridge variants show that the plan area cannot
    tell the good gate loop from the bad one.
+
+### Decided by the maintainer on 2026-10-29
+
+- Question 8: yes. `fenolite.roles` is its own package, which may import `analysis`, and `fenolite check`
+  passes its judge (`fenolite.roles.judge`) into the stage `roles.rules`, as it passes the plotter.
+- Question 9: yes. Phase 0 uses c0213's flat loop area: no stacked-layer term, and legs through pours as
+  c0204's lower bound. A stacked-area measure comes later, by its own change, only if the half-bridge
+  reference board shows that it is needed.
+- Phase 0 may start now.
