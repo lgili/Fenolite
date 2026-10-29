@@ -85,15 +85,15 @@ A `sheet_ref` SHALL name a drawn sheet by `sheet` and a code module by `module`,
 - **THEN** the nets and their names are unchanged
 
 ### Requirement: Drawn connectivity rules
-The resolver SHALL join: the two ends of a wire segment; a segment end, pin point or label anchor lying inside another segment; every segment and pin at a junction; local labels of one text on one sheet instance; global labels and power symbols of one text on all sheets; a hidden `power_in` pin with the global net of its name; a hierarchical label with the sheet pin of its name on its instance's reference. Crossing segments MUST NOT join without a junction.
+The resolver SHALL join: the two ends of a wire segment; segment ends that meet; a label anchor lying on a segment, its inside included; every segment end, segment inside and pin at a junction; local labels of one text on one sheet instance; global labels and power symbols of one text on all sheets; a hidden `power_in` pin with the global net of its name; a hierarchical label with the sheet pin of its name on its instance's reference. A segment end lying inside another segment (a T) and crossing segments MUST NOT join without a junction on that point, and a pin MUST join a wire at the wire's end only (`H-K-SCH-WIRE-END`), as `kicad-cli` 9.0.9 and 10.0.6 read them (measured on 2026-10-29).
 
 #### Scenario: T joint and crossing
-- **GIVEN** a drawn sheet where wire `A` ends inside wire `B`, and wire `C` crosses `B` without a junction
+- **GIVEN** a drawn sheet where wire `A` ends inside wire `B`, and wire `C` crosses `B`, both without a junction
 - **WHEN** it is resolved
-- **THEN** the pins on `A` and `B` form one net and the pins on `C` another
+- **THEN** the pins on `B` form one net, the pin on `A` stays apart, and the pins on `C` form another net
 
 #### Scenario: Junction on a crossing
-- **GIVEN** the same sheet with a junction on the crossing point of `C` and `B`
+- **GIVEN** the same sheet with junctions on the end of `A` and on the crossing point of `C` and `B`
 - **WHEN** it is resolved
 - **THEN** the pins on `A`, `B` and `C` form one net
 
@@ -215,11 +215,11 @@ Every root slot of a read sheet that extraction does not map, and every symbol w
 - **THEN** one `drawn.part-unknown` names `X1` and its symbol is an opaque item
 
 ### Requirement: Freezing a generated schematic
-Extraction of the sheets that `generate_schematic` built SHALL give a drawn schematic which, lowered for the same target, gives the generated texts byte for byte, so a generated schematic can be frozen into a drawn one with `drawn.frozen` (info) and a hint to call `design.load_schematic`.
+Extraction of the sheets that `generate_schematic` built SHALL give a drawn schematic which, lowered for the same target, gives the generated texts with every byte equal except the uuids of labels, wires, junctions and flags (drawn items take their ids from their sheet and index), the same board, and the same drawn value when extracted again, so a generated schematic can be frozen into a drawn one with `drawn.frozen` (info) and a hint to call `design.load_schematic`.
 
 #### Scenario: Frozen blink
 - **WHEN** `uv run pytest tests/unit/backends/kicad/test_drawn_freeze.py` freezes the generated blink and the design of "Two modules, one nested" and lowers the result for targets 9 and 10
-- **THEN** each text equals the generated one
+- **THEN** each text equals the generated one once uuids are left out, the board's bytes are equal, and extraction gives the frozen value again
 
 ### Requirement: Generated sheets inside a drawing
 A drawn sheet with `generated = true` SHALL hold no item. For each reference to it, the build MUST generate the sheet of that module instance with the rules of c0269's block sheets and write it at `schgen.sheet_file(<module path>)`. The reference MUST carry the sheet pins the generator gives, by name and shape; else `drawn.sheet-pin-unmatched` (error).

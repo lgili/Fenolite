@@ -1630,6 +1630,22 @@ design.title_block(title="Blink", revision="B", variables={"PROJECT_CODE": "X1"}
   script. Without these calls the board keeps the ones it has (`docs/lens.md`).
 - `result.drawing_sheet` of `build` holds `source`, `file` and `items`, or `null`.
 
+## Drawn schematic
+
+```python
+design.load_schematic("schematic.toml")
+```
+
+- **`design.load_schematic(path)`** (change c0276) draws the schematic from a drawn schematic file beside
+  the script, schema `fenolite.drawn-schematic.v0`, instead of generating it: symbol poses, wires,
+  junctions, labels, buses, power symbols and sheets (`docs/drawn-schematic.md`). It is called at most once;
+  a path that does not end in `.toml`, an absolute path or a path that leaves the script's folder raises
+  `DslError`. The DSL does not read the file, and `to_model` is unchanged.
+- The script stays the only source of the nets: the build proves that the drawing means them, and refuses
+  it otherwise. `dsl.drawn_schematic(design)` gives the path, or `None` for a generated schematic.
+- `fenolite sync --to-source` copies a drawing edited in KiCad back into the file, and
+  `--freeze-schematic` writes it from a generated schematic once.
+
 ## Reference designators and the design lock
 
 A part may be written without a ref (change c0249). Its identity is its path; the build gives it a ref

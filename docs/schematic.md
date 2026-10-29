@@ -242,6 +242,13 @@ schematic on the next build; the pads of unconnected pins and nets with a slash 
 the board file once, and tracks and zones stay on their nets. Zone fills are kept: a pad that
 only gains the name of its unconnected pin does not make a fill stale.
 
+## A drawn schematic instead
+
+A design that calls `design.load_schematic("schematic.toml")` is not drawn by the generator: its sheets come
+from the drawn schematic file, the build proves that they mean the script's nets, and
+`schematic-placements.toml` is not read (`docs/drawn-schematic.md`, change c0276). `fenolite sync
+--to-source --freeze-schematic` turns a generated schematic into such a file once.
+
 ## Limits
 
 - Each sheet up to A0. A sheet that does not fit is refused (`build.schematic-too-large`, which names

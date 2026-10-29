@@ -665,13 +665,22 @@ source tree (`docs/lens.md`, "sync" and "placements.toml"). It is a mutating com
 - **Writes** go beside the design script, not under `DIR`: `placements.toml`, and
   `schematic-placements.toml` when `DIR` holds the schematic of the design; each only when its text
   would change. A run that changes nothing plans nothing and asks for no confirmation.
+- **Drawn schematic** (change c0276, `docs/drawn-schematic.md`): for a design that calls
+  `design.load_schematic(FILE)`, the sheets in `DIR` are extracted and `FILE` is planned instead of
+  `schematic-placements.toml` when its canonical text differs. The sheets are first compared with the
+  circuit of `DIR/.fenolite/`: a connectivity difference plans no drawn file and gives
+  `drawn.netlist-differs` (error, exit 5). `--freeze-schematic` plans `schematic.toml` from a generated
+  schematic, with `drawn.frozen` (info) and the hint to call `design.load_schematic`; the script is never
+  rewritten. A project without a schematic gives `FEN-3001`.
 - **`--check`** plans nothing and reports one `sync.would-change` (error) per file that would change,
   naming its first differing table: exit 5 when a committed file is stale, 0 otherwise. `--check` with
   `--confirm` is a usage error (exit 2).
 - **`result`**: `design`, `out`, `board` (the file name), `placements` (the number of entries),
   `unplaced` (matched parts that lie off the board and stay out of the file), `orphans` and `board_only`
   (references), `symbols` (the number of tables of `schematic-placements.toml`, or `null` when `DIR`
-  holds no schematic), `files` (the names that change) and `script_output`.
+  holds no schematic), `files` (the names that change), `drawn` (`null`, or the drawn file, whether it is
+  `planned`, and the counts of `wires`, `junctions`, `labels`, `buses` and `opaque` items) and
+  `script_output`.
 - **Issues**: those of the board read, and the `sync.*` codes of `docs/lens.md`: `sync.would-change`
   (error), `sync.orphan`, `sync.net-dropped`, `sync.value-differs` and `sync.symbol-off-grid`
   (warnings).
@@ -699,7 +708,14 @@ follows the sheet: the pad of each unconnected pin is on a net named as KiCad na
 path of its symbol; the `.fenolite/` model holds none of this. `result.schematic` holds `file`, `paper`
 (the root's), `sheets` (their number, the root included), `files` (the child sheet files), `symbols`,
 `labels`, `no_connects` and `wires` (counted over every sheet), `satellites`, `power_flags`, `libraries`
-(the symbol library files) and `unconnected_pads`, and is `null` with `skip`.
+(the symbol library files), `unconnected_pads`, `source` (`generated`, or `drawn` for a design that loads a
+drawn schematic, change c0276) and `drawn` (`null`, or `file` and the counts `wires`, `junctions`, `labels`,
+`buses` and `opaque` of the drawn file), and is `null` with `skip`. A drawn schematic is read from the
+script's folder (a missing or bad file: exit 3, `FEN-3004`), lowered instead of generated, read back and
+compared with the script's nets before any file is planned (`build.schematic-netlist-differs`, exit 5); its
+coverage errors (`drawn.symbol-missing`, `drawn.part-unknown`) plan nothing, and
+`schematic-placements.toml` beside it is not read (`drawn.placements-ignored`); see
+`docs/drawn-schematic.md`.
 
 `--schematic-layout readable` (the default) gives each module that holds a part a sheet of its own,
 `DIR/sheets/<module path with "." for "/">.kicad_sch`, named by a box on the sheet above it, and puts a
@@ -1137,7 +1153,8 @@ re-saves and three DRC runs and is selected by name. `erc.kicad`, `drc.kicad`, `
 `roundtrip.rt2` and `zone.fill` need `kicad-cli` (`ORACLE_STAGES`): selecting any of them runs the tool pre-flight.
 `copper.clearance` needs no tool: `--stages copper.clearance` runs on a machine without KiCad.
 `length.rules`, `placement.rules` and `roles.rules` need none either, and are default stages.
-`parity` needs none either for a project that `build` wrote.
+`parity` needs none either for a project that `build` wrote. `schematic.drawn` (change c0276) needs no tool;
+without `--stages` it is listed only for built input whose `.fenolite/build.json` records a drawn schematic.
 
 | stage | runs on | evidence |
 |---|---|---|
@@ -1150,6 +1167,7 @@ re-saves and three DRC runs and is selected by name. `erc.kicad`, `drc.kicad`, `
 | `zone.fill` | KiCad 10 refills a private copy of the project board; compares saved copper polygons per zone | refill evidence; `UNVERIFIED` when any zone is unfilled or stale |
 | `drc.kicad` | `kicad-cli pcb drc` on the copy set, with the rules canary; every violation becomes a located issue | DRC report reader and oracle combined, `kicad-cli <version>`; `UNVERIFIED` without a report or with a rules issue |
 | `parity` | Fenolite's own comparison of the board with `<stem>.kicad_sch`, and of symbol pins with footprint pads (`parity` below); no tool for a schematic that `build` wrote, else the schematic netlist of `kicad-cli` when another stage built the oracle | the lowest of the comparison (`INFERRED`, `H-K-PARITY-OWN`) and of the netlist it used |
+| `schematic.drawn` | the drawn schematic of a built project (`docs/drawn-schematic.md`): the sheets as they are on disk, extracted and resolved without a tool, compared with the circuit of `.fenolite/` as partitions of pins; summary `nets`, `pins`, `open`. Skipped with `no-drawing` when `--stages` names it for any other input | `INFERRED` (`H-K-DRAWN-CONNECT`, `H-K-DRAWN-NAMES`) |
 | `netlist.assignment_compare` | the pad nets of the model (built input), of the re-read board, of `kicad-cli pcb export ipcd356` and, when the project has a schematic, of `kicad-cli sch export netlist`, compared as partitions | the lowest of the reader, the exports that were read and, on built input, `INFERRED`; `UNVERIFIED` without the board's export |
 | `roundtrip` | RT1 of the board, native and built alike | the reader's level |
 | `roundtrip.rt2` | opt-in: KiCad's DRC on the board and on Fenolite's re-dump of it gives the same violations | the DRC report reader, the oracle and the RT2 runs combined; `UNVERIFIED` when a report is missing |
@@ -1160,7 +1178,8 @@ error issue), `errors` (ran, at least one) or `skipped`, with `reason` `native-i
 `cache-unreadable`, `no-schematic` (`erc.kicad` on a project without a schematic of the board's stem),
 `unsupported-oracle`, `oracle-unsupported`, `netlist-unavailable` (`parity` on a schematic that Fenolite
 does not read itself, in a run without `kicad-cli`), `no-frame` (`placement.rules` when the reader gives
-no pad positions), `no-roles` (`roles.rules` on a board without a stored or declared role) or `oracle-unstable` (two refill runs differ; never counted in the
+no pad positions), `no-roles` (`roles.rules` on a board without a stored or declared role), `no-drawing` (`schematic.drawn` on
+input without a drawn schematic) or `oracle-unstable` (two refill runs differ; never counted in the
 envelope). A skipped stage carries `UNVERIFIED`. The envelope evidence is the lowest level of
 the stages that ran and of those skipped for `read-refused` or `cache-unreadable`; `UNVERIFIED` when
 none counts. `result.project` holds `board`, `built`, `files` and `skipped`, names relative to the
@@ -1380,6 +1399,10 @@ repeat.
 | `check.read-refused` | error | Fenolite cannot read the board; the message starts with the FEN code, `where` is `file:locator:@offset` |
 | `check.cache-unreadable` | warning | `.fenolite/` cannot be loaded; `model.validate` is skipped |
 | `check.roles-unreadable` | error | `roles.rules`: the role document beside the board (or the roles of `.fenolite/rules.json`) cannot be read |
+| `drawn.netlist-differs` | error | `schematic.drawn`: a pin is in another group in the drawing than in the circuit, or open on one side only; `where` is the first `REF-PIN` (change c0276) |
+| `drawn.symbol-missing`, `drawn.part-unknown`, `drawn.sheet-pin-unmatched`, `drawn.sheet-unknown`, `drawn.repeated-value-differs` | error | `schematic.drawn` and `build`: the coverage, sheet and repeated-value errors of `docs/drawn-schematic.md`, "Codes" |
+| `drawn.net-name-differs`, `drawn.unit-missing`, `drawn.dangling`, `drawn.label-unconnected`, `drawn.bus-member-unknown`, `drawn.placements-ignored` | warning | the drawn schematic warnings of `docs/drawn-schematic.md`, "Codes" |
+| `drawn.opaque-dropped`, `drawn.frozen`, `drawn.altium-repeat-flattened` | info | an opaque item dropped for a target, a schematic frozen by `sync --freeze-schematic`, a repeated sheet written per instance |
 | `check.footprint-unresolved` | error | a non-DNP component has no footprint reference or instance |
 | `check.symbol-unresolved` | error | a built component that carries `fenolite.path` has no symbol reference; a board-only footprint added in KiCad, without that key, is not asked for one (`docs/lens.md`) |
 | `check.rt1-failed` | error | RT1 failed; `where` is the first difference |

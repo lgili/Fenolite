@@ -1169,7 +1169,7 @@
       "additionalProperties": false
     },
     "Wire": {
-      "description": "A straight wire of a created sheet, from ``start`` to ``end``, never a point. The generator draws",
+      "description": "A straight wire of a created sheet, from ``start`` to ``end``: horizontal or vertical, never a",
       "type": "object",
       "properties": {
         "id": {

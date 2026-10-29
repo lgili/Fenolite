@@ -90,6 +90,34 @@ Net names on boards follow the same rule (`pcb.stored_net_name`): a created net 
 `{slash}` for a slash, a net read from a file keeps its spelling, and the reader gives a net stored with
 `{slash}` the name with the slash, keeping the stored spelling in the net's `kicad` bag (`stored`).
 
+## Drawn schematic connectivity
+
+The rules of `fenolite.model.drawn_connect.resolve`, the resolver of drawn schematics (change c0276,
+`docs/drawn-schematic.md`), read again for that change in the schematic editor manual (S-0046: wires,
+junctions, labels and their scope, buses, bus entries, bus aliases, sheet pins, power symbols, hidden
+power pins) and the format page (S-0367). On 2026-10-29 `tests/kicad/schematic/test_drawn_oracle.py`
+compared the resolver's nets with `kicad-cli sch export netlist` on the six authored drawn fixtures on
+9.0.9 and 10.0.6 (local `docker:kicad/kicad` images): connectivity and names were equal on both. The rows
+stay `INFERRED` until the KiCad job of CI passes on the commit (task 7.1 of c0276).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A wire segment joins its two ends, and segments join where their ends meet | S-0046, S-0367 | INFERRED | H-K-DRAWN-CONNECT |
+| A segment end that lies inside another segment (a T) is not joined to it without a junction on that point; with a junction both are one net. Measured on an edited sheet on 9.0.9 and 10.0.6 (a stub ending on a wire carries its label alone, the net keeps the pin name) | S-0046, S-0020 | INFERRED | H-K-DRAWN-CONNECT |
+| Crossing segments do not join unless a junction lies on the crossing point | S-0046 | INFERRED | H-K-DRAWN-CONNECT |
+| A junction joins every segment end, segment inside and pin point at its position | S-0046, S-0367 | INFERRED | H-K-DRAWN-CONNECT |
+| 9.0.9 loses the corner of a wire whose inside holds a junction (the bent wire's second segment reports `unconnected_wire_endpoint` and the pins split); the same sheet with the wire cut at the junction joins on 9.0.9 and 10.0.6. The writer therefore cuts each wire at the junctions on it, and each bus at its junctions and bus entry ends, as KiCad's editor keeps them | S-0020 | INFERRED | H-K-DRAWN-WRITE |
+| A pin joins a wire at the wire's end only (the row of `H-K-SCH-WIRE-END` above) | S-0367, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-WIRE-END |
+| A label joins the wire or the pin its anchor lies on, a wire's inside included; a label that touches nothing names nothing | S-0046 | INFERRED | H-K-DRAWN-CONNECT |
+| Local labels of one text join on one sheet instance; global labels of one text join on every sheet | S-0046 | INFERRED | H-K-DRAWN-CONNECT |
+| A power symbol (a symbol flagged `power` whose pin is a power input, shown or hidden) joins the global net named by its `Value`; the power flag (a power output pin) joins at its pin only | S-0046 | INFERRED | H-K-DRAWN-CONNECT |
+| A hidden power-input pin of a part joins the global net of its pin name (the row of `H-K-SCH-POWER` above) | S-0046, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-POWER |
+| A hierarchical label joins the sheet pin of the same name on the reference of its instance | S-0046, S-0367 | INFERRED | H-K-DRAWN-CONNECT |
+| A bus carries the members of the labels and sheet pins on it: `NAME[a..b]` gives `NAMEa` to `NAMEb`, `{A B}` its items, `P{A B}` gives `P.A` and `P.B`, and a bus alias of the sheet its members; written on a bus, an alias is named as `{ALIAS}` (10.0.6 reports `bus_to_net_conflict` for the bare name). A member joins the local labels of its name on the instance and crosses a sheet through a bus sheet pin and the hierarchical label of the same text; a bus entry joins nothing by itself | S-0046, S-0367, S-0020 | INFERRED | H-K-DRAWN-BUS |
+| A sheet file named by several sheet references gives one set of local nets per instance, with the references of each instance's `path`; global nets are shared | S-0046, S-0367 | INFERRED | H-K-DRAWN-REPEAT |
+| A net named by a global label or a power symbol takes that text; one named only by local or hierarchical labels takes `/` plus the sheet names from the root and the text, the highest sheet first; ties go to the text that sorts first | S-0046 | INFERRED | H-K-DRAWN-NAMES |
+| A no-connect flag marks a pin as open on purpose and joins nothing | S-0367 | INFERRED | H-K-DRAWN-CONNECT |
+
 ## Netlist export
 
 What `netlist.read_netlist` reads of the file that `kicad-cli sch export netlist --format kicadsexpr`
