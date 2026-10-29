@@ -208,3 +208,44 @@ def test_part_q_gate_follows_the_report() -> None:
     reports = _part_q_reports()
     for case in ("Q7", "Q8", "Q9"):
         assert re.search(rf"\|\s*{case}\s*\|[^\n]*\|\s*as expected\s*\|", reports), case
+
+
+def _part_j() -> str:
+    return _section(_page("evidence/altium-edit.md"), "## Part J: edit sessions")
+
+
+def test_part_j_names_the_cases_with_their_expected_outcomes() -> None:
+    """Requirement "Kit cases for edit sessions" (change c0241, task 1.1): cases J1 to J33 in order, each
+    with an expected outcome, the kit's files, the folder, and every hypothesis of the edit session and of
+    the integrity rules named by at least one case."""
+    part = _part_j()
+    assert [int(n) for n in re.findall(r"^\d+\. \*\*J(\d+)\*\*", part, re.M)] == list(range(1, 34))
+    for case in range(1, 34):
+        found = re.search(rf"\*\*J{case}\*\*(.+?)(?=\n\d+\. \*\*J|\n\nSend)", part, re.S)
+        assert found is not None, case
+        assert "Expected" in found.group(1), case
+    for name in (
+        "board/", "written/", "faults/", "expected.md", "README.md", "PART-J.md", "SHA256SUMS",
+        "session-7/J-edit", "fenolite kit verify", "test_part_j.py",
+    ):  # fmt: skip
+        assert name in part, name
+    register = _page("hypotheses.md")
+    rows = re.findall(r"^\| (H-A-(?:EDIT|INTEG)-[A-Z]+) \|", register, re.M)
+    assert len(rows) == 21
+    for row in rows:
+        assert f"`{row}`" in part, row
+        line = next(line for line in register.splitlines() if line.startswith(f"| {row} |"))
+        assert "| INFERRED |" in line and "kit request (maintainer): Part J, case" in line, row
+
+
+def test_part_j_reports_hold_no_altium_verified_row_without_a_report() -> None:
+    """No ``H-A-EDIT-*`` or ``H-A-INTEG-*`` row is ``ALTIUM-VERIFIED`` while Part J has no recorded report."""
+    reports = _section(_page("evidence/altium-edit.md"), "## Reports")
+    if "No report of Part J has been received" not in reports:
+        return
+    rows = [
+        line
+        for line in _page("hypotheses.md").splitlines()
+        if line.startswith(("| H-A-EDIT-", "| H-A-INTEG-"))
+    ]
+    assert rows and not [line for line in rows if "| ALTIUM-VERIFIED" in line]

@@ -286,6 +286,9 @@ In the maintainer's work, every change to an Altium board that the owner kept ed
   - Experimental.
   - Each operation needs a kit case: the document opens, is saved and is reopened in Altium, and the decoded content is equal.
   - Until then, the session refuses to write over a document that the user names as a master (`--master`).
+- **Moved.** On 2026-10-29 the whole package, with tasks 6.1 to 6.7 and the `altium-edit` delta, moved to
+  change c0241 (`openspec/changes/c0241-altium-edit-sessions/`), which registers the hypotheses `H-A-EDIT-*`
+  and `H-A-INTEG-*` and holds kit Part J (`docs/evidence/altium-edit.md`).
 
 ### Additions from the survey to packages 4 to 11
 
