@@ -116,11 +116,7 @@ def altium(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *extra: str) -> tupl
     monkeypatch.setenv("FENOLITE_STATE_DIR", str(tmp_path / "state"))
     script = tmp_path / "design.py"
     if not script.exists():
-        # an Altium comment holds Windows-1252 only, so the values are plain strings here, not Ω quantities
-        text = example_text()
-        for value in ("1k", "10k", "22k"):
-            text = text.replace(f'ohm("{value}")', f'"{value}"')
-        script.write_text(text, encoding="utf-8")
+        script.write_text(example_text(), encoding="utf-8")
     stdout = io.StringIO()
     monkeypatch.setattr("sys.stdout", stdout)
     out = tmp_path / ("out" + "_".join(extra))

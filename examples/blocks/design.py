@@ -6,14 +6,15 @@ The block ``channel`` declares its ports ``VIN``, ``GND`` and the optional ``EN`
 parts named locally (``R_EN``, ``C_FB``) and a nested block ``indicator`` (a resistor and an LED). It is used
 as ``ch0`` and ``ch1``: the parts get the paths ``ch0/R_EN`` and ``ch1/R_EN``, the local nets the names
 ``ch0/FB`` and ``ch1/FB``, and the board refs come from ``design.lock``, so no ref is typed by hand. The
-parameters of each instance are recorded in the model. Every symbol and footprint comes from Fenolite's
+parameters of each instance are recorded in the model; the values are plain text, which an Altium
+comment can hold (Windows-1252 has no Ω). Every symbol and footprint comes from Fenolite's
 own catalog, so the build reads no library.
 """
 
-from fenolite.dsl import Design, Length, Net, Power, block, connect, mm, ohm
+from fenolite.dsl import Design, Length, Net, Power, block, connect, mm
 
-R_LED = ohm("1k")  # the indicator's series resistor; chosen for the example
-R_EN = ohm("10k")  # the divider resistor; chosen for the example
+R_LED = "1k"  # the indicator's series resistor; chosen for the example
+R_EN = "10k"  # the divider resistor; chosen for the example
 X0 = mm(20)  # the column of the first channel; chosen for the example
 
 design = Design("blocks_demo")
@@ -72,7 +73,7 @@ connect(gnd, j[2])
 design.add(Power(vin, gnd))
 
 ch0 = design.use(channel, "ch0", x=at(0))
-ch1 = design.use(channel, "ch1", x=at(1), r_en=ohm("22k"))
+ch1 = design.use(channel, "ch1", x=at(1), r_en="22k")
 connect(vin, ch0.VIN)
 connect(gnd, ch0.GND)
 connect(vin, ch1.VIN)

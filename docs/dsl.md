@@ -1690,6 +1690,7 @@ script's back, and stepping through it in a debugger shows ordinary calls.
 ```python
 from fenolite.dsl import Design, Net, block, connect, mm, ohm
 
+
 @block
 def channel(b, *, r_en=ohm("10k"), x=mm(20)):
     vin = b.port("VIN", direction="in")  # kind Net: one member
@@ -1700,6 +1701,7 @@ def channel(b, *, r_en=ohm("10k"), x=mm(20)):
     connect(vin, r[1])  # a port is wired like a net
     connect(fb, r[2], en)
     r.place(x, mm(10))
+
 
 ch0 = design.use(channel, "ch0", x=mm(20))
 connect(Net("VIN"), ch0.VIN)  # the port net takes the name VIN
