@@ -1,4 +1,5 @@
-# SPDX-License-Identifier: CC0-1.0
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
 # Authored for Fenolite as a test fixture; no file, value, name or layout comes from any other project.
 """Drawn fixture ``bus`` (change c0276): the root bus ``D[0..3]`` carries four MCU pins to the sheet pin
 ``D[0..3]`` of the module ``child``, whose bus entries lead to four resistors through the labels ``D0`` to

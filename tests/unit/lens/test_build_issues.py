@@ -21,6 +21,7 @@ from fenolite.lens.preserve import PRESERVE_ISSUE_CODES
 from fenolite.model.board import Zone
 from fenolite.model.circuit import Net
 from fenolite.model.design import Design
+from fenolite.model.drawn_connect import ISSUE_CODES as DRAWN_ISSUE_CODES
 
 ROOT = Path(__file__).resolve().parents[3]
 TESTS = ROOT / "tests" / "unit" / "lens"
@@ -63,6 +64,7 @@ def test_closed_set() -> None:
         "lock.ref-explicit": "info", "lock.ref-prefix-changed": "info", "lock.design-renamed": "info",
         "lock.changed": "error",
         **PRESERVE_ISSUE_CODES,  # c0019
+        **DRAWN_ISSUE_CODES,  # c0276: the drawn schematic
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table
     assert {code: BUILD_ISSUE_CODES[code] for code in LOCK_CODES} == dict(LOCK_CODES)
@@ -77,7 +79,8 @@ def test_closed_set() -> None:
         literals |= set(
             re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
         )
-    own = set(table) - set(LOCK_CODES)  # the lock's codes are raised by fenolite.dsl.lock (c0249)
+    # raised elsewhere: the lock codes by fenolite.dsl.lock (c0249), the drawn ones by model.drawn_connect
+    own = set(table) - set(LOCK_CODES) - set(DRAWN_ISSUE_CODES)
     assert literals == own | {code for code in ALTIUM_ISSUE_CODES if code.startswith("build.")}
     tested: set[str] = set()
     cli_tests = TESTS.parent / "cli" / "test_build_schematic_cmd.py"

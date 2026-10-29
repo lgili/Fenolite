@@ -1,4 +1,5 @@
-# SPDX-License-Identifier: CC0-1.0
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
 # Authored for Fenolite as a test fixture; no file, value, name or layout comes from any other project.
 """Drawn fixture ``repeat`` (change c0276): two channels ``ch0`` and ``ch1`` shown by one drawn sheet
 ``channel``. Each channel joins R1 and R2 through the local label ``FB``, which stays on its instance; the

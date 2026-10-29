@@ -1,4 +1,5 @@
-# SPDX-License-Identifier: CC0-1.0
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
 # Authored for Fenolite as a test fixture; no file, value, name or layout comes from any other project.
 """Drawn fixture ``hier`` (change c0276): the root wires the sheet pin ``IN`` of the module ``child`` to U1
 pin 3; the child labels R2 pin 1 ``IN`` (hierarchical), joins R2 and R3 through the local label ``FB`` and

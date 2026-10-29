@@ -1,4 +1,5 @@
-# SPDX-License-Identifier: CC0-1.0
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
 # Authored for Fenolite as a test fixture; no file, value, name or layout comes from any other project.
 """Drawn fixture ``full`` (change c0276): every item kind of the drawn file once at least: field poses, a
 power symbol, a wire of four points, a bus with an alias and two bus entries, a junction, a no-connect

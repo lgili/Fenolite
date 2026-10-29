@@ -169,3 +169,4 @@
 - [ ] 9.2 `make check-fast` passes locally; publish the batch to its working branch and confirm the unit
   and KiCad jobs on the exact commit. Proof: `make check-fast`; the required CI jobs are green on the
   commit.
+  2026-10-29: open: CI runs with the batch. `make check-fast PYTEST_WORKERS=2`: lint, format, pyright and residue pass; the tests pass except two failures present on the base commit `a170bc55` (`tests/unit/test_altium_rows.py::test_rows_are_well_formed` on the row `H-A-SCH-BLOCK-ENTRIES`, and `tests/unit/lens/test_altium_build.py::test_evidence`), not touched by this change.

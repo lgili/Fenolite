@@ -39,6 +39,7 @@ WITH_PCB = {
     "blink_official/design.py",
     "blink_routed/design.py",
     "board_40parts/design.py",
+    "drawn/design.py",  # c0276: the Altium build draws its own sheets until the Altium phase of c0276
     "lock/design.py",  # c0249
 }
 """The examples whose build writes a PCB document."""
