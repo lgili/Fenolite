@@ -533,9 +533,13 @@ an integer (nm, nm², mA, mV, mK, per mille).
   the two pads of a gate resistor. A group's provenance is `origin`, since `source` names a pad here.
 - `RoleLimit(key, value, net=None, kind=None)`: an override of a key of the role profile for the whole
   design, for one kind or for one net (not both); `ROLE_LIMIT_UNITS` lists the keys and the unit of each.
-- `RoleSet(nets=(), loops=(), kelvins=(), gates=(), limits=())`: each tuple is sorted by its key (a net
-  role by its net, a group by its name, a limit by key, kind and net), and two members of one key are
-  refused. A group name matches the copper key pattern of the DSL.
+- `PartClass(ref, cls, terminals=())`: the class of a part that the user states (`design.part_class`,
+  `--class`), one of `PART_CLASSES`, with `Terminal(name, pins)` naming which pins are which terminal of
+  the class (`PART_TERMINALS`: `gate`, `drain`, `source` and `kelvin_source` of a transistor, `force` and
+  `sense` of a shunt, and so on). It is the strongest evidence of the inference (`docs/roles.md`).
+- `RoleSet(nets=(), loops=(), kelvins=(), gates=(), limits=(), classes=())`: each tuple is sorted by its key
+  (a net role by its net, a group by its name, a limit by key, kind and net, a class by its reference), and
+  two members of one key are refused. A group name matches the copper key pattern of the DSL.
 - A role is a value, not an entity: it has no id, no backend lowers it, and a board read from a file has
   none. `to_model` writes the declarations of a script with source `declared` (`docs/dsl.md`, "Net
   roles"); a board that Fenolite did not build keeps its roles in a role document beside it

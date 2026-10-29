@@ -460,24 +460,106 @@ class RoleLimit:
             )
 
 
+PartClassName = Literal[
+    "transistor",
+    "diode",
+    "inductor",
+    "capacitor",
+    "resistor",
+    "shunt",
+    "driver",
+    "amplifier",
+    "controller",
+    "connector",
+    "net_tie",
+    "other",
+]
+"""The class of a part for the inference of net roles (change c0222; ``fenolite.roles.classify``)."""
+PART_CLASSES: tuple[PartClassName, ...] = (
+    "transistor",
+    "diode",
+    "inductor",
+    "capacitor",
+    "resistor",
+    "shunt",
+    "driver",
+    "amplifier",
+    "controller",
+    "connector",
+    "net_tie",
+    "other",
+)
+PART_TERMINALS: dict[str, tuple[str, ...]] = {
+    "transistor": ("gate", "drain", "source", "kelvin_source"),
+    "diode": ("anode", "cathode"),
+    "shunt": ("force", "sense"),
+    "amplifier": ("in_p", "in_n", "out"),
+    "driver": ("drive", "ret", "sw", "in_p", "in_n"),
+    "controller": ("drive", "ret", "sw", "in_p", "in_n"),
+}
+"""The terminals of each class that has any; a terminal names one or more pins of the part."""
+
+
+@dataclass(frozen=True, slots=True)
+class Terminal:
+    """A terminal of a part class and the pins (numbers) it names."""
+
+    name: str
+    pins: tuple[str, ...] = field(metadata={"ordered": True})
+
+    def __post_init__(self) -> None:
+        if not self.pins or not all(isinstance(pin, str) and pin for pin in self.pins):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise ValueError(f"terminal {self.name!r} names no pin")
+
+
+@dataclass(frozen=True, slots=True)
+class PartClass:
+    """The class of a part that the user states (change c0222; ``design.part_class``, ``--class``): the
+    reference, the class and, for a class with terminals, which pins are which terminal. The strongest
+    evidence of the inference; a value keyed by the reference."""
+
+    ref: str
+    cls: PartClassName
+    terminals: tuple[Terminal, ...] = field(default=(), metadata={"ordered": True})
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.ref, str) or not self.ref:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise ValueError("a part class needs a reference")
+        if self.cls not in PART_CLASSES:
+            raise ValueError(f"part class {self.ref!r}: {self.cls!r} is not one of {', '.join(PART_CLASSES)}")
+        allowed = PART_TERMINALS.get(self.cls, ())
+        names = [terminal.name for terminal in self.terminals]
+        for name in names:
+            if name not in allowed:
+                shown = ", ".join(allowed) or "none"
+                raise ValueError(
+                    f"part class {self.ref!r}: {self.cls} has no terminal {name!r} (terminals: {shown})"
+                )
+        if len(set(names)) != len(names):
+            raise ValueError(f"part class {self.ref!r}: a terminal is named twice")
+
+
 def _limit_order(limit: RoleLimit) -> tuple[str, str, str]:
     return (limit.key, limit.kind or "", limit.net or "")
 
 
 @dataclass(frozen=True, slots=True)
 class RoleSet:
-    """The net roles of a design (change c0222): one role per net, the three kinds of role groups and the
-    limit overrides, each sorted by its key (a net role by its net, a group by its name, a limit by key,
-    kind and net). A value, not an entity; ``RuleSet`` stores it under ``roles``, and the role document
-    ``fenolite.roles.v0`` beside a board holds one."""
+    """The net roles of a design (change c0222): one role per net, the three kinds of role groups, the
+    limit overrides and the part classes the user states, each sorted by its key (a net role by its net, a
+    group by its name, a limit by key, kind and net, a class by its reference). A value, not an entity;
+    ``RuleSet`` stores it under ``roles``, and the role document ``fenolite.roles.v0`` beside a board holds
+    one."""
 
     nets: tuple[NetRole, ...] = field(default=(), metadata={"ordered": True})
     loops: tuple[HotLoop, ...] = field(default=(), metadata={"ordered": True})
     kelvins: tuple[KelvinPair, ...] = field(default=(), metadata={"ordered": True})
     gates: tuple[GateLoop, ...] = field(default=(), metadata={"ordered": True})
     limits: tuple[RoleLimit, ...] = field(default=(), metadata={"ordered": True})
+    classes: tuple[PartClass, ...] = field(default=(), metadata={"ordered": True})
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "classes", tuple(sorted(self.classes, key=lambda found: found.ref)))
         object.__setattr__(self, "nets", tuple(sorted(self.nets, key=lambda role: role.net)))
         object.__setattr__(self, "loops", tuple(sorted(self.loops, key=lambda group: group.name)))
         object.__setattr__(self, "kelvins", tuple(sorted(self.kelvins, key=lambda group: group.name)))
@@ -489,13 +571,14 @@ class RoleSet:
             ("kelvin pairs", [group.name for group in self.kelvins]),
             ("gate loops", [group.name for group in self.gates]),
             ("role limits", ["/".join(_limit_order(limit)) for limit in self.limits]),
+            ("part classes", [found.ref for found in self.classes]),
         ):
             twice = sorted({name for name in names if names.count(name) > 1})
             if twice:
                 raise ValueError(f"two {what} have the key {twice[0]!r}")
 
     def __bool__(self) -> bool:
-        return bool(self.nets or self.loops or self.kelvins or self.gates or self.limits)
+        return bool(self.nets or self.loops or self.kelvins or self.gates or self.limits or self.classes)
 
     def role_of(self, net: str) -> NetRole | None:
         """The role of ``net``, or ``None``."""
@@ -552,7 +635,11 @@ __all__ = [
     "ImpedanceTarget",
     "KelvinPair",
     "NetRole",
+    "PART_CLASSES",
+    "PART_TERMINALS",
     "PadSelection",
+    "PartClass",
+    "PartClassName",
     "PlacementSeverity",
     "ProximityRule",
     "RoleKind",
@@ -566,5 +653,6 @@ __all__ = [
     "RuleSubject",
     "Selector",
     "SelectorOp",
+    "Terminal",
     "TraceGeometry",
 ]

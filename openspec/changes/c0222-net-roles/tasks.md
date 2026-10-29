@@ -58,7 +58,17 @@
 
 ## 2. Classes and inference
 
-- [ ] 2.1 Add `roles/classify.py` with the class vocabulary and terminal maps (scenario "Classes from pin names"). Proof: `uv run pytest tests/unit/roles/test_classify.py -q`.
+- [x] 2.1 Add `roles/classify.py` with the class vocabulary and terminal maps (scenario "Classes from pin names"). Proof: `uv run pytest tests/unit/roles/test_classify.py -q`.
+
+  2026-10-29: `roles/classify.py` weighs the user's class, the pin names (transistor, diode, four-terminal
+  shunt, amplifier input pairs, driver outputs, switching-node, return and feedback pins), the value and pad
+  count, then the reference prefix. Two choices the design left open: a value with its unit (`10uF`,
+  `4.7uH`, `10kΩ`) is `high`, while the shunt heuristic and a bare number on an `R` part are `medium`; pin
+  types give no class on their own (they serve `GND-1` and `PWR-1`). `CHG`/`DSG` join the driver outputs and
+  `F1`/`F2`/`S1`/`S2` name a four-terminal shunt's pins, for the BMS board. The user's classes need a place in
+  the model so that `design.part_class` reaches `fenolite roles`: `PartClass(ref, cls, terminals)` with
+  `Terminal(name, pins)` and `RoleSet.classes` were added to `model/rules.py` (schemas regenerated,
+  `docs/design-model.md` updated). Proof passed: 31 tests.
 - [ ] 2.2 Add `roles/infer.py` with the rule table `SW-1` to `SIG-0`, confidence, conflicts and currents (scenarios "Switching node and hot loop of a buck", "No high voltage from a name", "A power net without a current"). Proof: `uv run pytest tests/unit/roles/test_infer.py -q`.
 
 ## 3. Reference boards

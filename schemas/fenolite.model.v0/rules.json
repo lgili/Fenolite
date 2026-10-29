@@ -473,6 +473,42 @@
         "path"
       ]
     },
+    "PartClass": {
+      "description": "The class of a part that the user states (change c0222; ``design.part_class``, ``--class``): the",
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string"
+        },
+        "cls": {
+          "enum": [
+            "transistor",
+            "diode",
+            "inductor",
+            "capacitor",
+            "resistor",
+            "shunt",
+            "driver",
+            "amplifier",
+            "controller",
+            "connector",
+            "net_tie",
+            "other"
+          ]
+        },
+        "terminals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Terminal"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "cls"
+      ]
+    },
     "Provenance": {
       "description": "Origin of an imported object. ``locator`` is opaque outside the originating backend.",
       "type": "object",
@@ -585,7 +621,7 @@
       ]
     },
     "RoleSet": {
-      "description": "The net roles of a design (change c0222): one role per net, the three kinds of role groups and the",
+      "description": "The net roles of a design (change c0222): one role per net, the three kinds of role groups, the",
       "type": "object",
       "properties": {
         "nets": {
@@ -616,6 +652,12 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/RoleLimit"
+          }
+        },
+        "classes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PartClass"
           }
         }
       },
@@ -776,6 +818,26 @@
       "additionalProperties": false,
       "required": [
         "op"
+      ]
+    },
+    "Terminal": {
+      "description": "A terminal of a part class and the pins (numbers) it names.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "pins": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "pins"
       ]
     },
     "TraceGeometry": {
