@@ -88,6 +88,43 @@ that the design leaves unconnected on purpose (`no_connect` of `docs/dsl.md`).
   - `model.duplicate-bus-index` (error): an index is used twice in one bus.
 - A bus gives no net and no net member. No backend writes a bus; a build keeps it in `.fenolite/`.
 
+### Value ranges
+
+`Component.value_range: ValueRange | None` (the last field of `Component`, `None` by default, change
+c0246) holds the exact range of a part value given as a DSL `Range` (`docs/dsl.md`, "Ranges").
+
+- `ValueRange(unit, low=None, nominal=None, high=None)` and `Decimal10(m, e)` are value objects without id
+  or entity header, like `PinRef`. `unit` is one of `ohm`, `farad`, `henry`, `volt`, `ampere`, `hertz`,
+  `watt` and `second` (`RangeUnit`); at least one bound is given, `low <= high`, and a nominal lies
+  within the bounds, else `ValueError`.
+- `Decimal10(m, e)` is the exact value m · 10^e in one canonical form: `|m| <= 10^15 − 1` (15 significant
+  digits), `−30 <= e <= 30`, no trailing zero digit in `m`, and zero as `Decimal10(0, 0)`. Every integer
+  stays below 2^53, so a JSON reader that uses doubles reads it exactly. `10kΩ ±1%` is
+  `{"unit": "ohm", "low": {"m": 99, "e": 2}, "nominal": {"m": 1, "e": 4}, "high": {"m": 101, "e": 2}}`.
+- **Outward rounding.** Lowering stores every value with at most 15 significant digits exactly and
+  rounds any other to 15 digits: `low` down, `high` up, the nominal to nearest with ties to even, so the
+  stored interval holds the exact one (`1/3 Ω` as a lower bound is `Decimal10(333333333333333, −15)`).
+- **Magnitude.** A value whose exponent leaves −30..30 is refused (`DslError` at the `Part` call). The
+  pair covers every quantity with room to spare, where a fixed integer sub-unit below 2^53 (15.9
+  decades) would not:
+
+  | quantity | smallest | largest |
+  |---|---|---|
+  | resistance | 0.1 mΩ | 10 TΩ |
+  | capacitance | 0.1 pF | 3 000 F |
+  | inductance | 0.1 nH | 10 H |
+  | voltage | 1 µV | 50 kV |
+  | current | 1 pA | 10 kA |
+  | frequency | 1 mHz | 100 GHz |
+  | power | 1 nW | 100 kW |
+  | time | 1 fs | 10^6 s |
+
+- The field is additive: `canonical` omits `None`, a `circuit.json` without the key loads with `None`,
+  `SCHEMA_VERSION` stays `"0"`, and `schemas/fenolite.model.v0/circuit.json` lists `value_range` as
+  optional. No backend writes or reads it: a build keeps it in `.fenolite/circuit.json` only, and a board
+  read from KiCad without `.fenolite/` has `None`. The unit tables of the DSL arithmetic
+  (`quantity.UNIT_PRODUCTS`, `quantity.UNIT_QUOTIENTS`) are in `docs/dsl.md`, "Ranges".
+
 ## Library definitions
 
 `fenolite.model.library` holds reference data shared by many designs, outside `Design` and outside

@@ -1773,6 +1773,15 @@ def get_symbol(lib_id: str) -> SymbolDef:
     return _symbol(spec)
 
 
+def symbol_reference(lib_id: str) -> str | None:
+    """The reference prefix of the built-in symbol ``lib_id`` (``Fenolite:Inductor`` gives ``L``), or ``None``
+    when it is no catalog symbol. Reads no file, so the DSL may call it (change c0249)."""
+    if not lib_id.startswith("Fenolite:"):
+        return None
+    name = lib_id.split(":", 1)[1]
+    return next((spec.reference for spec in _SYMBOL_SPECS if spec.name == name), None)
+
+
 def get_footprint(lib_id: str) -> FootprintDef:
     """Return a built-in generic footprint by stable ``library:name`` ID."""
     if not lib_id.startswith("Fenolite:"):
@@ -1793,4 +1802,5 @@ __all__ = [
     "get_footprint",
     "get_symbol",
     "list_entries",
+    "symbol_reference",
 ]

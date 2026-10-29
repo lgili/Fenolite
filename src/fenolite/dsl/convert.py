@@ -10,9 +10,11 @@ seed or on the order of the script, and no object holds a provenance (no absolut
 from __future__ import annotations
 
 import dataclasses
+import math
 from collections.abc import Mapping
+from fractions import Fraction
 from types import MappingProxyType
-from typing import overload
+from typing import cast, overload
 
 from fenolite import __version__
 from fenolite.core.coords import Point, Size
@@ -21,9 +23,11 @@ from fenolite.core.units import Nm
 from fenolite.dsl.design import MINIMUM_KINDS, Design, ImpedanceSpec
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.items import DimensionSpec, GraphicSpec, TextSpec
+from fenolite.dsl.lock import assign_refs, make_lock
 from fenolite.dsl.module import Module as DslModule
 from fenolite.dsl.panel import Panel
-from fenolite.dsl.part import FieldRequest, PadZoneRequest, Part, Placement, pad_pairs
+from fenolite.dsl.part import FieldRequest, PadZoneRequest, Part, Placement, check_name, pad_pairs
+from fenolite.dsl.quantity import UNITS, Range
 from fenolite.dsl.roles import to_roles
 from fenolite.dsl.schematic import extract as schematic_composition
 from fenolite.dsl.shape import ring_box
@@ -40,7 +44,20 @@ from fenolite.model.board import (
     Text,
     Zone,
 )
-from fenolite.model.circuit import Circuit, Component, Interface, Module, Net, NetClass, PinRef
+from fenolite.model.circuit import (
+    DECIMAL10_DIGITS,
+    DECIMAL10_EXPONENTS,
+    Circuit,
+    Component,
+    Decimal10,
+    Interface,
+    Module,
+    Net,
+    NetClass,
+    PinRef,
+    RangeUnit,
+    ValueRange,
+)
 from fenolite.model.design import SCHEMA_VERSION, DesignHeader
 from fenolite.model.design import Design as ModelDesign
 from fenolite.model.findings import Findings
@@ -101,12 +118,63 @@ def key_id(kind: str, *parts: str) -> str:
 def _component(part: Part) -> Component:
     return Component(
         id=key_id("component", part.path),
-        ref=part.ref,
+        ref=part.label,
         value=part.value,
         lib_symbol_ref=part.lib_id,
         lib_footprint_ref=part.footprint or "",
         properties=dict(sorted({**part.properties, PATH_PROPERTY: part.path}.items())),
         pin_pad_map=pad_pairs(part.pad_map),
+        value_range=None if part.value_range is None else range_to_model(part.value_range),
+    )
+
+
+def _decimal10(value: Fraction, mode: str, what: str) -> Decimal10:
+    """``value`` as a ``Decimal10``: exact with at most 15 significant digits, else rounded to 15 ``down``,
+    ``up`` or to ``near``est (ties to even); ``DslError`` naming ``what`` when the exponent leaves
+    -30..30."""
+    if value == 0:
+        return Decimal10(0, 0)
+    size = abs(value)
+    k = len(str(size.numerator)) - len(str(size.denominator))
+    if size < Fraction(10) ** k:
+        k -= 1
+    if size >= Fraction(10) ** (k + 1):
+        k += 1
+    exponent = k - DECIMAL10_DIGITS + 1
+    scaled = size / Fraction(10) ** exponent
+    if value < 0:
+        mode = {"down": "up", "up": "down"}.get(mode, mode)
+    if scaled.denominator == 1:
+        whole = scaled.numerator
+    elif mode == "down":
+        whole = math.floor(scaled)
+    elif mode == "up":
+        whole = math.ceil(scaled)
+    else:
+        whole = round(scaled)
+    while whole % 10 == 0:
+        whole //= 10
+        exponent += 1
+    if exponent not in DECIMAL10_EXPONENTS:
+        raise DslError(f"{what} needs the exponent {exponent}, outside -30..30 of the model")
+    return Decimal10(-whole if value < 0 else whole, exponent)
+
+
+def range_to_model(value: Range) -> ValueRange:
+    """The model form of a part value's range: each value an exact decimal of at most 15 significant
+    digits, rounded outward (low down, high up, nominal to nearest) when it has more (change c0246)."""
+    if value.unit not in UNITS:
+        raise DslError(f"the range {value.text()} is a {value.unit}; the model holds ranges of a unit only")
+    text = value.text()
+
+    def lower(bound: Fraction | None, mode: str) -> Decimal10 | None:
+        return None if bound is None else _decimal10(bound, mode, f"the range {text}")
+
+    return ValueRange(
+        cast(RangeUnit, value.unit),
+        lower(value.low, "down"),
+        lower(value.nominal_value, "near"),
+        lower(value.high, "up"),
     )
 
 
@@ -280,19 +348,38 @@ def _proximity(design: Design) -> tuple[ProximityRule, ...]:
 
 
 @overload
-def to_model(design: Design) -> ModelDesign: ...
+def to_model(design: Design, *, refs: Mapping[str, str] | None = None) -> ModelDesign: ...
 
 
 @overload
 def to_model(design: Panel) -> ModelPanel: ...
 
 
-def to_model(design: Design | Panel) -> ModelDesign | ModelPanel:
+def to_model(design: Design | Panel, *, refs: Mapping[str, str] | None = None) -> ModelDesign | ModelPanel:
     """The model design of ``design``: model types only, no validation, no library access. A panel script's
-    ``Panel`` gives its model panel (change c0173)."""
+    ``Panel`` gives its model panel (change c0173).
+
+    ``refs`` (component path → ref, ``lock.assign_refs``) gives the parts without an explicit ref their
+    refs; without it they are assigned against an empty lock (change c0249). Each part's ``ref`` is set to
+    the ref it is lowered with; ids never depend on refs."""
     if isinstance(design, Panel):
         return design.to_model()
+    _apply_refs(design, refs)
     return _design_model(design)
+
+
+def _apply_refs(design: Design, refs: Mapping[str, str] | None) -> None:
+    if refs is None:
+        if all(part.explicit_ref is not None for part in design.parts.values()):
+            return
+        refs = assign_refs(design, make_lock(design.name), moves={}).refs
+    for path, part in design.parts.items():
+        if part.explicit_ref is not None:
+            continue
+        ref = refs.get(path)
+        if ref is None:
+            raise DslError(f"to_model(): refs gives no ref for the part {path}, which has no explicit ref")
+        part.assigned = check_name(ref, f"ref of {path}")
 
 
 def _design_model(design: Design) -> ModelDesign:
@@ -597,6 +684,25 @@ def heights(design: Design) -> Mapping[str, Nm]:
     )
 
 
+def unused_marks(design: Design) -> Mapping[str, tuple[str, ...]]:
+    """The requests of ``Part.unused_no_connect()``: component path, in path order, → its ``keep``
+    designators in code-point order. Plain data for the build, which marks the open pins (change c0247);
+    ``to_model`` puts no request into the circuit."""
+    return MappingProxyType(
+        {
+            path: tuple(sorted(part.unused_request))
+            for path, part in sorted(design.parts.items())
+            if part.unused_request is not None
+        }
+    )
+
+
+def two_terminal(design: Design) -> tuple[str, ...]:
+    """The paths of the parts used through their ends ``a`` and ``b`` or a connection helper, in path
+    order: the build checks that each has a symbol of two pins (change c0247)."""
+    return tuple(path for path, part in sorted(design.parts.items()) if part.two_terminal)
+
+
 def fields(design: Design) -> Mapping[str, tuple[FieldRequest, ...]]:
     """The field placement requests of every part that has one: component path, in path order, → its
     requests in name order (``docs/dsl.md``, "Field placement")."""
@@ -719,7 +825,10 @@ __all__ = [
     "outline_locked",
     "placements",
     "planes",
+    "range_to_model",
     "stackup_locked",
     "to_model",
+    "two_terminal",
+    "unused_marks",
     "via_protection_locked",
 ]

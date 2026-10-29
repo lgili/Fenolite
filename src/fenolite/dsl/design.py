@@ -780,6 +780,9 @@ class Design(Container):
     def design(self) -> Design:
         return self
 
+    def describe(self) -> str:
+        return f"design {self.name}"
+
     def board(
         self,
         width: object = None,

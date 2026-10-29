@@ -9,6 +9,7 @@ from pathlib import Path
 
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
 from fenolite.dsl import Design, mm, placements, to_model
+from fenolite.dsl.convert import two_terminal, unused_marks
 from fenolite.lens.build import BuildOutput, build_design
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,18 +19,27 @@ LIBS = ROOT / "tests" / "data" / "libs"
 
 
 MARKS = (
-    "# The blink uses three pins of the controller. The other 29 are marked, so the electrical rules checks\n"
-    "# of both tools know that they are left open on purpose.\n"
-    "no_connect(*(u1[pin] for pin in range(1, 33) if pin not in (1, 9, 10)))\n"
+    "# The blink uses three pins of the controller. The build marks the other 29 as not connected, so the\n"
+    "# electrical rules checks of both tools know that they are left open on purpose.\n"
+    "u1.unused_no_connect()\n"
 )
-"""The lines of the blink example that mark the unused pins of its controller (c0061). Tests that connect
-or mark those pins themselves build on the blink without them (``marks=False``)."""
+"""The lines of the blink example that mark the unused pins of its controller (c0061; an unused-pin request
+since c0247, resolved by the build). Tests that connect or mark those pins themselves build on the blink
+without them (``marks=False``)."""
+
+
+IMPORT = "from fenolite.dsl import Design, Net, Part, Power, connect, mm\n"
+"""The import line of the blink example."""
+VARIANT_IMPORT = "from fenolite.dsl import Design, Net, Part, Power, connect, mm, no_connect\n"
+"""The import line of a blink variant: with ``no_connect``, as the example had before c0247, so that the
+lines a test appends or substitutes can mark pins."""
 
 
 def blink_text(marks: bool = True) -> str:
-    """The blink script, as it is or without its no-connect marks."""
+    """The blink script with ``VARIANT_IMPORT``, as it is or without its no-connect marks."""
     text = BLINK.read_text(encoding="utf-8")
-    assert MARKS in text
+    assert MARKS in text and IMPORT in text
+    text = text.replace(IMPORT, VARIANT_IMPORT)
     return text if marks else text.replace(MARKS, "")
 
 
@@ -109,7 +119,8 @@ def resolver(
 
 
 def build(design: Design, target: int = 10, **kwargs: object) -> BuildOutput:
-    """``build_design`` of ``design``; ``placements_override`` replaces ``placements(design)`` (c0019)."""
+    """``build_design`` of ``design``; ``placements_override`` replaces ``placements(design)`` (c0019). The
+    script's unused-pin requests and two-pin parts are passed as the command passes them (c0247)."""
     project_dir = kwargs.pop("project_dir", BLINK_DIR)
     config_home = kwargs.pop("config_home", None)
     cache_dir = kwargs.pop("cache_dir", None)
@@ -121,7 +132,7 @@ def build(design: Design, target: int = 10, **kwargs: object) -> BuildOutput:
         copper=design.copper,  # type: ignore[arg-type]
         resolver=resolver(target, project_dir, config_home, cache_dir),  # type: ignore[arg-type]
         target=target,
-        **kwargs,  # type: ignore[arg-type]
+        **{"unused": unused_marks(design), "two_terminal": two_terminal(design), **kwargs},  # type: ignore[arg-type]
     )
 
 
