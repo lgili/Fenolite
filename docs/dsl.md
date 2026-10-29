@@ -367,6 +367,7 @@ Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl"
 | net | `net` | `net:<name>` |
 | net class | `cls` | `netclass:<name>` |
 | interface | `itf` | `interface:<kind>:<name>` |
+| block port | `prt` | `port:<owner path>:<port name>`, the owner path being the block instance path (change c0251) |
 | layer | `lay` | `layer:<KiCad name>` |
 | zone | `zon` | `zone:<zone name>` |
 | rule | `rul` | `rule:<kind>` (board minimum), `rule:<kind>:<class name>` (class minimum), `rule:named:<rule name>` (a rule of `rule()`) |

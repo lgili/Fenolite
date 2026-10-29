@@ -467,6 +467,13 @@ A build for the KiCad target also checks the interfaces of the design (`docs/dsl
 | `build.diff-pair-gap-shadowed` | warning | the two nets of a pair interface are in a net class with a pair gap, and KiCad would report two tracks laid at that gap: a clearance rule above the gap governs between them, or the board minimum clearance is above the gap and no `diff_pair_gap` rule selects the pair; the hint names `design.rules.pair(…, clearance=…, gap_min=…)` |
 | `build.i2c-pullup-missing` | warning | a line of an `i2c` interface has no two-pin part to the `hv` net of a `power` interface |
 
+A build for the KiCad target also checks the blocks of the design (`docs/dsl.md`, "Blocks"; change c0251):
+
+| code | severity | meaning |
+|---|---|---|
+| `build.port-unused` | warning | a port of a block instance that is not `optional` has nothing outside the block on its members; `where` is `<block path>/<port>` |
+| `build.block-net-escape` | warning | a script-named net joins pins inside and outside a block instance without a port of that block; `where` is `<block path>:<net>`, the hint "declare a port" |
+
 A build for either target applies the catalog's default pin-to-pad map (change c0147,
 `docs/catalog/sources.md`) and reports each part it applies it to:
 
