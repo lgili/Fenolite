@@ -13,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from _boards import build_script, judge
+from _roleboards import build_script, judge
 
 from fenolite.core.errors import Issue
 from fenolite.model.rules import NetRole, RoleSet

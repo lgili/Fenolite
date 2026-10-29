@@ -3,9 +3,9 @@
 """The reference boards of the net roles on ``kicad-cli`` (change c0222, task 3.3): each variant is built for
 the running KiCad major. KiCad 10 fills it (``fenolite fill``): the ``good`` variants pass KiCad's DRC with
 no violation, and on every variant the role findings and loop areas on KiCad's fill equal those on the fill
-that the unit tests give a zone (``fill_as_outline`` of ``tests/unit/roles/_boards.py``), within 0.01 mm² per
-loop. ``kicad-cli`` 9 refills no zone (``FEN-6002``): there the ``good`` variants pass DRC on the unit
-tests' fill, which shows that fill clear of every other net by its clearance.
+that the unit tests give a zone (``fill_as_outline`` of ``tests/unit/roles/_roleboards.py``), within
+0.01 mm² per loop. ``kicad-cli`` 9 refills no zone (``FEN-6002``): there the ``good`` variants pass DRC on
+the unit tests' fill, which shows that fill clear of every other net by its clearance.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from _resources import kicad_cli, kicad_cli_major
 import fenolite.cli.main as cli_main
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "unit" / "roles"))
-from _boards import BOARDS, EXAMPLES, VARIANTS, Built, fill_as_outline, read  # noqa: E402
+from _roleboards import BOARDS, EXAMPLES, VARIANTS, Built, fill_as_outline, read  # noqa: E402
 
 from fenolite.model.canonical import load_dir  # noqa: E402
 from fenolite.roles.judge import Judged, run, split_roles  # noqa: E402

@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from _boards import BOARDS, VARIANTS, build, read
+from _roleboards import BOARDS, VARIANTS, build, read
 
 from fenolite.model.canonical import load_dir
 from fenolite.roles import ROLE_KINDS

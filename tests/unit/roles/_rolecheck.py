@@ -9,7 +9,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
 
-from _boards import EXAMPLES, Built, judge
+from _roleboards import EXAMPLES, Built, judge
 
 from fenolite.analysis.requirements import load_requirements
 from fenolite.model.rules import NetRole, RoleLimit, RoleSet

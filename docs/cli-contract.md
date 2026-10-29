@@ -2424,6 +2424,39 @@ keeps winning. `result.inputs.board_thickness_source` is `option`, `stackup` or 
 `result.inputs.stackup` is `null` or `{"thickness": <nm>, "copper": {<layer>: <nm>}}`. A board without a
 stack-up and without options gets the `analysis.input-missing` warnings as before.
 
+## roles
+
+`fenolite roles PATH [--roles FILE] [--net GLOB]... [--kinds KIND,...] [--class REF=CLASS]... [--check]
+[--requirements FILE] [--temp-rise KELVIN] [--copper-thickness [LAYER=]LENGTH]... [--via-plating LENGTH]
+[--board-thickness LENGTH] [--pour-grid LENGTH] [--split] [--arc-tol LENGTH] [--current NET=AMPS]...
+[--accept NET[,NET...]]... [--accept-all [--min-confidence high|medium]] [--set NET=KIND[:KEY=N]...]...
+[--reject NET]... [--accept-group NAME]... [--reject-group NAME]... [--dry-run | --confirm [--plan ID]]`
+infers, shows, confirms and checks the net roles of a board (schema `fenolite.roles.v0`, change c0222).
+`PATH` is a board, or a project folder, that a registered backend reads. The user guide is
+`docs/roles.md`.
+
+- Without `--current`, an accept, a set or a reject option the command is read-only. `result.roles` holds
+  one row per net (`net`, `kind`, `source`, `rule`, `confidence`, `pads`, `milliamps`, `working_mv`,
+  `sensitive`), filtered by `--net` and `--kinds`; `result.loops`, `result.kelvins` and `result.gates` hold
+  the groups; `result.classes` the class of each part with its evidence; `result.store` the file the roles
+  are kept in (`.fenolite/rules.json` of a project that Fenolite built, else the role document
+  `<board stem>.roles.json` beside the board or `--roles FILE`), relative to the board's folder.
+- `--class REF=CLASS` states a part's class for the inference (one of the classes of `docs/roles.md`).
+- `--check` measures the board against its roles through the analyses of `docs/analyses.md` and adds
+  `result.measures` (each with `kind`, `subject`, `analysis`, `copper` and `values`) and `result.summary`.
+  It runs no tool. The measuring options are those of `analyze`, parsed by the same code with the same
+  errors; without `--check` each of them is `FEN-2001`, exit 2.
+- `--accept`, `--accept-all` (`--min-confidence` keeps roles and groups of at least that confidence),
+  `--set NET=KIND[:milliamps=N][:working_mv=N][:sensitive=0|1]`, `--reject NET` (stored as a confirmed
+  `signal`), `--accept-group`, `--reject-group` and `--current NET=AMPS` make it a writing command of the
+  mutation protocol ("Writing files"): `--dry-run` plans the one file of `result.store.file`, and
+  `--confirm --plan ID` writes it; nothing else is written, and the board file never. The reply shows the
+  roles as they will be stored. A role that the design script declares cannot be changed here
+  (`FEN-2001`): edit the script.
+- A malformed role document or `.fenolite/` model is `FEN-3004`, exit 3. A finding against a default limit
+  of the role profile is at most a `warning`; an inferred role that is not confirmed gives at most a
+  `warning`, so such a run exits 0. Every reply carries the evidence level `INFERRED`.
+
 ## template
 
 `fenolite template build SPEC --target kicad|altium -o OUT [--size NAME] [--altium-format binary|ascii]`

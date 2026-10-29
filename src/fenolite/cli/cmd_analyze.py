@@ -925,4 +925,22 @@ COMMAND = Command(
     example_args=(EXAMPLE_BOARD, "--kinds", "current", "--temp-rise", "10", "--copper-thickness", "35um"),
 )
 
-__all__ = ["ALL_KINDS", "COMMAND", "KINDS", "OPT_IN_KINDS"]
+length_option = _length
+temp_rise_option = _temp_rise
+copper_thickness_option = _copper_thickness
+requirements_option = _requirements
+record_json = _json
+"""The parsers of the measuring options and the record encoder, shared with ``fenolite roles --check``
+(change c0222, cli-contract "Roles measuring options": the same code gives the same errors)."""
+
+__all__ = [
+    "ALL_KINDS",
+    "COMMAND",
+    "KINDS",
+    "OPT_IN_KINDS",
+    "copper_thickness_option",
+    "length_option",
+    "record_json",
+    "requirements_option",
+    "temp_rise_option",
+]

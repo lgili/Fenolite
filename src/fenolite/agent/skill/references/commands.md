@@ -56,6 +56,7 @@ another type; a flag without a value is a switch.
 | `region` | no | list the footprints, pads, copper, zones and texts that touch a rectangle of a board (runs no tool) |
 | `render` | yes | render review views of a board through kicad-cli on a copy of the project, or one region of it drawn from the model with --region (writes under DIR) |
 | `restore` | yes | put back the backups of one confirmed write, described by its receipt (deletes nothing) |
+| `roles` | yes | infer, show, confirm and check the net roles of a board (read-only without an accept or set) |
 | `roundtrip` | no | say up to which level (rt0, rt1, rt2) a KiCad file survives a read and a write |
 | `route` | yes | route selected KiCad board nets with a registered Fenolite routing plugin |
 | `silk` | yes | place the designators of a KiCad board on its silkscreen, clear of pads, holes, texts and the edge, or cut its silkscreen at the mask openings |
@@ -527,6 +528,33 @@ another type; a flag without a value is a switch.
 
 - `RECEIPT`: a file holding the envelope of a write, or - for stdin
 - `--in DIR`: the working directory of that write (default: this one)
+
+## roles
+
+`fenolite roles [OPTIONS] PATH`
+
+- `PATH`: a board, or a built project folder, that a backend reads
+- `--roles FILE`: the role document to read and write
+- `--net GLOB` (repeatable): show the nets whose name matches this pattern (repeatable)
+- `--kinds KIND,KIND`: show the roles of these kinds
+- `--class REF=CLASS` (repeatable): state a part's class for the inference (repeatable)
+- `--check`: measure and judge the board against its roles
+- `--requirements FILE`: with --check: your requirements
+- `--temp-rise KELVIN`: with --check: judge currents by the capacity fit at this rise
+- `--copper-thickness [LAYER=]LENGTH` (repeatable): with --check: copper thickness of every layer, or of one (repeatable)
+- `--via-plating LENGTH`: with --check: via plating
+- `--board-thickness LENGTH`: with --check: board thickness
+- `--pour-grid LENGTH`: with --check: raster cell of pours
+- `--split`: with --check and a rise: shares of parallel copper
+- `--arc-tol LENGTH`: with --check: chord error of arcs
+- `--current NET=AMPS` (repeatable): store a net's current, e.g. VOUT=2 (repeatable)
+- `--accept NET[,NET...]` (repeatable): store these inferred roles as confirmed (repeatable)
+- `--accept-all`: store every inferred role and group
+- `--min-confidence {high,medium}`: with --accept-all: only roles and groups of at least this confidence
+- `--set NET=KIND[:KEY=N]` (repeatable): store a role you choose, e.g. SW=switch_node or VBUS=power:working_mv=400000 (repeatable)
+- `--reject NET` (repeatable): store the net as a confirmed signal, so it is not inferred again (repeatable)
+- `--accept-group NAME` (repeatable): store this inferred group as confirmed (repeatable)
+- `--reject-group NAME` (repeatable): never infer this group again (repeatable)
 
 ## roundtrip
 

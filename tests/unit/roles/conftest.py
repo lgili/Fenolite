@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The tests of the net roles import ``_circuits`` and ``_boards`` (here)."""
+"""The tests of the net roles import ``_rolecircuits`` and ``_roleboards`` (here)."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ if str(HERE) not in sys.path:
 from collections.abc import Callable  # noqa: E402
 
 import pytest  # noqa: E402
-from _boards import Built, build  # noqa: E402
+from _roleboards import Built, build  # noqa: E402
 
 
 @pytest.fixture(scope="session")

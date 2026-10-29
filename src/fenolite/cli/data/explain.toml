@@ -3010,87 +3010,87 @@ see = "place"
 ["roles.ambiguous"]
 meaning = "Two rules of the role inference gave a net different roles at one confidence; the first is kept (`docs/roles.md`, \"Inference\"). The message names the net, the two kinds and the rules."
 fix = "Confirm the net's role with `fenolite roles PATH --set NET=KIND --confirm`, or declare it in the script with `design.net_role(...)`."
-see = "check"
+see = "roles"
 
 ["roles.current-missing"]
 meaning = "A `power`, `switch_node` or `ground` role has no current: no `milliamps` on the role, no `[[current]]` row and no `--current`. Its copper is not judged for current."
 fix = "Give the current with `--current NET=AMPS`, a `[[current]]` row, or `design.net_role(net, ..., current=amp(...))`."
-see = "check"
+see = "roles"
 
 ["roles.declared-differs"]
 meaning = "The script declares a net's role differently from the role it overrides (the confirmed one or the inferred one); the declaration wins. The message names both kinds and the rule of the inferred one."
 fix = "Nothing to do if the declaration is right; otherwise change `design.net_role(...)` in the script and build again."
-see = "check"
+see = "roles"
 
 ["roles.gate-loop"]
 meaning = "A gate loop (driver output, gate, source or Kelvin source, driver return) encloses more than your `gate_max`, or more than `gate_ratio_max` times its placement bound, the area of the polygon through its pad centres. The message names the limit and its source."
 fix = "Place the driver next to the switch and run the gate return beside or under the gate trace, on the next layer."
-see = "check"
+see = "roles"
 
 ["roles.gate-return-shared"]
 meaning = "The return of a gate loop reaches the switch's power source copper (its source pour or track) before the loop's source pad: load current then flows in the gate loop (S-0852, S-0853). An error on a confirmed or declared group."
 fix = "Take the gate return from the Kelvin-source pad, or from the source pad itself, with its own trace to the driver's return pin."
-see = "check"
+see = "roles"
 
 ["roles.kelvin-apart"]
 meaning = "The two sense branches of a Kelvin pair enclose more than `pair_ratio_max` times their placement bound: they do not run as a coupled pair. The message names the pair, the area and its longest leg."
 fix = "Route the two sense lines side by side from the shunt to the amplifier, as a pair."
-see = "check"
+see = "roles"
 
 ["roles.kelvin-outer"]
 meaning = "A sense line attaches to its shunt pad on the outer half, away from the other sense pad: the load current's path through the pad and the solder is in the measurement (S-0850). The message gives the offset t from the pad's centre. An error on a confirmed or declared pair."
 fix = "Start the sense line on the inner half of the pad, toward the other sense pad."
-see = "check"
+see = "roles"
 
 ["roles.kelvin-shared"]
 meaning = "A sense branch of a Kelvin pair reaches the power copper of the shunt's net (a pour, a power track or another power pad), or the receiver sits on a force pad's net, before the sense pad (S-0850). An error on a confirmed or declared pair."
 fix = "Run the sense line from the shunt's own pad (a four-pad shunt: its sense pad), apart from the power copper, to the receiver."
-see = "check"
+see = "roles"
 
 ["roles.limit-missing"]
 meaning = "A high-voltage net (a `high_voltage` role, or a `power` role with a working voltage) has no `[[distance]]` or `[[step]]` row: Fenolite ships no creepage or clearance table, so its distances are not judged."
 fix = "Add `[[distance]]` rows for the net, or a `[[step]]` table by voltage, from the standard that applies to the product (S-0854 explains the method)."
-see = "check"
+see = "roles"
 
 ["roles.loop-area"]
 meaning = "A hot loop (the input capacitor across the switches) encloses more than your `loop_max`, or more than `loop_ratio_max` times its placement bound, the area of the polygon through its pad centres. The message names the loop, its area and the limit with its source."
 fix = "Place the input capacitor across the switch pair and keep the return directly under the supply path."
-see = "check"
+see = "roles"
 
 ["roles.loop-open"]
 meaning = "A leg of a role loop, or a sense or return branch, has no copper on the board: the connection is not routed, or a zone's fill is missing. That part of the loop is not judged."
 fix = "Route the connection, or refill the zones (`fenolite fill`), then check again."
-see = "check"
+see = "roles"
 
 ["roles.near-switching"]
 meaning = "Sense, gate or sensitive copper runs nearer than `switching_distance_nm` to switch-node copper on its layer, or over it on a neighbouring layer (its length over the switch node's fill, or its broadside overlap with its tracks). The coupling score is shown and judges nothing."
 fix = "Move the sensitive copper away from the switch node, or put ground copper between them."
-see = "check"
+see = "roles"
 
 ["roles.return-gap"]
 meaning = "A gate net or a sensitive signal crosses a gap of its ground copper on the neighbouring layer: its return current goes around the gap. It replaces `analysis.return-split` for those nets. The message gives the layer, the item and the span."
 fix = "Route the net over unbroken ground, or close the gap in the ground under it."
-see = "check"
+see = "roles"
 
 ["roles.section-current"]
 meaning = "A pour on the path of a role with a current narrows below the width the method asks for: by the rule of thumb (`width_per_amp_nm`) without a temperature rise, by the capacity fit of S-0269 with one. The message gives the width and the method."
 fix = "Widen the pour there, or remove the cut-out that narrows it; above 1 A, give a temperature rise to judge by the fit."
-see = "check"
+see = "roles"
 
 ["roles.unconfirmed"]
 meaning = "Some roles and groups are inferred and not confirmed: their findings are at most warnings. The message gives their count."
 fix = "Review them with `fenolite roles PATH`, then confirm (`--accept`, `--accept-all`), correct (`--set`) or reject them through a reviewed plan."
-see = "check"
+see = "roles"
 
 ["roles.via-current"]
 meaning = "A layer change on the path of a role with a current has fewer vias than `ceil(milliamps / milliamps_per_via)` by the rule of thumb, or vias whose barrels carry less than the current by the fit of S-0270 with a rise."
 fix = "Add vias at the layer change, or give your via size's current with `design.role_limits(milliamps_per_via=...)`."
-see = "check"
+see = "roles"
 
 ["roles.width-current"]
 meaning = "A track or arc on the path of a role with a current is narrower than the method asks for: `width_per_amp_nm` times the current by the rule of thumb (S-0851), or below the current by the capacity fit of S-0269 with a rise. The message names the width and the method."
 fix = "Widen the track, or replace it with a pour; above 1 A, give a temperature rise (`--temp-rise`) to judge by the fit."
-see = "check"
+see = "roles"
 
 ["roundtrip.failed"]
 meaning = "The file does not survive the level named in the message: reading it and writing it back would change it. 'where' is the first difference."

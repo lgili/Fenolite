@@ -83,7 +83,7 @@
   does not fire on a net `GND-1` gave (else every ground named by name only would be ambiguous with the
   low-side far net); `KS-1` also forms the pair of a four-terminal shunt whose force pads, not its sense
   pads, reach the input pair, so the check can report the shared force pad. The scenarios run on the
-  authored circuit of a buck (`tests/unit/roles/_circuits.py`); the same scenario on the built good buck is
+  authored circuit of a buck (`tests/unit/roles/_rolecircuits.py`); the same scenario on the built good buck is
   in `test_infer_reference.py` (task 3.2). Proof passed: 7 tests.
 
 ## 3. Reference boards
@@ -156,7 +156,7 @@
   Done 2026-10-29. Two rules beyond decision 8, both found on the reference boards: for a switch without
   a Kelvin pin the copper that touches its source pad counts as reaching the pad (its return necessarily
   lands in the source copper), and the source pads of the other gate loops end the walk (a common-source
-  pair shares its driver's return pin). The tests' shared helpers moved to `tests/unit/roles/_reference.py`.
+  pair shares its driver's return pin). The tests' shared helpers moved to `tests/unit/roles/_rolecheck.py`.
   Proof passed: 9 tests.
 - [x] 5.4 Add the Kelvin pair and near-switching checks on the role loops and on `analyze_distances`, `analyze_returns` and `analyze_coupling`. Register `H-G-ROLE-KELVIN-PAIR` and `H-G-ROLE-NEAR-SW` (scenario "A sense pair over the switch node"). Proof: `uv run pytest tests/unit/roles/test_reference_boards.py -k "kelvin or switching" -q`.
   Done 2026-10-29. The two branches of a Kelvin pair are one victim: the scenario's single
@@ -185,7 +185,19 @@
 
 ## 6. Command line, DSL and stage
 
-- [ ] 6.1 Add `fenolite roles` with show, confirm and `--check`, the measuring options shared with `analyze`, and its section in `docs/cli-contract.md` (scenarios "Read-only by default", "Write needs confirmation", "Usage error", "Options shared with analyze", "Confirm through a plan", "A declaration wins"). Proof: `uv run pytest tests/unit/cli/test_roles_cmd.py tests/consistency/test_cli_consistency.py -q`.
+- [x] 6.1 Add `fenolite roles` with show, confirm and `--check`, the measuring options shared with `analyze`, and its section in `docs/cli-contract.md` (scenarios "Read-only by default", "Write needs confirmation", "Usage error", "Options shared with analyze", "Confirm through a plan", "A declaration wins"). Proof: `uv run pytest tests/unit/cli/test_roles_cmd.py tests/consistency/test_cli_consistency.py -q`.
+  Done 2026-10-29. `cmd_analyze` exports its option parsers (`length_option`, `temp_rise_option`,
+  `copper_thickness_option`, `requirements_option`) and record encoder for the command. `--current`
+  stores a current (a writing option, as decision 6 says), and with `--dry-run` the reply already
+  shows and checks the roles as they would be stored. A board read alone gives the inference no pin
+  names when its pads carry no pin function (Fenolite's own boards keep them in `.fenolite/`): pass the
+  built project folder. The commands page of the agent guide needed 710 lines with the new command
+  against the 700 that the agent-guide spec allows a generated page, so this change raises that budget
+  to 750 lines (a MODIFIED "Page budgets and writing rules" in `specs/agent-guide`); the alternative was
+  to drop options that the specs require. The guide line for `roles` on `checks` (task 7.2) came with the
+  command, since the coverage test requires it. "A declaration wins" is checked here on a built project
+  whose `rules.json` holds the declaration, before task 6.2 lets a script write one. Proof passed: 12 +
+  489 tests.
 - [ ] 6.2 Add the DSL calls and their section in `docs/dsl.md` (scenarios "Declared roles are built", "A pad of another part is refused"). Proof: `uv run pytest tests/unit/dsl/test_roles.py -q`.
 - [ ] 6.3 Add `checks/roles.py` with `RolesJudge` and the stage `roles.rules` in both pipelines, and `fenolite.roles.judge` passed by `cmd_check` (scenarios "A board without roles is unchanged", "Confirmed roles are judged", "A fake judge"). Proof: `uv run pytest tests/unit/checks/test_roles_stage.py tests/unit/checks/test_stages.py tests/unit/test_import_graph.py -q`.
 - [ ] 6.4 Amend "No shipped requirement values" in `docs/analyses.md` and the facts-page test (scenario "Analyze ignores the role profile"). Proof: `uv run pytest tests/unit/analysis/test_facts_page.py -q`.

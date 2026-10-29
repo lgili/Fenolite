@@ -9,8 +9,8 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import pytest
-from _boards import Built, judge
-from _reference import checked
+from _roleboards import Built, judge
+from _rolecheck import checked
 
 from fenolite.core.coords import Point
 from fenolite.roles.kelvin import offset

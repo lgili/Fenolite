@@ -9,7 +9,7 @@ import ast
 from collections.abc import Callable
 from pathlib import Path
 
-from _boards import Built, judge
+from _roleboards import Built, judge
 
 from fenolite.roles.measure import ANALYSES, Inputs
 

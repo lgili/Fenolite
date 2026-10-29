@@ -15,8 +15,8 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 
 import pytest
-from _boards import EXAMPLES, Built, build_script, judge
-from _reference import checked, findings, loops
+from _roleboards import EXAMPLES, Built, build_script, judge
+from _rolecheck import checked, findings, loops
 
 from fenolite.model.rules import KelvinPair, NetRole, RoleSet
 from fenolite.roles.profile import MM2

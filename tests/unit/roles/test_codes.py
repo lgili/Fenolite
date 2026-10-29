@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from _boards import build, read
+from _roleboards import build, read
 
 from fenolite.cli import explain
 from fenolite.model.canonical import load_dir

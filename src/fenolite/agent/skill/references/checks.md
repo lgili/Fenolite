@@ -137,6 +137,24 @@ fenolite parity blink/build --json
 - `netlist.assignment-differs`, from the stage `netlist.assignment_compare`, means a pad is on another
   net than the script says: build again, and look for copper drawn on the wrong pad.
 
+## Net roles of a power board
+
+```fenolite-cmd
+fenolite roles blink/build --json
+fenolite roles blink/build --check --json
+fenolite roles blink/build --accept-all --min-confidence high --dry-run --json
+fenolite roles blink/build --set VIN=power:milliamps=500 --current VOUT=1 --dry-run --json
+```
+
+- `roles` infers what each net does (`power`, `switch_node`, `ground`, `kelvin`, `gate`, `signal`,
+  `high_voltage`) and the hot loops, gate loops and Kelvin pairs, and shows each with its rule and
+  confidence. Read-only until you accept, set or reject; then it writes the role document beside the
+  board, or `.fenolite/rules.json` of a built project, through a plan.
+- `--check` measures the copper against the roles with the analyses and adds `result.measures`; it runs
+  no tool. Findings of inferred roles stay warnings: confirm the roles before you trust them. A role
+  without a current is not judged for current (`roles.current-missing`): give it with `--current`.
+- The same check runs as the stage `roles.rules` of `check` on a board with stored or declared roles.
+
 ## Two designs compared
 
 ```fenolite-cmd

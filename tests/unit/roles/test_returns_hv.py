@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from _boards import Built, judge
-from _reference import DECLARED, checked, confirmed
+from _roleboards import Built, judge
+from _rolecheck import DECLARED, checked, confirmed
 
 from fenolite.analysis.requirements import load_requirements
 from fenolite.model.rules import RoleLimit, RoleSet

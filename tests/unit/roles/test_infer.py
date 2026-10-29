@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from _circuits import GND_PIN, buck, circuit
+from _rolecircuits import GND_PIN, buck, circuit
 
 from fenolite.core.coords import Point
 from fenolite.model.rules import NetRole, RoleSet
