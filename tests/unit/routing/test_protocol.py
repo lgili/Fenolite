@@ -18,6 +18,9 @@ from fenolite.routing.protocol import (
     JobNet,
     JobPad,
     JobPair,
+    JobRoleEnd,
+    JobRoleRoute,
+    RoleOutcome,
     Router,
     RouterStatus,
     RoutingJob,
@@ -109,4 +112,26 @@ def test_router_features_of_routers_without_a_valid_set() -> None:
     assert router_features(DirectRouter()) == frozenset()
     assert router_features(Unknown()) == frozenset()
     assert router_features(Both()) == frozenset({"pairs", "escape"})
-    assert ROUTER_FEATURES == frozenset({"pairs", "escape", "short"})
+    assert ROUTER_FEATURES == frozenset({"pairs", "escape", "short", "roles"})
+
+
+# --- role routes (change c0244) ---------------------------------------------------------------------------
+
+
+def test_roles_default_to_empty() -> None:
+    """Scenarios "A job built as before" of "Role routes in a routing job" and "A result built as before"."""
+    design = Design.new("routing-test", seed=1)
+    job = RoutingJob(design, (), ("F.Cu",))
+    assert job.roles == ()
+    assert job == RoutingJob(design, (), ("F.Cu",), roles=())
+    assert RoutingResult().roles == ()
+    assert RoutingResult() == RoutingResult(roles=())
+    a = JobRoleEnd("R1", "1", "VA", Point(1, 2), ("F.Cu",))
+    b = JobRoleEnd("U1", "3", "VA", Point(5, 2), ("F.Cu",))
+    route = JobRoleRoute("kelvin_R1", "kelvin", 1, "VA", a, b, 200_000, ("F.Cu",), key="kelvin_R1:kelvin:R1-1:U1-3")
+    held = RoutingJob(design, (), ("F.Cu",), roles=(route,))
+    assert held.roles[0].vias == 0 and not held.roles[0].isolated and a.label == "R1-1"
+    outcome = RoleOutcome(route.key, route.group, "unrouted", reason="no-room")
+    assert outcome.runs == () and outcome.form == ""
+    with pytest.raises(FrozenInstanceError):
+        route.width = 1  # type: ignore[misc]

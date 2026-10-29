@@ -391,7 +391,8 @@ and BGA benches it left fewer connections open with the stage than without, `H-G
 ## octilinear
 
 `fenolite route BOARD --router octilinear --nets GATE --confirm` (change c0228) is built in and meant for
-the few connections a person routes first, not for a whole board (its features are `pairs` and `short`).
+the few connections a person routes first, not for a whole board (its features are `pairs`, `short` and `roles`, the role mode of
+"Role mode" below).
 
 - **Connections.** The pads of a net, the pads already joined by its copper counting as one group, are
   joined by the edges of a minimum spanning tree, shortest first, each on a copper layer that both pads

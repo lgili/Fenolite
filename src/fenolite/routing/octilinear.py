@@ -549,7 +549,7 @@ class OctilinearRouter:
         "keep the clearance; no via; each result is judged by the copper check."
     )
     sends_data_offsite = False
-    features = frozenset({"pairs", "short"})
+    features = frozenset({"pairs", "short", "roles"})
 
     def available(self) -> RouterStatus:
         """This built-in router is always available and uses no external tool."""
