@@ -47,10 +47,10 @@ class LockPlan:
 
 
 def lock_location(design: str, lock: str | None, cwd: Path) -> tuple[str, Path]:
-    """The lock as the plan names it (relative to the working directory when given so) and its path."""
-    given = lock if lock is not None else str(Path(design).with_suffix(SUFFIX))
-    path = Path(given)
-    return given, path if path.is_absolute() else cwd / path
+    """The lock as the plan names it (relative to the working directory when given so, with forward
+    slashes on every system) and its path."""
+    path = Path(lock) if lock is not None else Path(design).with_suffix(SUFFIX)
+    return path.as_posix(), path if path.is_absolute() else cwd / path
 
 
 def _shown(path: Path, script: Path) -> str:
