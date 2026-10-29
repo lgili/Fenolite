@@ -420,6 +420,20 @@ Every text is a stroke text in Fenolite's own stroke font, so a long field may e
 than in KiCad. The nets come from wires, junctions, labels, power symbols and hidden power pins. Images, text
 boxes, tables and rule areas are counted in the notes, not drawn.
 
+## Keys the browser keeps
+
+The workbench never binds a key that a browser keeps for its tabs, windows, address bar, history, page
+or developer tools (change c0245, decision 5). The Keyboard panel and `--keymap` refuse them:
+
+`Ctrl+N`, `Ctrl+Shift+N`, `Ctrl+T`, `Ctrl+Shift+T`, `Ctrl+Tab`, `Ctrl+Shift+Tab`, `Ctrl+PageDown`, `Ctrl+PageUp`, `Ctrl+1`, `Ctrl+2`, `Ctrl+3`, `Ctrl+4`, `Ctrl+5`, `Ctrl+6`, `Ctrl+7`, `Ctrl+8`, `Ctrl+9`, `Ctrl+W`, `Ctrl+F4`, `Ctrl+Shift+W`, `Alt+F4`, `Alt+ArrowLeft`, `Alt+ArrowRight`, `Ctrl+L`, `Alt+D`, `F6`, `F5`, `Ctrl+R`, `F11`, `F12`, `Ctrl+Shift+J`, `Ctrl+F`, `F3`, `Ctrl+P`, `Ctrl+H`, `Ctrl+J`, `Alt+F`, `Alt+E`, `F10`, `Meta+W`, `Meta+Shift+T`, `Meta+Shift+]`, `Meta+Shift+[`, `Meta+1`, `Meta+2`, `Meta+3`, `Meta+4`, `Meta+5`, `Meta+6`, `Meta+7`, `Meta+8`, `Meta+9`, `Meta+[`, `Meta+]`, `Meta+L`.
+
+The list is the union of the tab, window, address-bar, history and developer-tool keys of Chrome on
+Windows and Linux (S-0934) and of Safari on macOS (S-0935). It was not observed in a browser: the visual
+tests send synthetic key events, which reach the page for every key, so they cannot show which keys a
+browser takes first. Firefox's own list was not consulted (its help page did not load on 2026-10-29). In
+Chrome, `Alt+F`, `Alt+E` and `F10` open or focus the browser's own menu, so the menu bar of the workbench
+is also reached with Tab and through the command search (`Ctrl+K`).
+
 ## For agents
 
 Use `fenolite view PATH --json` to list a project's documents and to check what a board holds (the counts of

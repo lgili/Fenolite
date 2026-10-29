@@ -24,8 +24,10 @@ function defaultLayout(ws) {
     bottom: { size: DOCK_SIZE.bottom[2], groups: [g(["messages", "pending", "changes", "marks"], 1)] } };
   for (const d of DOCKS) docks[d].groups = docks[d].groups.map(x => ({ ...x, panels: x.panels.filter(id => PANELS.has(id)) }))
     .filter(x => x.panels.length).map(x => ({ ...x, active: x.panels.includes(x.active) ? x.active : x.panels[0] }));
-  return { schema: LAYOUT_SCHEMA, workspace: ws, docks, closed: [] };
+  return { schema: LAYOUT_SCHEMA, workspace: ws, docks, closed: CLOSED_FIRST.filter(id => PANELS.has(id)) };
 }
+const CLOSED_FIRST = ["keyboard"];   // panels that start closed, and the dock and group they open in
+const PANEL_HOME = { keyboard: ["right", 1] };
 let WS = "board", LAYOUT = null, GIVEN_LAYOUT = null;
 function workspaceOf() {
   if (!S || !DOC) return WS;
@@ -90,7 +92,7 @@ function showPanel(id, focus) {   // open (where it was by default when closed),
   let at = findPanel(id);
   if (!at) {
     LAYOUT.closed = LAYOUT.closed.filter(x => x !== id);
-    const def = defaultLayout(WS); let home = "left", hg = 0;
+    const def = defaultLayout(WS); let [home, hg] = PANEL_HOME[id] || ["left", 0];
     for (const d of DOCKS) def.docks[d].groups.forEach((g, i) => { if (g.panels.includes(id)) { home = d; hg = i; } });
     const gs = LAYOUT.docks[home].groups;
     if (gs[hg]) gs[hg].panels.push(id); else gs.push({ panels: [id], active: id, size: 1, collapsed: false });
@@ -144,9 +146,10 @@ function groupEl(d, gi, g) {
   sec.ondragover = e => { if ([...e.dataTransfer.types].includes("text/x-fenolite-panel")) { e.preventDefault(); sec.classList.add("drop"); } };
   sec.ondragleave = () => sec.classList.remove("drop");
   sec.ondrop = e => { e.preventDefault(); e.stopPropagation(); sec.classList.remove("drop"); const id = e.dataTransfer.getData("text/x-fenolite-panel"); if (id && id !== active || id && g.panels.length > 1) movePanel(id, d, gi); };
-  if (p.shown) p.shown();
+  if (p.shown) SHOWN_LATER.push(p);
   return sec;
 }
+const SHOWN_LATER = [];   // panels to refresh once their group is in the page
 function groupSplitter(d, gs, a, b) {   // between two groups of a dock: drag or arrows share their space
   const s = document.createElement("div"); s.className = "gsplit " + (d === "bottom" ? "v" : "h"); s.tabIndex = 0;
   s.setAttribute("role", "separator"); s.setAttribute("aria-orientation", d === "bottom" ? "vertical" : "horizontal"); s.setAttribute("aria-label", "Share the space of two panel groups");
@@ -196,6 +199,7 @@ function renderDocks() {
   }
   for (const d of ["right", "bottom"]) $(DOCK_EL[d]).hidden = narrow || !SHOWN[d];
   applyDockSizes();
+  for (const p of SHOWN_LATER.splice(0)) p.shown();
 }
 function renderFloat() {   // one panel fills the window
   document.body.classList.add("float"); const p = PANELS.get(FLOAT), side = $("side"); side.innerHTML = "";

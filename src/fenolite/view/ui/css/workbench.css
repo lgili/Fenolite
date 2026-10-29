@@ -114,6 +114,12 @@
   body.float #app { grid-template-columns:minmax(0, 1fr); grid-template-rows:22px minmax(0, 1fr); }
   body.float #menubar, body.float #top, body.float #wrap, body.float #tabs, body.float #dockRight, body.float #dockBottom, body.float #status { display:none !important; }
   body.float #side { display:flex !important; grid-column:1; grid-row:2; width:auto; border-right:0; }
+  .kmhead { display:flex; gap:6px; align-items:center; margin-bottom:4px; }
+  #kmTable td { white-space:normal; }
+  .kbcapture { width:100%; text-align:left; border-color:var(--accent); }
+  .cmdsearch { width:440px; padding:4px; }
+  .cmdsearch .cs-input { width:100%; margin-bottom:4px; }
+  .cmdsearch .mitem[aria-selected=true] { background:var(--sel); color:var(--sel-text); }
   @media (max-width:760px) {
     #app { grid-template-columns:minmax(0, 1fr); grid-template-rows:22px auto auto minmax(0, 1fr) 30px 24px; }
     #titlebar, #menubar, #top, #wrap, #tabs, #status { grid-column:1; min-width:0; }

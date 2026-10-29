@@ -435,3 +435,31 @@ def test_check_findings_carry_their_explanations() -> None:
     explain = scene["check"]["explain"]
     assert set(explain) == {"roles.width-current"}
     assert set(explain["roles.width-current"]) == {"meaning", "fix", "see"}
+
+
+def test_keymap_option(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Change c0245: `--keymap NAME|FILE` reaches the page; a bad file is FEN-3004, a missing one FEN-3001."""
+    page = tmp_path / "view.html"
+    code, envelope, _, _ = run(
+        monkeypatch,
+        tmp_path,
+        "view",
+        str(BOARD),
+        "--keymap",
+        "altium",
+        "--export",
+        str(page),
+        "--confirm",
+        "--json",
+    )
+    assert code == 0
+    data = embedded(page.read_text(encoding="utf-8"))
+    assert data is not None and data["settings"]["keymap"]["base"] == "altium"
+    keys = tmp_path / "keys.json"
+    keys.write_text(
+        json.dumps({"schema": "fenolite.view_keymap.v0", "base": "kicad", "bindings": {"view.fit": ["F5"]}})
+    )
+    code, _, err, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--keymap", str(keys), "--json")
+    assert code == 3 and err["code"] == "FEN-3004" and "browser" in err["message"]
+    code, _, err, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--keymap", "emacs", "--json")
+    assert code == 3 and err["code"] == "FEN-3001"

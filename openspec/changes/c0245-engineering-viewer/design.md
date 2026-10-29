@@ -211,8 +211,10 @@ There is no `--ui classic` switch: one interface, one set of baselines.
   - KiCad keeps hotkeys in a `user.hotkeys` file (S-0920). The two formats are not compatible, and no
     importer is offered (open question 6).
 - **Reserved keys.** A keymap may not bind keys that a supported browser keeps in a tab: `Ctrl+W`, `Ctrl+T`,
-  `Ctrl+N`, `Ctrl+L`, `Ctrl+Tab`, `F5`, `F11` and `F12`, among others. Task 4.1 records the list from the
-  pinned Chromium and checks it on the other browsers. Such a binding is refused with a message.
+  `Ctrl+N`, `Ctrl+L`, `Ctrl+Tab`, `F5`, `F11` and `F12`, among others. Such a binding is refused with a
+  message. Task 4.1 recorded the list (2026-10-29) from the documented shortcuts of Chrome (S-0934) and
+  Safari (S-0935): synthetic key events in the pinned Chromium reach the page for every key, so the list
+  cannot be observed by the tests, and it is kept as a policy in `ui/shell/keymaps.js`.
 - **Command registry.** Every command has an id (`view.fit-board`, `roles.confirm`), a label, a menu place
   and its keys. Menus, the toolbar, the command search and the Keyboard panel are generated from the
   registry, so a command cannot exist without a keyboard path.

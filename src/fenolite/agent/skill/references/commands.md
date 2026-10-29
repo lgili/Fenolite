@@ -704,6 +704,7 @@ another type; a flag without a value is a switch.
 - `--select REF`: open at this part or net
 - `--marks FILE`: review marks: list them; --serve saves new ones there
 - `--theme THEME`: a KiCad colour theme: a .json file or a theme name
+- `--keymap NAME|FILE`: the keys of the workbench: fenolite, altium, kicad, or a fenolite.view_keymap.v0 file
 - `--no-review`: no review findings
 - `--no-models`: no 3D models (gmsh)
 - `--silk-gap MM`: silkscreen gap (default: the rule)

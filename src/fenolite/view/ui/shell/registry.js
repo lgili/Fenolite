@@ -101,7 +101,7 @@ const SEQUENCE_MS = 1500;
 window.addEventListener("keydown", e => {
   const target = e.target;
   if (e.defaultPrevented || e.isComposing ||
-      (target instanceof Element && (target.closest("input, select, textarea, dialog[open], #projectReview, #menubar, .menu") || target.isContentEditable))) return;
+      (target instanceof Element && (target.closest("input, select, textarea, dialog[open], #projectReview, #menubar, .menu, .kbcapture") || target.isContentEditable))) return;
   const spec = eventSpec(e); if (!spec) return;
   const full = KEY_PREFIX ? KEY_PREFIX + " " + spec : spec;
   const hit = resolveKey(full);

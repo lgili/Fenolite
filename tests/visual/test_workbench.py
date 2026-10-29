@@ -333,3 +333,66 @@ def test_provenance(pages: dict[str, Path], tmp_path: Path) -> None:
     assert result["count"] > 3 and result["bad"] == [] and result["digits"] == []
     assert result["before"] == "evidence INFERRED" and result["after"] == "evidence UNVERIFIED"
     assert "kicad-cli 10.0.7" in result["tool"]
+
+
+def test_keymap(pages: dict[str, Path], tmp_path: Path) -> None:
+    """Scenario "An accelerator sequence": V then F fits the board in the altium keymap; binding Ctrl+W in the
+    Keyboard panel is refused."""
+    script = """
+    setKeymap("altium"); view.s = 77; view.cx = 0; view.cy = 0; draw();
+    key("v"); const pending = $("keyPending").textContent; key("f"); await settle();
+    const fitted = view.s !== 77, after = $("keyPending").textContent;
+    document.querySelector('#menubar [data-menu="View"]').click(); await settle();
+    const fitKey = document.querySelector('.menu [data-cmd="view.fit"] .mkey').textContent; closeMenu(false);
+    runCommand("tools.keyboard"); await settle();
+    const tr = $("kmTable").querySelector('tr[data-cmd="view.fit"]'); tr.querySelector(".kmedit").click();
+    const cap = $("kmTable").querySelector(".kbcapture");
+    cap.dispatchEvent(new KeyboardEvent("keydown", { key: "w", code: "KeyW", ctrlKey: true, bubbles: true,
+      cancelable: true }));
+    return { pending, fitted, after, fitKey, message: $("kmMessage").textContent,
+      keys: keysOf(CMD.get("view.fit")) };
+    """
+    result = _act(pages["kicad_board"], tmp_path, script)
+    assert result["pending"] == "V, …" and result["fitted"] and result["after"] == ""
+    assert result["fitKey"] == "V, F"
+    assert "belongs to the browser" in result["message"]
+    assert result["keys"] == ["V F", "V D", "F", "Shift+F"]
+
+
+def test_keyboard_panel(pages: dict[str, Path], tmp_path: Path) -> None:
+    """A person's binding: captured in the Keyboard panel, run by its key, saved as a keymap file, reset."""
+    script = """
+    runCommand("tools.keyboard"); await settle();
+    $("kmTable").querySelector('tr[data-cmd="place.measure"] .kmedit').click();
+    const cap = () => $("kmTable").querySelector(".kbcapture");
+    cap().dispatchEvent(new KeyboardEvent("keydown", { key: "K", code: "KeyK", shiftKey: true,
+      bubbles: true, cancelable: true }));
+    cap().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    await settle();
+    const doc = keymapDoc(),
+      from = $("kmTable").querySelector('tr[data-cmd="place.measure"]').children[2].textContent;
+    $("wrap").focus(); key("K", { shiftKey: true }); const measuring = st.measure; key("Escape");
+    $("kmReset").click(); await settle();
+    return { doc, from, measuring, after: keysOf(CMD.get("place.measure")),
+      stored: JSON.parse(localStorage.getItem("fenolite.view.keymap")) };
+    """
+    result = _act(pages["kicad_board"], tmp_path, script)
+    assert result["doc"] == {
+        "schema": "fenolite.view_keymap.v0",
+        "base": "fenolite",
+        "bindings": {"place.measure": ["Shift+K"]},
+    }
+    assert result["from"] == "your change" and result["measuring"] is True
+    assert result["after"] == ["M", "Shift+M"] and result["stored"]["bindings"] == {}
+
+
+def test_command_search(pages: dict[str, Path], tmp_path: Path) -> None:
+    """Every command by its name from the keyboard: Ctrl+K, type, Enter."""
+    script = """
+    key("k", { ctrlKey: true }); await settle();
+    const input = document.querySelector(".cmdsearch .cs-input"); input.value = "toggle units";
+    input.dispatchEvent(new Event("input"));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); await settle();
+    return { unit: $("bUnit").textContent, open: !!document.querySelector(".cmdsearch") };
+    """
+    assert _act(pages["kicad_board"], tmp_path, script) == {"unit": "mil", "open": False}

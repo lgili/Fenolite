@@ -97,7 +97,7 @@ function barStep(i, step, keepOpen) {
 }
 window.addEventListener("keydown", e => {   // F10, or Alt with a menu's first letter, reaches the menu bar
   if (e.defaultPrevented || e.isComposing) return;
-  const t = e.target; if (t instanceof Element && t.closest("input, select, textarea, dialog[open]")) return;
+  const t = e.target; if (t instanceof Element && t.closest("input, select, textarea, dialog[open], .kbcapture")) return;
   if (e.key === "F10" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) { e.preventDefault(); barStep(-1, 1, false); return; }
   if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.code && /^Key[A-Z]$/.test(e.code)) {
     const letter = e.code.slice(3), i = MENUS.findIndex(n => MNEMONIC[n] === letter);

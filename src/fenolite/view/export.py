@@ -44,6 +44,7 @@ PARTS: tuple[str, ...] = (
     "workspaces/tables.js",
     "shell/commands.js",
     "shell/registry.js",
+    "shell/keymaps.js",
     "workspaces/schematic.js",
     "workspaces/project_nets.js",
     "workspaces/library.js",
@@ -51,6 +52,7 @@ PARTS: tuple[str, ...] = (
     "shell/menubar.js",
     "shell/docks.js",
     "shell/selection.js",
+    "shell/keyboard.js",
     "shell/workbench.js",
     "shell/start.js",
     "page/tail.html",
@@ -78,15 +80,19 @@ def page(
     live: bool = False,
     select: str | None = None,
     marks: list[dict[str, Any]] | None = None,
+    settings: dict[str, Any] | None = None,
 ) -> str:
     """The page: with ``tree`` and ``scenes`` (document id → scene) embedded, a standalone file; with
     ``live``, the page of the server, which fetches both. Each scene is embedded packed (``compact.pack``,
     change c0182) and decoded by the page when its document is opened. ``select`` (a part or net) and
-    ``marks`` (``review.to_json``) are what ``--select`` and ``--marks`` give the page (change c0189)."""
+    ``marks`` (``review.to_json``) are what ``--select`` and ``--marks`` give the page (change c0189).
+    ``settings`` are the workbench options of change c0245 (``keymap``, ``layout``, ``workspace``…)."""
     html = template()
     if tree is not None:
         packed = {doc_id: pack(scene) for doc_id, scene in (scenes or {}).items()}
         data = {"project": tree, "scenes": packed, "open": open_id, "select": select, "marks": marks or []}
+        if settings:
+            data["settings"] = settings
         html = html.replace(DATA_MARK, _json(data), 1)
     html = html.replace(VERSION_MARK, fenolite.__version__, 1)
     return html.replace(LIVE_MARK, "true" if live else "false", 1)

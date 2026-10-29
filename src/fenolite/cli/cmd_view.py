@@ -49,7 +49,7 @@ from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 from fenolite.placement import legality
-from fenolite.view import export, meshes, models, project_review, review, server, themes
+from fenolite.view import export, keymap, meshes, models, project_review, review, server, themes
 from fenolite.view.altium_layers import native_view
 from fenolite.view.bom import bom_scene
 from fenolite.view.bom import with_parts as bom_with_parts
@@ -147,6 +147,11 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "--theme",
         metavar="THEME",
         help="a KiCad colour theme: a .json file or a theme name",
+    )
+    parser.add_argument(
+        "--keymap",
+        metavar="NAME|FILE",
+        help="the keys of the workbench: fenolite, altium, kicad, or a fenolite.view_keymap.v0 file",
     )
     parser.add_argument("--no-review", action="store_true", help="no review findings")
     parser.add_argument("--no-models", action="store_true", help="no 3D models (gmsh)")
@@ -249,6 +254,26 @@ def theme_of(argument: str | None, ctx: Context) -> Palette | None:
         return themes.read_kicad_theme(found)
     except FormatError as exc:
         raise CliError("FEN-3004", f"--theme: {exc}", where="--theme") from exc
+
+
+def keymap_of(argument: str | None, ctx: Context) -> dict[str, Any] | None:
+    """The keymap named by ``--keymap`` for the page (change c0245, decision 5), or ``None``."""
+    if not argument:
+        return None
+    if argument in keymap.BUILT_IN:
+        return {"schema": keymap.SCHEMA, "base": argument, "bindings": {}}
+    path = Path(argument) if Path(argument).is_absolute() else ctx.cwd / argument
+    if not path.is_file():
+        raise CliError(
+            "FEN-3001",
+            f"--keymap: no keymap {argument!r}",
+            where="--keymap",
+            hint=f"name one of {', '.join(keymap.BUILT_IN)}, or a fenolite.view_keymap.v0 file",
+        )
+    try:
+        return keymap.read_keymap(path)
+    except keymap.KeymapError as exc:
+        raise CliError("FEN-3004", f"--keymap: {exc}", where="--keymap") from exc
 
 
 def _sheet_scene(path: Path) -> dict[str, Any]:
@@ -836,6 +861,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     tree = _tree(args.path, ctx)
     file_items, file_groups = overlay_files(args.overlay, ctx)
     kicad = theme_of(args.theme, ctx)
+    settings: dict[str, Any] = {}
+    if (keys := keymap_of(args.keymap, ctx)) is not None:
+        settings["keymap"] = keys
     store = SceneCache.at(args.cache, tree.root)
     theme_key = json.dumps(kicad, sort_keys=True) if kicad is not None else ""
 
@@ -934,7 +962,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                     if doc is not None and other.id == doc.id and result["summary"] is not None:
                         result["summary"]["models"] = counts
         html = export.page(
-            tree.to_json(), scenes, open_id=doc.id if doc else None, select=args.select, marks=marks
+            tree.to_json(),
+            scenes,
+            open_id=doc.id if doc else None,
+            select=args.select,
+            marks=marks,
+            settings=settings,
         ).encode("utf-8")
         writes = (PlannedWrite(path=str(args.export), data=html, kind=KIND),)
         result["export"] = {
@@ -971,6 +1004,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             marks_file=marks_file,
             select=args.select,
             refine=None if args.no_models else refine,
+            settings=settings,
         )
         try:
             httpd = server.serve(live, port)

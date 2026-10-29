@@ -217,4 +217,4 @@ const draw0 = draw;
 draw = function () { draw0(); selectionChanged(); evidenceStatus(); };
 
 // ---- start the workbench before the first document opens
-buildMenubar(); decorateToolbar(); setWorkspace("board", true); buildGridSel();
+buildMenubar(); startKeymap(); decorateToolbar(); setWorkspace("board", true); buildGridSel();

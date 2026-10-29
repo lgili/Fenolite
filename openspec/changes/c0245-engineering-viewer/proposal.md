@@ -132,7 +132,7 @@ check findings (c0176 to c0193, c0233, c0235, c0239). What it lacks is the frame
 - **Docs:**
   - `docs/viewer.md` (rewritten around the workbench), `docs/roles.md`, `docs/cli-contract.md`;
   - agent guide pages `commands` and `board-review`;
-  - `docs/evidence/sources.md` (S-0920 to S-0933);
+  - `docs/evidence/sources.md` (S-0920 to S-0935);
   - `docs/hypotheses.md` (`H-G-WB-*`).
 - **Behaviour:**
   - every existing view feature stays, with new places in the workbench;

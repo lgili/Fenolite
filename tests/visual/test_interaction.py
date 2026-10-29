@@ -180,3 +180,14 @@ def test_sidebar_escape_without_a_cad_scene(pages: dict[str, Path], tmp_path: Pa
         "display": "none",
         "focused": "bSidebar",
     }
+
+
+def test_unbound_combination_passes_through(pages: dict[str, Path], tmp_path: Path) -> None:
+    """Scenario "An unbound combination passes through" (c0245): Alt+M runs nothing and is not prevented."""
+    script = """
+    const e = new KeyboardEvent("keydown", { key: "m", code: "KeyM", altKey: true, bubbles: true,
+      cancelable: true });
+    window.dispatchEvent(e);
+    return { measure: st.measure, prevented: e.defaultPrevented };
+    """
+    assert _act(pages, tmp_path, script) == {"measure": False, "prevented": False}

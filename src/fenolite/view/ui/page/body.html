@@ -82,6 +82,10 @@
   <div id="pMarks"><div class="notes" id="marksTitle" style="display:none">Marks</div><div id="marksList"></div></div>
   <div id="pNotes"><div class="notes" id="notes"></div></div>
   <div id="pShortcuts"><div class="notes">Mouse: <kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan (2D) / orbit (3D) · <kbd>Shift+drag</kbd> pan (3D) · <kbd>click</kbd> net / part · <kbd>double-click</kbd> open a sheet symbol, cross-probe a part · <kbd>Alt</kbd> while measuring: no snap · <kbd>F10</kbd> menu bar</div><table class="grid keys" id="keyTable"><thead><tr><th scope="col">Command</th><th scope="col">Keys</th></tr></thead><tbody></tbody></table></div>
+  <div id="pKeyboard"><div class="kmhead"><label for="kmSel">Keymap</label><select id="kmSel"><option value="fenolite">fenolite</option><option value="altium">altium</option><option value="kicad">kicad</option></select>
+    <button id="kmDownload" title="Save the keymap as a fenolite.view_keymap.v0 file for --keymap">Save file</button><button id="kmReset" title="Remove your changes of this keymap">Reset</button></div>
+    <input id="kmFilter" placeholder="Filter commands…" aria-label="Filter commands"><p id="kmMessage" class="notes" role="status" aria-live="polite"></p>
+    <table class="grid" id="kmTable"><thead><tr><th scope="col">Command</th><th scope="col">Keys</th><th scope="col">From</th><th scope="col"><span class="sr-only">Change</span></th></tr></thead><tbody></tbody></table></div>
   <div id="pProperties"><div id="propsEmpty" class="notes">Nothing selected. Click a pad, a track, a part or a finding.</div><div id="info"></div></div>
   <div id="pMessages">
     <div class="msghead"><span id="msgTitle">No messages</span><span class="sfill"></span>

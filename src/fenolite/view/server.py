@@ -76,6 +76,7 @@ class Live:
         marks_file: Path | None = None,
         select: str | None = None,
         refine: SceneRefiner | None = None,
+        settings: dict[str, Any] | None = None,
     ) -> None:
         self.tree, self.build, self.overlays, self.open_id, self.log = (
             tree,
@@ -88,6 +89,8 @@ class Live:
         self.states: dict[str, _State] = {}
         self.lock = threading.Lock()
         self.marks_file, self.select = marks_file, select
+        self.settings: dict[str, Any] = settings or {}
+        """The workbench options of change c0245 that the page reads from ``/project.json``."""
         self.written = 0
         """How many marks the server wrote (``result.serve.marks_written``)."""
 
@@ -218,6 +221,8 @@ class Live:
 def serve(live: Live, port: int = 8765) -> ThreadingHTTPServer:
     """A server for ``live`` on the loopback address, not yet serving; ``port`` 0 takes a free port."""
     tree_json = live.tree.to_json() | {"open": live.open_id, "select": live.select}
+    if live.settings:
+        tree_json["settings"] = live.settings
     hosts = {f"{HOST}:{{port}}", "localhost:{port}"}
 
     class Handler(BaseHTTPRequestHandler):
