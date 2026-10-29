@@ -152,24 +152,59 @@ texts = st.text(alphabet=st.characters(min_codepoint=32, max_codepoint=0x2FF), m
 
 @st.composite
 def drawn_values(draw: st.DrawFn) -> DrawnSchematic:
-    fields = st.builds(DrawnField, st.sampled_from(["Reference", "Value", "My Field"]), points,
-                       st.sampled_from([0, 90_000_000]), st.sampled_from(["", "left", "right bottom"]), st.booleans())  # fmt: skip
-    symbol = st.builds(DrawnSymbol, texts, st.integers(1, 4), points, angles, st.sampled_from(["", "x", "y"]),
-                       st.lists(fields, max_size=2, unique_by=lambda f: f.name).map(tuple))  # fmt: skip
-    label = st.builds(DrawnLabel, st.sampled_from(["local", "global", "hierarchical"]), texts, points, angles,
-                      st.sampled_from(["", "input", "passive"]))  # fmt: skip
+    fields = st.builds(
+        DrawnField,
+        st.sampled_from(["Reference", "Value", "My Field"]),
+        points,
+        st.sampled_from([0, 90_000_000]),
+        st.sampled_from(["", "left", "right bottom"]),
+        st.booleans(),
+    )
+    symbol = st.builds(
+        DrawnSymbol,
+        texts,
+        st.integers(1, 4),
+        points,
+        angles,
+        st.sampled_from(["", "x", "y"]),
+        st.lists(fields, max_size=2, unique_by=lambda f: f.name).map(tuple),
+    )
+    label = st.builds(
+        DrawnLabel,
+        st.sampled_from(["local", "global", "hierarchical"]),
+        texts,
+        points,
+        angles,
+        st.sampled_from(["", "input", "passive"]),
+    )
     polyline = st.lists(points, min_size=2, max_size=4).map(tuple)
     child = DrawnSheet("child", "A3", generated=draw(st.booleans()))
     ref = DrawnSheetRef(
-        "child", "child", draw(st.sampled_from(["", "m", "m/n"])), draw(texts), draw(points),
-        Size(draw(st.integers(1, 10**8)), draw(st.integers(1, 10**8))), "2", draw(st.sampled_from(["", "a.kicad_sch"])),
+        "child",
+        "child",
+        draw(st.sampled_from(["", "m", "m/n"])),
+        draw(texts),
+        draw(points),
+        Size(draw(st.integers(1, 10**8)), draw(st.integers(1, 10**8))),
+        "2",
+        draw(st.sampled_from(["", "a.kicad_sch"])),
         tuple(draw(st.lists(st.builds(DrawnPin, texts, st.just("input"), points, angles), max_size=2))),
-    )  # fmt: skip
+    )
     root = DrawnSheet(
         "root",
         draw(st.sampled_from(["A4", "Letter"])),
-        tuple(sorted(draw(st.lists(st.tuples(st.sampled_from(["title", "date"]), texts), max_size=2,
-                                   unique_by=lambda p: p[0])), key=lambda p: p[0] != "title")),
+        tuple(
+            sorted(
+                draw(
+                    st.lists(
+                        st.tuples(st.sampled_from(["title", "date"]), texts),
+                        max_size=2,
+                        unique_by=lambda p: p[0],
+                    )
+                ),
+                key=lambda p: p[0] != "title",
+            )
+        ),
         False,
         tuple(draw(st.lists(symbol, max_size=3))),
         tuple(draw(st.lists(st.builds(DrawnPower, texts, texts, points, angles), max_size=2))),
@@ -178,14 +213,24 @@ def drawn_values(draw: st.DrawFn) -> DrawnSchematic:
         tuple(draw(st.lists(st.builds(DrawnBusEntry, points, points), max_size=2))),
         tuple(draw(st.lists(st.builds(DrawnJunction, points, st.integers(0, 10**6)), max_size=2))),
         tuple(draw(st.lists(points, max_size=2))),
-        tuple(draw(st.lists(label, max_size=3).map(lambda ls: [x for x in ls if x.kind == "local" or x.shape] ))),
+        tuple(
+            draw(st.lists(label, max_size=3).map(lambda ls: [x for x in ls if x.kind == "local" or x.shape]))
+        ),
         (),
         (ref,),
-        tuple(draw(st.lists(st.builds(DrawnOpaque, st.just('(text "x\\"y" (at 1 2 0))'), texts), max_size=1))),
-    )  # fmt: skip
-    root = DrawnSheet(**{**{f: getattr(root, f) for f in root.__slots__}, "labels": tuple(  # type: ignore[arg-type]
-        lab if lab.kind != "local" else DrawnLabel("local", lab.text, lab.at, lab.rotation) for lab in root.labels
-    )})  # fmt: skip
+        tuple(
+            draw(st.lists(st.builds(DrawnOpaque, st.just('(text "x\\"y" (at 1 2 0))'), texts), max_size=1))
+        ),
+    )
+    root = DrawnSheet(
+        **{
+            **{f: getattr(root, f) for f in root.__slots__},
+            "labels": tuple(  # type: ignore[arg-type]
+                lab if lab.kind != "local" else DrawnLabel("local", lab.text, lab.at, lab.rotation)
+                for lab in root.labels
+            ),
+        }
+    )
     return DrawnSchematic("root", (root, child))
 
 

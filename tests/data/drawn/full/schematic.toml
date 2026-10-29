@@ -96,7 +96,7 @@ rotation = 0
 
 [[sheet.label]]
 kind = "local"
-text = "BUSA"
+text = "{BUSA}"
 at = [127, 80.01]
 rotation = 90
 

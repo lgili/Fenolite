@@ -4,8 +4,9 @@
 
 ``plan_sync`` reads the board of a built project, matches it with the design as a build does, and gives
 the text of ``placements.toml`` together with what the next build would drop or overwrite: orphaned
-footprints, copper on nets the design no longer has, and values edited in KiCad. It reads and writes no
-file; the command does.
+footprints, copper on nets the design no longer has, and values edited in KiCad. ``plan_drawn`` (change
+c0276) gives the text of the drawn schematic file from the project's sheets, after proving that they still
+mean the recorded circuit: a sync never changes nets. Neither reads or writes a file; the command does.
 """
 
 from __future__ import annotations
@@ -15,15 +16,20 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
 
+from fenolite.backends.kicad import drawn as kicad_drawn
 from fenolite.backends.kicad import pcb
 from fenolite.backends.kicad.embed import PATH_PROPERTY
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue, Severity
 from fenolite.lens import preserve, schplacements
+from fenolite.lens.drawn import write_drawn
 from fenolite.lens.extract import extract_placements
 from fenolite.lens.moved import Aliases, resolve_aliases
 from fenolite.lens.placements import FILE_NAME, write_placements
+from fenolite.model.circuit import Circuit
 from fenolite.model.design import Design
+from fenolite.model.drawn_connect import compare
+from fenolite.model.drawn_connect import issue as drawn_issue
 from fenolite.model.schematic import SchematicSheet
 
 SYNC_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
@@ -195,4 +201,66 @@ def plan_sync(
     return SyncPlan(MappingProxyType(files), MappingProxyType(result), tuple(issues))
 
 
-__all__ = ["EVIDENCE", "SYMBOL_FILE_NAME", "SYNC_ISSUE_CODES", "SyncPlan", "issue", "plan_sync"]
+@dataclass(frozen=True)
+class DrawnPlan:
+    """``text``: the canonical drawn schematic of the project's sheets, or ``None`` when its nets differ
+    from the circuit; ``changed``: whether it differs from the current file; ``issues``: the resolver's and
+    the comparison's issues, with ``drawn.frozen`` for a freeze."""
+
+    text: str | None
+    changed: bool
+    issues: tuple[Issue, ...]
+    counts: Mapping[str, int]
+
+
+def plan_drawn(
+    root: SchematicSheet,
+    children: Mapping[str, SchematicSheet],
+    *,
+    circuit: Circuit,
+    name: str,
+    root_file: str,
+    current: str | None,
+    file: str,
+    freeze: bool = False,
+) -> DrawnPlan:
+    """The drawn schematic file that ``sync --to-source`` plans for the sheets ``root`` and ``children`` of a
+    built project (capability layout-lens, "Drawn schematic in the source tree" and "Drawn schematic sync
+    refuses changed nets"; change c0276).
+
+    The sheets are extracted and resolved (``backends.kicad.drawn.resolve_sheets``) and compared with the
+    recorded ``circuit``: a connectivity difference plans nothing and keeps the ``drawn.netlist-differs``
+    error. Otherwise the canonical text is planned when it differs from ``current``. ``freeze`` (a generated
+    schematic frozen into a drawn one) adds ``drawn.frozen`` with the hint to load the file."""
+    drawn, netlist, found = kicad_drawn.resolve_sheets(
+        root, children, circuit=circuit, name=name, root_file=root_file
+    )
+    issues = [i for i in found if i.code.startswith("drawn.") or i.severity != "info"]
+    compared = compare(netlist, circuit)
+    issues += compared
+    counts = kicad_drawn.drawn_counts(drawn)
+    if any(i.severity == "error" for i in issues):
+        return DrawnPlan(None, False, tuple(issues), counts)
+    text = write_drawn(drawn)
+    if freeze:
+        issues.append(
+            drawn_issue(
+                "drawn.frozen",
+                f"{file} is written from the generated schematic of the built project",
+                file,
+                f'add design.load_schematic("{file}") to the script; the next build draws the sheets from it',
+            )
+        )
+    return DrawnPlan(text, text != current, tuple(issues), counts)
+
+
+__all__ = [
+    "EVIDENCE",
+    "SYMBOL_FILE_NAME",
+    "SYNC_ISSUE_CODES",
+    "DrawnPlan",
+    "SyncPlan",
+    "issue",
+    "plan_drawn",
+    "plan_sync",
+]

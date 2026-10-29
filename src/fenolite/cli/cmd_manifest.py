@@ -459,7 +459,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     folders = sorted({_folder(folder, ctx, root) for folder in args.artifacts})
     checked: Checked | None = None
     if stages is not None:
-        checked = run_stages(board, stages, kicad_cli=args.kicad_cli, timeout=args.timeout, hint=NO_TOOL_HINT)
+        checked = run_stages(
+            board,
+            stages,
+            kicad_cli=args.kicad_cli,
+            timeout=args.timeout,
+            hint=NO_TOOL_HINT,
+            default=args.stages is None,
+        )
 
     own = _inside(target, root)
     entries = _design_entries(board, skip=own)

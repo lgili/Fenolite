@@ -21,7 +21,6 @@ from typing import Any, cast, get_args
 
 from fenolite.core.coords import Point, Size
 from fenolite.core.errors import FormatError
-from fenolite.model.presentation import PaperSize
 from fenolite.model.drawn import (
     FIELD_ROTATIONS,
     JUSTIFY_WORDS,
@@ -42,6 +41,7 @@ from fenolite.model.drawn import (
     DrawnSheetRef,
     DrawnSymbol,
 )
+from fenolite.model.presentation import PaperSize
 
 FILE_NAME = "schematic.toml"
 HEADER = "# Drawn schematic of a Fenolite design (docs/drawn-schematic.md). Code owns the nets."

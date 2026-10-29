@@ -500,6 +500,26 @@ def _open_pins(
             pad_nets[(component.id, pad)] = name
 
 
+def split_at(start: Point, end: Point, points: Sequence[Point]) -> list[tuple[Point, Point]]:
+    """The segment from ``start`` to ``end`` cut at every one of ``points`` that lies strictly inside it, in
+    order; ``[]`` for a segment of zero length. KiCad's editor keeps a wire cut at each junction on it, and
+    9.0.9 loses a corner of a wire whose inside holds a junction (measured with ``kicad-cli`` 9.0.9 and
+    10.0.6, change c0276): the writer cuts, which joins nothing that the junction did not join."""
+    if start == end:
+        return []
+    cross = [
+        p
+        for p in points
+        if p not in (start, end)
+        and (end.x - start.x) * (p.y - start.y) == (end.y - start.y) * (p.x - start.x)
+        and min(start.x, end.x) <= p.x <= max(start.x, end.x)
+        and min(start.y, end.y) <= p.y <= max(start.y, end.y)
+    ]
+    ordered = sorted(set(cross), key=lambda p: abs(p.x - start.x) + abs(p.y - start.y))
+    stops = [start, *ordered, end]
+    return [(stops[n], stops[n + 1]) for n in range(len(stops) - 1)]
+
+
 def _sheet(
     state: _Lowering,
     drawn: DrawnSchematic,
@@ -520,23 +540,27 @@ def _sheet(
     base = f"{name}:drawn:{key}"
     wires: list[Wire] = []
     slanted: list[str] = []
+    dots = [junction.at for junction in sheet.junctions]
+    # a wire is cut at its junctions, a bus at its junctions and bus entry ends: the form KiCad's editor
+    # keeps, which 9.0.9 needs to join them
+    entries = [*dots, *(entry.at for entry in sheet.bus_entries), *(entry.end for entry in sheet.bus_entries)]
     for i, polyline in enumerate(sheet.wires):
         for j in range(len(polyline) - 1):
-            start, end = polyline[j], polyline[j + 1]
-            if start == end:
-                continue
-            ident = derived_id("wir", ID_BACKEND, f"{base}:wire:{i}:{j}")
-            if start.x == end.x or start.y == end.y:
-                wires.append(Wire(id=ident, start=start, end=end))
-            else:
-                slanted.append(_segment_fragment(start, end, kicad_uuid(Junction(id=ident, position=start))))
+            for k, (start, end) in enumerate(split_at(polyline[j], polyline[j + 1], dots)):
+                ident = derived_id("wir", ID_BACKEND, f"{base}:wire:{i}:{j}" + (f":{k}" if k else ""))
+                if start.x == end.x or start.y == end.y:
+                    wires.append(Wire(id=ident, start=start, end=end))
+                else:
+                    slanted.append(
+                        _segment_fragment(start, end, kicad_uuid(Junction(id=ident, position=start)))
+                    )
     buses = [
         BusWire(
-            id=derived_id("bus", ID_BACKEND, f"{base}:bus:{i}:{j}"), start=polyline[j], end=polyline[j + 1]
+            id=derived_id("bus", ID_BACKEND, f"{base}:bus:{i}:{j}" + (f":{k}" if k else "")), start=a, end=b
         )
         for i, polyline in enumerate(sheet.buses)
         for j in range(len(polyline) - 1)
-        if polyline[j] != polyline[j + 1]
+        for k, (a, b) in enumerate(split_at(polyline[j], polyline[j + 1], entries))
     ]
     refs: list[SheetRef] = []
     for k, ref in enumerate(sheet.sheet_refs):

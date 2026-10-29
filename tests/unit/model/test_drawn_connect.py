@@ -49,18 +49,32 @@ def _sheet(
 
 
 def test_t_joint_and_crossing() -> None:
-    """Scenario "T joint and crossing"."""
+    """Scenario "T joint and crossing": without a junction, neither a T nor a crossing joins (measured with
+    ``kicad-cli`` 9.0.9 and 10.0.6: a wire end inside another wire stays apart)."""
     drawn, pins = _sheet()
     netlist = resolve(drawn, pins)
-    assert _group(netlist, ("A", "1")) == {("A", "1"), ("B1", "1"), ("B2", "1")}
+    assert _group(netlist, ("B1", "1")) == {("B1", "1"), ("B2", "1")}
+    assert _group(netlist, ("A", "1")) == {("A", "1")}
     assert _group(netlist, ("C1", "1")) == {("C1", "1"), ("C2", "1")}
+
+
+def test_junction_on_a_t() -> None:
+    drawn, pins = _sheet()
+    sheet = dataclasses.replace(drawn.sheets[0], junctions=(DrawnJunction(P(50, 0)),))
+    netlist = resolve(DrawnSchematic("root", (sheet,)), pins)
+    assert _group(netlist, ("A", "1")) == {("A", "1"), ("B1", "1"), ("B2", "1")}
 
 
 def test_junction_on_a_crossing() -> None:
     """Scenario "Junction on a crossing"."""
     drawn, pins = _sheet(junction=True)
-    netlist = resolve(drawn, pins)
+    sheet = dataclasses.replace(
+        drawn.sheets[0], junctions=(*drawn.sheets[0].junctions, DrawnJunction(P(50, 0)))
+    )
+    netlist = resolve(DrawnSchematic("root", (sheet,)), pins)
     assert _group(netlist, ("A", "1")) == {("A", "1"), ("B1", "1"), ("B2", "1"), ("C1", "1"), ("C2", "1")}
+    only_crossing = resolve(drawn, pins)
+    assert _group(only_crossing, ("C1", "1")) == {("B1", "1"), ("B2", "1"), ("C1", "1"), ("C2", "1")}
 
 
 def test_hermetic(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -135,7 +149,7 @@ def test_two_global_labels_on_one_net() -> None:
         DrawnLabel("global", "IN_PWR", P(100, 0), 0, "input"),
     )
     netlist = resolve(DrawnSchematic("root", (dataclasses.replace(sheet, labels=labels),)), pins)
-    net = next(n for n in netlist.nets if ("A", "1") in n.members)
+    net = next(n for n in netlist.nets if ("B1", "1") in n.members)
     assert net.name == "IN_PWR" and net.labels == ("IN_PWR", "VIN")
 
 
@@ -212,3 +226,16 @@ def test_order_and_splitting_do_not_matter(name: str, seed: int) -> None:
     again = resolve(_split(value, seed), pins)
     assert {(n.name, n.members) for n in first.nets} == {(n.name, n.members) for n in again.nets}
     assert first.open == again.open
+
+
+def test_a_pin_inside_a_wire_stays_open() -> None:
+    """A pin joins a wire at the wire's end only (``H-K-SCH-WIRE-END``, measured on 9.0.9 and 10.0.6); a
+    junction on the pin's point joins it."""
+    drawn, pins = _sheet()
+    sheet = drawn.sheets[0]
+    middle = DrawnSymbol("M", 1, P(30, 0))
+    pins = {**pins, ("root", "symbol", len(sheet.symbols)): (PinPoint("1", P(30, 0)),)}
+    alone = dataclasses.replace(sheet, symbols=(*sheet.symbols, middle))
+    assert ("M", "1") in resolve(DrawnSchematic("root", (alone,)), pins).open
+    joined = dataclasses.replace(alone, junctions=(DrawnJunction(P(30, 0)),))
+    assert _group(resolve(DrawnSchematic("root", (joined,)), pins), ("M", "1")) >= {("M", "1"), ("B1", "1")}

@@ -10,12 +10,16 @@ import dataclasses
 import _drawn
 import pytest
 
+from fenolite.backends.kicad import drawn as kdrawn
 from fenolite.backends.kicad import sch
 from fenolite.backends.kicad.sexpr import Node, parse
 from fenolite.backends.kicad.versions import LossyWriteError
 from fenolite.model.drawn import DrawnOpaque, DrawnSchematic
 
-GROUP = '(group "g" (uuid "7d2f6f90-63b4-4f4c-9b39-2f56b1f1e0aa") (members "0b6c1f2e-1d1a-4c6e-9d2b-1f0d2c3b4a51"))'
+GROUP = (
+    '(group "g" (uuid "7d2f6f90-63b4-4f4c-9b39-2f56b1f1e0aa") '
+    '(members "0b6c1f2e-1d1a-4c6e-9d2b-1f0d2c3b4a51"))'
+)
 
 
 def _root_children(text: str, head: str) -> list[Node]:
@@ -31,7 +35,10 @@ def test_every_kind_written(target: int) -> None:
     text = output.files[_drawn.root_name(output)].decode("utf-8")
     root = value.sheets[0]
     assert len(_root_children(text, "junction")) == len(root.junctions) == 1
-    assert len(_root_children(text, "bus")) == len(root.bus_segments()) == 1
+    # the bus is cut at the ends of its two entries, the form KiCad's editor keeps (kdrawn.split_at)
+    entries = [e.at for e in root.bus_entries] + [e.end for e in root.bus_entries]
+    cut = [piece for a, b in root.bus_segments() for piece in kdrawn.split_at(a, b, entries)]
+    assert len(root.bus_segments()) == 1 and len(_root_children(text, "bus")) == len(cut) == 3
     assert len(_root_children(text, "bus_entry")) == len(root.bus_entries) == 2
     assert len(_root_children(text, "bus_alias")) == len(root.bus_aliases) == 1
     assert len(_root_children(text, "wire")) == len(root.segments())

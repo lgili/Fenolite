@@ -10,8 +10,8 @@ import pytest
 from _buildhelp import resolver
 
 from fenolite.backends.kicad import drawn as kdrawn
-from fenolite.backends.kicad.schgen import GeneratedSchematic
 from fenolite.backends.kicad import sch
+from fenolite.backends.kicad.schgen import GeneratedSchematic
 from fenolite.dsl import to_model
 from fenolite.lens.build import _resolve  # pyright: ignore[reportPrivateUsage]
 from fenolite.model.drawn_connect import component_path
@@ -56,7 +56,8 @@ def test_deterministic_ids() -> None:
 
 
 def test_symbol_ids_follow_component_paths() -> None:
-    """A drawn symbol keeps the id the generator gives the same unit, so the board's paths survive a freeze."""
+    """A drawn symbol keeps the id the generator gives the same unit, so the board's paths survive a "
+    "freeze."""
     lowered = _lower("flat", 10)
     model = to_model(_drawn.design("flat"))
     paths = {component_path(c): c.id for c in model.circuit.components}

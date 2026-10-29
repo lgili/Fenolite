@@ -32,6 +32,7 @@ Without `--stages`, every stage of this table runs. `--stages A,B` selects some;
 | `zone.fill` | whether every zone is filled and its fill is current | yes |
 | `drc.kicad` | KiCad's design-rule check on the board, unconnected items included | yes |
 | `parity` | the board against the schematic, and symbol pins against footprint pads | no, for a project that `build` wrote |
+| `schematic.drawn` | a drawn schematic on disk against the script's nets (`drawn.netlist-differs`); listed only for such a build | no |
 | `netlist.assignment_compare` | the net of every pad, as the script, the board and KiCad see it | yes |
 | `roundtrip` | whether the board survives being read and written back | no |
 

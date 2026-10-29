@@ -12,14 +12,13 @@ from _buildhelp import build as build_design_of
 
 from fenolite.backends.kicad import drawn as kdrawn
 from fenolite.backends.kicad import sch
-from fenolite.dsl import Design
+from fenolite.backends.kicad.schlayout import pin_point
+from fenolite.backends.kicad.sym import read_symbol_library
+from fenolite.dsl import Design, to_model
 from fenolite.lens.build import BuildOutput
 from fenolite.lens.drawn import read_drawn
 from fenolite.model.circuit import Circuit
 from fenolite.model.drawn import DrawnSchematic
-from fenolite.backends.kicad.schlayout import pin_point
-from fenolite.backends.kicad.sym import read_symbol_library
-from fenolite.dsl import to_model
 from fenolite.model.drawn_connect import DrawnNetlist, PinKey, PinPoint, component_path, resolve
 from fenolite.model.library import SymbolDef
 from fenolite.model.schematic import SchematicSheet

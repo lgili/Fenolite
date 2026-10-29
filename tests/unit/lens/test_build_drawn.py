@@ -60,7 +60,8 @@ def test_drawn_example_built(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     assert {"drawn.kicad_sch", "sheets/child.kicad_sch"} <= set(files)
     root = parse((out / "drawn.kicad_sch").read_text(encoding="utf-8"))
     heads = [c.name for c in root.children if isinstance(c, Node)]
-    assert heads.count("junction") == 1 and heads.count("wire") == 4
+    # four drawn segments, the first cut at the junction on it (the form KiCad's editor keeps)
+    assert heads.count("junction") == 1 and heads.count("wire") == 5
     schematic = env["result"]["schematic"]  # type: ignore[index]
     assert schematic["source"] == "drawn"  # type: ignore[index]
     assert schematic["drawn"] == {
@@ -113,11 +114,11 @@ def test_placements_file_ignored(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 def test_coverage_error_writes_nothing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     script = copy_example(tmp_path / "src")
     text = script.read_text(encoding="utf-8")
-    script.write_text(
-        text.replace('connect(Net("GND"), u1[10])', 'r9 = Part("R9", "Mini:Mini_R", footprint="Mini:Mini_R_0603", '
-                     'value="1k")\ndesign.add(r9)\nconnect(Net("GND"), u1[10], r9[1])'),
-        "utf-8",
-    )  # fmt: skip
+    extra = (
+        'r9 = Part("R9", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="1k")\n'
+        'design.add(r9)\nconnect(Net("GND"), u1[10], r9[1])'
+    )
+    script.write_text(text.replace('connect(Net("GND"), u1[10])', extra), "utf-8")
     out = tmp_path / "B"
     code, env, _ = run(monkeypatch, str(script), "--out", str(out), "--confirm")
     assert code == 5 and not out.exists()

@@ -10,8 +10,10 @@ caller gives the connection point of every pin of every drawn symbol and power s
 (``pins``), computed from the symbol definitions. The rules are those of ``docs/formats/kicad/schematic.md``
 ("Drawn schematic connectivity"), each ``INFERRED`` until its hypothesis is measured:
 
-- a wire segment joins its two ends and every segment end, pin point, label anchor, sheet pin and junction
-  that lies on it; crossing segments do not join unless a junction lies on the crossing;
+- a wire segment joins its two ends and every label anchor and junction that lies on it; segments join
+  where their ends meet; a segment end inside another segment (a T) and a crossing join only through a
+  junction on that point, and a pin (of a symbol, a power symbol or a sheet reference) joins a wire at the
+  wire's end only, as ``kicad-cli`` 9.0.9 and 10.0.6 read them (``H-K-SCH-WIRE-END``, ``H-K-DRAWN-CONNECT``);
 - local labels of one text join on one sheet instance, global labels and power symbols of one text on
   every sheet, a hidden ``power_in`` pin joins the global net of its pin name, and a hierarchical label
   joins the sheet pin of its name on the reference of its instance;
@@ -317,19 +319,17 @@ def resolve(
         def name(node: object, klass: int, full: str, text: str) -> None:
             groups.names[node].append((klass, depth if klass else 0, full, text))  # noqa: B023
 
-        # wire segments: each joins the points on it
+        # wire segments: each joins its ends, and the junctions and label anchors on it
         interest: list[Point] = []
         for start, end in wires.all:
             union.join(point(start), point(end))
-            interest += [start, end]
         for k, symbol in enumerate(sheet.symbols):
             component = instance.component(symbol.part)
             for pin in pins.get((sheet.key, "symbol", k), ()):
                 element = (component, pin.number)
                 elements.add(element)
                 union.join(("E", element), point(pin.at))
-                touched[pin.at] += 1
-                interest.append(pin.at)
+                touched[pin.at] += 1  # a pin joins a wire at the wire's end only (H-K-SCH-WIRE-END)
                 if pin.hidden and pin.etype == "power_in" and pin.name and pin.name != "~":
                     union.join(("E", element), ("G", pin.name))
                     name(("G", pin.name), 0, pin.name, pin.name)
@@ -339,7 +339,6 @@ def resolve(
             global_net = not given or any(p.etype == "power_in" for p in given)
             for at in points:
                 touched[at] += 1
-                interest.append(at)
                 if global_net:
                     union.join(point(at), ("G", power.net))
             if global_net:
@@ -397,7 +396,6 @@ def resolve(
                     bus_pins.append((child, pin.name, pin.at))
                     continue
                 touched[pin.at] += 1
-                interest.append(pin.at)
                 union.join(point(pin.at), ("H", child, pin.name))
         for at in interest:
             for start, _end in wires.under(at):
