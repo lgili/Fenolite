@@ -21,7 +21,7 @@ another type; a flag without a value is a switch.
 | `bom` | yes | the bill of materials of a project, through a column template (writes FILE with --out) |
 | `build` | yes | build a design script into a KiCad project (runs DESIGN.py as your own code: never run it on an untrusted script) |
 | `capabilities` | no | list commands, backends, extras and external tools available here |
-| `catalog` | yes | inspect the built-in component catalog or export its visual browser (view --out FILE) |
+| `catalog` | yes | inspect the built-in component catalog and devices, export its visual browser (view --out FILE) or import a device template (import --symbol --footprint --id --out) |
 | `check` | yes | check a KiCad project (model, KiCad ERC and DRC findings, pad nets, round trips) or an Altium project or document (model, ERC lite, copper shorts and clearance, schematic parity, pad nets, round trips RT-A0 to RT-A2), read-only; --exclude writes one KiCad DRC exclusion into the project |
 | `convert` | yes | convert a project to another backend or KiCad major, reporting what is lost |
 | `diff` | yes | list the differences between two boards, libraries, built models or Altium files, gate them by kind, or merge them into a third KiCad board (runs no tool) |
@@ -151,13 +151,21 @@ another type; a flag without a value is a switch.
 
 ## catalog
 
-`fenolite catalog [OPTIONS] {list,show,view} [lib_id]`
+`fenolite catalog [OPTIONS] {import,list,show,view} [lib_id]`
 
-- `CATALOG_ACTION` (one of `list`, `show`, `view`): list entries, show one ID or export a browser
+- `CATALOG_ACTION` (one of `import`, `list`, `show`, `view`): list entries, show one ID, export a browser, or import a device template from a symbol and a footprint
 - `LIB_ID`: catalog ID required by show
-- `--kind {footprint,symbol}`
+- `--kind {device,footprint,symbol}`: list or show only this kind; show takes it when a device id equals a symbol or footprint id
 - `--query QUERY`: case-insensitive search in id, category and summary
-- `--out FILE`: required by view: write a standalone HTML browser
+- `--out FILE`: required by view (a standalone HTML browser) and by import (the device TOML to write)
+- `--symbol LIB:SYM`: import: the symbol the device joins
+- `--footprint LIB:FP`: import: the footprint the device joins
+- `--id NS:NAME`: import: the id of the device
+- `--pin FUNCTION=PIN[:PAD[+PAD]]` (repeatable): import: put symbol pin PIN in FUNCTION, on the given pads (default: the pad of its number)
+- `--manufacturer MANUFACTURER` (default ``): import: the manufacturer, printable text
+- `--mpn MPN` (default ``): import: the manufacturer part number, printable text
+- `--datasheet DATASHEET` (default ``): import: an https:// URL
+- `--ref-prefix REF_PREFIX` (default ``): import: the reference prefix
 
 ## check
 

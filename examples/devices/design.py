@@ -12,7 +12,7 @@ Build it with ``fenolite build examples/devices/design.py --out build/devices --
 footprint is authored in the script or comes from the built-in catalog, so no library table is needed.
 """
 
-from fenolite.dsl import Design, Net, Symbol, connect, farad, henry, mm, ohm
+from fenolite.dsl import Design, Net, Symbol, connect, farad, henry, mm
 
 design = Design("devices")
 design.board(mm(40), mm(25))
@@ -34,9 +34,9 @@ c1 = design.part("C1", device="Fenolite:C_0805", value=farad("10u"))
 c2 = design.part("C2", device="Fenolite:C_0603", value=farad("100n"))
 c3 = design.part("C3", device="Fenolite:C_0805", value=farad("22u"))
 l1 = design.part("L1", "Fenolite:Inductor", footprint="Fenolite:Chip_0805", value=henry("4u7"))
-r1 = design.part("R1", device="Fenolite:R_0603", value=ohm("31k6"))
-r2 = design.part("R2", device="Fenolite:R_0603", value=ohm("10k"))
-r3 = design.part("R3", device="Fenolite:R_0603", value=ohm("1k"))
+r1 = design.part("R1", device="Fenolite:R_0603", value="31k6")
+r2 = design.part("R2", device="Fenolite:R_0603", value="10k")
+r3 = design.part("R3", device="Fenolite:R_0603", value="1k")
 d1 = design.part("D1", device="Fenolite:LED_0603")
 
 connect(vin, j1.P1, c1.P1, u1.VIN, u1.EN)

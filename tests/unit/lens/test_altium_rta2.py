@@ -39,6 +39,7 @@ WITH_PCB = {
     "blink_official/design.py",
     "blink_routed/design.py",
     "board_40parts/design.py",
+    "devices/design.py",
 }
 """The examples whose build writes a PCB document."""
 SCHEMATIC_ONLY = {

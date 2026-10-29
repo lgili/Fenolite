@@ -1474,8 +1474,6 @@ def _run_altium(
         "rules": summary["rules"],
         "experimental": summary["experimental"],
         "script_output": run.output,
-        "devices": device_rows(run.design),
-        "device_files": [{"path": file.path, "sha256": file.sha256} for file in run.device_files],
     }
     if copper_input is not None:
         result["copper_input"] = copper_input

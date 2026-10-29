@@ -30,7 +30,7 @@ EXAMPLE = ROOT / "examples" / "devices"
 TARGETS = [pytest.param(10, marks=pytest.mark.kicad_min_major(10), id="t10"), pytest.param(9, id="t9")]
 PLAIN = '''\
 # Authored for Fenolite as test data: examples/devices/design.py with plain Part calls.
-from fenolite.dsl import Design, Net, Part, Symbol, connect, farad, henry, mm, ohm
+from fenolite.dsl import Design, Net, Part, Symbol, connect, farad, henry, mm
 
 design = Design("devices")
 design.board(mm(40), mm(25))
@@ -53,9 +53,9 @@ c1 = design.part("C1", "Fenolite:Capacitor", "Fenolite:Chip_0805", farad("10u"),
 c2 = design.part("C2", "Fenolite:Capacitor", "Fenolite:Chip_0603", farad("100n"), pad_map=IDENTITY)
 c3 = design.part("C3", "Fenolite:Capacitor", "Fenolite:Chip_0805", farad("22u"), pad_map=IDENTITY)
 l1 = design.part("L1", "Fenolite:Inductor", footprint="Fenolite:Chip_0805", value=henry("4u7"))
-r1 = design.part("R1", "Fenolite:Resistor", "Fenolite:Chip_0603", ohm("31k6"), pad_map=IDENTITY)
-r2 = design.part("R2", "Fenolite:Resistor", "Fenolite:Chip_0603", ohm("10k"), pad_map=IDENTITY)
-r3 = design.part("R3", "Fenolite:Resistor", "Fenolite:Chip_0603", ohm("1k"), pad_map=IDENTITY)
+r1 = design.part("R1", "Fenolite:Resistor", "Fenolite:Chip_0603", "31k6", pad_map=IDENTITY)
+r2 = design.part("R2", "Fenolite:Resistor", "Fenolite:Chip_0603", "10k", pad_map=IDENTITY)
+r3 = design.part("R3", "Fenolite:Resistor", "Fenolite:Chip_0603", "1k", pad_map=IDENTITY)
 d1 = design.part(
     "D1", "Fenolite:LED", "Fenolite:LED0603_Kingbright_APT1608SURCK", "LED_0603", pad_map={"1": "2", "2": "1"}
 )

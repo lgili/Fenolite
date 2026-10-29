@@ -518,6 +518,31 @@ warning.
   KiCad 9.0.9 and 10.0.6 compare net names in custom-rule conditions without regard to case
   (`H-K-DRU-COND`, `docs/formats/kicad/rules.md`); the build refuses such names whatever is measured.
 
+## Devices
+
+A part can be placed from a **device**: one reviewed record that joins a symbol, a footprint, the map from
+pin function to pads, an identity, ratings and an evidence label (change c0248; the format, its sources and
+its review are in `docs/devices.md`).
+
+```python
+u1 = design.part("U1", device="Example:BUCK_6V_2A")  # Part(...) and design.add(...) in one call
+r1 = design.part("R1", device="Fenolite:R_0603", value=ohm("4k7"))
+connect(vin, u1.VIN, r1.P1)
+```
+
+- `Part(ref, device=ID)` takes exactly one of `lib_id` and `device`; with a device, `footprint` and
+  `pad_map` are refused, `value` defaults to the device's, and `Manufacturer`, `MPN` and the device's
+  properties join the part's (a conflicting `MPN` raises `DslError`). `part.device` is the `DeviceDef`.
+- `design.part(...)` and `module.part(...)` build a `Part` and add it, with or without a device.
+  `design.devices(*records)` registers `DeviceDef` records that win over `devices/*.toml` beside the script
+  and over the shipped `Fenolite:` devices.
+- On a device part, `u1.VIN` and `u1["VIN"]` are checked when they are called: a wrong name raises
+  `PinNameError` (a `DslError` and an `AttributeError`) naming the closest functions. A function named like
+  an attribute of `Part` is reached as `u1["place"]`. `u1.pad("GND")` is the first pad of a function.
+- The build resolves a function to all its symbol pins, checks the device against its symbol and footprint
+  (`build.device-mismatch`), writes the device's datasheet as the `Datasheet` field and reports the devices
+  in `result.devices`. A design without device parts builds exactly as before.
+
 ## No-connect marks
 
 ```python

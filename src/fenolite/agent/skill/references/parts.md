@@ -109,6 +109,45 @@ r1.place(mm(29), mm(14), rot=90)
 - **`properties`** are user fields of the part, as text: a part number, a rating. `Reference`, `Value`,
   `Footprint`, `Datasheet` and `Description` are reserved names.
 
+## Parts from devices
+
+A device joins a symbol, a footprint, the pin map, the MPN, the datasheet and ratings in one reviewed record
+(`docs/devices.md`). `design.part(ref, device=...)` creates the part and adds it; pins are named by function
+and checked at once.
+
+```fenolite-cmd
+fenolite catalog list --kind device --json
+fenolite catalog show Fenolite:LED_0603 --json
+fenolite catalog import --symbol Fenolite:Resistor --footprint Fenolite:Chip_0603 --id Proj:R_0603 --out devices/r_0603.toml --dry-run --json
+```
+
+```fenolite-design
+from fenolite.dsl import Design, Net, PinNameError, connect, mm, ohm
+
+design = Design("indicator")
+design.board(mm(20), mm(10))
+j1 = design.part("J1", device="Fenolite:Conn_1x2_P2.54", value="5V")
+r1 = design.part("R1", device="Fenolite:R_0603", value=ohm("1k"))
+d1 = design.part("D1", device="Fenolite:LED_0603")
+vin, gnd, led = Net("VIN"), Net("GND"), Net("LED_A")
+connect(vin, j1.P1, r1.P1)
+connect(led, r1.P2, d1.A)  # the anode, wherever its pad is
+connect(gnd, j1.P2, d1["K"])
+try:
+    d1.ANODE
+except PinNameError as error:
+    print(error)  # part D1 (device Fenolite:LED_0603) has no pin 'ANODE'; pins: A, K
+j1.place(mm(4), mm(5), rot=90)
+r1.place(mm(10), mm(5))
+d1.place(mm(15), mm(5))
+```
+
+- The shipped devices are generic (`INFERRED`, no MPN). Put your own records in `devices/*.toml` beside the
+  script; `catalog import` writes a template (`UNVERIFIED`) through `--dry-run` and `--confirm --plan`.
+- A wrong pin name raises `PinNameError` at its line with the closest names. The build resolves a function to
+  its pins, refuses a device that disagrees with its symbol or footprint (`build.device-mismatch`) and lists
+  each device with its label in `result.devices`. `device.edited` says an imported record was changed.
+
 ## Typed interfaces
 
 An interface names a group of nets and gives each a role. `attach()` connects the pins of one part by
