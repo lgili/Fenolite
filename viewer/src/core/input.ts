@@ -18,15 +18,17 @@ import { $, esc, showInfo } from "./dom";
 import { cv, S, st, view } from "./state";
 import { fmtLen } from "./units";
 import { fit, m, s2w } from "./viewport";
+import { netModel, partModel } from "../inspect/model";
+import { inspect } from "../panels/inspector";
 export function flip() { view.mirror = !view.mirror; refreshToolbar(); draw(); }
 export function toggle(key) { st[key] = !st[key]; if (key === "measure" && !st.measure) st.mpts = []; refreshToolbar(); draw(); }
 export function find(q) {
   q = q.trim().toLowerCase(); if (!q || !S) return;
   if (isSch()) { schFind(q); return; }
   const ci = S.comps.findIndex(c => c.ref.toLowerCase() === q);
-  if (ci >= 0) { st.selComp = ci; st.selNet = -1; const b = S.comps[ci].bbox; if (b) fit([b[0] - 5, b[1] - 5, b[2] + 5, b[3] + 5]); showInfo(compInfo(ci)); draw(); return; }
+  if (ci >= 0) { st.selComp = ci; st.selNet = -1; const b = S.comps[ci].bbox; if (b) fit([b[0] - 5, b[1] - 5, b[2] + 5, b[3] + 5]); inspect(() => partModel(ci)); draw(); return; }
   const ni = S.nets.findIndex(n => n.toLowerCase() === q);
-  if (ni >= 0) { st.selNet = ni; st.selComp = -1; showInfo(`Net: <b>${esc(S.nets[ni])}</b>`); draw(); return; }
+  if (ni >= 0) { st.selNet = ni; st.selComp = -1; inspect(() => netModel(ni)); draw(); return; }
   showInfo(`Nothing named <b>${esc(q)}</b> on this board.`);
 }
 export function setSidebar(open) {

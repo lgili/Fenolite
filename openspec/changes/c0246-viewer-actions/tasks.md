@@ -17,6 +17,8 @@
 ## 4. Page
 
 - [x] 4.1 Add the Actions group, the forms, the inspector actions (Move or rotate, Move with copper, Waive finding), the review dialog with the board preview, Confirm, the receipt view with reload, Undo and Review again on `FEN-4002`; no action control on exported pages or when actions are not enabled. Proof: `uv run pytest tests/visual/test_actions.py tests/visual/test_run.py -q` in the `viewer` CI job.
+- [x] 4.2 (found in testing, 2026-10-29) Do not offer Waive on a finding of a check of an earlier revision of the file (the report's binding does not match the document, or its digest differs from the scene's): the review and the inspector say why and offer Run again. Proof: `uv run pytest tests/visual/test_actions.py -k older_revision -q` in the `viewer` CI job.
+- [x] 4.3 (found in testing, 2026-10-29) After an action writes a project file the checks read (a waiver writes `.kicad_pro`, not the board, so the board's digest still matches), mark that document's review results stale until a check runs again, and offer Run again (the document's last run) in the run strip, the Project review and the inspector; Waive is not offered meanwhile. Proof: `uv run pytest tests/visual/test_actions.py -k stale -q` in the `viewer` CI job.
 
 ## 5. Teaching and documentation
 

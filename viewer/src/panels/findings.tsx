@@ -14,6 +14,8 @@ import { set3D } from "../three/view3d";
 import { Icon } from "../ui/icons";
 import { showSection } from "../ui/section";
 import { Empty } from "../ui/states";
+import { imodel, irow, isection } from "../inspect/model";
+import { inspect } from "./inspector";
 function showGroup(id, on) { if (on) st.ovOff.delete(id); else st.ovOff.add(id); draw(); }
 function openGroup(id) { if (st.ovOpen.has(id)) st.ovOpen.delete(id); else st.ovOpen.add(id); buildFindings(); }
 // keys: a row is never reused for a row of another kind, so no attribute of one is left on the other
@@ -59,5 +61,6 @@ export function gotoFinding(i) {
   if (o.layer && (o.layer.startsWith("B.") !== view.mirror)) flip();
   const g = (S.meta.findings || []).find(x => x.id === ovGroup(o));
   fit([b[0] - 4, b[1] - 4, b[2] + 4, b[3] + 4]); buildFindings();
-  showInfo(`<b>${esc(g ? g.title : ovGroup(o))}</b><br>${esc(o.label)}${g && g.note ? `<br><small>${esc(g.note)}</small>` : ""}`);
+  inspect(() => imodel("finding", g ? g.title : ovGroup(o), [isection("Finding", [irow("Group", g ? g.title : ovGroup(o)), irow("Item", o.label),
+    irow("Layer", o.layer), irow("Rule", g && g.note)])], { subtitle: "Review finding", target: { overlay: i, comp: -1, net: -1 } }));
 }

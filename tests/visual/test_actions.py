@@ -184,3 +184,78 @@ await new Promise(r => setTimeout(r, 300));
 return {panel:$("actionPanel").hidden, waive:!!document.getElementById("actWaive")};
 """
     assert _act(_live(board_page, tmp_path), tmp_path, refused) == {"panel": True, "waive": False}
+
+
+CHECK = """
+const finding = {code:"kicad.drc.clearance", severity:"error", message:"Review the gap", stage:"drc.kicad",
+  evidence:"KICAD-VERIFIED", where:"@10,12", at:[10, 12]};
+const withCheck = matched => {
+  S.check = {findings:[{...finding}], counts:{error:1, warning:0, info:0}, notes:[], mm:true};
+  S.project_review = {binding: matched ? {matched:true, sha256:S.meta.sha256,
+    note:"Matches this document's bytes only."}
+    : {matched:false, sha256:"0".repeat(64), note:"Report input does not match this document and revision; "
+      + "results are historical."}};
+  REVIEW.doc = DOC.id; buildProjectReview(); REVIEW.selected = 0; filterReviewFindings();
+};
+"""
+
+
+def test_waive_not_offered_on_an_older_revision(board_page: Path, tmp_path: Path) -> None:
+    """c0246, fix of 2026-10-29 (task 4.2): a finding of a check of an earlier revision of the file offers no
+    Waive, in the review or the inspector, and says why; on the current revision the inspector plans it."""
+    script = (
+        STUB
+        + CHECK
+        + """
+withCheck(false);
+const review = {why: $("actWaiveWhy") && $("actWaiveWhy").textContent, button: !!$("actWaive")};
+selectFinding(0); await until(() => !!$("inspWaiveWhy"));
+const inspector = {why: $("inspWaiveWhy").textContent, button: !!$("inspWaive")};
+withCheck(true); selectFinding(0); await until(() => !!$("inspWaive"));
+$("inspWaive").click(); await until(() => !!$("inspReason"));
+$("inspReason").value = "Accepted by design"; planReply = plan({command:"check", action:"waive"});
+$("inspWaivePlan").click(); await until(() => plans > 0);
+return {review, inspector, offered: true, plans, why: !!$("inspWaiveWhy")};
+"""
+    )
+    result = _act(_live(board_page, tmp_path), tmp_path, script)
+    assert result["review"]["button"] is False and "earlier revision" in result["review"]["why"]
+    assert result["inspector"]["button"] is False and "earlier revision" in result["inspector"]["why"]
+    assert result["plans"] == 1 and result["why"] is False
+
+
+def test_a_waiver_marks_the_results_stale(board_page: Path, tmp_path: Path) -> None:
+    """c0246, fix of 2026-10-29 (task 4.3): a write of the project file after the checks marks their results
+    stale; the strip, the review and the inspector offer Run again, and Waive is not offered meanwhile."""
+    script = (
+        STUB
+        + CHECK
+        + """
+RUNS.enabled = true; RUNS.offer = {commands:{check:{options:{stages:{choices:["drc.kicad"], default:[]}}}}};
+withCheck(true);
+planReply = plan({command:"check", action:"waive"});
+confirmReply = {job:"c1", kind:"confirm", state:"done", command:"check", action:"waive", doc:DOC.id,
+  exit:0, progress:[],
+  envelope:{}, receipt:{id:"0123456789abcdef", written:[{path:"two_layer.kicad_pro",
+    sha256:"c".repeat(64)}], backup:[]}};
+actPlan("waive", {finding:0, reason:"Accepted by design"});
+await until(() => !!$("planConfirm")); $("planConfirm").click();
+await until(() => $("planTitle").textContent.startsWith("Written"));
+actClose(); await until(() => !!$("runAgain"));
+const strip = $("runStrip").textContent;
+withCheck(true); const banner = $("reviewRunAgain") ? $("reviewRunAgain").textContent : null;
+selectFinding(0); await until(() => !!$("inspWaiveWhy"));
+const inspector = {why: $("inspWaiveWhy").textContent, again: !!$("inspRunAgain"), waive: !!$("inspWaive")};
+$("runAgain").click(); await until(() => calls.some(c => c[0] === "run"));
+return {strip, banner, inspector, ran: calls.filter(c => c[0] === "run").length};
+"""
+    )
+    result = _act(_live(board_page, tmp_path), tmp_path, script)
+    assert "two_layer.kicad_pro" in result["strip"] and "stale" in result["strip"]
+    assert result["banner"] == "Run again"
+    assert (
+        result["inspector"]["again"]
+        and not result["inspector"]["waive"]
+        and "stale" in result["inspector"]["why"]
+    )
+    assert result["ran"] == 1

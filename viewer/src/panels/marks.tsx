@@ -13,6 +13,8 @@ import { set3D } from "../three/view3d";
 import { Icon } from "../ui/icons";
 import { showSection } from "../ui/section";
 import { Empty } from "../ui/states";
+import { imodel, irow, isection } from "../inspect/model";
+import { inspect } from "./inspector";
 export let MARKS = [];
 export const marksKey = () => "fenolite.view.marks:" + (PROJECT ? PROJECT.name : "");
 export const serverMarks = () => LIVE && PROJECT && PROJECT.marks_file;
@@ -46,7 +48,8 @@ async function openMark(m, i) {   // the mark's document, then its place; a newe
   const doc = allDocs().find(x => x.name === m.doc);
   if (doc && doc !== DOC) { const shown = await openDoc(doc); if (!shown || shown !== navigation) return; } if (st.mode3d) set3D(false);
   const x = m.x_nm / 1e6, y = m.y_nm / 1e6, e = isSch() ? 25 : 5; fit([x - e, y - e, x + e, y + e]);
-  showInfo(`<b>Mark ${i + 1}</b><br>${esc(m.note)}${m.select ? `<br>On: ${esc(m.select)}` : ""}<br><small>${esc(m.created)}</small>`);
+  inspect(() => imodel("mark", `Mark ${i + 1}`, [isection("Review mark", [irow("Note", m.note || "(no note)"), irow("On", m.select), irow("Document", m.doc), irow("Created", m.created)])],
+    { subtitle: serverMarks() ? "Kept in the marks file" : "Kept in this browser" }));
 }
 // A row keeps its click as the element's onclick (c0243): the navigation tests call it and await its promise.
 export function MarksPanel({ marks }: { marks: any[] }) {

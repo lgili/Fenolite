@@ -17,19 +17,20 @@ import { MIL_MM, UNIT } from "../core/units";
 import { actClose, actDialog, actRender } from "../dialogs/plan-review";
 import { buildDiffList } from "../panels/changes";
 import { buildReceipts } from "../panels/receipts";
-import { runCall } from "../review/runs";
-export const ACTS = { enabled:false, token:"", offer:null, doc:null, reason:"", receipts:[], job:null, timer:0, request:null, saved:null, open:null };
+import { markStale, runCall, RUNS } from "../review/runs";
+import { refreshInspector } from "../panels/inspector";
+export const ACTS = { failed:false, enabled:false, token:"", offer:null, doc:null, reason:"", receipts:[], job:null, timer:0, request:null, saved:null, open:null };
 export const ACT_FORMS = ["fill", "tidy", "silk", "testpoints", "export", "bom"];
 function actHeaders() { return { "Content-Type": "application/json", "X-Fenolite-Action": "1", "X-Fenolite-Token": ACTS.token }; }
 export async function actionsLoad() {
   if (!LIVE || PREVIEW_MODE || !DOC) return;
-  const doc = DOC.id;
+  const doc = DOC.id; ACTS.failed = false;
   try { const r = await fetch(`actions?doc=${encodeURIComponent(doc)}`, { cache: "no-store", headers: { "X-Fenolite-Action": "1" } });
     const data = await r.json(); if (!DOC || DOC.id !== doc) return;
     ACTS.enabled = !!data.enabled; ACTS.token = data.token || ""; ACTS.offer = data.actions || {}; ACTS.receipts = data.receipts || [];
     ACTS.reason = data.reason || ""; ACTS.doc = doc;
-  } catch (e) { ACTS.enabled = false; ACTS.doc = doc; }
-  buildActionPanel();
+  } catch (e) { ACTS.enabled = false; ACTS.doc = doc; ACTS.failed = true; }   // c0244: the Project review asks again when it opens
+  buildActionPanel(); refreshInspector();   // c0244: the inspector offers the actions that apply
 }
 function actLen(mm) { return UNIT === "mil" ? `${(mm / MIL_MM).toFixed(2)}mil` : `${mm.toFixed(3)}mm`; }
 function actField(key, o, value) {   // one typed field of an action form, built from the server's option table
@@ -66,9 +67,9 @@ function actNudge(box) {   // arrow keys in the move form shift the part by one 
     f.value = `${(+v[1] + m[1] * step * (e.shiftKey ? 10 : 1)).toFixed(v[2] === "mm" ? 3 : 1)}${v[2]}`;
   });
 }
-export function buildActionPanel() {
+export function buildActionPanel(retry = false) {   // retry: the Project review was opened, a failed read of the offer is tried again
   const panel = $("actionPanel"); if (!panel) return;
-  if (LIVE && DOC && ACTS.doc !== DOC.id) { ACTS.doc = DOC.id; actionsLoad(); }
+  if (LIVE && DOC && (ACTS.doc !== DOC.id || (retry && ACTS.failed))) { ACTS.doc = DOC.id; actionsLoad(); }
   panel.innerHTML = ""; panel.hidden = !ACTS.enabled || !DOC || ACTS.doc !== DOC.id; if (panel.hidden) return;
   const head = document.createElement("h3"); head.textContent = "Actions (writes files)"; panel.appendChild(head);
   const unavailable: any = Object.values(ACTS.offer).find((a: any) => !a.available);
@@ -83,8 +84,17 @@ export function buildActionPanel() {
   buildReceipts(panel, ACTS.receipts);
   for (const b of panel.querySelectorAll("button")) if (ACTS.job) b.disabled = true;
 }
+export function waiveBlocked() {   // c0246, fix of 2026-10-29: why Waive is not offered on the current results, or ""
+  const b = S && S.project_review?.binding, stale = DOC && RUNS.stale.get(DOC.id);
+  if (stale) return stale.text;
+  if (b && (!b.matched || (b.sha256 && S.meta?.sha256 && b.sha256 !== S.meta.sha256)))
+    return "This finding comes from a check of an earlier revision of the file, so its index may name another violation now. Run the checks again before waiving it.";
+  return "";
+}
 export function actWaiveButton(x, detail) {   // Waive finding, for a finding of KiCad's DRC listed in the review
   if (!ACTS.enabled || x.checkIndex == null || x.stage !== "drc.kicad" || !ACTS.offer?.waive?.available) return;
+  const why = waiveBlocked();
+  if (why) { const p = document.createElement("p"); p.className = "actWhy"; p.id = "actWaiveWhy"; p.textContent = `Waive is not offered. ${why}`; detail.appendChild(p); return; }
   const box = document.createElement("div"); box.className = "actWaive";
   box.innerHTML = '<label class="actField">Reason for the waiver (stored in the project)<input id="actReason" maxlength="300" placeholder="Accepted by design: …"></label><button id="actWaive">Waive finding…</button>';
   const reasonField = box.querySelector("#actReason") as HTMLInputElement;
@@ -161,6 +171,10 @@ function actWritten(job) {
   if (job.review_again) return actDialog({ phase: "changed", title, message: actError(job), hint: job.hint });
   if (job.state !== "done") return actDialog({ phase: "error", title, message: actError(job) });
   actDialog({ phase: "receipt", title, job });
+  const written = (job.receipt?.written || []).map(w => String(w.path)), own = DOC && DOC.id === job.doc ? DOC.name.toLowerCase() : "";
+  const others = written.filter(p => p.replace(/\\/g, "/").split("/").pop().toLowerCase() !== own);
+  if (job.action !== "undo" && others.length && (job.action === "waive" || others.some(p => /\.(kicad_pro|kicad_dru)$/i.test(p))))
+    markStale(job.doc, `The checks predate this write: ${others.join(", ")} changed (${title.toLowerCase()}). Their results are stale until the checks run again.`);
   if (DOC && DOC.id === job.doc) { invalidateScene(job.doc); openDoc(DOC, true); }
   actionsLoad();
 }

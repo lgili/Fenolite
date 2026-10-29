@@ -306,3 +306,64 @@ def test_palette_match_ranking_under_node() -> None:
     assert out["r1"].index("GND_R1") < out["r1"].index("PR1")  # a word start before a subsequence
     assert out["cmd"] == ["Fit to the window", "Review mark"]
     assert out["net"] == ["GND_R1"] and out["part"] == ["R1", "R10", "PR1"] and out["none"] == []
+
+
+# ---- c0244: the dock, the inspector, the layers panel, the net emphasis
+
+
+def test_dock_and_layer_list_in_the_page() -> None:
+    """Design decisions 1, 4 and 5 (c0244): the dock with the Properties body `info`, the Layers panel
+    `layerList`, the view cube, the emphasis of a picked net and Dim at 0.22."""
+    html = template()
+    for element in (
+        "dock",
+        "dockResize",
+        "dockProps",
+        "info",
+        "infoEmpty",
+        "dockLayers",
+        "layerList",
+        "dock3d",
+        "cube",
+    ):
+        assert f'id="{element}"' in html, element
+    assert 'id="bar3d"' not in html and "HL_ALPHA = { dim: 0.22" in html
+    draw = _block(html, "function paintEmphasis(", "function draw()")
+    assert "--emphasis" in html and "ZONE_FILL_ALPHA" in draw and "lighten(" not in draw
+    assert "function camPreset(" in html and "front: [" in html and "function drawCube(" in html
+
+
+def test_inspector_model_under_node() -> None:
+    """Scenario "Missing values are left out" (c0244): an authored pad without a drill gives no drill row,
+    every row has a copy control, and "Copy all" lists the rows as label: value lines."""
+    html = template()
+    code = _block(html, "// ---- inspector model (c0244)", "// ---- end inspector model")
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    script = code + (
+        "const f = {len: v => v.toFixed(3) + ' mm', nm: v => (v / 1e6).toFixed(3) + ' mm',"
+        " pair: (a, b) => a.toFixed(3) + ' × ' + b.toFixed(3) + ' mm',"
+        " xy: (a, b) => a.toFixed(3) + ', ' + b.toFixed(3) + ' mm',"
+        " area: a => a.toFixed(3) + ' mm²'};"
+        "const pad = {number: '1', shape: 'rect', kind: 'smd', w: 900000, h: 950000, x: 1.5, y: 2, rot: 90,"
+        " layers: ['F.Cu', 'F.Mask'], drill: null, mask: 50000, mask_src: 'the pad'};"
+        "const s = padSection(pad, f, id => id === 'F.Cu' ? 'Top Layer' : id);"
+        "const empty = padSection({}, f, id => id);"
+        "const m = imodel('pad', 'R1 · pad 1', [s, isection('Nothing', [irow('a', null), irow('b', '')])]);"
+        "const part = partSection({ref: 'R1', value: '', footprint: 'R_0603', side: 'top', x: 1, y: 2,"
+        " rotation: 0, bbox: null}, null, [['Datasheet', 'https://example.invalid/r']], f);"
+        "console.log(JSON.stringify({rows: s.rows, empty, sections: m.sections.length, text: modelText(m),"
+        " part: part.rows.map(r => [r.label, r.value, r.link || null])}));"
+    )
+    done = subprocess.run([node, "-e", script], capture_output=True, text=True, check=True, timeout=60)
+    out = json.loads(done.stdout)
+    labels = [r["label"] for r in out["rows"]]
+    assert "Drill" not in labels and "Slot length" not in labels and "Paste expansion" not in labels
+    assert labels[:4] == ["Number", "Shape", "Mounting", "Size"] and "Mask opening" in labels
+    assert all(r["copy"] is True for r in out["rows"])
+    assert dict((r["label"], r["value"]) for r in out["rows"])["Layers"] == "Top Layer, F.Mask"
+    assert out["empty"] is None and out["sections"] == 1
+    assert "Size: 0.900 × 0.950 mm" in out["text"] and out["text"].startswith("R1 · pad 1")
+    assert ["Value", "", None] not in out["part"] and ["Rotation", "0°", None] in out["part"]
+    assert ["Datasheet", "https://example.invalid/r", "https://example.invalid/r"] in out["part"]

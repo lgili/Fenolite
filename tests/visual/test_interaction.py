@@ -43,7 +43,7 @@ def test_selection(pages: dict[str, Path], tmp_path: Path) -> None:
     found = _act(
         pages, tmp_path, 'const p = pad("R1-1"); click(p.x, p.y); await settle(); return $("info").innerText;'
     )
-    assert "R1" in found and "Net:" in found
+    assert "R1" in found and "NET" in found.upper()  # c0244: the dock's Net section
 
 
 def test_measurement_snaps_to_pad_centres(pages: dict[str, Path], tmp_path: Path) -> None:
@@ -122,7 +122,7 @@ def test_shortcuts_respect_browser_and_composition(
 def test_sidebar_and_toolbar_fit_the_viewport(pages: dict[str, Path], tmp_path: Path, width: int) -> None:
     script = """
     const size = () => ({
-      canvas: $("wrap").getBoundingClientRect().width,
+      canvas: $("wrap").getBoundingClientRect().width, dock: $("dock").getBoundingClientRect().width,
       sidebar: getComputedStyle($("side")).display,
       sidebarWidth: $("side").getBoundingClientRect().width,
       toggle: getComputedStyle($("bSidebar")).display,
@@ -150,7 +150,10 @@ def test_sidebar_and_toolbar_fit_the_viewport(pages: dict[str, Path], tmp_path: 
             assert state["toolbarContent"] <= state["toolbarWidth"]
     else:
         assert initial["sidebar"] == "flex" and initial["sidebarWidth"] == 260
-        assert initial["toggle"] == "none" and initial["canvas"] == width - 260
+        assert (
+            initial["toggle"] == "none" and initial["canvas"] == width - 260 - initial["dock"]
+        )  # c0244: the dock
+        assert initial["dock"] == 320
 
 
 @pytest.mark.parametrize("scene", ("table", "unloaded"))

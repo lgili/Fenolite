@@ -19,7 +19,6 @@
   #wrap { grid-column:1; min-width:0; min-height:0; }
   #side { display:none; grid-column:1; grid-row:2/4; width:min(300px,calc(100vw - 32px)); z-index:8; box-shadow:8px 0 24px var(--shadow); }
   #app.sidebar-open #side { display:flex; }
-  #info { max-width:calc(100% - 20px); max-height:70%; overflow:auto; }
   #status { gap:var(--space-3); }
   .sCoord { min-width:0; }
   #cur, #unitv { display:none; }

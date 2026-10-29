@@ -43,10 +43,8 @@
   </aside>
   <main id="wrap"><canvas id="cv"></canvas><canvas id="gl"></canvas>
     <div id="progress" aria-hidden="true"></div>
-    <div id="bar3d"><button id="v3top">Top</button><button id="v3bot">Bottom</button><button id="v3iso">Iso</button>
-      <label><input type="checkbox" id="c3body" checked> Bodies</label></div>
-    <div id="info"></div><div id="tablewrap"></div><div id="doccard"><div id="doctext"></div></div>
-    <div id="lsmenu"></div>
+    <canvas id="cube" width="112" height="112" aria-label="View cube: click a face or a corner to turn the 3D view" role="img"></canvas>
+    <div id="tablewrap"></div><div id="doccard"><div id="doctext"></div></div>
     <div id="runStrip" role="status" aria-live="polite" hidden></div>
     <section id="projectReview" aria-label="Project review" hidden>
       <div class="reviewHead"><h2>Project review</h2><button id="reviewClose" type="button" class="tb" aria-label="Close project review">Close</button></div>
@@ -64,9 +62,19 @@
       <div id="reviewFindings"></div><div id="reviewDetail"></div>
     </section>
   </main>
-  <div id="tabs"><button id="ls" type="button" class="board-only" title="Layer sets">LS</button><div id="tablist" style="display:flex"></div></div>
+  <aside id="dock" aria-label="Inspector">
+    <div id="dockResize" role="separator" aria-orientation="vertical" aria-label="Resize the inspector" tabindex="0"></div>
+    <div id="dockHead"></div>
+    <div id="dockProps" class="dockBody" role="tabpanel" aria-labelledby="dockTab_props"><div id="info"></div><div id="infoEmpty"></div></div>
+    <div id="dockLayers" class="dockBody" role="tabpanel" aria-labelledby="dockTab_layers" hidden>
+      <div class="layerHead"><span>Layers</span><button id="ls" type="button" class="tb small" aria-haspopup="menu" data-tip="Layer sets and the current layer alone" data-keys="Shift S">Presets</button></div>
+      <div id="layerList"></div></div>
+    <div id="dock3d" class="dockBody" role="tabpanel" aria-labelledby="dockTab_3d" hidden></div>
+  </aside>
+  <div id="tabs"><div id="tablist" style="display:flex"></div></div>
   <footer id="status" aria-label="Status"></footer>
 </div>
+<div id="lsmenu" class="menu" role="menu" aria-label="Layer sets"></div>
 <dialog id="palette" aria-label="Command palette"></dialog>
 <dialog id="shortcuts" aria-labelledby="keysTitle"></dialog>
 <dialog id="about" aria-labelledby="aboutTitle" tabindex="-1"></dialog>

@@ -14,9 +14,14 @@ import { DocCard, setLoading } from "../ui/states";
 import { $, showInfo } from "./dom";
 import { cv, DOC, PROJECT, RAW, SCENE_READS, SCENES, setDoc, st } from "./state";
 import { setDocTitle } from "../panels/toolbar";
+import { refreshDock } from "../panels/dock";
+import { refreshSummary } from "../panels/inspector";
+import { refreshToolbar } from "../panels/toolbar";
+import { ACTS, actionsLoad } from "../actions/actions";
+import { PREVIEW_MODE } from "./env";
 export let navigation = 0, loadingNavigation = 0;
 export function docCard(d, state?, error?) {   // the card over the drawing (c0243): reading, a failed read with Retry, nothing to draw
-  REVIEW.doc = null; buildProjectReview();
+  REVIEW.doc = null; buildProjectReview(); preact.render(null, $("infoEmpty"));
   $("doccard").style.display = "flex"; $("tablewrap").style.display = "none"; cv.style.display = "none"; glc.style.display = "none";
   const kind = state || (!d.present ? "missing" : !d.viewable ? "noviewer" : "empty");
   const project = !allDocs().some(x => x.viewable && x.present);
@@ -63,6 +68,8 @@ export function loadScene(scene, keepView) {
   else if (scene.kind === "schematic") loadSch(scene, keepView);
   else loadBoard(scene, keepView);
   runReapply(scene);   // c0245: the results of this session's runs
+  refreshDock(); refreshSummary(); refreshToolbar();   // c0244: the dock's tabs and the document's summary
+  if (LIVE && !PREVIEW_MODE && DOC && ACTS.doc !== DOC.id) { ACTS.doc = DOC.id; actionsLoad(); }   // c0246: what the inspector may offer
   REVIEW.doc = DOC?.id || null; buildProjectReview();
 }
 

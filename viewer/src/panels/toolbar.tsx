@@ -20,6 +20,7 @@ import { openPalette } from "../dialogs/palette";
 import { RUNS } from "../review/runs";
 import { Icon } from "../ui/icons";
 import { Menu, MenuItem } from "../ui/menu";
+import { DOCK, dockNarrow } from "./dock";
 
 export let DOC_TITLE = "Fenolite viewer";
 export function setDocTitle(name, base?) { DOC_TITLE = name; document.title = (base || name) + " · Fenolite viewer"; refreshToolbar(); }
@@ -117,6 +118,7 @@ export function Toolbar() {
         { id: "themeDark", title: "Dark", icon: "moon", radio: true, checked: THEME === "dark", run: () => runCommand("app.theme.dark") },
       ]} />
       <Btn id="bKeys" cmd="app.shortcuts" icon="keyboard" cls="hideNarrow" />
+      {S ? <Btn id="bDock" cmd="view.dock" icon="dock" tip={dockNarrow() ? "Properties" : "Show or hide the inspector"} pressed={dockNarrow() ? DOCK.sheet : DOCK.open} /> : null}
     </span>
   </>;
 }

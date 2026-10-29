@@ -9,11 +9,18 @@ import { notFitted } from "../board/variants";
 import { $, esc, showInfo } from "../core/dom";
 import { cv, S, st } from "../core/state";
 import { dpr, fitted, H, measure, resize, setFitted, W } from "../core/viewport";
+import { refreshDock } from "../panels/dock";
 import { refreshToolbar } from "../panels/toolbar";
+import { drawCube } from "./view-cube";
 import { inv, lookAt, mul, persp } from "./math";
+import { boardPart, imodel, irow, isection } from "../inspect/model";
+import { inspect } from "../panels/inspector";
+import { fmtLen } from "../core/units";
 export const glc = $("gl");
+export const LIGHT = { ambient: "0.30", key: "0.55", fill: "0.20" };   // c0244: the terms of the 3D lighting (GLSL literals)
 export const V3: any = {   // any: init3D and buildMeshes add the model program and buffers
-  gl: null, prog: null, loc: {}, parts: [], tex: {}, built: false, cam: { yaw: -2.2, pitch: 0.75, dist: 260, tx: 0, ty: 0, tz: 0 }, selBody: -1, bodies: true, bodyPart: null };
+  gl: null, prog: null, loc: {}, parts: [], tex: {}, built: false, cam: { yaw: -2.2, pitch: 0.75, dist: 260, tx: 0, ty: 0, tz: 0 }, selBody: -1, bodies: true, bodyPart: null,
+  board: true, silk: true, copper: true, anim: 0 };   // c0244: the 3D panel's toggles
 export function shader(gl, type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
   if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
 export function init3D() {
@@ -21,22 +28,22 @@ export function init3D() {
   const gl = glc.getContext("webgl", { antialias: true }); if (!gl) { showInfo("This browser has no WebGL: the 3D view is not available."); return false; }
   const vs = `attribute vec3 aP; attribute vec3 aN; attribute vec3 aC; attribute vec2 aT; uniform mat4 uM; varying vec3 vN; varying vec3 vC; varying vec2 vT;
     void main(){ gl_Position = uM * vec4(aP, 1.0); vN = aN; vC = aC; vT = aT; }`;
-  const fs = `precision mediump float; varying vec3 vN; varying vec3 vC; varying vec2 vT; uniform sampler2D uS; uniform float uTex; uniform vec3 uL;
-    void main(){ vec4 t = texture2D(uS, vT); if (uTex > 0.5 && t.a < 0.5) discard; vec3 base = uTex > 0.5 ? t.rgb : vC;
-      float d = abs(dot(normalize(vN), uL)); gl_FragColor = vec4(base * (0.42 + 0.58 * d), 1.0); }`;
+  const fs = `precision mediump float; varying vec3 vN; varying vec3 vC; varying vec2 vT; uniform sampler2D uS; uniform float uTex; uniform vec3 uL; uniform vec3 uL2;
+    void main(){ vec4 t = texture2D(uS, vT); if (uTex > 0.5 && t.a < 0.5) discard; vec3 base = uTex > 0.5 ? t.rgb : vC; vec3 n = normalize(vN);
+      gl_FragColor = vec4(base * (${LIGHT.ambient} + ${LIGHT.key} * max(dot(n, uL), 0.0) + ${LIGHT.fill} * abs(dot(n, uL2))), 1.0); }`;
   const p = gl.createProgram(); gl.attachShader(p, shader(gl, gl.VERTEX_SHADER, vs)); gl.attachShader(p, shader(gl, gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
   V3.gl = gl; V3.prog = p; for (const k of ["aP", "aN", "aC", "aT"]) V3.loc[k] = gl.getAttribLocation(p, k);
-  for (const k of ["uM", "uS", "uTex", "uL"]) V3.loc[k] = gl.getUniformLocation(p, k);
+  for (const k of ["uM", "uS", "uTex", "uL", "uL2"]) V3.loc[k] = gl.getUniformLocation(p, k);
   // body models (change c0193): per-vertex colour, alpha 0 where the model gives none (the body colour then)
   V3.u32 = !!gl.getExtension("OES_element_index_uint");
   const mvs = `attribute vec3 aP; attribute vec3 aN; attribute vec4 aC; uniform mat4 uVP; uniform mat4 uW; varying vec3 vN; varying vec4 vC;
     void main(){ gl_Position = uVP * uW * vec4(aP, 1.0); vN = (uW * vec4(aN, 0.0)).xyz; vC = aC; }`;
-  const mfs = `precision mediump float; varying vec3 vN; varying vec4 vC; uniform vec3 uBody; uniform float uSel; uniform vec3 uL;
-    void main(){ vec3 base = vC.a > 0.5 ? vC.rgb : uBody; if (uSel > 0.5) base = mix(base, vec3(1.0, 0.85, 0.3), 0.55);
-      float d = abs(dot(normalize(vN), uL)); gl_FragColor = vec4(base * (0.42 + 0.58 * d), 1.0); }`;
+  const mfs = `precision mediump float; varying vec3 vN; varying vec4 vC; uniform vec3 uBody; uniform float uSel; uniform vec3 uL; uniform vec3 uL2;
+    void main(){ vec3 base = vC.a > 0.5 ? vC.rgb : uBody; if (uSel > 0.5) base = mix(base, vec3(1.0, 0.85, 0.3), 0.55); vec3 n = normalize(vN);
+      gl_FragColor = vec4(base * (${LIGHT.ambient} + ${LIGHT.key} * max(dot(n, uL), 0.0) + ${LIGHT.fill} * abs(dot(n, uL2))), 1.0); }`;
   const q = gl.createProgram(); gl.attachShader(q, shader(gl, gl.VERTEX_SHADER, mvs)); gl.attachShader(q, shader(gl, gl.FRAGMENT_SHADER, mfs)); gl.linkProgram(q);
   V3.mprog = q; V3.mloc = {}; for (const k of ["aP", "aN", "aC"]) V3.mloc[k] = gl.getAttribLocation(q, k);
-  for (const k of ["uVP", "uW", "uBody", "uSel", "uL"]) V3.mloc[k] = gl.getUniformLocation(q, k);
+  for (const k of ["uVP", "uW", "uBody", "uSel", "uL", "uL2"]) V3.mloc[k] = gl.getUniformLocation(q, k);
   return true;
 }
 export function b64(text, Type) { const bin = atob(text), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return new Type(u8.buffer); }
@@ -74,9 +81,9 @@ export function sideTexture(side) {
   g.save(); g.clip(boardPath(), "evenodd");
   const pre = side === "top" ? "F." : "B.";
   const lay = id => S.layers.find(l => l.id === id);
-  if (lay(pre + "Cu")) paintCache(g, cache.get(pre + "Cu"), pre + "Cu", "#2b8a45", 1, ppm);
+  if (lay(pre + "Cu") && V3.copper) paintCache(g, cache.get(pre + "Cu"), pre + "Cu", "#2b8a45", 1, ppm);
   if (lay(pre + "Mask")) paintCache(g, cache.get(pre + "Mask"), pre + "Mask", "#d4b05c", 1, ppm);
-  if (lay(pre + "SilkS")) { paintCache(g, cache.get(pre + "SilkS"), pre + "SilkS", "#f1f1ea", 1, ppm); paintTexts(g, pre + "SilkS", "#f1f1ea", 1, ppm); }
+  if (lay(pre + "SilkS") && V3.silk) { paintCache(g, cache.get(pre + "SilkS"), pre + "SilkS", "#f1f1ea", 1, ppm); paintTexts(g, pre + "SilkS", "#f1f1ea", 1, ppm); }
   if (lay("View.Drill")) paintCache(g, cache.get("View.Drill"), "View.Drill", "#0b0b0b", 1, ppm);
   g.restore();
   const gl = V3.gl, t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
@@ -92,7 +99,7 @@ export function bodyGeometry(arr, bd, col) {
   const n = ring.length; if (n < 3) return;
   for (let i = 0; i < n; i++) { const a = ring[i], b = ring[(i + 1) % n]; quad(arr, P3(a[0], a[1], zA), P3(b[0], b[1], zA), P3(b[0], b[1], zB), P3(a[0], a[1], zB), col); }
   let cx = 0, cy = 0; for (const p of ring) { cx += p[0]; cy += p[1]; } cx /= n; cy /= n;
-  const cap = col.map(v => v + (1 - v) * 0.18);
+  const cap = col === BODY_RGB ? hexRGB(BODY_TOP) : col.map(v => v + (1 - v) * 0.18);
   for (let i = 0; i < n; i++) { const a = ring[i], b = ring[(i + 1) % n]; for (const p of [[cx, cy], a, b]) push(arr, P3(p[0], p[1], zB), [0, 0, dn ? -1 : 1], cap); }
 }
 export function build3D() {
@@ -113,25 +120,34 @@ export function build3D() {
   if (!V3.built) { V3.cam.tx = (b[0] + b[2]) / 2; V3.cam.ty = -(b[1] + b[3]) / 2; V3.cam.tz = 0; V3.cam.dist = Math.max(w, h) * 1.7; }
   V3.built = true; return true;
 }
-export const BODY = "#3c4048", BODY_SEL = "#ffd84d", MESH_BODY = "#9aa0a8";
+export const BODY = "#33363c", BODY_TOP = "#5b6069", BODY_SEL = "#ffd84d", MESH_BODY = "#9aa0a8";   // c0244: Fenolite's body colours
+export const BODY_RGB = hexRGB(BODY);
 export function rebuildBodies() {
   const gl = V3.gl; if (!gl) return; if (V3.bodyPart) gl.deleteBuffer(V3.bodyPart.buf);
   const arr = []; (S.bodies || []).forEach((bd, i) => { if (notFitted(bd.ref)) return; if (bd.mesh && V3.meshBufs && V3.meshBufs[bd.mesh]) return;
     const sel = i === V3.selBody || (st.selComp >= 0 && bd.comp === st.selComp);
-    bodyGeometry(arr, bd, hexRGB(sel ? BODY_SEL : BODY)); });
+    bodyGeometry(arr, bd, sel ? hexRGB(BODY_SEL) : BODY_RGB); });
   V3.bodyPart = arr.length ? makePart(arr, null) : null;
 }
 
 export function camEye() { const c = V3.cam; return [c.tx + c.dist * Math.cos(c.pitch) * Math.cos(c.yaw), c.ty + c.dist * Math.cos(c.pitch) * Math.sin(c.yaw), c.tz + c.dist * Math.sin(c.pitch)]; }
 export function mvp() { const c = V3.cam, e = camEye(), up = Math.abs(Math.cos(c.pitch)) < 1e-3 ? [Math.cos(c.yaw + Math.PI), Math.sin(c.yaw + Math.PI), 0] : [0, 0, 1];
   return mul(persp(0.75, Math.max(W, 1) / Math.max(H, 1), c.dist * 0.01, c.dist * 10), lookAt(e, [c.tx, c.ty, c.tz], up)); }
+export function camBasis() {   // the camera's right, up and back axes in the 3D frame
+  const m = lookAt(camEye(), [V3.cam.tx, V3.cam.ty, V3.cam.tz], Math.abs(Math.cos(V3.cam.pitch)) < 1e-3 ? [Math.cos(V3.cam.yaw + Math.PI), Math.sin(V3.cam.yaw + Math.PI), 0] : [0, 0, 1]);
+  return [[m[0], m[4], m[8]], [m[1], m[5], m[9]], [m[2], m[6], m[10]]];
+}
+export function lights() {   // the key light from the camera's upper left, the fill from the right and below (c0244)
+  const [r, u, b] = camBasis(), mix = (a, c, d) => { const v = [0, 1, 2].map(i => a * r[i] + c * u[i] + d * b[i]), l = Math.hypot(...v); return v.map(x => x / l); };
+  return [mix(-0.45, 0.55, 0.7), mix(0.6, -0.35, 0.4)];
+}
 export function resize3D() { glc.width = Math.max(1, Math.round(W * dpr)); glc.height = Math.max(1, Math.round(H * dpr)); draw3D(); }
 export function draw3D() {
   if (!V3.built || !st.mode3d) return;
   const gl = V3.gl, L = V3.loc; gl.viewport(0, 0, glc.width, glc.height); gl.clearColor(0.08, 0.09, 0.11, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST); gl.useProgram(V3.prog); gl.uniformMatrix4fv(L.uM, false, new Float32Array(mvp()));
-  const e = camEye(), c = V3.cam, lv = [e[0] - c.tx, e[1] - c.ty, e[2] - c.tz + c.dist * 0.6], ll = Math.hypot(...lv); gl.uniform3fv(L.uL, lv.map(v => v / ll));
-  const parts = [...V3.parts]; if (V3.bodies && V3.bodyPart) parts.push(V3.bodyPart);
+  const [key, fill] = lights(); gl.uniform3fv(L.uL, key); gl.uniform3fv(L.uL2, fill);
+  const parts = V3.board ? [...V3.parts] : []; if (V3.bodies && V3.bodyPart) parts.push(V3.bodyPart);
   for (const p of parts) {
     gl.bindBuffer(gl.ARRAY_BUFFER, p.buf); const F = 44;
     gl.vertexAttribPointer(L.aP, 3, gl.FLOAT, false, F, 0); gl.enableVertexAttribArray(L.aP);
@@ -142,8 +158,9 @@ export function draw3D() {
     gl.drawArrays(gl.TRIANGLES, 0, p.n);
   }
   for (const k of ["aP", "aN", "aC", "aT"]) gl.disableVertexAttribArray(L[k]);
+  drawCube();
   if (!V3.bodies || !V3.meshBufs) return;
-  const ML = V3.mloc; gl.useProgram(V3.mprog); gl.uniformMatrix4fv(ML.uVP, false, new Float32Array(mvp())); gl.uniform3fv(ML.uL, lv.map(v => v / ll));
+  const ML = V3.mloc; gl.useProgram(V3.mprog); gl.uniformMatrix4fv(ML.uVP, false, new Float32Array(mvp())); gl.uniform3fv(ML.uL, key); gl.uniform3fv(ML.uL2, fill);
   (S.bodies || []).forEach((bd, i) => { const mb = bd.mesh && V3.meshBufs[bd.mesh]; if (!mb || notFitted(bd.ref)) return;
     gl.uniformMatrix4fv(ML.uW, false, new Float32Array(bd.m)); gl.uniform3fv(ML.uBody, hexRGB(MESH_BODY));
     gl.uniform1f(ML.uSel, (i === V3.selBody || (st.selComp >= 0 && bd.comp === st.selComp)) ? 1 : 0);
@@ -155,13 +172,30 @@ export function draw3D() {
 }
 export function set3D(on) {
   st.mode3d = on; refreshToolbar();
-  glc.style.display = on ? "block" : "none"; cv.style.display = on ? "none" : "block"; $("bar3d").style.display = on ? "flex" : "none";
+  glc.style.display = on ? "block" : "none"; cv.style.display = on ? "none" : "block"; $("cube").style.display = on ? "block" : "none";
+  document.body.classList.toggle("mode3d", on); refreshDock();
   if (on) { measure(); if (!V3.built && !build3D()) { set3D(false); return; } resize3D(); } else { setFitted(false); resize(); }
 }
-export function camPreset(kind) { const c = V3.cam; if (kind === "top") { c.yaw = -Math.PI / 2; c.pitch = 1.5699; } else if (kind === "bottom") { c.yaw = -Math.PI / 2; c.pitch = -1.5699; }
-  else { c.yaw = -2.2; c.pitch = 0.75; } const b = S.bounds; c.tx = (b[0] + b[2]) / 2; c.ty = -(b[1] + b[3]) / 2; c.tz = 0; c.dist = Math.max(b[2] - b[0], b[3] - b[1]) * 1.7; draw3D(); }
+export const PRESETS = { top: [-Math.PI / 2, 1.5699], bottom: [-Math.PI / 2, -1.5699], front: [-Math.PI / 2, 0], back: [Math.PI / 2, 0], left: [Math.PI, 0], right: [0, 0], iso: [-2.2, 0.75] };
+export function camPreset(kind, animate = false) {   // the six faces, iso, and a corner given as [yaw, pitch]
+  const [yaw, pitch] = Array.isArray(kind) ? kind : PRESETS[kind] || PRESETS.iso, c = V3.cam, b = S.bounds;
+  const to = { yaw, pitch, tx: (b[0] + b[2]) / 2, ty: -(b[1] + b[3]) / 2, tz: 0, dist: Math.max(b[2] - b[0], b[3] - b[1]) * 1.7 };
+  cancelAnimationFrame(V3.anim);
+  if (!animate) { Object.assign(c, to); draw3D(); return; }
+  const from = { ...c }, dy = Math.atan2(Math.sin(to.yaw - from.yaw), Math.cos(to.yaw - from.yaw)), t0 = performance.now();
+  const step = now => { const k = Math.min(1, (now - t0) / 250), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    c.yaw = from.yaw + dy * e; c.pitch = from.pitch + (to.pitch - from.pitch) * e;
+    for (const key of ["tx", "ty", "tz", "dist"]) c[key] = from[key] + (to[key] - from[key]) * e;
+    draw3D(); if (k < 1) V3.anim = requestAnimationFrame(step); else c.yaw = to.yaw; };
+  V3.anim = requestAnimationFrame(step);
+}
+export function set3DOption(key, on) {   // the 3D panel's toggles: bodies, board, silkscreen and copper textures
+  V3[key] = on; if ((key === "silk" || key === "copper") && V3.built) { const gl = V3.gl; for (const k of Object.keys(V3.tex)) gl.deleteTexture(V3.tex[k]);
+    V3.tex.top = sideTexture("top"); V3.tex.bottom = sideTexture("bottom"); }
+  draw3D();
+}
 export let drag3 = null;
-glc.addEventListener("mousedown", e => { drag3 = { x: e.offsetX, y: e.offsetY, pan: e.shiftKey || e.button === 2, cam: { ...V3.cam } }; glc.style.cursor = "grabbing"; });
+glc.addEventListener("mousedown", e => { cancelAnimationFrame(V3.anim); drag3 = { x: e.offsetX, y: e.offsetY, pan: e.shiftKey || e.button === 2, cam: { ...V3.cam } }; glc.style.cursor = "grabbing"; });
 glc.addEventListener("contextmenu", e => e.preventDefault());
 glc.addEventListener("mousemove", e => { if (!drag3) return; const dx = e.offsetX - drag3.x, dy = e.offsetY - drag3.y, c = V3.cam, c0 = drag3.cam;
   if (drag3.pan) { const k = c.dist / H, f = Math.sin(c.pitch);
@@ -172,8 +206,9 @@ window.addEventListener("mouseup", e => { if (!drag3) return; const d = drag3; d
   if (e.target !== glc || Math.abs(e.offsetX - d.x) + Math.abs(e.offsetY - d.y) > 3) return;
   const i = pick3D(e.offsetX, e.offsetY); V3.selBody = i; st.selComp = i >= 0 ? S.bodies[i].comp : -1; rebuildBodies(); draw3D();
   if (i < 0) { showInfo(null); return; }
-  const bd = S.bodies[i], how = bd.render === "model" ? "model placed as the file places it" : bd.render === "fitted" ? `model fitted to the body's outline (${esc(bd.fit)})` : `extruded outline${bd.fit ? ` (${esc(bd.fit)})` : ""}`;
-  showInfo(compInfo(bd.comp) + `<br>Body: ${esc(bd.model || "extruded")} · ${how}<br>Height: ${(bd.zs ? bd.zs[0] : bd.z0).toFixed(2)} to ${(bd.zs ? bd.zs[1] : bd.z1).toFixed(2)} mm from the ${bd.side} face`); });
+  const bd = S.bodies[i], how = bd.render === "model" ? "model placed as the file places it" : bd.render === "fitted" ? `model fitted to the body's outline (${bd.fit})` : `extruded outline${bd.fit ? ` (${bd.fit})` : ""}`;
+  inspect(() => imodel("body", S.comps[bd.comp].ref, [isection("3D body", [irow("Model", bd.model || "extruded"), irow("Placement", how),
+    irow("Height", `${fmtLen(bd.zs ? bd.zs[0] : bd.z0)} to ${fmtLen(bd.zs ? bd.zs[1] : bd.z1)} from the ${bd.side} face`)]), boardPart(bd.comp)], { subtitle: "3D body", target: { comp: bd.comp, net: -1 } })); });
 // the body whose box (outline and height) the ray of a pixel meets first
 export function pick3D(X, Y) {
   const M = inv(mvp()), nx = 2 * X / W - 1, ny = 1 - 2 * Y / H;
@@ -192,7 +227,4 @@ export function pick3D(X, Y) {
 }
 
 glc.addEventListener("wheel", e => { e.preventDefault(); V3.cam.dist = Math.min(Math.max(V3.cam.dist * Math.exp(e.deltaY * 0.0012), 5), 3000); draw3D(); }, { passive: false });
-$("v3top").onclick = () => camPreset("top");
-$("v3bot").onclick = () => camPreset("bottom");
-$("v3iso").onclick = () => camPreset("iso");
-$("c3body").onchange = e => { V3.bodies = e.target.checked; draw3D(); };
+

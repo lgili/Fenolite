@@ -90,11 +90,29 @@ written by `--export`. It is built from the TypeScript sources in `viewer/src/` 
 - **Keyboard focus.** Viewer shortcuts pause while editing a text field, choosing a select value or using
   Ctrl, Command/Meta or Alt combinations, except `Ctrl+K` for the palette. Shift shortcuts remain available
   outside form controls.
-- **Layer tabs** (bottom). One tab per layer with its colour.
-  - A click on a tab makes that layer current: it is drawn last, above the others.
-  - A click on the swatch, or a right click, shows or hides the layer.
+- **Inspector** (right dock, change c0244). Beside the drawing, never over it: the **Properties** tab shows
+  what a click selected in sections (Part, Pad, Track, Arc, Via, Zone, Net, Keep-out, Finding; on sheets the
+  component or the object with its net and project net; on libraries the item), each value in the page's unit
+  with a copy control, and **Copy all** copies every row as `label: value` lines. A value the file does not
+  hold is left out, never shown as 0. With nothing selected it shows the document's summary. Above the
+  sections are the actions on the selection: **Zoom to**, **Highlight net**, **Select part**, **Find
+  similar**, **Show in schematic** or **Show on board** (the cross-probe of a double click), **Open in
+  review** for a finding, and on a page served with `--allow-actions` **Move part…** and **Waive finding…**
+  (see "Actions"); the palette lists them too. `I` hides or shows the dock; its left edge resizes it (240 to
+  480 px); both are kept. At 760 CSS pixels or below it is a sheet over the lower part of the window (at most
+  60 % of its height) that a selection opens and `Esc` or its close button dismisses.
+- **Layers panel** (the dock's Layers tab on boards and footprints). The layers in groups (copper, mask and
+  paste, silkscreen, mechanical and fabrication, view layers), each row with its colour, its full name (the
+  native name of an Altium layer), whether it is current, its opacity and its visibility; a group's eye shows
+  or hides the group.
+  - A click on a name or its radio makes that layer current: it is drawn last, above the others.
   - `Shift+S` shows the current layer alone; `+` and `-` step through the visible layers.
-  - **LS** offers layer sets: all layers, signal layers, the top side, the bottom side, the defaults.
+  - **Presets** offers layer sets: all layers, signal layers, the top side, the bottom side, the defaults, and
+    the current layer alone. Sheets keep their document tabs in the bottom bar.
+- **Net emphasis.** A selected net or part, or the filter's result, is drawn in its own layer colours at full
+  opacity with a thin outline, while the rest of the board steps back by the highlight mode (Dim 22 %, Mask or
+  Normal); the zone fills of a selected net are drawn lighter and outlined, so its tracks and pads stay visible
+  over the pour.
 - **Board view.** Wheel to zoom, drag to pan, click a pad or track to highlight its net (or a part's own
   drawing to highlight the part). **Top / Bottom** (`B`) turns the board over: the other side is drawn under
   the visible one at the opacity set in the button's menu. The palette finds a part by reference or a net by
@@ -103,11 +121,17 @@ written by `--export`. It is built from the TypeScript sources in `viewer/src/` 
   within reach, a click snaps to the nearest point of an edge (a pad or fill border, a track border or axis, a
   circle, an outline), and the readout names what each end snapped to. Hold `Alt` to measure without snapping.
 - **3D** (`D`). The board is a slab of its stack-up's thickness (1.6 mm, stated, when the file has none). Its
-  faces are textured with the copper, mask, silkscreen and drills of each side.
+  faces are textured with the copper, mask, silkscreen and drills of each side. The controls that only act in
+  2D (Measure, Mark, Top / Bottom, the Layers tab, Find similar) are hidden. The **view cube** at the top right
+  turns with the camera: a click on a face sets that view (top, bottom, front, back, left, right), a click on a
+  corner the iso view from it. The dock's **3D view** tab has the same views, Reset, and shows or hides the
+  bodies, the board, the silkscreen and the copper. The light is an ambient term with a key light from the
+  upper left and a fill light from the other side.
   - **Models.** A board that embeds 3D models (an Altium `PcbDoc`) shows them, in their colours, placed as
     the native tool places them (change c0193). A model whose stored placement does not match its body's
     outline is fitted to it, and the info says how.
-  - **Extruded bodies.** Any other body is extruded from its outline between its standoff and its height.
+  - **Extruded bodies.** Any other body is extruded from its outline between its standoff and its height,
+    in Fenolite's dark body colour with a lighter top face.
   - **gmsh.** Models are meshed by `gmsh` (`FENOLITE_GMSH`, or `gmsh` on `PATH`), run as a separate
     program. Meshes are kept in the state folder. Without gmsh every body is extruded, and the notes say so.
 - **Findings** (left), by group. The box beside a group shows or hides it on the board, a click on its title
@@ -256,8 +280,13 @@ straighten, chamfer; each edit kept only when KiCad's DRC accepts it, `--gate dr
 (designators, clipping), **Place test points**, **Export fabrication files** and **Bill of materials** (into
 `fab/` or another folder under the project), **Move or rotate a part** (the selected part's position and
 rotation filled in, in the page's unit; the arrow keys nudge it, Shift for ten steps), and **Move** or
-**Turn parts with their copper**. A finding of KiCad's DRC in **Review findings** gets **Waive finding**
-with a required one-line reason, stored as a KiCad DRC exclusion in the project file.
+**Turn parts with their copper**. A finding of KiCad's DRC in **Review findings**, or in the inspector, gets
+**Waive finding** with a required one-line reason, stored as a KiCad DRC exclusion in the project file. Waive
+is not offered on a finding of a check of an earlier revision of the file (its index may name another
+violation now): the page says so and offers **Run again**. A write that changes a project file the checks read
+(a waiver writes the `.kicad_pro`, not the board) marks the document's results stale: the run strip, the
+Project review and the inspector say so and offer **Run again**, which repeats the document's last run, until
+a check runs again (fixes of 2026-10-29).
 
 **Review plan…** runs the command's dry run. The plan dialog names every file it would write (path, kind,
 size, new SHA-256 and the SHA-256 it replaces), the issues by severity and the evidence, and draws the
@@ -403,14 +432,16 @@ the toolbar's Tools group and the key `Q` switch it, as in Altium. The choice is
 the page, and the status bar names it. It applies to:
 - the cursor position in the status bar and the grid of a sheet;
 - measurements;
-- the Properties panel: track width and length, arc radius, via and hole diameter, pad size, corner radius,
-  drill and slot, part position and extent, a footprint's copper and courtyard extent.
+- the inspector's rows: track width, length and ends, arc width, radius and length, via diameter and drill,
+  hole diameter, pad size, corner radius, drill and slot, mask and paste expansion and the mask opening, part
+  position and extent, a net's routed length, a zone's filled area, a footprint's copper and courtyard extent.
+  A row's copy control copies the value as it reads.
 
 **Measure** (`M`) works on boards, sheets and library items. Each click snaps to the nearest pad centre, line
 end, vertex, circle centre or text anchor within 8 px. A pitch therefore reads centre to centre, and the
 readout gives the distance with Δx and Δy. A third click starts a new measurement, and `Esc` ends it.
 
-A click on a pad shows its exact size from the model:
+A click on a pad shows its exact size from the model, in the inspector's Pad section:
 - width × height, shape and corner radius;
 - drill, and slot length;
 - centre, rotation and layers.

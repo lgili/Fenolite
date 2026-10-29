@@ -9,7 +9,9 @@ import { DOC, PROJECT, S, st } from "../core/state";
 import { fit } from "../core/viewport";
 import { selectFinding } from "../review/check";
 import { Icon } from "../ui/icons";
-import { CARD_STAGES, runAltium, RUNS, runSay, runStages, startRun } from "../review/runs";
+import { CARD_STAGES, runAgainAction, runAltium, RUNS, runSay, runStages, startRun } from "../review/runs";
+import { findingSection, imodel } from "../inspect/model";
+import { inspect } from "./inspector";
 export const REVIEW = { doc: null, selected: -1, items: [], matches: [] };
 export const REVIEW_STATE = { "not-run": "Not run", passed: "Passed", failed: "Failed", limited: "Limited" };
 export function setProjectReview(open) {
@@ -47,6 +49,14 @@ export function buildProjectReview() {
     ? `${DOC.name}. ${data?.note || "No validation report was supplied. Reading a drawing is not an electrical check."}`
     : "This document has not been read. Select a viewable document to review it.";
   if (data?.binding && !data.binding.matched) $("reviewScope").textContent += " " + data.binding.note;
+  const stale = ready && RUNS.stale.get(DOC.id);
+  if (stale) {   // c0246 fix: a write after the checks
+    const banner = document.createElement("div"); banner.className = "staleNote"; banner.setAttribute("role", "status");
+    const p = document.createElement("p"); p.textContent = stale.text; banner.appendChild(p);
+    const again = runAgainAction(DOC.id);
+    if (again) { const b = document.createElement("button"); b.id = "reviewRunAgain"; b.textContent = again.label; b.disabled = !!RUNS.job; b.onclick = again.run; banner.appendChild(b); }
+    box.appendChild(banner);
+  }
   for (const card of reviewCardsOf(ready, data)) {
     const details = document.createElement("details"), state = REVIEW_STATE[card.state] ? card.state : "limited";
     details.dataset.card = card.id || card.title;
@@ -65,7 +75,7 @@ export function buildProjectReview() {
     runCardControl(details, card); box.appendChild(details);
   }
   buildRunPanel();
-  buildActionPanel();
+  buildActionPanel(true);
   REVIEW.items = ready ? [ ...(S.check?.findings || []).map((item, i) => ({...item, checkIndex:i})), ...(S.run_findings || []).map((item, i) => ({...item, runIndex:i})), ...(data?.operation_findings || []) ] : [];
   const stage = $("reviewStage"), chosen = stage.value;
   stage.innerHTML = '<option value="">All stages</option>';
@@ -173,6 +183,6 @@ export function runLocateButton(x, detail) {   // Locate for a finding of a read
   if (x.runIndex == null || !x.at) return;
   const button = document.createElement("button"); button.textContent = "Locate in drawing";
   button.onclick = () => { setProjectReview(false); const b = x.box || [x.at[0], x.at[1], x.at[0], x.at[1]], m = Math.max(b[2] - b[0], b[3] - b[1], 6) * 0.8;
-    fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m]); showInfo(`<b>${esc(x.code)}</b> · ${esc(x.severity)}<br>${esc(x.message)}<br>From ${esc(x.stage)} · evidence ${esc(x.evidence || "?")}`); };
+    fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m]); inspect(() => imodel("finding", x.code, [findingSection(x, null)], { subtitle: [x.severity, x.stage].filter(Boolean).join(" · "), target: { comp: -1, net: -1 } })); };
   detail.appendChild(button);
 }

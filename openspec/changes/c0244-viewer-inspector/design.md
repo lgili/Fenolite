@@ -145,3 +145,7 @@ On boards and footprints the bottom bar no longer lists layers; on sheets it kee
 - Should per-layer opacity be stored in the link for every layer, or only visibility and the current layer
   (as designed)?
 - Is a pin-1 marker on extruded bodies welcome, or is a plain body preferred?
+
+Decided on 2026-10-29, as recommended: the dock is on the right with the Properties and Layers tabs (a bottom
+sheet at 760 px and below); per-layer opacity is not stored in the link (only visibility and the current layer
+are, as before); extruded bodies have no pin-1 marker (a plain body with a lighter top face).

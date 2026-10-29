@@ -28,6 +28,19 @@ import { DOC, S, st, view } from "./state";
 import { setTheme, THEME } from "./theme";
 import { setUnit, UNIT } from "./units";
 import { fit } from "./viewport";
+import { closeSheet, DOCK, dockNarrow, toggleDock } from "../panels/dock";
+import { INSPECT, refreshInspector } from "../panels/inspector";
+import { filterReviewFindings, REVIEW } from "../panels/project-review";
+import { gotoFinding } from "../panels/findings";
+import { netBounds, selectCompAt, selectNetAt } from "../panels/review";
+import { selectComp, selectNet } from "../sch/project-nets";
+import { netBox } from "../sch/select";
+import { crossProbe } from "../sch/load";
+import { bboxOf } from "../board/cache";
+import { LIB } from "../library/library";
+import { allDocs } from "./documents";
+import { SCENES } from "./state";
+import { waiveBlocked } from "../actions/actions";
 
 export let IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || "");   // let: a test sets it to check the macOS chord
 const cad = () => !!S && S.kind !== "table";
@@ -39,6 +52,7 @@ const sidebarOpen = () => $("app").classList.contains("sidebar-open");
 
 export function escapeKey() {   // Esc, in the order the page always followed: the narrow side bar, a tool, the selection
   if (narrow() && sidebarOpen()) { setSidebar(false); $("bSidebar").focus(); return; }
+  if (narrow() && closeSheet()) return;   // c0244: the inspector's bottom sheet
   if (!cad()) return;
   if (st.edge) { toggleEdge(); return; }
   if (st.marking) { toggle("marking"); return; }
@@ -48,6 +62,45 @@ export function escapeKey() {   // Esc, in the order the page always followed: t
   st.mpts = []; st.selOv = -1; select(null); shareNet(null);
 }
 const PRINT = [["fit", "Fit to the page"], ["1", "1:1"], ["2", "2:1"], ["5", "5:1"], ["10", "10:1"]];
+// ---- the selection's actions (c0244, design decision 3; c0246): commands of the group "Selection" on the target of
+// the inspector's model, shown in the inspector and listed in the palette.
+const target = () => (INSPECT.model && INSPECT.model.target) || null;
+const tComp = () => { const t = target(); return t && t.comp >= 0 ? t.comp : -1; };
+const tNet = () => { const t = target(); return t && t.net >= 0 ? t.net : -1; };
+const tFinding = () => { const t = target(); return t && t.finding != null && S.check && S.check.findings[t.finding] ? t.finding : -1; };
+const kind = () => INSPECT.model ? INSPECT.model.kind : "";
+export function probeKind() { return isSch() ? "pcb" : "schematic"; }
+export function probeOffered() {   // Show in schematic / on board: only when another document of that kind could hold the part
+  const ci = tComp(); if (ci < 0 || !S || !S.comps || LIB) return false;
+  const c = S.comps[ci], want = String(c.group || c.ref).toLowerCase(), docs = allDocs().filter(d => d.kind === probeKind() && d.viewable && d.present);
+  if (!docs.length) return false;
+  const known = docs.map(d => SCENES.get(d.id)).filter(Boolean);
+  return known.length < docs.length || known.some(sc => sc.comps.some(x => x.ref.toLowerCase() === want || String(x.group || "").toLowerCase() === want));
+}
+export function zoomToTarget() {
+  const t = target(); if (!t || !S) return;
+  const frame = (b, m) => { if (b) fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m]); };
+  if (st.mode3d) set3D(false);
+  if (t.overlay != null) { gotoFinding(t.overlay); return; }
+  if (t.finding != null && S.check) { const x = S.check.findings[t.finding]; if (x.at) { const b = x.box || [x.at[0], x.at[1], x.at[0], x.at[1]]; frame(b, Math.max(b[2] - b[0], b[3] - b[1], 6) * 0.8); } return; }
+  if (isSch()) { if (t.comp >= 0) frame(S.comps[t.comp].b, 12); else if (t.net >= 0) frame(netBox(t.net), 8); return; }
+  if (t.pr) frame(bboxOf(t.pr), 3); else if (t.comp >= 0) frame(S.comps[t.comp].bbox, 5); else if (t.net >= 0) frame(netBounds(t.net), 3);
+}
+export function openInReview(i) {   // a finding of --check, selected in the Project review
+  setProjectReview(true); const k = REVIEW.items.findIndex(x => x.checkIndex === i); if (k >= 0) { REVIEW.selected = k; filterReviewFindings(); }
+}
+export function moveInActions(ci) {   // Move part (c0246): the Actions panel's move form, filled with the part
+  st.selComp = ci; setProjectReview(true);
+  const box = document.querySelector<HTMLDetailsElement>('#actionPanel details[data-action="move"]'); if (!box) return;
+  box.open = true; box.scrollIntoView({ block: "center" }); (box.querySelector('[data-opt="x"]') as HTMLElement)?.focus();
+}
+export function waiveState() {   // c0246, fix of 2026-10-29: Waive only on findings of the file's current revision
+  const i = tFinding(); if (i < 0) return { offered: false, why: "" };
+  const x = S.check.findings[i], A = window.FenoliteActions && window.FenoliteActions.state;
+  if (!A || !A.enabled || !A.offer?.waive?.available || x.stage !== "drc.kicad") return { offered: false, why: "" };
+  const why = waiveBlocked();
+  return { offered: !why, why };
+}
 
 // ---- commands (c0243)
 export const COMMANDS: any[] = [
@@ -68,6 +121,20 @@ export const COMMANDS: any[] = [
   { id: "tools.similar", title: "Find similar", group: "Tools", icon: "similar", keys: [], when: () => board2d() && (st.selComp >= 0 || !!st.lastHit), run: () => findSimilar() },
   { id: "tools.clearFilter", title: "Clear the filter", group: "Tools", icon: "filter", keys: ["Shift+C"], when: () => board2d(), run: () => clearQuery() },
   { id: "tools.escape", title: "Clear the selection or leave the tool", group: "Tools", icon: "clear", keys: ["Escape"], when: () => true, run: () => escapeKey() },
+  { id: "view.dock", title: "Inspector", group: "View", icon: "dock", keys: ["I"], when: () => !!S, run: () => toggleDock(), pressed: () => dockNarrow() ? DOCK.sheet : DOCK.open },
+  { id: "insp.zoom", title: "Zoom to", group: "Selection", icon: "zoom", keys: [], domId: "inspZoom", when: () => !!target() && kind() !== "measure" && kind() !== "mark" && S.kind !== "table", run: () => zoomToTarget() },
+  { id: "insp.net", title: "Highlight net", group: "Selection", icon: "net", keys: [], domId: "inspNet", when: () => tNet() >= 0 && kind() !== "net" && (!st.mode3d || isSch()),
+    run: () => isSch() ? selectNet(tNet(), true) : selectNetAt(tNet()) },
+  { id: "insp.part", title: "Select part", group: "Selection", icon: "chip", keys: [], domId: "inspPart", when: () => tComp() >= 0 && kind() !== "part" && kind() !== "component" && !LIB,
+    run: () => isSch() ? selectComp(tComp(), true) : selectCompAt(tComp()) },
+  { id: "insp.similar", title: "Find similar", group: "Selection", icon: "similar", keys: [], domId: "inspSimilar", when: () => board2d() && !LIB && (tComp() >= 0 || !!target()?.pr), run: () => findSimilar() },
+  { id: "insp.probe", title: "Show in schematic", group: "Selection", icon: "schematic", keys: [], label: () => isSch() ? "Show on board" : "Show in schematic", domId: "inspProbe",
+    when: () => probeOffered(), run: () => { const c = S.comps[tComp()]; crossProbe(c.group || c.ref, probeKind()); } },
+  { id: "insp.review", title: "Open in review", group: "Selection", icon: "review", keys: [], domId: "inspReview", when: () => tFinding() >= 0, run: () => openInReview(tFinding()) },
+  { id: "act.waive", title: "Waive finding…", group: "Selection", icon: "waive", keys: [], domId: "inspWaive", tone: "warnBtn", when: () => waiveState().offered,
+    run: () => { INSPECT.waive = !INSPECT.waive; refreshInspector(); }, disabled: () => !!(window.FenoliteActions?.state?.job) },
+  { id: "act.move", title: "Move part…", group: "Selection", icon: "move", keys: [], domId: "inspMove",
+    when: () => tComp() >= 0 && board2d() && !LIB && !!window.FenoliteActions?.state?.enabled && !!window.FenoliteActions.state.offer?.move?.available, run: () => moveInActions(tComp()) },
   { id: "share.link", title: "Copy link", group: "Share", icon: "link", keys: [], when: () => !!DOC, run: () => copyLink() },
   { id: "share.svg", title: "Save as SVG", group: "Share", icon: "image", keys: [], when: () => flat(), run: () => saveSvg() },
   ...PRINT.map(([k, label]) => ({ id: `share.print.${k}`, title: `Print · ${label}`, group: "Share", icon: "printer", keys: [], when: () => flat(), run: () => printView(k) })),

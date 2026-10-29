@@ -13,7 +13,9 @@ import { buildMessages } from "../panels/messages";
 import { buildProjectReview } from "../panels/project-review";
 import { runStrip } from "../panels/run-strip";
 import { checkToMM } from "./check";
-export const RUNS = { enabled:false, offer:null, reason:"", job:null, timer:0, results:new Map(), message:null };
+import { refreshInspector } from "../panels/inspector";
+export const RUNS = { enabled:false, offer:null, reason:"", job:null, timer:0, results:new Map(), message:null,
+  last:new Map(), stale:new Map() };   // c0246 fix: the last run of each document, and the documents whose results a write made stale
 export const CARD_STAGES = { connectivity:["parity", "netlist.assignment_compare"], erc:["erc.kicad"], drc:["drc.kicad"],
   clearance:["copper.clearance"], placement:["placement.rules"], fill:["zone.fill"], model:["model.validate"] };
 export const RUN_HEADERS = { "Content-Type": "application/json", "X-Fenolite-Run": "1" };
@@ -35,7 +37,7 @@ export async function runsInit() {
 }
 export async function startRun(command, options) {
   if (!RUNS.enabled || RUNS.job || !DOC) return;
-  RUNS.message = null;
+  RUNS.message = null; RUNS.last.set(DOC.id, { command, options });
   const r = await runCall("run", { command, doc: DOC.id, options });
   if (r.status === 409 && r.data.job) { RUNS.job = { job: r.data.job, command, doc: DOC.id, state: "running", progress: [], elapsed: 0 }; pollRun(); return; }
   if (!r.ok) { runSay("failed", r.data.error || `the server answered ${r.status}`); return; }
@@ -67,6 +69,7 @@ function runFinished(job) {
     return runSay("failed", `${job.command} failed${e.code ? ` (${e.code})` : ""}: ${e.message || "no reason given"}${missing}`, e.hint);
   }
   RUNS.results.set(job.doc, { ...(RUNS.results.get(job.doc) || {}), [job.command]: job });
+  if (job.command === "check") RUNS.stale.delete(job.doc);   // fresh results for the current files
   const sc = SCENES.get(job.doc); if (sc) runApply(sc, job);
   const n = (job.envelope?.issues || []).length;
   runSay("done", `${job.command} finished: exit ${job.exit}, ${n} finding${n === 1 ? "" : "s"}.` + (job.note ? ` ${job.note}` : "") + (DOC && DOC.id !== job.doc ? " Results kept for their document." : ""));
@@ -91,5 +94,14 @@ export function runReapply(scene) {   // a scene read again keeps the analyze, r
   const kept = DOC && RUNS.results.get(DOC.id); if (!kept || scene.runApplied) return; scene.runApplied = true;
   for (const command of ["analyze", "ready", "equivalent"]) if (kept[command]) runApply(scene, kept[command]);
 }
-export function runSay(kind, text, hint?) { RUNS.message = { kind, text, hint }; runStrip(); }
+export function runSay(kind, text, hint?, action?) { RUNS.message = { kind, text, hint, action }; runStrip(); }
+// c0246, fix of 2026-10-29: a write of an action can change what the last checks judged (a waiver writes the
+// project file, not the board, so the board's digest still matches). The results of that document are marked
+// stale until a check runs again; the strip, the Project review and the inspector offer Run again.
+export function markStale(doc, text) { RUNS.stale.set(doc, { text, at: new Date().toLocaleTimeString() }); runSay("stale", text, undefined, runAgainAction(doc)); runRefresh(); refreshInspector(); }
+export function runAgainAction(doc) { return RUNS.enabled ? { label: "Run again", run: () => runAgain(doc) } : null; }
+export function runAgain(doc?) {   // the document's last run, else every check
+  const id = doc || (DOC && DOC.id); if (!id || !DOC || DOC.id !== id) return; const last = RUNS.last.get(id) || { command: "check", options: {} };
+  startRun(last.command, last.options);
+}
 window.FenoliteRuns = { start: startRun, cancel: runCancel, state: RUNS };   // for the toolbar and palette commands (c0243)

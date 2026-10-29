@@ -35,10 +35,11 @@ if (PREVIEW_MODE)
     document.body.classList.add("preview");
 // ---- core/dom.ts
 const $ = (id) => document.getElementById(id); // any: the page reads value, checked, showModal… of what it finds
-function showInfo(html) { const el = $("info"); if (!html) {
-    el.style.display = "none";
-    return;
-} el.innerHTML = html; el.style.display = "block"; }
+// A message of HTML in the inspector (c0244: the dock's Properties tab); a selection uses showModel of panels/inspector.
+function showInfo(html) { if (!html)
+    renderInspector(null);
+else
+    showModel({ kind: "note", title: "", sections: [], html }); }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" })[c]); }
 function linkify(v) { const t = String(v); return /^https?:\/\/\S+$/i.test(t) ? `<a href="${esc(t)}" target="_blank" rel="noopener noreferrer">${esc(t)}</a>` : esc(t); }
 function natural(a, b) { return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }); }
@@ -501,6 +502,7 @@ catch (e) {
 } })();
 function fmtLen(mm) { return UNIT === "mil" ? `${(mm / MIL_MM).toFixed(2)} mil` : `${mm.toFixed(3)} mm`; }
 function fmtNm(nm) { return fmtLen(nm / 1e6); }
+function fmtXY(a, b) { return UNIT === "mil" ? `${(a / MIL_MM).toFixed(2)}, ${(b / MIL_MM).toFixed(2)} mil` : `${a.toFixed(3)}, ${b.toFixed(3)} mm`; } // a position (c0244)
 function fmtPair(a, b) { return UNIT === "mil" ? `${(a / MIL_MM).toFixed(2)} × ${(b / MIL_MM).toFixed(2)} mil` : `${a.toFixed(3)} × ${b.toFixed(3)} mm`; }
 function setUnit(u) {
     UNIT = u;
@@ -512,16 +514,8 @@ function setUnit(u) {
     catch (e) { /* the choice is kept for this page only */ }
     if (!S)
         return;
-    if (LIB && st.itemInfo && LIBSEL >= 0 && !st.lastHit && SCH.sel < 0)
-        showInfo(itemInfo(LIB.items[LIBSEL]));
-    if (isSch()) {
-        if (SCH.sel >= 0)
-            schSelect(SCH.sel);
-        else if (SCH.selNet >= 0)
-            selectNet(SCH.selNet, false);
-    }
-    else if (st.lastHit)
-        select(st.lastHit, st.lastAt);
+    refreshInspector();
+    refreshSummary(); // c0244: the selection's model is built again in the new unit
     if (st.mouse)
         showCoord(st.mouse[0], st.mouse[1]);
     buildLibList();
@@ -1003,6 +997,55 @@ function paintTexts(g, lid, color, alpha, unit) {
         g.stroke(p);
     }
 }
+// ---- net emphasis (c0244, design decision 4): a picked net, part or filter result is drawn in its own layer
+// colours at full opacity with a 1.5 px outline in the --emphasis token, never lightened; its zone fills at 0.55
+// with the outline, so its tracks and pads stay readable over its pour. The rest dims by the highlight mode.
+let EMPHASIS = "", EMPHASIS_KEY = "";
+function emphasisColor() {
+    const key = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: light)").matches ? "l" : "d");
+    if (!EMPHASIS || key !== EMPHASIS_KEY) {
+        EMPHASIS_KEY = key;
+        EMPHASIS = getComputedStyle(document.documentElement).getPropertyValue("--emphasis").trim() || "#ffffff";
+    }
+    return EMPHASIS;
+}
+const ZONE_FILL_ALPHA = 0.55;
+const isZoneFill = pr => pr[1] === "p" && pr[4] < 0 && pr[3] >= 0;
+function paintEmphasis(g, c, lid, color, unit, zone) {
+    if (!c || !c.n)
+        return;
+    if (VIEWL(lid)) {
+        paintCache(g, c, lid, color, 1, unit);
+        return;
+    }
+    const em = emphasisColor(), w = 1.5 / unit;
+    g.globalAlpha = 1;
+    g.strokeStyle = em;
+    g.lineCap = "round";
+    g.lineJoin = "round";
+    if (zone) {
+        paintCache(g, c, lid, color, ZONE_FILL_ALPHA, unit);
+        g.globalAlpha = 1;
+        g.strokeStyle = em;
+        g.lineWidth = w;
+        g.stroke(c.fill);
+        return;
+    }
+    g.lineWidth = 2 * w;
+    g.stroke(c.fill); // the outline: half of it under the fill, half outside
+    for (const [sw, p] of c.strokes) {
+        g.lineWidth = Math.max(sw, 1 / unit) + 2 * w;
+        g.stroke(p);
+    }
+    paintCache(g, c, lid, color, 1, unit);
+}
+function paintPicked(map, key, test, ord) {
+    const zones = selCache(map, "z:" + key, pr => test(pr) && isZoneFill(pr)), rest = selCache(map, key, pr => test(pr) && !isZoneFill(pr));
+    for (const [l] of ord)
+        paintEmphasis(ctx, zones.get(l.id), l.id, l.color, view.s, true);
+    for (const [l] of ord)
+        paintEmphasis(ctx, rest.get(l.id), l.id, l.color, view.s, false);
+}
 function draw() {
     if (S && S.kind === "table")
         return;
@@ -1028,11 +1071,9 @@ function draw() {
             paintTexts(ctx, l.id, l.color, sel ? a * other : a, view.s);
     }
     if (qy) {
-        const mq = selCache(qCache, qy.text, pr => qy.prims.has(pr));
-        for (const [l] of ord)
-            paintCache(ctx, mq.get(l.id), l.id, lighten(l.color, 0.45), 1, view.s);
+        paintPicked(qCache, qy.text, pr => qy.prims.has(pr), ord);
         ctx.globalAlpha = 1;
-        ctx.strokeStyle = "#fff";
+        ctx.strokeStyle = emphasisColor();
         ctx.lineWidth = 1 / view.s;
         for (const ci of qy.comps.slice(0, 2000)) {
             const b = S.comps[ci].bbox;
@@ -1041,13 +1082,14 @@ function draw() {
         }
     }
     if (picked) {
-        const mm = st.selNet >= 0 ? selCache(netCache, st.selNet, pr => pr[3] === st.selNet) : selCache(compCache, st.selComp, pr => pr[4] === st.selComp);
-        for (const [l] of ord)
-            paintCache(ctx, mm.get(l.id), l.id, lighten(l.color, 0.45), 1, view.s);
+        if (st.selNet >= 0)
+            paintPicked(netCache, st.selNet, pr => pr[3] === st.selNet, ord);
+        else
+            paintPicked(compCache, st.selComp, pr => pr[4] === st.selComp, ord);
         if (st.selComp >= 0 && S.comps[st.selComp].bbox) {
             const b = S.comps[st.selComp].bbox;
             ctx.globalAlpha = 1;
-            ctx.strokeStyle = "#fff";
+            ctx.strokeStyle = emphasisColor();
             ctx.lineWidth = 1.5 / view.s;
             ctx.setLineDash([5 / view.s, 3 / view.s]);
             ctx.strokeRect(b[0] - 0.3, b[1] - 0.3, b[2] - b[0] + 0.6, b[3] - b[1] + 0.6);
@@ -1188,6 +1230,10 @@ function drawCheck() {
         }
     }
 }
+function checkModel(i) {
+    const x = S.check.findings[i], b = S.project_review?.binding;
+    return imodel("finding", x.code, [findingSection(x, x.layer && !isSch() ? layerName(x.layer) : null)], { subtitle: [x.severity, x.stage].filter(Boolean).join(" · "), note: b && !b.matched ? `Historical report: ${b.note}` : "", target: { finding: i, comp: -1, net: -1 } });
+}
 function selectFinding(i) {
     const x = S.check.findings[i];
     st.selFinding = i;
@@ -1202,11 +1248,7 @@ function selectFinding(i) {
         const b = x.box || [x.at[0], x.at[1], x.at[0], x.at[1]], m = Math.max(b[2] - b[0], b[3] - b[1], isSch() ? 10 : 6) * 0.8;
         fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m]);
     }
-    showInfo(`<b>${esc(x.code)}</b> · ${esc(x.severity)}<br>${esc(x.message)}` + (x.where ? `<br>Where: ${esc(x.where)}` : "") +
-        (x.layer && !isSch() ? `<br>Layer: ${esc(layerName(x.layer))}` : "") + (x.at ? "" : "<br><i>No position on this document.</i>") +
-        `<br>Stage: ${esc(x.stage || "?")} · evidence ${esc(x.evidence || "?")}`);
-    if (S.project_review?.binding && !S.project_review.binding.matched)
-        $("info").innerHTML += `<br><b>Historical report:</b> ${esc(S.project_review.binding.note)}`;
+    inspect(() => checkModel(i));
     buildMessages();
     draw();
 }
@@ -1308,6 +1350,25 @@ function buildProjectReview() {
         : "This document has not been read. Select a viewable document to review it.";
     if (data?.binding && !data.binding.matched)
         $("reviewScope").textContent += " " + data.binding.note;
+    const stale = ready && RUNS.stale.get(DOC.id);
+    if (stale) { // c0246 fix: a write after the checks
+        const banner = document.createElement("div");
+        banner.className = "staleNote";
+        banner.setAttribute("role", "status");
+        const p = document.createElement("p");
+        p.textContent = stale.text;
+        banner.appendChild(p);
+        const again = runAgainAction(DOC.id);
+        if (again) {
+            const b = document.createElement("button");
+            b.id = "reviewRunAgain";
+            b.textContent = again.label;
+            b.disabled = !!RUNS.job;
+            b.onclick = again.run;
+            banner.appendChild(b);
+        }
+        box.appendChild(banner);
+    }
     for (const card of reviewCardsOf(ready, data)) {
         const details = document.createElement("details"), state = REVIEW_STATE[card.state] ? card.state : "limited";
         details.dataset.card = card.id || card.title;
@@ -1334,7 +1395,7 @@ function buildProjectReview() {
         box.appendChild(details);
     }
     buildRunPanel();
-    buildActionPanel();
+    buildActionPanel(true);
     REVIEW.items = ready ? [...(S.check?.findings || []).map((item, i) => ({ ...item, checkIndex: i })), ...(S.run_findings || []).map((item, i) => ({ ...item, runIndex: i })), ...(data?.operation_findings || [])] : [];
     const stage = $("reviewStage"), chosen = stage.value;
     stage.innerHTML = '<option value="">All stages</option>';
@@ -1515,7 +1576,7 @@ function runLocateButton(x, detail) {
         setProjectReview(false);
         const b = x.box || [x.at[0], x.at[1], x.at[0], x.at[1]], m = Math.max(b[2] - b[0], b[3] - b[1], 6) * 0.8;
         fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m]);
-        showInfo(`<b>${esc(x.code)}</b> · ${esc(x.severity)}<br>${esc(x.message)}<br>From ${esc(x.stage)} · evidence ${esc(x.evidence || "?")}`);
+        inspect(() => imodel("finding", x.code, [findingSection(x, null)], { subtitle: [x.severity, x.stage].filter(Boolean).join(" · "), target: { comp: -1, net: -1 } }));
     };
     detail.appendChild(button);
 }
@@ -1525,7 +1586,8 @@ function runLocateButton(x, detail) {
 // the strip shows its command, last progress record, elapsed time and Cancel; the results land on the scene of
 // the job's document, and are drawn only while that document is the one shown (the navigation guard).
 // The client and the run state live here; the strip is panels/run-strip, the Run controls panels/project-review.
-const RUNS = { enabled: false, offer: null, reason: "", job: null, timer: 0, results: new Map(), message: null };
+const RUNS = { enabled: false, offer: null, reason: "", job: null, timer: 0, results: new Map(), message: null,
+    last: new Map(), stale: new Map() }; // c0246 fix: the last run of each document, and the documents whose results a write made stale
 const CARD_STAGES = { connectivity: ["parity", "netlist.assignment_compare"], erc: ["erc.kicad"], drc: ["drc.kicad"],
     clearance: ["copper.clearance"], placement: ["placement.rules"], fill: ["zone.fill"], model: ["model.validate"] };
 const RUN_HEADERS = { "Content-Type": "application/json", "X-Fenolite-Run": "1" };
@@ -1572,6 +1634,7 @@ async function startRun(command, options) {
     if (!RUNS.enabled || RUNS.job || !DOC)
         return;
     RUNS.message = null;
+    RUNS.last.set(DOC.id, { command, options });
     const r = await runCall("run", { command, doc: DOC.id, options });
     if (r.status === 409 && r.data.job) {
         RUNS.job = { job: r.data.job, command, doc: DOC.id, state: "running", progress: [], elapsed: 0 };
@@ -1637,6 +1700,8 @@ function runFinished(job) {
         return runSay("failed", `${job.command} failed${e.code ? ` (${e.code})` : ""}: ${e.message || "no reason given"}${missing}`, e.hint);
     }
     RUNS.results.set(job.doc, { ...(RUNS.results.get(job.doc) || {}), [job.command]: job });
+    if (job.command === "check")
+        RUNS.stale.delete(job.doc); // fresh results for the current files
     const sc = SCENES.get(job.doc);
     if (sc)
         runApply(sc, job);
@@ -1687,7 +1752,19 @@ function runReapply(scene) {
         if (kept[command])
             runApply(scene, kept[command]);
 }
-function runSay(kind, text, hint) { RUNS.message = { kind, text, hint }; runStrip(); }
+function runSay(kind, text, hint, action) { RUNS.message = { kind, text, hint, action }; runStrip(); }
+// c0246, fix of 2026-10-29: a write of an action can change what the last checks judged (a waiver writes the
+// project file, not the board, so the board's digest still matches). The results of that document are marked
+// stale until a check runs again; the strip, the Project review and the inspector offer Run again.
+function markStale(doc, text) { RUNS.stale.set(doc, { text, at: new Date().toLocaleTimeString() }); runSay("stale", text, undefined, runAgainAction(doc)); runRefresh(); refreshInspector(); }
+function runAgainAction(doc) { return RUNS.enabled ? { label: "Run again", run: () => runAgain(doc) } : null; }
+function runAgain(doc) {
+    const id = doc || (DOC && DOC.id);
+    if (!id || !DOC || DOC.id !== id)
+        return;
+    const last = RUNS.last.get(id) || { command: "check", options: {} };
+    startRun(last.command, last.options);
+}
 window.FenoliteRuns = { start: startRun, cancel: runCancel, state: RUNS }; // for the toolbar and palette commands (c0243)
 // ---- panels/run-strip.tsx
 // The run strip of c0245, a Preact component (change c0247, decision 10): under the toolbar, the running job's
@@ -1708,6 +1785,7 @@ function RunStrip({ job, message }) {
     return preact.h(preact.Fragment, null,
         preact.h("span", null, message.text),
         message.hint ? preact.h("small", null, message.hint) : null,
+        message.action ? preact.h("button", { id: "runAgain", class: "primary", onClick: () => { const a = message.action; RUNS.message = null; runStrip(); a.run(); } }, message.action.label) : null,
         preact.h("button", { onClick: () => { RUNS.message = null; runStrip(); } }, "Dismiss"));
 }
 function runStrip() {
@@ -1728,13 +1806,14 @@ function runStrip() {
 // read again. Undo plans `restore` on a receipt of this session, reviewed and confirmed the same way.
 // The client, the action forms of the Project review and Waive live here; the dialog is dialogs/plan-review,
 // the list of this session's writes panels/receipts.
-const ACTS = { enabled: false, token: "", offer: null, doc: null, reason: "", receipts: [], job: null, timer: 0, request: null, saved: null, open: null };
+const ACTS = { failed: false, enabled: false, token: "", offer: null, doc: null, reason: "", receipts: [], job: null, timer: 0, request: null, saved: null, open: null };
 const ACT_FORMS = ["fill", "tidy", "silk", "testpoints", "export", "bom"];
 function actHeaders() { return { "Content-Type": "application/json", "X-Fenolite-Action": "1", "X-Fenolite-Token": ACTS.token }; }
 async function actionsLoad() {
     if (!LIVE || PREVIEW_MODE || !DOC)
         return;
     const doc = DOC.id;
+    ACTS.failed = false;
     try {
         const r = await fetch(`actions?doc=${encodeURIComponent(doc)}`, { cache: "no-store", headers: { "X-Fenolite-Action": "1" } });
         const data = await r.json();
@@ -1750,8 +1829,10 @@ async function actionsLoad() {
     catch (e) {
         ACTS.enabled = false;
         ACTS.doc = doc;
-    }
+        ACTS.failed = true;
+    } // c0244: the Project review asks again when it opens
     buildActionPanel();
+    refreshInspector(); // c0244: the inspector offers the actions that apply
 }
 function actLen(mm) { return UNIT === "mil" ? `${(mm / MIL_MM).toFixed(2)}mil` : `${mm.toFixed(3)}mm`; }
 function actField(key, o, value) {
@@ -1808,11 +1889,11 @@ function actNudge(box) {
         f.value = `${(+v[1] + m[1] * step * (e.shiftKey ? 10 : 1)).toFixed(v[2] === "mm" ? 3 : 1)}${v[2]}`;
     });
 }
-function buildActionPanel() {
+function buildActionPanel(retry = false) {
     const panel = $("actionPanel");
     if (!panel)
         return;
-    if (LIVE && DOC && ACTS.doc !== DOC.id) {
+    if (LIVE && DOC && (ACTS.doc !== DOC.id || (retry && ACTS.failed))) {
         ACTS.doc = DOC.id;
         actionsLoad();
     }
@@ -1845,9 +1926,26 @@ function buildActionPanel() {
         if (ACTS.job)
             b.disabled = true;
 }
+function waiveBlocked() {
+    const b = S && S.project_review?.binding, stale = DOC && RUNS.stale.get(DOC.id);
+    if (stale)
+        return stale.text;
+    if (b && (!b.matched || (b.sha256 && S.meta?.sha256 && b.sha256 !== S.meta.sha256)))
+        return "This finding comes from a check of an earlier revision of the file, so its index may name another violation now. Run the checks again before waiving it.";
+    return "";
+}
 function actWaiveButton(x, detail) {
     if (!ACTS.enabled || x.checkIndex == null || x.stage !== "drc.kicad" || !ACTS.offer?.waive?.available)
         return;
+    const why = waiveBlocked();
+    if (why) {
+        const p = document.createElement("p");
+        p.className = "actWhy";
+        p.id = "actWaiveWhy";
+        p.textContent = `Waive is not offered. ${why}`;
+        detail.appendChild(p);
+        return;
+    }
     const box = document.createElement("div");
     box.className = "actWaive";
     box.innerHTML = '<label class="actField">Reason for the waiver (stored in the project)<input id="actReason" maxlength="300" placeholder="Accepted by design: …"></label><button id="actWaive">Waive finding…</button>';
@@ -1993,6 +2091,10 @@ function actWritten(job) {
     if (job.state !== "done")
         return actDialog({ phase: "error", title, message: actError(job) });
     actDialog({ phase: "receipt", title, job });
+    const written = (job.receipt?.written || []).map(w => String(w.path)), own = DOC && DOC.id === job.doc ? DOC.name.toLowerCase() : "";
+    const others = written.filter(p => p.replace(/\\/g, "/").split("/").pop().toLowerCase() !== own);
+    if (job.action !== "undo" && others.length && (job.action === "waive" || others.some(p => /\.(kicad_pro|kicad_dru)$/i.test(p))))
+        markStale(job.doc, `The checks predate this write: ${others.join(", ")} changed (${title.toLowerCase()}). Their results are stale until the checks run again.`);
     if (DOC && DOC.id === job.doc) {
         invalidateScene(job.doc);
         openDoc(DOC, true);
@@ -2935,16 +3037,7 @@ function drawVariantMarks(boxes) {
     }
 }
 // ---- board/info.ts
-function compInfo(ci) {
-    const c = S.comps[ci], b = c.bbox, vs = variantOf(c.ref);
-    const params = { ...(c.params || {}), ...((vs && vs.params) || {}) }; // c0187: every parameter the file holds
-    return `<b>${esc(c.ref)}</b> · ${esc(c.side)} · rot ${c.rotation}°<br>Footprint: ${esc(c.footprint)}${c.value ? `<br>Value: ${esc(c.value)}` : ""}<br>Position: (${fmtLen(c.x)}, ${fmtLen(c.y)})` +
-        (b ? `<br>Extent: ${fmtPair(b[2] - b[0], b[3] - b[1])}` : "") + (vs ? `<br>Variant ${esc(VARIANT)}: <b>${esc(vs.kind)}</b>` : "") +
-        Object.entries(params).map(([k, v]) => {
-            const mil = /^(-?\d+(?:\.\d+)?)mil$/.exec(String(v)); // an Altium length, in the page's unit
-            return `<br>${esc(k)}: ${mil ? fmtLen(+mil[1] * MIL_MM) : linkify(v)}`;
-        }).join("");
-}
+function compInfo(ci) { return partModel(ci); } // c0244: the inspector model of a part
 function padOf(label, x, y) {
     let best = null, bd = Infinity;
     for (const p of S.pads || []) {
@@ -2959,25 +3052,7 @@ function padOf(label, x, y) {
     return best;
 }
 function layerName(id) { const l = S.layers.find(x => x.id === id); return l ? l.name : id; }
-function padInfo(p) {
-    const r = [`<br><b>Pad ${esc(p.number)}</b> · ${esc(p.shape || "?")} · ${esc(p.kind)}`];
-    if (p.w != null)
-        r.push(`Size: ${fmtPair(p.w / 1e6, p.h / 1e6)}`);
-    if (p.ratio != null && p.w != null)
-        r.push(`Corner radius: ${fmtNm(p.ratio / 1e6 * Math.min(p.w, p.h))}`);
-    if (p.drill != null)
-        r.push(`Hole Ø ${fmtNm(p.drill)}` + (p.slot ? ` · slot ${fmtNm(p.slot + p.drill)} long` : ""));
-    r.push(`Centre: (${fmtLen(p.x)}, ${fmtLen(p.y)}) · rot ${(+p.rot).toFixed(1)}°`);
-    if (p.layers && p.layers.length)
-        r.push(`Layers: ${esc(p.layers.map(layerName).join(", "))}`);
-    if (p.mask != null)
-        r.push(`Solder mask expansion: ${fmtNm(p.mask)} · ${esc(p.mask_src)}`); // c0181: an Altium pad
-    if (p.paste != null)
-        r.push(`Paste expansion: ${fmtNm(p.paste)} · ${esc(p.paste_src)}`);
-    if (p.mask != null && p.w != null)
-        r.push(`Mask opening: ${fmtPair(Math.max(p.w + 2 * p.mask, 0) / 1e6, Math.max(p.h + 2 * p.mask, 0) / 1e6)}`);
-    return r.join("<br>");
-}
+function padInfo(p) { return padSection(p, FMT, layerName); } // c0244: the Pad section of the inspector (c0181: an Altium pad's mask and paste)
 function select(h, at) {
     st.selFinding = -1;
     st.selNet = -1;
@@ -2990,29 +3065,13 @@ function select(h, at) {
         return;
     }
     const pr = h.pr, net = pr[3], ci = pr[4];
-    let html = `<b>${esc(pr[5] || h.layer.name)}</b><br>Layer: ${esc(h.layer.name)}`;
     if (net >= 0) {
-        html += `<br>Net: <b>${esc(S.nets[net])}</b>`;
         st.selNet = net;
         shareNet(S.nets[net]);
     }
-    if (ci >= 0) {
-        html += `<br>${compInfo(ci)}`;
-        if (net < 0)
-            st.selComp = ci;
-    }
-    if (pr[1] === "s")
-        html += `<br>Width: ${fmtLen(pr[2][4])} · length ${fmtLen(Math.hypot(pr[2][2] - pr[2][0], pr[2][3] - pr[2][1]))}`;
-    if (pr[1] === "a")
-        html += `<br>Width: ${fmtLen(pr[2][6])}` + (pr[6] ? ` · radius ${fmtLen(pr[6].r)}` : "");
-    const pad = pr[5] && at ? padOf(pr[5], at[0], at[1]) : null;
-    if (pad)
-        html += padInfo(pad);
-    else if (pr[1] === "c" && h.layer.id === "View.Drill")
-        html += `<br>Hole Ø ${fmtLen(2 * pr[2][2])}`;
-    else if (pr[1] === "c")
-        html += `<br>Diameter: ${fmtLen(2 * pr[2][2])}`;
-    showInfo(html);
+    if (ci >= 0 && net < 0)
+        st.selComp = ci;
+    inspect(() => boardModel(h, at));
     draw();
 }
 // ---- three/math.ts
@@ -3060,9 +3119,11 @@ function inv(a) {
 // ---- three/view3d.ts
 // ================================================================== 3D view (WebGL, no library)
 const glc = $("gl");
+const LIGHT = { ambient: "0.30", key: "0.55", fill: "0.20" }; // c0244: the terms of the 3D lighting (GLSL literals)
 const V3 = {
-    gl: null, prog: null, loc: {}, parts: [], tex: {}, built: false, cam: { yaw: -2.2, pitch: 0.75, dist: 260, tx: 0, ty: 0, tz: 0 }, selBody: -1, bodies: true, bodyPart: null
-};
+    gl: null, prog: null, loc: {}, parts: [], tex: {}, built: false, cam: { yaw: -2.2, pitch: 0.75, dist: 260, tx: 0, ty: 0, tz: 0 }, selBody: -1, bodies: true, bodyPart: null,
+    board: true, silk: true, copper: true, anim: 0
+}; // c0244: the 3D panel's toggles
 function shader(gl, type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
@@ -3081,9 +3142,9 @@ function init3D() {
     }
     const vs = `attribute vec3 aP; attribute vec3 aN; attribute vec3 aC; attribute vec2 aT; uniform mat4 uM; varying vec3 vN; varying vec3 vC; varying vec2 vT;
     void main(){ gl_Position = uM * vec4(aP, 1.0); vN = aN; vC = aC; vT = aT; }`;
-    const fs = `precision mediump float; varying vec3 vN; varying vec3 vC; varying vec2 vT; uniform sampler2D uS; uniform float uTex; uniform vec3 uL;
-    void main(){ vec4 t = texture2D(uS, vT); if (uTex > 0.5 && t.a < 0.5) discard; vec3 base = uTex > 0.5 ? t.rgb : vC;
-      float d = abs(dot(normalize(vN), uL)); gl_FragColor = vec4(base * (0.42 + 0.58 * d), 1.0); }`;
+    const fs = `precision mediump float; varying vec3 vN; varying vec3 vC; varying vec2 vT; uniform sampler2D uS; uniform float uTex; uniform vec3 uL; uniform vec3 uL2;
+    void main(){ vec4 t = texture2D(uS, vT); if (uTex > 0.5 && t.a < 0.5) discard; vec3 base = uTex > 0.5 ? t.rgb : vC; vec3 n = normalize(vN);
+      gl_FragColor = vec4(base * (${LIGHT.ambient} + ${LIGHT.key} * max(dot(n, uL), 0.0) + ${LIGHT.fill} * abs(dot(n, uL2))), 1.0); }`;
     const p = gl.createProgram();
     gl.attachShader(p, shader(gl, gl.VERTEX_SHADER, vs));
     gl.attachShader(p, shader(gl, gl.FRAGMENT_SHADER, fs));
@@ -3092,15 +3153,15 @@ function init3D() {
     V3.prog = p;
     for (const k of ["aP", "aN", "aC", "aT"])
         V3.loc[k] = gl.getAttribLocation(p, k);
-    for (const k of ["uM", "uS", "uTex", "uL"])
+    for (const k of ["uM", "uS", "uTex", "uL", "uL2"])
         V3.loc[k] = gl.getUniformLocation(p, k);
     // body models (change c0193): per-vertex colour, alpha 0 where the model gives none (the body colour then)
     V3.u32 = !!gl.getExtension("OES_element_index_uint");
     const mvs = `attribute vec3 aP; attribute vec3 aN; attribute vec4 aC; uniform mat4 uVP; uniform mat4 uW; varying vec3 vN; varying vec4 vC;
     void main(){ gl_Position = uVP * uW * vec4(aP, 1.0); vN = (uW * vec4(aN, 0.0)).xyz; vC = aC; }`;
-    const mfs = `precision mediump float; varying vec3 vN; varying vec4 vC; uniform vec3 uBody; uniform float uSel; uniform vec3 uL;
-    void main(){ vec3 base = vC.a > 0.5 ? vC.rgb : uBody; if (uSel > 0.5) base = mix(base, vec3(1.0, 0.85, 0.3), 0.55);
-      float d = abs(dot(normalize(vN), uL)); gl_FragColor = vec4(base * (0.42 + 0.58 * d), 1.0); }`;
+    const mfs = `precision mediump float; varying vec3 vN; varying vec4 vC; uniform vec3 uBody; uniform float uSel; uniform vec3 uL; uniform vec3 uL2;
+    void main(){ vec3 base = vC.a > 0.5 ? vC.rgb : uBody; if (uSel > 0.5) base = mix(base, vec3(1.0, 0.85, 0.3), 0.55); vec3 n = normalize(vN);
+      gl_FragColor = vec4(base * (${LIGHT.ambient} + ${LIGHT.key} * max(dot(n, uL), 0.0) + ${LIGHT.fill} * abs(dot(n, uL2))), 1.0); }`;
     const q = gl.createProgram();
     gl.attachShader(q, shader(gl, gl.VERTEX_SHADER, mvs));
     gl.attachShader(q, shader(gl, gl.FRAGMENT_SHADER, mfs));
@@ -3109,7 +3170,7 @@ function init3D() {
     V3.mloc = {};
     for (const k of ["aP", "aN", "aC"])
         V3.mloc[k] = gl.getAttribLocation(q, k);
-    for (const k of ["uVP", "uW", "uBody", "uSel", "uL"])
+    for (const k of ["uVP", "uW", "uBody", "uSel", "uL", "uL2"])
         V3.mloc[k] = gl.getUniformLocation(q, k);
     return true;
 }
@@ -3182,11 +3243,11 @@ function sideTexture(side) {
     g.clip(boardPath(), "evenodd");
     const pre = side === "top" ? "F." : "B.";
     const lay = id => S.layers.find(l => l.id === id);
-    if (lay(pre + "Cu"))
+    if (lay(pre + "Cu") && V3.copper)
         paintCache(g, cache.get(pre + "Cu"), pre + "Cu", "#2b8a45", 1, ppm);
     if (lay(pre + "Mask"))
         paintCache(g, cache.get(pre + "Mask"), pre + "Mask", "#d4b05c", 1, ppm);
-    if (lay(pre + "SilkS")) {
+    if (lay(pre + "SilkS") && V3.silk) {
         paintCache(g, cache.get(pre + "SilkS"), pre + "SilkS", "#f1f1ea", 1, ppm);
         paintTexts(g, pre + "SilkS", "#f1f1ea", 1, ppm);
     }
@@ -3222,7 +3283,7 @@ function bodyGeometry(arr, bd, col) {
     }
     cx /= n;
     cy /= n;
-    const cap = col.map(v => v + (1 - v) * 0.18);
+    const cap = col === BODY_RGB ? hexRGB(BODY_TOP) : col.map(v => v + (1 - v) * 0.18);
     for (let i = 0; i < n; i++) {
         const a = ring[i], b = ring[(i + 1) % n];
         for (const p of [[cx, cy], a, b])
@@ -3270,7 +3331,8 @@ function build3D() {
     V3.built = true;
     return true;
 }
-const BODY = "#3c4048", BODY_SEL = "#ffd84d", MESH_BODY = "#9aa0a8";
+const BODY = "#33363c", BODY_TOP = "#5b6069", BODY_SEL = "#ffd84d", MESH_BODY = "#9aa0a8"; // c0244: Fenolite's body colours
+const BODY_RGB = hexRGB(BODY);
 function rebuildBodies() {
     const gl = V3.gl;
     if (!gl)
@@ -3284,7 +3346,7 @@ function rebuildBodies() {
         if (bd.mesh && V3.meshBufs && V3.meshBufs[bd.mesh])
             return;
         const sel = i === V3.selBody || (st.selComp >= 0 && bd.comp === st.selComp);
-        bodyGeometry(arr, bd, hexRGB(sel ? BODY_SEL : BODY));
+        bodyGeometry(arr, bd, sel ? hexRGB(BODY_SEL) : BODY_RGB);
     });
     V3.bodyPart = arr.length ? makePart(arr, null) : null;
 }
@@ -3292,6 +3354,14 @@ function camEye() { const c = V3.cam; return [c.tx + c.dist * Math.cos(c.pitch) 
 function mvp() {
     const c = V3.cam, e = camEye(), up = Math.abs(Math.cos(c.pitch)) < 1e-3 ? [Math.cos(c.yaw + Math.PI), Math.sin(c.yaw + Math.PI), 0] : [0, 0, 1];
     return mul(persp(0.75, Math.max(W, 1) / Math.max(H, 1), c.dist * 0.01, c.dist * 10), lookAt(e, [c.tx, c.ty, c.tz], up));
+}
+function camBasis() {
+    const m = lookAt(camEye(), [V3.cam.tx, V3.cam.ty, V3.cam.tz], Math.abs(Math.cos(V3.cam.pitch)) < 1e-3 ? [Math.cos(V3.cam.yaw + Math.PI), Math.sin(V3.cam.yaw + Math.PI), 0] : [0, 0, 1]);
+    return [[m[0], m[4], m[8]], [m[1], m[5], m[9]], [m[2], m[6], m[10]]];
+}
+function lights() {
+    const [r, u, b] = camBasis(), mix = (a, c, d) => { const v = [0, 1, 2].map(i => a * r[i] + c * u[i] + d * b[i]), l = Math.hypot(...v); return v.map(x => x / l); };
+    return [mix(-0.45, 0.55, 0.7), mix(0.6, -0.35, 0.4)];
 }
 function resize3D() { glc.width = Math.max(1, Math.round(W * dpr)); glc.height = Math.max(1, Math.round(H * dpr)); draw3D(); }
 function draw3D() {
@@ -3304,9 +3374,10 @@ function draw3D() {
     gl.enable(gl.DEPTH_TEST);
     gl.useProgram(V3.prog);
     gl.uniformMatrix4fv(L.uM, false, new Float32Array(mvp()));
-    const e = camEye(), c = V3.cam, lv = [e[0] - c.tx, e[1] - c.ty, e[2] - c.tz + c.dist * 0.6], ll = Math.hypot(...lv);
-    gl.uniform3fv(L.uL, lv.map(v => v / ll));
-    const parts = [...V3.parts];
+    const [key, fill] = lights();
+    gl.uniform3fv(L.uL, key);
+    gl.uniform3fv(L.uL2, fill);
+    const parts = V3.board ? [...V3.parts] : [];
     if (V3.bodies && V3.bodyPart)
         parts.push(V3.bodyPart);
     for (const p of parts) {
@@ -3330,12 +3401,14 @@ function draw3D() {
     }
     for (const k of ["aP", "aN", "aC", "aT"])
         gl.disableVertexAttribArray(L[k]);
+    drawCube();
     if (!V3.bodies || !V3.meshBufs)
         return;
     const ML = V3.mloc;
     gl.useProgram(V3.mprog);
     gl.uniformMatrix4fv(ML.uVP, false, new Float32Array(mvp()));
-    gl.uniform3fv(ML.uL, lv.map(v => v / ll));
+    gl.uniform3fv(ML.uL, key);
+    gl.uniform3fv(ML.uL2, fill);
     (S.bodies || []).forEach((bd, i) => {
         const mb = bd.mesh && V3.meshBufs[bd.mesh];
         if (!mb || notFitted(bd.ref))
@@ -3363,7 +3436,9 @@ function set3D(on) {
     refreshToolbar();
     glc.style.display = on ? "block" : "none";
     cv.style.display = on ? "none" : "block";
-    $("bar3d").style.display = on ? "flex" : "none";
+    $("cube").style.display = on ? "block" : "none";
+    document.body.classList.toggle("mode3d", on);
+    refreshDock();
     if (on) {
         measure();
         if (!V3.built && !build3D()) {
@@ -3377,29 +3452,44 @@ function set3D(on) {
         resize();
     }
 }
-function camPreset(kind) {
-    const c = V3.cam;
-    if (kind === "top") {
-        c.yaw = -Math.PI / 2;
-        c.pitch = 1.5699;
+const PRESETS = { top: [-Math.PI / 2, 1.5699], bottom: [-Math.PI / 2, -1.5699], front: [-Math.PI / 2, 0], back: [Math.PI / 2, 0], left: [Math.PI, 0], right: [0, 0], iso: [-2.2, 0.75] };
+function camPreset(kind, animate = false) {
+    const [yaw, pitch] = Array.isArray(kind) ? kind : PRESETS[kind] || PRESETS.iso, c = V3.cam, b = S.bounds;
+    const to = { yaw, pitch, tx: (b[0] + b[2]) / 2, ty: -(b[1] + b[3]) / 2, tz: 0, dist: Math.max(b[2] - b[0], b[3] - b[1]) * 1.7 };
+    cancelAnimationFrame(V3.anim);
+    if (!animate) {
+        Object.assign(c, to);
+        draw3D();
+        return;
     }
-    else if (kind === "bottom") {
-        c.yaw = -Math.PI / 2;
-        c.pitch = -1.5699;
+    const from = { ...c }, dy = Math.atan2(Math.sin(to.yaw - from.yaw), Math.cos(to.yaw - from.yaw)), t0 = performance.now();
+    const step = now => {
+        const k = Math.min(1, (now - t0) / 250), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+        c.yaw = from.yaw + dy * e;
+        c.pitch = from.pitch + (to.pitch - from.pitch) * e;
+        for (const key of ["tx", "ty", "tz", "dist"])
+            c[key] = from[key] + (to[key] - from[key]) * e;
+        draw3D();
+        if (k < 1)
+            V3.anim = requestAnimationFrame(step);
+        else
+            c.yaw = to.yaw;
+    };
+    V3.anim = requestAnimationFrame(step);
+}
+function set3DOption(key, on) {
+    V3[key] = on;
+    if ((key === "silk" || key === "copper") && V3.built) {
+        const gl = V3.gl;
+        for (const k of Object.keys(V3.tex))
+            gl.deleteTexture(V3.tex[k]);
+        V3.tex.top = sideTexture("top");
+        V3.tex.bottom = sideTexture("bottom");
     }
-    else {
-        c.yaw = -2.2;
-        c.pitch = 0.75;
-    }
-    const b = S.bounds;
-    c.tx = (b[0] + b[2]) / 2;
-    c.ty = -(b[1] + b[3]) / 2;
-    c.tz = 0;
-    c.dist = Math.max(b[2] - b[0], b[3] - b[1]) * 1.7;
     draw3D();
 }
 let drag3 = null;
-glc.addEventListener("mousedown", e => { drag3 = { x: e.offsetX, y: e.offsetY, pan: e.shiftKey || e.button === 2, cam: { ...V3.cam } }; glc.style.cursor = "grabbing"; });
+glc.addEventListener("mousedown", e => { cancelAnimationFrame(V3.anim); drag3 = { x: e.offsetX, y: e.offsetY, pan: e.shiftKey || e.button === 2, cam: { ...V3.cam } }; glc.style.cursor = "grabbing"; });
 glc.addEventListener("contextmenu", e => e.preventDefault());
 glc.addEventListener("mousemove", e => {
     if (!drag3)
@@ -3434,8 +3524,9 @@ window.addEventListener("mouseup", e => {
         showInfo(null);
         return;
     }
-    const bd = S.bodies[i], how = bd.render === "model" ? "model placed as the file places it" : bd.render === "fitted" ? `model fitted to the body's outline (${esc(bd.fit)})` : `extruded outline${bd.fit ? ` (${esc(bd.fit)})` : ""}`;
-    showInfo(compInfo(bd.comp) + `<br>Body: ${esc(bd.model || "extruded")} · ${how}<br>Height: ${(bd.zs ? bd.zs[0] : bd.z0).toFixed(2)} to ${(bd.zs ? bd.zs[1] : bd.z1).toFixed(2)} mm from the ${bd.side} face`);
+    const bd = S.bodies[i], how = bd.render === "model" ? "model placed as the file places it" : bd.render === "fitted" ? `model fitted to the body's outline (${bd.fit})` : `extruded outline${bd.fit ? ` (${bd.fit})` : ""}`;
+    inspect(() => imodel("body", S.comps[bd.comp].ref, [isection("3D body", [irow("Model", bd.model || "extruded"), irow("Placement", how),
+            irow("Height", `${fmtLen(bd.zs ? bd.zs[0] : bd.z0)} to ${fmtLen(bd.zs ? bd.zs[1] : bd.z1)} from the ${bd.side} face`)]), boardPart(bd.comp)], { subtitle: "3D body", target: { comp: bd.comp, net: -1 } }));
 });
 // the body whose box (outline and height) the ray of a pixel meets first
 function pick3D(X, Y) {
@@ -3476,12 +3567,10 @@ function pick3D(X, Y) {
     return best;
 }
 glc.addEventListener("wheel", e => { e.preventDefault(); V3.cam.dist = Math.min(Math.max(V3.cam.dist * Math.exp(e.deltaY * 0.0012), 5), 3000); draw3D(); }, { passive: false });
-$("v3top").onclick = () => camPreset("top");
-$("v3bot").onclick = () => camPreset("bottom");
-$("v3iso").onclick = () => camPreset("iso");
-$("c3body").onchange = e => { V3.bodies = e.target.checked; draw3D(); };
 // ---- board/tabs.ts
-// ================================================================== layer tabs (bottom bar)
+// ================================================================== layers: order, current layer, presets
+// The layers of a board are listed in the dock's Layers panel (c0244, panels/layers); the bottom bar keeps the
+// sheet tabs of a schematic only. buildTabs() keeps its name: it refreshes the panel and the status bar.
 const TAB_ORDER = id => {
     const k = id.endsWith(".Cu") ? (id === "F.Cu" ? 0 : id === "B.Cu" ? 2 : 1) : id.startsWith("Mech") ? 3 : id.endsWith("SilkS") ? 4 : id.endsWith("Paste") ? 5 : id.endsWith("Mask") ? 6
         : id.endsWith("CrtYd") ? 7 : id.endsWith("Fab") ? 8 : id === "Edge.Cuts" ? 9 : id.startsWith("View.") ? 11 : 10;
@@ -3489,19 +3578,7 @@ const TAB_ORDER = id => {
 };
 function tabLayers() { return [...S.layers].sort((a, b) => (a.tab ?? TAB_ORDER(a.id) * 100) - (b.tab ?? TAB_ORDER(b.id) * 100) || (a.id.startsWith("B.") - b.id.startsWith("B.")) || a.id.localeCompare(b.id, undefined, { numeric: true })); }
 function buildTabs() {
-    const box = $("tablist");
-    box.innerHTML = "";
-    for (const l of tabLayers()) {
-        const t = document.createElement("div");
-        t.className = "tab" + (l.id === st.cur ? " cur" : "") + (vis.get(l.id) ? "" : " off");
-        t.style.borderBottomColor = l.id === st.cur ? l.color : "transparent";
-        t.title = `${l.name} (${l.kind}) · click: current layer · click the swatch or right-click: show / hide`;
-        t.innerHTML = `<span class="sw" style="background:${l.color}"></span><span>${esc(l.name)}</span>`;
-        t.querySelector(".sw").onclick = e => { e.stopPropagation(); vis.set(l.id, !vis.get(l.id)); buildTabs(); draw(); };
-        t.onclick = () => setCurrent(l.id);
-        t.oncontextmenu = e => { e.preventDefault(); vis.set(l.id, !vis.get(l.id)); buildTabs(); draw(); };
-        box.appendChild(t);
-    }
+    buildLayers();
     const cur = S.layers.find(l => l.id === st.cur);
     $("cur").textContent = cur ? `Layer ${cur.name}${st.single ? " · only this layer" : ""}` : "";
 }
@@ -3509,17 +3586,37 @@ function setCurrent(id) { st.cur = id; vis.set(id, true); buildTabs(); draw(); }
 function stepCurrent(dir) { const L = tabLayers().filter(l => vis.get(l.id)); if (!L.length)
     return; let i = L.findIndex(l => l.id === st.cur); i = (i + dir + L.length) % L.length; setCurrent(L[i].id); }
 const SETS = { "All layers": () => true, "Signal layers": l => l.kind === "copper" || VIEWL(l.id), "Top side": l => l.side !== "bottom", "Bottom side": l => l.side !== "top", "Default": l => l.visible };
+function applyPreset(name) {
+    if (name === "Current layer only")
+        st.single = !st.single;
+    else {
+        st.single = false;
+        for (const l of S.layers)
+            vis.set(l.id, SETS[name](l));
+    }
+    buildTabs();
+    draw();
+}
 $("ls").onclick = e => {
     e.stopPropagation();
     const mnu = $("lsmenu");
     mnu.innerHTML = "";
-    for (const name of Object.keys(SETS)) {
-        const d = document.createElement("div");
+    for (const name of [...Object.keys(SETS), "Current layer only"]) {
+        const d = document.createElement("button");
+        d.type = "button";
+        d.className = "menuItem";
+        d.setAttribute("role", "menuitem");
         d.textContent = name;
-        d.onclick = () => { for (const l of S.layers)
-            vis.set(l.id, SETS[name](l)); mnu.style.display = "none"; buildTabs(); draw(); };
+        if (name === "Current layer only") {
+            d.setAttribute("aria-checked", String(st.single));
+            d.setAttribute("role", "menuitemcheckbox");
+        }
+        d.onclick = () => { mnu.style.display = "none"; applyPreset(name); };
         mnu.appendChild(d);
     }
+    const r = $("ls").getBoundingClientRect();
+    mnu.style.left = `${Math.max(8, r.right - 232)}px`;
+    mnu.style.top = `${r.bottom + 6}px`;
     mnu.style.display = mnu.style.display === "block" ? "none" : "block";
 };
 window.addEventListener("click", () => { $("lsmenu").style.display = "none"; });
@@ -3568,6 +3665,7 @@ let navigation = 0, loadingNavigation = 0;
 function docCard(d, state, error) {
     REVIEW.doc = null;
     buildProjectReview();
+    preact.render(null, $("infoEmpty"));
     $("doccard").style.display = "flex";
     $("tablewrap").style.display = "none";
     cv.style.display = "none";
@@ -3674,6 +3772,13 @@ function loadScene(scene, keepView) {
     else
         loadBoard(scene, keepView);
     runReapply(scene); // c0245: the results of this session's runs
+    refreshDock();
+    refreshSummary();
+    refreshToolbar(); // c0244: the dock's tabs and the document's summary
+    if (LIVE && !PREVIEW_MODE && DOC && ACTS.doc !== DOC.id) {
+        ACTS.doc = DOC.id;
+        actionsLoad();
+    } // c0246: what the inspector may offer
     REVIEW.doc = DOC?.id || null;
     buildProjectReview();
 }
@@ -3758,7 +3863,8 @@ function gotoFinding(i) {
     const g = (S.meta.findings || []).find(x => x.id === ovGroup(o));
     fit([b[0] - 4, b[1] - 4, b[2] + 4, b[3] + 4]);
     buildFindings();
-    showInfo(`<b>${esc(g ? g.title : ovGroup(o))}</b><br>${esc(o.label)}${g && g.note ? `<br><small>${esc(g.note)}</small>` : ""}`);
+    inspect(() => imodel("finding", g ? g.title : ovGroup(o), [isection("Finding", [irow("Group", g ? g.title : ovGroup(o)), irow("Item", o.label),
+            irow("Layer", o.layer), irow("Rule", g && g.note)])], { subtitle: "Review finding", target: { overlay: i, comp: -1, net: -1 } }));
 }
 // ---- board/load.ts
 function buildPanels() {
@@ -3805,7 +3911,7 @@ function loadBoard(scene, keepView) {
 }
 // ---- panels/review.tsx
 // ================================================================== review panels (c0187): filter, highlight, components, nets
-const HL_ALPHA = { dim: 0.28, mask: 0.06, normal: 1 };
+const HL_ALPHA = { dim: 0.22, mask: 0.06, normal: 1 }; // c0244: Dim at 0.22
 const ROW = 24;
 function vlist(box, items, row, click, selected, empty) {
     box.style.height = items.length ? `${Math.min(240, items.length * ROW + 4)}px` : "auto";
@@ -3842,7 +3948,7 @@ function primBounds(set) {
 }
 function selectCompAt(ci) { if (st.mode3d)
     set3D(false); st.selComp = ci; st.selNet = -1; const b = S.comps[ci].bbox; if (b)
-    fit([b[0] - 5, b[1] - 5, b[2] + 5, b[3] + 5]); showInfo(compInfo(ci)); buildReview(); draw(); }
+    fit([b[0] - 5, b[1] - 5, b[2] + 5, b[3] + 5]); inspect(() => partModel(ci)); buildReview(); draw(); }
 function selectNetAt(ni) {
     if (st.mode3d)
         set3D(false);
@@ -3852,8 +3958,7 @@ function selectNetAt(ni) {
     const b = netBounds(ni);
     if (b)
         fit([b[0] - 3, b[1] - 3, b[2] + 3, b[3] + 3]);
-    const info = (S.netinfo || [])[ni];
-    showInfo(`Net: <b>${esc(S.nets[ni])}</b>` + (info ? `<br>${info.pads} pads · routed ${fmtLen(info.length * MM)}` : ""));
+    inspect(() => netModel(ni));
     buildReview();
     draw();
 }
@@ -3961,9 +4066,10 @@ function edgeClick(X, Y) {
     if (st.epick.length === 2) {
         const [a, b] = st.epick;
         st.eres = edgeBetween(a.prims, b.prims);
-        if (st.eres)
-            showInfo(`<b>Edge to edge: ${fmtLen(st.eres.d)}</b><br>${esc(a.name)} (${esc(a.layer.name)}) ↔ ${esc(b.name)} (${esc(b.layer.name)})` +
-                (a.layer.id !== b.layer.id ? "<br><i>Two layers: the distance is measured in the plane.</i>" : ""));
+        if (st.eres) {
+            const d = st.eres.d;
+            inspect(() => imodel("measure", `Edge gap ${fmtLen(d)}`, [isection("Edge gap", [irow("Distance", fmtLen(d)), irow("From", `${a.name} · ${a.layer.name}`), irow("To", `${b.name} · ${b.layer.name}`)])], { note: a.layer.id !== b.layer.id ? "Two layers: the distance is measured in the plane." : "" }));
+        }
     }
     draw();
 }
@@ -4156,7 +4262,7 @@ async function openMark(m, i) {
         set3D(false);
     const x = m.x_nm / 1e6, y = m.y_nm / 1e6, e = isSch() ? 25 : 5;
     fit([x - e, y - e, x + e, y + e]);
-    showInfo(`<b>Mark ${i + 1}</b><br>${esc(m.note)}${m.select ? `<br>On: ${esc(m.select)}` : ""}<br><small>${esc(m.created)}</small>`);
+    inspect(() => imodel("mark", `Mark ${i + 1}`, [isection("Review mark", [irow("Note", m.note || "(no note)"), irow("On", m.select), irow("Document", m.doc), irow("Created", m.created)])], { subtitle: serverMarks() ? "Kept in the marks file" : "Kept in this browser" }));
 }
 // A row keeps its click as the element's onclick (c0243): the navigation tests call it and await its promise.
 function MarksPanel({ marks }) {
@@ -4358,7 +4464,8 @@ function loadTable(scene) {
     document.body.classList.add("table");
     cv.style.display = "none";
     glc.style.display = "none";
-    $("bar3d").style.display = "none";
+    $("cube").style.display = "none";
+    document.body.classList.remove("mode3d");
     setDocTitle(scene.meta.name);
     $("notes").innerHTML = (scene.meta.notes || []).map(esc).join("<br>") + `<br>Read by the ${esc(scene.meta.backend || "?")} backend, evidence ${esc(scene.meta.evidence || "?")}.`;
     TBL.sort = -1;
@@ -4431,7 +4538,7 @@ function find(q) {
         const b = S.comps[ci].bbox;
         if (b)
             fit([b[0] - 5, b[1] - 5, b[2] + 5, b[3] + 5]);
-        showInfo(compInfo(ci));
+        inspect(() => partModel(ci));
         draw();
         return;
     }
@@ -4439,7 +4546,7 @@ function find(q) {
     if (ni >= 0) {
         st.selNet = ni;
         st.selComp = -1;
-        showInfo(`Net: <b>${esc(S.nets[ni])}</b>`);
+        inspect(() => netModel(ni));
         draw();
         return;
     }
@@ -5118,25 +5225,33 @@ function schSelect(oi) {
         return;
     }
     const o = S.objects[oi];
-    if (o.k === "comp") {
+    if (o.comp >= 0 && o.k === "comp")
         SCH.selComp = o.comp;
-        showInfo(`<b>Properties</b> · Component${rows(compRows(o.comp))}`);
+    if (o.k !== "comp" && o.net >= 0) {
+        SCH.selNet = o.net;
+        const n = S.nets[o.net];
+        shareNet(n.project || n.name);
     }
-    else {
-        if (o.net >= 0)
-            SCH.selNet = o.net;
-        let html = `<b>Properties</b> · ${esc(o.k)}${rows(o.info)}`;
-        if (o.net >= 0) {
-            const n = S.nets[o.net];
-            html += `<br><b>Net ${esc(n.name || "(no name)")}</b>: ${n.pins.length} pins` + (n.pins.length ? `<br><small>${esc(n.pins.slice(0, 40).join(", "))}${n.pins.length > 40 ? " …" : ""}</small>` : "") + projectNetInfo(n);
-            shareNet(n.project || n.name);
-        }
-        if (o.comp >= 0)
-            html += `<br><br><b>Part</b>${rows(compRows(o.comp))}`;
-        showInfo(html);
-    }
+    inspect(() => schModel(oi));
     buildNav();
     draw();
+}
+const SCH_KIND = { comp: "component", wire: "wire", pin: "pin", sheet: "sheet" };
+function schModel(oi) {
+    const o = S.objects[oi], sections = [];
+    if (o.k === "comp")
+        sections.push(isection("Component", compRows(o.comp).map(([k, v]) => irow(k, v, /^https?:\/\//i.test(String(v)) ? { link: String(v) } : undefined))));
+    else {
+        sections.push(isection("Properties", (o.info || []).map(([k, v]) => irow(k, v, /^https?:\/\//i.test(String(v)) ? { link: String(v) } : undefined))));
+        if (o.net >= 0) {
+            const n = S.nets[o.net];
+            sections.push(schNetSection(n), projectNetSection(n));
+        }
+        if (o.comp >= 0)
+            sections.push(isection("Part", compRows(o.comp).map(([k, v]) => irow(k, v))));
+    }
+    const ci = o.comp >= 0 ? o.comp : -1, title = o.k === "comp" ? S.comps[o.comp].ref : (o.info || []).find(r => /^(Name|Text|Designator)$/.test(r[0]))?.[1] || o.k;
+    return imodel(SCH_KIND[o.k] || "item", String(title), sections, { subtitle: o.k === "comp" ? S.comps[o.comp].comment || "" : o.k, target: { sch: true, comp: ci, net: o.net >= 0 ? o.net : -1 } });
 }
 function netBox(ni) { let b = null; for (const o of S.objects)
     if (o.net === ni && o.b)
@@ -5149,6 +5264,15 @@ function shareNet(name) { PROJ_NET = name || null; if (BC)
     BC.postMessage({ net: PROJ_NET }); }
 if (BC)
     BC.onmessage = e => { PROJ_NET = e.data && e.data.net || null; applyProjNet(); };
+function projectNetSection(n) {
+    if (!n.project)
+        return null;
+    const others = (n.sheets || []).filter(x => !S.meta || x !== S.meta.name), pins = n.project_pins || [];
+    return isection("Project net", [irow("Name", n.project), irow("Pins", pins.length), others.length ? irow("Also on", others.join(", "), { sheets: others }) : irow("Sheets", "this sheet only"),
+        pins.length ? irow("Pin list", pins.slice(0, 60).join(", ") + (pins.length > 60 ? " …" : ""), { mono: false }) : null]);
+}
+function schNetSection(n) { return isection("Net", [irow("Name", n.name || "(no name)"), irow("Pins", n.pins.length), n.pins.length ? irow("Pin list", n.pins.slice(0, 60).join(", ") + (n.pins.length > 60 ? " …" : "")) : null]); }
+function schNetModel(ni) { const n = S.nets[ni]; return imodel("net", n.name || "(no name)", [schNetSection(n), projectNetSection(n)], { subtitle: "Net", target: { sch: true, net: ni, comp: -1 } }); }
 function projectNetInfo(n) {
     if (!n.project)
         return "";
@@ -5179,7 +5303,7 @@ function applyProjNet() {
         if (i >= 0) {
             st.selNet = i;
             st.selComp = -1;
-            showInfo(`Net: <b>${esc(PROJ_NET)}</b>`);
+            inspect(() => netModel(i));
             draw();
         }
     }
@@ -5189,7 +5313,7 @@ function selectNet(ni, zoom, quiet) {
     SCH.selComp = -1;
     SCH.selNet = ni;
     const n = S.nets[ni];
-    showInfo(`<b>Net ${esc(n.name || "(no name)")}</b>: ${n.pins.length} pins<br><small>${esc(n.pins.join(", "))}</small>` + projectNetInfo(n));
+    inspect(() => schNetModel(ni));
     if (!quiet)
         shareNet(n.project || n.name);
     const b = netBox(ni);
@@ -5397,6 +5521,19 @@ function buildLibList() {
     }
     preact.render(items.length ? null : preact.h(Empty, { text: LIB.items.length ? `No ${what.toLowerCase()} match “${LIBQ.trim()}”.` : "This library holds no item." }), empty);
 }
+function itemModel(it) {
+    const rows = [...it.info];
+    if (it.copper_nm) {
+        const b = it.copper_nm;
+        rows.push(["Copper extent", fmtPair((b[2] - b[0]) / 1e6, (b[3] - b[1]) / 1e6)]);
+    }
+    if (it.courtyard_nm) {
+        const b = it.courtyard_nm;
+        rows.push(["Courtyard", fmtPair((b[2] - b[0]) / 1e6, (b[3] - b[1]) / 1e6)]);
+    }
+    const kind = LIB.lib === "pcb" ? "Footprint" : LIB.lib === "drawing" ? "Sheet" : "Symbol";
+    return imodel(kind.toLowerCase(), it.name, [isection(it.lib_id ? `${kind} · ${it.evidence || "INFERRED"}` : kind, rows.map(([k, v]) => irow(k, v)), { collapsed: !!it.lib_id })], { subtitle: [LIB.meta.name, itemNote(it)].filter(Boolean).join(" · ") });
+}
 function itemInfo(it) {
     const rows = [...it.info];
     if (it.copper_nm) {
@@ -5425,8 +5562,10 @@ function openItem(i, keepView) {
         loadBoard(it.scene, keepView);
     document.body.classList.add("lib");
     setDocTitle(`${LIB.meta.name} › ${it.name}`, LIB.meta.name);
-    showInfo(itemInfo(it));
+    inspectQuiet(() => itemModel(it));
     st.itemInfo = true;
+    refreshSummary();
+    refreshDock(); // opening an item opens no bottom sheet
 }
 function loadLibrary(scene, keepView) {
     const prev = LIB && LIBSEL >= 0 ? LIB.items[LIBSEL].name : null;
@@ -5448,6 +5587,599 @@ function loadLibrary(scene, keepView) {
         $("notes").innerHTML += "<br>" + scene.meta.notes.map(esc).join("<br>");
 }
 $("libFilter").addEventListener("input", e => { LIBQ = e.target.value; buildLibList(); });
+// ---- inspect/model.ts
+// ================================================================== the inspector model (c0244, design decision 2)
+// What a click hits, as data: {kind, title, subtitle, sections: [{title, rows: [{label, value, copy}]}], target}.
+// panels/inspector renders it in the dock. The builders between the markers are pure (the formatters come in as
+// arguments) and run under Node in tests/unit/view/test_page.py -k inspector; a value the scene does not hold
+// is left out, never shown as 0.
+// ---- inspector model (c0244)
+function irow(label, value, extra) {
+    if (value === undefined || value === null || value === "" || (typeof value === "number" && !Number.isFinite(value)))
+        return null;
+    return { label: String(label), value: String(value), copy: true, ...(extra || {}) };
+}
+function isection(title, rows, extra) { const kept = rows.filter(Boolean); return kept.length ? { title, rows: kept, ...(extra || {}) } : null; }
+function imodel(kind, title, sections, extra) { return { kind, title, sections: sections.filter(Boolean), ...(extra || {}) }; }
+function modelText(m) {
+    return [m.title, ...m.sections.map(s => [s.title, ...s.rows.map(r => `${r.label}: ${r.value}`)].join("\n"))].filter(Boolean).join("\n\n");
+}
+function padSection(p, f, layerOf) {
+    const hasSize = p.w != null && p.h != null;
+    return isection("Pad", [
+        irow("Number", p.number), irow("Shape", p.shape), irow("Mounting", p.kind),
+        hasSize ? irow("Size", f.pair(p.w / 1e6, p.h / 1e6)) : null,
+        p.ratio != null && hasSize ? irow("Corner radius", f.nm(p.ratio / 1e6 * Math.min(p.w, p.h))) : null,
+        p.drill != null ? irow("Drill", `Ø ${f.nm(p.drill)}`) : null,
+        p.drill != null && p.slot ? irow("Slot length", f.nm(p.slot + p.drill)) : null,
+        p.x != null && p.y != null ? irow("Centre", f.xy(p.x, p.y)) : null,
+        p.rot != null ? irow("Rotation", `${(+p.rot).toFixed(1)}°`) : null,
+        p.layers && p.layers.length ? irow("Layers", p.layers.map(layerOf).join(", ")) : null,
+        p.mask != null ? irow("Mask expansion", f.nm(p.mask), { note: p.mask_src }) : null,
+        p.mask != null && hasSize ? irow("Mask opening", f.pair(Math.max(p.w + 2 * p.mask, 0) / 1e6, Math.max(p.h + 2 * p.mask, 0) / 1e6)) : null,
+        p.paste != null ? irow("Paste expansion", f.nm(p.paste), { note: p.paste_src }) : null,
+    ]);
+}
+function trackSection(d, layer, f) {
+    return isection("Track", [irow("Width", f.len(d[4])), irow("Length", f.len(Math.hypot(d[2] - d[0], d[3] - d[1]))), irow("Layer", layer),
+        irow("Start", f.xy(d[0], d[1])), irow("End", f.xy(d[2], d[3]))]);
+}
+function arcSection(d, a, layer, f) {
+    let span = null;
+    if (a) {
+        const T = 2 * Math.PI;
+        span = ((a.a3 - a.a1) % T + T) % T;
+        if (a.ccw)
+            span = T - span;
+    }
+    return isection("Arc", [irow("Width", f.len(d[6])), a ? irow("Radius", f.len(a.r)) : null,
+        span !== null ? irow("Angle", `${(span * 180 / Math.PI).toFixed(1)}°`) : null, span !== null ? irow("Length", f.len(a.r * span)) : null, irow("Layer", layer)]);
+}
+function viaSection(diameter, drill, layers, tented, f) {
+    return isection("Via", [irow("Diameter", diameter != null ? f.len(diameter) : null), irow("Drill", drill != null ? `Ø ${f.len(drill)}` : null),
+        irow("Layers", layers.join(", ")), irow("Mask", tented)]);
+}
+function zoneSection(label, layer, area, unfilled, f) {
+    return isection("Zone", [irow("Name", label), irow("Layer", layer), unfilled ? irow("Fill", "not filled in the file") : null,
+        area != null ? irow("Filled area", f.area(area)) : null]);
+}
+function netSection(name, info, layers, f) {
+    return isection("Net", [irow("Name", name), info ? irow("Pads", info.pads) : null, info ? irow("Routed length", f.len(info.length)) : null,
+        layers && layers.length ? irow("Layers", layers.join(", ")) : null]);
+}
+function partSection(c, variant, params, f) {
+    const b = c.bbox;
+    return isection("Part", [irow("Reference", c.ref), irow("Value", c.value), irow("Footprint", c.footprint), irow("Side", c.side),
+        c.x != null && c.y != null ? irow("Position", f.xy(c.x, c.y)) : null, c.rotation != null ? irow("Rotation", `${c.rotation}°`) : null,
+        b ? irow("Extent", f.pair(b[2] - b[0], b[3] - b[1])) : null, variant ? irow(`Variant ${variant[0]}`, variant[1]) : null,
+        ...params.map(([k, v]) => irow(k, v, /^https?:\/\//i.test(String(v)) ? { link: String(v) } : undefined))]);
+}
+function keepoutSection(label, layer) {
+    const m = /^(keep-out|rule area) (.*?)(?:: (.*))?$/.exec(String(label));
+    return isection("Keep-out", [irow("Name", m ? m[2] : label), irow("Forbids", m && m[3] ? m[3] : null), irow("Layer", layer)]);
+}
+function findingSection(x, layer) {
+    return isection("Finding", [irow("Code", x.code), irow("Severity", x.severity), irow("Stage", x.stage), irow("Evidence", x.evidence),
+        irow("Message", x.message), irow("Where", x.where), irow("Layer", layer), irow("Guidance", x.hint), x.at ? null : irow("Position", "none on this document")]);
+}
+function areaOf(ring) {
+    let s = 0;
+    for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2)
+        s += (ring[j] + ring[i]) * (ring[j + 1] - ring[i + 1]);
+    return Math.abs(s) / 2;
+}
+// ---- end inspector model
+const FMT = { len: v => fmtLen(v), nm: v => fmtNm(v), pair: (a, b) => fmtPair(a, b), xy: (a, b) => fmtXY(a, b), area: mm2 => fmtArea(mm2) };
+function fmtArea(mm2) { return UNIT === "mil" ? `${(mm2 / (MIL_MM * MIL_MM)).toFixed(0)} mil²` : `${mm2.toFixed(3)} mm²`; }
+function partParams(c) {
+    const vs = variantOf(c.ref), params = { ...(c.params || {}), ...((vs && vs.params) || {}) };
+    return Object.entries(params).map(([k, v]) => { const mil = /^(-?\d+(?:\.\d+)?)mil$/.exec(String(v)); return [k, mil ? fmtLen(+mil[1] * MIL_MM) : String(v)]; });
+}
+function boardPart(ci) { const c = S.comps[ci], vs = variantOf(c.ref); return partSection(c, vs ? [VARIANT, vs.kind] : null, partParams(c), FMT); }
+function netLayers(ni) { const ids = new Set(); for (const pr of S.prims)
+    if (pr[3] === ni && !pr[0].startsWith("View."))
+        ids.add(pr[0]); return [...ids].map(layerName); }
+function boardNet(ni) { const info = (S.netinfo || [])[ni]; return netSection(S.nets[ni], info ? { pads: info.pads, length: info.length * MM } : null, netLayers(ni), FMT); }
+function boardModel(h, at) {
+    const pr = h.pr, net = pr[3], ci = pr[4], label = pr[5] || "", lname = h.layer.name, sections = [];
+    const pad = label && at ? padOf(label, at[0], at[1]) : null;
+    let kind = "item", title = label || lname;
+    if (pad) {
+        kind = "pad";
+        title = `${ci >= 0 ? S.comps[ci].ref : ""} · pad ${pad.number}`;
+        sections.push(padSection(pad, FMT, layerName));
+    }
+    else if (pr[1] === "s") {
+        kind = "track";
+        title = label || "Track";
+        sections.push(trackSection(pr[2], lname, FMT));
+    }
+    else if (pr[1] === "a") {
+        kind = "arc";
+        title = label || "Arc";
+        sections.push(arcSection(pr[2], pr[6], lname, FMT));
+    }
+    else if (pr[1] === "c" && /^via \d+/.test(label)) {
+        kind = "via";
+        const base = label.replace(/ hole$/, ""), same = S.prims.filter(q => q[5] === base && q[1] === "c");
+        const hole = S.prims.find(q => q[5] === base + " hole"), copper = same.filter(q => !/Mask$/.test(q[0]));
+        const open = same.filter(q => /Mask$/.test(q[0])).map(q => layerName(q[0]));
+        sections.push(viaSection(copper.length ? 2 * copper[0][2][2] : null, hole ? 2 * hole[2][2] : null, copper.map(q => layerName(q[0])), open.length ? `open on ${open.join(", ")}` : "tented or not stated", FMT));
+        title = base.replace(/^via/, "Via");
+    }
+    else if (pr[1] === "c" && h.layer.id === "View.Drill") {
+        kind = "hole";
+        sections.push(isection("Hole", [irow("Diameter", `Ø ${fmtLen(2 * pr[2][2])}`), irow("Centre", FMT.xy(pr[2][0], pr[2][1]))]));
+    }
+    else if (pr[1] === "c")
+        sections.push(isection("Circle", [irow("Diameter", fmtLen(2 * pr[2][2])), irow("Layer", lname)]));
+    else if (pr[1] === "h" && /^(keep-out|rule area) /.test(label)) {
+        kind = "keepout";
+        title = "Keep-out";
+        sections.push(keepoutSection(label, lname));
+    }
+    else if ((pr[1] === "p" || pr[1] === "o") && ci < 0 && net >= 0 || /\((no fill|outline)\)$/.test(label)) {
+        kind = "zone";
+        const name = label.replace(/ \((no fill|outline)\)$/, "");
+        sections.push(zoneSection(name, lname, pr[1] === "p" ? pr[2].reduce((s, r) => s + areaOf(r), 0) : null, / \(no fill\)$/.test(label), FMT));
+        title = name;
+    }
+    else
+        sections.push(isection("Item", [irow("Name", label), irow("Layer", lname)]));
+    if (kind !== "pad" && kind !== "zone" && kind !== "keepout" && kind !== "via" && sections[0] && !sections[0].rows.some(r => r.label === "Layer"))
+        sections[0].rows.push(irow("Layer", lname));
+    if (net >= 0)
+        sections.push(boardNet(net));
+    if (ci >= 0)
+        sections.push(boardPart(ci));
+    return imodel(kind, title, sections, { subtitle: lname, target: { pr, comp: ci, net, layer: h.layer.id } });
+}
+function partModel(ci) { const c = S.comps[ci]; return imodel("part", c.ref, [boardPart(ci)], { subtitle: [c.value, c.footprint].filter(Boolean).join(" · "), target: { comp: ci, net: -1 } }); }
+function netModel(ni) { return imodel("net", S.nets[ni], [boardNet(ni)], { subtitle: "Net", target: { comp: -1, net: ni } }); }
+function noteModel(title, text, extra) { return imodel("note", title, [], { note: text, ...(extra || {}) }); }
+// ---- panels/inspector.tsx
+// ================================================================== the inspector (c0244, design decisions 2 and 3)
+// renderInspector(model) draws an inspector model of inspect/model in the dock's Properties tab (#info): a title,
+// the actions that apply to the selection (registry commands, c0243), then one section per kind of value, each
+// row with its copy control, and "Copy all". With nothing selected #info is empty and the document's summary
+// (#infoEmpty) shows instead. A legacy HTML message still renders through showInfo(html).
+const INSPECT = { model: null, waive: false };
+const KIND_LABEL = { pad: "Pad", track: "Track", arc: "Arc", via: "Via", hole: "Hole", zone: "Zone", keepout: "Keep-out", part: "Part", net: "Net",
+    finding: "Finding", item: "Item", body: "3D body", symbol: "Symbol", footprint: "Footprint", sheet: "Sheet", component: "Component", wire: "Wire",
+    mark: "Review mark", measure: "Measurement", note: "" };
+function Row({ r }) {
+    const value = r.link ? preact.h("a", { href: r.link, target: "_blank", rel: "noopener noreferrer" }, r.value)
+        : r.sheets ? preact.h(preact.Fragment, null, r.sheets.map((x, i) => preact.h(preact.Fragment, null,
+            i ? ", " : "",
+            preact.h("a", { href: "#", class: "sheetlink", "data-sheet": x }, x)))) : r.value;
+    return preact.h("div", { class: "irow" },
+        preact.h("span", { class: "ik" }, r.label),
+        preact.h("span", { class: "iv" + (r.mono ? " mono" : "") },
+            value,
+            r.note ? preact.h("small", null, r.note) : null),
+        r.copy ? preact.h("button", { type: "button", class: "tb icon small ghost icopy", "aria-label": `Copy ${r.label}`, "data-tip": `Copy ${r.label.toLowerCase()}`, onClick: () => copyAndSay(r.value, `${r.label} copied`) },
+            preact.h(Icon, { name: "copy", size: 14 })) : null);
+}
+function WaiveForm() {
+    const i = INSPECT.model.target.finding;
+    const go = () => { const f = $("inspReason"), reason = f.value.trim(); if (!reason) {
+        f.focus();
+        return;
+    } window.FenoliteActions.plan("waive", { finding: i, reason }); };
+    return preact.h("div", { class: "waiveForm" },
+        preact.h("label", { for: "inspReason" },
+            "Reason for the waiver ",
+            preact.h("small", null, "stored in the project file")),
+        preact.h("input", { id: "inspReason", maxLength: 300, placeholder: "Accepted by design: \u2026", onKeyDown: e => { if (e.key === "Enter")
+                go(); } }),
+        preact.h("div", { class: "row" },
+            preact.h("button", { type: "button", class: "tb small accentBtn", id: "inspWaivePlan", onClick: go },
+                preact.h(Icon, { name: "waive", size: 14 }),
+                preact.h("span", { class: "lbl" }, "Review plan\u2026")),
+            preact.h("button", { type: "button", class: "tb small", onClick: () => { INSPECT.waive = false; refreshInspector(); } }, "Cancel")));
+}
+function StaleNote({ why }) {
+    const again = DOC ? runAgainAction(DOC.id) : null;
+    return preact.h("div", { class: "staleNote", id: "inspWaiveWhy", role: "status" },
+        preact.h(Icon, { name: "alert", size: 14 }),
+        preact.h("p", null, `Waive is not offered. ${why}`),
+        again ? preact.h("button", { type: "button", id: "inspRunAgain", class: "tb small", disabled: !!RUNS.job, onClick: again.run },
+            preact.h(Icon, { name: "refresh", size: 14 }),
+            preact.h("span", { class: "lbl" }, again.label)) : null);
+}
+function InspectorActions() {
+    const acts = COMMANDS.filter(c => c.group === "Selection" && available(c)), waive = waiveState();
+    if (!acts.length && !waive.why)
+        return null;
+    return preact.h(preact.Fragment, null,
+        preact.h("div", { class: "inspActs", role: "toolbar", "aria-label": "Actions on the selection" }, acts.map(c => preact.h("button", { type: "button", id: c.domId, class: "tb small act" + (c.tone ? " " + c.tone : ""), disabled: c.disabled && c.disabled(), "data-tip": c.tip ? c.tip() : c.title, "data-keys": c.keys.map(keyLabel).join(",") || undefined, onClick: () => runCommand(c.id) },
+            preact.h(Icon, { name: c.icon, size: 14 }),
+            preact.h("span", { class: "lbl" }, c.label ? c.label() : c.title)))),
+        INSPECT.waive && waive.offered ? preact.h(WaiveForm, null) : null,
+        waive.why ? preact.h(StaleNote, { why: waive.why }) : null);
+}
+function Inspector({ model }) {
+    if (model.html)
+        return preact.h("div", { class: "insp" },
+            preact.h("div", { class: "ihtml", dangerouslySetInnerHTML: { __html: model.html } }));
+    return preact.h("div", { class: "insp", "data-kind": model.kind },
+        preact.h("header", { class: "inspHead" },
+            preact.h("div", { class: "inspTitle" },
+                KIND_LABEL[model.kind] ? preact.h("span", { class: "inspKind" }, KIND_LABEL[model.kind]) : null,
+                preact.h("h2", { id: "inspTitle" }, model.title),
+                model.subtitle ? preact.h("p", null, model.subtitle) : null),
+            model.sections.length ? preact.h("button", { type: "button", id: "inspCopyAll", class: "tb small ghost", "data-tip": "Copy every row as text", onClick: () => copyAndSay(modelText(model), "Properties copied") },
+                preact.h(Icon, { name: "copy", size: 14 }),
+                preact.h("span", { class: "lbl" }, "Copy all")) : null),
+        model.note ? preact.h("p", { class: "inspNote" }, model.note) : null,
+        preact.h(InspectorActions, null),
+        model.extra ? model.extra() : null,
+        model.sections.map((s, k) => preact.h("details", { key: s.title + k, class: "isect", open: !s.collapsed },
+            preact.h("summary", null,
+                preact.h("span", { class: "chev" },
+                    preact.h(Icon, { name: "chevRight", size: 12 })),
+                s.title),
+            preact.h("div", { class: "irows" }, s.rows.map(r => preact.h(Row, { r: r }))))));
+}
+function renderInspector(model) {
+    INSPECT.model = model || null;
+    preact.render(model ? preact.h(Inspector, { key: `${model.kind}:${model.title}`, model: model }) : null, $("info"));
+}
+function showModel(model) { INSPECT.waive = false; renderInspector(model); if (model)
+    dockShowSelection(); }
+function inspectQuiet(build) { const m = build(); if (m)
+    m.rebuild = build; INSPECT.waive = false; renderInspector(m); }
+function inspect(build) { const m = build(); if (m)
+    m.rebuild = build; showModel(m); } // a model built again when the unit changes
+function refreshInspector() {
+    const m = INSPECT.model;
+    if (!m)
+        return;
+    if (m.rebuild) {
+        const again = m.rebuild();
+        again.rebuild = m.rebuild;
+        renderInspector(again);
+    }
+    else
+        renderInspector(m);
+}
+// ---- the document's summary, shown while nothing is selected
+function DocSummary() {
+    if (!S || !DOC)
+        return preact.h("div", { class: "docSum" },
+            preact.h("p", { class: "hint" }, "No document is open."));
+    const m = S.meta || {}, c = m.counts || {}, rows = [];
+    const add = (k, v) => { if (v !== undefined && v !== null && v !== "")
+        rows.push([k, String(v)]); };
+    if (S.kind === "table") {
+        add("Rows", S.rows.length);
+        add("Columns", S.columns.length);
+    }
+    else if (LIB) {
+        add("Items", LIB.items.length);
+        add("Library", LIB.lib === "pcb" ? "footprints" : LIB.lib === "drawing" ? "sheets" : "symbols");
+    }
+    else if (isSch()) {
+        add("Parts", c.components);
+        add("Nets", c.nets);
+        add("Wires", c.wires);
+        add("Pins", c.pins);
+        add("Sheet", S.sheet && S.sheet.style);
+    }
+    else {
+        add("Parts", c.footprints);
+        add("Pads", c.pads);
+        add("Tracks", c.tracks);
+        add("Vias", c.vias);
+        add("Zones", c.zones);
+        add("Layers", (S.layers || []).filter(l => l.kind !== "view").length);
+    }
+    add("Evidence", m.evidence);
+    add("Notes", (m.notes || []).length || null);
+    return preact.h("div", { class: "docSum" },
+        preact.h("div", { class: "inspHead" },
+            preact.h("div", { class: "inspTitle" },
+                preact.h("span", { class: "inspKind" }, "Document"),
+                preact.h("h2", null, DOC.name),
+                preact.h("p", null, `${DOC.kind} · read by the ${m.backend || "?"} backend`))),
+        preact.h("dl", { class: "sumGrid" }, rows.map(([k, v]) => preact.h("div", null,
+            preact.h("dt", null, k),
+            preact.h("dd", null, v)))),
+        preact.h("p", { class: "hint" },
+            preact.h(Icon, { name: "info", size: 14 }),
+            S.kind === "table" ? "Click a row that names a document or parts to open it." : `Click ${isSch() ? "a part, a pin or a wire" : "a pad, a track, a via or a zone"} to see its properties here. Lengths read in ${UNIT === "mm" ? "millimetres" : "mil"} (Q).`));
+}
+function refreshSummary() { preact.render(preact.h(DocSummary, null), $("infoEmpty")); }
+// ---- panels/layers.tsx
+// ================================================================== the Layers panel (c0244, design decision 5)
+// The dock's Layers tab, on boards and footprints: the layers of tabLayers() in groups (copper, mask and paste,
+// silkscreen, mechanical and fabrication, view), each row with its swatch, its full name (wrapped, never cut),
+// whether it is current, an opacity slider (l.alpha) and its visibility; a group's header shows or hides the
+// group. The layer sets of #lsmenu are the presets, with "Current layer only" (Shift+S). Sheet tabs stay in the
+// bottom bar.
+const LAYER_GROUPS = [["copper", "Copper"], ["mask", "Mask and paste"], ["silk", "Silkscreen"], ["mech", "Mechanical and fabrication"], ["view", "View"]];
+function layerGroup(l) {
+    if (l.kind === "view" || l.id.startsWith("View."))
+        return "view";
+    if (l.kind === "copper" || /\.Cu$/.test(l.id))
+        return "copper";
+    if (/mask|paste/i.test(l.kind || "") || /\.(Mask|Paste)$/.test(l.id))
+        return "mask";
+    if (/silk/i.test(l.kind || "") || /\.SilkS$/.test(l.id))
+        return "silk";
+    return "mech";
+}
+function relayer() { buildLayers(); draw(); }
+function setVisible(id, on) { vis.set(id, on); relayer(); }
+function setGroup(ids, on) { for (const id of ids)
+    vis.set(id, on); relayer(); }
+function LayersPanel() {
+    const layers = tabLayers(), by = new Map(LAYER_GROUPS.map(([g]) => [g, []]));
+    for (const l of layers)
+        by.get(layerGroup(l)).push(l);
+    return preact.h(preact.Fragment, null,
+        preact.h("div", { class: "layerTools" },
+            preact.h("span", { class: "layerHint" }, st.single ? "Only the current layer is shown." : `${layers.filter(l => vis.get(l.id)).length} of ${layers.length} layers shown`)),
+        LAYER_GROUPS.map(([g, title]) => {
+            const list = by.get(g);
+            if (!list.length)
+                return null;
+            const shown = list.filter(l => vis.get(l.id)).length;
+            return preact.h("section", { class: "lgroup", key: g, "aria-label": title },
+                preact.h("div", { class: "lgHead" },
+                    preact.h("span", { class: "lgTitle" }, title),
+                    preact.h("span", { class: "lgN" }, `${shown}/${list.length}`),
+                    preact.h("button", { type: "button", class: "tb icon small ghost", "aria-pressed": shown > 0, "aria-label": `${shown ? "Hide" : "Show"} the ${title.toLowerCase()} layers`, "data-tip": `${shown ? "Hide" : "Show"} the group`, onClick: () => setGroup(list.map(l => l.id), !shown) },
+                        preact.h(Icon, { name: shown ? "eye" : "eyeOff", size: 14 }))),
+                list.map(l => {
+                    const on = !!vis.get(l.id), cur = l.id === st.cur, pct = Math.round((l.alpha ?? 1) * 100);
+                    return preact.h("div", { key: l.id, class: "lrow" + (cur ? " cur" : "") + (on ? "" : " off"), "data-layer": l.id },
+                        preact.h("button", { type: "button", role: "radio", "aria-checked": cur, class: "lcur", "aria-label": `Make ${l.name} the current layer`, "data-tip": "Current layer", onClick: () => setCurrent(l.id) },
+                            preact.h("span", { class: "radio" })),
+                        preact.h("span", { class: "sw", style: `background:${l.color}` }),
+                        preact.h("span", { class: "lname", title: l.name === l.id ? `${l.name} · ${l.kind}` : `${l.name} (${l.id}) · ${l.kind}`, onClick: () => setCurrent(l.id) }, l.name),
+                        preact.h("input", { type: "range", class: "lop", min: "0", max: "100", step: "5", value: pct, "aria-label": `Opacity of ${l.name}`, title: `Opacity ${pct} %`, onInput: e => { l.alpha = +e.target.value / 100; draw(); e.target.title = `Opacity ${Math.round(l.alpha * 100)} %`; } }),
+                        preact.h("button", { type: "button", class: "tb icon small ghost leye", "aria-pressed": on, "aria-label": `${on ? "Hide" : "Show"} ${l.name}`, "data-tip": on ? "Hide" : "Show", onClick: () => setVisible(l.id, !on) },
+                            preact.h(Icon, { name: on ? "eye" : "eyeOff", size: 14 })));
+                }));
+        }));
+}
+function buildLayers() {
+    const box = $("layerList");
+    if (!box)
+        return;
+    if (!S || S.kind || !S.layers) {
+        preact.render(null, box);
+        return;
+    }
+    preact.render(preact.h(LayersPanel, null), box);
+}
+const presetNames = () => [...Object.keys(SETS), "Current layer only"];
+// ---- panels/view3d-panel.tsx
+// The 3D panel (c0244, design decision 6): the dock's tab in 3D instead of Layers: the camera views (the view
+// cube's six faces and iso), what is drawn (bodies, board, silkscreen and copper textures) and Reset view.
+const VIEWS = [["top", "Top"], ["front", "Front"], ["left", "Left"], ["iso", "Iso"], ["bottom", "Bottom"], ["back", "Back"], ["right", "Right"]];
+const TOGGLES = [["bodies", "Bodies", "Parts: models, else outlines extruded to their height"], ["board", "Board", "The board slab and its edge"],
+    ["silk", "Silkscreen", "The silkscreen of both faces"], ["copper", "Copper", "The copper of both faces"]];
+function View3DPanel() {
+    const bodies = (S && S.bodies) || [], models = bodies.filter(b => b.render === "model" || b.render === "fitted").length;
+    return preact.h("div", { class: "p3d" },
+        preact.h("section", { class: "lgroup" },
+            preact.h("div", { class: "lgHead" },
+                preact.h("span", { class: "lgTitle" }, "Camera")),
+            preact.h("div", { class: "viewGrid" },
+                VIEWS.map(([id, title]) => preact.h("button", { type: "button", id: `v3${id}`, class: "tb small", onClick: () => camPreset(id, true) }, title)),
+                preact.h("button", { type: "button", id: "v3reset", class: "tb small", "data-tip": "The iso view, fitted to the board", onClick: () => camPreset("iso", true) },
+                    preact.h(Icon, { name: "refresh", size: 14 }),
+                    preact.h("span", { class: "lbl" }, "Reset"))),
+            preact.h("p", { class: "hint" }, "Drag to orbit, Shift+drag to pan, wheel to zoom; the cube at the top right turns the view too.")),
+        preact.h("section", { class: "lgroup" },
+            preact.h("div", { class: "lgHead" },
+                preact.h("span", { class: "lgTitle" }, "Show")),
+            TOGGLES.map(([key, title, note]) => preact.h("label", { class: "tog", title: note },
+                preact.h("input", { type: "checkbox", id: `c3${key}`, checked: !!V3[key], onChange: e => { set3DOption(key, e.target.checked); build3DPanel(); } }),
+                preact.h("span", null, title),
+                preact.h("small", null, note)))),
+        preact.h("p", { class: "hint" }, bodies.length ? `${bodies.length} bodies: ${models} with a model, ${bodies.length - models} extruded.` : "No part body on this board."));
+}
+function build3DPanel() { preact.render(preact.h(View3DPanel, null), $("dock3d")); }
+// ---- three/view-cube.ts
+// ================================================================== the view cube (c0244, design decision 6)
+// A 96-pixel cube at the top right of the 3D view, turned with the camera: its faces read Top, Bottom, Front,
+// Back, Left and Right in Fenolite's stroke font; a click on a face sets that view, a click near a corner the iso
+// view from that corner, both animated over 250 ms. A 2D canvas projection of the camera's axes, no WebGL.
+const CUBE_FACES = [
+    { n: [0, 0, 1], label: "TOP", view: "top" }, { n: [0, 0, -1], label: "BOTTOM", view: "bottom" },
+    { n: [0, -1, 0], label: "FRONT", view: "front" }, { n: [0, 1, 0], label: "BACK", view: "back" },
+    { n: [-1, 0, 0], label: "LEFT", view: "left" }, { n: [1, 0, 0], label: "RIGHT", view: "right" },
+];
+const cubeEl = $("cube");
+let cubeHits = [], cubeTokens = null, cubeTheme = "";
+function tokens() {
+    const key = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: light)").matches ? "system-light" : "system-dark");
+    if (cubeTokens && key === cubeTheme)
+        return cubeTokens;
+    const cs = getComputedStyle(document.documentElement), v = n => cs.getPropertyValue(n).trim();
+    cubeTheme = key;
+    cubeTokens = { face: v("--surface-2"), side: v("--surface-3"), edge: v("--border-strong"), text: v("--text-1"), dim: v("--text-3"), accent: v("--accent") };
+    return cubeTokens;
+}
+function drawCube() {
+    if (!cubeEl || cubeEl.style.display === "none")
+        return;
+    const dpr = window.devicePixelRatio || 1, size = 112, g = cubeEl.getContext("2d"), T = tokens();
+    if (cubeEl.width !== size * dpr) {
+        cubeEl.width = size * dpr;
+        cubeEl.height = size * dpr;
+    }
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, size, size);
+    const [r, u, b] = camBasis(), s = 30, c = size / 2;
+    const P = v => { const x = v[0] * r[0] + v[1] * r[1] + v[2] * r[2], y = v[0] * u[0] + v[1] * u[1] + v[2] * u[2], z = v[0] * b[0] + v[1] * b[1] + v[2] * b[2]; return [c + x * s, c - y * s, z]; };
+    const faces = CUBE_FACES.map(f => {
+        const n = f.n, axis = n.findIndex(x => x !== 0), o = [0, 1, 2].filter(k => k !== axis);
+        const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([p, q]) => { const v = [0, 0, 0]; v[axis] = n[axis]; v[o[0]] = p; v[o[1]] = q; return P(v); });
+        const facing = n[0] * b[0] + n[1] * b[1] + n[2] * b[2];
+        return { ...f, corners, facing, center: P(n) };
+    }).filter(f => f.facing > 0.02).sort((p, q) => p.facing - q.facing);
+    cubeHits = [];
+    for (const f of faces) {
+        g.beginPath();
+        f.corners.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
+        g.closePath();
+        g.globalAlpha = 0.92;
+        g.fillStyle = f.facing > 0.7 ? T.face : T.side;
+        g.fill();
+        g.globalAlpha = 1;
+        g.strokeStyle = T.edge;
+        g.lineWidth = 1;
+        g.stroke();
+        const xs = f.corners.map(p => p[0]), ys = f.corners.map(p => p[1]), fw = Math.max(...xs) - Math.min(...xs), fh = Math.max(...ys) - Math.min(...ys);
+        const h = Math.min(9, 0.72 * fw / (f.label.length - 0.33), 0.5 * fh);
+        if (f.facing > 0.3 && h >= 4.5) { // the label, in the stroke font, upright on screen, as wide as its face allows
+            const lines = textPolylines(["", f.center[0], f.center[1], h, 0, 1, 0, "center", "center", false, f.label]);
+            g.strokeStyle = f.facing > 0.7 ? T.text : T.dim;
+            g.lineWidth = 1.2;
+            g.lineCap = "round";
+            g.lineJoin = "round";
+            for (const pl of lines) {
+                g.beginPath();
+                pl.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
+                g.stroke();
+            }
+        }
+        cubeHits.push({ kind: "face", view: f.view, poly: f.corners });
+    }
+    for (const sx of [-1, 1])
+        for (const sy of [-1, 1])
+            for (const sz of [-1, 1]) { // the corners in view: iso views
+                const p = P([sx, sy, sz]);
+                if (p[2] < -0.2)
+                    continue;
+                g.beginPath();
+                g.arc(p[0], p[1], 2.5, 0, 2 * Math.PI);
+                g.fillStyle = T.accent;
+                g.fill();
+                cubeHits.unshift({ kind: "corner", view: [Math.atan2(sy, sx), sz * 0.6155], at: p });
+            }
+}
+function inPoly(x, y, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const [xi, yi] = poly[i], [xj, yj] = poly[j];
+        if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi)
+            inside = !inside;
+    }
+    return inside;
+}
+function cubeAt(x, y) {
+    for (const h of cubeHits)
+        if (h.kind === "corner" && Math.hypot(h.at[0] - x, h.at[1] - y) <= 7)
+            return h;
+    for (let i = cubeHits.length - 1; i >= 0; i--) {
+        const h = cubeHits[i];
+        if (h.kind === "face" && inPoly(x, y, h.poly))
+            return h;
+    }
+    return null;
+}
+cubeEl.addEventListener("click", e => { const h = cubeAt(e.offsetX, e.offsetY); if (h)
+    camPreset(h.view, true); });
+cubeEl.addEventListener("mousemove", e => { cubeEl.style.cursor = cubeAt(e.offsetX, e.offsetY) ? "pointer" : "default"; });
+const cubeFrame = () => V3.cam;
+// ---- panels/dock.tsx
+// ================================================================== the right dock (c0244, design decision 1)
+// A third column of the page beside the drawing, never over it: the Properties tab (the inspector, #info) and,
+// on boards and footprints, the Layers tab, which the 3D panel replaces in 3D. `I` collapses and opens it; its
+// left edge resizes it between 240 and 480 px; both are kept in localStorage. At 760 px and below it is a bottom
+// sheet of at most 60 % of the height that a selection opens and Esc or its close control dismisses.
+const store = (key, fallback) => { try {
+    return localStorage.getItem(key) ?? fallback;
+}
+catch (e) {
+    return fallback;
+} };
+const keep = (key, value) => { try {
+    localStorage.setItem(key, value);
+}
+catch (e) { /* kept for this page only */ } };
+const DOCK = { open: store("fenolite.view.dock", "open") !== "closed", width: Math.min(480, Math.max(240, +store("fenolite.view.dockWidth", "320") || 320)),
+    tab: "props", sheet: false };
+const dockNarrow = () => matchMedia("(max-width:760px)").matches;
+const layersApply = () => !!S && !S.kind && !isSch(); // a board or a footprint item
+function DockHead() {
+    const second = layersApply() ? (st.mode3d ? ["3d", "3D view", "cube"] : ["layers", "Layers", "layers"]) : null;
+    const tabs = [["props", "Properties", "sliders"], ...(second ? [second] : [])];
+    if (!tabs.some(t => t[0] === DOCK.tab))
+        DOCK.tab = "props";
+    return preact.h(preact.Fragment, null,
+        preact.h("div", { class: "dockTabs", role: "tablist", "aria-label": "Inspector" }, tabs.map(([id, title, icon]) => preact.h("button", { type: "button", role: "tab", id: `dockTab_${id}`, "aria-selected": DOCK.tab === id, "aria-controls": id === "props" ? "dockProps" : id === "layers" ? "dockLayers" : "dock3d", class: "dockTab", onClick: () => setDockTab(id) },
+            preact.h(Icon, { name: icon, size: 14 }),
+            preact.h("span", null, title)))),
+        preact.h("button", { type: "button", id: "dockClose", class: "tb icon small ghost", "aria-label": dockNarrow() ? "Close the inspector" : "Hide the inspector", "data-tip": dockNarrow() ? "Close" : "Hide the inspector", "data-keys": dockNarrow() ? "Esc" : "I", onClick: () => dockNarrow() ? closeSheet() : setDock(false) },
+            preact.h(Icon, { name: dockNarrow() ? "x" : "dock", size: 14 })));
+}
+function refreshDock() {
+    const app = $("app");
+    app.classList.toggle("dock-closed", !DOCK.open);
+    app.classList.toggle("dock-sheet-open", DOCK.sheet);
+    app.style.setProperty("--dock-w", `${DOCK.width}px`);
+    preact.render(preact.h(DockHead, null), $("dockHead"));
+    $("dockProps").hidden = DOCK.tab !== "props";
+    $("dockLayers").hidden = DOCK.tab !== "layers";
+    $("dock3d").hidden = DOCK.tab !== "3d";
+    if (DOCK.tab === "layers")
+        buildLayers();
+    else if (DOCK.tab === "3d")
+        build3DPanel();
+}
+function setDockTab(id) { DOCK.tab = id; refreshDock(); }
+function setDock(open) { DOCK.open = open; keep("fenolite.view.dock", open ? "open" : "closed"); refreshDock(); refreshToolbar(); }
+function toggleDock() { if (dockNarrow()) {
+    if (DOCK.sheet)
+        closeSheet();
+    else
+        openSheet();
+}
+else
+    setDock(!DOCK.open); }
+function openSheet() { DOCK.sheet = true; refreshDock(); }
+function closeSheet() { if (!DOCK.sheet)
+    return false; DOCK.sheet = false; refreshDock(); return true; }
+function dockShowSelection() {
+    let changed = false;
+    if (DOCK.tab !== "props") {
+        DOCK.tab = "props";
+        changed = true;
+    }
+    if (dockNarrow() && !DOCK.sheet) {
+        DOCK.sheet = true;
+        changed = true;
+    }
+    if (changed)
+        refreshDock();
+}
+// The resize handle: a pointer drag on the dock's left edge, or the arrow keys on it.
+function setWidth(w) { DOCK.width = Math.round(Math.min(480, Math.max(240, w))); $("app").style.setProperty("--dock-w", `${DOCK.width}px`); keep("fenolite.view.dockWidth", String(DOCK.width)); }
+$("dockResize").addEventListener("pointerdown", (e) => {
+    if (dockNarrow())
+        return;
+    e.preventDefault();
+    const grip = e.currentTarget, x0 = e.clientX, w0 = DOCK.width;
+    grip.setPointerCapture(e.pointerId);
+    grip.classList.add("on");
+    const move = (m) => setWidth(w0 + x0 - m.clientX);
+    const up = () => { grip.classList.remove("on"); grip.removeEventListener("pointermove", move); grip.removeEventListener("pointerup", up); };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", up);
+});
+$("dockResize").addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        setWidth(DOCK.width + (e.key === "ArrowLeft" ? 16 : -16));
+    }
+});
+matchMedia("(max-width:760px)").addEventListener?.("change", () => { DOCK.sheet = false; refreshDock(); });
 // ---- core/palette-match.ts
 // ---- palette (c0243)
 // The matcher of the command palette (design decision 4): case-insensitive; a label that starts with the query
@@ -5508,6 +6240,8 @@ function escapeKey() {
         $("bSidebar").focus();
         return;
     }
+    if (narrow() && closeSheet())
+        return; // c0244: the inspector's bottom sheet
     if (!cad())
         return;
     if (st.edge) {
@@ -5540,6 +6274,86 @@ function escapeKey() {
     shareNet(null);
 }
 const PRINT = [["fit", "Fit to the page"], ["1", "1:1"], ["2", "2:1"], ["5", "5:1"], ["10", "10:1"]];
+// ---- the selection's actions (c0244, design decision 3; c0246): commands of the group "Selection" on the target of
+// the inspector's model, shown in the inspector and listed in the palette.
+const target = () => (INSPECT.model && INSPECT.model.target) || null;
+const tComp = () => { const t = target(); return t && t.comp >= 0 ? t.comp : -1; };
+const tNet = () => { const t = target(); return t && t.net >= 0 ? t.net : -1; };
+const tFinding = () => { const t = target(); return t && t.finding != null && S.check && S.check.findings[t.finding] ? t.finding : -1; };
+const kind = () => INSPECT.model ? INSPECT.model.kind : "";
+function probeKind() { return isSch() ? "pcb" : "schematic"; }
+function probeOffered() {
+    const ci = tComp();
+    if (ci < 0 || !S || !S.comps || LIB)
+        return false;
+    const c = S.comps[ci], want = String(c.group || c.ref).toLowerCase(), docs = allDocs().filter(d => d.kind === probeKind() && d.viewable && d.present);
+    if (!docs.length)
+        return false;
+    const known = docs.map(d => SCENES.get(d.id)).filter(Boolean);
+    return known.length < docs.length || known.some(sc => sc.comps.some(x => x.ref.toLowerCase() === want || String(x.group || "").toLowerCase() === want));
+}
+function zoomToTarget() {
+    const t = target();
+    if (!t || !S)
+        return;
+    const frame = (b, m) => { if (b)
+        fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m]); };
+    if (st.mode3d)
+        set3D(false);
+    if (t.overlay != null) {
+        gotoFinding(t.overlay);
+        return;
+    }
+    if (t.finding != null && S.check) {
+        const x = S.check.findings[t.finding];
+        if (x.at) {
+            const b = x.box || [x.at[0], x.at[1], x.at[0], x.at[1]];
+            frame(b, Math.max(b[2] - b[0], b[3] - b[1], 6) * 0.8);
+        }
+        return;
+    }
+    if (isSch()) {
+        if (t.comp >= 0)
+            frame(S.comps[t.comp].b, 12);
+        else if (t.net >= 0)
+            frame(netBox(t.net), 8);
+        return;
+    }
+    if (t.pr)
+        frame(bboxOf(t.pr), 3);
+    else if (t.comp >= 0)
+        frame(S.comps[t.comp].bbox, 5);
+    else if (t.net >= 0)
+        frame(netBounds(t.net), 3);
+}
+function openInReview(i) {
+    setProjectReview(true);
+    const k = REVIEW.items.findIndex(x => x.checkIndex === i);
+    if (k >= 0) {
+        REVIEW.selected = k;
+        filterReviewFindings();
+    }
+}
+function moveInActions(ci) {
+    st.selComp = ci;
+    setProjectReview(true);
+    const box = document.querySelector('#actionPanel details[data-action="move"]');
+    if (!box)
+        return;
+    box.open = true;
+    box.scrollIntoView({ block: "center" });
+    box.querySelector('[data-opt="x"]')?.focus();
+}
+function waiveState() {
+    const i = tFinding();
+    if (i < 0)
+        return { offered: false, why: "" };
+    const x = S.check.findings[i], A = window.FenoliteActions && window.FenoliteActions.state;
+    if (!A || !A.enabled || !A.offer?.waive?.available || x.stage !== "drc.kicad")
+        return { offered: false, why: "" };
+    const why = waiveBlocked();
+    return { offered: !why, why };
+}
 // ---- commands (c0243)
 const COMMANDS = [
     { id: "view.3d", title: "3D view", group: "View", icon: "cube", keys: ["D"], when: () => board(), run: () => set3D(!st.mode3d), pressed: () => st.mode3d },
@@ -5559,6 +6373,20 @@ const COMMANDS = [
     { id: "tools.similar", title: "Find similar", group: "Tools", icon: "similar", keys: [], when: () => board2d() && (st.selComp >= 0 || !!st.lastHit), run: () => findSimilar() },
     { id: "tools.clearFilter", title: "Clear the filter", group: "Tools", icon: "filter", keys: ["Shift+C"], when: () => board2d(), run: () => clearQuery() },
     { id: "tools.escape", title: "Clear the selection or leave the tool", group: "Tools", icon: "clear", keys: ["Escape"], when: () => true, run: () => escapeKey() },
+    { id: "view.dock", title: "Inspector", group: "View", icon: "dock", keys: ["I"], when: () => !!S, run: () => toggleDock(), pressed: () => dockNarrow() ? DOCK.sheet : DOCK.open },
+    { id: "insp.zoom", title: "Zoom to", group: "Selection", icon: "zoom", keys: [], domId: "inspZoom", when: () => !!target() && kind() !== "measure" && kind() !== "mark" && S.kind !== "table", run: () => zoomToTarget() },
+    { id: "insp.net", title: "Highlight net", group: "Selection", icon: "net", keys: [], domId: "inspNet", when: () => tNet() >= 0 && kind() !== "net" && (!st.mode3d || isSch()),
+        run: () => isSch() ? selectNet(tNet(), true) : selectNetAt(tNet()) },
+    { id: "insp.part", title: "Select part", group: "Selection", icon: "chip", keys: [], domId: "inspPart", when: () => tComp() >= 0 && kind() !== "part" && kind() !== "component" && !LIB,
+        run: () => isSch() ? selectComp(tComp(), true) : selectCompAt(tComp()) },
+    { id: "insp.similar", title: "Find similar", group: "Selection", icon: "similar", keys: [], domId: "inspSimilar", when: () => board2d() && !LIB && (tComp() >= 0 || !!target()?.pr), run: () => findSimilar() },
+    { id: "insp.probe", title: "Show in schematic", group: "Selection", icon: "schematic", keys: [], label: () => isSch() ? "Show on board" : "Show in schematic", domId: "inspProbe",
+        when: () => probeOffered(), run: () => { const c = S.comps[tComp()]; crossProbe(c.group || c.ref, probeKind()); } },
+    { id: "insp.review", title: "Open in review", group: "Selection", icon: "review", keys: [], domId: "inspReview", when: () => tFinding() >= 0, run: () => openInReview(tFinding()) },
+    { id: "act.waive", title: "Waive finding…", group: "Selection", icon: "waive", keys: [], domId: "inspWaive", tone: "warnBtn", when: () => waiveState().offered,
+        run: () => { INSPECT.waive = !INSPECT.waive; refreshInspector(); }, disabled: () => !!(window.FenoliteActions?.state?.job) },
+    { id: "act.move", title: "Move part…", group: "Selection", icon: "move", keys: [], domId: "inspMove",
+        when: () => tComp() >= 0 && board2d() && !LIB && !!window.FenoliteActions?.state?.enabled && !!window.FenoliteActions.state.offer?.move?.available, run: () => moveInActions(tComp()) },
     { id: "share.link", title: "Copy link", group: "Share", icon: "link", keys: [], when: () => !!DOC, run: () => copyLink() },
     { id: "share.svg", title: "Save as SVG", group: "Share", icon: "image", keys: [], when: () => flat(), run: () => saveSvg() },
     ...PRINT.map(([k, label]) => ({ id: `share.print.${k}`, title: `Print · ${label}`, group: "Share", icon: "printer", keys: [], when: () => flat(), run: () => printView(k) })),
@@ -6015,7 +6843,8 @@ function Toolbar() {
                     { id: "themeLight", title: "Light", icon: "sun", radio: true, checked: THEME === "light", run: () => runCommand("app.theme.light") },
                     { id: "themeDark", title: "Dark", icon: "moon", radio: true, checked: THEME === "dark", run: () => runCommand("app.theme.dark") },
                 ] }),
-            preact.h(Btn, { id: "bKeys", cmd: "app.shortcuts", icon: "keyboard", cls: "hideNarrow" })));
+            preact.h(Btn, { id: "bKeys", cmd: "app.shortcuts", icon: "keyboard", cls: "hideNarrow" }),
+            S ? preact.h(Btn, { id: "bDock", cmd: "view.dock", icon: "dock", tip: dockNarrow() ? "Properties" : "Show or hide the inspector", pressed: dockNarrow() ? DOCK.sheet : DOCK.open }) : null));
 }
 var TOOLBAR_READY = false; // var: read before this module runs by the modules that come first
 function toolbarReady() { TOOLBAR_READY = true; refreshToolbar(); }
@@ -6036,6 +6865,8 @@ async function start() {
     toolbarReady();
     refreshStatus();
     reviewEntry();
+    refreshDock();
+    refreshSummary();
     buildTree();
     loadMarks((EMBED && EMBED.marks) || (PROJECT && PROJECT.marks));
     buildMarks();

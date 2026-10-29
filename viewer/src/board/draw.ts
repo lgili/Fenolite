@@ -11,7 +11,7 @@ import { HL_ALPHA } from "../panels/review";
 import { refreshStatus } from "../panels/status-bar";
 import { drawCheck } from "../review/check";
 import { drawSch } from "../sch/draw";
-import { cache, compCache, lighten, netCache, qCache, selCache, textCache } from "./cache";
+import { cache, compCache, netCache, qCache, selCache, textCache } from "./cache";
 import { drawDiff } from "./diff";
 import { boardPath } from "./geometry";
 import { drawOverlays } from "./overlays";
@@ -47,6 +47,32 @@ export function paintTexts(g, lid, color, alpha, unit) {
   g.globalAlpha = alpha; g.strokeStyle = color; g.lineCap = "round"; g.lineJoin = "round";
   for (const [w, p] of tc.strokes) { g.lineWidth = Math.max(w, 0.6 / unit); g.stroke(p); }
 }
+// ---- net emphasis (c0244, design decision 4): a picked net, part or filter result is drawn in its own layer
+// colours at full opacity with a 1.5 px outline in the --emphasis token, never lightened; its zone fills at 0.55
+// with the outline, so its tracks and pads stay readable over its pour. The rest dims by the highlight mode.
+let EMPHASIS = "", EMPHASIS_KEY = "";
+export function emphasisColor() {   // the --emphasis token, read again when the theme changes
+  const key = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: light)").matches ? "l" : "d");
+  if (!EMPHASIS || key !== EMPHASIS_KEY) { EMPHASIS_KEY = key; EMPHASIS = getComputedStyle(document.documentElement).getPropertyValue("--emphasis").trim() || "#ffffff"; }
+  return EMPHASIS;
+}
+export const ZONE_FILL_ALPHA = 0.55;
+export const isZoneFill = pr => pr[1] === "p" && pr[4] < 0 && pr[3] >= 0;
+export function paintEmphasis(g, c, lid, color, unit, zone) {
+  if (!c || !c.n) return;
+  if (VIEWL(lid)) { paintCache(g, c, lid, color, 1, unit); return; }
+  const em = emphasisColor(), w = 1.5 / unit;
+  g.globalAlpha = 1; g.strokeStyle = em; g.lineCap = "round"; g.lineJoin = "round";
+  if (zone) { paintCache(g, c, lid, color, ZONE_FILL_ALPHA, unit); g.globalAlpha = 1; g.strokeStyle = em; g.lineWidth = w; g.stroke(c.fill); return; }
+  g.lineWidth = 2 * w; g.stroke(c.fill);   // the outline: half of it under the fill, half outside
+  for (const [sw, p] of c.strokes) { g.lineWidth = Math.max(sw, 1 / unit) + 2 * w; g.stroke(p); }
+  paintCache(g, c, lid, color, 1, unit);
+}
+export function paintPicked(map, key, test, ord) {   // the zone fills of the pick first, then the rest on top
+  const zones = selCache(map, "z:" + key, pr => test(pr) && isZoneFill(pr)), rest = selCache(map, key, pr => test(pr) && !isZoneFill(pr));
+  for (const [l] of ord) paintEmphasis(ctx, zones.get(l.id), l.id, l.color, view.s, true);
+  for (const [l] of ord) paintEmphasis(ctx, rest.get(l.id), l.id, l.color, view.s, false);
+}
 export function draw() {
   if (S && S.kind === "table") return;
   if (S && S.kind === "schematic") return drawSch();
@@ -59,13 +85,12 @@ export function draw() {
   const dim = S.diff && st.diff && S.diff.kind === "board" ? 0.35 : 1;   // c0184: the board steps back while the changes are shown
   for (const [l, a00] of ord) { const a0 = a00 * dim, a = a0 * (l.alpha ?? 1); paintCache(ctx, cache.get(l.id), l.id, l.color, sel ? a * other : a, view.s);
     if (view.s * 0.4 > 1) paintTexts(ctx, l.id, l.color, sel ? a * other : a, view.s); }
-  if (qy) { const mq = selCache(qCache, qy.text, pr => qy.prims.has(pr)); for (const [l] of ord) paintCache(ctx, mq.get(l.id), l.id, lighten(l.color, 0.45), 1, view.s);
-    ctx.globalAlpha = 1; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1 / view.s;
+  if (qy) { paintPicked(qCache, qy.text, pr => qy.prims.has(pr), ord);
+    ctx.globalAlpha = 1; ctx.strokeStyle = emphasisColor(); ctx.lineWidth = 1 / view.s;
     for (const ci of qy.comps.slice(0, 2000)) { const b = S.comps[ci].bbox; if (b) ctx.strokeRect(b[0] - 0.2, b[1] - 0.2, b[2] - b[0] + 0.4, b[3] - b[1] + 0.4); } }
   if (picked) {
-    const mm = st.selNet >= 0 ? selCache(netCache, st.selNet, pr => pr[3] === st.selNet) : selCache(compCache, st.selComp, pr => pr[4] === st.selComp);
-    for (const [l] of ord) paintCache(ctx, mm.get(l.id), l.id, lighten(l.color, 0.45), 1, view.s);
-    if (st.selComp >= 0 && S.comps[st.selComp].bbox) { const b = S.comps[st.selComp].bbox; ctx.globalAlpha = 1; ctx.strokeStyle = "#fff";
+    if (st.selNet >= 0) paintPicked(netCache, st.selNet, pr => pr[3] === st.selNet, ord); else paintPicked(compCache, st.selComp, pr => pr[4] === st.selComp, ord);
+    if (st.selComp >= 0 && S.comps[st.selComp].bbox) { const b = S.comps[st.selComp].bbox; ctx.globalAlpha = 1; ctx.strokeStyle = emphasisColor();
       ctx.lineWidth = 1.5 / view.s; ctx.setLineDash([5 / view.s, 3 / view.s]); ctx.strokeRect(b[0] - 0.3, b[1] - 0.3, b[2] - b[0] + 0.6, b[3] - b[1] + 0.6); ctx.setLineDash([]); }
   }
   if (VARIANT && S.variants) { worldTf(); ctx.globalAlpha = 0.6; ctx.fillStyle = (S.theme || {}).board || "#050505";

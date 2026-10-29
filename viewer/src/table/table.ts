@@ -10,7 +10,7 @@ import { setDocTitle } from "../panels/toolbar";
 export const TBL = { sort: -1, up: true, q: "" };
 export function loadTable(scene) {
   setS(scene); st.mode3d = false; document.body.classList.remove("sch", "lib"); document.body.classList.add("table");
-  cv.style.display = "none"; glc.style.display = "none"; $("bar3d").style.display = "none";
+  cv.style.display = "none"; glc.style.display = "none"; $("cube").style.display = "none"; document.body.classList.remove("mode3d");
   setDocTitle(scene.meta.name);
   $("notes").innerHTML = (scene.meta.notes || []).map(esc).join("<br>") + `<br>Read by the ${esc(scene.meta.backend || "?")} backend, evidence ${esc(scene.meta.evidence || "?")}.`;
   TBL.sort = -1; TBL.up = true; TBL.q = "";

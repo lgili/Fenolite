@@ -15,7 +15,9 @@ import { set3D } from "../three/view3d";
 import { Icon } from "../ui/icons";
 import { showSection } from "../ui/section";
 import { Empty } from "../ui/states";
-export const HL_ALPHA = { dim: 0.28, mask: 0.06, normal: 1 };
+import { netModel, partModel } from "../inspect/model";
+import { inspect } from "./inspector";
+export const HL_ALPHA = { dim: 0.22, mask: 0.06, normal: 1 };   // c0244: Dim at 0.22
 export const ROW = 24;
 export function vlist(box, items, row, click, selected, empty?) {   // a list that draws only the rows in view (Preact rows, c0243)
   box.style.height = items.length ? `${Math.min(240, items.length * ROW + 4)}px` : "auto";
@@ -33,9 +35,9 @@ export function netBounds(ni) { let b = null;
 export function primBounds(set) { let b = null;
   for (const list of byLayer.values()) for (const [pr, q] of list) if (set.has(pr)) b = b ? [Math.min(b[0], q[0]), Math.min(b[1], q[1]), Math.max(b[2], q[2]), Math.max(b[3], q[3])] : [...q];
   return b; }
-export function selectCompAt(ci) { if (st.mode3d) set3D(false); st.selComp = ci; st.selNet = -1; const b = S.comps[ci].bbox; if (b) fit([b[0] - 5, b[1] - 5, b[2] + 5, b[3] + 5]); showInfo(compInfo(ci)); buildReview(); draw(); }
+export function selectCompAt(ci) { if (st.mode3d) set3D(false); st.selComp = ci; st.selNet = -1; const b = S.comps[ci].bbox; if (b) fit([b[0] - 5, b[1] - 5, b[2] + 5, b[3] + 5]); inspect(() => partModel(ci)); buildReview(); draw(); }
 export function selectNetAt(ni) { if (st.mode3d) set3D(false); st.selNet = ni; st.selComp = -1; shareNet(S.nets[ni]); const b = netBounds(ni); if (b) fit([b[0] - 3, b[1] - 3, b[2] + 3, b[3] + 3]);
-  const info = (S.netinfo || [])[ni]; showInfo(`Net: <b>${esc(S.nets[ni])}</b>` + (info ? `<br>${info.pads} pads · routed ${fmtLen(info.length * MM)}` : "")); buildReview(); draw(); }
+  inspect(() => netModel(ni)); buildReview(); draw(); }
 const COMP_SORT = { ref: c => c.ref, value: c => String(c.value || ""), footprint: c => String(c.footprint || "") };
 export function buildReview() {
   if (!S || S.kind || !S.prims) return; const qy = st.query, inQ = qy ? new Set(qy.comps) : null;

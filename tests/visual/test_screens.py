@@ -41,3 +41,13 @@ def test_the_light_shell_has_its_own_reference(pages: dict[str, Path], tmp_path:
     assert reply["errors"] == [], reply["errors"]
     assert reply["ok"] is False and reply["ratio"] > MAX_RATIO
     assert Path(reply["diff"]).is_file()
+
+
+def test_a_changed_emphasis_fails(pages: dict[str, Path], tmp_path: Path) -> None:
+    """Scenario "A changed emphasis fails" (c0244): the selected net's reference with the dim factor of the
+    highlight changed in the page."""
+    script = 'HL_ALPHA.dim = 0.6; selectNetAt(S.nets.indexOf("GND"));'
+    (reply,) = run([job("kicad_board_net", pages["kicad_board_net"], tmp_path, script=script)], tmp_path)
+    assert reply["errors"] == [], reply["errors"]
+    assert reply["ok"] is False and reply["ratio"] > MAX_RATIO
+    assert Path(reply["diff"]).is_file()

@@ -12,11 +12,13 @@ import { invalidateScene, loadingNavigation, navigation, openDoc } from "./docum
 import { $ } from "./dom";
 import { applyLink, applySelect, linkReady, setLinkReady } from "./links";
 import { DOC, POLLS, PROJECT, RAW, setProject, st } from "./state";
+import { refreshDock } from "../panels/dock";
+import { refreshSummary } from "../panels/inspector";
 export async function start() {
   if (EMBED) { setProject(EMBED.project); for (const [id, sc] of Object.entries(EMBED.scenes)) RAW.set(id, sc); }   // decoded when opened
   else if (LIVE) { setProject(await (await fetch("project.json", { cache: "no-store" })).json()); }
   document.body.classList.toggle("catalog", PROJECT?.source === "catalog");
-  toolbarReady(); refreshStatus(); reviewEntry();
+  toolbarReady(); refreshStatus(); reviewEntry(); refreshDock(); refreshSummary();
   buildTree();
   loadMarks((EMBED && EMBED.marks) || (PROJECT && PROJECT.marks)); buildMarks();
   const docs = PROJECT ? PROJECT.groups.flatMap(g => g.documents) : [];

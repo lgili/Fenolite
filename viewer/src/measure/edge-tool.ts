@@ -10,6 +10,8 @@ import { fmtLen } from "../core/units";
 import { dpr, w2s, worldTf } from "../core/viewport";
 import { refreshToolbar } from "../panels/toolbar";
 import { edgeBetween } from "./edge";
+import { imodel, irow, isection } from "../inspect/model";
+import { inspect } from "../panels/inspector";
 export const EDGE_C = "#00d0ff";
 export function toggleEdge() { st.edge = !st.edge; st.epick = []; st.eres = null; refreshToolbar(); draw(); }
 export function edgeGroup(h) {   // every primitive of the clicked item on its layer: a pad's core and its edge stroke together
@@ -21,8 +23,9 @@ export function edgeClick(X, Y) {
   if (st.epick.length >= 2) { st.epick = []; st.eres = null; }
   st.epick.push({ name: h.pr[5] || h.layer.name, layer: h.layer, prims: edgeGroup(h) });
   if (st.epick.length === 2) { const [a, b] = st.epick; st.eres = edgeBetween(a.prims, b.prims);
-    if (st.eres) showInfo(`<b>Edge to edge: ${fmtLen(st.eres.d)}</b><br>${esc(a.name)} (${esc(a.layer.name)}) ↔ ${esc(b.name)} (${esc(b.layer.name)})` +
-      (a.layer.id !== b.layer.id ? "<br><i>Two layers: the distance is measured in the plane.</i>" : "")); }
+    if (st.eres) { const d = st.eres.d;
+      inspect(() => imodel("measure", `Edge gap ${fmtLen(d)}`, [isection("Edge gap", [irow("Distance", fmtLen(d)), irow("From", `${a.name} · ${a.layer.name}`), irow("To", `${b.name} · ${b.layer.name}`)])],
+        { note: a.layer.id !== b.layer.id ? "Two layers: the distance is measured in the plane." : "" })); } }
   draw();
 }
 export function drawEdge() {

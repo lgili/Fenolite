@@ -26,6 +26,27 @@ All notable changes to Fenolite are documented here. The format follows
   progress bar, a failed read offers Retry, empty lists say why. Run checks of c0245 is in the toolbar and the
   palette. The visual tests run in the dark interface theme, `kicad_board_light.png` covers the light one, and
   the references were regenerated. `docs/viewer.md`, "The page".
+- **The viewer's inspector, Layers panel and 3D controls** (c0244): a dock at the right of the drawing, never over
+  it, with a Properties tab (the inspector) and, on boards and footprints, a Layers tab that the 3D panel replaces
+  in 3D; `I` hides it, its edge resizes it (240 to 480 px), and at 760 px and below it is a bottom sheet that a
+  selection opens and `Esc` closes. The inspector shows the selection in sections (Part, Pad, Track, Arc, Via,
+  Zone, Net, Keep-out, Finding; sheets, libraries and drawings alike), each value in the page's unit with a copy
+  control, "Copy all", values the file does not hold left out, and the document's summary when nothing is
+  selected; its actions are registry commands also listed in the palette: Zoom to, Highlight net, Select part,
+  Find similar, Show in schematic or Show on board, Open in review, and with `--allow-actions` Move part and
+  Waive finding (c0246). A selected net, part or filter result is drawn in its own colours with an outline in the
+  `--emphasis` token instead of being lightened, its zone fills lighter and outlined, the rest dimmed at 22 %.
+  The Layers panel lists every layer by its full name in groups with visibility, opacity, the current layer and
+  the presets, so the layer tabs leave the bottom bar of boards (sheets keep their document tabs). In 3D the
+  2D-only controls are hidden, a view cube sets the six face views and the corner views (animated), the light is
+  an ambient, a key and a fill term, extruded bodies take a charcoal body colour with a lighter top, and the 3D
+  panel shows or hides bodies, board, silkscreen and copper. New visual tests (`test_inspector.py`,
+  `test_layers.py`, `test_3d.py`) and the reference `kicad_board_net.png`; the references were regenerated with
+  the dock. `docs/viewer.md`, "The page" and "Units and measurement".
+- **Waive and stale results in the viewer** (c0246, two fixes found in testing): Waive is not offered on a
+  finding of a check of an earlier revision of the file, and the page says why; after an action writes a project
+  file the checks read (a waiver writes the `.kicad_pro`), the document's review results are marked stale until a
+  check runs again, and the run strip, the Project review and the inspector offer Run again.
 
 ### Changed
 

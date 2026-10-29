@@ -80,11 +80,16 @@ class Fixture:
     doc: str = ""
     scheme: str = "dark"
     """The interface theme the page is drawn in (c0243): Chromium's prefers-color-scheme."""
+    script: str = ""
+    """What the page does before its screenshot (c0244: select a net)."""
 
 
 FIXTURES = (
     Fixture("kicad_board", "kicad/board/two_layer.kicad_pcb"),
     Fixture("kicad_board_light", "kicad/board/two_layer.kicad_pcb", scheme="light"),
+    Fixture(
+        "kicad_board_net", "kicad/board/two_layer.kicad_pcb", script='selectNetAt(S.nets.indexOf("GND"));'
+    ),
     Fixture("altium_board", "altium/blink/blink.PcbDoc"),
     Fixture("altium_sheet", "altium/blink/blink.SchDoc"),
     Fixture("kicad_sheet", "kicad/parity/agree/blink.kicad_sch"),
@@ -159,7 +164,9 @@ def job(
 ) -> dict[str, Any]:
     """A screenshot job of the harness: ``ref`` defaults to the committed reference of ``name``; a fixture's
     interface theme is its ``scheme`` (c0243)."""
-    scheme = next((f.scheme for f in FIXTURES if f.name == name), "dark")
+    fixture = next((f for f in FIXTURES if f.name == name), None)
+    scheme = fixture.scheme if fixture is not None else "dark"
+    script = script or (fixture.script if fixture is not None else "")
     return {
         "name": name,
         "page": str(page),

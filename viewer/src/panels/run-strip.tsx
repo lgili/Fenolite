@@ -16,6 +16,7 @@ export function RunStrip({ job, message }: { job: any, message: any }) {
   }
   if (!message) return null;
   return <><span>{message.text}</span>{message.hint ? <small>{message.hint}</small> : null}
+    {message.action ? <button id="runAgain" class="primary" onClick={() => { const a = message.action; RUNS.message = null; runStrip(); a.run(); }}>{message.action.label}</button> : null}
     <button onClick={() => { RUNS.message = null; runStrip(); }}>Dismiss</button></>;
 }
 export function runStrip() {

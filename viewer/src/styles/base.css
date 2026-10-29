@@ -18,8 +18,8 @@ input::placeholder, textarea::placeholder { color:var(--text-3); opacity:1; }
 input:not([type=checkbox]):not([type=radio]):not([type=range]):focus, select:focus, textarea:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
 select { padding-right:var(--space-1); }
 input[type=checkbox], input[type=radio], input[type=range] { accent-color:var(--accent-bg); }
-button:not(.tb):not(.menuItem):not(.zeroLine):not(.reviewEntry) { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-m); padding:0 var(--space-3); min-height:var(--control-h); color:var(--text-1); }
-button:not(.tb):not(.menuItem):not(.zeroLine):not(.reviewEntry):hover:not(:disabled) { background:var(--surface-3); border-color:var(--border-strong); }
+button:not(.tb):not(.menuItem):not(.zeroLine):not(.reviewEntry):not(.dockTab):not(.lcur) { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-m); padding:0 var(--space-3); min-height:var(--control-h); color:var(--text-1); }
+button:not(.tb):not(.menuItem):not(.zeroLine):not(.reviewEntry):not(.dockTab):not(.lcur):hover:not(:disabled) { background:var(--surface-3); border-color:var(--border-strong); }
 button.on { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
 button.primary { background:var(--accent-bg) !important; border-color:var(--accent-bg) !important; color:var(--accent-text) !important; font-weight:600; }
 
