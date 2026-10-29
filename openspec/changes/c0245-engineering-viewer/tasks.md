@@ -48,6 +48,8 @@
   Note (2026-10-29): Float in a Window (served pages only) opens `/panel/<name>?doc=<id>`, which the server sends to `/#float=<name>&doc=<id>`; that page shows the panel alone, follows the documents of the main window and the shared net, and the panel returns to its dock when its window closes. Proof passed.
 - [ ] 2.6 Rebaseline the eight references once with `tools/update_view_refs.py`. Review each difference image and attach them to the pull request. Proof: `uv run pytest tests/visual -q` in the `viewer` job on the pushed commit.
 
+  Note (2026-10-29): the eight references were rewritten once with `tools/update_view_refs.py` after the shell of tasks 2.1 to 2.5. Each drawing is unchanged; the frame around it changed (title line, menu bar, icon toolbar, left, right and bottom docks, blue status bar), so 69 % to 99 % of the pixels differ. Before, after and difference images, reviewed one by one: `c0245-shots/before/`, `c0245-shots/after/`, `c0245-shots/diff/` in the session's scratch folder (no pull request is opened for this branch, by the coordinator's instruction). The default dark theme tokens were settled for contrast first (task 5.1's checks), so later tasks do not change these eight references. Proof: `tests/visual` passes here; the `viewer` job on the pushed commit is recorded below.
+
 ## 3. Selection, messages, provenance
 
 - [ ] 3.1 Add one selection store, read and written by the canvas, panels, layer tabs, status bar, address and served windows (scenario "Five ways to one net"). Proof: `uv run pytest tests/visual/test_workbench.py -k selection -q`.
