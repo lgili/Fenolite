@@ -46,6 +46,9 @@ from fenolite.roles.copper import CONNECTIONS, GROUND_FILLS, KINDS, Request, run
 from fenolite.roles.judge import split_roles
 from fenolite.roles.store import Stored, stored_roles
 
+EXAMPLE_COPY = "fenolite-copper-example.kicad_pcb"
+"""The file of ``mutation_example_args``: a copy of the authored two-layer board, which the suites prepare
+in their working directory (the command writes the board it is given)."""
 HELP = "generate the power and ground copper of a KiCad board from its net roles (writes with --confirm)"
 TIMEOUT = 300.0
 
@@ -361,8 +364,8 @@ COMMAND = Command(
     mutates=True,
     register=_register,
     run=_run,
-    example_args=(EXAMPLE_BOARD,),
-    mutation_example_args=(EXAMPLE_BOARD,),
+    example_args=(EXAMPLE_BOARD, "--dry-run"),
+    mutation_example_args=(EXAMPLE_COPY,),
 )
 
-__all__ = ["COMMAND", "HELP"]
+__all__ = ["COMMAND", "EXAMPLE_COPY", "HELP"]
