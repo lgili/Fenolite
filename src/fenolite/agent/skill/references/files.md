@@ -30,11 +30,15 @@ fenolite view blink/altium/blink.PrjPcb --json
 fenolite view blink/altium/blink.PrjPcb --doc blink.SchDoc --json
 fenolite view blink/build/blink.kicad_pcb --export blink/views/board.html --dry-run --json
 fenolite view blink/build/blink.kicad_pcb --check checks.json --report conversion.json --report fabrication.json --json
+fenolite view blink/build/blink.kicad_pcb --serve --run-timeout 900 --no-browser --port 0
+fenolite view blink/build/blink.kicad_pcb --serve --no-run --no-browser
 ```
 
 `view` replies with the project's documents and a summary of one board, or of the one `--doc` names;
 `--compare OLD` draws what changed since OLD (a board or sheet) and counts it in `result.compare`; `--variant NAME` shows an Altium variant; `--check FILE|run` draws `check` findings and counts them in `result.check`; `--select REF` opens at a part or net; `--marks FILE` lists a person's review marks (`fenolite.review.v0`) in `result.marks`; `--theme` takes a KiCad colour theme; `--export` plans one HTML page that a person opens, and `--serve`
-(for a person, not an agent) serves it live.
+(for a person, not an agent) serves it live. A served page can run `check`, `analyze`, `ready` and
+`equivalent` itself, read-only, one at a time, stopped after `--run-timeout SECONDS` (600); `--no-run`
+serves recorded results only, and `result.serve.runs` counts the runs by final state.
 
 `result.review` and the page's Review panel distinguish not-run, passed, failed and limited stages.
 `--report FILE` loads a recorded convert/export reply, once per command; use `--check` for checks.

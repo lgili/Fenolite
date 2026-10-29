@@ -3574,7 +3574,7 @@ commands as tools to a client of the Model Context Protocol on standard input an
 ## view
 
 `fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--cache user|project|off]
-[--compare OLD] [--variant NAME] [--check FILE|run] [--report FILE]... [--select REF] [--marks FILE] [--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]] [--no-review] [--no-models]
+[--compare OLD] [--variant NAME] [--check FILE|run] [--report FILE]... [--select REF] [--marks FILE] [--serve [--port N] [--no-browser] [--run-timeout SECONDS] [--no-run]] [--export FILE [--docs ID,...]] [--no-review] [--no-models]
 [--silk-gap MM] [--mask-expansion MM]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
 c0177, c0178 and c0193; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
 board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbLib`, `.kicad_sym`,
@@ -3665,6 +3665,17 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbL
   8765, or any free port with `--port 0`) until it is interrupted, reloading a document when its file is
   saved, and then replies with `result.serve` (`url`, `seconds`). It opens a browser unless
   `--no-browser`.
+- **Runs** (change c0245). A served page may run `check`, `analyze`, `ready` and `equivalent` on a document of
+  the tree, read-only, one job at a time: `GET /runs` says what it may run, `POST /run` takes a command name, a
+  document id and typed options (never a command line or a path; `check --exclude` and `--reason` are refused),
+  `GET /run/<job>` reports the job's state, progress records and results, and `POST /run/<job>/cancel` stops
+  it. Each run is `python -m fenolite <command> --json --progress` in a child process in the project folder,
+  stopped after `--run-timeout SECONDS` (default 600, above 0). Every `POST` needs this server's `Host`, a
+  same-server `Origin` when one is sent, the header `X-Fenolite-Run: 1`, a JSON type and at most 16 KiB.
+  A `check` run replaces, stage by stage, the stages of the same name of the document's session reply, each
+  stage keeping its own input hash and evidence; the results stay in the server's memory. `--no-run` serves
+  recorded results only. `result.serve.runs` counts the runs by final state (`done`, `failed`, `cancelled`,
+  `timeout`). `--run-timeout` or `--no-run` without `--serve` is `FEN-2001`.
 - **Review** (change c0193). Unless `--no-review`, a board's review findings are drawn by group (45° corners,
   silkscreen near a mask opening, near other silkscreen or the edge, copper outside the board) with the open
   connections of `analysis.connectivity`, ground nets apart. `--silk-gap MM` is the silkscreen gap (default: the

@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Checks run from the viewer** (c0245): a page served by `fenolite view --serve` can run `check`, `analyze`, `ready` and `equivalent` itself, read-only, one job at a time. Each Project review card whose stages the server can run gets a **Run** control, and **Run from this page** picks the stages, the analyze kinds, a readiness check or a comparison with another document. A strip shows the command, its progress, the elapsed time and **Cancel**; a cancelled or timed-out run changes nothing. A `check` run replaces, stage by stage, the stages of the same name (`fenolite.view.project_review.merge`), each stage keeping its own input hash and evidence, so a stage of an older revision reads Limited; `analyze` paths become finding groups, `ready` and `equivalent` findings join the review list with Locate. Server routes `GET /runs`, `POST /run`, `GET /run/<job>`, `POST /run/<job>/cancel` behind the guard of `POST /marks` (`Host`, `Origin`, `X-Fenolite-Run: 1`, JSON, 16 KiB); the allow-list `fenolite.view.runs` takes a command name, a document id and typed options, never a command line or a path. Each run is a child process through the runner core shared with `fenolite mcp`, now `fenolite.cli.childrun`. New options `--run-timeout SECONDS` (default 600) and `--no-run`; `result.serve.runs` counts the runs by final state. `docs/viewer.md`, "Running checks from the page".
+
 ## [0.6.0] - 2026-10-29
 
 ### Added

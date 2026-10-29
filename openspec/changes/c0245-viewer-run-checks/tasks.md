@@ -19,14 +19,14 @@
 
 ## 5. Page
 
-- [ ] 5.1 Add the Run controls of the cards, the Run menu and palette commands with their forms from `GET /runs`, the run strip with progress and Cancel, and polling under the navigation guard; no control on exported or `--no-run` pages (scenarios "A failed DRC card from a run", "An exported page"; requirement "Runs only on request in a live server"). Proof: `uv run pytest tests/visual/test_run.py tests/visual/test_project_review.py -q` in the `viewer` CI job.
+- [x] 5.1 Add the Run controls of the cards, the Run menu and palette commands with their forms from `GET /runs`, the run strip with progress and Cancel, and polling under the navigation guard; no control on exported or `--no-run` pages (scenarios "A failed DRC card from a run", "An exported page"; requirement "Runs only on request in a live server"). Proof: `uv run pytest tests/visual/test_run.py tests/visual/test_project_review.py -q` in the `viewer` CI job.
 
 ## 6. Teaching and documentation
 
-- [ ] 6.1 Add tested lines for `--run-timeout` and `--no-run` to the closest page of the agent guide and regenerate the command guide; update `docs/viewer.md` ("Project review": running checks from the page) and `docs/cli-contract.md` ("view"). Proof: `uv run pytest tests/unit/agent -q -n 2`; `uv run python tools/gen_agent_guide.py --check`.
+- [x] 6.1 Add tested lines for `--run-timeout` and `--no-run` to the closest page of the agent guide and regenerate the command guide; update `docs/viewer.md` ("Project review": running checks from the page) and `docs/cli-contract.md` ("view"). Proof: `uv run pytest tests/unit/agent -q -n 2`; `uv run python tools/gen_agent_guide.py --check`.
 
 ## 7. Closing
 
 - [ ] 7.1 Run the tests and the residue scan. Proof: `make check-fast`, then the CI jobs of the branch, `viewer` and the KiCad jobs included.
-- [ ] 7.2 Confirm that run results keep each stage's evidence label unchanged and that no label of the matrix changes. Proof: `uv run pytest tests/unit/view/test_server.py -k evidence -q -n 2`; `uv run python tools/gen_evidence_matrix.py --check`.
+- [x] 7.2 Confirm that run results keep each stage's evidence label unchanged and that no label of the matrix changes. Proof: `uv run pytest tests/unit/view/test_server.py -k evidence -q -n 2`; `uv run python tools/gen_evidence_matrix.py --check`.
 - [ ] 7.3 Add an entry to `CHANGELOG.md` under `## [Unreleased]` for each closed task. Proof: `uv run pytest tests/unit -k "release_record or changelog" -q -n 2`.

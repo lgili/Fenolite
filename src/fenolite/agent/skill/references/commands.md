@@ -666,6 +666,8 @@ another type; a flag without a value is a switch.
 - `--serve`: serve on 127.0.0.1 until stopped
 - `--port N` (default `8765`): with --serve: port (default 8765; 0 = any free)
 - `--no-browser`: with --serve: no browser
+- `--run-timeout SECONDS`: with --serve: time limit of a check the page runs (default 600)
+- `--no-run`: with --serve: the page runs no check (recorded results only)
 - `--export FILE`: write one standalone page
 - `--cache {off,project,user}` (default `user`): scene cache
 - `--docs ID,...`: --export only these

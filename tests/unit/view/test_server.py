@@ -398,7 +398,7 @@ def test_run_result_fills_review_and_check_of_its_document_only(tmp_path: Path) 
         stop.set()
 
 
-def test_run_check_with_the_real_runner(tmp_path: Path) -> None:
+def test_run_check_with_the_real_runner_keeps_each_stage_evidence(tmp_path: Path) -> None:
     """Scenario "A check run from the page": the real child-process runner runs ``check --stages
     model.validate,copper.clearance`` and the review holds those two stages with their evidence."""
     from fenolite.cli._viewrun import ChildRunner

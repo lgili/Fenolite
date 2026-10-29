@@ -183,6 +183,33 @@ equivalence record and must state nonexperimental, nonlossy scope before its rec
 An export reply records artifact generation; it currently does not attest successful readback, so the
 fabrication-export card remains limited even when generation succeeded.
 
+#### Running checks from the page (change c0245)
+
+A page served with `--serve` can run the checks itself. Each card whose stages the server can run has a
+**Run** control, and **Run from this page**, under the cards, picks the stages of `check` (**Run checks**,
+**Run all checks** for the default stages), the kinds of `analyze`, a readiness check (`ready`) and a
+comparison with another document of the project (`equivalent`). Nothing runs unless you ask: opening a
+document or saving a file runs nothing.
+
+One job runs at a time. A strip over the drawing shows the command, its last progress record, the elapsed
+time and **Cancel**; a cancelled run, or one that passes `--run-timeout SECONDS` (default 600), changes
+nothing and says so. A failure shows the command's message and hint; when `kicad-cli` is missing the stages
+that need it could not run. A `check` run replaces the stages it ran, with their findings, and keeps the
+other stages with their own input hash, so a stage run on an older revision reads **Limited**; the cards, the
+Messages panel and the markers are drawn again. `analyze` paths become finding groups; `ready` and
+`equivalent` findings join the review list with **Locate** when they name a part, pad or net. Results stay in
+the server's memory for the session; a finding is never marked fixed, the next run replaces it.
+
+The server runs only `check`, `analyze`, `ready` and `equivalent`, read-only, on the files of the project,
+with options checked against the commands' own choices; it never takes a command line, a path or
+`check --exclude` from the page. Each run is a child process in the project folder. Requests must come from
+the page of this server (`Host` and `Origin` checked, the header `X-Fenolite-Run: 1`). Serve with `--no-run`
+to show recorded results only; an exported page never runs anything.
+
+```sh
+fenolite view board.kicad_pro --serve --run-timeout 1200   # a slow DRC on a large board
+```
+
 Use **Review findings** to jump from the status cards to the problem list. Filter by severity, stage or
 text; Previous/Next visits matching messages with their original hints and evidence. **Locate in drawing**
 reveals the finding's layer and marker and closes the panel so the drawing is visible. Unplaced findings
