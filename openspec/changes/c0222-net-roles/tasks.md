@@ -173,7 +173,15 @@
   Done 2026-10-29. The half-bridge's distance row is `examples/roles/half_bridge/requirements.toml`
   (VBUS to every other net, 1.2 mm each, illustrative); a 2 mm row instead gives the analysis's own
   `analysis.clearance-below` for the 1.6 mm between the bus and the switch node. Proof passed: 4 tests.
-- [ ] 5.7 Run the whole check on the six variants (scenario "Good and bad variants"). Proof: `uv run pytest tests/unit/roles/test_reference_boards.py -q`.
+- [x] 5.7 Run the whole check on the six variants (scenario "Good and bad variants"). Proof: `uv run pytest tests/unit/roles/test_reference_boards.py -q`.
+  Done 2026-10-29. With the inferred roles confirmed and the scripts' declarations added: no warning on
+  the three `good` variants; the bad buck gives `roles.loop-area` (180.02 mm², 3902 ‰), `roles.width-current`
+  (0.3 mm for 0.762 mm), `roles.kelvin-outer` (`R12-1`, t = -0.55 mm) and `roles.kelvin-shared` (`R12-2`,
+  the output pour); the bad half-bridge `roles.gate-loop` (116.05 mm², 2922 ‰), `roles.gate-return-shared`
+  (the switch node's pour), `roles.near-switching` (the sense pair 4.256 mm over the switch node on
+  `In1.Cu`) and `roles.via-current` (1 via for 5); the bad battery board `roles.width-current` (the 1 mm
+  track at 20 A), `roles.return-gap` (`TAP0` over a 0.8 mm slot) and two `roles.kelvin-shared` (the force
+  pads `R1-1` and `R1-4`). Proof passed: 16 tests.
 
 ## 6. Command line, DSL and stage
 
