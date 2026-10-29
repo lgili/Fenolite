@@ -41,6 +41,7 @@
 - [x] 4.1 Run the fast checks and the focused tests of every task above. Proof: `make check-fast`; `uv run pytest tests/unit/dsl tests/unit/lens/test_build_unused_pins.py tests/unit/agent/test_pages.py -q`.
   2026-10-29: `make check-fast PYTEST_WORKERS=3` exit 0 (15314 passed, 46 skipped), which holds the focused tests named here.
 - [ ] 4.2 Evidence labels: record in `design.md`, "Evidence level per behaviour", the CI run whose KiCad job built the blink of task 3.1 (`KICAD-VERIFIED`). Proof: the required CI jobs pass on the exact commit (`gh run view <id>`).
+  2026-10-29: open: CI runs with the batch (the KiCad job builds and runs ERC on the blink of task 3.1).
 - [ ] 4.3 `CHANGELOG.md`: an entry under `## [Unreleased]` ("Added: connection helpers `series`, `decouple`, `pull_up`, `pull_down`, named ends `a`/`b`, and `unused_no_connect()` with the build codes `build.not-two-terminal` and `build.must-connect-unconnected`"). This waits until `dev` has opened `0.7.0.dev0`, because the guard of v0.6 requires `[Unreleased]` to be empty. Proof: `uv run pytest tests/unit/test_release_record_v06.py tests/unit/test_release_tool.py -q` (or the changelog guards in force at that time).
   2026-10-29: open: waits for `0.7.0.dev0` on `dev` (the v0.6 guard needs `[Unreleased]` empty).
 - [ ] 4.4 Publish the batch branch (with c0246) and confirm CI green on its exact commit (unit and KiCad jobs) before archiving. Proof: `gh run list --branch <branch> --limit 1` shows success for the commit; `npx -y @fission-ai/openspec validate c0247-connection-helpers --strict`.
