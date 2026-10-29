@@ -288,7 +288,7 @@ width = "0.05mm"
 lib id), `footprint` a package record's id (or any lib id), as in `v0`. `v0` files are still read: they
 have version `0.0.0` and licence unset, which is refused for `Fenolite:` records and shown as `unknown` for
 project records. `fenolite fmt DEVICE.toml` rewrites a `v0` file as a `v1` record (open question 3, decided
-on 2026-10-29).
+on 2026-10-29; decision 13).
 
 ```toml
 schema = "fenolite.device.v1"
@@ -383,6 +383,29 @@ The render tools and the catalog browser use `get_*` and need no change; their o
 
 The `library.*` prefix is shared with c0223 (`library.drift`, …) and c0262 (rule codes). c0262 must not
 reuse these three names.
+
+### 13. `fenolite fmt` rewrites `v0` device files
+
+The maintainer decided on 2026-10-29 that this change, not a follow-up, lets `fenolite fmt` rewrite a
+`fenolite.device.v0` file as `fenolite.device.v1` (open question 3).
+
+- `fmt PATH` on a `.toml` file reads its `schema`. A `v0` device gives one planned write of
+  `records.upgraded_device(record, licence=...)`: the same `DeviceDef` under the common header, with
+  `version = "1.0.0"` (the version the migration gave the shipped devices) and no parts. The write follows
+  the mutation protocol of `fmt` (`--dry-run`, `--confirm --plan`, a `.bak`; `--check` reports
+  `fmt.would-change`, exit 5).
+- **Licence.** A `v0` file has no `licence` key; c0248's records name theirs in a leading
+  `# SPDX-License-Identifier:` line, which gives the value. Without one the record says `NOASSERTION`, the
+  SPDX value for "not stated", rather than a licence Fenolite would invent for the author. A `Fenolite:` id
+  must then be `CC0-1.0`, so such a file is refused with `FEN-3004` and a hint naming the line to add.
+- **Comments.** The leading comment lines (the authored-for-Fenolite line) are kept above the record. A
+  comment after the first key would be lost by the canonical text, so the file is refused with `FEN-7001`,
+  as `fmt` refuses a KiCad file with comments below its root.
+- The written text is checked before it is planned: loading it must give the device of the `v0` file. A
+  `v1` file is left unchanged (no plan, exit 0): its layout is the author's, and `record_text` is the
+  canonical text only of what Fenolite writes. Any other TOML file gives `FEN-2001`.
+- `result` gains `schema` (the schema of the file as read) for a device file; the evidence is `INFERRED`
+  with `H-G-LIBRARY-RECORDS`, since the rewrite is Fenolite's own format and its round trip is tested.
 
 ## Risks / Trade-offs
 

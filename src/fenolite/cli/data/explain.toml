@@ -1704,8 +1704,8 @@ fix = "Add fiducials to that side with design.fiducial(), or lower --min-fiducia
 see = "testpoints"
 
 ["fmt.would-change"]
-meaning = "The file is not in Fenolite's canonical print; 'where' names the first line that differs."
-fix = "Run 'fenolite fmt' on the file with --confirm; its tree does not change."
+meaning = "The file is not in Fenolite's canonical print, or is a fenolite.device.v0 record that fmt rewrites as v1; 'where' names the first line that differs."
+fix = "Run 'fenolite fmt' on the file with --dry-run, then --confirm --plan; a KiCad file keeps its tree, a device record its device."
 see = "fmt"
 
 ["gate.dropped"]

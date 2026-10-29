@@ -65,6 +65,8 @@ requirement forbids copying from any other CAD library, so it is changed here.
 - The move: every shipped definition equal to its golden canonical JSON digest, and the KiCad builds of the
   catalog examples byte-identical (`H-K-CATALOG-DATA`, KiCad job in CI).
 - Each record keeps its own label; nothing here raises one.
+- `fenolite fmt` on a `v0` device file: `INFERRED`, the round trip v0 → v1 → load unit-tested
+  (`H-G-LIBRARY-RECORDS`).
 
 ## Impact
 
@@ -73,7 +75,9 @@ requirement forbids copying from any other CAD library, so it is changed here.
   `docs/library-records.md`, tests under `tests/unit/catalog/`.
 - Changed: `catalog/__init__.py` (data-backed), `catalog/devices.py` (c0248; reads `v1`), `cli/cmd_catalog.py`
   (additive keys `uid`, `version`, `licence`), `cli/_script.py` (recursive `devices/`), `lens/build.py`
-  (codes), `docs/devices.md`, the guide page `parts.md`, `CHANGELOG.md`.
+  (codes), `cli/cmd_fmt.py` (`fenolite fmt` rewrites `v0` device files as `v1`, the maintainer's decision of
+  2026-10-29), `docs/devices.md`, `docs/cli-contract.md`, the guide pages `parts.md` and `files.md`,
+  `CHANGELOG.md`.
 - Removed: `catalog/_symbol_expansion.py` and the geometry tables of `catalog/__init__.py`.
 - Depends on: c0248 (device records, project folder). Uses c0246's `Range` for package dimensions when it
   is merged. c0254 and c0263 put families in the same tree. c0260 to c0267 build on it.

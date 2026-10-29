@@ -103,5 +103,16 @@
   the records are Fenolite's own; `LEGAL-ANNEX.md` logs format-code sessions, which this is not. Proofs passed
   (`tests/unit/catalog` and `test_catalog.py`, 664 tests with `test_adrs.py`; `versions.py`: no problem;
   `make residue`: 0 hits).
-- [ ] 6.2 `fenolite fmt DEVICE.toml` rewrites a `fenolite.device.v0` file as a `fenolite.device.v1` record under the mutation protocol (open question 3): `--dry-run` shows the plan, `--confirm --plan` writes it, `--check` reports `fmt.would-change`; a `v1` file is left unchanged; the output is deterministic, and v0 → v1 → load gives the same device (scenarios "A v0 device file is rewritten as v1", "A v1 device file is left unchanged"). Contract section, agent-guide line. Proof: `uv run pytest tests/unit/cli/test_fmt_cmd.py tests/unit/catalog/test_records.py -k "fmt or upgrade" -q`; `uv run pytest tests/unit/agent/test_pages.py -q`.
+- [x] 6.2 `fenolite fmt DEVICE.toml` rewrites a `fenolite.device.v0` file as a `fenolite.device.v1` record under the mutation protocol (open question 3): `--dry-run` shows the plan, `--confirm --plan` writes it, `--check` reports `fmt.would-change`; a `v1` file is left unchanged; the output is deterministic, and v0 → v1 → load gives the same device (scenarios "A v0 device file is rewritten as v1", "A v1 device file is left unchanged"). Contract section, agent-guide line. Proof: `uv run pytest tests/unit/cli/test_fmt_cmd.py tests/unit/catalog/test_records.py -k "fmt or upgrade" -q`; `uv run pytest tests/unit/agent/test_pages.py -q`.
+  Done (2026-10-29): `fenolite fmt` on a `.toml` file reads its `schema`; a `fenolite.device.v0` record gives
+  one planned write of `records.upgraded_device` (the same device, `version = "1.0.0"`, the licence of a
+  leading `# SPDX-License-Identifier:` line or `NOASSERTION`, the leading comment lines kept), checked by
+  loading it again before it is planned; a `v1` file plans nothing; a comment after the first key gives
+  `FEN-7001`, a `Fenolite:` id without `CC0-1.0` `FEN-3004`, another TOML file `FEN-2001`. `result.schema`
+  names what was read; evidence `INFERRED` (`H-G-LIBRARY-RECORDS`, row updated). Design decision 13, the spec
+  requirements "Device records rewritten as v1" and "Device rewrites that would lose data are refused", the
+  `fmt` section of `docs/cli-contract.md`, `docs/library-records.md`, the `fmt.would-change` entry of
+  `explain.toml` (no new code) and a tested line in `files.md` (`fenolite.device.v0` in `TEACHES`); generated
+  pages rewritten. Proofs passed (`test_fmt_cmd.py` and `test_records.py -k "fmt or upgrade"`: 20 tests;
+  `test_pages.py`; with the hypotheses register, `test_explain_cmd.py` and `tests/consistency`: 711 passed).
 - [ ] 6.3 Run `make check-fast`, push to `cac/c0259-library-data-format`, and confirm the required CI jobs on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.

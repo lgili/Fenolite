@@ -32,7 +32,7 @@ another type; a flag without a value is a switch.
 | `export` | yes | export fabrication files through kicad-cli on a copy of the project (writes under DIR) |
 | `fetch` | yes | download an external tool (freerouting) after --confirm, checked against its pinned SHA-256 |
 | `fill` | yes | fill a KiCad board through kicad-cli 10 on a copy, preserving its format major |
-| `fmt` | yes | give a KiCad S-expression file Fenolite's canonical print, or check it with --check |
+| `fmt` | yes | give a KiCad S-expression file Fenolite's canonical print, or rewrite a v0 device record as v1; --check only reports |
 | `guide` | no | print the agent guide of the installed version: the list of its pages, or one page |
 | `impedance` | yes | the impedance table of a project for the fabricator, with --estimate rough estimates (writes FILE with --out) |
 | `init` | yes | write a starter project (a design script that builds with the built-in catalog) into a folder |
@@ -292,7 +292,7 @@ another type; a flag without a value is a switch.
 
 `fenolite fmt [OPTIONS] PATH`
 
-- `PATH`: a board, footprint, schematic, symbol library or sheet
+- `PATH`: a board, footprint, schematic, symbol library, sheet or device record
 - `--check`: report whether the file would change
 
 ## guide

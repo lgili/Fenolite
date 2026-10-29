@@ -117,7 +117,10 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
         "One fix per iteration", "--fields", "--stages", "--format concise", "--limit", *LABELS[:3],
         "INFERRED",
     ),
-    "files": ("roundtrip", "fenolite diff", "fenolite equivalent", "fenolite restore", "did not write"),
+    "files": (
+        "roundtrip", "fenolite diff", "fenolite equivalent", "fenolite restore", "did not write",
+        "fenolite.device.v0",
+    ),
     "fabrication": (
         "fenolite export", "bill of materials", "position", "manifest", "fenolite render", "fenolite panel",
         "Panel(",

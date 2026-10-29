@@ -16,7 +16,10 @@ them; `fenolite.catalog.get_symbol`, `get_footprint`, `list_entries` and `ENTRIE
 | part | `fenolite.part.v0` | one orderable variant of a device, in its own file | `parts/` |
 
 The folders are a convention: the kind comes from `schema`. Change c0248's `fenolite.device.v0` files are
-still read, with version `0.0.0` and no licence; a shipped device is always `v1`.
+still read, with version `0.0.0` and no licence; a shipped device is always `v1`. `fenolite fmt
+devices/x.toml --dry-run` plans the rewrite of a `v0` file as `v1` (version `1.0.0`, the licence of its
+leading `# SPDX-License-Identifier:` line, the same device), and `--confirm --plan <plan_id>` writes it
+(`docs/cli-contract.md`, "fmt").
 
 ## The header
 

@@ -1201,6 +1201,30 @@ def record_text(record: Record) -> str:
     return "\n".join(lines) + "\n"
 
 
+UPGRADED_VERSION = "1.0.0"
+"""The version ``upgraded_device`` gives a ``fenolite.device.v0`` record, which has none (``0.0.0``)."""
+
+
+def upgraded_device(record: DeviceRecord, *, licence: str) -> DeviceRecord:
+    """The ``fenolite.device.v1`` record of a ``fenolite.device.v0`` one, as ``fenolite fmt`` writes it
+    (change c0259, open question 3): the same device under the common header, version ``UPGRADED_VERSION``
+    and ``licence``; ``parse_record(record_text(upgraded)).device == record.device``. A ``v1`` record is
+    returned unchanged."""
+    if record.header.schema != devicelib.SCHEMA:
+        return record
+    device = record.device
+    header = Header(
+        SCHEMA_OF["device"],
+        device.id,
+        UPGRADED_VERSION,
+        device.summary,
+        licence,
+        device.evidence,
+        sources=device.sources,
+    )
+    return DeviceRecord(header, device, ())
+
+
 # ------------------------------------------------------------------------------------ definitions
 
 
@@ -1757,6 +1781,7 @@ __all__ = [
     "SCHEMA_OF",
     "SHIPPED_LICENCES",
     "UPDATE_HINT",
+    "UPGRADED_VERSION",
     "VERSION",
     "VERSIONS_FILE",
     "Deprecation",
@@ -1800,6 +1825,7 @@ __all__ = [
     "stale_reviews",
     "symbol_def",
     "updated_versions",
+    "upgraded_device",
     "used_record_issues",
     "version_entry",
     "version_problems",

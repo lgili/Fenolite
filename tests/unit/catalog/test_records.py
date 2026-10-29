@@ -224,3 +224,18 @@ def test_explicit_footprint_from_the_test_record() -> None:
         derived_id("pad", "fenolite.catalog", "Two_Pad:2"),
     ]
     assert footprint.description == "Two-pad test land" and not re.search(r"INFERRED", footprint.description)
+
+
+@pytest.mark.parametrize("name", ["example_buck", "grouped_ground", "stamped"])
+def test_upgraded_device_round_trip(name: str) -> None:
+    """``upgraded_device`` (what ``fenolite fmt`` writes for a v0 file, c0259 task 6.2): v0 → v1 → load gives
+    the same device, and a v1 record is returned unchanged."""
+    from fenolite.catalog.records import UPGRADED_VERSION, DeviceRecord, upgraded_device
+
+    old = parse_record((ROOT / "tests" / "data" / "devices" / f"{name}.toml").read_text(encoding="utf-8"))
+    assert isinstance(old, DeviceRecord) and old.header.schema == "fenolite.device.v0"
+    new = upgraded_device(old, licence="CC0-1.0")
+    again = parse_record(record_text(new))
+    assert isinstance(again, DeviceRecord) and again == new and again.device == old.device
+    assert (again.header.schema, again.header.version) == ("fenolite.device.v1", UPGRADED_VERSION)
+    assert upgraded_device(again, licence="NOASSERTION") is again

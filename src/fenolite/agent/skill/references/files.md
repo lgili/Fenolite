@@ -149,6 +149,15 @@ writes nothing; a file that is not gives `fmt.would-change` and exit 5. `fmt FIL
 it in that print: the content stays and only the layout changes. It is not KiCad's formatter: KiCad may
 lay the file out again when it saves it.
 
+```fenolite-cmd
+fenolite fmt devices/regulator.toml --dry-run --json
+```
+
+On a `fenolite.device.v0` record, `fmt` plans its rewrite as `fenolite.device.v1` with the same device
+(`result.schema` names what it read): version `1.0.0`, the licence of a leading
+`# SPDX-License-Identifier:` line or `NOASSERTION`. A v1 file is left unchanged; a comment after the
+first key is refused (`FEN-7001`, exit 7).
+
 ## Undoing a confirmed write
 
 Every confirmed write returns a `receipt` in its envelope: each written file with its SHA-256, and

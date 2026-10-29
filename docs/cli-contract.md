@@ -3004,7 +3004,8 @@ without an error. No ERC report at all gives `check.oracle-failed`.
 `fenolite fmt PATH [--check]` gives a KiCad S-expression file (`.kicad_pcb`, `.kicad_mod`, `.kicad_sch`,
 `.kicad_sym`, `.kicad_wks`) Fenolite's canonical print: the file is parsed and printed again, so its tree
 does not change, only its layout. Use it for small diffs under version control. It is not KiCad's own
-formatter: KiCad may lay the file out again when it saves it, and the tree is still the same.
+formatter: KiCad may lay the file out again when it saves it, and the tree is still the same. It also
+rewrites a `fenolite.device.v0` record as `v1` (below).
 
 - `--check` writes nothing: `result.formatted` says whether the file already is its canonical print, and
   a file that is not gives the error `fmt.would-change` and exit 5.
@@ -3016,6 +3017,16 @@ formatter: KiCad may lay the file out again when it saves it, and the tree is st
 first line that differs, or `null`). Formatting a formatted file changes nothing: this fixed point is
 tested on the whole corpus (`H-K-FMT-IDEMPOTENT`, `docs/evidence/kicad-fmt-identity.md`).
 
+**Device records** (change c0259). On a `.toml` file whose `schema` is `fenolite.device.v0`, `fmt` plans
+the rewrite of the file as a `fenolite.device.v1` record (`docs/library-records.md`) under the same protocol:
+`--dry-run` shows the plan (kind `device`), `--confirm --plan <plan_id>` writes it and keeps a `.bak`,
+`--check` reports `fmt.would-change`. The record holds the same device, `version = "1.0.0"`, and the licence
+of a leading `# SPDX-License-Identifier:` line or `NOASSERTION`; the leading comment lines are kept, and the
+written text is loaded again before it is planned, which must give the same device. The output is the same
+bytes on every run. A `fenolite.device.v1` file is left unchanged (no plan, exit 0). `result.kind` is
+`device` and `result.schema` is the schema of the file as read; the evidence is `INFERRED`
+(`H-G-LIBRARY-RECORDS`).
+
 | code | severity | when |
 |---|---|---|
 | `fmt.would-change` | error | `--check` on a file that is not canonical; `where` is `<file>:<line>` |
@@ -3023,11 +3034,11 @@ tested on the whole corpus (`H-K-FMT-IDEMPOTENT`, `docs/evidence/kicad-fmt-ident
 | exit | error | when |
 |---|---|---|
 | 0 | none | the file is canonical, a dry run, or a confirmed write |
-| 2 | `FEN-2001` | a `.kicad_pro` (JSON, kept byte for byte), a `.kicad_dru`, or any other file |
-| 3 | `FEN-3001`, `FEN-3004` | the file is missing or does not parse |
+| 2 | `FEN-2001` | a `.kicad_pro` (JSON, kept byte for byte), a `.kicad_dru`, a `.toml` file that is not a device record, or any other file |
+| 3 | `FEN-3001`, `FEN-3002`, `FEN-3004` | the file is missing or does not parse; a newer device schema; a rewritten device record that would not load (a `Fenolite:` id needs `CC0-1.0`) |
 | 4 | `FEN-4001` | the file would change and neither `--dry-run` nor `--confirm` was given |
 | 5 | `FEN-5001` | `--check` on a file that would change |
-| 7 | `FEN-7001` | the tree holds comments below the root, which the printer would lose |
+| 7 | `FEN-7001` | the tree holds comments below the root, or a device record a comment after its first key, which the printer would lose |
 
 ## explain
 

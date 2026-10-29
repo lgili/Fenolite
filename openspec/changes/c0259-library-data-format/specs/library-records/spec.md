@@ -192,3 +192,30 @@ A part MUST NOT hold `symbol`, `footprint`, `pins`, `ground`, `unused_pads`, `en
 #### Scenario: Load time
 - **WHEN** `shipped_tree()` is first called in a fresh process
 - **THEN** it returns within 2.5 times the time `tomllib` alone takes to read the same files, plus 50 ms (a budget that holds on any runner; about 150 ms on CI)
+
+### Requirement: Device records rewritten as v1
+`fenolite fmt PATH` on a `fenolite.device.v0` file SHALL plan one write of the same device as a `fenolite.device.v1` record (version `1.0.0`, the licence of a leading `# SPDX-License-Identifier:` line or `NOASSERTION`, the leading comment lines kept) under the mutation protocol of `fmt`. Loading the written record MUST give a device equal to the one of the `v0` file, and the output MUST be byte-identical on every run. A `fenolite.device.v1` file MUST be left unchanged.
+
+#### Scenario: A v0 device file is rewritten as v1
+- **GIVEN** `devices/example_buck.toml` with `schema = "fenolite.device.v0"` and a leading `# SPDX-License-Identifier: CC0-1.0` line
+- **WHEN** `fenolite fmt devices/example_buck.toml --dry-run` runs and then `--confirm --plan <plan_id>`
+- **THEN** the dry run plans one write of kind `device` and writes nothing, and the file then holds `schema = "fenolite.device.v1"`, `version = "1.0.0"`, `licence = "CC0-1.0"` and a device equal to the one of the `v0` file
+
+#### Scenario: A v1 device file is left unchanged
+- **WHEN** `fenolite fmt` runs on a `fenolite.device.v1` file, with `--check`, `--dry-run` or `--confirm`
+- **THEN** it exits 0 with `result.formatted` true, no plan and the file's bytes unchanged
+
+#### Scenario: Checking a v0 device file
+- **WHEN** `fenolite fmt devices/example_buck.toml --check` runs on a `v0` file
+- **THEN** it writes nothing, reports `fmt.would-change` and exits 5
+
+### Requirement: Device rewrites that would lose data are refused
+`fenolite fmt` MUST refuse a `v0` device file with a comment after its first key with `FEN-7001`, a rewrite that would not load (a `Fenolite:` id without `CC0-1.0`) with `FEN-3004`, and a TOML file that is not a device record with `FEN-2001`, writing nothing.
+
+#### Scenario: A comment in the body
+- **WHEN** `fenolite fmt` runs with `--confirm` on a `v0` device file holding `ref_prefix = "U"  # the regulator`
+- **THEN** it exits 7 with `FEN-7001` naming the line, and the file is unchanged
+
+#### Scenario: Not a device record
+- **WHEN** `fenolite fmt` runs on a `fenolite.pins.v0` file
+- **THEN** it exits 2 with `FEN-2001`
