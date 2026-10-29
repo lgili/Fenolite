@@ -7,13 +7,20 @@
 - **WHEN** `uv run pytest tests/unit/routing/test_protocol.py -k roles` builds `RoutingJob(design, nets, layers)`
 - **THEN** its `roles` is empty and the job equals one built with `roles=()`
 
-### Requirement: Octilinear role tiers
-With a non-empty `job.roles`, `OctilinearRouter` SHALL route only the role routes, in tiers 0 (hot legs), 1 (gate loops) and 2 (Kelvin pairs), each tier by group name then key, partnered routes as one unit. Rounds MUST reorder failed units within their tier only, and earlier tiers' copper MUST be fixed.
+### Requirement: Role outcomes in a routing result
+`fenolite.routing.protocol` SHALL define the frozen dataclass `RoleOutcome` (key, group, status, reason, form, layer, length, vias, runs, via points, blockers, detail) and `RoutingResult.roles: tuple[RoleOutcome, ...] = ()` after `not_attempted`. A router in role mode MUST give one outcome per role route, in the order of `job.roles`.
 
-#### Scenario: Kelvin pair after the switch node
-- **GIVEN** an authored bench with one hot leg and one Kelvin pair whose straight route would cross the leg
+#### Scenario: A result built as before
+- **WHEN** `uv run pytest tests/unit/routing/test_protocol.py -k roles` builds `RoutingResult()`
+- **THEN** its `roles` is empty and it equals a result built with `roles=()`
+
+### Requirement: Octilinear role tiers
+With a non-empty `job.roles`, `OctilinearRouter` SHALL route only the role routes, in tiers 0 (gate loops) and 1 (Kelvin pairs), each tier by group name then key, the routes of one group as one unit routed whole or not at all. Rounds MUST reorder failed units within their tier only, and earlier tiers' copper MUST be fixed.
+
+#### Scenario: Kelvin pair after the gate return
+- **GIVEN** an authored bench with one gate loop and one Kelvin pair whose straight route would cross the gate return's
 - **WHEN** `uv run pytest tests/unit/routing/test_roleroute.py -k tiers` routes the job
-- **THEN** the hot leg is routed first and straight, and the pair avoids it
+- **THEN** the gate return is routed first and straight, and the pair avoids it
 
 ### Requirement: Octilinear role ends
 A role route SHALL end at `JobRoleEnd.at`, not at the pad centre. For a Kelvin route the element end MUST lie on the inner half of the sense pad, at `c + u·(L/2 − w/2 − 2 µm)` along the axis `u` to the other sense pad, or at the centre when that offset is not positive.
@@ -46,16 +53,16 @@ In role mode the router SHALL try, after c0228's five shapes, at most 8 Z shapes
 - **WHEN** `uv run pytest tests/unit/routing/test_octilinear.py` runs after the role mode lands
 - **THEN** every existing octilinear test passes with the same copper
 
-### Requirement: Octilinear hot legs
-A `hot-leg` route SHALL place no via unless `hot-vias` allows one, SHALL prefer its first listed layer, and SHALL choose among accepted shapes the one of least role-loop area (shoelace of the centre polyline and the loop's fixed points), then length, then shape order.
+### Requirement: Octilinear role cost
+Among the accepted shapes of a gate route the router SHALL keep the one of least gate-loop area (the absolute shoelace area of its centre polyline closed by the route's loop points, the partner's placed polyline in place of its straight line), then the least length, then the first in shape order; among those of a Kelvin pair, the shortest centre line, then the first in shape order.
 
 #### Scenario: The smaller loop wins
-- **GIVEN** a bench capacitor 15 mm from a switch pair, with two clear shapes for its return leg enclosing 40 mm² and 90 mm²
-- **WHEN** `uv run pytest tests/unit/routing/test_roleroute.py -k hot` routes the legs
-- **THEN** the return leg takes the 40 mm² shape and no via is placed
+- **GIVEN** a bench gate loop whose return has two clear shapes, one beside the drive trace and one around an obstacle on the far side
+- **WHEN** `uv run pytest tests/unit/routing/test_roleroute.py -k smaller` routes it
+- **THEN** the return takes the shape beside the drive trace, whose loop encloses less
 
 ### Requirement: Octilinear gate pairs
-A gate loop SHALL be routed as its `gate-out` routes plus one `gate-return`, either side by side at the pair pitch or stacked under the out route on the adjacent layer through one via at each end, keeping the form of smaller loop area and side by side on equal area. A return net with a plane under the whole out route MUST NOT be routed.
+A gate loop SHALL be routed as its open `gate-out` routes, then its open `gate-return`: side by side on the pad layer, with Z lines at the pair pitch beside the out route, else stacked under the out route on the adjacent layer through one via at each end when no side-by-side shape passes and the route may place two vias. A `ground` return net with a zone under the whole out route on the adjacent layer MUST NOT be routed, and its outcome MUST be `plane-return`.
 
 #### Scenario: Stacked when the side is blocked
 - **GIVEN** a bench gate loop with a pad of another net beside the out route on both sides
@@ -63,7 +70,7 @@ A gate loop SHALL be routed as its `gate-out` routes plus one `gate-return`, eit
 - **THEN** the return runs under the out route on the adjacent layer with two vias, and its form is `stacked`
 
 ### Requirement: Octilinear role vias
-A role route SHALL place at most its `vias`: 0 by default for `hot-leg`, `gate-out` and `kelvin`, 2 for `gate-return`, changed by the router options `hot-vias`, `gate-vias` and `kelvin-vias`. A connection whose ends share no allowed layer and which may place no via MUST report reason `no-layer`.
+A role route SHALL place at most its `vias`: 0 by default for `gate-out` and `kelvin`, 2 for `gate-return`, changed by the router options `gate-vias` and `kelvin-vias`. A connection whose ends share no allowed layer and which may place no via MUST report reason `no-layer`.
 
 #### Scenario: No common layer
 - **GIVEN** a Kelvin route whose shunt pads are on `F.Cu` and whose amplifier pads are on `B.Cu`
@@ -71,7 +78,7 @@ A role route SHALL place at most its `vias`: 0 by default for `hot-leg`, `gate-o
 - **THEN** the first gives `no-layer`, and the second places one via per branch
 
 ### Requirement: Role check in job extras
-In role mode, `fenolite route` SHALL add `role_check` to `RoutingJob.extra`: a callable from a design to findings `(code, group, severity, measure)` from `fenolite.roles.judge`. The router MUST remove the whole copper of a group that has a new code or a larger measure after routing, with one `route.role-refused`; `roles.loop-open` before routing MUST count as no finding.
+In role mode, `fenolite route` SHALL add `role_check` to `RoutingJob.extra`: a callable from a design to findings `(code, group, severity, measure)` from `fenolite.roles.judge`. The router MUST remove the whole copper of a group that has a new code or a larger measure after routing, with one `route.role-refused` and the outcome `refused`; `roles.loop-open` MUST count as no finding.
 
 #### Scenario: A worse group is removed
 - **GIVEN** a test `role_check` that reports a new `roles.near-switching` on group `isense` after routing
