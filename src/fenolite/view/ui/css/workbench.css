@@ -106,6 +106,8 @@
   .msgwrap { flex:1; min-height:0; overflow:auto; }
   #msgEmpty { padding:6px 8px; }
   td.sev { width:18px; text-align:center; }
+  button.why { width:16px; height:16px; padding:0; margin-right:5px; font-size:10px; line-height:14px; border-radius:50%; vertical-align:middle; }
+  tr.explain td { white-space:normal; color:var(--text); background:var(--panel2); padding:4px 8px; max-width:none; }
   .sevdot { display:inline-block; width:9px; height:9px; border-radius:50%; }
   .sevdot.error { background:var(--err); } .sevdot.warning { background:var(--warn); border-radius:0; clip-path:polygon(50% 0, 100% 100%, 0 100%); } .sevdot.info { background:var(--accent); border-radius:2px; }
   .notes code { font:11px ui-monospace, monospace; }

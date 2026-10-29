@@ -201,3 +201,135 @@ def test_float(tmp_path: Path) -> None:
     result = reply["result"]
     assert result["float"] is True and result["shown"] == ["properties"] and result["canvas"] == "none"
     assert "GND" in result["info"] and result["title"].startswith("Properties")
+
+
+FINDINGS = """
+const finding = (code, sev, where, at, layer, evidence) => ({ code, severity: sev,
+  message: code + " on " + where,
+  hint: "", where, stage: "test.stage", evidence: evidence || "INFERRED", layer: layer || null, at,
+    box: null });
+const inject = list => { S.check = { findings: list, counts: { error: 0, warning: 0, info: 0 }, notes: [],
+  explain: {} };
+  for (const x of list) S.check.counts[x.severity]++; buildMessages(); draw(); };
+const row = code => [...$("msgBody").querySelectorAll("tr")]
+  .find(t => t.dataset.key && t.textContent.includes(code));
+"""
+
+
+def test_selection(buck_page: Path, tmp_path: Path) -> None:
+    """Scenario "Five ways to one net": canvas, Nets panel, Net drop-down, a Messages row and the address."""
+    script = (
+        FINDINGS
+        + """
+    const sw = S.nets.indexOf("SW"), p = S.pads.find(q => q.net === "SW"), hashes = {};
+    const clear = async () => { key("Escape"); await settle(); };
+    click(p.x, p.y); await settle(); hashes.canvas = selectionHash(); await clear();
+    $("netFilter").value = "SW"; $("netFilter").dispatchEvent(new Event("input"));
+    [...$("netList").querySelectorAll(".navi")].find(d => d.textContent.startsWith("SW")).click();
+    await settle();
+    hashes.nets = selectionHash(); await clear();
+    $("netSel").value = String(sw); $("netSel").dispatchEvent(new Event("change")); await settle();
+    hashes.dropdown = selectionHash(); await clear();
+    inject([finding("test.net", "warning", "SW", [p.x, p.y])]); row("test.net").click(); await settle();
+    hashes.message = selectionHash(); await clear();
+    applySelect("net:SW"); await settle(); hashes.address = selectionHash();
+    const shown = { status: $("sNet").textContent, drop: $("netSel").value,
+      list: !!$("netList").querySelector(".navi.sel"), announce: $("announce").textContent };
+    await clear();
+    const cleared = { status: $("sNet").textContent, drop: $("netSel").value,
+      list: !!$("netList").querySelector(".navi.sel"),
+      row: !!$("msgBody").querySelector('tr[aria-selected="true"]'), hash: selectionHash() };
+    return { hashes, shown, cleared, sw: String(sw) };
+    """
+    )
+    result = _act(buck_page, tmp_path, script)
+    hashes = set(result["hashes"].values())
+    assert len(hashes) == 1 and '"SW"' in next(iter(hashes)), result["hashes"]
+    assert result["shown"] == {
+        "status": "Net SW",
+        "drop": result["sw"],
+        "list": True,
+        "announce": "Selected net SW",
+    }
+    assert (
+        result["cleared"]["status"] == ""
+        and result["cleared"]["drop"] == ""
+        and not result["cleared"]["list"]
+    )
+    assert not result["cleared"]["row"] and '"SW"' not in result["cleared"]["hash"]
+
+
+def test_linked(pages: dict[str, Path], tmp_path: Path) -> None:
+    """Scenario "Both directions": a row frames its finding on its layer; its marker selects the row."""
+    script = (
+        FINDINGS
+        + """
+    const p = pad("D1-1");
+    inject([finding("test.first", "error", "R1-1", [pad("R1-1").x, pad("R1-1").y], "F.Cu"),
+            finding("test.second", "warning", "D1-1", [p.x, p.y], "B.Cu")]);
+    fit(); await settle(); const t0 = performance.now(); row("test.second").click();
+    const ms = performance.now() - t0;
+    await settle();
+    const framed = { cur: st.cur, dx: Math.abs(view.cx - p.x), dy: Math.abs(view.cy - p.y),
+      info: $("info").textContent };
+    key("Escape"); await settle(); fit(); await settle();
+    click(p.x, p.y); await settle();
+    const sel = $("msgBody").querySelector('tr[aria-selected="true"]');
+    return { framed, ms, picked: sel ? sel.textContent : null };
+    """
+    )
+    result = _act(pages["kicad_board"], tmp_path, script)
+    assert result["framed"]["cur"] == "B.Cu" and result["framed"]["dx"] < 1 and result["framed"]["dy"] < 1
+    assert "test.second" in result["framed"]["info"]
+    assert result["picked"] and "test.second" in result["picked"]
+    assert result["ms"] < 100
+
+
+def test_explain(pages: dict[str, Path], tmp_path: Path) -> None:
+    """M11: each Messages row shows its `fenolite explain` text on demand, in the page."""
+    script = (
+        FINDINGS
+        + """
+    inject([finding("test.first", "error", "R1-1", [pad("R1-1").x, pad("R1-1").y]), finding("test.other",
+      "info", "x", null)]);
+    S.check.explain = { "test.first": { meaning: "What it means.", fix: "How to fix it.",
+      see: "docs/x.md" } };
+    buildMessages(); row("test.first").querySelector("button.why").click(); await settle();
+    const shown = $("msgBody").querySelector("tr.explain").textContent;
+    row("test.other").querySelector("button.why").click(); await settle();
+    const fallback = [...$("msgBody").querySelectorAll("tr.explain")].map(t => t.textContent);
+    return { shown, fallback, noPos: row("test.other").textContent };
+    """
+    )
+    result = _act(pages["kicad_board"], tmp_path, script)
+    assert "What it means." in result["shown"] and "How to fix it." in result["shown"]
+    assert any("fenolite explain test.other" in t for t in result["fallback"])
+    assert "(no position)" in result["noPos"]
+
+
+def test_provenance(pages: dict[str, Path], tmp_path: Path) -> None:
+    """M1 and M8 before the Net Roles workspace: every value shown names its source and evidence, and the
+    status bar shows the lowest evidence level on screen."""
+    script = (
+        FINDINGS
+        + """
+    const p = pad("R1-1"); click(p.x, p.y); await settle();
+    const before = $("sEvidence").textContent;
+    inject([finding("test.kicad", "error", "R1-1", [p.x, p.y], "F.Cu", "KICAD-VERIFIED(kicad-cli 10.0.7)"),
+            finding("test.weak", "info", "R1-2", null, null, "UNVERIFIED")]);
+    row("test.kicad").click(); await settle();
+    const values = [...document.querySelectorAll("[data-value]")];
+    const bad = values.filter(e => !e.dataset.source || !e.dataset.evidence).map(e => e.outerHTML);
+    const digits = [];
+    const w = document.createTreeWalker($("info"), NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode(); n; n = w.nextNode()) {
+      if (/\\d/.test(n.nodeValue) && !n.parentElement.closest("[data-value]")) digits.push(n.nodeValue);
+    }
+    return { count: values.length, bad, digits, before, after: $("sEvidence").textContent,
+      tool: $("sTool").textContent };
+    """
+    )
+    result = _act(pages["kicad_board"], tmp_path, script)
+    assert result["count"] > 3 and result["bad"] == [] and result["digits"] == []
+    assert result["before"] == "evidence INFERRED" and result["after"] == "evidence UNVERIFIED"
+    assert "kicad-cli 10.0.7" in result["tool"]

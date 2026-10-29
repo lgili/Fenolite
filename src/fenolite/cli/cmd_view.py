@@ -29,7 +29,7 @@ import sys
 import threading
 import time
 import webbrowser
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
@@ -43,6 +43,7 @@ from fenolite.backends.base import BoardFrame, BodyModel, BodyModelSource, Place
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
+from fenolite.cli.explain import explain
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
@@ -743,7 +744,19 @@ def _with_check(
     if reply is None or scene.get("kind") not in (None, "schematic"):
         return scene
     root = not tree.project_file or path.stem.casefold() == Path(tree.project_file).stem.casefold()
-    return scene | {"check": check_overlay(reply, scene, root_sheet=root)}
+    check = check_overlay(reply, scene, root_sheet=root)
+    check["explain"] = _explanations(str(f["code"]) for f in check["findings"])
+    return scene | {"check": check}
+
+
+def _explanations(codes: Iterable[str]) -> dict[str, dict[str, str]]:
+    """The ``fenolite explain`` text of each code, for the Messages panel (change c0245, M11)."""
+    out: dict[str, dict[str, str]] = {}
+    for code in sorted(set(codes)):
+        entry = explain(code)
+        if entry is not None:
+            out[code] = {"meaning": entry.meaning, "fix": entry.fix, "see": entry.see}
+    return out
 
 
 def _log(message: str) -> None:

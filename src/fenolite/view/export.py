@@ -50,6 +50,7 @@ PARTS: tuple[str, ...] = (
     "shell/icons.js",
     "shell/menubar.js",
     "shell/docks.js",
+    "shell/selection.js",
     "shell/workbench.js",
     "shell/start.js",
     "page/tail.html",

@@ -52,9 +52,15 @@
 
 ## 3. Selection, messages, provenance
 
-- [ ] 3.1 Add one selection store, read and written by the canvas, panels, layer tabs, status bar, address and served windows (scenario "Five ways to one net"). Proof: `uv run pytest tests/visual/test_workbench.py -k selection -q`.
-- [ ] 3.2 Add the Messages panel: columns, filter, explain text, links in both directions, findings without a position (scenario "Both directions"). Proof: `uv run pytest tests/visual/test_workbench.py -k "linked or explain" -q`.
-- [ ] 3.3 Add `data-source` and `data-evidence` on every displayed value, and the lowest evidence level in the status bar (scenario "No value without a source", once phase 7 exists; before that, on the check overlay fixture). Proof: `uv run pytest tests/visual/test_workbench.py -k "provenance or evidence" -q`.
+- [x] 3.1 Add one selection store, read and written by the canvas, panels, layer tabs, status bar, address and served windows (scenario "Five ways to one net"). Proof: `uv run pytest tests/visual/test_workbench.py -k selection -q`.
+
+  Note (2026-10-29): `ui/shell/selection.js`: `selectionState()` reads the one selection (document, net, part, finding) by name; every way of selecting ends in a draw, and the draw calls `selectionChanged()`, which updates the status bar, the Net drop-down, the highlight of the Components and Nets lists, the Messages rows and a live region. A finding that names a net selects that net too. The test uses c0222's `bad` buck (fixture `buck_page`) and a finding given to the Messages panel, since role findings arrive in phase 7. Proof passed.
+- [x] 3.2 Add the Messages panel: columns, filter, explain text, links in both directions, findings without a position (scenario "Both directions"). Proof: `uv run pytest tests/visual/test_workbench.py -k "linked or explain" -q`.
+
+  Note (2026-10-29): the Messages table takes rows from every registered source (check findings now); a row frames its finding on its layer (the time from the click to the framed view is checked under 100 ms), a marker within 9 px of a click selects its row, a `?` button shows the code's `fenolite explain` text below the row (embedded by `view --check` as `check.explain`), and a code without one names the command to run. Proof passed (`test_linked`, `test_explain`, and `test_check_findings_carry_their_explanations` of `test_view_cmd.py`).
+- [x] 3.3 Add `data-source` and `data-evidence` on every displayed value, and the lowest evidence level in the status bar (scenario "No value without a source", once phase 7 exists; before that, on the check overlay fixture). Proof: `uv run pytest tests/visual/test_workbench.py -k "provenance or evidence" -q`.
+
+  Note (2026-10-29): `showInfo(html, prov)` marks every text with a digit in Properties with `data-value`, `data-source` and `data-evidence` (by default the document and the backend that read it, with its evidence; a finding passes its stage and evidence), and the message and source cells of Messages carry theirs. The status bar shows the lowest evidence level of the document and the findings shown, and the checking tool with its version. Tested on the KiCad board with given findings; the scenario on the roles workspace follows in phase 7. Proof passed (`test_provenance`).
 
 ## 4. Keymaps
 

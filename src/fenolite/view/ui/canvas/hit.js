@@ -22,8 +22,19 @@ function pick(X, Y) {
       if (hitPrim(pr, x, y, tol)) return { layer: l, pr }; } }
   return null;
 }
-function showInfo(html) {   // c0245: the Properties panel; empty, it says that nothing is selected
-  const el = $("info"); if (!html) { el.innerHTML = ""; $("propsEmpty").hidden = false; return; } el.innerHTML = html; $("propsEmpty").hidden = true; }
+function showInfo(html, prov) {   // c0245: the Properties panel; empty, it says that nothing is selected
+  const el = $("info"); if (!html) { el.innerHTML = ""; $("propsEmpty").hidden = false; return; } el.innerHTML = html; $("propsEmpty").hidden = true;
+  annotateValues(el, prov || defaultProvenance()); }
+function defaultProvenance() {   // what a value of Properties comes from when its builder says nothing more
+  if (!S || !S.meta) return { source: "the page", evidence: "UNKNOWN" };
+  return { source: `${S.meta.name || "the document"}, read by the ${S.meta.backend || "?"} backend`, evidence: S.meta.evidence || "UNKNOWN" };
+}
+function annotateValues(root, prov) {   // every text with a digit, outside an element that already names its source, gets one (M1)
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), hits = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) if (/\d/.test(n.nodeValue) && !(n.parentElement && n.parentElement.closest("[data-value], a, code, kbd"))) hits.push(n);
+  for (const n of hits) { const s = document.createElement("span"); s.dataset.value = ""; s.dataset.source = prov.source; s.dataset.evidence = prov.evidence;
+    s.title = `${prov.source} · evidence ${prov.evidence}`; n.replaceWith(s); s.appendChild(n); }
+}
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" })[c]); }
 function linkify(v) { const t = String(v); return /^https?:\/\/\S+$/i.test(t) ? `<a href="${esc(t)}" target="_blank" rel="noopener noreferrer">${esc(t)}</a>` : esc(t); }
 

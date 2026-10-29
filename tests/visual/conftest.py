@@ -29,3 +29,19 @@ def stress_page(tmp_path_factory: pytest.TempPathFactory) -> Path:
     folder = tmp_path_factory.mktemp("stress")
     board = write(folder / "stress.kicad_pcb")
     return export(board, folder / "stress.html", "--no-models")
+
+
+@pytest.fixture(scope="session")
+def buck_page(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The exported page of c0222's `bad` buck reference board (examples/roles, authored for Fenolite)."""
+    from _visual import ROOT, _cli, browser_missing, export
+
+    if browser_missing():
+        pytest.skip("the browser is missing")
+    folder = tmp_path_factory.mktemp("buck")
+    script = ROOT / "examples" / "roles" / "buck_shunt" / "bad.py"
+    plan = _cli("build", str(script), "--out", str(folder / "build"), "--dry-run", "--json")["result"][
+        "plan_id"
+    ]
+    _cli("build", str(script), "--out", str(folder / "build"), "--confirm", "--plan", plan, "--json")
+    return export(folder / "build" / "buck_shunt_bad.kicad_pro", folder / "buck.html", "--no-models")

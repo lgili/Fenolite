@@ -30,6 +30,8 @@ window.addEventListener("mouseup", e => { if (!drag) return; const d = drag; dra
   if (st.measure) { measureClick(e.offsetX, e.offsetY, e.altKey); return; }
   if (st.marking) { markClick(x, y); return; }
   if (st.edge && !isSch()) { edgeClick(e.offsetX, e.offsetY); return; }
+  const fi = pickFinding(e.offsetX, e.offsetY); if (fi >= 0) { selectFinding(fi); return; }   // c0245: a marker selects its message
+  for (const pickMarker of MARKER_PICKS) if (pickMarker(e.offsetX, e.offsetY)) return;
   if (isSch()) schSelect(schPick(e.offsetX, e.offsetY)); else select(pick(e.offsetX, e.offsetY), [x, y]); });
 cv.addEventListener("dblclick", e => { if (!S) return;
   if (isSch()) { schDouble(e.offsetX, e.offsetY); return; }

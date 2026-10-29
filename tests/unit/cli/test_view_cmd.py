@@ -418,3 +418,20 @@ def test_findings_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     (tmp_path / "f.json").write_text(json.dumps(findings), encoding="utf-8")
     code, _, error, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--overlay", "f.json")
     assert code == 3 and error["code"] == "FEN-3004"
+
+
+def test_check_findings_carry_their_explanations() -> None:
+    """Change c0245, M11: the Messages panel shows each code's `fenolite explain` text from the page."""
+    reply = {
+        "command": "check",
+        "result": {"stages": {}},
+        "issues": [
+            {"code": "roles.width-current", "severity": "error", "message": "m", "where": "VOUT"},
+            {"code": "no.such-code", "severity": "info", "message": "m", "where": ""},
+        ],
+    }
+    tree = cmd_view.load_tree(BOARD)
+    scene = cmd_view._with_check(reply, tree, BOARD, cmd_view.scene_of(BOARD))
+    explain = scene["check"]["explain"]
+    assert set(explain) == {"roles.width-current"}
+    assert set(explain["roles.width-current"]) == {"meaning", "fix", "see"}

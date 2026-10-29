@@ -140,11 +140,7 @@ function shownEvidence() {   // every evidence label of what the screen shows (d
 const EVIDENCE_SOURCES = [];
 const BACKEND_NAME = { kicad: "KiCad", altium: "Altium", catalog: "Catalog" };
 function updateStatus() {
-  const tools = new Set(); for (const l of shownEvidence()) { const m = /\(([^)]*\d[^)]*)\)/.exec(String(l)); if (m) tools.add(m[1]); }
-  const tool = S && S.meta ? [BACKEND_NAME[S.meta.backend] || S.meta.backend || "", ...tools].filter(Boolean).join(" · ") : "";
-  $("sTool").textContent = tool;
-  $("sTool").title = `The tool that read the document${tools.size ? " and the tools that checked it" : ""}; Fenolite ${FENOLITE_VERSION}`;
-  const ev = lowestEvidence(shownEvidence()); $("sEvidence").textContent = ev ? `evidence ${ev}` : "";
+  EVIDENCE_KEY = ""; evidenceStatus();
   $("sNet").textContent = selectedNetText();
   $("titleState").textContent = DOC && DOC.kind ? `[${DOC.kind}${LIVE ? " · live" : ""}]` : "";
   buildGridSel();
@@ -208,8 +204,17 @@ function selectionStatus() {   // the net of the selection in the status bar and
   if (!S) return; const t = selectedNetText(); if ($("sNet").textContent !== t) $("sNet").textContent = t;
   if (!isSch() && S.nets && !LIB) { const v = st.selNet >= 0 ? String(st.selNet) : ""; if ($("netSel").value !== v && document.activeElement !== $("netSel")) $("netSel").value = v; }
 }
+let EVIDENCE_KEY = "", EVIDENCE_VERSION = 0;   // a new evidence source (role findings) bumps the version
+function evidenceStatus() { const k = [S && S.meta && S.meta.name, S && S.check ? S.check.findings.length : 0, st.checks, EVIDENCE_VERSION].join("|");
+  if (k === EVIDENCE_KEY) return; EVIDENCE_KEY = k; const labels = shownEvidence(), ev = lowestEvidence(labels); $("sEvidence").textContent = ev ? `evidence ${ev}` : "";
+  const tools = new Set(); for (const l of labels) { const m = /\(([^)]*\d[^)]*)\)/.exec(String(l)); if (m) tools.add(m[1]); }   // a checking tool with its version
+  $("sTool").textContent = S && S.meta ? [BACKEND_NAME[S.meta.backend] || S.meta.backend || "", ...tools].filter(Boolean).join(" · ") : "";
+  $("sTool").title = `The tool that read the document${tools.size ? " and the tools that checked it" : ""}; Fenolite ${FENOLITE_VERSION}`; }
+SELECTION_VIEWS.push(() => selectionStatus());
+SELECTION_VIEWS.push(() => { if (S && !S.kind && S.prims && !LIB) buildReview(); });   // the highlight of the Components and Nets lists
+SELECTION_VIEWS.push(() => buildMessages());
 const draw0 = draw;
-draw = function () { draw0(); selectionStatus(); };
+draw = function () { draw0(); selectionChanged(); evidenceStatus(); };
 
 // ---- start the workbench before the first document opens
 buildMenubar(); decorateToolbar(); setWorkspace("board", true); buildGridSel();
