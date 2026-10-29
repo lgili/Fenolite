@@ -83,8 +83,7 @@ all of that.
 **Today.** A part is a symbol plus a footprint plus free text:
 
 ```python
-c1 = Part("C1", "Fenolite:Capacitor", footprint="Fenolite:Chip_0603", value="10uF",
-          properties={"MPN": "X-1"})
+c1 = Part("C1", "Fenolite:Capacitor", footprint="Fenolite:Chip_0603", value="10uF", properties={"MPN": "X-1"})
 ```
 
 The catalog (`src/fenolite/catalog`) holds geometry and provenance only.
@@ -127,8 +126,8 @@ temperature = { min = "-40degC", max = "125degC" }
 ```
 
 ```python
-u1 = design.part(device="Example:BUCK_6V_2A")       # ref assigned: U1 (see section 3)
-connect(vin, u1.VIN)                                 # pin by function, checked against the device
+u1 = design.part(device="Example:BUCK_6V_2A")  # ref assigned: U1 (see section 3)
+connect(vin, u1.VIN)  # pin by function, checked against the device
 ```
 
 **Core change.**
@@ -153,12 +152,12 @@ Both use floats.
 the DSL boundary only:
 
 ```python
-v33 = volt("3.3").pct(3)                 # 3.201 V .. 3.399 V
+v33 = volt("3.3").pct(3)  # 3.201 V .. 3.399 V
 r_top = ohm("100k").pct(1)
 ripple = between(mv(0), mv(30))
-i_load = amp("1.5").max()                # 0 .. 1.5 A
-vout = vref * (1 + r_top / r_bot)        # worst-case range arithmetic, exact
-vout.within(v33)                         # -> bool, used by checks (section 7)
+i_load = amp("1.5").max()  # 0 .. 1.5 A
+vout = vref * (1 + r_top / r_bot)  # worst-case range arithmetic, exact
+vout.within(v33)  # -> bool, used by checks (section 7)
 ```
 
 **Core change.**
@@ -183,12 +182,12 @@ vout.within(v33)                         # -> bool, used by checks (section 7)
 - A hand ref still works, and wins.
 
 ```python
-l1 = design.part(device="Example:IND_4u7_3A")       # -> L1, recorded in fenolite.lock
-r5 = design.part("R5", device=...)                    # explicit ref, kept
+l1 = design.part(device="Example:IND_4u7_3A")  # -> L1, recorded in design.lock
+r5 = design.part("R5", device=...)  # explicit ref, kept
 ```
 
 ```toml
-# fenolite.lock  (written by build --confirm; reviewed in git like any lockfile)
+# design.lock  (written by build --confirm; reviewed in git like any lockfile)
 schema = "fenolite.lock.v0"
 [refs]
 "buck1/U" = "U1"
@@ -200,7 +199,7 @@ schema = "fenolite.lock.v0"
 lock (refs, picks, pin choices) and exits 7.
 
 **Core change.**
-- A `fenolite.lock` file holds refs, part picks (section 8) and pin choices (section 12).
+- A `design.lock` file holds refs, part picks (section 8) and pin choices (section 12).
 - The lock is written through the plan/confirm protocol.
 - Add `--frozen`.
 
@@ -213,8 +212,9 @@ and names everything by hand (`examples/yardstick/design.py`).
 def channel(n, x, y):
     m = Module(f"ch{n}")
     en = Net(f"CH{n}_EN")
-    r = Part(f"R{n*100+1}", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="10k")
-    connect(en, r[1]); connect(vin, r[2])            # vin is global
+    r = Part(f"R{n * 100 + 1}", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="10k")
+    connect(en, r[1])
+    connect(vin, r[2])  # vin is global
     ...
 ```
 
@@ -232,23 +232,28 @@ own "footguns" page lists what that costs).
 ```python
 from fenolite.dsl import block, Rail, Ground, volt, amp
 
+
 @block
-def buck(b, *, vout=volt("3.3").pct(3), current=amp(2)):
+def buck(b, *, vout=volt("3.3").pct(5), current=amp(2)):
     """12 V -> vout step-down. Ports: VIN, VOUT, GND."""
     vin, out, gnd = b.port("VIN", Rail), b.port("VOUT", Rail, provides=True), b.port("GND", Ground)
     u = b.part(device="Example:BUCK_6V_2A")
     l = b.part(inductor(henry("4u7").pct(20), current=current * 1.3))
-    fb = b.net("FB")                                 # becomes buck1/FB, never collides
+    fb = b.net("FB")  # becomes buck1/FB, never collides
     top, bot = voltage_divider(b, out, fb, gnd, target=vout, ref=volt("0.6").pct(1))
-    connect(vin, u.VIN); connect(gnd, u.GND); connect(fb, u.FB)
+    connect(vin, u.VIN)
+    connect(gnd, u.GND)
+    connect(fb, u.FB)
     series(u.SW, l, out)
     decouple(vin, gnd, capacitor(farad("10u"), rating=vin.voltage * 2), near=u.VIN)
-    out.supplies(voltage=vout, current=current)      # what the port promises
+    out.supplies(voltage=vout, current=current)  # what the port promises
     return b.ports()
 
-p1 = design.use(buck, "buck1", vout=volt("3.3").pct(3))
-p2 = design.use(buck, "buck2", vout=volt("5").pct(3))
-connect(v12, p1.VIN, p2.VIN); connect(gnd, p1.GND, p2.GND)
+
+p1 = design.use(buck, "buck1", vout=volt("3.3").pct(5))
+p2 = design.use(buck, "buck2", vout=volt("5").pct(5))
+connect(v12, p1.VIN, p2.VIN)
+connect(gnd, p1.GND, p2.GND)
 ```
 
 **Core change.**
@@ -262,9 +267,10 @@ connect(v12, p1.VIN, p2.VIN); connect(gnd, p1.GND, p2.GND)
 **Today.**
 
 ```python
-bus = I2C(sda, scl); design.add(bus)
+bus = I2C(sda, scl)
+design.add(bus)
 bus.attach(u1, sda=u1["PB7"], scl=u1["PB6"])
-design.add(Power(vin, gnd))           # a record; carries no voltage
+design.add(Power(vin, gnd))  # a record; carries no voltage
 ```
 
 **What the others do.**
@@ -278,13 +284,13 @@ design.add(Power(vin, gnd))           # a record; carries no voltage
 **Proposed.** Interfaces become typed ports on devices and blocks, with parameters:
 
 ```python
-mcu = design.part(device="Example:MCU_QFN32")       # the device declares mcu.i2c1 (I2C), mcu.vdd (Rail)
+mcu = design.part(device="Example:MCU_QFN32")  # the device declares mcu.i2c1 (I2C), mcu.vdd (Rail)
 sen = design.part(device="Example:SENSOR_I2C")
 rail = design.rail("3V3", voltage=volt("3.3").pct(3))
 
-connect(mcu.i2c1, sen.i2c)              # nets SDA-SDA, SCL-SCL; FEN- finding on a type mismatch
+connect(mcu.i2c1, sen.i2c)  # nets SDA-SDA, SCL-SCL; FEN- finding on a type mismatch
 connect(rail, mcu.vdd, sen.vdd, p1.VOUT)
-pull_up(mcu.i2c1, rail, ohm("4k7").pct(1))   # one call for both lines
+pull_up(mcu.i2c1, rail, ohm("4k7").pct(1))  # one call for both lines
 ```
 
 The checks that come with it:
@@ -316,10 +322,10 @@ The checks that come with it:
 **Proposed.**
 
 ```python
-series(vin, f1, d1, vprot)                    # two-terminal chain: vin-F1-D1-vprot
-decouple(rail, gnd, capacitor(farad("100n")), near=mcu.vdd)   # also records a near() intent
-u1.unused_no_connect()                        # every pin with no net and no "must connect" flag
-r1.a, r1.b                                    # two-pin parts get named ends (a/b, or the device's +/-)
+series(vin, f1, d1, vprot)  # two-terminal chain: vin-F1-D1-vprot
+decouple(rail, gnd, capacitor(farad("100n")), near=mcu.vdd)  # also records a near() intent
+u1.unused_no_connect()  # every pin with no net and no "must connect" flag
+r1.a, r1.b  # two-pin parts get named ends (a/b, or the device's +/-)
 ```
 
 **Core change.** Helpers live in `fenolite.dsl` and lower to `connect`/`no_connect` and `near`. A device
@@ -347,7 +353,7 @@ raw `clearance_nm = 1200000`). Nothing checks a part against the circuit.
 
 ```python
 design.derating(capacitor_voltage=pct(50), resistor_power=pct(50), semiconductor_tj=celsius(110))
-design.net_role(vbus, "power", current=amp(20), voltage=volt(400))   # unchanged from 0.6.0
+design.net_role(vbus, "power", current=amp(20), voltage=volt(400))  # unchanged from 0.6.0
 
 # inside a block: an explicit, explained expectation
 b.expect(out.voltage.within(vout), "VOUT set by the divider")
@@ -391,17 +397,18 @@ from (device, role, policy or user). This is the "Constraint Manager" table, ren
 All three depend on a remote, changing database.
 
 **Proposed.** The same convenience, but resolved against a **local, versioned catalog** and **written to
-`fenolite.lock`**. A supplier lookup is an optional extra that only *proposes* rows for the catalog.
+`design.lock`**. A supplier lookup is an optional extra that only *proposes* rows for the catalog.
 
 ```python
-design.defaults(resistor={"case": "0603", "tolerance": pct(1)},
-                capacitor={"case": "0603", "dielectric": "X7R"})
-r = design.part(resistor(ohm("10k")))                      # case and tolerance from the defaults
+design.defaults(
+    resistor={"case": "0603", "tolerance": pct(1)}, capacitor={"case": "0603", "dielectric": "X7R"}
+)
+r = design.part(resistor(ohm("10k")))  # case and tolerance from the defaults
 c = design.part(capacitor(farad("10u"), rating=volt(25), case="0805"))
 ```
 
 ```toml
-# fenolite.lock
+# design.lock
 [picks."buck1/C_in"]
 device = "Fenolite:Cap_0805_X7R_10u_25V"
 query = "capacitor(10uF, >=25V, 0805, X7R)"
@@ -427,10 +434,12 @@ equations as assertions.
 **Proposed.**
 
 ```python
-top, bot = voltage_divider(b, out, fb, gnd, target=volt("3.3").pct(3), ref=volt("0.6").pct(1),
-                           series="E96", current=ua(50))
-# top.value = 45.3k 1 %, bot.value = 10k 1 %; the achieved VOUT range is recorded:
-#   evidence: "divider buck1/FB: VOUT 3.247–3.353 V within 3.201–3.399 V"
+top, bot = voltage_divider(
+    b, out, fb, gnd, target=volt("3.3").pct(5), ref=volt("0.6").pct(1), series="E96", current=ua(50)
+)
+# top.value = 61.9k 1 %, bot.value = 13.7k 1 %; the achieved VOUT range is recorded:
+#   evidence: "divider buck1/FB: VOUT 3.2247–3.3994 V within 3.135–3.465 V"
+# (worst case counts the reference tolerance too; at ±3 % no E96 1 % pair fits, which is a finding)
 ```
 
 Generators are pure functions over the local catalog, deterministic, and they write their computation to
@@ -452,11 +461,11 @@ CLI steps.
 **Proposed.**
 
 ```python
-c5.place(right_of=u1.pad("VDD"), gap=mm("0.5"), anchor=c5.pad(1))     # anchored by a pad
+c5.place(right_of=u1.pad("VDD"), gap=mm("0.5"), anchor=c5.pad(1))  # anchored by a pad
 j1.place(left=board.left + mm(2), center_y=board.center_y, rot=90)
-p1.layout(row(gap=mm(1)))                    # strategy for the block's unplaced parts
-p1.place(mm(10), mm(8))                      # the whole block moves as one rigid group
-p1.layout(reuse="blocks/buck.kicad_pcb")     # block layout shipped with the block, nets remapped by port
+p1.layout(row(gap=mm(1)))  # strategy for the block's unplaced parts
+p1.place(mm(10), mm(8))  # the whole block moves as one rigid group
+p1.layout(reuse="blocks/buck.kicad_pcb")  # block layout shipped with the block, nets remapped by port
 ```
 
 Precedence is written down (tscircuit leaves it as "TODO"):
@@ -522,10 +531,10 @@ one I2C. A solver picks. JITX fixes the choice only when the signal is routed, w
 state.
 
 **Proposed (later, after sections 4–5).** Same idea, solved at build time, deterministic under `--seed`,
-shown in `result.plan` and recorded in `fenolite.lock`:
+shown in `result.plan` and recorded in `design.lock`:
 
 ```python
-i2c = mcu.take(I2C)                           # one of the device's declared I2C options
+i2c = mcu.take(I2C)  # one of the device's declared I2C options
 connect(i2c, sen.i2c)
 ```
 
@@ -564,14 +573,16 @@ has `select.*` with `& | ~`. Add documented **specificity** and print the winnin
 # tests/test_board.py: pytest helpers over the model, no kicad-cli
 from fenolite.testing import load, snapshot
 
+
 def test_rails():
     d = load("design.py")
     assert d.net("3V3").voltage.within(volt("3.3").pct(5))
     assert d.connected(d.ref("U1").VDD, d.ref("C5").a)
     assert not d.findings("circuit.*")
 
+
 def test_layout_snapshot():
-    snapshot("design.py", layers=("F.Cu",), net="GND")    # golden canonical render; diff in CI
+    snapshot("design.py", layers=("F.Cu",), net="GND")  # golden canonical render; diff in CI
 ```
 
 - `fenolite render --net GND` highlights one net.
@@ -595,8 +606,7 @@ design.board(mm(40), mm(30))
 j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="12V")
 u1 = Part("U1", "Example:Buck", footprint="Fenolite:SOT23_6", value="BUCK")
 l1 = Part("L1", "Fenolite:Inductor", footprint="Fenolite:IND_4x4", value="4u7")
-c1 = Part("C1", "Fenolite:Capacitor", footprint="Fenolite:Chip_0805", value="10uF",
-          properties={"MPN": "?"})
+c1 = Part("C1", "Fenolite:Capacitor", footprint="Fenolite:Chip_0805", value="10uF", properties={"MPN": "?"})
 c2 = Part("C2", "Fenolite:Capacitor", footprint="Fenolite:Chip_0805", value="22uF")
 r1 = Part("R1", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="45k3")
 r2 = Part("R2", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="10k")
@@ -608,13 +618,17 @@ c3 = Part("C3", "Fenolite:Capacitor", footprint="Fenolite:Chip_0603", value="100
 design.add(j1, u1, l1, c1, c2, r1, r2, u2, u3, r3, r4, c3)
 
 v12, gnd, sw, v33, fb, sda, scl = (Net(n) for n in ("V12", "GND", "SW", "3V3", "FB", "SDA", "SCL"))
-connect(v12, j1[1], u1["VIN"], c1[1]); connect(gnd, j1[2], u1["GND"], c1[2], c2[2], r2[2], c3[2])
-connect(sw, u1["SW"], l1[1]); connect(v33, l1[2], c2[1], r1[1], u2["VDD"], u3["VDD"], r3[1], r4[1], c3[1])
+connect(v12, j1[1], u1["VIN"], c1[1])
+connect(gnd, j1[2], u1["GND"], c1[2], c2[2], r2[2], c3[2])
+connect(sw, u1["SW"], l1[1])
+connect(v33, l1[2], c2[1], r1[1], u2["VDD"], u3["VDD"], r3[1], r4[1], c3[1])
 connect(fb, u1["FB"], r1[2], r2[1])
-connect(sda, u2["PB7"], u3["SDA"], r3[2]); connect(scl, u2["PB6"], u3["SCL"], r4[2])
+connect(sda, u2["PB7"], u3["SDA"], r3[2])
+connect(scl, u2["PB6"], u3["SCL"], r4[2])
 connect(gnd, u2["GND"], u3["GND"])
-no_connect(*(u2[p] for p in range(1, 33) if p not in (4, 5, 17, 18)))   # by hand
-bus = I2C(sda, scl); design.add(bus, Power(v33, gnd))
+no_connect(*(u2[p] for p in range(1, 33) if p not in (4, 5, 17, 18)))  # by hand
+bus = I2C(sda, scl)
+design.add(bus, Power(v33, gnd))
 # Nothing checks: C1's voltage vs 12 V, the divider's VOUT, the 3V3 current budget, the sensor's VDD range.
 ```
 
@@ -622,7 +636,7 @@ bus = I2C(sda, scl); design.add(bus, Power(v33, gnd))
 
 ```python
 from fenolite.dsl import Design, connect, decouple, pull_up, volt, amp, ohm, farad, mm, pct
-from blocks import buck                     # the block of section 4, reusable, with its own tests
+from blocks import buck  # the block of section 4, reusable, with its own tests
 
 design = Design("sensor")
 design.board(mm(40), mm(30))
@@ -630,25 +644,30 @@ design.defaults(resistor={"case": "0603", "tolerance": pct(1)}, capacitor={"case
 design.derating(capacitor_voltage=pct(50))
 
 j1 = design.part(device="Fenolite:Header_1x2_P2.54")
-v12 = design.rail("V12", voltage=volt("12").pct(10)); gnd = design.ground("GND")
-connect(v12, j1[1]); connect(gnd, j1[2])
+v12 = design.rail("V12", voltage=volt("12").pct(10))
+gnd = design.ground("GND")
+connect(v12, j1[1])
+connect(gnd, j1[2])
 
-power = design.use(buck, "buck", vout=volt("3.3").pct(3), current=amp(1))
-connect(v12, power.VIN); connect(gnd, power.GND)
-v33 = power.VOUT                            # a Rail: carries 3.201–3.399 V, 1 A available
+power = design.use(buck, "buck", vout=volt("3.3").pct(5), current=amp(1))
+connect(v12, power.VIN)
+connect(gnd, power.GND)
+v33 = power.VOUT  # a Rail: carries 3.135–3.465 V, 1 A available
 
 mcu = design.part(device="Example:MCU_QFN32")
 sen = design.part(device="Example:SENSOR_I2C")
-connect(v33, mcu.vdd, sen.vdd); connect(gnd, mcu.gnd, sen.gnd)
+connect(v33, mcu.vdd, sen.vdd)
+connect(gnd, mcu.gnd, sen.gnd)
 connect(mcu.i2c1, sen.i2c)
 pull_up(mcu.i2c1, v33, ohm("4k7"))
 decouple(v33, gnd, capacitor(farad("100n")), near=mcu.vdd)
 mcu.unused_no_connect()
 
-power.place(mm(6), mm(8)); mcu.place(mm(24), mm(15))
+power.place(mm(6), mm(8))
+mcu.place(mm(24), mm(15))
 sen.place(right_of=mcu, gap=mm(3))
 # Checked at build/check: ratings vs rails with derating, VOUT range from the divider, 3V3 current budget,
-# sensor VDD range, I2C pull-ups, logic levels. Refs and picks go to fenolite.lock.
+# sensor VDD range, I2C pull-ups, logic levels. Refs and picks go to design.lock.
 ```
 
 ---
@@ -659,7 +678,7 @@ sen.place(right_of=mcu, gap=mm(3))
 |---|---|---|---|---|
 | A | `Range` quantities (exact integer bounds) and ranges in the model | `dsl/quantity`, `model` | atopile, JITX | M |
 | B | `Device` catalog records (MPN, pin functions, ratings, evidence), `Part(device=)`, checked pin access | `catalog`, `dsl/part` | JITX, LibrePCB | L |
-| C | `fenolite.lock`: refs, picks, pin choices; `--frozen` | `core`, `cli` | atopile | M |
+| C | `design.lock`: refs, picks, pin choices; `--frozen` | `core`, `cli` | atopile | M |
 | D | Blocks: ports, parameters, local nets, ref namespace, `design.use` | `dsl/module`, `model` | JITX, atopile, tscircuit | L |
 | E | Parametric interfaces (alias/sum), interface-to-interface `connect`, `Rail`, `Logic` | `dsl/interfaces` | atopile, JITX | M |
 | F | `circuit.*` check stage: ratings, rails, logic levels, `expect()`, `rig()`, derating | `checks`, `analysis` | atopile, JITX | L |
@@ -671,7 +690,7 @@ sen.place(right_of=mcu, gap=mm(3))
 | L | Interface-level pin assignment (later) | `dsl`, `core` | JITX | L |
 | M | Topologies with delay and loss constraints, rule specificity (later) | `dsl/rules`, `routing` | JITX | L |
 
-Nothing here adds a runtime dependency. Every new file (`fenolite.lock`, `edits.toml`, device TOML) is
+Nothing here adds a runtime dependency. Every new file (`design.lock`, `edits.toml`, device TOML) is
 canonical text, written only through plan/confirm, and byte-identical under `--seed`/`--timestamp`.
 
 ## What we deliberately do not copy
