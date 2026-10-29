@@ -37,7 +37,8 @@ def test_override_without_goals_still_reports(record: Record) -> None:
 
     result = generate(record("soic8"), table=LandTable(version=1))
     assert result.footprint is not None and result.land.deltas == {}
-    assert "no calculated land to compare" in next(i.message for i in result.issues if i.code == "package.land-override")
+    override = next(i for i in result.issues if i.code == "package.land-override")
+    assert "no calculated land to compare" in override.message
 
 
 def test_calculated_land_stays_inferred(record: Record) -> None:
