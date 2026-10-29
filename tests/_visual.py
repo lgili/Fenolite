@@ -78,10 +78,13 @@ class Fixture:
     name: str
     source: str
     doc: str = ""
+    scheme: str = "dark"
+    """The interface theme the page is drawn in (c0243): Chromium's prefers-color-scheme."""
 
 
 FIXTURES = (
     Fixture("kicad_board", "kicad/board/two_layer.kicad_pcb"),
+    Fixture("kicad_board_light", "kicad/board/two_layer.kicad_pcb", scheme="light"),
     Fixture("altium_board", "altium/blink/blink.PcbDoc"),
     Fixture("altium_sheet", "altium/blink/blink.SchDoc"),
     Fixture("kicad_sheet", "kicad/parity/agree/blink.kicad_sch"),
@@ -154,7 +157,9 @@ def pages(folder: Path) -> dict[str, Path]:
 def job(
     name: str, page: Path, out: Path, *, script: str = "", ref: Path | None = None, **extra: Any
 ) -> dict[str, Any]:
-    """A screenshot job of the harness: ``ref`` defaults to the committed reference of ``name``."""
+    """A screenshot job of the harness: ``ref`` defaults to the committed reference of ``name``; a fixture's
+    interface theme is its ``scheme`` (c0243)."""
+    scheme = next((f.scheme for f in FIXTURES if f.name == name), "dark")
     return {
         "name": name,
         "page": str(page),
@@ -166,6 +171,7 @@ def job(
         "diff": str(out / f"{name}.diff.png"),
         "threshold": THRESHOLD,
         "max_ratio": MAX_RATIO,
+        "scheme": scheme,
     } | extra
 
 

@@ -6,6 +6,7 @@ import * as preact from "preact";
 import { $ } from "../core/dom";
 import { S, st } from "../core/state";
 import { selectFinding, SEV_COLOR } from "../review/check";
+import { showSection } from "../ui/section";
 
 export const MSG_ROWS = 300;
 function toggleGroup(code, open) { if (open) st.msgOpen.delete(code); else st.msgOpen.add(code); buildMessages(); }
@@ -28,9 +29,15 @@ export function MessagesPanel({ check }: { check: any }) {
   }
   return <>{out}</>;
 }
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+export function SevLine({ counts }: { counts: any }) {   // the severity summary at the head of the section
+  return <><span class="sev err">{plural(counts.error, "error", "errors")}</span><span class="sev warn">{plural(counts.warning, "warning", "warnings")}</span>
+    <span class="sev info">{`${counts.info} info`}</span></>;
+}
 export function buildMessages() {   // the Messages panel: findings grouped by rule, errors first
-  const box = $("msgList"), C = S && S.check; $("msgTitle").style.display = C ? "" : "none";
-  if (C) { const n = C.counts; $("msgTitle").textContent = `Messages: ${n.error} errors · ${n.warning} warnings · ${n.info} info`; }
+  const box = $("msgList"), C = S && S.check, n = C ? C.counts : null;
+  showSection("messages", !!C, C ? C.findings.length : undefined, "Messages", n && n.error ? "err" : n && n.warning ? "warn" : "");
+  preact.render(n ? <SevLine counts={n} /> : null, $("msgTitle"));
   st.msgOpen = st.msgOpen || new Set();
   preact.render(C ? <MessagesPanel check={C} /> : null, box);
 }

@@ -3,6 +3,9 @@
 // ================================================================== start: embedded data or the live server
 import { LIB, openItem } from "../library/library";
 import { buildMarks, loadMarks } from "../panels/marks";
+import { reviewEntry } from "../panels/project-review";
+import { refreshStatus } from "../panels/status-bar";
+import { toolbarReady } from "../panels/toolbar";
 import { buildTree } from "../panels/tree";
 import { runsInit } from "../review/runs";
 import { invalidateScene, loadingNavigation, navigation, openDoc } from "./documents";
@@ -13,6 +16,7 @@ export async function start() {
   if (EMBED) { setProject(EMBED.project); for (const [id, sc] of Object.entries(EMBED.scenes)) RAW.set(id, sc); }   // decoded when opened
   else if (LIVE) { setProject(await (await fetch("project.json", { cache: "no-store" })).json()); }
   document.body.classList.toggle("catalog", PROJECT?.source === "catalog");
+  toolbarReady(); refreshStatus(); reviewEntry();
   buildTree();
   loadMarks((EMBED && EMBED.marks) || (PROJECT && PROJECT.marks)); buildMarks();
   const docs = PROJECT ? PROJECT.groups.flatMap(g => g.documents) : [];
@@ -36,12 +40,13 @@ export async function poll() {
   const current = () => generation === navigation && DOC.id === doc.id && POLLS.get(doc.id) === request;
   try { const v = await (await fetch(`version/${encodeURIComponent(doc.id)}`, { cache: "no-store" })).json();
     if (!current()) return;
-    $("live").textContent = v.error ? `error: ${v.error}` : v.building ? "reading…" : v.updated ? `live · updated ${v.updated}` : "live";
+    liveState(v.error ? "err" : v.building ? "busy" : "ok", v.error ? `Read error: ${v.error}` : v.building ? "Building…" : v.updated ? `Live · updated ${v.updated}` : "Live");
     if (v.building) return;
     if (v.version && v.version !== st.version) {
       invalidateScene(doc.id); const opening = openDoc(doc, true); generation = navigation;
       const shown = await opening; if (!shown || shown !== generation || !current()) return;
     }
     st.version = v.version || st.version;
-  } catch (e) { if (current()) $("live").textContent = "server not reachable"; }
+  } catch (e) { if (current()) liveState("err", "Server not reachable"); }
 }
+export function liveState(kind, text) { const el = $("live"); el.textContent = text; el.dataset.state = kind; el.hidden = !text; }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
 // ================================================================== libraries (c0179): the item list, each item drawn as a board or a sheet
+import * as preact from "preact";
 import { loadBoard } from "../board/load";
 import { toMM } from "../board/scene";
 import { $, esc, showInfo } from "../core/dom";
@@ -8,6 +9,9 @@ import { st } from "../core/state";
 import { fmtPair } from "../core/units";
 import { loadSch } from "../sch/load";
 import { toMMsch } from "../sch/scene";
+import { showSection } from "../ui/section";
+import { Empty } from "../ui/states";
+import { setDocTitle } from "../panels/toolbar";
 export let LIB = null, LIBSEL = -1, LIBQ = "";
 export function setLib(v) { LIB = v; }
 export function toUnits(sc) {
@@ -19,12 +23,20 @@ export function itemNote(it) {
   if (it.copper_nm) { const b = it.copper_nm; return `${it.pads} pads · ${fmtPair((b[2] - b[0]) / 1e6, (b[3] - b[1]) / 1e6)}`; }
   return it.pins != null ? `${it.pins} pins` : "";
 }
+// The item list, a Preact component (c0243); its rows stay the direct children of #libList (the catalog tests count
+// them), the empty line sits after it.
+export function LibList({ items }: { items: any[] }) {
+  return <>{items.map(([it, i]) => <div key={i} class={"navi" + (i === LIBSEL ? " sel" : "")} title={it.description || it.name} onClick={() => openItem(i)}>
+    {it.name}{" "}<small>{itemNote(it)}</small></div>)}</>;
+}
 export function buildLibList() {
-  const box = $("libList"); box.innerHTML = ""; if (!LIB) return; const q = LIBQ.trim().toLowerCase();
-  $("libTitle").textContent = `${LIB.lib === "pcb" ? "Footprints" : LIB.lib === "drawing" ? "Sheets" : "Symbols"} (${LIB.items.length})`;
-  LIB.items.forEach((it, i) => { if (q && !it.name.toLowerCase().includes(q) && !(it.description || "").toLowerCase().includes(q)) return;
-    const d = document.createElement("div"); d.className = "navi" + (i === LIBSEL ? " sel" : ""); d.title = it.description || it.name;
-    d.innerHTML = `${esc(it.name)} <small>${esc(itemNote(it))}</small>`; d.onclick = () => openItem(i); box.appendChild(d); });
+  const box = $("libList"); if (!LIB) { preact.render(null, box); return; } const q = LIBQ.trim().toLowerCase();
+  const what = LIB.lib === "pcb" ? "Footprints" : LIB.lib === "drawing" ? "Sheets" : "Symbols";
+  showSection("library", true, LIB.items.length, what);
+  const items = LIB.items.map((it, i) => [it, i]).filter(([it]) => !q || it.name.toLowerCase().includes(q) || (it.description || "").toLowerCase().includes(q));
+  preact.render(<LibList items={items} />, box);
+  let empty = $("libEmpty"); if (!empty) { empty = document.createElement("div"); empty.id = "libEmpty"; box.after(empty); }
+  preact.render(items.length ? null : <Empty text={LIB.items.length ? `No ${what.toLowerCase()} match “${LIBQ.trim()}”.` : "This library holds no item."} />, empty);
 }
 export function itemInfo(it) {
   const rows = [...it.info];
@@ -38,7 +50,7 @@ export function openItem(i, keepView?) {
   LIBSEL = i; const it = LIB.items[i]; buildLibList();
   if (!it.scene) { showInfo(`<b>${esc(it.name)}</b> could not be drawn; see the notes.`); return; }
   if (it.scene.kind === "schematic") loadSch(it.scene, keepView); else loadBoard(it.scene, keepView);
-  document.body.classList.add("lib"); $("fname").textContent = `${LIB.meta.name} › ${it.name}`;
+  document.body.classList.add("lib"); setDocTitle(`${LIB.meta.name} › ${it.name}`, LIB.meta.name);
   showInfo(itemInfo(it)); st.itemInfo = true;
 }
 export function loadLibrary(scene, keepView) {

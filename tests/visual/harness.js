@@ -33,13 +33,18 @@ async function compare(page, shot, ref) {
   const replies = [];
   try {
     for (const job of jobs) {
-      const context = await browser.newContext({ viewport: { width: job.width, height: job.height }, deviceScaleFactor: 1 });
+      const context = await browser.newContext({ viewport: { width: job.width, height: job.height }, deviceScaleFactor: 1, colorScheme: job.scheme || "dark" });   // c0243: the dark shell unless a job asks
       const page = await context.newPage(); const errors = [];
       page.on("pageerror", e => errors.push(String(e)));
       await page.goto("file://" + job.page + (job.hash || ""));
       await page.waitForFunction(() => typeof linkReady !== "undefined" && linkReady && typeof S !== "undefined" && S, null, { timeout: 60000 });
       let result = null;
       if (job.script) result = await page.evaluate(`(async () => { ${job.script} })()`);
+      if (job.reloadScript) {   // c0243: what a page keeps across a reload (localStorage of the same context)
+        await page.reload();
+        await page.waitForFunction(() => typeof linkReady !== "undefined" && linkReady && typeof S !== "undefined" && S, null, { timeout: 60000 });
+        result = { before: result, after: await page.evaluate(`(async () => { ${job.reloadScript} })()`) };
+      }
       await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
       const reply = { name: job.name, result, errors };
       if (job.frameScript) {

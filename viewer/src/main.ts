@@ -3,9 +3,17 @@
 // The page's entry (change c0247): every module, imported for its effect in link order, then start().
 import "./core/env";
 import "./core/dom";
+import "./ui/icons";
+import "./ui/tooltip";
+import "./ui/toast";
+import "./ui/menu";
+import "./ui/section";
+import "./ui/states";
 import "./core/state";
+import "./core/theme";
 import "./core/font";
 import "./core/units";
+import "./panels/status-bar";
 import "./board/decode";
 import "./board/scene";
 import "./board/geometry";
@@ -53,6 +61,12 @@ import "./sch/project-nets";
 import "./panels/navigator";
 import "./sch/load";
 import "./library/library";
+import "./core/palette-match";
+import "./core/commands";
+import "./dialogs/palette";
+import "./dialogs/shortcuts";
+import "./dialogs/about";
+import "./panels/toolbar";
 import { start } from "./core/start";
 
 start();

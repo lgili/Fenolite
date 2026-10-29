@@ -18,7 +18,7 @@ export function buildTabs() {
     t.oncontextmenu = e => { e.preventDefault(); vis.set(l.id, !vis.get(l.id)); buildTabs(); draw(); };
     box.appendChild(t);
   }
-  const cur = S.layers.find(l => l.id === st.cur); $("cur").textContent = cur ? `current: ${cur.name}${st.single ? " (single layer)" : ""}` : "";
+  const cur = S.layers.find(l => l.id === st.cur); $("cur").textContent = cur ? `Layer ${cur.name}${st.single ? " · only this layer" : ""}` : "";
 }
 export function setCurrent(id) { st.cur = id; vis.set(id, true); buildTabs(); draw(); }
 export function stepCurrent(dir) { const L = tabLayers().filter(l => vis.get(l.id)); if (!L.length) return; let i = L.findIndex(l => l.id === st.cur); i = (i + dir + L.length) % L.length; setCurrent(L[i].id); }

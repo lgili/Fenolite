@@ -10,6 +10,22 @@ All notable changes to Fenolite are documented here. The format follows
 
 - **Checks run from the viewer** (c0245): a page served by `fenolite view --serve` can run `check`, `analyze`, `ready` and `equivalent` itself, read-only, one job at a time. Each Project review card whose stages the server can run gets a **Run** control, and **Run from this page** picks the stages, the analyze kinds, a readiness check or a comparison with another document. A strip shows the command, its progress, the elapsed time and **Cancel**; a cancelled or timed-out run changes nothing. A `check` run replaces, stage by stage, the stages of the same name (`fenolite.view.project_review.merge`), each stage keeping its own input hash and evidence, so a stage of an older revision reads Limited; `analyze` paths become finding groups, `ready` and `equivalent` findings join the review list with Locate. Server routes `GET /runs`, `POST /run`, `GET /run/<job>`, `POST /run/<job>/cancel` behind the guard of `POST /marks` (`Host`, `Origin`, `X-Fenolite-Run: 1`, JSON, 16 KiB); the allow-list `fenolite.view.runs` takes a command name, a document id and typed options, never a command line or a path. Each run is a child process through the runner core shared with `fenolite mcp`, now `fenolite.cli.childrun`. New options `--run-timeout SECONDS` (default 600) and `--no-run`; `result.serve.runs` counts the runs by final state. `docs/viewer.md`, "Running checks from the page".
 - **Writing actions from the viewer** (c0246): `fenolite view --serve --allow-actions` lets the page fill zones, tidy copper (with `--gate drc`), place designators or clip silkscreen, place test points, waive a KiCad DRC finding with a reason (`check --exclude`), move or rotate a part (`place --move`), shift or turn parts with their copper, and export fabrication files or the BOM under the project. Each action is a dry run first: a plan dialog lists the files (sizes, new and replaced SHA-256), the issues and the evidence, and draws the staged board's changes over the current one with the revision compare; Confirm writes exactly that plan (`--confirm --plan`), a changed file asks for a new review (`FEN-4002`), and the receipt follows, kept in `view-receipts/` of the state folder so that Undo plans `fenolite restore` on it. Routes `GET /actions`, `POST /action/plan`, `/action/confirm`, `/action/undo`, behind the run guard with `X-Fenolite-Action: 1` and a per-session token; the allow-list `fenolite.view.actions` fills fixed templates with typed options, confines outputs to the project root and writes no Altium document. `result.serve.writes` lists the session's receipts. `docs/viewer.md`, "Actions: writing from the page".
+- **A professional shell for the viewer** (c0243): one set of interface tokens (spacing, type, radii,
+  surfaces, text, accent, focus, severity) with a dark and a light theme that follows the system until the user
+  picks one (`fenolite.view.theme`), each text colour at 4.5:1 or more on its surface; a document keeps its own
+  colours. The toolbar is grouped as View (2D/3D, Fit, Top/Bottom with the far side's opacity), Tools
+  (Measure with Point and Edge gap, Mark, mm/mil) and Share (Copy link, Export: SVG and Print at a scale), each
+  button with an icon drawn for Fenolite, an accessible name and a tooltip with its shortcut; the duplicate
+  "Fit" and "Clear" controls are gone. One command registry (`viewer/src/core/commands.ts`) feeds the toolbar,
+  the shortcuts, the shortcut sheet (`?`) and a command palette (`Ctrl+K`, `Cmd+K` on macOS) that also jumps to
+  parts, nets, documents and library items (`>` commands, `@` parts, `#` nets). The side bar opens with the
+  Project review and its card states, then one remembered disclosure per panel with a count; Components and
+  Nets sort (reference in natural order, value, footprint; name, pads, routed length) and finding groups at 0
+  fold into one line. The status bar shows the cursor, the grid, the zoom, the layer, the selection, the unit
+  and the live state; the SHA-256, size, backend and evidence moved to "About this document". Loading shows a
+  progress bar, a failed read offers Retry, empty lists say why. Run checks of c0245 is in the toolbar and the
+  palette. The visual tests run in the dark interface theme, `kicad_board_light.png` covers the light one, and
+  the references were regenerated. `docs/viewer.md`, "The page".
 
 ### Changed
 

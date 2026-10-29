@@ -6,6 +6,7 @@
 import * as preact from "preact";
 import { $ } from "../core/dom";
 import { RUNS, runCancel } from "../review/runs";
+import { refreshToolbar } from "./toolbar";
 
 export function RunStrip({ job, message }: { job: any, message: any }) {
   if (job) {
@@ -21,4 +22,5 @@ export function runStrip() {
   const el = $("runStrip"); if (!el) return; const j = RUNS.job, m = RUNS.message;
   el.hidden = !j && !m; el.className = j ? "running" : m ? m.kind : "";
   preact.render(<RunStrip key={j ? "job" : "message"} job={j} message={m} />, el);
+  refreshToolbar();   // c0243: Run checks follows the job
 }

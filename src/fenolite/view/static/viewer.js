@@ -43,6 +43,317 @@ function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<":
 function linkify(v) { const t = String(v); return /^https?:\/\/\S+$/i.test(t) ? `<a href="${esc(t)}" target="_blank" rel="noopener noreferrer">${esc(t)}</a>` : esc(t); }
 function natural(a, b) { return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }); }
 function download(text, name, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
+// ---- ui/icons.tsx
+// The interface icons (c0243, design decision 3): drawn for Fenolite on a 16-pixel grid as stroked paths in
+// currentColor, 1.5 px wide, rendered inline by one Preact component; no icon font, no third-party set.
+// ---- icons (c0243)
+const ICONS = {
+    sidebar: "M3.5 2.75h9a1.75 1.75 0 0 1 1.75 1.75v7a1.75 1.75 0 0 1-1.75 1.75h-9a1.75 1.75 0 0 1-1.75-1.75v-7A1.75 1.75 0 0 1 3.5 2.75zM6.25 2.75v10.5",
+    dock: "M3.5 2.75h9a1.75 1.75 0 0 1 1.75 1.75v7a1.75 1.75 0 0 1-1.75 1.75h-9a1.75 1.75 0 0 1-1.75-1.75v-7A1.75 1.75 0 0 1 3.5 2.75zM9.75 2.75v10.5",
+    info: "M14.25 8A6.25 6.25 0 1 1 1.75 8a6.25 6.25 0 0 1 12.5 0zM8 7.5v3.75M8 4.9v.1",
+    plane: "M8 4.25l5.75 3.25L8 10.75 2.25 7.5z",
+    cube: "M8 1.75l5.5 3v6.5L8 14.25l-5.5-3v-6.5zM2.5 4.75 8 7.75l5.5-3M8 7.75v6.5",
+    fit: "M2.25 5.75v-3.5h3.5M10.25 2.25h3.5v3.5M13.75 10.25v3.5h-3.5M5.75 13.75h-3.5v-3.5",
+    flip: "M5 2.5v9.5M2.75 9.75 5 12l2.25-2.25M11 13.5V4M8.75 6.25 11 4l2.25 2.25",
+    ruler: "M1.9 11.1 11.1 1.9l3 3-9.2 9.2zM4.5 8.5l1.5 1.5M6.75 6.25l1.5 1.5M9 4l1.5 1.5",
+    gap: "M2.75 2.75v10.5M13.25 2.75v10.5M5.25 8h5.5M6.75 6.5 5.25 8l1.5 1.5M9.25 6.5 10.75 8l-1.5 1.5",
+    pin: "M8 14.25s4.75-4.2 4.75-7.75a4.75 4.75 0 0 0-9.5 0c0 3.55 4.75 7.75 4.75 7.75zM8 8.25a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5z",
+    units: "M1.75 5.25h12.5v5.5H1.75zM4.75 5.25v2.5M8 5.25v3.25M11.25 5.25v2.5",
+    link: "M6.75 9.25a3 3 0 0 0 4.25 0l2-2a3 3 0 0 0-4.25-4.25l-.75.75M9.25 6.75a3 3 0 0 0-4.25 0l-2 2a3 3 0 0 0 4.25 4.25l.75-.75",
+    download: "M8 2.25v8M4.75 7 8 10.25 11.25 7M2.75 11.75v1.5h10.5v-1.5",
+    image: "M2.75 2.75h10.5v10.5H2.75zM2.75 10.75l3-3 2.5 2.5 1.75-1.75 3.25 3.25M10.25 5.5v.1",
+    printer: "M4.25 6V2.25h7.5V6M4.25 11.5h-1.5V6h10.5v5.5h-1.5M4.25 9.25h7.5v4.5h-7.5z",
+    search: "M7 12.25a5.25 5.25 0 1 0 0-10.5 5.25 5.25 0 0 0 0 10.5zM14.25 14.25l-3.5-3.5",
+    keyboard: "M1.75 4.25h12.5v7.5H1.75zM4.25 6.75v.1M6.75 6.75v.1M9.25 6.75v.1M11.75 6.75v.1M4.75 9.25h6.5",
+    sun: "M8 10.75a2.75 2.75 0 1 0 0-5.5 2.75 2.75 0 0 0 0 5.5zM8 1.25v1.5M8 13.25v1.5M1.25 8h1.5M13.25 8h1.5M3.2 3.2l1.05 1.05M11.75 11.75l1.05 1.05M3.2 12.8l1.05-1.05M11.75 4.25l1.05-1.05",
+    moon: "M13.5 9.75A5.75 5.75 0 0 1 6.25 2.5a5.75 5.75 0 1 0 7.25 7.25z",
+    monitor: "M1.75 2.75h12.5v8.5H1.75zM5.5 14.25h5M8 11.25v3",
+    x: "M4 4l8 8M12 4l-8 8",
+    chevDown: "M4.5 6.25 8 9.75l3.5-3.5",
+    chevRight: "M6.25 4.5 9.75 8l-3.5 3.5",
+    check: "M3 8.5l3.25 3.25L13 5",
+    play: "M5 2.9v10.2L13 8z",
+    review: "M5.75 2.75h-2v11h8.5v-11h-2M5.75 1.75h4.5v2h-4.5zM5.5 9l1.75 1.75 3.25-3.5",
+    sliders: "M2.25 4.5h7M12.5 4.5h1.25M9.75 2.75v3.5M2.25 11.5h1.25M6.25 11.5h7.5M3.75 9.75v3.5",
+    copy: "M5.75 5.75h7.5v7.5h-7.5zM3.25 10.25h-.5v-7.5h7.5v.5",
+    zoom: "M7 12.25a5.25 5.25 0 1 0 0-10.5 5.25 5.25 0 0 0 0 10.5zM14.25 14.25l-3.5-3.5M7 4.75v4.5M4.75 7h4.5",
+    net: "M3.5 5.25a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5zM12.5 14.25a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5zM3.5 5.25V8.5h9v2.25",
+    chip: "M4.25 4.25h7.5v7.5h-7.5zM6.25 1.75v2.5M9.75 1.75v2.5M6.25 11.75v2.5M9.75 11.75v2.5M1.75 6.25h2.5M1.75 9.75h2.5M11.75 6.25h2.5M11.75 9.75h2.5",
+    similar: "M2.25 2.25h7v7h-7zM6.75 6.75h7v7h-7z",
+    schematic: "M1.75 8h2.5l1-2.5 2 5 2-5 2 5 1-2.5h2",
+    board: "M2.75 2.75h10.5v10.5H2.75zM5.5 5.5h2.25l2.75 2.75v2.25M5.5 10.5v.1",
+    alert: "M8 2.25 14.25 13.25H1.75zM8 6.5v3.25M8 11.4v.1",
+    eye: "M1.25 8S3.75 3.25 8 3.25 14.75 8 14.75 8 12.25 12.75 8 12.75 1.25 8 1.25 8zM8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z",
+    eyeOff: "M2.25 2.25l11.5 11.5M6.6 6.6a2 2 0 0 0 2.8 2.8M4.3 4.4C2.3 5.6 1.25 8 1.25 8S3.75 12.75 8 12.75c1.3 0 2.4-.4 3.4-1M7 3.3c.3 0 .7-.05 1-.05 4.25 0 6.75 4.75 6.75 4.75s-.5 1-1.5 2.1",
+    waive: "M8 1.75l5.25 2v4c0 3.25-2.25 5.5-5.25 6.5-3-1-5.25-3.25-5.25-6.5v-4zM5.5 8l1.75 1.75 3.25-3.5",
+    move: "M8 1.75v12.5M1.75 8h12.5M6 3.75l2-2 2 2M6 12.25l2 2 2-2M3.75 6l-2 2 2 2M12.25 6l2 2-2 2",
+    refresh: "M13.25 2.75v3.5h-3.5M13 6.25A5.25 5.25 0 1 0 13.25 9",
+    target: "M8 12.75a4.75 4.75 0 1 0 0-9.5 4.75 4.75 0 0 0 0 9.5zM8 .75v3M8 12.25v3M.75 8h3M12.25 8h3",
+    changes: "M3 4.5h4.5M5.25 2.25v4.5M8.5 11.5H13M2.75 13.25 13.25 2.75",
+    layers: "M8 2 13.75 5 8 8 2.25 5zM2.25 8 8 11l5.75-3M2.25 11 8 14l5.75-3",
+    layer: "M8 4.5l5.75 3L8 10.5 2.25 7.5z",
+    arrowUp: "M8 13V3M4.25 6.75 8 3l3.75 3.75",
+    arrowDown: "M8 3v10M4.25 9.25 8 13l3.75-3.75",
+    clear: "M14.25 8A6.25 6.25 0 1 1 1.75 8a6.25 6.25 0 0 1 12.5 0zM5.75 5.75l4.5 4.5M10.25 5.75l-4.5 4.5",
+    filter: "M2.25 3h11.5L9.25 8.5v4.75l-2.5-1.25V8.5z",
+    doc: "M4 1.75h5.25l3 3v9.5H4zM9 1.75V5h3.25",
+    folder: "M1.75 3.25h4.5l1.5 1.5h6.5v8H1.75z",
+    more: "M3.5 8v.1M8 8v.1M12.5 8v.1",
+    list: "M5.75 4h8M5.75 8h8M5.75 12h8M2.25 4v.1M2.25 8v.1M2.25 12v.1",
+    note: "M2.75 2.75h10.5v7.5l-3 3h-7.5zM10.25 13.25v-3h3M5.25 6h5.5M5.25 8.5h3.5",
+    hash: "M3 6h10.5M2.5 10H13M6.5 2.25l-1.5 11.5M11 2.25 9.5 13.75",
+    at: "M10.75 8a2.75 2.75 0 1 1-5.5 0 2.75 2.75 0 0 1 5.5 0zM10.75 8v1.25a1.75 1.75 0 0 0 3.5 0V8a6.25 6.25 0 1 0-2.5 5",
+    stop: "M4.25 4.25h7.5v7.5h-7.5z",
+};
+// ---- end icons
+function Icon({ name, size }) {
+    const d = ICONS[name] || ICONS.more, s = size || 16;
+    return preact.h("svg", { class: "ic", width: s, height: s, viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", "stroke-width": "1.5", "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true", focusable: "false" },
+        preact.h("path", { d: d }));
+}
+// ---- ui/tooltip.tsx
+// The tooltip (c0243, design decision 3): one positioned element that shows the title of the control under the
+// pointer or with the keyboard focus, after 400 ms, and its shortcut in <kbd>. A control declares them as
+// data-tip and data-keys (keys separated by commas); native title tooltips are not used for these controls.
+let tipTimer = 0, tipFor = null;
+const tipHost = document.createElement("div");
+tipHost.id = "tipHost";
+document.body.appendChild(tipHost);
+function Tooltip({ text, keys, x, y, below }) {
+    return preact.h("div", { id: "tip", role: "tooltip", class: below ? "below" : "above", style: `left:${x}px;top:${y}px` },
+        preact.h("span", null, text),
+        keys.map(k => preact.h("kbd", null, k)));
+}
+function hideTip() { clearTimeout(tipTimer); tipFor = null; preact.render(null, tipHost); }
+function showTip(el) {
+    if (!el.isConnected || el.getAttribute("aria-expanded") === "true")
+        return;
+    const r = el.getBoundingClientRect(), keys = (el.dataset.keys || "").split(",").map(k => k.trim()).filter(Boolean);
+    const below = r.bottom + 40 < innerHeight;
+    const x = Math.min(Math.max(8, r.left + r.width / 2), innerWidth - 8), y = below ? r.bottom + 6 : r.top - 6;
+    preact.render(preact.h(Tooltip, { text: el.dataset.tip, keys: keys, x: x, y: y, below: below }), tipHost);
+    const tip = tipHost.firstElementChild; // kept inside the window
+    if (tip) {
+        const w = tip.offsetWidth;
+        tip.style.left = `${Math.min(Math.max(8 + w / 2, x), innerWidth - 8 - w / 2)}px`;
+    }
+}
+function tipTarget(e) { const t = e.target; return t && t.closest ? t.closest("[data-tip]") : null; }
+function arm(el) { if (el === tipFor)
+    return; hideTip(); if (!el || !el.dataset.tip)
+    return; tipFor = el; tipTimer = setTimeout(() => showTip(el), 400); }
+document.addEventListener("pointerover", e => arm(tipTarget(e)));
+document.addEventListener("pointerout", e => { const to = e.relatedTarget; if (!to || !tipFor || !tipFor.contains(to))
+    hideTip(); });
+document.addEventListener("focusin", e => { const el = tipTarget(e); if (el && el.matches(":focus-visible"))
+    arm(el);
+else
+    hideTip(); });
+document.addEventListener("focusout", hideTip);
+for (const type of ["pointerdown", "keydown", "wheel", "scroll"])
+    document.addEventListener(type, hideTip, true);
+// ---- ui/toast.tsx
+// Short confirmations (c0243): "Link copied", "Copied", a copy that failed. One message at a time at the foot of
+// the drawing, read by screen readers (role="status"), gone after three seconds. And the clipboard: the
+// asynchronous API, else a hidden textarea and execCommand("copy") for a page opened from file:// (c0244).
+const toastHost = document.createElement("div");
+toastHost.id = "toastHost";
+document.body.appendChild(toastHost);
+let toastTimer = 0;
+function toast(text, kind = "ok") {
+    clearTimeout(toastTimer);
+    preact.render(preact.h("div", { id: "toast", class: kind, role: "status", "aria-live": "polite" }, text), toastHost);
+    toastTimer = setTimeout(() => preact.render(null, toastHost), 3000);
+}
+async function copyText(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+        return true;
+    }
+    catch (e) { /* refused: the fallback below */ }
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0";
+    document.body.appendChild(area);
+    const focus = document.activeElement;
+    area.select();
+    let ok = false;
+    try {
+        ok = document.execCommand("copy");
+    }
+    catch (e) {
+        ok = false;
+    }
+    area.remove();
+    focus?.focus?.();
+    return ok;
+}
+async function copyAndSay(text, what = "Copied") {
+    const ok = await copyText(text);
+    toast(ok ? what : "The browser refused the clipboard: select the text and copy it", ok ? "ok" : "err");
+    return ok;
+}
+// ---- ui/menu.tsx
+// A menu button (c0243, design decision 3): a toolbar button with aria-haspopup that opens a list of items
+// (role="menu") or a small panel under it. The list is placed with fixed coordinates, so no scrolling parent clips
+// it; arrows move between items, Enter runs one, Esc closes and gives the focus back to the button, and a click
+// elsewhere closes it.
+let OPEN_MENU = null;
+function closeMenus() { if (OPEN_MENU)
+    OPEN_MENU.close(false); }
+class Menu extends preact.Component {
+    constructor(props) { super(props); this.state = { open: false, x: 0, y: 0 }; }
+    outside = (e) => { const t = e.target; if (this.list?.contains(t) || this.button?.contains(t))
+        return; this.close(false); };
+    open() {
+        if (OPEN_MENU && OPEN_MENU !== this)
+            OPEN_MENU.close(false);
+        const r = this.button.getBoundingClientRect(), w = 232;
+        const x = this.props.align === "right" || r.left + w > innerWidth - 8 ? Math.max(8, r.right - w) : r.left;
+        OPEN_MENU = this;
+        this.setState({ open: true, x, y: r.bottom + 6 }, () => {
+            document.addEventListener("pointerdown", this.outside, true);
+            this.list?.querySelector("[role^=menuitem]:not([disabled]), input, select, button")?.focus();
+        });
+    }
+    close(focus = true) {
+        document.removeEventListener("pointerdown", this.outside, true);
+        if (OPEN_MENU === this)
+            OPEN_MENU = null;
+        if (this.state.open)
+            this.setState({ open: false });
+        if (focus)
+            this.button?.focus();
+    }
+    componentWillUnmount() { document.removeEventListener("pointerdown", this.outside, true); if (OPEN_MENU === this)
+        OPEN_MENU = null; }
+    onKey = (e) => {
+        if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            this.close();
+            return;
+        }
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp")
+            return;
+        const items = [...this.list.querySelectorAll("[role^=menuitem]:not([disabled])")];
+        if (!items.length)
+            return;
+        e.preventDefault();
+        const i = items.indexOf(document.activeElement);
+        items[(i + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus();
+    };
+    choose(it) { if (it.disabled)
+        return; this.close(); it.run && it.run(); }
+    render(p, s) {
+        return preact.h("span", { class: "menuWrap" + (p.cls ? " " + p.cls : "") },
+            preact.h("button", { id: p.id, type: "button", class: "tb" + (p.caret ? " caret" : "") + (p.showLabel === false || !p.text ? " icon" : ""), "aria-haspopup": "menu", "aria-expanded": Boolean(s.open), "aria-label": p.label, "aria-pressed": p.pressed, "data-tip": p.tip || p.label, "data-keys": p.keys || undefined, ref: el => { this.button = el; }, onClick: () => s.open ? this.close() : this.open(), onKeyDown: e => { if (e.key === "ArrowDown" && !s.open) {
+                    e.preventDefault();
+                    this.open();
+                } } },
+                p.icon ? preact.h(Icon, { name: p.icon }) : null,
+                p.text ? preact.h("span", { class: "lbl" }, p.text) : null,
+                p.caret ? preact.h(Icon, { name: "chevDown", size: 12 }) : null),
+            s.open ? preact.h("div", { class: "menu" + (p.panel ? " menuPanel" : ""), role: p.panel ? "dialog" : "menu", "aria-label": p.label, style: `left:${s.x}px;top:${s.y}px`, ref: el => { this.list = el; }, onKeyDown: this.onKey }, p.panel ? p.panel() : (p.items || []).map((it, k) => it.sep ? preact.h("div", { key: k, class: "menuSep", role: "separator" })
+                : it.heading ? preact.h("div", { key: k, class: "menuHead" }, it.heading)
+                    : preact.h("button", { key: k, id: it.id, type: "button", role: it.radio ? "menuitemradio" : it.checked !== undefined ? "menuitemcheckbox" : "menuitem", "aria-checked": it.checked, disabled: it.disabled, class: "menuItem", onClick: () => this.choose(it) },
+                        preact.h("span", { class: "menuIc" }, it.checked ? preact.h(Icon, { name: "check" }) : it.icon ? preact.h(Icon, { name: it.icon }) : null),
+                        preact.h("span", { class: "menuText" },
+                            it.title,
+                            it.hint ? preact.h("small", null, it.hint) : null),
+                        it.keys ? preact.h("kbd", null, it.keys) : null))) : null);
+    }
+}
+// ---- ui/section.tsx
+// The side bar's sections (c0243, design decision 5): each panel is a <details class="sect"> whose summary holds
+// a chevron, the title and a count; the open state of each is kept in localStorage (fenolite.view.sections).
+// A section that has nothing to show for the open document is hidden; showSection() sets its title, count and
+// visibility, and keeps the id of the title element the tests and the panels read (diffTitle, msgTitle, …).
+const SECTION_KEY = "fenolite.view.sections";
+const sectState = (() => { try {
+    return JSON.parse(localStorage.getItem(SECTION_KEY) || "{}") || {};
+}
+catch (e) {
+    return {};
+} })();
+const sectHeads = new Map();
+function SectionHead({ title, count, titleId, tone }) {
+    return preact.h(preact.Fragment, null,
+        preact.h("span", { class: "chev" },
+            preact.h(Icon, { name: "chevRight", size: 12 })),
+        preact.h("span", { class: "sectTitle", id: titleId }, title),
+        count === undefined || count === null || count === "" ? null : preact.h("span", { class: "count" + (tone ? " " + tone : "") }, String(count)));
+}
+function renderHead(el) {
+    const h = sectHeads.get(el.dataset.sect);
+    preact.render(preact.h(SectionHead, { ...h }), el.querySelector(":scope > summary"));
+}
+function initSections() {
+    for (const el of document.querySelectorAll("details.sect")) {
+        const id = el.dataset.sect;
+        sectHeads.set(id, { title: el.dataset.title || id, titleId: el.dataset.titleId || undefined });
+        if (id in sectState)
+            el.open = !!sectState[id];
+        el.addEventListener("toggle", () => {
+            sectState[id] = el.open;
+            try {
+                localStorage.setItem(SECTION_KEY, JSON.stringify(sectState));
+            }
+            catch (e) { /* kept for this page only */ }
+        });
+        renderHead(el);
+    }
+}
+function sectionEl(id) { return document.querySelector(`details.sect[data-sect="${id}"]`); }
+function showSection(id, visible, count, title, tone) {
+    const el = sectionEl(id);
+    if (!el)
+        return;
+    el.hidden = !visible;
+    const h = sectHeads.get(id) || { title: id };
+    sectHeads.set(id, { ...h, title: title ?? h.title, count, tone });
+    renderHead(el);
+}
+initSections();
+// ---- ui/states.tsx
+// Loading, empty and error states (c0243, design decision 7): the document card over the drawing (reading,
+// a failed read with Retry, a missing file, a kind without a viewer, a project without a viewable document), the
+// indeterminate progress bar under the toolbar, and the line a list shows when it has nothing to list.
+const VIEWABLE_KINDS = ["Boards (.kicad_pcb, .PcbDoc)", "Schematics (.kicad_sch, .SchDoc)", "Symbol and footprint libraries",
+    "Draftsman drawings (.PCBDwf)", "Bills of materials and output jobs"];
+function fmtSize(n) { return n == null ? "size unknown" : n >= 1024 ? `${(n / 1024).toFixed(1)} kB` : `${n} bytes`; }
+function DocCard({ doc, state, error, onRetry, project }) {
+    const icon = state === "error" ? "alert" : state === "reading" ? "doc" : "info";
+    return preact.h("div", { class: "cardBox " + state, role: state === "error" ? "alert" : "status" },
+        preact.h("div", { class: "cardIc" },
+            preact.h(Icon, { name: icon, size: 20 })),
+        preact.h("div", { class: "cardMain" },
+            preact.h("h2", null, doc ? doc.name : "Nothing to show"),
+            doc ? preact.h("p", { class: "cardMeta" }, `${doc.kind} · ${doc.path} · ${fmtSize(doc.size)}`) : null,
+            state === "reading" ? preact.h("p", null,
+                "Reading\u2026 ",
+                preact.h("span", { class: "spin", "aria-hidden": "true" })) : null,
+            state === "error" ? preact.h(preact.Fragment, null,
+                preact.h("p", { class: "cardErr" }, `Could not read it: ${error}`),
+                preact.h("div", { class: "cardActions" },
+                    preact.h("button", { id: "docRetry", type: "button", class: "tb accentBtn", onClick: onRetry },
+                        preact.h(Icon, { name: "refresh" }),
+                        preact.h("span", { class: "lbl" }, "Retry")))) : null,
+            state === "missing" ? preact.h("p", null, "The file is not in the project folder.") : null,
+            state === "noviewer" ? preact.h("p", null, project ? "This project holds no document Fenolite can draw yet." : "Fenolite has no viewer for this kind of document yet.") : null,
+            state === "noviewer" || state === "missing" ? preact.h(preact.Fragment, null,
+                preact.h("p", { class: "cardSub" }, "These kinds open in the viewer:"),
+                preact.h("ul", { class: "cardKinds" }, VIEWABLE_KINDS.map(k => preact.h("li", null, k)))) : null,
+            state === "empty" ? preact.h("p", null, "The scene is empty.") : null));
+}
+function Empty({ text, icon }) {
+    return preact.h("div", { class: "empty", role: "note" },
+        preact.h(Icon, { name: icon || "info" }),
+        preact.h("span", null, text));
+}
+function emptyNote(box, text, icon) { preact.render(preact.h(Empty, { text: text, icon: icon }), box); }
+function setLoading(on) { document.getElementById("progress")?.classList.toggle("on", on); }
 // ---- core/state.ts
 // ================================================================== state
 const MM = 0.001; // scene units are micrometres
@@ -67,6 +378,40 @@ const st = { edge: false, epick: [], eres: null, marking: false, checks: true, s
     } })(), diff: true, single: false, measure: false, mpts: [], selNet: -1, selComp: -1, selOv: -1, opac: 0.6, version: null, mode3d: false, cur: null,
     ovOff: new Set(), ovOpen: new Set() };
 const vis = new Map();
+// ---- core/theme.ts
+// The interface theme (c0243, design decision 1): "system" follows prefers-color-scheme, "dark" and "light" are
+// the user's choice, kept in localStorage under fenolite.view.theme and written to html[data-theme]. Only the
+// chrome changes; a document keeps the colours of its scene.
+const THEMES = ["system", "dark", "light"];
+let THEME = (() => { try {
+    const t = localStorage.getItem("fenolite.view.theme");
+    return THEMES.includes(t) ? t : "system";
+}
+catch (e) {
+    return "system";
+} })();
+function applyTheme() {
+    if (THEME === "system")
+        document.documentElement.removeAttribute("data-theme");
+    else
+        document.documentElement.setAttribute("data-theme", THEME);
+}
+function themeIsLight() {
+    return THEME === "light" || (THEME === "system" && matchMedia("(prefers-color-scheme: light)").matches);
+}
+function setTheme(t) {
+    THEME = THEMES.includes(t) ? t : "system";
+    try {
+        localStorage.setItem("fenolite.view.theme", THEME);
+    }
+    catch (e) { /* the choice is kept for this page only */ }
+    applyTheme();
+    themeChanged();
+}
+function themeChanged() { refreshToolbar(); } // what reads the theme outside CSS: the toolbar's theme icon
+applyTheme();
+matchMedia("(prefers-color-scheme: light)").addEventListener?.("change", () => { if (THEME === "system")
+    themeChanged(); });
 // ---- core/font.ts
 // ================================================================== stroke font
 // Fenolite's own single-stroke font: cap height 6 units, glyph 4 units wide, advance 6 units, x-height 4,
@@ -159,7 +504,8 @@ function fmtNm(nm) { return fmtLen(nm / 1e6); }
 function fmtPair(a, b) { return UNIT === "mil" ? `${(a / MIL_MM).toFixed(2)} × ${(b / MIL_MM).toFixed(2)} mil` : `${a.toFixed(3)} × ${b.toFixed(3)} mm`; }
 function setUnit(u) {
     UNIT = u;
-    $("bUnit").textContent = u;
+    refreshToolbar();
+    refreshStatus();
     try {
         localStorage.setItem("fenolite.view.unit", u);
     }
@@ -181,8 +527,43 @@ function setUnit(u) {
     buildLibList();
     draw();
 }
-$("bUnit").onclick = () => setUnit(UNIT === "mm" ? "mil" : "mm");
-$("bUnit").textContent = UNIT;
+// ---- panels/status-bar.tsx
+// The status bar (c0243, design decision 6), left to right: the cursor position in the page unit, the grid pitch
+// when a grid is drawn, the zoom, the current layer, the selection, then the unit and the live state. The file's
+// digest is not here: it is in "About this document". The spans keep their ids (coord, zoomv, cur, live): the
+// tools write the cursor, the measure and the live state into them as they always did.
+function StatusBar() {
+    return preact.h(preact.Fragment, null,
+        preact.h("span", { class: "sItem sCoord" },
+            preact.h(Icon, { name: "target", size: 12 }),
+            preact.h("span", { id: "coord" }, "x \u2014 y \u2014")),
+        preact.h("span", { class: "sItem", id: "gridv", hidden: true }),
+        preact.h("span", { class: "sItem", id: "zoomv" }),
+        preact.h("span", { class: "sItem", id: "cur" }),
+        preact.h("span", { class: "sItem sSel", id: "selv" }),
+        preact.h("span", { class: "sSpacer" }),
+        preact.h("span", { class: "sItem", id: "unitv", title: "Page unit (Q)" }),
+        preact.h("span", { class: "sItem sLive", id: "live" }));
+}
+preact.render(preact.h(StatusBar, null), $("status"));
+function statusText(id, text) { const el = $(id); if (!el)
+    return; el.textContent = text; el.hidden = !text; }
+function refreshStatus() {
+    statusText("unitv", S && S.kind !== "table" ? (UNIT === "mm" ? "Millimetres" : "Mil") : "");
+    statusText("gridv", S && isSch() && S.sheet.grid ? `Grid ${fmtLen(S.sheet.grid)}` : "");
+    let sel = "";
+    if (S && isSch())
+        sel = SCH.selComp >= 0 ? `Part ${S.comps[SCH.selComp].ref}` : SCH.selNet >= 0 ? `Net ${S.nets[SCH.selNet].name || "(no name)"}` : "";
+    else if (S && !S.kind && S.comps) {
+        if (st.selComp >= 0)
+            sel = `Part ${S.comps[st.selComp].ref}`;
+        else if (st.selNet >= 0)
+            sel = `Net ${S.nets[st.selNet]}`;
+        else if (st.query && (st.query.comps.length || st.query.prims.size))
+            sel = `Filter: ${st.query.comps.length} part(s) · ${st.query.prims.size} item(s)`;
+    }
+    statusText("selv", sel);
+}
 // ---- board/decode.ts
 // <decodeV1> c0182: a compact board scene (fenolite.view_scene.v1, view/compact.py) back to its v0 primitives
 function decodeV1(sc) {
@@ -691,7 +1072,8 @@ function draw() {
     drawMarks();
     drawMeasure();
     linkLater();
-    $("zoomv").textContent = `zoom ${view.s.toFixed(1)} px/mm`;
+    $("zoomv").textContent = `Zoom ${view.s.toFixed(1)} px/mm`;
+    refreshStatus();
 }
 // ---- board/diff.ts
 // ================================================================== changes since an older revision (c0184)
@@ -758,9 +1140,7 @@ function ChangesPanel({ changes }) {
 }
 function buildDiffList() {
     const box = $("diffList"), D = S && S.diff;
-    $("diffTitle").style.display = D ? "" : "none";
-    if (D)
-        $("diffTitle").textContent = `Changes since ${D.old.name} (${D.changes.length})`;
+    showSection("changes", !!D, D ? D.changes.length : undefined, D ? `Changes since ${D.old.name}` : "Changes");
     preact.render(D ? preact.h(ChangesPanel, { changes: D.changes }) : null, box);
 }
 // ---- review/check.ts
@@ -862,13 +1242,17 @@ function MessagesPanel({ check }) {
     }
     return preact.h(preact.Fragment, null, out);
 }
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+function SevLine({ counts }) {
+    return preact.h(preact.Fragment, null,
+        preact.h("span", { class: "sev err" }, plural(counts.error, "error", "errors")),
+        preact.h("span", { class: "sev warn" }, plural(counts.warning, "warning", "warnings")),
+        preact.h("span", { class: "sev info" }, `${counts.info} info`));
+}
 function buildMessages() {
-    const box = $("msgList"), C = S && S.check;
-    $("msgTitle").style.display = C ? "" : "none";
-    if (C) {
-        const n = C.counts;
-        $("msgTitle").textContent = `Messages: ${n.error} errors · ${n.warning} warnings · ${n.info} info`;
-    }
+    const box = $("msgList"), C = S && S.check, n = C ? C.counts : null;
+    showSection("messages", !!C, C ? C.findings.length : undefined, "Messages", n && n.error ? "err" : n && n.warning ? "warn" : "");
+    preact.render(n ? preact.h(SevLine, { counts: n }) : null, $("msgTitle"));
     st.msgOpen = st.msgOpen || new Set();
     preact.render(C ? preact.h(MessagesPanel, { check: C }) : null, box);
 }
@@ -897,7 +1281,22 @@ $("projectReview").addEventListener("keydown", e => {
         setProjectReview(false);
     }
 });
+// The entry of the side bar's head (c0243, design decision 5): "Project review" and the states of its cards.
+function reviewCardsOf(ready, data) {
+    return data?.cards || [{ id: "read", title: "Read document", state: ready ? "passed" : "not-run" },
+        ...["Netlist connectivity", "Electrical rules (ERC)", "Board rules (DRC)", "Copper clearance", "Placement rules", "Zone fill", "Conversion", "Fabrication export"].map(title => ({ title, state: "not-run" }))];
+}
+function reviewEntry() {
+    const ready = !!(S && DOC && REVIEW.doc === DOC.id), cards = reviewCardsOf(ready, ready && S.project_review), n = {};
+    for (const c of cards) {
+        const k = REVIEW_STATE[c.state] ? c.state : "limited";
+        n[k] = (n[k] || 0) + 1;
+    }
+    const parts = ["failed", "limited", "passed", "not-run"].filter(k => n[k]).map(k => preact.h("span", { class: `rs ${k}` }, `${n[k]} ${REVIEW_STATE[k].toLowerCase()}`));
+    preact.render(preact.h(preact.Fragment, null, preact.h("span", { class: "reIc" }, preact.h(Icon, { name: "review" })), preact.h("span", { class: "reText" }, preact.h("b", null, "Project review"), preact.h("small", null, ...parts.flatMap((p, i) => i ? [" · ", p] : [p]))), preact.h("span", { class: "reGo" }, preact.h(Icon, { name: "chevRight", size: 12 }))), $("bProjectReview"));
+}
 function buildProjectReview() {
+    reviewEntry();
     if ($("projectReview").hidden)
         return;
     const ready = S && DOC && REVIEW.doc === DOC.id;
@@ -909,9 +1308,7 @@ function buildProjectReview() {
         : "This document has not been read. Select a viewable document to review it.";
     if (data?.binding && !data.binding.matched)
         $("reviewScope").textContent += " " + data.binding.note;
-    const fallback = [{ id: "read", title: "Read document", state: ready ? "passed" : "not-run" },
-        ...["Netlist connectivity", "Electrical rules (ERC)", "Board rules (DRC)", "Copper clearance", "Placement rules", "Zone fill", "Conversion", "Fabrication export"].map(title => ({ title, state: "not-run" }))];
-    for (const card of data?.cards || fallback) {
+    for (const card of reviewCardsOf(ready, data)) {
         const details = document.createElement("details"), state = REVIEW_STATE[card.state] ? card.state : "limited";
         details.dataset.card = card.id || card.title;
         details.innerHTML = `<summary><span>${esc(card.title)}</span><span class="reviewState ${state}">${REVIEW_STATE[state]}</span></summary>`;
@@ -1321,6 +1718,7 @@ function runStrip() {
     el.hidden = !j && !m;
     el.className = j ? "running" : m ? m.kind : "";
     preact.render(preact.h(RunStrip, { key: j ? "job" : "message", job: j, message: m }), el);
+    refreshToolbar(); // c0243: Run checks follows the job
 }
 // ---- actions/actions.ts
 // ================================================================== writing actions (c0246)
@@ -2509,19 +2907,16 @@ function edgeBetween(ga, gb) {
 let VARIANT = null;
 function variantOf(ref) { const v = VARIANT && S && S.variants && S.variants[VARIANT]; return v ? v[ref] || null : null; }
 function notFitted(ref) { const v = variantOf(ref); return !!(v && v.kind === "not fitted"); }
+function variantNames() { return S && S.variants ? Object.keys(S.variants) : []; }
 function buildVariants() {
-    const sel = $("variantSel"), names = S && S.variants ? Object.keys(S.variants) : [];
     if (S && S.variant && VARIANT === null)
         VARIANT = S.variant;
-    sel.style.display = names.length ? "" : "none";
-    if (!names.length)
-        return;
-    sel.innerHTML = [`<option value="">[No Variations]</option>`, ...names.map(n => `<option${n === VARIANT ? " selected" : ""}>${esc(n)}</option>`)].join("");
+    refreshToolbar();
 }
-$("variantSel").addEventListener("change", e => { VARIANT = e.target.value || null; if (V3.built) {
+function setVariant(v) { VARIANT = v || null; if (V3.built) {
     rebuildBodies();
 } draw(); if (st.mode3d)
-    draw3D(); });
+    draw3D(); }
 function drawVariantMarks(boxes) {
     if (!VARIANT)
         return;
@@ -2965,7 +3360,7 @@ function draw3D() {
 }
 function set3D(on) {
     st.mode3d = on;
-    $("b3d").classList.toggle("on", on);
+    refreshToolbar();
     glc.style.display = on ? "block" : "none";
     cv.style.display = on ? "none" : "block";
     $("bar3d").style.display = on ? "flex" : "none";
@@ -3108,7 +3503,7 @@ function buildTabs() {
         box.appendChild(t);
     }
     const cur = S.layers.find(l => l.id === st.cur);
-    $("cur").textContent = cur ? `current: ${cur.name}${st.single ? " (single layer)" : ""}` : "";
+    $("cur").textContent = cur ? `Layer ${cur.name}${st.single ? " · only this layer" : ""}` : "";
 }
 function setCurrent(id) { st.cur = id; vis.set(id, true); buildTabs(); draw(); }
 function stepCurrent(dir) { const L = tabLayers().filter(l => vis.get(l.id)); if (!L.length)
@@ -3128,49 +3523,64 @@ $("ls").onclick = e => {
     mnu.style.display = mnu.style.display === "block" ? "none" : "block";
 };
 window.addEventListener("click", () => { $("lsmenu").style.display = "none"; });
-// ---- panels/tree.ts
+// ---- panels/tree.tsx
 // ================================================================== project tree (left panel)
+// A Preact component (c0243): the project, its groups (each folds) and their documents, the open one marked; a
+// document that is missing or has no viewer says so.
 const KIND_COLOR = { pcb: "#3fb950", schematic: "#d29922", "schematic-library": "#a371f7", "pcb-library": "#58a6ff", "integrated-library": "#58a6ff", "output-job": "#8b949e", rules: "#8b949e",
     stackup: "#8b949e", project: "#8b949e", "library-table": "#8b949e", draftsman: "#db61a2", other: "#6e7681" };
+const TREE_CLOSED = new Set();
+function ProjectTree({ project }) {
+    return preact.h(preact.Fragment, null,
+        preact.h("div", { class: "proj", title: `${project.source} project` },
+            preact.h(Icon, { name: "folder" }),
+            preact.h("span", null, project.project_file || project.name)),
+        project.groups.map(g => {
+            const closed = TREE_CLOSED.has(g.name);
+            return preact.h("div", { class: "grpBox", key: g.name },
+                preact.h("div", { class: "grp" + (closed ? " closed" : ""), role: "button", tabIndex: 0, "aria-expanded": Boolean(!closed), onClick: () => toggleTreeGroup(g.name), onKeyDown: e => { if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleTreeGroup(g.name);
+                    } } },
+                    preact.h("span", { class: "chev" },
+                        preact.h(Icon, { name: "chevRight", size: 12 })),
+                    preact.h("span", { class: "grpName" }, g.name),
+                    preact.h("span", { class: "grpN" }, g.documents.length)),
+                closed ? null : preact.h("div", { class: "grpList" }, g.documents.map(d => preact.h("div", { key: d.id, class: "doc" + (DOC && DOC.id === d.id ? " sel" : "") + (d.present ? "" : " missing") + (d.viewable ? "" : " noview"), role: "button", tabIndex: 0, "aria-current": DOC && DOC.id === d.id ? "true" : undefined, title: `${d.path} · ${d.kind}${d.present ? d.viewable ? "" : " (no viewer yet)" : " (missing)"}`, onClick: () => { openDoc(d); setSidebar(false); }, onKeyDown: e => { if (e.key === "Enter") {
+                        openDoc(d);
+                        setSidebar(false);
+                    } } },
+                    preact.h("span", { class: "ic", style: `background:${KIND_COLOR[d.kind] || KIND_COLOR.other}` }),
+                    preact.h("span", { class: "docName" }, d.name)))));
+        }));
+}
+function toggleTreeGroup(name) { if (TREE_CLOSED.has(name))
+    TREE_CLOSED.delete(name);
+else
+    TREE_CLOSED.add(name); buildTree(); }
 function buildTree() {
-    const box = $("tree");
-    box.innerHTML = "";
-    if (!PROJECT)
-        return;
-    const head = document.createElement("div");
-    head.className = "proj";
-    head.textContent = PROJECT.project_file || PROJECT.name;
-    head.title = `${PROJECT.source} project`;
-    box.appendChild(head);
-    for (const g of PROJECT.groups) {
-        const gh = document.createElement("div");
-        gh.className = "grp";
-        gh.textContent = g.name;
-        box.appendChild(gh);
-        const list = document.createElement("div");
-        box.appendChild(list);
-        gh.onclick = () => { gh.classList.toggle("closed"); list.style.display = gh.classList.contains("closed") ? "none" : "block"; };
-        for (const d of g.documents) {
-            const row = document.createElement("div");
-            row.className = "doc" + (DOC && DOC.id === d.id ? " sel" : "") + (d.present ? "" : " missing");
-            row.title = `${d.path} · ${d.kind}${d.viewable ? "" : " (no viewer yet)"}`;
-            row.innerHTML = `<span class="ic" style="background:${KIND_COLOR[d.kind] || KIND_COLOR.other}"></span>${esc(d.name)}`;
-            row.onclick = () => { openDoc(d); setSidebar(false); };
-            list.appendChild(row);
-        }
-    }
+    const docs = PROJECT ? PROJECT.groups.reduce((n, g) => n + g.documents.length, 0) : 0;
+    showSection("project", true, docs || undefined, "Project");
+    preact.render(PROJECT ? preact.h(ProjectTree, { project: PROJECT }) : null, $("tree"));
 }
 // ---- core/documents.ts
 let navigation = 0, loadingNavigation = 0;
-function docCard(d) {
+function docCard(d, state, error) {
     REVIEW.doc = null;
     buildProjectReview();
     $("doccard").style.display = "flex";
     $("tablewrap").style.display = "none";
     cv.style.display = "none";
     glc.style.display = "none";
-    $("doctext").innerHTML = `<b style="color:#fff">${esc(d.name)}</b><br>Kind: ${esc(d.kind)}<br>Path: ${esc(d.path)}<br>Size: ${d.size == null ? "—" : d.size + " bytes"}<br>` +
-        (d.present ? "" : "<br>The file is not in the project folder.<br>") + (d.viewable ? "" : "<br>Fenolite has no viewer for this kind of document yet.");
+    const kind = state || (!d.present ? "missing" : !d.viewable ? "noviewer" : "empty");
+    const project = !allDocs().some(x => x.viewable && x.present);
+    preact.render(preact.h(DocCard, { doc: d, state: kind, error, project, onRetry: () => retryDoc(d) }), $("doctext"));
+}
+function retryDoc(d) {
+    if (!DOC || DOC.id !== d.id)
+        return;
+    invalidateScene(d.id);
+    openDoc(d);
 }
 async function sceneOf(d) {
     if (SCENES.has(d.id))
@@ -3212,33 +3622,30 @@ async function openDoc(d, keepView) {
     setDoc(d);
     buildTree();
     showInfo(null);
-    if (!keepView) {
-        $("fname").textContent = d.name;
-        document.title = d.name + " · Fenolite viewer";
-    }
+    if (!keepView)
+        setDocTitle(d.name);
     if (!d.viewable || !d.present) {
         docCard(d);
         return 0;
     }
-    if (!keepView) {
-        docCard(d);
-        $("doctext").innerHTML += "<br><br>Reading…";
-    }
+    if (!keepView)
+        docCard(d, "reading");
     loadingNavigation = generation;
+    setLoading(true);
     let sc;
     try {
         sc = await sceneOf(d);
     }
     catch (e) {
-        if (generation === navigation) {
-            docCard(d);
-            $("doctext").innerHTML += `<br><br>Could not read it: ${esc(e.message)}`;
-        }
+        if (generation === navigation)
+            docCard(d, "error", e.message);
         return 0;
     }
     finally {
-        if (loadingNavigation === generation)
+        if (loadingNavigation === generation) {
             loadingNavigation = 0;
+            setLoading(false);
+        }
     }
     if (generation !== navigation)
         return 0;
@@ -3285,22 +3692,43 @@ function openGroup(id) { if (st.ovOpen.has(id))
 else
     st.ovOpen.add(id); buildFindings(); }
 // keys: a row is never reused for a row of another kind, so no attribute of one is left on the other
+function GroupRow({ g, idx }) {
+    return preact.h("div", { class: "fg" + (idx.length ? "" : " zero"), title: g.note || "" },
+        preact.h("input", { type: "checkbox", checked: !st.ovOff.has(g.id), "aria-label": `Draw ${g.title}`, onChange: e => showGroup(g.id, e.target.checked) }),
+        preact.h("span", { class: "sw", style: `background:${g.color}` }),
+        preact.h("span", { class: "ft", role: "button", tabIndex: 0, "aria-expanded": Boolean(st.ovOpen.has(g.id)), onClick: () => openGroup(g.id), onKeyDown: e => { if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openGroup(g.id);
+            } } }, g.title),
+        preact.h("span", { class: "fn" }, idx.length));
+}
 function FindingsPanel({ groups, byG }) {
-    const out = [];
-    for (const g of groups) {
-        const idx = byG.get(g.id) || [];
-        out.push(preact.h("div", { key: "g:" + g.id, class: "fg" + (idx.length ? "" : " zero"), title: g.note || "" },
-            preact.h("input", { type: "checkbox", checked: !st.ovOff.has(g.id), onChange: e => showGroup(g.id, e.target.checked) }),
-            preact.h("span", { class: "sw", style: `background:${g.color}` }),
-            preact.h("span", { class: "ft", onClick: () => openGroup(g.id) }, `${st.ovOpen.has(g.id) ? "▾" : "▸"} ${g.title}`),
-            preact.h("span", { class: "fn" }, idx.length)));
+    const out = [], zero = groups.filter(g => !(byG.get(g.id) || []).length);
+    const rows = (g, idx) => {
+        out.push(preact.h(GroupRow, { key: "g:" + g.id, g: g, idx: idx }));
         if (!st.ovOpen.has(g.id))
-            continue;
+            return;
         if (g.note)
             out.push(preact.h("div", { key: "n:" + g.id, class: "fnote" }, g.note));
         for (const i of idx)
             out.push(preact.h("div", { key: "o:" + i, class: "ov" + (i === st.selOv ? " sel" : ""), onClick: () => gotoFinding(i) }, S.overlays[i].label));
+    };
+    for (const g of groups) {
+        const idx = byG.get(g.id) || [];
+        if (idx.length)
+            rows(g, idx);
     }
+    if (zero.length) { // c0243: the groups with no finding fold into one line; each stays a result, one click away
+        out.push(preact.h("button", { key: "zero", id: "ovZero", type: "button", class: "zeroLine", "aria-expanded": Boolean(!!st.ovZeroOpen), onClick: () => { st.ovZeroOpen = !st.ovZeroOpen; buildFindings(); } },
+            preact.h("span", { class: "chev" },
+                preact.h(Icon, { name: "chevRight", size: 12 })),
+            `${zero.length} group${zero.length === 1 ? "" : "s"} with no findings`));
+        if (st.ovZeroOpen)
+            for (const g of zero)
+                rows(g, []);
+    }
+    if (!groups.length)
+        out.push(preact.h(Empty, { key: "empty", text: "No finding groups for this board." }));
     return preact.h(preact.Fragment, null, out);
 }
 function buildFindings() {
@@ -3310,10 +3738,11 @@ function buildFindings() {
     for (const g of byG.keys())
         if (!groups.some(x => x.id === g))
             groups.push({ id: g, title: g, color: S.overlays[byG.get(g)[0]].color, n: byG.get(g).length, note: "" });
-    $("ovTitle").style.display = groups.length ? "block" : "none";
+    const total = (S.overlays || []).length;
+    showSection("findings", groups.length > 0, total, "Findings", total ? "warn" : "");
     preact.render(preact.h(FindingsPanel, { groups: groups, byG: byG }), $("overlays"));
 }
-function clearFindings() { preact.render(null, $("overlays")); } // a sheet: no finding group
+function clearFindings() { showSection("findings", false); preact.render(null, $("overlays")); } // a sheet: no finding group
 function gotoFinding(i) {
     const o = S.overlays[i];
     if (st.mode3d)
@@ -3359,9 +3788,7 @@ function loadBoard(scene, keepView) {
     buildReview();
     applyProjNet();
     cv.style.display = st.mode3d ? "none" : "block";
-    $("fname").textContent = S.meta.name;
-    document.title = S.meta.name + " · Fenolite viewer";
-    $("gen").textContent = S.meta.sha256 ? `SHA-256 ${S.meta.sha256.slice(0, 12)}` : "";
+    setDocTitle(S.meta.name);
     if (V3.built) {
         V3.built = false;
         if (st.mode3d) {
@@ -3376,27 +3803,23 @@ function loadBoard(scene, keepView) {
     else
         draw();
 }
-// ---- panels/review.ts
+// ---- panels/review.tsx
 // ================================================================== review panels (c0187): filter, highlight, components, nets
 const HL_ALPHA = { dim: 0.28, mask: 0.06, normal: 1 };
-const ROW = 20;
-function vlist(box, items, row, click, selected) {
-    const inner = document.createElement("div");
-    inner.style.cssText = `position:relative;height:${items.length * ROW}px`;
-    box.innerHTML = "";
-    box.appendChild(inner);
+const ROW = 24;
+function vlist(box, items, row, click, selected, empty) {
+    box.style.height = items.length ? `${Math.min(240, items.length * ROW + 4)}px` : "auto";
+    if (!items.length) {
+        box.onscroll = null;
+        preact.render(preact.h(Empty, { text: empty || "Nothing to list." }), box);
+        return;
+    }
     const paint = () => {
         const top = box.scrollTop, h = box.clientHeight || 240;
-        const a = Math.max(0, Math.floor(top / ROW) - 4), z = Math.min(items.length, Math.ceil((top + h) / ROW) + 4);
-        inner.innerHTML = "";
-        for (let i = a; i < z; i++) {
-            const d = document.createElement("div");
-            d.className = "navi" + (selected(items[i]) ? " sel" : "");
-            d.style.cssText = `position:absolute;left:0;right:0;top:${i * ROW}px;height:${ROW}px;line-height:${ROW}px`;
-            d.innerHTML = row(items[i]);
-            d.onclick = () => click(items[i]);
-            inner.appendChild(d);
-        }
+        const a = Math.max(0, Math.floor(top / ROW) - 4), z = Math.min(items.length, Math.ceil((top + h) / ROW) + 4), rows = [];
+        for (let i = a; i < z; i++)
+            rows.push(preact.h("div", { key: i, class: "navi vrow" + (selected(items[i]) ? " sel" : ""), style: `top:${i * ROW}px;height:${ROW}px;line-height:${ROW}px`, onClick: () => click(items[i]) }, row(items[i])));
+        preact.render(preact.h("div", { class: "vinner", style: `height:${items.length * ROW}px` }, rows), box);
     };
     box.onscroll = paint;
     paint();
@@ -3434,13 +3857,15 @@ function selectNetAt(ni) {
     buildReview();
     draw();
 }
+const COMP_SORT = { ref: c => c.ref, value: c => String(c.value || ""), footprint: c => String(c.footprint || "") };
 function buildReview() {
     if (!S || S.kind || !S.prims)
         return;
     const qy = st.query, inQ = qy ? new Set(qy.comps) : null;
-    const cf = $("compFilter").value.trim().toLowerCase(), nf = $("netFilter").value.trim().toLowerCase();
+    const cfRaw = $("compFilter").value.trim(), nfRaw = $("netFilter").value.trim(), cf = cfRaw.toLowerCase(), nf = nfRaw.toLowerCase();
+    const key = COMP_SORT[$("compSort").value] || COMP_SORT.ref;
     const comps = S.comps.map((c, i) => i).filter(i => !inQ || inQ.has(i)).filter(i => { const c = S.comps[i]; return !cf || [c.ref, c.value, c.footprint].some(v => String(v || "").toLowerCase().includes(cf)); })
-        .sort((a, b) => natural(S.comps[a].ref, S.comps[b].ref));
+        .sort((a, b) => natural(key(S.comps[a]), key(S.comps[b])) || natural(S.comps[a].ref, S.comps[b].ref));
     let netSet = null;
     if (qy) {
         netSet = new Set();
@@ -3448,11 +3873,19 @@ function buildReview() {
             if (pr[3] >= 0)
                 netSet.add(pr[3]);
     }
-    const nets = S.nets.map((n, i) => i).filter(i => S.nets[i] && (!netSet || netSet.has(i)) && (!nf || S.nets[i].toLowerCase().includes(nf))).sort((a, b) => natural(S.nets[a], S.nets[b]));
-    $("compsTitle").textContent = `Components (${comps.length})`;
-    $("netsTitle").textContent = `Nets (${nets.length})`;
-    vlist($("compList"), comps, i => { const c = S.comps[i]; return `${esc(c.ref)} <small>${esc(c.value || "")} · ${esc(c.footprint)}${c.side === "bottom" ? " · bottom" : ""}</small>`; }, selectCompAt, i => i === st.selComp);
-    vlist($("netList"), nets, i => { const info = (S.netinfo || [])[i]; return `${esc(S.nets[i])}` + (info ? ` <small>${info.pads} pads · ${fmtLen(info.length * MM)}</small>` : ""); }, selectNetAt, i => i === st.selNet);
+    const info = i => (S.netinfo || [])[i] || { pads: 0, length: 0 }, ns = $("netSort").value;
+    const nets = S.nets.map((n, i) => i).filter(i => S.nets[i] && (!netSet || netSet.has(i)) && (!nf || S.nets[i].toLowerCase().includes(nf)))
+        .sort((a, b) => (ns === "pads" ? info(b).pads - info(a).pads : ns === "length" ? info(b).length - info(a).length : 0) || natural(S.nets[a], S.nets[b]));
+    const total = S.nets.filter(Boolean).length;
+    showSection("components", true, comps.length === S.comps.length ? comps.length : `${comps.length} / ${S.comps.length}`, "Components");
+    showSection("nets", true, nets.length === total ? nets.length : `${nets.length} / ${total}`, "Nets");
+    const why = (raw, none, what) => raw ? `No ${what} match “${raw}”.` : qy ? `No ${what} in the filter’s result.` : none;
+    vlist($("compList"), comps, i => { const c = S.comps[i]; return preact.h(preact.Fragment, null,
+        preact.h("b", null, c.ref),
+        preact.h("small", null, [c.value, c.footprint, c.side === "bottom" ? "bottom" : ""].filter(Boolean).join(" · "))); }, selectCompAt, i => i === st.selComp, why(cfRaw, "No components on this board.", "components"));
+    vlist($("netList"), nets, i => { const n = (S.netinfo || [])[i]; return preact.h(preact.Fragment, null,
+        preact.h("b", null, S.nets[i]),
+        n ? preact.h("small", null, `${n.pads} pads · ${fmtLen(n.length * MM)}`) : null); }, selectNetAt, i => i === st.selNet, why(nfRaw, "No nets on this board.", "nets"));
     $("queryInfo").textContent = qy ? (qy.prims.size || qy.comps.length ? `${qy.comps.length} part(s) · ${qy.prims.size} primitive(s)` : "Nothing matches the filter.") : "";
 }
 function applyQuery(text, zoom) {
@@ -3484,7 +3917,10 @@ else if (e.key === "Escape")
     e.target.blur(); });
 $("compFilter").addEventListener("input", buildReview);
 $("netFilter").addEventListener("input", buildReview);
-$("bSimilar").onclick = () => {
+$("compSort").addEventListener("change", buildReview);
+$("netSort").addEventListener("change", buildReview);
+preact.render(preact.h(Icon, { name: "x" }), $("bQClear"));
+function findSimilar() {
     if (!S || S.kind)
         return;
     const h = st.lastHit, ci = st.selComp >= 0 ? st.selComp : -1;
@@ -3495,7 +3931,8 @@ $("bSimilar").onclick = () => {
     }
     $("query").value = text;
     applyQuery(text, false);
-};
+}
+$("bSimilar").onclick = findSimilar;
 $("bQClear").onclick = clearQuery;
 $("hlMode").value = HL_ALPHA[st.hl] !== undefined ? st.hl : "dim";
 $("hlMode").onchange = e => { st.hl = e.target.value; try {
@@ -3505,7 +3942,7 @@ catch (err) { /* private window */ } draw(); };
 // ---- measure/edge-tool.ts
 // ================================================================== review tools (c0189): edge measure, links, marks, SVG, print
 const EDGE_C = "#00d0ff";
-function toggleEdge() { st.edge = !st.edge; st.epick = []; st.eres = null; $("bEdge").classList.toggle("on", st.edge); draw(); }
+function toggleEdge() { st.edge = !st.edge; st.epick = []; st.eres = null; refreshToolbar(); draw(); }
 function edgeGroup(h) {
     const pr = h.pr;
     if (!pr[5])
@@ -3568,7 +4005,6 @@ function drawEdge() {
     worldTf();
     $("coord").textContent = `measure: ${txt}`;
 }
-$("bEdge").onclick = toggleEdge;
 // ---- core/links.ts
 // ---- deep links: the URL's hash keeps the document, the selection, the view, the unit and the layer
 function selName() {
@@ -3626,21 +4062,16 @@ function applyLink(q) {
     }
     draw();
 }
-$("bLink").onclick = async () => {
+async function copyLink() {
     const h = linkHash();
     try {
         history.replaceState(null, "", "#" + h);
     }
     catch (e) { /* ignore */ }
-    try {
-        await navigator.clipboard.writeText(location.href);
-        $("live").textContent = "link copied";
-    }
-    catch (e) {
+    if (!await copyAndSay(location.href, "Link to this view copied"))
         window.prompt("Link to this view", location.href);
-    }
-};
-// ---- panels/marks.ts
+}
+// ---- panels/marks.tsx
 // ---- review marks: kept by the server in the --marks file, else in this browser until downloaded
 let MARKS = [];
 const marksKey = () => "fenolite.view.marks:" + (PROJECT ? PROJECT.name : "");
@@ -3714,41 +4145,39 @@ function drawMarks() {
         ctx.textBaseline = "alphabetic";
     });
 }
-function buildMarks() {
-    const box = $("marksList");
-    box.innerHTML = "";
-    $("marksTitle").style.display = MARKS.length || !LIVE ? "" : "none";
-    $("marksTitle").textContent = `Marks (${MARKS.length})` + (serverMarks() ? "" : " · in this browser");
-    MARKS.forEach((m, i) => {
-        const d = document.createElement("div");
-        d.className = "navi";
-        d.innerHTML = `${i + 1}. ${esc(m.note || "(no note)")} <small>${esc(m.doc)}${m.select ? " · " + esc(m.select) : ""}</small> <a href="#" title="Delete this mark">×</a>`;
-        d.querySelector("a").onclick = ev => { ev.preventDefault(); ev.stopPropagation(); if (window.confirm(`Delete mark ${i + 1}?`))
-            sendMark({ id: m.id, note: null }); };
-        d.onclick = async () => {
-            const doc = allDocs().find(x => x.name === m.doc);
-            if (doc && doc !== DOC) {
-                const shown = await openDoc(doc);
-                if (!shown || shown !== navigation)
-                    return;
-            }
-            if (st.mode3d)
-                set3D(false);
-            const x = m.x_nm / 1e6, y = m.y_nm / 1e6, e = isSch() ? 25 : 5;
-            fit([x - e, y - e, x + e, y + e]);
-            showInfo(`<b>Mark ${i + 1}</b><br>${esc(m.note)}${m.select ? `<br>On: ${esc(m.select)}` : ""}<br><small>${esc(m.created)}</small>`);
-        };
-        box.appendChild(d);
-    });
-    if (!serverMarks()) {
-        const b = document.createElement("button");
-        b.textContent = "Download marks";
-        b.title = "Save them as a fenolite.review.v0 file for fenolite view --marks";
-        b.onclick = () => download(JSON.stringify({ schema: "fenolite.review.v0", marks: MARKS }, null, 2) + "\n", "review.json", "application/json");
-        box.appendChild(b);
+async function openMark(m, i) {
+    const doc = allDocs().find(x => x.name === m.doc);
+    if (doc && doc !== DOC) {
+        const shown = await openDoc(doc);
+        if (!shown || shown !== navigation)
+            return;
     }
+    if (st.mode3d)
+        set3D(false);
+    const x = m.x_nm / 1e6, y = m.y_nm / 1e6, e = isSch() ? 25 : 5;
+    fit([x - e, y - e, x + e, y + e]);
+    showInfo(`<b>Mark ${i + 1}</b><br>${esc(m.note)}${m.select ? `<br>On: ${esc(m.select)}` : ""}<br><small>${esc(m.created)}</small>`);
 }
-$("bMark").onclick = () => toggle("marking", "bMark");
+// A row keeps its click as the element's onclick (c0243): the navigation tests call it and await its promise.
+function MarksPanel({ marks }) {
+    return preact.h(preact.Fragment, null,
+        marks.length ? marks.map((m, i) => preact.h("div", { key: m.id, class: "navi mark", ref: el => { if (el)
+                el.onclick = () => openMark(m, i); } },
+            preact.h("span", { class: "markNo" }, i + 1),
+            preact.h("span", { class: "markText" },
+                m.note || "(no note)",
+                preact.h("small", null, `${m.doc}${m.select ? " · " + m.select : ""}`)),
+            preact.h("button", { type: "button", class: "tb icon ghost small", "aria-label": `Delete mark ${i + 1}`, "data-tip": "Delete this mark", onClick: ev => { ev.stopPropagation(); if (window.confirm(`Delete mark ${i + 1}?`))
+                    sendMark({ id: m.id, note: null }); } },
+                preact.h(Icon, { name: "x" })))) : preact.h(Empty, { text: "No marks yet. Press N, then click the drawing to drop one.", icon: "pin" }),
+        !serverMarks() ? preact.h("button", { type: "button", class: "tb wide", "data-tip": "Save them as a fenolite.review.v0 file for fenolite view --marks", onClick: () => download(JSON.stringify({ schema: "fenolite.review.v0", marks: MARKS }, null, 2) + "\n", "review.json", "application/json") },
+            preact.h(Icon, { name: "download" }),
+            preact.h("span", { class: "lbl" }, "Download marks")) : null);
+}
+function buildMarks() {
+    showSection("marks", MARKS.length > 0 || !LIVE, MARKS.length, "Marks" + (serverMarks() ? "" : " · in this browser"));
+    preact.render(preact.h(MarksPanel, { marks: MARKS }), $("marksList"));
+}
 // ---- export/svg.ts
 // ---- SVG: the view drawn again into a recorder of the canvas calls the page makes, as vector paths
 class RecPath {
@@ -3899,12 +4328,12 @@ function viewSvg(size) {
     }
     return rec.svg(W, H, size);
 }
-$("bSvg").onclick = () => { const svg = viewSvg(); if (!svg) {
+function saveSvg() { const svg = viewSvg(); if (!svg) {
     showInfo("SVG: leave the 3D view first (D).");
     return;
-} download(svg, (DOC ? DOC.name : "view") + ".svg", "image/svg+xml"); };
-function printView() {
-    const k = $("printScale").value, size = k === "fit" ? 'width="100%" height="100%" preserveAspectRatio="xMidYMid meet"' : `width="${(W / view.s * +k).toFixed(3)}mm" height="${(H / view.s * +k).toFixed(3)}mm"`;
+} download(svg, (DOC ? DOC.name : "view") + ".svg", "image/svg+xml"); }
+function printView(k = "fit") {
+    const size = k === "fit" ? 'width="100%" height="100%" preserveAspectRatio="xMidYMid meet"' : `width="${(W / view.s * +k).toFixed(3)}mm" height="${(H / view.s * +k).toFixed(3)}mm"`;
     const svg = viewSvg(size);
     if (!svg) {
         showInfo("Print: leave the 3D view first (D).");
@@ -3919,7 +4348,6 @@ function printView() {
     f.contentDocument.close();
     setTimeout(() => { f.contentWindow.focus(); f.contentWindow.print(); setTimeout(() => f.remove(), 2000); }, 200);
 }
-$("bPrint").onclick = printView;
 // ---- table/table.ts
 // ================================================================== tables (c0190): a BOM document, an output job
 const TBL = { sort: -1, up: true, q: "" };
@@ -3931,9 +4359,7 @@ function loadTable(scene) {
     cv.style.display = "none";
     glc.style.display = "none";
     $("bar3d").style.display = "none";
-    $("fname").textContent = scene.meta.name;
-    document.title = scene.meta.name + " · Fenolite viewer";
-    $("gen").textContent = scene.meta.sha256 ? `SHA-256 ${scene.meta.sha256.slice(0, 12)}` : "";
+    setDocTitle(scene.meta.name);
     $("notes").innerHTML = (scene.meta.notes || []).map(esc).join("<br>") + `<br>Read by the ${esc(scene.meta.backend || "?")} backend, evidence ${esc(scene.meta.evidence || "?")}.`;
     TBL.sort = -1;
     TBL.up = true;
@@ -3987,9 +4413,9 @@ async function tableRow(i) {
     applyQuery(text, true);
 }
 // ---- core/input.ts
-function flip() { view.mirror = !view.mirror; $("bFlip").textContent = "View: " + (view.mirror ? "Bottom" : "Top"); draw(); }
-function toggle(key, btn) { st[key] = !st[key]; $(btn).classList.toggle("on", st[key]); if (key === "measure" && !st.measure)
-    st.mpts = []; draw(); }
+function flip() { view.mirror = !view.mirror; refreshToolbar(); draw(); }
+function toggle(key) { st[key] = !st[key]; if (key === "measure" && !st.measure)
+    st.mpts = []; refreshToolbar(); draw(); }
 function find(q) {
     q = q.trim().toLowerCase();
     if (!q || !S)
@@ -4021,25 +4447,9 @@ function find(q) {
 }
 function setSidebar(open) {
     $("app").classList.toggle("sidebar-open", open);
-    $("bSidebar").setAttribute("aria-expanded", String(open));
+    refreshToolbar();
 }
-$("bSidebar").onclick = () => setSidebar(!$("app").classList.contains("sidebar-open"));
-$("b3d").onclick = () => set3D(!st.mode3d);
-$("bFit").onclick = () => st.mode3d ? camPreset("iso") : fit();
-$("bFlip").onclick = flip;
-$("bMeasure").onclick = () => toggle("measure", "bMeasure");
-$("bClear").onclick = () => { st.mpts = []; st.selOv = -1; if (isSch())
-    schSelect(-1);
-else
-    select(null); };
 function zoomBy(f) { view.s = Math.min(Math.max(view.s * f, 0.2), 400); draw(); }
-$("opac").oninput = e => { st.opac = e.target.value / 100; draw(); };
-$("search").addEventListener("keydown", e => { if (e.key === "Enter") {
-    find(e.target.value);
-    e.target.blur();
-}
-else if (e.key === "Escape")
-    e.target.blur(); });
 let drag = null;
 cv.addEventListener("mousedown", e => {
     if (document.activeElement && document.activeElement.blur)
@@ -4088,7 +4498,7 @@ function showCoord(x, y) {
     st.mouse = [x, y];
     if (!(st.measure && st.mpts.length))
         $("coord").textContent = isSch()
-            ? `X ${fmtLen(x - S.sheet.origin[0])}  Y ${fmtLen(S.sheet.origin[1] - y)} · grid ${fmtLen(S.sheet.grid)}` : `x ${fmtLen(x)}  y ${fmtLen(y)}`;
+            ? `X ${fmtLen(x - S.sheet.origin[0])}   Y ${fmtLen(S.sheet.origin[1] - y)}` : `X ${fmtLen(x)}   Y ${fmtLen(y)}`;
 }
 cv.addEventListener("mousemove", e => {
     if (!S)
@@ -4118,104 +4528,28 @@ cv.addEventListener("wheel", e => {
     view.cy += y - y2;
     draw();
 }, { passive: false });
+// The shortcuts (c0235, c0243): looked up in the command registry, never in form controls, dialogs or the project
+// review, during composition, after default prevention or with Ctrl, Meta or Alt; the one exception is the
+// palette chord, Ctrl+K (Cmd+K on macOS), which also works from a focused field.
 window.addEventListener("keydown", e => {
+    if (e.defaultPrevented || e.isComposing)
+        return;
+    if ((IS_MAC ? e.metaKey : e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        openPalette();
+        return;
+    }
     const target = e.target;
-    if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey ||
+    if (e.ctrlKey || e.metaKey || e.altKey ||
         (target instanceof Element && (target.closest("input, select, textarea, dialog[open], #projectReview") || target.isContentEditable)))
         return;
-    const k = e.key;
-    if (k === "Escape" && matchMedia("(max-width:760px)").matches && $("app").classList.contains("sidebar-open")) {
-        setSidebar(false);
-        $("bSidebar").focus();
+    const c = commandForKey(e);
+    if (!c)
         return;
-    }
-    if (!S || S.kind === "table")
-        return;
-    if (k === "q" || k === "Q") {
-        setUnit(UNIT === "mm" ? "mil" : "mm");
-        return;
-    }
-    if ((k === "m" || k === "M") && e.shiftKey && !st.mode3d && !isSch()) {
-        toggleEdge();
-        return;
-    }
-    if ((k === "m" || k === "M") && !st.mode3d) {
-        toggle("measure", "bMeasure");
-        return;
-    }
-    if ((k === "n" || k === "N") && !st.mode3d) {
-        toggle("marking", "bMark");
-        return;
-    }
-    if ((k === "x" || k === "X") && S.diff) {
-        st.diff = !st.diff;
-        draw();
-        return;
-    }
-    if ((k === "e" || k === "E") && S.check) {
-        st.checks = !st.checks;
-        draw();
-        return;
-    }
-    if (k === "Escape" && st.edge) {
-        toggleEdge();
-        return;
-    }
-    if (k === "Escape" && st.marking) {
-        toggle("marking", "bMark");
-        return;
-    }
-    if (k === "Escape" && (st.measure || st.mpts.length)) {
-        st.mpts = [];
-        st.mhover = null;
-        if (st.measure)
-            toggle("measure", "bMeasure");
-        return;
-    }
-    if (isSch()) {
-        if (k === "f" || k === "F")
-            fit();
-        else if (k === "Escape") {
-            schSelect(-1);
-            shareNet(null);
-        }
-        else if (k === "PageUp" || k === "PageDown") {
-            e.preventDefault();
-            zoomBy(k === "PageUp" ? 1.25 : 0.8);
-        }
-        return;
-    }
-    if (k === "d" || k === "D")
-        set3D(!st.mode3d);
-    else if (k === "f" || k === "F") {
-        if (st.mode3d)
-            camPreset("iso");
-        else
-            fit();
-    }
-    else if (st.mode3d)
-        return;
-    else if ((k === "S" || k === "s") && e.shiftKey) {
-        st.single = !st.single;
-        buildTabs();
-        draw();
-    }
-    else if (k === "+" || k === "=")
-        stepCurrent(1);
-    else if (k === "-" || k === "_")
-        stepCurrent(-1);
-    else if (k === "b" || k === "B")
-        flip();
-    else if (k === "m" || k === "M")
-        toggle("measure", "bMeasure");
-    else if ((k === "C" || k === "c") && e.shiftKey)
-        clearQuery();
-    else if (k === "Escape") {
-        st.mpts = [];
-        st.selOv = -1;
-        select(null);
-        shareNet(null);
-    }
+    if (c.keys.includes("PageUp") || c.keys.includes("PageDown"))
+        e.preventDefault();
+    c.run();
+    refreshToolbar();
 });
 // ---- sch/scene.ts
 // ================================================================== schematic view (scene kind "schematic")
@@ -4680,7 +5014,8 @@ function drawSch() {
     if (S.variants)
         drawVariantMarks(S.comps.map(c => [c.group || c.ref, c.b]));
     drawMeasure();
-    $("zoomv").textContent = `zoom ${(view.s * MIL * 100).toFixed(0)} %`;
+    $("zoomv").textContent = `Zoom ${(view.s * MIL * 100).toFixed(0)} %`;
+    refreshStatus();
 }
 // ---- sch/hit.ts
 // --- hit test
@@ -4913,7 +5248,7 @@ function sheetTabs() {
         t.onclick = () => openDoc(d);
         box.appendChild(t);
     }
-    $("cur").textContent = S ? `${S.sheet.style} sheet · ${S.comps.length} parts · ${S.nets.filter(n => n.name).length} nets` : "";
+    $("cur").textContent = S ? `Sheet ${S.sheet.style} · ${S.comps.length} parts · ${S.nets.filter(n => n.name).length} nets` : "";
 }
 async function crossProbe(ref, kind) {
     const want = ref.toLowerCase(), generation = navigation;
@@ -4993,9 +5328,7 @@ function loadSch(scene, keepView) {
     showInfo(null);
     cv.style.display = "block";
     view.mirror = false;
-    $("fname").textContent = S.meta.name;
-    document.title = S.meta.name + " · Fenolite viewer";
-    $("gen").textContent = S.meta.sha256 ? `SHA-256 ${S.meta.sha256.slice(0, 12)}` : "";
+    setDocTitle(S.meta.name);
     const c = S.meta.counts || {};
     $("ovTitle").style.display = "none";
     clearFindings();
@@ -5015,7 +5348,7 @@ function loadSch(scene, keepView) {
     else
         draw();
 }
-// ---- library/library.ts
+// ---- library/library.tsx
 // ================================================================== libraries (c0179): the item list, each item drawn as a board or a sheet
 let LIB = null, LIBSEL = -1, LIBQ = "";
 function setLib(v) { LIB = v; }
@@ -5037,23 +5370,32 @@ function itemNote(it) {
     }
     return it.pins != null ? `${it.pins} pins` : "";
 }
+// The item list, a Preact component (c0243); its rows stay the direct children of #libList (the catalog tests count
+// them), the empty line sits after it.
+function LibList({ items }) {
+    return preact.h(preact.Fragment, null, items.map(([it, i]) => preact.h("div", { key: i, class: "navi" + (i === LIBSEL ? " sel" : ""), title: it.description || it.name, onClick: () => openItem(i) },
+        it.name,
+        " ",
+        preact.h("small", null, itemNote(it)))));
+}
 function buildLibList() {
     const box = $("libList");
-    box.innerHTML = "";
-    if (!LIB)
+    if (!LIB) {
+        preact.render(null, box);
         return;
+    }
     const q = LIBQ.trim().toLowerCase();
-    $("libTitle").textContent = `${LIB.lib === "pcb" ? "Footprints" : LIB.lib === "drawing" ? "Sheets" : "Symbols"} (${LIB.items.length})`;
-    LIB.items.forEach((it, i) => {
-        if (q && !it.name.toLowerCase().includes(q) && !(it.description || "").toLowerCase().includes(q))
-            return;
-        const d = document.createElement("div");
-        d.className = "navi" + (i === LIBSEL ? " sel" : "");
-        d.title = it.description || it.name;
-        d.innerHTML = `${esc(it.name)} <small>${esc(itemNote(it))}</small>`;
-        d.onclick = () => openItem(i);
-        box.appendChild(d);
-    });
+    const what = LIB.lib === "pcb" ? "Footprints" : LIB.lib === "drawing" ? "Sheets" : "Symbols";
+    showSection("library", true, LIB.items.length, what);
+    const items = LIB.items.map((it, i) => [it, i]).filter(([it]) => !q || it.name.toLowerCase().includes(q) || (it.description || "").toLowerCase().includes(q));
+    preact.render(preact.h(LibList, { items: items }), box);
+    let empty = $("libEmpty");
+    if (!empty) {
+        empty = document.createElement("div");
+        empty.id = "libEmpty";
+        box.after(empty);
+    }
+    preact.render(items.length ? null : preact.h(Empty, { text: LIB.items.length ? `No ${what.toLowerCase()} match “${LIBQ.trim()}”.` : "This library holds no item." }), empty);
 }
 function itemInfo(it) {
     const rows = [...it.info];
@@ -5082,7 +5424,7 @@ function openItem(i, keepView) {
     else
         loadBoard(it.scene, keepView);
     document.body.classList.add("lib");
-    $("fname").textContent = `${LIB.meta.name} › ${it.name}`;
+    setDocTitle(`${LIB.meta.name} › ${it.name}`, LIB.meta.name);
     showInfo(itemInfo(it));
     st.itemInfo = true;
 }
@@ -5106,6 +5448,579 @@ function loadLibrary(scene, keepView) {
         $("notes").innerHTML += "<br>" + scene.meta.notes.map(esc).join("<br>");
 }
 $("libFilter").addEventListener("input", e => { LIBQ = e.target.value; buildLibList(); });
+// ---- core/palette-match.ts
+// ---- palette (c0243)
+// The matcher of the command palette (design decision 4): case-insensitive; a label that starts with the query
+// ranks first, then one where a word starts with it, then one that holds its letters in order (a subsequence);
+// shorter labels first within a rank, then the order given. A leading ">" keeps commands, "@" parts and "#" nets.
+// Pure functions, run under Node by tests/unit/view/test_page.py -k palette_match.
+const PALETTE_LIMIT = 50;
+const PALETTE_PREFIX = { ">": "command", "@": "part", "#": "net" };
+function paletteScore(q, label) {
+    const l = String(label || "").toLowerCase();
+    if (!q)
+        return 1;
+    const len = Math.min(l.length, 999);
+    if (l.startsWith(q))
+        return 3000 - len;
+    for (let i = 1; i < l.length; i++)
+        if (!/[a-z0-9]/.test(l[i - 1]) && /[a-z0-9]/.test(l[i]) && l.startsWith(q, i))
+            return 2000 - len;
+    let j = 0;
+    for (let i = 0; i < l.length && j < q.length; i++)
+        if (l[i] === q[j])
+            j++;
+    return j === q.length ? 1000 - len : 0;
+}
+function paletteParse(query) {
+    const t = String(query || "").trimStart(), kind = PALETTE_PREFIX[t[0]] || null;
+    return { q: (kind ? t.slice(1) : t).trim().toLowerCase(), kind };
+}
+function paletteMatch(query, items) {
+    const { q, kind } = paletteParse(query), scored = [];
+    items.forEach((it, i) => {
+        if (kind && it.kind !== kind)
+            return;
+        const s = Math.max(paletteScore(q, it.label), it.alt ? paletteScore(q, it.alt) - 500 : 0);
+        if (s > 0)
+            scored.push([s, i, it]);
+    });
+    scored.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+    return scored.slice(0, PALETTE_LIMIT).map(x => x[2]);
+}
+// ---- end palette
+// ---- core/commands.ts
+// ================================================================== the command registry (c0243, design decision 2)
+// Every action of the shell, declared once: the toolbar is built from it, the palette lists it, the shortcut sheet
+// prints it, and the keydown listener of core/input looks its shortcuts up here. `when()` says whether a command
+// applies to what is shown (board, sheet, library, table, 3D); `pressed()` gives a toggle's state. Later changes
+// add their commands (c0244 to c0246).
+let IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || ""); // let: a test sets it to check the macOS chord
+const cad = () => !!S && S.kind !== "table";
+const board = () => !!S && !S.kind && !isSch();
+const board2d = () => board() && !st.mode3d;
+const flat = () => cad() && !st.mode3d;
+const narrow = () => matchMedia("(max-width:760px)").matches;
+const sidebarOpen = () => $("app").classList.contains("sidebar-open");
+function escapeKey() {
+    if (narrow() && sidebarOpen()) {
+        setSidebar(false);
+        $("bSidebar").focus();
+        return;
+    }
+    if (!cad())
+        return;
+    if (st.edge) {
+        toggleEdge();
+        return;
+    }
+    if (st.marking) {
+        toggle("marking");
+        return;
+    }
+    if (st.measure || st.mpts.length) {
+        st.mpts = [];
+        st.mhover = null;
+        if (st.measure)
+            toggle("measure");
+        else
+            draw();
+        return;
+    }
+    if (isSch()) {
+        schSelect(-1);
+        shareNet(null);
+        return;
+    }
+    if (st.mode3d)
+        return;
+    st.mpts = [];
+    st.selOv = -1;
+    select(null);
+    shareNet(null);
+}
+const PRINT = [["fit", "Fit to the page"], ["1", "1:1"], ["2", "2:1"], ["5", "5:1"], ["10", "10:1"]];
+// ---- commands (c0243)
+const COMMANDS = [
+    { id: "view.3d", title: "3D view", group: "View", icon: "cube", keys: ["D"], when: () => board(), run: () => set3D(!st.mode3d), pressed: () => st.mode3d },
+    { id: "view.fit", title: "Fit to the window", group: "View", icon: "fit", keys: ["F"], when: () => cad(), run: () => st.mode3d ? camPreset("iso") : fit() },
+    { id: "view.flip", title: "View from below", group: "View", icon: "flip", keys: ["B"], when: () => board2d(), run: () => flip(), pressed: () => view.mirror },
+    { id: "view.zoomIn", title: "Zoom in", group: "View", icon: "zoom", keys: ["PageUp"], when: () => isSch(), run: () => zoomBy(1.25) },
+    { id: "view.zoomOut", title: "Zoom out", group: "View", icon: "zoom", keys: ["PageDown"], when: () => isSch(), run: () => zoomBy(0.8) },
+    { id: "view.single", title: "Current layer only", group: "Layers", icon: "layer", keys: ["Shift+S"], when: () => board2d(), run: () => { st.single = !st.single; buildTabs(); draw(); }, pressed: () => st.single },
+    { id: "view.nextLayer", title: "Next layer", group: "Layers", icon: "arrowUp", keys: ["+", "="], when: () => board2d(), run: () => stepCurrent(1) },
+    { id: "view.prevLayer", title: "Previous layer", group: "Layers", icon: "arrowDown", keys: ["-", "_"], when: () => board2d(), run: () => stepCurrent(-1) },
+    { id: "view.changes", title: "Show or hide the changes", group: "View", icon: "changes", keys: ["X"], when: () => cad() && !!S.diff, run: () => { st.diff = !st.diff; draw(); }, pressed: () => st.diff },
+    { id: "view.checks", title: "Show or hide the check markers", group: "View", icon: "target", keys: ["E"], when: () => cad() && !!S.check, run: () => { st.checks = !st.checks; draw(); }, pressed: () => st.checks },
+    { id: "tools.edge", title: "Edge gap", group: "Tools", icon: "gap", keys: ["Shift+M"], when: () => board2d(), run: () => toggleEdge(), pressed: () => st.edge },
+    { id: "tools.measure", title: "Measure", group: "Tools", icon: "ruler", keys: ["M"], when: () => flat(), run: () => toggle("measure"), pressed: () => st.measure },
+    { id: "tools.mark", title: "Review mark", group: "Tools", icon: "pin", keys: ["N"], when: () => flat(), run: () => toggle("marking"), pressed: () => st.marking },
+    { id: "tools.units", title: "Units: millimetres or mil", group: "Tools", icon: "units", keys: ["Q"], when: () => cad(), run: () => setUnit(UNIT === "mm" ? "mil" : "mm") },
+    { id: "tools.similar", title: "Find similar", group: "Tools", icon: "similar", keys: [], when: () => board2d() && (st.selComp >= 0 || !!st.lastHit), run: () => findSimilar() },
+    { id: "tools.clearFilter", title: "Clear the filter", group: "Tools", icon: "filter", keys: ["Shift+C"], when: () => board2d(), run: () => clearQuery() },
+    { id: "tools.escape", title: "Clear the selection or leave the tool", group: "Tools", icon: "clear", keys: ["Escape"], when: () => true, run: () => escapeKey() },
+    { id: "share.link", title: "Copy link", group: "Share", icon: "link", keys: [], when: () => !!DOC, run: () => copyLink() },
+    { id: "share.svg", title: "Save as SVG", group: "Share", icon: "image", keys: [], when: () => flat(), run: () => saveSvg() },
+    ...PRINT.map(([k, label]) => ({ id: `share.print.${k}`, title: `Print · ${label}`, group: "Share", icon: "printer", keys: [], when: () => flat(), run: () => printView(k) })),
+    { id: "app.palette", title: "Search or run a command", group: "General", icon: "search", keys: ["Mod+K"], when: () => true, run: () => openPalette() },
+    { id: "app.shortcuts", title: "Keyboard shortcuts", group: "General", icon: "keyboard", keys: ["?"], when: () => true, run: () => openShortcuts() },
+    { id: "app.about", title: "About this document", group: "General", icon: "info", keys: [], when: () => !!DOC, run: () => openAbout() },
+    { id: "app.review", title: "Project review", group: "General", icon: "review", keys: [], when: () => !!DOC, run: () => setProjectReview($("projectReview").hidden) },
+    { id: "app.sidebar", title: "Show or hide the side bar", group: "General", icon: "sidebar", keys: [], when: () => narrow(), run: () => setSidebar(!sidebarOpen()), pressed: () => sidebarOpen() },
+    { id: "app.run", title: "Run checks", group: "General", icon: "play", keys: [], when: () => RUNS.enabled && !!DOC && (DOC.viewable || DOC.kind === "project"),
+        run: () => window.FenoliteRuns.start("check", {}), disabled: () => !!RUNS.job },
+    { id: "app.theme.system", title: "Interface theme: follow the system", group: "General", icon: "monitor", keys: [], when: () => true, run: () => setTheme("system"), pressed: () => THEME === "system" },
+    { id: "app.theme.dark", title: "Interface theme: dark", group: "General", icon: "moon", keys: [], when: () => true, run: () => setTheme("dark"), pressed: () => THEME === "dark" },
+    { id: "app.theme.light", title: "Interface theme: light", group: "General", icon: "sun", keys: [], when: () => true, run: () => setTheme("light"), pressed: () => THEME === "light" },
+];
+// ---- end commands
+const commandById = id => COMMANDS.find(c => c.id === id);
+function available(c) { try {
+    return !!c.when();
+}
+catch (e) {
+    return false;
+} }
+function runCommand(id) {
+    const c = commandById(id);
+    if (!c || !available(c) || (c.disabled && c.disabled()))
+        return false;
+    c.run();
+    refreshToolbar();
+    return true;
+}
+const KEY_NAMES = { Escape: "Esc", PageUp: "PgUp", PageDown: "PgDn" };
+function keyLabel(spec) {
+    return spec === "+" ? "+" : spec.replace("Mod+", IS_MAC ? "⌘+" : "Ctrl+").split("+").map(k => KEY_NAMES[k] || k).join(" ");
+}
+function keyMatches(spec, e) {
+    if (spec === "+" || spec === "-" || spec === "=" || spec === "_" || spec === "?")
+        return e.key === spec;
+    const parts = spec.split("+"), key = parts.pop(), mods = new Set(parts);
+    if (mods.has("Mod"))
+        return (IS_MAC ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === key.toLowerCase();
+    if (key.length === 1 && /[a-z]/i.test(key))
+        return e.key.toLowerCase() === key.toLowerCase() && e.shiftKey === mods.has("Shift");
+    return e.key === key;
+}
+function commandForKey(e) {
+    for (const c of COMMANDS)
+        if (c.id !== "app.palette" && c.keys.some(k => keyMatches(k, e)) && available(c))
+            return c;
+    return null;
+}
+// ---- dialogs/palette.tsx
+// ================================================================== the command palette (c0243, design decision 4)
+// Ctrl+K (Cmd+K on macOS), or typing in the toolbar's search field: one field that runs a command of the registry
+// or jumps to a part, a net, a document or a library item. Results come grouped by source, the best group first;
+// arrows move, Enter runs or jumps (through the page's own selection functions and the navigation guard of
+// openDoc), Esc closes and gives the focus back. ">" keeps commands, "@" parts, "#" nets.
+const GROUPS = { command: "Commands", part: "Parts", net: "Nets", doc: "Documents", item: "Library" };
+const KIND_ICON = { part: "chip", net: "net", doc: "doc", item: "chip" };
+const PAL = { query: "", active: 0, items: [], results: [], back: null };
+function paletteItems() {
+    const out = [];
+    for (const c of COMMANDS)
+        if (available(c) && c.id !== "app.palette" && c.id !== "tools.escape")
+            out.push({ kind: "command", label: c.title, alt: c.group, icon: c.icon, keys: c.keys.filter(k => k !== "=" && k !== "_").map(keyLabel), run: () => runCommand(c.id), disabled: c.disabled && c.disabled() });
+    if (S && S.comps && S.kind !== "table") {
+        const sch = isSch();
+        const byRef = S.comps.map((c, i) => [c, i]).sort((a, b) => natural(a[0].ref, b[0].ref));
+        for (const [c, i] of byRef) {
+            if (c.hidden)
+                continue;
+            const sub = sch ? [c.comment, c.lib].filter(Boolean).join(" · ") : [c.value, c.footprint, c.side === "bottom" ? "bottom" : ""].filter(Boolean).join(" · ");
+            out.push({ kind: "part", label: c.ref, alt: sch ? c.comment : c.value, sub, run: () => sch ? selectComp(i, true) : selectCompAt(i) });
+        }
+        if (sch)
+            S.nets.forEach((n, i) => { if (n.name)
+                out.push({ kind: "net", label: n.name, sub: `${n.pins.length} pins`, run: () => selectNet(i, true) }); });
+        else
+            S.nets.forEach((n, i) => {
+                if (!n)
+                    return;
+                const info = (S.netinfo || [])[i];
+                out.push({ kind: "net", label: n, sub: info ? `${info.pads} pads · ${fmtLen(info.length * MM)}` : "", run: () => selectNetAt(i) });
+            });
+    }
+    if (LIB)
+        LIB.items.forEach((it, i) => out.push({ kind: "item", label: it.name, sub: it.description || "", run: () => openItem(i) }));
+    for (const d of allDocs())
+        if (d.viewable && d.present)
+            out.push({ kind: "doc", label: d.name, sub: d.path, color: KIND_COLOR[d.kind] || KIND_COLOR.other, current: DOC && DOC.id === d.id, run: () => openDoc(d) });
+    return out;
+}
+function grouped(results) {
+    const order = [], by = new Map();
+    for (const r of results) {
+        if (!by.has(r.kind)) {
+            by.set(r.kind, []);
+            order.push(r.kind);
+        }
+        by.get(r.kind).push(r);
+    }
+    return order.map(k => [k, by.get(k)]);
+}
+function refine() {
+    const { q, kind } = paletteParse(PAL.query);
+    let pool = PAL.items;
+    if (!q && !kind)
+        pool = pool.filter(it => it.kind === "command" || it.kind === "doc"); // nothing typed: what to do, where to go
+    PAL.results = grouped(paletteMatch(PAL.query, pool)).flatMap(g => g[1]);
+    PAL.active = Math.min(PAL.active, Math.max(PAL.results.length - 1, 0));
+}
+function Palette() {
+    const groups = grouped(PAL.results), { kind } = paletteParse(PAL.query);
+    let n = -1;
+    return preact.h("div", { class: "palBox" },
+        preact.h("div", { class: "palField" },
+            preact.h(Icon, { name: "search" }),
+            preact.h("input", { id: "palInput", role: "combobox", "aria-expanded": "true", "aria-controls": "palList", "aria-autocomplete": "list", "aria-activedescendant": PAL.results.length ? `pal${PAL.active}` : undefined, placeholder: "Search parts, nets and documents, or run a command\u2026", value: PAL.query, autocomplete: "off", spellcheck: false, onInput: e => { PAL.query = e.target.value; PAL.active = 0; refine(); renderPalette(); }, onKeyDown: paletteKey }),
+            preact.h("kbd", null, "Esc")),
+        preact.h("div", { id: "palList", role: "listbox", "aria-label": "Results" }, PAL.results.length ? groups.map(([k, list]) => preact.h("div", { role: "group", "aria-label": GROUPS[k], key: k },
+            preact.h("div", { class: "palGroup" }, GROUPS[k]),
+            list.map(r => {
+                n++;
+                const i = n;
+                return preact.h("div", { id: `pal${i}`, key: i, role: "option", "aria-selected": Boolean(i === PAL.active), "aria-disabled": r.disabled ? true : undefined, class: "palItem" + (i === PAL.active ? " active" : ""), onMouseMove: () => { if (PAL.active !== i) {
+                        PAL.active = i;
+                        renderPalette();
+                    } }, onClick: () => choose(i) },
+                    preact.h("span", { class: "palIc" }, r.color ? preact.h("span", { class: "dot", style: `background:${r.color}` }) : preact.h(Icon, { name: r.icon || KIND_ICON[r.kind] })),
+                    preact.h("span", { class: "palText" },
+                        preact.h("span", { class: "palLabel" }, r.label),
+                        r.sub ? preact.h("small", null, r.sub) : null),
+                    r.current ? preact.h("span", { class: "palTag" }, "Open") : null,
+                    (r.keys || []).map(k => preact.h("kbd", null, k)));
+            }))) : preact.h("div", { class: "palEmpty" }, PAL.query.trim() ? `Nothing matches “${PAL.query.trim()}”` + (kind ? ` among ${GROUPS[kind].toLowerCase()}.` : ".") : "Type to search.")),
+        preact.h("div", { class: "palFoot" },
+            preact.h("span", null,
+                preact.h("kbd", null, "\u2191"),
+                preact.h("kbd", null, "\u2193"),
+                " move"),
+            preact.h("span", null,
+                preact.h("kbd", null, "Enter"),
+                " open or run"),
+            preact.h("span", null,
+                preact.h("kbd", null, ">"),
+                " commands"),
+            preact.h("span", null,
+                preact.h("kbd", null, "@"),
+                " parts"),
+            preact.h("span", null,
+                preact.h("kbd", null, "#"),
+                " nets")));
+}
+function paletteKey(e) {
+    const n = PAL.results.length;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        if (!n)
+            return;
+        PAL.active = (PAL.active + (e.key === "ArrowDown" ? 1 : -1) + n) % n;
+        renderPalette();
+        scrollActive();
+    }
+    else if (e.key === "Enter" && !e.isComposing) {
+        e.preventDefault();
+        choose(PAL.active);
+    }
+    else if ((e.key === "k" || e.key === "K") && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        closePalette(true);
+    }
+}
+function scrollActive() { document.getElementById(`pal${PAL.active}`)?.scrollIntoView({ block: "nearest" }); }
+function choose(i) {
+    const r = PAL.results[i];
+    if (!r || r.disabled)
+        return;
+    closePalette(false);
+    document.activeElement?.blur?.();
+    r.run();
+}
+function renderPalette() { preact.render(preact.h(Palette, null), $("palette")); }
+function openPalette(query = "") {
+    const dlg = $("palette");
+    if (dlg.open) {
+        PAL.query = query || PAL.query;
+        refine();
+        renderPalette();
+        $("palInput").focus();
+        return;
+    }
+    PAL.back = document.activeElement;
+    PAL.query = query;
+    PAL.active = 0;
+    PAL.items = paletteItems();
+    refine();
+    renderPalette();
+    dlg.showModal();
+    const input = $("palInput");
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+}
+function closePalette(restore = true) {
+    const dlg = $("palette");
+    if (dlg.open)
+        dlg.close();
+    if (restore && PAL.back && PAL.back.isConnected && PAL.back !== document.body)
+        PAL.back.focus?.();
+    PAL.items = [];
+    PAL.results = [];
+}
+$("palette").addEventListener("cancel", e => { e.preventDefault(); closePalette(true); });
+$("palette").addEventListener("click", e => { if (e.target === $("palette"))
+    closePalette(true); }); // the backdrop
+// ---- dialogs/shortcuts.tsx
+// The shortcut sheet (c0243, design decision 2): `?` prints every command of the registry that has a shortcut,
+// by group, with whether it applies to what is shown, and the pointer gestures of the drawing.
+const GESTURES = [["Wheel", "Zoom at the pointer"], ["Drag", "Pan (2D) · orbit (3D)"], ["Shift drag", "Pan (3D)"], ["Click", "Select a part, a pad or a net"],
+    ["Double-click", "Open a sheet symbol · show the part on the other document"], ["Alt while measuring", "No snapping"]];
+function ShortcutSheet() {
+    const groups = new Map();
+    for (const c of COMMANDS) {
+        const keys = c.keys.filter(k => k !== "=" && k !== "_");
+        if (!keys.length)
+            continue;
+        if (!groups.has(c.group))
+            groups.set(c.group, []);
+        groups.get(c.group).push([c, keys]);
+    }
+    return preact.h(preact.Fragment, null,
+        preact.h("header", { class: "dlgHead" },
+            preact.h("h2", { id: "keysTitle" },
+                preact.h(Icon, { name: "keyboard" }),
+                " Keyboard shortcuts"),
+            preact.h("button", { type: "button", class: "tb icon ghost", "aria-label": "Close", "data-tip": "Close", onClick: () => $("shortcuts").close() },
+                preact.h(Icon, { name: "x" }))),
+        preact.h("div", { class: "keysGrid" },
+            [...groups].map(([g, list]) => preact.h("section", { key: g },
+                preact.h("h3", null, g),
+                preact.h("dl", null, list.map(([c, keys]) => preact.h("div", { class: available(c) ? "" : "na", title: available(c) ? "" : "Not available in this view" },
+                    preact.h("dt", null, c.title),
+                    preact.h("dd", null, keys.map((k, i) => preact.h(preact.Fragment, null,
+                        i ? preact.h("span", { class: "or" }, "or") : null,
+                        preact.h("kbd", null, keyLabel(k)))))))))),
+            preact.h("section", null,
+                preact.h("h3", null, "Pointer"),
+                preact.h("dl", null, GESTURES.map(([k, v]) => preact.h("div", null,
+                    preact.h("dt", null, v),
+                    preact.h("dd", null,
+                        preact.h("kbd", null, k))))))),
+        preact.h("p", { class: "dlgFoot" },
+            "Shortcuts do not act while a text field has the focus; ",
+            keyLabel("Mod+K"),
+            " opens the palette from anywhere."));
+}
+function openShortcuts() {
+    const dlg = $("shortcuts");
+    preact.render(preact.h(ShortcutSheet, null), dlg);
+    if (!dlg.open)
+        dlg.showModal();
+    dlg.querySelector("button")?.focus();
+}
+$("shortcuts").addEventListener("click", e => { if (e.target === $("shortcuts"))
+    $("shortcuts").close(); });
+// ---- dialogs/about.tsx
+// "About this document" (c0243, design decision 6): the developer detail the status bar no longer shows, one
+// click away under the document title: file name and path, size, the full SHA-256 with a copy control, the
+// backend, the evidence level of the read, the scene version of a live page and the counts of the notes. Nothing
+// in it is new data; it reads the tree's document and the scene's meta.
+function fmtBytes(n) {
+    if (n == null)
+        return "—";
+    const unit = n >= 1048576 ? [1048576, "MB"] : n >= 1024 ? [1024, "kB"] : null;
+    return unit ? `${(n / unit[0]).toFixed(1)} ${unit[1]} · ${n.toLocaleString("en")} bytes` : `${n} bytes`;
+}
+function countsOf(meta) {
+    const c = meta?.counts || {}, words = { footprints: "parts", components: "parts", pads: "pads", tracks: "tracks", vias: "vias", zones: "zones", pins: "pins", wires: "wires", nets: "nets", items: "items" };
+    return Object.entries(words).filter(([k]) => typeof c[k] === "number").map(([k, w]) => `${c[k]} ${w}`).join(" · ");
+}
+function About() {
+    const d = DOC, meta = S && S.meta ? S.meta : {}, notes = (meta.notes || []).length, counts = countsOf(meta);
+    const rows = [["Path", d ? d.path : "—"], ["Kind", d ? d.kind : "—"], ["Size", fmtBytes(d ? d.size : null)]];
+    return preact.h(preact.Fragment, null,
+        preact.h("header", { class: "aboutHead" },
+            preact.h("span", { class: "dot", style: `background:${KIND_COLOR[d?.kind] || KIND_COLOR.other}` }),
+            preact.h("div", null,
+                preact.h("h2", { id: "aboutTitle" }, d ? d.name : "No document"),
+                preact.h("p", null, PROJECT ? `${PROJECT.project_file || PROJECT.name} · ${PROJECT.source} project` : "")),
+            preact.h("button", { type: "button", class: "tb icon ghost", "aria-label": "Close", "data-tip": "Close", onClick: closeAbout },
+                preact.h(Icon, { name: "x" }))),
+        preact.h("dl", { class: "aboutRows" },
+            rows.map(([k, v]) => preact.h("div", null,
+                preact.h("dt", null, k),
+                preact.h("dd", null, v))),
+            preact.h("div", { class: "hash" },
+                preact.h("dt", null, "SHA-256"),
+                preact.h("dd", null, meta.sha256 ? preact.h(preact.Fragment, null,
+                    preact.h("code", { id: "aboutHash" }, meta.sha256),
+                    preact.h("button", { id: "aboutCopy", type: "button", class: "tb small", onClick: () => copyAndSay(meta.sha256, "SHA-256 copied") },
+                        preact.h(Icon, { name: "copy" }),
+                        preact.h("span", { class: "lbl" }, "Copy"))) : "not read")),
+            preact.h("div", null,
+                preact.h("dt", null, "Backend"),
+                preact.h("dd", null, meta.backend || "—")),
+            preact.h("div", null,
+                preact.h("dt", null, "Evidence"),
+                preact.h("dd", null,
+                    preact.h("span", { id: "aboutEvidence", class: "badge" }, meta.evidence || "UNKNOWN"))),
+            LIVE ? preact.h("div", null,
+                preact.h("dt", null, "Scene version"),
+                preact.h("dd", null,
+                    preact.h("code", null, st.version || "—"))) : null,
+            counts ? preact.h("div", null,
+                preact.h("dt", null, "Contents"),
+                preact.h("dd", null, counts)) : null,
+            preact.h("div", null,
+                preact.h("dt", null, "Notes"),
+                preact.h("dd", null, notes ? `${notes} note${notes === 1 ? "" : "s"} of the read, listed in the side bar` : "None"))));
+}
+function aboutOutside(e) { const t = e.target; if (!$("about").contains(t) && !t.closest?.("#bAbout"))
+    closeAbout(); }
+function aboutKey(e) { if (e.key === "Escape") {
+    e.preventDefault();
+    e.stopPropagation();
+    closeAbout();
+    $("bAbout")?.focus();
+} }
+function openAbout() {
+    const dlg = $("about");
+    if (dlg.open) {
+        closeAbout();
+        return;
+    }
+    preact.render(preact.h(About, null), dlg);
+    const b = $("bAbout"), r = b ? b.getBoundingClientRect() : { left: 12, bottom: 44 };
+    dlg.style.left = `${Math.max(8, Math.min(r.left - 12, innerWidth - 440))}px`;
+    dlg.style.top = `${r.bottom + 8}px`;
+    dlg.show();
+    dlg.focus();
+    document.addEventListener("pointerdown", aboutOutside, true);
+    document.addEventListener("keydown", aboutKey, true);
+}
+function closeAbout() {
+    const dlg = $("about");
+    if (dlg.open)
+        dlg.close();
+    document.removeEventListener("pointerdown", aboutOutside, true);
+    document.removeEventListener("keydown", aboutKey, true);
+}
+// ---- panels/toolbar.tsx
+// ================================================================== the toolbar (c0243, design decision 3)
+// Built from the command registry: the document title with "About this document", then three groups, View
+// (2D/3D, Fit, Top/Bottom with the far side's opacity), Tools (Measure with its Point and Edge gap modes, Mark,
+// units) and Share (Copy link, Export: SVG and Print at a scale). At the right: Run checks when the server runs
+// them, the variant selector, the search field that opens the palette, the theme and the shortcut sheet. A
+// control that does not apply to what is shown is not rendered. At 760 px and below the groups show icons only
+// and Share moves into the overflow menu.
+let DOC_TITLE = "Fenolite viewer";
+function setDocTitle(name, base) { DOC_TITLE = name; document.title = (base || name) + " · Fenolite viewer"; refreshToolbar(); }
+const keysOf = id => (commandById(id)?.keys || []).filter(k => k !== "=" && k !== "_").map(keyLabel).join(",");
+const can = id => { const c = commandById(id); return !!c && available(c); };
+const tipOf = id => commandById(id)?.title || id;
+function Btn({ id, cmd, icon, text, tip, keys, pressed, onClick, disabled, cls }) {
+    const label = tip || (cmd ? tipOf(cmd) : text);
+    return preact.h("button", { id: id, type: "button", class: "tb" + (text ? "" : " icon") + (cls ? " " + cls : ""), "aria-label": label, "aria-keyshortcuts": (keys ?? (cmd ? keysOf(cmd) : "")).split(",").filter(Boolean).map(k => k.replace(/ /g, "+")).join(" ") || undefined, "aria-pressed": pressed, "data-tip": label, "data-keys": keys ?? (cmd ? keysOf(cmd) : undefined), disabled: disabled, onClick: onClick || (() => runCommand(cmd)) },
+        preact.h(Icon, { name: icon }),
+        text ? preact.h("span", { class: "lbl" }, text) : null);
+}
+function printItems() {
+    return COMMANDS.filter(c => c.id.startsWith("share.print.")).map(c => ({ id: "bPrint" + c.id.slice(12).replace("fit", "Fit"), title: c.title.replace("Print · ", ""), icon: "printer", run: () => runCommand(c.id), disabled: !available(c) }));
+}
+function exportItems() {
+    return [{ id: "bSvg", title: "Save as SVG", icon: "image", run: () => runCommand("share.svg"), disabled: !can("share.svg") }, { sep: true }, { heading: "Print, or save as PDF" }, ...printItems()];
+}
+function OpacityPanel() {
+    return preact.h("div", { class: "menuForm" },
+        preact.h("label", { for: "opac" },
+            "Other side opacity ",
+            preact.h("output", null,
+                Math.round(st.opac * 100),
+                " %")),
+        preact.h("input", { id: "opac", type: "range", min: "0", max: "100", value: Math.round(st.opac * 100), onInput: e => { st.opac = +e.target.value / 100; draw(); refreshToolbar(); } }),
+        preact.h("p", null, "The layers of the side you look away from, drawn under the near side."));
+}
+function Toolbar() {
+    const boardKind = can("view.3d"), flat = can("tools.measure"), runs = can("app.run");
+    const measuring = st.measure || st.edge, variants = variantNames();
+    const themeIcon = THEME === "light" ? "sun" : THEME === "dark" ? "moon" : "monitor";
+    const shareMenu = [{ id: "bLinkMenu", title: "Copy link", icon: "link", run: () => runCommand("share.link"), disabled: !can("share.link") }, ...exportItems()];
+    return preact.h(preact.Fragment, null,
+        preact.h("button", { id: "bSidebar", type: "button", class: "tb icon", "aria-controls": "side", "aria-expanded": Boolean($("app").classList.contains("sidebar-open")), "aria-label": "Show or hide the project panels", "data-tip": "Projects and panels", onClick: () => runCommand("app.sidebar") },
+            preact.h(Icon, { name: "sidebar" })),
+        preact.h("div", { class: "docTitle" },
+            preact.h("svg", { class: "mark", width: "20", height: "20", viewBox: "0 0 20 20", "aria-hidden": "true" },
+                preact.h("rect", { x: "1", y: "1", width: "18", height: "18", rx: "5", fill: "var(--accent-bg)" }),
+                preact.h("path", { d: "M6 14.5V5.5h7M6 10h5", stroke: "var(--accent-text)", "stroke-width": "2", fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }),
+                preact.h("circle", { cx: "14", cy: "14", r: "1.6", fill: "var(--accent-text)" })),
+            preact.h("span", { class: "title", id: "fname", title: DOC_TITLE }, DOC_TITLE),
+            DOC ? preact.h(Btn, { id: "bAbout", cmd: "app.about", icon: "info", cls: "ghost" }) : null),
+        S ? preact.h("div", { class: "tgroup", role: "group", "aria-label": "View" },
+            boardKind ? preact.h("div", { class: "seg", role: "group", "aria-label": "2D or 3D" },
+                preact.h(Btn, { id: "b2d", icon: "plane", text: "2D", tip: "2D view", keys: keysOf("view.3d"), pressed: !st.mode3d, onClick: () => { if (st.mode3d)
+                        runCommand("view.3d"); } }),
+                preact.h(Btn, { id: "b3d", icon: "cube", text: "3D", tip: "3D view", keys: keysOf("view.3d"), pressed: st.mode3d, onClick: () => { if (!st.mode3d)
+                        runCommand("view.3d"); } })) : null,
+            can("view.fit") ? preact.h(Btn, { id: "bFit", cmd: "view.fit", icon: "fit", text: "Fit" }) : null,
+            can("view.flip") ? preact.h("span", { class: "split" },
+                preact.h(Btn, { id: "bFlip", cmd: "view.flip", icon: "flip", text: view.mirror ? "Bottom" : "Top", tip: view.mirror ? "Viewed from below: view from above" : "Viewed from above: view from below", pressed: view.mirror }),
+                preact.h(Menu, { id: "bFlipMenu", label: "Other side opacity", icon: "chevDown", cls: "caretOnly", panel: OpacityPanel })) : null) : null,
+        flat ? preact.h("div", { class: "tgroup", role: "group", "aria-label": "Tools" },
+            preact.h("span", { class: "split" },
+                preact.h(Btn, { id: "bMeasure", icon: st.edge ? "gap" : "ruler", text: st.edge ? "Edge gap" : "Measure", pressed: measuring, tip: st.edge ? "Edge gap: the gap between the edges of two objects" : "Measure a distance; snaps to pad centres, vertices, then edges (hold Alt: no snap)", keys: st.edge ? keysOf("tools.edge") : keysOf("tools.measure"), onClick: () => runCommand(st.edge ? "tools.edge" : "tools.measure") }),
+                can("tools.edge") ? preact.h(Menu, { id: "bMeasureMenu", label: "Measure mode", icon: "chevDown", cls: "caretOnly", items: [
+                        { id: "bPoint", title: "Point to point", icon: "ruler", keys: keyLabel("M"), checked: st.measure, run: () => { if (!st.measure)
+                                runCommand("tools.measure"); } },
+                        { id: "bEdge", title: "Edge gap", icon: "gap", keys: keyLabel("Shift+M"), checked: st.edge, run: () => { if (!st.edge)
+                                runCommand("tools.edge"); } },
+                    ] }) : null),
+            preact.h(Btn, { id: "bMark", cmd: "tools.mark", icon: "pin", text: "Mark", tip: "Drop a review mark with a note", pressed: !!st.marking }),
+            preact.h("button", { id: "bUnit", type: "button", class: "tb unit", "aria-label": `Units: ${UNIT === "mm" ? "millimetres" : "mil"}; switch`, "data-tip": "Units: millimetres or mil", "data-keys": keysOf("tools.units"), "aria-keyshortcuts": "Q", onClick: () => runCommand("tools.units") },
+                preact.h(Icon, { name: "units" }),
+                preact.h("span", { class: "lbl unitv" }, UNIT))) : null,
+        DOC ? preact.h("div", { class: "tgroup share", role: "group", "aria-label": "Share" },
+            preact.h(Btn, { id: "bLink", cmd: "share.link", icon: "link", text: "Copy link", tip: "Copy a link to this view: document, selection, zoom and unit" }),
+            flat ? preact.h(Menu, { id: "bExport", label: "Export", icon: "download", text: "Export", caret: true, items: exportItems(), tip: "Export: save as SVG or print" }) : null) : null,
+        preact.h("div", { class: "tspacer" }),
+        runs ? preact.h(Btn, { id: "bRun", cmd: "app.run", icon: "play", text: "Run checks", cls: "runBtn", disabled: !!RUNS.job, tip: RUNS.job ? "A run is in progress" : "Run checks on this server (read-only; nothing is written)" }) : null,
+        variants.length ? preact.h("select", { id: "variantSel", class: "tbSelect", "aria-label": "Assembly variant", "data-tip": "The project's assembly variant", onChange: e => setVariant(e.target.value) },
+            preact.h("option", { value: "", selected: !VARIANT }, "[No Variations]"),
+            variants.map(n => preact.h("option", { selected: n === VARIANT }, n))) : null,
+        preact.h("div", { class: "searchBox", role: "search" },
+            preact.h(Icon, { name: "search" }),
+            preact.h("input", { id: "search", placeholder: "Search or run\u2026", "aria-label": "Search parts, nets, documents and commands", autocomplete: "off", spellcheck: false, onKeyDown: e => { const t = e.target; if (e.key === "Enter") {
+                    const q = t.value;
+                    t.value = "";
+                    if (q.trim())
+                        openPalette(q);
+                    else
+                        find(q);
+                    t.blur();
+                }
+                else if (e.key === "Escape")
+                    t.blur();
+                else if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    openPalette(t.value);
+                    t.value = "";
+                } }, onInput: e => { const t = e.target; const q = t.value; t.value = ""; openPalette(q); } }),
+            preact.h("kbd", { class: "searchKey", onClick: () => openPalette() }, keyLabel("Mod+K"))),
+        preact.h("span", { class: "tgroup end" },
+            preact.h(Menu, { id: "bMore", label: "More", icon: "more", cls: "onlyNarrow", align: "right", items: shareMenu, tip: "Share and export" }),
+            preact.h(Menu, { id: "bTheme", label: "Interface theme", icon: themeIcon, align: "right", tip: "Interface theme", items: [
+                    { heading: "Interface theme" },
+                    { id: "themeSystem", title: "Follow the system", icon: "monitor", radio: true, checked: THEME === "system", run: () => runCommand("app.theme.system") },
+                    { id: "themeLight", title: "Light", icon: "sun", radio: true, checked: THEME === "light", run: () => runCommand("app.theme.light") },
+                    { id: "themeDark", title: "Dark", icon: "moon", radio: true, checked: THEME === "dark", run: () => runCommand("app.theme.dark") },
+                ] }),
+            preact.h(Btn, { id: "bKeys", cmd: "app.shortcuts", icon: "keyboard", cls: "hideNarrow" })));
+}
+var TOOLBAR_READY = false; // var: read before this module runs by the modules that come first
+function toolbarReady() { TOOLBAR_READY = true; refreshToolbar(); }
+function refreshToolbar() { if (TOOLBAR_READY)
+    preact.render(preact.h(Toolbar, null), $("top")); }
 // ---- core/start.ts
 // ================================================================== start: embedded data or the live server
 async function start() {
@@ -5118,6 +6033,9 @@ async function start() {
         setProject(await (await fetch("project.json", { cache: "no-store" })).json());
     }
     document.body.classList.toggle("catalog", PROJECT?.source === "catalog");
+    toolbarReady();
+    refreshStatus();
+    reviewEntry();
     buildTree();
     loadMarks((EMBED && EMBED.marks) || (PROJECT && PROJECT.marks));
     buildMarks();
@@ -5153,7 +6071,7 @@ async function poll() {
         const v = await (await fetch(`version/${encodeURIComponent(doc.id)}`, { cache: "no-store" })).json();
         if (!current())
             return;
-        $("live").textContent = v.error ? `error: ${v.error}` : v.building ? "reading…" : v.updated ? `live · updated ${v.updated}` : "live";
+        liveState(v.error ? "err" : v.building ? "busy" : "ok", v.error ? `Read error: ${v.error}` : v.building ? "Building…" : v.updated ? `Live · updated ${v.updated}` : "Live");
         if (v.building)
             return;
         if (v.version && v.version !== st.version) {
@@ -5168,9 +6086,10 @@ async function poll() {
     }
     catch (e) {
         if (current())
-            $("live").textContent = "server not reachable";
+            liveState("err", "Server not reachable");
     }
 }
+function liveState(kind, text) { const el = $("live"); el.textContent = text; el.dataset.state = kind; el.hidden = !text; }
 // ---- main.ts
 // The page's entry (change c0247): every module, imported for its effect in link order, then start().
 start();

@@ -69,13 +69,12 @@ export function viewSvg(size?) {   // the view as an SVG text; null in 3D
   try { draw(); } finally { setCtx(real); setDpr(realDpr); if (board) { setP2D(Path2D); buildCaches(); if (S.diff) S.diff.cache = null; } draw(); }
   return rec.svg(W, H, size);
 }
-$("bSvg").onclick = () => { const svg = viewSvg(); if (!svg) { showInfo("SVG: leave the 3D view first (D)."); return; } download(svg, (DOC ? DOC.name : "view") + ".svg", "image/svg+xml"); };
-export function printView() {   // the SVG at the chosen scale, printed from a hidden frame: the print dialog also saves a PDF
-  const k = $("printScale").value, size = k === "fit" ? 'width="100%" height="100%" preserveAspectRatio="xMidYMid meet"' : `width="${(W / view.s * +k).toFixed(3)}mm" height="${(H / view.s * +k).toFixed(3)}mm"`;
+export function saveSvg() { const svg = viewSvg(); if (!svg) { showInfo("SVG: leave the 3D view first (D)."); return; } download(svg, (DOC ? DOC.name : "view") + ".svg", "image/svg+xml"); }
+export function printView(k = "fit") {   // the SVG at the chosen scale, printed from a hidden frame: the print dialog also saves a PDF
+  const size = k === "fit" ? 'width="100%" height="100%" preserveAspectRatio="xMidYMid meet"' : `width="${(W / view.s * +k).toFixed(3)}mm" height="${(H / view.s * +k).toFixed(3)}mm"`;
   const svg = viewSvg(size); if (!svg) { showInfo("Print: leave the 3D view first (D)."); return; }
   const f = document.createElement("iframe"); f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0"; document.body.appendChild(f);
   const scale = k === "fit" ? "fit to page" : `scale ${k}:1`;
   f.contentDocument.open(); f.contentDocument.write(`<!doctype html><html><head><title>${esc(DOC ? DOC.name : "view")}</title><style>@page { margin: 10mm } html, body { margin: 0; height: 100% } svg { display: block; ${k === "fit" ? "width: 100%; height: 95vh" : ""} } p { font: 9pt system-ui; margin: 2mm 0 0 }</style></head><body>${svg}<p>${esc(DOC ? DOC.name : "")} · ${scale} · Fenolite viewer</p></body></html>`); f.contentDocument.close();
   setTimeout(() => { f.contentWindow.focus(); f.contentWindow.print(); setTimeout(() => f.remove(), 2000); }, 200);
 }
-$("bPrint").onclick = printView;

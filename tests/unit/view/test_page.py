@@ -82,7 +82,7 @@ def test_units() -> None:
     for name in (
         "function fmtLen",
         "function fmtNm",
-        'id="bUnit"',
+        '"bUnit"',  # the toolbar's unit button (c0243: rendered by panels/toolbar.tsx)
         "function snap(",
         "function measureClick",
     ):
@@ -159,3 +159,150 @@ def test_snap() -> None:
     ):
         assert name in html, name
     assert "snap(x, y, e.altKey)" in html and "measureClick(e.offsetX, e.offsetY, e.altKey)" in html
+
+
+# ---- c0243: the shell (tokens, command registry, toolbar, palette)
+
+
+def _style(html: str) -> str:
+    return html[html.index("<style>") + len("<style>") : html.index("</style>")]
+
+
+TOKEN_BLOCKS = (
+    ("dark", r":root \{([^}]*)\}"),
+    (
+        "light-system",
+        r"@media \(prefers-color-scheme: light\) \{\s*:root:not\(\[data-theme=dark\]\) \{([^}]*)\}\s*\}",
+    ),
+    ("light", r":root\[data-theme=light\] \{([^}]*)\}"),
+)
+COLOUR = re.compile(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(|\b(?:white|black)\b(?!-)")
+
+
+def _tokens(css: str) -> tuple[dict[str, dict[str, str]], str]:
+    """The three colour token blocks of the stylesheet, and the stylesheet without them."""
+    found: dict[str, dict[str, str]] = {}
+    rest = css
+    for name, pattern in TOKEN_BLOCKS:
+        match = re.search(pattern, rest)
+        assert match is not None, f"token block {name} is missing"
+        found[name] = dict(re.findall(r"(--[\w-]+):\s*([^;]+);", match.group(1)))
+        rest = rest[: match.start()] + rest[match.end() :]
+    return found, rest
+
+
+def _luminance(hex_colour: str) -> float:
+    h = hex_colour.lstrip("#")[:6]
+    channels = [int(h[i : i + 2], 16) / 255 for i in (0, 2, 4)]
+    lin = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+def _contrast(a: str, b: str) -> float:
+    la, lb = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+
+
+def test_tokens_in_both_themes_with_contrast() -> None:
+    """Scenario "Tokens and contrast" (c0243): every token in both themes, each text and surface pair at
+    4.5:1, and no colour literal in a chrome rule outside the token blocks."""
+    blocks, rest = _tokens(_style(template()))
+    names = set(blocks["dark"])
+    wanted = {
+        "--surface-0",
+        "--text-1",
+        "--accent",
+        "--focus",
+        "--ok",
+        "--warn",
+        "--err",
+        "--info",
+        "--emphasis",
+    }
+    assert wanted <= names
+    for name, block in blocks.items():
+        assert set(block) == names, (name, names ^ set(block))
+    assert blocks["light-system"] == blocks["light"]
+    texts = ("--text-1", "--text-2", "--text-3", "--accent", "--ok", "--warn", "--err", "--info")
+    for name, block in blocks.items():
+        for text in texts:
+            for surface in ("--surface-0", "--surface-1", "--surface-2", "--surface-3"):
+                ratio = _contrast(block[text], block[surface])
+                assert ratio >= 4.5, f"{name}: {text} on {surface} is {ratio:.2f}:1"
+        assert _contrast(block["--accent-text"], block["--accent-bg"]) >= 4.5, name
+        for badge in ("--err", "--warn"):  # a count badge: the panel colour on a severity
+            assert _contrast(block["--surface-1"], block[badge]) >= 4.5, (name, badge)
+    leftover = [m.group(0) for m in COLOUR.finditer(rest)]
+    assert leftover == [], f"colour literals outside the token blocks: {leftover}"
+    assert re.search(r"--space-1:\s*4px", rest) and re.search(r"--text-md:\s*13px", rest)
+
+
+def _block(html: str, start: str, end: str) -> str:
+    return html[html.index(start) : html.index(end)]
+
+
+def test_registry_commands_have_icons_and_unique_shortcuts() -> None:
+    """Design decision 2 (c0243): each command of the registry has a title, an icon of the icon set and a
+    shortcut no other command has; the keydown listener looks the shortcuts up in it."""
+    html = template()
+    icon_block = _block(html, "// ---- icons (c0243)", "// ---- end icons")
+    icons = set(re.findall(r"^\s*(\w+): \"M", icon_block, re.M))
+    registry = _block(html, "// ---- commands (c0243)", "// ---- end commands")
+    commands = re.findall(
+        r'\{ id: "([\w.]+)", title: "([^"]+)", group: "(\w+)", icon: "(\w+)", keys: \[([^\]]*)\]', registry
+    )
+    assert len(commands) >= 25
+    ids = [c[0] for c in commands]
+    assert len(ids) == len(set(ids))
+    keys: list[str] = []
+    for cid, title, _group, icon, spec in commands:
+        assert title and icon in icons, (cid, icon)
+        keys += re.findall(r'"([^"]+)"', spec)
+    assert len(keys) == len(set(keys)), sorted(k for k in keys if keys.count(k) > 1)
+    assert 'icon: "printer"' in registry and "share.print." in registry  # Print at each scale
+    assert {"Mod+K", "?", "D", "F", "B", "M", "Shift+M", "N", "Q", "Shift+S", "Escape"} <= set(keys)
+    assert "commandForKey(e)" in html and "function keyMatches(" in html
+
+
+def test_toolbar_groups_and_no_duplicate_controls() -> None:
+    """Scenario "No duplicate labels" (c0243), statically: the three groups in order, the duplicate Fit and
+    Clear controls and the SHA-256 of the status bar gone, the print scale in the Export menu."""
+    html = template()
+    toolbar = _block(html, "function Toolbar()", "function refreshToolbar()")
+    groups = re.findall(r'"aria-label": "(View|Tools|Share)"', toolbar)
+    assert groups == ["View", "Tools", "Share"]
+    labels = re.findall(r'\btext: "([^"]+)"', toolbar)
+    assert len(labels) == len(set(labels)), labels
+    for gone in ('id="printScale"', 'id="bClear"', 'id="gen"', "SHA-256 ${"):
+        assert gone not in html, gone
+    assert "Print, or save as PDF" in html and '"bQClear"' in html and "Clear filter" in html
+
+
+def test_palette_match_ranking_under_node() -> None:
+    """Scenario "Ranking under Node" (c0243): prefix matches before word starts before other subsequences, and
+    a query of ">" lists commands only."""
+    html = template()
+    code = _block(html, "// ---- palette (c0243)", "// ---- end palette")
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    items = [
+        {"kind": "command", "label": "Fit to the window"},
+        {"kind": "part", "label": "R10"},
+        {"kind": "part", "label": "PR1"},
+        {"kind": "net", "label": "GND_R1"},
+        {"kind": "part", "label": "R1"},
+        {"kind": "command", "label": "Review mark"},
+        {"kind": "doc", "label": "board.kicad_pcb"},
+    ]
+    script = code + (
+        f"const items = {json.dumps(items)}; const L = q => paletteMatch(q, items).map(i => i.label);"
+        "console.log(JSON.stringify({r1: L('r1'), cmd: L('>'), net: L('#r1'),"
+        " part: L('@r'), none: L('zzz')}));"
+    )
+    done = subprocess.run([node, "-e", script], capture_output=True, text=True, check=True, timeout=60)
+    out = json.loads(done.stdout)
+    assert out["r1"][:2] == ["R1", "R10"]  # prefixes, the shorter first
+    assert out["r1"].index("GND_R1") < out["r1"].index("PR1")  # a word start before a subsequence
+    assert out["cmd"] == ["Fit to the window", "Review mark"]
+    assert out["net"] == ["GND_R1"] and out["part"] == ["R1", "R10", "PR1"] and out["none"] == []

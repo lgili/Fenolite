@@ -12,6 +12,7 @@ import { drawMeasure } from "../measure/measure";
 import { drawMarks } from "../panels/marks";
 import { drawCheck } from "../review/check";
 import { MIL, SCH, SEL, WORKSPACE } from "./scene";
+import { refreshStatus } from "../panels/status-bar";
 export function fontCss(fo, px) { return `${fo.italic ? "italic " : ""}${fo.bold ? "bold " : ""}${px.toFixed(2)}px "${fo.name}", "Times New Roman", Times, serif`; }
 export function schAlpha(p) {
   if (SCH.selNet < 0) return 1;
@@ -137,5 +138,5 @@ export function drawSch() {
   const sb = SCH.selComp >= 0 ? S.comps[SCH.selComp].b : SCH.sel >= 0 && SCH.selNet < 0 ? S.objects[SCH.sel].b : null;
   if (sb) { const e = 4 / view.s; ctx.strokeStyle = SEL; ctx.lineWidth = 1.5 / view.s; ctx.setLineDash([5 / view.s, 3 / view.s]); ctx.strokeRect(sb[0] - e, sb[1] - e, sb[2] - sb[0] + 2 * e, sb[3] - sb[1] + 2 * e); ctx.setLineDash([]); }
   drawSchDiff(); drawCheck(); drawMarks(); linkLater(); if (S.variants) drawVariantMarks(S.comps.map(c => [c.group || c.ref, c.b])); drawMeasure();
-  $("zoomv").textContent = `zoom ${(view.s * MIL * 100).toFixed(0)} %`;
+  $("zoomv").textContent = `Zoom ${(view.s * MIL * 100).toFixed(0)} %`; refreshStatus();
 }

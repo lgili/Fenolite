@@ -106,7 +106,7 @@ return {before, strip, cancel, disabled, card, done:$("runStrip").textContent, m
         and result["disabled"]
     )
     assert "Failed" in result["card"] and "KICAD-VERIFIED(kicad-cli 10.0.7)" in result["card"]
-    assert result["marker"] == [10, 12] and "1 errors" in result["messages"]
+    assert result["marker"] == [10, 12] and "1 error" in result["messages"]
     assert result["run"] == ["run", "POST", "1"] and "exit 5" in result["done"]
 
 

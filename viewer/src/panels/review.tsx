@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
 // ================================================================== review panels (c0187): filter, highlight, components, nets
+import * as preact from "preact";
 import { byLayer, qCache } from "../board/cache";
 import { draw } from "../board/draw";
 import { compInfo } from "../board/info";
@@ -11,15 +12,19 @@ import { fmtLen } from "../core/units";
 import { fit } from "../core/viewport";
 import { shareNet } from "../sch/project-nets";
 import { set3D } from "../three/view3d";
+import { Icon } from "../ui/icons";
+import { showSection } from "../ui/section";
+import { Empty } from "../ui/states";
 export const HL_ALPHA = { dim: 0.28, mask: 0.06, normal: 1 };
-export const ROW = 20;
-export function vlist(box, items, row, click, selected) {   // a list that draws only the rows in view
-  const inner = document.createElement("div"); inner.style.cssText = `position:relative;height:${items.length * ROW}px`;
-  box.innerHTML = ""; box.appendChild(inner);
+export const ROW = 24;
+export function vlist(box, items, row, click, selected, empty?) {   // a list that draws only the rows in view (Preact rows, c0243)
+  box.style.height = items.length ? `${Math.min(240, items.length * ROW + 4)}px` : "auto";
+  if (!items.length) { box.onscroll = null; preact.render(<Empty text={empty || "Nothing to list."} />, box); return; }
   const paint = () => { const top = box.scrollTop, h = box.clientHeight || 240;
-    const a = Math.max(0, Math.floor(top / ROW) - 4), z = Math.min(items.length, Math.ceil((top + h) / ROW) + 4); inner.innerHTML = "";
-    for (let i = a; i < z; i++) { const d = document.createElement("div"); d.className = "navi" + (selected(items[i]) ? " sel" : "");
-      d.style.cssText = `position:absolute;left:0;right:0;top:${i * ROW}px;height:${ROW}px;line-height:${ROW}px`; d.innerHTML = row(items[i]); d.onclick = () => click(items[i]); inner.appendChild(d); } };
+    const a = Math.max(0, Math.floor(top / ROW) - 4), z = Math.min(items.length, Math.ceil((top + h) / ROW) + 4), rows = [];
+    for (let i = a; i < z; i++) rows.push(<div key={i} class={"navi vrow" + (selected(items[i]) ? " sel" : "")} style={`top:${i * ROW}px;height:${ROW}px;line-height:${ROW}px`}
+      onClick={() => click(items[i])}>{row(items[i])}</div>);
+    preact.render(<div class="vinner" style={`height:${items.length * ROW}px`}>{rows}</div>, box); };
   box.onscroll = paint; paint();
 }
 export function netBounds(ni) { let b = null;
@@ -31,16 +36,25 @@ export function primBounds(set) { let b = null;
 export function selectCompAt(ci) { if (st.mode3d) set3D(false); st.selComp = ci; st.selNet = -1; const b = S.comps[ci].bbox; if (b) fit([b[0] - 5, b[1] - 5, b[2] + 5, b[3] + 5]); showInfo(compInfo(ci)); buildReview(); draw(); }
 export function selectNetAt(ni) { if (st.mode3d) set3D(false); st.selNet = ni; st.selComp = -1; shareNet(S.nets[ni]); const b = netBounds(ni); if (b) fit([b[0] - 3, b[1] - 3, b[2] + 3, b[3] + 3]);
   const info = (S.netinfo || [])[ni]; showInfo(`Net: <b>${esc(S.nets[ni])}</b>` + (info ? `<br>${info.pads} pads · routed ${fmtLen(info.length * MM)}` : "")); buildReview(); draw(); }
+const COMP_SORT = { ref: c => c.ref, value: c => String(c.value || ""), footprint: c => String(c.footprint || "") };
 export function buildReview() {
   if (!S || S.kind || !S.prims) return; const qy = st.query, inQ = qy ? new Set(qy.comps) : null;
-  const cf = $("compFilter").value.trim().toLowerCase(), nf = $("netFilter").value.trim().toLowerCase();
+  const cfRaw = $("compFilter").value.trim(), nfRaw = $("netFilter").value.trim(), cf = cfRaw.toLowerCase(), nf = nfRaw.toLowerCase();
+  const key = COMP_SORT[$("compSort").value] || COMP_SORT.ref;
   const comps = S.comps.map((c, i) => i).filter(i => !inQ || inQ.has(i)).filter(i => { const c = S.comps[i]; return !cf || [c.ref, c.value, c.footprint].some(v => String(v || "").toLowerCase().includes(cf)); })
-    .sort((a, b) => natural(S.comps[a].ref, S.comps[b].ref));
+    .sort((a, b) => natural(key(S.comps[a]), key(S.comps[b])) || natural(S.comps[a].ref, S.comps[b].ref));
   let netSet = null; if (qy) { netSet = new Set(); for (const pr of qy.prims) if (pr[3] >= 0) netSet.add(pr[3]); }
-  const nets = S.nets.map((n, i) => i).filter(i => S.nets[i] && (!netSet || netSet.has(i)) && (!nf || S.nets[i].toLowerCase().includes(nf))).sort((a, b) => natural(S.nets[a], S.nets[b]));
-  $("compsTitle").textContent = `Components (${comps.length})`; $("netsTitle").textContent = `Nets (${nets.length})`;
-  vlist($("compList"), comps, i => { const c = S.comps[i]; return `${esc(c.ref)} <small>${esc(c.value || "")} · ${esc(c.footprint)}${c.side === "bottom" ? " · bottom" : ""}</small>`; }, selectCompAt, i => i === st.selComp);
-  vlist($("netList"), nets, i => { const info = (S.netinfo || [])[i]; return `${esc(S.nets[i])}` + (info ? ` <small>${info.pads} pads · ${fmtLen(info.length * MM)}</small>` : ""); }, selectNetAt, i => i === st.selNet);
+  const info = i => (S.netinfo || [])[i] || { pads: 0, length: 0 }, ns = $("netSort").value;
+  const nets = S.nets.map((n, i) => i).filter(i => S.nets[i] && (!netSet || netSet.has(i)) && (!nf || S.nets[i].toLowerCase().includes(nf)))
+    .sort((a, b) => (ns === "pads" ? info(b).pads - info(a).pads : ns === "length" ? info(b).length - info(a).length : 0) || natural(S.nets[a], S.nets[b]));
+  const total = S.nets.filter(Boolean).length;
+  showSection("components", true, comps.length === S.comps.length ? comps.length : `${comps.length} / ${S.comps.length}`, "Components");
+  showSection("nets", true, nets.length === total ? nets.length : `${nets.length} / ${total}`, "Nets");
+  const why = (raw, none, what) => raw ? `No ${what} match “${raw}”.` : qy ? `No ${what} in the filter’s result.` : none;
+  vlist($("compList"), comps, i => { const c = S.comps[i]; return <><b>{c.ref}</b><small>{[c.value, c.footprint, c.side === "bottom" ? "bottom" : ""].filter(Boolean).join(" · ")}</small></>; },
+    selectCompAt, i => i === st.selComp, why(cfRaw, "No components on this board.", "components"));
+  vlist($("netList"), nets, i => { const n = (S.netinfo || [])[i]; return <><b>{S.nets[i]}</b>{n ? <small>{`${n.pads} pads · ${fmtLen(n.length * MM)}`}</small> : null}</>; },
+    selectNetAt, i => i === st.selNet, why(nfRaw, "No nets on this board.", "nets"));
   $("queryInfo").textContent = qy ? (qy.prims.size || qy.comps.length ? `${qy.comps.length} part(s) · ${qy.prims.size} primitive(s)` : "Nothing matches the filter.") : "";
 }
 export function applyQuery(text, zoom) {
@@ -55,10 +69,13 @@ export let qTimer = null;
 $("query").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => applyQuery(e.target.value, false), 250); });
 $("query").addEventListener("keydown", e => { if (e.key === "Enter") { clearTimeout(qTimer); applyQuery(e.target.value, true); } else if (e.key === "Escape") e.target.blur(); });
 $("compFilter").addEventListener("input", buildReview); $("netFilter").addEventListener("input", buildReview);
-$("bSimilar").onclick = () => { if (!S || S.kind) return; const h = st.lastHit, ci = st.selComp >= 0 ? st.selComp : -1;
+$("compSort").addEventListener("change", buildReview); $("netSort").addEventListener("change", buildReview);
+preact.render(<Icon name="x" />, $("bQClear"));
+export function findSimilar() { if (!S || S.kind) return; const h = st.lastHit, ci = st.selComp >= 0 ? st.selComp : -1;
   const text = similarQuery(S, h ? h.pr : null, ci >= 0 ? ci : h && h.pr[4] >= 0 && h.pr[3] < 0 ? h.pr[4] : -1);
   if (!text) { $("queryInfo").textContent = "Select a part or a primitive first."; return; }
-  $("query").value = text; applyQuery(text, false); };
+  $("query").value = text; applyQuery(text, false); }
+$("bSimilar").onclick = findSimilar;
 $("bQClear").onclick = clearQuery;
 $("hlMode").value = HL_ALPHA[st.hl] !== undefined ? st.hl : "dim";
 $("hlMode").onchange = e => { st.hl = e.target.value; try { localStorage.setItem("fenolite.view.highlight", st.hl); } catch (err) { /* private window */ } draw(); };

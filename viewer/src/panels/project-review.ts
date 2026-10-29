@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
 // ================================================================== project review: recorded evidence and a guided finding list (c0239)
+import * as preact from "preact";
 import { actWaiveButton, buildActionPanel } from "../actions/actions";
 import { $, esc, showInfo } from "../core/dom";
 import { setSidebar } from "../core/input";
 import { DOC, PROJECT, S, st } from "../core/state";
 import { fit } from "../core/viewport";
 import { selectFinding } from "../review/check";
+import { Icon } from "../ui/icons";
 import { CARD_STAGES, runAltium, RUNS, runSay, runStages, startRun } from "../review/runs";
 export const REVIEW = { doc: null, selected: -1, items: [], matches: [] };
 export const REVIEW_STATE = { "not-run": "Not run", passed: "Passed", failed: "Failed", limited: "Limited" };
@@ -21,7 +23,22 @@ $("reviewJump").onclick = () => { $("reviewFindingHeading").scrollIntoView({bloc
 $("projectReview").addEventListener("keydown", e => {
   if (e.key === "Escape" && !e.isComposing) { e.preventDefault(); e.stopPropagation(); setProjectReview(false); }
 });
+// The entry of the side bar's head (c0243, design decision 5): "Project review" and the states of its cards.
+export function reviewCardsOf(ready, data) {
+  return data?.cards || [ {id:"read",title:"Read document",state:ready ? "passed" : "not-run"},
+    ...["Netlist connectivity", "Electrical rules (ERC)", "Board rules (DRC)", "Copper clearance", "Placement rules", "Zone fill", "Conversion", "Fabrication export"].map(title => ({title, state:"not-run"})) ];
+}
+export function reviewEntry() {
+  const ready = !!(S && DOC && REVIEW.doc === DOC.id), cards = reviewCardsOf(ready, ready && S.project_review), n = {};
+  for (const c of cards) { const k = REVIEW_STATE[c.state] ? c.state : "limited"; n[k] = (n[k] || 0) + 1; }
+  const parts = ["failed", "limited", "passed", "not-run"].filter(k => n[k]).map(k => preact.h("span", { class: `rs ${k}` }, `${n[k]} ${REVIEW_STATE[k].toLowerCase()}`));
+  preact.render(preact.h(preact.Fragment, null,
+    preact.h("span", { class: "reIc" }, preact.h(Icon, { name: "review" })),
+    preact.h("span", { class: "reText" }, preact.h("b", null, "Project review"), preact.h("small", null, ...parts.flatMap((p, i) => i ? [" · ", p] : [p]))),
+    preact.h("span", { class: "reGo" }, preact.h(Icon, { name: "chevRight", size: 12 }))), $("bProjectReview"));
+}
 export function buildProjectReview() {
+  reviewEntry();
   if ($("projectReview").hidden) return;
   const ready = S && DOC && REVIEW.doc === DOC.id;
   const data = ready && S.project_review;
@@ -30,9 +47,7 @@ export function buildProjectReview() {
     ? `${DOC.name}. ${data?.note || "No validation report was supplied. Reading a drawing is not an electrical check."}`
     : "This document has not been read. Select a viewable document to review it.";
   if (data?.binding && !data.binding.matched) $("reviewScope").textContent += " " + data.binding.note;
-  const fallback = [ {id:"read",title:"Read document",state:ready ? "passed" : "not-run"},
-    ...["Netlist connectivity", "Electrical rules (ERC)", "Board rules (DRC)", "Copper clearance", "Placement rules", "Zone fill", "Conversion", "Fabrication export"].map(title => ({title, state:"not-run"})) ];
-  for (const card of data?.cards || fallback) {
+  for (const card of reviewCardsOf(ready, data)) {
     const details = document.createElement("details"), state = REVIEW_STATE[card.state] ? card.state : "limited";
     details.dataset.card = card.id || card.title;
     details.innerHTML = `<summary><span>${esc(card.title)}</span><span class="reviewState ${state}">${REVIEW_STATE[state]}</span></summary>`;

@@ -166,3 +166,7 @@ document kinds that can be opened.
 - Is `?` acceptable for the shortcut sheet, given that it is `Shift+/` on most layouts?
 - Should the side bar get a resize handle now, or stay 260 px (the narrow-window requirement fixes 260 px
   at 1100 px)?
+
+Decided on 2026-10-29, as recommended: the interface follows the system's light or dark preference until the
+user chooses a theme; `?` opens the shortcut sheet (`Shift+/` where the layout needs it, matched on the key,
+not the code); the side bar stays 260 px, without a resize handle.

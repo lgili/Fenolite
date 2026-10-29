@@ -16,13 +16,14 @@ import { set3D } from "../three/view3d";
 import { schPick } from "./hit";
 import { applyProjNet, selectComp, selectNet } from "./project-nets";
 import { SCH, toMMsch } from "./scene";
+import { setDocTitle } from "../panels/toolbar";
 export function sheetTabs() {   // the bottom bar of a schematic: the project's viewable documents, as the native tool's document tabs
   const box = $("tablist"); box.innerHTML = "";
   const docs = allDocs().filter(d => d.viewable && d.present).sort((a, b) => ((a.kind !== "schematic") as any) - ((b.kind !== "schematic") as any) || natural(a.name, b.name));
   for (const d of docs) { const t = document.createElement("div"); t.className = "tab doc-tab" + (DOC && DOC.id === d.id ? " cur" : "");
     t.style.borderBottomColor = DOC && DOC.id === d.id ? (KIND_COLOR[d.kind] || "#888") : "transparent";
     t.innerHTML = `<span class="sw" style="background:${KIND_COLOR[d.kind] || "#888"}"></span><span>${esc(d.name)}</span>`; t.title = d.path; t.onclick = () => openDoc(d); box.appendChild(t); }
-  $("cur").textContent = S ? `${S.sheet.style} sheet · ${S.comps.length} parts · ${S.nets.filter(n => n.name).length} nets` : "";
+  $("cur").textContent = S ? `Sheet ${S.sheet.style} · ${S.comps.length} parts · ${S.nets.filter(n => n.name).length} nets` : "";
 }
 
 export async function crossProbe(ref, kind) {   // open the first document of `kind` that holds the part `ref`, and select it there
@@ -53,8 +54,7 @@ export function loadSch(scene, keepView) {
   document.body.classList.add("sch"); if (st.mode3d) set3D(false);
   SCH.sel = -1; SCH.selNet = -1; SCH.selComp = -1; showInfo(null);
   cv.style.display = "block"; view.mirror = false;
-  $("fname").textContent = S.meta.name; document.title = S.meta.name + " · Fenolite viewer";
-  $("gen").textContent = S.meta.sha256 ? `SHA-256 ${S.meta.sha256.slice(0, 12)}` : "";
+  setDocTitle(S.meta.name);
   const c = S.meta.counts || {};
   $("ovTitle").style.display = "none"; clearFindings();
   $("notes").innerHTML = (S.meta.notes || []).map(esc).join("<br>") + `<br>Read by the ${esc(S.meta.backend)} backend, evidence ${esc(S.meta.evidence)}.` +

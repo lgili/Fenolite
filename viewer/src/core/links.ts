@@ -5,7 +5,7 @@ import { draw } from "../board/draw";
 import { buildTabs } from "../board/tabs";
 import { LIB, LIBSEL } from "../library/library";
 import { isSch, SCH } from "../sch/scene";
-import { $ } from "./dom";
+import { copyAndSay } from "../ui/toast";
 import { PREVIEW_MODE } from "./env";
 import { find } from "./input";
 import { DOC, S, st, view, vis } from "./state";
@@ -33,5 +33,5 @@ export function applyLink(q) {   // after the document of the link is open
   if (z > 0 && c.length === 2 && c.every(Number.isFinite)) { view.s = z; view.cx = c[0]; view.cy = c[1]; setFitted(true); }
   draw();
 }
-$("bLink").onclick = async () => { const h = linkHash(); try { history.replaceState(null, "", "#" + h); } catch (e) { /* ignore */ }
-  try { await navigator.clipboard.writeText(location.href); $("live").textContent = "link copied"; } catch (e) { window.prompt("Link to this view", location.href); } };
+export async function copyLink() { const h = linkHash(); try { history.replaceState(null, "", "#" + h); } catch (e) { /* ignore */ }
+  if (!await copyAndSay(location.href, "Link to this view copied")) window.prompt("Link to this view", location.href); }

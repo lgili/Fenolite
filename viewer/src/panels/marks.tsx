@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
 // ---- review marks: kept by the server in the --marks file, else in this browser until downloaded
+import * as preact from "preact";
 import { draw } from "../board/draw";
 import { allDocs, navigation, openDoc } from "../core/documents";
 import { $, download, esc, showInfo } from "../core/dom";
-import { toggle } from "../core/input";
 import { selName } from "../core/links";
 import { ctx, DOC, PROJECT, st, view } from "../core/state";
 import { fit, worldTf } from "../core/viewport";
 import { isSch } from "../sch/scene";
 import { set3D } from "../three/view3d";
+import { Icon } from "../ui/icons";
+import { showSection } from "../ui/section";
+import { Empty } from "../ui/states";
 export let MARKS = [];
 export const marksKey = () => "fenolite.view.marks:" + (PROJECT ? PROJECT.name : "");
 export const serverMarks = () => LIVE && PROJECT && PROJECT.marks_file;
@@ -39,17 +42,26 @@ export function drawMarks() {
     ctx.fillStyle = "#000"; ctx.font = `600 ${(10 / view.s).toFixed(4)}px system-ui`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(String(i + 1), x, y - r * 2);
     ctx.textAlign = "start"; ctx.textBaseline = "alphabetic"; });
 }
-export function buildMarks() {
-  const box = $("marksList"); box.innerHTML = ""; $("marksTitle").style.display = MARKS.length || !LIVE ? "" : "none";
-  $("marksTitle").textContent = `Marks (${MARKS.length})` + (serverMarks() ? "" : " · in this browser");
-  MARKS.forEach((m, i) => { const d = document.createElement("div"); d.className = "navi";
-    d.innerHTML = `${i + 1}. ${esc(m.note || "(no note)")} <small>${esc(m.doc)}${m.select ? " · " + esc(m.select) : ""}</small> <a href="#" title="Delete this mark">×</a>`;
-    d.querySelector("a").onclick = ev => { ev.preventDefault(); ev.stopPropagation(); if (window.confirm(`Delete mark ${i + 1}?`)) sendMark({ id: m.id, note: null }); };
-    d.onclick = async () => { const doc = allDocs().find(x => x.name === m.doc);
-      if (doc && doc !== DOC) { const shown = await openDoc(doc); if (!shown || shown !== navigation) return; } if (st.mode3d) set3D(false);
-      const x = m.x_nm / 1e6, y = m.y_nm / 1e6, e = isSch() ? 25 : 5; fit([x - e, y - e, x + e, y + e]); showInfo(`<b>Mark ${i + 1}</b><br>${esc(m.note)}${m.select ? `<br>On: ${esc(m.select)}` : ""}<br><small>${esc(m.created)}</small>`); };
-    box.appendChild(d); });
-  if (!serverMarks()) { const b = document.createElement("button"); b.textContent = "Download marks"; b.title = "Save them as a fenolite.review.v0 file for fenolite view --marks";
-    b.onclick = () => download(JSON.stringify({ schema: "fenolite.review.v0", marks: MARKS }, null, 2) + "\n", "review.json", "application/json"); box.appendChild(b); }
+async function openMark(m, i) {   // the mark's document, then its place; a newer navigation wins (c0235)
+  const doc = allDocs().find(x => x.name === m.doc);
+  if (doc && doc !== DOC) { const shown = await openDoc(doc); if (!shown || shown !== navigation) return; } if (st.mode3d) set3D(false);
+  const x = m.x_nm / 1e6, y = m.y_nm / 1e6, e = isSch() ? 25 : 5; fit([x - e, y - e, x + e, y + e]);
+  showInfo(`<b>Mark ${i + 1}</b><br>${esc(m.note)}${m.select ? `<br>On: ${esc(m.select)}` : ""}<br><small>${esc(m.created)}</small>`);
 }
-$("bMark").onclick = () => toggle("marking", "bMark");
+// A row keeps its click as the element's onclick (c0243): the navigation tests call it and await its promise.
+export function MarksPanel({ marks }: { marks: any[] }) {
+  return <>
+    {marks.length ? marks.map((m, i) => <div key={m.id} class="navi mark" ref={el => { if (el) el.onclick = () => openMark(m, i); }}>
+      <span class="markNo">{i + 1}</span><span class="markText">{m.note || "(no note)"}<small>{`${m.doc}${m.select ? " · " + m.select : ""}`}</small></span>
+      <button type="button" class="tb icon ghost small" aria-label={`Delete mark ${i + 1}`} data-tip="Delete this mark"
+        onClick={ev => { ev.stopPropagation(); if (window.confirm(`Delete mark ${i + 1}?`)) sendMark({ id: m.id, note: null }); }}><Icon name="x" /></button>
+    </div>) : <Empty text="No marks yet. Press N, then click the drawing to drop one." icon="pin" />}
+    {!serverMarks() ? <button type="button" class="tb wide" data-tip="Save them as a fenolite.review.v0 file for fenolite view --marks"
+      onClick={() => download(JSON.stringify({ schema: "fenolite.review.v0", marks: MARKS }, null, 2) + "\n", "review.json", "application/json")}>
+      <Icon name="download" /><span class="lbl">Download marks</span></button> : null}
+  </>;
+}
+export function buildMarks() {
+  showSection("marks", MARKS.length > 0 || !LIVE, MARKS.length, "Marks" + (serverMarks() ? "" : " · in this browser"));
+  preact.render(<MarksPanel marks={MARKS} />, $("marksList"));
+}

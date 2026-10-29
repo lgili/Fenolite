@@ -31,3 +31,13 @@ def test_a_changed_colour_fails(pages: dict[str, Path], tmp_path: Path) -> None:
     (reply,) = run([job("altium_sheet", pages["altium_sheet"], tmp_path, script=script)], tmp_path)
     assert reply["ok"] is False and reply["ratio"] > MAX_RATIO
     assert Path(reply["diff"]).is_file()  # the difference image
+
+
+def test_the_light_shell_has_its_own_reference(pages: dict[str, Path], tmp_path: Path) -> None:
+    """Scenario "The light shell has its own reference" (c0243): a toolbar colour token changed in the page
+    fails the light reference."""
+    script = 'document.documentElement.style.setProperty("--surface-1", "#f0d0d0");'
+    (reply,) = run([job("kicad_board_light", pages["kicad_board_light"], tmp_path, script=script)], tmp_path)
+    assert reply["errors"] == [], reply["errors"]
+    assert reply["ok"] is False and reply["ratio"] > MAX_RATIO
+    assert Path(reply["diff"]).is_file()

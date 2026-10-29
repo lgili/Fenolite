@@ -1,0 +1,52 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Copyright (c) 2026 Fenolite contributors */
+/* Interface tokens (c0243, design decision 1): every colour, spacing, radius and type size of the page's chrome.
+   A document keeps its own colours (S.theme); only the interface around it follows these. The dark set is the
+   default; the light set applies when the system asks for it and the user chose nothing, or when the user chose
+   it (html[data-theme]). Values are Fenolite's own; each text token reaches 4.5:1 on every surface
+   (tests/unit/view/test_page.py -k tokens). Colour literals of the chrome live only in the three blocks below. */
+/* ---- tokens: dark */
+:root {
+  color-scheme: dark;
+  --surface-0: #121418; --surface-1: #1a1d22; --surface-2: #22262c; --surface-3: #2b3038;
+  --border: #353b45; --border-strong: #4a5260;
+  --text-1: #e9ecf1; --text-2: #b4bbc6; --text-3: #949ca8;
+  --accent: #6cadff; --accent-bg: #2563c9; --accent-text: #ffffff; --accent-soft: #6cadff26;
+  --focus: #8cc0ff; --hover: #ffffff0f; --selected: #2563c94d;
+  --ok: #56d364; --warn: #e3b341; --err: #ff7b72; --info: #79c0ff;
+  --emphasis: #f4f8ff; --shadow: #00000080; --backdrop: #0000008c;
+}
+/* ---- tokens: light, from the system */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --surface-0: #eef0f3; --surface-1: #ffffff; --surface-2: #f6f7f9; --surface-3: #e8ebef;
+    --border: #d4d8df; --border-strong: #b5bcc7;
+    --text-1: #1a1e24; --text-2: #46505d; --text-3: #5b6472;
+    --accent: #0a5cc7; --accent-bg: #0a5cc7; --accent-text: #ffffff; --accent-soft: #0a5cc71f;
+    --focus: #0a5cc7; --hover: #0000000a; --selected: #0a5cc729;
+    --ok: #177232; --warn: #8a5a00; --err: #c4161c; --info: #0a5cc7;
+    --emphasis: #ffffff; --shadow: #1a1e2433; --backdrop: #1a1e2459;
+  }
+}
+/* ---- tokens: light, chosen */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --surface-0: #eef0f3; --surface-1: #ffffff; --surface-2: #f6f7f9; --surface-3: #e8ebef;
+  --border: #d4d8df; --border-strong: #b5bcc7;
+  --text-1: #1a1e24; --text-2: #46505d; --text-3: #5b6472;
+  --accent: #0a5cc7; --accent-bg: #0a5cc7; --accent-text: #ffffff; --accent-soft: #0a5cc71f;
+  --focus: #0a5cc7; --hover: #0000000a; --selected: #0a5cc729;
+  --ok: #177232; --warn: #8a5a00; --err: #c4161c; --info: #0a5cc7;
+  --emphasis: #ffffff; --shadow: #1a1e2433; --backdrop: #1a1e2459;
+}
+/* ---- end tokens */
+/* Sizes: the same in both themes. */
+:root {
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px;
+  --text-xs: 11px; --text-sm: 12px; --text-md: 13px; --text-lg: 15px; --text-xl: 17px;
+  --radius-s: 4px; --radius-m: 6px; --radius-l: 10px;
+  --control-h: 28px; --top-h: 44px; --status-h: 26px; --side-w: 260px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+}

@@ -8,6 +8,7 @@ import { drawEdge } from "../measure/edge-tool";
 import { drawMeasure } from "../measure/measure";
 import { drawMarks } from "../panels/marks";
 import { HL_ALPHA } from "../panels/review";
+import { refreshStatus } from "../panels/status-bar";
 import { drawCheck } from "../review/check";
 import { drawSch } from "../sch/draw";
 import { cache, compCache, lighten, netCache, qCache, selCache, textCache } from "./cache";
@@ -71,5 +72,5 @@ export function draw() {
     for (const c of S.comps) if (c.bbox && notFitted(c.ref)) { const b = c.bbox; ctx.fillRect(b[0], b[1], b[2] - b[0], b[3] - b[1]); }
     drawVariantMarks(S.comps.map(c => [c.ref, c.bbox])); }
   drawDiff(); drawOverlays(); drawCheck(); drawEdge(); drawMarks(); drawMeasure(); linkLater();
-  $("zoomv").textContent = `zoom ${view.s.toFixed(1)} px/mm`;
+  $("zoomv").textContent = `Zoom ${view.s.toFixed(1)} px/mm`; refreshStatus();
 }

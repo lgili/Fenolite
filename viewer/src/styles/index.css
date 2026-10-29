@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /* Copyright (c) 2026 Fenolite contributors */
-/* The page's stylesheet in its original rule order (change c0247): the order is the cascade. */
+/* The page's stylesheet (change c0247): the order is the cascade. tokens.css comes first (c0243): every other
+   file reads its custom properties. */
+@import "./tokens.css";
 @import "./base.css";
+@import "./toolbar.css";
 @import "./review.css";
 @import "./catalog.css";
 @import "./preview.css";
@@ -10,6 +13,7 @@
 @import "./tabs.css";
 @import "./lists.css";
 @import "./status.css";
-@import "./responsive.css";
+@import "./dialogs.css";
 @import "./runs.css";
 @import "./actions.css";
+@import "./responsive.css";

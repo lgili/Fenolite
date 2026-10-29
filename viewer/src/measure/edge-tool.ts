@@ -8,9 +8,10 @@ import { $, esc, showInfo } from "../core/dom";
 import { ctx, st, view } from "../core/state";
 import { fmtLen } from "../core/units";
 import { dpr, w2s, worldTf } from "../core/viewport";
+import { refreshToolbar } from "../panels/toolbar";
 import { edgeBetween } from "./edge";
 export const EDGE_C = "#00d0ff";
-export function toggleEdge() { st.edge = !st.edge; st.epick = []; st.eres = null; $("bEdge").classList.toggle("on", st.edge); draw(); }
+export function toggleEdge() { st.edge = !st.edge; st.epick = []; st.eres = null; refreshToolbar(); draw(); }
 export function edgeGroup(h) {   // every primitive of the clicked item on its layer: a pad's core and its edge stroke together
   const pr = h.pr; if (!pr[5]) return [pr];
   return (byLayer.get(h.layer.id) || []).map(e => e[0]).filter(q => q[5] === pr[5] && q[4] === pr[4] && q[1] !== "t");
@@ -34,4 +35,3 @@ export function drawEdge() {
   ctx.fillStyle = "#000c"; ctx.fillRect(P[0] + 8, P[1] + 6, w + 12, 20); ctx.fillStyle = EDGE_C; ctx.fillText(txt, P[0] + 14, P[1] + 21); worldTf();
   $("coord").textContent = `measure: ${txt}`;
 }
-$("bEdge").onclick = toggleEdge;

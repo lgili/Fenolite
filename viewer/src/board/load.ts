@@ -14,6 +14,7 @@ import { draw } from "./draw";
 import { queryParse, queryRun } from "./query";
 import { buildTabs } from "./tabs";
 import { buildVariants } from "./variants";
+import { setDocTitle } from "../panels/toolbar";
 export function buildPanels() {
   buildFindings();
   const c = S.meta.counts || {};
@@ -29,8 +30,7 @@ export function loadBoard(scene, keepView) {
   if (st.query) st.query = st.query.text && S.prims ? { text: st.query.text, ...queryRun(S, queryParse(st.query.text)) } : null;
   buildCaches(); buildTabs(); buildPanels(); buildDiffList(); buildMessages(); buildVariants(); buildReview(); applyProjNet();
   cv.style.display = st.mode3d ? "none" : "block";
-  $("fname").textContent = S.meta.name; document.title = S.meta.name + " · Fenolite viewer";
-  $("gen").textContent = S.meta.sha256 ? `SHA-256 ${S.meta.sha256.slice(0, 12)}` : "";
+  setDocTitle(S.meta.name);
   if (V3.built) { V3.built = false; if (st.mode3d) { build3D(); draw3D(); } }
   if (first) { setFitted(false); fit(); } else draw();
 }

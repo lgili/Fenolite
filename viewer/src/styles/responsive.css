@@ -1,14 +1,26 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /* Copyright (c) 2026 Fenolite contributors */
+/* Narrow windows (c0233, c0243): the side bar becomes a drawer over the drawing, the toolbar wraps and shows
+   icons, Share moves into the overflow menu. */
 @media (max-width:760px) {
-  #app { grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr) 30px 24px; }
+  #app { grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr) auto var(--status-h); }
   #top, #tabs, #status { grid-column:1; min-width:0; }
-  #top { flex-wrap:wrap; padding:6px 8px; gap:6px; overflow:visible; }
-  #top .title { flex:1 1 calc(100% - 110px); min-width:0; overflow:hidden; text-overflow:ellipsis; }
-  #search { flex:1 1 150px; min-width:0; }
-  #bSidebar { display:block; }
+  #top { flex-wrap:wrap; padding:6px var(--space-2); gap:4px; row-gap:6px; }
+  #bSidebar { display:inline-flex; }
+  .docTitle { flex:1 1 calc(100% - 44px); max-width:none; margin-right:0; }
+  .tgroup { padding-left:4px; margin-left:0; }
+  .tgroup::before { display:none; }
+  .tgroup.share, .hideNarrow { display:none !important; }
+  .menuWrap.onlyNarrow { display:inline-flex; }
+  .tspacer { display:none; }
+  .searchBox { flex:1 1 140px; margin-left:0; min-width:0; }
+  .searchKey { display:none; }
+  #top .searchBox input { padding-right:var(--space-2); }
   #wrap { grid-column:1; min-width:0; min-height:0; }
-  #side { display:none; grid-column:1; width:min(280px,calc(100vw - 32px)); z-index:6; box-shadow:6px 0 18px #0008; }
+  #side { display:none; grid-column:1; grid-row:2/4; width:min(300px,calc(100vw - 32px)); z-index:8; box-shadow:8px 0 24px var(--shadow); }
   #app.sidebar-open #side { display:flex; }
   #info { max-width:calc(100% - 20px); max-height:70%; overflow:auto; }
+  #status { gap:var(--space-3); }
+  .sCoord { min-width:0; }
+  #cur, #unitv { display:none; }
 }

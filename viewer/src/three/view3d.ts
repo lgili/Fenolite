@@ -9,6 +9,7 @@ import { notFitted } from "../board/variants";
 import { $, esc, showInfo } from "../core/dom";
 import { cv, S, st } from "../core/state";
 import { dpr, fitted, H, measure, resize, setFitted, W } from "../core/viewport";
+import { refreshToolbar } from "../panels/toolbar";
 import { inv, lookAt, mul, persp } from "./math";
 export const glc = $("gl");
 export const V3: any = {   // any: init3D and buildMeshes add the model program and buffers
@@ -153,7 +154,7 @@ export function draw3D() {
   for (const k of ["aP", "aN", "aC"]) gl.disableVertexAttribArray(ML[k]);
 }
 export function set3D(on) {
-  st.mode3d = on; $("b3d").classList.toggle("on", on);
+  st.mode3d = on; refreshToolbar();
   glc.style.display = on ? "block" : "none"; cv.style.display = on ? "none" : "block"; $("bar3d").style.display = on ? "flex" : "none";
   if (on) { measure(); if (!V3.built && !build3D()) { set3D(false); return; } resize3D(); } else { setFitted(false); resize(); }
 }

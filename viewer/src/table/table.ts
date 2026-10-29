@@ -6,12 +6,12 @@ import { $, esc, linkify, natural, showInfo } from "../core/dom";
 import { cv, S, setS, st } from "../core/state";
 import { applyQuery } from "../panels/review";
 import { glc } from "../three/view3d";
+import { setDocTitle } from "../panels/toolbar";
 export const TBL = { sort: -1, up: true, q: "" };
 export function loadTable(scene) {
   setS(scene); st.mode3d = false; document.body.classList.remove("sch", "lib"); document.body.classList.add("table");
   cv.style.display = "none"; glc.style.display = "none"; $("bar3d").style.display = "none";
-  $("fname").textContent = scene.meta.name; document.title = scene.meta.name + " · Fenolite viewer";
-  $("gen").textContent = scene.meta.sha256 ? `SHA-256 ${scene.meta.sha256.slice(0, 12)}` : "";
+  setDocTitle(scene.meta.name);
   $("notes").innerHTML = (scene.meta.notes || []).map(esc).join("<br>") + `<br>Read by the ${esc(scene.meta.backend || "?")} backend, evidence ${esc(scene.meta.evidence || "?")}.`;
   TBL.sort = -1; TBL.up = true; TBL.q = "";
   const box = $("tablewrap"); box.style.display = "block";

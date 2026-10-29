@@ -49,24 +49,56 @@ The page is one HTML file with its styles and script inline and no external URL,
 written by `--export`. It is built from the TypeScript sources in `viewer/src/` into `src/fenolite/view/static/`
 (change c0247; `CONTRIBUTING.md`, "The viewer page's sources"); installing Fenolite needs no Node.
 
-- **Projects panel** (left). The project's documents, grouped as the native tools group them: Source
-  Documents (schematics, boards, harnesses), Libraries, Settings (output jobs, rules, stack-ups, library
-  tables), Documentation (drawings, annotations) and Other. A board opens on click; any other document
-  shows its kind, path and size. A document listed by the project but missing from the folder is grey.
-- **Narrow windows.** At 760 CSS pixels or below, **Projects** shows or hides the sidebar over the view;
-  it starts closed so the board keeps the window's width. The toolbar wraps into rows. Choose a document,
-  use Projects again, or press `Esc` outside a form field to close the sidebar. Desktop layout is unchanged.
+- **Toolbar** (change c0243). The document's name with **About this document** (the ⓘ button), then three
+  groups: **View** (2D / 3D `D`, Fit `F`, Top / Bottom `B` with the far side's opacity in its menu), **Tools**
+  (Measure `M`, whose menu also offers Edge gap `Shift+M`; Mark `N`; the unit, mm or mil, `Q`) and **Share**
+  (Copy link; Export: Save as SVG, Print fitted to the page or at 1:1, 2:1, 5:1 or 10:1). At the right: **Run
+  checks** when the server runs them (change c0245), the assembly variant, the search field, the interface
+  theme and the shortcut sheet. Every button has an icon, a name for screen readers and a tooltip with its
+  shortcut; a control that does not apply to what is shown (Measure in 3D, Top / Bottom on a sheet) is not
+  shown. The selection clears with `Esc` or from the palette.
+- **Command palette.** `Ctrl+K` (`Cmd+K` on macOS), or typing in the search field, opens one search box over
+  the commands of the toolbar and the parts, nets, documents and library items of the open project. Arrows
+  move, `Enter` runs the command or selects and frames the part or net (or opens the document), `Esc` closes.
+  A leading `>` keeps commands, `@` parts and `#` nets. `Ctrl+K` works from a text field too; no other
+  shortcut does.
+- **Shortcut sheet.** `?` lists every shortcut by group, with the pointer gestures; the toolbar, the palette
+  and the sheet are built from one command registry, so what one offers the others offer.
+- **Interface theme.** The page follows the system's light or dark setting until a theme is chosen in the
+  toolbar's theme menu or the palette; the choice is kept in the browser. Only the interface changes: a
+  document keeps its own colours (see "Colours").
+- **Side bar** (left). **Project review** at its head, with the states of its cards ("1 failed · 7 not run");
+  then one section per panel, each with a count, that folds open or closed and stays so on the next visit:
+  Project, Library or Navigator, Filter, Components, Nets, Changes, Messages, Marks, Findings and Document
+  notes. A list with nothing to show says why ("No nets match 'x'").
+- **Projects** (the Project section). The project's documents, grouped as the native tools group them:
+  Source Documents (schematics, boards, harnesses), Libraries, Settings (output jobs, rules, stack-ups, library
+  tables), Documentation (drawings, annotations) and Other. A board opens on click; any other document shows a
+  card with its kind, path and size and the kinds the viewer opens. A document listed by the project but
+  missing from the folder is grey.
+- **Loading and errors.** While a document is read, a card names it and a thin bar runs under the toolbar. A
+  read that fails shows its error with **Retry**, which reads the same document again if it is still the one
+  chosen.
+- **Status bar** (bottom). The cursor position in the page's unit, the grid of a sheet, the zoom, the current
+  layer, the selection, the unit and the live state ("Live · updated 12:03", "Building…" or the read error).
+- **About this document.** The file's name and path, size, full SHA-256 with **Copy**, the backend, the
+  evidence level of the read, the scene version of a served page and the number of notes.
+- **Narrow windows.** At 760 CSS pixels or below, the side bar button shows or hides the side bar over the
+  view; it starts closed so the board keeps the window's width. The toolbar wraps into rows and shows icons;
+  Share moves into the **More** menu. Choose a document, use the button again, or press `Esc` outside a form
+  field to close the side bar.
 - **Keyboard focus.** Viewer shortcuts pause while editing a text field, choosing a select value or using
-  Ctrl, Command/Meta or Alt combinations. Existing Shift shortcuts remain available outside form controls.
+  Ctrl, Command/Meta or Alt combinations, except `Ctrl+K` for the palette. Shift shortcuts remain available
+  outside form controls.
 - **Layer tabs** (bottom). One tab per layer with its colour.
   - A click on a tab makes that layer current: it is drawn last, above the others.
   - A click on the swatch, or a right click, shows or hides the layer.
   - `Shift+S` shows the current layer alone; `+` and `-` step through the visible layers.
   - **LS** offers layer sets: all layers, signal layers, the top side, the bottom side, the defaults.
 - **Board view.** Wheel to zoom, drag to pan, click a pad or track to highlight its net (or a part's own
-  drawing to highlight the part). **View: Top / Bottom** (`B`) turns the board over: the other side is drawn
-  under the visible one at the opacity of the **Other side** slider. **Search** finds a part by reference or
-  a net by name.
+  drawing to highlight the part). **Top / Bottom** (`B`) turns the board over: the other side is drawn under
+  the visible one at the opacity set in the button's menu. The palette finds a part by reference or a net by
+  name.
 - **Measure** (`M`): see "Units and measurement" below. Change c0193 adds the edges: without a point target
   within reach, a click snaps to the nearest point of an edge (a pad or fill border, a track border or axis, a
   circle, an outline), and the readout names what each end snapped to. Hold `Alt` to measure without snapping.
@@ -80,6 +112,7 @@ written by `--export`. It is built from the TypeScript sources in `viewer/src/` 
     program. Meshes are kept in the state folder. Without gmsh every body is extruded, and the notes say so.
 - **Findings** (left), by group. The box beside a group shows or hides it on the board, a click on its title
   lists its items, a click on an item fits the view to it, and the tooltip says the group's rule and model.
+  Groups with no finding fold into one line, "n groups with no findings", that lists them with their 0.
   - **Review groups** (`--no-review` leaves them out): 45° corners (acute, 90° and in-between turns of two
     tracks, tracks off 0/45/90°, zone outline corners); silkscreen near a mask opening, near other silkscreen
     or outside the board; copper outside the board; the open connections of `fenolite analyze`'s
@@ -92,7 +125,7 @@ written by `--export`. It is built from the TypeScript sources in `viewer/src/` 
     `{"schema", "groups": [{"id", "title", "color", "note"}], "items": [{"group", "kind": "line" | "path" |
     "point", "points_nm": [[x, y], ...], "label", "layer"}]}`, in the board frame of the model (nanometres,
     Y down).
-- **Notes** (left): what the scene had to assume.
+- **Document notes** (left): what the scene had to assume.
 
 ## What the scene shows, and what it states
 
@@ -269,19 +302,19 @@ shown; `--check run` runs `check` first, in the same process and read-only (chan
 ## Review tools
 
 Change c0189 adds what a review in Altium relies on:
-- **Edge measure.** `Shift+M` (or Edge) measures the shortest distance between the edges of two clicked
+- **Edge measure.** `Shift+M` (or Edge gap in the Measure menu) measures the shortest distance between the edges of two clicked
   objects: pads (all of a pad's copper on the layer clicked), tracks, arcs, vias, zone fills, board edges. A
   line joins the two closest points and the gap reads in the page's unit; overlapping objects read 0. Arcs are
   sampled every 2°, the rest is exact; on the authored test pair and against the gap `fenolite analyze` reports
   for a pad and a track the two agree within 1 µm. Objects on two layers are measured in the plane.
 - **Links.** The address of the page keeps the document, the selection, the zoom, the centre, the unit and the
-  current layer (`#doc=doc1&sel=U5&z=23.438&c=106.045,68.575&u=mm&l=F.Cu`); Link copies it, and opening it
+  current layer (`#doc=doc1&sel=U5&z=23.438&c=106.045,68.575&u=mm&l=F.Cu`); Copy link copies it, and opening it
   restores the view. `fenolite view PATH --select U12` opens at a part or a net.
 - **Review marks.** `N` (or Mark) drops a mark with a note where you click; the Marks panel lists them, a click
   zooms, `×` deletes. With `fenolite view PATH --serve --marks review.json` the server saves them to that
   file (`fenolite.review.v0`, positions in nanometres); an exported page keeps them in the browser and
   Download marks saves the file. `fenolite view PATH --marks review.json --json` lists them for an agent.
-- **SVG and print.** SVG saves the view as a vector file: the page draws it again into a recorder of its own
+- **SVG and print** (the Export menu). Save as SVG saves the view as a vector file: the page draws it again into a recorder of its own
   drawing calls, so the file shows what the screen shows (layers, selection, markers). Print prints that SVG,
   fitted to the page or at 1:1, 2:1, 5:1 or 10:1 on paper; the print dialog's Save as PDF gives a PDF. Both
   need the 2D view.
@@ -366,9 +399,9 @@ An Altium board is shown as Altium shows it (change c0181):
 ## Units and measurement
 
 Every length the page shows can be read in millimetres or in mil (change c0179). The **mm / mil** button in
-the top bar and the key `Q` switch it, as in Altium. The choice is kept for the next visit of the page. It
-applies to:
-- the cursor position and the grid;
+the toolbar's Tools group and the key `Q` switch it, as in Altium. The choice is kept for the next visit of
+the page, and the status bar names it. It applies to:
+- the cursor position in the status bar and the grid of a sheet;
 - measurements;
 - the Properties panel: track width and length, arc radius, via and hole diameter, pad size, corner radius,
   drill and slot, part position and extent, a footprint's copper and courtyard extent.

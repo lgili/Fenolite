@@ -7,6 +7,7 @@ import { DIFF_COLOR } from "../board/diff";
 import { $ } from "../core/dom";
 import { S } from "../core/state";
 import { fit } from "../core/viewport";
+import { showSection } from "../ui/section";
 
 function frameChange(b) { const m = Math.max(b[2] - b[0], b[3] - b[1], 1) * 0.6; fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m]); }
 export function ChangesPanel({ changes }: { changes: any[] }) {
@@ -16,7 +17,7 @@ export function ChangesPanel({ changes }: { changes: any[] }) {
     </div>))}</>;
 }
 export function buildDiffList() {
-  const box = $("diffList"), D = S && S.diff; $("diffTitle").style.display = D ? "" : "none";
-  if (D) $("diffTitle").textContent = `Changes since ${D.old.name} (${D.changes.length})`;
+  const box = $("diffList"), D = S && S.diff;
+  showSection("changes", !!D, D ? D.changes.length : undefined, D ? `Changes since ${D.old.name}` : "Changes");
   preact.render(D ? <ChangesPanel changes={D.changes} /> : null, box);
 }

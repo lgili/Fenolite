@@ -9,6 +9,8 @@ import { isSch, SCH } from "../sch/scene";
 import { schSelect } from "../sch/select";
 import { $, showInfo } from "./dom";
 import { showCoord } from "./input";
+import { refreshStatus } from "../panels/status-bar";
+import { refreshToolbar } from "../panels/toolbar";
 import { S, st } from "./state";
 export const MIL_MM = 0.0254;
 export let UNIT = (() => { try { return localStorage.getItem("fenolite.view.unit") === "mil" ? "mil" : "mm"; } catch (e) { return "mm"; } })();
@@ -17,7 +19,7 @@ export function fmtNm(nm) { return fmtLen(nm / 1e6); }
 export function fmtPair(a, b) { return UNIT === "mil" ? `${(a / MIL_MM).toFixed(2)} × ${(b / MIL_MM).toFixed(2)} mil` : `${a.toFixed(3)} × ${b.toFixed(3)} mm`; }
 
 export function setUnit(u) {
-  UNIT = u; $("bUnit").textContent = u; try { localStorage.setItem("fenolite.view.unit", u); } catch (e) { /* the choice is kept for this page only */ }
+  UNIT = u; refreshToolbar(); refreshStatus(); try { localStorage.setItem("fenolite.view.unit", u); } catch (e) { /* the choice is kept for this page only */ }
   if (!S) return;
   if (LIB && st.itemInfo && LIBSEL >= 0 && !st.lastHit && SCH.sel < 0) showInfo(itemInfo(LIB.items[LIBSEL]));
   if (isSch()) { if (SCH.sel >= 0) schSelect(SCH.sel); else if (SCH.selNet >= 0) selectNet(SCH.selNet, false); }
@@ -25,5 +27,3 @@ export function setUnit(u) {
   if (st.mouse) showCoord(st.mouse[0], st.mouse[1]);
   buildLibList(); draw();
 }
-$("bUnit").onclick = () => setUnit(UNIT === "mm" ? "mil" : "mm");
-$("bUnit").textContent = UNIT;

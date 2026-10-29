@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+import * as preact from "preact";
 import { loadBoard } from "../board/load";
 import { unpackScene } from "../board/scene";
 import { LIB, loadLibrary, setLib, toUnits } from "../library/library";
@@ -9,14 +10,20 @@ import { runReapply } from "../review/runs";
 import { loadSch } from "../sch/load";
 import { loadTable } from "../table/table";
 import { glc } from "../three/view3d";
-import { $, esc, showInfo } from "./dom";
+import { DocCard, setLoading } from "../ui/states";
+import { $, showInfo } from "./dom";
 import { cv, DOC, PROJECT, RAW, SCENE_READS, SCENES, setDoc, st } from "./state";
+import { setDocTitle } from "../panels/toolbar";
 export let navigation = 0, loadingNavigation = 0;
-export function docCard(d) {
+export function docCard(d, state?, error?) {   // the card over the drawing (c0243): reading, a failed read with Retry, nothing to draw
   REVIEW.doc = null; buildProjectReview();
   $("doccard").style.display = "flex"; $("tablewrap").style.display = "none"; cv.style.display = "none"; glc.style.display = "none";
-  $("doctext").innerHTML = `<b style="color:#fff">${esc(d.name)}</b><br>Kind: ${esc(d.kind)}<br>Path: ${esc(d.path)}<br>Size: ${d.size == null ? "—" : d.size + " bytes"}<br>` +
-    (d.present ? "" : "<br>The file is not in the project folder.<br>") + (d.viewable ? "" : "<br>Fenolite has no viewer for this kind of document yet.");
+  const kind = state || (!d.present ? "missing" : !d.viewable ? "noviewer" : "empty");
+  const project = !allDocs().some(x => x.viewable && x.present);
+  preact.render(preact.h(DocCard, { doc: d, state: kind, error, project, onRetry: () => retryDoc(d) }), $("doctext"));
+}
+export function retryDoc(d) {   // Retry of a failed read: only while that document is still the one chosen
+  if (!DOC || DOC.id !== d.id) return; invalidateScene(d.id); openDoc(d);
 }
 export async function sceneOf(d) {
   if (SCENES.has(d.id)) return SCENES.get(d.id);
@@ -35,13 +42,13 @@ export async function openDoc(d, keepView?) {
   const generation = ++navigation;
   if (!DOC || DOC.id !== d.id) { st.version = null; if (LIB) { setLib(null); document.body.classList.remove("lib"); } }
   setDoc(d); buildTree(); showInfo(null);
-  if (!keepView) { $("fname").textContent = d.name; document.title = d.name + " · Fenolite viewer"; }
+  if (!keepView) setDocTitle(d.name);
   if (!d.viewable || !d.present) { docCard(d); return 0; }
-  if (!keepView) { docCard(d); $("doctext").innerHTML += "<br><br>Reading…"; }
-  loadingNavigation = generation;
+  if (!keepView) docCard(d, "reading");
+  loadingNavigation = generation; setLoading(true);
   let sc; try { sc = await sceneOf(d); } catch (e) {
-    if (generation === navigation) { docCard(d); $("doctext").innerHTML += `<br><br>Could not read it: ${esc(e.message)}`; } return 0;
-  } finally { if (loadingNavigation === generation) loadingNavigation = 0; }
+    if (generation === navigation) docCard(d, "error", e.message); return 0;
+  } finally { if (loadingNavigation === generation) { loadingNavigation = 0; setLoading(false); } }
   if (generation !== navigation) return 0;
   if (!sc) { docCard(d); return 0; }
   $("doccard").style.display = "none";
