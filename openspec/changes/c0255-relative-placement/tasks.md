@@ -67,10 +67,11 @@
 
 ## 7. Closing
 
-- [ ] 7.1 Residue: the examples and the reference board are authored for Fenolite. Proof: `make residue`.
+- [x] 7.1 Residue: the examples and the reference board are authored for Fenolite. Proof: `make residue`.
+  2026-10-29: 0 hits within `make check-fast`.
 - [x] 7.2 Evidence: `H-G-REL-RESOLVE` in `docs/hypotheses.md` with its measurement; the evidence matrix regenerated. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
-  2026-10-29: 38 passed; the matrix holds no change. The register test also needed c0251's tasks to stop citing the renamed row `H-A-SCH-BLOCK-ENTRIES` (now `H-A-BLOCK-ENTRIES`).
+  2026-10-29: 38 passed; the matrix holds no change. The register test also needed c0251's tasks to stop citing c0269's row by its old name (now `H-A-BLOCK-ENTRIES`).
 - [x] 7.3 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits for `0.7.0.dev0` on `dev` (the guard of v0.6 keeps `[Unreleased]` empty until then). Proof: `uv run pytest tests/unit -k changelog -q`.
   2026-10-29: the base is at 0.7.0.dev0; 8 passed.
 - [ ] 7.4 Run `make check-fast`, publish the batch to its working branch, and read the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`; the required jobs green on the pushed head.
-  CI runs with the batch.
+  CI runs with the batch. `make check-fast PYTEST_WORKERS=2` on 2026-10-29: lint, format, types and residue pass; 16028 passed and one failure, `test_budget_holds` (the generated `commands.md` holds 766 lines on the base already).
