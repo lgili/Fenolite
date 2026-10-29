@@ -242,6 +242,7 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   buses with fixed roles, each with `attach(part, ...)` ("Typed interfaces").
 - `Quantity` and `ohm()`, `farad()`, `henry()`, `volt()`, `amp()`, `hertz()`, `watt()`, `second()`: exact
   electrical values ("Quantities").
+- `Range`, `Tolerance`, `between()` and `pct()`: exact value ranges with worst-case arithmetic ("Ranges").
 - `to_model(design)` and `placements(design)` turn a DSL design into a model `Design` and the
   placement requests; `build` calls them.
 
@@ -297,7 +298,71 @@ Nothing of the DSL is re-exported from the root `fenolite` package: the DSL `Des
   henries of 1 or more without a prefix have none and raise.
 - **Parts.** `Part(..., value=ohm("4k7"))` stores `4.7kΩ`, so two spellings of one value are one value in
   the model and in the outputs. Pass `value=q.text(code=True)` for ASCII, or a plain string as before. A
-  quantity never reaches the model or `.fenolite/`.
+  quantity never reaches the model or `.fenolite/`; a part value given as a range ("Ranges") does.
+- **Ranges.** A quantity with a range operand gives a `Range` (`volt("1") + between(...)`), the quantity
+  counting as `[q, q]` with nominal `q`; `q.pct()`, `q.min()`, `q.max()` and `q.within()` are in "Ranges".
+
+## Ranges
+
+A `Range` (change c0246) is an exact interval of one unit with an optional nominal: `unit` (a unit of
+`Quantity`, or `"ratio"` for a dimensionless value), `low` and `high` (`Fraction`, or `None` for an
+unbounded side) and the nominal. There is no solver: a range is computed forwards and compared.
+
+```python
+from fenolite.dsl import between, farad, ohm, pct, volt, amp
+
+v33 = volt("3.3").pct(3)  # 3.3V (3.201V..3.399V)
+c_in = farad("10u").pct(-20, 80)  # 10uF (8uF..18uF)
+r_top = ohm("100k").pct(pct(1))  # a Tolerance value gives the same range as pct(1)
+ripple = between(volt(0), volt("30m"))  # 0V..30mV, no nominal
+i_load = amp("1.5").max()  # 0A..1.5A
+v_in = volt("4.5").min()  # 4.5V.. (unbounded above)
+vout = volt("0.8").pct(1) * (1 + r_top / ohm("31.6k").pct(1))
+assert vout.within(volt("3.3").pct(5))
+```
+
+- **Constructors.** `q.pct(p)` is `[q − |q|·p/100, q + |q|·p/100]` with nominal `q` (`p >= 0`);
+  `q.pct(lo, hi)` runs from `lo` % to `hi` % (`lo <= 0 <= hi`); `q.pct(t)` takes a `Tolerance`, which
+  `pct(p)` or `pct(lo, hi)` builds without a unit. `q.max()` is `[0, q]` without nominal (`q >= 0`; use
+  `between` for a negative range); `q.min()` is `[q, unbounded)`. `between(a, b, *, nominal=None)` takes
+  two quantities of one unit with `a <= b`. A per-cent is an `int`, a `Fraction` or a decimal text
+  (`"0.5"`); a float, a bool or another text raises `DslError`, as does an inconsistent range.
+- **Reading back.** `r.min`, `r.max` and `r.nominal` are quantities (a `Fraction` for a ratio), or `None`;
+  a negative bound of a unit other than volts and amperes raises `DslError` when read as a quantity.
+  Equality and hashing compare all four fields; `<` between ranges raises `TypeError`.
+- **Arithmetic.** `+`, `-`, `*`, `/` and unary `-` take ranges, quantities, `int` and `Fraction` (a ratio)
+  on either side and give the exact worst-case range: `[a0+b0, a1+b1]`, `[a0−b1, a1−b0]`, the minimum
+  and maximum of the four bound products, and `a · [1/b1, 1/b0]`. The nominal of a result is the same
+  operation on the nominals when both have one. Dividing by a range that holds zero, or computing with
+  an unbounded range, raises `DslError`. Interval arithmetic does not know that two operands are the
+  same value, so `r / r` is wider than `[1, 1]`: a result can be wider than the true range, never
+  narrower.
+- **Units.** `+` and `-` take one unit. `*` and `/` follow the closed tables `quantity.UNIT_PRODUCTS` and
+  `quantity.UNIT_QUOTIENTS`, definitions of SI derived units; any other pair raises `TypeError` naming both
+  units.
+
+  | `*` | gives | `/` | gives |
+  |---|---|---|---|
+  | X · ratio, ratio · X | X | X / X | ratio |
+  | volt · ampere | watt | X / ratio | X |
+  | ampere · ohm | volt | volt / ohm, watt / volt | ampere |
+  | ohm · farad | second | volt / ampere | ohm |
+  | hertz · second | ratio | watt / ampere | volt |
+  | | | henry / ohm, ratio / hertz | second |
+  | | | ratio / second | hertz |
+
+- **Containment.** `a.within(b)` is true when every value of `a` lies in `b`, an unbounded side of `b`
+  holding everything on that side; `a` and `b` are ranges or quantities of one unit (`TypeError`
+  otherwise).
+- **Text.** `text()` and `str()` print `3.3V (3.201V..3.399V)`, or `3V..3.6V` without a nominal, and
+  `4.5V..` for an unbounded side; a ratio prints as a plain decimal. A value that does not terminate is
+  rounded outward (low down, high up, nominal to nearest) to four significant digits after a `~`:
+  `~0.3333..~0.6667`. `text()` never raises.
+- **Part values.** `Part(..., value=ohm("10k").pct(1))` stores `10kΩ` as the value, exactly as
+  `value=ohm("10k")` does, and the range as `Part.value_range`. A part value range needs a nominal, two
+  bounds, a unit (not a ratio) and no negative bound of a unit other than volts and amperes, else
+  `DslError` naming the ref. `to_model` stores it as `Component.value_range`, a `ValueRange` of exact
+  decimals (`docs/design-model.md`, "Value ranges"); no written KiCad or Altium file changes.
 
 ## Typed interfaces
 
