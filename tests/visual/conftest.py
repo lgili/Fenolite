@@ -45,3 +45,12 @@ def buck_page(tmp_path_factory: pytest.TempPathFactory) -> Path:
     ]
     _cli("build", str(script), "--out", str(folder / "build"), "--confirm", "--plan", plan, "--json")
     return export(folder / "build" / "buck_shunt_bad.kicad_pro", folder / "buck.html", "--no-models")
+
+
+@pytest.fixture(scope="session")
+def buck_roles_page(buck_page: Path) -> Path:
+    """The bad buck exported in its Net Roles workspace (change c0245)."""
+    from _visual import export
+
+    project = buck_page.parent / "build" / "buck_shunt_bad.kicad_pro"
+    return export(project, buck_page.parent / "buck_roles.html", "--no-models", "--workspace", "roles")

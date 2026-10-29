@@ -1,7 +1,7 @@
 // ================================================================== start: embedded data or the live server
 async function start() {
   if (EMBED) { PROJECT = EMBED.project; for (const [id, sc] of Object.entries(EMBED.scenes)) RAW.set(id, sc); }   // decoded when opened
-  else if (LIVE) { PROJECT = await (await fetch("project.json", { cache: "no-store" })).json(); if (PROJECT && PROJECT.settings) { Object.assign(SETTINGS, PROJECT.settings); startKeymap(); } }
+  else if (LIVE) { PROJECT = await (await fetch("project.json", { cache: "no-store" })).json(); if (PROJECT && PROJECT.settings) { Object.assign(SETTINGS, PROJECT.settings); startKeymap(); GIVEN_LAYOUT = SETTINGS.layout || null; setWorkspace(WS, true); } }
   document.body.classList.toggle("catalog", PROJECT?.source === "catalog");
   buildTree();
   loadMarks((EMBED && EMBED.marks) || (PROJECT && PROJECT.marks)); buildMarks();

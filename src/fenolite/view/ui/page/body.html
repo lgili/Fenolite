@@ -20,6 +20,7 @@
       <select id="netSel" class="board-only" title="Net: highlight one net" aria-label="Net"><option value="">Net: none</option></select>
       <select id="gridSel" class="board-only" title="Grid: the dot grid of the board" aria-label="Grid"></select>
       <button id="bUnit" data-cmd="view.units" class="textbtn">mm</button>
+      <select id="rolesView" class="roles-only" title="Roles view: what colours the copper" aria-label="Roles view"><option value="roles">Roles view: role colours</option><option value="state">Roles view: confirmation</option><option value="layers">Roles view: layer colours</option></select>
     </span>
     <span class="tgroup">
       <button id="bLink" data-cmd="file.link" data-icon="link">Link</button>
@@ -86,6 +87,9 @@
     <button id="kmDownload" title="Save the keymap as a fenolite.view_keymap.v0 file for --keymap">Save file</button><button id="kmReset" title="Remove your changes of this keymap">Reset</button></div>
     <input id="kmFilter" placeholder="Filter commands…" aria-label="Filter commands"><p id="kmMessage" class="notes" role="status" aria-live="polite"></p>
     <table class="grid" id="kmTable"><thead><tr><th scope="col">Command</th><th scope="col">Keys</th><th scope="col">From</th><th scope="col"><span class="sr-only">Change</span></th></tr></thead><tbody></tbody></table></div>
+  <div id="pNetRoles"><div class="rtabs" role="tablist" aria-label="Net Roles"><button role="tab" data-rtab="nets">Nets</button><button role="tab" data-rtab="groups">Groups</button><button role="tab" data-rtab="classes">Classes</button></div>
+    <input id="roleFilter" placeholder="Filter…" aria-label="Filter the roles"><p id="roleCounts" class="notes"></p>
+    <table class="grid roles" id="roleTable" aria-label="Roles"><thead id="roleHead"></thead><tbody id="roleBody"></tbody></table><p id="roleEmpty" class="notes" hidden></p></div>
   <div id="pProperties"><div id="propsEmpty" class="notes">Nothing selected. Click a pad, a track, a part or a finding.</div><div id="info"></div></div>
   <div id="pMessages">
     <div class="msghead"><span id="msgTitle">No messages</span><span class="sfill"></span>

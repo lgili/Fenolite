@@ -53,6 +53,7 @@ from fenolite.model.rules import (
     RoleKind,
     RoleSet,
 )
+from fenolite.roles import profile
 from fenolite.roles.judge import EVIDENCE, Judged, run, split_roles
 from fenolite.roles.measure import Inputs
 from fenolite.roles.store import Stored, dumps_document, merged, stored_roles, updated_rules
@@ -421,6 +422,57 @@ def _relative(path: Path, cwd: Path) -> str:
         return path.as_posix()
 
 
+LIMIT_KEYS: dict[str, tuple[str, ...]] = {
+    "power": ("width_per_amp_nm", "milliamps_per_via"),
+    "switch_node": ("width_per_amp_nm", "milliamps_per_via"),
+    "ground": ("width_per_amp_nm", "milliamps_per_via"),
+    "kelvin": ("kelvin_inner_edge", "kelvin_pair", "switching_distance_nm"),
+    "gate": ("switching_distance_nm",),
+    "signal": ("switching_distance_nm",),
+}
+"""The limits a net's role is judged by (``docs/roles.md``, "Checks"); a ``signal`` only when sensitive."""
+GROUP_LIMIT_KEYS: dict[str, tuple[str, ...]] = {
+    "hot": ("loop_max", "loop_ratio_max", "loop_bound_floor_nm2"),
+    "gate": ("gate_max", "gate_ratio_max", "loop_bound_floor_nm2"),
+    "kelvin": ("kelvin_pair", "pair_ratio_max", "loop_bound_floor_nm2"),
+}
+"""The limits a role group is judged by, resolved as ``fenolite.roles.checks`` does (kind and net)."""
+GROUP_KIND = {"hot": "switch_node", "gate": "gate", "kelvin": "kelvin"}
+
+
+def _limit_json(found: profile.Limit, **where: str | None) -> dict[str, Any]:
+    default = profile.DEFAULTS[found.key]
+    return where | {
+        "key": found.key,
+        "value": found.value,
+        "unit": default.unit,
+        "origin": found.origin,
+        "source": found.source,
+        "label": default.label,
+    }
+
+
+def _limits(roles: RoleSet, measures: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The limit in force for each judged key of each role and group, with where it came from (change
+    c0245: the Net Roles workspace shows every limit with its source). A group's net is the one its loop
+    measure names."""
+    nets = {str(m["subject"]): m["values"].get("net") for m in measures if m.get("kind") == "loop"}
+    out: list[dict[str, Any]] = []
+    for role in roles.nets:
+        if role.kind == "signal" and not role.sensitive:
+            continue
+        for key in LIMIT_KEYS.get(role.kind, ()):
+            found = profile.resolve(key, roles.limits, net=role.net, kind=role.kind)
+            out.append(_limit_json(found, net=role.net, group=None, kind=role.kind))
+    for kind, groups in (("hot", roles.loops), ("gate", roles.gates), ("kelvin", roles.kelvins)):
+        for group in groups:
+            net = nets.get(group.name)
+            for key in GROUP_LIMIT_KEYS[kind]:
+                found = profile.resolve(key, roles.limits, net=net, kind=GROUP_KIND[kind])
+                out.append(_limit_json(found, net=None, group=group.name, kind=kind))
+    return out
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     kinds = _kinds(args.kinds)
     classes = _classes(args.classes)
@@ -502,6 +554,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     }
     if inputs is not None:
         result["measures"] = [measure.to_json() for measure in judged.measured.measures]
+        result["limits"] = _limits(roles, result["measures"])
         result["summary"] = dict(judged.summary)
     writes: tuple[PlannedWrite, ...] = ()
     if changed is not None:

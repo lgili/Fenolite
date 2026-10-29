@@ -463,3 +463,59 @@ def test_keymap_option(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert code == 3 and err["code"] == "FEN-3004" and "browser" in err["message"]
     code, _, err, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--keymap", "emacs", "--json")
     assert code == 3 and err["code"] == "FEN-3001"
+
+
+def test_workspace_roles(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenarios "Roles summary for an agent" and "Edit needs the server" (c0245)."""
+    script = ROOT / "examples" / "roles" / "buck_shunt" / "bad.py"
+    code, _, _, _ = run(
+        monkeypatch, tmp_path, "build", str(script), "--out", str(tmp_path / "b"), "--confirm"
+    )
+    assert code == 0
+    before = sorted(p.name for p in (tmp_path / "b").rglob("*"))
+    code, envelope, _, _ = run(
+        monkeypatch,
+        tmp_path,
+        "view",
+        str(tmp_path / "b" / "buck_shunt_bad.kicad_pro"),
+        "--workspace",
+        "roles",
+    )
+    assert code == 0
+    roles = envelope["result"]["roles"]
+    assert roles["counts"] == {"confirmed": 0, "declared": 4, "inferred": 8} and roles["groups"] == 4
+    assert envelope["evidence"]["level"] == "INFERRED"
+    assert sorted(p.name for p in (tmp_path / "b").rglob("*")) == before  # nothing written
+    code, _, err, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--edit")
+    assert code == 2 and err["code"] == "FEN-2001" and err["where"] == "--edit"
+    code, _, err, _ = run(monkeypatch, tmp_path, "view", str(ALTIUM_SHEET), "--workspace", "roles")
+    assert code == 2 and err["code"] == "FEN-2001" and err["where"] == "--workspace"
+
+
+def test_layout_option(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Change c0245: `--layout FILE` reaches the page; a bad file is FEN-3004, a missing one FEN-3001."""
+    good = tmp_path / "layout.json"
+    good.write_text(
+        json.dumps(
+            {
+                "schema": "fenolite.view_layout.v0",
+                "workspace": "board",
+                "docks": {"left": {"size": 300, "groups": [{"panels": ["projects", "messages"]}]}},
+                "closed": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    page = tmp_path / "view.html"
+    code, _, _, _ = run(
+        monkeypatch, tmp_path, "view", str(BOARD), "--layout", str(good), "--export", str(page), "--confirm"
+    )
+    assert code == 0
+    data = embedded(page.read_text(encoding="utf-8"))
+    assert data is not None and data["settings"]["layout"]["docks"]["left"]["size"] == 300
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps({"schema": "fenolite.view_layout.v0", "workspace": "kitchen", "docks": {}}))
+    code, _, err, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--layout", str(bad))
+    assert code == 3 and err["code"] == "FEN-3004"
+    code, _, err, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--layout", "missing.json")
+    assert code == 3 and err["code"] == "FEN-3001"

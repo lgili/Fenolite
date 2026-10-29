@@ -49,7 +49,8 @@ from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 from fenolite.placement import legality
-from fenolite.view import export, keymap, meshes, models, project_review, review, server, themes
+from fenolite.view import export, keymap, layout, meshes, models, project_review, review, server, themes
+from fenolite.view import roles as roles_view
 from fenolite.view.altium_layers import native_view
 from fenolite.view.bom import bom_scene
 from fenolite.view.bom import with_parts as bom_with_parts
@@ -152,6 +153,19 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "--keymap",
         metavar="NAME|FILE",
         help="the keys of the workbench: fenolite, altium, kicad, or a fenolite.view_keymap.v0 file",
+    )
+    parser.add_argument(
+        "--workspace",
+        choices=("board", "roles"),
+        default=None,
+        help="the workspace to open: board, or roles (the Net Roles workspace of a board)",
+    )
+    parser.add_argument("--roles", metavar="FILE", help="the role document, as for fenolite roles --roles")
+    parser.add_argument(
+        "--layout", metavar="FILE", help="a fenolite.view_layout.v0 file: the docks and panels to open with"
+    )
+    parser.add_argument(
+        "--edit", action="store_true", help="with --serve: allow the role writes of the Net Roles workspace"
     )
     parser.add_argument("--no-review", action="store_true", help="no review findings")
     parser.add_argument("--no-models", action="store_true", help="no 3D models (gmsh)")
@@ -274,6 +288,54 @@ def keymap_of(argument: str | None, ctx: Context) -> dict[str, Any] | None:
         return keymap.read_keymap(path)
     except keymap.KeymapError as exc:
         raise CliError("FEN-3004", f"--keymap: {exc}", where="--keymap") from exc
+
+
+def layout_of(argument: str | None, ctx: Context) -> dict[str, Any] | None:
+    """The layout file named by ``--layout`` (change c0245, decision 4), or ``None``."""
+    if not argument:
+        return None
+    path = Path(argument) if Path(argument).is_absolute() else ctx.cwd / argument
+    if not path.is_file():
+        raise CliError("FEN-3001", f"--layout: {argument} does not exist", where="--layout")
+    try:
+        return layout.read_layout(path)
+    except layout.LayoutError as exc:
+        raise CliError("FEN-3004", f"--layout: {exc}", where="--layout") from exc
+
+
+def roles_reply(board: Path, roles_file: str | None, ctx: Context) -> dict[str, Any]:
+    """The envelope of ``fenolite roles BOARD --check`` run here, read-only (change c0245): the Net Roles
+    workspace shows its numbers as the command gives them."""
+    from fenolite.cli import cmd_roles  # noqa: PLC0415  (only the Net Roles workspace needs the roles)
+
+    parser = argparse.ArgumentParser(add_help=False)
+    cmd_roles.COMMAND.register(parser)
+    argv = [str(board), "--check"] + (["--roles", roles_file] if roles_file else [])
+    found = cmd_roles.COMMAND.run(parser.parse_args(argv), ctx)
+    return {
+        "command": "roles",
+        "result": found.result,
+        "issues": [dataclasses.asdict(issue) for issue in found.issues],
+        "evidence": {"level": found.evidence.level.value, "hypotheses": list(found.evidence.hypotheses)},
+    }
+
+
+def roles_payload(board: Path, roles_file: str | None, ctx: Context) -> dict[str, Any]:
+    """The data of the Net Roles workspace for ``board``: the roles reply, its explanations and the board's
+    locked copper (``fenolite.view.roles``)."""
+    reply = roles_reply(board, roles_file, ctx)
+    found = read_board(board).design.board
+    assert found is not None  # read_board refuses a design without a board
+    locked: dict[str, list[int]] = {
+        "tracks": [k + 1 for k, track in enumerate(found.tracks) if track.locked],
+        "arcs": [k + 1 for k, arc in enumerate(found.arcs) if arc.locked],
+        "vias": [k + 1 for k, via in enumerate(found.vias) if via.locked],
+    }
+    data = roles_view.payload(
+        reply, document=board.name, sha256=hashlib.sha256(board.read_bytes()).hexdigest(), locked=locked
+    )
+    data["explain"] = _explanations(str(issue["code"]) for issue in data["issues"])
+    return data
 
 
 def _sheet_scene(path: Path) -> dict[str, Any]:
@@ -861,9 +923,22 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     tree = _tree(args.path, ctx)
     file_items, file_groups = overlay_files(args.overlay, ctx)
     kicad = theme_of(args.theme, ctx)
+    if args.edit and not args.serve:
+        raise CliError(
+            "FEN-2001",
+            "--edit allows the role writes of a served page; pass --serve",
+            where="--edit",
+            hint="fenolite view PATH --serve --edit",
+        )
     settings: dict[str, Any] = {}
     if (keys := keymap_of(args.keymap, ctx)) is not None:
         settings["keymap"] = keys
+    if (given_layout := layout_of(args.layout, ctx)) is not None:
+        settings["layout"] = given_layout
+    if args.workspace is not None:
+        settings["workspace"] = args.workspace
+    if args.edit:
+        settings["edit"] = True
     store = SceneCache.at(args.cache, tree.root)
     theme_key = json.dumps(kicad, sort_keys=True) if kicad is not None else ""
 
@@ -942,6 +1017,18 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         ref = InputRef(path=doc.file.name, sha256=scene["meta"]["sha256"], kind=doc.kind, format_version=None)
     elif doc is not None:
         result["notes"] = [f"{doc.name} ({doc.kind}) has no viewer in this version"]
+    roles_data: dict[str, dict[str, Any]] = {}
+    if args.workspace == "roles":
+        if doc is None or doc.file is None or doc.id not in scenes or scenes[doc.id].get("kind") is not None:
+            raise CliError(
+                "FEN-2001",
+                "--workspace roles opens the Net Roles workspace of a board",
+                where="--workspace",
+                hint="pass a board, or --doc with a board of the project",
+            )
+        roles_data[doc.id] = roles_payload(doc.file, args.roles, ctx)
+        result["roles"] = roles_view.summary(roles_data[doc.id])
+        evidence = Evidence(Level.INFERRED, hypotheses=tuple(roles_data[doc.id]["evidence"]["hypotheses"]))
     if marks_file is not None:
         result["marks"] = marks
 
@@ -961,6 +1048,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                     counts = add_models(read_board(other.file), scenes[other.id])
                     if doc is not None and other.id == doc.id and result["summary"] is not None:
                         result["summary"]["models"] = counts
+        if args.workspace == "roles":  # every board of the page, in its Net Roles workspace
+            for other in tree.documents:
+                if other.id in scenes and other.id not in roles_data and other.file is not None:
+                    if scenes[other.id].get("kind") is None:
+                        roles_data[other.id] = roles_payload(other.file, args.roles, ctx)
         html = export.page(
             tree.to_json(),
             scenes,
@@ -968,6 +1060,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             select=args.select,
             marks=marks,
             settings=settings,
+            roles=roles_data,
         ).encode("utf-8")
         writes = (PlannedWrite(path=str(args.export), data=html, kind=KIND),)
         result["export"] = {
@@ -1005,6 +1098,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             select=args.select,
             refine=None if args.no_models else refine,
             settings=settings,
+            roles=lambda path: roles_payload(path, args.roles, ctx),
         )
         try:
             httpd = server.serve(live, port)

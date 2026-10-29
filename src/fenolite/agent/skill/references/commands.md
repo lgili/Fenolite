@@ -705,6 +705,10 @@ another type; a flag without a value is a switch.
 - `--marks FILE`: review marks: list them; --serve saves new ones there
 - `--theme THEME`: a KiCad colour theme: a .json file or a theme name
 - `--keymap NAME|FILE`: the keys of the workbench: fenolite, altium, kicad, or a fenolite.view_keymap.v0 file
+- `--workspace {board,roles}`: the workspace to open: board, or roles (the Net Roles workspace of a board)
+- `--roles FILE`: the role document, as for fenolite roles --roles
+- `--layout FILE`: a fenolite.view_layout.v0 file: the docks and panels to open with
+- `--edit`: with --serve: allow the role writes of the Net Roles workspace
 - `--no-review`: no review findings
 - `--no-models`: no 3D models (gmsh)
 - `--silk-gap MM`: silkscreen gap (default: the rule)

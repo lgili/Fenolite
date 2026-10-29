@@ -98,10 +98,16 @@
 
 ## 7. Net Roles workspace (read-only)
 
-- [ ] 7.1 Add `fenolite.view.roles.roles_payload`, `/roles/<id>.json`, its cache, and its embedding in exports with `--workspace roles` (scenario "The numbers are the command's"). Proof: `uv run pytest tests/unit/view/test_roles_payload.py -q`.
-- [ ] 7.2 Add the Net Roles panel (Nets, Groups, Classes) and Properties (Net, Role, Measures) (scenarios "The workspace of the bad buck" and "The switch node explained"). Proof: `uv run pytest tests/visual/test_roles_workspace.py -k "panels or properties" -q`.
+- [x] 7.1 Add `fenolite.view.roles.roles_payload`, `/roles/<id>.json`, its cache, and its embedding in exports with `--workspace roles` (scenario "The numbers are the command's"). Proof: `uv run pytest tests/unit/view/test_roles_payload.py -q`.
+
+  Note (2026-10-29): the import rules keep `fenolite.view` from importing the roles or the commands, so `cmd_view.roles_payload` runs `roles BOARD --check` in process and read-only and `fenolite.view.roles.payload` turns its envelope into `fenolite.view_roles.v0` (the reply's roles with a state, groups, classes, measures, limits, findings and evidence unchanged; the explanations of its codes; the locked tracks, arcs and vias by the scene's labels); the page joins it to the scene (pads to polygons, findings to places). `roles --check` now replies with `limits`: each limit in force for each role and group, with its unit, origin and source. Served pages read `/roles/<id>.json`, built again when the board file changes; exported pages embed the data of every board with `--workspace roles`. The requirement text of "Roles payload" was corrected to this split. Proof passed.
+- [x] 7.2 Add the Net Roles panel (Nets, Groups, Classes) and Properties (Net, Role, Measures) (scenarios "The workspace of the bad buck" and "The switch node explained"). Proof: `uv run pytest tests/visual/test_roles_workspace.py -k "panels or properties" -q`.
+
+  Note (2026-10-29): `ui/workspaces/roles.js`: the Net Roles panel (Nets with glyph, role, current, confidence and state; Groups; Classes; a filter; Ctrl+click selects several nets for the writes of phase 8), the role Properties with the tabs Net (Group), Role and Measures (each measure with its analysis and copper, each limit with its source, the router phases with phase 0 from the check and phases 2 and 1 "not run"), the role findings in Messages and as diamond markers, the Roles view drop-down (role colours, confirmation, layer colours), Window ▸ Workspace and Roles ▸ Net Roles Workspace. The scenario "The switch node explained" uses the inferred gate net `GH` and the hot loop `hot_SW`, since `SW` is declared by the `bad` buck's script. Proof passed.
 - [ ] 7.3 Add the overlays Loop areas, Measures, Corridors, Locked copper and Role copper, and the role highlight (scenario "Hot loop on the copper"). Proof: `uv run pytest tests/visual -k roles_workspace -q`.
-- [ ] 7.4 Add `--workspace`, `--roles`, `--layout` and `result.roles` to `cmd_view` (scenario "Roles summary for an agent"). Proof: `uv run pytest tests/unit/cli/test_view_cmd.py -k "workspace or layout" -q`.
+- [x] 7.4 Add `--workspace`, `--roles`, `--layout` and `result.roles` to `cmd_view` (scenario "Roles summary for an agent"). Proof: `uv run pytest tests/unit/cli/test_view_cmd.py -k "workspace or layout" -q`.
+
+  Note (2026-10-29): `fenolite view --workspace board|roles`, `--roles FILE`, `--layout FILE` (`fenolite.view.layout`, `FEN-3004`/`FEN-3001`) and `--edit` (with `--serve` only, `FEN-2001`); `--workspace roles` on a document that is not a board is `FEN-2001`; `--workspace roles --json` adds `result.roles` (counts by state, findings by severity, groups, locked items) and writes nothing. The agent guide's commands page was regenerated. Proof passed.
 
 ## 8. Role writes and undo
 

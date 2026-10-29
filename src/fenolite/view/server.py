@@ -46,6 +46,8 @@ this server never answers, so it cannot write marks."""
 SceneBuilder = Callable[[Path], dict[str, Any]]
 """Builds the scene of a board file (``cmd_view`` passes the backend read; tests pass their own)."""
 SceneRefiner = Callable[[Path, dict[str, Any]], "dict[str, Any] | None"]
+RolesBuilder = Callable[[Path], dict[str, Any]]
+"""The data of the Net Roles workspace of a board file (``cmd_view`` passes ``roles --check`` run here)."""
 """Refines a built scene in the background (``cmd_view`` places the body models, change c0193); ``None``
 keeps the scene as it was."""
 
@@ -77,6 +79,7 @@ class Live:
         select: str | None = None,
         refine: SceneRefiner | None = None,
         settings: dict[str, Any] | None = None,
+        roles: RolesBuilder | None = None,
     ) -> None:
         self.tree, self.build, self.overlays, self.open_id, self.log = (
             tree,
@@ -90,9 +93,30 @@ class Live:
         self.lock = threading.Lock()
         self.marks_file, self.select = marks_file, select
         self.settings: dict[str, Any] = settings or {}
+        self.roles_builder = roles
+        self.roles_cache: dict[str, tuple[tuple[int, int], bytes]] = {}
         """The workbench options of change c0245 that the page reads from ``/project.json``."""
         self.written = 0
         """How many marks the server wrote (``result.serve.marks_written``)."""
+
+    def roles(self, doc_id: str) -> tuple[int, bytes]:
+        """The Net Roles data of a board of the tree, as a status and a JSON body; built again when the file
+        changed (change c0245)."""
+        doc = next((d for d in self.tree.documents if d.id == doc_id), None)
+        if self.roles_builder is None or doc is None or doc.file is None or not doc.file.is_file():
+            return 404, json.dumps({"error": "no board of that id has roles here"}).encode("utf-8")
+        stat = doc.file.stat()
+        signature = (stat.st_size, stat.st_mtime_ns)
+        cached = self.roles_cache.get(doc_id)
+        if cached is not None and cached[0] == signature:
+            return 200, cached[1]
+        try:
+            body = json.dumps(self.roles_builder(doc.file)).encode("utf-8")
+        except Exception as exc:  # noqa: BLE001 - a command error becomes the page's message, never a crash
+            message = getattr(exc, "message", None) or str(exc)
+            return 422, json.dumps({"error": message}).encode("utf-8")
+        self.roles_cache[doc_id] = (signature, body)
+        return 200, body
 
     def marks(self) -> list[dict[str, Any]]:
         """The marks of the ``--marks`` file; empty without one."""
@@ -255,6 +279,9 @@ def serve(live: Live, port: int = 8765) -> ThreadingHTTPServer:
             elif path.startswith("/version/"):
                 state = live.version(path[len("/version/") :])
                 self._send(200, json.dumps(state).encode("utf-8"), "application/json")
+            elif path.startswith("/roles/") and path.endswith(".json"):
+                code, body = live.roles(path[len("/roles/") : -len(".json")])
+                self._send(code, body, "application/json")
             elif PANEL_PATH.fullmatch(path):
                 # c0245: a panel floated into its own window is the same page, told which panel to show
                 self.send_response(302)

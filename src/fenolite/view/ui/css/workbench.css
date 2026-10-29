@@ -139,6 +139,19 @@
   .cmdsearch { width:440px; padding:4px; }
   .cmdsearch .cs-input { width:100%; margin-bottom:4px; }
   .cmdsearch .mitem[aria-selected=true] { background:var(--sel); color:var(--sel-text); }
+  body:not([data-workspace="roles"]) .roles-only { display:none !important; }
+  .rtabs, .ptabs2 { display:flex; border-bottom:1px solid var(--line); margin:0 -8px 6px; padding:0 4px; }
+  .rtabs button, .ptabs2 button { background:transparent; border:0; border-bottom:2px solid transparent; border-radius:0; color:var(--muted); padding:3px 9px; }
+  .rtabs button[aria-selected=true], .ptabs2 button[aria-selected=true] { color:var(--text); border-bottom-color:var(--accent); }
+  table.roles td { max-width:120px; }
+  .rchip { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:15px; padding:0 3px; border-radius:2px; background:var(--rc); color:#000; font-size:10px; }
+  .rchip b { font-weight:700; }
+  .rbadge { display:inline-block; padding:0 5px; border-radius:2px; font-size:11px; background:var(--panel2); border:1px solid var(--line); }
+  .rbadge.c-high { color:var(--ok); border-color:currentColor; } .rbadge.c-medium { color:var(--warn); border-color:currentColor; } .rbadge.c-low { color:var(--err); border-color:currentColor; }
+  .rbadge.c-declared, .rbadge.c-confirmed { color:var(--accent); border-color:currentColor; }
+  .rmeas { margin:4px 0 8px; } .rmeas small { color:var(--muted); }
+  #info h4 { margin:8px 0 3px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  #info table.rphases td:last-child { color:var(--text); }
   @media (max-width:760px) {
     #app { grid-template-columns:minmax(0, 1fr); grid-template-rows:22px auto auto minmax(0, 1fr) 30px 24px; }
     #titlebar, #menubar, #top, #wrap, #tabs, #status { grid-column:1; min-width:0; }

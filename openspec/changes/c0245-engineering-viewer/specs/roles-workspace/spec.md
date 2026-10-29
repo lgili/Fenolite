@@ -1,12 +1,12 @@
 ## ADDED Requirements
 
 ### Requirement: Roles payload
-`fenolite.view.roles.roles_payload(path, *, roles_file=None) -> dict` SHALL run `fenolite roles PATH --check` in process and read-only, and join its reply to the board scene: net to primitives, group to loop polygon, measure to the copper it read, finding to position, as `fenolite.view_roles.v0`. The values MUST be the reply's own. The payload MUST be cached by the SHA-256 of the board, the role document and the code.
+`fenolite view` SHALL run `fenolite roles BOARD --check` in process and read-only, and `fenolite.view.roles.payload(reply, *, document, sha256, locked)` SHALL turn the reply into `fenolite.view_roles.v0`: its roles with their state, groups, classes, measures, limits and findings unchanged, the code explanations and the locked copper. The page MUST join it to the scene: net to copper, group to pad polygon, finding to place.
 
 #### Scenario: The numbers are the command's
 - **GIVEN** the `bad` variant of `buck_shunt` built in `tmp_path`
-- **WHEN** `uv run pytest tests/unit/view/test_roles_payload.py` builds the payload and runs `fenolite roles <board> --check --json`
-- **THEN** every role, measure, limit and finding of the payload equals the reply's, and each group has a loop polygon
+- **WHEN** `uv run pytest tests/unit/view/test_roles_payload.py` exports the page with `--workspace roles` and runs `fenolite roles <board> --check --json`
+- **THEN** every role, group, measure, limit and finding of the embedded payload equals the reply's, and the limits name their origin and source
 
 ### Requirement: Net Roles workspace
 `fenolite view --workspace roles`, or Window ▸ Workspace ▸ Net Roles, SHALL open a board with the Net Roles panel (tabs Nets, Groups, Classes), the Layers panel with its overlays, the Properties panel (tabs Net, Role, Measures), the Messages panel of the `roles.rules` findings, and a toolbar with the Roles view and Net drop-downs. A document that is not a board MUST be `FEN-2001`.
@@ -22,8 +22,8 @@ A role row SHALL show colour, glyph, net, role with its current, confidence and 
 - each limit with its source, default or override.
 
 #### Scenario: The switch node explained
-- **WHEN** `uv run pytest tests/visual/test_roles_workspace.py -k properties` selects `SW`
-- **THEN** Properties shows its inferred rule id and pads, each measure names its analysis, and the loop-ratio limit names its profile default and hypothesis
+- **WHEN** `uv run pytest tests/visual/test_roles_workspace.py -k properties` selects the inferred gate net `GH`, then the hot loop `hot_SW` of the switch node
+- **THEN** Properties shows the rule id and pads of `GH`'s role, each measure of `hot_SW` names its analysis, and its loop-ratio limit names its profile default and hypothesis
 
 ### Requirement: Role overlays
 The Layers panel SHALL offer the overlays Loop areas (hatched loop and bound with area and ratio), Measures (dimension lines on the copper), Corridors (rule areas whose name has the settled corridor prefix), Locked copper and Role copper, each with visibility. A highlighted net or group MUST dim the rest of the board, with its measures drawn on its copper.

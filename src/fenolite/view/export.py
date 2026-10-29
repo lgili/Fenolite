@@ -55,6 +55,7 @@ PARTS: tuple[str, ...] = (
     "shell/keyboard.js",
     "shell/themes.js",
     "shell/workbench.js",
+    "workspaces/roles.js",
     "shell/start.js",
     "page/tail.html",
 )
@@ -82,18 +83,22 @@ def page(
     select: str | None = None,
     marks: list[dict[str, Any]] | None = None,
     settings: dict[str, Any] | None = None,
+    roles: dict[str, dict[str, Any]] | None = None,
 ) -> str:
     """The page: with ``tree`` and ``scenes`` (document id → scene) embedded, a standalone file; with
     ``live``, the page of the server, which fetches both. Each scene is embedded packed (``compact.pack``,
     change c0182) and decoded by the page when its document is opened. ``select`` (a part or net) and
     ``marks`` (``review.to_json``) are what ``--select`` and ``--marks`` give the page (change c0189).
-    ``settings`` are the workbench options of change c0245 (``keymap``, ``layout``, ``workspace``…)."""
+    ``settings`` are the workbench options of change c0245 (``keymap``, ``layout``, ``workspace``…), and
+    ``roles`` the data of the Net Roles workspace per board (``fenolite.view.roles``)."""
     html = template()
     if tree is not None:
         packed = {doc_id: pack(scene) for doc_id, scene in (scenes or {}).items()}
         data = {"project": tree, "scenes": packed, "open": open_id, "select": select, "marks": marks or []}
         if settings:
             data["settings"] = settings
+        if roles:
+            data["roles"] = roles
         html = html.replace(DATA_MARK, _json(data), 1)
     html = html.replace(VERSION_MARK, fenolite.__version__, 1)
     return html.replace(LIVE_MARK, "true" if live else "false", 1)

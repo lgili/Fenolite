@@ -69,6 +69,6 @@ function draw() {
   if (VARIANT && S.variants) { worldTf(); ctx.globalAlpha = 0.6; ctx.fillStyle = th.board || "#050505";
     for (const c of S.comps) if (c.bbox && notFitted(c.ref)) { const b = c.bbox; ctx.fillRect(b[0], b[1], b[2] - b[0], b[3] - b[1]); }
     drawVariantMarks(S.comps.map(c => [c.ref, c.bbox])); }
-  drawDiff(); drawOverlays(); drawCheck(); drawEdge(); drawMarks(); drawMeasure(); linkLater();
+  drawDiff(); drawOverlays(); drawRoleOverlays(); drawCheck(); drawEdge(); drawMarks(); drawMeasure(); linkLater();
   $("zoomv").textContent = `zoom ${view.s.toFixed(1)} px/mm`;
 }

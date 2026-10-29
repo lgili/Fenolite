@@ -8,6 +8,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 from fenolite.view import export
 
 UI = Path(export.__file__).resolve().parent / "ui"
@@ -49,7 +51,8 @@ def test_modal() -> None:
 
 
 COMMAND = re.compile(
-    r'command\(\{ id: "([a-z0-9.-]+)", menu: "([A-Za-z]+)",(?: group: "[a-z-]*",)? label: "([^"]+)"'
+    r'command\(\{ id: "([a-z0-9.-]+)", menu: "([A-Za-z]+)",(?: group: "[a-z-]*",)?(?: sub: "[^"]+",)?'
+    r' label: "([^"]+)"'
 )
 
 
@@ -87,3 +90,20 @@ def test_registry() -> None:
     for part in export.PARTS:
         if part.endswith(".html"):
             assert 'role="menuitem' not in (UI / part).read_text(encoding="utf-8"), part
+
+
+def test_the_page_script_parses(tmp_path: Path) -> None:
+    """The joined script is valid JavaScript (node --check), so a slip in one part cannot stop the page."""
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    page = export.template()
+    script = tmp_path / "page.js"
+    script.write_text(page[page.index("<script>") + 8 : page.index("</script>")], encoding="utf-8")
+    done = subprocess.run(
+        [node, "--check", str(script)], capture_output=True, text=True, timeout=60, check=False
+    )
+    assert done.returncode == 0, done.stderr

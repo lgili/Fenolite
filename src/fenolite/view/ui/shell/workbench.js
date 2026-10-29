@@ -16,7 +16,6 @@ for (const [mode, label] of [["dim", "Dim Others"], ["mask", "Mask Others"], ["n
   command({ id: "view.highlight-" + mode, menu: "View", group: "highlight", sub: "Highlight", label, when: () => onDoc() && !isSch(), run: () => { $("hlMode").value = mode; $("hlMode").onchange({ target: $("hlMode") }); }, checked: () => st.hl === mode });
 for (const name of Object.keys(SETS))
   command({ id: "design.layers-" + name.toLowerCase().replace(/\s+/g, "-"), menu: "Design", group: "layers", sub: "Layer Sets", label: name, when: () => on2D() && !isSch() && !!S.layers, run: () => { for (const l of S.layers) vis.set(l.id, SETS[name](l)); buildTabs(); draw(); } });
-command({ id: "roles.workspace", menu: "Roles", label: "Net Roles Workspace", when: () => false, run: () => {} });
 command({ id: "route.phases", menu: "Route", label: "Router Phases (after c0243 and c0244)", when: () => false, run: () => {} });
 command({ id: "reports.review", menu: "Reports", label: "Project Review", when: () => !!DOC, run: () => setProjectReview(true) });
 command({ id: "reports.messages", menu: "Reports", label: "Messages", run: () => showPanel("messages", true) });
@@ -241,4 +240,4 @@ function drawInteractive() {
 function recording() { return typeof ctx.canvas === "object" && ctx.canvas !== cv; }   // an SVG being recorded draws for real
 
 // ---- start the workbench before the first document opens
-startTheme(); buildMenubar(); startKeymap(); decorateToolbar(); setWorkspace("board", true); buildGridSel();
+startTheme(); buildMenubar(); startKeymap(); decorateToolbar(); GIVEN_LAYOUT = SETTINGS.layout || null; setWorkspace("board", true); buildGridSel();
