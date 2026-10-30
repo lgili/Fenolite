@@ -470,3 +470,18 @@ on 2026-10-07 (`H-K-EXPORT-DOCS`, `H-K-EXPORT-DOCS-REPEAT`, `H-K-EXPORT-MODELS`,
 `H-K-EXPORT-PDF-PAGE`). Their probes are recorded on both majors and passed in the `kicad-9` and `kicad-10`
 jobs of CI run 37772583226 (2026-10-08), so an export that selects a document kind, and `fenolite models`,
 carry `KICAD-VERIFIED`.
+
+## Net renders
+
+`fenolite render PATH --net NAME -o DIR` draws the whole board plus 1 mm, without an external tool.
+Repeat `--net` for several highlighted nets. Their copper has class `net-hi`; other copper is dimmed
+with `net-dim` at 20 percent opacity. `--nets` still means pad labels, independently of `--net`.
+Use `--region X1,Y1,X2,Y2` to limit the drawing, and `--layers F.Cu,B.Cu` to filter copper while keeping
+holes and the board edge. Unknown nets/layers and mixing these options with `--svg`/`--png` are usage
+errors that write nothing. Net names are matched literally; filenames percent-encode unsafe characters.
+
+One net writes `net-NAME.svg`, several write `nets.svg`. `result.region.nets` is sorted and
+`highlighted` counts unique pad, track, arc, via and zone entities across visible layers. A `.py` input
+is accepted with `--region` or `--net`, using the normal build in memory with seed/timestamp and no
+persistent project output. Build errors retain their codes and locations. Normal plots still use KiCad.
+The same renderer supplies the [golden assertion helper](testing.md).

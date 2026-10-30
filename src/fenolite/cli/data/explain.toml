@@ -4324,6 +4324,11 @@ meaning = "A file that the last fenolite panel wrote was changed since; the pane
 fix = "Run again with --discard-layout to replace it (a .bak copy is kept), or write the panel to another --out."
 see = "panel"
 
+["build.unattached"]
+meaning = "A Part, Net or Interface created by the script never reached the design; where names its creation file and line."
+fix = "Add it with design.add(...), connect it, or delete it."
+see = "build"
+
 ["fidelity.build-failed"]
 meaning = "verify-source built the script in its temporary folder and the build wrote no file, so no level ran; the build's own errors are listed beside this issue."
 fix = "Fix the script or the libraries it names until fenolite build writes the project, then verify again."

@@ -80,6 +80,9 @@ class CircuitResult:
     waived: CircuitWaived | None = None
     """What the circuit waivers did (change c0274): their outcome and their ``check.waiver-*`` warnings,
     which the stage reports and the build does not."""
+    entities: tuple[tuple[str, ...], ...] = ()
+    """Aligned with ``issues``: the model ids (components, nets) of the row each finding comes from, empty
+    for a finding of no row or one a waiver rewrote (change c0256, finding subjects)."""
 
 
 @dataclass(slots=True)
@@ -216,6 +219,7 @@ def judge_circuit(
     strict = contracts is not None and contracts.unknown == "warning"
     rows: list[RequirementRow] = []
     unknown_rows: list[Judged] = []
+    entities: dict[int, tuple[str, ...]] = {}
     no_rating: dict[str, None] = dict.fromkeys(main.missing_parts)
     policy: list[str] = []
     levels: list[Level] = []
@@ -263,19 +267,22 @@ def judge_circuit(
                 )
             made = issue(row.check, text, severity=severity, where=row.part or row.id)  # type: ignore[arg-type]
             links[id(made)] = (made, rows[-1])
+            entities[id(made)] = row.entities
             found.append(made)
     if unknown_rows:
         if strict:
-            found += [
-                issue(
-                    "circuit.value-unknown",
-                    f"{row.id} is not judged: {row.missing or 'an input is not stated'}",
-                    severity="warning",
-                    where=row.part or row.id,
-                    hint="state the missing value: a rig supply, a rail voltage, a role current or a class",
+            for row in unknown_rows:
+                found.append(
+                    issue(
+                        "circuit.value-unknown",
+                        f"{row.id} is not judged: {row.missing or 'an input is not stated'}",
+                        severity="warning",
+                        where=row.part or row.id,
+                        hint="state the missing value: a rig supply, a rail voltage, a role current "
+                        "or a class",
+                    )
                 )
-                for row in unknown_rows
-            ]
+                entities[id(found[-1])] = row.entities
         else:
             found.append(
                 issue(
@@ -336,12 +343,16 @@ def judge_circuit(
     if waived.rows:
         rows = [replace(r, waiver=waived.rows[r.id]) if r.id in waived.rows else r for r in rows]
         summary["requirements"] = table_json(rows)
+    final = tuple(sorted(waived.issues, key=lambda i: (i.code, i.where, i.message)))
+    # the waivers and the digest hints rebuild each finding: its row is found again by code, place and text
+    by_text = {(i.code, i.where, i.message): entities[id(i)] for i in found if id(i) in entities}
     return CircuitResult(
-        tuple(sorted(waived.issues, key=lambda i: (i.code, i.where, i.message))),
+        final,
         tuple(rows),
         evidence,
         summary,
         waived,
+        tuple(by_text.get((i.code, i.where, i.message), ()) for i in final),
     )
 
 

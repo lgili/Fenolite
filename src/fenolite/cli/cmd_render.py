@@ -59,16 +59,20 @@ def _register(parser: argparse.ArgumentParser) -> None:
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     kinds = [kind for kind in ("svg", "png") if getattr(args, kind)]
-    if args.region is not None:
+    if args.layers is not None and kinds:
+        raise CliError("FEN-2001", "--layers filters the model render", where="--layers")
+    if args.region is not None or args.net:
         if kinds:
             raise CliError(
                 "FEN-2001",
                 f"--region draws {REGION_FILE} from the model; --svg and --png plot through kicad-cli",
-                where="--region",
+                where="--net" if args.net else "--region",
                 hint="run the region and the plots as two commands",
             )
         return run_region(args, ctx)
-    for option in ("nets", "open", "grid", "cut", "cut_width", "cut_clearance"):
+    if Path(args.path).suffix == ".py":
+        raise CliError("FEN-2001", "a design script needs --region or --net", where="PATH")
+    for option in ("layers", "nets", "open", "grid", "cut", "cut_width", "cut_clearance"):
         if getattr(args, option):
             flag = "--" + option.replace("_", "-")
             raise CliError(

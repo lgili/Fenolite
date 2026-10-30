@@ -28,6 +28,7 @@ from fenolite.backends.base import (
     Validator,
 )
 from fenolite.checks.codes import issue
+from fenolite.checks.subjects import Subject
 from fenolite.core.errors import FenoliteError, FormatError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.core.progress import NULL_PROGRESS, Progress
@@ -138,6 +139,11 @@ class StageResult:
     issues: tuple[Issue, ...] = ()
     summary: Mapping[str, object] = field(default_factory=lambda: {})
     reason: str = ""
+    subjects: tuple[tuple[Subject, ...], ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.subjects and len(self.subjects) != len(self.issues):
+            raise ValueError("subjects must be empty or aligned with issues")
 
     def to_json(self) -> dict[str, object]:
         return {

@@ -30,7 +30,9 @@ EXAMPLES = Path(__file__).resolve().parents[3] / "examples"
 MODULES = {"import_python/copper.py"}
 """Files of an example that its design script imports: modules, not scripts (change c0275)."""
 SCRIPTS = sorted(
-    name for path in EXAMPLES.glob("*/*.py") if (name := path.relative_to(EXAMPLES).as_posix()) not in MODULES
+    name
+    for path in EXAMPLES.glob("*/*.py")
+    if (name := path.relative_to(EXAMPLES).as_posix()) not in MODULES and not path.name.startswith("test_")
 )
 OFFICIAL = "blink_official/design.py"
 """The one example that resolves its parts from the official KiCad libraries when it is built; its rules

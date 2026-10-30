@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="96.866668 97.933334 34.666665 23.599999" width="1600" height="1089" data-region="99,99,131,121" data-grid="5" data-units="mm" data-render="fenolite.region.v1">
+<style>.net-dim{opacity:0.2}.net-hi{opacity:1}</style>
+<title>region 99,99 to 131,121 mm</title>
+<defs><clipPath id="region"><rect x="99" y="99" width="32" height="22"/></clipPath></defs>
+<rect class="background" x="96.866668" y="97.933334" width="34.666665" height="23.599999" fill="#1c1f26"/>
+<g id="grid">
+<line class="grid" data-axis="x" data-at="100000000" x1="100" y1="99" x2="100" y2="121" stroke="#444a55" stroke-width="0.044444"/>
+<text class="grid-label" data-axis="x" data-at="100000000" x="100" y="98.733334" text-anchor="middle" font-size="0.533333" fill="#e8e8e8">100</text>
+<line class="grid" data-axis="x" data-at="105000000" x1="105" y1="99" x2="105" y2="121" stroke="#444a55" stroke-width="0.044444"/>
+<text class="grid-label" data-axis="x" data-at="105000000" x="105" y="98.733334" text-anchor="middle" font-size="0.533333" fill="#e8e8e8">105</text>
+<line class="grid" data-axis="x" data-at="110000000" x1="110" y1="99" x2="110" y2="121" stroke="#444a55" stroke-width="0.044444"/>
+<text class="grid-label" data-axis="x" data-at="110000000" x="110" y="98.733334" text-anchor="middle" font-size="0.533333" fill="#e8e8e8">110</text>
+<line class="grid" data-axis="x" data-at="115000000" x1="115" y1="99" x2="115" y2="121" stroke="#444a55" stroke-width="0.044444"/>
+<text class="grid-label" data-axis="x" data-at="115000000" x="115" y="98.733334" text-anchor="middle" font-size="0.533333" fill="#e8e8e8">115</text>
+<line class="grid" data-axis="x" data-at="120000000" x1="120" y1="99" x2="120" y2="121" stroke="#444a55" stroke-width="0.044444"/>
+<text class="grid-label" data-axis="x" data-at="120000000" x="120" y="98.733334" text-anchor="middle" font-size="0.533333" fill="#e8e8e8">120</text>
+<line class="grid" data-axis="x" data-at="125000000" x1="125" y1="99" x2="125" y2="121" stroke="#444a55" stroke-width="0.044444"/>
+<text class="grid-label" data-axis="x" data-at="125000000" x="125" y="98.733334" text-anchor="middle" font-size="0.533333" fill="#e8e8e8">125</text>
+<line class="grid" data-axis="x" data-at="130000000" x1="130" y1="99" x2="130" y2="121" stroke="#444a55" stroke-width="0.044444"/>
+<text class="grid-label" data-axis="x" data-at="130000000" x="130" y="98.733334" text-anchor="middle" font-size="0.533333" fill="#e8e8e8">130</text>
+<line class="grid" data-axis="y" data-at="100000000" x1="99" y1="100" x2="131" y2="100" stroke="#444a55" stroke-width="0.044444"/>
+<text class="grid-label" data-axis="y" data-at="100000000" x="98.733334" y="100" text-anchor="end" dominant-baseline="central" font-size="0.533333" fill="#e8e8e8">100</text>
+<line class="grid" data-axis="y" data-at="105000000" x1="99" y1="105" x2="131" y2="105" stroke="#444a55" stroke-width="0.044444"/>
+<text class="grid-label" data-axis="y" data-at="105000000" x="98.733334" y="105" text-anchor="end" dominant-baseline="central" font-size="0.533333" fill="#e8e8e8">105</text>
+<line class="grid" data-axis="y" data-at="110000000" x1="99" y1="110" x2="131" y2="110" stroke="#444a55" stroke-width="0.044444"/>
+<text class="grid-label" data-axis="y" data-at="110000000" x="98.733334" y="110" text-anchor="end" dominant-baseline="central" font-size="0.533333" fill="#e8e8e8">110</text>
+<line class="grid" data-axis="y" data-at="115000000" x1="99" y1="115" x2="131" y2="115" stroke="#444a55" stroke-width="0.044444"/>
+<text class="grid-label" data-axis="y" data-at="115000000" x="98.733334" y="115" text-anchor="end" dominant-baseline="central" font-size="0.533333" fill="#e8e8e8">115</text>
+<line class="grid" data-axis="y" data-at="120000000" x1="99" y1="120" x2="131" y2="120" stroke="#444a55" stroke-width="0.044444"/>
+<text class="grid-label" data-axis="y" data-at="120000000" x="98.733334" y="120" text-anchor="end" dominant-baseline="central" font-size="0.533333" fill="#e8e8e8">120</text>
+</g>
+<g id="board" clip-path="url(#region)">
+<g class="layer" data-layer="B.Cu" opacity="0.8">
+</g>
+<g class="layer" data-layer="F.Cu" opacity="0.8">
+<path class="track net-hi" data-net="GND" data-layer="F.Cu" data-where="/kicad_pcb/segment[0]" data-item="trk_83fcd550-46da-5fae-9b96-43cb6953e5c7" d="M105 105.8 L115 105.8" fill="none" stroke="#c83737" stroke-width="0.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path class="pad net-hi" data-net="GND" data-layer="F.Cu" data-where="R1-1" data-item="pad_fb90e1ac-489c-5d16-bc45-405adff38be5" d="M104.5 105.35 L105.5 105.35 L105.5 106.25 L104.5 106.25 Z" fill="#c83737"/>
+<path class="pad net-hi" data-net="GND" data-layer="F.Cu" data-where="R2-1" data-item="pad_39dd50a8-f48f-5cd6-b3d0-d0a5dc276de4" d="M114.5 105.35 L115.5 105.35 L115.5 106.25 L114.5 106.25 Z" fill="#c83737"/>
+<path class="pad net-dim" data-net="unconnected-(R1-B-Pad2)" data-layer="F.Cu" data-where="R1-2" data-item="pad_0ab6ab9d-5351-5510-8f82-f890203bb703" d="M104.5 103.75 L105.5 103.75 L105.5 104.65 L104.5 104.65 Z" fill="#c83737"/>
+<path class="pad net-dim" data-net="unconnected-(R2-B-Pad2)" data-layer="F.Cu" data-where="R2-2" data-item="pad_4ed564cf-e155-5d18-9f39-e459df6d7f04" d="M114.5 103.75 L115.5 103.75 L115.5 104.65 L114.5 104.65 Z" fill="#c83737"/>
+</g>
+<g id="vias">
+</g>
+<g id="holes">
+</g>
+<g id="edge">
+<path class="edge" data-ring="outline" d="M100 100 L130 100 L130 120 L100 120 Z" fill="none" stroke="#d8c040" stroke-width="0.044444"/>
+</g>
+</g>
+</svg>

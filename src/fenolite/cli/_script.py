@@ -23,6 +23,7 @@ from fenolite.catalog.devices import edited_issue, is_edited
 from fenolite.catalog.records import DeviceRecord, LibraryTree, load_tree
 from fenolite.core.errors import FormatError, Issue
 from fenolite.dsl import Design, Panel
+from fenolite.dsl._sites import Site, recording
 from fenolite.dsl.devices import ProjectDevices, installed
 from fenolite.pick.rows import PROPOSED_DIR
 
@@ -56,6 +57,8 @@ class ScriptRun:
     library: LibraryTree = LibraryTree()
     """Every record of ``devices/`` beside the script, read recursively (change c0259): devices, parts,
     pins and packages; its pins and packages override catalog definitions of the same id."""
+    unattached: tuple[Site, ...] = ()
+    """The parts, nets and interfaces the script created that never reached the design (c0256)."""
 
 
 def read_project_library(folder: Path) -> tuple[LibraryTree, tuple[DeviceFile, ...], tuple[Issue, ...]]:
@@ -177,7 +180,8 @@ def run_design_script(path: Path) -> ScriptRun:
     script = Path(path).resolve()
     tree, files, issues = read_project_library(script.parent) if script.is_file() else (LibraryTree(), (), ())
     devices = _project(tree)
-    namespace, output = _run_script(path, "design", devices)
+    with recording(script.parent) as recorder:
+        namespace, output = _run_script(path, "design", devices)
     design = namespace.get("design")
     if not isinstance(design, Design):
         found = "nothing" if design is None else type(design).__name__
@@ -185,7 +189,7 @@ def run_design_script(path: Path) -> ScriptRun:
             f"design script binds no module-level 'design' of type fenolite.dsl.Design (found {found})",
             file=os.fspath(path),
         )
-    return ScriptRun(design, output, devices, files, issues, tree)
+    return ScriptRun(design, output, devices, files, issues, tree, recorder.unattached(design))
 
 
 @dataclass(frozen=True)

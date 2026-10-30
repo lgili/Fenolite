@@ -601,7 +601,7 @@ function buildMessages() {   // the Messages panel: findings grouped by rule, er
     h.onclick = () => { if (open) st.msgOpen.delete(code); else st.msgOpen.add(code); buildMessages(); }; box.appendChild(h);
     if (!open) continue;
     for (const i of list.slice(0, MSG_ROWS)) { const x = C.findings[i], d = document.createElement("div"); d.className = "navi" + (i === st.selFinding ? " sel" : "");
-      d.innerHTML = `${esc(x.message)}${x.at ? "" : " <small>(no position)</small>"}`; d.title = x.where; d.onclick = () => selectFinding(i); box.appendChild(d); }
+      d.innerHTML = `${esc(x.message)}${x.subjects?.length ? `<br><small>${x.subjects.map(s => esc(s.name)).join(", ")}</small>` : ""}${x.at ? "" : " <small>(no position)</small>"}`; d.title = x.where; d.onclick = () => selectFinding(i); box.appendChild(d); }
     if (list.length > MSG_ROWS) { const d = document.createElement("div"); d.className = "notes"; d.textContent = `… ${list.length - MSG_ROWS} more`; box.appendChild(d); }
   }
 }

@@ -27,6 +27,7 @@ ANY = "*"
 ALLOWED: dict[str, set[str]] = {
     "root": {ANY},
     "cli": {ANY},
+    "testing": {ANY},
     "core": set(),
     "model": set(),
     "geometry": set(),
@@ -66,7 +67,7 @@ LAZY: dict[str, set[str]] = {"api": {"cli"}}
 ``fenolite.api.run`` imports the dispatcher of ``cli`` when it is called (capability package-layering,
 "Public API runs the commands lazily"; change c0206). ``cli`` imports ``api`` at the top, so a top-level
 edge back would be a cycle."""
-STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog", "schematic", "mcp", "pick"}
+STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog", "schematic", "mcp", "pick", "testing"}
 EXTRA_LOADER = "geometry/boolean/_extra.py"
 PYPROJECT = SRC.parents[1] / "pyproject.toml"
 

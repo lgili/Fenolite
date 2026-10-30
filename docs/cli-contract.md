@@ -502,6 +502,7 @@ A build for either target applies the catalog's default pin-to-pad map (change c
 
 | code | severity | meaning |
 |---|---|---|
+| `build.unattached` | warning | a live Part, Net or Interface created in the script folder never reached the design; where is its relative file and line |
 | `build.pad-map-default` | warning | a part of an anode-first catalog symbol (`Fenolite:LED`, `Diode`, `Zener_Diode`, `Schottky_Diode`, `Photodiode`) on a catalog land whose pad 1 is the cathode gives no `pad_map`, and the build applied `{"1": "2", "2": "1"}`; the issue names the part (`where`), the land and the map, and the hint the `pad_map=` to write |
 
 ## `build`
@@ -4452,3 +4453,21 @@ every part placed so that `fenolite route --router direct` closes its three nets
 | 0 | none | a dry run or a confirmed write |
 | 2 | `FEN-2001` | an unknown starter (the hint names them); a name that is not a design name (the hint names `--name`); `DIR/design.py` exists and `--force` is not given |
 | 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |
+
+### Design-testing additions (c0256, experimental)
+
+`render --net NAME` is repeatable; `--layers L1,L2` filters the tool-free model render. With `--region`
+or `--net`, PATH can be a design script. Model renders write one canonical SVG under the normal
+plan/confirm protocol. Unknown nets/layers, scripts without either model form, or combining highlights
+or layer filters with KiCad plots give `FEN-2001`, exit 2. `--nets` still enables labels.
+`result.region` adds sorted `nets` and unique-entity `highlighted` counts for pads/tracks/arcs/vias/zones.
+
+`check.result.subjects` is a list of `{issue, items}`: the zero-based index into envelope `issues` and
+`items` with `{kind, id, name}`. With concise output the grouped subjects are retained; with pagination indices are local to the visible issues.
+Issues themselves retain their exact existing keys. Available producers
+are the copper, length, placement, roles and circuit stages; a `circuit.rules` finding of a
+requirement row names its part and nets (a ground net only when the row names no other).
+
+`build.unattached` is a warning for a live script-created Part, Net or Interface that never reached the
+design. Its `where` is script-relative `file:line:N`; add, connect or delete that object. Creation tracking
+is build-scoped and weak: objects already collected are not reported, and ordinary Python use is untracked.

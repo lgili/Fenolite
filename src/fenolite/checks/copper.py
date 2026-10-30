@@ -17,6 +17,7 @@ they give one Fenolite rule of their own, the overlap of two outlines of equal p
 
 from __future__ import annotations
 
+import dataclasses
 import fnmatch
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
@@ -34,6 +35,7 @@ from fenolite.checks.clearance import (
 )
 from fenolite.checks.codes import issue
 from fenolite.checks.stages import StageResult, ran, skipped
+from fenolite.checks.subjects import SUBJECT_KINDS, Subject, for_issues
 from fenolite.checks.waivers import COPPER_CODES, Candidate, apply_waivers, copper_waivers
 from fenolite.checks.waivers import judge as judge_waivers
 from fenolite.core.coords import Point
@@ -1290,7 +1292,20 @@ def copper_stage(
     level = report.evidence
     if any(found.code in LOWERING_CODES for found in issues):
         level = Evidence(Level.UNVERIFIED, hypotheses=level.hypotheses)
-    return ran(STAGE, issues, level, summary)
+    result = ran(STAGE, issues, level, summary)
+    known = {
+        (f.code, f.where, f.message): tuple(
+            Subject(item.kind, item.entity_id, item.where)
+            for item in f.items
+            if item.kind in SUBJECT_KINDS and item.entity_id
+        )
+        for f in report.findings
+    }
+    fallback = for_issues(checked, result.issues)
+    subjects = tuple(
+        known.get((i.code, i.where, i.message), fallback[k]) for k, i in enumerate(result.issues)
+    )
+    return dataclasses.replace(result, subjects=subjects)
 
 
 __all__ = [

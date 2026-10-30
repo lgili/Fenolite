@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, cast
 
+from fenolite.dsl._sites import record
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.part import Net, Part, PinHandle, connect
 from fenolite.dsl.quantity import Quantity, Range
@@ -133,6 +134,7 @@ class Interface:
         self.name = name
         self.kind = kind
         self.members = dict(members)
+        record(self, "Interface", self.name)
         self.params: dict[str, Range] = {}
         self.reference: Interface | PortHandle | None = None
         self.shared = False

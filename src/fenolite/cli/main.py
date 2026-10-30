@@ -285,6 +285,24 @@ def _holder(result: dict[str, Any], path: str) -> tuple[dict[str, Any], str] | N
     return (node, parts[-1]) if isinstance(node.get(parts[-1]), list) else None
 
 
+def _shown_subjects(
+    rows: list[dict[str, Any]], original: tuple[Issue, ...], shown: tuple[Issue, ...], *, concise: bool
+) -> list[dict[str, Any]]:
+    """Keep subject indices relative to the actual visible issue list, including concise pages."""
+    grouped: dict[object, list[dict[str, Any]]] = {}
+    for row in rows:
+        source = original[cast(int, row["issue"])]
+        key = source.code if concise else id(source)
+        grouped.setdefault(key, []).extend(row["items"])
+    result: list[dict[str, Any]] = []
+    for k, issue in enumerate(shown):
+        items = grouped.get(issue.code if concise else id(issue), [])
+        distinct = {(item["kind"], item["id"], item["name"]): item for item in items}
+        if distinct:
+            result.append({"issue": k, "items": list(distinct.values())})
+    return result
+
+
 def _concise(issues: tuple[Issue, ...]) -> tuple[tuple[Issue, ...], list[dict[str, object]]]:
     """The first issue of each code in order, and per code its count and its counts by severity."""
     first: dict[str, Issue] = {}
@@ -573,6 +591,10 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
         shown, result["issues_summary"] = _concise(shown)
     if limit is not None:
         result, shown = _paged(command, result, shown, limit, args.cursor)
+    if command.name == "check" and "subjects" in result and (args.format == "concise" or limit is not None):
+        result["subjects"] = _shown_subjects(
+            result["subjects"], outcome.issues, shown, concise=args.format == "concise"
+        )
     written = dict(result)  # what a confirmed write replies: no plan
     if writes:
         result["plan"] = _shown(rows)

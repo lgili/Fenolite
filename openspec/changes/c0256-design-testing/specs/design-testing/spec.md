@@ -16,7 +16,7 @@
 `fenolite.testing.instantiate(block, **params) -> TestDesign` SHALL build a throwaway design in its temporary folder that uses the c0251 block once under the name `dut` with `params`, as `load` builds a script, and every port of the block MUST be readable as the net `dut/<port>`.
 
 #### Scenario: A buck block alone
-- **GIVEN** the authored buck block of c0251's example with the parameter `vout`
+- **GIVEN** an authored buck block (c0251) with the parameter `vout` and a `Rail` port `VOUT`
 - **WHEN** `uv run pytest tests/unit/testing/test_instantiate.py` calls `instantiate(buck, vout=volt("3.3").pct(3))`
 - **THEN** `net("dut/VOUT")` exists, `ref("dut/U1")` is the regulator, and no file outside the temporary folder was written
 
@@ -61,9 +61,9 @@ A failed build in `load` or `assert_render` SHALL raise `TestingError`, a subcla
 `TestDesign.findings(pattern="*", *, stages=None, severity=None)` SHALL run `fenolite check` on the built folder through `fenolite.api.run`, with the stages of `STAGE_ORDER` not in `ORACLE_STAGES` or with `stages`, and SHALL return the issues whose code matches the glob and whose severity equals `severity` when given, each as `Finding(code, severity, message, where, subjects)`, with the check's evidence on the tuple.
 
 #### Scenario: Circuit findings in a test
-- **GIVEN** an authored script whose 10 µF capacitor is rated 10 V on a 12 V rail (c0253)
-- **WHEN** `uv run pytest tests/unit/testing/test_findings.py -k circuit` calls `findings("circuit.*")`
-- **THEN** one finding is returned, its subjects name the capacitor and the net `V12`, and no subprocess ran
+- **GIVEN** an authored script whose 10 µF capacitor `C1` is rated 10 V on the rail `V12`, under `design.contracts(unknown="warning")` (c0253)
+- **WHEN** `uv run pytest tests/unit/testing/test_findings.py -k circuit` calls `findings("circuit.*", severity="warning")` while the rail's voltage is unstated, then loads the script with a 12 V rig
+- **THEN** one finding is returned, its subjects name the capacitor and the net `V12`; the second load raises `TestingError` naming `circuit.rating-voltage at C1`, because a rating error stops the build; and no subprocess ran
 
 ### Requirement: Oracle stages refused in tests
 `findings` SHALL raise `TestingError` before any stage runs when `stages` names a stage of `ORACLE_STAGES`, naming that stage and `fenolite check`.

@@ -263,11 +263,51 @@ Alternative considered: an error. A lost object is often scaffolding while a des
 
 1. Should `fenolite.testing` be frozen for 1.0 with `fenolite.api`? **Recommended:** yes, its functions
    and records, once c0253 has shipped; marked experimental in `capabilities` until then.
+   Decided 2026-10-30: yes, as recommended; `fenolite.testing` stays experimental until the 1.0 freeze.
 2. Should `assert_render` also compare the viewer's scene JSON? **Recommended:** no for now; SVG is what a
    reviewer reads in a pull request. Revisit when c0245 lands.
+   Decided 2026-10-30: no, as recommended; SVG only.
 3. Should subjects move into the issue object at contract v1? **Recommended:** yes, in c0216, keeping
    `result.subjects` one release as an alias.
+   Decided 2026-10-30: yes, as recommended; c0216 moves them, this change keeps `result.subjects`.
 4. Is `build.unattached` raised for an unused `Net` that only a rule names? **Recommended:** no: a net named
    by a rule or an interface reached the design; only a net that nothing in the design holds is reported.
+   Decided 2026-10-30: no, as recommended.
 5. `--net` next to the existing `--nets`, or `--highlight NET`? **Recommended:** `--net`, as the research
    and `fenolite net` name it; the help text of `--nets` says "labels", that of `--net` "highlight".
+   Decided 2026-10-30: `--net`, as recommended and implemented.
+
+## Implementation measurements — 2026-10-29
+
+Creation sites on the largest Python example by bytes, `examples/yardstick/design.py` (388 parts), measured by `test_unattached.py -k cost`: three interleaved runs, median 0.026594 s with recording and 0.018650 s with recording calls disabled. This is one local measurement, not a cross-platform performance claim. The test records timings without a flaky wall-clock threshold.
+
+The example golden uses `net-GND.svg`, the renderer's canonical filename, correcting the proposal's `gnd.svg` typo. Net names in filenames are percent-encoded; highlighted counts count each entity once across layers.
+
+The user requires each guide page to fit 12000 bytes. The pre-existing generated commands page was about 44 KB; task 5.3 splits its argument sections into linked generated pages without dropping descriptions. The added agent-guide requirement records this necessary supporting change.
+
+## Completion decisions — 2026-10-30
+
+- `circuit.rules` subjects come from the requirement row of a finding: its part and nets by model id. A
+  ground net is left out when the row names another net, so a capacitor's rating across `V12`–`GND` names
+  `C1` and `V12`; a finding of no row (a count, a rail rule) is resolved from its `where` as for the other
+  stages. `CircuitResult.entities` carries the row ids aligned with the sorted findings.
+- A rating that fails is an error, and an error of the circuit rules stops `fenolite build` (c0252). The
+  scenario "Circuit findings in a test" therefore cannot read a failing rating from a built design: its test
+  reads the same capacitor's rating row as the `circuit.value-unknown` warning of
+  `design.contracts(unknown="warning")` (the rail's voltage unstated), whose subjects are `C1` and `V12`, and
+  checks that `load` of the rated-below design raises `TestingError` naming `circuit.rating-voltage at C1`
+  (`checked` now lists a refused build's error findings). "A rating finding names its part and net" writes
+  the rated-below model over a passing build, as `tests/_contracts.py` does for the bad sensor.
+- `fenolite check` reads device records from `devices/` of the build folder and of its parent; `load` and
+  `instantiate` copy the script's `devices/` (for a block, beside its file or its package) into their
+  private folder, so `findings` judges the records the build used.
+- `instantiate` writes a three-line bench script into its private folder (a 100 mm square board, the block
+  used as `dut`) and takes the block from a module-level table while the in-process build runs, so a block
+  defined in a test function works. A block's ports with several members are nets `dut/<port>.<member>`;
+  `net("dut/<port>")` reads the only or the main member (`MAIN_MEMBERS`). c0251's example has no buck block,
+  so the scenario's buck is authored in `tests/unit/testing/test_instantiate.py` with catalog parts.
+- The guide pages `checks` and `design-script` are full after the merge of `circuits-as-code` (11993 and
+  11948 bytes). The net-render paragraph moved to `fabrication` ("Views") and the testing section to
+  `board-review` ("Test the design"); the command reference needed a fifth generated page. The test that
+  every page fits 12000 bytes leaves out `dsl-reference`, a generated page bounded by its line budget
+  (20919 bytes after c0251 to c0257), as its own requirement is.

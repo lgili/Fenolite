@@ -119,6 +119,7 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.no-connect-on-net": "error",
         "build.no-footprint": "error",
         "build.no-board": "error",
+        "build.unattached": "warning",
         "build.name-case-collision": "error",
         "build.layout-exists": "error",
         "build.property-reserved": "error",

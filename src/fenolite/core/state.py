@@ -10,6 +10,9 @@ it can be deleted at any time.
 from __future__ import annotations
 
 import os
+from collections.abc import Generator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 STATE_ENV = "FENOLITE_STATE_DIR"
@@ -17,9 +20,25 @@ STATE_ENV = "FENOLITE_STATE_DIR"
 OFF = "off"
 
 
+_OVERRIDE: ContextVar[Path | None] = ContextVar("fenolite_private_state", default=None)
+
+
+@contextmanager
+def using_state(path: Path) -> Generator[None, None, None]:
+    """Isolate in-process test plans without changing process-wide environment variables."""
+    token = _OVERRIDE.set(path)
+    try:
+        yield
+    finally:
+        _OVERRIDE.reset(token)
+
+
 def state_dir() -> Path | None:
     """``FENOLITE_STATE_DIR`` when it is an absolute path, ``None`` when it is ``off``, and
     ``~/.cache/fenolite/state`` otherwise (beside the library cache). The folder is not created here."""
+    override = _OVERRIDE.get()
+    if override is not None:
+        return override
     value = os.environ.get(STATE_ENV, "").strip()
     if value.lower() == OFF:
         return None

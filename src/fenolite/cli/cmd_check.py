@@ -226,6 +226,7 @@ def _run_documents(
         "project": project_result(backend, documents, built=built),
         "stages": [stage.to_json() for stage in report.stages],
         "waivers": dict(report.waivers),
+        "subjects": subject_rows(report),
     }
     text = _add_matrix(result, args, documents.root, model if not cache_error else None)
     return Result(
@@ -320,6 +321,18 @@ def run_stages(
     return Checked(project, built, report, None if oracle is None else oracle.version())
 
 
+def subject_rows(report: CheckReport) -> list[dict[str, object]]:
+    """Indices include input findings that precede stage findings."""
+    offset = len(report.issues) - sum(len(stage.issues) for stage in report.stages)
+    rows: list[dict[str, object]] = []
+    for stage in report.stages:
+        for k, subjects in enumerate(stage.subjects):
+            if subjects:
+                rows.append({"issue": offset + k, "items": [subject.to_json() for subject in subjects]})
+        offset += len(stage.issues)
+    return rows
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     given = Path(args.path)
     path = given if given.is_absolute() else ctx.cwd / given
@@ -359,6 +372,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         },
         "stages": [stage.to_json() for stage in report.stages],
         "waivers": dict(report.waivers),
+        "subjects": subject_rows(report),
     }
     _built, model, cache_error = _cache(board.parent) if args.matrix else (False, None, "")
     text = _add_matrix(result, args, board.parent, model if not cache_error else None)

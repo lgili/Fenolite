@@ -144,6 +144,14 @@ fenolite render blink/build -o blink/views --region 0mm,0mm,20mm,20mm --nets --o
 Each element carries `class` and `data-net`, so read the file as data too. A `render.copper-simulated`
 info means a zone had no saved fill: run `fenolite fill` for KiCad's own.
 
+To see one net on the whole board, highlight it with `--net` (repeatable; `--nets` still adds labels) and
+keep only some copper layers with `--layers`. A design script is accepted as `PATH` with `--net` or
+`--region`, built in memory, with no tool.
+
+```fenolite-cmd
+fenolite render blink/build --net GND --layers F.Cu,B.Cu -o views --dry-run --json
+```
+
 ## Filled and capped vias
 
 `protection=protect(filling=True, capping=True)` asks for the vias of a stitch to be filled and capped,

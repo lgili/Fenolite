@@ -112,3 +112,29 @@ def test_sheet_findings() -> None:
 def test_not_a_check_reply() -> None:
     with pytest.raises(FormatError, match="analyze"):
         read_reply({"command": "analyze", "issues": []}, name="a.json")
+
+
+def test_subjects_resolve_id_before_name_with_empty_where():
+    scene = {
+        "comps": [{"id": "cmp_target", "ref": "C1", "bbox": [1, 2, 3, 4]}],
+        "pads": [],
+        "prims": [],
+        "nets": [],
+    }
+    reply = _reply({"code": "circuit.rating-voltage", "severity": "error", "message": "rating"})
+    reply["result"]["subjects"] = [
+        {
+            "issue": 0,
+            "items": [
+                {"kind": "component", "id": "cmp_target", "name": "OLD"},
+                {"kind": "net", "id": "net_test", "name": "V12"},
+            ],
+        }
+    ]
+    finding = overlay(reply, scene)["findings"][0]
+    assert finding["box"] == [1, 2, 3, 4]
+    assert [s["name"] for s in finding["subjects"]] == ["OLD", "V12"]
+    reply["result"]["subjects"][0]["items"][0] = {"kind": "component", "id": "stale", "name": "C1"}
+    assert overlay(reply, scene)["placed"] == 1
+    reply["result"]["subjects"] = []
+    assert overlay(reply, scene)["placed"] == 0

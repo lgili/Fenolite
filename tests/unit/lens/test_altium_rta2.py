@@ -33,6 +33,7 @@ FORMS = {"binary": (), "ascii": ("--altium-format", "ascii")}
 OFFICIAL = "blink_official/design.py"
 """The one example that needs the official KiCad libraries: built only where they are installed."""
 WITH_PCB = {
+    "testing/design.py",
     "picks/design.py",
     "picks/divider.py",
     "acceptance_v03/design.py",
@@ -87,7 +88,9 @@ NOT_JUDGED = {
 }
 """Examples built elsewhere and not judged here, each with its reason."""
 SCRIPTS = sorted(
-    name for path in EXAMPLES.glob("*/*.py") if (name := path.relative_to(EXAMPLES).as_posix()) not in MODULES
+    name
+    for path in EXAMPLES.glob("*/*.py")
+    if (name := path.relative_to(EXAMPLES).as_posix()) not in MODULES and not path.name.startswith("test_")
 )
 PCB_KINDS = sorted(kind for kind in RT_A2_SCOPE.fields if kind not in CIRCUIT_KINDS)
 """The kinds compared with the PCB reading: every other kind of the scope."""
@@ -136,7 +139,7 @@ def test_example_holds_rta2(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, scr
         # the stored model holds the board that was written: every kind of the scope is compared
         assert summary["compared"]["pcb"] == PCB_KINDS
         board = load_dir(folder / ".fenolite").board
-        assert board is not None and len(board.footprints) >= 3
+        assert board is not None and len(board.footprints) >= (2 if script == "testing/design.py" else 3)
         assert sum(len(footprint.pads) for footprint in board.footprints) >= 3
 
 
