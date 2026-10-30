@@ -4,8 +4,10 @@
 and cli-contract, "Frozen builds"): read ``<script stem>.lock`` or ``--lock FILE``, assign the refs, and
 plan one write of kind ``lock`` when the canonical text differs from the file's bytes.
 
-A lock exists only for a design with a part without an explicit ref, or one that already has a lock file,
-so a design of explicit refs builds as before. ``--frozen`` refuses any change of the lock's content
+A lock exists only for a design with a part without an explicit ref or a take, or one that already has a
+lock file, so a design of explicit refs builds as before. The takes of the script are solved here against the
+lock's ``[pins]`` section, and their choices joined to the design before it is lowered (change c0257,
+``fenolite.cli._pins``). ``--frozen`` refuses any change of the lock's content
 (``FEN-7004``) and never writes it. An error finding plans no lock write.
 """
 
@@ -17,8 +19,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from fenolite.cli._pins import plan_pins
 from fenolite.cli.api import PlannedWrite, Result
 from fenolite.core.errors import Issue
+from fenolite.core.evidence import Evidence
 from fenolite.dsl import Design, moves
 from fenolite.dsl.lock import (
     SUFFIX,
@@ -38,12 +42,14 @@ KIND = "lock"
 @dataclass(frozen=True)
 class LockPlan:
     """The lock of one build: the ``refs`` to lower with (``None``: the design needs no lock), the planned
-    ``write``, ``result.lock`` and the issues."""
+    ``write``, ``result.lock``, the issues, ``result.pins`` and the evidence of the pin choices."""
 
     refs: dict[str, str] | None
     write: PlannedWrite | None
     summary: dict[str, object] | None
     issues: tuple[Issue, ...]
+    pins: tuple[dict[str, object], ...] = ()
+    evidence: Evidence | None = None
 
 
 def lock_location(design: str, lock: str | None, cwd: Path) -> tuple[str, Path]:
@@ -75,6 +81,14 @@ def plan_lock(design: Design, *, script: Path, given: str, path: Path, frozen: b
         return LockPlan(None, None, None, ())
     old = read_lock(data.decode("utf-8"), file=shown) if exists else make_lock(design.name)
     found = assign_refs(design, old, moves=moves(design))
+    pins = plan_pins(design, found.lock.sections["pins"])
+    lock = make_lock(design.name, {**found.lock.sections, "pins": pins.entries})
+    found = dataclasses.replace(
+        found,
+        lock=lock,
+        changes=tuple(sorted((*found.changes, *pins.changes), key=lambda change: change.sort_key())),
+        issues=(*found.issues, *pins.issues),
+    )
     if frozen:
         if found.lock != old or not exists:
             changes = found.changes or ()
@@ -90,7 +104,7 @@ def plan_lock(design: Design, *, script: Path, given: str, path: Path, frozen: b
         "frozen": frozen,
         "changes": [change.as_json() for change in found.changes],
     }
-    return LockPlan(dict(found.refs), write, summary, found.issues)
+    return LockPlan(dict(found.refs), write, summary, found.issues, tuple(pins.rows), pins.evidence)
 
 
 def with_lock(result: Result, plan: LockPlan) -> Result:
@@ -102,9 +116,10 @@ def with_lock(result: Result, plan: LockPlan) -> Result:
     summary = plan.summary
     if summary is not None:
         summary = {**summary, "written": write is not None}
-    body: dict[str, Any] = {**result.result, "lock": summary}
+    body: dict[str, Any] = {**result.result, "lock": summary, "pins": list(plan.pins)}
     writes = result.writes if write is None else (*result.writes, write)
-    return dataclasses.replace(result, result=body, issues=issues, writes=writes)
+    evidence = result.evidence if plan.evidence is None else Evidence.combine(result.evidence, plan.evidence)
+    return dataclasses.replace(result, result=body, issues=issues, writes=writes, evidence=evidence)
 
 
 __all__ = ["KIND", "LockPlan", "lock_location", "plan_lock", "with_lock"]

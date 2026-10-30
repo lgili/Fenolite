@@ -536,6 +536,10 @@ model alone (`docs/cli-contract.md`, "Circuit stage"): `circuit.rail-voltage`, `
 `circuit.bus-pullup`, `circuit.requires-missing` and `circuit.port-split`. An error stops the build's
 write. `examples/sensor_rails/` shows a good and a bad variant.
 
+A device record may also offer interface options on several pin sets (`[[options]]`); `part.take(I2C)`
+takes one, and `fenolite build` chooses its pins, lists them in `result.pins` and keeps them in the `[pins]`
+section of the design lock: see `docs/pins.md` (change c0257).
+
 ## Ids: the key table
 
 Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl", key)` from

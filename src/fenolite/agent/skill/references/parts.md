@@ -25,9 +25,8 @@ footprint="Fenolite:Chip_0603", value="330")`. A pad takes the net of the pin th
    is `INFERRED`: a generic symbol, not a device's pinout, and a land pattern nobody checked against your
    part. Compare both with the datasheet before you order boards.
 
-   `view --out FILE` plans an offline HTML browser of these entries: it previews a symbol and footprint
-   together, and a pad map the user confirmed against the datasheet gives a `Part` fragment. It never
-   upgrades `INFERRED` evidence.
+   `view --out FILE` plans an offline HTML browser of these entries: a symbol and footprint side by side;
+   a pad map confirmed against the datasheet gives a `Part` fragment. It never upgrades `INFERRED`.
 2. **KiCad's libraries.** Put an `fp-lib-table` and a `sym-lib-table` beside the script, and name parts
    as KiCad does (`Device:R`, `Resistor_SMD:R_0603_1608Metric`). The build copies what it places into the
    project.
@@ -158,6 +157,8 @@ d1.place(mm(15), mm(5))
   script; `catalog import` writes a template (`UNVERIFIED`).
 - A wrong pin name raises `PinNameError` with the closest names. A device that disagrees with its symbol or
   footprint is `build.device-mismatch`; `result.devices` lists each device, `device.edited` an edited one.
+- `mcu.take(I2C, option=, pins=, name=)` takes an interface the device's `[[options]]` offer; the build
+  picks free pins, lists them in `result.pins`, keeps them in the lock; none left: `pins.unsatisfiable`.
 
 ## Typed interfaces
 
@@ -198,8 +199,8 @@ j1.place(mm(22), mm(10), rot=90)
 - `USB2.attach(part, dp=, dn=)`. `DiffPair(p, n)` records a pair. KiCad pairs two net names that differ
   only in the last character, `P` and `N` or `+` and `-`; other names give `build.diff-pair-name`.
 - `Harness(name, members)` and `Interface(name, kind, members)` record any group of nets.
-- The script builds with warnings: `build.i2c-pullup-missing` (no two-pin part between a bus line and
-  the high net of a `Power`) and `model.dangling-net` for each net that joins no pin yet.
+- The script builds with warnings: `build.i2c-pullup-missing` (no two-pin part from a bus line to the
+  high net of a `Power`) and `model.dangling-net` for each net joining no pin yet.
 - Interfaces are kept in `.fenolite/`; the board and the schematic do not change.
 
 ## Blocks
@@ -243,8 +244,7 @@ for n in range(2):
 
 ## What the checks still say
 
-No script here is a finished board: each has open connections until it is routed. KiCad 10 also reports
-`kicad.erc.power-pin-not-driven` for the supply (passive connector pins feed the regulator) and
-`kicad.erc.pin-not-connected` for the buses (pins of `U1` neither connected nor marked `no_connect`).
+No script here is a finished board: connections stay open until routed. KiCad 10 also reports
+`kicad.erc.power-pin-not-driven` (passive pins feed the regulator) and `kicad.erc.pin-not-connected`.
 
 Read next: `footprints`, `placement`, `rules`.

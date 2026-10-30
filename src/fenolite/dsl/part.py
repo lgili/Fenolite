@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from fenolite.dsl.intents import AnchorRef, PadRef
     from fenolite.dsl.module import Container
     from fenolite.dsl.portnets import Group, PortHandle
+    from fenolite.dsl.take import TakenInterface
 
 Side = Literal["top", "bottom"]
 NAME = re.compile(r"[A-Za-z0-9_.+-]+")
@@ -477,6 +478,21 @@ class Part:
         from fenolite.dsl.devices import device_port
 
         return device_port(self, name)
+
+    def take(
+        self,
+        kind: object,
+        *,
+        name: str | None = None,
+        option: str | None = None,
+        pins: Mapping[str, object] | None = None,
+    ) -> TakenInterface:
+        """Take one interface of ``kind`` (``I2C``, ``SPI``, ``UART``, ``USB2``, ``DiffPair`` or ``"pin"``)
+        from the options of the part's device; the build chooses its pins (``docs/pins.md``; change c0257).
+        The take key is ``name``, else ``<kind>#<n>``; ``option`` and ``pins`` narrow the alternatives."""
+        from fenolite.dsl.take import take
+
+        return take(self, kind, name=name, option=option, pins=pins)
 
     def __getattr__(self, name: str) -> PinHandle | PortHandle:
         """A device port (change c0252) or a function of a device part read as an attribute (``u1.vdd``,

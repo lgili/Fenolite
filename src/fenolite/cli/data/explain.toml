@@ -2963,7 +2963,7 @@ fix = "Lengthen the shorter net (Design.meander), shorten the longer one, or cha
 see = "check"
 
 ["lock.changed"]
-meaning = "Under build --frozen, one change of the design lock: the section, the key, the value before and after, and the reason (assigned, released, moved, explicit, taken, prefix-changed or design-renamed)."
+meaning = "Under build --frozen, one change of the design lock: the section, the key, the value before and after, and the reason (assigned, released, moved, explicit, taken, prefix-changed or design-renamed; for a pin choice of change c0257: solved, stale or dropped)."
 fix = "Build without --frozen, review the change, commit the lock, then build frozen again."
 see = "build"
 
@@ -4212,3 +4212,38 @@ see = "check"
 meaning = "The pins of one member of a device port are on two nets (such as VDD and VDDA on separate rails), so the member is left out of the model port and its parameters are not judged."
 fix = "Join the pins of the member, or accept the split."
 see = "check"
+
+["pins.unsatisfiable"]
+meaning = "No assignment gives every take its own pins (change c0257): the message names the smallest set of takes that cannot all be served and the pins they compete for."
+fix = "Drop a take, widen its option= or pins=, or free a pin connected by hand; then build again."
+see = "build"
+
+["pins.option-unknown"]
+meaning = "A take names, with option=, no option of its kind in the part's device record."
+fix = "Name one of the options of the device record (the message lists them), or leave option= out."
+see = "build"
+
+["pins.pinned-conflict"]
+meaning = "The pins= of a take match no alternative of the device, or name a pin already connected or marked no-connect by hand."
+fix = "Give pins that one alternative of the device offers, free the pin, or leave pins= out."
+see = "build"
+
+["pins.search-limit"]
+meaning = "The pin solve tried more candidates than its bound (100 000) without an answer."
+fix = "Narrow the takes with option= or pins= so that fewer alternatives remain."
+see = "build"
+
+["pins.lock-stale"]
+meaning = "A pin choice recorded in the [pins] section of the design lock is no longer valid (the device record, the take or a hand connection changed), so the take was solved again."
+fix = "Review result.pins and the planned lock write; commit the lock when the new choice is right."
+see = "build"
+
+["pins.unused-take"]
+meaning = "A take's nets reach no pin besides the take's own: the chosen pins connect to nothing."
+fix = "Connect the take (connect(take, other.port)), or remove it."
+see = "build"
+
+["pins.lock-dropped"]
+meaning = "A [pins] entry of the design lock names a take the script no longer makes; the confirmed build removes it."
+fix = "Nothing to do if the take was removed on purpose; commit the lock."
+see = "build"

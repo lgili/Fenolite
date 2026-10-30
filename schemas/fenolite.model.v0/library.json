@@ -222,6 +222,12 @@
             "$ref": "#/$defs/DeviceInterface"
           }
         },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeviceOption"
+          }
+        },
         "provenance": {
           "anyOf": [
             {
@@ -287,6 +293,35 @@
       "required": [
         "name",
         "kind"
+      ]
+    },
+    "DeviceOption": {
+      "description": "One interface option a device offers (``[[options]]``, change c0257): the interface ``kind``",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "evidence": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "name"
       ]
     },
     "DevicePin": {

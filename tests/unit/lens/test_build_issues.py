@@ -71,6 +71,10 @@ def test_closed_set() -> None:
         "circuit.rail-unset": "warning", "circuit.logic-level": "error", "circuit.logic-unknown": "warning",
         "circuit.bus-pullup": "warning", "circuit.requires-missing": "warning",
         "circuit.port-split": "warning",
+        # c0257: the pin solve
+        "pins.unsatisfiable": "error", "pins.option-unknown": "error", "pins.pinned-conflict": "error",
+        "pins.search-limit": "error", "pins.lock-stale": "warning", "pins.unused-take": "warning",
+        "pins.lock-dropped": "info",
         **PRESERVE_ISSUE_CODES,  # c0019
         **EDIT_ISSUE_CODES,  # c0250: the edit merge passes through
     }  # fmt: skip
@@ -93,7 +97,7 @@ def test_closed_set() -> None:
     own = {
         code
         for code in set(table) - set(LOCK_CODES) - set(EDIT_ISSUE_CODES)
-        if not code.startswith("circuit.")
+        if not code.startswith(("circuit.", "pins."))  # c0257: lens.pins holds the pin codes
     }
     assert literals == own | {code for code in ALTIUM_ISSUE_CODES if code.startswith("build.")}
     tested: set[str] = set()

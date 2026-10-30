@@ -118,10 +118,10 @@ def test_shipped_namespace_needs_sources() -> None:
     )
 
 
-@pytest.mark.parametrize("key", ["options"])
-def test_reserved_key(key: str) -> None:
-    error = _refused(_record(f'[{key}]\nI2C = "x"\n'), "FEN-3002")
-    assert key in str(error) and isinstance(error, DeviceFormatTooNewError)
+def test_options_table_form_is_malformed() -> None:
+    """``options`` is defined by change c0257 as ``[[options]]``; a plain table is a malformed record."""
+    error = _refused(_record('[options]\nI2C = "x"\n'))
+    assert "options" in str(error) and not isinstance(error, DeviceFormatTooNewError)
 
 
 def test_newer_schema() -> None:

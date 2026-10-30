@@ -50,6 +50,7 @@ from fenolite.model.circuit import (
 from fenolite.model.library import (
     DeviceDef,
     DeviceInterface,
+    DeviceOption,
     DevicePin,
     DeviceProvenance,
     FootprintDef,
@@ -87,11 +88,12 @@ KEYS: tuple[str, ...] = (
     "ratings",
     "limits",
     "interfaces",
+    "options",
     "provenance",
 )
 """Every key of a record, in the order of the canonical text."""
 REQUIRED: tuple[str, ...] = ("schema", "id", "summary", "symbol", "footprint", "evidence", "pins")
-RESERVED: Mapping[str, str] = {"options": "c0257"}
+RESERVED: Mapping[str, str] = {}
 """Keys kept for a later format, with the change that defines each."""
 ID = re.compile(r"[A-Za-z0-9_.+-]+:[A-Za-z0-9_.+-]+")
 FUNCTION = re.compile(r"[A-Za-z_][A-Za-z0-9_+.~-]*")
@@ -356,7 +358,8 @@ PART_ATTRIBUTES: frozenset[str] = frozenset(
         "explicit_ref",
         "field", "field_requests", "footprint", "height", "key", "label", "lib_id", "name", "no_connects",
         "pad", "pad_map", "pad_zone_requests", "parent", "path", "place", "port", "ports", "prefix",
-        "properties", "ref", "request", "two_terminal", "unused_no_connect", "unused_request", "value",
+        "properties", "ref", "request", "take", "two_terminal", "unused_no_connect", "unused_request",
+        "value",
         "value_range", "zone_connection",
     }
 )  # fmt: skip
@@ -535,6 +538,83 @@ def _interfaces(
     return tuple(sorted(found, key=lambda interface: interface.name))
 
 
+OPTION_ROLES: Mapping[str, tuple[str, ...]] = {
+    "i2c": ("scl", "sda"),
+    "spi": ("miso", "mosi", "sck"),
+    "uart": ("rx", "tx"),
+    "usb2": ("dn", "dp"),
+    "diff_pair": ("n", "p"),
+    "pin": ("io",),
+}
+"""Option kind → the roles every alternative maps, in code-point order (change c0257). ``pin`` is a
+single-pin function, such as an ADC channel or a timer output."""
+OPTION_KEYS: tuple[str, ...] = ("kind", "name", "alternatives", "evidence")
+
+
+def _options(
+    read: _Reader, value: object, functions: set[str], evidence: str, device_id: str
+) -> tuple[DeviceOption, ...]:
+    """The ``[[options]]`` tables of a record (change c0257): per interface kind, named options and their
+    pin alternatives. Every error names the device, the option and the pin."""
+    if not isinstance(value, list):
+        raise read.fail("options", f"must be an array of tables ([[options]]), not {_kind(value)}")
+    found: list[DeviceOption] = []
+    seen: set[tuple[str, str]] = set()
+    for index, item in enumerate(cast(list[object], value)):
+        where = f"options[{index}]"
+        table = read.table(item, where)
+        unknown = sorted(set(table) - set(OPTION_KEYS))
+        if unknown:
+            raise read.fail(f"{where}.{unknown[0]}", f"unknown key; an option takes {', '.join(OPTION_KEYS)}")
+        for key in ("kind", "name", "alternatives"):
+            if key not in table:
+                raise read.fail(f"{where}.{key}", "is missing")
+        kind = read.text(table["kind"], f"{where}.kind")
+        if kind not in OPTION_ROLES:
+            raise read.fail(f"{where}.kind", f"{kind!r} is not an option kind; use {', '.join(OPTION_ROLES)}")
+        name = read.text(table["name"], f"{where}.name")
+        if (kind, name) in seen:
+            raise read.fail(
+                f"{where}.name", f"device {device_id}: the {kind} option {name!r} is declared twice"
+            )
+        seen.add((kind, name))
+        raw = table["alternatives"]
+        if not isinstance(raw, list) or not raw:
+            raise read.fail(f"{where}.alternatives", "must be a non-empty list of tables (role = pin)")
+        roles = OPTION_ROLES[kind]
+        alternatives: list[dict[str, str]] = []
+        for number, entry in enumerate(cast(list[object], raw)):
+            at = f"{where}.alternatives[{number}]"
+            pins = read.table(entry, at)
+            missing = [role for role in roles if role not in pins]
+            extra = sorted(set(pins) - set(roles))
+            if missing or extra:
+                wrong = f"lacks the role {missing[0]!r}" if missing else f"has the extra role {extra[0]!r}"
+                raise read.fail(
+                    at,
+                    f"device {device_id}: option {name!r} {wrong}; a {kind} alternative maps "
+                    f"{', '.join(roles)}",
+                )
+            mapped = {role: read.text(pins[role], f"{at}.{role}") for role in roles}
+            for role, pin in mapped.items():
+                if pin not in functions:
+                    raise read.fail(
+                        f"{at}.{role}",
+                        f"device {device_id}: option {name!r} names the pin {pin!r}, which the "
+                        "device does not have",
+                    )
+            if len(set(mapped.values())) != len(mapped):
+                raise read.fail(at, f"device {device_id}: option {name!r} gives one pin to two roles")
+            if mapped in alternatives:
+                raise read.fail(at, f"device {device_id}: option {name!r} lists one alternative twice")
+            alternatives.append(mapped)
+        label = read.text(table.get("evidence", evidence), f"{where}.evidence")
+        if not EVIDENCE.fullmatch(label):
+            raise read.fail(f"{where}.evidence", f"{label!r} is not a label of the evidence vocabulary")
+        found.append(DeviceOption(kind=kind, name=name, alternatives=tuple(alternatives), evidence=label))
+    return tuple(sorted(found, key=lambda option: (option.kind, option.name)))
+
+
 def _pins(read: _Reader, value: object) -> tuple[DevicePin, ...]:
     table = read.table(value, "pins")
     if not table:
@@ -710,6 +790,7 @@ def parse_device(text: str, *, file: str = "") -> DeviceDef:
             ratings += _limit(read, key, table[key], f"ratings.{key}")
     limits = _pair_limits(read, data["limits"], functions) if "limits" in data else ()
     interfaces = _interfaces(read, data["interfaces"], functions, evidence) if "interfaces" in data else ()
+    options = _options(read, data["options"], functions, evidence, device_id) if "options" in data else ()
     cls = read.text(data.get("class", ""), "class", empty=True)
     if cls and cls not in PART_CLASSES:
         raise read.fail("class", f"{cls!r} is not a part class; use one of: {', '.join(PART_CLASSES)}")
@@ -734,6 +815,7 @@ def parse_device(text: str, *, file: str = "") -> DeviceDef:
         limits=limits,
         cls=cls,
         interfaces=interfaces,
+        options=options,
         provenance=_provenance(read, data["provenance"]) if "provenance" in data else None,
     )
 
@@ -842,6 +924,26 @@ def _interface_lines(interface: DeviceInterface, evidence: str) -> list[str]:
     return lines
 
 
+def _option_lines(option: DeviceOption, evidence: str) -> list[str]:
+    """The ``[[options]]`` table of ``option`` (change c0257); alternatives in file order, roles sorted."""
+    entries = [
+        "{ " + ", ".join(f"{_key(role)} = {_string(pin)}" for role, pin in sorted(alt.items())) + " }"
+        for alt in option.alternatives
+    ]
+    lines = [
+        "",
+        "[[options]]",
+        f"kind = {_string(option.kind)}",
+        f"name = {_string(option.name)}",
+        "alternatives = [",
+        *(f"  {entry}," for entry in entries),
+        "]",
+    ]
+    if option.evidence and option.evidence != evidence:
+        lines.append(f"evidence = {_string(option.evidence)}")
+    return lines
+
+
 def device_text(device: DeviceDef) -> str:
     """The canonical TOML of ``device``: a fixed key order, one table per long-form function, LF line ends
     and one final newline (capability fenolite-component-catalog, "Canonical device text")."""
@@ -910,6 +1012,8 @@ def device_text(device: DeviceDef) -> str:
         lines += _limit_lines(limit.ratings)
     for interface in device.interfaces:
         lines += _interface_lines(interface, device.evidence)
+    for option in device.options:
+        lines += _option_lines(option, device.evidence)
     if device.provenance is not None:
         stamp = device.provenance
         lines += ["", "[provenance]"]
