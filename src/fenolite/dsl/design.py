@@ -1717,16 +1717,18 @@ class Design(Container):
         layers: object = None,
         locked: bool = False,
         protection: object = None,
+        teardrop: object = None,
     ) -> None:
         """One via on ``net`` at ``(x, y)``, or at the one point given after the key: an ``(x, y)`` pair
         or an anchor in a part's frame (``part.at(…)``, ``part.pad(…).at(…)``), which follows its part.
         Sizes come from the arguments or the net's class. ``kind`` is ``through``, ``blind``, ``buried``
         or ``micro``; a via that is not a through via names its two copper layers in ``layers``.
         ``locked=True`` writes the via locked. ``protection`` is the value of ``protect()``: how the via is
-        tented, covered, plugged, capped or filled (``None``: it follows the board default)."""
+        tented, covered, plugged, capped or filled (``None``: it follows the board default). ``teardrop``
+        is the value of ``teardrop()``: the via's teardrop settings (change c0277)."""
         from fenolite.dsl import intents
 
-        intents.record_via(self, key, x, y, net, diameter, drill, kind, layers, locked, protection)
+        intents.record_via(self, key, x, y, net, diameter, drill, kind, layers, locked, protection, teardrop)
 
     def track_table(
         self, key: str, *, net: Net, layer: str, width: object, rows_nm: object, locked: bool = False
@@ -1761,14 +1763,15 @@ class Design(Container):
         layers: object = None,
         locked: bool = False,
         protection: object = None,
+        teardrop: object = None,
     ) -> None:
-        """Many vias of ``net`` with one size, kind, span and protection: each row is ``(x, y)`` in integer
-        nanometres in the frame of ``place()``."""
+        """Many vias of ``net`` with one size, kind, span, protection and teardrop settings: each row is
+        ``(x, y)`` in integer nanometres in the frame of ``place()``."""
         from fenolite.dsl import intents
 
         intents.record_table(
             self, "via", key, net=net, rows=rows_nm, diameter=diameter, drill=drill, kind=kind, layers=layers,
-            locked=locked, protection=protection,
+            locked=locked, protection=protection, teardrop=teardrop,
         )  # fmt: skip
 
     def meander(

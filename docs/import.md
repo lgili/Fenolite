@@ -87,6 +87,17 @@ escaped into the key alphabet injectively (`_` and other characters become `_` a
 `i` of table `k` keeps the copper uuid the build derives for item `i` of `k`, so later builds find it.
 When an upstream revision adds a segment, rows renumber and some copper gets new uuids; the geometry stays.
 
+A via keeps its teardrop settings (change c0277): the reader leaves the `teardrops` child in the via's slot,
+the import reads it and groups vias by it too, and the table says it as `teardrop=teardrop(...)`. A blind via
+over both outer layers, as KiCad writes some, is a table row with `kind="blind"` and `layers=("F.Cu",
+"B.Cu")`.
+
+**Teardrop zones** are not written. KiCad draws a `padvia` teardrop zone from the teardrop settings of the
+pad or via it joins, and the code keeps them: the pads' in their vendored footprints, the vias' in their
+tables. The import reports them once as `import.teardrops-regenerated` (info); `fenolite fill` draws them on
+the built board. When a via's settings cannot be read, or a via or footprint holding settings is left out,
+every teardrop zone is counted as `teardrop`, unexpressed.
+
 ## The vendored library
 
 The footprints are the board's own instances brought back to their origin, rotation 0 and the top side
@@ -124,13 +135,14 @@ Never silently. The kinds today:
 
 | kind | what |
 |---|---|
-| a root item KiCad keeps that the model does not (`group`, `generated`, `image`, `target`…) | named by its head; a zone KiCad made as a teardrop is `teardrop` |
+| a root item KiCad keeps that the model does not (`group`, `generated`, `image`, `target`…) | named by its head; a teardrop zone of a type other than `padvia`, or any teardrop zone when teardrop settings were lost (below), is `teardrop` |
 | `hole`, `dimension`, `net-tie`, `dnp` | model items no emitter writes yet |
 | `stackup`, `stackup-field`, `title-block` | a stack-up row or a title-block field the DSL refuses; the material of a silkscreen row (the stack-up is written without it) |
 | `custom-rule` | a `.kicad_dru` rule whose selector the DSL cannot write (a layer leaf, an undeclared class) |
 | `zone-setting`, `zone-name`, `zone-layer`, `zone-outline`, `rule-area-name`, `rule-area-layer` | a zone smoothing or hatch, a repeated zone name, a zone or area off the copper layers or without an outline, an area name the DSL refuses |
 | `drawing`, `drawing-layer`, `copper-drawing`, `text`, `text-layer` | a drawing the DSL calls refuse, or one on a layer they do not take (copper, or a user layer a DSL board does not hold) |
 | `copper-without-net`, `zero-length-track`, `degenerate-arc`, `via-protection`, `via-span`, `copper-layer`, `copper-count` | copper no table holds |
+| `teardrop-setting` | a via's `teardrops` child the import cannot read: the via is written without it |
 | `footprint-ref`, `duplicate-ref`, `footprint` | a footprint whose reference the DSL refuses, a second footprint of one reference, one the library derive cannot bring back |
 | `pad-net-unnumbered`, `pad-net-conflict`, `outline` | a pad on a net without a number, a pad number on two nets, no closed outline |
 
@@ -191,6 +203,7 @@ of a third-party board belongs in the library repository or your own folder.
 | `import.upgraded` | info | a file upgraded through `kicad-cli` on a private copy |
 | `import.provenance-missing` | warning | no `--licence`, `--copyright` or `--source` |
 | `import.timestamp-missing` | info | no `--timestamp`: the output is not reproducible |
+| `import.teardrops-regenerated` | info | teardrop zones left out because KiCad draws them again from the pad and via teardrop settings the code keeps (change c0277) |
 
 ## Evidence
 

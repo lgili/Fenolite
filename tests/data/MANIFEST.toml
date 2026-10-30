@@ -3045,3 +3045,9 @@ path = "tests/data/drawn/repeat/sym-lib-table"
 origin = "authored"
 corpus_id = ""
 notes = "symbol table of the drawn fixture repeat naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/build_bytes.json"
+origin = "authored"
+corpus_id = ""
+notes = "byte baseline of change c0277: SHA-256 of every file the dry-run builds of the examples plan for targets 9, 10 and altium, measured by tests/_buildbytes.py on the base commit (authored for Fenolite)"

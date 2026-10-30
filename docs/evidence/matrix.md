@@ -480,6 +480,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `stackup` | `EVIDENCE` KICAD-VERIFIED: `H-K-STACKUP-JOB`, `H-K-STACKUP-COMPLETE`, `H-K-STACKUP-DEFAULT`, `H-K-STACKUP-RESAVE` |
 | `sym` | `EVIDENCE` INFERRED: `H-K-LIB-READ`<br>`WRITE_EVIDENCE` UNVERIFIED: — |
 | `symembed` | see `schgen` |
+| `teardrops` | `EVIDENCE` INFERRED: `H-K-TEARDROP` |
 | `textink` | `EVIDENCE` KICAD-VERIFIED: `H-K-SILK-INK` |
 | `triad` | see `dru`, `pcb`, `pro` |
 | `tuning` | `EVIDENCE` INFERRED: `H-K-PRO-TUNING-DRC`, `H-K-PRO-TUNING-KEYS` |

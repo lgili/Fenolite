@@ -53,6 +53,7 @@ from fenolite.dsl.intents import (
     copper,
     meanders,
     protect,
+    teardrop,
     via_step,
 )
 from fenolite.dsl.interfaces import I2C, SPI, UART, USB2, DiffPair, Harness, Interface, Power
@@ -157,6 +158,7 @@ __all__ = [
     "shape",
     "stack",
     "stackup_locked",
+    "teardrop",
     "to_model",
     "trace",
     "via_protection_locked",

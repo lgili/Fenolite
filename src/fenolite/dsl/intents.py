@@ -23,7 +23,7 @@ from fenolite.dsl.errors import DslError
 from fenolite.dsl.part import Net, Part
 from fenolite.dsl.relative import Edges
 from fenolite.dsl.units import as_nm
-from fenolite.model.board import ViaProtection
+from fenolite.model.board import Teardrop, ViaProtection
 
 if TYPE_CHECKING:
     from fenolite.dsl.design import Design
@@ -143,6 +143,7 @@ class ViaIntent:
     layers: tuple[str, str] | None = None
     protection: ViaProtection = ViaProtection()
     locked: bool = False
+    teardrop: Teardrop | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,6 +207,7 @@ class ViaTableIntent:
     protection: ViaProtection = ViaProtection()
     locked: bool = False
     table: str = "via"
+    teardrop: Teardrop | None = None
 
 
 TableIntent = TrackTableIntent | ArcTableIntent | ViaTableIntent
@@ -261,6 +263,7 @@ class _Via:
     layers: tuple[str, str] | None = None
     protection: ViaProtection = ViaProtection()
     locked: bool = False
+    teardrop: Teardrop | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -430,6 +433,75 @@ def _protection(value: object, what: str) -> ViaProtection:
     return value
 
 
+MAX_TEARDROP_RATIO = 1_000_000
+"""The largest teardrop ratio, in parts per million: the whole size of the pad or via."""
+
+
+def _flag(value: object, what: str) -> bool | None:
+    if value is not None and not isinstance(value, bool):
+        raise DslError(f"{what} is True, False or None, not {value!r}")
+    return value
+
+
+def _ratio(value: object, what: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise DslError(f"{what} is an int of parts per million (500_000 is one half), not {value!r}")
+    if not 0 <= value <= MAX_TEARDROP_RATIO:
+        raise DslError(f"{what} is from 0 to {MAX_TEARDROP_RATIO} parts per million, not {value}")
+    return value
+
+
+def _positive(value: object, what: str) -> Nm | None:
+    if value is None:
+        return None
+    nm = as_nm(value, name=what)
+    if nm <= 0:
+        raise DslError(f"{what} must be above 0, not {nm} nm")
+    return nm
+
+
+def teardrop(
+    *,
+    max_length: object = None,
+    max_width: object = None,
+    length_ratio: object = None,
+    width_ratio: object = None,
+    curved: object = None,
+    filter_ratio: object = None,
+    two_segments: object = None,
+    prefer_zones: object = None,
+    enabled: object = True,
+) -> Teardrop:
+    """Teardrop settings of a pad or via (``docs/dsl.md``, "Teardrops"; change c0277). ``max_length`` and
+    ``max_width`` are lengths; ``length_ratio``, ``width_ratio`` and ``filter_ratio`` are ints of parts per
+    million of the pad or via size; ``curved``, ``two_segments`` and ``prefer_zones`` are bools. A value of
+    ``None`` writes nothing, so the tool's own default applies. ``enabled=False`` turns teardrops off.
+    Pass the result as ``teardrop=`` to ``Design.via`` or ``Design.via_table``."""
+    on = _flag(enabled, "teardrop(): enabled")
+    if on is None:
+        raise DslError("teardrop(): enabled is True or False, not None")
+    return Teardrop(
+        enabled=on,
+        max_length=_positive(max_length, "teardrop(): max_length"),
+        max_width=_positive(max_width, "teardrop(): max_width"),
+        length_ratio=_ratio(length_ratio, "teardrop(): length_ratio"),
+        width_ratio=_ratio(width_ratio, "teardrop(): width_ratio"),
+        curved=_flag(curved, "teardrop(): curved"),
+        filter_ratio=_ratio(filter_ratio, "teardrop(): filter_ratio"),
+        two_segments=_flag(two_segments, "teardrop(): two_segments"),
+        prefer_zones=_flag(prefer_zones, "teardrop(): prefer_zones"),
+    )
+
+
+def _teardrop(value: object, what: str) -> Teardrop | None:
+    """``teardrop=`` of a via call: ``None`` or the value of ``teardrop()``."""
+    if value is not None and not isinstance(value, Teardrop):
+        raise DslError(f"{what}: teardrop must be None or the value of teardrop(), not {value!r}")
+    return value
+
+
 def via_step(
     x: object,
     y: object = None,
@@ -551,6 +623,7 @@ def record_via(
     layers: object = None,
     locked: object = False,
     protection: object = None,
+    teardrop: object = None,
 ) -> None:
     name = check_key(design, key)
     what = f"via {name}"
@@ -567,6 +640,7 @@ def record_via(
         _via_layers(layers, via_kind, what),
         _protection(protection, what),
         _locked(locked, what),
+        _teardrop(teardrop, what),
     )
 
 
@@ -704,6 +778,7 @@ def record_table(
     layers: object = None,
     locked: object = False,
     protection: object = None,
+    teardrop: object = None,
 ) -> None:
     """Record one copper table of ``table`` kind (``track``, ``arc`` or ``via``; change c0275)."""
     call = f"{table}_table"
@@ -726,7 +801,7 @@ def record_table(
                 _table_layer(design, named, what)
         intent = ViaTableIntent(
             name, chosen.name, size, hole, cast("tuple[tuple[int, int], ...]", found), via_kind, span,
-            _protection(protection, what), flag,
+            _protection(protection, what), flag, teardrop=_teardrop(teardrop, what),
         )  # fmt: skip
     else:
         on = _table_layer(design, layer, what)
@@ -860,7 +935,7 @@ def copper(design: Design) -> tuple[CopperIntent, ...]:
             found.append(
                 ViaIntent(
                     key, at, net_name, item.diameter, item.drill, item.kind, item.layers,
-                    item.protection, item.locked,
+                    item.protection, item.locked, item.teardrop,
                 )
             )  # fmt: skip
         elif isinstance(item, _Table):
@@ -912,5 +987,6 @@ __all__ = [
     "copper",
     "meanders",
     "protect",
+    "teardrop",
     "via_step",
 ]

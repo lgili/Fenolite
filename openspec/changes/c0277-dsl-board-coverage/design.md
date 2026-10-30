@@ -112,7 +112,7 @@ d.teardrops(
 ```
 
 - One call per selection; a pad or via matched by two calls takes the later call (reported
-  `dsl.teardrops-overlap`, info). Every parameter left at `None` omits its token, so KiCad's own default
+  `build.teardrops-overlap`, info, decision 4a). Every parameter left at `None` omits its token, so KiCad's own default
   applies; Fenolite authors no default value.
 - Written as the teardrop settings node of each matching pad (inside the vendored footprint instance)
   and via, with the tokens of the KiCad file-format documentation (S-0001), recorded in
@@ -120,6 +120,24 @@ d.teardrops(
 - Teardrop zones are not written: KiCad 10.0.6 removes them on re-save (`H-K-UUID-KEEP-2`) and regenerates
   them on fill, so `fenolite fill` makes them. The copper guard ignores teardrops; KiCad's DRC judges them.
 - Model: `Pad.teardrop` and `Via.teardrop` (`Teardrop`, frozen), omitted when unset.
+
+### 4a. Teardrop settings of vias (2026-10-30)
+
+- Before `Design.teardrops`, a via states its own settings: `teardrop(...)` returns a `Teardrop` (as
+  `protect()` returns a `ViaProtection`), and `Design.via` and `Design.via_table` take it as `teardrop=`.
+  The c0275 importer needs per-via settings: a selection by net or class cannot say which of the vias of
+  one net carry teardrops. `Teardrop` adds `filter_ratio`, `two_segments` and `prefer_zones` beside the
+  fields of decision 4, and `enabled`, because every pad and via of the demo boards holds all nine
+  children (`board.md`, "Teardrop settings"); `Design.teardrops` takes them too when it lands.
+- The overlap finding is a build code, `build.teardrops-overlap`: the build, not the DSL, sees the pads.
+- The reader does not project the child (non-goal above); a read item whose model gains settings has its
+  slot replaced by the writer. Pads keep the settings of their vendored footprints.
+
+### 4b. Blind vias over the board (2026-10-30)
+
+- KiCad writes blind vias whose two layers are the outer copper layers (every via of the demo
+  `RoyalBlue54L-Feather`). A via table, the form an import writes, accepts that span; a single via and a via
+  step keep the rule that a blind via joins one outer layer, which catches a mistake in an authored script.
 
 ### 5. Groups
 
@@ -216,7 +234,7 @@ d.verbatim(
 | code | severity | when |
 |---|---|---|
 | `copper.text-unchecked` | info | copper text exists; only KiCad's DRC judges it |
-| `dsl.teardrops-overlap` | info | a pad or via matched by two `teardrops` calls |
+| `build.teardrops-overlap` | info | a pad or via matched by two `teardrops` calls |
 | `build.image-missing`, `build.image-format` | error | image file absent or not PNG |
 | `build.pad-unknown` | error | `edit_pad` names no pad of the footprint |
 | `build.verbatim-item` | info | one per verbatim item |

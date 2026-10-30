@@ -256,6 +256,9 @@ class Pad(Entity):
     child as read, so a write keeps it unless the field disagrees (refused) or is ``None`` (kept)."""
     paste_margin: Nm | None = None
     """The growth of the pad's paste opening beyond its copper, as ``mask_margin``."""
+    teardrop: Teardrop | None = None
+    """The pad's teardrop settings (change c0277); ``None`` keeps what the pad's footprint says. A KiCad
+    reader does not project the pad's ``teardrops`` child, which stays in its slot."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -398,11 +401,32 @@ class ViaProtection:
 
 
 @dataclass(frozen=True, slots=True)
+class Teardrop:
+    """The teardrop settings of a pad or a via (change c0277): the tool that fills the board draws the
+    teardrop copper from them; the model holds no teardrop shape.
+
+    ``enabled`` says whether the item gets teardrops. Every other field of ``None`` is left to the tool's
+    own default. Lengths are nanometres; ``length_ratio``, ``width_ratio`` and ``filter_ratio`` are parts per
+    million of the pad or via size (500 000 is one half)."""
+
+    enabled: bool = True
+    max_length: Nm | None = None
+    max_width: Nm | None = None
+    length_ratio: int | None = None
+    width_ratio: int | None = None
+    curved: bool | None = None
+    filter_ratio: int | None = None
+    two_segments: bool | None = None
+    prefer_zones: bool | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class Via(Entity):
     """A via between ``layers`` (the two outermost copper layers it spans). ``locked`` as for a track.
 
     ``protection`` holds the via's own protection values; a field of ``None`` follows
-    ``Board.via_protection``. ``locked`` stays the last field (change c0108)."""
+    ``Board.via_protection``. ``locked`` stays the last field of change c0108; ``teardrop`` (change c0277)
+    follows it and is left out of the canonical JSON when ``None``."""
 
     position: Point
     diameter: Nm
@@ -412,6 +436,7 @@ class Via(Entity):
     via_type: ViaType = "through"
     protection: ViaProtection = ViaProtection()
     locked: bool = False
+    teardrop: Teardrop | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -631,6 +656,7 @@ __all__ = [
     "StackKind",
     "StackLayer",
     "Stackup",
+    "Teardrop",
     "Text",
     "Track",
     "Via",

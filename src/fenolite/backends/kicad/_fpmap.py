@@ -21,6 +21,7 @@ from types import MappingProxyType
 from typing import Protocol
 
 from fenolite.backends.kicad import slots as slotlib
+from fenolite.backends.kicad import teardrops as tdlib
 from fenolite.backends.kicad import zones as zonelib
 from fenolite.backends.kicad._libread import Context, child_locators, leading_atoms
 from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, dumps
@@ -568,6 +569,7 @@ def emit_pad(pad: Pad, net: Node | None, *, angle: int | None = None) -> Items:
         "paste_margin": (
             [] if pad.paste_margin is None else [node("solder_paste_margin", Atom.from_nm(pad.paste_margin))]
         ),
+        "teardrop": [] if pad.teardrop is None else [tdlib.emit(pad.teardrop)],
     }
     if net is not None:
         items["net_id"] = [net]

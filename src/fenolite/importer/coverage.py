@@ -59,10 +59,14 @@ class Unexpressed:
 
 @dataclass
 class Ledger:
-    """What the emitter leaves out, by kind, as it writes."""
+    """What the emitter leaves out, by kind, as it writes, and the board items it does not write because
+    the tool that fills the board draws them again (``regenerated``, by kind; change c0277)."""
 
     counts: Counter[str] = field(default_factory=lambda: Counter[str]())
     examples: dict[str, list[str]] = field(default_factory=lambda: {})
+    regenerated: Counter[str] = field(default_factory=lambda: Counter[str]())
+    teardrops_lost: int = 0
+    """Vias and footprints left out that hold teardrop settings (their teardrops would not come back)."""
 
     def add(self, kind: str, example: str = "", count: int = 1) -> None:
         self.counts[kind] += count
@@ -78,7 +82,14 @@ class Ledger:
         )
 
 
+TEARDROP_REGENERATED = "padvia"
+"""The type of a teardrop zone that the filling tool draws again from the teardrop settings of the pad or via
+it joins, which the code keeps: the pads' in their vendored footprints, the vias' in their tables."""
+
+
 def _root_heads(design: Design) -> Iterable[str]:
+    """The head of each opaque root item of the board; a teardrop zone is ``teardrop`` with its type
+    (``teardrop:padvia``), or ``teardrop`` when it states none."""
     board = design.board
     if board is None or "kicad" not in board.ext:
         return
@@ -87,13 +98,28 @@ def _root_heads(design: Design) -> Iterable[str]:
             child = slotlib.opaque_child(slot)
             if isinstance(child, Node) and child.name not in INFRASTRUCTURE:
                 attr = child.find("attr") if child.name == "zone" else None
-                yield "teardrop" if attr is not None and attr.find("teardrop") is not None else child.name
+                drop = attr.find("teardrop") if attr is not None else None
+                if drop is None:
+                    yield child.name
+                    continue
+                kind = drop.find("type")
+                atoms = kind.atoms() if kind is not None else ()
+                yield f"teardrop:{atoms[0].value}" if len(atoms) == 1 else "teardrop"
 
 
 def scan(design: Design, ledger: Ledger) -> None:
-    """Add the board's opaque root items and the model items no emitter writes to ``ledger``."""
+    """Add the board's opaque root items and the model items no emitter writes to ``ledger``. A teardrop
+    zone of the type ``TEARDROP_REGENERATED`` is counted as regenerated, unless teardrop settings were lost: a
+    via's that could not be read (``teardrop-setting``), or a left-out via's or footprint's
+    (``ledger.teardrops_lost``); then every teardrop zone is unexpressed."""
+    settings_lost = ledger.counts["teardrop-setting"] > 0 or ledger.teardrops_lost > 0
     for head in _root_heads(design):
-        ledger.add(head, head)
+        if head == f"teardrop:{TEARDROP_REGENERATED}" and not settings_lost:
+            ledger.regenerated["teardrop"] += 1
+        elif head.startswith("teardrop"):
+            ledger.add("teardrop", head)
+        else:
+            ledger.add(head, head)
     board = design.board
     if board is None:
         return
@@ -132,4 +158,30 @@ def explained(level: LevelId, kind: str, rows: Iterable[Unexpressed]) -> bool:
     return False
 
 
-__all__ = ["EXPLAINS", "INFRASTRUCTURE", "Ledger", "Unexpressed", "explained", "lossy_issues", "scan"]
+def regenerated_issues(ledger: Ledger) -> tuple[Issue, ...]:
+    """One ``import.teardrops-regenerated`` (info) when teardrop zones were left to the filling tool."""
+    count = ledger.regenerated["teardrop"]
+    if not count:
+        return ()
+    return (
+        issue(
+            "import.teardrops-regenerated",
+            f"{count} teardrop zone(s) are not written: KiCad draws them again from the teardrop settings "
+            "of the pads and vias, which the code keeps, when it fills the board",
+            where="teardrop",
+            hint="run fenolite fill on the built board to draw them",
+        ),
+    )
+
+
+__all__ = [
+    "EXPLAINS",
+    "INFRASTRUCTURE",
+    "TEARDROP_REGENERATED",
+    "Ledger",
+    "Unexpressed",
+    "explained",
+    "lossy_issues",
+    "regenerated_issues",
+    "scan",
+]

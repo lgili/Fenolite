@@ -27,11 +27,13 @@ VIA = Via(id="via_1", position=Point(0, 0), diameter=600_000, drill=300_000, lay
 
 
 def test_copper_lock_default_is_unlocked() -> None:
-    """Scenario "Default is unlocked"; ``locked`` is the last field of each of the three."""
+    """Scenario "Default is unlocked"; ``locked`` is the last field of each of the three, but the teardrop
+    settings that change c0277 add after it on a via."""
     for item in (TRACK, ARC, VIA):
         assert item.locked is False
         assert dataclasses.replace(item, locked=True) != item
-        assert dataclasses.fields(item)[-1].name == "locked"
+        names = [f.name for f in dataclasses.fields(item)]
+        assert names[-1] == "locked" or names[-2:] == ["locked", "teardrop"]
 
 
 def test_copper_lock_is_written_only_when_true() -> None:

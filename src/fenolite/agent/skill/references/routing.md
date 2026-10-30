@@ -79,7 +79,7 @@ fenolite net blink/build GND --json
 ## Copper in the script
 
 ```fenolite-design
-from fenolite.dsl import Design, Net, Part, arc_to, connect, mm, protect, via_step
+from fenolite.dsl import Design, Net, Part, arc_to, connect, mm, protect, teardrop, via_step
 
 design = Design("routed")
 design.board(mm(30), mm(20))
@@ -124,9 +124,10 @@ design.track(
 )
 # A zone pours copper on a net; `fenolite fill` fills it after the build.
 design.zone(gnd, layers=("F.Cu", "B.Cu"), clearance=mm(0.3))
-# One via, and a row of them, tie the pour of the top side to that of the bottom side.
+# A via and a row of vias tie the top pour to the bottom one.
 design.via(
-    "gnd_tie", mm(24), mm(10), net=gnd, diameter=mm(0.6), drill=mm(0.3), protection=protect(tenting=True)
+    "gnd_tie", mm(24), mm(10), net=gnd, diameter=mm(0.6), drill=mm(0.3), protection=protect(tenting=True),
+    teardrop=teardrop(max_length=mm(1)),
 )
 design.stitch(
     "gnd_row",
@@ -137,7 +138,7 @@ design.stitch(
     drill=mm(0.3),
     clearance=mm(0.2),
 )
-# A thermal via inside pad 2 of D1: the grid starts at the pad and turns with the part.
+# Thermal vias inside pad 2 of D1: the grid starts at the pad and turns with the part.
 design.stitch(
     "d1_thermal", net=gnd, pitch=mm(1), region=d1.pad(2), diameter=mm(0.6), drill=mm(0.3), clearance=mm(0.2)
 )
@@ -154,16 +155,16 @@ design.stitch(
   moved. An anchor stands wherever a point does: in a path, in `arc_to`, in `via_step(anchor, to=)`,
   in `design.via(key, anchor, net=)` and in `along`, `region` and `origin` of a stitch. It is a point
   and not a connection: `r1.pad(1)` joins the pad, `r1.pad(1).at()` is only where the pad is.
-- **Nets.** A track takes the net of its pads; `net=` is for a track without a pad end. A via and a
-  stitch name their net.
+- **Nets.** A track takes the net of its pads; `net=` is for a track without a pad end. Vias and
+  stitches name theirs.
 - **Sizes.** A `width`, a via `diameter` or `drill` that the call leaves out comes from the net's class
   (page `rules`); when the class has none, the build reports `kicad.copper.size-missing`.
 - **`via_step(x, y, to=)`** is a through via by default; `kind="blind"`, `"buried"` or `"micro"` on a
   board with inner layers. **`protect(tenting=True)`** says how a via is covered; KiCad 9 holds tenting
-  only.
+  only; **`teardrop(...)`** its teardrops.
 - **`design.stitch`** puts through vias every `pitch` along a line (`along=`) or on a grid (`region=`);
   `region=part.pad(n)` keeps the vias that lie inside that pad, a thermal array.
-- **`locked=True`** on a track, a via or a stitch writes that copper locked in KiCad.
+- **`locked=True`** on a track, a via or a stitch writes it locked in KiCad.
 - **The build checks script copper.** Copper that shorts two nets or breaks a clearance stops the build
   (exit 5, `copper.short` or `copper.clearance`) and nothing is written. A pad the footprint does not
   have, or a pad on no net, stops it as well.

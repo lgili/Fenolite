@@ -58,6 +58,9 @@ never taken from KiCad's writer code.
 | A zone with a `keepout` child is a rule area; its settings `tracks`, `vias`, `pads`, `copperpour`, `footprints` take `allowed` or `not_allowed` | S-0001 | INFERRED | H-K-PCB-READ |
 | Rule areas gained a `placement` child in 9.0 (`20241009`) | S-0030, S-0050 | INFERRED | H-K-PCB-READ |
 | Teardrops are zones carrying `(attr (teardrop (type …)))` and a name such as `$teardrop_padvia$` | S-0024 | INFERRED | H-K-PCB-READ |
+| The `teardrops` child of a pad and of a via holds `best_length_ratio`, `max_length`, `best_width_ratio`, `max_width`, `curved_edges`, `filter_ratio`, `enabled`, `allow_two_segments` and `prefer_zone_connections`, in this order; a ratio is a decimal fraction of the pad or via size (`0.5`, `1`, `0.9`), a length is in mm, a flag `yes` or `no`. At tag 10.0.6 the demo `RoyalBlue54L-Feather` holds 349 such children (197 on pads, 152 on vias) and `complex_hierarchy` 165 (on pads), each with all nine in that order; the child comes before `uuid` in a pad and between `layers` and `net` in a via | S-0058 | CORPUS-VERIFIED | H-K-TEARDROP |
+| Every teardrop zone of those two demos is of the type `padvia` (263 and 165) | S-0058 | CORPUS-VERIFIED | H-K-TEARDROP |
+| KiCad writes a blind via between the two outer copper layers: every via of the demo `RoyalBlue54L-Feather` at tag 10.0.6 (183, 8 copper layers) is `(via blind … (layers "F.Cu" "B.Cu") …)` | S-0058 | CORPUS-VERIFIED | H-K-PCB-READ |
 | A `pts` list may hold `(arc (start)(mid)(end))` in zone polygons | S-0018 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-G-PTS-ARC |
 | A fill island is marked by the bare `(island)` up to 9.0 and by `(island yes)` or `(island no)` from `20250801` | S-0030 | INFERRED | H-K-PCB-READ |
 | A `uuid` is a version 4 UUID meant to be globally unique | S-0001 | INFERRED | H-K-PCB-UUID |
@@ -846,6 +849,22 @@ passed in the `kicad-9` and `kicad-10` jobs of CI run 37772583226 (2026-10-08).
 
 Errors raise `LossyWriteError` (`FEN-7001`); `droppable` is true only when every error is a too-new
 token inside opaque content.
+
+## Teardrop settings (c0277)
+
+- **Created settings.** A pad or via whose model `teardrop` is set gets a `teardrops` child
+  (`backends/kicad/teardrops.py`) with one child per field that is not `None`, in the order of the fact row
+  above, `enabled` always; a ratio held in parts per million is written as the decimal fraction, a length in
+  mm. The child goes where the fact row says: before `uuid` in a pad, between the protection children and
+  `net` in a via. `INFERRED` until `H-K-TEARDROP` loads, checks and re-saves a created board on both majors.
+- **Read boards.** The reader does not project a `teardrops` child; it stays in its slot and is written back
+  as read. When the model of a read pad or via gets settings (a script via over a board that held the via),
+  the writer replaces that slot's child with the model's.
+- **Teardrop zones** are never created: KiCad draws them when it fills the board, from the settings above
+  (`H-K-UUID-KEEP-2`: a 10.0.6 re-save removes them).
+- **Blind vias over the board.** A via table of a script (`Design.via_table`) may hold a blind via whose
+  two layers are the two outer copper layers, written as the fact row above shows; a single via or a via
+  step keeps the rule that a blind via joins one outer layer.
 
 ## Net-tie groups (c0114)
 

@@ -8,13 +8,33 @@
 - **WHEN** it is built for targets 9 and 10 with `--confirm` and each board is read with `read_board`
 - **THEN** the exit code is 0, the board has 16 copper layers numbered as `created_layers(16)`, and the track on `In13.Cu` and its two vias are read back
 
+### Requirement: Teardrop settings of vias in the DSL
+`teardrop(*, max_length=None, max_width=None, length_ratio=None, width_ratio=None, curved=None, filter_ratio=None, two_segments=None, prefer_zones=None, enabled=True)` (exported by `fenolite.dsl`) SHALL return a model `Teardrop`; `Design.via` and `Design.via_table` SHALL take it as `teardrop=` (default `None`), and the via, or every via of the table, SHALL carry it. `max_length` and `max_width` MUST be positive lengths; the three ratios MUST be `int` parts per million from 0 to 1 000 000; `curved`, `two_segments` and `prefer_zones` MUST be bools or `None`; `enabled` MUST be a bool. A field of `None` MUST write nothing, so KiCad's default applies. Any other value, and a `teardrop=` that is not the value of `teardrop()`, MUST raise `DslError` naming the argument or the copper key.
+
+#### Scenario: Settings on a via and a table
+- **GIVEN** the blink with `design.via("tv", mm(5), mm(26), net=gnd, teardrop=teardrop(max_length=mm(1), length_ratio=500_000))` and a via table with `teardrop=teardrop(enabled=False)`
+- **WHEN** it is built for targets 9 and 10 with `--confirm`
+- **THEN** the via `tv` holds `(teardrops (best_length_ratio 0.5) (max_length 1) (enabled yes))` between `layers` and `net`, each via of the table `(teardrops (enabled no))`, a via without settings no `teardrops`, and a second build writes the same bytes
+
+#### Scenario: Refused settings
+- **WHEN** `teardrop(length_ratio=0.5)`, `teardrop(width_ratio=1_000_001)`, `teardrop(max_length=1)` and `design.via("v", mm(1), mm(1), net=gnd, teardrop={})` are called
+- **THEN** each raises `DslError`, naming `length_ratio`, `width_ratio`, `max_length` and `via v: teardrop`
+
 ### Requirement: Teardrops in the DSL
-`Design.teardrops(*, where=None, pads=True, vias=True, max_length=None, max_width=None, length_ratio=None, width_ratio=None, curved=None)` SHALL set teardrop settings on every matching pad and via; `None` omits the token so KiCad's default applies. Ratios are `int` parts per million. A pad or via matched by two calls MUST take the later call with `dsl.teardrops-overlap` (info).
+`Design.teardrops(*, where=None, pads=True, vias=True, max_length=None, max_width=None, length_ratio=None, width_ratio=None, curved=None)` SHALL set teardrop settings on every matching pad and via of the built board; `None` omits the token so KiCad's default applies. Ratios are `int` parts per million. A pad or via matched by two calls MUST take the later call with `build.teardrops-overlap` (info). (Open: task 2.6b; the per-via settings above are written since 2026-10-30.)
 
 #### Scenario: Teardrops on a class
 - **GIVEN** the blink with `d.teardrops(where=select.netclass("Default"), max_length=mm(1), length_ratio=500_000)`
-- **WHEN** `to_model(d)` runs
+- **WHEN** it is built with `--dry-run --json`
 - **THEN** every pad and via of the class has a `Teardrop` with `max_length == 1_000_000`, `length_ratio == 500_000` and the other fields `None`, and `d.teardrops(length_ratio=0.5)` raises `DslError` naming `length_ratio`
+
+### Requirement: Blind vias over the board in via tables
+`Design.via_table` SHALL accept `kind="blind"` with `layers` naming the first and the last copper layer, a via KiCad writes (`docs/formats/kicad/board.md`: every via of the demo `RoyalBlue54L-Feather`), and the build SHALL write each row as `(via blind … (layers "F.Cu" "B.Cu") …)`. `Design.via` and `via_step` MUST keep refusing that span with `kicad.copper.bad-layer` ("Layers that do not fit the kind").
+
+#### Scenario: Table and single via
+- **GIVEN** the blink with `design.via_table("tt", …, kind="blind", layers=("F.Cu", "B.Cu"))` and, in a second script, `design.via("b", …, kind="blind", layers=("F.Cu", "B.Cu"))`
+- **WHEN** both are built
+- **THEN** the first writes the blind via with both layers and exits 0, and the second exits 5 with `kicad.copper.bad-layer`
 
 ### Requirement: Groups in the DSL
 `Design.group(name, *members, locked=False)` SHALL declare one group; members are parts and keys of copper intents, zones, rule areas, drawings, images, verbatim items and other groups. An unknown key, a member of two groups, a cycle or a repeated name MUST raise `DslError`. The model `Group` has the id `derived_id("grp", "dsl", "group:<name>")`.

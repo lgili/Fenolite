@@ -46,8 +46,10 @@ def test_the_eight_values() -> None:
 def test_no_mark_by_default() -> None:
     """Scenario "No mark by default"; the field comes after the other fields of ``Pad`` of its time."""
     assert PAD.fab_property is None
-    # the margins of change c0223 follow it
-    assert [f.name for f in dataclasses.fields(Pad)][-3:] == ["fab_property", "mask_margin", "paste_margin"]
+    # the margins of change c0223 follow it, then the teardrop settings of c0277
+    assert [f.name for f in dataclasses.fields(Pad)][-4:] == [
+        "fab_property", "mask_margin", "paste_margin", "teardrop",
+    ]  # fmt: skip
     assert all("fab_property" not in text for text in canonical.dump_texts(design_with(PAD)).values())
 
 

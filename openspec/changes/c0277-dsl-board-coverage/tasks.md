@@ -10,6 +10,15 @@
 
   Proof: `openspec validate c0277-dsl-board-coverage --strict`; `make check-fast`; `uv run pytest tests/unit/test_build_bytes.py -q`.
 
+  Recorded 2026-10-30 on base commit `8dab89d6` (branch `circuits-as-code`; working branch `cac/c0277-dsl-gaps`):
+  - c0275 is not archived (`openspec/changes/c0275-board-to-code`); its "Zones in the DSL" copy and this change's stay as written until one archives.
+  - The token inventory is `backends/kicad/data/tokens.toml` (rendered by `tools/gen_token_docs.py`); `check_emittable` is in `backends/kicad/versions.py`. Coverage tokens already rows: `teardrops/curved_edges` (since 20241228), `gr_text_box/knockout`, `table*`. The other names a created board writes and the 8.0 format has are `pcb.FLOOR_HEADS`.
+  - S-0001 (read 2026-10-30) documents `image`, `gr_text … knockout`, `net_tie_pad_groups`, footprint groups and the dimension types; it says nothing of `teardrops`, whose children come from the demo boards of 10.0.6 (S-0058, `board.md`, "Teardrop settings").
+  - No answer of the maintainer to the open questions of `design.md` is recorded; the recommended answers are used.
+  - Byte baseline: `tests/data/build_bytes.json` (`tests/_buildbytes.py`), 16 examples × targets 9, 10, `altium`; `make check-fast` on the base: 16 542 passed, 52 skipped.
+  - Priority set by the maintainer on 2026-10-30, from the boards of `fenolite-library` (`boards/ISSUES.md`): teardrops, via spans, texts, dimensions, net ties, `dnp`, groups, duplicate references, outlines closed by footprint edges (section 6).
+  - Proof so far: `uv run pytest tests/unit/test_build_bytes.py -q` and `make check-fast` pass on the branch; `openspec validate` was not available in the environment of this record (no `openspec` command), so the task stays open until it runs.
+
 ## 1. Copper counts
 
 - [ ] 1.1 Run the layer-table probes for every even n from 2 to 32 and for n = 1 on both majors; update `H-K-PCB-LAYERS` and register `H-K-PCB-ONE-COPPER` in `docs/hypotheses.md`, and record the facts in `docs/formats/kicad/board.md` (scenarios "Tables on KiCad 10", "Tables on KiCad 9", "Probe tables follow the writer"). Proof: `uv run pytest tests/kicad/board/test_layer_tables.py -rA` (in CI, both majors); `uv run pytest tests/unit/test_hypotheses_register.py -q`.
@@ -25,7 +34,8 @@
 - [ ] 2.3 Zone arcs in the DSL, model, writer, fill and guard (scenario "Zone with an arc edge"). Proof: `uv run pytest tests/unit/dsl/test_zones.py tests/unit/lens -k zone_arc -q`.
 - [ ] 2.4 Groups (scenario "A labelled block"). Proof: `uv run pytest tests/unit/dsl/test_groups.py -q`.
 - [ ] 2.5 Images, read by the build as declared inputs (scenario "Logo image"); the test PNG is authored for Fenolite. Proof: `uv run pytest tests/unit/dsl/test_images.py -q`.
-- [ ] 2.6 Teardrops (scenario "Teardrops on a class"). Proof: `uv run pytest tests/unit/dsl/test_teardrops.py -q`.
+- [x] 2.6a Teardrop settings of vias: `teardrop()`, `teardrop=` of `via` and `via_table`, `Teardrop` on `Pad` and `Via`, the writer's `teardrops` child and its replacement on a read item (scenarios "Settings on a via and a table", "Refused settings"). Proof: `uv run pytest tests/unit/dsl/test_teardrops.py tests/unit/backends/kicad/test_teardrops.py tests/unit/lens/test_build_teardrops.py -q`.
+- [ ] 2.6b `Design.teardrops(where=…)` over pads and vias of the built board (scenario "Teardrops on a class"). Proof: `uv run pytest tests/unit/dsl/test_teardrops.py -k where -q`.
 
 ## 3. Footprints and instances
 
@@ -42,6 +52,20 @@
 - [ ] 4.4 The KiCad oracle for every item; register `H-K-COPPER-ART`, `H-K-PAD-SHAPES`, `H-K-TEARDROP`, `H-K-GROUP`, `H-K-IMAGE`, `H-K-DIM-KINDS`, `H-K-ZONE-ARC`, `H-K-FP-OVERRIDE`, `H-K-MODEL-REF` and `H-K-VERBATIM` (scenarios "Items on KiCad 10", "Items on KiCad 9"). Proof: `uv run pytest tests/kicad/board/test_coverage_items.py -rA` (in CI, both majors).
 - [ ] 4.5 Byte guard against the baseline of 0.1 (scenarios "Examples keep their bytes", "Designs without tables are unchanged" where c0275 is merged). Proof: `uv run pytest tests/unit/test_examples.py tests/unit/test_build_bytes.py -q`.
 - [ ] 4.6 Author `examples/board_coverage/design.py` using every call, with its build test. Proof: `uv run pytest tests/unit/test_examples.py -k board_coverage -q`.
+
+## 6. Import coverage (priority of the `fenolite-library` boards, 2026-10-30)
+
+Each task makes one kind that `fenolite import --to python` leaves out (c0275, `importer/coverage.py`) expressible, or reports it as regenerated, with its import test.
+
+- [x] 6.1 Teardrops: via settings into `teardrop=` of their tables, `padvia` zones reported as `import.teardrops-regenerated`, lost settings as `teardrop-setting` (board-to-code, "Teardrops in an import"). Proof: `uv run pytest tests/unit/importer/test_teardrops.py -q`.
+- [x] 6.2 Via spans: a blind via over both outer layers as a table row (design-dsl, "Blind vias over the board in via tables"; board-to-code, "Blind vias over the board in an import"). Proof: `uv run pytest tests/unit/importer/test_teardrops.py tests/unit/lens/test_build_teardrops.py -q`.
+- [ ] 6.3 Texts: copper texts (task 2.1) and the texts the DSL refuses today (`text`, `text-layer`). Proof: `uv run pytest tests/unit/importer -k text -q`.
+- [ ] 6.4 Dimensions: the aligned and orthogonal dimensions the DSL already says, then the kinds of task 2.2 (`dimension`). Proof: `uv run pytest tests/unit/importer -k dimension -q`.
+- [ ] 6.5 Net ties of board footprints (`net-tie`). Proof: `uv run pytest tests/unit/importer -k net_tie -q`.
+- [ ] 6.6 `dnp` parts (`dnp`). Proof: `uv run pytest tests/unit/importer -k dnp -q`.
+- [ ] 6.7 Groups (task 2.4; `group`). Proof: `uv run pytest tests/unit/importer -k group -q`.
+- [ ] 6.8 Footprints that share a reference (`duplicate-ref`). Proof: `uv run pytest tests/unit/importer -k duplicate -q`.
+- [ ] 6.9 Board outlines closed by the edge lines of a footprint (`outline`). Proof: `uv run pytest tests/unit/importer -k outline -q`.
 
 ## 5. Closing
 

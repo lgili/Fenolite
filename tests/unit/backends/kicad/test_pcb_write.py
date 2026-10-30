@@ -39,6 +39,7 @@ from fenolite.model.board import (
     Outline,
     StackLayer,
     Stackup,
+    Teardrop,
     Text,
     Track,
 )
@@ -48,6 +49,17 @@ from fenolite.model.design import Design
 ROOT = Path(__file__).resolve().parents[4]
 SKELETON = ROOT / "tests" / "data" / "kicad" / "tokens" / "skeleton.kicad_pcb"
 TRACK_ID = "trk_00000000-0000-4000-8000-000000000001"
+FULL_TEARDROP = Teardrop(
+    max_length=1_000_000,
+    max_width=2_000_000,
+    length_ratio=500_000,
+    width_ratio=1_000_000,
+    curved=False,
+    filter_ratio=900_000,
+    two_segments=True,
+    prefer_zones=True,
+)
+"""Teardrop settings with every field, as the demo boards write them (change c0277)."""
 
 
 def two_dimensions() -> tuple[Dimension, ...]:
@@ -217,9 +229,13 @@ def test_created_tokens() -> None:
     assert unknown == []
     created_design = created_board()
     assert created_design.board is not None
-    # the created test board holds no dimension: one of each kind is added here (c0103)
+    # the created test board holds no dimension: one of each kind is added here (c0103), and the teardrop
+    # settings of c0277 on a via
+    board = created_design.board
+    via = dataclasses.replace(board.vias[0], teardrop=FULL_TEARDROP)
     with_dimensions = dataclasses.replace(
-        created_design, board=dataclasses.replace(created_design.board, dimensions=two_dimensions())
+        created_design,
+        board=dataclasses.replace(board, dimensions=two_dimensions(), vias=(via, *board.vias[1:])),
     )
     written = {n.name for _, n in walk(parse(write_board(with_dimensions, target=9).text))}
     assert set(FLOOR_HEADS) <= written

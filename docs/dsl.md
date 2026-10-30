@@ -1035,7 +1035,9 @@ design.via_table(
 - Rows are `(x1, y1, x2, y2)`, `(sx, sy, mx, my, ex, ey)` (start, a point on the arc, end) and `(x, y)`.
   The keyword `rows_nm` states the unit: the values are plain `int`s, so a table of thousands of rows stays
   one line per row. Widths and via sizes are `Length` values and are required.
-- `via_table` takes `kind`, `layers`, `protection` and `locked` as `via()` does; every table takes `locked`.
+- `via_table` takes `kind`, `layers`, `protection`, `teardrop` and `locked` as `via()` does; every table
+  takes `locked`. A via table also takes a blind via over both outer layers (`kind="blind"`,
+  `layers=("F.Cu", "B.Cu")`), as KiCad writes some (change c0277); `via()` and `via_step` refuse it.
 - Row `i` of table `key` is the copper item `seg[i]`, `arc[i]` or `via[i]` of the key: the build gives it
   the copper uuid it derives for that item, so a rebuild keeps it, and the lens treats it as script copper.
 - **Errors at the call.** `DslError` names the key and the row index for a row of the wrong length, a value
@@ -1248,6 +1250,32 @@ design.track(
   gives such a feature to vias that do not carry it says so with `kicad.via.protection-not-exported`
   (info); set it with `protection=` on those vias, or state it in the fabrication notes. Fenolite supplies
   no protection the script does not give, and checks none.
+
+## Teardrops
+
+A teardrop widens the copper where a track meets a pad or a via. KiCad draws it when it fills the board, from
+the teardrop settings of the pad or via; Fenolite writes the settings and no teardrop copper (change c0277):
+
+```python
+from fenolite.dsl import teardrop
+
+design.via("v1", mm(5), mm(5), net=gnd, teardrop=teardrop(max_length=mm(1), length_ratio=500_000))
+design.via_table("GND/via/1", net=gnd, diameter=mm("0.6"), drill=mm("0.3"), rows_nm=rows, teardrop=teardrop())
+```
+
+- `teardrop(*, max_length=None, max_width=None, length_ratio=None, width_ratio=None, curved=None,
+  filter_ratio=None, two_segments=None, prefer_zones=None, enabled=True)` returns a `Teardrop` of the model.
+  `max_length` and `max_width` are positive lengths; the three ratios are `int` parts per million of the pad
+  or via size, from 0 to 1 000 000 (`500_000` is one half); `curved`, `two_segments` and `prefer_zones` are
+  bools. `None` writes nothing, so KiCad's own default applies. `enabled=False` writes settings that turn
+  teardrops off. Any other value raises `DslError` naming the argument.
+- `teardrop=` on `Design.via` and `Design.via_table` takes that value or `None`; anything else raises
+  `DslError` naming the copper key. The build writes the via's `teardrops` child with the stated values
+  and `enabled`; a rebuild replaces the child of a script via with the script's settings.
+- The pads of a footprint keep the teardrop settings of the footprint's library file. Teardrop zones are
+  drawn by `fenolite fill` (KiCad), never by the build, and the copper guard does not judge them.
+- What is still to come in change c0277: `Design.teardrops(where=…)`, settings for every pad and via that
+  a selection matches.
 
 ## Design rules
 

@@ -430,6 +430,12 @@ Function: `stack.silkscreen(*, color: 'str' = '') -> 'StackEntry'`
 
 A silkscreen, above the top mask or below the bottom one; it has no thickness.
 
+## teardrop
+
+Function: `teardrop(*, max_length: 'object' = None, max_width: 'object' = None, length_ratio: 'object' = None, width_ratio: 'object' = None, curved: 'object' = None, filter_ratio: 'object' = None, two_segments: 'object' = None, prefer_zones: 'object' = None, enabled: 'object' = True) -> 'Teardrop'`
+
+Teardrop settings of a pad or via.
+
 ## trace
 
 Function: `trace(layer: 'str', *, refs: 'str \| tuple[str, ...]', width: 'object', gap: 'object' = None) -> 'Trace'`

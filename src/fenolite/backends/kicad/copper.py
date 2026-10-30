@@ -43,7 +43,7 @@ from fenolite.geometry import (
     round_point,
 )
 from fenolite.geometry import Arc as GeoArc
-from fenolite.model.board import Arc, Keepout, Track, Via, ViaProtection, ViaType
+from fenolite.model.board import Arc, Keepout, Teardrop, Track, Via, ViaProtection, ViaType
 from fenolite.model.circuit import Net, NetClass
 from fenolite.model.design import Design
 
@@ -402,9 +402,11 @@ def _via(
     kind: str = "through",
     layers: tuple[str, str] | None = None,
     protection: ViaProtection | None = None,
+    teardrop: Teardrop | None = None,
 ) -> Via:
-    """A via of ``kind``; ``layers`` is its span in stack order, the whole board for a through via, and
-    ``protection`` the protection of its intent (``None``: the via follows the board default)."""
+    """A via of ``kind``; ``layers`` is its span in stack order, the whole board for a through via,
+    ``protection`` the protection of its intent (``None``: the via follows the board default) and
+    ``teardrop`` its teardrop settings (change c0277)."""
     native = copper_uuid(key, locator)
     return Via(
         id=derived_id("via", "kicad", native),
@@ -416,7 +418,21 @@ def _via(
         net_id=net.id,
         via_type=cast(ViaType, kind),
         protection=protection if protection is not None else ViaProtection(),
+        teardrop=teardrop,
     )
+
+
+def _via_teardrop(item: object, key: str) -> Teardrop | None:
+    """The teardrop settings of a via intent or a via table, read by attribute like ``kind``: ``None`` when
+    it has none, so the intents of earlier scripts keep their meaning (change c0277)."""
+    teardrop: object = getattr(item, "teardrop", None)
+    if teardrop is not None and not isinstance(teardrop, Teardrop):
+        raise _Refused(
+            "kicad.copper.bad-intent",
+            f"{key}: the teardrop {teardrop!r} is not a Teardrop (fenolite.model.board)",
+            key,
+        )
+    return teardrop
 
 
 def _via_protection(item: object, key: str) -> ViaProtection:
@@ -445,20 +461,23 @@ def _via_kind(item: object, key: str) -> str:
     return cast(str, kind)
 
 
-def _via_span(board: _Board, kind: str, a: str, b: str, key: str) -> tuple[str, str] | None:
+def _via_span(
+    board: _Board, kind: str, a: str, b: str, key: str, *, outer_blind: bool = False
+) -> tuple[str, str] | None:
     """The two layers of a via that is not a through via, in stack order, after checking that they fit
     its kind; ``None`` for a through via, which spans the board.
 
-    ``blind``: exactly one of the two is the first or the last copper layer. ``buried``: neither is.
-    ``micro``: exactly one is, and the two are next to each other in the stack. Whether a target can hold
-    the kind is the board writer's rule."""
+    ``blind``: exactly one of the two is the first or the last copper layer; with ``outer_blind`` (a via
+    table, change c0277) both may be, as KiCad writes such vias. ``buried``: neither is. ``micro``: exactly
+    one is, and the two are next to each other in the stack. Whether a target can hold the kind is the board
+    writer's rule."""
     if kind == "through":
         return None
     stack = board.copper_layers
     first, second = sorted((stack.index(a), stack.index(b)))
     outer = sum(1 for index in (first, second) if index in (0, len(stack) - 1))
     fits = {
-        "blind": outer == 1,
+        "blind": outer == 1 or (outer_blind and outer == 2),
         "buried": outer == 0,
         "micro": outer == 1 and second - first == 1,
     }[kind]
@@ -558,6 +577,7 @@ class _ViaPlan:
     kind: object
     layers: object
     protection: object
+    teardrop: object = None
 
 
 def _plan_track(board: _Board, intent: TrackIntentLike) -> _TrackPlan:
@@ -590,8 +610,9 @@ def _plan_via(board: _Board, intent: ViaIntentLike) -> _ViaPlan:
     kind: object = getattr(intent, "kind", "through")
     layers: object = getattr(intent, "layers", None)
     protection: object = getattr(intent, "protection", ViaProtection())
+    teardrop: object = getattr(intent, "teardrop", None)
     at = board.spot(intent.at, key)
-    return _ViaPlan(key, at, intent.net, intent.diameter, intent.drill, kind, layers, protection)
+    return _ViaPlan(key, at, intent.net, intent.diameter, intent.drill, kind, layers, protection, teardrop)
 
 
 def _candidates(board: _Board, end: PadEndLike, layer: str, key: str) -> list[BoardPad]:
@@ -801,7 +822,7 @@ def _resolve_via(board: _Board, intent: _ViaPlan) -> Via:
         _copper_layer(board, second, key)
         span = _via_span(board, kind, first, second, key)
     sizes = _via_sizes((intent.diameter, intent.drill), board.netclass(net), net, key)
-    return _via(key, "via", intent.at, sizes, board, net, kind, span, protection)
+    return _via(key, "via", intent.at, sizes, board, net, kind, span, protection, _via_teardrop(intent, key))
 
 
 def _resolve_table(board: _Board, intent: TableIntentLike) -> tuple[list[Track], list[Arc], list[Via]]:
@@ -818,6 +839,7 @@ def _resolve_table(board: _Board, intent: TableIntentLike) -> tuple[list[Track],
         )
         via_kind = _via_kind(intent, key)
         protection = _via_protection(intent, key)
+        teardrop = _via_teardrop(intent, key)
         span: tuple[str, str] | None = None
         named: object = getattr(intent, "layers", None)
         if via_kind != "through":
@@ -826,10 +848,12 @@ def _resolve_table(board: _Board, intent: TableIntentLike) -> tuple[list[Track],
                 raise _Refused("kicad.copper.bad-layer", f"{key}: a {via_kind} via names its two layers", key)
             for layer in pair:
                 _copper_layer(board, layer, key)
-            span = _via_span(board, via_kind, pair[0], pair[1], key)
+            span = _via_span(board, via_kind, pair[0], pair[1], key, outer_blind=True)
         for index, row in enumerate(intent.rows):
             at = Point(row[0], row[1])
-            vias.append(_via(key, f"via[{index}]", at, sizes, board, net, via_kind, span, protection))
+            vias.append(
+                _via(key, f"via[{index}]", at, sizes, board, net, via_kind, span, protection, teardrop)
+            )
         return tracks, arcs, vias
     layer = cast(str, getattr(intent, "layer", ""))
     _copper_layer(board, layer, key)

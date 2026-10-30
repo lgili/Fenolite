@@ -6,7 +6,9 @@ layer, width and lock flag, vias by net, sizes, kind, span, protection and lock 
 its rows sorted by their coordinates in the frame of ``place()``.
 
 Copper that no table can hold (no net, a segment of zero length, an arc on one line, a protection the DSL
-cannot say) is counted by kind for the coverage (decision 10).
+cannot say) is counted by kind for the coverage (decision 10). A via keeps its teardrop settings, which the
+reader leaves in the via's ``teardrops`` slot (change c0277): vias are grouped by them too, and a child the
+import cannot read is counted as ``teardrop-setting`` while the via is written without it.
 """
 
 from __future__ import annotations
@@ -15,9 +17,13 @@ from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
+from fenolite.backends.kicad import slots as slotlib
+from fenolite.backends.kicad import teardrops as tdlib
+from fenolite.backends.kicad.sexpr import Node
 from fenolite.core.coords import Point
 from fenolite.importer.keys import segment
-from fenolite.model.board import Board, ViaProtection
+from fenolite.model.base import Entity, Opaque
+from fenolite.model.board import Board, Teardrop, ViaProtection
 
 ORIGIN = Point(100_000_000, 100_000_000)
 """``BOARD_ORIGIN`` of the DSL: the frame of ``place()`` starts there."""
@@ -28,7 +34,7 @@ Row = tuple[int, ...]
 class Table:
     """One copper table: its kind (``track``, ``arc`` or ``via``), key, net name, sorted rows and the
     shared fields (``layer`` and ``width`` of tracks and arcs; ``diameter``, ``drill``, ``via_kind``,
-    ``layers`` and ``protection`` of vias)."""
+    ``layers``, ``protection`` and ``teardrop`` of vias)."""
 
     kind: str
     key: str
@@ -42,6 +48,7 @@ class Table:
     via_kind: str = "through"
     layers: tuple[str, str] | None = None
     protection: ViaProtection = field(default_factory=ViaProtection)
+    teardrop: Teardrop | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +57,8 @@ class Tables:
 
     tables: tuple[Table, ...] = ()
     left_out: Mapping[str, int] = field(default_factory=lambda: {})
+    teardrops_lost: int = 0
+    """Vias left out that hold teardrop settings: KiCad would not draw their teardrops again."""
 
     def count(self, kind: str) -> int:
         return sum(len(table.rows) for table in self.tables if table.kind == kind)
@@ -102,11 +111,57 @@ def protect_arguments(protection: ViaProtection) -> list[tuple[str, bool | str]]
     return out
 
 
+def teardrop_arguments(teardrop: Teardrop) -> list[tuple[str, object]]:
+    """The keyword arguments of ``teardrop()`` that state ``teardrop``: every field that is not ``None``,
+    and ``enabled`` only when it is ``False``."""
+    out: list[tuple[str, object]] = []
+    for name in ("max_length", "max_width", "length_ratio", "width_ratio", "curved", "filter_ratio",
+                 "two_segments", "prefer_zones"):  # fmt: skip
+        value = getattr(teardrop, name)
+        if value is not None:
+            out.append((name, value))
+    if not teardrop.enabled:
+        out.append(("enabled", False))
+    return out
+
+
 def _protection_key(protection: ViaProtection) -> tuple[int, ...]:
     p = protection
     values = (
         p.tenting_front, p.tenting_back, p.covering_front, p.covering_back, p.plugging_front, p.plugging_back,
         p.capping, p.filling,
+    )  # fmt: skip
+    return tuple(-1 if v is None else int(v) for v in values)
+
+
+def via_teardrop(item: Entity) -> tuple[Teardrop | None, bool]:
+    """``(settings, understood)`` of the ``teardrops`` child the reader kept in the slots of a via or pad;
+    an item without the child gives ``(None, True)``, one whose child the import cannot read
+    ``(None, False)``."""
+    bag = item.ext.get("kicad")
+    for slot in slotlib.from_ext(bag) if bag is not None else ():
+        if isinstance(slot, Opaque):
+            child = slotlib.opaque_child(slot)
+            if isinstance(child, Node) and child.name == tdlib.HEAD:
+                found = tdlib.project(child)
+                return found, found is not None
+    return None, True
+
+
+def has_teardrops(item: Entity) -> bool:
+    """Whether a via or pad holds teardrop settings that are enabled, or that the import cannot read."""
+    found, understood = via_teardrop(item)
+    return not understood or (found is not None and found.enabled)
+
+
+def _teardrop_key(teardrop: Teardrop | None) -> tuple[int, ...]:
+    """A sortable key of a via's teardrop settings; ``()`` for none."""
+    if teardrop is None:
+        return ()
+    values = (
+        teardrop.enabled, teardrop.max_length, teardrop.max_width, teardrop.length_ratio,
+        teardrop.width_ratio, teardrop.curved, teardrop.filter_ratio, teardrop.two_segments,
+        teardrop.prefer_zones,
     )  # fmt: skip
     return tuple(-1 if v is None else int(v) for v in values)
 
@@ -117,15 +172,15 @@ def _collinear(a: Point, m: Point, b: Point) -> bool:
 
 def span_ok(kind: str, layers: tuple[str, ...], stack: tuple[str, ...]) -> bool:
     """Whether a via of ``kind`` between ``layers`` fits the copper ``stack`` as the build's resolver
-    requires: a blind via joins one outer layer, a buried one none, a micro via one outer layer and the
-    layer next to it; a through via spans the board."""
+    requires of a via table: a blind via joins one outer layer, or both (change c0277), a buried one none,
+    a micro via one outer layer and the layer next to it; a through via spans the board."""
     if kind == "through":
         return True
     if len(layers) < 2 or layers[0] not in stack or layers[-1] not in stack:
         return False
     first, second = sorted((stack.index(layers[0]), stack.index(layers[-1])))
     outer = sum(1 for index in (first, second) if index in (0, len(stack) - 1))
-    fits = {"blind": outer == 1, "buried": outer == 0, "micro": outer == 1 and second - first == 1}
+    fits = {"blind": outer >= 1, "buried": outer == 0, "micro": outer == 1 and second - first == 1}
     return first != second and fits.get(kind, False)
 
 
@@ -173,28 +228,42 @@ def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
                 )
             )
     holes: dict[str, dict[tuple[object, ...], tuple[list[Row], int, int, str, tuple[str, str] | None,
-                                                    ViaProtection, bool]]] = {}  # fmt: skip
+                                                    ViaProtection, bool, Teardrop | None]]] = {}  # fmt: skip
+    lost = 0
     for via in board.vias:
         net = net_names.get(via.net_id or "")
-        if net is None:
-            left["copper-without-net"] += 1
-            continue
-        if not protection_ok(via.protection):
-            left["via-protection"] += 1
-            continue
-        if not span_ok(via.via_type, tuple(via.layers), stack):
-            left["via-span"] += 1
+        reason = (
+            "copper-without-net" if net is None
+            else "via-protection" if not protection_ok(via.protection)
+            else "via-span" if not span_ok(via.via_type, tuple(via.layers), stack)
+            else ""
+        )  # fmt: skip
+        if reason or net is None:
+            left[reason] += 1
+            lost += has_teardrops(via)
             continue
         span = (via.layers[0], via.layers[-1]) if via.via_type != "through" and len(via.layers) >= 2 else None
+        teardrop, understood = via_teardrop(via)
+        if not understood:
+            left["teardrop-setting"] += 1
         group = (via.diameter, via.drill, via.via_type, span or ("", ""), _protection_key(via.protection),
-                 via.locked)  # fmt: skip
+                 via.locked, _teardrop_key(teardrop))  # fmt: skip
         held = holes.setdefault(net, {})
         if group not in held:
-            held[group] = ([], via.diameter, via.drill, via.via_type, span, via.protection, via.locked)
+            held[group] = (
+                [],
+                via.diameter,
+                via.drill,
+                via.via_type,
+                span,
+                via.protection,
+                via.locked,
+                teardrop,
+            )
         held[group][0].append(_rel(via.position))
     for net, groups in holes.items():
         ordered = sorted(groups.items(), key=lambda item: item[0])  # type: ignore[arg-type,return-value]
-        for index, (_, (rows, diameter, drill, kind, span, protection, locked)) in enumerate(
+        for index, (_, (rows, diameter, drill, kind, span, protection, locked, teardrop)) in enumerate(
             ordered, start=1
         ):
             tables.append(
@@ -209,9 +278,20 @@ def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
                     via_kind=kind,
                     layers=span,
                     protection=protection,
+                    teardrop=teardrop,
                 )
             )
-    return Tables(tuple(sorted(tables, key=lambda t: t.key)), dict(sorted(left.items())))
+    return Tables(tuple(sorted(tables, key=lambda t: t.key)), dict(sorted(left.items())), lost)
 
 
-__all__ = ["ORIGIN", "Table", "Tables", "copper_tables", "protect_arguments", "protection_ok"]
+__all__ = [
+    "ORIGIN",
+    "Table",
+    "Tables",
+    "copper_tables",
+    "protect_arguments",
+    "protection_ok",
+    "has_teardrops",
+    "teardrop_arguments",
+    "via_teardrop",
+]

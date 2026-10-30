@@ -1275,6 +1275,7 @@ with `FEN-4002`.
 | `import.upgraded` | info | a file upgraded through `kicad-cli` on a private copy |
 | `import.provenance-missing` | warning | no `--licence`, `--copyright` or `--source` |
 | `import.timestamp-missing` | info | no `--timestamp`: the output is not reproducible |
+| `import.teardrops-regenerated` | info | teardrop zones left out because KiCad draws them again from the pad and via teardrop settings the code keeps (change c0277) |
 
 ## check
 

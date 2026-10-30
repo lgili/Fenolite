@@ -29,6 +29,7 @@ from fenolite.backends.base import WriteResult
 from fenolite.backends.kicad import _pcbwrite, netnames, resolver
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad import stackup as stacklib
+from fenolite.backends.kicad import teardrops as tdlib
 from fenolite.backends.kicad import via_protection as vialib
 from fenolite.backends.kicad import zones as zonelib
 from fenolite.backends.kicad._edgesign import edge_text, edge_uuid, outline_digest, outline_edges
@@ -471,6 +472,7 @@ def _emit_via(
         "layers": [layers_node("layers", via.layers)],
         "locked": _lock_items(via.locked),
         **{feature: [child] for feature, child in protection.items()},
+        "teardrop": [] if via.teardrop is None else [tdlib.emit(via.teardrop)],
         "net_id": _opt(nets.node(via.net_id)),
         "native_ids": uuid_items(via.native_ids),
     }
@@ -2009,13 +2011,17 @@ FLOOR_HEADS: tuple[str, ...] = (
     "mid", "mode", "name", "orientation", "pads", "path", "precision", "prefix", "priority", "radius", "rev",
     "smoothing", "solder_mask_margin", "solder_paste_margin", "stackup", "style", "suffix",
     "text_position_mode", "title", "title_block", "tracks", "units", "units_format", "vias", "zone_connect",
+    "teardrops", "best_length_ratio", "max_length", "best_width_ratio", "max_width", "filter_ratio",
+    "enabled", "allow_two_segments", "prefer_zone_connections",
 )  # fmt: skip
 """Names the writer creates that the 8.0 format already has and that neither the token inventory nor
 the skeleton holds (``board.md``, S-0021 and S-0033 at tag 8.0.0). The names of a linear dimension
 (``dimension``, ``height``, ``orientation``, ``format`` and ``style`` with their children; change c0103) are
 those the demo boards of 9.0.9 and 10.0.6 hold (S-0058); the aligned dimensions of the 8.0.0 demo boards
 in the 8.0 format hold all of them but ``orientation`` (S-0723), which the format page documents for an
-orthogonal dimension (S-0001). The writer has no target below 9."""
+orthogonal dimension (S-0001). The ``teardrops`` child of a pad or via and its children but
+``curved_edges`` (an inventory row) are those the pads and vias of the demo boards of 9.0.9 and 10.0.6 hold
+(S-0058; change c0277). The writer has no target below 9."""
 CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "kicad_pcb": (
@@ -2031,13 +2037,15 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "font": ("size", "thickness"),
         "pad": (
             *PAD_POSITIONAL, "at", "size", "drill", "property", "layers", "net", *MARGIN_HEADS,
-            "zone_connect", "uuid",
+            "zone_connect", "teardrops", "uuid",
         ),
         "segment": ("start", "end", "width", "locked", "layer", "net", "uuid"),
         "arc": ("start", "mid", "end", "width", "locked", "layer", "net", "uuid"),
         "via": (
-            *VIA_POSITIONAL, "at", "size", "drill", "layers", "locked", *vialib.FEATURES, "net", "uuid",
+            *VIA_POSITIONAL, "at", "size", "drill", "layers", "locked", *vialib.FEATURES, "teardrops", "net",
+            "uuid",
         ),
+        "teardrops": tuple(head for head, _, _ in tdlib.CHILDREN),
         "zone": (
             "net", "net_name", "locked", "layer", "layers", "uuid", "name", "hatch", "priority",
             "connect_pads", "min_thickness", "filled_areas_thickness", "keepout", "fill", "polygon",
@@ -2107,10 +2115,10 @@ _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyT
         },
         "footprint": {**FOOTPRINT_FIELDS, "locked": "locked", "property": ("fields", "properties")},
         "property": {**FIELD_FIELDS},
-        "pad": {**BOARD_PAD_FIELDS, **MARGIN_HEADS},
+        "pad": {**BOARD_PAD_FIELDS, **MARGIN_HEADS, tdlib.HEAD: "teardrop"},
         "segment": TRACK_FIELDS,
         "arc": TRACK_FIELDS,
-        "via": VIA_FIELDS,
+        "via": {**VIA_FIELDS, tdlib.HEAD: "teardrop"},
         "zone": ZONE_FIELDS,
         "filled_polygon": FILL_FIELDS,
         **dict.fromkeys(GR_GRAPHIC_HEADS, _GRAPHIC_WRITE_FIELDS),
@@ -2875,6 +2883,11 @@ class _Writer:
                     covered.add("locked")
                     if not entity.locked:
                         self.read_only("locked", where, "the footprint is locked by a header atom")
+                continue
+            if child.name == tdlib.HEAD and head in ("pad", "via"):
+                # the reader keeps the child in its slot; settings the script gives replace it (c0277)
+                if items.get("teardrop"):
+                    slots[i] = Modeled("teardrop")
                 continue
             special = self.projection(entity, child, slots, i, file_properties)
             if special is not None:

@@ -44,7 +44,14 @@ from fenolite.importer.emit.printer import (
 from fenolite.importer.keys import lock_of, segment
 from fenolite.importer.provenance import Provenance
 from fenolite.importer.source import Source
-from fenolite.importer.tables import ORIGIN, Table, copper_tables, protect_arguments
+from fenolite.importer.tables import (
+    ORIGIN,
+    Table,
+    copper_tables,
+    has_teardrops,
+    protect_arguments,
+    teardrop_arguments,
+)
 from fenolite.importer.vendor import natural, vendor
 from fenolite.model.board import (
     Board,
@@ -732,6 +739,17 @@ def _copper_file(tables: Sequence[Table], header: Sequence[str]) -> str:
                 values = tuple((name, Raw("True" if v is True else "False" if v is False else string(str(v))))
                                for name, v in said)  # fmt: skip
                 args.append(("protection", Call("protect", (), values)))
+            if table.teardrop is not None:
+                imports.add("teardrop")
+                stated: list[tuple[str, Expr]] = []
+                for name, value in teardrop_arguments(table.teardrop):
+                    if isinstance(value, bool):
+                        stated.append((name, Raw("True" if value else "False")))
+                    elif name in ("max_length", "max_width"):
+                        stated.append((name, length(cast(int, value))))
+                    else:
+                        stated.append((name, number(cast(int, value))))
+                args.append(("teardrop", Call("teardrop", (), tuple(stated))))
         else:
             args += [("layer", text(table.layer)), ("width", length(table.width)), ("rows_nm", rows)]
         if table.locked:
@@ -771,6 +789,7 @@ def emit(source: Source, options: Options) -> Emission:
     tables = copper_tables(board, names)
     for kind, count in tables.left_out.items():
         ledger.add(kind, count=count)
+    ledger.teardrops_lost += tables.teardrops_lost
     kept_tables: list[Table] = []
     for table in tables.tables:
         if table.kind != "via" and table.layer not in layers:
@@ -794,6 +813,8 @@ def emit(source: Source, options: Options) -> Emission:
         else:
             taken_refs.add(ref)
             placed.append(footprint)
+            continue
+        ledger.teardrops_lost += any(has_teardrops(pad) for pad in footprint.pads)
     # pads by net
     members: dict[str, dict[tuple[str, str], None]] = {}
     seen: dict[tuple[str, str], str] = {}
@@ -935,6 +956,7 @@ def emit(source: Source, options: Options) -> Emission:
     area_lines = _areas(board, layers, ledger)
     drawing_lines = _drawings(board, ledger)
     coverage.scan(design, ledger)
+    issues += coverage.regenerated_issues(ledger)
     files: dict[str, str] = dict(vendored.files)
     copper_line: list[list[str]] = []
     if kept_tables:

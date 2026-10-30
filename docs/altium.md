@@ -1515,9 +1515,11 @@ Fields of these kinds that the scope leaves out, and why:
 | `pad` | `zone_connection` | the writer does not write it |
 | `pad` | `fab_property` | the writer does not write it: no public source says where an Altium pad record holds a fabrication mark, and the build names the marked footprints in one `altium.not-lowered` info (change c0118) |
 | `pad` | `mask_margin`, `paste_margin` | the writer does not write it: the import reads a pad's openings by its kind and its expansion (`H-A-CONV-PADMASK`, change c0223), and the writer leaves Altium's rules to give them |
+| `pad` | `teardrop` | the writer does not write it: no public source says where an Altium pad record holds teardrop settings (change c0277) |
 | `via` | `layers` | the writer writes a fixed value: only through vias are written |
 | `via` | `protection` | the writer writes a fixed value for a tenting side that neither the via nor the board default states (a clear flag, read back as `False`), and nothing for covering, plugging, capping and filling: a `None` has no Altium form, so a written and re-read model differs from the original where a side is stated nowhere (c0112). Stated tenting is written and read back, and a test of c0112 proves it |
 | `via` | `via_type` | the writer writes a fixed value: only through vias are written |
+| `via` | `teardrop` | the writer does not write it: no public source says where an Altium via record holds teardrop settings (change c0277) |
 | `zone` | `name` | the writer writes a fixed value for a zone without a name: a generated one |
 | `zone` | `priority` | the reader maps it elsewhere: the priority is written as the pour order |
 | `zone` | `fills`, `filled` | the writer does not write it: the poured copper is Altium's to compute |

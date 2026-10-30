@@ -72,6 +72,36 @@ def edited(tmp: Path) -> Path:
     return _variant(tmp, "edited", text[:where] + "(at -0.9 0 180)" + text[where + len(old) :])
 
 
+TEARDROPS = (
+    "(teardrops (best_length_ratio 0.5) (max_length 1) (best_width_ratio 1) (max_width 2) (curved_edges no) "
+    "(filter_ratio 0.9) (enabled yes) (allow_two_segments yes) (prefer_zone_connections yes))"
+)
+"""The teardrop settings of a via as the demo boards of KiCad 9.0 and 10.0 write them (change c0277)."""
+TEARDROP_ZONE = (
+    '\t(zone (net "GND") (layer "F.Cu") (uuid "0e0e0e0e-0000-4000-8000-000000000002")'
+    ' (name "$teardrop_padvia$") (hatch full 0.1) (priority 30000) (attr (teardrop (type {kind})))'
+    " (connect_pads yes (clearance 0)) (min_thickness 0.0254) (filled_areas_thickness no)"
+    " (fill yes (thermal_gap 0.5) (thermal_bridge_width 0.5) (island_removal_mode 1) (island_area_min 10))"
+    " (polygon (pts (xy 110.3 132.8) (xy 111.2 133) (xy 110.3 133.2))))\n"
+)
+
+
+def teardropped(tmp: Path, settings: str = TEARDROPS, kind: str = "padvia") -> Path:
+    """The board whose via at (110, 133) holds ``settings``, whose via at (130, 133) is a blind via over
+    both copper layers, as KiCad writes such vias, and which holds a teardrop zone of the type ``kind``
+    (c0277)."""
+    text = BOARD.read_text(encoding="utf-8")
+    first = text.index("(at 110 133)")
+    net = text.index('(net "GND")', first)
+    text = text[:net] + settings + "\n\t\t" + text[net:]
+    second = text.index("(at 130 133)")
+    head = text.rindex("(via", 0, second)
+    text = text[:head] + "(via blind" + text[head + len("(via") :]
+    body = text.rstrip()
+    assert body.endswith(")")
+    return _variant(tmp, "teardropped", body[:-1] + TEARDROP_ZONE.format(kind=kind) + ")\n")
+
+
 def built_for(tmp: Path, major: int) -> Path:
     """The authored two-sheet board built from its script for KiCad ``major`` in ``tmp``."""
     work = tmp / "data" / "src"
@@ -151,4 +181,5 @@ __all__ = [
     "imported",
     "old",
     "sheeted",
+    "teardropped",
 ]

@@ -3972,6 +3972,11 @@ meaning = "No --timestamp: the header and PROVENANCE.json carry today's date, so
 fix = "Pass --timestamp to make the output reproducible."
 see = "import"
 
+["import.teardrops-regenerated"]
+meaning = "The source board holds teardrop zones that KiCad drew from the teardrop settings of its pads and vias. The code keeps those settings (the pads' in the vendored footprints, the vias' as teardrop= of their tables), so the zones are not written: KiCad draws them again when it fills the board."
+fix = "Nothing to fix. Run fenolite fill on the built board to draw the teardrops."
+see = "import"
+
 ["library.deprecated"]
 meaning = "The design uses a library record (pins, package, device or part) that is deprecated: its interface was replaced by another record. The design still builds."
 fix = "Move the part to the record named in the message (deprecated.by) when you can; read the reason in the record."
