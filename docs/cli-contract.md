@@ -527,13 +527,36 @@ canonical bytes change, also for `--target altium`. A design whose parts all hav
 has no lock file gets none, and `result.lock` is `null`. Otherwise `result.lock` holds `file` (relative to
 the script folder when the lock is inside it, else its file name), `exists`, `written`, `frozen` and
 `changes`: one `{"section", "key", "before", "after", "reason"}` per change, sorted by section and key, the
-reason one of `assigned`, `released`, `moved`, `explicit`, `taken`, `prefix-changed` and `design-renamed`.
+reason one of `assigned`, `released`, `moved`, `explicit`, `taken`, `prefix-changed` and `design-renamed`
+(and `solved`, `stale` and `dropped` for the `pins` section, below).
 New refs are listed there only; the issues are `lock.ref-released` and `lock.ref-taken` (warnings),
 `lock.ref-moved`, `lock.ref-explicit`, `lock.ref-prefix-changed` and `lock.design-renamed` (infos).
 `--frozen` refuses any change of the lock with exit 7 and `FEN-7004`, one `lock.changed` (error) per change
 in `issues`, and nothing written, also under `--dry-run`; a frozen build never writes the lock, and a lock
 that differs in formatting only is no change. A malformed lock is `FEN-3004`; a newer schema, or content in
-the reserved sections `picks` and `pins`, is `FEN-3002`.
+the reserved section `picks`, is `FEN-3002`.
+
+Pin assignment (change c0257; `docs/pins.md`): every `part.take(...)` of the script is given one alternative
+of the device's `[[options]]` before the design is lowered, valid choices of the lock's `[pins]` section kept
+first, the others searched in the canonical order (part path, take key, option name, alternative index), so
+the result does not depend on `--seed`. `result.pins` lists one `{"key", "kind", "option", "alternative",
+"pins", "source"}` per take, sorted by key (`<part path>/<take key>`), `source` one of `solved`, `locked` and
+`pinned`; it is `[]` for a design without takes, and the same on a dry run and a confirmed run. The choices
+are recorded in `[pins."<key>"]` of the lock through the plan, and their changes appear in
+`result.lock.changes` with the reasons `solved`, `stale` and `dropped`, so `--frozen` refuses a new, changed
+or dropped choice (`FEN-7004`). A design with a take gets a lock even when every part has an explicit ref.
+The build's evidence joins `INFERRED` (`H-G-PIN-SOLVE-DETERMINISTIC`), and `UNVERIFIED` when a chosen option
+carries that label. The codes (`lens.pins.PIN_ISSUE_CODES`):
+
+| code | severity | when |
+|---|---|---|
+| `pins.unsatisfiable` | error | no assignment exists; the message names the smallest conflicting takes and their pins |
+| `pins.option-unknown` | error | `option=` names no option of that kind on the device |
+| `pins.pinned-conflict` | error | `pins=` matches no alternative, or names a pin fixed by hand |
+| `pins.search-limit` | error | the search tried more than 100 000 candidates |
+| `pins.lock-stale` | warning | a locked choice is no longer valid and was solved again |
+| `pins.unused-take` | warning | a take whose nets reach no other pin |
+| `pins.lock-dropped` | info | a lock entry whose take no longer exists is removed |
 
 **Placement in code** (change c0255; `docs/dsl.md`, "Relative placement" and "Block layout"). A script
 with a relative `place()`, a block pose, a layout strategy or a block reuse gets `result.placement.relative`

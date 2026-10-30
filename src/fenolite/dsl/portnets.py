@@ -204,8 +204,11 @@ class PortHandle:
         return f"PortHandle({self.path!r}, {self.kind!r})"
 
 
-MAIN_MEMBERS: Mapping[str, str] = MappingProxyType({"power": "hv", "ground": "gnd", "logic": "io"})
-"""Kind → the member a net-like port or interface of several members stands for (change c0252)."""
+MAIN_MEMBERS: Mapping[str, str] = MappingProxyType(
+    {"power": "hv", "ground": "gnd", "logic": "io", "pin": "io"}
+)
+"""Kind → the member a net-like port or interface of several members stands for (change c0252); ``pin`` is a
+single-pin take (change c0257)."""
 
 
 def as_net(value: object, *, what: str) -> Net | None:

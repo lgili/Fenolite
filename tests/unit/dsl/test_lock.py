@@ -110,21 +110,37 @@ def test_read_newer_schema() -> None:
     assert code(caught.value) == "FEN-3002"
 
 
-def test_picks_are_read_and_pins_reserved() -> None:
-    # c0254 registers the picks resolver: an incomplete pick is malformed (FEN-3004), pins stay reserved
+def test_picks_are_read() -> None:
+    # c0254 registers the picks resolver: an incomplete pick is malformed (FEN-3004)
     text = f'schema = "{SCHEMA}"\ndesign = "d"\n[picks."buck/c_in"]\ndevice = "Fenolite:C_0805"\n'
     with pytest.raises(FormatError) as caught:
         read_lock(text, file="design.lock")
     assert code(caught.value) == "FEN-3004" and "picks" in str(caught.value)
-    with pytest.raises(LockVersionError, match="pins"):
+
+
+def test_pins_section_is_read_since_c0257() -> None:
+    """``[pins]`` is defined by change c0257: a malformed entry is FEN-3004, a valid one is read and written
+    canonically, its ``choice`` text written again from the other fields."""
+    with pytest.raises(FormatError) as caught:
         read_lock(f'schema = "{SCHEMA}"\ndesign = "d"\n[pins]\n"x" = "y"\n', file="design.lock")
+    assert code(caught.value) == "FEN-3004"
+    text = (
+        f'schema = "{SCHEMA}"\ndesign = "d"\n[pins."mcu/i2c#0"]\nkind = "i2c"\noption = "I2C1"\n'
+        'alternative = 1\npins = { sda = "PB9", scl = "PB8" }\nchoice = "edited by hand"\n'
+    )
+    lock = read_lock(text, file="design.lock")
+    assert lock_text(lock).endswith(
+        '\n[pins."mcu/i2c#0"]\nkind = "i2c"\noption = "I2C1"\nalternative = 1\n'
+        'pins = { scl = "PB8", sda = "PB9" }\nchoice = "I2C1 on PB8/PB9"\n'
+    )
+    assert read_lock(lock_text(lock), file="design.lock") == lock
 
 
-def test_reserved_sections_have_no_resolver() -> None:
+def test_every_section_has_a_resolver() -> None:
     assert {section.name: section.resolve is None for section in SECTIONS} == {
         "refs": False,
         "picks": False,
-        "pins": True,
+        "pins": False,
     }
 
 

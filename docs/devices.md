@@ -75,7 +75,7 @@ temperature = { abs_max = { min = "-55degC", max = "150degC" }, operating = { mi
 | `limits` | no | `[[limits]]` tables: a voltage limit between two functions (below) |
 | `interfaces` | no | `[[interfaces]]` tables: the interface ports of the device (below; change c0252) |
 | `provenance` | no | the stamp of `fenolite catalog import` (below) |
-| `options` | reserved | refused with `FEN-3002` until a later format defines it |
+| `options` | no | `[[options]]` tables: the interface options a part can `take` (`docs/pins.md`; change c0257) |
 
 Any other key, a missing key or a wrong type gives `FEN-3004`, naming the file and the key.
 

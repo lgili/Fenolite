@@ -484,6 +484,9 @@ def _device_ports(design: Design, part: Part) -> list[Port]:
 
 
 def _design_model(design: Design) -> ModelDesign:
+    from fenolite.dsl.take import apply_pending
+
+    apply_pending(design)  # takes never applied: solved against an empty lock (change c0257)
     resolve_port_nets(design)
     parts = sorted(design.parts.values(), key=lambda p: p.path)
     components = tuple(_component(p) for p in parts)

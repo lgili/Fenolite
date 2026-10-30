@@ -295,6 +295,19 @@ class DeviceInterface:
 
 
 @dataclass(frozen=True, slots=True)
+class DeviceOption:
+    """One interface option a device offers (``[[options]]``, change c0257): the interface ``kind``
+    (``i2c``, ``spi``, ``uart``, ``usb2``, ``diff_pair`` or ``pin``), its ``name`` (unique per device and
+    kind), its ``alternatives`` in file order, each a map from every role of the kind to a function of the
+    device, and its evidence label."""
+
+    kind: str
+    name: str
+    alternatives: tuple[dict[str, str], ...] = field(default=(), metadata=ORDERED)
+    evidence: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class DeviceProvenance:
     """The stamp of a device written by a tool: the tool, its source (lib ids, never a path), the ISO 8601
     date and the SHA-256 of the record as written (``fenolite.catalog.devices.device_digest``)."""
@@ -347,6 +360,8 @@ class DeviceDef:
     ``""`` (change c0274)."""
     interfaces: tuple[DeviceInterface, ...] = field(default=(), metadata=ORDERED)
     """The interface ports of the device, sorted by name (change c0252)."""
+    options: tuple[DeviceOption, ...] = field(default=(), metadata=ORDERED)
+    """The interface options of the device, sorted by kind then name (change c0257)."""
     provenance: DeviceProvenance | None = None
 
     @property
@@ -476,6 +491,7 @@ __all__ = [
     "PPM",
     "DeviceDef",
     "DeviceInterface",
+    "DeviceOption",
     "DevicePin",
     "DeviceProvenance",
     "FootprintDef",

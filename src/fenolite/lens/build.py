@@ -84,6 +84,7 @@ from fenolite.lens import edits as edits_mod
 from fenolite.lens import preserve
 from fenolite.lens.fields import FieldRequestLike, apply_requests, merge_fields
 from fenolite.lens.moved import identity_map
+from fenolite.lens.pins import PIN_ISSUE_CODES
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
 from fenolite.lens.rolecopper import RoleCopperPlanner, apply_plan
 from fenolite.model import canonical, drawn_connect, pairs
@@ -170,6 +171,8 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "lock.ref-prefix-changed": "info",
         "lock.design-renamed": "info",
         "lock.changed": "error",
+        # the pin solve (c0257; the same table as fenolite.lens.pins.PIN_ISSUE_CODES)
+        **PIN_ISSUE_CODES,
         **{code: severity for code, severity in schgen.ISSUE_CODES.items() if code.startswith("build.")},
         **PRESERVE_ISSUE_CODES,
         **edits_mod.EDIT_ISSUE_CODES,

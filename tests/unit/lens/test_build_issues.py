@@ -73,6 +73,10 @@ def test_closed_set() -> None:
         "circuit.rail-unset": "warning", "circuit.logic-level": "error", "circuit.logic-unknown": "warning",
         "circuit.bus-pullup": "warning", "circuit.requires-missing": "warning",
         "circuit.port-split": "warning",
+        # c0257: the pin solve
+        "pins.unsatisfiable": "error", "pins.option-unknown": "error", "pins.pinned-conflict": "error",
+        "pins.search-limit": "error", "pins.lock-stale": "warning", "pins.unused-take": "warning",
+        "pins.lock-dropped": "info",
         **PRESERVE_ISSUE_CODES,  # c0019
         **EDIT_ISSUE_CODES,  # c0250: the edit merge passes through
         **DRAWN_ISSUE_CODES,  # c0276: the drawn schematic
@@ -97,7 +101,7 @@ def test_closed_set() -> None:
     own = {
         code
         for code in set(table) - set(LOCK_CODES) - set(EDIT_ISSUE_CODES) - set(DRAWN_ISSUE_CODES)
-        if not code.startswith("circuit.")
+        if not code.startswith(("circuit.", "pins."))  # c0257: lens.pins holds the pin codes
     }
     from fenolite.lens.altium import ALTIUM_ISSUE_CODES as ALTIUM_BUILD_CODES
 

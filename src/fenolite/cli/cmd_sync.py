@@ -169,6 +169,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             script_output=run.output,
         )
     try:
+        from fenolite.cli._pins import apply_script_pins
+
+        apply_script_pins(design, script_path)  # the takes of change c0257, as the build chose them
         model, _defaulted = apply_default_pad_maps(
             to_model(design), authored_symbols=design.symbols, authored_footprints=design.footprints
         )
