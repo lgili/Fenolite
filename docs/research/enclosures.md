@@ -463,7 +463,7 @@ Geometry engines and formats:
 - ISO 10303-21 overview: https://en.wikipedia.org/wiki/ISO_10303-21 ; https://www.loc.gov/preservation/digital/formats/fdd/fdd000448.shtml
 - ISO electronic inserts and licence: https://standards.iso.org/iso/10303/
 - STEP Tools merged AP schema (HTML): https://www.steptools.com/stds/stp_aim/html/
-- MBx-IF recommended practices: https://www.mbx-if.org/home/cax/recpractices/
+- MBx-IF recommended practices: https://www.mbx-if.org (CAx recommended practices page)
 - NIST STEP File Analyzer and Viewer: https://www.nist.gov/node/413991 ; https://github.com/usnistgov/SFA ; https://catalog.data.gov/dataset/step-file-analyzer-and-viewer-software
 - 3MF: https://3mf.io/spec/ ; https://github.com/3MFConsortium/spec_core (LICENSE: BSD-2-Clause) ; https://github.com/3MFConsortium/lib3mf
 
