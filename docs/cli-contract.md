@@ -626,7 +626,9 @@ for every conflict; the most specific take wins. A malformed value or two sides 
 error (exit 2, `FEN-2001`); a take that matches no conflict gives `edit.take-unused` (warning). The info
 codes `edit.unrecorded`, `edit.code-wins` and `edit.base-missing` never fail a build, and
 `edit.base-invalid` (warning) reads a broken base record as none. A base record changed by hand is
-refused as `build.layout-exists` (exit 7).
+refused as `build.layout-exists` (exit 7). Under `--frozen` (c0249) any `--take` and any CAD edit that
+would give `edit.unrecorded` are refused as a change of the lock is: exit 7, `FEN-7004`, one
+`lock.changed` (error) per take (`where` `--take`) or per property key, and nothing written.
 
 The outline of the script is judged before anything is placed (`docs/dsl.md`, "Board"):
 `kicad.outline.invalid` (error: exit 5, nothing written) for rings that cross or touch, a cut-out or slot

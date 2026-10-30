@@ -49,8 +49,11 @@
   2026-10-29: `cmd_build.read_edit_source`; proof passed (`test_build_command.py -k edits`).
 - [x] 3.5 Add `--take` to `fenolite build`, `result.preserved.edits`, and the `sync.conflict` exit 5 (requirements "Conflict finding", "Conflicts stop writes", "Take option of build", "Take effects"). Proof: `uv run pytest tests/unit/cli/test_build_take.py -q`; `uv run python tools/gen_agent_guide.py` and `uv run pytest tests/unit/agent/test_pages.py -q` after the option is added.
   2026-10-29: `--take` on `build`, `result.preserved.edits`, conflicts refuse every write (exit 5); proof passed, guide regenerated, `test_pages.py` passed.
-- [ ] 3.6 (waits for c0249) `--frozen` refuses `--take` and `edit.unrecorded` with c0249's code (requirement "Frozen builds refuse unrecorded edits"). Proof: `uv run pytest tests/unit/cli/test_build_take.py -k frozen -q`.
-  2026-10-29: open: c0249 (`--frozen`, `FEN-7004`) is not merged in `circuits-as-code`.
+- [x] 3.6 (waits for c0249) `--frozen` refuses `--take` and `edit.unrecorded` with c0249's code (requirement "Frozen builds refuse unrecorded edits"). Proof: `uv run pytest tests/unit/cli/test_build_take.py -k frozen -q`.
+  2026-10-29: was open: c0249 (`--frozen`, `FEN-7004`) was not merged in `circuits-as-code`.
+  2026-10-30: c0249 is merged (base `52f32e8c`). `cli._lock.refuse_frozen_edits` raises `EditsFrozenError`
+  (a `LockFrozenError`, `FEN-7004`, exit 7) with one `lock.changed` error per take (`where` `--take`) and
+  per `edit.unrecorded` key; proof passed (2 tests).
 - [x] 3.7 Pass the `EDIT_ISSUE_CODES` through `PRESERVE_ISSUE_CODES` and `BUILD_ISSUE_CODES` (MODIFIED "Layout issue codes"; requirements "Edit merge error and warning codes", "Edit merge info codes"). Proof: `uv run pytest tests/unit/lens/test_preserve_issues.py tests/unit/lens/test_edit_merge.py -k closed_set -q`.
   2026-10-29: `EDIT_ISSUE_CODES` join `BUILD_ISSUE_CODES`; proof passed.
 

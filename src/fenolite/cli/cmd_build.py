@@ -97,7 +97,7 @@ from fenolite.checks.copper import (
 from fenolite.checks.waivers import copper_waivers
 from fenolite.cli import _layout
 from fenolite.cli._contracts import classes_of
-from fenolite.cli._lock import lock_location, plan_lock, with_lock
+from fenolite.cli._lock import lock_location, plan_lock, refuse_frozen_edits, with_lock
 from fenolite.cli._padmap import DefaultPadMap, apply_default_pad_maps
 from fenolite.cli._picks import picking, proposed_files
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
@@ -290,7 +290,8 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--frozen",
         action="store_true",
-        help="refuse with exit 7 (FEN-7004) when the design lock would change; never write it",
+        help="refuse with exit 7 (FEN-7004) when the design lock would change, or a --take or a CAD edit "
+        "not in edits.toml would be kept; never write the lock",
     )
     parser.add_argument(
         "--take",
@@ -1244,6 +1245,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         )
     frame_sheet, sheet_issues, sheet_result = read_drawing_sheet_source(design, script_path)
     takes = parse_take_option(getattr(args, "take", None))
+    frozen = bool(getattr(args, "frozen", False))
+    refuse_frozen_edits(frozen=frozen, takes=takes, issues=())
     edits, edits_file, source_issues, source_sha = read_edit_source(script_path)
     refused = any(found.severity == "error" for found in source_issues)
     if args.target == ALTIUM_TARGET:
@@ -1357,6 +1360,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             resolver=plan.resolver if plan is not None else None,
             adjust=plan.adjust(old_poses) if plan is not None else None,
         )
+        refuse_frozen_edits(frozen=frozen, takes=(), issues=prepared.issues)
     elif edits or takes:
         # the file is source, like the script: it applies to a discarded layout too, and no output is read
         prepared = prepare(
