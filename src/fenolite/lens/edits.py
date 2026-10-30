@@ -771,6 +771,9 @@ def merge_property(
     if not code_changed:
         return Decision(key, cad_value, source, None, None, effective, edited)
     if not changed:
+        if effective == cad_value:
+            # the code now holds what the CAD file holds (an edit recorded by sync): nothing is written over
+            return Decision(key, effective, "code", None, None, effective, edited)
         if cad_locked:
             conflict = Conflict(key, base.out, effective, {"board": cad_value}, ("board",), "cad-locked")
             return resolve(conflict, {"code": effective, "cad": cad_value, "board": cad_value})

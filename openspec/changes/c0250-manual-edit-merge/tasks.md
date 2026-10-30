@@ -114,8 +114,12 @@
   2026-10-29: `docs/lens.md` (five sections, table, the two-way sentence and the `placements.toml` write rule replaced) and `docs/cli-contract.md` (`build --take`, `sync`); proof passed.
 - [x] 7.5 Add the `explain.toml` entries and the guide lines: a `fenolite-recipe` in `recovery.md` for `sync.conflict` with `--take`, and the edit loop in `board-workflow.md`; then run `uv run python tools/gen_agent_guide.py` (requirement "Conflicts are explained and taught"). Proof: `uv run pytest tests/unit/agent/test_pages.py tests/unit/cli/test_explain_cmd.py -q`.
   2026-10-29: `explain.toml` entries for the seven codes and `sync.placements-migrated`; recipe `conflict` in `recovery.md` (sandbox `conflict` in `tests/unit/agent/_sandbox.py`; the page stays under 12000 bytes, so the recipe ends with the take and the prose names the sync), the edit loop in `board-workflow.md`; guide regenerated; proof passed.
-- [ ] 7.6 Add the edit loop to an example: `examples/blink_2layer/README.md` (build, edit in KiCad, build, sync, conflict, take), run by the example tests. Proof: `uv run pytest tests/unit/test_examples.py -q`.
-  2026-10-29: open: not done in this batch.
+- [x] 7.6 Add the edit loop to an example: `examples/blink_2layer/README.md` (build, edit in KiCad, build, sync, conflict, take), run by the example tests. Proof: `uv run pytest tests/unit/test_examples.py -q`.
+  2026-10-29: was open: not done in that batch.
+  2026-10-30: `examples/blink_2layer/README.md` (build, KiCad edit, build, script change, conflict, `--take
+  cad`, sync, build), run command by command by `test_examples.py::test_blink_readme_edit_loop`. Fix found
+  by it: a code value equal to the unchanged CAD value (an edit recorded by sync) no longer gives
+  `edit.code-wins`. Proof passed (22 tests).
 
 ## 8. Closing
 
