@@ -9,8 +9,9 @@
 ``output_digest``); ``renders`` the SHA-256 of the two review sheets of ``tools/catalog/render_*.py``;
 ``builds`` the SHA-256 of each file that ``fenolite build`` writes for each catalog example with
 ``--seed 1`` and a fixed ``--timestamp``, but ``.fenolite/meta.json``, which names the version of
-Fenolite. The file was first written from the Python catalog before the move to data files, so every later
-catalog must give the same bytes; it changes only together with a version change in
+Fenolite, and the files a later change added (``LATER``, with their entries in ``.fenolite/build.json``).
+The file was first written from the Python catalog before the move to data files, so every later catalog
+must give the same bytes; it changes only together with a version change in
 ``src/fenolite/catalog/data/VERSIONS.toml``.
 """
 
@@ -34,6 +35,11 @@ EXAMPLES: tuple[str, ...] = ("examples/catalog/design.py",)
 TIMESTAMP = "2026-01-01T00:00:00Z"
 UNRECORDED: tuple[str, ...] = (".fenolite/meta.json",)
 """Built files left out: the model header holds the version of Fenolite, which a release changes."""
+LATER: tuple[str, ...] = ("fenolite-base.json",)
+"""Built files that a later change added after the golden was written: the base record of the three-way
+merge (change c0250). They are left out, and so is their entry in the ``files`` map of
+``.fenolite/build.json``, whose other bytes stay recorded."""
+BUILD_RECORD = ".fenolite/build.json"
 
 
 def _sha(data: bytes) -> str:
@@ -72,6 +78,27 @@ def renders() -> dict[str, str]:
     }
 
 
+def _recorded(out: Path, path: Path) -> bytes:
+    """The bytes recorded for a built file: ``.fenolite/build.json`` without the ``files`` entries of the
+    ``LATER`` files, written the way the build writes it (two-space indent, sorted keys, one final newline);
+    any other file as it is. The record must re-serialise to its own bytes, so a change of its layout still
+    shows."""
+    data = path.read_bytes()
+    if path.relative_to(out).as_posix() != BUILD_RECORD:
+        return data
+    record = json.loads(data)
+
+    def dump(value: object) -> bytes:
+        return (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
+
+    if dump(record) != data:
+        raise SystemExit(f"{BUILD_RECORD} is not written as two-space JSON with sorted keys any more")
+    files = record.get("files", {})
+    for name in LATER:
+        files.pop(name, None)
+    return dump(record)
+
+
 def builds() -> dict[str, dict[str, str]]:
     """The SHA-256 of every file built for each catalog example, by path in the built folder."""
     from fenolite.cli.main import main
@@ -89,9 +116,9 @@ def builds() -> dict[str, dict[str, str]]:
             if code != 0:
                 raise SystemExit(f"{example}: build exited {code}: {sink.getvalue()[-2000:]}")
             found[example] = {
-                path.relative_to(out).as_posix(): _sha(path.read_bytes())
+                path.relative_to(out).as_posix(): _sha(_recorded(out, path))
                 for path in sorted(out.rglob("*"))
-                if path.is_file() and path.relative_to(out).as_posix() not in UNRECORDED
+                if path.is_file() and path.relative_to(out).as_posix() not in (*UNRECORDED, *LATER)
             }
     return found
 

@@ -42,7 +42,11 @@ def test_sensor_rails_reads_back(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
         args = ["--kicad-version", str(major()), "build", str(folder / "good.py"), "--out", str(out)]
         code = cli_main.main([*args, "--confirm", "--json"])
     assert code == 0, stderr.getvalue()
-    assert json.loads(stdout.getvalue())["issues"] == []
+    # two infos are expected and nothing else: the block's port members that share one net keep global labels
+    # (build.block-port-merged, change c0269), and the shipped devices carry no ratings
+    # (circuit.rating-missing, change c0253)
+    found = {(i["code"], i["severity"]) for i in json.loads(stdout.getvalue())["issues"]}
+    assert found <= {("build.block-port-merged", "info"), ("circuit.rating-missing", "info")}, found
     files = {
         path.relative_to(out).as_posix(): path.read_bytes()
         for path in out.rglob("*")
