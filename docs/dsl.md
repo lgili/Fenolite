@@ -506,16 +506,32 @@ at script time. The full guide, with the sources of each value and the requireme
 [contracts.md](contracts.md).
 
 ```python
-from fenolite.dsl import (at_least, at_most, between, celsius, current_of, kelvin, rating_of, ratio, select,
-                          sink, supply, value_of, voltage_of, within)
+from fenolite.dsl import (
+    at_least,
+    at_most,
+    between,
+    celsius,
+    current_of,
+    kelvin,
+    rating_of,
+    ratio,
+    select,
+    sink,
+    supply,
+    value_of,
+    voltage_of,
+    within,
+)
 
 design.derating(capacitor_voltage=ratio(50), source="our rule 4.2")  # at most 50 % of the rating
 design.derating(capacitor_voltage=ratio(80), parts=select.ref("C1*"))  # a part scope wins
 design.derating(temperature_margin=kelvin(15))  # a temperature rating narrowed by 15 K at each end
 design.operating(ambient=between(celsius(-20), celsius(70)))
 design.contracts(unknown="warning")  # each row that cannot be judged is a warning, not one info count
-design.rig(supply(v12, gnd, voltage=volt("12").pct(10), current=amp(3), name="bench"),
-           sink(v33, gnd, current=amp("0.2"), name="probe"))
+design.rig(
+    supply(v12, gnd, voltage=volt("12").pct(10), current=amp(3), name="bench"),
+    sink(v33, gnd, current=amp("0.2"), name="probe"),
+)
 design.expect(within(voltage_of(v33), rating_of(sen, "voltage", pin="VDD", limit="operating")), "VDD range")
 ```
 

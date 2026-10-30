@@ -114,8 +114,10 @@ that cannot be resolved (a value turned into text, a rail without a voltage) `ci
 ## The rig and its corners
 
 ```python
-design.rig(supply(v12, gnd, voltage=volt("12").pct(10), current=amp(3), name="bench"),
-           sink(v33, gnd, current=amp("0.2"), name="probe"))
+design.rig(
+    supply(v12, gnd, voltage=volt("12").pct(10), current=amp(3), name="bench"),
+    sink(v33, gnd, current=amp("0.2"), name="probe"),
+)
 ```
 
 A rig element states the outside world: a bench supply on the input, a load on an output. It is a record of
