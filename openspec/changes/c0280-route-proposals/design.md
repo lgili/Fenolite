@@ -108,7 +108,7 @@ connection, each of exactly one kind, tried in this order:
 |---|---|---|---|
 | `fanout` | a pad of net N on layer L is in an island with no via or through-hole pad, and a zone of N on another copper layer covers a point within `fanout_reach` (default 2 mm, the plane fan-out's nine steps at most) of the pad | the pad, and the zone | `fanout:<net>:<ref>-<pad>` |
 | `join` | two islands of one net, at least one holding role copper (a `role.*` item of the manifest, locked role copper of c0244, or a zone of a role net), or an edge that phase 1 reported `roles.copper-blocked` | the nearest pair of attach points: pad copper, free track ends, zone outlines grown inward by half the width plus the zone clearance | `join:<net>:<a>~<b>` |
-| `role-net` | an open connection of an inferred role net (`power`, `switch_node`, `ground`, `high_voltage`) that is not confirmed | the connection's MST edge | `role-net:<net>:<a>~<b>` |
+| `role-net` | an open connection of a role net (`power`, `switch_node`, `ground`, `high_voltage`) that phase 1 sized no copper for: inferred and not confirmed, or without a stated current (task 2.1: the reference tests confirm every inferred role, which leaves the bms `FET_S` a confirmed `power` net without a current) | the connection's MST edge | `role-net:<net>:<a>~<b>` |
 | `group` | a critical group (gate loop, Kelvin pair) whose phase-2 status is `unrouted` or `refused` (from c0244's planner and router run in memory) | its open role routes | `group:<group>` |
 | `connection` | any other open connection | c0228's MST edge between pad groups | `connection:<net>:<a>~<b>` |
 

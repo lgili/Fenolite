@@ -11,7 +11,7 @@ A planned group that is not routed SHALL appear in the reply with one reason (`n
 ## ADDED Requirements
 
 ### Requirement: Leftover opens of role copper are proposed
-`fenolite.roles.proposals.subjects` SHALL give each open connection after phases 1 and 2 one subject: `fanout` (a pad apart from its net's zone on another layer, within reach), `join` (islands of a net with role copper, or a `roles.copper-blocked` edge), `role-net` (an open connection of an unconfirmed inferred role net), else `connection`; and each phase-2 group `unrouted` or `refused` one `group` subject. Proposals MUST NOT be written as copper without `--accept`.
+`fenolite.roles.proposals.subjects` SHALL give each open connection after phases 1 and 2 one subject: `fanout` (a pad apart from its net's zone on another layer, within reach), `join` (islands of a net with role copper, or a `roles.copper-blocked` edge), `role-net` (an open connection of a role net that phase 1 sized no copper for: unconfirmed inferred, or without a stated current), else `connection`; and each phase-2 group `unrouted` or `refused` one `group` subject. Proposals MUST NOT be written as copper without `--accept`.
 
 #### Scenario: The leftovers of phase 1
 - **GIVEN** the six role-copper variants built, their roles confirmed as the reference tests do, after `route --roles critical --confirm`
