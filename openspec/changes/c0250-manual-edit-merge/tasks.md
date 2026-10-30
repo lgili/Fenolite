@@ -95,8 +95,13 @@
 
 ## 7. Fixture, oracle, docs and guide
 
-- [ ] 7.1 Author `tests/data/lens/edit_merge/` and `tests/_layout_edit.py::edit_properties`, and add the acceptance loop (requirement "Edit merge acceptance fixture"). Proof: `uv run pytest tests/unit/lens/test_edit_merge_acceptance.py -q`.
-  2026-10-29: open: `tests/_layout_edit.py::edit_properties` exists (value, footprint, reference, properties, move, lock); the fixture folder and the acceptance loop are not written yet.
+- [x] 7.1 Author `tests/data/lens/edit_merge/` and `tests/_layout_edit.py::edit_properties`, and add the acceptance loop (requirement "Edit merge acceptance fixture"). Proof: `uv run pytest tests/unit/lens/test_edit_merge_acceptance.py -q`.
+  2026-10-29: was open: the fixture folder and the acceptance loop were not written yet.
+  2026-10-30: `tests/data/lens/edit_merge/design.py` (Fenolite catalog, module `led`, user property on
+  `R1`; in `tests/data/MANIFEST.toml`) and `test_edit_merge_acceptance.py`: value, footprint, reference,
+  user property and positions edited on the board and both sheets, rebuild, sync, rebuild twice with
+  equal bytes. Fix found by it: `cmd_build` selects the catalog definitions from the merged design, so a
+  footprint swapped in KiCad for another catalog footprint resolves. Proof passed.
 - [ ] 7.2 Add the oracle test on 9.0.9 and 10.0.6 (requirement "Merged files accepted by KiCad"). Proof: CI job `kicad` green on the pushed commit for `tests/kicad/lens/test_edit_merge_oracle.py`.
   2026-10-29: open: depends on 7.1; CI runs with the batch.
 - [x] 7.3 Register `H-K-EDIT-SCH-VALUE` in `docs/hypotheses.md` and set `lens.edits.EVIDENCE` (requirements "Edit merge evidence", "Schematic edit hypothesis"). Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/lens/test_edit_merge.py -k evidence -q`.

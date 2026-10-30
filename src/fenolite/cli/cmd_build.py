@@ -1381,7 +1381,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             takes=takes, resolver=plan.resolver if plan is not None else None,
         )  # fmt: skip
     authored_footprints, authored_symbols, builtin_ids = _catalog_definitions(
-        model,
+        # the merged design: a footprint swapped in KiCad for another of the catalog resolves too (c0250)
+        prepared.design if prepared is not None and prepared.design is not None else model,
         {**record_footprints, **{key: fp.definition for key, fp in design.footprints.items()}},
         {**record_symbols, **{key: symbol.definition for key, symbol in design.symbols.items()}},  # type: ignore[attr-defined]
     )
