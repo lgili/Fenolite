@@ -204,6 +204,12 @@ shown; `--check run` runs `check` first, in the same process and read-only (chan
   else on the sheet whose file stem is the last segment of the path), and findings of the board stages on
   boards.
 - A DRC that `summary.limits` capped is a lower bound; the panel says so.
+- **Edit conflicts** (change c0250). `--check` also reads the reply of `fenolite build` or `fenolite sync
+  --to-source`. Each `sync.conflict` (`where` `<component path>#<property>`) is marked on the footprint
+  whose `fenolite.path` is that path, or listed only when the board shows none; its message gives the key,
+  the base, code and CAD values and the reason, and selecting it shows the two `fenolite build ... --take
+  <side>:<key> --dry-run` command lines (`code` and `cad`, or `board` and `schematic` for `sides-disagree`)
+  to copy. The viewer runs neither and writes nothing.
 
 ## Review tools
 

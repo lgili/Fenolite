@@ -49,8 +49,11 @@
   2026-10-29: `cmd_build.read_edit_source`; proof passed (`test_build_command.py -k edits`).
 - [x] 3.5 Add `--take` to `fenolite build`, `result.preserved.edits`, and the `sync.conflict` exit 5 (requirements "Conflict finding", "Conflicts stop writes", "Take option of build", "Take effects"). Proof: `uv run pytest tests/unit/cli/test_build_take.py -q`; `uv run python tools/gen_agent_guide.py` and `uv run pytest tests/unit/agent/test_pages.py -q` after the option is added.
   2026-10-29: `--take` on `build`, `result.preserved.edits`, conflicts refuse every write (exit 5); proof passed, guide regenerated, `test_pages.py` passed.
-- [ ] 3.6 (waits for c0249) `--frozen` refuses `--take` and `edit.unrecorded` with c0249's code (requirement "Frozen builds refuse unrecorded edits"). Proof: `uv run pytest tests/unit/cli/test_build_take.py -k frozen -q`.
-  2026-10-29: open: c0249 (`--frozen`, `FEN-7004`) is not merged in `circuits-as-code`.
+- [x] 3.6 (waits for c0249) `--frozen` refuses `--take` and `edit.unrecorded` with c0249's code (requirement "Frozen builds refuse unrecorded edits"). Proof: `uv run pytest tests/unit/cli/test_build_take.py -k frozen -q`.
+  2026-10-29: was open: c0249 (`--frozen`, `FEN-7004`) was not merged in `circuits-as-code`.
+  2026-10-30: c0249 is merged (base `52f32e8c`). `cli._lock.refuse_frozen_edits` raises `EditsFrozenError`
+  (a `LockFrozenError`, `FEN-7004`, exit 7) with one `lock.changed` error per take (`where` `--take`) and
+  per `edit.unrecorded` key; proof passed (2 tests).
 - [x] 3.7 Pass the `EDIT_ISSUE_CODES` through `PRESERVE_ISSUE_CODES` and `BUILD_ISSUE_CODES` (MODIFIED "Layout issue codes"; requirements "Edit merge error and warning codes", "Edit merge info codes"). Proof: `uv run pytest tests/unit/lens/test_preserve_issues.py tests/unit/lens/test_edit_merge.py -k closed_set -q`.
   2026-10-29: `EDIT_ISSUE_CODES` join `BUILD_ISSUE_CODES`; proof passed.
 
@@ -65,32 +68,58 @@
 
 ## 5. References and user properties
 
-- [ ] 5.1 (waits for c0249) Merge `reference`: lock refs as the code side, and edits refs as hand refs (requirement "Reference edits"). Proof: `uv run pytest tests/unit/lens/test_edit_merge.py -k reference -q`.
-  2026-10-29: open: needs c0249's lock refs, not merged in `circuits-as-code`. Until then `reference` keeps its rule of before (requirement "Second-phase properties").
-- [ ] 5.2 Merge the user properties the script names, and treat a removed property as `""` (requirements "User property edits", "Second-phase properties"). Proof: `uv run pytest tests/unit/lens/test_edit_merge.py -k property -q`; `uv run pytest tests/unit/lens/test_build_properties.py -q`.
-  2026-10-29: open: second phase; user properties keep their rules of before. `edits.toml` already reads, writes and carries `properties` tables.
+- [x] 5.1 (waits for c0249) Merge `reference`: lock refs as the code side, and edits refs as hand refs (requirement "Reference edits"). Proof: `uv run pytest tests/unit/lens/test_edit_merge.py -k reference -q`.
+  2026-10-29: was open: needed c0249's lock refs, not merged in `circuits-as-code` then.
+  2026-10-30: `merge_properties` and `capture_edits` merge `reference` (code side: the ref the part is
+  lowered with); `dsl.lock.hand_refs` makes an edit's ref a hand ref of the lock when it was recorded over
+  the explicit or locked ref; `sync` reads the lock (`cli._lock.locked_refs`) for its code side. Proof passed
+  (4 tests). Deviation: two parts of a lock design that meet on one ref are renumbered by c0249's rule
+  (`lock.ref-taken`); `model.duplicate-ref` (exit 5) comes when explicit refs and edits meet.
+- [x] 5.2 Merge the user properties the script names, and treat a removed property as `""` (requirements "User property edits", "Second-phase properties"). Proof: `uv run pytest tests/unit/lens/test_edit_merge.py -k property -q`; `uv run pytest tests/unit/lens/test_build_properties.py -q`.
+  2026-10-29: was open (second phase).
+  2026-10-30: `property:<name>` for each user property the script names (`edits.user_names`), a CAD side
+  without it counts as `""`, one added in KiCad stays out of the base record. The base record gains
+  `reference` and the named user properties, so the pinned digests of `fenolite-base.json` and
+  `.fenolite/build.json` in `test_unused_keys*.py` were recorded again. Proof passed (4 tests;
+  `test_build_properties.py` 13 passed).
 
 ## 6. Viewer
 
-- [ ] 6.1 `view --check` accepts `build` and `sync` replies and marks `sync.conflict` on its footprint (requirement "Edit conflicts on the board"; the command lines of "Conflict resolution from the viewer"). Proof: `uv run pytest tests/unit/view/test_check_overlay.py -q`.
-  2026-10-29: open: the overlay change was left for a later batch; the build and sync replies already carry the conflict records.
+- [x] 6.1 `view --check` accepts `build` and `sync` replies and marks `sync.conflict` on its footprint (requirement "Edit conflicts on the board"; the command lines of "Conflict resolution from the viewer"). Proof: `uv run pytest tests/unit/view/test_check_overlay.py -q`.
+  2026-10-29: was open: left for a later batch.
+  2026-10-30: `view.check_overlay.read_reply` reads `check`, `build` and `sync` replies; a `sync.conflict` is
+  marked on the footprint of its `fenolite.path` and carries `commands`, the two `build --take ... --dry-run`
+  lines, shown on selection (the page runs nothing); `docs/viewer.md` updated. Proof passed (6 tests).
 - [ ] 6.2 (waits for c0245) Add the Properties view of a conflict and the "Take code" and "Take CAD" actions through the Pending panel (requirement "Conflict resolution from the viewer"). Proof: `uv run pytest tests/unit/view/test_check_overlay.py -k workbench -q`.
   2026-10-29: open: waits for c0245.
 
 ## 7. Fixture, oracle, docs and guide
 
-- [ ] 7.1 Author `tests/data/lens/edit_merge/` and `tests/_layout_edit.py::edit_properties`, and add the acceptance loop (requirement "Edit merge acceptance fixture"). Proof: `uv run pytest tests/unit/lens/test_edit_merge_acceptance.py -q`.
-  2026-10-29: open: `tests/_layout_edit.py::edit_properties` exists (value, footprint, reference, properties, move, lock); the fixture folder and the acceptance loop are not written yet.
+- [x] 7.1 Author `tests/data/lens/edit_merge/` and `tests/_layout_edit.py::edit_properties`, and add the acceptance loop (requirement "Edit merge acceptance fixture"). Proof: `uv run pytest tests/unit/lens/test_edit_merge_acceptance.py -q`.
+  2026-10-29: was open: the fixture folder and the acceptance loop were not written yet.
+  2026-10-30: `tests/data/lens/edit_merge/design.py` (Fenolite catalog, module `led`, user property on
+  `R1`; in `tests/data/MANIFEST.toml`) and `test_edit_merge_acceptance.py`: value, footprint, reference,
+  user property and positions edited on the board and both sheets, rebuild, sync, rebuild twice with
+  equal bytes. Fix found by it: `cmd_build` selects the catalog definitions from the merged design, so a
+  footprint swapped in KiCad for another catalog footprint resolves. Proof passed.
 - [ ] 7.2 Add the oracle test on 9.0.9 and 10.0.6 (requirement "Merged files accepted by KiCad"). Proof: CI job `kicad` green on the pushed commit for `tests/kicad/lens/test_edit_merge_oracle.py`.
   2026-10-29: open: depends on 7.1; CI runs with the batch.
+  2026-10-30: `tests/kicad/lens/test_edit_merge_oracle.py` written; passed locally on `kicad/kicad:10.0.6`
+  (docker, targets 9 and 10). KiCad reports `lib_footprint_mismatch` for `R2`, whose id the token edit swaps
+  without new pads (KiCad's "Change Footprint" would replace them); the test leaves that one type out.
+  Open until the CI `kicad` job (9.0.9 and 10.0.6) is green: CI runs with the batch.
 - [x] 7.3 Register `H-K-EDIT-SCH-VALUE` in `docs/hypotheses.md` and set `lens.edits.EVIDENCE` (requirements "Edit merge evidence", "Schematic edit hypothesis"). Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/lens/test_edit_merge.py -k evidence -q`.
   2026-10-29: the proposed row of `H-K-EDIT-SCH-VALUE` now names its test and kit request, `INFERRED`; proof passed.
 - [x] 7.4 Update `docs/lens.md` (the five sections, the table, the removal of the two-way sentence and of the `placements.toml` section's write rule) and `docs/cli-contract.md` (`build --take`, `sync`) (requirement "Three-way merge is documented"). Proof: `uv run pytest tests/unit/lens/test_edit_merge.py -k docs -q`; `make check-fast`.
   2026-10-29: `docs/lens.md` (five sections, table, the two-way sentence and the `placements.toml` write rule replaced) and `docs/cli-contract.md` (`build --take`, `sync`); proof passed.
 - [x] 7.5 Add the `explain.toml` entries and the guide lines: a `fenolite-recipe` in `recovery.md` for `sync.conflict` with `--take`, and the edit loop in `board-workflow.md`; then run `uv run python tools/gen_agent_guide.py` (requirement "Conflicts are explained and taught"). Proof: `uv run pytest tests/unit/agent/test_pages.py tests/unit/cli/test_explain_cmd.py -q`.
   2026-10-29: `explain.toml` entries for the seven codes and `sync.placements-migrated`; recipe `conflict` in `recovery.md` (sandbox `conflict` in `tests/unit/agent/_sandbox.py`; the page stays under 12000 bytes, so the recipe ends with the take and the prose names the sync), the edit loop in `board-workflow.md`; guide regenerated; proof passed.
-- [ ] 7.6 Add the edit loop to an example: `examples/blink_2layer/README.md` (build, edit in KiCad, build, sync, conflict, take), run by the example tests. Proof: `uv run pytest tests/unit/test_examples.py -q`.
-  2026-10-29: open: not done in this batch.
+- [x] 7.6 Add the edit loop to an example: `examples/blink_2layer/README.md` (build, edit in KiCad, build, sync, conflict, take), run by the example tests. Proof: `uv run pytest tests/unit/test_examples.py -q`.
+  2026-10-29: was open: not done in that batch.
+  2026-10-30: `examples/blink_2layer/README.md` (build, KiCad edit, build, script change, conflict, `--take
+  cad`, sync, build), run command by command by `test_examples.py::test_blink_readme_edit_loop`. Fix found
+  by it: a code value equal to the unchanged CAD value (an edit recorded by sync) no longer gives
+  `edit.code-wins`. Proof passed (22 tests).
 
 ## 8. Closing
 
@@ -98,6 +127,9 @@
   2026-10-29: open: `make check-fast` passes locally; CI runs with the batch (the coordinator pushes it).
 - [ ] 8.2 Update the evidence labels: `docs/evidence/` rows of the merge at `INFERRED`, `H-K-EDIT-SCH-VALUE` as registered, and the oracle results. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py -q`.
   2026-10-29: open.
+  2026-10-30: open: `docs/lens.md` ("Evidence") names the oracle and its local 10.0.6 result; the merge
+  stays `INFERRED` and `H-K-EDIT-SCH-VALUE` is registered (`INFERRED`, kit case pending). Waits for the CI
+  `kicad` job of 7.2 (9.0.9 and 10.0.6) to record the oracle results.
 - [x] 8.3 Add the CHANGELOG entry under `## [Unreleased]`: three-way merge, `edits.toml`, `fenolite-base.json`, `build --take`, `sync.conflict`, and the changed meaning of an unlocked `place()` after the first build. This waits for dev to open `0.7.0.dev0`, because the v0.6 guard requires `[Unreleased]` to be empty. Proof: `uv run pytest tests/unit/test_release_record_v06.py tests/unit/test_release_tool.py -q`; `make check-fast`.
   2026-10-29: entry under `## [Unreleased]` › `### Added` on `circuits-as-code`, after the c0249 entry, once
   `dev` (0.7.0.dev0) was merged into it; it names the changed meaning of an unlocked `place()` (`edit.code-wins`).

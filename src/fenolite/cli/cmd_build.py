@@ -97,7 +97,7 @@ from fenolite.checks.copper import (
 from fenolite.checks.waivers import copper_waivers
 from fenolite.cli import _layout
 from fenolite.cli._contracts import classes_of
-from fenolite.cli._lock import lock_location, plan_lock, with_lock
+from fenolite.cli._lock import lock_location, plan_lock, refuse_frozen_edits, with_lock
 from fenolite.cli._padmap import DefaultPadMap, apply_default_pad_maps
 from fenolite.cli._picks import picking, proposed_files
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
@@ -133,6 +133,7 @@ from fenolite.dsl import (
 )
 from fenolite.dsl import Design as DslDesign
 from fenolite.dsl.convert import two_terminal, unused_marks
+from fenolite.dsl.lock import hand_refs
 from fenolite.dsl.relative import has_layout
 from fenolite.geometry.errors import BackendUnavailable
 from fenolite.lens import edits as edits_mod
@@ -290,7 +291,8 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--frozen",
         action="store_true",
-        help="refuse with exit 7 (FEN-7004) when the design lock would change; never write it",
+        help="refuse with exit 7 (FEN-7004) when the design lock would change, or a --take or a CAD edit "
+        "not in edits.toml would be kept; never write the lock",
     )
     parser.add_argument(
         "--take",
@@ -923,6 +925,17 @@ def read_edit_source(
     return found.parts, edits_mod.EDITS_FILE, tuple(issues), hashlib.sha256(data).hexdigest()
 
 
+def reference_edits(edits: Mapping[str, edits_mod.PartEdits] | None) -> dict[str, tuple[str, str | None]]:
+    """The ``reference`` edits of ``edits.toml``: path → (ref, the ref it was recorded over), which the
+    design lock counts as hand refs (``dsl.lock.hand_refs``; change c0250, "Reference edits")."""
+    found: dict[str, tuple[str, str | None]] = {}
+    for path, part in (edits or {}).items():
+        edit = part.edit("reference")
+        if edit is not None and isinstance(edit.value, str):
+            found[path] = (edit.value, edit.over if isinstance(edit.over, str) else None)
+    return found
+
+
 def read_base_record(out_dir: Path) -> edits_mod.BaseRecord:
     """The base record of the output folder, or ``BaseRecord.absent`` when it holds none."""
     path = out_dir / edits_mod.BASE_FILE
@@ -1183,9 +1196,11 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             hint="select blocks or remove the script's layout declarations",
         )
     lock_given, lock_path = lock_location(args.design, getattr(args, "lock", None), ctx.cwd)
+    edits, edits_file, source_issues, source_sha = read_edit_source(script_path)
     try:
         schematic_composition(design, target=args.target, enabled=args.altium_layout == "blocks")
-        with picking(script_path) as picks:  # the query parts get their devices here (change c0254)
+        # the query parts get their devices here (change c0254); a reference edit is a hand ref (c0250)
+        with picking(script_path) as picks, hand_refs(reference_edits(edits)):
             lock = plan_lock(
                 design,
                 script=script_path,
@@ -1257,7 +1272,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         )
     frame_sheet, sheet_issues, sheet_result = read_drawing_sheet_source(design, script_path)
     takes = parse_take_option(getattr(args, "take", None))
-    edits, edits_file, source_issues, source_sha = read_edit_source(script_path)
+    frozen = bool(getattr(args, "frozen", False))
+    refuse_frozen_edits(frozen=frozen, takes=takes, issues=())
     refused = any(found.severity == "error" for found in source_issues)
     if args.target == ALTIUM_TARGET:
         if (generated_records or role_record is not None) and board_path is not None:
@@ -1370,6 +1386,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             resolver=plan.resolver if plan is not None else None,
             adjust=plan.adjust(old_poses) if plan is not None else None,
         )
+        refuse_frozen_edits(frozen=frozen, takes=(), issues=prepared.issues)
     elif edits or takes:
         # the file is source, like the script: it applies to a discarded layout too, and no output is read
         prepared = prepare(
@@ -1377,7 +1394,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             takes=takes, resolver=plan.resolver if plan is not None else None,
         )  # fmt: skip
     authored_footprints, authored_symbols, builtin_ids = _catalog_definitions(
-        model,
+        # the merged design: a footprint swapped in KiCad for another of the catalog resolves too (c0250)
+        prepared.design if prepared is not None and prepared.design is not None else model,
         {**record_footprints, **{key: fp.definition for key, fp in design.footprints.items()}},
         {**record_symbols, **{key: symbol.definition for key, symbol in design.symbols.items()}},  # type: ignore[attr-defined]
     )

@@ -18,11 +18,12 @@ from _edit_help import base_of as _base
 from _edit_help import edit as _edit
 from _edit_help import issues as _issues
 from _edit_help import value as _value
-from _layout_edit import D1_SHIFT, edit_blink, edit_properties, move_footprint
+from _layout_edit import D1_SHIFT, add_to_footprint, edit_blink, edit_properties, move_footprint
 from _project import Project, codes, footprint
 
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.backends.kicad.sch import read_schematic
+from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse
 from fenolite.core.coords import Point
 from fenolite.lens import edits as edits_mod
 from fenolite.lens.edits import (
@@ -798,3 +799,183 @@ def test_docs() -> None:
     assert "committed with the output folder" in page and "| changed | changed, different |" in page
     contract = (ROOT / "docs/cli-contract.md").read_text(encoding="utf-8")
     assert "--take" in contract and "edits.toml" in contract
+
+
+# --- references and user properties (phase 2) ----------------------------------------------------
+
+
+def _edits_text(p: Project) -> str:
+    return (p.script.parent / "edits.toml").read_text(encoding="utf-8")
+
+
+def _stable(p: Project) -> None:
+    """A rebuild writes every file with the bytes of the build before it."""
+    before = p.files()
+    code, env, err = p.build("--confirm")
+    assert code == 0, err
+    assert not _issues(env, "sync.conflict") and p.files() == before
+
+
+def test_reference_reannotated_in_kicad(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    p = Project(tmp_path, monkeypatch)
+    _edit(p, {"R1": {"reference": "R7"}}, schematic=True)
+    code, env, err = p.build("--confirm")
+    assert code == 0, err
+    fp, component = footprint(p.read(), "R7")
+    assert component.properties["fenolite.path"] == "R1"  # type: ignore[attr-defined]
+    sheet = read_schematic(p.out / "blink.kicad_sch")
+    assert [
+        s.properties["Reference"] for s in sheet.symbols if s.properties.get("fenolite.path") == "R1"
+    ] == ["R7"]
+    assert [i["where"] for i in _issues(env, "edit.unrecorded")] == ["R1#reference"]
+    assert _base(p)["R1"]["reference"] == {"code": "R1", "out": "R7"}
+    code, env, err = p.run("sync", "--to-source", "--confirm")
+    assert code == 0, err
+    text = _edits_text(p)
+    assert '[part."R1"]\nreference = "R7"\n' in text and '[part."R1".over]\nreference = "R1"\n' in text
+    code, env, err = p.build("--confirm")
+    assert code == 0, err
+    assert footprint(p.read(), "R7") and not _issues(env, "edit.unrecorded")
+    _stable(p)
+
+
+def test_reference_edit_given_in_the_edits_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    p = Project(tmp_path, monkeypatch)
+    (p.script.parent / "edits.toml").write_text(
+        '# Written by fenolite sync --to-source.\nschema = "fenolite.edits.v0"\n\n'
+        '[part."R1"]\nreference = "R9"\n\n[part."R1".over]\nreference = "R1"\n',
+        encoding="utf-8",
+    )
+    code, env, err = p.build("--confirm")
+    assert code == 0, err
+    assert footprint(p.read(), "R9") and _base(p)["R1"]["reference"] == {"code": "R9", "out": "R9"}
+    # the script changes the ref under the edit, the path staying R1: a stale edit
+    p.edit_script('Part("R1", "Mini:Mini_R"', 'Part("R2", "Mini:Mini_R", name="R1"')
+    code, env, _ = p.build("--dry-run")
+    (conflict,) = _issues(env, "sync.conflict")
+    assert code == 5 and conflict["where"] == "R1#reference" and "stale-edit" in conflict["message"]
+    code, _, err = p.build("--take", "code:R1#reference", "--confirm")
+    assert code == 0, err
+    assert footprint(p.read(), "R2")
+
+
+def test_reference_duplicate_is_the_build_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    p = Project(tmp_path, monkeypatch)
+    (p.script.parent / "edits.toml").write_text(
+        '# Written by fenolite sync --to-source.\nschema = "fenolite.edits.v0"\n\n'
+        '[part."R1"]\nreference = "D1"\n\n[part."R1".over]\nreference = "R1"\n',
+        encoding="utf-8",
+    )
+    before = p.files()
+    code, env, _ = p.build("--confirm")
+    assert code == 5 and "model.duplicate-ref" in codes(env) and p.files() == before
+
+
+def test_reference_edit_is_a_hand_ref_of_the_lock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    p = Project(tmp_path, monkeypatch, folder="examples/lock", name="lock_demo")
+    lock = p.script.with_suffix(".lock")
+    # the board only: the symbols of the modules are in child sheets, which KiCad updates from the board
+    board_text, _ = edit_properties(p.board.read_text(encoding="utf-8"), None, {"R1": {"reference": "R7"}})
+    p.board.write_text(board_text or "", encoding="utf-8")
+    code, env, err = p.build("--confirm")
+    assert code == 0, err
+    assert [i["where"] for i in _issues(env, "edit.unrecorded")] == ["led/R#reference"]
+    assert '"led/R" = "R1"' in lock.read_text(encoding="utf-8")
+    code, _, err = p.run("sync", "--to-source", "--confirm")
+    assert code == 0, err
+    assert 'reference = "R7"' in _edits_text(p)
+    code, env, err = p.build("--confirm")
+    assert code == 0, err
+    assert '"led/R" = "R7"' in lock.read_text(encoding="utf-8") and footprint(p.read(), "R7")
+    # the lock now holds the ref, so the next sync drops the edit and the build keeps it
+    code, _, err = p.run("sync", "--to-source", "--confirm")
+    assert code == 0, err
+    assert "reference" not in _edits_text(p)
+    code, env, err = p.build("--confirm")
+    assert code == 0, err
+    assert footprint(p.read(), "R7") and not _issues(env, "edit.unrecorded")
+    _stable(p)
+
+
+PN = 'value="330", properties={"Part number": "PN-330"}'
+
+
+def _with_property(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Project:
+    p = Project(tmp_path, monkeypatch)
+    p.edit_script('value="330"', PN)
+    code, _, err = p.build("--confirm")
+    assert code == 0, err
+    assert _base(p)["R1"]["property:Part number"] == {"code": "PN-330", "out": "PN-330"}
+    return p
+
+
+def _board_property(p: Project, ref: str, name: str) -> str | None:
+    _, component = footprint(p.read(), ref)
+    return component.properties.get(name)  # type: ignore[attr-defined, no-any-return]
+
+
+def test_user_property_edited_in_kicad(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    p = _with_property(tmp_path, monkeypatch)
+    _edit(p, {"R1": {"properties": {"Part number": "PN-470"}}})
+    code, env, err = p.build("--confirm")
+    assert code == 0, err
+    assert _board_property(p, "R1", "Part number") == "PN-470"
+    assert [i["where"] for i in _issues(env, "edit.unrecorded")] == ["R1#property:Part number"]
+    code, _, err = p.run("sync", "--to-source", "--confirm")
+    assert code == 0, err
+    assert 'properties = { "Part number" = "PN-470" }' in _edits_text(p)
+    code, env, err = p.build("--confirm")
+    assert code == 0, err
+    assert _board_property(p, "R1", "Part number") == "PN-470" and not _issues(env, "edit.unrecorded")
+    _stable(p)
+
+
+def test_user_property_changed_on_both_sides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    p = _with_property(tmp_path, monkeypatch)
+    _edit(p, {"R1": {"properties": {"Part number": "PN-470"}}})
+    p.edit_script("PN-330", "PN-1K")
+    code, env, _ = p.build("--dry-run")
+    (conflict,) = _issues(env, "sync.conflict")
+    assert code == 5 and conflict["where"] == "R1#property:Part number"
+    code, _, err = p.build("--take", "code:R1#property:Part number", "--confirm")
+    assert code == 0, err
+    assert _board_property(p, "R1", "Part number") == "PN-1K"
+
+
+def test_user_property_removed_in_kicad_counts_as_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    p = _with_property(tmp_path, monkeypatch)
+    root = parse(p.board.read_text(encoding="utf-8"))
+    children: list[Node | Atom] = []
+    for child in root.children:
+        if isinstance(child, Node) and child.name == "footprint" and '"Part number"' in dumps(child):
+            child = child.with_children(
+                [
+                    c
+                    for c in child.children
+                    if not (
+                        isinstance(c, Node) and c.name == "property" and c.atoms()[0].value == "Part number"
+                    )
+                ]
+            )
+        children.append(child)
+    p.board.write_text(dumps(root.with_children(children), style="kicad"), encoding="utf-8")
+    code, env, err = p.build("--confirm", "--schematic", "skip")
+    assert code == 0, err
+    assert _board_property(p, "R1", "Part number") in (None, "")
+    assert [i["where"] for i in _issues(env, "edit.unrecorded")] == ["R1#property:Part number"]
+    assert _base(p)["R1"]["property:Part number"]["out"] == ""
+
+
+def test_user_property_added_in_kicad_stays_opaque(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    p = Project(tmp_path, monkeypatch)
+    p.edit_board(
+        lambda text: add_to_footprint(
+            text, "R1", '(property "Supplier" "ACME" (at 0 0 0) (layer "F.Fab") (hide yes))'
+        )
+    )
+    code, env, err = p.build("--confirm")
+    assert code == 0, err
+    assert _board_property(p, "R1", "Supplier") == "ACME"
+    assert "property:Supplier" not in _base(p)["R1"] and not _issues(env, "edit.unrecorded")
