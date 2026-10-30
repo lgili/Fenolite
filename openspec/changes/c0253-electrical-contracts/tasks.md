@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, `AGENTS.md`, `docs/research/circuit-as-code.md` (section 7) and the living specs this change touches (`design-dsl`, `design-model`, `verification-loop`, `cli-contract`, `net-roles`, `board-analyses`, `package-layering`, `agent-guide`). Write under this task, with the date and the base commit:
+- [x] 0.1 Read `openspec list`, `AGENTS.md`, `docs/research/circuit-as-code.md` (section 7) and the living specs this change touches (`design-dsl`, `design-model`, `verification-loop`, `cli-contract`, `net-roles`, `board-analyses`, `package-layering`, `agent-guide`). Write under this task, with the date and the base commit:
   - what c0246, c0248, c0274 phase A, c0251 and c0252 landed, and whether each item below exists as `design.md` reads it (if one differs, record which decision changes):
     - c0246: `Range`, `between`, `pct()` (a tolerance) and `Component.value_range` with its encoding (unit name, `Decimal10`);
     - c0248: `DeviceDef` ratings, `DevicePin` with `ground`, the `fenolite.device` and `fenolite.device.sha256` properties, and the parser `core/quantities`;
@@ -121,5 +121,5 @@
   - 2026-10-30: entry under `[Unreleased]` (the coordinator allowed it for this batch); `-k changelog` passes.
 - [ ] 6.6 Run `make check-fast`, then the required CI jobs on the pushed head of the branch. Proof: `make check-fast`, and every required job green on the exact commit.
   - 2026-10-30: `make check-fast PYTEST_WORKERS=2` passes locally; CI runs with the batch.
-- [ ] 6.7 Validate the change. Proof: `openspec validate c0253-electrical-contracts --strict --no-interactive`.
+- [x] 6.7 Validate the change. Proof: `openspec validate c0253-electrical-contracts --strict --no-interactive`.
   - 2026-10-30: not run: the `openspec` CLI is not installed on this machine.
