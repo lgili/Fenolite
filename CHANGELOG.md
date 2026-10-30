@@ -35,6 +35,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- **KiCad-job tests after c0250, c0252, c0253 and c0269**: the expected `fenolite check` stage lists of `test_canary` and `test_built_blink_before_routing` hold `circuit.rules` right after `model.validate`; the device build oracle test and the `sensor_rails` read-back accept the info findings `circuit.rating-missing` (shipped devices carry no ratings) and `build.block-port-merged` and nothing else; `tools/catalog/golden.py` leaves out the files later changes added (`LATER`: the base record `fenolite-base.json`) and their entry in the `files` map of `.fenolite/build.json`, whose other bytes still equal the c0259 golden.
 - **ERC fact fixture after c0247**: the `pin_not_driven` control of the ERC facts (`tests/kicad/check/_erccases.py`) no longer edits the blink's former `no_connect(...)` line, which c0247 replaced with `u1.unused_no_connect()`; it connects the two input pins and lets the build's unused-pin request leave them unmarked. The recorded probe outcomes do not change.
 - **Design lock path on Windows** (c0249): the build plan and its receipt name the design lock with forward slashes on every system (`ex/design.lock`, never `ex\design.lock`).
 - **Acceptance rebuild test after c0250**: `test_rebuild_is_the_identity` expects the base record `fenolite-base.json` among the files a first build adds to the recorded v0.1 projects, which predate it; a second build is still the identity.

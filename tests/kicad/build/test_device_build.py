@@ -96,7 +96,14 @@ def build_and_check(monkeypatch: pytest.MonkeyPatch, script: Path, out: Path, ta
     )
     assert code == 0, err
     _, envelope, _ = run(monkeypatch, "check", str(out), "--kicad-cli", cli())
-    return Counter(issue["code"] for issue in envelope["issues"])
+    # the stage circuit.rules (change c0253) counts the parts whose device carries no rating in one info
+    # circuit.rating-missing: the shipped devices carry no ratings yet, so that info is not a finding of the
+    # device build; any other severity of it still counts
+    return Counter(
+        issue["code"]
+        for issue in envelope["issues"]
+        if (issue["code"], issue["severity"]) != ("circuit.rating-missing", "info")
+    )
 
 
 @pytest.mark.parametrize("target", TARGETS)
