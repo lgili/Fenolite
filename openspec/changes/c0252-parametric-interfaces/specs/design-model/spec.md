@@ -1,12 +1,12 @@
 ## ADDED Requirements
 
 ### Requirement: Interface parameters in the model
-The model `Interface` SHALL gain `params` (parameter name to a c0246 `ValueRange`), `reference: str | None = None` (the id of a `power` interface) and `shared: bool = False`. c0251's `Port` SHALL gain `params`, `reference` (the id of a `power` port or interface) and `share: bool = False`. Each field MUST be left out of `circuit.json` when empty or default.
+The model `Interface` SHALL gain `params` (name to a c0246 `ValueRange`), `reference: str | None = None` (the id of a `power` interface) and `shared: bool = False`. c0251's `Port` SHALL gain `params`, `reference` (the id of a `power` port or interface), `share: bool = False` and `requires: tuple[str, ...] = ()`, sorted. A param MUST be written in c0246's encoding (unit name, `Decimal10` bounds). Each field MUST be left out of `circuit.json` when empty or default.
 
 #### Scenario: Parameters round trip
 - **GIVEN** a `power` interface with the param `voltage` and `shared=True`, and a `power` port with the params `voltage` and `current`
 - **WHEN** the design is written with `canonical.dump_dir` and loaded with `canonical.load_dir`
-- **THEN** the loaded entities equal the originals, and every bound in `circuit.json` is an integer mantissa and exponent
+- **THEN** the loaded entities equal the originals, every bound in `circuit.json` is an integer mantissa and exponent, every unit is a c0246 unit name such as `volt`, and no `min` or `max` key is written
 
 #### Scenario: Older circuit files keep their bytes
 - **GIVEN** a `circuit.json` written before this change, holding a `power` interface

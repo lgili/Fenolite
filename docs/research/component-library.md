@@ -329,7 +329,7 @@ attribution and written nowhere persistent. The cache follows each source's term
 
 ### 4.9 Distribution
 
-- **The `fenolite-devices` repository (separate):**
+- **The `fenolite-library` repository (separate):**
   - holds data only (TOML, review sheets, no code), under CC0-1.0;
   - its CI regenerates every footprint, symbol and body, runs the library rules, renders previews and an
     old/new visual diff;
@@ -371,7 +371,7 @@ attribution and written nowhere persistent. The cache follows each source's term
    another CAD library, whatever the licence. Recommended: no for geometry, which we regenerate from
    facts. Possibly yes as a *coverage checklist* of which parts to do first.
 2. **CERN library:** verify its licence before deciding anything. Recommended: same answer as LibrePCB.
-3. **Name of the data repository and its licence.** Recommended: `fenolite-devices`, CC0-1.0, with DCO
+3. **Name of the data repository and its licence.** Recommended: `fenolite-library`, CC0-1.0, with DCO
    sign-off like the main repository.
 4. **Land-calculator defaults.** Recommended: ship one documented density (nominal) as `INFERRED`, and let
    the manufacturer pattern override per part.

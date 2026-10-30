@@ -90,12 +90,13 @@ def blink_files(target: int) -> Files:
 
 @cache
 def undriven_files(target: int) -> Files:
-    """The blink with the input pins ``INPUT_PINS`` of ``U1`` on a net ``NRST`` that nothing drives."""
-    marked = "if pin not in (1, 9, 10)"
+    """The blink with the input pins ``INPUT_PINS`` of ``U1`` on a net ``NRST`` that nothing drives.
+
+    The blink marks its open pins through ``u1.unused_no_connect()``, which the build resolves after every
+    connection (c0247): the pins connected here are not marked."""
+    request = "u1.unused_no_connect()\n"
     text = blink_text()
-    assert marked in text
-    pins = ", ".join(INPUT_PINS)
-    text = text.replace(marked, f"if pin not in (1, 9, 10, {pins})")
+    assert request in text
     return _built(text + f'\nconnect(Net("NRST"), {", ".join(f"u1[{p}]" for p in INPUT_PINS)})\n', target)
 
 

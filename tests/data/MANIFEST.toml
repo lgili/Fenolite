@@ -2393,6 +2393,12 @@ corpus_id = ""
 notes = "net-role reference board, bad variant (c0222; DSL source)"
 
 [[file]]
+path = "examples/roles/bms/bad_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, bad variant with role copper (c0243; DSL source)"
+
+[[file]]
 path = "examples/roles/bms/bms_board.py"
 origin = "authored"
 corpus_id = ""
@@ -2411,6 +2417,18 @@ corpus_id = ""
 notes = "net-role reference board, good variant (c0222; DSL source)"
 
 [[file]]
+path = "examples/roles/bms/good_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, good variant with role copper (c0243; DSL source)"
+
+[[file]]
+path = "examples/roles/bms/open.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, open variant: bad without its critical copper (c0244; DSL source)"
+
+[[file]]
 path = "examples/roles/bms/sym-lib-table"
 origin = "authored"
 corpus_id = ""
@@ -2421,6 +2439,12 @@ path = "examples/roles/buck_shunt/bad.py"
 origin = "authored"
 corpus_id = ""
 notes = "net-role reference board, bad variant (c0222; DSL source)"
+
+[[file]]
+path = "examples/roles/buck_shunt/bad_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, bad variant with role copper (c0243; DSL source)"
 
 [[file]]
 path = "examples/roles/buck_shunt/buck_shunt_board.py"
@@ -2441,6 +2465,18 @@ corpus_id = ""
 notes = "net-role reference board, good variant (c0222; DSL source)"
 
 [[file]]
+path = "examples/roles/buck_shunt/good_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, good variant with role copper (c0243; DSL source)"
+
+[[file]]
+path = "examples/roles/buck_shunt/open.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, open variant: bad without its critical copper (c0244; DSL source)"
+
+[[file]]
 path = "examples/roles/buck_shunt/sym-lib-table"
 origin = "authored"
 corpus_id = ""
@@ -2451,6 +2487,12 @@ path = "examples/roles/half_bridge/bad.py"
 origin = "authored"
 corpus_id = ""
 notes = "net-role reference board, bad variant (c0222; DSL source)"
+
+[[file]]
+path = "examples/roles/half_bridge/bad_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, bad variant with role copper (c0243; DSL source)"
 
 [[file]]
 path = "examples/roles/half_bridge/fp-lib-table"
@@ -2465,10 +2507,22 @@ corpus_id = ""
 notes = "net-role reference board, good variant (c0222; DSL source)"
 
 [[file]]
+path = "examples/roles/half_bridge/good_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, good variant with role copper (c0243; DSL source)"
+
+[[file]]
 path = "examples/roles/half_bridge/half_bridge_board.py"
 origin = "authored"
 corpus_id = ""
 notes = "the shared drawing of a net-role reference board (c0222)"
+
+[[file]]
+path = "examples/roles/half_bridge/open.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, open variant: bad without its critical copper (c0244; DSL source)"
 
 [[file]]
 path = "examples/roles/half_bridge/requirements.toml"
@@ -2481,6 +2535,48 @@ path = "examples/roles/half_bridge/sym-lib-table"
 origin = "authored"
 corpus_id = ""
 notes = "symbol table of a net-role reference board (c0222) naming the authored libraries through ${KIPRJMOD}"
+
+[[file]]
+path = "tests/data/fidelity/sensor_code/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "the converted script of the authored fidelity fixture (c0278): a four-layer board with net classes, a custom rule, a zone, an arc, through and blind vias and board text, authored for Fenolite (CC0)"
+
+[[file]]
+path = "tests/data/fidelity/sensor_code/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "the footprint table of the fidelity script (c0278): the authored mini library of tests/data/libs"
+
+[[file]]
+path = "tests/data/fidelity/sensor_code/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "the symbol table of the fidelity script (c0278): the authored mini library of tests/data/libs"
+
+[[file]]
+path = "tests/data/fidelity/sensor/sensor.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "board of the authored fidelity original (c0278), written by the target-10 build of tests/data/fidelity/sensor_code/design.py; a text stand-in for a project saved by the KiCad GUI (task 4.1 of c0278 stays open until the GUI save)"
+
+[[file]]
+path = "tests/data/fidelity/sensor/sensor.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "schematic of the same build (c0278), beside its board"
+
+[[file]]
+path = "tests/data/fidelity/sensor/sensor.kicad_pro"
+origin = "authored"
+corpus_id = ""
+notes = "project file of the same build (c0278)"
+
+[[file]]
+path = "tests/data/fidelity/sensor/sensor.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "custom rules of the same build (c0278): the rule sig_gap of the script"
 
 [[file]]
 path = "tests/data/devices/example_buck.toml"
@@ -2511,3 +2607,33 @@ path = "examples/devices/devices/example_buck.toml"
 origin = "authored"
 corpus_id = ""
 notes = "illustrative device record of the device example (c0248), authored for Fenolite; not a real product"
+
+[[file]]
+path = "tests/data/lens/sync_minimal/fenolite-base.json"
+origin = "authored"
+corpus_id = ""
+notes = "base record of the target-10 build of the packaged minimal script (c0250): what the build was given and wrote; a test keeps it equal to a fresh build"
+
+[[file]]
+path = "examples/lock/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design-lock example (c0249): two modules with parts without a ref, one named part and one explicit ref, authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/lock/design.lock"
+origin = "authored"
+corpus_id = ""
+notes = "the committed design lock of examples/lock (c0249), written by fenolite build"
+
+[[file]]
+path = "examples/blocks/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "blocks example (c0251): one circuit written once and used twice, authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/blocks/design.lock"
+origin = "authored"
+corpus_id = ""
+notes = "the committed design lock of examples/blocks (c0251), written by fenolite build"

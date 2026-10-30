@@ -23,13 +23,16 @@ pytestmark = [pytest.mark.needs_kicad, pytest.mark.kicad_min_major(10)]
 
 OPEN = "kicad.drc.unconnected-items"
 ERRORS: dict[tuple[str, int], set[str]] = {
-    ("board-power", 0): {OPEN},
+    ("board-power", 0): {OPEN, "kicad.erc.pin-not-connected", "kicad.erc.pin-not-driven"},
+    ("board-power", 1): {OPEN},
     ("design-script", 0): {OPEN},
     ("design-script", 1): {OPEN},
     ("footprints", 0): {OPEN},
     ("parts", 0): {OPEN, "kicad.erc.power-pin-not-driven"},
-    ("parts", 1): {OPEN},  # the parts placed from devices (c0248)
-    ("parts", 2): {OPEN, "kicad.erc.pin-not-connected"},
+    ("parts", 1): {OPEN},  # value ranges (c0246)
+    ("parts", 2): {OPEN},  # the parts placed from devices (c0248)
+    ("parts", 3): {OPEN, "kicad.erc.pin-not-connected"},
+    ("parts", 4): {OPEN},  # blocks (c0251)
     ("placement", 0): {OPEN},
     ("routing", 0): {OPEN},
     ("rules", 0): {OPEN},

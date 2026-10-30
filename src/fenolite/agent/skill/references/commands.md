@@ -24,6 +24,7 @@ another type; a flag without a value is a switch.
 | `catalog` | yes | inspect the built-in component catalog and devices, export its visual browser (view --out FILE) or import a device template (import --symbol --footprint --id --out) |
 | `check` | yes | check a KiCad project (model, KiCad ERC and DRC findings, pad nets, round trips) or an Altium project or document (model, ERC lite, copper shorts and clearance, schematic parity, pad nets, round trips RT-A0 to RT-A2), read-only; --exclude writes one KiCad DRC exclusion into the project |
 | `convert` | yes | convert a project to another backend or KiCad major, reporting what is lost |
+| `copper` | yes | generate the power and ground copper of a KiCad board from its net roles (writes with --confirm) |
 | `diff` | yes | list the differences between two boards, libraries, built models or Altium files, gate them by kind, or merge them into a third KiCad board (runs no tool) |
 | `doctor` | no | report the external tools Fenolite can use: kicad-cli candidates and their commands, java, docker |
 | `edit` | yes | write a design script, a TOML file or a library table from a new text or exact edits, through a plan |
@@ -66,10 +67,10 @@ another type; a flag without a value is a switch.
 | `template` | yes | build a drawing sheet from a *.sheet.toml specification, or import an Altium sheet template (writes OUT) |
 | `testpoints` | yes | the test points, fiducials and holes of a board, and its net coverage, from its pad marks (writes FILE with --out) |
 | `tidy` | yes | prune, straighten and chamfer the routed copper of a KiCad board, edit by edit; or report its style |
+| `verify-source` | yes | prove that a design script rebuilds an original project, level by level (writes PROVENANCE.json with --record) |
 | `view` | yes | show a project's boards, sheets and drawings in a web page (writes FILE with --export) |
 
 ## analyze
-
 `fenolite analyze [OPTIONS] PATH`
 
 - `PATH`: a board file that a backend reads
@@ -105,7 +106,6 @@ another type; a flag without a value is a switch.
 - `--barrier REF[,REF...]` (repeatable): with --kinds domains: parts (isolators, transformers) that separate the islands of nets (repeatable)
 
 ## bom
-
 `fenolite bom [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
@@ -118,13 +118,15 @@ another type; a flag without a value is a switch.
 - `--timeout SECONDS` (number, default `300.0`): per kicad-cli run (300)
 
 ## build
-
 `fenolite build [OPTIONS] --out DIR DESIGN.py`
 
 - `DESIGN`: the design script (executed in-process)
 - `--out DIR`: the project folder to write
 - `--altium-template FILE.SchDot`: apply a native binary sheet template to every Altium schematic, preserving page settings, fonts and embedded images; requires binary Altium output and no drawing_sheet in the script
 - `--discard-layout`: replace outputs changed since the last build (backups kept)
+- `--lock FILE`: the design lock to read and write, in place of <script stem>.lock beside the script
+- `--frozen`: refuse with exit 7 (FEN-7004) when the design lock would change; never write it
+- `--take SIDE[:TARGET]` (repeatable): resolve a sync.conflict: SIDE is code, cad, board or schematic, TARGET a component path or PATH#PROPERTY (every conflict without one); repeatable
 - `--target {altium,kicad}` (default `kicad`): kicad (default), or altium: an experimental Altium project file and schematic instead
 - `--altium-format {ascii,binary}`: the form of the Altium schematic with --target altium: binary (default, Altium's own) or ascii; a usage error with --target kicad (default form: binary)
 - `--altium-sheets {flat,modules}`: the sheets of the Altium schematic with --target altium: flat (default, one sheet) or modules (a top sheet with sheet symbols and one sheet per top-level module, with ports, sheet entries and signal harnesses); a usage error with --target kicad (default: flat)
@@ -142,7 +144,6 @@ another type; a flag without a value is a switch.
 - `--altium-layout {blocks,grid}`: Altium arrangement: grid preserves legacy layout; blocks composes functional blocks
 
 ## capabilities
-
 `fenolite capabilities [OPTIONS]`
 
 - `--no-tools`: skip external tool detection
@@ -150,7 +151,6 @@ another type; a flag without a value is a switch.
 - `--command NAME`: describe one command: its entry, its usage and its arguments as data
 
 ## catalog
-
 `fenolite catalog [OPTIONS] {import,list,show,view} [lib_id]`
 
 - `CATALOG_ACTION` (one of `import`, `list`, `show`, `view`): list entries, show one ID, export a browser, or import a device template from a symbol and a footprint
@@ -168,7 +168,6 @@ another type; a flag without a value is a switch.
 - `--ref-prefix REF_PREFIX` (default ``): import: the reference prefix
 
 ## check
-
 `fenolite check [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder; an Altium document, .PrjPcb or project folder
@@ -179,7 +178,6 @@ another type; a flag without a value is a switch.
 - `--reason TEXT`: with --exclude: the comment stored with it
 
 ## convert
-
 `fenolite convert [OPTIONS] --to {altium,kicad} --out DIR SRC`
 
 - `SRC`: a KiCad project, board or folder
@@ -191,8 +189,28 @@ another type; a flag without a value is a switch.
 - `--report-ids`: list item ids in the report
 - `--no-verify`: skip the read-back (evidence UNVERIFIED)
 
-## diff
+## copper
+`fenolite copper [OPTIONS] PATH`
 
+- `PATH`: a .kicad_pcb, a .kicad_pro or a built project folder
+- `--roles FILE`: the role document to read
+- `--requirements FILE`: your distance and current rows
+- `--kinds KIND,KIND`: of power,switch_node,ground,high_voltage
+- `--net GLOB` (repeatable): only these nets (repeatable)
+- `--layers KIND=L,L` (repeatable): the layers of a kind (repeatable)
+- `--ground-layers L,L`: the layers of the ground planes
+- `--ground-fill {all,reference}`: all: pour the outer area too
+- `--connection KIND=MODE` (repeatable): the pad connection of a kind, MODE of solid,thermal,thru_hole_only,none (repeatable)
+- `--stitch-pitch LENGTH`: the ground stitching pitch
+- `--temp-rise KELVIN`: size by the fit of S-0269
+- `--widen PERMILLE`: how far power copper widens
+- `--no-corridors`: write no provisional corridor
+- `--regenerate KEY` (repeatable): generate this edited role item again (repeatable)
+- `--gate {drc}`: drc: judge the edit with kicad-cli DRC and write it without the items that bring new findings
+- `--kicad-cli PATH`: kicad-cli binary or docker:<image> for --gate
+- `--timeout SECONDS` (number, default `300.0`): per kicad-cli run
+
+## diff
 `fenolite diff [OPTIONS] A B`
 
 - `A`: a board, schematic, footprint file, symbol library, built project or Altium file
@@ -204,7 +222,6 @@ another type; a flag without a value is a switch.
 - `--out FILE`: the merged board of --three-way
 
 ## doctor
-
 `fenolite doctor [OPTIONS]`
 
 - `--kicad-cli PATH` (repeatable): a kicad-cli to report (repeatable)
@@ -212,7 +229,6 @@ another type; a flag without a value is a switch.
 - `--sessions PATH`: instead: list the CAD lock files and the files kept only online under PATH (runs no tool)
 
 ## edit
-
 `fenolite edit [OPTIONS] PATH`
 
 - `PATH`: a *.py, a *.toml, an fp-lib-table or a sym-lib-table
@@ -220,12 +236,14 @@ another type; a flag without a value is a switch.
 - `--edits-file FILE`: a JSON list of {"old": ..., "new": ...} pairs
 
 ## equivalent
-
 `fenolite equivalent [OPTIONS] A [B]`
 
 - `A`: a KiCad board, project file, folder or root schematic, an Altium document or project, or a .fenolite/ folder of a built design
 - `B`: the design to compare with A
-- `--level N` (integer): run the levels 1 to N (default: the highest available)
+- `--level N`: run the levels 1 to N, N of 1 to 8, or S for the drawn schematics (default: the highest available of 1 to 5)
+- `--strict`: level 5 also matches every track, arc and via item by item
+- `--pixel-ppm N` (integer, default `1000`): level 8: the differing pixels a layer may hold, in ppm of its inked pixels (default 1000)
+- `--render-pitch-um N` (integer, default `50`): level 8: the pixel pitch of a board layer in micrometres (default 50)
 - `--tolerance-nm N` (integer): length tolerance per coordinate
 - `--tolerance-udeg N` (integer): angle tolerance in microdegrees
 - `--tolerance-ppm N` (integer): tolerance of a routed length of level 5, in parts per million of the length
@@ -238,13 +256,11 @@ another type; a flag without a value is a switch.
 - `--timeout SECONDS` (number, default `300.0`)
 
 ## explain
-
 `fenolite explain CODE`
 
 - `CODE`: FEN-NNNN, or an issue code such as kicad.drc.clearance
 
 ## export
-
 `fenolite export [OPTIONS] -o DIR PATH`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
@@ -271,7 +287,6 @@ another type; a flag without a value is a switch.
 - `--timeout SECONDS` (number, default `300.0`): per kicad-cli run (300)
 
 ## fetch
-
 `fenolite fetch [OPTIONS] [NAME]`
 
 - `NAME`: the tool to install (freerouting)
@@ -279,7 +294,6 @@ another type; a flag without a value is a switch.
 - `--dir DIR`: install into DIR instead of the tools folder (FENOLITE_TOOLS_DIR)
 
 ## fill
-
 `fenolite fill [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, .kicad_pro or project folder
@@ -289,20 +303,17 @@ another type; a flag without a value is a switch.
 - `--timeout SECONDS` (number, default `300.0`)
 
 ## fmt
-
 `fenolite fmt [OPTIONS] PATH`
 
 - `PATH`: a board, footprint, schematic, symbol library or sheet
 - `--check`: report whether the file would change
 
 ## guide
-
 `fenolite guide [TOPIC]`
 
 - `TOPIC`: the page to print, for example start (default: list them)
 
 ## impedance
-
 `fenolite impedance [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
@@ -310,7 +321,6 @@ another type; a flag without a value is a switch.
 - `-o`, `--out FILE`: also write the table as a CSV file
 
 ## init
-
 `fenolite init [OPTIONS] DIR`
 
 - `DIR`: the project folder; it is created when missing
@@ -319,7 +329,6 @@ another type; a flag without a value is a switch.
 - `--force`: replace an existing DIR/design.py
 
 ## inspect
-
 `fenolite inspect [OPTIONS] FILE`
 
 - `FILE`: a KiCad board, footprint, symbol library, schematic or sheet; or an Altium document, library or project file
@@ -328,7 +337,6 @@ another type; a flag without a value is a switch.
 - `--limit-bytes N`: maximum compound-file size
 
 ## kit
-
 `fenolite kit [OPTIONS] {build,record,status,verify} [DIR]`
 
 - `ACTION` (one of `build`, `record`, `status`, `verify`): what to do with the kit
@@ -338,7 +346,6 @@ another type; a flag without a value is a switch.
 - `--repo DIR`: status: the repository to read (default: this folder)
 
 ## library
-
 `fenolite library [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, .kicad_pro or project folder
@@ -346,7 +353,6 @@ another type; a flag without a value is a switch.
 - `--diff LIBRARY`: a .pretty folder to compare with the board; writes nothing
 
 ## manifest
-
 `fenolite manifest [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
@@ -359,7 +365,6 @@ another type; a flag without a value is a switch.
 - `--timeout SECONDS` (number, default `300.0`): kicad-cli timeout (300)
 
 ## mcp
-
 `fenolite mcp [OPTIONS]`
 
 - `--root DIR` (default `.`): the folder every call runs in and writes under
@@ -370,14 +375,12 @@ another type; a flag without a value is a switch.
 - `--allow-edit`: also serve fenolite_edit: a client that edits a design script and builds it runs code as you
 
 ## models
-
 `fenolite models [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
 - `--vendor`: copy the located official models into the project's 3dmodels/ folder (needs --confirm)
 
 ## neighbors
-
 `fenolite neighbors [OPTIONS] PATH REF`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
@@ -385,14 +388,12 @@ another type; a flag without a value is a switch.
 - `--radius L` (default `5mm`): how far to look (default 5mm)
 
 ## net
-
 `fenolite net PATH [NAME]`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
 - `NAME`: the net to describe (default: list all)
 
 ## netlist
-
 `fenolite netlist [OPTIONS] PATH`
 
 - `PATH`: a .kicad_sch, a .kicad_pcb, a .kicad_pro or a project folder
@@ -402,7 +403,6 @@ another type; a flag without a value is a switch.
 - `--timeout SECONDS` (number, default `300.0`): kicad-cli timeout (300)
 
 ## pads
-
 `fenolite pads [OPTIONS] PATH [REF] [NUMBER]`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
@@ -411,7 +411,6 @@ another type; a flag without a value is a switch.
 - `--origin X,Y` (default `0mm,0mm`): report positions relative to this point, two lengths with units (default 0mm,0mm)
 
 ## panel
-
 `fenolite panel [OPTIONS] --out DIR --target {10,9,altium} PANEL.py`
 
 - `PANEL`: the panel script (run in-process)
@@ -422,7 +421,6 @@ another type; a flag without a value is a switch.
 - `--discard-layout`: replace files edited since
 
 ## parity
-
 `fenolite parity [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder; an Altium .PrjPcb, project folder or .PcbDoc
@@ -431,7 +429,6 @@ another type; a flag without a value is a switch.
 - `--timeout SECONDS` (number, default `300.0`): kicad-cli timeout (300)
 
 ## place
-
 `fenolite place [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
@@ -465,7 +462,6 @@ another type; a flag without a value is a switch.
 - `-o`, `--out FILE`: write the board here (default: PATH)
 
 ## pnp
-
 `fenolite pnp [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
@@ -475,7 +471,6 @@ another type; a flag without a value is a switch.
 - `--manifest`: also add FILE to fenolite-artifacts.json in its folder
 
 ## publish
-
 `fenolite publish [OPTIONS] --to DST --receipt RECEIPT SRC`
 
 - `SOURCE`: the folder of the edited copy
@@ -485,7 +480,6 @@ another type; a flag without a value is a switch.
 - `--skip-changed`: leave the files changed since the receipt and write the others (warnings, not errors)
 
 ## ready
-
 `fenolite ready [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
@@ -494,14 +488,12 @@ another type; a flag without a value is a switch.
 - `--timeout SECONDS` (number, default `300.0`): kicad-cli timeout (300)
 
 ## refs
-
 `fenolite refs [OPTIONS] PATH`
 
 - `PATH`: a design file (with its companions) or a project folder
 - `--repoint OLD=NEW`: rewrite the paths that start with OLD to start with NEW (KiCad documents only)
 
 ## region
-
 `fenolite region [OPTIONS] --box X1,Y1,X2,Y2 PATH`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
@@ -510,7 +502,6 @@ another type; a flag without a value is a switch.
 - `--kinds A,B`: keep only these kinds, of footprint,pad,track,arc,via,zone,text
 
 ## render
-
 `fenolite render [OPTIONS] -o DIR PATH`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
@@ -531,14 +522,12 @@ another type; a flag without a value is a switch.
 - `--cut-clearance LENGTH`: with --cut: the clearance of a new track (default: its class's)
 
 ## restore
-
 `fenolite restore [OPTIONS] RECEIPT`
 
 - `RECEIPT`: a file holding the envelope of a write, or - for stdin
 - `--in DIR`: the working directory of that write (default: this one)
 
 ## roles
-
 `fenolite roles [OPTIONS] PATH`
 
 - `PATH`: a board, or a built project folder, that a backend reads
@@ -565,7 +554,6 @@ another type; a flag without a value is a switch.
 - `--reject-group NAME` (repeatable): never infer this group again (repeatable)
 
 ## roundtrip
-
 `fenolite roundtrip [OPTIONS] PATH`
 
 - `PATH`: a KiCad S-expression file, or a project for rt2
@@ -574,7 +562,6 @@ another type; a flag without a value is a switch.
 - `--timeout SECONDS` (number, default `300.0`): kicad-cli timeout (300)
 
 ## route
-
 `fenolite route [OPTIONS] --router NAME PATH`
 
 - `PATH`: a .kicad_pcb, .kicad_pro or project folder
@@ -593,11 +580,13 @@ another type; a flag without a value is a switch.
 - `--escape REF[=grid|perimeter]` (repeatable): escape the pads of the matching parts before routing, with a router that has the escape feature (repeatable; the kind is found from the pads unless given)
 - `--pairs-as-nets`: route the nets of differential pairs as single nets, uncoupled, with any router
 - `-o`, `--out FILE`: write the routed board to this file
+- `--roles {critical}`: route the critical connections of the confirmed gate loops and Kelvin pairs (role mode)
+- `--group NAME` (repeatable): with --roles: route this role group only (repeatable)
+- `--roles-file FILE`: with --roles: the role document to read
 - `--gate {drc}`: drc: judge the edit with kicad-cli DRC and write it without the items that bring new findings
 - `--kicad-cli PATH`: kicad-cli binary or docker:<image> for --gate
 
 ## silk
-
 `fenolite silk [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, .kicad_pro or project folder
@@ -617,7 +606,6 @@ another type; a flag without a value is a switch.
 - `--timeout SECONDS` (number, default `300.0`)
 
 ## skill
-
 `fenolite skill [OPTIONS] ACTION`
 
 - `SKILL_ACTION` (one of `install`, `show`): show or install
@@ -626,14 +614,12 @@ another type; a flag without a value is a switch.
 - `--agents-md`: install: also keep a pointer section in the AGENTS.md of this folder
 
 ## snapshot
-
 `fenolite snapshot [OPTIONS] --out DIR PATH`
 
 - `PATH`: a design file (with its companions) or a project folder
 - `--out DIR`: the folder of the copy
 
 ## sync
-
 `fenolite sync [OPTIONS] --out DIR DESIGN.py`
 
 - `DESIGN`: the design script (executed in-process)
@@ -641,9 +627,9 @@ another type; a flag without a value is a switch.
 - `--target {altium,kicad}` (default `kicad`): the backend to synchronise (default kicad)
 - `--to-source`: the direction: from the board in DIR to the files beside DESIGN.py (required)
 - `--check`: write nothing; report each file that would change as an error (for CI)
+- `--take SIDE[:TARGET]` (repeatable): refused: sync records and never resolves; resolve a conflict with fenolite build --take
 
 ## template
-
 `fenolite template [OPTIONS] --target {altium,kicad} -o OUT {build,import} FILE`
 
 - `ACTION` (one of `build`, `import`): build a specification, or import an Altium template
@@ -654,7 +640,6 @@ another type; a flag without a value is a switch.
 - `--altium-format {ascii,binary}`: build --target altium: the form of the template, binary (default) or ascii; a usage error otherwise
 
 ## testpoints
-
 `fenolite testpoints [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
@@ -674,7 +659,6 @@ another type; a flag without a value is a switch.
 - `--manifest`: also add FILE to fenolite-artifacts.json in its folder
 
 ## tidy
-
 `fenolite tidy [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, .kicad_pro or project folder
@@ -692,8 +676,28 @@ another type; a flag without a value is a switch.
 - `--report`: write nothing; report the routing style
 - `--compare REFERENCE`: also report this KiCad board (implies --report)
 
-## view
+## verify-source
+`fenolite verify-source [OPTIONS] --against ORIGINAL SCRIPT`
 
+- `SCRIPT`: the design script (executed in-process, as build does)
+- `--against ORIGINAL`: the original: a KiCad project folder or .kicad_pro, or an Altium .PrjPcb
+- `--levels SPEC`: the levels to run, e.g. 1-7,S,8 (default: all)
+- `--tolerance-nm N` (integer): length tolerance per coordinate
+- `--tolerance-udeg N` (integer): angle tolerance in microdegrees
+- `--tolerance-ppm N` (integer): tolerance of a routed length (ppm)
+- `--frame {absolute,relative}`: relative removes one translation (default absolute)
+- `--pixel-ppm N` (integer): level 8 pixel tolerance (default 1000)
+- `--render-pitch-um N` (integer): level 8 pixel pitch (default 50)
+- `--provenance FILE`: the provenance file (default: PROVENANCE.json beside SCRIPT)
+- `--record`: write fidelity.proof to the provenance file
+- `--accept KEY` (repeatable): accept the difference <level>:<kind>:<where>
+- `--reason TEXT` (repeatable): why --accept accepts
+- `--target {9,10}` (integer): the KiCad major to build for
+- `--upgrade`: upgrade a copy of an older original (kicad-cli)
+- `--kicad-cli PATH`: the kicad-cli of --upgrade
+- `--timeout SECONDS` (number, default `300.0`)
+
+## view
 `fenolite view [OPTIONS] PATH`
 
 - `PATH`: a project file or folder, a board, sheet, library or drawing
@@ -702,12 +706,16 @@ another type; a flag without a value is a switch.
 - `--serve`: serve on 127.0.0.1 until stopped
 - `--port N` (default `8765`): with --serve: port (default 8765; 0 = any free)
 - `--no-browser`: with --serve: no browser
+- `--run-timeout SECONDS`: with --serve: time limit of a check the page runs (default 600)
+- `--no-run`: with --serve: the page runs no check (recorded results only)
+- `--allow-actions`: with --serve: the page can write the project's files through reviewed plans (fill, tidy, silk, test points, waivers, moves, exports, BOM); each write keeps a backup and can be undone
 - `--export FILE`: write one standalone page
 - `--cache {off,project,user}` (default `user`): scene cache
 - `--docs ID,...`: --export only these
 - `--variant NAME`: show an Altium project's variant
 - `--compare OLD`: draw what changed since the board or sheet OLD
 - `--check FILE|run`: draw a check reply's findings; run: check first
+- `--roles FILE|run`: draw a roles --check reply on its board; run: run it first
 - `--report FILE` (repeatable): recorded convert/export JSON for project review; repeat for different commands
 - `--select REF`: open at this part or net
 - `--marks FILE`: review marks: list them; --serve saves new ones there

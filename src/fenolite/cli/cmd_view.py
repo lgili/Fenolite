@@ -49,6 +49,7 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 from fenolite.placement import legality
 from fenolite.view import export, meshes, models, project_review, review, server, themes
+from fenolite.view import roles as roles_view
 from fenolite.view.altium_layers import native_view
 from fenolite.view.bom import bom_scene
 from fenolite.view.bom import with_parts as bom_with_parts
@@ -68,6 +69,8 @@ from fenolite.view.outjob import outjob_scene
 from fenolite.view.project import VIEWABLE_LIBRARIES, ProjectTree, load_tree
 from fenolite.view.project_nets import annotate as annotate_nets
 from fenolite.view.project_nets import project_index, sheet_params
+from fenolite.view.runs import Choices
+from fenolite.view.runs import describe as runs_counts
 from fenolite.view.scene import build_scene, summary
 from fenolite.view.schematic import build_schematic_scene
 from fenolite.view.schematic import summary as schematic_summary
@@ -78,6 +81,8 @@ from fenolite.view.variants import variant_states
 HELP = "show a project's boards, sheets and drawings in a web page (writes FILE with --export)"
 KIND = "view"
 DEFAULT_PORT = 8765
+RUN_TIMEOUT = 600.0
+"""Seconds a command run from the page may take (``--run-timeout``; change c0302)."""
 APPROXIMATE_NOTE = (
     "{} overlap(s) of parts without a courtyard (their extent is taken from their pads) are not marked; "
     "fenolite place judges them"
@@ -120,6 +125,20 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help=f"with --serve: port (default {DEFAULT_PORT}; 0 = any free)",
     )
     parser.add_argument("--no-browser", action="store_true", help="with --serve: no browser")
+    parser.add_argument(
+        "--run-timeout",
+        metavar="SECONDS",
+        help=f"with --serve: time limit of a check the page runs (default {RUN_TIMEOUT:g})",
+    )
+    parser.add_argument(
+        "--no-run", action="store_true", help="with --serve: the page runs no check (recorded results only)"
+    )
+    parser.add_argument(
+        "--allow-actions",
+        action="store_true",
+        help="with --serve: the page can write the project's files through reviewed plans (fill, tidy, "
+        "silk, test points, waivers, moves, exports, BOM); each write keeps a backup and can be undone",
+    )
     parser.add_argument("--export", metavar="FILE", help="write one standalone page")
     parser.add_argument(
         "--cache",
@@ -131,6 +150,9 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--variant", metavar="NAME", help="show an Altium project's variant")
     parser.add_argument("--compare", metavar="OLD", help="draw what changed since the board or sheet OLD")
     parser.add_argument("--check", metavar="FILE|run", help="draw a check reply's findings; run: check first")
+    parser.add_argument(
+        "--roles", metavar="FILE|run", help="draw a roles --check reply on its board; run: run it first"
+    )
     parser.add_argument(
         "--report",
         metavar="FILE",
@@ -427,9 +449,7 @@ def overlay_files(files: list[str], ctx: Context) -> tuple[list[dict[str, Any]],
                 groups.setdefault(g["id"], g)
             continue
         try:
-            reply = cast("dict[str, Any]", envelope)
-            rows: list[Any] = list(reply["result"]["distances"])
-            issues: list[Any] = list(reply.get("issues", []))
+            items, more = analyze_overlays(cast("dict[str, Any]", envelope), f"Paths of {name}.")
         except (KeyError, TypeError, AttributeError) as exc:
             raise CliError(
                 "FEN-3004",
@@ -438,16 +458,34 @@ def overlay_files(files: list[str], ctx: Context) -> tuple[list[dict[str, Any]],
                 hint=f"pass the JSON reply of `fenolite analyze ... --json`, or a file of the schema "
                 f"{OVERLAY_SCHEMA}",
             ) from exc
-        flagged = {str(i.get("where", "")) for i in issues if i.get("severity") in ("error", "warning")}
-        for row in rows:
-            out += _row_overlays(row, flagged)
-        for gid, (title, color) in ANALYZE_GROUPS.items():
-            groups.setdefault(
-                gid, {"id": gid, "title": title, "color": color, "n": 0, "note": f"Paths of {name}."}
-            )
+        out += items
+        for g in more:
+            groups.setdefault(g["id"], g)
     for g in groups.values():
         g["n"] = sum(1 for o in out if o.get("group") == g["id"])
     return out, list(groups.values())
+
+
+def analyze_overlays(
+    reply: dict[str, Any], note: str, *, source: str | None = None
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """``(items, groups)`` of one ``analyze`` reply: per distance row its clearance and creepage paths
+    (``_row_overlays``); ``source`` tags the items and groups of a page run (``run:analyze``, change c0302).
+    ``KeyError``, ``TypeError`` or ``AttributeError`` when ``reply`` is not an ``analyze`` reply."""
+    rows: list[Any] = list(reply["result"]["distances"])
+    issues: list[Any] = list(reply.get("issues", []))
+    flagged = {str(i.get("where", "")) for i in issues if i.get("severity") in ("error", "warning")}
+    items = [item for row in rows for item in _row_overlays(row, flagged)]
+    groups = [
+        {"id": gid, "title": title, "color": color, "n": 0, "note": note}
+        for gid, (title, color) in ANALYZE_GROUPS.items()
+    ]
+    if source is not None:
+        for entry in (*items, *groups):
+            entry["source"] = source
+    for g in groups:
+        g["n"] = sum(1 for o in items if o.get("group") == g["id"])
+    return items, groups
 
 
 def _findings_file(data: dict[str, Any], name: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -681,6 +719,97 @@ def check_reply(
         ) from exc
 
 
+def _stamp(board: Path, envelope: dict[str, Any]) -> tuple[str, tuple[int, int] | None]:
+    """What a roles reply was computed from: the board's SHA-256 and the size and time of the role document it
+    names (``result.store.file``, relative to the board's folder), ``None`` when that file does not exist."""
+    store = cast("dict[str, Any]", cast("dict[str, Any]", envelope.get("result") or {}).get("store") or {})
+    found = None
+    if store.get("file"):
+        try:
+            found = (board.parent / str(store["file"])).stat()
+        except OSError:
+            found = None
+    sha = hashlib.sha256(board.read_bytes()).hexdigest()
+    return sha, (found.st_size, found.st_mtime_ns) if found is not None else None
+
+
+def roles_run(board: Path, ctx: Context) -> dict[str, Any]:
+    """The envelope of ``fenolite roles BOARD --check`` run here, read-only (change c0305)."""
+    from fenolite.cli import cmd_roles  # noqa: PLC0415  (only --roles needs the roles and their analyses)
+
+    parser = argparse.ArgumentParser(add_help=False)
+    cmd_roles.COMMAND.register(parser)
+    found = cmd_roles.COMMAND.run(parser.parse_args([str(board), "--check"]), ctx)
+    return {
+        "command": "roles",
+        "result": found.result,
+        "issues": [dataclasses.asdict(issue) for issue in found.issues],
+        "evidence": {"level": found.evidence.level.value, "hypotheses": list(found.evidence.hypotheses)},
+        "input": dataclasses.asdict(found.input) if found.input is not None else None,
+    }
+
+
+class Roles:
+    """The roles replies of the boards of a page (change c0305): ``--roles run`` runs ``roles --check`` for
+    each board when it is first shown and again when the board or its role document changed; ``--roles FILE``
+    gives one reply for the board it names; a run from a served page replaces a board's reply (``keep``) and
+    is run again here when its files change."""
+
+    def __init__(self, argument: str | None, ctx: Context) -> None:
+        self.ctx, self.run = ctx, argument == "run"
+        self.file: dict[str, Any] | None = None
+        self.session: dict[str, tuple[tuple[str, tuple[int, int] | None], dict[str, Any]]] = {}
+        if argument is not None and argument != "run":
+            path = Path(argument) if Path(argument).is_absolute() else ctx.cwd / argument
+            if not path.is_file():
+                raise CliError("FEN-3001", f"--roles: {argument} does not exist", where="--roles")
+            try:
+                self.file = roles_view.read_reply(
+                    json.loads(path.read_text(encoding="utf-8")), name=path.name
+                )
+            except (ValueError, FormatError) as exc:
+                raise CliError(
+                    "FEN-3004",
+                    f"--roles: {exc}",
+                    where=argument,
+                    hint="pass the JSON reply of `fenolite roles BOARD --check --json`, or `--roles run`",
+                ) from exc
+
+    def keep(self, board: Path, envelope: dict[str, Any]) -> None:
+        """The reply of a run from the page for ``board``."""
+        self.session[str(board)] = (_stamp(board, envelope), envelope)
+
+    def reply(self, board: Path) -> tuple[dict[str, Any] | None, str | None]:
+        """The reply for ``board`` and a note when it was made for other files; ``(None, None)``."""
+        kept = self.session.get(str(board))
+        if kept is not None and kept[0] == _stamp(board, kept[1]):
+            return kept[1], None
+        if kept is not None or self.run:  # its files changed (a save, a confirm): run it again for them
+            self.keep(board, roles_run(board, self.ctx))
+            return self.session[str(board)][1], None
+        if self.file is not None:
+            source = cast("dict[str, Any]", self.file.get("input") or {})
+            if source.get("path") not in (None, board.name):
+                return None, None
+            if source.get("sha256") and source["sha256"] != hashlib.sha256(board.read_bytes()).hexdigest():
+                return self.file, "the roles reply was made for another revision of this board"
+            return self.file, None
+        return None, None
+
+
+def _with_roles(roles: Roles, path: Path, scene: dict[str, Any]) -> dict[str, Any]:
+    """``scene`` with ``roles`` (``fenolite.view_roles.v0``) when it is a board with a roles reply."""
+    if scene.get("kind") is not None:
+        return scene
+    envelope, note = roles.reply(path)
+    if envelope is None:
+        return scene
+    data = roles_view.overlay(envelope, scene)
+    if note:
+        data["notes"].insert(0, note)
+    return scene | {"roles": data}
+
+
 def reports_of(arguments: list[str], ctx: Context) -> list[dict[str, Any]]:
     """Load recorded operation replies for review without running or writing anything."""
     reports: list[dict[str, Any]] = []
@@ -743,7 +872,8 @@ def _with_check(
     if reply is None or scene.get("kind") not in (None, "schematic"):
         return scene
     root = not tree.project_file or path.stem.casefold() == Path(tree.project_file).stem.casefold()
-    return scene | {"check": check_overlay(reply, scene, root_sheet=root)}
+    aliases = roles_view.aliases_of(scene.get("roles"))  # a role group stands for its pads (change c0305)
+    return scene | {"check": check_overlay(reply, scene, root_sheet=root, aliases=aliases)}
 
 
 def _log(message: str) -> None:
@@ -797,6 +927,67 @@ def _mm_option(text: str | None, name: str) -> int | None:
     return round(value * 1_000_000)
 
 
+def _serve_options(args: argparse.Namespace) -> float:
+    """The run time limit of ``--run-timeout``; ``FEN-2001`` for a serve option without ``--serve``."""
+    given = [
+        flag
+        for flag, value in (
+            ("--run-timeout", args.run_timeout is not None),
+            ("--no-run", args.no_run),
+            ("--allow-actions", args.allow_actions),
+        )
+        if value
+    ]
+    if given and not args.serve:
+        raise CliError("FEN-2001", f"{given[0]} goes with --serve", where=given[0])
+    if args.run_timeout is None:
+        return RUN_TIMEOUT
+    try:
+        seconds = float(args.run_timeout)
+    except ValueError:
+        seconds = -1.0
+    if not 0 < seconds < float("inf"):
+        raise CliError(
+            "FEN-2001",
+            f"--run-timeout: expected seconds above 0, got {args.run_timeout!r}",
+            where="--run-timeout",
+        )
+    return seconds
+
+
+def _runner(tree: ProjectTree, timeout: float, preview: Any = None) -> Any:
+    """The child-process runner of the page's jobs (``cli/_viewrun.py``), imported only when serving."""
+    from fenolite.cli._viewrun import ChildRunner  # noqa: PLC0415 - the catalog parses every command
+    from fenolite.cli.api import discover  # noqa: PLC0415
+
+    return ChildRunner(discover(), root=tree.root, timeout=timeout, preview=preview)
+
+
+def _choices() -> Choices:
+    """The choices of the options a page may set on a run, read from the commands' own constants."""
+    from fenolite.checks import DEFAULT_STAGES, STAGE_ORDER  # noqa: PLC0415 - only a served page runs checks
+    from fenolite.checks.documents import ALL_DOCUMENT_STAGES  # noqa: PLC0415
+    from fenolite.checks.equivalence import LEVELS  # noqa: PLC0415
+    from fenolite.checks.equivalence.model import FRAMES  # noqa: PLC0415
+    from fenolite.cli.cmd_analyze import KINDS, OPT_IN_KINDS  # noqa: PLC0415
+
+    return Choices(
+        stages=tuple(STAGE_ORDER),
+        default_stages=tuple(DEFAULT_STAGES),
+        document_stages=tuple(ALL_DOCUMENT_STAGES),
+        kinds=(*KINDS, *OPT_IN_KINDS),
+        default_kinds=tuple(KINDS),
+        levels=tuple(LEVELS),
+        frames=tuple(FRAMES),
+    )
+
+
+def _session_key(tree: ProjectTree, path: Path) -> str:
+    """The key of a document's session check reply: a page run checks the project file when there is one
+    (as ``--check run`` does), so its documents share one reply."""
+    return tree.project_file or str(path)
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if args.serve and ctx.in_process:
         raise CliError(
@@ -812,6 +1003,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             where="--export",
             hint="export the page, or serve it, in two runs",
         )
+    run_timeout = _serve_options(args)
     try:
         port = int(args.port)
     except ValueError:
@@ -850,11 +1042,17 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         raise CliError("FEN-2001", f"--doc: the project holds no document {args.doc!r}", where="--doc")
     reply = check_reply(args.check, ctx, tree, doc.file if doc is not None else None)
     reports = reports_of(args.report, ctx)
+    roles = Roles(args.roles, ctx)
     marks_file, marks = marks_of(args.marks, ctx, serving=bool(args.serve))
 
+    session: dict[str, dict[str, Any]] = {}
+    """The check reply of each document after the page's runs (change c0302), by ``_session_key``."""
+
     def cached(path: Path) -> dict[str, Any]:
-        scene = _with_check(reply, tree, path, nets_of.annotate(path, plain(path)))
-        review_status = project_review.status(scene, reply, reports)
+        found = session.get(_session_key(tree, path), reply)
+        scene = _with_roles(roles, path, nets_of.annotate(path, plain(path)))
+        scene = _with_check(found, tree, path, scene)
+        review_status = project_review.status(scene, found, reports)
         if "check" in scene and review_status["binding"] and not review_status["binding"]["matched"]:
             scene["check"]["notes"].append(review_status["binding"]["note"])
         return scene | {"project_review": review_status}
@@ -879,6 +1077,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             result["compare"] = compare_summary(diff)
         if "check" in scene:
             result["check"] = check_summary(scene["check"])
+        if "roles" in scene:
+            result["roles"] = roles_view.summary(scene["roles"])
         scenes[doc.id] = scene
         result["summary"] = _summary(scene)
         result["review"] = scene["project_review"]
@@ -898,6 +1098,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             if scene["meta"]["evidence"] in Level._value2member_map_
             else evidence
         )
+        if "roles" in scene:  # the lowest level of what is shown (change c0305)
+            shown = scene["roles"]["evidence"]
+            level = Level(shown["level"]) if shown["level"] in Level._value2member_map_ else Level.INFERRED
+            evidence = Evidence.combine(evidence, Evidence(level, hypotheses=tuple(shown["hypotheses"])))
         ref = InputRef(path=doc.file.name, sha256=scene["meta"]["sha256"], kind=doc.kind, format_version=None)
     elif doc is not None:
         result["notes"] = [f"{doc.name} ({doc.kind}) has no viewer in this version"]
@@ -950,6 +1154,39 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             refined = json.loads(json.dumps(scene))
             return refined if add_models(read_board(path), refined, log=_log) is not None else None
 
+        def derive(path: Path, command: str, envelope: dict[str, Any]) -> dict[str, Any]:
+            """What the page shows of a finished run (change c0302)."""
+            if command == "check":
+                key = _session_key(tree, path)
+                session[key] = project_review.merge(session.get(key, reply), envelope)
+                scene = cached(path)
+                return {"check": scene.get("check"), "review": scene["project_review"]}
+            if command == "roles":  # change c0305: the board's role data, kept for its later builds
+                roles.keep(path, envelope)
+                return {"roles": cached(path).get("roles")}
+            if command == "analyze":
+                items, groups = analyze_overlays(
+                    envelope, "Paths of an analyze run from the page.", source="run:analyze"
+                )
+                return {"overlays": items, "groups": groups}
+            listed: dict[str, Any] = {
+                "command": "check",
+                "issues": list(envelope.get("issues") or []),
+                "result": {"stages": []},
+                "evidence": envelope.get("evidence"),
+            }
+            placed = check_overlay(listed, cached(path))
+            return {"findings": [f | {"stage": command} for f in placed["findings"]]}
+
+        def preview(staged: Path, board: Path) -> dict[str, Any] | None:
+            """The changes a plan makes to the board shown (change c0303), drawn over the current scene."""
+            new = scene_of(staged, kicad)
+            if new.get("kind") is not None:
+                return None
+            new["meta"]["name"] = board.name
+            return compare(new, plain(board))
+
+        runner = None if args.no_run and not args.allow_actions else _runner(tree, run_timeout, preview)
         live = server.Live(
             tree,
             build,
@@ -958,6 +1195,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             marks_file=marks_file,
             select=args.select,
             refine=None if args.no_models else refine,
+            runner=runner,
+            runs_enabled=not args.no_run,
+            choices=_choices(),
+            derive=derive,
+            actions=runner if args.allow_actions else None,
         )
         try:
             httpd = server.serve(live, port)
@@ -976,10 +1218,21 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             webbrowser.open(url)
         started = time.monotonic()
         server.run(live, httpd, until=SERVE_STOP)
-        result["serve"] = {"url": url, "seconds": round(time.monotonic() - started, 1)}
+        result["serve"] = cast(
+            "dict[str, Any]", {"url": url, "seconds": round(time.monotonic() - started, 1)}
+        )
         if marks_file is not None:
             result["serve"]["marks_written"] = live.written
-    dependencies = [*args.report, *([args.check] if args.check and args.check != "run" else [])]
+        result["serve"]["runs"] = runs_counts(live.jobs.counts)
+        if args.allow_actions:
+            result["serve"]["writes"] = [
+                {"id": r["id"], "action": r["action"], "files": r["files"]} for r in reversed(live.receipts)
+            ]
+    dependencies = [
+        *args.report,
+        *([args.check] if args.check and args.check != "run" else []),
+        *([args.roles] if args.roles and args.roles != "run" else []),
+    ]
     return Result(
         result=result,
         evidence=evidence,

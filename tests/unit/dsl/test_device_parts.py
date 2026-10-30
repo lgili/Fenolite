@@ -17,9 +17,10 @@ from fenolite.model import canonical
 
 ROOT = Path(__file__).resolve().parents[3]
 BUCK = parse_device((ROOT / "tests" / "data" / "devices" / "example_buck.toml").read_text(encoding="utf-8"))
-BLINK_DIGEST = "1b54c15a7e1a97e00bca5408e586168b22ba4782a4eda219f39d9e7b79aea946"
-"""The digest of the model texts of ``examples/blink_2layer/design.py`` before change c0248 (computed at its
-base commit 3cabfe5a with the same function)."""
+BLINK_DIGEST = "b310ab687ac0a060b8da40db5ea43966721dac02b822da25f676a27e29fdb551"
+"""The digest of the model texts of ``examples/blink_2layer/design.py`` before change c0248 (computed with the
+same function on ``circuits-as-code`` just before c0248 was merged, 9c92302a; the value at c0248's base
+3cabfe5a was 1b54c15a…, changed since by the merged c0246, c0249 and c0251)."""
 
 
 def _digest(texts: dict[str, str]) -> str:

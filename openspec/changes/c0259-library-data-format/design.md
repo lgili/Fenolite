@@ -34,7 +34,7 @@
 - An interface never changes under an id. A changed definition always changes its version.
 - Orderable variants (packing, grade) are written once on top of their device.
 - The shipped catalog becomes data with no output change: same definitions, same bytes.
-- The same parser reads shipped records, project records and (c0266) pack records.
+- The same parser reads shipped records, project records and (c0266) records vendored from `fenolite-library` (c0279).
 
 **Non-Goals**
 
@@ -67,7 +67,7 @@ optional `[symbol]` table of a pins record, so that a symbol never draws pins it
 | `category` | no | catalog category (today's `CatalogEntry.category`) |
 | `licence` | yes | an SPDX expression (decision 5) |
 | `evidence` | yes | one label of the evidence vocabulary |
-| `sources` | yes for `Fenolite:` and pack records | a list of source ids, or a table key → list of source ids (c0254's per-attribute form) |
+| `sources` | yes for `Fenolite:` and authored library records | a list of source ids, or a table key → list of source ids (c0254's per-attribute form) |
 | `origin` | no | where a record taken from a CC0 library came from (decision 5) |
 | `reviewed_by` | no | list of reviews (decision 6) |
 | `replaces` | no | the id this record succeeds after an interface change (decision 4) |
@@ -94,7 +94,7 @@ merged; until then the parser keeps their exact text and bounds as integers.
   uses another text (a second pad of one number, `cathode`, `actuator`, `pin1`). This is what makes the
   move byte-identical: ids depend on names and keys, never on file order.
 - **The same id in two files of one tree** gives `FEN-3004` naming both. Across trees, precedence decides
-  (c0248 for project over shipped; c0266 adds packs).
+  (c0248 for project over shipped; c0266 adds vendored library records between them).
 - *Alternative considered:* random UUIDs stored in the file (as LibrePCB does). Rejected: a regenerated
   record would need the stable-id cache that LibrePCB keeps; deriving from `(kind, id)` gives the same
   stability with no cache, and the canonical name is already unique.
@@ -142,10 +142,10 @@ merged; until then the parser keeps their exact text and bounds as integers.
 ### 5. Licence, sources and origin
 
 - `licence` is an SPDX expression. **Shipped records** (`Fenolite:`) MUST be `Apache-2.0` (the licence of
-  the package that ships them today) or `CC0-1.0`. **Pack records** (c0266) MUST be `CC0-1.0`. **Project
+  the package that ships them today) or `CC0-1.0`. **Library records** (c0266, items of `fenolite-library`, c0279) carry their item's SPDX id from c0279's allow-list; authored ones are `CC0-1.0`. **Project
   records** may hold any text; c0264 writes `LicenseRef-see-source-terms` for imports.
-- `sources` hold ids registered in `docs/evidence/sources.md` for shipped records, and ids of the pack's own
-  `sources.toml` for pack records (c0266). An unregistered id gives `FEN-3004`.
+- `sources` hold ids registered in `docs/evidence/sources.md` for shipped records, and ids of the library's own
+  `sources.toml` for authored library records (c0266, c0279). An unregistered id gives `FEN-3004`.
 - **Records from a CC0 library** (maintainer decision 2026-10-29) carry
   `origin = { library = "<name>", version = "<release or 40-hex commit>", element = "<the element's UUID in that library>", licence = "CC0-1.0" }`.
   The record's own `licence` MUST then be `CC0-1.0`, and its `evidence` MUST be `UNVERIFIED` unless
@@ -396,7 +396,7 @@ reuse these three names.
 ## Open questions
 
 1. *Licence of the shipped catalog records: keep `Apache-2.0` or dedicate them to CC0?* Recommended: CC0-1.0,
-   so records move freely between the core and the `fenolite-devices` pack (c0266); until decided the
+   so records move freely between the core and the `cc0` family of `fenolite-library` (c0266, c0279); until decided the
    migration writes `Apache-2.0`.
 2. *May a project record use the `Fenolite:` namespace?* Recommended: yes, as an override, as c0248 decided
    for devices.
@@ -415,6 +415,6 @@ reuse these three names.
 - **c0263**: family grammars take the common header.
 - **c0264**: imports write project records with `licence = "LicenseRef-see-source-terms"` and provenance.
 - **c0265**: proposals write pins and package records with `UNVERIFIED`.
-- **c0266**: pack records (`CC0-1.0`, pack sources), precedence with packs, the LibrePCB seed converter that
+- **c0266**: library records (item licences, library sources), precedence with vendored records, the LibrePCB seed converter that
   writes `origin`.
 - **c0267**: supplier lookups never write records.

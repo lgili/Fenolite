@@ -45,13 +45,19 @@
   Done (2026-10-29): `dsl/devices.py` (context variables for the project devices and the design's records), `Design.devices`, `Container.part`, and `cli/_script.read_project_devices` (installed around the run; `ScriptRun.devices`, `device_files`). Proof passed.
 - [x] 3.2 Add `Part(device=...)`, `Design.part`, `Module.part`, `part.device`, the merged properties and the lowering in `to_model` (scenarios "Neither or both", "Unknown device", "Created in a module", "A part from a device", "Footprint given with a device", "A generic device takes a value", "Conflicting MPN", "Designs without devices are unchanged"). Proof: `uv run pytest tests/unit/dsl/test_device_parts.py tests/unit/dsl/test_ids.py -q`.
   Done (2026-10-29): `Part(..., device=...)` (`value` now defaults to `None`, read as before), `part.device`, `device_origin`, merged properties and the two reserved properties in `to_model`. The blink's model texts equal those of the base commit (digest pinned in `test_device_parts.py`). Proof passed (14 tests).
-- [ ] 3.3 Add checked pin access: `__getattr__`, the checked `__getitem__`, `PinNameError`, `__dir__` and the closest-name message (scenarios "Pin by function", "Non-device parts are unchanged", "A typo names the closest pin", "Wrong case", "Part attributes win", "Private names", "Device part checked at the call", "LED ends follow the anode"). Extend c0247's `Part._end` and `must_connect_pins` hooks and accept `part.pad(function)` (see `design.md`, decision 5). Proof: `uv run pytest tests/unit/dsl/test_device_pins.py -q`.
+- [x] 3.3 Add checked pin access: `__getattr__`, the checked `__getitem__`, `PinNameError`, `__dir__` and the closest-name message (scenarios "Pin by function", "Non-device parts are unchanged", "A typo names the closest pin", "Wrong case", "Part attributes win", "Private names", "Device part checked at the call", "LED ends follow the anode"). Extend c0247's `Part._end` and `must_connect_pins` hooks and accept `part.pad(function)` (see `design.md`, decision 5). Proof: `uv run pytest tests/unit/dsl/test_device_pins.py -q`.
   Done except the c0247 hooks (2026-10-29): `__getattr__`, the checked `__getitem__`, `PinNameError` (exported
   from `fenolite.dsl`), `__dir__`, the closest-name message and `part.pad(function, index=)` pass their
   scenarios (`tests/unit/dsl/test_device_pins.py`, 12 tests). Left open: extending c0247's `Part._end(index)`
   and `must_connect_pins(component, device)`, and `part.a`/`part.b` of the scenario "LED ends follow the
   anode", wait until c0247 is merged; `dsl.devices.end_handle` and `dsl.devices.must_connect_pins` are the
   functions those hooks will call (tested here).
+  Done (2026-10-29, merge into `circuits-as-code` with c0247, c0249 and c0251): `Part._end` reads the
+  device's `ends` through `end_handle`, so `part.a`/`part.b` of the LED follow the anode;
+  `lens.build.must_connect_pins(component, device)` adds the device's `must_connect` pins, and the build
+  passes each part's device to `unused_pin_marks`; the device's `ref_prefix` is the prefix of a part
+  without a ref (c0249), and `b.part(device=...)` works in blocks (c0251). Proof:
+  `uv run pytest tests/unit/dsl/test_device_pins.py tests/unit/dsl/test_device_hooks.py -q` passed.
 
 ## 4. Build
 
@@ -87,12 +93,9 @@
   Done (2026-10-29): a "Parts from devices" section of `parts.md` with a design block (it uses `PinNameError`) and three `fenolite-cmd` lines; generated pages rewritten; `tests/unit/agent/test_pages_kicad.py` names the new block. Proof passed.
 - [x] 6.3 Residue and evidence: every authored file carries its authored-for-Fenolite line, no real manufacturer part number is shipped, the hypotheses are registered, and the evidence matrix is regenerated. Proof: `make residue`; `uv run pytest tests/unit/test_hypotheses_register.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
   Done (2026-10-29): every authored device file opens with its authored-for-Fenolite line, the example MPN is illustrative, both hypotheses are registered and the evidence matrix is current. Proofs passed (`make residue`: 0 hits; register; `gen_evidence_matrix.py --check`).
-- [ ] 6.4 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
-  Left open (2026-10-29): `dev` is at the unpublished 0.6.0 and `tests/unit/test_release_record_v06.py`
-  requires `## [Unreleased]` to stay empty, so the entry waits until `dev` is at `0.7.0.dev0`.
-  Still open (2026-10-29): the maintainer decided on 2026-10-29 that `circuits-as-code` keeps its current base,
-  version 0.6.0, until the line is ready for `dev`; the v0.6 guard requires `## [Unreleased]` to stay empty
-  until then.
+- [x] 6.4 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. Proof: `uv run pytest tests/unit -k changelog -q`.
+  Done (2026-10-30): `cac/sync-dev` (dev's 0.7.0.dev0 merged into `circuits-as-code`) merged into this branch; the
+  entry "Device catalog" (c0248) stands under `## [Unreleased]` › `### Added`; `uv run pytest tests/unit -k changelog -q` passed.
 - [x] 6.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
   Done (2026-10-29): `make check-fast` passed (15398 passed, 46 skipped); pushed to `cac/c0248-device-catalog`;
   run 40907010241 on 5657bde7 is green in every job (unit on Linux, macOS and Windows, kicad-9, kicad-10,

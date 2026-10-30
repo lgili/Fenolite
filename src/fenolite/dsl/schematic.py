@@ -78,6 +78,7 @@ def extract(design: Design, *, target: str | None = None, enabled: bool = False)
                 request.after,
             )
         )
+    blocks = sorted(blocks + _implicit(design, used), key=lambda b: b.key)
     predecessors = {b.key: b.after for b in blocks}
     for key in predecessors:
         seen: set[str] = set()
@@ -88,6 +89,25 @@ def extract(design: Design, *, target: str | None = None, enabled: bool = False)
             seen.add(current)
             current = predecessors[current]
     return CompositionIntent(design.schematic_flow or "left-to-right", tuple(blocks))
+
+
+def _implicit(design: Design, used: set[str]) -> list[BlockIntent]:
+    """One block per block instance that owns parts directly (change c0251): keyed by its path, holding
+    those parts minus the members of declared blocks, titled ``<path> (<block name>)``; a declared block
+    of the same key replaces it."""
+    from fenolite.dsl.block import blocks as block_instances
+
+    found: list[BlockIntent] = []
+    for instance in block_instances(design):
+        if instance.path in design.schematic_blocks:
+            continue
+        members = sorted(
+            child.path for child in instance.children if isinstance(child, Part) and child.path not in used
+        )
+        if members:
+            title = f"{instance.path} ({instance.definition.name})"
+            found.append(BlockIntent(instance.path, tuple(members), title, None, None))
+    return found
 
 
 def set_flow(design: Design, *, mode: str, flow: str) -> None:

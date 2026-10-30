@@ -365,8 +365,8 @@ def test_max_level() -> None:
         compare_designs(found, bare, level=5)
     with pytest.raises(ValueError, match=r"side a and b holds none; the highest level available is 4"):
         compare_designs(bare, bare, level=5)
-    with pytest.raises(ValueError, match="level is one of 1, 2, 3, 4, 5"):
-        compare_designs(found, found, level=6)
+    with pytest.raises(ValueError, match="level is one of 1, 2, 3, 4, 5, 6, 7"):
+        compare_designs(found, found, level=8)
     assert len(compare_designs(found, bare, level=4).levels) == 4
 
 

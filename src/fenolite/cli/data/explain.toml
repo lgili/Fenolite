@@ -124,6 +124,11 @@ meaning = "The input comes from KiCad 8.0, which Fenolite reads but does not wri
 fix = "Convert it with 'kicad-cli pcb upgrade' of KiCad 10, or re-save it in KiCad 9, then run again."
 see = "KiCad output"
 
+["FEN-7004"]
+meaning = "fenolite build --frozen found that the design lock would change: a new, released, moved or replaced ref, or another design name. A frozen build never writes the lock, and nothing was written."
+fix = "Build without --frozen, review result.lock.changes and the planned lock, commit the lock, then build frozen again."
+see = "build"
+
 ["altium.bus-flattened"]
 meaning = "A bus of the design is drawn as its nets: its nets are not one stem followed by consecutive integers, or one of them is a power net, a harness net or a net of another bus."
 fix = "Nothing to do; name the nets <stem><n> with consecutive integers to have the bus drawn as a bus."
@@ -994,6 +999,16 @@ meaning = "A rule selects a rule area by name (select.area) and the board that t
 fix = "Declare the area with design.rule_area(), draw and name it in KiCad, or remove the selector. Area names are compared with letter case."
 see = "build"
 
+["build.not-two-terminal"]
+meaning = "A part used through its ends part.a and part.b, or passed to series, decouple, pull_up or pull_down, has a symbol with other than two pins, so pins 1 and 2 are not its two ends."
+fix = "Connect the part's pins by number with part[<number>], or use a part whose symbol has two pins."
+see = "build"
+
+["build.must-connect-unconnected"]
+meaning = "part.unused_no_connect() met an open must-connect pin: a pin of type power_in (or a pin a catalog device flags must_connect). Marking it as not connected would hide a missing supply, so the build stops."
+fix = "Connect the pin, or list it in keep= of unused_no_connect() to leave it open without a mark."
+see = "build"
+
 ["build.diff-pair-gap-shadowed"]
 meaning = "The two nets of a pair interface are in a net class with a pair gap, but KiCad would report two tracks laid at that gap: a clearance rule above the gap governs between the two nets, or the board minimum clearance is above the gap and no diff_pair_gap rule selects the pair."
 fix = "Call design.rules.pair(pair, clearance=…, gap_min=…) with values at or below the class gap: it writes a clearance rule and a gap rule for the pair after the rules that shadow it. Or raise the class pair gap."
@@ -1012,6 +1027,11 @@ see = "build"
 ["build.global-library"]
 meaning = "A part's footprint comes from a library outside the project, so it was copied into the project's libraries."
 fix = "Nothing to do; result.vendored lists the copied files."
+see = "build"
+
+["build.block-net-escape"]
+meaning = "A net named by the script joins pins of parts inside a block instance and pins outside it, and no port of the block binds the net: the block uses a net it does not declare, often a global net closed over by the block's function."
+fix = "Declare a port in the block (b.port) and connect the net to the port of the instance outside the block; or ignore the warning for a net that is meant to be global."
 see = "build"
 
 ["build.i2c-pullup-missing"]
@@ -1138,6 +1158,11 @@ see = "build"
 meaning = "A plane of the script has no copper on a KiCad board: no zone of its net lies on its layer. The layer is still written as a plane layer (type power); one issue per plane."
 fix = "Draw that copper in the script with design.zone(<net>, layers=(\"<layer>\",))."
 see = "Build target"
+
+["build.port-unused"]
+meaning = "A port of a block instance that is not optional has nothing outside the block on any of its members: no pin, net, port or interface outside the block is connected to it."
+fix = "Connect a net to the port of the instance (connect(net, inst.PORT)), or declare the port with optional=True when leaving it unwired is intended."
+see = "build"
 
 ["build.property-conflict"]
 meaning = "A user property of a part has another value than the footprint library already holds for it."
@@ -1483,6 +1508,36 @@ meaning = "The board holds no stack-up that Fenolite reads, so the fabrication d
 fix = "Define the stack-up of the board (Board Setup in KiCad), or leave stackup out of [fab] tables in the drawing specification."
 see = "export"
 
+["edit.base-invalid"]
+meaning = "The base record fenolite-base.json of the output folder is not JSON, is of another schema or target, or has a malformed entry; it is read as no record, so every part is merged by the rule of before."
+fix = "Rebuild: the build writes the record again. Do not edit the file by hand."
+see = "build"
+
+["edit.base-missing"]
+meaning = "Parts with a footprint on the board have no entry in fenolite-base.json, as on a board built before change c0250: the board wins for their positions and the script for their values, as before."
+fix = "Nothing to do: this build writes the record, and the next build merges three ways."
+see = "build"
+
+["edit.code-wins"]
+meaning = "A property the script changed since the last build was written over a CAD value nobody edited, for example a changed unlocked place() moved an untouched part."
+fix = "Nothing to do when the change is wanted; otherwise change the script back."
+see = "build"
+
+["edit.legacy-file"]
+meaning = "placements.toml is beside edits.toml and is not read: edits.toml replaces it."
+fix = "Review edits.toml, then delete placements.toml."
+see = "build"
+
+["edit.take-unused"]
+meaning = "A --take matched no sync.conflict of the build and changed nothing."
+fix = "Drop the option, or check its side and target (SIDE[:PATH[#PROPERTY]])."
+see = "build"
+
+["edit.unrecorded"]
+meaning = "A value, footprint or position edited in KiCad is kept over the script's, and edits.toml does not hold it yet."
+fix = "Run fenolite sync --to-source to record it in edits.toml, or change the script to the same value."
+see = "build"
+
 ["equiv.component-missing"]
 meaning = "A component reference exists on one side of the comparison only."
 fix = "Add or remove the component, or leave such references out with --ignore-ref."
@@ -1606,6 +1661,211 @@ see = "equivalent"
 ["equiv.route-unjudged"]
 meaning = "A net holds a zone without a fill on a side, and its pads are not joined without it, so its connectivity was not judged."
 fix = "Fill the zones (fenolite fill) and compare again."
+see = "equivalent"
+
+["equiv.track-missing"]
+meaning = "Strict level 5: a track (by copper span and its two ends) exists on one side only. A track drawn on another path, or cut into other segments, is such a difference."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.track-width"]
+meaning = "Strict level 5: two matched tracks have different widths."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.track-net"]
+meaning = "Strict level 5: two matched tracks lie on nets of different names."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.arc-missing"]
+meaning = "Strict level 5: an arc (by copper span, ends and mid) exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.arc-width"]
+meaning = "Strict level 5: two matched arcs have different widths."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.arc-net"]
+meaning = "Strict level 5: two matched arcs lie on nets of different names."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.via-missing"]
+meaning = "Strict level 5: a via (by position and copper span) exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.via-size"]
+meaning = "Strict level 5: two matched vias have different diameters."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.via-drill"]
+meaning = "Strict level 5: two matched vias have different drills."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.via-span"]
+meaning = "Strict level 5: two matched vias span other copper layers or are of other types (through, blind, buried, micro)."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.via-net"]
+meaning = "Strict level 5: two matched vias lie on nets of different names."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.copper-locked"]
+meaning = "Strict level 5: two matched tracks, arcs or vias differ only in their lock. It is a warning and does not fail the comparison: a lock is the state of an editor, not of the design."
+fix = "Nothing to do, or lock the item on the side that should hold the lock."
+see = "equivalent"
+
+["equiv.netclass-missing"]
+meaning = "Level 6: a net class exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.netclass-field"]
+meaning = "Level 6: a field of a net class (clearance, track width, via sizes, pair values) differs; field names it."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.netclass-members"]
+meaning = "Level 6: the nets assigned to a net class differ."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.rule-missing"]
+meaning = "Level 6: a custom design rule exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.rule-field"]
+meaning = "Level 6: a field of a custom design rule differs; field names it as a dotted path."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.ruleset-field"]
+meaning = "Level 6: a board-wide rule, severity or limit of the rule set differs; field names it as a dotted path."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.stackup-missing"]
+meaning = "Level 6: a stack-up layer exists on one side only, or the layers come in another order."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.stackup-field"]
+meaning = "Level 6: a field of a stack-up layer, or the finish of the stack-up, differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.layer-missing"]
+meaning = "Level 6: a board layer of one kind and ordinal exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.outline-missing"]
+meaning = "Level 7: an outline ring, cut-out or slot exists on one side only, after the rings were normalised (start point and direction do not matter)."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.zone-missing"]
+meaning = "Level 7: a zone (by net, layers and outline) exists on one side only. Fills are never compared."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.zone-field"]
+meaning = "Level 7: a field of two matched zones (name, priority, settings) differs. Fills are never compared."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.keepout-missing"]
+meaning = "Level 7: a rule area (keep-out) exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.keepout-field"]
+meaning = "Level 7: a field of two matched rule areas differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.graphic-missing"]
+meaning = "Level 7: a board graphic, or a graphic of a footprint, exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.text-missing"]
+meaning = "Level 7: a board text, or a text of a footprint, exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.text-field"]
+meaning = "Level 7: the position, size, thickness, rotation or justification of two matched texts differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.field-pose"]
+meaning = "Level 7: the pose of a footprint field (reference, value or user field) differs: position, layer, size, rotation, visibility or justification."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.hole-missing"]
+meaning = "Level 7: a board hole exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.dimension-missing"]
+meaning = "Level 7: a dimension exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.render-missing"]
+meaning = "Level 8: a layer or sheet is rendered by one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.render-pixels"]
+meaning = "Level 8: the rendered masks of a layer or sheet differ beyond the pixel tolerance (parts per million of the inked pixels, after a tolerance of one pixel); where names the box of the largest differing region."
+fix = "Look at the box on both sides (fenolite view NEW --compare OLD names the changed primitives); raise --pixel-ppm only for a known rendering difference."
+see = "equivalent"
+
+["equiv.sheet-missing"]
+meaning = "Level S: a sheet instance exists in one drawn schematic only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.symbol-missing"]
+meaning = "Level S: a symbol unit is drawn on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.symbol-pose"]
+meaning = "Level S: the position, rotation or mirror of a matched symbol differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.symbol-field"]
+meaning = "Level S: the pose of a field of a matched symbol differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.item-missing"]
+meaning = "Level S: a wire, bus, bus entry, junction, no-connect flag, label, power symbol, sheet reference, sheet pin or opaque item is drawn on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.item-field"]
+meaning = "Level S: a field of a matched label, sheet reference or sheet pin differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.drawn-net"]
+meaning = "Level S: the drawn connectivity differs: a pin joins another group of pins."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
 see = "equivalent"
 
 ["equiv.route-vias"]
@@ -2024,8 +2284,8 @@ fix = "Nothing to do; distances to that pad may be reported slightly short."
 see = "check"
 
 ["kicad.generate.altium"]
-meaning = "The script holds generated-copper calls (band, keepout_ring, barrier, body_keepout, fanout_zone, stitch_pieces), which only a KiCad build resolves; the Altium build writes nothing."
-fix = "Build for a KiCad target, or draw the zones and rule areas with zone() and rule_area()."
+meaning = "An Altium build with --copper-from holds generated-copper calls (band, keepout_ring, barrier, body_keepout, fanout_zone, stitch_pieces) or design.role_copper(): the board is the copper source, so the calls would be lost; the Altium build writes nothing."
+fix = "Drop --copper-from to have the script's copper resolved in memory, or build the board for KiCad."
 see = "build"
 
 ["kicad.generate.band-narrow"]
@@ -2702,6 +2962,41 @@ meaning = "A net's length differs from the longest net of its group by more than
 fix = "Lengthen the shorter net (Design.meander), shorten the longer one, or change the rule."
 see = "check"
 
+["lock.changed"]
+meaning = "Under build --frozen, one change of the design lock: the section, the key, the value before and after, and the reason (assigned, released, moved, explicit, taken, prefix-changed or design-renamed)."
+fix = "Build without --frozen, review the change, commit the lock, then build frozen again."
+see = "build"
+
+["lock.design-renamed"]
+meaning = "The design lock names another design than the script; the lock is rewritten with the script's design name."
+fix = "Nothing to do; commit the rewritten lock."
+see = "build"
+
+["lock.ref-explicit"]
+meaning = "An explicit ref of the script replaced the different ref the lock held for that path; the lock records the explicit ref."
+fix = "Nothing to do; commit the lock."
+see = "build"
+
+["lock.ref-moved"]
+meaning = "A design.moved() alias carried a lock entry from the old path to the new one, so the part keeps its ref."
+fix = "Nothing to do; commit the lock. The alias can be removed after one build."
+see = "build"
+
+["lock.ref-prefix-changed"]
+meaning = "The reference prefix of a part changed, so its locked ref, which does not start with the new prefix, was replaced by a new one."
+fix = "Nothing to do if the new prefix is intended; commit the lock."
+see = "build"
+
+["lock.ref-released"]
+meaning = "A lock entry names a path that is no longer a part, and no moved() alias carries it, so its ref is released and may be given to another part later."
+fix = "If the part was renamed, add design.moved(old, new) and build again; otherwise commit the lock."
+see = "build"
+
+["lock.ref-taken"]
+meaning = "A ref held by the lock for one part is now the explicit ref of another part, so the first part was given a new ref."
+fix = "Keep the new ref, or edit the lock or the script so that each part has the ref you want, then build again."
+see = "build"
+
 ["manifest.changed"]
 meaning = "A file is not the one its manifest lists: its SHA-256 differs. Under 'manifest --verify' it is an error. When 'fenolite manifest' writes, it is a warning: the file is listed as it is now, without its tool and source, so it stays 'generated'."
 fix = "Produce the file again with the command that wrote it, then run 'fenolite manifest' again; or keep the edit and accept the state 'generated'."
@@ -3032,6 +3327,46 @@ meaning = "Two rules of the role inference gave a net different roles at one con
 fix = "Confirm the net's role with `fenolite roles PATH --set NET=KIND --confirm`, or declare it in the script with `design.net_role(...)`."
 see = "roles"
 
+["roles.copper-blocked"]
+meaning = "The role copper found no free path between two pad clusters of a net on a layer (or no room for a via array): the band would cross the copper of another net, a corridor or a keep-out. Nothing is forced; that connection is missing."
+fix = "Move the parts or the copper between them, or route that connection by hand (phase 2 routes the switch-node connections it leaves)."
+see = "roles"
+
+["roles.copper-extra"]
+meaning = "A net's role copper branches, and uniting its bands into one zone needs the Clipper union of the `geo` extra, which is not installed; only the longest edge (or the single chain) was generated."
+fix = "Install the extra (`pip install fenolite[geo]`) and run again."
+see = "roles"
+
+["roles.copper-kept"]
+meaning = "A role item that you edited since the last run (its fingerprint differs from `.fenolite/role-copper.json`) was kept as it is and treated as an obstacle."
+fix = "Nothing to do; to have the generated item back, pass `--regenerate KEY` or `role_copper(regenerate=(KEY,))`."
+see = "roles"
+
+["roles.copper-narrow"]
+meaning = "A band of role copper cannot keep its clearance from other copper even at its base width in some cells; the fill carves the copper there, so the section there may be below the current's width."
+fix = "Move the spine's neighbours, or check the section with `fenolite fill` then `fenolite check`."
+see = "roles"
+
+["roles.copper-placement"]
+meaning = "The placement bound of a hot loop (the polygon of its pad centres) is already over your `loop_max`: no copper can meet the limit. The copper is still drawn; phase 1 never moves parts."
+fix = "Place the input capacitor across the switches, then run the role copper again."
+see = "roles"
+
+["roles.copper-skipped"]
+meaning = "A role net got no role copper: `unconfirmed` (an inferred role you have not confirmed), `current-missing` (a power or switch-node role without a current; warning), `user-copper` (your own zone holds the net on that layer) or `shared-layer` (the ground planes went to another ground net)."
+fix = "Confirm the role with `fenolite roles PATH --accept`, give it a current, or remove your zone to get role copper there."
+see = "roles"
+
+["roles.copper-worse"]
+meaning = "The role copper would add a role finding of warning or above that the board did not have (judged on the simulated pour, before and after); nothing is written. The topological findings of the routes (Kelvin and gate-return attachments) are not counted."
+fix = "Read the finding it names; move the parts, or pass other layers, widths or `kinds` to the role copper."
+see = "roles"
+
+["roles.corridor-blocked"]
+meaning = "A provisional corridor of a critical route (`role.corridor.<group>.<net>`) would cover another net's pad or a locked item of another net, so it was not written; phase 2 routes around that copper."
+fix = "Nothing to do for phase 1; route the gate loop or the Kelvin pair (phase 2), or move the copper that blocks it."
+see = "roles"
+
 ["roles.current-missing"]
 meaning = "A `power`, `switch_node` or `ground` role has no current: no `milliamps` on the role, no `[[current]]` row and no `--current`. Its copper is not judged for current."
 fix = "Give the current with `--current NET=AMPS`, a `[[current]]` row, or `design.net_role(net, ..., current=amp(...))`."
@@ -3161,6 +3496,36 @@ see = "route"
 meaning = "The copper check judged the copper the octilinear router placed and found a short or clearance finding that the board did not have before; the copper of that connection was removed and the net stays open."
 fix = "Read the finding in the message, give the connection room with fenolite place --move, or route it with another router; fenolite check shows the board's findings."
 see = "route"
+
+["route.role-unrouted"]
+meaning = "In role mode (route --roles critical), a gate loop or Kelvin pair was not routed. The message gives the reason (no-room, too-long, no-layer, near-switching, isolation, drc or pads), and result.roles holds the proposal with its command and a render --region command for the place."
+fix = "Run the proposal's command: free the corridor it names, allow a via with --router-option kelvin-vias=2, raise max-length, or move a part; then run route --roles critical again. Draw the place with the render command first."
+see = "route"
+
+["route.role-refused"]
+meaning = "In role mode, a group was routed, but the role check of c0222 then found a role finding on it that was new or larger than before; the whole copper of the group was removed."
+fix = "Read the finding in the message, free the place it names, and run route --roles critical again; fenolite roles PATH --check shows the role findings."
+see = "route"
+
+["route.role-unconfirmed"]
+meaning = "In role mode, inferred role groups that nobody confirmed were not routed: copper is placed and locked only for confirmed or declared groups. The message names them."
+fix = "Review them with fenolite roles PATH, confirm the right ones with --accept-group NAME, then run route --roles critical again."
+see = "roles"
+
+["route.role-kept"]
+meaning = "In role mode, a group whose connections copper already joins still has role findings; role mode removes no copper on its own, so the group was left as it is."
+fix = "Run route --roles critical again with --rip to replace the group's branches; locked and script copper stay, so change the script when the old copper is script copper."
+see = "route"
+
+["route.role-placement"]
+meaning = "In role mode, the placement bound of a gate loop is above the gate_max you set: no route can bring the loop's area under your limit."
+fix = "Place the driver closer to the switch with fenolite place --move, or raise the limit with fenolite roles."
+see = "roles"
+
+["route.role-none"]
+meaning = "In role mode, the board holds no gate loop or Kelvin pair to route: no role is stored or declared, or the groups named by --group are not among them."
+fix = "Run fenolite roles PATH to see the inferred groups and confirm them with --accept-group or --accept-all; a hot loop is power copper and is not routed here."
+see = "roles"
 
 ["route.pair-uncoupled"]
 meaning = "With --pairs-as-nets, the two nets of a differential pair were given to the router as two single nets: their copper is not coupled at the pair gap."
@@ -3387,6 +3752,11 @@ meaning = "A clearance or edge-clearance rule names layers. The Specctra file ha
 fix = "Nothing to do; the router keeps at least what the rule asks."
 see = "route"
 
+["sync.conflict"]
+meaning = "A property changed both in the script (or edits.toml) and in the CAD file since the last build, to different values, or an edit of edits.toml was made over a script value that changed since (stale-edit); nothing is written."
+fix = "Choose a side with fenolite build ... --take code:PATH#PROPERTY or --take cad:PATH#PROPERTY (board or schematic when the two CAD sides disagree), then run fenolite sync --to-source."
+see = "build"
+
 ["sync.net-dropped"]
 meaning = "The board holds copper on a net that the design no longer has and that no alias covers; the next build drops that copper."
 fix = "Keep the net in the script, or name its new name with moved_net(old, new) before building."
@@ -3395,6 +3765,11 @@ see = "sync"
 ["sync.orphan"]
 meaning = "A footprint that Fenolite placed is on the board and its part is not in the design; the next build removes it."
 fix = "Keep the part in the script, or name its new path with moved(old, new) before building."
+see = "sync"
+
+["sync.placements-migrated"]
+meaning = "No edits.toml was beside the script: the entries of the legacy placements.toml are carried into the edits.toml that sync writes."
+fix = "Review edits.toml, commit it, then delete placements.toml."
 see = "sync"
 
 ["sync.symbol-off-grid"]
@@ -3762,6 +4137,26 @@ see = "panel"
 meaning = "A file that the last fenolite panel wrote was changed since; the panel is not written over it."
 fix = "Run again with --discard-layout to replace it (a .bak copy is kept), or write the panel to another --out."
 see = "panel"
+
+["fidelity.build-failed"]
+meaning = "verify-source built the script in its temporary folder and the build wrote no file, so no level ran; the build's own errors are listed beside this issue."
+fix = "Fix the script or the libraries it names until fenolite build writes the project, then verify again."
+see = "verify-source"
+
+["fidelity.accepted-unused"]
+meaning = "An accepted difference of fidelity.accepted in PROVENANCE.json matched no difference in a level that ran: the difference it accepted is gone."
+fix = "Remove the entry from fidelity.accepted, so acceptances shrink as Fenolite improves."
+see = "verify-source"
+
+["fidelity.level-skipped"]
+meaning = "verify-source skipped a level that a side cannot reach; the message names the reason (no-footprints, no-copper, no-board, no-schematic, drawn-unavailable, altium-drawing-unread, build-failed)."
+fix = "Nothing to do when the reason is expected; a skipped level is never a pass."
+see = "verify-source"
+
+["fidelity.input-upgraded"]
+meaning = "verify-source upgraded a copy of an original older than KiCad 9.0 with kicad-cli pcb upgrade (--upgrade); the message names the tool version and both SHA-256."
+fix = "Nothing to do; the original itself is unchanged."
+see = "verify-source"
 
 ["catalog.pin-without-pad"]
 meaning = "fenolite catalog import: a symbol pin has no footprint pad of its number, and no --pin maps it. Nothing is written."

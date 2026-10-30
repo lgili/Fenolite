@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Stable issue codes emitted by routing plugins and commands, mapped to their severity."""
+"""Stable issue codes emitted by routing plugins and commands, mapped to their severity. The ``route.role-*``
+codes are those of the role mode (change c0244; ``docs/routing.md``, "Role mode")."""
 
 from fenolite.core.errors import Severity
 
@@ -24,6 +25,12 @@ ISSUE_CODES: dict[str, Severity] = {
     "route.plane-net": "info",
     "route.project-unread": "warning",
     "route.resumed": "info",
+    "route.role-kept": "info",
+    "route.role-none": "info",
+    "route.role-placement": "info",
+    "route.role-refused": "warning",
+    "route.role-unconfirmed": "info",
+    "route.role-unrouted": "warning",
     "route.tool-failed": "error",
     "route.tool-missing": "error",
     "route.tool-unpinned": "warning",

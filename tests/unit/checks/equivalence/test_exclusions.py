@@ -174,3 +174,51 @@ def test_first_rule_wins_and_a_rule_stops_no_comparison() -> None:
     assert applied.differences == (two,) and [e.rule_id for e in applied.excluded] == ["first"]
     assert apply_rules(result, (second, first)).excluded[0].rule_id == "second"
     assert apply_rules(result, ()) == result
+
+
+# --- accepted differences of a provenance file (change c0278) --------------------------------------
+
+ACCEPTED = {
+    "id": "A001",
+    "level": 7,
+    "kind": "text-field",
+    "where": "board:Cmts.User:*",
+    "field": "size",
+    "reason": "an authored acceptance",
+    "attribution": "fenolite",
+    "decided": "2026-11-01",
+}
+
+
+def test_accepted_entries_become_rules() -> None:
+    from fenolite.checks.equivalence import accepted_rules
+
+    (rule,) = accepted_rules([ACCEPTED])
+    assert (rule.id, rule.level, rule.kind, rule.field, rule.attribution) == (
+        "A001", 7, "text-field", "size", "fenolite",
+    )  # fmt: skip
+    assert rule.matches(Difference(7, "text-field", "board:Cmts.User:NOTE", "size", "1", "2"))
+    assert not rule.matches(Difference(7, "text-field", "board:Cmts.User:NOTE", "rotation", "1", "2"))
+    (drawn,) = accepted_rules([{**ACCEPTED, "level": "S", "kind": "item-missing", "field": "junction"}])
+    assert drawn.level == "S"
+    assert accepted_rules([]) == ()
+
+
+@pytest.mark.parametrize(
+    ("entry", "message"),
+    [
+        ({**ACCEPTED, "level": 6}, "accepted entry 'A001': 'text-field' is not a kind of level 6"),
+        ({**ACCEPTED, "attribution": "importer"}, "attribution is one of fenolite, upstream, tool"),
+        ({k: v for k, v in ACCEPTED.items() if k != "reason"}, "missing reason"),
+        ({**ACCEPTED, "extra": 1}, "unknown key extra"),
+        ({**ACCEPTED, "level": "7"}, "level is an integer of 1 to 8 or 'S'"),
+        ({**ACCEPTED, "kind": "pad-size", "field": "width"}, "is not a kind of level 7"),
+    ],
+)
+def test_accepted_entries_are_checked(entry: dict[str, object], message: str) -> None:
+    from fenolite.checks.equivalence import accepted_rules
+
+    with pytest.raises(FormatError, match=message.replace("(", r"\(")):
+        accepted_rules([entry], file="PROVENANCE.json")
+    with pytest.raises(FormatError, match="used twice"):
+        accepted_rules([ACCEPTED, ACCEPTED])

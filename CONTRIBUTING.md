@@ -34,6 +34,24 @@ Thank you for helping. Fenolite is spec-driven, agent-friendly and strict about 
    Altium instead, and `kicad10` for KiCad 10 alone, for a feature that a KiCad 9 board cannot hold
    (`fenolite.agent.guide.DESIGN_TARGETS`).
 
+## The viewer page's sources
+
+The page of `fenolite view` is built from TypeScript modules in `viewer/src/` (change c0304): the board, sheet
+and 3D renderers are hand-written canvas and WebGL code, and UI panels use Preact. `viewer/build.mjs`
+type-checks the modules with the TypeScript compiler, links them into one script in the order `main.ts`
+imports them, bundles Preact and the stylesheet with esbuild, and writes `src/fenolite/view/static/`, which
+is committed: a user's install needs no Node.
+
+- After changing anything under `viewer/`, run `make viewer` (Node 22 or later; it runs `npm ci` in `viewer/`
+  when needed) and commit the four files of `src/fenolite/view/static/` with the change. Never edit them by
+  hand. `tests/unit/view/test_viewer_bundle.py` fails on a stale or edited bundle, without Node; CI's `viewer`
+  job runs `make viewer-check`, which rebuilds and compares byte for byte.
+- A module's top-level names are page globals (the visual tests read `S`, `st`, `linkReady`…), so the build
+  refuses a name that two modules declare. A `let` that another module assigns gets a setter in its own
+  module. A module's top-level code may read only modules that `main.ts` imports before it.
+- Versions are exact in `viewer/package.json` and locked in `viewer/package-lock.json`; `node_modules` is never
+  committed. Bundled third-party code is listed in `NOTICE` and its licence notice heads `viewer.js`.
+
 ## The viewer's visual tests
 
 `tests/visual` draws one authored fixture per scene kind of `fenolite view` (KiCad and Altium boards and

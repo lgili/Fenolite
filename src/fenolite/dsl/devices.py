@@ -151,7 +151,7 @@ def pin_name_error(part: Part, device: DeviceDef, name: str, what: str = "pin") 
     listed = ", ".join(names[:PIN_LIST_LIMIT]) + (", …" if len(names) > PIN_LIST_LIMIT else "")
     near_text = f"; closest: {', '.join(near)}" if near else ""
     return PinNameError(
-        f"part {part.ref} (device {device.id}) has no {what} {name!r}{near_text}; pins: {listed}"
+        f"part {part.label} (device {device.id}) has no {what} {name!r}{near_text}; pins: {listed}"
     )
 
 
@@ -175,7 +175,8 @@ def function_pad(part: Part, device: DeviceDef, name: str, index: int | None) ->
             pick = 0 if index is None else index
             if isinstance(pick, bool) or not isinstance(pick, int) or not 0 <= pick < len(pin.pads):  # pyright: ignore[reportUnnecessaryIsInstance]
                 raise DslError(
-                    f"part {part.ref}: function {name} has {len(pin.pads)} pad(s); index {index!r} names none"
+                    f"part {part.label}: function {name} has {len(pin.pads)} pad(s); "
+                    f"index {index!r} names none"
                 )
             return pin.pads[pick]
     raise pin_name_error(part, device, name, "pad or pin")

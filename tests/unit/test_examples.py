@@ -253,6 +253,42 @@ def test_yardstick_states_its_lengths_once() -> None:
     assert literal == []
 
 
+# ---- the design-lock example (capability design-dsl, "Design lock in a build"; change c0249)
+
+LOCK_EXAMPLE = ROOT / "examples" / "lock"
+
+
+def test_lock_example_header_and_listing() -> None:
+    lines = (LOCK_EXAMPLE / "design.py").read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith("# Authored for Fenolite")
+    assert "`lock/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+
+
+def test_lock_example_parts() -> None:
+    """Two modules with parts without a ref, one named part, one explicit ref, and the committed lock."""
+    from fenolite.dsl.lock import lock_text, read_lock
+
+    design = run_design_script(LOCK_EXAMPLE / "design.py").design
+    unnamed = sorted(p.path for p in design.parts.values() if p.explicit_ref is None and p.name is None)
+    assert unnamed == ["led/D", "led/R", "reg/C", "reg/U"]
+    assert [p.path for p in design.parts.values() if p.name is not None] == ["reg/c_in"]
+    assert [p.path for p in design.parts.values() if p.explicit_ref is not None] == ["J1"]
+    text = (LOCK_EXAMPLE / "design.lock").read_text(encoding="utf-8")
+    lock = read_lock(text, file="design.lock")
+    assert lock_text(lock) == text and set(lock.refs) == set(design.parts)
+    model = to_model(design, refs=lock.refs)
+    assert sorted(c.ref for c in model.circuit.components) == ["C1", "C2", "D1", "J1", "R1", "U1"]
+
+
+def test_lock_example_builds_frozen(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    args = ["build", str(LOCK_EXAMPLE / "design.py"), "--out", str(tmp_path / "B"), "--frozen", "--dry-run"]
+    assert cli_main.main([*args, "--json"]) == 0, err.getvalue()
+    assert json.loads(out.getvalue())["result"]["lock"]["changes"] == []
+
+
 # -- the device example (change c0248)
 
 DEVICES = ROOT / "examples" / "devices"

@@ -182,7 +182,7 @@ real board, read `board-practice`: the order of work and the practice pages (`bo
 - `fabrication`: export, the bill of materials, the position table, the manifest and its states, render, and what is not produced.
 - `files`: Read a file Fenolite did not write, tell whether editing it is safe, compare two files or two designs, and undo a confirmed write.
 - `footprints`: Footprint and Symbol from dimensions when no library has the part, and what a person must still check against the datasheet.
-- `parts`: Where symbols and footprints come from, how a pin is named, pad_map, values with units, user properties and typed interfaces.
+- `parts`: Where symbols and footprints come from, how a pin is named, pad_map, values with units, user properties, typed interfaces and blocks.
 - `placement`: place() in the script, staged parts and the grid strategy, moving a part on the board, copying a block by its pads, where the pads are, and text fields.
 - `recovery`: One tested recipe per exit code from 2 to 7 and for shorted copper, the table of every error code, and reading the guide itself.
 - `routing`: Which router does what, route with --nets and --rip, what unrouted means, copper written in the script, zones and fill.

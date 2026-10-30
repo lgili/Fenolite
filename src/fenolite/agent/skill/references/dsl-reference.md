@@ -62,7 +62,7 @@ A net, named globally and literally; a module-local net is named by the script.
 
 ## Part
 
-Class: `Part(ref: 'str', lib_id: 'str \| None' = None, footprint: 'str \| None' = None, value: 'str \| Quantity \| None' = None, *, device: 'str \| None' = None, properties: 'Mapping[str, str] \| None' = None, pad_map: 'Mapping[str, str \| Sequence[str]] \| None' = None, height: 'object' = None) -> 'None'`
+Class: `Part(ref: 'str \| None' = None, lib_id: 'str \| None' = None, footprint: 'str \| None' = None, value: 'str \| Quantity \| Range \| None' = None, *, name: 'str \| None' = None, prefix: 'str \| None' = None, device: 'str \| None' = None, properties: 'Mapping[str, str] \| None' = None, pad_map: 'Mapping[str, str \| Sequence[str]] \| None' = None, height: 'object' = None) -> 'None'`
 
 A component: reference, symbol lib id, optional footprint lib id, value and user properties; or a reference and a device id, which gives the rest.
 
@@ -78,6 +78,12 @@ Class: `Power(hv: 'Net', lv: 'Net', *, name: 'str \| None' = None) -> 'None'`
 
 A supply: `hv` and `lv` nets; the default name is `<hv>/<lv>`.
 
+## Range
+
+Class: `Range(unit: 'str', low: 'Fraction \| None', high: 'Fraction \| None', nominal: 'Fraction \| None' = None) -> 'None'`
+
+An exact interval of one unit (a unit of `UNITS`, or `"ratio"`) with an optional nominal.
+
 ## SPI
 
 Class: `SPI(sck: 'Net', mosi: 'Net', miso: 'Net', *, cs: 'Sequence[Net]' = (), name: 'str \| None' = None) -> 'None'`
@@ -89,6 +95,12 @@ An SPI bus: `sck`, `mosi`, `miso` and one `cs<i>` net per chip select, in the or
 Class: `Symbol(library: 'str', name: 'str', *, reference: 'str', value: 'str' = '', footprint: 'str' = '', description: 'str' = '') -> 'None'`
 
 Author a one-unit symbol.
+
+## Tolerance
+
+Class: `Tolerance(lo: 'Fraction', hi: 'Fraction') -> None`
+
+A per-cent tolerance without unit, from `lo` % to `hi` % (`lo <= 0 <= hi`); build one with `pct()`.
 
 ## UART
 
@@ -114,11 +126,29 @@ Function: `arc_to(mid: 'object', end: 'object') -> 'ArcStep'`
 
 An arc from the point of the path element before it through `mid` to `end`, each an `(x, y)` pair of lengths in the frame of `place()` or an anchor; the path continues from `end`.
 
+## between
+
+Function: `between(a: 'Quantity', b: 'Quantity', *, nominal: 'Quantity \| None' = None) -> 'Range'`
+
+The range from `a` to `b`, two quantities of one unit with `a <= b`, with an optional nominal of that unit between them.
+
+## block
+
+Function: `block(function: 'Callable[..., None] \| None' = None, /, *, name: 'str \| None' = None) -> 'BlockDef \| Callable[[Callable[..., None]], BlockDef]'`
+
+Mark `def name(b, *, param=default, ...)` as a block: `@block` or `@block(name="buck")`.
+
 ## connect
 
-Function: `connect(net: 'Net', *pins: 'PinHandle') -> 'Net'`
+Function: `connect(net: 'object', *pins: 'object') -> 'Net'`
 
 Join each pin to `net`; one designator of one part on two nets is refused.
+
+## decouple
+
+Function: `decouple(rail: 'Net', ground: 'Net', *capacitors: 'Part', near: 'object' = None, within: 'object' = None, severity: 'str' = 'error') -> 'None'`
+
+Join each capacitor's `a` to `rail` and its `b` to `ground`.
 
 ## farad
 
@@ -174,11 +204,29 @@ Function: `ohm(value: 'int \| Fraction \| str') -> 'Quantity'`
 
 A resistance: `ohm("4k7")`, `ohm("4.7 kΩ")`, `ohm(4700)`.
 
+## pct
+
+Function: `pct(lo: 'int \| Fraction \| str', hi: 'int \| Fraction \| str \| None' = None) -> 'Tolerance'`
+
+A per-cent tolerance: `pct(5)` is `±5 %`, `pct(-20, 80)` from −20 % to +80 %.
+
 ## protect
 
 Function: `protect(*, tenting: 'object' = None, covering: 'object' = None, plugging: 'object' = None, capping: 'object' = None, filling: 'object' = None) -> 'ViaProtection'`
 
 How a via is protected.
+
+## pull_down
+
+Function: `pull_down(target: 'Net \| I2C', ground: 'Net', *resistors: 'Part') -> 'None'`
+
+Join each resistor's `a` to a net of `target` and its `b` to `ground`, as `pull_up`.
+
+## pull_up
+
+Function: `pull_up(target: 'Net \| I2C', rail: 'Net', *resistors: 'Part') -> 'None'`
+
+Join each resistor's `a` to a net of `target` and its `b` to `rail`.
 
 ## schematic_composition
 
@@ -237,6 +285,12 @@ The items on the two nets of a differential pair: a `DiffPair`, a `USB2` or anot
 Function: `select.ref(name: 'str \| Part') -> 'Select'`
 
 The items of a part (for a courtyard rule, the part's footprint), by reference or as the `Part`.
+
+## series
+
+Function: `series(*chain: 'object') -> 'tuple[Net, ...]'`
+
+Connect a chain from a net through two-pin parts to a net: `series(vin, f1, d1, vprot)`.
 
 ## shape
 

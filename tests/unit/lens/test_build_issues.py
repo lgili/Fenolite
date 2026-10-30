@@ -14,8 +14,10 @@ from _buildhelp import blink, build, codes
 from fenolite.backends.kicad import embed
 from fenolite.core.evidence import Level
 from fenolite.core.ids import derived_id
+from fenolite.dsl.lock import LOCK_CODES
 from fenolite.lens.altium_schematic import ISSUE_CODES as ALTIUM_ISSUE_CODES
 from fenolite.lens.build import BUILD_EVIDENCE, BUILD_ISSUE_CODES, plane_issues
+from fenolite.lens.edits import EDIT_ISSUE_CODES
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES
 from fenolite.model.board import Zone
 from fenolite.model.circuit import Net
@@ -55,12 +57,20 @@ def test_closed_set() -> None:
         "build.sheet-file-collision": "error",  # c0070: module sheets
         "build.sheet-stale": "warning",
         "build.pad-map-default": "warning",  # c0147: the catalog's default pin-to-pad map
+        "build.port-unused": "warning", "build.block-net-escape": "warning",  # c0251: blocks
         "build.area-unknown": "error",  # c0103: a rule names no rule area
+        "build.not-two-terminal": "error", "build.must-connect-unconnected": "error",  # c0247
+        # c0249: the design lock
+        "lock.ref-released": "warning", "lock.ref-taken": "warning", "lock.ref-moved": "info",
+        "lock.ref-explicit": "info", "lock.ref-prefix-changed": "info", "lock.design-renamed": "info",
+        "lock.changed": "error",
         # c0248: devices
         "build.device-mismatch": "error", "device.edited": "info", "device.overrides-builtin": "info",
         **PRESERVE_ISSUE_CODES,  # c0019
+        **EDIT_ISSUE_CODES,  # c0250: the edit merge passes through
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table
+    assert {code: BUILD_ISSUE_CODES[code] for code in LOCK_CODES} == dict(LOCK_CODES)
     literals: set[str] = set()
     kicad = ROOT / "src" / "fenolite" / "backends" / "kicad"
     generator = [
@@ -73,7 +83,9 @@ def test_closed_set() -> None:
         literals |= set(
             re.findall(r'"((?:build|layout|zone|device)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
         )
-    assert literals == set(table) | {code for code in ALTIUM_ISSUE_CODES if code.startswith("build.")}
+    # the lock's codes are raised by fenolite.dsl.lock (c0249), the edit codes by fenolite.lens.edits (c0250)
+    own = set(table) - set(LOCK_CODES) - set(EDIT_ISSUE_CODES)
+    assert literals == own | {code for code in ALTIUM_ISSUE_CODES if code.startswith("build.")}
     tested: set[str] = set()
     cli_tests = TESTS.parent / "cli" / "test_build_schematic_cmd.py"
     layout_tests = TESTS.parent / "backends" / "kicad" / "test_schlayout.py"
@@ -81,7 +93,8 @@ def test_closed_set() -> None:
         tested |= set(
             re.findall(r'"((?:build|layout|zone|device)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
         )
-    assert set(table) - set(PRESERVE_ISSUE_CODES) <= tested, set(table) - tested
+    owned = own - set(PRESERVE_ISSUE_CODES)
+    assert owned <= tested, owned - tested
 
 
 def test_warnings_do_not_fail() -> None:

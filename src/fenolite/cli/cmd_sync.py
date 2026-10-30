@@ -3,9 +3,11 @@
 """``fenolite sync DESIGN.py --out DIR --to-source [--check]``: copy the layout of a built project into
 the source tree (``docs/cli-contract.md``, "sync"; ``docs/lens.md``, "sync").
 
-The board in ``DIR`` is the layout's truth. ``sync --to-source`` writes its placements to
-``placements.toml`` beside the design script, which ``build`` reads, and reports what the next build would
-drop or overwrite. ``--check`` writes nothing and fails when the committed file is stale. The command runs
+The board in ``DIR`` is the layout's truth. ``sync --to-source`` records what KiCad changed against the
+script in ``edits.toml`` beside the design script (positions, rotations, values and footprints, each over
+the script value it was made over; change c0250), which ``build`` reads, and reports what the next build
+would drop or overwrite. A ``sync.conflict`` writes nothing: ``build --take`` resolves it. ``--check``
+writes nothing and fails when a committed file is stale or a property is in conflict. The command runs
 ``DESIGN.py`` as ``build`` does and starts no external tool.
 """
 
@@ -24,7 +26,9 @@ from fenolite.cli.cmd_build import MINIMAL
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FormatError, Issue
-from fenolite.dsl import BOARD_ORIGIN, DslError, module_moves, moves, net_moves, to_model
+from fenolite.core.evidence import Evidence
+from fenolite.dsl import BOARD_ORIGIN, DslError, module_moves, moves, net_moves, placements, to_model
+from fenolite.lens import edits as edits_mod
 from fenolite.lens.moved import Aliases
 from fenolite.lens.placements import FILE_NAME
 from fenolite.lens.preserve import read_existing
@@ -42,7 +46,7 @@ KIND = "placements-toml"
 
 def _register(parser: argparse.ArgumentParser) -> None:
     parser.description = (
-        HELP + ". KiCad writes placements.toml; Altium captures native schematic layout beside DESIGN.py. "
+        HELP + ". KiCad writes edits.toml; Altium captures native schematic layout beside DESIGN.py. "
         "Build reads these files. --check writes nothing and "
         "exits 5 when the file would change."
     )
@@ -64,14 +68,21 @@ def _register(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="write nothing; report each file that would change as an error (for CI)",
     )
+    parser.add_argument(
+        "--take",
+        action="append",
+        default=None,
+        metavar="SIDE[:TARGET]",
+        help="refused: sync records and never resolves; resolve a conflict with fenolite build --take",
+    )
 
 
 def first_difference(old: str | None, new: str) -> str:
     """The header of the first table of ``new`` whose text ``old`` does not hold, or ``schema`` when
     the difference is before the tables."""
-    held = set((old or "").split("\n\n"))
+    held = {block.strip() for block in (old or "").split("\n\n")}
     for block in new.split("\n\n"):
-        if block not in held:
+        if block.strip() not in held:
             line = block.splitlines()[0] if block else ""
             return line.strip("[]") if line.startswith("[") else "schema"
     return "schema"
@@ -103,6 +114,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             where="--to-source",
             hint="add --to-source: the board in --out is copied to the files beside the script",
         )
+    if getattr(args, "take", None):
+        raise CliError(
+            "FEN-2001",
+            "--take is an option of fenolite build: sync records, it never resolves",
+            where="--take",
+            hint="resolve the conflict with fenolite build --take, then sync",
+        )
     if args.check and getattr(args, "confirm", False):
         raise CliError("FEN-2001", "--check writes nothing, so it does not take --confirm", where="--check")
     script = Path(args.design)
@@ -127,6 +145,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             to_model(design), authored_symbols=design.symbols, authored_footprints=design.footprints
         )
         aliases = Aliases(moves(design), module_moves(design), net_moves(design))
+        requests = placements(design)
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
     existing = read_existing(out_dir, design.name)
@@ -139,20 +158,30 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         )
     folder = script.parent
     source = script_path.resolve().parent
-    current = _text(source / FILE_NAME)
+    edits_text = _text(source / edits_mod.EDITS_FILE)
+    legacy = _text(source / FILE_NAME) if edits_text is None else None
     sheets = _sheets(out_dir / f"{design.name}.kicad_sch")
-    held = {FILE_NAME: current, SYMBOL_FILE_NAME: _text(source / SYMBOL_FILE_NAME)}
+    held = {edits_mod.EDITS_FILE: edits_text, SYMBOL_FILE_NAME: _text(source / SYMBOL_FILE_NAME)}
+    base_text = _text(out_dir / edits_mod.BASE_FILE)
+    base = (
+        edits_mod.read_base(base_text, target="kicad", file=edits_mod.BASE_FILE)
+        if base_text is not None
+        else edits_mod.BaseRecord.absent("kicad")
+    )
     plan = plan_sync(
         model,
         existing,
         name=design.name,
         aliases=aliases,
         origin=BOARD_ORIGIN,
-        placements_text=current,
+        edits_text=edits_text,
+        placements_text=legacy,
         symbol_placements_text=held[SYMBOL_FILE_NAME],
         sheets=sheets,
+        base=base,
+        requests=requests,
     )
-    issues: list[Issue] = list(plan.issues)
+    issues: list[Issue] = [*base.issues, *plan.issues]
     writes: tuple[PlannedWrite, ...] = ()
     if args.check:
         for name, text in sorted(plan.files.items()):
@@ -176,7 +205,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     return Result(
         result=result,
         issues=tuple(issues),
-        evidence=EVIDENCE,
+        evidence=Evidence.combine(EVIDENCE, edits_mod.EVIDENCE)
+        if base.present or edits_text is not None
+        else EVIDENCE,
         input=InputRef(
             path=str(args.design),
             sha256=hashlib.sha256(script_path.read_bytes()).hexdigest(),

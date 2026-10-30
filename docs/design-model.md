@@ -40,7 +40,7 @@ objects change; the diff matches such objects by content.
 | File | Class | Contents |
 |---|---|---|
 | `meta.json` | `DesignHeader` | id, name, `schema_version` (`"0"`), `fenolite_version` |
-| `circuit.json` | `Circuit` | components (pins), nets (pin members), net classes, interfaces, modules, no-connect marks |
+| `circuit.json` | `Circuit` | components (pins), nets (pin members), net classes, interfaces, modules, block ports, no-connect marks |
 | `board.json` | `Board` | outline, layers, stack-up, footprints (pads), tracks, arcs, vias, zones, keep-outs, texts, graphics, holes |
 | `rules.json` | `RuleSet` | rules: kind, selectors, layers, min/opt/max, severity, priority (1 = highest); check severities |
 | `manufacturing.json` | `Manifest` | generated artefacts with tool, version, revision, variant, evidence, state |
@@ -87,6 +87,43 @@ that the design leaves unconnected on purpose (`no_connect` of `docs/dsl.md`).
   - `model.unknown-net` (error): a member's `net_id` is no net of the circuit;
   - `model.duplicate-bus-index` (error): an index is used twice in one bus.
 - A bus gives no net and no net member. No backend writes a bus; a build keeps it in `.fenolite/`.
+
+### Value ranges
+
+`Component.value_range: ValueRange | None` (the last field of `Component`, `None` by default, change
+c0246) holds the exact range of a part value given as a DSL `Range` (`docs/dsl.md`, "Ranges").
+
+- `ValueRange(unit, low=None, nominal=None, high=None)` and `Decimal10(m, e)` are value objects without id
+  or entity header, like `PinRef`. `unit` is one of `ohm`, `farad`, `henry`, `volt`, `ampere`, `hertz`,
+  `watt` and `second` (`RangeUnit`); at least one bound is given, `low <= high`, and a nominal lies
+  within the bounds, else `ValueError`.
+- `Decimal10(m, e)` is the exact value m · 10^e in one canonical form: `|m| <= 10^15 − 1` (15 significant
+  digits), `−30 <= e <= 30`, no trailing zero digit in `m`, and zero as `Decimal10(0, 0)`. Every integer
+  stays below 2^53, so a JSON reader that uses doubles reads it exactly. `10kΩ ±1%` is
+  `{"unit": "ohm", "low": {"m": 99, "e": 2}, "nominal": {"m": 1, "e": 4}, "high": {"m": 101, "e": 2}}`.
+- **Outward rounding.** Lowering stores every value with at most 15 significant digits exactly and
+  rounds any other to 15 digits: `low` down, `high` up, the nominal to nearest with ties to even, so the
+  stored interval holds the exact one (`1/3 Ω` as a lower bound is `Decimal10(333333333333333, −15)`).
+- **Magnitude.** A value whose exponent leaves −30..30 is refused (`DslError` at the `Part` call). The
+  pair covers every quantity with room to spare, where a fixed integer sub-unit below 2^53 (15.9
+  decades) would not:
+
+  | quantity | smallest | largest |
+  |---|---|---|
+  | resistance | 0.1 mΩ | 10 TΩ |
+  | capacitance | 0.1 pF | 3 000 F |
+  | inductance | 0.1 nH | 10 H |
+  | voltage | 1 µV | 50 kV |
+  | current | 1 pA | 10 kA |
+  | frequency | 1 mHz | 100 GHz |
+  | power | 1 nW | 100 kW |
+  | time | 1 fs | 10^6 s |
+
+- The field is additive: `canonical` omits `None`, a `circuit.json` without the key loads with `None`,
+  `SCHEMA_VERSION` stays `"0"`, and `schemas/fenolite.model.v0/circuit.json` lists `value_range` as
+  optional. No backend writes or reads it: a build keeps it in `.fenolite/circuit.json` only, and a board
+  read from KiCad without `.fenolite/` has `None`. The unit tables of the DSL arithmetic
+  (`quantity.UNIT_PRODUCTS`, `quantity.UNIT_QUOTIENTS`) are in `docs/dsl.md`, "Ranges".
 
 ## Library definitions
 
@@ -635,6 +672,26 @@ Placing again with the same key gives the same ids; two keys share none; adding 
 placement changes no id of a copy. The copy records the definition in `FootprintInstance.lib_ref`,
 belongs to the caller's component, and its pads have no net until the caller assigns one. The
 definition stays unchanged.
+
+### Block instances and ports
+
+Change c0251 records the blocks of a design script (`docs/dsl.md`, "Blocks").
+
+- `Module.block: str` names the block that made the module (empty for a plain module), and
+  `Module.params: tuple[BlockParam, ...]` records its parameters, ordered by name. Two params with one
+  name, params out of name order, or params without a block name raise `ValueError`.
+- `BlockParam(name, type, text)` is a frozen value object. `type` is one of `bool`, `int`, `str`, `length`,
+  `quantity`, `range` and `none`; any other raises `ValueError`. `text` is the canonical text: `true` or
+  `false`, a decimal integer, the string, integer nanometres, `Quantity.text()`, the range text of c0246,
+  or empty for `none`.
+- `Circuit.ports: tuple[Port, ...]` (empty by default). `Port` carries the entity header (prefix `prt`),
+  `name`, `owner` (the id of a module, or of a component for a device port), `kind` (`net` or an
+  interface kind such as `power` or `i2c`), `direction` (`in`, `out` or `inout`; any other raises
+  `ValueError`), `members` (member name to net id, a member without a net left out) and `optional`. An
+  empty `name` or `kind` raises `ValueError`.
+- The fields are additive: each is omitted from `circuit.json` when empty or default, so a design without
+  blocks gives the bytes it gave before, and an older file loads with `block == ""`, no params and no
+  ports. `SCHEMA_VERSION` stays `"0"`. No backend writes ports to a KiCad or Altium file.
 
 ## Ids of design scripts
 

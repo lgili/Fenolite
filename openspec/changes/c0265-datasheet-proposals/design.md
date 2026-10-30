@@ -187,8 +187,8 @@ Steps, each stopping at its first error finding (no write beside an error):
    `proposal.toml` (`proposal-2.toml` for the second).
 
 - `--out` follows c0264's target rule: a relative folder inside the project, never the shipped catalog
-  or a pack; `--licence CC0-1.0` is allowed, because a pin table and package dimensions are facts, but
-  only a reviewed device may enter a pack (c0262, c0266).
+  or `fenolite-library`; `--licence CC0-1.0` is allowed, because a pin table and package dimensions are facts, but
+  only a reviewed device may enter `fenolite-library` (c0262, c0266).
 - Re-running with a corrected proposal over an unreviewed folder replaces it; over a reviewed or
   hand-edited folder it is `FEN-7001`, as in c0264.
 - `mutates=True`; the MCP server exposes it as a tool by c0195's rule.
@@ -312,8 +312,8 @@ No new `FEN-` code. Each `proposal.*` code joins `fenolite.library.codes` and `e
    person's act, and a tool that an agent can call invites it. The CLI keeps it.
 2. *Should the MCP tool accept a proposal inline (for clients without a file system)?* Recommended: not
    now; revisit with c0196's file handling, keeping the file as the record.
-3. *Should a proposal with `--licence CC0-1.0` be allowed outside a pack workflow?* Recommended: yes; pin
-   tables and dimensions are facts, but only a reviewed device enters a pack.
+3. *Should a proposal with `--licence CC0-1.0` be allowed outside a library workflow?* Recommended: yes; pin
+   tables and dimensions are facts, but only a reviewed device enters the library.
 4. *Should the agent be allowed to propose a manufacturer land at all?* Recommended: yes, as parameters
    with a citation, because the datasheet's land wins over the calculator (research section 2); c0262
    compares the drawn land with it.
@@ -328,5 +328,5 @@ No new `FEN-` code. Each `proposal.*` code joins `fenolite.library.codes` and `e
 - **c0262** checks, renders the review sheet and records the review; this change adds the gate.
 - **c0264** writes devices from downloads the same way; both share the device folder writer, the
   target rule and the re-import rule.
-- **c0266** accepts only reviewed devices; a proposed device enters a pack only after review.
+- **c0266** accepts only reviewed devices; a proposed device enters `fenolite-library` only after review.
 - **c0267** may propose identity and ordering data from suppliers; it never fills a pin table.

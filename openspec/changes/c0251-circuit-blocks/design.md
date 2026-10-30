@@ -375,17 +375,23 @@ The one mechanism that lets a block wire to something it cannot name.
 
 1. **Should a block run alone for unit tests?** Recommended: no direct call. c0256 adds
    `fenolite.testing.instantiate(block, **params)`, which wraps a throwaway design.
+   Decided 2026-10-29: no direct call; c0256 adds `fenolite.testing.instantiate`.
 2. **Should `build.port-unused` be an error?** Recommended: a warning in 0.7. Revisit after the examples and
    one maintainer board use blocks.
+   Decided 2026-10-29: a warning in 0.7.
 3. **Should `build.block-net-escape` become an error?** Recommended: a warning now. A closed-over global
    `GND` is common in migrated scripts.
+   Decided 2026-10-29: a warning.
 4. **Ref offsets per instance** (`design.use(..., refs_from=300)`)? Recommended: not now. The lock gives
    stable refs; offsets can be a later keyword that c0249's allocator honours.
+   Decided 2026-10-29: not now; the lock gives stable refs.
 5. **Port arrays** (`b.port("CH", Logic, count=4)`)? Recommended: later, with c0257 pin assignment. A loop
    with f-string names works today.
+   Decided 2026-10-29: later, with c0257.
 6. **Block name in the model: the function name, or a qualified `module.qualname`?** Recommended: the
    function name, or `@block(name=)`. Script module names are not stable, and two functions with one name in
    one design are refused.
+   Decided 2026-10-29: the function name, or `@block(name=)`.
 
 ## Relation to the other changes of this batch
 

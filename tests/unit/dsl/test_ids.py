@@ -38,7 +38,7 @@ def test_keys_not_order() -> None:
     assert key_id("net", "GND") == derived_id("net", "dsl", "net:GND")
     assert set(KEYS) == {
         "design", "board", "outline", "rules", "manifest", "module", "component", "pin", "net", "netclass",
-        "interface", "layer", "zone", "rule", "stackup", "stack_layer", "area", "text", "graphic",
+        "interface", "port", "layer", "zone", "rule", "stackup", "stack_layer", "area", "text", "graphic",
         "dimension", "impedance", "slot",
     }  # fmt: skip
 
@@ -78,3 +78,28 @@ def test_board_items_ids_from_names_and_keys() -> None:
     assert KEYS["graphic"] == ("gfx", "graphic:<drawing key>")
     assert KEYS["dimension"] == ("dim", "dimension:<drawing key>")
     assert key_id("area", "ANT") == derived_id("kpo", "dsl", "area:ANT")
+
+
+def test_ports_ids_from_the_owner_path_and_the_name() -> None:
+    from typing import Any
+
+    from fenolite.dsl import block
+
+    @block
+    def channel(b: Any) -> None:
+        r = b.part("R_EN", "Fenolite:Resistor", footprint="Fenolite:Chip_0603")
+        connect(b.port("VIN", direction="in"), r[1])
+        connect(b.port("GND", direction="in"), r[2])
+
+    def port_ids(order: list[str]) -> dict[tuple[str, str], str]:
+        d = Design("t")
+        for name in order:
+            d.use(channel, name)
+        model = to_model(d)
+        owners = {m.id: m.path for m in model.circuit.modules}
+        return {(owners[p.owner], p.name): p.id for p in model.circuit.ports}
+
+    first, second = port_ids(["ch0", "ch1"]), port_ids(["ch1", "ch0"])
+    assert first == second and len(first) == 4
+    assert first[("ch0", "VIN")] == derived_id("prt", "dsl", "port:ch0:VIN") == key_id("port", "ch0", "VIN")
+    assert KEYS["port"] == ("prt", "port:<owner path>:<port name>")
