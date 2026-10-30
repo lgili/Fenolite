@@ -214,7 +214,7 @@ design.board(mm(40), mm(20))
 
 
 @block
-def divider(b, *, r_top=ohm("10k")):  # parameters are keyword-only and recorded
+def divider(b, *, r_top=ohm("10k")):  # keyword-only, recorded
     vin = b.port("VIN", direction="in")
     gnd = b.port("GND", direction="in")
     mid = b.net("MID")  # a local net: div0/MID
@@ -235,7 +235,7 @@ for n in range(2):
 ```
 
 - `design.use(block, name, **params)` runs the function once with a fresh block `b`; refs come from the
-  lock, so two instances never collide. `b.part(name, ...)` names a part locally.
+  lock and never collide. `b.part(name, ...)` names a part locally.
 - `b.port(name, kind=Net, direction=...)` takes `Net` or an interface class (`I2C` gives `.sda`, `.scl`);
   unwired, its net is `<instance>/<port>` (`out` first); its sheet pin is `<port>` or `I2C_sda`.
 - Warnings: `build.port-unused`, a port with nothing outside its block (`optional=True` when meant), and

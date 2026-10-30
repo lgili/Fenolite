@@ -33,17 +33,16 @@ Without `--stages`, every stage of this table runs. `--stages A,B` selects some;
 | `zone.fill` | whether every zone is filled and its fill is current | yes |
 | `drc.kicad` | KiCad's design-rule check on the board, unconnected items included | yes |
 | `parity` | the board against the schematic, and symbol pins against footprint pads | no, for a project that `build` wrote |
-| `schematic.drawn` | a drawn schematic on disk against the script's nets (`drawn.netlist-differs`); listed only for such a build | no |
+| `schematic.drawn` | a drawn schematic against the script's nets (`drawn.netlist-differs`); only for such a build | no |
 | `netlist.assignment_compare` | the net of every pad, as the script, the board and KiCad see it | yes |
 | `roundtrip` | whether the board survives being read and written back | no |
 
 - `--stages model.validate,copper.clearance` is the fast check that runs anywhere: use it after each
   edit, and the whole check before you report.
-- `circuit.rules` is skipped with `no-model` (no `.fenolite/`) or `no-parameters`. Its errors
-  `circuit.rail-voltage`, `circuit.rail-current`, `circuit.rail-sources` and `circuit.logic-level` also stop
-  a build; `circuit.rail-unset`, `circuit.logic-unknown`, `circuit.bus-pullup`, `circuit.requires-missing`
-  and `circuit.port-split` warn.
-- Selecting a stage that needs `kicad-cli` on a machine without it exits 6.
+- `circuit.rules` is skipped with `no-model` (no `.fenolite/`), `no-parameters`. Its errors
+  (`circuit.rail-voltage`, `rail-current`, `rail-sources`, `logic-level`) also stop a build; the other
+  `circuit.*` codes warn.
+- A selected stage that needs a missing `kicad-cli` exits 6.
 - An unrouted board exits 5: each open connection is a `kicad.drc.unconnected-items` error.
 - `result.stages` holds one entry per stage with `status` (`ok`, `errors` or `skipped`), the `reason`
   of a skip, its own `evidence` and a `summary` of counts.
@@ -56,13 +55,13 @@ Without `--stages`, every stage of this table runs. `--stages A,B` selects some;
 ```
 
 - **`code`** names the kind of finding and is stable: decide by the code, never by the message.
-- **`severity`** is `error`, `warning` or `info`. Only an `error` makes the exit code 5.
-- **`where`** names a reference (`R1`), a pad (`R1-2`), a net, or a place in a file, as above. The
-  message of a copper finding gives the layer and the point, in file coordinates in millimetres;
+- **`severity`** is `error`, `warning` or `info`. Only an `error` makes exit code 5.
+- **`where`** names a reference (`R1`), a pad (`R1-2`), a net, or a place in a file, as above. A copper
+  finding's message gives the layer and the point (file coordinates, mm);
   `fenolite region` with a small box around that point lists the items there (page `placement`).
-- Findings of KiCad's own checks have codes that start with `kicad.drc.` and `kicad.erc.`, and carry
+- Findings of KiCad's own checks have codes starting with `kicad.drc.` and `kicad.erc.`, and carry
   KiCad's message.
-- An issue also has a `hint`, which is often empty: the fix of a code is what `explain` says.
+- An issue also has a `hint`, often empty: `explain` gives the fix of a code.
 - **Accepting one finding.** `design.waive(code, *items, reason=)` in the script (page `rules`) lists
   a `copper.*` or `kicad.drc.*` finding as `info` with its reason, so the exit code no longer counts it.
   A waiver that matches nothing gives `check.waiver-unmatched`. Fix the copper first; waive only what is
@@ -143,8 +142,8 @@ fenolite parity blink/build --json
 - `netlist.assignment-differs`, from the stage `netlist.assignment_compare`, means a pad is on another
   net than the script says: build again, and look for copper drawn on the wrong pad.
 - A block's sheet pins: `build.block-port-merged` (info) means two port members of one instance share a
-  net, which keeps global labels; `build.block-sheet-name-clash` (Altium, error) means a net leaves a
-  block's sheet without a port under a port's name: rename the net or route it through a port.
+  net, which keeps global labels; `build.block-sheet-name-clash` (Altium, error): a net leaves a block's
+  sheet under a port's name without the port; rename the net or use the port.
 
 ## Net roles of a power board
 
