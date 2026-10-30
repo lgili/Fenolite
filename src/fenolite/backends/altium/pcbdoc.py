@@ -797,9 +797,15 @@ def short_text(text: str) -> bytes:
 
 def text_problem_of(text: Text) -> str | None:
     """Why a free text cannot be written, or ``None``: an empty string, a control character or a line
-    break, or a height or stroke width that is not positive."""
+    break, a height or stroke width that is not positive, or a style of change c0277 (knockout, bold,
+    italic, a font face) that the text record of the writer does not hold."""
     if not text.text:
         return "the text is empty"
+    styles = [name for name in ("knockout", "bold", "italic") if getattr(text, name)]
+    if text.face:
+        styles.append(f"the font face {text.face!r}")
+    if styles:
+        return f"the text record of the writer holds no {', '.join(styles)}"
     if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in text.text):
         return "the text holds a control character or a line break"
     if text.size.h <= 0:

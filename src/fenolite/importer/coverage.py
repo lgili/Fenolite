@@ -125,8 +125,6 @@ def scan(design: Design, ledger: Ledger) -> None:
         return
     for hole in board.holes:
         ledger.add("hole", hole.id)
-    for dimension in board.dimensions:
-        ledger.add("dimension", f"{dimension.kind} on {dimension.layer}")
     for component in design.circuit.components:
         if component.dnp:
             ledger.add("dnp", component.ref)

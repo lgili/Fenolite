@@ -45,6 +45,7 @@ TABLE = {
     "copper.rules-incomplete": ("warning",),
     "copper.item-unsupported": ("warning",),
     "copper.clearance-unset": ("info",),
+    "copper.text-unchecked": ("info",),  # change c0277
     "copper.edge-clearance": ("error", "warning"),
     "copper.hole-in-cutout": ("error",),
     "copper.hole-overlap": ("warning",),

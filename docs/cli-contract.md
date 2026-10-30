@@ -1589,6 +1589,7 @@ repeat.
 | `copper.rules-incomplete` | warning | a clearance rule stayed opaque, a project file was not read, or no rules source was given |
 | `copper.item-unsupported` | warning | copper items left out of the check, one issue per kind; `where` is the kind |
 | `copper.clearance-unset` | info | item pairs judged for shorts only, because no clearance is in force for them |
+| `copper.text-unchecked` | info | texts on copper layers left out of the copper check, which draws no glyphs; KiCad's DRC judges them (change c0277) |
 | `zone.unfilled` | warning | KiCad's refill produces copper but the saved board has none for a zone |
 | `zone.fill-stale` | warning | the saved fill polygons differ from a KiCad refill |
 | `zone.fill-unchecked` | info | the selected tool cannot refill zones, or two refill runs differ; the stage is skipped |

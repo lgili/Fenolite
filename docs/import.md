@@ -76,7 +76,9 @@ every platform, and every emitted `.py` file is left unchanged by `ruff format` 
   that name; another named zone keeps its name; an unnamed one gets `key="<net>/<n>"`. A rule area keeps
   a valid unique name, else gets `key="area/<n>"`.
 - **Drawings** on silkscreen, mask, fabrication and user layers become `line`, `rect`, `circle`, `arc`,
-  `polygon` and `text` calls keyed `<layer>/<kind>/<n>`.
+  `polygon` and `text` calls keyed `<layer>/<kind>/<n>`. A text may also be on a copper layer, and keeps
+  its knockout, bold, italic and font face, a size of two values, several lines or no character (change
+  c0277); an aligned or orthogonal dimension becomes a `dimension` call with its extension offset.
 
 ## Copper tables
 
@@ -136,11 +138,12 @@ Never silently. The kinds today:
 | kind | what |
 |---|---|
 | a root item KiCad keeps that the model does not (`group`, `generated`, `image`, `target`…) | named by its head; a teardrop zone of a type other than `padvia`, or any teardrop zone when teardrop settings were lost (below), is `teardrop` |
-| `hole`, `dimension`, `net-tie`, `dnp` | model items no emitter writes yet |
+| `hole`, `net-tie`, `dnp` | model items no emitter writes yet |
+| `dimension`, `dimension-style` | a dimension of a kind the DSL does not say (radial, leader, centre) or on a layer it does not take; an aligned or orthogonal one whose `format` or `style` holds what `design.dimension()` does not write (a prefix, automatic units, a text position…) |
 | `stackup`, `stackup-field`, `title-block` | a stack-up row or a title-block field the DSL refuses; the material of a silkscreen row (the stack-up is written without it) |
 | `custom-rule` | a `.kicad_dru` rule whose selector the DSL cannot write (a layer leaf, an undeclared class) |
 | `zone-setting`, `zone-name`, `zone-layer`, `zone-outline`, `rule-area-name`, `rule-area-layer` | a zone smoothing or hatch, a repeated zone name, a zone or area off the copper layers or without an outline, an area name the DSL refuses |
-| `drawing`, `drawing-layer`, `copper-drawing`, `text`, `text-layer` | a drawing the DSL calls refuse, or one on a layer they do not take (copper, or a user layer a DSL board does not hold) |
+| `drawing`, `drawing-layer`, `copper-drawing`, `text`, `text-layer` | a drawing the DSL calls refuse (a hidden text, a mirror that does not follow the layer side, a knockout off copper and silkscreen), or one on a layer they do not take (a graphic on copper, or a user layer a DSL board does not hold) |
 | `copper-without-net`, `zero-length-track`, `degenerate-arc`, `via-protection`, `via-span`, `copper-layer`, `copper-count` | copper no table holds |
 | `teardrop-setting` | a via's `teardrops` child the import cannot read: the via is written without it |
 | `footprint-ref`, `duplicate-ref`, `footprint` | a footprint whose reference the DSL refuses, a second footprint of one reference, one the library derive cannot bring back |

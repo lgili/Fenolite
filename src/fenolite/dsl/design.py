@@ -1564,10 +1564,20 @@ class Design(Container):
         thickness: object = None,
         rot: object = 0,
         justify: str | None = None,
+        knockout: bool = False,
+        bold: bool = False,
+        italic: bool = False,
+        face: str | None = None,
     ) -> None:
-        """One line of board text at ``at``, 1 mm high with a 0.15 mm stroke unless ``size`` and
-        ``thickness`` say otherwise; ``justify`` is ``left`` or ``right``, then ``top`` or ``bottom``."""
-        found = itemlib.text(self._drawing("text", key), text, at, layer, size, thickness, rot, justify)
+        """Board text at ``at``, 1 mm high with a 0.15 mm stroke unless ``size`` and ``thickness`` say
+        otherwise; ``size`` is a length or a ``(width, height)`` pair, and ``\\n`` starts a new line.
+        ``justify`` is ``left`` or ``right``, then ``top`` or ``bottom``. ``layer`` may be a copper layer of
+        the board, ``knockout=True`` (a copper or silkscreen layer) cuts the text out of a filled box, and
+        ``bold``, ``italic`` and ``face`` (a font name) style it (change c0277)."""
+        found = itemlib.text(
+            self._drawing("text", key), text, at, layer, size, thickness, rot, justify,
+            copper=self.copper_layers, knockout=knockout, bold=bold, italic=italic, face=face,
+        )  # fmt: skip
         self.drawings[found.key] = found
 
     def line(
@@ -1646,13 +1656,16 @@ class Design(Container):
         size: object = None,
         thickness: object = None,
         width: object = None,
+        extension_offset: object = None,
     ) -> None:
         """A linear dimension between ``start`` and ``end``, its line ``offset`` away from them: aligned
         with the two points, or, with ``direction``, ``horizontal`` or ``vertical``. KiCad computes the
-        text from the points (``docs/dsl.md``, "Board drawings")."""
+        text from the points (``docs/dsl.md``, "Board drawings"). ``size`` is a length or a ``(width,
+        height)`` pair; ``extension_offset`` is the gap between a measured point and its extension line
+        (change c0277; ``None``: 0.5 mm)."""
         found = itemlib.dimension(
             self._drawing("dimension", key), start, end, offset, layer, direction, units, precision, size,
-            thickness, width,
+            thickness, width, extension_offset,
         )  # fmt: skip
         self.drawings[found.key] = found
 

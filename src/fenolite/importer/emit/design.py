@@ -52,9 +52,11 @@ from fenolite.importer.tables import (
     protect_arguments,
     teardrop_arguments,
 )
+from fenolite.importer.texts import dimension_style, text_style
 from fenolite.importer.vendor import natural, vendor
 from fenolite.model.board import (
     Board,
+    Dimension,
     FootprintInstance,
     Graphic,
     Keepout,
@@ -651,22 +653,69 @@ def _graphic(graphic: Graphic, key: str) -> Call | None:
     return None
 
 
-def _text(item: Text, key: str) -> Call | None:
-    if not item.text or not item.text.isprintable() or item.size.w != item.size.h:
+def _text(item: Text, key: str, copper: bool) -> Call | None:
+    """``design.text()`` of a board text, with the style the reader keeps in its slots (change c0277);
+    ``None`` for a text the DSL cannot say."""
+    if not all(line.isprintable() for line in item.text.split("\n")):
         return None
-    if item.size.w <= 0 or item.thickness <= 0:
+    if item.size.w <= 0 or item.size.h <= 0 or item.thickness <= 0:
+        return None
+    style = text_style(item)
+    if style is None or (style.knockout and not copper and not item.layer.endswith(".SilkS")):
         return None
     words = [w for w in (item.h_justify, item.v_justify) if w != "center"]
+    size: Expr = (
+        length(item.size.w) if item.size.w == item.size.h else Tup((length(item.size.w), length(item.size.h)))
+    )
     kwargs: list[tuple[str, Expr]] = [
         ("layer", text(item.layer)),
-        ("size", length(item.size.w)),
+        ("size", size),
         ("thickness", length(item.thickness)),
     ]
     if item.rotation:
         kwargs.append(("rot", angle(item.rotation)))
     if words:
         kwargs.append(("justify", text(" ".join(words))))
+    for name in ("knockout", "bold", "italic"):
+        if getattr(style, name):
+            kwargs.append((name, Raw("True")))
+    if style.face:
+        kwargs.append(("face", text(style.face)))
     return Call("design.text", (text(key), text(item.text), _xy(item.position)), tuple(kwargs))
+
+
+def _dimension(item: Dimension, key: str) -> Call | None:
+    """``design.dimension()`` of an aligned or orthogonal dimension whose format and style are those a
+    created dimension writes, but for its line width and its extension offset (change c0277); ``None``
+    for another one."""
+    if item.start == item.end or not 0 <= item.precision <= 4 or item.units not in ("mm", "in"):
+        return None
+    style = dimension_style(item)
+    if style is None:
+        return None
+    kwargs: list[tuple[str, Expr]] = [("offset", length(item.offset))]
+    if item.layer != "Dwgs.User":
+        kwargs.append(("layer", text(item.layer)))
+    if item.direction is not None:
+        kwargs.append(("direction", text(item.direction)))
+    if item.units != "mm":
+        kwargs.append(("units", text(item.units)))
+    if item.precision != 4:
+        kwargs.append(("precision", number(item.precision)))
+    if item.size is not None:
+        if item.size.w <= 0 or item.size.h <= 0:
+            return None
+        pair = Tup((length(item.size.w), length(item.size.h)))
+        kwargs.append(("size", length(item.size.w) if item.size.w == item.size.h else pair))
+    for name in ("thickness", "width"):
+        value = getattr(item, name)
+        if value is not None:
+            if value <= 0:
+                return None
+            kwargs.append((name, length(value)))
+    if style.extension_offset is not None:
+        kwargs.append(("extension_offset", length(style.extension_offset)))
+    return Call("design.dimension", (text(key), _xy(item.start), _xy(item.end)), tuple(kwargs))
 
 
 def _drawings(board: Board, ledger: Ledger) -> list[list[str]]:
@@ -707,14 +756,30 @@ def _drawings(board: Board, ledger: Ledger) -> list[list[str]]:
 
     for item in sorted(board.texts, key=tkey):
         kind = kinds.get(item.layer, "")
-        if kind not in DRAWING_KINDS:
+        if kind not in (*DRAWING_KINDS, "copper"):
             ledger.add("text-layer", f"text on {item.layer}")
             continue
         slot = (item.layer, "text")
         counters[slot] = counters.get(slot, 0) + 1
-        made = _text(item, f"{segment(item.layer)}/text/{counters[slot]}")
+        made = _text(item, f"{segment(item.layer)}/text/{counters[slot]}", kind == "copper")
         if made is None:
             ledger.add("text", item.text[:40])
+            continue
+        out.append(statement(made))
+
+    def dkey(item: Dimension) -> tuple[object, ...]:
+        return (item.layer, item.start.x, item.start.y, item.end.x, item.end.y, item.offset)
+
+    for dimension in sorted(board.dimensions, key=dkey):
+        where = f"{dimension.kind} on {dimension.layer}"
+        if kinds.get(dimension.layer, "") not in DRAWING_KINDS:
+            ledger.add("dimension", where)
+            continue
+        slot = (dimension.layer, "dimension")
+        counters[slot] = counters.get(slot, 0) + 1
+        made = _dimension(dimension, f"{segment(dimension.layer)}/dimension/{counters[slot]}")
+        if made is None:
+            ledger.add("dimension-style", where)
             continue
         out.append(statement(made))
     return out

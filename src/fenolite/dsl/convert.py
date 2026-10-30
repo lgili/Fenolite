@@ -587,11 +587,15 @@ def _texts(design: Design) -> tuple[Text, ...]:
                 text=spec.text,
                 position=_at(spec.at),
                 layer=spec.layer,
-                size=Size(spec.size, spec.size),
+                size=Size(spec.size if spec.width is None else spec.width, spec.size),
                 thickness=spec.thickness,
                 rotation=spec.rotation,
                 h_justify=next((w for w in words if w in ("left", "right")), "center"),  # type: ignore[arg-type]
                 v_justify=next((w for w in words if w in ("top", "bottom")), "center"),  # type: ignore[arg-type]
+                knockout=spec.knockout,
+                bold=spec.bold,
+                italic=spec.italic,
+                face=spec.face,
             )
         )
     return tuple(out)
@@ -624,9 +628,14 @@ def _dimensions(design: Design) -> tuple[Dimension, ...]:
             direction=spec.direction,
             units=spec.units,
             precision=spec.precision,
-            size=Size(spec.size, spec.size) if spec.size is not None else None,
+            size=(
+                None
+                if spec.size is None
+                else Size(spec.size if spec.text_width is None else spec.text_width, spec.size)
+            ),
             thickness=spec.thickness,
             width=spec.width,
+            extension_offset=spec.extension_offset,
         )
         for key, spec in sorted(design.drawings.items())
         if isinstance(spec, DimensionSpec)

@@ -540,6 +540,14 @@ class Text(Entity):
     h_justify: FieldJustifyH = "center"
     v_justify: FieldJustifyV = "center"
     """The justification, in the reading frame of the text."""
+    knockout: bool = False
+    """The text is cut out of a filled box on its layer, a copper or silkscreen layer (change c0277). The
+    four fields from here are left out of the canonical JSON when unset; a KiCad reader keeps them in the
+    text's slots and does not project them."""
+    bold: bool = False
+    italic: bool = False
+    face: str = ""
+    """A font face by name; ``""`` is the tool's own stroke font."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -570,6 +578,9 @@ class Dimension(Entity):
     size: Size | None = None
     thickness: Nm | None = None
     width: Nm | None = None
+    extension_offset: Nm | None = None
+    """The gap between a measured point and the start of its extension line (change c0277); ``None`` is the
+    backend's default. Left out of the canonical JSON when ``None``."""
 
 
 @dataclass(frozen=True, slots=True)

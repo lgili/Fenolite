@@ -409,6 +409,16 @@
               "type": "null"
             }
           ]
+        },
+        "extension_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -1804,6 +1814,18 @@
             "center",
             "bottom"
           ]
+        },
+        "knockout": {
+          "type": "boolean"
+        },
+        "bold": {
+          "type": "boolean"
+        },
+        "italic": {
+          "type": "boolean"
+        },
+        "face": {
+          "type": "string"
         }
       },
       "additionalProperties": false,

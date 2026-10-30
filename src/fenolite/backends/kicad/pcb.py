@@ -529,10 +529,11 @@ def _emit_fill(fill: ZoneFill, version: int) -> Items:
 
 
 def _emit_text(text: Text) -> Items:
+    knockout = (Atom.symbol("knockout"),) if text.knockout else ()
     return {
         "text": [Atom.string(text.text)],
         "position": [at_node(text.position, text.rotation, always=True)],
-        "layer": [node("layer", Atom.string(text.layer))],
+        "layer": [node("layer", Atom.string(text.layer), *knockout)],
         "native_ids": uuid_items(text.native_ids),
     }
 
@@ -2012,7 +2013,7 @@ FLOOR_HEADS: tuple[str, ...] = (
     "smoothing", "solder_mask_margin", "solder_paste_margin", "stackup", "style", "suffix",
     "text_position_mode", "title", "title_block", "tracks", "units", "units_format", "vias", "zone_connect",
     "teardrops", "best_length_ratio", "max_length", "best_width_ratio", "max_width", "filter_ratio",
-    "enabled", "allow_two_segments", "prefer_zone_connections",
+    "enabled", "allow_two_segments", "prefer_zone_connections", "face", "bold", "italic",
 )  # fmt: skip
 """Names the writer creates that the 8.0 format already has and that neither the token inventory nor
 the skeleton holds (``board.md``, S-0021 and S-0033 at tag 8.0.0). The names of a linear dimension
@@ -2021,7 +2022,8 @@ those the demo boards of 9.0.9 and 10.0.6 hold (S-0058); the aligned dimensions 
 in the 8.0 format hold all of them but ``orientation`` (S-0723), which the format page documents for an
 orthogonal dimension (S-0001). The ``teardrops`` child of a pad or via and its children but
 ``curved_edges`` (an inventory row) are those the pads and vias of the demo boards of 9.0.9 and 10.0.6 hold
-(S-0058; change c0277). The writer has no target below 9."""
+(S-0058; change c0277), and so are the font children ``face``, ``bold`` and ``italic`` of a board text
+(change c0277; S-0001 documents them in the text effects). The writer has no target below 9."""
 CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "kicad_pcb": (
@@ -2034,7 +2036,7 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         ),
         "property": ("name", "value", "at", "layer", "hide", "uuid", "effects"),
         "effects": ("font", "justify"),
-        "font": ("size", "thickness"),
+        "font": ("face", "size", "thickness", "bold", "italic"),
         "pad": (
             *PAD_POSITIONAL, "at", "size", "drill", "property", "layers", "net", *MARGIN_HEADS,
             "zone_connect", "teardrops", "uuid",
@@ -2235,13 +2237,24 @@ def _stroke(width: int) -> Node:
 
 
 def _effects(
-    size: Size, thickness: int, *, mirror: bool, h_justify: str = "center", v_justify: str = "center"
+    size: Size,
+    thickness: int,
+    *,
+    mirror: bool,
+    h_justify: str = "center",
+    v_justify: str = "center",
+    bold: bool = False,
+    italic: bool = False,
+    face: str = "",
 ) -> Node:
     font = _ordered(
         "font",
         {
+            "face": [node("face", Atom.string(face))] if face else [],
             "size": [node("size", Atom.from_nm(size.h), Atom.from_nm(size.w))],
             "thickness": [node("thickness", Atom.from_nm(thickness))],
+            "bold": [node("bold", Atom.symbol("yes"))] if bold else [],
+            "italic": [node("italic", Atom.symbol("yes"))] if italic else [],
         },
     )
     words = [w for w in (h_justify, v_justify) if w != "center"] + (["mirror"] if mirror else [])
@@ -2273,7 +2286,14 @@ def _dimension_children(dimension: Dimension, native: str) -> Items:
             "text_position_mode": [node("text_position_mode", Atom.integer(0))],
             "arrow_direction": [node("arrow_direction", Atom.symbol("outward"))],
             "extension_height": [node("extension_height", Atom.from_nm(586_420))],
-            "extension_offset": [node("extension_offset", Atom.from_nm(500_000))],
+            "extension_offset": [
+                node(
+                    "extension_offset",
+                    Atom.from_nm(
+                        500_000 if dimension.extension_offset is None else dimension.extension_offset
+                    ),
+                )
+            ],
             "keep_text_aligned": [node("keep_text_aligned", Atom.symbol("yes"))],
         },
     )
@@ -2630,6 +2650,9 @@ class _Writer:
                     mirror=entity.layer.startswith("B."),
                     h_justify=entity.h_justify,
                     v_justify=entity.v_justify,
+                    bold=entity.bold,
+                    italic=entity.italic,
+                    face=entity.face,
                 )
             ]
         elif isinstance(entity, Dimension):

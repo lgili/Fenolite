@@ -1559,34 +1559,42 @@ design.dimension("width", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-5))
 ```
 
 - **Layers.** A drawing goes on a silkscreen, solder-mask, fabrication or user layer: `F.SilkS`, `B.SilkS`,
-  `F.Mask`, `B.Mask`, `F.Fab`, `B.Fab`, `Dwgs.User`, `Cmts.User`, `Eco1.User` and `Eco2.User`. Copper is
-  refused: the copper check cannot see glyphs, KiCad reports a copper text across a track as a short, and
-  it does not report a copper line across a track at all. `Edge.Cuts` belongs to the outline of `board()`.
-- **`text(key, text, at, *, layer="F.SilkS", size=None, thickness=None, rot=0, justify=None)`**: one
-  printable line, 1 mm high with a 0.15 mm stroke unless `size` and `thickness` say otherwise. `justify`
-  is `left` or `right`, then `top` or `bottom`; without it the text is centred on `at`. A text on a back
-  layer is mirrored. A centred label close to the board edge reaches it: KiCad then warns with
-  `silk_edge_clearance`.
+  `F.Mask`, `B.Mask`, `F.Fab`, `B.Fab`, `Dwgs.User`, `Cmts.User`, `Eco1.User` and `Eco2.User`. A text may
+  also go on a copper layer of the board (change c0277): KiCad reports a copper text across a track as a
+  short, and the copper check, which draws no glyphs, leaves it out (`copper.text-unchecked`, info). A
+  graphic and a dimension stay off copper: KiCad does not report a copper line across a track at all.
+  `Edge.Cuts` belongs to the outline of `board()`.
+- **`text(key, text, at, *, layer="F.SilkS", size=None, thickness=None, rot=0, justify=None,
+  knockout=False, bold=False, italic=False, face=None)`**: printable lines joined by `\n` (an empty text is
+  kept, as KiCad keeps one), 1 mm high with a 0.15 mm stroke unless `size` and `thickness` say otherwise.
+  `size` is a length, or a `(width, height)` pair of lengths for a font that is not square. `justify` is
+  `left` or `right`, then `top` or `bottom`; without it the text is centred on `at`. A text on a back layer
+  is mirrored. `knockout=True` cuts the text out of a filled box (a copper or silkscreen layer only);
+  `bold`, `italic` and `face` (a font name such as `KiCad Font`) style it (change c0277). A centred label
+  close to the board edge reaches it: KiCad then warns with `silk_edge_clearance`.
 - **`line(key, start, end)`, `rect(key, start, end)`, `circle(key, center, edge)`, `arc(key, start, mid,
   end)` and `polygon(key, points)`** take `layer` and `width`; `rect`, `circle` and `polygon` take
   `fill=False`. `width` is above 0 for a line, an arc and a shape that is not filled, and may be `mm(0)` for
   a filled one. The three points of an arc are not on one line.
 - **`dimension(key, start, end, *, offset, layer="Dwgs.User", direction=None, units="mm", precision=4,
-  size=None, thickness=None, width=None)`**: a linear dimension. Without `direction` it is aligned with the
+  size=None, thickness=None, width=None, extension_offset=None)`**: a linear dimension. Without `direction` it is aligned with the
   two points; with `horizontal` or `vertical` it measures that coordinate difference only. `offset` is the
   signed distance of the dimension line from the measured points, KiCad's `height`: for a dimension from
   left to right a negative offset puts the line above the points (towards smaller y), and for one from top
   to bottom a negative offset puts it to their right. `units` is `mm` or `in`, `precision` 0 to 4
-  decimals. KiCad computes the text, its place and its angle from the points when it loads the board.
+  decimals. `extension_offset` is the gap between a measured point and its extension line (`None`: 0.5 mm),
+  and `size` may be a `(width, height)` pair, as a text's (change c0277). KiCad computes the text, its place and its angle from the points when it loads the board.
 - **In the model** a text is a `Text` (`txt`), a graphic a `Graphic` (`gfx`) and a dimension a `Dimension`
   (`dim`), each in key order; `design.drawings` holds the records by key.
 - **Errors at the call** (`DslError`, nothing recorded): no `board()` yet, a key used twice, a layer that
-  takes no drawing, an empty or multi-line text, a bare number for a length, corners of a rectangle that
+  takes no drawing, a text with a character that is not printable (a line break excepted), a knockout off
+  copper and silkscreen, a bare number for a length, corners of a rectangle that
   share a coordinate, a `direction` whose difference is 0, a `precision` outside 0 to 4.
 - **Rebuilds.** As for rule areas: script drawings are written again on every build, and what was drawn
   in KiCad stays.
-- **Altium.** Centred texts and graphics are written; a justified text and a dimension are reported and
-  not written (`docs/altium.md`).
+- **Altium.** Centred texts and graphics are written; a justified text, a text of several lines or in a
+  copper layer, a knocked-out, bold, italic or face text, and a dimension are reported and not written
+  (`docs/altium.md`).
 
 ## Placement rules
 

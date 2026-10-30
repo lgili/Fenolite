@@ -1053,6 +1053,18 @@ def _run(
                 where=kind,
             )
         )
+    if board is not None:
+        names = {layer.name for layer in board.layers if layer.kind == "copper"}
+        texts = sum(1 for text in board.texts if text.layer in names)
+        if texts:
+            others.append(
+                issue(
+                    "copper.text-unchecked",
+                    f"{texts} text(s) on copper layers left out of the copper check: Fenolite draws no "
+                    "glyphs, and KiCad's DRC judges them",
+                    where="text",
+                )
+            )
     if counts["unset_pairs"]:
         others.append(
             issue(

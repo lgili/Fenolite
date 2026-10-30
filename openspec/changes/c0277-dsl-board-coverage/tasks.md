@@ -59,8 +59,8 @@ Each task makes one kind that `fenolite import --to python` leaves out (c0275, `
 
 - [x] 6.1 Teardrops: via settings into `teardrop=` of their tables, `padvia` zones reported as `import.teardrops-regenerated`, lost settings as `teardrop-setting` (board-to-code, "Teardrops in an import"). Proof: `uv run pytest tests/unit/importer/test_teardrops.py -q`.
 - [x] 6.2 Via spans: a blind via over both outer layers as a table row (design-dsl, "Blind vias over the board in via tables"; board-to-code, "Blind vias over the board in an import"). Proof: `uv run pytest tests/unit/importer/test_teardrops.py tests/unit/lens/test_build_teardrops.py -q`.
-- [ ] 6.3 Texts: copper texts (task 2.1) and the texts the DSL refuses today (`text`, `text-layer`). Proof: `uv run pytest tests/unit/importer -k text -q`.
-- [ ] 6.4 Dimensions: the aligned and orthogonal dimensions the DSL already says, then the kinds of task 2.2 (`dimension`). Proof: `uv run pytest tests/unit/importer -k dimension -q`.
+- [x] 6.3 Texts: a text on a copper layer with `knockout`, `bold`, `italic`, `face`, a size of two values, several lines and an empty text in the DSL, the model, the writer and the import; `copper.text-unchecked`; the Altium writer reports the new styles (design-dsl, "Board drawings in the DSL", scenario "Copper text and text styles"; board-to-code, "Texts and dimensions in an import"). Copper graphics with a net stay with task 2.1. Proof: `uv run pytest tests/unit/dsl/test_board_texts.py tests/unit/dsl/test_drawings.py tests/unit/importer/test_drawn_items.py -q`.
+- [x] 6.4 Dimensions: `extension_offset` in the DSL and the model, and the aligned and orthogonal dimensions written by the import (`dimension-style` for a format or style the DSL does not say); the kinds radial, leader and centre stay with task 2.2. Proof: `uv run pytest tests/unit/importer/test_drawn_items.py -q`.
 - [ ] 6.5 Net ties of board footprints (`net-tie`). Proof: `uv run pytest tests/unit/importer -k net_tie -q`.
 - [ ] 6.6 `dnp` parts (`dnp`). Proof: `uv run pytest tests/unit/importer -k dnp -q`.
 - [ ] 6.7 Groups (task 2.4; `group`). Proof: `uv run pytest tests/unit/importer -k group -q`.

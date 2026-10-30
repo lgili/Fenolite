@@ -102,6 +102,49 @@ def teardropped(tmp: Path, settings: str = TEARDROPS, kind: str = "padvia") -> P
     return _variant(tmp, "teardropped", body[:-1] + TEARDROP_ZONE.format(kind=kind) + ")\n")
 
 
+DRAWN_TEXTS = (
+    '\t(gr_text "KNOCK" (at 110 120 0) (layer "F.SilkS" knockout)'
+    ' (uuid "0e0e0e0e-0000-4000-8000-000000000011")'
+    " (effects (font (size 2 1.25) (thickness 0.275) (bold yes))))\n"
+    '\t(gr_text "TWO\\nLINES" (at 120 120 0) (layer "F.SilkS") (uuid "0e0e0e0e-0000-4000-8000-000000000012")'
+    " (effects (font (size 1 1) (thickness 0.15))))\n"
+    '\t(gr_text "" (at 130 120 0) (layer "Dwgs.User") (uuid "0e0e0e0e-0000-4000-8000-000000000013")'
+    " (effects (font (size 1 1) (thickness 0.15))))\n"
+    '\t(gr_text "CU" (at 140 120 0) (layer "F.Cu") (uuid "0e0e0e0e-0000-4000-8000-000000000014")'
+    " (effects (font (size 1 1) (thickness 0.15))))\n"
+    '\t(gr_text "FACE" (at 150 120 0) (layer "F.SilkS") (uuid "0e0e0e0e-0000-4000-8000-000000000015")'
+    ' (effects (font (face "KiCad Font") (size 1 1) (thickness 0.15) (italic yes))))\n'
+    '\t(gr_text "HIDDEN" (at 150 125 0) (layer "F.SilkS") (uuid "0e0e0e0e-0000-4000-8000-000000000016")'
+    " (effects (font (size 1 1) (thickness 0.15)) (hide yes)))\n"
+)
+"""Board texts of the styles of change c0277, and one hidden text the DSL cannot say."""
+DIMENSIONS = (
+    '\t(dimension (type aligned) (layer "Dwgs.User") (uuid "0e0e0e0e-0000-4000-8000-000000000021")'
+    " (pts (xy 100 140) (xy 120 140)) (height -3)"
+    ' (format (prefix "") (suffix "") (units 2) (units_format 1) (precision 4))'
+    " (style (thickness 0.2) (arrow_length 1.27) (text_position_mode 0) (arrow_direction outward)"
+    " (extension_height 0.58642) (extension_offset 0) (keep_text_aligned yes))"
+    ' (gr_text "20.0000 mm" (at 110 137 0) (layer "Dwgs.User") (uuid "0e0e0e0e-0000-4000-8000-000000000021")'
+    " (effects (font (size 1.524 1.524) (thickness 0.2)))))\n"
+    '\t(dimension (type aligned) (layer "Dwgs.User") (uuid "0e0e0e0e-0000-4000-8000-000000000022")'
+    " (pts (xy 100 145) (xy 120 145)) (height -3)"
+    ' (format (prefix "") (suffix "") (units 3) (units_format 1) (precision 4))'
+    " (style (thickness 0.2) (arrow_length 1.27) (text_position_mode 0) (arrow_direction outward)"
+    " (extension_height 0.58642) (extension_offset 0.5) (keep_text_aligned yes))"
+    ' (gr_text "20.0000 mm" (at 110 142 0) (layer "Dwgs.User") (uuid "0e0e0e0e-0000-4000-8000-000000000022")'
+    " (effects (font (size 1 1) (thickness 0.15)))))\n"
+)
+"""An aligned dimension of an older demo (extension offset 0) and one in automatic units, which the DSL
+cannot say."""
+
+
+def drawn(tmp: Path) -> Path:
+    """The board with ``DRAWN_TEXTS`` and ``DIMENSIONS`` added (change c0277)."""
+    body = BOARD.read_text(encoding="utf-8").rstrip()
+    assert body.endswith(")")
+    return _variant(tmp, "drawn", body[:-1] + DRAWN_TEXTS + DIMENSIONS + ")\n")
+
+
 def built_for(tmp: Path, major: int) -> Path:
     """The authored two-sheet board built from its script for KiCad ``major`` in ``tmp``."""
     work = tmp / "data" / "src"
@@ -175,6 +218,7 @@ __all__ = [
     "built_for",
     "built_board",
     "copy_project",
+    "drawn",
     "edited",
     "foreign",
     "grouped",

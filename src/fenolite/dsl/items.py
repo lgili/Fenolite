@@ -40,8 +40,12 @@ FORBID: Mapping[str, str] = MappingProxyType(
 """The values of ``rule_area(forbid=…)`` and the ``Keepout`` field each sets. ``footprints`` makes the
 area a placement keep-out, which the legality check of ``place`` and ``build`` judges (change c0113)."""
 DRAWING_LAYER_KINDS: tuple[LayerKind, ...] = ("silkscreen", "soldermask", "fabrication", "user")
-"""The kinds of layer a text or a drawing may be on. Copper is refused: the copper check cannot see
-glyphs, and KiCad reports a copper text across a track but not a copper line (``H-K-BOARD-TEXT``)."""
+"""The kinds of layer a drawing may be on. A text may also be on a copper layer of the board (change
+c0277): KiCad's DRC judges a copper text over a track (``H-K-BOARD-TEXT``), which the copper check, drawing no
+glyphs, leaves out (``copper.text-unchecked``). A copper graphic stays refused: KiCad reports a copper line
+across a track neither as a short nor as a clearance."""
+KNOCKOUT_KINDS: tuple[LayerKind, ...] = ("copper", "silkscreen")
+"""The kinds of layer a knocked-out text may be on."""
 BOARD_LAYER_KINDS: Mapping[str, LayerKind] = MappingProxyType(
     {
         "F.Adhes": "mechanical",
@@ -96,7 +100,8 @@ class RuleArea:
 
 @dataclass(frozen=True)
 class TextSpec:
-    """One ``text()`` call."""
+    """One ``text()`` call; ``size`` is the height of the font and ``width`` its width, ``None`` for the
+    height (change c0277 adds the fields from ``width`` on, all with defaults)."""
 
     key: str
     text: str
@@ -106,6 +111,11 @@ class TextSpec:
     thickness: Nm
     rotation: Udeg
     justify: str | None
+    width: Nm | None = None
+    knockout: bool = False
+    bold: bool = False
+    italic: bool = False
+    face: str = ""
 
 
 @dataclass(frozen=True)
@@ -138,6 +148,9 @@ class DimensionSpec:
     size: Nm | None
     thickness: Nm | None
     width: Nm | None
+    extension_offset: Nm | None = None
+    text_width: Nm | None = None
+    """The width of the text's font when ``size`` was a ``(width, height)`` pair that is not square."""
 
 
 Drawing = TextSpec | GraphicSpec | DimensionSpec
@@ -228,11 +241,14 @@ def drawing_key(key: object, taken: Mapping[str, object]) -> str:
     return key
 
 
-def drawing_layer(layer: object, what: str) -> str:
-    """A layer a drawing may be on: one of the board whose kind is in ``DRAWING_LAYER_KINDS``."""
+def drawing_layer(layer: object, what: str, copper: Sequence[str] = ()) -> str:
+    """A layer a drawing may be on: one of the board whose kind is in ``DRAWING_LAYER_KINDS``, or one of
+    ``copper`` (the board's copper layers, for a text)."""
+    if isinstance(layer, str) and layer in copper:
+        return layer
     kind = BOARD_LAYER_KINDS.get(layer) if isinstance(layer, str) else None
     if kind not in DRAWING_LAYER_KINDS:
-        allowed = ", ".join(n for n, k in BOARD_LAYER_KINDS.items() if k in DRAWING_LAYER_KINDS)
+        allowed = ", ".join((*copper, *(n for n, k in BOARD_LAYER_KINDS.items() if k in DRAWING_LAYER_KINDS)))
         raise DslError(f"{what}: layer {layer!r} takes no drawing; the layers are {allowed}")
     return cast("str", layer)
 
@@ -246,23 +262,56 @@ def _positive(value: object, what: str, default: Nm | None) -> Nm | None:
     return length
 
 
+def _flag(value: object, what: str) -> bool:
+    if not isinstance(value, bool):
+        raise DslError(f"{what} must be a bool, not {value!r}")
+    return value
+
+
+def _text_size(value: object, what: str) -> tuple[Nm, Nm | None]:
+    """``(height, width)`` of a text: a length gives both (``width`` ``None``), a pair is ``(width,
+    height)``, as a model ``Size`` is."""
+    if isinstance(value, (tuple, list)):
+        pair = cast("Sequence[object]", value)
+        if len(pair) != 2:
+            raise DslError(f"{what} is a length or a (width, height) pair of lengths, not {value!r}")
+        width = _positive(pair[0], f"{what}: width", None)
+        height = _positive(pair[1], f"{what}: height", None)
+        assert width is not None and height is not None
+        return height, (None if width == height else width)
+    height = _positive(value, what, TEXT_SIZE)
+    assert height is not None
+    return height, None
+
+
 def text(
     key: str, text: object, at: object, layer: object, size: object, thickness: object, rot: object,
-    justify: object,
+    justify: object, *, copper: Sequence[str] = (), knockout: object = False, bold: object = False,
+    italic: object = False, face: object = None,
 ) -> TextSpec:  # fmt: skip
+    """The record of one ``text()`` call; ``copper`` are the board's copper layers, which a text may be on
+    (change c0277)."""
     what = f"text {key}"
-    if not isinstance(text, str) or not text or not text.isprintable():
-        raise DslError(f"{what}: text must be a non-empty printable string on one line, not {text!r}")
+    if not isinstance(text, str) or not all(line.isprintable() for line in text.split("\n")):
+        raise DslError(f"{what}: text must be a string of printable lines joined by \\n, not {text!r}")
     position = point(at, f"{what}: at")
-    on = drawing_layer(layer, what)
-    height = _positive(size, f"{what}: size", TEXT_SIZE)
+    on = drawing_layer(layer, what, copper)
+    height, width = _text_size(size, f"{what}: size")
     stroke = _positive(thickness, f"{what}: thickness", TEXT_THICKNESS)
-    assert height is not None and stroke is not None
+    assert stroke is not None
     if justify is not None:
         if not isinstance(justify, str) or " ".join(justify.split()) not in FIELD_JUSTIFY:
             raise DslError(f"{what}: justify is 'left' or 'right', then 'top' or 'bottom', not {justify!r}")
         justify = " ".join(justify.split())
-    return TextSpec(key, text, position, on, height, stroke, as_udeg(rot, name=f"{what}: rot"), justify)
+    cut = _flag(knockout, f"{what}: knockout")
+    if cut and on not in copper and BOARD_LAYER_KINDS.get(on) not in KNOCKOUT_KINDS:
+        raise DslError(f"{what}: knockout is for a copper or silkscreen layer, not {on}")
+    if face is not None and (not isinstance(face, str) or not face.strip() or not face.isprintable()):
+        raise DslError(f"{what}: face must be None or a font name, not {face!r}")
+    return TextSpec(
+        key, text, position, on, height, stroke, as_udeg(rot, name=f"{what}: rot"), justify, width, cut,
+        _flag(bold, f"{what}: bold"), _flag(italic, f"{what}: italic"), face or "",
+    )  # fmt: skip
 
 
 def _width(value: object, what: str, *, stroked: bool) -> Nm:
@@ -331,9 +380,14 @@ def polygon(key: str, pts: object, layer: object, width: object, fill: object) -
 
 def dimension(
     key: str, start: object, end: object, offset: object, layer: object, direction: object, units: object,
-    precision: object, size: object, thickness: object, width: object,
+    precision: object, size: object, thickness: object, width: object, extension_offset: object = None,
 ) -> DimensionSpec:  # fmt: skip
     what = f"dimension {key}"
+    gap: Nm | None = None
+    if extension_offset is not None:
+        gap = as_nm(extension_offset, name=f"{what}: extension_offset")
+        if gap < 0:
+            raise DslError(f"{what}: extension_offset must be at least 0")
     a, b = point(start, f"{what}: start"), point(end, f"{what}: end")
     if a == b:
         raise DslError(f"{what}: start and end are the same point")
@@ -347,6 +401,7 @@ def dimension(
         raise DslError(f"{what}: units must be 'mm' or 'in', not {units!r}")
     if isinstance(precision, bool) or not isinstance(precision, int) or not 0 <= precision <= MAX_PRECISION:
         raise DslError(f"{what}: precision must be an int from 0 to {MAX_PRECISION}, not {precision!r}")
+    text_height, text_width = (None, None) if size is None else _text_size(size, f"{what}: size")
     return DimensionSpec(
         key,
         "aligned" if direction is None else "orthogonal",
@@ -357,9 +412,11 @@ def dimension(
         cast("DimensionDirection | None", direction),
         cast("DimensionUnits", units),
         precision,
-        _positive(size, f"{what}: size", None),
+        text_height,
         _positive(thickness, f"{what}: thickness", None),
         _positive(width, f"{what}: width", None),
+        gap,
+        text_width,
     )
 
 
@@ -371,6 +428,7 @@ __all__ = [
     "DRAWING_KEY",
     "DRAWING_LAYER_KINDS",
     "FORBID",
+    "KNOCKOUT_KINDS",
     "MAX_PRECISION",
     "TEXT_SIZE",
     "TEXT_THICKNESS",

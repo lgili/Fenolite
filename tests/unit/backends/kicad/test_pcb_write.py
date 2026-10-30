@@ -233,9 +233,23 @@ def test_created_tokens() -> None:
     # settings of c0277 on a via
     board = created_design.board
     via = dataclasses.replace(board.vias[0], teardrop=FULL_TEARDROP)
+    styled = Text(
+        id="txt_00000000-0000-4000-8000-0000000000c7",
+        text="STYLED",
+        position=mm(120, 120),
+        layer="F.SilkS",
+        size=Size(1_000_000, 1_000_000),
+        thickness=150_000,
+        knockout=True,
+        bold=True,
+        italic=True,
+        face="KiCad Font",
+    )  # the text styles of c0277
     with_dimensions = dataclasses.replace(
         created_design,
-        board=dataclasses.replace(board, dimensions=two_dimensions(), vias=(via, *board.vias[1:])),
+        board=dataclasses.replace(
+            board, dimensions=two_dimensions(), vias=(via, *board.vias[1:]), texts=(*board.texts, styled)
+        ),
     )
     written = {n.name for _, n in walk(parse(write_board(with_dimensions, target=9).text))}
     assert set(FLOOR_HEADS) <= written

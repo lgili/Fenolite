@@ -1403,6 +1403,11 @@ meaning = "Some item pairs were judged for shorts only, because no clearance is 
 fix = "Set a clearance in the net class or in a rule to have them judged."
 see = "check"
 
+["copper.text-unchecked"]
+meaning = "The board holds texts on copper layers. Fenolite draws no glyphs, so its copper check leaves them out; KiCad's DRC judges a copper text over a track as a short (H-K-BOARD-TEXT)."
+fix = "Nothing to fix. Run fenolite check with the KiCad DRC (kicad-cli) to judge the copper texts."
+see = "check"
+
 ["copper.item-unsupported"]
 meaning = "Copper items of a kind were left out of the copper check; 'where' is the kind."
 fix = "Check those items with KiCad's DRC."

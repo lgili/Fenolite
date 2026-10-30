@@ -50,6 +50,8 @@ never taken from KiCad's writer code.
 | Pad angles in board files are absolute: the footprint angle is included (DRC library parity: one mismatch for a control whose stored pad angles leave it out) | S-0019, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-G-PAD-ANGLE-ABS |
 | In the demo boards pad angles lie in [0°, 360°), footprint angles may be negative, and a zero pad or footprint angle is not written | S-0024 | INFERRED | H-K-PCB-READ |
 | `gr_text` is `(gr_text "TEXT" (at X Y [ANGLE]) (layer L [knockout]) (uuid U) (effects …))`; the demo boards write the text angle even when it is 0 (456 of 585 texts) | S-0001, S-0024 | INFERRED | H-K-PCB-READ |
+| The `font` of text effects holds `[(face NAME)] (size HEIGHT WIDTH) [(thickness T)] [bold] [italic]` in this order; the demo boards of 10.0.6 write the flags as `(bold yes)` and `(italic yes)` (`tinytapeout-demo`: 34 bold texts, 3 with a face; `One-Air-Max`: 25 bold), and 124 texts of `tinytapeout-demo` carry `knockout` on their layer | S-0001, S-0058 | CORPUS-VERIFIED | H-K-PCB-READ |
+| In those demos a text on a back layer is mirrored (`justify … mirror`) and a text on any other layer is not, with no exception (`tinytapeout-demo` 136 and 99, `One-Air-Max` 17 and 8) | S-0058 | CORPUS-VERIFIED | H-K-PCB-READ |
 | `zone`: `net`, `net_name`, `layer` (or `layers`), `uuid`, optional `name`, `hatch`, optional `priority` (absent when 0), `connect_pads`, `min_thickness`, optional keepout settings, fill settings, `polygon` (the outline), then one `filled_polygon` per filled area | S-0001 | INFERRED | H-K-PCB-READ |
 | `pcb drc --format json --severity-all --refill-zones --save-board` on a copy of a target-9 or target-10 board saves the copy in the running 10.0.6 board format (`20260206`, generator `pcbnew`) and writes its zone fills; the original file is not changed | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-FILL-SAVE |
 | The same refill of the authored project keeps each zone uuid and gives the GND zone one filled polygon with 16 points | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-FILL-SAVE |
@@ -865,6 +867,19 @@ token inside opaque content.
 - **Blind vias over the board.** A via table of a script (`Design.via_table`) may hold a blind via whose
   two layers are the two outer copper layers, written as the fact row above shows; a single via or a via
   step keeps the rule that a blind via joins one outer layer.
+
+## Board texts and dimensions of a script (c0277)
+
+- **Text styles.** A created text with `Text.knockout` writes `(layer L knockout)`; one with `bold`, `italic`
+  or `face` writes them in its font in the order of the fact row above, the flags as `(bold yes)` and
+  `(italic yes)`. A text on a copper layer is written like any other; the copper check leaves it out
+  (`copper.text-unchecked`, info) and KiCad's DRC judges it (`H-K-BOARD-TEXT`). The reader does not project
+  `knockout`, `bold`, `italic` or `face`: a read text keeps them in its slots.
+- **Several lines and an empty text** are written as the string atom holds them (`\n` escaped, as KiCad
+  writes it); the reader reads them back unchanged.
+- **Extension offset.** A created dimension writes `Dimension.extension_offset` in its `style`, 0.5 mm when it
+  is `None`.
+- `INFERRED` until `H-K-COPPER-ART` loads a created board with a copper text and the styles on both majors.
 
 ## Net-tie groups (c0114)
 
