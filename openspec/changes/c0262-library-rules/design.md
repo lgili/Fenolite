@@ -323,6 +323,6 @@ No new `FEN-` code.
 - **c0264** (import): imported items are checked by the same rules; its cross-check against the family
   generator reuses `library.land-mismatch` and `T`.
 - **c0265** (datasheet proposals): `propose`, then `check`, then `review` is the pipeline of research 4.7.
-- **c0266** (device packs): its CI is decision 8; its releases contain records with their reviews.
+- **c0266** (device kinds of `fenolite-library`, c0279): its CI is decision 8; its releases contain records with their reviews.
 - **c0248** (devices): `check_device` and `device_digest` are reused. **c0249** (lock): unchanged; the lock
   pins a data release, and a release holds the reviewed records.

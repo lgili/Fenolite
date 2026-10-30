@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: CC0-1.0
 # Authored for Fenolite as an example; no file, value, name or layout comes from any other project.
 """The battery-management reference board of the net roles (change c0222; ``docs/roles.md``, "Reference
-boards"), shared by ``good.py`` and ``bad.py``.
+boards"), shared by ``good.py``, ``bad.py`` and ``open.py``.
 
 A three-cell battery protector on an 80 mm by 40 mm two-layer board: the battery terminal ``J1``, the pack
 terminal ``J3`` and the cell-tap header ``J2``; the pack current runs from the battery's negative through
@@ -14,6 +14,10 @@ gates against its ``COM`` pin on the common source, and reads the cell taps over
   Kelvin-source pad; the pack path on pours.
 - ``bad``: the monitor senses the shunt on its force pads; the pack's negative narrows to a 1 mm track; a
   slot in the ground plane runs under the cell tap ``TAP0``.
+- ``open`` (change c0244): ``bad`` without its critical copper, for ``fenolite route --roles critical`` to
+  draw: the sense lines are left out, and the monitor's sense inputs are on the sense pads' nets, as in
+  ``good`` (a netlist fault is not copper). The narrow pack neck and the slot stay, since they are power
+  and ground copper (phase 1).
 
 Every value is a round illustrative number, not a design recommendation. Positions are millimetres in the
 frame of ``place()``.
@@ -33,9 +37,14 @@ def ring(*points: tuple[float, float]) -> tuple[tuple[int, int], ...]:
     return tuple(p(x, y) for x, y in points)
 
 
-def make(design: Design, variant: str) -> Design:
-    """Draws the ``variant`` board into ``design``, which the variant script makes."""
+def make(design: Design, variant: str, *, power: bool = True) -> Design:
+    """Draws the ``variant`` board (``good``, ``bad`` or ``open``) into ``design``, which the variant script
+    makes. With ``power=False`` the power and ground copper is left out (the role-copper scripts, change
+    c0243, call ``design.role_copper()`` instead); the signal, gate and Kelvin copper stays."""
+    if variant not in ("good", "bad", "open"):
+        raise ValueError(f"unknown variant {variant!r}")
     good = variant == "good"
+    sensed = variant != "bad"  # the monitor senses the shunt on its sense pads
     design.board(mm(80), mm(40))
     j1 = Part("J1", "Fenolite:Connector_2", footprint="Roles:Roles_Terminal_2P", value="BATTERY")
     j2 = Part("J2", "Fenolite:Connector_4", footprint="Fenolite:Header_1x4_P2.54", value="TAPS")
@@ -47,14 +56,14 @@ def make(design: Design, variant: str) -> Design:
     design.add(j1, j2, j3, r1, q1, q2, u1)
     bat_p, gnd, shunt_n, fet_s, pack_n = Net("BAT_P"), Net("GND"), Net("SHUNT_N"), Net("FET_S"), Net("PACK_N")
     chg_g, dsg_g = Net("CHG_G"), Net("DSG_G")
-    sense = (Net("SNS_P"), Net("SNS_N")) if good else ()
+    sense = (Net("SNS_P"), Net("SNS_N")) if sensed else ()
     tap3, tap2, tap1, tap0 = Net("TAP3"), Net("TAP2"), Net("TAP1"), Net("TAP0")
     connect(bat_p, j1[1], j3[1], u1["BAT"])
     connect(gnd, j1[2], r1[1], u1["VSS"])
     connect(shunt_n, r1[4], q1["D"])
     connect(fet_s, q1["S"], q1["KS"], q2["S"], q2["KS"], u1["COM"])
     connect(pack_n, q2["D"], j3[2])
-    if good:
+    if sensed:
         connect(sense[0], r1[2], u1["SRP"])
         connect(sense[1], r1[3], u1["SRN"])
     else:  # the monitor senses the shunt on its force pads
@@ -81,6 +90,8 @@ def make(design: Design, variant: str) -> Design:
     )  # fmt: skip
 
     def zone(net: Net, name: str, *points: tuple[float, float], layer: str = "F.Cu") -> None:
+        if not power:
+            return  # every zone of this board is power or ground copper
         design.zone(
             net, layers=(layer,), name=name, outline=ring(*points), clearance=mm("0.3"), connection="solid"
         )
@@ -103,7 +114,8 @@ def make(design: Design, variant: str) -> Design:
     design.track("bat", u1.pad(1), p(64.2, 3.19), p(64.2, 2.2), p(79.0, 2.2), p(79.0, 27.0), p(77.5, 27.0),
                  width=mm("0.25"))  # fmt: skip
     design.via("gnd_vss", *p(64.6, 9.54), net=gnd, **VIA)
-    design.via("gnd_plane", *p(64.6, 15.6), net=gnd, **VIA)  # the plane joins the battery negative's pour
+    if power:
+        design.via("gnd_plane", *p(64.6, 15.6), net=gnd, **VIA)  # the plane joins the battery negative's pour
     design.track("gnd_vss_t", u1.pad(6), p(64.6, 9.54), width=mm("0.25"))
     # the cell taps, over the ground plane on B.Cu
     design.track("tap3", j2.pad(1), p(68.19, 4.46), u1.pad(2), width=mm("0.25"))
@@ -130,7 +142,7 @@ def make(design: Design, variant: str) -> Design:
     if good:
         _good(design, gnd, pack_n, zone, r1, u1)
     else:
-        _bad(design, gnd, pack_n, zone, u1)
+        _bad(design, gnd, pack_n, zone, u1, power, sense=variant == "bad")
     return design
 
 
@@ -143,14 +155,18 @@ def _good(design, gnd, pack_n, zone, r1, u1):  # type: ignore[no-untyped-def]
     design.track("sns_n", r1.pad(3), p(57.3, 12.6), u1.pad(8), width=mm("0.25"))
 
 
-def _bad(design, gnd, pack_n, zone, u1):  # type: ignore[no-untyped-def]
-    """The monitor senses the shunt on its force pads; the pack's negative narrows to a 1 mm track between
-    two pours; a slot in the ground plane runs under the tap ``TAP0``."""
+def _bad(design, gnd, pack_n, zone, u1, power, sense=True):  # type: ignore[no-untyped-def]
+    """The monitor senses the shunt on its force pads (the lines left out without ``sense``); the pack's
+    negative narrows to a 1 mm track between two pours; a slot in the ground plane runs under the tap
+    ``TAP0``."""
     zone(gnd, "GND_PLANE", (56.2, 1.0), (66.9, 1.0), (66.9, 13.6), (66.4, 13.6), (66.4, 7.65), (65.6, 7.65),
          (65.6, 13.6), (65.3, 13.6), (65.3, 17.5), (63.4, 17.5), (63.4, 13.6), (56.2, 13.6),
          layer="B.Cu")  # fmt: skip
     zone(pack_n, "PACK_IN", (2.0, 15.0), (11.6, 15.0), (11.6, 24.8), (2.0, 24.8))
     zone(pack_n, "PACK_N", (16.7, 15.0), (26.3, 15.0), (26.3, 24.8), (16.7, 24.8))
-    design.track("pack_neck", p(9.5, 20.0), p(17.5, 20.0), width=mm(1), net=pack_n)
+    if power:
+        design.track("pack_neck", p(9.5, 20.0), p(17.5, 20.0), width=mm(1), net=pack_n)
+    if not sense:
+        return
     design.track("sns_p", p(64.5, 17.0), p(62.7, 13.0), u1.pad(7), width=mm("0.25"))
     design.track("sns_n", p(55.5, 17.0), p(57.3, 13.0), u1.pad(8), width=mm("0.25"))

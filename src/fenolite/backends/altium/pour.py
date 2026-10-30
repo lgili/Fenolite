@@ -133,6 +133,10 @@ EVIDENCE: Final = Evidence(Level.INFERRED, hypotheses=HYPOTHESES)
 
 SQUARE_NM_PER_UNIT = Fraction(127, 50) ** 2
 """``AREATHRESHOLD`` is in square file units (input I12)."""
+UNIT_SLACK_NM = 2
+"""What a written vertex may move toward an object when the document rounds it to its unit (1/10 000 mil =
+2.54 nm, half of it on each axis: at most 1.8 nm), rounded up (change c0243): a void with square corners
+grows by this much more, so the copper read back from the document keeps its clearance."""
 TOUCH_NM = 10
 """How near a piece must come to an object of its net to touch it (I13): a conductor ends on the pad's
 copper, and Clipper rounds its vertices to the nanometre."""
@@ -830,7 +834,7 @@ class _Geometry:
                 # saved pours of the public corpus show (I2; ``H-A-POUR-CLEARANCE``), a superset of the round
                 # one; a miter of a corner sharper than 60° is squared off at twice the reach
                 return self.backend.offset(
-                    (ring,), reach + 1, join="miter", tol=max(tol // 8, 10), miter_limit=2
+                    (ring,), reach + 1 + UNIT_SLACK_NM, join="miter", tol=max(tol // 8, 10), miter_limit=2
                 )
             return self.offset((ring,), reach + tol + 1, tol)
         if reach <= 0:

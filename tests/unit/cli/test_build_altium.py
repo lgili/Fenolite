@@ -29,6 +29,7 @@ PLANNED = (
     "FenoliteSample.SchLib",
     *CACHE,
     ".fenolite/altium-generated/altium_sample.SchDoc",
+    "fenolite-base.json",  # c0250
 )
 
 
@@ -77,7 +78,7 @@ def test_dry_run_of_the_sample(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
         "sheet", "kept", "schematic_format", "sheet_mode", "sheets", "ports", "sheet_entries", "harnesses",
         "schematic", "libraries", "symbols", "footprints", "pcb_document", "copper", "pcb", "copper_check",
         "outjob",
-        "drawing_sheet", "rules", "experimental", "script_output", "plan", "plan_id",
+        "drawing_sheet", "rules", "experimental", "script_output", "lock", "plan", "plan_id",
     ]  # fmt: skip
 
 
@@ -346,6 +347,7 @@ def test_modules_on_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
         "FenoliteHier.SchLib",
         *CACHE,
         *(f".fenolite/altium-generated/{name}" for name in HIER_SHEETS),
+        "fenolite-base.json",  # c0250
     ]
     assert files_under(out) == sorted(expected)
     record = json.loads((out / ".fenolite" / "build.json").read_text(encoding="utf-8"))
@@ -356,6 +358,7 @@ def test_modules_on_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
             "altium_hier.PrjPcb",
             "FenoliteHier.SchLib",
             *(f".fenolite/altium-generated/{name}" for name in HIER_SHEETS),
+            "fenolite-base.json",  # c0250
         ]
     )
     ascii_args = ("--out", str(tmp_path / "A"), *MODULES, "--altium-format", "ascii", "--dry-run")
@@ -421,6 +424,7 @@ def test_switching_the_mode_is_not_an_edit(monkeypatch: pytest.MonkeyPatch, tmp_
         "FenoliteHier.SchLib",
         "altium_hier.PrjPcb",
         "altium_hier.SchDoc",
+        "fenolite-base.json",  # c0250
     ]
 
 

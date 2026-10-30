@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fenolite board viewer</title>
+<style>
+/*__CSS__*/
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="top" aria-label="Toolbar"></header>
+  <aside id="side" aria-label="Project and panels">
+    <div class="sideHead"><button id="bProjectReview" type="button" class="reviewEntry" aria-controls="projectReview" aria-expanded="false"></button></div>
+    <details class="sect" data-sect="project" data-title="Project" open><summary></summary><div id="tree"></div></details>
+    <div id="panels">
+      <details class="sect lib-only" data-sect="library" data-title="Library" data-title-id="libTitle" open><summary></summary><div class="sectBody">
+        <button id="bCatalogSelection" type="button" class="tb catalog-only">Choose a component…</button>
+        <input id="libFilter" class="field" placeholder="Filter the library…" aria-label="Filter the library"><div id="libList" class="list"></div></div></details>
+      <details class="sch-only sect nav-panel" data-sect="navigator" data-title="Navigator" open><summary></summary><div class="sectBody">
+        <input id="navFilter" class="field" placeholder="Filter parts and nets…" aria-label="Filter parts and nets"><div id="navList" class="list"></div></div></details>
+      <details class="sect board-only rev-panel" data-sect="filter" data-title="Filter" open><summary></summary><div class="sectBody">
+        <div class="fieldWrap"><input id="query" class="field" placeholder="net:GND ref:R* side:bottom" aria-label="Filter the board" title="key:value terms (and), | (or), -term (not), * and ? wildcards, &quot;quoted values&quot;; keys: net, ref, footprint, value, layer, side, or a parameter name. Enter: apply and zoom">
+          <button id="bQClear" type="button" class="tb icon ghost inField" aria-label="Clear filter" data-tip="Clear the filter and the selection" data-keys="Shift C"></button></div>
+        <div class="qbar"><label class="inline">Highlight <select id="hlMode" aria-label="Highlight: how the rest of the board shows while something is selected"><option value="dim">Dim</option><option value="mask">Mask</option><option value="normal">Normal</option></select></label>
+          <button id="bSimilar" type="button" class="tb" data-tip="Fill the filter from the selection">Find similar</button></div>
+        <div class="notes" id="queryInfo"></div></div></details>
+      <details class="sect board-only rev-panel" data-sect="components" data-title="Components" data-title-id="compsTitle" open><summary></summary><div class="sectBody">
+        <div class="listTools"><input id="compFilter" class="field" placeholder="Filter components…" aria-label="Filter components">
+          <select id="compSort" aria-label="Sort components by"><option value="ref">Reference</option><option value="value">Value</option><option value="footprint">Footprint</option></select></div>
+        <div id="compList" class="vlist"></div></div></details>
+      <details class="sect board-only rev-panel" data-sect="nets" data-title="Nets" data-title-id="netsTitle" open><summary></summary><div class="sectBody">
+        <div class="listTools"><input id="netFilter" class="field" placeholder="Filter nets…" aria-label="Filter nets">
+          <select id="netSort" aria-label="Sort nets by"><option value="name">Name</option><option value="pads">Pads</option><option value="length">Routed length</option></select></div>
+        <div id="netList" class="vlist"></div></div></details>
+      <details class="sect board-only rev-panel" data-sect="roles" data-title="Net roles" data-title-id="rolesTitle" hidden open><summary></summary><div class="sectBody"><div id="roleList"></div></div></details>
+      <details class="sect" data-sect="changes" data-title="Changes" data-title-id="diffTitle" hidden open><summary></summary><div class="sectBody"><div id="diffList" class="list"></div></div></details>
+      <details class="sect" data-sect="messages" data-title="Messages" hidden open><summary></summary><div class="sectBody"><div id="msgTitle" class="sevLine"></div><div id="msgList" class="list"></div></div></details>
+      <details class="sect" data-sect="marks" data-title="Marks" data-title-id="marksTitle" hidden open><summary></summary><div class="sectBody"><div id="marksList" class="list"></div></div></details>
+      <details class="sect" data-sect="findings" data-title="Findings" data-title-id="ovTitle" hidden open><summary></summary><div class="sectBody"><div id="overlays"></div></div></details>
+      <details class="sect" data-sect="notes" data-title="Document notes"><summary></summary><div class="sectBody"><div class="notes" id="notes"></div></div></details>
+    </div>
+  </aside>
+  <main id="wrap"><canvas id="cv"></canvas><canvas id="gl"></canvas>
+    <div id="progress" aria-hidden="true"></div>
+    <canvas id="cube" width="112" height="112" aria-label="View cube: click a face or a corner to turn the 3D view" role="img"></canvas>
+    <div id="tablewrap"></div><div id="doccard"><div id="doctext"></div></div>
+    <div id="runStrip" role="status" aria-live="polite" hidden></div>
+    <section id="projectReview" aria-label="Project review" hidden>
+      <div class="reviewHead"><h2>Project review</h2><button id="reviewClose" type="button" class="tb" aria-label="Close project review">Close</button></div>
+      <p id="reviewScope" class="notes"></p><button id="reviewJump" type="button" class="tb">Review findings</button><div id="reviewCards"></div>
+      <section id="runPanel" aria-label="Run from this page" hidden></section>
+      <section id="actionPanel" aria-label="Actions" hidden></section>
+      <h3 id="reviewFindingHeading" tabindex="-1">Review findings</h3>
+      <div class="reviewFilters">
+        <select id="reviewSeverity" aria-label="Finding severity"><option value="">All severities</option><option value="error">Errors</option><option value="warning">Warnings</option><option value="info">Information</option></select>
+        <select id="reviewStage" aria-label="Finding stage"><option value="">All stages</option></select>
+        <input id="reviewSearch" aria-label="Search findings" placeholder="Search code, message or location…">
+      </div>
+      <p id="reviewCount" role="status" aria-live="polite"></p>
+      <div class="reviewHead"><button id="reviewPrevious" type="button" class="tb">Previous</button><button id="reviewNext" type="button" class="tb">Next</button></div>
+      <div id="reviewFindings"></div><div id="reviewDetail"></div>
+    </section>
+  </main>
+  <aside id="dock" aria-label="Inspector">
+    <div id="dockResize" role="separator" aria-orientation="vertical" aria-label="Resize the inspector" tabindex="0"></div>
+    <div id="dockHead"></div>
+    <div id="dockProps" class="dockBody" role="tabpanel" aria-labelledby="dockTab_props"><div id="info"></div><div id="infoEmpty"></div></div>
+    <div id="dockLayers" class="dockBody" role="tabpanel" aria-labelledby="dockTab_layers" hidden>
+      <div class="layerHead"><span>Layers</span><button id="ls" type="button" class="tb small" aria-haspopup="menu" data-tip="Layer sets and the current layer alone" data-keys="Shift S">Presets</button></div>
+      <div id="layerList"></div></div>
+    <div id="dock3d" class="dockBody" role="tabpanel" aria-labelledby="dockTab_3d" hidden></div>
+  </aside>
+  <div id="tabs"><div id="tablist" style="display:flex"></div></div>
+  <footer id="status" aria-label="Status"></footer>
+</div>
+<div id="lsmenu" class="menu" role="menu" aria-label="Layer sets"></div>
+<dialog id="palette" aria-label="Command palette"></dialog>
+<dialog id="shortcuts" aria-labelledby="keysTitle"></dialog>
+<dialog id="about" aria-labelledby="aboutTitle" tabindex="-1"></dialog>
+<dialog id="planDialog" aria-labelledby="planTitle"><header><h2 id="planTitle">Plan</h2></header><div id="planBody"></div><div id="planFoot"></div></dialog>
+<dialog id="catalogSelection" aria-labelledby="catTitle">
+  <div class="catHead"><h2 id="catTitle">Choose a component</h2><button id="catClose">Close</button></div>
+  <p>Review the actual symbol and footprint together. Generic roles and matching pad counts do not establish device compatibility; evidence remains INFERRED.</p>
+  <p id="catMessage" role="status" aria-live="polite">Loading the installed definitions…</p>
+  <div class="catPair">
+    <section><h3>Symbol</h3>
+      <label>Find a symbol<input id="catSymbolQuery" placeholder="Family, name or description"></label>
+      <label>Selected symbol<select id="catSymbol"><option value="">Choose a symbol</option></select></label>
+      <p id="catSymbolFacts" class="notes"></p><div id="catSymbolPreview"></div>
+    </section>
+    <section><h3>Footprint</h3>
+      <label>Find a footprint<input id="catFootprintQuery" placeholder="Package, name or description"></label>
+      <details><summary>Geometry filters · millimetres</summary><div class="catFilters">
+        <label>Mounting<select id="catMounting"><option value="">Any mounting</option><option value="smd">SMD</option><option value="through_hole">Through hole</option><option value="unspecified">Unspecified</option></select></label>
+        <label>Distinct numbered pads<input id="catPadCount" type="number" min="0" step="1"></label>
+        <label>Min centre spacing (mm)<input id="catSpacingMin" type="number" min="0" step="any"></label>
+        <label>Max centre spacing (mm)<input id="catSpacingMax" type="number" min="0" step="any"></label>
+        <label>Min pad width (mm)<input id="catWidthMin" type="number" min="0" step="any"></label>
+        <label>Max pad width (mm)<input id="catWidthMax" type="number" min="0" step="any"></label>
+        <label>Min pad height (mm)<input id="catHeightMin" type="number" min="0" step="any"></label>
+        <label>Max pad height (mm)<input id="catHeightMax" type="number" min="0" step="any"></label>
+      </div><p class="notes">Spacing is the minimum distance between distinct numbered-pad centres, rounded down by less than 1 nm; it is not manufacturer pitch. Width/height bounds apply to every numbered pad in its local axes. Missing spacing cannot match an active spacing filter.</p></details>
+      <label>Selected footprint<select id="catFootprint"><option value="">Choose a footprint</option></select></label>
+      <p id="catFootprintFacts" class="notes"></p><div id="catFootprintPreview"></div>
+    </section>
+  </div>
+  <section id="catMapping" hidden><h3>Pin-to-pad map</h3>
+    <p>Enter pad numbers separated by commas for each pin. Every numbered pad must be covered exactly once; unnumbered mechanical pads are excluded. This checks the map's structure, not the device's electrical pinout.</p>
+    <button id="catEqualNumbers">Fill equal numbers for review</button>
+    <div id="catMap"></div>
+    <div class="catFilters"><label>Reference<input id="catReference" value="U1"></label><label>Value<input id="catValue" placeholder="Your component value"></label></div>
+    <p id="catMapState" role="status" aria-live="polite"></p>
+    <label style="display:block"><input id="catReviewed" type="checkbox" style="width:auto"> I checked this symbol, footprint and pin-to-pad map against the selected part's datasheet.</label>
+    <textarea id="catSnippet" aria-label="Python component snippet" readonly hidden></textarea>
+    <div class="catHead"><button id="catCopy" disabled>Copy Python</button><button id="catDownload" disabled>Download component.py</button></div>
+    <p id="catCopyState" class="notes" role="status"></p>
+  </section>
+</dialog>
+<script>
+"use strict";
+const EMBED = /*__DATA__*/null;
+const LIVE = /*__LIVE__*/false;
+/*__JS__*/
+</script>
+</body>
+</html>

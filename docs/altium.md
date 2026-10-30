@@ -1496,6 +1496,7 @@ Fields of these kinds that the scope leaves out, and why:
 | `component` | `properties` | the writer does not write it (only the comment and the footprint link are parameters) |
 | `component` | `path` | the reader maps it elsewhere: an imported path is built from the sheet names |
 | `component` | `pins` | the writer writes a fixed value: the pins of the body it draws, whose ids and, for a generic body, names are its own |
+| `component` | `value_range` | the writer does not write it (it stays in `.fenolite/circuit.json`, change c0246) |
 | `net` | `netclass_id` | the reader maps it elsewhere: a class is a record of the PCB document, and a schematic reading holds none |
 | `netclass` | `clearance`, `track_width`, `via_diameter`, `via_drill` | the reader maps it elsewhere: the values are written as design rules and read as rules |
 | `netclass` | `description` | the writer does not write it |

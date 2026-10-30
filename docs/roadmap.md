@@ -2,7 +2,7 @@
 
 ## Current status — 2026-10-29
 
-**Released: 0.5.0. Prepared: 0.6.0 (change c0242), waiting for the maintainer's verdict, merge and tag.**
+**Released: 0.6.0 (tag `v0.6.0`, 2026-10-29; PyPI and the GitHub Release by the release workflow). In development: `0.7.0.dev0`.**
 By the maintainer's decision of 2026-10-29 the v1.0 freeze (c0216 to c0220) is held, and `0.6.0` ships what
 `dev` implemented after `0.5.0`: the MCP server and `fenolite edit` (c0195, c0196), the board engineering
 tools of c0175 in their own changes (c0197 to c0214, c0223 to c0229), computed Altium pours (c0215,
@@ -523,10 +523,11 @@ and `docs/evidence/altium-kit/2026-10-13-87c930fa-publication.md`.
 | 2 | netlist (`REF-PIN`) | v0.3 read; delivered by c0045 (`docs/equivalence.md`) |
 | 3 | footprints and pads | v0.3 read; delivered by c0045 (`docs/equivalence.md`) |
 | 4 | placement | v0.3 read; delivered by c0045 (`docs/equivalence.md`) |
-| 5 | routing (per net: the pads joined, the vias, the length per layer) | v0.3 write; delivered by c0089 (`docs/equivalence.md`, "Level 5: routing") |
-| 6 | rules | v0.6 |
-| 7 | geometry (XOR) | v0.6 |
-| 8 | presentation | after 1.0 |
+| 5 | routing (per net: the pads joined, the vias, the length per layer) | v0.3 write; delivered by c0089 (`docs/equivalence.md`, "Level 5: routing"); its strict rule (item by item) by c0278 |
+| 6 | rules | delivered by c0278 (`docs/equivalence.md`, "Level 6: rules") |
+| 7 | geometry (normalised rings, zones by outline) | delivered by c0278 (`docs/equivalence.md`, "Level 7: exact geometry") |
+| 8 | presentation (rendered layers) | delivered by c0278 (`docs/equivalence.md`, "Level 8: presentation") |
+| S | drawn schematics | delivered by c0278 once c0276 lands (`docs/equivalence.md`, "Levels") |
 
 ## v0.4: the agent track, board authoring and the complex board
 
@@ -776,6 +777,25 @@ c0186, the GUI save of c0105, the agent runs of c0081, his MCP client of c0195) 
 
 The maintainer decides the scope of `0.7.0` after `0.6.0`. Its candidates are the tests he owes, listed under
 "Deferred after v0.6" of `docs/release/v0.6.md`, and the proposal c0222 (net roles).
+
+The viewer part of v0.7 is proposed as four changes (2026-10-29), each shippable in this order; the scope
+stays the maintainer's:
+- c0300 (`viewer-shell`): interface tokens with a light theme, a grouped toolbar with icons, a command
+  palette, collapsible side bar sections, a cleaner status bar;
+- c0301 (`viewer-inspector`): a docked inspector with copyable values and actions, net emphasis, a Layers
+  panel, 3D controls;
+- c0302 (`viewer-run-checks`): read-only commands (`check`, `analyze`, `ready`, `equivalent`) run from a
+  served page, with progress and cancel, filling the project review;
+- c0303 (`viewer-actions`): writing actions behind `fenolite view --serve --allow-actions`, each a reviewed
+  plan with a board overlay, written on Confirm and undone through `restore`; needs c0302.
+
+c0304 (`viewer-build`) moved the page to TypeScript modules before c0300 and c0301. These five were written as
+c0243 to c0247 (the role view as c0255) and renumbered c0250 to c0255 on 2026-10-29; c0243 to c0245 are now
+another session's changes. The six were renumbered c0268 to c0273 the same day, and again on 2026-10-29 to c0300
+to c0305, a range reserved for the viewer away from the `circuits-as-code` line's c0246 to c0279 (that line
+continues from c0281). c0305 (`viewer-roles`) brings the role view of c0245-engineering-viewer, superseded
+otherwise, into this viewer: net roles, loops, Kelvin pairs and role findings on the board, and roles confirmed
+from a served page.
 
 ### v1.0: the freeze (proposed on 2026-10-27; held on 2026-10-29)
 

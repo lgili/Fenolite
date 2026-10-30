@@ -1,7 +1,7 @@
 ---
 topic: footprints
 title: Footprints and symbols written in the script
-summary: Footprint and Symbol from dimensions when no library has the part, and what a person must still check against the datasheet.
+summary: Footprint and Symbol from dimensions when no library has the part, and what a person must still check against the datasheet; symbols generated from pin tables.
 ---
 
 # Footprints and symbols written in the script
@@ -113,5 +113,55 @@ A footprint edited on the board (silkscreen clipped, a pad moved) drifts from it
 names each footprint that differs and the kinds (`pads`, `silkscreen`, `courtyard`, `models`, `fields`,
 `missing`), exits 5 on drift and writes nothing. `--out` writes each footprint back at its origin,
 rotation 0 and top side; a second instance that differs becomes `<name>_2` (`library.instances-differ`).
+
+## Symbols from pin tables
+
+A pin table (`fenolite.pins.v0`, TOML) lists each pin's `number`, `name` and `type`; the generator draws
+the symbol: supply on top, ground at the bottom, inputs left, outputs right, every pin on the 2.54 mm
+grid, units above 100 pins. `stacked` adds a hidden pin per further pad; `[[variant]]` rows give derived
+symbols.
+
+```fenolite-design
+from fenolite.catalog.pins import parse_pins
+from fenolite.dsl import Design, Net, Part, Symbol, connect, mm
+
+ROWS = [("1", "VIN", "power_in", ""), ("2", "GND", "power_in", 'stacked = ["4"]'), ("3", "EN", "input", "")]
+TABLE = """schema = "fenolite.pins.v0"
+id = "Local:EXB1"
+version = "1.0.0"
+summary = "Illustrative regulator"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"
+""" + "".join(f'[[pin]]\nnumber = "{n}"\nname = "{a}"\ntype = "{t}"\n{x}\n' for n, a, t, x in ROWS)
+
+design = Design("pins")
+design.board(mm(20), mm(16))
+reg = Symbol.from_pins(parse_pins(TABLE), library="Local", footprint="Fenolite:SOIC_8")
+tr = reg.derive("EXB1_TR", value="EXB1-TR")  # a derived symbol: the base's drawing and pins
+dual = Symbol("Local", "DUAL", reference="U")  # a hand-drawn symbol of two units
+dual.unit(1, "A")
+dual.unit(2, "B")
+dual.pin("1", "A", etype="input", at=(mm(-5.08), mm(0)), length=mm(2.54), unit=1)
+dual.pin("2", "B", etype="input", at=(mm(-5.08), mm(0)), length=mm(2.54), unit=2)
+dual.pin("3", "V+", etype="power_in", at=(mm(0), mm(5.08)), length=mm(2.54), rotation=270, unit=0)
+design.add(reg, tr, dual)
+u1 = Part("U1", "Local:EXB1_TR")
+design.add(u1)
+connect(Net("VIN"), u1["VIN"])
+connect(Net("GND"), u1["GND"])  # pins 2 and 4: the stacked pad has the name of its pin
+u1.place(mm(10), mm(8))
+```
+
+- `Symbol.from_pins(table, library=, footprint=)` is finished: change the table, not the code.
+- `Symbol.pin(..., unit=0)` is common to every unit; `hidden=True` is refused on a `power_in` pin.
+- `fenolite library symbol` writes the tables' symbols as one library (`.kicad_sym` or `.SchLib`):
+
+  ```fenolite-cmd
+  fenolite library symbol pins/EXB1.toml --out lib/Local.kicad_sym --dry-run --json
+  ```
+
+With KiCad 10, `fenolite check` reports for this script `kicad.erc.power-pin-not-driven`,
+`kicad.erc.pin-not-driven` and `kicad.erc.pin-not-connected` (pins neither connected nor marked
+`no_connect`), and open connections until it is routed.
 
 Read next: `parts`, `placement`, `checks`.

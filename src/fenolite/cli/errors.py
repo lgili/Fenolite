@@ -142,6 +142,12 @@ _SPECS = (
         "input from KiCad 8.0 is read-only; writing needs a KiCad 9.0 or newer source",
         "convert it with 'kicad-cli pcb upgrade' (KiCad 10.0) or re-save it in KiCad 9.0",
     ),
+    ErrorSpec(
+        "FEN-7004",
+        ExitCode.LOSSY,
+        "the design lock would change under --frozen; nothing was written",
+        "build without --frozen, review result.lock.changes, commit the lock, then build frozen",
+    ),
 )
 
 REGISTRY: dict[str, ErrorSpec] = {spec.code: spec for spec in _SPECS}

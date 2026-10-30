@@ -135,8 +135,8 @@ def test_clean_blink_stays_clean(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     )
     assert code == 0, (env["issues"], err)
     assert place_issues(env) == [] and env["result"]["placement"] == {"ran": True, "counts": {}, **NO_RULES}
-    # the guard changes no byte: the files are those of ``build_design``
-    expected = build(blink(), target).files
+    # the guard changes no byte: the files are those of ``build_design`` with its base record (c0250)
+    expected = build(blink(), target, write_base=True).files
     written = {rel: (out / rel).read_bytes() for rel in expected}
     assert written == dict(expected)
     assert {rel for rel in tree_snapshot(out) if (out / rel).is_file()} == set(expected)

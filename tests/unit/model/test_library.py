@@ -14,9 +14,13 @@ from fenolite.core.ids import derived_id, new_id
 from fenolite.model import Graphic, Pad
 from fenolite.model.canonical import dumps, loads
 from fenolite.model.library import (
+    DeviceDef,
+    DevicePin,
+    DeviceProvenance,
     FootprintDef,
     Library,
     PinAlternate,
+    Rating,
     SymbolDef,
     SymbolGraphic,
     SymbolPin,
@@ -210,3 +214,86 @@ def test_pin_table_value_objects() -> None:
     assert table.rows[0].stacked == ("7",)
     with pytest.raises(dataclasses.FrozenInstanceError):
         row.name = "X"  # type: ignore[misc]
+
+
+# -- devices (change c0248, capability design-model, "Device definitions in the library layer")
+
+
+def _buck_device() -> DeviceDef:
+    """The illustrative device of ``tests/data/devices/example_buck.toml``, built by hand (authored for
+    Fenolite; not a real product)."""
+    return DeviceDef(
+        id="Example:BUCK_6V_2A",
+        summary="6 V 2 A step-down regulator (illustrative)",
+        symbol="Example:Buck_6pin",
+        footprint="Fenolite:SOT23_6_TI_DBV0006A",
+        manufacturer="Example Semi",
+        mpn="EXB6202",
+        datasheet="https://example.invalid/exb6202.pdf",
+        ref_prefix="U",
+        evidence="UNVERIFIED",
+        ground="GND",
+        pins=(
+            DevicePin("BST", (("1", "1"),)),
+            DevicePin("EN", (("4", "4"),), voltage=Rating("voltage", "uV", max=6_000_000), must_connect=True),
+            DevicePin("FB", (("3", "3"),), voltage=Rating("voltage", "uV", max=6_000_000)),
+            DevicePin("GND", (("2", "2"), ("2", "EP"))),
+            DevicePin("SW", (("6", "6"),)),
+            DevicePin("VIN", (("5", "5"),), voltage=Rating("voltage", "uV", 2_700_000, 6_000_000)),
+        ),
+        ratings=(
+            Rating("current", "uA", max=2_000_000),
+            Rating("temperature", "mdegC", -40_000, 125_000),
+        ),
+        provenance=DeviceProvenance(
+            "fenolite catalog import", "Example:Buck_6pin Fenolite:X", "2026-10-29", "0" * 64
+        ),
+    )
+
+
+def test_device_round_trip() -> None:
+    device = _buck_device()
+    text = dumps(device)
+    loaded = loads(text, DeviceDef)
+    assert loaded == device
+    assert [pin.function for pin in loaded.pins] == ["BST", "EN", "FB", "GND", "SW", "VIN"]
+    assert loaded.pad_map == (
+        ("1", "1"), ("2", "2"), ("2", "EP"), ("3", "3"), ("4", "4"), ("5", "5"), ("6", "6"),
+    )  # fmt: skip
+    assert loaded.pin("GND").pads == ("2", "EP") and loaded.pin("GND").pins == ("2",)
+    assert loaded.rating("temperature") == Rating("temperature", "mdegC", -40_000, 125_000)
+    assert loaded.rating("power") is None
+
+
+def test_device_library_round_trip() -> None:
+    library = Library(name="devices", devices=(_buck_device(),))
+    assert loads(dumps(library), Library) == library
+
+
+def test_no_float_in_a_device() -> None:
+    import re
+
+    text = dumps(_buck_device())
+    assert not re.search(r"\d[.eE]\d|\d[eE][+-]?\d", text.replace("example.invalid/exb6202.pdf", ""))
+    with pytest.raises(TypeError):
+        dumps(dataclasses.replace(_buck_device().ratings[0], max=2.5))  # type: ignore[arg-type]
+
+
+def test_devices_stay_out_of_the_layer_files() -> None:
+    import typing
+
+    from fenolite.model import canonical
+
+    def holds_device(tp: object, seen: set[object]) -> bool:
+        if tp in seen:
+            return False
+        seen.add(tp)
+        if tp in (DeviceDef, DevicePin, Rating, DeviceProvenance):
+            return True
+        if isinstance(tp, type) and dataclasses.is_dataclass(tp):
+            hints = typing.get_type_hints(tp)
+            return any(holds_device(hint, seen) for hint in hints.values())
+        return any(holds_device(arg, seen) for arg in typing.get_args(tp))
+
+    for _file, _key, cls in canonical.LAYER_FILES:
+        assert not holds_device(cls, set()), cls

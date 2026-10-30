@@ -294,17 +294,119 @@ class PinTable:
     variants: tuple[PinVariant, ...] = field(default=(), metadata=ORDERED)
 
 
+RatingUnit = Literal["uV", "uA", "uW", "mdegC"]
+"""The integer units of a device rating: µV, µA, µW and millidegrees Celsius (change c0248)."""
+
+
+@dataclass(frozen=True, slots=True)
+class Rating:
+    """One rating of a device or of a device pin: ``key`` (``voltage``, ``current``, ``power`` or
+    ``temperature``), its integer ``unit``, and the bounds, each an ``int`` in that unit or ``None``."""
+
+    key: str
+    unit: RatingUnit
+    min: int | None = None
+    max: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DevicePin:
+    """One function of a device: its name, the symbol pins it joins and their pads as ordered
+    ``(pin, pad)`` pairs in the form of ``Component.pin_pad_map``, its pin ratings (``voltage`` measured
+    from the device's ``ground``) and whether it must be connected."""
+
+    function: str
+    pin_pads: tuple[tuple[str, str], ...] = field(default=(), metadata=ORDERED)
+    voltage: Rating | None = None
+    current: Rating | None = None
+    must_connect: bool = False
+
+    @property
+    def pins(self) -> tuple[str, ...]:
+        """The symbol pins of the function, in map order, without repeats."""
+        return tuple(dict.fromkeys(pin for pin, _ in self.pin_pads))
+
+    @property
+    def pads(self) -> tuple[str, ...]:
+        """The pads of the function, in map order."""
+        return tuple(pad for _, pad in self.pin_pads)
+
+
+@dataclass(frozen=True, slots=True)
+class DeviceProvenance:
+    """The stamp of a device written by a tool: the tool, its source (lib ids, never a path), the ISO 8601
+    date and the SHA-256 of the record as written (``fenolite.catalog.devices.device_digest``)."""
+
+    tool: str
+    source: str
+    date: str
+    sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class DeviceDef:
+    """A device (change c0248): one reviewed record that joins a symbol, a footprint, the map from pin
+    function to pins and pads, an identity, ratings and an evidence label. ``pins`` are in code-point order
+    of their functions and ``ratings`` in order of their keys. A device is library data: it is never part
+    of a ``Design``, and a built component names it only through the properties ``fenolite.device`` and
+    ``fenolite.device.sha256``."""
+
+    id: str
+    summary: str = ""
+    symbol: str = ""
+    footprint: str = ""
+    manufacturer: str = ""
+    mpn: str = ""
+    datasheet: str = ""
+    ref_prefix: str = ""
+    value: str = ""
+    evidence: str = "UNVERIFIED"
+    sources: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    ground: str = ""
+    unused_pads: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    ends: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    """Two function names that the named ends of a part (``part.a`` and ``part.b``) resolve to, or ``()``."""
+    properties: dict[str, str] = field(default_factory=lambda: {})
+    pins: tuple[DevicePin, ...] = field(default=(), metadata=ORDERED)
+    ratings: tuple[Rating, ...] = field(default=(), metadata=ORDERED)
+    provenance: DeviceProvenance | None = None
+
+    @property
+    def pad_map(self) -> tuple[tuple[str, str], ...]:
+        """The derived pad map: every ``(pin, pad)`` pair of every function, sorted by pin then in map
+        order, the form of ``Component.pin_pad_map``."""
+        pairs = [pair for pin in self.pins for pair in pin.pin_pads]
+        order = {pin: index for index, pin in enumerate(sorted({pin for pin, _ in pairs}))}
+        return tuple(sorted(pairs, key=lambda pair: order[pair[0]]))
+
+    def pin(self, function: str) -> DevicePin:
+        """The function named ``function``; ``KeyError`` when the device has none."""
+        for found in self.pins:
+            if found.function == function:
+                return found
+        raise KeyError(function)
+
+    def rating(self, key: str) -> Rating | None:
+        """The device rating of ``key``, or ``None``."""
+        return next((found for found in self.ratings if found.key == key), None)
+
+
 @dataclass(frozen=True, slots=True)
 class Library:
-    """A set of definitions under one name (the schema root of ``library.json``)."""
+    """A set of definitions under one name (the schema root of ``library.json``). ``devices`` are sorted
+    by id (change c0248)."""
 
     name: str = ""
     footprints: tuple[FootprintDef, ...] = ()
     symbols: tuple[SymbolDef, ...] = ()
+    devices: tuple[DeviceDef, ...] = field(default=(), metadata=ORDERED)
 
 
 __all__ = [
     "PPM",
+    "DeviceDef",
+    "DevicePin",
+    "DeviceProvenance",
     "FootprintDef",
     "FootprintKind",
     "Library",
@@ -317,6 +419,8 @@ __all__ = [
     "PinTable",
     "PinVariant",
     "PowerKind",
+    "Rating",
+    "RatingUnit",
     "SymbolDef",
     "SymbolGraphic",
     "SymbolPin",

@@ -92,3 +92,88 @@ def test_bus_prefix() -> None:
     assert new_id("bus", random.Random(1)).startswith("bus_")
     with pytest.raises(ValueError, match="unknown id prefix"):
         new_id("busx", random.Random(1))
+
+
+# --- blocks and ports (change c0251, "Block instances in the circuit model") ------------------------------
+
+
+def _block_design() -> tuple[object, object]:
+    from fenolite.model import BlockParam, Module, Port
+
+    rng = random.Random(5)
+    v33 = Net(id=new_id("net", rng), name="3V3")
+    gnd = Net(id=new_id("net", rng), name="GND")
+    module = Module(
+        id=new_id("mod", rng),
+        path="buck1",
+        block="buck",
+        params=(BlockParam("current", "quantity", "2A"), BlockParam("vout", "quantity", "3.3V")),
+    )
+    port = Port(
+        id=new_id("prt", rng),
+        name="VOUT",
+        owner=module.id,
+        kind="power",
+        direction="out",
+        members={"hv": v33.id, "lv": gnd.id},
+    )
+    return Circuit(nets=(v33, gnd), modules=(module,), ports=(port,)), (module, port)
+
+
+def test_block_instance_round_trip(tmp_path: object) -> None:
+    from pathlib import Path
+
+    from fenolite.model import Design
+    from fenolite.model.canonical import dump_dir, load_dir
+
+    circuit, (module, port) = _block_design()
+    assert isinstance(circuit, Circuit)
+    design = dataclasses.replace(Design.new("b", seed=6), circuit=circuit)
+    root = Path(str(tmp_path))
+    dump_dir(design, root)
+    loaded = load_dir(root)
+    assert loaded.circuit.modules == (module,) and loaded.circuit.ports == (port,)
+    text = (root / "circuit.json").read_text(encoding="utf-8")
+    assert '"ports"' in text and '"block": "buck"' in text
+
+
+def test_block_fields_are_omitted_and_an_old_file_loads() -> None:
+    from fenolite.model import Module
+
+    plain = Module(id=new_id("mod", random.Random(7)), path="power")
+    old = dumps(Circuit(modules=(plain,)))
+    assert "block" not in old and "params" not in old and "ports" not in old
+    loaded = loads(old, Circuit)
+    assert loaded.modules[0].block == "" and loaded.modules[0].params == () and loaded.ports == ()
+    assert dumps(loaded) == old
+
+
+def test_block_params_refused() -> None:
+    from fenolite.model import BlockParam, Module
+
+    with pytest.raises(ValueError, match="one name"):
+        Module(
+            id=new_id("mod", random.Random(8)),
+            path="buck1",
+            block="buck",
+            params=(BlockParam("vout", "int", "1"), BlockParam("vout", "int", "2")),
+        )
+    with pytest.raises(ValueError, match="type"):
+        BlockParam("vout", "float", "3.3")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="ordered"):
+        Module(
+            id=new_id("mod", random.Random(8)),
+            path="buck1",
+            block="buck",
+            params=(BlockParam("b", "int", "1"), BlockParam("a", "int", "2")),
+        )
+
+
+def test_port_values_refused() -> None:
+    from fenolite.model import Port
+
+    with pytest.raises(ValueError, match="both"):
+        Port(id=new_id("prt", random.Random(9)), name="EN", owner="mod_x", kind="net", direction="both")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="name and a kind"):
+        Port(id=new_id("prt", random.Random(9)), name="", owner="mod_x", kind="net")
+    assert new_id("prt", random.Random(1)).startswith("prt_")

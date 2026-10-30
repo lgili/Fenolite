@@ -7,7 +7,7 @@
 - the raw key, whose name carries the unit, with a TOML integer: `clearance_nm`, `creepage_nm`, `embedded_nm`, `insulation_nm`, `groove_nm`, `max_distance_nm`, `min_width_nm`, `max_area_nm2`, `milliamps`, `temp_rise_mk`, `millivolts`, `up_to_mv`, `drop_mv`;
 - or its unit key, with a TOML string that holds a number and a unit: `clearance`, `creepage`, `embedded`, `insulation`, `groove`, `max_distance`, `min_width` (lengths), `max_area` (`mm2`), `current` (amperes), `temp_rise` (kelvin), `voltage`, `up_to` and `drop` (volts).
 
-A unit value MUST be parsed exactly by the parsers of `fenolite.core.units`, and MUST be a whole number of the raw key's unit. Each of the following MUST raise `FormatError` naming the file and the key:
+A unit value MUST be parsed exactly: an electrical value or a temperature difference by `fenolite.core.quantities` (c0248's exact quantity parser), a length or an area by `fenolite.core.units`. It MUST be a whole number of the raw key's unit. Each of the following MUST raise `FormatError` naming the file and the key:
 - a float;
 - a unit string that is malformed, has no unit, has the wrong unit or is not a whole number of the raw unit;
 - both forms of one quantity in a row;

@@ -280,7 +280,7 @@ class _Tree:
     pages: Mapping[str, str]
 
 
-def _tree(name: str, modules: Sequence[str]) -> _Tree:
+def _tree(name: str, modules: Sequence[str], blocks: Mapping[str, str] | None = None) -> _Tree:
     root_id = derived_id("sch", ID_BACKEND, name)
     root_uuid = kicad_uuid(SchematicSheet(id=root_id, name=name))
     ids = {"": root_id}
@@ -291,6 +291,9 @@ def _tree(name: str, modules: Sequence[str]) -> _Tree:
     for number, module in enumerate(modules, start=2):  # depth first: a parent comes before its children
         parent = module_of(module)
         label = module.rpartition("/")[2]
+        made_by = (blocks or {}).get(module, "")
+        if made_by:
+            label = f"{label} ({made_by})"  # a block instance shows its block (change c0251)
         file = sheet_file(module)
         ref = SheetRef(
             id=derived_id("shr", ID_BACKEND, f"{name}:sheet:{module}"),
@@ -385,7 +388,7 @@ def generate_schematic(
     if collisions:
         issues += collisions
         modules = []  # no child sheet: the error refuses the build, and one sheet stays readable
-    tree = _tree(name, modules)
+    tree = _tree(name, modules, {m.path: m.block for m in design.circuit.modules if m.block})
     flat = not modules
     by_sheet: dict[str, list[_Unit]] = {module: [] for module in ("", *modules)}
     for item in placed:

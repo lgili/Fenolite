@@ -32,6 +32,9 @@ from fenolite.checks.equivalence.model import (
     Tolerances,
 )
 from fenolite.checks.equivalence.routing import has_copper, level_routing, pair_nets
+from fenolite.checks.equivalence.rules import level_rules
+from fenolite.checks.equivalence.shapes import level_geometry
+from fenolite.checks.equivalence.strict import compare_strict
 from fenolite.core.coords import Point
 from fenolite.model.board import Board, FootprintInstance, Pad
 from fenolite.model.circuit import Component
@@ -380,14 +383,23 @@ def compare_designs(
     frame: Frame = "absolute",
     ignore_refs: Sequence[str] = (),
     rules: Sequence[Rule] = (),
+    strict: bool = False,
 ) -> EquivalenceReport:
-    """Run the levels 1 to ``level`` in order and apply ``rules`` to each. ``ValueError`` for a level
-    outside ``LEVELS``, or above what both sides hold (the message names the side without footprints, or
-    without copper when only level 5 is out of reach)."""
+    """Run the levels 1 to ``level`` in order and apply ``rules`` to each; with ``strict`` level 5 also runs
+    the item rule of ``strict.py``. ``ValueError`` for a level outside ``LEVELS``, or above what both sides
+    hold (the message names the side without footprints, or without copper when only level 5 is out of
+    reach). Levels 6 and 7 need a footprint on both sides; they run level 5 only when both sides hold
+    copper."""
     if type(level) is not int or level not in LEVELS:
         raise ValueError(f"level is one of {', '.join(map(str, LEVELS))}, got {level!r}")
     highest = max_level(a, b)
-    if level > highest:
+    if level > 5 and highest < 4:
+        bare = " and ".join(name for name, side in (("a", a), ("b", b)) if not _has_footprints(side))
+        raise ValueError(
+            f"level {level} needs footprints on both sides, and side {bare} holds none; "
+            f"the highest level available is {highest}"
+        )
+    if 5 >= level > highest:
         held, needs = (
             (_has_footprints, "footprints") if highest < 4 else (has_copper, "a track, an arc or a via")
         )
@@ -407,8 +419,23 @@ def compare_designs(
         if level >= 4:
             fourth, shift = level_placement(pairs, tolerances, frame)
             results.append(fourth)
-        if level >= 5:
-            results.append(level_routing(a, b, pair_nets(a, b, refs), tolerances))
+        if level >= 5 and highest == 5:
+            pairing = pair_nets(a, b, refs)
+            routed = level_routing(a, b, pairing, tolerances)
+            if strict:
+                extra = compare_strict(a, b, pairing, tolerances)
+                routed = replace(
+                    routed,
+                    compared=routed.compared + extra.compared,
+                    differences=routed.differences + extra.differences,
+                    notices=routed.notices + extra.notices,
+                    summary={**routed.summary, "strict": dict(extra.summary)},
+                )
+            results.append(routed)
+        if level >= 6:
+            results.append(level_rules(a, b, tolerances))
+        if level >= 7:
+            results.append(level_geometry(a, b, pairs, tolerances))
     return EquivalenceReport(
         levels=tuple(apply_rules(result, rules) for result in results),
         tolerances=tolerances,

@@ -288,3 +288,82 @@ def test_symbols_example_builds_both_tables(tmp_path: Path, monkeypatch: pytest.
     assert text == write_symbol_library(expected, target=10)  # type: ignore[arg-type]
     units = {s.name: s.unit_count for s in read_symbol_library(text, library="Example") if not s.extends}
     assert units == {"EXB6202": 1, "EXM120": 3}
+
+
+# ---- the design-lock example (capability design-dsl, "Design lock in a build"; change c0249)
+
+LOCK_EXAMPLE = ROOT / "examples" / "lock"
+
+
+def test_lock_example_header_and_listing() -> None:
+    lines = (LOCK_EXAMPLE / "design.py").read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith("# Authored for Fenolite")
+    assert "`lock/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+
+
+def test_lock_example_parts() -> None:
+    """Two modules with parts without a ref, one named part, one explicit ref, and the committed lock."""
+    from fenolite.dsl.lock import lock_text, read_lock
+
+    design = run_design_script(LOCK_EXAMPLE / "design.py").design
+    unnamed = sorted(p.path for p in design.parts.values() if p.explicit_ref is None and p.name is None)
+    assert unnamed == ["led/D", "led/R", "reg/C", "reg/U"]
+    assert [p.path for p in design.parts.values() if p.name is not None] == ["reg/c_in"]
+    assert [p.path for p in design.parts.values() if p.explicit_ref is not None] == ["J1"]
+    text = (LOCK_EXAMPLE / "design.lock").read_text(encoding="utf-8")
+    lock = read_lock(text, file="design.lock")
+    assert lock_text(lock) == text and set(lock.refs) == set(design.parts)
+    model = to_model(design, refs=lock.refs)
+    assert sorted(c.ref for c in model.circuit.components) == ["C1", "C2", "D1", "J1", "R1", "U1"]
+
+
+def test_lock_example_builds_frozen(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    args = ["build", str(LOCK_EXAMPLE / "design.py"), "--out", str(tmp_path / "B"), "--frozen", "--dry-run"]
+    assert cli_main.main([*args, "--json"]) == 0, err.getvalue()
+    assert json.loads(out.getvalue())["result"]["lock"]["changes"] == []
+
+
+# -- the device example (change c0248)
+
+DEVICES = ROOT / "examples" / "devices"
+
+
+def test_devices_header_and_listing() -> None:
+    for path in (DEVICES / "design.py", DEVICES / "devices" / "example_buck.toml"):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith(
+            "# Authored for Fenolite"
+        )
+    assert "`devices/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+
+
+def test_devices_parts_come_from_devices() -> None:
+    design = run_design_script(DEVICES / "design.py").design
+    placed = {path: part.device.id for path, part in design.parts.items() if part.device is not None}
+    assert placed["U1"] == "Example:BUCK_6V_2A" and design.parts["U1"].device_origin == "authored"
+    assert {placed[ref] for ref in ("R1", "R2", "R3")} == {"Fenolite:R_0603"}
+    assert placed["D1"] == "Fenolite:LED_0603" and design.parts["L1"].device is None
+    model = to_model(design)
+    u1 = next(c for c in model.circuit.components if c.ref == "U1")
+    assert u1.properties["MPN"] == "EXB6202" and u1.lib_footprint_ref == "Fenolite:SOT23_6_TI_DBV0006A"
+
+
+def test_devices_builds_without_a_subprocess(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise AssertionError(f"a build started a subprocess: {args}")
+
+    monkeypatch.setattr(subprocess, "run", refuse)
+    monkeypatch.setattr(subprocess, "Popen", refuse)
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    code = cli_main.main(
+        ["build", str(DEVICES / "design.py"), "--out", str(tmp_path / "d"), "--confirm", "--json"]
+    )
+    assert code == 0, err.getvalue()
+    envelope = json.loads(out.getvalue())
+    assert not [issue for issue in envelope["issues"] if issue["severity"] != "info"], envelope["issues"]
+    assert [row["id"] for row in envelope["result"]["devices"]][0] == "Example:BUCK_6V_2A"

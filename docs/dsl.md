@@ -212,11 +212,15 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
 
 - `Design(name)`, `Module(name)`: containers; `add(*objs)` adds parts, modules, nets and interfaces.
   There is no implicit "current design".
-- `Part(ref, lib_id, footprint=None, value="", *, properties=None)`: `lib_id` is a symbol
-  `Library:Name`; `footprint=None` falls back to the symbol's `Footprint` property, and `value=""` to
-  its `Value` property. `properties` maps user property names to text ("User properties").
+- `Part(ref, lib_id, footprint=None, value="", *, name=None, prefix=None, properties=None)`: `lib_id` is
+  a symbol `Library:Name`; `footprint=None` falls back to the symbol's `Footprint` property, and
+  `value=""` to its `Value` property. `properties` maps user property names to text ("User properties").
+  The ref may be left out: the build then assigns one ("Reference designators and the design lock").
+- `Design.part(...)` and `Module.part(...)` take the arguments of `Part`, create the part and attach it.
 - `part[designator]` returns a pin handle; `connect(net, *pins)` joins pins to a net.
-- `no_connect(*pins)` marks pins as intentionally unconnected ("No-connect marks").
+- `no_connect(*pins)` marks pins as intentionally unconnected ("No-connect marks"); `part.unused_no_connect()`
+  asks the build to mark the open pins of a part, and `series`, `decouple`, `pull_up` and `pull_down` wire
+  common patterns ("Connection helpers").
 - `Part.place(x, y, rot=0, side="top", locked=False)`, once per part.
 - `Part.field(name, *, dx, dy, rot, layer, visible, size, thickness, justify, outside, gap, locked)`,
   once per field name: where the `Reference` or the `Value` of the part's footprint goes ("Field
@@ -268,6 +272,7 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   buses with fixed roles, each with `attach(part, ...)` ("Typed interfaces").
 - `Quantity` and `ohm()`, `farad()`, `henry()`, `volt()`, `amp()`, `hertz()`, `watt()`, `second()`: exact
   electrical values ("Quantities").
+- `Range`, `Tolerance`, `between()` and `pct()`: exact value ranges with worst-case arithmetic ("Ranges").
 - `to_model(design)` and `placements(design)` turn a DSL design into a model `Design` and the
   placement requests; `build` calls them.
 
@@ -276,9 +281,11 @@ Nothing of the DSL is re-exported from the root `fenolite` package: the DSL `Des
 
 ### Names and paths
 
-- A design name matches `^[A-Za-z0-9][A-Za-z0-9_.-]*$`. Module names and refs match `[A-Za-z0-9_.+-]+`.
+- A design name matches `^[A-Za-z0-9][A-Za-z0-9_.-]*$`. Module names, part names and refs match
+  `[A-Za-z0-9_.+-]+`.
 - A module path is its name at the top and `<parent path>/<name>` below; a component path is
-  `<module path>/<ref>`, or `<ref>` at the top.
+  `<module path>/<key>`, or `<key>` at the top. The key of a part is its `name`, else its explicit ref,
+  else its reference prefix ("Reference designators and the design lock").
 - Net names are global and literal. A module-local net is named by the script, for example
   `Net(f"{m.path}/FB")`.
 - Errors are raised as `DslError` at the offending call, so the traceback points at the script line:
@@ -321,7 +328,71 @@ Nothing of the DSL is re-exported from the root `fenolite` package: the DSL `Des
   henries of 1 or more without a prefix have none and raise.
 - **Parts.** `Part(..., value=ohm("4k7"))` stores `4.7kΩ`, so two spellings of one value are one value in
   the model and in the outputs. Pass `value=q.text(code=True)` for ASCII, or a plain string as before. A
-  quantity never reaches the model or `.fenolite/`.
+  quantity never reaches the model or `.fenolite/`; a part value given as a range ("Ranges") does.
+- **Ranges.** A quantity with a range operand gives a `Range` (`volt("1") + between(...)`), the quantity
+  counting as `[q, q]` with nominal `q`; `q.pct()`, `q.min()`, `q.max()` and `q.within()` are in "Ranges".
+
+## Ranges
+
+A `Range` (change c0246) is an exact interval of one unit with an optional nominal: `unit` (a unit of
+`Quantity`, or `"ratio"` for a dimensionless value), `low` and `high` (`Fraction`, or `None` for an
+unbounded side) and the nominal. There is no solver: a range is computed forwards and compared.
+
+```python
+from fenolite.dsl import between, farad, ohm, pct, volt, amp
+
+v33 = volt("3.3").pct(3)  # 3.3V (3.201V..3.399V)
+c_in = farad("10u").pct(-20, 80)  # 10uF (8uF..18uF)
+r_top = ohm("100k").pct(pct(1))  # a Tolerance value gives the same range as pct(1)
+ripple = between(volt(0), volt("30m"))  # 0V..30mV, no nominal
+i_load = amp("1.5").max()  # 0A..1.5A
+v_in = volt("4.5").min()  # 4.5V.. (unbounded above)
+vout = volt("0.8").pct(1) * (1 + r_top / ohm("31.6k").pct(1))
+assert vout.within(volt("3.3").pct(5))
+```
+
+- **Constructors.** `q.pct(p)` is `[q − |q|·p/100, q + |q|·p/100]` with nominal `q` (`p >= 0`);
+  `q.pct(lo, hi)` runs from `lo` % to `hi` % (`lo <= 0 <= hi`); `q.pct(t)` takes a `Tolerance`, which
+  `pct(p)` or `pct(lo, hi)` builds without a unit. `q.max()` is `[0, q]` without nominal (`q >= 0`; use
+  `between` for a negative range); `q.min()` is `[q, unbounded)`. `between(a, b, *, nominal=None)` takes
+  two quantities of one unit with `a <= b`. A per-cent is an `int`, a `Fraction` or a decimal text
+  (`"0.5"`); a float, a bool or another text raises `DslError`, as does an inconsistent range.
+- **Reading back.** `r.min`, `r.max` and `r.nominal` are quantities (a `Fraction` for a ratio), or `None`;
+  a negative bound of a unit other than volts and amperes raises `DslError` when read as a quantity.
+  Equality and hashing compare all four fields; `<` between ranges raises `TypeError`.
+- **Arithmetic.** `+`, `-`, `*`, `/` and unary `-` take ranges, quantities, `int` and `Fraction` (a ratio)
+  on either side and give the exact worst-case range: `[a0+b0, a1+b1]`, `[a0−b1, a1−b0]`, the minimum
+  and maximum of the four bound products, and `a · [1/b1, 1/b0]`. The nominal of a result is the same
+  operation on the nominals when both have one. Dividing by a range that holds zero, or computing with
+  an unbounded range, raises `DslError`. Interval arithmetic does not know that two operands are the
+  same value, so `r / r` is wider than `[1, 1]`: a result can be wider than the true range, never
+  narrower.
+- **Units.** `+` and `-` take one unit. `*` and `/` follow the closed tables `quantity.UNIT_PRODUCTS` and
+  `quantity.UNIT_QUOTIENTS`, definitions of SI derived units; any other pair raises `TypeError` naming both
+  units.
+
+  | `*` | gives | `/` | gives |
+  |---|---|---|---|
+  | X · ratio, ratio · X | X | X / X | ratio |
+  | volt · ampere | watt | X / ratio | X |
+  | ampere · ohm | volt | volt / ohm, watt / volt | ampere |
+  | ohm · farad | second | volt / ampere | ohm |
+  | hertz · second | ratio | watt / ampere | volt |
+  | | | henry / ohm, ratio / hertz | second |
+  | | | ratio / second | hertz |
+
+- **Containment.** `a.within(b)` is true when every value of `a` lies in `b`, an unbounded side of `b`
+  holding everything on that side; `a` and `b` are ranges or quantities of one unit (`TypeError`
+  otherwise).
+- **Text.** `text()` and `str()` print `3.3V (3.201V..3.399V)`, or `3V..3.6V` without a nominal, and
+  `4.5V..` for an unbounded side; a ratio prints as a plain decimal. A value that does not terminate is
+  rounded outward (low down, high up, nominal to nearest) to four significant digits after a `~`:
+  `~0.3333..~0.6667`. `text()` never raises.
+- **Part values.** `Part(..., value=ohm("10k").pct(1))` stores `10kΩ` as the value, exactly as
+  `value=ohm("10k")` does, and the range as `Part.value_range`. A part value range needs a nominal, two
+  bounds, a unit (not a ratio) and no negative bound of a unit other than volts and amperes, else
+  `DslError` naming the ref. `to_model` stores it as `Component.value_range`, a `ValueRange` of exact
+  decimals (`docs/design-model.md`, "Value ranges"); no written KiCad or Altium file changes.
 
 ## Typed interfaces
 
@@ -391,6 +462,7 @@ Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl"
 | net | `net` | `net:<name>` |
 | net class | `cls` | `netclass:<name>` |
 | interface | `itf` | `interface:<kind>:<name>` |
+| block port | `prt` | `port:<owner path>:<port name>`, the owner path being the block instance path (change c0251) |
 | layer | `lay` | `layer:<KiCad name>` |
 | zone | `zon` | `zone:<zone name>` |
 | rule | `rul` | `rule:<kind>` (board minimum), `rule:<kind>:<class name>` (class minimum), `rule:named:<rule name>` (a rule of `rule()`) |
@@ -548,6 +620,31 @@ warning.
   KiCad 9.0.9 and 10.0.6 compare net names in custom-rule conditions without regard to case
   (`H-K-DRU-COND`, `docs/formats/kicad/rules.md`); the build refuses such names whatever is measured.
 
+## Devices
+
+A part can be placed from a **device**: one reviewed record that joins a symbol, a footprint, the map from
+pin function to pads, an identity, ratings and an evidence label (change c0248; the format, its sources and
+its review are in `docs/devices.md`).
+
+```python
+u1 = design.part("U1", device="Example:BUCK_6V_2A")  # Part(...) and design.add(...) in one call
+r1 = design.part("R1", device="Fenolite:R_0603", value=ohm("4k7"))
+connect(vin, u1.VIN, r1.P1)
+```
+
+- `Part(ref, device=ID)` takes exactly one of `lib_id` and `device`; with a device, `footprint` and
+  `pad_map` are refused, `value` defaults to the device's, and `Manufacturer`, `MPN` and the device's
+  properties join the part's (a conflicting `MPN` raises `DslError`). `part.device` is the `DeviceDef`.
+- `design.part(...)` and `module.part(...)` build a `Part` and add it, with or without a device.
+  `design.devices(*records)` registers `DeviceDef` records that win over `devices/*.toml` beside the script
+  and over the shipped `Fenolite:` devices.
+- On a device part, `u1.VIN` and `u1["VIN"]` are checked when they are called: a wrong name raises
+  `PinNameError` (a `DslError` and an `AttributeError`) naming the closest functions. A function named like
+  an attribute of `Part` is reached as `u1["place"]`. `u1.pad("GND")` is the first pad of a function.
+- The build resolves a function to all its symbol pins, checks the device against its symbol and footprint
+  (`build.device-mismatch`), writes the device's datasheet as the `Datasheet` field and reports the devices
+  in `result.devices`. A design without device parts builds exactly as before.
+
 ## No-connect marks
 
 ```python
@@ -557,8 +654,9 @@ no_connect(u1[11], u1[12])  # NRST and OSC_IN are left open on purpose
 ```
 
 - `no_connect(*pins)` takes the pin handles that `connect` takes, of one part or of several. A call
-  without arguments does nothing, and marking a designator twice keeps one mark. There is no `Part`
-  method for marks, no automatic marking of unused pins and no way to remove a mark.
+  without arguments does nothing, and marking a designator twice keeps one mark. There is no way to
+  remove a mark. `part.unused_no_connect()` asks the build to mark the part's open pins; the marks it
+  resolves are marks of this section ("Connection helpers").
 - **Errors.** Any argument that is not a pin handle raises `DslError`. Marking a designator that
   `connect` joined to a net raises `DslError` naming the ref, the designator and the net; connecting a
   marked designator raises `DslError` naming the ref and the designator. The earlier call stays in
@@ -579,6 +677,57 @@ no_connect(u1[11], u1[12])  # NRST and OSC_IN are left open on purpose
   as `REF-PIN`.
 - **Altium target.** Each marked pin gets a No ERC directive and no wire stub (`docs/altium.md`,
   "No-connect marks").
+
+## Connection helpers
+
+Plain functions of `fenolite.dsl` (change c0247) that lower to `connect`, no-connect marks and `near()`
+rules; none creates a part, picks a value or adds a model field.
+
+```python
+from fenolite.dsl import I2C, Net, connect, decouple, mm, pull_up, series
+
+connect(led_drv, u1[1])
+series(led_drv, r1, led_a, (d1.b, d1.a), gnd)  # LED_DRV-R1-LED_A, the LED turned around, to GND
+series(vin, f1, d1, vprot)  # returns (Net("F1-D1"),), the joint between F1 and D1
+decouple(v33, gnd, c3, c4, near=u2.pad(4), within=mm(3))  # rules decouple/C3 and decouple/C4
+pull_up(I2C(sda, scl), v33, r3, r4)  # R3 on SDA, R4 on SCL
+u1.unused_no_connect(keep=(5, "PA7"))  # mark every other open pin at build
+```
+
+- **Ends.** `part.a` and `part.b` are the pin handles `part["1"]` and `part["2"]`. Using them, or passing
+  the part to a helper, sets `part.two_terminal`: the build then checks that the symbol has exactly two
+  pins, else `build.not-two-terminal` (error, exit 5, nothing written) names the ref and the pin count. A
+  two-pin symbol numbered otherwise (`A`, `K`) fails with `build.unknown-pin` on `1`.
+- **`series(*chain)`.** The first and last items are nets, with at least one part between. An inner item
+  is a part (entered at `a`, left at `b`), a tuple of two distinct pin handles of one part (entered at the
+  first: `(d1.b, d1.a)` turns it around), or a net that names the joint between the parts beside it.
+  Two parts next to each other are joined by a new net named `<left path>-<right path>` (`F1-D1`,
+  `psu/F1-psu/D1`); the call returns the new nets in chain order. Two nets next to each other, a chain
+  without a part, a bad tuple, any other item, and a generated name another net of the design has raise
+  `DslError`.
+- **`decouple(rail, ground, *capacitors, near=None, within=None, severity="error")`.** Each capacitor's
+  `a` joins `rail` and its `b` joins `ground`. `near` and `within` come together or not at all (there is
+  no default distance); with them each capacitor gets the rule `decouple/<capacitor path>` of
+  `design.near(...)` ("Placement rules"), so a capacitor must be in a design and `near` takes what
+  `near()`'s anchor takes (a pin handle is refused with the hint `part.pad(<number>)`).
+- **`pull_up(target, rail, *resistors)` and `pull_down(target, ground, *resistors)`.** `target` is a net
+  (one resistor) or an `I2C` bus (two resistors: SDA, then SCL). Each resistor's `a` joins its signal net
+  and `b` the rail or ground. A count that differs, a signal net that is the rail, another interface (named
+  by its kind) and a value such as `ohm("4k7")` instead of a part ("a value does not choose a part")
+  raise `DslError`.
+- **Refusals connect nothing.** Every helper checks all its connections first: a pin on another net, a
+  marked pin, or a pin given two nets in one call raises `DslError` before any connection.
+- **`part.unused_no_connect(*, keep=())`.** Records `part.unused_request` (the `keep` designators, `str`
+  or `int`, as written); a second call raises `DslError`, and `connect` and `no_connect` stay allowed
+  after it. `to_model` is unchanged: the build reads `dsl.convert.unused_marks(design)` and
+  `dsl.convert.two_terminal(design)`. After nets and explicit marks are resolved, every pin of the part,
+  in pin-number order, that is on no net, not marked, not in `keep` (resolved like any designator,
+  `build.unknown-pin` when unknown) and not of type `no_connect` becomes an ordinary mark ("No-connect
+  marks"). Both the KiCad and the Altium build resolve it the same way.
+- **Must-connect pins.** A pin of type `power_in` is never marked: open, it gives
+  `build.must-connect-unconnected` (error, exit 5, nothing written) naming the ref, the pin number and
+  the name, with the hint "connect it, or list it in keep=". Only the symbol's pin types are checked: a
+  supply pin typed `passive` escapes the guard. A catalog device may flag more pins (change c0248).
 
 ## User properties
 
@@ -1450,6 +1599,30 @@ design.part_class(q1, "transistor", terminals={"gate": "1", "kelvin_source": "2"
   `fenolite roles --confirm` stored in `.fenolite/rules.json`. A script without a role call gives the
   model, and the bytes, it gave before.
 
+### Role copper
+
+`design.role_copper()` (change c0243; `docs/roles.md`, "Role copper") asks the build to generate, after
+placement, the copper of the confirmed and declared roles: a band per `power` and `switch_node` net sized
+by its current, ground planes with stitching, via arrays at layer changes, and a clearance rule with a
+keep-out band around each high-voltage net at the distance of your requirements file.
+
+```python
+design.role_copper(requirements="requirements.toml")
+design.role_copper(ground_layers=("In1.Cu", "B.Cu"), stitch_pitch=mm(4), temp_rise=10)
+```
+
+- `role_copper(*, kinds=…, layers=None, ground_layers=None, ground_fill="reference", connection=None,
+  stitch_pitch=None, temp_rise=None, widen=None, corridors=True, keep=(), regenerate=(),
+  requirements=None)` records plain data, returned by `fenolite.dsl.role_copper(design)` as a
+  `RoleCopperIntent`. `kinds` picks among `power`, `switch_node`, `ground` and `high_voltage`; `layers`
+  maps a kind to its layers; `connection` maps a kind to `solid`, `thermal`, `thru_hole_only` or `none`;
+  `temp_rise` is in kelvin; `widen` is per mille; `keep` and `regenerate` name role items; `requirements`
+  names a file beside the script.
+- A second call, an unknown kind, mode or layer raises `DslError`. The build resolves the record after the
+  roles, the script copper and the generated records, and writes ordinary locked zones, rule areas, vias
+  and tracks named `role.*`, and the rules `role.sw.*` and `role.hv.*`; an Altium build resolves it in its
+  in-memory KiCad build.
+
 ## Copper guard
 
 `fenolite build` refuses to write a board whose copper shorts two nets or breaks the clearance in force
@@ -1513,6 +1686,134 @@ design.title_block(title="Blink", revision="B", variables={"PROJECT_CODE": "X1"}
   script. Without these calls the board keeps the ones it has (`docs/lens.md`).
 - `result.drawing_sheet` of `build` holds `source`, `file` and `items`, or `null`.
 
+## Reference designators and the design lock
+
+A part may be written without a ref (change c0249). Its identity is its path; the build gives it a ref
+and records the ref in the design lock, so that it never changes by itself.
+
+```python
+reg = Module("reg")
+design.add(reg)
+u = reg.part(lib_id="Fenolite:Linear_Regulator", footprint="Fenolite:SOT223_3_Diodes")  # path reg/U
+c_in = reg.part(name="c_in", lib_id="Fenolite:Capacitor", footprint="Fenolite:Chip_0805")  # reg/c_in
+j1 = design.part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54")  # explicit, path J1
+y = design.part(lib_id="Device:Crystal", footprint="Crystal:HC49", prefix="Y")  # path Y
+```
+
+- **Keys.** The last segment of a component path is `name=` when given, else the explicit ref (so the
+  paths of existing scripts do not change), else the part's reference prefix. A second part without a
+  name and with the same prefix in one container raises `DslError` at its call, asking for `name=`: a
+  counter would make a path depend on the order of the statements.
+- **Prefixes.** `prefix=` (matching `[A-Z][A-Z_]*`), else the `reference` of a `Fenolite:` catalog
+  symbol (`Fenolite:Inductor` gives `L`). The device catalog (c0248) adds the device's `ref_prefix`. A part
+  without a ref and without a known prefix raises `DslError` ("give a ref, a prefix or a device").
+- **Assignment.** `fenolite.dsl.lock.assign_refs(design, lock, *, moves)` is pure. Explicit refs are taken
+  as written. A locked ref is kept, unless it is now another part's explicit ref (`lock.ref-taken`) or does
+  not start with the part's prefix (`lock.ref-prefix-changed`). Every other part gets, per prefix, the
+  lowest free number `n ≥ 1`, the parts taken in natural path order.
+- **Natural path order.** A path is split into maximal runs of digits and non-digits, compared in turn:
+  two digit runs by value and then by length, two other runs by code point, a digit run first. So `ch2/R`
+  comes before `ch10/R`. The order does not depend on statement order, `--seed` or `PYTHONHASHSEED`.
+- **The lock file** is `<script stem>.lock` beside the script (`design.py` gives `design.lock`), or the file
+  of `fenolite build --lock FILE`. It is canonical TOML of schema `fenolite.lock.v0`: a header comment,
+  `schema`, `design`, then `[refs]` (path to ref, every part, explicit refs included) with keys in code-point
+  order. The sections `[picks]` (c0254) and `[pins]` (c0257) are reserved: content there is refused
+  (`FEN-3002`) until their change lands. A malformed lock (an unknown key, a wrong type, an invalid ref,
+  two paths with one ref) is `FEN-3004`.
+- **Writing.** `fenolite build` plans the lock as one more write, kind `lock`, only when its bytes change,
+  and only for a design with a part without an explicit ref or one that already has a lock. A design of
+  explicit refs builds exactly as before and gets no lock. An error finding plans no lock write.
+- **Hand edits are honoured.** `"reg/C" = "C7"` renumbers that part on the next build when `C7` is free.
+  Deleting the file renumbers everything from scratch.
+- **`moved()`.** An alias new to old carries the lock entries of `old` to `new` (`lock.ref-moved`); an entry
+  whose path is gone and that no alias carries is released (`lock.ref-released`, warning), and its number
+  may be given to another part later. A changed ref alone never loses layout: footprints are matched by
+  uuid and path (`docs/lens.md`).
+- **`--frozen`.** `fenolite build --frozen` refuses any change of the lock (a new, released, moved or
+  replaced ref, another design name) with exit 7 and `FEN-7004`, one `lock.changed` issue per change, and
+  writes nothing, also with `--dry-run`. A difference of formatting only is no change.
+- `to_model(design, *, refs=None)` takes the refs; without them it assigns against an empty lock. Ids stay
+  derived from paths, never from refs. `result.lock` of `build` reports `file`, `exists`, `written`,
+  `frozen` and `changes` (`docs/cli-contract.md`, "build").
+
+## Blocks
+
+A block is a reusable circuit with ports and recorded parameters (change c0251; the example is
+`examples/blocks/design.py`). It is a plain function marked with `@block`; nothing is collected behind the
+script's back, and stepping through it in a debugger shows ordinary calls.
+
+```python
+from fenolite.dsl import Design, Net, block, connect, mm, ohm
+
+
+@block
+def channel(b, *, r_en=ohm("10k"), x=mm(20)):
+    vin = b.port("VIN", direction="in")  # kind Net: one member
+    gnd = b.port("GND", direction="in")
+    en = b.port("EN", direction="out", optional=True)
+    fb = b.net("FB")  # the net ch0/FB in the instance ch0
+    r = b.part("R_EN", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value=r_en)
+    connect(vin, r[1])  # a port is wired like a net
+    connect(fb, r[2], en)
+    r.place(x, mm(10))
+
+
+ch0 = design.use(channel, "ch0", x=mm(20))
+connect(Net("VIN"), ch0.VIN)  # the port net takes the name VIN
+```
+
+- **The decorator.** `@block` or `@block(name="buck")` checks the signature when it decorates: the builder is
+  the one positional parameter, every other parameter is keyword-only with a recordable default or none,
+  and there is no `*args` and no `**kwargs`. The block name is the function's name or `name=`. Calling the
+  block directly raises `DslError` naming `design.use`. Two different functions with one block name in one
+  design are refused at the second `use`.
+- **Instances.** `design.use(block, name, **params)` and `b.use(...)` inside a block create a `Block` (a
+  `Module` named `name`, path `<parent path>/<name>`), add it, run the function once with it as `b`, and
+  return a `BlockInstance`. The function must return `None`. If it raises, the block stays added and the
+  error propagates. A block is a module everywhere: its path, its sheet, its model `Module`.
+- **The builder `b`.** `b.part(name, lib_id, *, footprint, value, ref, prefix, properties, pad_map, height)`
+  creates, adds and returns the part of local name `name` (the leaf of its path, `ch0/R_EN`); `b.net(name)`
+  gives the local net `<block path>/<name>`; `b.port(...)`; `b.use(...)`; `b.add(...)`; and the read-only
+  `b.path`, `b.name` and `b.params`. A local part name, or a port or local net name, used twice in one block
+  raises `DslError`. A `Part("R7", ...)` added with `b.add` takes its ref as its local name and gets an
+  allocated board ref like a part of `b.part`. A plain `Net("X")` made inside a block is still the global
+  net `X`.
+- **Parameters.** The keyword arguments are bound to the signature, the defaults applied, before the
+  function runs; an unknown, missing or unrecordable argument raises `DslError` naming it. Each value is
+  recorded on the model `Module` as `BlockParam(name, type, text)`, ordered by name, with `Module.block` the
+  block name: `bool` (`true`/`false`), `int`, `str`, `Length` (integer nm), `Quantity` (`Quantity.text()`)
+  `Range` (`range`, `Range.text()`) and `None` (`none`, empty). A float, a list, a part or a net cannot be
+  recorded: build such objects inside the block.
+- **Ports.** `b.port(name, kind=Net, *, direction="inout", optional=False)`; `direction` is `in`, `out` or
+  `inout`, and `kind` is `Net` or an interface class: `Power` (`hv`, `lv`), `DiffPair` (`p`, `n`), `I2C`
+  (`sda`, `scl`), `UART` (`tx`, `rx`), `USB2` (`dp`, `dn`, `vbus`, `gnd`), `SPI` (`sck`, `mosi`, `miso`,
+  `cs0`; `selects=n` for n chip selects) and `Harness` (`members=(...)`). `handle.sda` or `handle["sda"]`
+  is the port net of one member. A port of one member is net-like: `connect` takes it as its net or as a pin
+  argument. Outside, `inst.VIN` and `inst.port("VIN")` are the same handle. A port name equal to `path`,
+  `block`, `params`, `part`, `port` or `place` raises `DslError`. Each port is a model `Port` with the id
+  `port:<block path>:<port name>`.
+- **Port nets and their names.** A port net has no name of its own: `connect` binds nets and port nets into
+  groups. A group with one script-named net (a `Net` or a local net) takes its name. A group without one
+  takes the path of its preferred port member, an `out` port first, then the smallest path in code-point
+  order: `<block path>/<port>` for a port of one member, `<block path>/<port>.<member>` otherwise. So
+  `connect(buck1.VOUT, buck2.VIN)` gives the net `buck1/VOUT` whatever the order of the calls, and
+  `connect(v33, buck1.VOUT)` gives `3V3`. Joining two script-named nets through ports raises `DslError`:
+  Fenolite never merges named nets. Connecting a group to a named net later renames its copper; record
+  the old name with `moved_net()` to keep it.
+- **Refs.** The board ref of a block part is `ref=` when given (global, checked like any ref), else the
+  lock's ref for its path, else the next free ref of its prefix ("Reference designators and the design
+  lock"). Two instances never type the same ref.
+- **Checks.** Two warnings of the KiCad build (`docs/cli-contract.md`, "build"):
+  - `build.port-unused`: a port that is not `optional` has nothing outside its block (no pin, net, port or
+    interface) on any member; `where` is `<block path>/<port>`.
+  - `build.block-net-escape`: a script-named net joins pins inside and outside a block that no port of the
+    block binds it to, often a global net closed over by the function; the hint is "declare a port".
+- **Schematics.** The KiCad sheet of a block instance is shown as `<name> (<block name>)`, for example
+  `ch0 (channel)`; its file stays `sheets/<path>.kicad_sch`. In Altium block composition each instance that
+  owns parts gives an implicit `schematic_block` (`docs/schematic-composition.md`).
+- **When to keep `Module`.** Use a block for anything repeated or reused; keep `Module` for grouping parts
+  whose refs and nets the script names by hand.
+
 ## Path aliases (`moved()`)
 
 `design.moved(old, new)` records that the part or the module at path `new` was at `old` in an earlier
@@ -1543,9 +1844,11 @@ under a renamed module needs no call: the module alias covers it.
 
 ## Determinism
 
-A build is a pure function of the script and the Fenolite version: ids come from keys, files hold no
-date, and sets are never iterated in hash order, so builds with different `--seed`, `--timestamp` and
-`PYTHONHASHSEED` values (S-0072) are byte-identical. `--seed` and `--timestamp` are accepted and unused.
+A build is a pure function of the script, its design lock and the Fenolite version: ids come from keys,
+files hold no date, and sets are never iterated in hash order, so builds with different `--seed`,
+`--timestamp` and `PYTHONHASHSEED` values (S-0072) are byte-identical. `--seed` and `--timestamp` are
+accepted and unused. A build leaves the script folder unchanged, except for the design lock, which it
+writes only when its content changes.
 
 ## Output layout
 

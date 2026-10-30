@@ -76,18 +76,18 @@ A member name with an absolute path, a drive letter, a `..` segment or a NUL, a 
 - **THEN** each exits 3 with `FEN-3004` and nothing is planned
 
 ### Requirement: Import target inside the project
-`--into` SHALL be a relative folder that resolves inside the working directory. A target inside the installed `fenolite` package, inside an installed or fetched device pack or its cache, or outside the working directory MUST exit 2 with `FEN-2001`.
+`--into` SHALL be a relative folder that resolves inside the working directory. A target inside the installed `fenolite` package, inside a vendored `fenolite_library/` folder or the library cache, or outside the working directory MUST exit 2 with `FEN-2001`.
 
 #### Scenario: Shipped catalog refused
 - **WHEN** an import names `--into` a path that resolves into the installed `fenolite/catalog` folder, or `../outside`
 - **THEN** each exits 2 with `FEN-2001` and nothing is planned
 
 ### Requirement: Imported records are not shippable
-`fenolite.library.importer.shippable(record)` SHALL be false for a record with `origin.shippable = false` or `licence = "see source terms"`. A check of a shipped catalog or a device pack MUST report such a record as `library.not-shippable` (error).
+`fenolite.library.importer.shippable(record)` SHALL be false for a record with `origin.shippable = false` or `licence = "see source terms"`. A check of a shipped catalog or of `fenolite-library` MUST report such a record as `library.not-shippable` (error).
 
-#### Scenario: An imported device in a pack
-- **GIVEN** a pack folder built in the test that holds one imported device
-- **WHEN** the pack check of the library rules runs on it
+#### Scenario: An imported device in a library item
+- **GIVEN** a library item folder built in the test that holds one imported device
+- **WHEN** the library check of the library rules runs on it
 - **THEN** it reports one `library.not-shippable` error naming the device
 
 ### Requirement: STEP bodies

@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import functools
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
@@ -62,6 +63,7 @@ from fenolite.backends.kicad import copperrules, wks
 from fenolite.backends.kicad import frame as kicad_frame
 from fenolite.backends.kicad import generate as kicad_generate
 from fenolite.backends.kicad import pcb as kicad_pcb
+from fenolite.backends.kicad import sch as kicad_sch
 from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.copper import CopperIntentLike
 from fenolite.backends.kicad.embed import PATH_PROPERTY
@@ -80,6 +82,7 @@ from fenolite.catalog import (
 from fenolite.catalog import (
     get_symbol as catalog_symbol,
 )
+from fenolite.catalog.devices import check_device, device_digest, edited_issue, is_edited
 from fenolite.checks import placement as placement_rules
 from fenolite.checks.copper import (
     LOWERING_CODES,
@@ -91,6 +94,7 @@ from fenolite.checks.copper import (
     waived_issues,
 )
 from fenolite.checks.waivers import copper_waivers
+from fenolite.cli._lock import lock_location, plan_lock, with_lock
 from fenolite.cli._padmap import DefaultPadMap, apply_default_pad_maps
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
@@ -115,13 +119,16 @@ from fenolite.dsl import (
     pad_zones,
     placements,
     planes,
+    role_copper,
     schematic_composition,
     stackup_locked,
     to_model,
     via_protection_locked,
 )
 from fenolite.dsl import Design as DslDesign
+from fenolite.dsl.convert import two_terminal, unused_marks
 from fenolite.geometry.errors import BackendUnavailable
+from fenolite.lens import edits as edits_mod
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
 from fenolite.lens.altium import (
     CopperSource,
@@ -143,17 +150,28 @@ from fenolite.lens.build import (
     check_existing,
     plane_issues,
     read_record,
+    script_codes,
 )
 from fenolite.lens.build import issue as build_issue
 from fenolite.lens.placements import FILE_NAME as PLACEMENTS_FILE
 from fenolite.lens.placements import SourcePlacement, read_placements
-from fenolite.lens.preserve import ExistingProject, FilePlacement, Prepared, prepare, read_existing
+from fenolite.lens.preserve import (
+    ExistingProject,
+    FilePlacement,
+    Prepared,
+    legacy_edits,
+    prepare,
+    read_existing,
+)
+from fenolite.lens.rolecopper import RoleCopperPlanner
 from fenolite.lens.schplacements import FILE_NAME as SYMBOL_PLACEMENTS_FILE
 from fenolite.lens.schplacements import read_placements as read_symbol_placements
+from fenolite.model.circuit import PinRef
 from fenolite.model.design import Design as ModelDesign
 from fenolite.model.findings import Waiver
-from fenolite.model.library import flatten_symbol
+from fenolite.model.library import DeviceDef, flatten_symbol
 from fenolite.model.presentation import DrawingSheet
+from fenolite.model.schematic import SchematicSheet
 from fenolite.placement import legality
 from fenolite.templates import build_sheet, load_spec
 
@@ -185,10 +203,18 @@ COPPER_CHECK_MODES = ("refuse", "warn")
 """``refuse`` (the default): a copper error stops the build before anything is written. ``warn``: copper
 errors are reported as warnings and the build writes. There is no ``off``."""
 WARN_NOTE = " (copper guard in warn mode)"
-SCRIPT_COPPER_CODES: tuple[str, ...] = ("kicad.copper.", "kicad.frame.", "kicad.meander.", "layout.unplaced")
+SCRIPT_COPPER_CODES: tuple[str, ...] = (
+    "kicad.copper.",
+    "kicad.frame.",
+    "kicad.meander.",
+    "kicad.generate.",
+    "roles.",
+    "layout.unplaced",
+)
 """The warnings and infos of the in-memory KiCad build that an Altium build with script copper reports
-(change c0053): what the copper intents created or left out, and the parts that build staged. Its other
-warnings and infos concern KiCad files that are not written. Every error passes."""
+(change c0053): what the copper intents, the generated copper and the role copper (change c0243) created
+or left out, and the parts that build staged. Its other warnings and infos concern KiCad files that are not
+written. Every error passes."""
 REPLACED_CODE = "build.schematic-replaced"
 _KINDS = {
     ".kicad_sch": "kicad_sch",
@@ -225,6 +251,25 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "--discard-layout",
         action="store_true",
         help="replace outputs changed since the last build (backups kept)",
+    )
+    parser.add_argument(
+        "--lock",
+        metavar="FILE",
+        default=None,
+        help="the design lock to read and write, in place of <script stem>.lock beside the script",
+    )
+    parser.add_argument(
+        "--frozen",
+        action="store_true",
+        help="refuse with exit 7 (FEN-7004) when the design lock would change; never write it",
+    )
+    parser.add_argument(
+        "--take",
+        action="append",
+        default=None,
+        metavar="SIDE[:TARGET]",
+        help="resolve a sync.conflict: SIDE is code, cad, board or schematic, TARGET a component path or "
+        "PATH#PROPERTY (every conflict without one); repeatable",
     )
     parser.add_argument(
         "--target",
@@ -343,6 +388,26 @@ def _register(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Altium arrangement: grid preserves legacy layout; blocks composes functional blocks",
     )
+
+
+def role_planner(record: object | None, script_path: Path, out_dir: Path | None) -> RoleCopperPlanner | None:
+    """The role-copper planner the build is given for ``design.role_copper()`` (change c0243): the roles
+    that ``fenolite roles`` confirmed in the project's ``.fenolite/rules.json`` (when ``out_dir`` holds one)
+    and the record's requirements file (beside the script) bound to ``fenolite.roles.copper.run``; ``None``
+    without a record."""
+    if record is None:
+        return None
+    from fenolite.cli.cmd_analyze import requirements_option
+    from fenolite.roles.copper import run
+    from fenolite.roles.judge import split_roles
+    from fenolite.roles.store import read_rules_roles
+
+    stored = None
+    if out_dir is not None:
+        _, stored = split_roles(read_rules_roles(out_dir / ".fenolite" / "rules.json"))
+    name = getattr(record, "requirements", None)
+    requirements = requirements_option(name, script_path.resolve().parent) if isinstance(name, str) else None
+    return cast(RoleCopperPlanner, functools.partial(run, stored=stored, requirements=requirements))
 
 
 def _keep_confirmed_roles(out_dir: Path, files: dict[str, bytes]) -> None:
@@ -558,6 +623,84 @@ def _catalog_definitions(
     return {**footprints, **authored_footprints}, {**symbols, **authored_symbols}, frozenset(used_builtin)
 
 
+def design_devices(design: DslDesign) -> dict[str, DeviceDef]:
+    """The device of each part placed from one, by component path (change c0248)."""
+    return {path: part.device for path, part in sorted(design.parts.items()) if part.device is not None}
+
+
+def device_rows(design: DslDesign) -> list[dict[str, object]]:
+    """``result.devices``: each device the design uses, in id order, with its origin, evidence label,
+    whether it was edited after its stamp, its digest and the paths of its parts."""
+    rows: dict[str, dict[str, Any]] = {}
+    for path, part in sorted(design.parts.items()):
+        device = part.device
+        if device is None:
+            continue
+        row = rows.setdefault(
+            device.id,
+            {
+                "id": device.id,
+                "origin": part.device_origin,
+                "evidence": device.evidence,
+                "edited": is_edited(device),
+                "sha256": device_digest(device),
+                "parts": [],
+            },
+        )
+        row["parts"].append(path)
+    return [rows[key] for key in sorted(rows)]
+
+
+def device_issues(design: DslDesign) -> list[Issue]:
+    """``device.overrides-builtin`` and ``device.edited`` (info), once per device the design uses."""
+    found: list[Issue] = []
+    seen: set[str] = set()
+    for _path, part in sorted(design.parts.items()):
+        device = part.device
+        if device is None or device.id in seen:
+            continue
+        seen.add(device.id)
+        if part.device_overrides:
+            found.append(
+                build_issue(
+                    "device.overrides-builtin",
+                    f"the project device {device.id} is used in place of the shipped device of that id",
+                    device.id,
+                    "give the project device an id of its own namespace if the override is not meant",
+                )
+            )
+        if is_edited(device):
+            found.append(edited_issue(device))
+    return found
+
+
+def lower_device_functions(model: ModelDesign, devices: Mapping[str, DeviceDef]) -> ModelDesign:
+    """``model`` with each net member and no-connect mark of a device part that names a function replaced
+    by the function's symbol pins, for targets whose writer resolves pin numbers only (the Altium build;
+    the KiCad build resolves functions itself, ``lens.build``)."""
+    functions: dict[str, dict[str, tuple[str, ...]]] = {}
+    for component in model.circuit.components:
+        device = devices.get(component.properties.get(PATH_PROPERTY, component.ref))
+        if device is not None:
+            functions[component.id] = {pin.function: pin.pins for pin in device.pins}
+    if not functions:
+        return model
+
+    def lowered(refs: Sequence[PinRef]) -> tuple[PinRef, ...]:
+        out: list[PinRef] = []
+        for ref in refs:
+            names = functions.get(ref.component_id, {})
+            out += [PinRef(ref.component_id, pin) for pin in names.get(ref.pin, (ref.pin,))]
+        return tuple(sorted(set(out)))
+
+    circuit = model.circuit
+    nets = tuple(dataclasses.replace(net, members=lowered(net.members)) for net in circuit.nets)
+    return dataclasses.replace(
+        model,
+        circuit=dataclasses.replace(circuit, nets=nets, no_connects=lowered(circuit.no_connects)),
+    )
+
+
 def pad_map_issues(applied: Sequence[DefaultPadMap]) -> list[Issue]:
     """One ``build.pad-map-default`` warning per part that got the catalog's default pin-to-pad map
     (capability design-dsl, "Default pin-to-pad map is reported"; change c0147)."""
@@ -660,6 +803,73 @@ def read_source(
     return found.entries, found.issues, hashlib.sha256(data).hexdigest()
 
 
+def read_edit_source(
+    script_path: Path,
+) -> tuple[Mapping[str, edits_mod.PartEdits] | None, str | None, tuple[Issue, ...], str | None]:
+    """The edits beside the script (``design-dsl``, "Placements file in a build"): those of ``edits.toml``
+    when it exists, otherwise the entries of ``placements.toml`` as legacy position edits. Returns the
+    edits (``None`` without a file), the name of the file read, its issues and its SHA-256."""
+    folder = script_path.resolve().parent
+    path = folder / edits_mod.EDITS_FILE
+    legacy = folder / PLACEMENTS_FILE
+    if not path.is_file():
+        entries, issues, sha = read_source(script_path)
+        if sha is None:
+            return None, None, (), None
+        return legacy_edits(entries), PLACEMENTS_FILE, issues, sha
+    data = path.read_bytes()
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise FormatError(f"not UTF-8 text: {error}", file=edits_mod.EDITS_FILE) from error
+    found = edits_mod.read_edits(text, origin=BOARD_ORIGIN, file=edits_mod.EDITS_FILE)
+    issues = list(found.issues)
+    if legacy.is_file():
+        issues.append(
+            edits_mod.issue(
+                "edit.legacy-file",
+                f"{PLACEMENTS_FILE} is not read: {edits_mod.EDITS_FILE} is beside it",
+                PLACEMENTS_FILE,
+                f"delete {PLACEMENTS_FILE}; {edits_mod.EDITS_FILE} replaces it",
+            )
+        )
+    return found.parts, edits_mod.EDITS_FILE, tuple(issues), hashlib.sha256(data).hexdigest()
+
+
+def read_base_record(out_dir: Path) -> edits_mod.BaseRecord:
+    """The base record of the output folder, or ``BaseRecord.absent`` when it holds none."""
+    path = out_dir / edits_mod.BASE_FILE
+    if not path.is_file():
+        return edits_mod.BaseRecord.absent("kicad")
+    try:
+        text = path.read_bytes().decode("utf-8")
+    except UnicodeDecodeError as error:
+        return edits_mod.read_base(f"\0{error}", target="kicad", file=edits_mod.BASE_FILE)
+    return edits_mod.read_base(text, target="kicad", file=edits_mod.BASE_FILE)
+
+
+def schematic_sheets(root: Path) -> list[SchematicSheet] | None:
+    """The sheets of the schematic ``root``: the root file and every sheet file it names, each read once.
+    ``None`` when the project has no schematic."""
+    if not root.is_file():
+        return None
+    tree = kicad_sch.sheet_files(root)
+    return [kicad_sch.read_schematic(root.parent / name, file=name) for name in tree.files]
+
+
+def parse_take_option(values: Sequence[str] | None) -> tuple[edits_mod.Take, ...]:
+    """The takes of ``--take``; a malformed or contradictory value is a usage error."""
+    try:
+        return edits_mod.parse_takes(values or ())
+    except ValueError as error:
+        raise CliError(
+            "FEN-2001",
+            str(error),
+            where="--take",
+            hint="give --take code|cad|board|schematic[:PATH[#PROPERTY]], one side per target",
+        ) from None
+
+
 def read_drawing_sheet_source(
     design: DslDesign, script_path: Path
 ) -> tuple[DrawingSheet | None, tuple[Issue, ...], dict[str, object] | None]:
@@ -699,12 +909,14 @@ def read_drawing_sheet_source(
     return sheet, tuple(found), result
 
 
-def source_summary(prepared: Prepared | None, issues: Sequence[Issue], *, read: bool) -> dict[str, object]:
+def source_summary(
+    prepared: Prepared | None, issues: Sequence[Issue], *, read: bool, file: str | None = None
+) -> dict[str, object]:
     """``result.preserved.source``: the file read, the parts placed from it, and its stale and unknown
     tables."""
     placed: Mapping[str, object] = prepared.placements if prepared is not None else {}
     return {
-        "file": PLACEMENTS_FILE if read else None,
+        "file": (file or PLACEMENTS_FILE) if read else None,
         "used": sorted(path for path, found in placed.items() if isinstance(found, FilePlacement)),
         "stale": sorted(i.where for i in issues if i.code == "layout.source-stale"),
         "unknown": sorted(i.where for i in issues if i.code == "layout.source-unknown"),
@@ -714,10 +926,26 @@ def source_summary(prepared: Prepared | None, issues: Sequence[Issue], *, read: 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     # the inputs a review can see: the design script and, when the build reads one, the copper source
     read = depends_on(
-        ctx.cwd, args.design, getattr(args, "copper_from", None), getattr(args, "altium_template", None)
+        ctx.cwd,
+        args.design,
+        getattr(args, "copper_from", None),
+        getattr(args, "altium_template", None),
+        _existing(lock_location(args.design, getattr(args, "lock", None), ctx.cwd)[1]),
     )
     built = _built(args, ctx)
+    files = cast(Sequence[Mapping[str, str]], built.result.get("device_files", []))
+    if files:
+        # the project devices beside the script are inputs too: a changed file changes the plan (c0248)
+        script = Path(args.design)
+        folder = (script if script.is_absolute() else ctx.cwd / script).parent
+        read = (*read, *depends_on(ctx.cwd, *(folder / row["path"] for row in files)))
     return dataclasses.replace(built, depends=tuple(sorted(set((*read, *built.depends)))))
+
+
+def _existing(path: Path) -> Path | None:
+    """``path`` when it is a file (the lock read by a build), else ``None``; a lock the build creates is a
+    target of the plan, which the dispatcher already guards."""
+    return path if path.is_file() else None
 
 
 def _built(args: argparse.Namespace, ctx: Context) -> Result:
@@ -837,9 +1065,17 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             where="--altium-layout",
             hint="select blocks or remove the script's layout declarations",
         )
+    lock_given, lock_path = lock_location(args.design, getattr(args, "lock", None), ctx.cwd)
     try:
         schematic_composition(design, target=args.target, enabled=args.altium_layout == "blocks")
-        model = to_model(design)
+        lock = plan_lock(
+            design,
+            script=script_path,
+            given=lock_given,
+            path=lock_path,
+            frozen=bool(getattr(args, "frozen", False)),
+        )
+        model = to_model(design, refs=lock.refs)
         requested = placements(design)
         aliases = moves(design)
         module_aliases = module_moves(design)
@@ -848,6 +1084,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         intents = copper(design)
         meander_intents = meanders(design)
         generated_records = generated(design)
+        role_record = role_copper(design)
         field_requests = fields(design)
         pad_zone_requests = pad_zones(design)
     except DslError as error:
@@ -855,35 +1092,51 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
     model, defaulted = apply_default_pad_maps(
         model, authored_symbols=design.symbols, authored_footprints=design.footprints
     )
-    default_issues = pad_map_issues(defaulted)
+    default_issues = [*pad_map_issues(defaulted), *device_issues(design)]
+    devices = design_devices(design)
     if native_path is not None and drawing_sheet_source(design) is not None:
         raise CliError(
             "FEN-2001", "--altium-template conflicts with sheet(drawing_sheet=...)", where="--altium-template"
         )
     frame_sheet, sheet_issues, sheet_result = read_drawing_sheet_source(design, script_path)
-    source, source_issues, source_sha = read_source(script_path)
+    takes = parse_take_option(getattr(args, "take", None))
+    edits, edits_file, source_issues, source_sha = read_edit_source(script_path)
     refused = any(found.severity == "error" for found in source_issues)
     if args.target == ALTIUM_TARGET:
-        if generated_records:
-            # generated copper is resolved by the KiCad build alone (c0224's design, decision 8)
-            keys = ", ".join(record.key for record in generated_records)
+        if (generated_records or role_record is not None) and board_path is not None:
+            # with --copper-from the board wins: the records would be lost, so the build is refused (c0243)
+            keys = ", ".join(
+                [record.key for record in generated_records]
+                + (["role_copper"] if role_record is not None else [])
+            )
             source_issues = [
                 *source_issues,
                 kicad_generate.issue(
                     "kicad.generate.altium",
-                    f"the generated-copper calls {keys} are resolved for KiCad targets only",
+                    f"the generated-copper calls {keys} are not resolved: {args.copper_from} is the copper "
+                    "source, and --copper-from wins",
                     keys,
-                    "build for a KiCad target, or draw the zones and rule areas with zone() and rule_area()",
+                    "drop --copper-from to have the script's copper resolved, or build the board for KiCad",
                 ),
             ]
             refused = True
-        # both targets place a part from the file: the lens runs without an existing project (c0069)
-        from_file = prepare(model, requested, ExistingProject(), name=design.name, source=source)
+        # both targets place a part from the file, and apply its value and footprint edits: the lens runs
+        # without an existing project (c0069, c0250); device functions are lowered to pin numbers (c0248)
+        model = lower_device_functions(model, devices)
+        from_file = prepare(
+            model,
+            requested,
+            ExistingProject(),
+            name=design.name,
+            edits=edits or {},
+            edits_file=edits_file,
+            takes=takes,
+        )
         made = _run_altium(
             args,
             ctx,
             run,
-            model,
+            from_file.design or model,
             cast(Mapping[str, PlacementRequest], from_file.placements),
             plane_nets,
             script_path,
@@ -894,37 +1147,61 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             frame_sheet,
             sheet_result,
             meanders=meander_intents,
+            generated_records=generated_records,
+            role_record=role_record,
+            codes=from_file.codes,
         )
-        return dataclasses.replace(
-            made,
-            issues=(*source_issues, *sheet_issues, *default_issues, *from_file.issues, *made.issues),
-            writes=() if refused else made.writes,
+        if edits is not None:
+            made = dataclasses.replace(made, evidence=Evidence.combine(made.evidence, edits_mod.EVIDENCE))
+        refused = refused or any(found.severity == "error" for found in from_file.issues)
+        return with_lock(
+            dataclasses.replace(
+                made,
+                issues=(*source_issues, *sheet_issues, *default_issues, *from_file.issues, *made.issues),
+                writes=() if refused else made.writes,
+            ),
+            lock,
         )
     resolver = LibraryResolver(
         LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
     )
     record = read_record(out_dir)
+    schematic = cast(Literal["write", "skip"], args.schematic or SCHEMATIC_MODES[0])
     prepared = None
+    base: edits_mod.BaseRecord | None = None
     if not args.discard_layout:
+        existing = read_existing(out_dir, design.name)
+        base = read_base_record(out_dir) if existing.board is not None else None
+        sheets = (
+            schematic_sheets(out_dir / f"{design.name}.kicad_sch")
+            if existing.board is not None and schematic == "write"
+            else None
+        )
         prepared = prepare(
             model,
             requested,
-            read_existing(out_dir, design.name),
+            existing,
             name=design.name,
             moves=aliases,
             module_moves=module_aliases,
             net_moves=net_aliases,
-            source=source,
+            edits=edits or {},
+            edits_file=edits_file,
+            base=base,
+            takes=takes,
+            sheets=sheets,
         )
-    elif source:
+    elif edits or takes:
         # the file is source, like the script: it applies to a discarded layout too, and no output is read
-        prepared = prepare(model, requested, ExistingProject(), name=design.name, source=source)
+        prepared = prepare(
+            model, requested, ExistingProject(), name=design.name, edits=edits or {}, edits_file=edits_file,
+            takes=takes,
+        )  # fmt: skip
     authored_footprints, authored_symbols, builtin_ids = _catalog_definitions(
         model,
         {key: fp.definition for key, fp in design.footprints.items()},
         {key: symbol.definition for key, symbol in design.symbols.items()},  # type: ignore[attr-defined]
     )
-    schematic = cast(Literal["write", "skip"], args.schematic or SCHEMATIC_MODES[0])
     symbol_issues: list[Issue] = []
     symbol_placements = None
     placements_path = script_path.resolve().parent / SYMBOL_PLACEMENTS_FILE
@@ -933,7 +1210,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             placements_path.read_text(encoding="utf-8"), file=SYMBOL_PLACEMENTS_FILE, issues=symbol_issues
         )
     built = build_design(
-        model,
+        prepared.design if prepared is not None and prepared.design is not None else model,
         prepared.placements if prepared is not None else requested,
         name=design.name,
         copper=design.copper,
@@ -946,11 +1223,14 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         copper_intents=intents,
         meanders=meander_intents,
         generated_copper=generated_records,
+        role_copper=role_record,
+        role_planner=role_planner(role_record, script_path, out_dir),
         fields=field_requests,
         pad_zones=pad_zone_requests,
         authored_footprints=authored_footprints,
         authored_symbols=authored_symbols,
         source_sha256=source_sha,
+        source_file=edits_file or PLACEMENTS_FILE,
         drawing_sheet=frame_sheet,
         schematic=schematic,
         symbol_placements=symbol_placements,
@@ -960,6 +1240,11 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         planes=plane_nets,
         lock_outline=outline_locked(design),
         heights=heights(design),
+        unused=unused_marks(design),
+        two_terminal=two_terminal(design),
+        write_base=True,
+        devices=devices,
+        device_check=check_device,
     )
     files = {} if refused else dict(built.files)
     _keep_confirmed_roles(out_dir, files)
@@ -991,6 +1276,10 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         sheets = [f"{design.name}.kicad_sch", *sorted(rel for rel in files if _child_sheet(rel))]
         merged = {f"{design.name}{suffix}" for suffix in (".kicad_pcb", ".kicad_pro", ".kicad_dru")}
         guarded = {rel: data for rel, data in files.items() if rel not in merged and rel not in sheets}
+        if record is None:
+            # without the cache the base record cannot be told from a hand edit; the merge never needs the
+            # cache, so a clone without .fenolite/ builds as the original does (change c0250)
+            guarded.pop(edits_mod.BASE_FILE, None)
         check_existing(out_dir, guarded, record=record, discard_layout=bool(args.discard_layout))
         for sheet in sheets:
             symbol_issues += _replaced_sheet(out_dir, out, sheet, files.get(sheet), record)
@@ -1011,13 +1300,15 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         "placement": placement,
         "drawing_sheet": sheet_result,
         "script_output": run.output,
+        "devices": device_rows(design),
+        "device_files": [{"path": file.path, "sha256": file.sha256} for file in run.device_files],
     }
     result["preserved"] = {
         **cast(Mapping[str, object], built.summary["preserved"]),
-        "source": source_summary(prepared, built.issues, read=source_sha is not None),
+        "source": source_summary(prepared, built.issues, read=source_sha is not None, file=edits_file),
     }
     data = script_path.read_bytes()
-    return Result(
+    built_result = Result(
         result=result,
         issues=(
             *sheet_issues,
@@ -1029,7 +1320,9 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             *copper_issues,
             *placement_issues,
         ),
-        evidence=built.evidence,
+        evidence=Evidence.combine(built.evidence, edits_mod.EVIDENCE)
+        if edits is not None or (base is not None and base.present)
+        else built.evidence,
         input=InputRef(
             path=str(args.design),
             sha256=hashlib.sha256(data).hexdigest(),
@@ -1038,6 +1331,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         ),
         writes=writes,
     )
+    return with_lock(built_result, lock)
 
 
 def _child_sheet(rel: str) -> bool:
@@ -1097,6 +1391,44 @@ def _sheet_result(
     return {"source": source["source"], "items": found["items"], "pages": pages}
 
 
+def _hand_over(model: ModelDesign, resolved: ModelDesign) -> tuple[ModelDesign, ModelDesign]:
+    """The script's model with the rule areas and the rules that the in-memory KiCad build added (the
+    generated and role copper of change c0243: corridors, barriers, ``role.sw.*`` and ``role.hv.*``), and that
+    build's design without its rule areas, which the model now holds: the Altium build writes the model's
+    rule areas as keep-outs and lowers its rules, and copies only copper from a source."""
+    board, done = model.board, resolved.board
+    if board is None or done is None:
+        return model, resolved
+    held = {area.id for area in board.keepouts}
+    added = tuple(area for area in done.keepouts if area.id not in held)
+    rules = model.rules
+    if resolved.rules is not None:
+        names = {rule.name for rule in rules.rules} if rules is not None else set[str]()
+        fresh = tuple(rule for rule in resolved.rules.rules if rule.name not in names)
+        if fresh:
+            base = rules if rules is not None else dataclasses.replace(resolved.rules, rules=())
+            rules = dataclasses.replace(base, rules=(*base.rules, *fresh))
+    model = dataclasses.replace(
+        model, board=dataclasses.replace(board, keepouts=(*board.keepouts, *added)), rules=rules
+    )
+    return model, dataclasses.replace(resolved, board=dataclasses.replace(done, keepouts=()))
+
+
+def altium_base(
+    model: ModelDesign,
+    placements: Mapping[str, PlacementRequest],
+    codes: Mapping[str, Mapping[str, edits_mod.Value | None]] | None,
+) -> str:
+    """The base record of an Altium build: the code values and the values written, which are the code
+    values there, since an Altium build has no CAD side (change c0250)."""
+    script = script_codes(model, placements)
+    written: dict[str, dict[str, edits_mod.Value]] = {}
+    for path, values in script.items():
+        written[path] = {prop: value for prop, value in values.items() if value is not None}
+    held = {path: {**values, **(codes or {}).get(path, {})} for path, values in script.items()}
+    return edits_mod.write_base(edits_mod.base_record(held, written, target="altium"))
+
+
 def _run_altium(
     args: argparse.Namespace,
     ctx: Context,
@@ -1113,6 +1445,9 @@ def _run_altium(
     sheet_result: Mapping[str, object] | None = None,
     *,
     meanders: Sequence[MeanderIntentLike] = (),
+    generated_records: Sequence[kicad_generate.GeneratedLike] = (),
+    role_record: object | None = None,
+    codes: Mapping[str, Mapping[str, edits_mod.Value | None]] | None = None,
 ) -> Result:
     """The ``--target altium`` branch (capability altium-build, "Altium build target"): only the symbol
     libraries of KiCad lib ids and the footprint libraries of KiCad footprint links are read, through a
@@ -1130,7 +1465,9 @@ def _run_altium(
     none of its files is planned. Its model is the ``CopperSource`` of origin ``script``, and the script's
     zones travel with it. An error of that build refuses this one; its ``SCRIPT_COPPER_CODES`` issues pass.
     With ``--copper-from`` the board wins: the intents are not resolved, and one ``altium.not-lowered``
-    info names them.
+    info names them. Change c0243: the in-memory build also runs for the generated-copper records and the
+    ``role_copper`` record (with the planner of ``role_planner``), whose zones, rule areas, vias and rules
+    reach the source; with ``--copper-from`` they give ``kicad.generate.altium`` (in ``execute``).
 
     Change c0087: unless ``--altium-outjob off``, the build writes ``<name>.OutJob`` beside a PCB
     document, for the preset of ``--altium-outjob-preset``; a kept project file is read to see whether it
@@ -1147,7 +1484,8 @@ def _run_altium(
         {key: symbol.definition for key, symbol in run.design.symbols.items()},  # type: ignore[attr-defined]
     )
     resolver = None
-    if kicad_lib_ids(model) or kicad_footprint_ids(model) or intents:
+    scripted = bool(intents or generated_records or role_record is not None)
+    if kicad_lib_ids(model) or kicad_footprint_ids(model) or scripted:
         resolver = LibraryResolver(
             LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
         )
@@ -1208,7 +1546,7 @@ def _run_altium(
         if kept_project is not None:
             project_listed = kept_documents([document.path for document in kept_project.documents])
             job_listed = f"{name}.OutJob".casefold() in project_listed
-    if intents and source is None:
+    if scripted and source is None:
         assert resolver is not None
         resolved = build_design(
             model,
@@ -1219,6 +1557,9 @@ def _run_altium(
             target=ctx.kicad_target,
             copper_intents=intents,
             meanders=meanders,
+            generated_copper=generated_records,
+            role_copper=role_record,
+            role_planner=role_planner(role_record, script_path, out_dir),
             # the catalog definitions too: a design that names only catalog ids has no library (c0077)
             authored_footprints=authored_footprints,
             authored_symbols=authored_symbols,
@@ -1230,7 +1571,8 @@ def _run_altium(
             if found.severity == "error" or found.code.startswith(SCRIPT_COPPER_CODES)
         ]
         if not refused:
-            source = CopperSource(resolved.design, "script")
+            model, handed = _hand_over(model, resolved.design)
+            source = CopperSource(handed, "script")
             if model.board is not None and model.board.zones:
                 # one copper source: the KiCad build kept the script's zones, so the source holds them
                 model = dataclasses.replace(model, board=dataclasses.replace(model.board, zones=()))
@@ -1268,6 +1610,8 @@ def _run_altium(
                 pour=args.altium_pour,
                 authored_symbols=authored_symbols,
                 heights=heights(run.design),
+                unused=unused_marks(run.design),
+                two_terminal=two_terminal(run.design),
                 composition=schematic_composition(
                     run.design, target="altium", enabled=args.altium_layout == "blocks"
                 ),
@@ -1281,6 +1625,14 @@ def _run_altium(
             ) from error
     files = dict(built.files)
     _keep_confirmed_roles(out_dir, files)
+    if files and RECORD_FILE in files:
+        # the base record of the Altium folder: what the build was given and wrote (change c0250)
+        files[edits_mod.BASE_FILE] = altium_base(model, requested, codes).encode("utf-8")
+        record = json.loads(files[RECORD_FILE])
+        record["files"][edits_mod.BASE_FILE] = hashlib.sha256(files[edits_mod.BASE_FILE]).hexdigest()
+        files[RECORD_FILE] = (json.dumps(record, sort_keys=True, indent=2, ensure_ascii=False) + "\n").encode(
+            "utf-8"
+        )
     native_info: dict[str, object] | None = None
     native_path = getattr(args, "altium_template", None)
     if native_path is not None:

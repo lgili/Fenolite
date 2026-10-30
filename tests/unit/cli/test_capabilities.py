@@ -50,13 +50,17 @@ def test_levels_and_sides_of_equivalent(capsys: pytest.CaptureFixture[str]) -> N
     listed" (change c0158)."""
     commands = {c["name"]: c for c in _capabilities(capsys, "--no-tools")["commands"]}  # type: ignore[union-attr]
     entry = commands["equivalent"]
-    assert entry["levels"] == [1, 2, 3, 4, 5]
+    assert entry["levels"] == [1, 2, 3, 4, 5, 6, 7, 8, "S"]
     assert entry["sides"] == [
         "altium_pcbdoc", "altium_prjpcb", "altium_schdoc", "fenolite_model", "kicad_pcb", "kicad_pro",
         "kicad_sch",
     ]  # fmt: skip
     assert entry["sides"] == sorted(entry["sides"])
-    assert [name for name, c in commands.items() if "levels" in c or "sides" in c] == ["equivalent"]
+    assert [name for name, c in commands.items() if "levels" in c or "sides" in c] == [
+        "equivalent",
+        "verify-source",
+    ]
+    assert commands["verify-source"]["levels"] == [1, 2, 3, 4, 5, 6, 7, "S", 8]
 
 
 def test_directions_listed(capsys: pytest.CaptureFixture[str]) -> None:
@@ -94,14 +98,14 @@ def test_missing_tools_are_null_not_fatal(
 
 def test_features(capsys: pytest.CaptureFixture[str]) -> None:
     """Scenario "Features listed" (change c0110): ``kicadroutingtools`` lists the features its gate allowed
-    (``pairs``; the escape gate failed), ``octilinear`` ``pairs`` and ``short`` (change c0228), the other
-    routers none, and the matrix is not changed."""
+    (``pairs``; the escape gate failed), ``octilinear`` ``pairs``, ``short`` (change c0228) and ``roles``
+    (c0244), the other routers none, and the matrix is not changed."""
     result = _capabilities(capsys, "--no-tools")
     features = {router["name"]: router["features"] for router in result["routers"]}  # type: ignore[union-attr]
     assert features == {
         "direct": [],
         "freerouting": [],
         "kicadroutingtools": ["pairs"],
-        "octilinear": ["pairs", "short"],
+        "octilinear": ["pairs", "roles", "short"],
     }
     assert all("features" not in row for row in result["matrix"])  # type: ignore[union-attr]

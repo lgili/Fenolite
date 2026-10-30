@@ -480,6 +480,30 @@ def with_property(defn: FootprintDef, *, name: str, value: str) -> FootprintDef:
     )
 
 
+def with_property_value(defn: FootprintDef, *, name: str, value: str) -> FootprintDef:
+    """A copy of ``defn`` whose property ``name`` holds ``value``: the value of an existing ``property``
+    child is replaced in place (its position, layer and effects stay), and a missing one is appended by
+    ``with_property`` (change c0248: a device's ``Datasheet``). ``defn`` is unchanged."""
+    if name not in defn.properties:
+        return with_property(defn, name=name, value=value)
+    bag = defn.ext.get("kicad")
+    slots = list(slotlib.from_ext(bag)) if bag is not None else []
+    head = f"(property {Atom.string(name).text} "
+    for index, slot in enumerate(slots):
+        if isinstance(slot, Opaque) and slot.fragment.startswith(head):
+            tree = parse_fragment(slot.fragment)
+            assert isinstance(tree, Node)
+            children = (tree.children[0], Atom.string(value), *tree.children[2:])
+            fragment = dumps(dataclasses.replace(tree, children=children), style="compact")
+            slots[index] = dataclasses.replace(slot, fragment=fragment)
+            return dataclasses.replace(
+                defn,
+                ext={**defn.ext, "kicad": slotlib.to_ext(slots, base=bag)},
+                properties={**defn.properties, name: value},
+            )
+    raise ValueError(f"{defn.lib_id!r} names the property {name!r} in no property child")
+
+
 def footprint_extent(defn: FootprintDef) -> BBox:
     """The courtyard box of ``defn`` in its own frame, else the union of its pad boxes, else empty."""
     boxes = [_graphic_box(g) for g in defn.graphics_on("F.CrtYd")]
@@ -530,6 +554,7 @@ __all__ = [
     "placed_tree",
     "placement_uuid",
     "with_property",
+    "with_property_value",
 ]
 
 

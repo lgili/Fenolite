@@ -70,6 +70,8 @@ from fenolite.lens.build import (
     UnresolvedLibrariesError,
     height_body,
     impedance_checks,
+    two_terminal_issue,
+    unused_pin_marks,
 )
 from fenolite.lens.placements import FULL_TURN
 from fenolite.model import canonical
@@ -121,6 +123,8 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.harness-name": "error",
         "altium.harness-net-shared": "error",
         "altium.harness-power-net": "error",
+        "build.not-two-terminal": "error",
+        "build.must-connect-unconnected": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.pin-lossy": "warning",
@@ -399,6 +403,56 @@ def kicad_pins(design: Design, symbols: Mapping[str, SymbolDef]) -> tuple[Design
     circuit = dataclasses.replace(
         design.circuit, components=tuple(components), nets=tuple(nets), no_connects=tuple(sorted(marks))
     )
+    return dataclasses.replace(design, circuit=circuit), issues
+
+
+def resolve_requests(
+    design: Design, unused: Mapping[str, Sequence[str]], two_terminal: Sequence[str]
+) -> tuple[Design, list[Issue]]:
+    """``design`` (pins on every component, net members and marks as pin numbers) with the marks of the
+    unused-pin requests (component path → ``keep`` designators), resolved as the KiCad build resolves them
+    (``lens.build.unused_pin_marks``), after the two-pin check of the parts of ``two_terminal`` (change
+    c0247). A ``keep`` designator is a pin number, else every pin of that name; one that names neither gives
+    ``altium.unknown-pin``. A path the build does not hold is ignored."""
+    issues: list[Issue] = []
+    by_path = {component_path(c): c for c in design.circuit.components}
+    for path in sorted(two_terminal):
+        component = by_path.get(path)
+        found = None if component is None else two_terminal_issue(component, path)
+        if found is not None:
+            issues.append(found)
+    marks = set(design.circuit.no_connects)
+    for path, keep in sorted(unused.items()):
+        component = by_path.get(path)
+        if component is None:
+            continue
+        numbers = {p.number for p in component.pins}
+        kept: set[str] = set()
+        for designator in keep:
+            named = (
+                [designator]
+                if designator in numbers
+                else [p.number for p in component.pins if p.name == designator]
+            )
+            if not named:
+                issues.append(
+                    issue(
+                        "altium.unknown-pin",
+                        f"{component.ref} {designator}: neither a pin number nor a pin name of its symbol, "
+                        "so it cannot be kept open",
+                        path,
+                        "keep the pin by its number",
+                    )
+                )
+            kept.update(named)
+        connected = {
+            m.pin for net in design.circuit.nets for m in net.members if m.component_id == component.id
+        }
+        marked = {m.pin for m in design.circuit.no_connects if m.component_id == component.id}
+        new, found_issues = unused_pin_marks(component, connected, marked, kept, path)
+        marks.update(new)
+        issues += found_issues
+    circuit = dataclasses.replace(design.circuit, no_connects=tuple(sorted(marks)))
     return dataclasses.replace(design, circuit=circuit), issues
 
 
@@ -2009,6 +2063,8 @@ def build_altium(
     composition: CompositionIntent | None = None,
     pour: PourMode | None = None,
     pour_regions: bool = True,
+    unused: Mapping[str, Sequence[str]] | None = None,
+    two_terminal: Sequence[str] = (),
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
 
@@ -2064,6 +2120,8 @@ def build_altium(
     documents it really lacks, and none when it lists them all. Without it (``None``) every document is
     named, as before; ``project_unreadable`` says that the file was there and could not be read, which
     the infos then say in their hint.
+    ``unused`` and ``two_terminal`` are the side channels of the script (``dsl.convert.unused_marks`` and
+    ``dsl.convert.two_terminal``, change c0247), resolved by ``resolve_requests`` as the KiCad build does.
     ``drawing_sheet`` is drawn on
     every schematic document, with the title block of ``design.board`` as sheet parameters; a part of
     it that the Altium form cannot carry raises ``read.sheet.SheetLossError`` unless ``allow_lossy``.
@@ -2115,6 +2173,9 @@ def build_altium(
     issues += pin_issues
     symbols = library_symbols(resolved, issues, symbol_bodies)
     model = with_written_values(generic_pins(model))
+    if unused or two_terminal:
+        model, request_issues = resolve_requests(model, unused or {}, two_terminal)
+        issues += request_issues
     validation = list(model.validate())
     if any(found.code == "model.pin-pad-map" for found in validation):
         # A pad that two pins stand for: the build says it under its own code, as the release 0.2.1
@@ -2469,6 +2530,7 @@ def write_model(
 __all__ = [
     "ALTIUM_BUILD_EVIDENCE",
     "ALTIUM_ISSUE_CODES",
+    "resolve_requests",
     "EXPERIMENTAL",
     "CopperSource",
     "PCB_BUILD_EVIDENCE",

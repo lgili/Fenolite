@@ -28,13 +28,16 @@ from fenolite.dsl.units import Length, as_nm, as_nm2, as_udeg
 from fenolite.model.board import IslandRemoval, ViaProtection, ZoneConnection, ZoneSettings
 from fenolite.model.design import presentation_issues
 from fenolite.model.findings import Waiver
+from fenolite.model.library import DeviceDef
 from fenolite.model.pairs import PAIR_ROLES
 from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, TitleBlock
 from fenolite.model.rules import HeightLimit, PlacementSeverity, RuleKind, RuleSeverity, Selector
 
 if TYPE_CHECKING:
+    from fenolite.dsl.block import BlockDef, BlockInstance
     from fenolite.dsl.generate import Recorded as Generated
     from fenolite.dsl.intents import MeanderIntent, Recorded
+    from fenolite.dsl.rolecopper import RoleCopperIntent
 
 DESIGN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 """A design name becomes the stem of the KiCad files."""
@@ -623,11 +626,17 @@ class Design(Container):
         self.outline_locked = False
         """``board(locked=True)``: the script's outline replaces one edited in KiCad on a rebuild."""
         self.parts: dict[str, Part] = {}
+        self.device_records: dict[str, DeviceDef] = {}
+        """The devices of ``devices()`` by id: they win over project and shipped devices (change c0248)."""
         self.footprints: dict[str, Footprint] = {}
         self.symbols: dict[str, object] = {}
         self.modules: dict[str, Module] = {}
         self.nets: dict[str, Net] = {}
         self.interfaces: dict[str, Interface] = {}
+        self.block_defs: dict[str, object] = {}
+        """The block definitions used by ``use()``, by block name (change c0251)."""
+        self.port_net_names: set[str] = set()
+        """The net names that ``portnets.resolve`` registered for groups of port nets."""
         self.aliases: dict[str, str] = {}
         """``moved()`` aliases: new path → old path, of a part or of a module."""
         self.net_aliases: dict[str, str] = {}
@@ -645,6 +654,8 @@ class Design(Container):
         self.generated: dict[str, Generated] = {}
         """Generated-copper records by key ``<call>.<name>``, as recorded by ``band()``, ``keepout_ring()``,
         ``barrier()``, ``body_keepout()``, ``fanout_zone()`` and ``stitch_pieces()``."""
+        self.role_copper_intent: RoleCopperIntent | None = None
+        """The record of ``role_copper()`` (change c0243), or ``None``."""
         self.zones: dict[str, ZoneSpec] = {}
         """Copper zones by name, as declared by ``zone()``."""
         self.stack: StackupSpec | None = None
@@ -666,6 +677,13 @@ class Design(Container):
 
         self.role_records = RoleRecords()
         """The net roles, role groups, limits and part classes of the role calls (change c0222)."""
+
+    def use(self, block: BlockDef, name: str, **params: object) -> BlockInstance:
+        """An instance of the block ``block`` named ``name``, with the keyword parameters ``params``: the
+        block is added to the design and its function runs once (``docs/dsl.md``, "Blocks")."""
+        from fenolite.dsl.block import instantiate
+
+        return instantiate(self, block, name, params)
 
     def schematic_layout(self, *, mode: str = "blocks", flow: str = "left-to-right") -> None:
         """Enable presentation-only functional block composition (Altium)."""
@@ -750,6 +768,18 @@ class Design(Container):
             name=label, code=code, items=tuple(names), reason=reason.strip(), min_gap=gap
         )
 
+    def devices(self, *records: DeviceDef) -> None:
+        """Register device records for this design (``fenolite.catalog.devices.parse_device`` or
+        ``load_devices``); ``part(ref, device=id)`` resolves an id against them before the project devices
+        and the shipped ones (``docs/devices.md``, "Where devices come from")."""
+        from fenolite.dsl.devices import check_records
+
+        for record in check_records(records):
+            known = self.device_records.get(record.id)
+            if known is not None and known != record:
+                raise DslError(f"devices(): device {record.id!r} is registered twice with different records")
+            self.device_records[record.id] = record
+
     def add_footprint(self, footprint: Footprint) -> None:
         """Register a project-authored library footprint for backend builds (not model persistence)."""
         if not isinstance(footprint, Footprint):  # type: ignore[reportUnnecessaryIsInstance]
@@ -781,6 +811,9 @@ class Design(Container):
     @property
     def design(self) -> Design:
         return self
+
+    def describe(self) -> str:
+        return f"design {self.name}"
 
     def board(
         self,
@@ -1945,6 +1978,40 @@ class Design(Container):
 
         roles.role_limits(self, net, kind, limits)
 
+    def role_copper(
+        self,
+        *,
+        kinds: Sequence[str] = ("power", "switch_node", "ground", "high_voltage"),
+        layers: Mapping[str, Sequence[str]] | None = None,
+        ground_layers: Sequence[str] | None = None,
+        ground_fill: str = "reference",
+        connection: Mapping[str, str] | None = None,
+        stitch_pitch: object = None,
+        temp_rise: object = None,
+        widen: int | None = None,
+        corridors: bool = True,
+        keep: Sequence[str] = (),
+        regenerate: Sequence[str] = (),
+        requirements: str | None = None,
+    ) -> None:
+        """Generate the copper of the confirmed and declared roles after placement (change c0243;
+        ``docs/roles.md``, "Role copper"): a zone per ``power`` and ``switch_node`` net and layer sized by its
+        current, a plane per ``ground`` layer with stitching, via arrays at layer changes, and a clearance
+        rule with a keep-out band around each ``high_voltage`` net at the distance of ``requirements`` (a
+        requirements file beside the script). ``layers`` and ``connection`` override the layers and the pad
+        connection of a kind, ``ground_layers`` the ground planes (``B.Cu`` on 2 layers, ``In1.Cu`` on 4),
+        ``ground_fill="all"`` also pours the free outer area, ``stitch_pitch`` the ground stitching (5 mm),
+        ``temp_rise`` (kelvin) sizes by the fit of S-0269, ``widen`` (per mille) how far power copper widens,
+        ``corridors=False`` writes no corridor of the critical routes, and ``keep`` and ``regenerate`` name
+        role items to keep or to force back. A second call raises ``DslError``."""
+        from fenolite.dsl import rolecopper
+
+        rolecopper.record_role_copper(
+            self, kinds=kinds, layers=layers, ground_layers=ground_layers, ground_fill=ground_fill,
+            connection=connection, stitch_pitch=stitch_pitch, temp_rise=temp_rise, widen=widen,
+            corridors=corridors, keep=keep, regenerate=regenerate, requirements=requirements,
+        )  # fmt: skip
+
     def part_class(self, part: Part, cls: str, terminals: Mapping[str, object] | None = None) -> None:
         """State the class of ``part`` for the role inference (``transistor``, ``shunt``, ``driver`` and
         the others of ``docs/roles.md``), with its terminals as pin numbers, such as
@@ -1978,6 +2045,8 @@ class Design(Container):
     # -- registration (called by add(), connect() and netclass())
 
     def register_net(self, net: Net) -> None:
+        if net.deferred:
+            return  # a port net is registered under its group's name by to_model (portnets.resolve)
         known = self.nets.get(net.name)
         if known is not None and known is not net:
             raise DslError(f"two distinct nets are named {net.name!r}")

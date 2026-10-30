@@ -4,10 +4,13 @@
 
 It records parts, nets, classes, interfaces, a board and placements, and ``to_model`` turns them into a
 model design with ids keyed by names and paths. It reads no library, file or environment; the build
-(``fenolite.lens.build``) resolves libraries and writes the KiCad project.
+(``fenolite.lens.build``) resolves libraries and writes the KiCad project. A part placed from a device
+(``Part(ref, device=...)``, change c0248) reads the device records of ``fenolite.catalog.devices``: the
+shipped ones from the package, and the project ones that the script runner installed for the run.
 """
 
 from fenolite.dsl import select, shape, stack
+from fenolite.dsl.block import block
 from fenolite.dsl.convert import (
     BOARD_ORIGIN,
     DSL_BACKEND,
@@ -28,6 +31,7 @@ from fenolite.dsl.convert import (
     via_protection_locked,
 )
 from fenolite.dsl.design import Design
+from fenolite.dsl.devices import PinNameError
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.footprint import Footprint
 from fenolite.dsl.generate import GeneratedIntent, generated
@@ -55,9 +59,25 @@ from fenolite.dsl.items import RuleArea
 from fenolite.dsl.module import Module
 from fenolite.dsl.panel import Panel
 from fenolite.dsl.part import FieldRequest, Net, PadZoneRequest, Part, Placement, connect, no_connect
-from fenolite.dsl.quantity import Quantity, amp, farad, henry, hertz, ohm, second, volt, watt
+from fenolite.dsl.quantity import (
+    Quantity,
+    Range,
+    Tolerance,
+    amp,
+    between,
+    farad,
+    henry,
+    hertz,
+    ohm,
+    pct,
+    second,
+    volt,
+    watt,
+)
+from fenolite.dsl.rolecopper import RoleCopperIntent, role_copper
 from fenolite.dsl.symbol import Symbol
 from fenolite.dsl.units import Length, inch, mil, mm, nm
+from fenolite.dsl.wiring import decouple, pull_down, pull_up, series
 from fenolite.model.board import MechanicalIntent
 
 __all__ = [
@@ -84,8 +104,10 @@ __all__ = [
     "PadEnd",
     "PadRef",
     "PadZoneRequest",
+    "RoleCopperIntent",
     "Panel",
     "Part",
+    "PinNameError",
     "Placement",
     "Power",
     "StitchIntent",
@@ -95,8 +117,10 @@ __all__ = [
     "ViaIntent",
     "ViaStep",
     "arc_to",
+    "block",
     "connect",
     "copper",
+    "decouple",
     "meanders",
     "drawing_sheet_source",
     "schematic_composition",
@@ -116,7 +140,11 @@ __all__ = [
     "placements",
     "planes",
     "protect",
+    "pull_down",
+    "pull_up",
+    "role_copper",
     "select",
+    "series",
     "shape",
     "stack",
     "stackup_locked",
@@ -129,6 +157,10 @@ __all__ = [
     "UART",
     "USB2",
     "Quantity",
+    "Range",
+    "Tolerance",
+    "between",
+    "pct",
     "RuleArea",
     "amp",
     "farad",

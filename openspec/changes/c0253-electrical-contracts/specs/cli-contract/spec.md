@@ -13,7 +13,7 @@
 - **THEN** `result.requirements` holds only role rows, and the exit code is 0
 
 ### Requirement: Requirements file bounds both kinds of row
-A `[[current]]` row of `fenolite roles --check --requirements FILE` SHALL bound the current of its nets for the role rows and for the circuit rows alike, with source `user` and, as basis, the row's `source` text or `requirements.toml`. As for roles, a row bounds a net only when no rig, rail or stated role does.
+A `[[current]]` row of `fenolite roles --check --requirements FILE`, and after it `--current NET=AMPS`, SHALL bound the current of their nets for the role rows and the circuit rows alike, in the order of roles (the role's `milliamps`, then `[[current]]`, then `--current`), with source `user` and, as basis, the row's `source` text, `requirements.toml` or `--current`. Neither bounds a net that a rig or a rail bounds.
 
 #### Scenario: A stated current reaches the circuit rows
 - **GIVEN** the `bad` variant of `examples/circuit/sensor` without its role declaration of `SW`, built in `tmp_path`, and a requirements file with `[[current]]` `select = { net = "SW" }`, `current = "0.8A"`, `temp_rise = "10K"`, `source = "bench note"`

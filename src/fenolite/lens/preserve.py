@@ -35,6 +35,8 @@ from fenolite.core.errors import FormatError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Udeg
+from fenolite.lens import edits as edits_mod
+from fenolite.lens.edits import BaseRecord, Decision, PartEdits, PropertyKey, Take, Value, merge_property
 from fenolite.lens.moved import resolve_aliases
 from fenolite.model import canonical
 from fenolite.model.base import Opaque, Slot
@@ -52,6 +54,7 @@ from fenolite.model.board import (
 )
 from fenolite.model.circuit import Component, PinRef
 from fenolite.model.design import Design
+from fenolite.model.schematic import SchematicSheet
 
 PRESERVE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
@@ -294,27 +297,89 @@ def _same_place(a: PlacementLike, b: PlacementLike) -> bool:
     return (a.at, a.rotation, a.side) == (b.at, b.rotation, b.side)
 
 
-def effective_placements(
+def legacy_edits(source: Mapping[str, PlacementLike]) -> dict[str, PartEdits]:
+    """The entries of a placements file as position and rotation edits without a recorded script value:
+    they never go stale (``docs/lens.md``, "From placements.toml to edits.toml")."""
+    return {
+        path: PartEdits(
+            MappingProxyType({"position": (e.at.x, e.at.y), "rotation": (e.rotation, e.side)}), None, e.locked
+        )
+        for path, e in source.items()
+    }
+
+
+@dataclass(frozen=True)
+class Placed:
+    """What ``decide_placements`` gives: the placements, the issues, the decisions of the parts that have
+    a base entry (or a conflict, or a take), the matched parts without a base entry, the takes used and the
+    code side of each part's position and rotation."""
+
+    placements: Mapping[str, PlacementLike]
+    issues: tuple[Issue, ...] = ()
+    decisions: tuple[Decision, ...] = ()
+    missing: tuple[str, ...] = ()
+    used: frozenset[Take] = frozenset()
+    codes: Mapping[str, Mapping[str, Value | None]] = field(default_factory=lambda: MappingProxyType({}))
+
+
+def _edit_differs(part: PartEdits, fp: FootprintInstance) -> bool:
+    position = part.values.get("position")
+    rotation = part.values.get("rotation")
+    if position is not None and (position != (fp.position.x, fp.position.y) or part.locked != fp.locked):
+        return True
+    return rotation is not None and rotation != (fp.rotation, fp.side)
+
+
+def _edit_text(part: PartEdits) -> str:
+    position = part.values.get("position")
+    rotation = part.values.get("rotation")
+    pieces: list[str] = []
+    if isinstance(position, tuple) and isinstance(position[1], int):
+        pieces.append(f"({position[0] / 1e6:g} mm, {position[1] / 1e6:g} mm)")
+    if isinstance(rotation, tuple) and isinstance(rotation[1], str):
+        pieces.append(f"{rotation[0] / 1e6:g}°, {rotation[1]}")
+    return " ".join(pieces) + (", locked" if part.locked else "")
+
+
+def decide_placements(
     placements: Mapping[str, PlacementLike],
     match: LayoutMatch,
     *,
     design: Design,
     board: Design | None,
-    source: Mapping[str, PlacementLike] | None = None,
-) -> tuple[Mapping[str, PlacementLike], tuple[Issue, ...]]:
-    """Each part's placement: locked ``place()`` > existing board > the placements file (``source``) >
-    ``place()`` > staging (omitted). An entry of ``source`` that wins is given as a ``FilePlacement``."""
-    entries = source or {}
+    edits: Mapping[str, PartEdits] | None = None,
+    file: str = "placements.toml",
+    base: BaseRecord | None = None,
+    takes: Sequence[Take] = (),
+    aliases: Mapping[str, str] | None = None,
+) -> Placed:
+    """Each part's placement (``docs/lens.md``, "Placement precedence" and "Three-way merge").
+
+    A locked ``place()`` wins. Otherwise ``position`` and ``rotation`` (with the side) are merged by the
+    three-way rule of ``lens.edits.merge_property``: the code is the part's ``place()`` with its edit of
+    ``edits`` (the edits file, or the legacy entries of a placements file, named ``file``), the CAD side
+    the matched footprint of ``board`` when it lies on the board, and the base the part's entry of
+    ``base`` (through the ``moved()`` alias ``aliases`` of an alias match). Without a base entry the board
+    wins, as before. A part whose position is decided by nobody is left out, so the build stages it."""
+    entries = edits or {}
     out: dict[str, PlacementLike] = {}
     issues: list[Issue] = []
+    decisions: list[Decision] = []
+    missing: list[str] = []
+    used: set[Take] = set()
+    codes: dict[str, Mapping[str, Value | None]] = {}
+    file_hint = f"lock the placement in the script, or edit {file}"
     paths = _paths(design)
     for path in paths:
         request = placements.get(path)
         found = match.matches.get(path)
-        entry = entries.get(path)
+        part = entries.get(path)
         fp = found.footprint if found is not None else None
+        script_pos: Value | None = (request.at.x, request.at.y) if request is not None else None
+        script_rot: Value | None = (request.rotation, request.side) if request is not None else None
         if request is not None and request.locked:
             out[path] = request
+            codes[path] = MappingProxyType({"position": script_pos, "rotation": script_rot})
             if fp is not None and not _same(request, fp, lock=True):
                 issues.append(
                     issue(
@@ -325,61 +390,170 @@ def effective_placements(
                     )
                 )
             continue
-        if fp is not None and not (board is not None and _off_board(fp, design, board)):
-            out[path] = KeptPlacement(fp.position, fp.rotation, fp.side, fp.locked)
-            if request is not None and not _same(request, fp, lock=False):
+        on_board = fp is not None and not (board is not None and _off_board(fp, design, board))
+        held: Mapping[str, edits_mod.BaseEntry] | None = None
+        if on_board and base is not None and base.present:
+            old = (aliases or {}).get(path) if found is not None and found.key == "alias" else None
+            held = base.parts.get(path) or (base.parts.get(old) if old else None)
+        if on_board and base is not None and held is None:
+            missing.append(path)
+        cad_pos: dict[str, Value] = {}
+        cad_rot: dict[str, Value] = {}
+        if on_board and fp is not None:
+            cad_pos["board"] = (fp.position.x, fp.position.y)
+            cad_rot["board"] = (fp.rotation, fp.side)
+        locked_fp = bool(on_board and fp is not None and fp.locked)
+        pair: list[Decision] = []
+        for prop, script, cad in (("position", script_pos, cad_pos), ("rotation", script_rot, cad_rot)):
+            decision = merge_property(
+                PropertyKey(path, prop),
+                base=held.get(prop) if held is not None else None,
+                code=script,
+                cad=cad,
+                takes=takes,
+                edit=part.edit(prop) if part is not None else None,
+                cad_locked=locked_fp,
+            )
+            pair.append(decision)
+            if decision.take is not None:
+                used.add(decision.take)
+            if held is not None or decision.conflict is not None or decision.take is not None:
+                decisions.append(decision)
+        d_pos, d_rot = pair
+        codes[path] = MappingProxyType({"position": d_pos.code, "rotation": d_rot.code})
+        conflicts = [d.conflict for d in pair if d.conflict is not None]
+        for conflict in conflicts:
+            issues.append(conflict.finding(cad_file="board"))
+        if on_board and fp is not None:
+            board_kept = KeptPlacement(fp.position, fp.rotation, fp.side, fp.locked)
+            if conflicts:
+                out[path] = board_kept
+                continue
+            position, rotation = d_pos.value, d_rot.value
+            assert isinstance(position, tuple) and isinstance(position[1], int)
+            assert isinstance(rotation, tuple) and isinstance(rotation[1], str)
+            at = Point(position[0], position[1])
+            kept = (at, rotation[0], rotation[1]) == (fp.position, fp.rotation, fp.side)
+            placed: PlacementLike = board_kept
+            if not kept:
+                from_edit = any(d.edited and d.source in ("code", "take") for d in pair)
+                lock = part.locked if part is not None and d_pos.edited and d_pos.source != "cad" else False
+                kind = FilePlacement if from_edit else KeptPlacement
+                placed = kind(at, rotation[0], cast(Side, rotation[1]), lock)
+            out[path] = placed
+            if request is not None and not _same_place(request, placed):
+                where = "the board's" if kept else f"{file}'s"
                 issues.append(
                     issue(
                         "layout.place-overridden",
                         f"{path}: place() {_describe(request.at, request.rotation, request.side)} is "
-                        f"overridden by the board's {_describe(fp.position, fp.rotation, fp.side)}",
+                        f"overridden by {where} {_describe(placed.at, placed.rotation, placed.side)}",
                         path,
-                        OVERRIDE_HINT,
+                        OVERRIDE_HINT if kept else file_hint,
                     )
                 )
-            if entry is not None and not _same(entry, fp, lock=True):
+            if kept and part is not None and _edit_differs(part, fp):
                 issues.append(
                     issue(
                         "layout.source-stale",
-                        f"{path}: placements.toml has {_describe(entry.at, entry.rotation, entry.side)}"
-                        f"{', locked' if entry.locked else ''} and the board keeps "
+                        f"{path}: {file} has {_edit_text(part)} and the board keeps "
                         f"{_describe(fp.position, fp.rotation, fp.side)}{', locked' if fp.locked else ''}",
                         path,
                         STALE_HINT,
                     )
                 )
             continue
-        if entry is not None:
-            out[path] = FilePlacement(entry.at, entry.rotation, entry.side, entry.locked)
-            if request is not None and not _same_place(request, entry):
-                issues.append(
-                    issue(
-                        "layout.place-overridden",
-                        f"{path}: place() {_describe(request.at, request.rotation, request.side)} is "
-                        f"overridden by placements.toml's {_describe(entry.at, entry.rotation, entry.side)}",
-                        path,
-                        FILE_HINT,
-                    )
-                )
+        if conflicts:
+            if request is not None:
+                out[path] = request
             continue
-        if request is not None:
+        position, rotation = d_pos.value, d_rot.value
+        if position is None:
+            continue
+        if not d_pos.edited and not d_rot.edited and request is not None:
             out[path] = request
+            continue
+        assert isinstance(position, tuple) and isinstance(position[1], int)
+        turn, side = (0, "top")
+        if isinstance(rotation, tuple) and isinstance(rotation[1], str):
+            turn, side = rotation[0], rotation[1]
+        lock = part.locked if part is not None and d_pos.edited else False
+        placed = FilePlacement(Point(position[0], position[1]), turn, cast(Side, side), lock)
+        out[path] = placed
+        if request is not None and not _same_place(request, placed):
+            issues.append(
+                issue(
+                    "layout.place-overridden",
+                    f"{path}: place() {_describe(request.at, request.rotation, request.side)} is "
+                    f"overridden by {file}'s {_describe(placed.at, placed.rotation, placed.side)}",
+                    path,
+                    file_hint,
+                )
+            )
     for path in sorted(set(entries) - set(paths)):
         issues.append(
             issue(
                 "layout.source-unknown",
-                f"placements.toml places {path!r}, which is not a part of the design",
+                f"{file} places {path!r}, which is not a part of the design",
                 path,
                 "remove the table, or run fenolite sync --to-source",
             )
         )
-    return MappingProxyType(out), tuple(issues)
+    return Placed(
+        MappingProxyType(out),
+        tuple(issues),
+        tuple(decisions),
+        tuple(missing),
+        frozenset(used),
+        MappingProxyType(codes),
+    )
+
+
+def effective_placements(
+    placements: Mapping[str, PlacementLike],
+    match: LayoutMatch,
+    *,
+    design: Design,
+    board: Design | None,
+    source: Mapping[str, PlacementLike] | None = None,
+    edits: Mapping[str, PartEdits] | None = None,
+    file: str | None = None,
+    base: BaseRecord | None = None,
+    takes: Sequence[Take] = (),
+    aliases: Mapping[str, str] | None = None,
+) -> tuple[Mapping[str, PlacementLike], tuple[Issue, ...]]:
+    """Each part's placement and the issues (``decide_placements``). ``source`` holds the entries of a
+    legacy placements file; ``edits`` those of an edits file. Without ``base`` the board wins over
+    ``place()`` and the file, as before; with it, ``edit.base-missing`` counts the parts without an entry,
+    and ``edit.code-wins`` and ``edit.unrecorded`` name the decided properties."""
+    held = edits if edits is not None else legacy_edits(source or {})
+    name = file or (edits_mod.EDITS_FILE if edits is not None else "placements.toml")
+    placed = decide_placements(
+        placements,
+        match,
+        design=design,
+        board=board,
+        edits=held,
+        file=name,
+        base=base,
+        takes=takes,
+        aliases=aliases,
+    )
+    more: list[Issue] = []
+    if base is not None and placed.missing:
+        more.append(edits_mod.missing_issue(placed.missing))
+    more += edits_mod.decision_issues(placed.decisions, cad_file="the board")
+    return placed.placements, (*placed.issues, *more)
 
 
 @dataclass(frozen=True)
 class Prepared:
     """What ``build_design`` needs to merge with an existing project. ``aliases`` are the part aliases;
-    ``net_aliases`` and ``module_aliases`` are the resolved net and module aliases (new → old)."""
+    ``net_aliases`` and ``module_aliases`` are the resolved net and module aliases (new → old).
+
+    With the property merge (``edits`` or ``base`` given to ``prepare``), ``design`` is the model with the
+    decided values and footprints, which the build is given, ``decisions`` every decided property and
+    ``codes`` the code side of each part's properties, which the build records in its base record."""
 
     existing: ExistingProject
     board: Design | None
@@ -390,6 +564,9 @@ class Prepared:
     aliases: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
     net_aliases: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
     module_aliases: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+    design: Design | None = None
+    decisions: tuple[Decision, ...] = ()
+    codes: Mapping[str, Mapping[str, Value | None]] | None = None
 
 
 def prepare(
@@ -402,9 +579,127 @@ def prepare(
     module_moves: Mapping[str, str] | None = None,
     net_moves: Mapping[str, str] | None = None,
     source: Mapping[str, PlacementLike] | None = None,
+    edits: Mapping[str, PartEdits] | None = None,
+    edits_file: str | None = None,
+    base: BaseRecord | None = None,
+    takes: Sequence[Take] = (),
+    sheets: Sequence[SchematicSheet] | None = None,
 ) -> Prepared:
     """Read the existing board, resolve the aliases, match its footprints and decide the effective
-    placements. Without a board, only the placements file (``source``) changes the placements."""
+    placements. Without a board, only the placements file (``source``) changes the placements.
+
+    With ``edits`` (the edits file, or the legacy entries of a placements file) or ``base`` (the base record
+    of the output folder, ``BaseRecord.absent`` when it has none) the three-way merge of change c0250 runs:
+    values and footprints are decided by ``lens.edits.merge_properties`` against the board and the
+    schematic ``sheets``, positions and rotations by ``decide_placements``, both with the same base and
+    ``takes``."""
+    if edits is None and base is None:
+        return _prepare_before(
+            design, placements, existing, name=name, moves=moves, module_moves=module_moves,
+            net_moves=net_moves, source=source,
+        )  # fmt: skip
+    held = dict(edits) if edits is not None else legacy_edits(source or {})
+    file = edits_file or (edits_mod.EDITS_FILE if edits is not None else "placements.toml")
+    board: Design | None = None
+    issues: list[Issue] = []
+    infos = 0
+    if existing.board is not None:
+        found: list[Issue] = []
+        board = pcb.read_board(existing.board, file=f"{name}.kicad_pcb", issues=found)
+        issues += [i for i in found if i.severity != "info"]
+        infos = sum(1 for i in found if i.severity == "info")
+    aliases, alias_issues = resolve_aliases(
+        design, board, moves=moves, module_moves=module_moves, net_moves=net_moves
+    )
+    match: LayoutMatch | None = None
+    if board is not None:
+        issues += alias_issues
+        match = match_footprints(design, board, moves=aliases.parts)
+        for new, old in match.unused_aliases:
+            issues.append(
+                issue(
+                    "layout.alias-unused",
+                    f"moved({old!r}, {new!r}) matched nothing to keep; remove the alias",
+                    new,
+                )
+            )
+    footprints = {path: m.footprint for path, m in match.matches.items()} if match is not None else {}
+    merged = edits_mod.merge_properties(
+        design,
+        board=board,
+        sheets=sheets if board is not None else None,
+        match=footprints,
+        base=base if board is not None else None,
+        edits=held,
+        takes=takes,
+        aliases=aliases.parts,
+    )
+    placed = decide_placements(
+        placements,
+        match if match is not None else LayoutMatch(MappingProxyType({})),
+        design=design,
+        board=board,
+        edits=held,
+        file=file,
+        base=base if board is not None else None,
+        takes=takes,
+        aliases=aliases.parts,
+    )
+    issues += placed.issues
+    issues += merged.issues
+    missing = sorted({*placed.missing, *merged.missing})
+    if base is not None and board is not None:
+        issues += base.issues
+        if missing:
+            issues.append(edits_mod.missing_issue(missing))
+    decisions = tuple(sorted((*placed.decisions, *merged.decisions), key=lambda d: d.key.sort_key()))
+    issues += edits_mod.decision_issues(
+        decisions, cad_file="the board" if sheets is None else "the CAD files"
+    )
+    used = placed.used | merged.used_takes
+    for take in takes:
+        if take not in used:
+            issues.append(
+                edits_mod.issue(
+                    "edit.take-unused",
+                    f"--take {take} matched no conflict and changed nothing",
+                    str(take),
+                    "drop the option",
+                )
+            )
+    codes: dict[str, dict[str, Value | None]] = {}
+    for path, values in placed.codes.items():
+        codes.setdefault(path, {}).update(values)
+    for path, values in merged.base.parts.items():
+        codes.setdefault(path, {}).update({prop: entry.code for prop, entry in values.items()})
+    return Prepared(
+        existing,
+        board,
+        match,
+        placed.placements,
+        tuple(issues),
+        infos,
+        aliases.parts,
+        aliases.nets if board is not None else MappingProxyType({}),
+        aliases.modules,
+        merged.design,
+        decisions,
+        MappingProxyType({path: MappingProxyType(values) for path, values in sorted(codes.items())}),
+    )
+
+
+def _prepare_before(
+    design: Design,
+    placements: Mapping[str, PlacementLike],
+    existing: ExistingProject,
+    *,
+    name: str,
+    moves: Mapping[str, str] | None = None,
+    module_moves: Mapping[str, str] | None = None,
+    net_moves: Mapping[str, str] | None = None,
+    source: Mapping[str, PlacementLike] | None = None,
+) -> Prepared:
+    """``prepare`` without the property merge: the precedence of before change c0250."""
     if existing.board is None:
         aliases, _ = resolve_aliases(
             design, None, moves=moves, module_moves=module_moves, net_moves=net_moves
@@ -1247,11 +1542,14 @@ __all__ = [
     "KeptPlacement",
     "LayoutMatch",
     "Merged",
+    "Placed",
     "PlacementLike",
     "Prepared",
     "component_paths",
     "drop_stale_fills",
+    "decide_placements",
     "effective_placements",
+    "legacy_edits",
     "fill_counts",
     "fill_inputs_digest",
     "footprint_uuid",

@@ -11,7 +11,7 @@ Research section 4.6 of `docs/research/component-library.md` proposes a **local 
 what the user downloaded and writes a project device (c0248, in the record format of c0259) with its
 origin, the SHA-256 of each source file, the licence `see source terms` and the evidence `UNVERIFIED`.
 Section 1 explains why it must be local: the terms of those sites allow the user's own use and forbid
-redistribution, so the import may never feed the shipped catalog or a device pack (c0266). The family
+redistribution, so the import may never feed the shipped catalog or `fenolite-library` (c0266, c0279). The family
 generators of c0260 give a cheap check of the download: the imported footprint is compared with what the
 generator draws for the same package.
 
@@ -27,9 +27,9 @@ generator draws for the same package.
   Fenolite's own writers, and the STEP body copied byte for byte. Each record carries an `[origin]`
   table (tool, source file names, member paths, SHA-256 of every source, date), `licence = "see source
   terms"` and `evidence = "UNVERIFIED"`.
-- **Never shipped.** `--into` must lie inside the project; the shipped catalog, an installed device pack
-  and its cache are refused. A record with this origin is marked not shippable, and the pack checks of
-  c0262/c0266 refuse it.
+- **Never shipped.** `--into` must lie inside the project; the shipped catalog, a vendored `fenolite_library/`
+  folder and the library cache are refused. A record with this origin is marked not shippable, and the library checks of
+  c0262/c0279 refuse it.
 - **Zip safety.** Archives are read in memory with the standard library under fixed limits (entries,
   sizes, ratio), and entries with absolute paths, `..`, links, encryption or duplicate names are refused.
   Nothing is extracted to disk; nested archives are not opened.
@@ -73,5 +73,5 @@ generator draws for the same package.
   `parts.md`, `docs/cli-contract.md`, `CHANGELOG.md`.
 - Depends on: c0248 (device records, provenance, `FEN-7001` rule), c0259 (record format, device tree,
   stable ids), c0260 (family generators and classifier), c0261 (symbol from pins). Used by c0262 (its
-  checks run the cross-check on imported devices) and c0266 (refuses imported records).
+  checks run the cross-check on imported devices) and c0266/c0279 (the library refuses imported records).
 - Size: about 6 design-days.

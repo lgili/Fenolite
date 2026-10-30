@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Contracts in the circuit stage
-The stage `circuit.rules` of c0252 SHALL also judge the electrical contracts of `electrical-contracts`: ratings, the derating policy, expectations and the rig. Its summary MUST hold `requirements`, the rows of the requirement table. Its skip `no-parameters` MUST NOT apply when the model holds a component with a `fenolite.device` property, an expectation or a rig element. Its place, its name, its skip `no-model` and its tool-free run MUST stay as c0252 defines them.
+The stage `circuit.rules` of c0252 SHALL also judge the contracts of `electrical-contracts`: ratings, operating ranges, the policy, expectations and the rig. Its summary MUST hold `requirements` and `halves.contracts` (`ran` or `no-contracts`, the latter when the model has no `fenolite.device` component, expectation or rig element). The stage MUST be skipped with `no-parameters` only when `no-contracts` holds too. Its place, name, skip `no-model` and tool-free run stay c0252's.
 
 #### Scenario: A failing rating gates the check
 - **GIVEN** the `bad` variant of `examples/circuit/sensor` built in `tmp_path`
@@ -11,14 +11,14 @@ The stage `circuit.rules` of c0252 SHALL also judge the electrical contracts of 
 #### Scenario: Contracts alone run the stage
 - **GIVEN** a built design with one device part and one expectation, and no rail, port or interface parameter
 - **WHEN** `fenolite check <dir> --stages circuit.rules --json` runs
-- **THEN** the stage is not skipped, and its summary holds the expectation's row
+- **THEN** the stage is not skipped, its summary holds the expectation's row, and `summary.halves` is `{"contracts": "ran", "rails": "no-parameters"}`
 
 #### Scenario: A board without a model is unchanged
 - **WHEN** `fenolite check tests/data/kicad/board/two_layer.kicad_pcb --stages circuit.rules --json` runs
 - **THEN** the stage is `skipped` with c0252's reason `no-model`, and the exit code is 0
 
 ### Requirement: Device records injected into the circuit stage
-`cmd_check`, `cmd_build` and `cmd_roles` SHALL resolve the `fenolite.device` id of each component through the catalog and the project's device records (c0248), and SHALL pass them to `circuit_issues(model, *, devices=...)` and the stage as a mapping from device id to `DeviceDef`. `checks` MUST NOT import `catalog`. Without the mapping, the rating rows MUST be `unknown`.
+`cmd_check`, `cmd_build` and `cmd_roles` SHALL resolve each component's `fenolite.device` through the catalog and the project's records (c0248) and classify the parts with `fenolite.roles.classify`, and SHALL pass both to `circuit_issues(model, *, devices=..., classes=...)` and the stage. `checks` MUST NOT import `catalog` or `roles`. Without `devices`, rating rows MUST be `unknown`; without `classes`, class-specific rows MUST be `unknown`.
 
 #### Scenario: A fake mapping
 - **GIVEN** the `bad` variant built in `tmp_path`

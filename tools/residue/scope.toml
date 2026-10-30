@@ -6,6 +6,7 @@
 
 exclude = [
     "uv.lock",                  # hashes and versions of third-party packages only
+    "viewer/package-lock.json", # the same for the viewer's Node packages (change c0304)
     "tests/corpus/cache/**",    # fetched public corpus
     "tools/residue/patterns.regex",
 ]
@@ -58,6 +59,11 @@ reason = "KiCad INT_MAX Default class priority 2147483647, in the authored proje
 path = "tests/data/lens/sync_minimal/*.kicad_pro"
 pattern = "numeric-code"
 reason = "KiCad INT_MAX Default class priority 2147483647, in the example project of fenolite sync (c0069)"
+
+[[waiver]]
+path = "tests/data/fidelity/*/*.kicad_pro"
+pattern = "numeric-code"
+reason = "KiCad INT_MAX net class priority 2147483647, in the authored original of the fidelity proof (c0278)"
 
 [[waiver]]
 path = "tests/data/altium/outjob/blink.OutJob"

@@ -1,76 +1,67 @@
 ## Why
 
 A large library (tens of thousands of packages, devices and parts, research section 4.10) cannot live in
-the core package: it would grow every install, tie data fixes to code releases, and mix data licensed for
-reuse with Apache-2.0 code. Research section 4.9 of `docs/research/component-library.md` proposes a
-separate, versioned **CC0 data repository**, `fenolite-devices`, holding only records in c0259's format,
-checked by its own CI, published as releases, and pinned by the design lock (c0249) so that a build is
-byte-identical on every machine.
+the core package: it would grow every install, tie data fixes to code releases, and mix data under several
+licences with Apache-2.0 code. Research section 4.9 of `docs/research/component-library.md` proposes a
+separate, versioned data repository with its own CI, pinned by the design lock (c0249).
 
-The maintainer decided on 2026-10-29 that the LibrePCB official libraries, licensed CC0-1.0, may seed the
-repository, openly and with each element's origin recorded. That needs a deterministic converter whose
-output is labelled `UNVERIFIED` until it is checked (c0262) and reviewed.
+The maintainer decided on 2026-10-29 that this repository is **`fenolite-library`**
+(github.com/lgili/fenolite-library, c0279), the single home of all third-party-derived material, not a
+separate `fenolite-devices` repository. Device data becomes its kinds `symbols`, `footprints` and
+`devices`, pulled by `fenolite get` (c0279). He also decided that the LibrePCB official libraries
+(CC0-1.0) may seed it openly, with each element's origin recorded, which needs a deterministic converter
+whose output stays `UNVERIFIED` until checked (c0262) and reviewed.
 
 ## What Changes
 
-- **The data repository `fenolite-devices`** (separate, CC0-1.0, DCO sign-off, no code): `pack.toml`
-  (schema `fenolite.pack.v0`: name, version, namespaces, the Fenolite version it needs, licence),
-  `sources.toml` (its own source registry), the record tree of c0259 (`packages/`, `pins/`, `devices/`,
-  `parts/`, `families/`), `reviews/`, `VERSIONS.toml`, `CHANGELOG.md`.
-- **Its CI**, on every pull request: regenerate every generated footprint, symbol and body (c0260,
-  c0261) and compare with the committed outputs; run `fenolite library check` (c0262); check licences,
-  sources, origins and the version rules of c0259 against the previous release; render previews and an
-  old/new visual diff of every changed record (c0262), attached to the pull request.
-- **Versioned releases.** A tag `vX.Y.Z` publishes a deterministic archive, its `SHA256SUMS`, an
-  `index.json`, and a data-only wheel `fenolite-devices` on PyPI.
-- **How the core gets a pack, never at build time.**
-  - `fenolite library fetch [VERSION] [--from FILE] [--pin SCRIPT]` downloads a release archive under the
-    mutation protocol, checks it against a pinned digest, and unpacks it into the user's pack cache.
-  - The extra `fenolite[devices]` installs the wheel; the core finds it through `importlib.metadata`
-    without importing any code. `pyproject.toml` `dependencies` stays empty.
-  - `fenolite library packs` lists what is installed, cached and locked (read-only, offline).
-- **The lock pins the pack.** A build that uses a pack record records `[library."<pack>"]` (version and
-  tree digest) in c0249's design lock; later builds use exactly that version, `--frozen` refuses a change,
-  and a missing pinned pack exits 6 with the new `FEN-6004` and the fetch command as hint.
-- **Precedence per id:** project records > packs > shipped catalog. A pack may not use the `Fenolite:`
-  namespace; one id in two packs is an error.
-- **Offline.** Builds never open a connection; the cache is verified by tree digest; `--from FILE`
-  installs from a copied archive.
-- **LibrePCB seed.** `fenolite library seed --from-librepcb DIR --commit SHA --into DIR` converts
-  LibrePCB packages, symbols, components and devices into c0259 records with `origin` (library, commit,
-  element UUID), `licence = "CC0-1.0"` and `UNVERIFIED`, deterministically, under plan and confirm. It is run
-  by a maintainer or by the data repository's CI, never by a build.
-- **ADR-0008** records that a second command (`library fetch`) downloads, and only data.
+- **Three device kinds of `fenolite-library`** (layout, provenance, licences, releases: c0279):
+  `symbol` (a c0259 `pins` record with its `[symbol]`), `footprint` (a `package` record) and `device` (a
+  `device` record with parts, whose `depends` names its symbol and footprint items).
+- **Fenolite-authored items** use the namespace `FenoliteDevices`, `CC0-1.0`, the family `cc0` and the
+  library's `sources.toml` (`D-` ids). Converted third-party items keep their upstream licence and
+  provenance. `Fenolite` stays reserved for the shipped catalog.
+- **The library's CI for these kinds:** `fenolite library check` (c0262); regeneration of generated
+  footprints, symbols and bodies (c0260, c0261) compared with the committed outputs; c0259's version rules;
+  the origin rule for seeded records; previews with an old/new visual diff.
+- **Vendored records.** `fenolite get` copies items into `fenolite_library/symbols`, `fenolite_library/footprints` and
+  `fenolite_library/devices` beside the script. The runner reads them as TOML project records, importing nothing.
+  Precedence per id: authored project records (`devices/`) > vendored records > shipped catalog. The build
+  labels their origin `library` with item and version.
+- **Pinned in the lock** by c0279's `[library.items]` (version, release, tree digest). A c0254 pick of a
+  vendored row names that item and version.
+- **Offline.** Builds read only project files and the shipped catalog. A missing vendored folder exits 6
+  with c0279's `FEN-6004`. An unknown id in a namespace of the cached library index gets the hint
+  `fenolite get device <id> --dry-run`.
+- **LibrePCB seed.** `fenolite library seed --from-librepcb DIR --commit SHA --into DIR` converts LibrePCB
+  packages, components with symbols, and devices into `cc0` library items, each with `PROVENANCE.json`
+  (`origin: seeded`, library, commit) and records keeping their element UUID, `CC0-1.0` and `UNVERIFIED`.
+  Deterministic, under plan and confirm, run by a maintainer or the library's CI, never by a build.
+- **Removed from the first version:** the `fenolite-devices` repository, `pack.toml`, `library fetch`,
+  `library packs`, the `fenolite[devices]` extra and wheel, the pack cache, its ADR and its own `FEN-6004`.
+  c0279 provides repository, `get`, cache, ADR-0008 and `FEN-6004`.
 
 ## Non-goals
 
-- No record in the pack is authored here; the first release content is decided in the data repository.
-- No supplier data in the pack, ever (c0267 is per user and never persistent).
-- No automatic update: a newer pack is used only after `library fetch --pin` or a lock edit.
-- No 3D models from LibrePCB in the first seed (STEP files are c0260's concern).
-- No other seed source: CC-BY-SA libraries (KiCad, Horizon EDA) and other CAD libraries stay out.
+- No record content is authored here; the first items are decided in the library.
+- No supplier data in the library, ever (c0267).
+- No automatic update: a newer item comes only through `fenolite get --version`.
+- No 3D models from LibrePCB in the first seed (c0260's concern).
+- No seed from another CAD library here; converted third-party items enter one by one under c0279's rules.
 
 ## Evidence level required
 
-- Pack reading, precedence, lock section, fetch plan and cache: `INFERRED`, unit-tested
-  (`H-G-DEVICE-PACKS`), with a local archive and no network.
-- The fetch of a real release: `UNVERIFIED` as for `fetch`; the CI job `packs` installs the pinned release
-  with the command and builds the pack example (`H-G-PACK-FETCH`).
-- Seeded records: `UNVERIFIED` by rule (c0259); the converter itself `INFERRED` against authored fixtures
-  written for Fenolite in LibrePCB's public format.
+- Vendored records, precedence and origin labels: `INFERRED`, unit-tested with records vendored from a
+  local release, no network (`H-G-DEVICE-PACKS`).
+- Seeded records: `UNVERIFIED` by rule (c0259); the converter `INFERRED` against authored fixtures written
+  for Fenolite in LibrePCB's public format.
 
 ## Impact
 
-- New: `src/fenolite/catalog/packs.py`, `src/fenolite/catalog/seed/librepcb.py`, `cli/cmd_library.py` verbs
-  `fetch`, `packs`, `seed`, `src/fenolite/cli/data/packs.toml`, `docs/packs.md`,
-  `docs/formats/librepcb/library.md`, `docs/adr/0008-fetching-device-packs.md`, `examples/packs/`, tests.
-  Outside this repository: the `fenolite-devices` repository with its CI workflows.
-- Changed: `cli/cmd_library.py` (verbs before the board path), `cli/_script.py` (pack lookup),
-  `cli/cmd_build.py` (lock section, `result.library`), `cli/errors.py` and `explain.toml` (`FEN-6004`),
-  `cli/cmd_capabilities.py` and `doctor` (packs), `pyproject.toml` (extra `devices`),
-  `tests/unit/test_pyproject_invariants.py`, `docs/cli-contract.md`, the guide page `parts.md`,
-  `CHANGELOG.md`.
-- Depends on: c0249 (lock sections), c0259 (records), c0262 (`library check`, reviews, visual diff, used by
-  the data repository's CI). c0260 and c0261 make "regenerate" meaningful; before them the CI checks
-  explicit records only. c0254 picks may name pack rows.
-- Size: about 8 design-days (M), plus the data repository set-up.
+- New: `catalog/vendored.py`, `catalog/seed/librepcb.py`, `backends/librepcb/`, the `library seed` verb,
+  `docs/library-devices.md`, `docs/formats/librepcb/library.md`, `examples/library-devices/`, tests.
+  Outside: the device jobs of `lgili/fenolite-library`'s CI and its first device items.
+- Changed: `cli/_script.py`, `cli/cmd_build.py` (origin `library`), `docs/cli-contract.md`, the guide page
+  `parts.md`, `CHANGELOG.md`.
+- Depends on: c0279 phase A, c0259, c0262. c0260 and c0261 make regeneration meaningful. c0254 picks may
+  name vendored rows.
+- Size: about 6 design-days (M).

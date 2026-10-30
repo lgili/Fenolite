@@ -4,7 +4,7 @@
   - c0254's final names for the query model, the row loader, the ranking function, `pick.series.SERIES` and the lock entry keys;
   - c0259's record keys and its stable-id function (decision 2 of `design.md`);
   - c0248's `DeviceDef` fields and rating units (decision 7);
-  - where c0266 installs packs and the `catalog` label it gives their rows;
+  - where c0266 reads vendored library items and the `catalog` label it gives their rows;
   - the maintainer's answers to the open questions of `design.md`.
 
   Proof: `openspec validate c0263-passive-families --strict`.

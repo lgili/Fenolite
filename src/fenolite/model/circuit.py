@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass, field
-from typing import Literal
+from fractions import Fraction
+from typing import Literal, get_args
 
 from fenolite.core.units import Nm
 from fenolite.model.base import Entity
@@ -33,6 +34,77 @@ PIN_PAD_MAP_DESCRIPTION = (
 )
 
 
+DECIMAL10_DIGITS = 15
+"""The most significant digits of a ``Decimal10`` mantissa: every integer stays below 2^53."""
+DECIMAL10_EXPONENTS = range(-30, 31)
+"""The exponents a ``Decimal10`` may hold."""
+
+
+@dataclass(frozen=True, slots=True)
+class Decimal10:
+    """The exact decimal m · 10^e in its one canonical form (change c0246).
+
+    ``|m| <= 10^15 - 1``, ``-30 <= e <= 30``, no trailing zero digit in ``m``, and zero as
+    ``Decimal10(0, 0)``, so one value has one form and every integer stays below 2^53.
+    """
+
+    m: int
+    e: int
+
+    def __post_init__(self) -> None:
+        for name, value in (("m", self.m), ("e", self.e)):
+            if isinstance(value, bool) or not isinstance(value, int):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise ValueError(f"Decimal10.{name} must be an integer, not {value!r}")
+        if abs(self.m) >= 10**DECIMAL10_DIGITS:
+            raise ValueError(f"Decimal10.m holds at most {DECIMAL10_DIGITS} digits, not {self.m}")
+        if self.e not in DECIMAL10_EXPONENTS:
+            raise ValueError(f"Decimal10.e lies in -30..30, not {self.e}")
+        if self.m == 0 and self.e != 0:
+            raise ValueError("zero is Decimal10(0, 0)")
+        if self.m != 0 and self.m % 10 == 0:
+            raise ValueError(f"Decimal10.m has no trailing zero digit: write {self.m} as a larger exponent")
+
+    def fraction(self) -> Fraction:
+        """The exact value."""
+        return Fraction(self.m) * (Fraction(10) ** self.e)
+
+
+RangeUnit = Literal["ohm", "farad", "henry", "volt", "ampere", "hertz", "watt", "second"]
+"""The units of a ``ValueRange``: the units of the DSL's ``Quantity``."""
+
+
+@dataclass(frozen=True, slots=True)
+class ValueRange:
+    """An exact range of an electrical value: unit, low, nominal and high, at least one bound given.
+
+    Stored on ``Component.value_range`` (change c0246); no backend writes or reads it.
+    """
+
+    unit: RangeUnit
+    low: Decimal10 | None = None
+    nominal: Decimal10 | None = None
+    high: Decimal10 | None = None
+
+    def __post_init__(self) -> None:
+        if self.unit not in get_args(RangeUnit):
+            raise ValueError(
+                f"unknown range unit {self.unit!r}; use one of: {', '.join(get_args(RangeUnit))}"
+            )
+        for name, value in (("low", self.low), ("nominal", self.nominal), ("high", self.high)):
+            if value is not None and not isinstance(value, Decimal10):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise ValueError(f"ValueRange.{name} must be a Decimal10 or None, not {value!r}")
+        if self.low is None and self.high is None:
+            raise ValueError("a value range needs at least one bound")
+        low = None if self.low is None else self.low.fraction()
+        high = None if self.high is None else self.high.fraction()
+        if low is not None and high is not None and low > high:
+            raise ValueError(f"a value range runs from low to high, not from {low} to {high}")
+        if self.nominal is not None:
+            nominal = self.nominal.fraction()
+            if (low is not None and nominal < low) or (high is not None and nominal > high):
+                raise ValueError(f"the nominal {nominal} lies outside the value range {low}..{high}")
+
+
 @dataclass(frozen=True, slots=True)
 class Component(Entity):
     """A part in the circuit. ``ref`` is an attribute, never a key; ``path`` is hierarchical."""
@@ -48,6 +120,8 @@ class Component(Entity):
     pin_pad_map: tuple[tuple[str, str], ...] = field(
         default=(), metadata={"ordered": True, "description": PIN_PAD_MAP_DESCRIPTION}
     )
+    #: The exact range of ``value`` when the design gave one (a DSL part value with a tolerance).
+    value_range: ValueRange | None = None
 
     def pads_of(self, pin: str) -> tuple[str, ...]:
         """The pads that ``pin`` is bonded to: the pads of its pairs in ``pin_pad_map``, in map order, the
@@ -155,13 +229,75 @@ class Interface(Entity):
     members: dict[str, str] = field(default_factory=lambda: {})
 
 
+BlockParamType = Literal["bool", "int", "str", "length", "quantity", "range", "none"]
+BLOCK_PARAM_TYPES: tuple[str, ...] = ("bool", "int", "str", "length", "quantity", "range", "none")
+"""The closed set of ``BlockParam.type`` (change c0251)."""
+
+
+@dataclass(frozen=True, slots=True)
+class BlockParam:
+    """One parameter of a block instance as recorded: its name, its type and its canonical text
+    (``true``, ``3``, ``1000000`` nm, ``3.3V``; empty for ``none``)."""
+
+    name: str
+    type: BlockParamType
+    text: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("a block parameter needs a name")
+        if self.type not in BLOCK_PARAM_TYPES:
+            raise ValueError(
+                f"block parameter {self.name}: type {self.type!r} is not one of "
+                f"{', '.join(BLOCK_PARAM_TYPES)}"
+            )
+
+
 @dataclass(frozen=True, slots=True)
 class Module(Entity):
-    """A node of the design hierarchy (``power/ldo``) and the components it owns."""
+    """A node of the design hierarchy (``power/ldo``) and the components it owns. A module made by a
+    block (change c0251) names it in ``block`` and records its parameters in ``params``, ordered by name."""
 
     path: str
     parent: str | None = None
     component_ids: tuple[str, ...] = ()
+    block: str = ""
+    params: tuple[BlockParam, ...] = field(default=(), metadata={"ordered": True})
+
+    def __post_init__(self) -> None:
+        names = [param.name for param in self.params]
+        if len(set(names)) != len(names):
+            raise ValueError(f"module {self.path}: two block parameters have one name")
+        if names != sorted(names):
+            raise ValueError(f"module {self.path}: block parameters must be ordered by name")
+        if self.params and not self.block:
+            raise ValueError(f"module {self.path}: block parameters need a block name")
+
+
+PortDirection = Literal["in", "out", "inout"]
+PORT_DIRECTIONS: tuple[str, ...] = ("in", "out", "inout")
+
+
+@dataclass(frozen=True, slots=True)
+class Port(Entity):
+    """A port of a block instance (change c0251): its name, its owner (the id of a module, or of a
+    component for a device port), its interface kind (``net``, ``power``, ``i2c``…), its direction, and
+    member name → net id; a member without a net is left out."""
+
+    name: str
+    owner: str
+    kind: str
+    direction: PortDirection = "inout"
+    members: dict[str, str] = field(default_factory=lambda: {})
+    optional: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.name or not self.kind:
+            raise ValueError("a port needs a name and a kind")
+        if self.direction not in PORT_DIRECTIONS:
+            raise ValueError(
+                f"port {self.name}: direction {self.direction!r} is not one of {', '.join(PORT_DIRECTIONS)}"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,6 +327,8 @@ class Circuit:
     netclasses: tuple[NetClass, ...] = ()
     interfaces: tuple[Interface, ...] = ()
     modules: tuple[Module, ...] = ()
+    #: The ports of block instances (change c0251).
+    ports: tuple[Port, ...] = ()
     #: Buses, indexed vectors of nets; a bus gives no net and no net member.
     buses: tuple[Bus, ...] = ()
     #: Pins the design leaves unconnected on purpose, in the form of net members: ``pin`` holds a
@@ -210,10 +348,15 @@ def power_interface_nets(circuit: Circuit) -> frozenset[str]:
 
 
 __all__ = [
+    "BLOCK_PARAM_TYPES",
+    "PORT_DIRECTIONS",
+    "BlockParam",
+    "BlockParamType",
     "Bus",
     "BusMember",
     "Circuit",
     "Component",
+    "Decimal10",
     "Interface",
     "Module",
     "Net",
@@ -221,6 +364,10 @@ __all__ = [
     "Pin",
     "PinRef",
     "PinType",
+    "Port",
+    "PortDirection",
+    "RangeUnit",
+    "ValueRange",
     "normal_pin_pad_map",
     "pin_pad_map_problems",
     "power_interface_nets",

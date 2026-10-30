@@ -30,6 +30,10 @@ and the package ``routing`` may not import (capability routing, "Clearance and c
 Change c0225: ``--gate drc`` judges the copper the command adds or removes through
 ``fenolite.api.trial(..., gate=True)`` (``cli._gate``) and writes the board without the items that bring new
 DRC findings; the verdict is taken from that board (capability kicad-oracle, "DRC gate on writing commands").
+
+Change c0244: ``--roles critical`` is the role mode (``cli._roleroute``): the open connections of the
+confirmed gate loops and Kelvin pairs go to a router with the feature ``roles``, locked and fenced by
+corridors (capability cli-contract, "Route command role mode").
 """
 
 from __future__ import annotations
@@ -59,7 +63,7 @@ from fenolite.backends.kicad.pcb import read_board, source_info, write_board
 from fenolite.backends.kicad.projectset import resolve_board
 from fenolite.checks.clearance import ClearanceResolver
 from fenolite.checks.copper import check_copper, frame_edges
-from fenolite.cli import _gate, plans
+from fenolite.cli import _gate, _roleroute, plans
 from fenolite.cli._boardview import to_json
 from fenolite.cli._examples import EXAMPLE_UNROUTED
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT
@@ -180,6 +184,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help="route the nets of differential pairs as single nets, uncoupled, with any router",
     )
     parser.add_argument("-o", "--out", metavar="FILE", help="write the routed board to this file")
+    _roleroute.register(parser)
     _gate.register(parser, kicad_cli=True)
 
 
@@ -375,6 +380,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 "FEN-2001", str(error), hint="--escape takes REF, REF=grid or REF=perimeter"
             ) from None
     router = _router(args.router, args)
+    _roleroute.check(args, router)
     features = router_features(router)
     if router.sends_data_offsite and not args.allow_offsite:
         raise CliError(
@@ -405,6 +411,26 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "kicad_pcb",
         str(source.version) if source is not None else None,
     )
+    if args.roles is not None:
+        found = source_info(design)
+        return _roleroute.run_roles(
+            args,
+            ctx,
+            router=router,
+            tool_version=status.version,
+            board_path=board_path,
+            text=text,
+            design=design,
+            as_read=as_read,
+            rules=project_rules,
+            input_ref=input_ref,
+            checks=_job_checks(design, project_rules),
+            options=options,
+            defaults=DEFAULTS,
+            major=found.major if found is not None and found.major is not None else ctx.kicad_target,
+            output=args.out or _relative(board_path, ctx.cwd),
+            read_issues=read_issues,
+        )
     patterns = tuple(args.nets or ("*",))
     board = design.board
     zone_ids: set[str | None] = {zone.net_id for zone in board.zones} if board is not None else set()
