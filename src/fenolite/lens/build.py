@@ -22,6 +22,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Literal, Protocol, TypeGuard, cast
 
+from fenolite.backends import step as step_mod
 from fenolite.backends.kicad import (
     boarditems,
     dru,
@@ -1181,6 +1182,30 @@ def height_body(path: str, height: Nm) -> ComponentBody:
     )
 
 
+MODEL_PREFIX = "${KIPRJMOD}/lib/"
+"""The start of a model path that a build writes from the footprint's bodies (change c0260, decision 13)."""
+
+
+def generated_model(definition: FootprintDef) -> str | None:
+    """The project path of the STEP model that a build writes for ``definition``: its model
+    ``${KIPRJMOD}/lib/<library>.3dshapes/<name>.step`` when it has bodies (a generated ``drawing >= 1``
+    footprint), else ``None``, so a footprint without such a path gets no model."""
+    expected = f"{MODEL_PREFIX}{definition.library}.3dshapes/{definition.name}.step"
+    if not definition.bodies or expected not in definition.models:
+        return None
+    return expected.removeprefix("${KIPRJMOD}/")
+
+
+def placed_bodies(path: str, definition: FootprintDef) -> tuple[ComponentBody, ...]:
+    """The bodies of ``definition`` for the part at ``path`` (change c0260): in the footprint frame, as a
+    placed footprint holds them, with ids derived from the part, so two parts of one footprint keep
+    distinct ids. A KiCad build keeps them in ``.fenolite/`` only."""
+    return tuple(
+        dataclasses.replace(body, id=derived_id("bdy", DSL_BACKEND, f"{path}:{body.id}"))
+        for body in definition.bodies
+    )
+
+
 def build_design(
     design: Design,
     placements: Mapping[str, PlacementRequest],
@@ -1448,6 +1473,10 @@ def build_design(
                 placed.append(part.path)
             bottom = bottom or request.side == "bottom"
         instance = apply_requests(instance, fields.get(part.path, ()))
+        if part.footprint.bodies:
+            instance = dataclasses.replace(
+                instance, bodies=(*instance.bodies, *placed_bodies(part.path, part.footprint))
+            )
         stated = (heights or {}).get(part.path)
         if stated is not None:
             instance = dataclasses.replace(
@@ -1761,6 +1790,9 @@ def build_design(
         path = f"lib/{definition.library}.pretty/{definition.name}.kicad_mod"
         files[path] = mod.write_footprint(definition, target=target, allow_lossy=allow_lossy).encode("utf-8")
         vendored.append((definition.library, f"{definition.name}.kicad_mod"))
+        model = generated_model(definition)
+        if model is not None:
+            files[model] = step_mod.write_bodies(definition.name, definition.bodies)
     vendored.sort()
     rows = tuple(
         LibRow(nick, "KiCad", f"${{KIPRJMOD}}/lib/{nick}.pretty") for nick in sorted({n for n, _ in vendored})

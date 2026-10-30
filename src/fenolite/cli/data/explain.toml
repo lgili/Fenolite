@@ -3097,6 +3097,46 @@ meaning = "Some pads are named by one source and not by the other, per reason."
 fix = "Nothing to do unless the reason is unexpected."
 see = "check"
 
+["package.dimensions-inconsistent"]
+meaning = "A package record's dimensions contradict each other: a span not larger than the body, a pin row longer than the body, a terminal longer than half the body, an exposed pad larger than the body or a depopulated ball outside the grid. No footprint is drawn."
+fix = "Correct the dimension the message names from the package drawing."
+see = "library"
+
+["package.land-impossible"]
+meaning = "The calculated or given land has no positive gap or size, for example a pitch too small for the pad gap. No footprint is drawn."
+fix = "Check the record's dimensions, or give the manufacturer's land in [land]."
+see = "library"
+
+["package.land-override"]
+meaning = "The manufacturer's land of the record's [land] was used instead of the calculator; the message names the largest difference from the calculated land."
+fix = "Nothing to fix; review a large difference against the package drawing."
+see = "library"
+
+["package.missing-bound"]
+meaning = "The land calculator needs a bound (min or max) or a nominal that the record does not give for the key the message names. No footprint is drawn."
+fix = "Give the bound in the record, for example '5.80mm..6.20mm', or give the manufacturer's land in [land]."
+see = "library"
+
+["package.name-mismatch"]
+meaning = "A generic package name (<FAMILY><pins>_B<L>x<W>_P<pitch>...) disagrees with the record's numbers in the field the message names. No footprint is drawn."
+fix = "Rename the record after its numbers (docs/formats/library/naming.md), or correct the numbers."
+see = "library"
+
+["package.no-goals"]
+meaning = "The record's land constant table has no calibrated goals for its land class (or no ball ratio, hole clearance or annular ring), and the record gives no [land]. No footprint is drawn."
+fix = "Give the manufacturer's land in [land] with its source."
+see = "library"
+
+["package.pads-clipped"]
+meaning = "A calculated land was narrowed or shortened to keep the pad gap from a neighbouring land or the exposed pad; the message names the goal that was lost."
+fix = "Nothing to fix; review the land, or give the manufacturer's land in [land]."
+see = "library"
+
+["package.pin-count"]
+meaning = "A package record's pins disagree with its arrangement, its sides or its tab, or a pin number is given twice. No footprint is drawn."
+fix = "Correct pins, the [[side]] tables or the tab number."
+see = "library"
+
 ["parity.duplicate-footprints"]
 meaning = "A footprint has the reference of an earlier footprint of the board; one finding for each further footprint."
 fix = "Give each footprint its own reference, or remove the copy."

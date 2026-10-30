@@ -14,10 +14,13 @@ Back to [the command index](commands.md).
 
 `fenolite library [OPTIONS] PATH`
 
-- `PATH` (repeatable): a .kicad_pcb, .kicad_pro or project folder; or the action 'symbol' followed by pin tables
-- `--out LIB.pretty`: the library folder to write, relative; for 'symbol', a relative .kicad_sym or .SchLib file
+- `PATH` (repeatable): a .kicad_pcb, .kicad_pro or project folder; or the action 'symbol' followed by pin tables, or 'generate' followed by package records
+- `--out LIB.pretty`: the library folder to write, relative; for 'symbol', a relative .kicad_sym or .SchLib file; for 'generate', a relative folder
 - `--diff LIBRARY`: a .pretty folder to compare with the board; writes nothing
-- `--library NAME`: 'symbol' only: the library name (default: the stem of --out)
+- `--library NAME`: 'symbol' and 'generate' only: the library name (default: the stem of --out for 'symbol', Local for 'generate')
+- `--positions N` (integer): 'generate' only: the one position count to draw of a connector series (default: every count)
+- `--no-step`: 'generate' only: plan no .step model (the footprint keeps its path)
+- `--no-pcblib`: 'generate' only: plan no Altium .PcbLib
 
 ## manifest
 
@@ -195,33 +198,3 @@ Back to [the command index](commands.md).
 - `--box X1,Y1,X2,Y2`: two corners with units: 10mm,5mm,30mm,20mm
 - `--layer NAME`: keep only the items on this layer
 - `--kinds A,B`: keep only these kinds, of footprint,pad,track,arc,via,zone,text
-
-## render
-
-`fenolite render [OPTIONS] -o DIR PATH`
-
-- `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
-- `-o`, `--out DIR`: the folder to write under
-- `--svg`: front.svg and back.svg (plots)
-- `--png`: top.png and bottom.png (rendered images)
-- `--width PX` (integer, default `1600`): PNG width (1600)
-- `--height PX` (integer, default `1200`): PNG height (1200)
-- `--manifest`: also add the views to fenolite-artifacts.json in DIR
-- `--kicad-cli PATH`: the kicad-cli to run
-- `--timeout SECONDS` (number, default `300.0`): per kicad-cli run (300)
-- `--region X1,Y1,X2,Y2`: draw this rectangle of the board into DIR/region.svg, lengths with units: 0mm,0mm,9mm,9mm
-- `--net NAME` (repeatable): highlight this net (repeatable), without kicad-cli
-- `--layers L1,L2`: with --region or --net: keep these copper layers
-- `--nets`: with --region: label each pad with its net
-- `--open`: with --region: draw the open connections
-- `--grid LENGTH`: with --region: the grid step (default: automatic)
-- `--cut X1,Y1,X2,Y2` (repeatable): with --region: a barrier cut and its ways per layer, as analyze --kinds crossings (repeatable)
-- `--cut-width LENGTH`: with --cut: the width of a track to fit (default: its class's)
-- `--cut-clearance LENGTH`: with --cut: the clearance of a new track (default: its class's)
-
-## restore
-
-`fenolite restore [OPTIONS] RECEIPT`
-
-- `RECEIPT`: a file holding the envelope of a write, or - for stdin
-- `--in DIR`: the working directory of that write (default: this one)

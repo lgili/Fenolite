@@ -41,7 +41,7 @@ another type; a flag without a value is a switch.
 | `init` | yes | write a starter project (a design script that builds with the built-in catalog) into a folder |
 | `inspect` | no | summarise a KiCad or an Altium file, or list a compound file's streams (runs no tool) |
 | `kit` | yes | build the Altium verification kit, check the files a run left, record the run, list the runs |
-| `library` | yes | write a footprint library made from a KiCad board, or report how a library differs from it; 'library symbol PINS... --out FILE' writes symbols generated from pin tables |
+| `library` | yes | write a footprint library made from a KiCad board, or report how a library differs from it; 'library symbol PINS... --out FILE' writes symbols generated from pin tables; 'library generate PACKAGE... --out DIR' writes footprints, STEP models and a PcbLib from package records |
 | `manifest` | yes | write the project manifest: every design file and artefact with its SHA-256 and a state |
 | `mcp` | no | serve Fenolite's commands as tools to an MCP client on standard input and output |
 | `models` | yes | list the 3D model files a board's footprints name and where each is found (runs no tool) |
@@ -116,8 +116,8 @@ another type; a flag without a value is a switch.
 | `ready` | [Arguments](commands-3.md#ready) |
 | `refs` | [Arguments](commands-3.md#refs) |
 | `region` | [Arguments](commands-3.md#region) |
-| `render` | [Arguments](commands-3.md#render) |
-| `restore` | [Arguments](commands-3.md#restore) |
+| `render` | [Arguments](commands-4.md#render) |
+| `restore` | [Arguments](commands-4.md#restore) |
 | `roles` | [Arguments](commands-4.md#roles) |
 | `roundtrip` | [Arguments](commands-4.md#roundtrip) |
 | `route` | [Arguments](commands-4.md#route) |
@@ -128,5 +128,5 @@ another type; a flag without a value is a switch.
 | `template` | [Arguments](commands-4.md#template) |
 | `testpoints` | [Arguments](commands-4.md#testpoints) |
 | `tidy` | [Arguments](commands-4.md#tidy) |
-| `verify-source` | [Arguments](commands-4.md#verify-source) |
+| `verify-source` | [Arguments](commands-5.md#verify-source) |
 | `view` | [Arguments](commands-5.md#view) |

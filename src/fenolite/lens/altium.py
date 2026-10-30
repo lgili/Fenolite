@@ -526,7 +526,8 @@ def pad_extras(defn: FootprintDef) -> dict[str, pcblib.PadExtras]:
     (margins, zone connection, thermal settings). Only this lens reads KiCad fragments (layering)."""
     out: dict[str, pcblib.PadExtras] = {}
     for pad in defn.pads:
-        ratio: Decimal | None = None
+        # A generated or authored rounded rectangle carries its ratio in the model (change c0260).
+        ratio: Decimal | None = None if pad.corner_ratio is None else Decimal(pad.corner_ratio) / 1_000_000
         refusal: str | None = None
         dropped: list[str] = []
         if pad.padstack is not None and pad.padstack.hole_shape == "slot" and pad.padstack.layers:

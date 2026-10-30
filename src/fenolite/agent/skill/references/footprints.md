@@ -129,6 +129,42 @@ u1.place(mm(10), mm(8))
 - The script is no finished board: `fenolite check` reports open connections,
   `kicad.erc.pin-not-connected`, `kicad.erc.pin-not-driven` and `kicad.erc.power-pin-not-driven`.
 
+## Footprints from package records
+
+A package record (`fenolite.package.v0`) gives a package's dimensions as ranges with their source; the
+generator of its `family` draws pads, courtyard, silkscreen and 3D bodies (`docs/footprint-generators.md`).
+
+```fenolite-design
+from fenolite.dsl import Design, Footprint, Part, mm
+
+RECORD = """schema = "fenolite.package.v0"
+family = "chip"
+name = "CHIP0603_B1.6x0.8"
+evidence = "INFERRED"
+sources = ["S-0315"]
+body = { length = "1.50mm..1.70mm", width = "0.70mm..0.90mm", height = "0.35mm..0.55mm" }
+terminal = { length = "0.10mm..0.40mm" }
+[generate]
+lands = 1
+drawing = 1
+"""
+design = Design("chip")
+design.board(mm(10), mm(6))
+chip = Footprint.from_package(RECORD)  # Local:CHIP0603_B1.6x0.8; the land is calculated
+design.add_footprint(chip)
+design.add(Part("R1", "Fenolite:Resistor", footprint=chip.lib_id, value="1k"))
+```
+
+- `[land]` with a `source` gives the manufacturer's land, which wins; without it the land is `INFERRED`.
+- The build writes `lib/Local.3dshapes/<name>.step` beside the footprint when it has bodies.
+- `fenolite library generate` writes the `.kicad_mod`, `.step` and one `.PcbLib` without a design:
+
+  ```fenolite-cmd
+  fenolite library generate packages/soic8.toml --out lib --dry-run --json
+  fenolite explain package.no-goals
+  ```
+- `package.*` findings: errors (`package.no-goals`, `package.name-mismatch`, ...) draw nothing.
+
 ## What a person still checks
 
 Geometry written from a datasheet is `INFERRED`: nobody has compared it with the real part, and no

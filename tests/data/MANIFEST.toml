@@ -2561,6 +2561,228 @@ corpus_id = ""
 notes = "Canonical SVG generated from the authored c0256 fixture through reviewed render plan/confirm."
 
 [[file]]
+path = "tests/data/packages/bga12.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/chip0603.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/connector_xh.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/dip8.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/header1x2.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/qfn16.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/sod123.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/soic8.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/sot23_5.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/to220.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record; numbers from the public outline it cites (docs/catalog/sources.md, Generator test records)"
+
+[[file]]
+path = "tests/data/packages/calibration/diodes_sod123.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/diodes_sod123f.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/diodes_sod323.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/diodes_sod523.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/onsemi_751_07.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_d0008a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_d0014a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_dbv0005a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_dck0005a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_dgk0008a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_dgs0010a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_drv0006a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_dsf0006a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_dyy0014a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_pn0080a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_pt0048a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_pw0008a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_pw0014a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_rgc0064b.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/ti_rgt0016c.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/vishay_crcw0402.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/vishay_crcw0603.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/vishay_crcw0805.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/vishay_crcw1206.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/vishay_crcw1210.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/vishay_crcw2010.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
+path = "tests/data/packages/calibration/vishay_crcw2512.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 calibration record of lands/1; numbers from the public document it cites (docs/formats/library/lands.md)"
+
+[[file]]
 path = "tests/data/fidelity/sensor_code/design.py"
 origin = "authored"
 corpus_id = ""
@@ -2621,6 +2843,66 @@ corpus_id = ""
 notes = "illustrative device record of change c0248, authored for Fenolite; not a real product"
 
 [[file]]
+path = "examples/generated/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "generated footprints example of change c0260: one footprint of each package family from the records beside it"
+
+[[file]]
+path = "examples/generated/packages/bga12.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/bga12.toml; numbers from the public outline it cites"
+
+[[file]]
+path = "examples/generated/packages/chip0603.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/chip0603.toml; numbers from the public outline it cites"
+
+[[file]]
+path = "examples/generated/packages/connector_xh.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/connector_xh.toml; numbers from the public outline it cites"
+
+[[file]]
+path = "examples/generated/packages/dip8.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/dip8.toml; numbers from the public outline it cites"
+
+[[file]]
+path = "examples/generated/packages/header1x2.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/header1x2.toml; numbers from the public outline it cites"
+
+[[file]]
+path = "examples/generated/packages/qfn16.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/qfn16.toml; numbers from the public outline it cites"
+
+[[file]]
+path = "examples/generated/packages/sod123.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/sod123.toml; numbers from the public outline it cites"
+
+[[file]]
+path = "examples/generated/packages/soic8.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/soic8.toml; numbers from the public outline it cites"
+
+[[file]]
+path = "examples/generated/packages/to220.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/to220.toml; numbers from the public outline it cites"
+
+[[file]]
 path = "examples/devices/design.py"
 origin = "authored"
 corpus_id = ""
@@ -2667,6 +2949,12 @@ path = "tests/data/catalog/golden.json"
 origin = "authored"
 corpus_id = ""
 notes = "golden digests of the shipped catalog (c0259), written by tools/catalog/golden.py from the Python catalog before its move to data files"
+
+[[file]]
+path = "tests/data/catalog/footprints.sha256"
+origin = "authored"
+corpus_id = ""
+notes = "SHA-256 of every catalog .kicad_mod written for KiCad 9 and 10 (c0260), captured on circuits-as-code 52f32e8c before the footprint generators were merged"
 
 [[file]]
 path = "examples/catalog/design.py"

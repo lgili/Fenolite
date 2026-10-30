@@ -34,6 +34,7 @@ from fenolite.backends.kicad._fpmap import (
     margin_disagrees,
     net_tie_groups,
     padstack_key,
+    placement_node,
     projected_fab_property,
     projected_net_ties,
     projected_zone_connect,
@@ -70,7 +71,7 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.model.base import Modeled, Opaque, Slot
 from fenolite.model.board import Graphic, Pad
-from fenolite.model.library import FootprintDef, FootprintKind
+from fenolite.model.library import FootprintDef, FootprintKind, ModelPlacement
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-LIB-READ",))
 AUTHORING_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-DSL-FOOTPRINT",))
@@ -276,13 +277,25 @@ def _slots(entity: FootprintDef | Pad | Graphic) -> list[Slot]:
     return list(slotlib.from_ext(bag)) if bag is not None else []
 
 
+def _corner_ratio_slot(pad: Pad) -> list[Slot]:
+    """The ``roundrect_rratio`` child of an authored rounded-rectangle pad that gives ``Pad.corner_ratio``
+    (change c0260: the generated footprints round their pads), after ``layers`` where KiCad writes it; none
+    for another pad, so every definition authored before keeps its bytes."""
+    if pad.shape != "roundrect" or pad.corner_ratio is None:
+        return []
+    whole, part = divmod(pad.corner_ratio, 1_000_000)
+    text = f"{whole}.{part:06d}".rstrip("0").rstrip(".")
+    return [Opaque(f"(roundrect_rratio {text})", None)]
+
+
 def prepare_authored_definition(defn: FootprintDef) -> FootprintDef:
     """Give a slotless definition (authored with the DSL, or of the built-in catalog) the deterministic
     child order of a newly-authored file, with the ``Reference`` and ``Value`` properties of a conventional
     KiCad footprint after ``kind`` (``embed.default_fields``; ``H-K-FP-FIELDS``).
 
-    A ``properties`` entry the definition holds under either name is the property's text. A definition
-    that has a slot list is returned unchanged.
+    A ``properties`` entry the definition holds under either name is the property's text. A rounded
+    rectangle pad with a ``corner_ratio`` gets its ``roundrect_rratio`` child. A definition that has a slot
+    list is returned unchanged.
     """
     if _slots(defn):
         return defn
@@ -298,7 +311,11 @@ def prepare_authored_definition(defn: FootprintDef) -> FootprintDef:
         root.append(Opaque(dumps(prop, style="compact"), None))
     root.extend(Modeled("pads") for _ in defn.pads)
     root.extend(Modeled("graphics") for _ in defn.graphics)
-    root.extend(Modeled("models") for _ in defn.models)
+    # A model of an authored definition (c0260: a generated footprint's STEP) is written as a ``model`` child
+    # with the identity placement, kept as an opaque child as every read ``model`` is.
+    root.extend(
+        Opaque(dumps(placement_node(ModelPlacement(path)), style="compact"), None) for path in defn.models
+    )
     if defn.placements:
         root.append(Modeled("placements"))
     pads = tuple(
@@ -316,6 +333,7 @@ def prepare_authored_definition(defn: FootprintDef) -> FootprintDef:
                         Modeled("drill"),
                         *([] if pad.fab_property is None else [Modeled("fab_property")]),
                         Modeled("layers"),
+                        *_corner_ratio_slot(pad),
                         *([] if pad.mask_margin is None else [Modeled("mask_margin")]),
                         *([] if pad.paste_margin is None else [Modeled("paste_margin")]),
                         Modeled("native_ids"),

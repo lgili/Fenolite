@@ -1,0 +1,32 @@
+# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI DBV0005A outline and example board layout, SN74LVC1G04 data sheet (S-0984).
+schema = "fenolite.package.v0"
+family = "gullwing"
+name = "SOT23_5_TI_DBV0005A"
+evidence = "INFERRED"
+sources = ["S-0984"]
+
+pins = 5
+pitch = "0.95mm"
+arrangement = "sides"
+body = { length = "2.75mm..3.05mm", width = "1.45mm..1.75mm" }
+span = "2.6mm..3.0mm"
+lead = { length = "0.3mm..0.6mm", width = "0.3mm..0.5mm" }
+
+[[side]]
+edge = "left"
+numbers = ["1", "2", "3"]
+positions = [0, 1, 2]
+
+[[side]]
+edge = "right"
+numbers = ["5", "4"]
+positions = [0, 2]
+
+[generate]
+lands = 1
+drawing = 1
+
+[land]
+source = "S-0984 TI DBV0005A outline and example board layout"
+pad = { length = "1.1mm", width = "0.6mm" }
+row_spacing = "2.6mm"

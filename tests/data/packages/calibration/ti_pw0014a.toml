@@ -1,0 +1,22 @@
+# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI PW0014A outline and example board layout, TXB0104 data sheet (S-0983).
+schema = "fenolite.package.v0"
+family = "gullwing"
+name = "TSSOP14_TI_PW0014A"
+evidence = "INFERRED"
+sources = ["S-0983"]
+
+pins = 14
+pitch = "0.65mm"
+arrangement = "dual"
+body = { length = "4.9mm..5.1mm", width = "4.3mm..4.5mm" }
+span = "6.2mm..6.6mm"
+lead = { length = "0.5mm..0.75mm", width = "0.17mm..0.3mm" }
+
+[generate]
+lands = 1
+drawing = 1
+
+[land]
+source = "S-0983 TI PW0014A outline and example board layout"
+pad = { length = "1.5mm", width = "0.45mm" }
+row_spacing = "5.8mm"

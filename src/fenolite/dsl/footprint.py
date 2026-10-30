@@ -43,6 +43,42 @@ class Footprint:
         self._pads: list[Pad] = []
         self._graphics: list[Graphic] = []
         self._net_ties: list[tuple[str, ...]] = []
+        self._sealed: FootprintDef | None = None
+
+    @classmethod
+    def from_package(cls, text: str, *, library: str = "Local", positions: int | None = None) -> Footprint:
+        """A sealed footprint generated from one ``fenolite.package.v0`` record given as ``text`` (change
+        c0260; ``docs/footprint-generators.md``): pads, courtyard, silkscreen, fabrication drawing, bodies
+        and, under ``drawing >= 1``, a STEP model path that ``fenolite build`` fills. ``positions`` picks one
+        position count of a connector series. The DSL reads no file: read the record with ``read_text()``.
+        An unreadable record or an error finding raises ``DslError`` naming its code; adding a pad, a graphic
+        or a net tie raises ``DslError``."""
+        # The one edge from the DSL to the catalog, inside this function (capability package-layering,
+        # "Generated footprints are imported lazily"; change c0260).
+        from fenolite.catalog.footprints import generate, read_package
+        from fenolite.core.errors import FormatError
+
+        if not isinstance(text, str):  # type: ignore[reportUnnecessaryIsInstance]
+            raise DslError("Footprint.from_package() takes the record's text; read it with Path.read_text()")
+        if not isinstance(library, str) or not _IDENT.fullmatch(library):  # type: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"unsafe footprint library name {library!r}")
+        try:
+            result = generate(read_package(text), positions=positions, library=library)
+        except FormatError as error:
+            raise DslError(f"FEN-3004: {error}") from None
+        if result.footprint is None:
+            errors = "; ".join(f"{i.code}: {i.message}" for i in result.issues if i.severity == "error")
+            raise DslError(f"package {result.name or '(series)'} is not drawn: {errors}")
+        defn = result.footprint
+        footprint = cls(library, defn.name, kind=defn.kind, description=defn.description)
+        footprint._sealed = defn
+        return footprint
+
+    def _check_open(self) -> None:
+        if self._sealed is not None:
+            raise DslError(
+                f"footprint {self.lib_id} is generated from a package record and cannot be changed"
+            )
 
     @property
     def lib_id(self) -> str:
@@ -69,6 +105,7 @@ class Footprint:
         ``fiducial_global``, ``fiducial_local``, ``test_point``, ``heatsink``, ``castellated``,
         ``mechanical`` or ``press_fit``. The two that KiCad expects on a plated hole (``castellated``,
         ``mechanical``) are refused on a pad that is not ``thru_hole``."""
+        self._check_open()
         pad_kind = kind or ("thru_hole" if self.kind == "through_hole" else "smd")
         if pad_kind not in ("smd", "thru_hole", "np_thru_hole"):
             raise DslError(f"unsupported authored pad kind {kind!r}")
@@ -155,6 +192,7 @@ class Footprint:
     def graphic(
         self, kind: str, *, layer: str, points: tuple[tuple[object, object], ...], width: object
     ) -> None:
+        self._check_open()
         if kind not in ("line", "rect", "circle", "polygon"):
             raise DslError(f"unsupported footprint graphic {kind!r}")
         if not isinstance(layer, str) or not layer:  # type: ignore[reportUnnecessaryIsInstance]
@@ -198,6 +236,7 @@ class Footprint:
         """Declare one net-tie group: pads of different nets that this footprint joins on purpose, through
         overlapping pads or a copper graphic (``docs/dsl.md``, "Net ties"). The copper check then does not
         judge two pads of the group against each other, as KiCad's DRC does not."""
+        self._check_open()
         if len(numbers) < 2:
             raise DslError(f"footprint {self.lib_id}: net_tie() needs at least two pad numbers")
         for number in numbers:
@@ -213,6 +252,8 @@ class Footprint:
     @property
     def definition(self) -> FootprintDef:
         """Immutable library definition used by builders and backend writers."""
+        if self._sealed is not None:
+            return self._sealed
         known = {pad.number for pad in self._pads}
         grouped: set[str] = set()
         for group in self._net_ties:

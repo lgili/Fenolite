@@ -84,9 +84,9 @@ When two neighbouring lands of different numbers would be closer than `pad_gap`,
 A `[land]` table with a `source` SHALL win over the calculator: its numbers are used unchanged and the conventions draw the rest. The description MUST end with `land: manufacturer <source>` (else `land: calculated lands/<n> nominal (INFERRED)`). When the class has goals, `land.deltas` MUST hold the difference per number and an info `package.land-override` MUST name the largest.
 
 #### Scenario: Override recorded
-- **GIVEN** `soic8.toml` with `[land]` giving pad 1.55 × 0.60 mm at row spacing 5.40 mm, source `S-0yyy figure 12`
+- **GIVEN** `soic8.toml` with `[land]` giving pad 1.52 × 0.60 mm at row spacing 5.50 mm, source `S-0981 soldering footprint` (the onsemi 751-07 footprint)
 - **WHEN** it is generated
-- **THEN** pads are 1550000 × 600000 nm at x = ±2700000, `land.source == "manufacturer"`, the description ends with `land: manufacturer S-0yyy figure 12`, and one info `package.land-override` is given
+- **THEN** pads are 1520000 × 600000 nm at x = ±2750000, `land.source == "manufacturer"`, the description ends with `land: manufacturer S-0981 soldering footprint`, and one info `package.land-override` is given
 
 ### Requirement: Evidence of generated lands
 A calculated land SHALL be labelled `INFERRED` whatever the record's label. A manufacturer land MUST keep the record's evidence label. No generation MAY raise a label.
@@ -120,7 +120,14 @@ For `dip`, THT `to`, `header` and `connector` the drill SHALL be the lead diagon
 - **THEN** every drill is 910000 nm (676 757 nm diagonal plus clearance, rounded up to 10 µm)
 
 ### Requirement: Pad numbering and orientation
-Dual rows SHALL be numbered from the top of the left row counter-clockwise in the top view, and quad rows likewise from the upper left, as the 0.6 helpers `_row_pads` and `_quad_pads` place them. `sides` records MUST place each side's `numbers` at its `positions` on the pitch grid. Pads on perpendicular sides MUST have perpendicular long axes. Polarized two-terminals put the cathode on pad 1.
+Under `drawing >= 1`, dual rows SHALL be numbered from the top of the left row (pin 1 at the most negative y of the library frame, X to the right and Y down) counter-clockwise in the top view, and quad rows likewise from the upper left. Under `drawing/0` the rows MUST keep the placement of the 0.6 helpers `_row_pads` and `_quad_pads` (pin 1 at the most positive y), so that the migrated catalog keeps its bytes.
+
+#### Scenario: Dual-row top view
+- **WHEN** `soic8.toml` (`drawing = 1`) is generated
+- **THEN** pad 1 lies on the left at y = −1905000, pad 4 on the left at y = +1905000, pad 5 on the right at y = +1905000 and pad 8 on the right at y = −1905000
+
+### Requirement: Pads of side records
+`sides` records MUST place each side's `numbers` at its `positions` on the pitch grid, position 0 at the top. Pads on perpendicular sides MUST have perpendicular long axes. Polarized two-terminals put the cathode on pad 1.
 
 #### Scenario: SOT-23 sides
 - **GIVEN** a `gullwing` record with `arrangement = "sides"`, left numbers `["1", "2"]` at positions `[0, 2]` and right `["3"]` at `[1]`
@@ -201,6 +208,21 @@ Before drawing, the generator SHALL give the error `package.dimensions-inconsist
 #### Scenario: Plan and confirm
 - **WHEN** `fenolite library generate tests/data/packages/soic8.toml --out lib --dry-run --json` runs, then the same with `--confirm --plan <plan_id>`
 - **THEN** the plan lists the two files, the second run writes them, and the receipt lists both with their SHA-256
+
+### Requirement: Generated footprints in an Altium PCB library
+`fenolite library generate` SHALL also plan `DIR/<NICK>.PcbLib`, one Altium PCB library holding every generated footprint, written by the existing Altium library writer (`fenolite.backends.altium.pcblib.write_pcblib`) with the same plan, confirmation and receipt as the KiCad files; `--no-pcblib` MUST leave it out.
+
+#### Scenario: PcbLib read back with equal pads
+- **GIVEN** one generated footprint of each family from the records of `tests/data/packages/`
+- **WHEN** `uv run pytest tests/unit/catalog/footprints/test_pcblib.py` writes them (with the calibration records and the first two positions of the connector series) into one PCB library and reads it with `fenolite.backends.altium.read.pcblib.read_pcblib`
+- **THEN** the library names every footprint, the reader reports no error finding, and each footprint has the generated pads: equal numbers, positions, sizes, shapes and drills, within the writer's documented unit conversion
+
+### Requirement: Generated footprints pass the Altium footprint check
+A generated footprint MUST pass the writer's footprint check (`check_footprint`) without a refusal: rounded-rectangle pads give their corner ratio (`Pad.corner_ratio`), the conventions draw no polygon and no filled shape outside `F.Paste`, and the only items the writer leaves out are the paste windows of an exposed pad and that pad's missing paste opening (Altium holds paste as a pad expansion), which it reports.
+
+#### Scenario: Rounded pads and an exposed pad
+- **WHEN** `fenolite library generate` plans the PcbLib for a QFN record with rounded-rectangle pads and an exposed pad
+- **THEN** no footprint is refused, each rounded pad keeps its corner ratio, and the only items reported as left out are the exposed pad's paste windows
 
 ### Requirement: Library verb dispatch
 `fenolite library` SHALL treat a first argument that is a registered verb (`generate`, and the verbs later changes register) as that verb, and any other first argument as the board path of c0223, whose behaviour MUST NOT change.

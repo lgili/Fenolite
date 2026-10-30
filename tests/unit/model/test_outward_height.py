@@ -95,3 +95,17 @@ def test_one_reader() -> None:
             assert not _iterates_bodies(node), f"{name}:{getattr(node, 'lineno', 0)} iterates over .bodies"
     placement = (SRC / "checks/placement.py").read_text(encoding="utf-8")
     assert "outward_height(" in placement
+
+
+def test_height_read_from_a_generated_body() -> None:
+    """c0260: a generated footprint's bodies are known volumes; one without a height has none."""
+    from fenolite.catalog.footprints import generate, read_package
+
+    packages = SRC.parents[1] / "tests" / "data" / "packages"
+    text = (packages / "soic8.toml").read_text(encoding="utf-8")
+    footprint = generate(read_package(text)).footprint
+    assert footprint is not None
+    assert outward_height(_footprint(*footprint.bodies)) == 1_750_000
+    flat = generate(read_package(text.replace('height = "1.35mm..1.75mm", ', ""))).footprint
+    assert flat is not None and flat.bodies == ()
+    assert outward_height(_footprint(*flat.bodies)) is None
