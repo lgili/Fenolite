@@ -782,7 +782,11 @@ of `edits.toml` (change c0250); the drawn file holds none of them. `--freeze-sch
 
 `lens.edits.EVIDENCE` (`INFERRED`; `H-K-LENS-KEEP`, `H-K-SCH-UPDATE`, `H-K-EDIT-SCH-VALUE`) joins the
 `build` and `sync` envelopes when a base record or an edits file was read; the merge is Fenolite's own
-behaviour, proved on token-edited boards and schematics.
+behaviour, proved on token-edited boards and schematics. `tests/kicad/lens/test_edit_merge_oracle.py` loads
+the board and the schematic that the acceptance loop (`tests/data/lens/edit_merge`) rebuilds in `kicad-cli`
+and finds no DRC or ERC finding that the unedited build lacks (10.0.6, locally on 2026-10-30; 9.0.9 in
+the CI `kicad` job), apart from `lib_footprint_mismatch` on the footprint whose id the token edit swaps
+without KiCad's new pads.
 
 `lens.preserve.EVIDENCE` (`INFERRED`; `H-K-LENS-KEEP`, `H-K-LENS-FILL`, `H-K-UUID-KEEP-2`,
 `H-K-BUILD-PATHPROP`) joins the `build` envelope when an existing board was read, with the board

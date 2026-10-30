@@ -127,6 +127,9 @@
   2026-10-29: open: `make check-fast` passes locally; CI runs with the batch (the coordinator pushes it).
 - [ ] 8.2 Update the evidence labels: `docs/evidence/` rows of the merge at `INFERRED`, `H-K-EDIT-SCH-VALUE` as registered, and the oracle results. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py -q`.
   2026-10-29: open.
+  2026-10-30: open: `docs/lens.md` ("Evidence") names the oracle and its local 10.0.6 result; the merge
+  stays `INFERRED` and `H-K-EDIT-SCH-VALUE` is registered (`INFERRED`, kit case pending). Waits for the CI
+  `kicad` job of 7.2 (9.0.9 and 10.0.6) to record the oracle results.
 - [x] 8.3 Add the CHANGELOG entry under `## [Unreleased]`: three-way merge, `edits.toml`, `fenolite-base.json`, `build --take`, `sync.conflict`, and the changed meaning of an unlocked `place()` after the first build. This waits for dev to open `0.7.0.dev0`, because the v0.6 guard requires `[Unreleased]` to be empty. Proof: `uv run pytest tests/unit/test_release_record_v06.py tests/unit/test_release_tool.py -q`; `make check-fast`.
   2026-10-29: entry under `## [Unreleased]` › `### Added` on `circuits-as-code`, after the c0249 entry, once
   `dev` (0.7.0.dev0) was merged into it; it names the changed meaning of an unlocked `place()` (`edit.code-wins`).

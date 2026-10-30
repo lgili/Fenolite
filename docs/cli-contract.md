@@ -612,8 +612,8 @@ pad); both are empty without an existing board (`docs/lens.md`, "Pad zone connec
 are `kicad.pad.zone-overridden` (info), `kicad.pad.zone-forced` (warning) and
 `kicad.pad.zone-unknown-pad` (error: exit 5, nothing written).
 
-**Edits made in KiCad** (change c0250, `docs/lens.md`, "Three-way merge"). Positions, rotations, values
-and footprints are merged three ways between the script with `edits.toml` (beside the script; a legacy
+**Edits made in KiCad** (change c0250, `docs/lens.md`, "Three-way merge"). Positions, rotations, values,
+footprints, references and the user properties the script names are merged three ways between the script with `edits.toml` (beside the script; a legacy
 `placements.toml` when there is none, `edit.legacy-file` when both are there), the board and schematic
 in `DIR`, and the base record `DIR/fenolite-base.json` that every build writes (a planned write, in the
 receipt and in `.fenolite/build.json`). `result.preserved.edits` holds `kept`, `code`, `taken` and
