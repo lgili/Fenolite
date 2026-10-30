@@ -39,6 +39,11 @@
   - **bms:** `FET_S`, inferred and not declared, so role copper skipped it; a neighbour's band may also
     block the straight way between its pads (task 0.1 measures it).
   Phase 1 joins loose ends where a band fits; these are the cases it could not, or did not consider.
+  **Measured in task 0.1 (2026-10-30, KiCad 10.0.7):** the buck's open is `C3-2` alone (its connection runs
+  to `J2-2`, a through-hole pad on the plane), and `bad_roles` adds `C3-1` outside the VOUT pour; the
+  half-bridge's opens are the Kelvin-source pads' gate-return copper apart from their source pours (`Q2-2`
+  on both variants, `Q1-2` on `good_roles`); the bms `FET_S` has two opens, each source pad 3.5 mm from its
+  own Kelvin-source pad, with no band across. Decision 11 holds the table.
 - **Package layering.** `routing` may import `core`, `model` and `geometry`; `roles` may import `model`,
   `geometry`, `backends.base` and `analysis`; `cli` imports both, `view` imports neither (it reads replies).
   So: `roles` finds subjects in its own types, `cli` turns them into `routing.protocol` types and judges
@@ -103,10 +108,14 @@ connection, each of exactly one kind, tried in this order:
 |---|---|---|---|
 | `fanout` | a pad of net N on layer L is in an island with no via or through-hole pad, and a zone of N on another copper layer covers a point within `fanout_reach` (default 2 mm, the plane fan-out's nine steps at most) of the pad | the pad, and the zone | `fanout:<net>:<ref>-<pad>` |
 | `join` | two islands of one net, at least one holding role copper (a `role.*` item of the manifest, locked role copper of c0244, or a zone of a role net), or an edge that phase 1 reported `roles.copper-blocked` | the nearest pair of attach points: pad copper, free track ends, zone outlines grown inward by half the width plus the zone clearance | `join:<net>:<a>~<b>` |
-| `role-net` | an inferred role net (`power`, `switch_node`, `ground`, `high_voltage`) that is not confirmed and has an open connection | its open connections as MST edges | `role-net:<net>` |
-| `group` | a critical group (gate loop, Kelvin pair) whose phase-2 status is `unrouted` or `refused` (from c0244's planner run in memory) | its open role routes | `group:<group>` |
+| `role-net` | an open connection of an inferred role net (`power`, `switch_node`, `ground`, `high_voltage`) that is not confirmed | the connection's MST edge | `role-net:<net>:<a>~<b>` |
+| `group` | a critical group (gate loop, Kelvin pair) whose phase-2 status is `unrouted` or `refused` (from c0244's planner and router run in memory) | its open role routes | `group:<group>` |
 | `connection` | any other open connection | c0228's MST edge between pad groups | `connection:<net>:<a>~<b>` |
 
+- **One subject per open connection** (corrected in task 0.1: the bms `FET_S` has two open connections, so
+  the `role-net` key names the connection as the `join` and `connection` keys do). A `group` subject is one
+  per group; its role routes are open by c0222's walk, and may be closed on the board's connectivity (task
+  0.1 found such groups on the role-copper variants).
 - **Attach-point names** in keys: a pad `REF-N`, a track end `trk@<x>,<y>` in nanometres, a zone by its
   name or `zone@<layer>`. Keys are sorted, so equal boards give equal keys.
 - **Hot loops** are never subjects of their own: an open hot-loop connection is a `join` (phase 1's
@@ -165,8 +174,10 @@ class Candidate:
 ```
 
 - `RoutingJob` gains `subjects: tuple[JobSubject, ...] = ()` after `roles`, with `options["candidates"]`;
-  `RoutingResult` gains `candidates: tuple[Candidate, ...] = ()` after `roles`. Jobs and results built as
-  before are equal to ones with `()`.
+  `RoutingResult` gains `candidates: tuple[Candidate, ...] = ()` after `roles`, and after it `refusals:
+  tuple[tuple[str, str, tuple[str, ...]], ...] = ()`, the subject key, reason (decision 6) and blockers of
+  each subject left without a candidate (added in task 1.1: the command needs the reason, and a message
+  is no contract). Jobs and results built as before are equal to ones with `()`.
 - **Propose mode.** With a non-empty `job.subjects`, a router whose features name `propose` returns
   candidates only: `tracks`, `arcs` and `vias` of the result stay empty and nothing is merged.
 - `ROUTER_FEATURES` becomes `{"pairs", "escape", "short", "roles", "propose"}`; `OctilinearRouter.features`
@@ -373,7 +384,9 @@ any other board. `routing/decisions.py` reads and writes it; a malformed record 
 }
 ```
 
-- `plan` is the plan id that wrote the entry; no timestamp, so the record is byte-stable.
+- `plan` is the id of the decision: the first 16 hex digits of the SHA-256 of the canonical JSON of the
+  board's SHA-256 before the write and the accepted candidate ids. The id of the reviewed plan cannot be
+  written into the bytes it digests (corrected in task 1.3). No timestamp, so the record is byte-stable.
 - Entries are sorted by subject, then id.
 
 ### 10. Replay and forget
@@ -393,14 +406,18 @@ any other board. `routing/decisions.py` reads and writes it; a malformed record 
 
 ### 11. The three leftover opens of phase 1
 
-| board (c0243's DRC run) | open | subject | candidates expected |
-|---|---|---|---|
-| buck | `C3-2`, `J2-2` on `F.Cu`, ground plane on `B.Cu` | two `fanout` subjects | neck and via positions, each with `open.after` one lower and no new finding |
-| half-bridge | `ks_tie` ends short of its source copper | one `join` (track end to the zone of its net) | shapes from the track end into the zone outline; the facts show the role findings of `gate_Q1` before and after |
-| bms | `FET_S` pads apart, a neighbour's band across the straight way | one `role-net` | Z shapes or a via-L around the band at the class width, with `current: not-declared`, plus the alternative `confirm`; `no-room` naming the band if none passes |
+Measured in task 0.1 (KiCad 10.0.7 after a refill, and Fenolite's connectivity on the pour, which agree):
 
-Task 0.1 re-measures these on the merged base and records which variant (`good_roles`, `bad_roles`) holds
-each, since the DRC run counted per board.
+| variant | open | subject | candidates expected |
+|---|---|---|---|
+| buck, both | `C3-2` on `F.Cu`, ground plane on `B.Cu`, no via; its connection runs to `J2-2`, a through-hole pad on the plane | `fanout:GND:C3-2` | neck and via positions, each with `open.after` one lower and no new finding |
+| buck `bad_roles` | `C3-1` outside the VOUT pour | one VOUT `join` | shapes from the pad into the pour |
+| half-bridge, both | the low side's Kelvin-source pad `Q2-2` and its gate return apart from the SRC pour that holds `Q2-3` | one SRC `join` | shapes from the pad into the pour; the facts show the role findings of `gate_Q2` before and after |
+| half-bridge `good_roles` | the high side's `Q1-2` and its gate return apart from the SW pour (`bad`'s `ks_tie` closes it) | one SW `join` | as above, for `gate_Q1` |
+| bms, both | `FET_S`: `Q1-3` 3.5 mm from `Q1-2`'s copper, `Q2-3` from `Q2-2`'s; no band across | two `role-net` | shapes at the class width, with `current: not-declared`, plus the alternative `confirm` |
+
+The `C3-2` and `J2-2` of c0243's report are the two ends of one connection, and the `ks_tie` it named is
+the high side's tie of `bad`, which reaches its pour.
 
 ### 12. KiCad DRC per candidate, in batches
 
@@ -450,9 +467,12 @@ convert, as `docs/roles.md` says for phase 2.
    build): confirm the groups and roles as the reference tests do, run `route --roles critical --confirm`
    (phase 2; `good` groups `complete`, `bad` groups `kept` as script copper), then `route --propose`.
 2. **The leftovers** of decision 11 appear as their subjects with at least one candidate each.
-3. **The test's selection, not Fenolite's.** For each proposal the test locks the first candidate in reply
-   order whose facts show `open.after < open.before`, no `new` copper-check finding, and no `new` role
-   finding of warning or above; it fails if a proposal has none. This rule lives in the test: the product
+3. **The test's selection, not Fenolite's.** For each proposal that holds an open connection of the board
+   (every kind but `group`) the test locks the first candidate in reply order whose facts show
+   `open.after < open.before`, no `new` copper-check finding, and no `new` role finding of warning or above;
+   it fails if such a proposal has none. A `group` proposal (task 0.1: groups that phase 2 left `unrouted`
+   with their connections closed on the board) is recorded under task 4.2 and rejected whole by the test
+   (`--reject p-…`), so the designed findings of `bad_roles` stay. This rule lives in the test: the product
    offers no automatic choice.
 4. `--accept` all chosen ids in one plan, `--confirm --plan ID`, fill, `roles --check`.
 5. **Criteria:** no open connection; the `good_roles` variants give no role warning; the `bad_roles`
@@ -504,7 +524,7 @@ convert, as `docs/roles.md` says for phase 2.
 
 | id | statement | settling test | criterion |
 |---|---|---|---|
-| `H-G-PROP-LEFTOVERS` | The real opens that phase 1 leaves on the role-copper variants each get a subject with at least one candidate that closes it without a new finding | `tests/unit/roles/test_proposal_reference.py -k leftovers` | the two buck `fanout`, the half-bridge `join` and the bms `role-net` subjects each have a candidate with `open.after < open.before` and no `new` copper-check or role finding of warning or above |
+| `H-G-PROP-LEFTOVERS` | The real opens that phase 1 leaves on the role-copper variants each get a subject with at least one candidate that closes it without a new finding | `tests/unit/roles/test_proposal_reference.py -k leftovers` | the buck `fanout:GND:C3-2`, the half-bridge `join` subjects and the bms `role-net` subjects (task 0.1) each have a candidate with `open.after < open.before` and no `new` copper-check or role finding of warning or above |
 | `H-G-PROP-FACTS` | The facts of a candidate equal what the checks measure once it is locked, and the reply holds no score | `tests/unit/roles/test_proposal_reference.py -k facts`, `tests/unit/cli/test_route_propose.py -k keys` | for every accepted candidate, `open.after`, the copper-check and role findings equal the measures after the write and refill; the candidate keys are the closed set |
 | `H-G-PROP-COMPLETE` | Phases 1, 2 and 4 leave the six role-copper variants fully connected with only their designed role findings | `tests/unit/roles/test_proposal_reference.py -k complete` | zero open connections; no role warning on `good_roles`; exactly the designed routing findings on `bad_roles` |
 | `H-G-PROP-REPLAY` | Decisions are a fixed point: a second proposal run lists them present and proposes nothing; rejected candidates stay out; replay on a fresh build restores the same bytes | `tests/unit/roles/test_proposal_reference.py -k again` | `route.proposal-none`; no rejected id listed; second replay writes nothing; the replayed board equals the accepted one byte for byte |
@@ -564,17 +584,17 @@ alternatives, accept through a reviewed plan, the decision record, the reference
 ## Open Questions
 
 1. **`--propose` or `--roles propose`?** c0244's design anticipated `--roles propose`; the brief names
-   `--propose`. **Recommended:** `--propose` and the other mode flags, `--roles` stays `critical` only.
+   `--propose`. **Decided (maintainer, 2026-10-30), as recommended:** `--propose` and the other mode flags, `--roles` stays `critical` only.
 2. **Should the reply mark dominated candidates** (worse or equal on every numeric fact than another)?
-   **Recommended:** not in this change; it is a partial order, not a score, and can be added to the facts
+   **Decided (maintainer, 2026-10-30), as recommended:** not in this change; it is a partial order, not a score, and can be added to the facts
    later if users ask.
-3. **Default `--candidates`?** **Recommended:** 4, at most 8.
+3. **Default `--candidates`?** **Decided (maintainer, 2026-10-30), as recommended:** 4, at most 8.
 4. **Candidates for an unconfirmed role net** (bms `FET_S`): copper at the class width, or only `confirm`?
-   **Recommended:** both: class-width candidates labelled `current: not-declared`, and the `confirm`
+   **Decided (maintainer, 2026-10-30), as recommended:** both: class-width candidates labelled `current: not-declared`, and the `confirm`
    alternative that lets phase 1 size the copper.
-5. **Locked copper back into the script?** **Recommended:** not here; c0250's manual-edit merge carries
+5. **Locked copper back into the script?** **Decided (maintainer, 2026-10-30), as recommended:** not here; c0250's manual-edit merge carries
    board edits to the script, and locked proposals are such edits.
-6. **Who draws the proposals in the viewer?** **Recommended:** this change fixes the data and the actions;
+6. **Who draws the proposals in the viewer?** **Decided (maintainer, 2026-10-30), as recommended:** this change fixes the data and the actions;
    the drawing goes to the next viewer change after c0305, so the viewer line keeps one owner.
-7. **External router candidates in this change?** **Recommended:** yes, as the optional family
+7. **External router candidates in this change?** **Decided (maintainer, 2026-10-30), as recommended:** yes, as the optional family
    `--propose-with`, first to cut; c0222's plan sent "the rest" to an external router.

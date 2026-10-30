@@ -35,7 +35,7 @@ and SHALL add to `RoutingJob`, after every field that exists when this change is
 - **THEN** its `subjects` is empty and the job equals one built with `subjects=()`
 
 ### Requirement: Candidates in a routing result
-`fenolite.routing.protocol` SHALL define the frozen dataclass `Candidate` (id, subject, source, relaxed, tracks, arcs, vias, length, layers) and `RoutingResult.candidates: tuple[Candidate, ...] = ()` after `roles`. A router given subjects MUST return candidates only, with no merged copper. `Candidate.id` MUST be `c-` and 16 hex digits of the SHA-256 of the subject key, source, relaxations and item geometry.
+`fenolite.routing.protocol` SHALL define the frozen dataclass `Candidate` (id, subject, source, relaxed, tracks, arcs, vias, length, layers), `RoutingResult.candidates: tuple[Candidate, ...] = ()` after `roles`, and after it `RoutingResult.refusals`, the subject key, reason and blockers of each subject left without a candidate. A router given subjects MUST return candidates only, with no merged copper. `Candidate.id` MUST be `c-` and 16 hex digits of the SHA-256 of the subject key, source, relaxations and item geometry.
 
 #### Scenario: Candidates only
 - **GIVEN** an authored bench with one open connection given as a `connection` subject

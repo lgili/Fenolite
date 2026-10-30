@@ -9,6 +9,49 @@
 
   Proof: `timeout 180 npx -y @fission-ai/openspec validate c0280-route-proposals --strict`; `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py -q`.
 
+  Measured on 2026-10-30, base `b2b0b063` (`origin/dev`), KiCad 10.0.7, by the maintainer's session:
+  - No commit after the merges of c0243 (`804e5586`) and c0244 (`55f485d9`) touched `routing/protocol.py`,
+    `routing/octilinear.py`, `routing/roleroute.py`, `roles/copper.py`, `roles/routes.py`, `cli/cmd_route.py`
+    or `cli/_roleroute.py` (`git log 804e5586..b2b0b063` on those paths is empty).
+  - Only this change holds a delta of "Pairs and escape in a routing job" and "Critical route failures"; both
+    MODIFIED blocks were written from the living text of `routing` and `net-roles` and stay as they are.
+  - c0303 and c0305 are open changes whose code is on `dev` (commit `b2b0b063`, "the viewer of v0.7"): the
+    action allow-list is `fenolite.view.actions.ACTIONS` (planned through `view.actions.plan`, served by
+    `view.server`), the run allow-list is `fenolite.view.runs.ALLOWED` (`check`, `analyze`, `ready`,
+    `equivalent`, `roles`). Tasks 5.1 and 5.2 can be done in this change.
+  - The opens after phase 2 (each role-copper script built, `roles --accept-all --confirm`,
+    `route --roles critical` confirmed, `fenolite fill` with KiCad 10.0.7, `check --stages drc.kicad`). Fenolite's
+    connectivity on the pour of `analysis.pour` gives the same connections as KiCad's `unconnected_items`, on
+    the unfilled board (simulated pour) and on the KiCad-filled one:
+
+    | variant | KiCad `unconnected_items` | open connection (Fenolite) | subject |
+    |---|---|---|---|
+    | buck `good_roles` | `C3-2, J2-2` | GND `C3-2`~`J2-2` | `fanout:GND:C3-2` |
+    | buck `bad_roles` | `C3-2, J2-2`; `zone[5], C3-1` | GND `C3-2`~`J2-2`; VOUT `segment[35]`~`C3-1` | `fanout:GND:C3-2`; `join:VOUT:…` |
+    | half-bridge `good_roles` | `segment[12], Q2-3`; `segment[3], Q1-3` | SRC `Q2-2`'s return~`Q2-3`; SW `Q1-2`'s return~`Q1-3` | two `join` |
+    | half-bridge `bad_roles` | `segment[15], Q2-3` | SRC `Q2-2`'s return~`Q2-3` | one `join` |
+    | bms `good_roles`, `bad_roles` | `Q1-3, segment[19]`; `Q2-3, segment[20]` | FET_S `Q1-3`~`Q1-2`'s copper, `Q2-3`~`Q2-2`'s copper, 3.5 mm each | two `role-net` |
+
+    This contradicts the spec in four points, corrected in `design.md` (decisions 2, 11 and 15) and in the
+    `net-roles` and `routing` deltas: `J2-2` is a through-hole pad on the ground plane, the far end of the one
+    open connection of `C3-2`, not a subject; the half-bridge open is each Kelvin-source pad's gate-return
+    copper apart from its source pour (`ks_tie` of `bad` closes the high side), twice on `good_roles`; the bms
+    `FET_S` has two open connections, so a `role-net` subject is one per open connection, keyed
+    `role-net:<net>:<a>~<b>`; the buck `bad_roles` also holds a VOUT `join` (`C3-1` outside the VOUT pour).
+  - No neighbour's band lies across `FET_S`'s way: the opens are the 3.5 mm from each source pad to its own
+    Kelvin-source pad, and the straight way between `Q1-3` and `Q2-3` is free of other nets' copper (the
+    `PACK_N` band ends at x = 125.36 mm, the `SHUNT_N` band starts at x = 140.64 mm, board frame).
+  - The three `good` variants (`good.py`) have no open connection after phase 2: KiCad's DRC finds no
+    unconnected item and Fenolite's connectivity none. The `open` variants: buck and bms none; the
+    half-bridge two (`segment[13], U3-4` of GND and `R1-1, U3-3` of SRC, the sense pair that `SW_UNDER` blocks).
+  - Phase 2 leaves groups `unrouted` on the role-copper variants although KiCad finds no unconnected item for
+    them: buck `gate_Q1` (`isolation`, both variants) and `kelvin_R12` (`isolation`, `bad_roles`),
+    half-bridge `gate_Q1` (`no-room`, `bad_roles`), bms `kelvin_R1` (`pads`, `bad_roles`). They become `group`
+    subjects with no open connection of the board; the reference gate records them and rejects them whole
+    (`design.md`, decision 15).
+  - Open questions: the recommended answers of `design.md` are the maintainer's decisions (2026-10-30).
+  - `npx` is not allowed in this session, so the `openspec validate` part of the proof could not run here.
+
 ## 1. Protocol, codes and record
 
 - [ ] 1.1 Add `JobAttach`, `JobSubject`, `Candidate`, `RoutingJob.subjects` and `RoutingResult.candidates` to `routing/protocol.py`, the feature `propose` to `ROUTER_FEATURES` and to `OctilinearRouter.features` (scenarios "A job built as before" of "Proposal subjects in a routing job", "The octilinear router takes roles"). Proof: `uv run pytest tests/unit/routing/test_protocol.py -q`; `uv run pyright src/fenolite/routing`.
