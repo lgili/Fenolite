@@ -144,6 +144,18 @@ Function: `arc_to(mid: 'object', end: 'object') -> 'ArcStep'`
 
 An arc from the point of the path element before it through `mid` to `end`, each an `(x, y)` pair of lengths in the frame of `place()` or an anchor; the path continues from `end`.
 
+## at_least
+
+Function: `at_least(a: 'object', b: 'object') -> 'Test'`
+
+The test "`a` is at least `b`": it passes when `a.min >= b.max`, fails when `a.max < b.min`.
+
+## at_most
+
+Function: `at_most(a: 'object', b: 'object') -> 'Test'`
+
+The test "`a` is at most `b`": it passes when `a.max <= b.min`, fails when `a.min > b.max`.
+
 ## between
 
 Function: `between(a: 'Quantity', b: 'Quantity', *, nominal: 'Quantity \| None' = None) -> 'Range'`
@@ -167,6 +179,12 @@ An absolute temperature given in degrees Celsius, as a value in kelvin: `celsius
 Function: `connect(net: 'object', *pins: 'object') -> 'Net'`
 
 Join each pin to `net`; one designator of one part on two nets is refused.
+
+## current_of
+
+Function: `current_of(target: 'object') -> 'Ref'`
+
+The handle of the current bound of a net, a rail or a power port.
 
 ## decouple
 
@@ -257,6 +275,18 @@ Join each resistor's `a` to a net of `target` and its `b` to `ground`, as `pull_
 Function: `pull_up(target: 'object', rail: 'object', *resistors: 'Part') -> 'None'`
 
 Join each resistor's `a` to a net of `target` and its `b` to `rail`.
+
+## rating_of
+
+Function: `rating_of(part: 'Part', key: 'str', pin: 'str \| None' = None, limit: 'str' = 'abs_max') -> 'Ref'`
+
+The handle of a limit of `part`'s device: the device rating `key` (`voltage`, `current`, `power`, `temperature`), or the pin's when `pin` names a function, of kind `limit` (`abs_max` or `operating`).
+
+## ratio
+
+Function: `ratio(percent: 'int \| Fraction \| str') -> 'Derating'`
+
+A derating, "at most `percent` % of the rating": `ratio(50)` limits a part to half its rating.
 
 ## schematic_composition
 
@@ -376,6 +406,12 @@ Function: `shape.stadium(x: 'object', y: 'object', length: 'object', width: 'obj
 
 The ring of `design.slot()` as a path.
 
+## sink
+
+Function: `sink(net: 'object', ret: 'object' = None, *, current: 'object', name: 'str \| None' = None) -> 'Sink'`
+
+A rig sink: the outside world draws `current` from `net` to `ret` (the design's one ground when omitted).
+
 ## stack
 
 Module.
@@ -424,11 +460,23 @@ Function: `stack.silkscreen(*, color: 'str' = '') -> 'StackEntry'`
 
 A silkscreen, above the top mask or below the bottom one; it has no thickness.
 
+## supply
+
+Function: `supply(pos: 'object', neg: 'object' = None, *, voltage: 'object', current: 'object' = None, name: 'str \| None' = None) -> 'Supply'`
+
+A rig supply: the outside world holds `pos` at `voltage` against `neg` (the design's one ground when omitted) and delivers at most `current`.
+
 ## trace
 
 Function: `trace(layer: 'str', *, refs: 'str \| tuple[str, ...]', width: 'object', gap: 'object' = None) -> 'Trace'`
 
 One layer of an impedance target: `layer` a copper layer name, `refs` one reference layer or a tuple of two, `width` the track width and `gap` the gap between the two tracks of a pair (lengths with a unit, for example `mm(0.2)`).
+
+## value_of
+
+Function: `value_of(part: 'Part') -> 'Ref'`
+
+The handle of `part`'s value range: what the stage reads from the built model, so an edit kept after the build is judged.
 
 ## via_step
 
@@ -442,8 +490,20 @@ Function: `volt(value: 'int \| Fraction \| str') -> 'Quantity'`
 
 A voltage: `volt("3.3")`; may be negative.
 
+## voltage_of
+
+Function: `voltage_of(target: 'object') -> 'Ref'`
+
+The handle of the voltage bound of a net, a rail or a power port: from the rig, the rail or the net's declared role, never inferred.
+
 ## watt
 
 Function: `watt(value: 'int \| Fraction \| str') -> 'Quantity'`
 
 A power: `watt("250m")`.
+
+## within
+
+Function: `within(a: 'object', b: 'object') -> 'Test'`
+
+The test "every value of `a` lies in `b`": it passes when `a` is inside `b`, fails when they do not overlap, and is unsure otherwise.

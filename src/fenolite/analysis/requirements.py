@@ -307,7 +307,9 @@ def _with_units(row: dict[str, object], where: str, file: str) -> dict[str, obje
     if "source" in found:
         text = found.pop("source")
         if not isinstance(text, str) or not text.strip():
-            raise _fail(file, f"{where}.source", "must be a non-empty string naming where the numbers come from")
+            raise _fail(
+                file, f"{where}.source", "must be a non-empty string naming where the numbers come from"
+            )
         found["source"] = text
     return found
 
@@ -501,7 +503,9 @@ def load_requirements(text: str, *, file: str = "") -> Requirements:
         _known(row, ("select", "min_width_nm", "source"), where, file)
         necks.append(
             NeckReq(
-                _selector(row, "select", where, file), _positive(row, "min_width_nm", where, file), _source(row)
+                _selector(row, "select", where, file),
+                _positive(row, "min_width_nm", where, file),
+                _source(row),
             )
         )
     loops: list[LoopReq] = []

@@ -192,7 +192,7 @@ RAW_ROWS = (
     '[[current]]\nselect = { net = "VBUS" }\nmilliamps = 2000\ntemp_rise_mk = 10000\n'
     '[[distance]]\na = { net = "L" }\nb = { net = "N" }\nclearance_nm = 1200000\n'
     '[[path]]\nfrom = ["J1-1"]\nto = ["Q1-2"]\nmilliamps = 2000\ntemp_rise_mk = 10000\ndrop_mv = 50\n'
-    '[[step]]\nup_to_mv = 230000\ncreepage_nm = 3000000\n'
+    "[[step]]\nup_to_mv = 230000\ncreepage_nm = 3000000\n"
     '[[loop]]\nname = "hot"\npads = ["C1-1", "Q1-1"]\nmax_area_nm2 = 60000000000000\n'
     '[[neck]]\nselect = { net = "VBUS" }\nmin_width_nm = 500000\n'
     '[[decoupling]]\nparts = "U*"\nmax_distance_nm = 2000000\n'

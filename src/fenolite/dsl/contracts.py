@@ -222,7 +222,7 @@ def operand(value: object) -> Expr:
 
 
 def value_of(part: Part) -> Ref:
-    """The handle of ``part``'s value range (c0246): what the stage reads from the built model, so an edit
+    """The handle of ``part``'s value range: what the stage reads from the built model, so an edit
     kept after the build is judged."""
     if not isinstance(part, Part):  # pyright: ignore[reportUnnecessaryIsInstance]
         raise DslError(f"value_of() takes a Part, not {part!r}")

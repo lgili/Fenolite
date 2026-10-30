@@ -65,7 +65,11 @@ def test_rows_in_canonical_order() -> None:
     assert [row["id"] for row in table] == ["a", "b"]
     assert table[0]["status"] == "pass" and table[0]["entities"] == ["a", "b"]
     assert table[0]["limit"]["kind"] == "abs_max"  # type: ignore[index]
-    assert table[0]["value"]["range"] == {"unit": "volt", "low": {"m": 0, "e": 0}, "high": {"m": 132, "e": -1}}  # type: ignore[index]
+    assert table[0]["value"]["range"] == {
+        "unit": "volt",
+        "low": {"m": 0, "e": 0},
+        "high": {"m": 132, "e": -1},
+    }  # type: ignore[index]
     assert "evidence" not in table[0]["value"]  # type: ignore[operator]
     assert table[0]["corners"] == [{"corner": "bench=max", "status": "pass", "text": "13.2V"}]
     assert "." not in json.dumps([row["value"] for row in table]).replace('"', "").split("text")[0]

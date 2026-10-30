@@ -23,6 +23,7 @@ from fenolite.analysis.shapes import LOOP_EVIDENCE
 from fenolite.backends.base import BoardPad, ProjectSet
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
+from fenolite.core.requirement_table import table_json
 from fenolite.model.circuit import Circuit
 from fenolite.model.design import Design
 from fenolite.model.rules import NetRole, PartClass, RoleSet
@@ -224,7 +225,11 @@ def run(
     evidence = Evidence.combine(
         Evidence(Level.INFERRED, hypotheses=checks.hypotheses(measured)), *measured.evidences, *extra
     )
-    return Judged(resolved, measured, issues, checks.summary(issues, measured, resolved.roles), evidence)
+    summary = {
+        **checks.summary(issues, measured, resolved.roles),
+        "requirements": table_json(checks.rows(board, measured)),  # change c0253
+    }
+    return Judged(resolved, measured, issues, summary, evidence)
 
 
 def split_roles(roles: RoleSet | None) -> tuple[RoleSet | None, RoleSet | None]:
