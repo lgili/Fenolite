@@ -1,0 +1,124 @@
+schema = "fenolite.pins.v0"
+id = "Fenolite:Optocoupler"
+version = "1.0.0"
+summary = "Generic LED-to-photodetector coupler block"
+category = "Optoelectronic semiconductor"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0325"]
+
+[[pin]]
+number = "1"
+name = "A"
+type = "passive"
+
+[[pin]]
+number = "2"
+name = "K"
+type = "passive"
+
+[[pin]]
+number = "3"
+name = "C"
+type = "passive"
+
+[[pin]]
+number = "4"
+name = "E"
+type = "passive"
+
+[symbol]
+reference = "U"
+pin_names_hidden = true
+pins = [
+  { number = "1", at = ["-7.62mm", "2.54mm"], length = "2.54mm" },
+  { number = "2", at = ["-7.62mm", "-2.54mm"], length = "2.54mm" },
+  { number = "3", at = ["7.62mm", "2.54mm"], rotation = "180deg", length = "2.54mm" },
+  { number = "4", at = ["7.62mm", "-2.54mm"], rotation = "180deg", length = "2.54mm" },
+]
+
+[[symbol.graphic]]
+kind = "rect"
+points = [["-5.08mm", "-5.08mm"], ["5.08mm", "5.08mm"]]
+filled = true
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-5.08mm", "2.54mm"], ["-4.25mm", "2.54mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-4.25mm", "2.54mm"], ["-4.25mm", "0mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-4.25mm", "0mm"], ["-3.25mm", "0mm"]]
+
+[[symbol.graphic]]
+kind = "polygon"
+points = [["-3.25mm", "-0.9mm"], ["-1.75mm", "0mm"], ["-3.25mm", "0.9mm"]]
+filled = true
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.75mm", "-1.1mm"], ["-1.75mm", "1.1mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.75mm", "0mm"], ["-1.75mm", "-2.54mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.75mm", "-2.54mm"], ["-5.08mm", "-2.54mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.9mm", "1.1mm"], ["1mm", "1.1mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1mm", "1.1mm"], ["0.55mm", "1.4mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1mm", "1.1mm"], ["0.55mm", "0.8mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.9mm", "0.3mm"], ["1mm", "0.3mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1mm", "0.3mm"], ["0.55mm", "0.6mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1mm", "0.3mm"], ["0.55mm", "0mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.9mm", "-1.15mm"], ["1.9mm", "1.15mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.9mm", "0.7mm"], ["3.2mm", "2.54mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["3.2mm", "2.54mm"], ["5.08mm", "2.54mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.9mm", "-0.7mm"], ["3.2mm", "-2.54mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["3.2mm", "-2.54mm"], ["5.08mm", "-2.54mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["3.2mm", "-2.54mm"], ["3.037mm", "-1.737mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["3.2mm", "-2.54mm"], ["2.498mm", "-2.118mm"]]

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as test data (change c0259); an illustrative part, not a real product.
+schema = "fenolite.part.v0"
+id = "Example:REG_TWO@EXR100QDR"
+version = "1.0.0"
+summary = "Automotive grade of the regulator stand-in (illustrative)"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"
+device = "Example:REG_TWO"
+mpn = "EXR100QDR"
+extends = "EXR100DR"
+grade = "automotive"
+ratings = { temperature = { operating = { min = "-40degC", max = "85degC" } } }

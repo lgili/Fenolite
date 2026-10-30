@@ -1,0 +1,36 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:DO214AC"
+version = "1.0.0"
+summary = "Two-terminal DO-214AC / SMA land from manufacturer suggested layout"
+category = "Diode package"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0321"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["2mm", "2.1mm"]
+at = ["-1.8mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["2mm", "2.1mm"]
+at = ["1.8mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-2.25mm", "-1.3mm"], ["2.25mm", "1.3mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-3.3mm", "-1.8mm"], ["3.3mm", "1.8mm"]]
+width = "0.05mm"

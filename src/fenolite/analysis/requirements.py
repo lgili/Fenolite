@@ -20,6 +20,13 @@ glob, a part glob and the copper layers where that class may not run under the p
 Change c0213 adds two more, neither with a default value: ``[[neck]]`` (a net or net-class selector and the
 narrowest width a pour of its nets may have) and ``[[loop]]`` (a named loop through pads, in order, with an
 optional largest area).
+
+Change c0253 adds a unit key beside every raw key (``clearance = "1.2mm"`` beside ``clearance_nm =
+1200000``, ``current = "2A"`` beside ``milliamps = 2000``): electrical values and temperature differences are
+parsed exactly by ``fenolite.core.quantities``, lengths and areas by ``fenolite.core.units``, and the value
+must be a whole number of the raw key's unit. Giving both forms of one key is refused. Every row may name
+where its numbers come from in ``source``, which becomes the basis of the row's limits in the requirement
+table.
 """
 
 from __future__ import annotations
@@ -28,8 +35,9 @@ import tomllib
 from dataclasses import dataclass
 from typing import cast
 
+from fenolite.core import quantities
 from fenolite.core.errors import FormatError
-from fenolite.core.units import Nm
+from fenolite.core.units import Nm, parse_area, parse_length
 from fenolite.model.circuit import Circuit, Net
 from fenolite.model.rules import RuleSubject, Selector
 
@@ -62,6 +70,8 @@ class CurrentReq:
     select: NetSelector
     milliamps: int
     temp_rise_mk: int
+    source: str = ""
+    """Where the user's numbers come from (change c0253); ``""`` when the row names none."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +86,8 @@ class DistanceReq:
     millivolts: int | None = None
     insulation_nm: Nm | None = None
     groove_nm: Nm | None = None
+    source: str = ""
+    """Where the user's numbers come from (change c0253); ``""`` when the row names none."""
 
     def matches(self, first: Net, second: Net, circuit: Circuit) -> bool:
         if first.id == second.id:
@@ -97,6 +109,8 @@ class Step:
     creepage_nm: Nm | None = None
     embedded_nm: Nm | None = None
     insulation_nm: Nm | None = None
+    source: str = ""
+    """Where the user's numbers come from (change c0253); ``""`` when the row names none."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +123,8 @@ class PathReq:
     milliamps: int
     temp_rise_mk: int
     drop_mv: int | None = None
+    source: str = ""
+    """Where the user's numbers come from (change c0253); ``""`` when the row names none."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +134,8 @@ class DecouplingReq:
 
     parts: str
     max_distance_nm: Nm
+    source: str = ""
+    """Where the user's numbers come from (change c0253); ``""`` when the row names none."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,6 +146,8 @@ class BodyCopperReq:
     netclass: str
     parts: str
     layers: tuple[str, ...]
+    source: str = ""
+    """Where the user's numbers come from (change c0253); ``""`` when the row names none."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,6 +156,8 @@ class NeckReq:
 
     select: NetSelector
     min_width_nm: Nm
+    source: str = ""
+    """Where the user's numbers come from (change c0253); ``""`` when the row names none."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,6 +168,8 @@ class LoopReq:
     name: str
     pads: tuple[str, ...]
     max_area_nm2: int | None = None
+    source: str = ""
+    """Where the user's numbers come from (change c0253); ``""`` when the row names none."""
 
 
 Triple = tuple[Nm | None, Nm | None, Nm | None]
@@ -225,6 +249,79 @@ class Requirements:
         return max(widths) if widths else None
 
 
+UNIT_KEYS: dict[str, tuple[str, str]] = {
+    "clearance": ("clearance_nm", "length"),
+    "creepage": ("creepage_nm", "length"),
+    "embedded": ("embedded_nm", "length"),
+    "insulation": ("insulation_nm", "length"),
+    "groove": ("groove_nm", "length"),
+    "max_distance": ("max_distance_nm", "length"),
+    "min_width": ("min_width_nm", "length"),
+    "max_area": ("max_area_nm2", "area"),
+    "current": ("milliamps", "ampere"),
+    "temp_rise": ("temp_rise_mk", "kelvin"),
+    "voltage": ("millivolts", "volt"),
+    "up_to": ("up_to_mv", "volt"),
+    "drop": ("drop_mv", "volt"),
+}
+"""Unit key → the raw key it stands for and the kind of its unit (change c0253)."""
+_MILLI = {"ampere": "mA", "kelvin": "mK", "volt": "mV"}
+
+
+def _unit_value(text: str, kind: str) -> int:
+    """``text`` as a whole number of the raw unit of ``kind``; ``ValueError`` saying why not."""
+    if kind == "length":
+        return parse_length(text)
+    if kind == "area":
+        return parse_area(text)
+    if kind == "kelvin" and text.strip().endswith(quantities.CELSIUS_SYMBOLS):
+        raise ValueError(f"{text!r} is a temperature, not a difference; write it in kelvin, such as '10K'")
+    body = text.strip()
+    if not body.endswith(quantities.SYMBOLS[kind]):
+        raise ValueError(f"{text!r} has no unit or another unit; write it in {quantities.UNITS[kind]}")
+    value = quantities.parse(kind, body) * 1000
+    if value.denominator != 1:
+        raise ValueError(f"{text!r} is not a whole number of {_MILLI[kind]}")
+    return value.numerator
+
+
+def _with_units(row: dict[str, object], where: str, file: str) -> dict[str, object]:
+    """``row`` with each unit key replaced by its raw key and ``source`` checked (change c0253)."""
+    found = dict(row)
+    for key, (raw, kind) in UNIT_KEYS.items():
+        if key not in found:
+            continue
+        name = f"{where}.{key}"
+        if raw in found:
+            raise _fail(file, name, f"give {key} or {raw}, not both")
+        value = found.pop(key)
+        if not isinstance(value, str):
+            raise _fail(file, name, f"must be a string with a unit, such as {_EXAMPLES[kind]!r}")
+        try:
+            number = _unit_value(value, kind)
+        except ValueError as error:
+            raise _fail(file, name, str(error)) from None
+        if number < 0:
+            raise _fail(file, name, "must not be negative")
+        found[raw] = number
+    if "source" in found:
+        text = found.pop("source")
+        if not isinstance(text, str) or not text.strip():
+            raise _fail(
+                file, f"{where}.source", "must be a non-empty string naming where the numbers come from"
+            )
+        found["source"] = text
+    return found
+
+
+_EXAMPLES = {"length": "1.2mm", "area": "60mm2", "ampere": "2A", "kelvin": "10K", "volt": "230V"}
+
+
+def _source(row: dict[str, object]) -> str:
+    value = row.get("source", "")
+    return value if isinstance(value, str) else ""
+
+
 def _fail(file: str, key: str, why: str) -> FormatError:
     return FormatError(f"{key}: {why}", file=file, locator=key)
 
@@ -280,7 +377,8 @@ def _rows(data: dict[str, object], key: str, file: str) -> list[tuple[str, dict[
     for index, item in enumerate(cast(list[object], listed)):
         if not isinstance(item, dict):
             raise _fail(file, f"{key}[{index}]", "must be a table")
-        rows.append((f"{key}[{index}]", cast(dict[str, object], item)))
+        where = f"{key}[{index}]"
+        rows.append((where, _with_units(cast(dict[str, object], item), where, file)))
     return rows
 
 
@@ -337,16 +435,19 @@ def load_requirements(text: str, *, file: str = "") -> Requirements:
     _known(data, _TOP, "", file)
     currents: list[CurrentReq] = []
     for where, row in _rows(data, "current", file):
-        _known(row, ("select", "milliamps", "temp_rise_mk"), where, file)
+        _known(row, ("select", "milliamps", "temp_rise_mk", "source"), where, file)
         select = _selector(row, "select", where, file)
         currents.append(
             CurrentReq(
-                select, _positive(row, "milliamps", where, file), _positive(row, "temp_rise_mk", where, file)
+                select,
+                _positive(row, "milliamps", where, file),
+                _positive(row, "temp_rise_mk", where, file),
+                _source(row),
             )
         )
     distances: list[DistanceReq] = []
     for where, row in _rows(data, "distance", file):
-        _known(row, ("a", "b", "millivolts", "groove_nm", *_DISTANCES), where, file)
+        _known(row, ("a", "b", "millivolts", "groove_nm", "source", *_DISTANCES), where, file)
         a, b = _selector(row, "a", where, file), _selector(row, "b", where, file)
         values = [_integer(row, key, where, file, required=False) for key in _DISTANCES]
         millivolts = _integer(row, "millivolts", where, file, required=False)
@@ -354,18 +455,20 @@ def load_requirements(text: str, *, file: str = "") -> Requirements:
         given = any(value is not None for value in values)
         if given == (millivolts is not None):
             raise _fail(file, where, "needs either millivolts or any of " + ", ".join(_DISTANCES))
-        distances.append(DistanceReq(a, b, values[0], values[1], values[2], millivolts, values[3], groove))
+        distances.append(
+            DistanceReq(a, b, values[0], values[1], values[2], millivolts, values[3], groove, _source(row))
+        )
     steps: list[Step] = []
     for where, row in _rows(data, "step", file):
-        _known(row, ("up_to_mv", *_DISTANCES), where, file)
+        _known(row, ("up_to_mv", "source", *_DISTANCES), where, file)
         up_to = _positive(row, "up_to_mv", where, file)
         values = [_integer(row, key, where, file, required=False) for key in _DISTANCES]
         if all(value is None for value in values):
             raise _fail(file, where, "needs any of " + ", ".join(_DISTANCES))
-        steps.append(Step(up_to, values[0], values[1], values[2], values[3]))
+        steps.append(Step(up_to, values[0], values[1], values[2], values[3], _source(row)))
     paths: list[PathReq] = []
     for where, row in _rows(data, "path", file):
-        _known(row, ("from", "to", "milliamps", "temp_rise_mk", "drop_mv"), where, file)
+        _known(row, ("from", "to", "milliamps", "temp_rise_mk", "drop_mv", "source"), where, file)
         paths.append(
             PathReq(
                 _pad_names(row, "from", where, file),
@@ -373,33 +476,41 @@ def load_requirements(text: str, *, file: str = "") -> Requirements:
                 _positive(row, "milliamps", where, file),
                 _positive(row, "temp_rise_mk", where, file),
                 _integer(row, "drop_mv", where, file, required=False),
+                _source(row),
             )
         )
     decoupling: list[DecouplingReq] = []
     for where, row in _rows(data, "decoupling", file):
-        _known(row, ("parts", "max_distance_nm"), where, file)
+        _known(row, ("parts", "max_distance_nm", "source"), where, file)
         decoupling.append(
-            DecouplingReq(_glob(row, "parts", where, file), _positive(row, "max_distance_nm", where, file))
+            DecouplingReq(
+                _glob(row, "parts", where, file), _positive(row, "max_distance_nm", where, file), _source(row)
+            )
         )
     body_copper: list[BodyCopperReq] = []
     for where, row in _rows(data, "body_copper", file):
-        _known(row, ("netclass", "parts", "layers"), where, file)
+        _known(row, ("netclass", "parts", "layers", "source"), where, file)
         body_copper.append(
             BodyCopperReq(
                 _glob(row, "netclass", where, file),
                 _glob(row, "parts", where, file),
                 _layers(row, "layers", where, file),
+                _source(row),
             )
         )
     necks: list[NeckReq] = []
     for where, row in _rows(data, "neck", file):
-        _known(row, ("select", "min_width_nm"), where, file)
+        _known(row, ("select", "min_width_nm", "source"), where, file)
         necks.append(
-            NeckReq(_selector(row, "select", where, file), _positive(row, "min_width_nm", where, file))
+            NeckReq(
+                _selector(row, "select", where, file),
+                _positive(row, "min_width_nm", where, file),
+                _source(row),
+            )
         )
     loops: list[LoopReq] = []
     for where, row in _rows(data, "loop", file):
-        _known(row, ("name", "pads", "max_area_nm2"), where, file)
+        _known(row, ("name", "pads", "max_area_nm2", "source"), where, file)
         name = _glob(row, "name", where, file)
         if any(loop.name == name for loop in loops):
             raise _fail(file, f"{where}.name", f"the loop {name!r} is named twice")
@@ -409,7 +520,7 @@ def load_requirements(text: str, *, file: str = "") -> Requirements:
         area = _integer(row, "max_area_nm2", where, file, required=False)
         if area == 0:
             raise _fail(file, f"{where}.max_area_nm2", "must be above 0")
-        loops.append(LoopReq(name, pads, area))
+        loops.append(LoopReq(name, pads, area, _source(row)))
     return Requirements(
         tuple(currents),
         tuple(distances),
@@ -425,6 +536,7 @@ def load_requirements(text: str, *, file: str = "") -> Requirements:
 __all__ = [
     "DEFAULT_CLASS",
     "SCHEMA",
+    "UNIT_KEYS",
     "BodyCopperReq",
     "CurrentReq",
     "DecouplingReq",

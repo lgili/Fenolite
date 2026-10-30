@@ -18,9 +18,10 @@ import argparse
 import fnmatch
 import hashlib
 import os
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from decimal import Decimal, InvalidOperation
+from fractions import Fraction
 from pathlib import Path
 from typing import Any, cast
 
@@ -41,6 +42,7 @@ from fenolite.cli.cmd_analyze import (
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FormatError, Issue
+from fenolite.core.requirement_table import joined
 from fenolite.model.design import Design
 from fenolite.model.rules import (
     PART_CLASSES,
@@ -461,6 +463,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     except FormatError as error:
         raise CliError("FEN-3004", str(error), where=error.locator or error.file) from None
     declared, confirmed = split_roles(stored.roles) if stored.built else (None, stored.roles)
+    before = confirmed
     circuit = model.circuit if model is not None else None
     judged = run(
         design, pads, circuit=circuit, stored=confirmed, declared=declared, classes=classes, check=False
@@ -503,6 +506,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if inputs is not None:
         result["measures"] = [measure.to_json() for measure in judged.measured.measures]
         result["summary"] = dict(judged.summary)
+        role_rows = cast(Sequence[Mapping[str, object]], judged.summary.get("requirements", []))
+        circuit_rows: Sequence[Mapping[str, object]] = []
+        if model is not None:
+            roles_now = merged(declared, before, classes)
+            circuit_rows = circuit_requirements(model, root, roles_now, inputs, _currents(args.currents))
+        result["requirements"] = joined(role_rows, circuit_rows)  # change c0253: one table
     writes: tuple[PlannedWrite, ...] = ()
     if changed is not None:
         target = _relative(stored.target, ctx.cwd)
@@ -526,6 +535,35 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         writes=writes,
         depends=depends_on(ctx.cwd, board, stored.source, args.requirements),
     )
+
+
+def circuit_requirements(
+    model: Design, root: Path, roles: RoleSet, inputs: Inputs, given: Mapping[str, int]
+) -> list[dict[str, object]]:
+    """The requirement rows of the stage ``circuit.rules`` on the ``.fenolite/`` model of a built project
+    (change c0253), with the roles in force and the currents of ``[[current]]`` rows and then ``--current``
+    (the order of roles), each with its basis: the row's ``source`` text, ``requirements.toml`` or
+    ``--current``."""
+    from fenolite.analysis.requirements import Requirements
+    from fenolite.checks.circuit import judge_circuit
+    from fenolite.cli._contracts import classes_of, devices_of
+    from fenolite.core.requirement_table import table_json
+
+    currents: dict[str, tuple[Fraction, str]] = {}
+    requirements = inputs.requirements
+    if isinstance(requirements, Requirements):
+        for net in model.circuit.nets:
+            row = requirements.current_for(net, model.circuit)
+            if row is not None:
+                currents[net.name] = (Fraction(row.milliamps, 1000), row.source or "requirements.toml")
+    for name, milliamps in given.items():
+        currents.setdefault(name, (Fraction(milliamps, 1000), "--current"))
+    rules = model.rules if model.rules is not None else None
+    judged_model = model if rules is None else replace(model, rules=replace(rules, roles=roles or None))
+    found = judge_circuit(
+        judged_model, devices=devices_of(model, root), classes=classes_of(judged_model), currents=currents
+    )
+    return table_json(found.rows)
 
 
 def _unique_classes(roles: RoleSet) -> RoleSet:

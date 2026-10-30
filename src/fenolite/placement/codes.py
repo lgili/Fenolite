@@ -42,9 +42,30 @@ EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-PLACE-MOVE", "H-K-PLA
 is never a verdict: KiCad's DRC judges the board."""
 
 
+LAYOUT_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
+    {
+        "layout.relative-cycle": "error",
+        "layout.relative-unresolved": "warning",
+        "layout.strategy-overflow": "warning",
+        "layout.block-moved": "info",
+    }
+)
+"""The codes of placement in code (change c0255, capability placement-in-code): the resolution of relative
+requests and block poses, the layout strategies and the rigid move of a laid-out block. The build reports
+them (``docs/cli-contract.md``, "Placement in code")."""
+RELATIVE_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-REL-RESOLVE",))
+"""A resolved position satisfies its request exactly, measured on the written board by the same box
+function; no tool runs."""
+
+
 def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
     """An issue of ``code`` with the severity of ``ISSUE_CODES``."""
     return Issue(code, ISSUE_CODES[code], message, where=where, hint=hint)
 
 
-__all__ = ["EVIDENCE", "ISSUE_CODES", "issue"]
+def layout_issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
+    """An issue of ``code`` with the severity of ``LAYOUT_ISSUE_CODES``."""
+    return Issue(code, LAYOUT_ISSUE_CODES[code], message, where=where, hint=hint)
+
+
+__all__ = ["EVIDENCE", "ISSUE_CODES", "LAYOUT_ISSUE_CODES", "RELATIVE_EVIDENCE", "issue", "layout_issue"]

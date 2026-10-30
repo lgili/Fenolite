@@ -55,9 +55,19 @@ pattern = "numeric-code"
 reason = "KiCad INT_MAX Default class priority 2147483647, in the authored project of the pair board of fenolite route (c0110)"
 
 [[waiver]]
+path = "tests/data/import_python/two_sheet/two_sheet.kicad_pro"
+pattern = "numeric-code"
+reason = "KiCad INT_MAX class priority 2147483647, in the authored input project of fenolite import (c0275)"
+
+[[waiver]]
 path = "tests/data/lens/sync_minimal/*.kicad_pro"
 pattern = "numeric-code"
 reason = "KiCad INT_MAX Default class priority 2147483647, in the example project of fenolite sync (c0069)"
+
+[[waiver]]
+path = "tests/data/fidelity/*/*.kicad_pro"
+pattern = "numeric-code"
+reason = "KiCad INT_MAX net class priority 2147483647, in the authored original of the fidelity proof (c0278)"
 
 [[waiver]]
 path = "tests/data/altium/outjob/blink.OutJob"

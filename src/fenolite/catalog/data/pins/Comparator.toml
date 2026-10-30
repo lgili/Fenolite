@@ -1,0 +1,64 @@
+schema = "fenolite.pins.v0"
+id = "Fenolite:Comparator"
+version = "1.0.0"
+summary = "Conceptual comparator; not a device pinout"
+category = "Power and control IC"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0317"]
+
+[[pin]]
+number = "1"
+name = ""
+type = "output"
+
+[[pin]]
+number = "2"
+name = "+"
+type = "input"
+
+[[pin]]
+number = "3"
+name = "-"
+type = "input"
+
+[[pin]]
+number = "4"
+name = "V+"
+type = "power_in"
+
+[[pin]]
+number = "5"
+name = "V-"
+type = "power_in"
+
+[symbol]
+reference = "U"
+pin_names_hidden = true
+pins = [
+  { number = "1", at = ["7.62mm", "0mm"], rotation = "180deg", length = "2.54mm" },
+  { number = "2", at = ["-7.62mm", "2.54mm"], length = "3.81mm" },
+  { number = "3", at = ["-7.62mm", "-2.54mm"], length = "3.81mm" },
+  { number = "4", at = ["0mm", "7.62mm"], rotation = "270deg", length = "5.08mm" },
+  { number = "5", at = ["0mm", "-7.62mm"], rotation = "90deg", length = "5.08mm" },
+]
+
+[[symbol.graphic]]
+kind = "polygon"
+points = [["-3.81mm", "-5.08mm"], ["-3.81mm", "5.08mm"], ["3.81mm", "0mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["3.81mm", "0mm"], ["5.08mm", "0mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-2.94mm", "2.54mm"], ["-2.14mm", "2.54mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-2.54mm", "2.14mm"], ["-2.54mm", "2.94mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-2.94mm", "-2.54mm"], ["-2.14mm", "-2.54mm"]]

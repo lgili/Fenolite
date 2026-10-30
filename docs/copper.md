@@ -420,8 +420,10 @@ Six calls of a design script (change c0224; module `fenolite.dsl.generate`, reso
 hand. Each records plain data (`fenolite.dsl.generated`); the KiCad build resolves the records after the
 script copper and the meanders, so they see every pad and script track, and writes ordinary items: a
 locked zone or a rule area named `<call>.<name>` (with a suffix per piece), and tracks and vias with
-copper uuids of the key `<call>.<name>`. A rebuild replaces them and nothing else. The Altium target
-refuses them (`kicad.generate.altium`).
+copper uuids of the key `<call>.<name>`. A rebuild replaces them and nothing else. On the Altium target
+(change c0243) the same records are resolved by the KiCad build of the script, run in memory, and reach the
+PCB document as polygons poured by Fenolite, keep-outs, vias and tracks; with `--copper-from` the board is
+the copper source, so the records would be lost and the build is refused (`kicad.generate.altium`).
 
 | call | what the build writes |
 |---|---|
@@ -462,7 +464,7 @@ copper"), which is why a band is one zone.
 | `kicad.copper.regenerated` | info | script copper differs from its regenerated copy and is replaced |
 | `kicad.copper.duplicate` | info | an item equal to script copper is removed |
 | `kicad.copper.stitch-skipped` | info | stitch candidates are dropped for clearance, a rule area that forbids vias or the board edge (with the count) |
-| `kicad.generate.altium` | error | the Altium target holds generated-copper calls; nothing is written |
+| `kicad.generate.altium` | error | an Altium build with `--copper-from` holds generated-copper calls or `role_copper()`; nothing is written |
 | `kicad.generate.unknown` | error | a call names a net, part or class the design lacks, or a class without copper |
 | `kicad.generate.off-board` | error | a point of a band's spine lies off the board |
 | `kicad.generate.no-hole` | error | `keepout_ring` names a part without a hole |

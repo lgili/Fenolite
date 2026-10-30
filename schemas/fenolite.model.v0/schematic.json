@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "fenolite.schematic.v0",
   "title": "SchematicSheet",
-  "description": "One schematic file: embedded symbols, placed symbols, labels, flags, the wires of a created sheet",
+  "description": "One schematic file: embedded symbols, placed symbols, labels, flags, the wires, junctions and buses of",
   "type": "object",
   "properties": {
     "id": {
@@ -88,6 +88,30 @@
       "items": {
         "$ref": "#/$defs/SheetPage"
       }
+    },
+    "junctions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Junction"
+      }
+    },
+    "buses": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BusWire"
+      }
+    },
+    "bus_entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BusEntry"
+      }
+    },
+    "bus_aliases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BusAlias"
+      }
     }
   },
   "additionalProperties": false,
@@ -96,6 +120,140 @@
     "name"
   ],
   "$defs": {
+    "BusAlias": {
+      "description": "A bus alias of a created sheet: a name that stands for its member names (change c0276).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "BusEntry": {
+      "description": "A bus entry of a created sheet, from ``position`` to ``position + size`` (change c0276).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "size": {
+          "$ref": "#/$defs/Point"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "position",
+        "size"
+      ]
+    },
+    "BusWire": {
+      "description": "A straight bus segment of a created sheet, from ``start`` to ``end``, never a point (change c0276).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "start": {
+          "$ref": "#/$defs/Point"
+        },
+        "end": {
+          "$ref": "#/$defs/Point"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "start",
+        "end"
+      ]
+    },
     "Evidence": {
       "description": "A level plus the oracle that produced it and the hypotheses it depends on.",
       "type": "object",
@@ -162,6 +320,49 @@
         }
       },
       "additionalProperties": false
+    },
+    "Junction": {
+      "description": "A junction dot of a created sheet; ``diameter`` 0 is the default size of the target (change c0276).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "diameter": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "position"
+      ]
     },
     "NetLabel": {
       "description": "A net label. ``kind`` has no default, so it is always written; ``shape`` is ``\"\"`` when local.",
@@ -429,8 +630,65 @@
         "page"
       ]
     },
+    "SheetPin": {
+      "description": "A pin of a sheet reference: its name, its shape, its connection point on the box edge and its angle",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "shape": {
+          "enum": [
+            "input",
+            "output",
+            "bidirectional",
+            "tri_state",
+            "passive"
+          ]
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "rotation": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "shape",
+        "position"
+      ]
+    },
     "SheetRef": {
-      "description": "A reference to a sub-sheet: its name, the file as written, its box and its uses.",
+      "description": "A reference to a sub-sheet: its name, the file as written, its box, its uses and the pins of a",
       "type": "object",
       "properties": {
         "id": {
@@ -475,6 +733,12 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/SheetUse"
+          }
+        },
+        "pins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SheetPin"
           }
         }
       },
@@ -628,7 +892,7 @@
       ]
     },
     "SymbolGraphic": {
-      "description": "A vector primitive in symbol-local coordinates (nanometres).",
+      "description": "A vector primitive in symbol-local coordinates (nanometres). ``unit`` and ``body_style`` say which",
       "type": "object",
       "properties": {
         "kind": {
@@ -650,6 +914,12 @@
         },
         "filled": {
           "type": "boolean"
+        },
+        "unit": {
+          "type": "integer"
+        },
+        "body_style": {
+          "type": "integer"
         }
       },
       "additionalProperties": false,

@@ -1,0 +1,65 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:SW_Tact_Wurth_430186043716"
+version = "1.0.0"
+summary = "Wurth 6 mm THT tact switch, terminals 1-3 and 2-4 internally common"
+category = "Switch land"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0418"]
+generator = "explicit"
+kind = "through_hole"
+
+[[pad]]
+number = "1"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.25mm", "2.25mm"]
+kind = "thru_hole"
+drill = "1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "2"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.25mm", "-2.25mm"]
+kind = "thru_hole"
+drill = "1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "3"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.25mm", "2.25mm"]
+kind = "thru_hole"
+drill = "1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "4"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.25mm", "-2.25mm"]
+kind = "thru_hole"
+drill = "1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-3.2mm", "-3.2mm"], ["3.2mm", "3.2mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-4.65mm", "-3.7mm"], ["4.65mm", "3.7mm"]]
+width = "0.05mm"
+
+[[graphic]]
+key = "actuator"
+kind = "circle"
+layer = "F.Fab"
+points = [["0mm", "0mm"], ["1.75mm", "0mm"]]
+width = "0.1mm"

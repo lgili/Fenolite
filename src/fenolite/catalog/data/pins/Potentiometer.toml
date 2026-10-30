@@ -1,0 +1,73 @@
+schema = "fenolite.pins.v0"
+id = "Fenolite:Potentiometer"
+version = "1.0.0"
+summary = "Conceptual adjustable resistance A/W/B; not a device pinout"
+category = "Passive"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0432"]
+
+[[pin]]
+number = "1"
+name = "A"
+type = "passive"
+
+[[pin]]
+number = "2"
+name = "W"
+type = "passive"
+
+[[pin]]
+number = "3"
+name = "B"
+type = "passive"
+
+[symbol]
+reference = "RV"
+pin_names_hidden = true
+pins = [
+  { number = "1", at = ["-5.08mm", "0mm"], length = "2.54mm" },
+  { number = "2", at = ["0.635mm", "5.08mm"], rotation = "270deg", length = "2.54mm" },
+  { number = "3", at = ["5.08mm", "0mm"], rotation = "180deg", length = "2.54mm" },
+]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-2.54mm", "0mm"], ["-1.905mm", "1.05mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.905mm", "1.05mm"], ["-1.27mm", "-1.05mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.27mm", "-1.05mm"], ["-0.635mm", "1.05mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.635mm", "1.05mm"], ["0mm", "-1.05mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0mm", "-1.05mm"], ["0.635mm", "1.05mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.635mm", "1.05mm"], ["1.27mm", "-1.05mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.27mm", "-1.05mm"], ["1.905mm", "1.05mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.905mm", "1.05mm"], ["2.54mm", "0mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.635mm", "2.54mm"], ["0.635mm", "1.05mm"]]
+
+[[symbol.graphic]]
+kind = "polygon"
+points = [["0.635mm", "1.05mm"], ["0.935mm", "1.7mm"], ["0.335mm", "1.7mm"]]
+filled = true

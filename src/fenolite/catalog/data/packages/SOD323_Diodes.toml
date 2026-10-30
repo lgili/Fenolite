@@ -1,0 +1,43 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:SOD323_Diodes"
+version = "1.0.0"
+summary = "Diodes SOD323 suggested land"
+category = "Diode package"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0444"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["0.59mm", "0.45mm"]
+at = ["-1.055mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["0.59mm", "0.45mm"]
+at = ["1.055mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-0.85mm", "-0.65mm"], ["0.85mm", "0.65mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-1.85mm", "-1.15mm"], ["1.85mm", "1.15mm"]]
+width = "0.05mm"
+
+[[graphic]]
+key = "cathode"
+kind = "line"
+layer = "F.Fab"
+points = [["0.65mm", "-0.5mm"], ["0.65mm", "0.5mm"]]
+width = "0.1mm"

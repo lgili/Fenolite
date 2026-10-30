@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast, get_args
 
 from fenolite.core.coords import Point
+from fenolite.core.partquery import Constraint
 from fenolite.core.units import Nm
 from fenolite.dsl import items as itemlib
 from fenolite.dsl.errors import DslError
@@ -28,13 +29,19 @@ from fenolite.dsl.units import Length, as_nm, as_nm2, as_udeg
 from fenolite.model.board import IslandRemoval, ViaProtection, ZoneConnection, ZoneSettings
 from fenolite.model.design import presentation_issues
 from fenolite.model.findings import Waiver
+from fenolite.model.library import DeviceDef
 from fenolite.model.pairs import PAIR_ROLES
 from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, TitleBlock
 from fenolite.model.rules import HeightLimit, PlacementSeverity, RuleKind, RuleSeverity, Selector
 
 if TYPE_CHECKING:
+    from fenolite.dsl.block import BlockDef, BlockInstance
+    from fenolite.dsl.devices import DeviceSource, PartEntry
     from fenolite.dsl.generate import Recorded as Generated
     from fenolite.dsl.intents import MeanderIntent, Recorded
+    from fenolite.dsl.interfaces import Ground, Rail
+    from fenolite.dsl.relative import BoardRef, Strategy
+    from fenolite.dsl.rolecopper import RoleCopperIntent
 
 DESIGN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 """A design name becomes the stem of the KiCad files."""
@@ -623,11 +630,24 @@ class Design(Container):
         self.outline_locked = False
         """``board(locked=True)``: the script's outline replaces one edited in KiCad on a rebuild."""
         self.parts: dict[str, Part] = {}
+        self.device_records: dict[str, DeviceDef] = {}
+        """The devices of ``devices()`` by id: they win over project and shipped devices (change c0248)."""
+        self.device_parts: dict[str, tuple[PartEntry, ...]] = {}
+        """The orderable parts of the devices of ``devices()`` by device id (change c0259)."""
+        self.query_defaults: dict[str, dict[str, Constraint | None]] = {}
+        """``defaults()``: per query kind, the constraint keys every query of the design starts from
+        (change c0254); a ``None`` value removes the key."""
         self.footprints: dict[str, Footprint] = {}
         self.symbols: dict[str, object] = {}
         self.modules: dict[str, Module] = {}
         self.nets: dict[str, Net] = {}
         self.interfaces: dict[str, Interface] = {}
+        self.block_defs: dict[str, object] = {}
+        self.top_strategy: Strategy | None = None
+        """The strategy of ``layout()`` at the top level (change c0255), or ``None``."""
+        """The block definitions used by ``use()``, by block name (change c0251)."""
+        self.port_net_names: set[str] = set()
+        """The net names that ``portnets.resolve`` registered for groups of port nets."""
         self.aliases: dict[str, str] = {}
         """``moved()`` aliases: new path → old path, of a part or of a module."""
         self.net_aliases: dict[str, str] = {}
@@ -638,6 +658,9 @@ class Design(Container):
         """The drawing sheet of ``sheet()``, as the script names it: a path relative to its folder."""
         self.block: TitleBlock | None = None
         """The title block of ``title_block()``."""
+        self.drawn_source: str | None = None
+        """The drawn schematic of ``load_schematic()``, as the script names it: a path relative to its
+        folder (change c0276)."""
         self.copper_intents: dict[str, Recorded] = {}
         """Copper intents by key, as recorded by ``track()``, ``via()`` and ``stitch()``."""
         self.meander_intents: dict[str, MeanderIntent] = {}
@@ -645,8 +668,10 @@ class Design(Container):
         self.generated: dict[str, Generated] = {}
         """Generated-copper records by key ``<call>.<name>``, as recorded by ``band()``, ``keepout_ring()``,
         ``barrier()``, ``body_keepout()``, ``fanout_zone()`` and ``stitch_pieces()``."""
+        self.role_copper_intent: RoleCopperIntent | None = None
+        """The record of ``role_copper()`` (change c0243), or ``None``."""
         self.zones: dict[str, ZoneSpec] = {}
-        """Copper zones by name, as declared by ``zone()``."""
+        """Copper zones by key (the name unless ``key=`` is given), as declared by ``zone()``."""
         self.stack: StackupSpec | None = None
         """The stack-up of ``stackup()``."""
         self.via_default: tuple[ViaProtection, bool] | None = None
@@ -654,7 +679,8 @@ class Design(Container):
         self.waivers: dict[str, Waiver] = {}
         """Waivers by name, as declared by ``waive()``."""
         self.rule_areas: dict[str, itemlib.RuleArea] = {}
-        """Rule areas by name, as declared by ``rule_area()``, in call order."""
+        """Rule areas by key (the name unless ``key=`` is given), as declared by ``rule_area()``, in call
+        order."""
         self.drawings: dict[str, itemlib.Drawing] = {}
         """Board drawings by key, as declared by ``text()``, ``line()``, ``rect()``, ``circle()``, ``arc()``,
         ``polygon()`` and ``dimension()``, in call order."""
@@ -666,6 +692,70 @@ class Design(Container):
 
         self.role_records = RoleRecords()
         """The net roles, role groups, limits and part classes of the role calls (change c0222)."""
+        from fenolite.dsl.contracts import ContractRecords
+
+        self.contract_records = ContractRecords()
+        """The derating rules, operating range, strictness, expectations and rig of the contract calls
+        (change c0253)."""
+
+    @property
+    def board_ref(self) -> BoardRef:
+        """The board as a placement reference: its edges are those of the outline's box (change c0255)."""
+        from fenolite.dsl.relative import BoardRef
+
+        return BoardRef(self)
+
+    def layout(self, strategy: object) -> None:
+        """The layout strategy of the top level (``row()``, ``column()``, ``grid()`` or ``pack()``): it
+        places the parts and the block instances of the top that nothing else places (``docs/dsl.md``,
+        "Block layout")."""
+        from fenolite.dsl.relative import Strategy, set_layout
+
+        chosen = set_layout(
+            self.top_strategy, strategy, None, False, what="design.layout()", root=None, allow_reuse=False
+        )
+        assert isinstance(chosen, Strategy)
+        self.top_strategy = chosen
+
+    def use(self, block: BlockDef, name: str, **params: object) -> BlockInstance:
+        """An instance of the block ``block`` named ``name``, with the keyword parameters ``params``: the
+        block is added to the design and its function runs once (``docs/dsl.md``, "Blocks")."""
+        from fenolite.dsl.block import instantiate
+
+        return instantiate(self, block, name, params)
+
+    def rail(self, name: str, *, voltage: object = None, ground: object = None, shared: bool = False) -> Rail:
+        """Create the net ``name`` and the ``Rail`` on it, add both and return the rail (change c0252).
+        ``ground`` (a ``Ground`` or a ``Net``) gives the member ``lv``; ``voltage`` is the declared range."""
+        from fenolite.dsl.interfaces import Ground, Rail
+
+        net = self._fresh_net(name, "rail()")
+        lv: Net | None
+        if ground is None or isinstance(ground, Net):
+            lv = ground
+        elif isinstance(ground, Ground):
+            lv = ground.members["gnd"]
+        else:
+            raise DslError(f"rail({name!r}): ground is a Ground or a Net, not {ground!r}")
+        made = Rail(net, lv, voltage=voltage, shared=shared)  # type: ignore[arg-type]
+        self.add(net, made)
+        return made
+
+    def ground(self, name: str) -> Ground:
+        """Create the net ``name`` and the ``Ground`` on it, add both and return the ground (change c0252)."""
+        from fenolite.dsl.interfaces import Ground
+
+        net = self._fresh_net(name, "ground()")
+        made = Ground(net)
+        self.add(net, made)
+        return made
+
+    def _fresh_net(self, name: object, call: str) -> Net:
+        if not isinstance(name, str):
+            raise DslError(f"{call}: a net name is a str, not {name!r}")
+        if name in self.nets:
+            raise DslError(f"{call}: the design already has a net named {name!r}")
+        return Net(name)
 
     def schematic_layout(self, *, mode: str = "blocks", flow: str = "left-to-right") -> None:
         """Enable presentation-only functional block composition (Altium)."""
@@ -750,6 +840,29 @@ class Design(Container):
             name=label, code=code, items=tuple(names), reason=reason.strip(), min_gap=gap
         )
 
+    def devices(self, *records: DeviceSource) -> None:
+        """Register device records for this design (``fenolite.catalog.devices.parse_device``,
+        ``load_devices``, or a ``fenolite.device.v1`` record of ``fenolite.catalog.records.parse_record`` with
+        its orderable parts); ``part(ref, device=id)`` resolves an id, or ``<id>@<mpn>``, against them before
+        the project devices and the shipped ones (``docs/devices.md``, "Where devices come from")."""
+        from fenolite.dsl.devices import check_records
+
+        for device, parts in check_records(records):
+            known = self.device_records.get(device.id)
+            if known is not None and (known != device or self.device_parts.get(device.id, ()) != parts):
+                raise DslError(f"devices(): device {device.id!r} is registered twice with different records")
+            self.device_records[device.id] = device
+            self.device_parts[device.id] = parts
+
+    def defaults(self, **kinds: object) -> None:
+        """The design-level defaults of part queries: per kind (``resistor``, ``capacitor``, ``inductor``) a
+        mapping of its constraint keys, such as ``defaults(resistor={"case": "0603", "tolerance": pct(1)})``.
+        A block's ``b.defaults`` and the call's keywords win over them in turn; ``None`` removes a key
+        (``docs/picking.md``, "Defaults")."""
+        from fenolite.dsl.query import set_defaults
+
+        set_defaults(self.query_defaults, kinds, "defaults()")
+
     def add_footprint(self, footprint: Footprint) -> None:
         """Register a project-authored library footprint for backend builds (not model persistence)."""
         if not isinstance(footprint, Footprint):  # type: ignore[reportUnnecessaryIsInstance]
@@ -760,13 +873,18 @@ class Design(Container):
 
     def add(self, *objs: object) -> None:
         """Attach authored symbols explicitly, or attach ordinary design objects as usual."""
-        from fenolite.dsl.symbol import Symbol
+        from fenolite.dsl.symbol import DerivedSymbol, Symbol
 
         regular: list[object] = []
         for obj in objs:
-            if isinstance(obj, Symbol):
+            if isinstance(obj, (Symbol, DerivedSymbol)):
                 if obj.lib_id in self.symbols:
                     raise DslError(f"symbol {obj.lib_id!r} is registered twice")
+                if isinstance(obj, DerivedSymbol) and self.symbols.get(obj.base.lib_id) is not obj.base:
+                    raise DslError(
+                        f"symbol {obj.lib_id!r} extends {obj.base.lib_id!r}: add the base symbol to the "
+                        "design first (KiCad resolves a derived symbol within its library)"
+                    )
                 self.symbols[obj.lib_id] = obj
             else:
                 regular.append(obj)
@@ -777,6 +895,9 @@ class Design(Container):
     def design(self) -> Design:
         return self
 
+    def describe(self) -> str:
+        return f"design {self.name}"
+
     def board(
         self,
         width: object = None,
@@ -786,7 +907,7 @@ class Design(Container):
         *,
         outline: object = None,
         locked: bool = False,
-    ) -> None:
+    ) -> BoardRef:
         """The board: a rectangle of ``width`` × ``height``, or the closed path ``outline`` (pairs of
         lengths and ``arc_to`` steps in the frame of ``place()``; ``fenolite.dsl.shape`` gives ``rect``,
         ``circle`` and ``slot``), with 2, 4, 6 or 8 copper layers. Exactly one form is given. An inner
@@ -794,7 +915,8 @@ class Design(Container):
         internal plane on that net (a ``Net`` or a net name). A plane holds one net; it is a build
         parameter, as ``copper`` is, and what a target does with it is its build's rule (``docs/dsl.md``).
         ``locked=True`` makes the script's outline replace an outline edited in KiCad when the board is
-        rebuilt (``docs/lens.md``, "Outline changes")."""
+        rebuilt (``docs/lens.md``, "Outline changes"). It returns the board as a placement reference
+        (``BoardRef``, change c0255): ``j1.place(left=board.left + mm(2), ...)``."""
         if self.outline_path is not None:
             raise DslError("board() is called once")
         if isinstance(copper, bool) or not isinstance(copper, int) or copper not in COPPER_COUNTS:  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -828,6 +950,7 @@ class Design(Container):
         self.outline_locked = locked
         self.copper = copper
         self.planes = declared
+        return self.board_ref
 
     def hole(
         self,
@@ -1231,6 +1354,22 @@ class Design(Container):
                 f"sheet(): drawing_sheet {path!r} must be a path inside the folder of the design script"
             )
 
+    def load_schematic(self, path: str) -> None:
+        """Draw the schematic from ``path``, a ``schematic.toml`` beside the script (schema
+        ``fenolite.drawn-schematic.v0``, ``docs/drawn-schematic.md``) instead of generating it. The file is
+        read by ``fenolite build``, which proves that the drawing means the nets of the script; the script
+        stays the only source of connectivity (change c0276)."""
+        if self.drawn_source is not None:
+            raise DslError(f"load_schematic() is called once; the design already loads {self.drawn_source!r}")
+        if not isinstance(path, str) or not path.endswith(".toml"):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"load_schematic(): {path!r} is not a .toml drawn schematic file")
+        parts = path.replace("\\", "/").split("/")
+        if path.startswith(("/", "\\")) or ":" in parts[0] or ".." in parts or "" in parts or "." in parts:
+            raise DslError(
+                f"load_schematic(): {path!r} must be a path inside the folder of the design script"
+            )
+        self.drawn_source = path
+
     def title_block(
         self,
         *,
@@ -1310,29 +1449,38 @@ class Design(Container):
         islands: str | None = None,
         min_island_area: str | None = None,
         locked: bool = False,
+        key: str | None = None,
     ) -> None:
         """One copper zone (pour) on ``layers`` for ``net`` (``None`` for a zone without a net).
 
         The name defaults to the net's name and names the zone across builds. The outline is the board
         rectangle unless ``outline`` gives at least three ``(x, y)`` points in the frame of ``place()``. A
         setting left at ``None`` takes KiCad's new-zone value (``docs/dsl.md``, "Zones"). ``locked=True``
-        makes the script win over an edit of the zone in KiCad, and locks the zone there.
+        makes the script win over an edit of the zone in KiCad, and locks the zone there. ``key`` (change
+        c0275) is the zone's identity across builds, written nowhere in the board; with a key and no name
+        the zone has no name.
         """
         if self.outline_path is None:
             raise DslError("zone(): call board() first")
         if net is not None and not isinstance(net, Net):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"zone(): net must be a Net or None, not {net!r}")
-        if name is None:
+        if key is not None and (not isinstance(key, str) or not itemlib.AREA_KEY.fullmatch(key)):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"zone(): key {key!r} must match {itemlib.AREA_KEY.pattern}")
+        if name is None and key is None:
             if net is None:
                 raise DslError("zone(): a zone without a net needs a name")
             name = net.name
-        if not isinstance(name, str) or not name or name != name.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
+        if name is not None and (not isinstance(name, str) or not name or name != name.strip()):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(
                 f"zone(): name must be a non-empty string without surrounding spaces, not {name!r}"
             )
-        if name in self.zones:
+        if name is not None and any(spec.name == name for spec in self.zones.values()):
             raise DslError(f"zone(): the name {name!r} is already used; pass another name=")
-        what = f"zone {name}"
+        identity = key if key is not None else cast(str, name)
+        if identity in self.zones:
+            raise DslError(f"zone(): the key {identity!r} is already used; pass another key=")
+        name = name if name is not None else ""
+        what = f"zone {identity}"
         found_layers = self._zone_layers(layers, what)
         points = self._zone_outline(outline, what)
         if isinstance(priority, bool) or not isinstance(priority, int) or priority < 0:  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -1371,7 +1519,7 @@ class Design(Container):
             changes["min_island_area"] = as_nm2(min_island_area, name=f"{what}: min_island_area")
         if net is not None:
             self.register_net(net)
-        self.zones[name] = ZoneSpec(
+        self.zones[identity] = ZoneSpec(
             name,
             net.name if net is not None else None,
             found_layers,
@@ -1431,6 +1579,7 @@ class Design(Container):
         *,
         layers: Sequence[str] | None = None,
         forbid: Sequence[str] = (),
+        key: str | None = None,
     ) -> itemlib.RuleArea:
         """One rule area named ``name``: a polygon of at least three ``(x, y)`` points in the frame of
         ``place()``, on ``layers`` (every copper layer of the board when ``None``).
@@ -1438,14 +1587,17 @@ class Design(Container):
         ``forbid`` takes ``tracks``, ``vias``, ``pads``, ``pours`` and ``footprints``: the area is then a
         keep-out for them (``footprints``: no part may be placed there, change c0113).
         With an empty ``forbid`` it is a named area that only rules select (``select.area``). This is the
-        one call for rule areas and keep-outs. Names differ in more than letter case.
+        one call for rule areas and keep-outs. Names differ in more than letter case. ``key`` (change
+        c0275) is the area's identity across builds, written nowhere in the board; with a key the name may
+        be ``""``, an area that no ``select.area`` matches.
         """
         if self.outline_path is None:
             raise DslError("rule_area(): call board() first")
         area = itemlib.rule_area(
-            name, outline, layers, forbid, copper=self.copper_layers, taken=tuple(self.rule_areas)
-        )
-        self.rule_areas[area.name] = area
+            name, outline, layers, forbid, copper=self.copper_layers, key=key, keys=tuple(self.rule_areas),
+            taken=tuple(a.name for a in self.rule_areas.values() if a.name),
+        )  # fmt: skip
+        self.rule_areas[area.key] = area
         return area
 
     def _drawing(self, call: str, key: object) -> str:
@@ -1627,6 +1779,49 @@ class Design(Container):
         from fenolite.dsl import intents
 
         intents.record_via(self, key, x, y, net, diameter, drill, kind, layers, locked, protection)
+
+    def track_table(
+        self, key: str, *, net: Net, layer: str, width: object, rows_nm: object, locked: bool = False
+    ) -> None:
+        """Many straight tracks of ``net`` on ``layer``, ``width`` wide: each row of ``rows_nm`` is
+        ``(x1, y1, x2, y2)`` in integer nanometres in the frame of ``place()`` (change c0275). Row ``i``
+        keeps the copper uuid of item ``seg[i]`` of ``key`` across builds."""
+        from fenolite.dsl import intents
+
+        intents.record_table(
+            self, "track", key, net=net, rows=rows_nm, layer=layer, width=width, locked=locked
+        )
+
+    def arc_table(
+        self, key: str, *, net: Net, layer: str, width: object, rows_nm: object, locked: bool = False
+    ) -> None:
+        """Many arcs of ``net`` on ``layer``: each row is ``(sx, sy, mx, my, ex, ey)`` in integer nanometres
+        in the frame of ``place()``, the start, a point on the arc and the end."""
+        from fenolite.dsl import intents
+
+        intents.record_table(self, "arc", key, net=net, rows=rows_nm, layer=layer, width=width, locked=locked)
+
+    def via_table(
+        self,
+        key: str,
+        *,
+        net: Net,
+        diameter: object,
+        drill: object,
+        rows_nm: object,
+        kind: str = "through",
+        layers: object = None,
+        locked: bool = False,
+        protection: object = None,
+    ) -> None:
+        """Many vias of ``net`` with one size, kind, span and protection: each row is ``(x, y)`` in integer
+        nanometres in the frame of ``place()``."""
+        from fenolite.dsl import intents
+
+        intents.record_table(
+            self, "via", key, net=net, rows=rows_nm, diameter=diameter, drill=drill, kind=kind, layers=layers,
+            locked=locked, protection=protection,
+        )  # fmt: skip
 
     def meander(
         self,
@@ -1940,6 +2135,40 @@ class Design(Container):
 
         roles.role_limits(self, net, kind, limits)
 
+    def role_copper(
+        self,
+        *,
+        kinds: Sequence[str] = ("power", "switch_node", "ground", "high_voltage"),
+        layers: Mapping[str, Sequence[str]] | None = None,
+        ground_layers: Sequence[str] | None = None,
+        ground_fill: str = "reference",
+        connection: Mapping[str, str] | None = None,
+        stitch_pitch: object = None,
+        temp_rise: object = None,
+        widen: int | None = None,
+        corridors: bool = True,
+        keep: Sequence[str] = (),
+        regenerate: Sequence[str] = (),
+        requirements: str | None = None,
+    ) -> None:
+        """Generate the copper of the confirmed and declared roles after placement (change c0243;
+        ``docs/roles.md``, "Role copper"): a zone per ``power`` and ``switch_node`` net and layer sized by its
+        current, a plane per ``ground`` layer with stitching, via arrays at layer changes, and a clearance
+        rule with a keep-out band around each ``high_voltage`` net at the distance of ``requirements`` (a
+        requirements file beside the script). ``layers`` and ``connection`` override the layers and the pad
+        connection of a kind, ``ground_layers`` the ground planes (``B.Cu`` on 2 layers, ``In1.Cu`` on 4),
+        ``ground_fill="all"`` also pours the free outer area, ``stitch_pitch`` the ground stitching (5 mm),
+        ``temp_rise`` (kelvin) sizes by the fit of S-0269, ``widen`` (per mille) how far power copper widens,
+        ``corridors=False`` writes no corridor of the critical routes, and ``keep`` and ``regenerate`` name
+        role items to keep or to force back. A second call raises ``DslError``."""
+        from fenolite.dsl import rolecopper
+
+        rolecopper.record_role_copper(
+            self, kinds=kinds, layers=layers, ground_layers=ground_layers, ground_fill=ground_fill,
+            connection=connection, stitch_pitch=stitch_pitch, temp_rise=temp_rise, widen=widen,
+            corridors=corridors, keep=keep, regenerate=regenerate, requirements=requirements,
+        )  # fmt: skip
+
     def part_class(self, part: Part, cls: str, terminals: Mapping[str, object] | None = None) -> None:
         """State the class of ``part`` for the role inference (``transistor``, ``shunt``, ``driver`` and
         the others of ``docs/roles.md``), with its terminals as pin numbers, such as
@@ -1947,6 +2176,47 @@ class Design(Container):
         from fenolite.dsl import roles
 
         roles.part_class(self, part, cls, terminals)
+
+    # -- electrical contracts (change c0253; docs/contracts.md)
+
+    def derating(self, *, parts: object = None, source: str = "", **keys: object) -> None:
+        """Limit ``abs_max`` ratings to a share of the rating, by key of ``DERATING_KEYS``:
+        ``capacitor_voltage=ratio(50)`` is "at most 50 % of a capacitor's voltage rating", and
+        ``temperature_margin=kelvin(15)`` narrows a temperature rating at each end. ``parts`` (a part or
+        ``select.ref(<glob>)``) scopes the rule; ``source`` names where it comes from. Fenolite ships no
+        derating value: every rule is yours, and a rating no rule covers is judged at 100 %."""
+        from fenolite.dsl import contracts
+
+        contracts.derating(self, parts, source, keys)
+
+    def operating(self, *, ambient: object) -> None:
+        """State the design's ambient temperature range (a range in kelvin, such as
+        ``between(celsius(-20), celsius(70))``), judged against each device's temperature range."""
+        from fenolite.dsl import contracts
+
+        contracts.operating(self, ambient)
+
+    def contracts(self, *, unknown: str = "info") -> None:
+        """Make each contract row that cannot be judged a ``warning`` (``unknown="warning"``) instead of one
+        ``info`` count (``"info"``, the default)."""
+        from fenolite.dsl import contracts
+
+        contracts.contracts(self, unknown)
+
+    def expect(self, test: object, reason: str) -> None:
+        """Record an expectation, ``within(a, b)``, ``at_least(a, b)`` or ``at_most(a, b)`` over handles and
+        ranges, with its reason; the stage ``circuit.rules`` judges it on every check (pass, unsure or
+        fail). It stops nothing at script time."""
+        from fenolite.dsl import contracts
+
+        contracts.expect_on(self, test, reason)
+
+    def rig(self, *elements: object) -> None:
+        """State the test rig: ``supply(...)`` and ``sink(...)`` elements, the voltages and currents of the
+        outside world. They are records of the rules layer and reach no output."""
+        from fenolite.dsl import contracts
+
+        contracts.rig(self, elements)
 
     @staticmethod
     def _near_side(value: object, what: str) -> tuple[object, ...]:
@@ -1973,6 +2243,8 @@ class Design(Container):
     # -- registration (called by add(), connect() and netclass())
 
     def register_net(self, net: Net) -> None:
+        if net.deferred:
+            return  # a port net is registered under its group's name by to_model (portnets.resolve)
         known = self.nets.get(net.name)
         if known is not None and known is not net:
             raise DslError(f"two distinct nets are named {net.name!r}")
@@ -1986,6 +2258,8 @@ class Design(Container):
         for net in interface.members.values():
             self.register_net(net)
         self.interfaces[interface.name] = interface
+        if isinstance(interface.reference, Interface):
+            self.register_interface(interface.reference)  # the rail a level refers to (change c0252)
 
     def register_tree(self, obj: Part | Module) -> None:
         if isinstance(obj, Part):

@@ -412,17 +412,23 @@ A port may state what must be connected for it to work. The vocabulary is closed
 1. **Should `circuit.*` errors block `build --confirm` in 0.7?** Recommended: yes, with c0274's waivers. This is
    consistent with the other build errors, and the checks fire only on values the user or a device record
    stated.
+   Decided 2026-10-29: yes. An error stops the write of `build` (KiCad and Altium targets); c0274's waivers
+   will accept one.
 2. **Should `Power` print a deprecation hint?** Recommended: no. It stays a silent alias, and the docs
    teach `Rail`.
+   Decided 2026-10-29: no. `Power` stays a silent alias of `Rail`; the docs teach `Rail`.
 3. **Should the I2C pull-up range be derived from a public method** (the bus specification's formulas for
    the minimum and maximum pull-up, given the low-level current, rise time and bus capacitance)?
    Recommended: later, in c0258, with the source registered under `docs/evidence/` and its values as user
    inputs. Here the range is the user's or the device's.
+   Decided 2026-10-29: later, in c0258. Here the range is the user's or the device's.
 4. **Should `logic` ports also exist on single pins without a device record** (`part.logic("PA3",
    reference=v33)`)? Recommended: yes, as a small follow-up, once c0248's records cover the reference
    boards' parts.
+   Decided 2026-10-29: yes, as a follow-up change; not in this change.
 5. **Should a bus speed parameter be added now?** Recommended: no. Speed belongs with topologies and
    constraints (c0258).
+   Decided 2026-10-29: no. Speed belongs with topologies and constraints (c0258).
 
 ## Relation to the other changes of this batch
 

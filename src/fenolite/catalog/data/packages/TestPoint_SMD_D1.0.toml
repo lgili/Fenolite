@@ -1,0 +1,31 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:TestPoint_SMD_D1.0"
+version = "1.0.0"
+summary = "Generic 1 mm circular exposed test pad without solder paste"
+category = "Test access"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0421"]
+generator = "explicit"
+kind = "smd"
+flags = ["exclude_from_bom", "exclude_from_pos_files"]
+
+[[pad]]
+number = "1"
+shape = "circle"
+size = ["1mm", "1mm"]
+at = ["0mm", "0mm"]
+layers = ["F.Cu", "F.Mask"]
+
+[[graphic]]
+key = "body-circle"
+kind = "circle"
+layer = "F.Fab"
+points = [["0mm", "0mm"], ["0.5mm", "0mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-1mm", "-1mm"], ["1mm", "1mm"]]
+width = "0.05mm"

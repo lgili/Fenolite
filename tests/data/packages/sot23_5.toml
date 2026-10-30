@@ -1,11 +1,11 @@
 # Authored for Fenolite (CC0-1.0). Numbers from the Texas Instruments DBV0005A package outline and example
-# board layout (drawing 4214839/K) in the SN74LVC1G04 data sheet (S-0858).
+# board layout (drawing 4214839/K) in the SN74LVC1G04 data sheet (S-0964).
 schema = "fenolite.package.v0"
 family = "gullwing"
 name = "SOT5_B2.9x1.6_P0.95"
 summary = "5-lead SOT-23, 0.95 mm pitch"
 evidence = "INFERRED"
-sources = ["S-0858"]
+sources = ["S-0964"]
 
 pins = 5
 pitch = "0.95mm"
@@ -29,6 +29,6 @@ lands = 1
 drawing = 1
 
 [land]
-source = "S-0858 DBV0005A example board layout"
+source = "S-0964 DBV0005A example board layout"
 pad = { length = "1.10mm", width = "0.60mm" }
 row_spacing = "2.60mm"

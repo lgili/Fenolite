@@ -49,3 +49,14 @@ tool_version = "0"
 frame = "absolute"
 tolerance_nm = 1
 tolerance_udeg = 0
+
+[[profile]]
+name = "import"
+tool = "fenolite"
+tool_version = "0"
+# fenolite import (change c0275): the emitted code is built and its board compared with the source at
+# levels 1 to 5. The build writes the source coordinates exactly (lengths in nm, the frame of place()):
+# no tolerance.
+frame = "absolute"
+tolerance_nm = 0
+tolerance_udeg = 0

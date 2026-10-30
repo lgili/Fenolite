@@ -385,6 +385,7 @@ def test_default_stages_leave_rt2_out(monkeypatch: pytest.MonkeyPatch, tmp_path:
     assert _only_the_fixture_short(code, env), env["issues"]
     assert [s["name"] for s in env["result"]["stages"]] == [
         "model.validate",
+        "circuit.rules",
         "erc.kicad",
         "copper.clearance",
         "length.rules",

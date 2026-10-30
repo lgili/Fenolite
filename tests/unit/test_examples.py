@@ -251,3 +251,183 @@ def test_yardstick_states_its_lengths_once() -> None:
         and any(isinstance(arg, ast.Constant) for arg in node.args)
     ]
     assert literal == []
+
+
+# ---- the design-lock example (capability design-dsl, "Design lock in a build"; change c0249)
+
+LOCK_EXAMPLE = ROOT / "examples" / "lock"
+
+
+def test_lock_example_header_and_listing() -> None:
+    lines = (LOCK_EXAMPLE / "design.py").read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith("# Authored for Fenolite")
+    assert "`lock/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+
+
+def test_lock_example_parts() -> None:
+    """Two modules with parts without a ref, one named part, one explicit ref, and the committed lock."""
+    from fenolite.dsl.lock import lock_text, read_lock
+
+    design = run_design_script(LOCK_EXAMPLE / "design.py").design
+    unnamed = sorted(p.path for p in design.parts.values() if p.explicit_ref is None and p.name is None)
+    assert unnamed == ["led/D", "led/R", "reg/C", "reg/U"]
+    assert [p.path for p in design.parts.values() if p.name is not None] == ["reg/c_in"]
+    assert [p.path for p in design.parts.values() if p.explicit_ref is not None] == ["J1"]
+    text = (LOCK_EXAMPLE / "design.lock").read_text(encoding="utf-8")
+    lock = read_lock(text, file="design.lock")
+    assert lock_text(lock) == text and set(lock.refs) == set(design.parts)
+    model = to_model(design, refs=lock.refs)
+    assert sorted(c.ref for c in model.circuit.components) == ["C1", "C2", "D1", "J1", "R1", "U1"]
+
+
+def test_lock_example_builds_frozen(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    args = ["build", str(LOCK_EXAMPLE / "design.py"), "--out", str(tmp_path / "B"), "--frozen", "--dry-run"]
+    assert cli_main.main([*args, "--json"]) == 0, err.getvalue()
+    assert json.loads(out.getvalue())["result"]["lock"]["changes"] == []
+
+
+# -- the device example (change c0248)
+
+DEVICES = ROOT / "examples" / "devices"
+
+
+def test_devices_header_and_listing() -> None:
+    for path in (DEVICES / "design.py", DEVICES / "devices" / "example_buck.toml"):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith(
+            "# Authored for Fenolite"
+        )
+    assert "`devices/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+
+
+def test_devices_parts_come_from_devices() -> None:
+    design = run_design_script(DEVICES / "design.py").design
+    placed = {path: part.device.id for path, part in design.parts.items() if part.device is not None}
+    assert placed["U1"] == "Example:BUCK_6V_2A" and design.parts["U1"].device_origin == "authored"
+    assert {placed[ref] for ref in ("R1", "R2", "R3")} == {"Fenolite:R_0603"}
+    assert placed["D1"] == "Fenolite:LED_0603" and design.parts["L1"].device is None
+    model = to_model(design)
+    u1 = next(c for c in model.circuit.components if c.ref == "U1")
+    assert u1.properties["MPN"] == "EXB6202" and u1.lib_footprint_ref == "Fenolite:SOT23_6_TI_DBV0006A"
+
+
+def test_devices_builds_without_a_subprocess(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise AssertionError(f"a build started a subprocess: {args}")
+
+    monkeypatch.setattr(subprocess, "run", refuse)
+    monkeypatch.setattr(subprocess, "Popen", refuse)
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    code = cli_main.main(
+        ["build", str(DEVICES / "design.py"), "--out", str(tmp_path / "d"), "--confirm", "--json"]
+    )
+    assert code == 0, err.getvalue()
+    envelope = json.loads(out.getvalue())
+    assert not [issue for issue in envelope["issues"] if issue["severity"] != "info"], envelope["issues"]
+    assert [row["id"] for row in envelope["result"]["devices"]][0] == "Example:BUCK_6V_2A"
+
+
+SYMBOLS = ROOT / "examples" / "symbols"
+
+
+def test_symbols_example_builds_both_tables(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Change c0261: the script generates both symbols and their variants, and the build writes them into
+    one library, base before variant, as ``write_symbol_library`` gives them."""
+    from fenolite.backends.kicad.sym import read_symbol_library, write_symbol_library
+    from fenolite.catalog.generate.symbol import generate_symbol
+    from fenolite.catalog.pins import read_pins
+
+    lines = (SYMBOLS / "design.py").read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith("# Authored for Fenolite")
+    assert "`symbols/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+    design = run_design_script(SYMBOLS / "design.py").design
+    assert sorted(design.symbols) == [
+        "Example:EXB6202",
+        "Example:EXB6202DR",
+        "Example:EXM120",
+        "Example:EXM120-T",
+    ]
+    expected: list[object] = []
+    for name, footprint in (("EXB6202", "Fenolite:SOIC_8"), ("EXM120", "")):
+        table = read_pins(SYMBOLS / "pins" / f"{name}.toml")
+        base, derived, _ = generate_symbol(table, library="Example", footprint=footprint)
+        expected += [base, *derived]
+        assert design.symbols[f"Example:{name}"].definition == base  # type: ignore[attr-defined]
+    monkeypatch.chdir(tmp_path)
+    code = cli_main.main([
+        "build", str(SYMBOLS / "design.py"), "--out", "out", "--kicad-version", "10", "--confirm", "--json"
+    ])  # fmt: skip
+    assert code == 0
+    text = (tmp_path / "out" / "lib" / "Example.kicad_sym").read_text(encoding="utf-8")
+    assert text == write_symbol_library(expected, target=10)  # type: ignore[arg-type]
+    units = {s.name: s.unit_count for s in read_symbol_library(text, library="Example") if not s.extends}
+    assert units == {"EXB6202": 1, "EXM120": 3}
+
+
+def test_import_python_is_a_fresh_import(tmp_path: Path) -> None:
+    """The authored import example is the code a fresh import writes (change c0275)."""
+    from _importexample import EXAMPLE, KEPT, fresh, unversioned
+
+    files = fresh(tmp_path)
+    committed = {
+        p.relative_to(EXAMPLE).as_posix(): p.read_bytes()
+        for p in EXAMPLE.rglob("*")
+        if p.is_file() and p.name not in KEPT
+    }
+    assert sorted(committed) == sorted(files)
+    for name, data in files.items():
+        assert unversioned(committed[name]) == unversioned(data), name
+    assert "`import_python/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+
+
+def test_import_python_builds(tmp_path: Path) -> None:
+    """The authored import example builds on its vendored library alone."""
+    from fenolite.api import run
+
+    folder = ROOT / "examples" / "import_python"
+    reply = run(
+        "build", str(folder / "design.py"), "--out", str(tmp_path / "built"), "--dry-run", cwd=tmp_path
+    )
+    assert reply.exit_code == 0, reply.error
+    assert set(reply.result["libraries"].values()) == {"project"}
+    lines = (folder / "design.py").read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[4].startswith("# Authored for Fenolite")
+
+
+# -- the parametric-pick example (change c0254)
+
+PICKS = ROOT / "examples" / "picks"
+
+
+def test_picks_header_and_listing() -> None:
+    for path in sorted(PICKS.rglob("*.py")) + sorted((PICKS / "devices").glob("*.toml")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith(
+            "# Authored for Fenolite"
+        ), path
+    assert "`picks/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+
+
+def test_picks_locks_round_trip() -> None:
+    from fenolite.dsl.lock import lock_text, read_lock
+
+    for name in ("design", "divider"):
+        text = (PICKS / f"{name}.lock").read_text(encoding="utf-8")
+        lock = read_lock(text, file=f"{name}.lock")
+        assert lock_text(lock) == text and lock.sections["picks"]
+
+
+@pytest.mark.parametrize("script", ["design.py", "divider.py"])
+def test_picks_build_frozen(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, script: str) -> None:
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    args = ["build", str(PICKS / script), "--out", str(tmp_path / "B"), "--frozen", "--dry-run", "--json"]
+    assert cli_main.main(args) == 0, err.getvalue()
+    envelope = json.loads(out.getvalue())
+    assert envelope["result"]["lock"]["changes"] == [] and envelope["result"]["generators"]

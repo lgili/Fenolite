@@ -1,0 +1,57 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:SC70_5"
+version = "1.0.0"
+summary = "Five-lead SC-70 package land"
+category = "Small-outline IC"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0323", "S-0335"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["0.95mm", "0.4mm"]
+at = ["-1.1mm", "0.65mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["0.95mm", "0.4mm"]
+at = ["-1.1mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "3"
+shape = "rect"
+size = ["0.95mm", "0.4mm"]
+at = ["-1.1mm", "-0.65mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "4"
+shape = "rect"
+size = ["0.95mm", "0.4mm"]
+at = ["1.1mm", "-0.65mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "5"
+shape = "rect"
+size = ["0.95mm", "0.4mm"]
+at = ["1.1mm", "0.65mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-0.625mm", "-1mm"], ["0.625mm", "1mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-2.075mm", "-1.5mm"], ["2.075mm", "1.5mm"]]
+width = "0.05mm"

@@ -45,8 +45,12 @@ EXAMPLE_READY = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/k
 EXAMPLE_SCRIPT = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/slots/design.py")
 """A committed design script: ``fenolite edit`` with its own text as the content plans nothing."""
 
+EXAMPLE_PICKS = str(Path(fenolite.__file__).resolve().parents[2] / "examples/picks")
+"""The parametric-pick example (change c0254) with its committed design lock: ``fenolite pick`` lists it."""
+
 __all__ = [
     "EXAMPLE_BOARD",
+    "EXAMPLE_PICKS",
     "EXAMPLE_SCRIPT",
     "EXAMPLE_PARITY",
     "EXAMPLE_READY",

@@ -48,7 +48,7 @@ Lengths and angles in records SHALL be text with a unit (`mm`, `um`, `nm`, `mil`
 - **THEN** `FEN-3004` is raised naming both files
 
 ### Requirement: Canonical record text and digests
-`record_text(record)` SHALL write canonical TOML: a fixed key order per kind, arrays in id or number order, LF and one final newline, so that `parse_record(record_text(r)) == r`. `record_digest` SHALL be the SHA-256 of the record's canonical JSON without `reviewed_by`; `output_digest` that of the definition it gives; `interface_digest` that of its interface.
+`record_text(record)` SHALL write canonical TOML: a fixed key order per kind, arrays in the order of the record (the order of a symbol's pins and of a footprint's pads is part of its definition), LF and one final newline, so that `parse_record(record_text(r)) == r`. `record_digest` SHALL be the SHA-256 of the record's canonical JSON without `reviewed_by`; `output_digest` that of the definition it gives; `interface_digest` that of its interface.
 
 #### Scenario: Round trip
 - **WHEN** every shipped record is written with `record_text` and parsed again
@@ -190,5 +190,5 @@ A part MUST NOT hold `symbol`, `footprint`, `pins`, `ground`, `unused_pads`, `en
 - **THEN** the project footprint is used and its origin is `authored`
 
 #### Scenario: Load time
-- **WHEN** `shipped_tree()` is first called in a fresh process on CI
-- **THEN** it returns within 150 ms
+- **WHEN** `shipped_tree()` is first called in a fresh process
+- **THEN** it returns within 2.5 times the time `tomllib` alone takes to read the same files, plus 50 ms (a budget that holds on any runner; about 150 ms on CI)

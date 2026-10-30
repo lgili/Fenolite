@@ -30,9 +30,10 @@ ALLOWED: dict[str, set[str]] = {
     "core": set(),
     "model": set(),
     "geometry": set(),
-    "dsl": {"model", "schematic"},
+    "dsl": {"model", "schematic", "catalog"},  # catalog: symbol prefixes (c0249) and devices (c0248)
     "schematic": set(),
     "catalog": {"model"},
+    "pick": {"model", "catalog"},  # c0254: queries, rows, the lock's picks, generators
     "lens": {"model", "backends*", "schematic"},
     "backends": {"model", "geometry", "backends*"},
     "backends.<x>": {"model", "geometry", "backends.base", "schematic"},
@@ -58,14 +59,14 @@ ALLOWED: dict[str, set[str]] = {
     "reuse": {"model", "geometry", "backends.base"},
     "silk": {"model", "geometry", "backends*"},
     "library": {"model", "geometry", "backends*"},
+    "importer": {"model", "geometry", "backends*", "checks", "library", "dsl"},  # board to code (c0275)
 }
-LAZY: dict[str, set[str]] = {"api": {"cli"}, "dsl": {"catalog"}}
+LAZY: dict[str, set[str]] = {"api": {"cli"}}
 """Edges allowed only inside a function body, so that importing the source does not import the target:
 ``fenolite.api.run`` imports the dispatcher of ``cli`` when it is called (capability package-layering,
 "Public API runs the commands lazily"; change c0206). ``cli`` imports ``api`` at the top, so a top-level
-edge back would be a cycle. ``Footprint.from_package`` imports the footprint generators of ``catalog`` when
-it is called (change c0260, "Generated footprints are imported lazily"); ``catalog`` never imports ``dsl``."""
-STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog", "schematic", "mcp"}
+edge back would be a cycle."""
+STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog", "schematic", "mcp", "pick"}
 EXTRA_LOADER = "geometry/boolean/_extra.py"
 PYPROJECT = SRC.parents[1] / "pyproject.toml"
 
@@ -254,6 +255,8 @@ def test_layering() -> None:
         ("agent", "model", False),
         ("dsl", "model", True),
         ("catalog", "model", True),
+        ("dsl", "catalog", True),
+        ("catalog", "dsl", False),
         ("lens", "backends.kicad", True),
         ("checks", "backends.kicad", False),
         ("analysis", "backends.kicad", False),
@@ -356,6 +359,19 @@ def test_roles_read_the_analyses_checks_do_not(tmp_path: Path, monkeypatch: pyte
     assert any("checks → roles is not allowed" in p for p in problems), problems
     assert any("checks → analysis is not allowed" in p for p in problems), problems
     assert any("roles → backends.kicad is not allowed" in p for p in problems), problems
+
+
+def test_dsl_reads_the_catalog_not_the_reverse(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Capability package-layering, "Allowed import edges", scenario "The DSL reads the catalog, not the
+    reverse" (change c0248): a device part is checked at the call that creates it."""
+    fake = _fake_tree(tmp_path, "dsl/devices.py", "import fenolite.catalog.devices\n")
+    (fake / "catalog").mkdir()
+    (fake / "catalog" / "devices.py").write_text("import fenolite.model.library\n", encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    assert _violations() == []
+    (fake / "catalog" / "devices.py").write_text("import fenolite.dsl\n", encoding="utf-8")
+    problems = _violations()
+    assert any("catalog → dsl is not allowed" in p for p in problems), problems
 
 
 def test_api_runs_the_commands_lazily(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -469,3 +485,22 @@ def test_geometry_imports_without_extras() -> None:
     )
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stderr
+
+
+def test_picks_read_the_catalog_not_the_dsl(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Capability package-layering, "Allowed import edges", scenario "Picks read the catalog, not the DSL"
+    (change c0254): ``pick`` imports ``catalog`` and ``model``, never ``dsl`` or a backend, and ``dsl``
+    never imports ``pick``."""
+    fake = _fake_tree(tmp_path, "pick/match.py", "import fenolite.catalog\nimport fenolite.model.library\n")
+    (fake / "dsl").mkdir()
+    (fake / "dsl" / "query.py").write_text("import fenolite.core.partquery\n", encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    assert _violations() == []
+    (fake / "pick" / "match.py").write_text(
+        "import fenolite.dsl\nimport fenolite.backends.kicad\n", encoding="utf-8"
+    )
+    (fake / "dsl" / "query.py").write_text("import fenolite.pick\n", encoding="utf-8")
+    problems = _violations()
+    assert any("pick → dsl is not allowed" in p for p in problems), problems
+    assert any("pick → backends.kicad is not allowed" in p for p in problems), problems
+    assert any("dsl → pick is not allowed" in p for p in problems), problems

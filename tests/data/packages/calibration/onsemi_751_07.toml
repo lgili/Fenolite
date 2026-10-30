@@ -1,9 +1,9 @@
-# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): onsemi SOIC-8 NB case outline 751-07 and soldering footprint (S-0855).
+# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): onsemi SOIC-8 NB case outline 751-07 and soldering footprint (S-0961).
 schema = "fenolite.package.v0"
 family = "gullwing"
 name = "SOIC8_onsemi_751_07"
 evidence = "INFERRED"
-sources = ["S-0855"]
+sources = ["S-0961"]
 
 pins = 8
 pitch = "1.27mm"
@@ -17,6 +17,6 @@ lands = 1
 drawing = 1
 
 [land]
-source = "S-0855 onsemi SOIC-8 NB case outline 751-07 and soldering footprint"
+source = "S-0961 onsemi SOIC-8 NB case outline 751-07 and soldering footprint"
 pad = { length = "1.52mm", width = "0.6mm" }
 row_spacing = "5.5mm"

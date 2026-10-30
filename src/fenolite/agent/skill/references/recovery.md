@@ -8,8 +8,8 @@ summary: One tested recipe per exit code from 2 to 7 and for shorted copper, the
 
 Read the exit code first. On a code that is not 0, stderr holds one error object: `code`, `message`,
 `hint`, `retryable`, `where`. Stdout still holds the envelope, with `issues`, when the command got that
-far. Each recipe below is a sequence that the test suite runs: the comment after a command is the exit
-code it gives and, after `has`, a code that the error object or an issue carries.
+far. The test suite runs each recipe below: the comment after a command is its exit code and, after
+`has`, a code it reports.
 
 `fenolite explain CODE --json` gives the meaning and the fix of any code on this page.
 
@@ -26,8 +26,8 @@ fenolite build blink/design.py --out blink/build --confirm --json  # exit 0
 
 ## Exit 2, `FEN-2001`: a wrong command line
 
-The message names the argument and nothing ran. Ask for the command's arguments as data, then write
-the line again; do not guess a flag.
+The message names the argument; nothing ran. Ask for the command's arguments as data, then write the
+line again; do not guess a flag.
 
 ```fenolite-recipe starter
 fenolite build blink/design.py --out blink/build --confirn --json  # exit 2, has FEN-2001
@@ -53,8 +53,8 @@ fenolite build fixed/design.py --out fixed/build --confirm --json  # exit 0
 
 ## Exit 3, `FEN-3004`: the script raises
 
-Any error of the script stops the build, and `where` of the error object ends with `line:N`, the line
-of the script that failed. The message is the script's own. Here a length has lost its unit:
+An error of the script stops the build; `where` ends with `line:N`, the line that failed, and the
+message is the script's own. Here a length has lost its unit:
 
 ```text
 broken:  d1.place(15, mm(6), rot=180)
@@ -68,9 +68,9 @@ fenolite build fixed/design.py --out fixed/build --confirm --json  # exit 0
 
 ## Exit 5, `copper.short`: two tracks cross
 
-`copper.short` says that copper of two nets touches; the message gives the nets, the layer and the
-point. Here the placement makes two straight tracks of the `direct` router cross. Move the parts, route
-again with `--rip` to remove the old copper, and check again.
+`copper.short`: copper of two nets touches (the message gives the nets, the layer and the point), here
+two straight tracks of the `direct` router. Move the parts, route again with `--rip` to remove the old
+copper, and check again.
 
 ```fenolite-recipe crossed
 fenolite build blink/design.py --out blink/build --confirm --json  # exit 0
@@ -82,17 +82,29 @@ fenolite route blink/build --router direct --rip --confirm --json  # exit 0
 fenolite check blink/build --stages model.validate,copper.clearance --json  # exit 0
 ```
 
+## Exit 5, `sync.conflict`: both sides changed
+
+KiCad and the script changed one property differently. Take a side, then sync.
+
+```fenolite-recipe conflict
+fenolite build blink/design.py --out blink/build --dry-run --json  # exit 5, has sync.conflict
+fenolite build blink/design.py --out blink/build --take cad:R1#value --confirm --json  # exit 0
+```
+
 ## Exit 5 in general
 
 Exit 5 means the command ran and found problems: read `issues`. For a finding: read the code,
 ask `explain`, change one thing, check again. `copper.clearance` is repaired as `copper.short`: a
 finding between two tracks that a router drew by `route --rip` of those nets or by room between the
 parts, one that names script copper in the script. Move copper of `copper.edge-clearance` off
-the ring in `where`, a drill of `copper.hole-in-cutout` off the cut-out.
+the ring in `where`, a drill of `copper.hole-in-cutout` off the cut-out. A build stops on
+`layout.relative-cycle` (give one part of the cycle `x, y`) and `reuse.port-unmapped` (name the net
+after a port of the block); `layout.relative-unresolved`, `layout.strategy-overflow` and
+`layout.block-moved` only report.
 
 ## Exit 6, `FEN-6001`: a tool is not installed
 
-The hint names the tool. Choose another way that needs none, or tell the user what to install. Here the
+The hint names the tool. Choose a way that needs none, or tell the user what to install. Here the
 Freerouting jar is missing and the built-in router closes the board:
 
 ```fenolite-recipe starter
@@ -103,10 +115,9 @@ fenolite route blink/build --router direct --confirm --json  # exit 0
 
 ## Without a tool
 
-`fenolite doctor --json` says which tools are found and where they are looked for. Without
-`kicad-cli`, `check --stages model.validate,copper.clearance` still judges the copper, and `fill`,
-`export`, `render` and the stages of KiCad's own checks wait for the tool. Install nothing on the
-user's machine without being asked.
+`fenolite doctor --json` says which tools are found, and where. Without `kicad-cli`, `check --stages model.validate,copper.clearance` still judges the copper, and `fill`,
+`export`, `render` and the stages of KiCad's own checks wait for the tool. Install nothing without
+being asked.
 
 ## Exit 7, `FEN-7001`: the target cannot hold it
 
@@ -123,14 +134,14 @@ fenolite build blink/design.py --out blink/k10 --kicad-version 10 --confirm --js
 
 ## Exit 7 in general
 
-Pass `--allow-lossy` only when the user accepts what is lost, and report it. `FEN-7001` is also the
-answer of a build over a library table or a library file that someone edited: `--discard-layout`
+Pass `--allow-lossy` only when the user accepts the loss, and report it. `FEN-7001` is also the
+answer of a build over a library table or file that someone edited: `--discard-layout`
 replaces those files and keeps backups.
 
 ## Findings of KiCad's own checks
 
-Issues whose code starts with `kicad.drc.` or `kicad.erc.` come from KiCad's design-rule check and
-electrical rules check, and carry KiCad's message. `fenolite check blink/build --json` lists them; with
+Issues whose code starts with `kicad.drc.` or `kicad.erc.` come from KiCad's design-rule and electrical
+rules checks, with KiCad's message. `fenolite check blink/build --json` lists them; with
 `--format concise` there is one per code, with its count. The commonest:
 
 - `kicad.drc.unconnected-items`: copper is missing between the two items of `where`. Route again.
@@ -141,12 +152,11 @@ electrical rules check, and carry KiCad's message. `fenolite check blink/build -
 
 `FEN-1004` has `retryable: false`: a write failed or was interrupted, and rollback also failed.
 Keep every file named in `result.recovery.preserved` and inspect the paths in `result.recovery.failed`.
-Resolve those paths from the command's working directory; they can include `../` or an absolute path
-when Windows volumes differ. Copy the remaining files to a safe place before recovering the project. A `.keep` can hold an original
-target or an earlier backup; a `.tmp` holds proposed new bytes; a `.bak` may have moved during the failed
-write. Compare contents and any earlier receipts before choosing which generation to restore. A successful
-receipt was not issued for the partial write. Do not run automatic retries or delete these files. After
-restoring the intended state, run a fresh dry run and review its plan.
+Resolve those paths from the command's working directory (`../` or an absolute path when Windows
+volumes differ). Copy the files to a safe place first. A `.keep` holds an original target or
+an earlier backup, a `.tmp` new bytes; a `.bak` may have moved during the failed write.
+Compare contents and earlier receipts before restoring; the partial write has no receipt. Do not retry
+automatically or delete these files. Then run a fresh dry run and review its plan.
 
 ## Every error code
 
@@ -176,6 +186,7 @@ restoring the intended state, run a fresh dry run and review its plan.
 | `FEN-7001` | 7 | the write would lose information | recipe above |
 | `FEN-7002` | 7 | the target version is older than the input | choose a target at least as new as the input |
 | `FEN-7003` | 7 | the input is a KiCad 8 file, which is read and never written | re-save it in KiCad 9 or newer first |
+| `FEN-7004` | 7 | `build --frozen`: the design lock would change | build without `--frozen`, review `result.lock.changes`, commit the lock |
 
 ## The guide itself
 
@@ -188,7 +199,7 @@ fenolite skill install --dir .agent/skills --dry-run --json
 fenolite skill install --agent claude-code --agents-md --confirm --json
 ```
 
-`guide` prints the pages of the installed version: without a topic, the list. `skill install` copies
+`guide` prints the pages of the installed version (without a topic, the list). `skill install` copies
 them into a folder that an agent reads skills from, and `--agents-md` adds a pointer to the `AGENTS.md`
 of the project. The copy names the version it came from in the last line of its `SKILL.md`; when that
 differs from the installed version, read `fenolite guide`.

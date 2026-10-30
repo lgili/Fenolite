@@ -419,6 +419,35 @@ fenolite place build/board --shift U1,C1,C2,C3,C4 --by 1mm,-1mm --confirm
 The evidence is `INFERRED` (`H-G-GROUP-MOVE` and the rows of the copper check); `H-K-GROUP-DRC` records
 that KiCad's DRC finds nothing new on a turned module of the bench.
 
+## Placement in code
+
+A script can place parts without coordinates (change c0255; `docs/dsl.md`, "Relative placement" and "Block
+layout"). Unlike the strategies of `fenolite place`, which move footprints on a built board, these are
+resolved by `fenolite build` before it writes: `fenolite.placement.relative.resolve` turns every relative
+request, block pose and frame strategy into integer nanometres, and `fenolite.placement.strategies.arrange`
+lays out the boxes of a frame.
+
+- **Boxes.** A part's box is `footprint_extent` (the courtyard box, else the pad boxes) turned by its
+  rotation and mirrored for the bottom side; with `by=` the box of that pad. A turn other than a quarter
+  turn takes the bounds rounded outward (`Transform.apply_bbox`); a centre is `(a + b) // 2`.
+- **Frames.** The top and each block instance are frames. Each is resolved in its own coordinates, innermost
+  first: absolute requests, then the frame's strategy or block reuse, then the relative requests in
+  topological order of their references, ties by path. A block's box is the union of its placed items;
+  its pose puts its frame into the parent's. World positions are the poses composed top-down; a turned
+  position rounds half to even.
+- **Strategies.** `row` and `column` from `at`, `gap` apart, aligned on start edges, centres or end edges;
+  `grid` in cells of the largest box plus `gap`; `pack` in shelves within a width, tallest first, a box
+  wider than the width on a shelf of its own (`layout.strategy-overflow`). Creation order, no search.
+- **Against the board.** The resolution is the code side of the precedence (`docs/lens.md`, "Placement
+  precedence"); it is resolved again against the placements that the board or `edits.toml` decided, so a
+  follower follows its reference. Block poses are resolved from the code alone.
+- **Evidence.** `INFERRED` with `H-G-REL-RESOLVE`: a resolved position satisfies its request exactly,
+  measured on the written board by the same box function (`tests/unit/cli/test_build_relative.py`); the
+  KiCad read-back of `examples/relative/` on targets 9 and 10 holds every relation within 1 nm.
+- **Codes.** `layout.relative-cycle` (error), `layout.relative-unresolved`, `layout.strategy-overflow`
+  (warnings), `layout.block-moved` (info) and, for a block reuse, `reuse.port-unmapped` (error),
+  `reuse.unknown-part` (warning) and `reuse.no-fit` (error) (`docs/cli-contract.md`, "build").
+
 ## How a placement survives a build
 
 The board is the layout authority (`docs/lens.md`). A part that `place` moved onto the board is on the

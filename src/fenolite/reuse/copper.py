@@ -230,6 +230,7 @@ def copy_copper(
     *,
     items: Collection[str] | None = None,
     zones: Mapping[str, Collection[str]] | None = None,
+    nets: Mapping[str, str] | None = None,
 ) -> CopperCopy:
     """The tracks, arcs and vias of ``reference`` on the nets of the block, mapped through the block
     transform onto ``target`` (``items``: only these reference ids). A reference net is of the block when
@@ -243,12 +244,18 @@ def copy_copper(
     paired is copied, outline and fill (``_zone``; ``REBUILT`` when the outline came from the fill); one
     that also joins an unpaired pad is ``zone-beyond-block``; a zone of a block net without a fill whose
     outline's box holds a paired pad is ``zone-unfilled``; a zone that joins no paired pad is not of the
-    block."""
+    block.
+
+    ``nets`` is an explicit net map (reference net id → target net id, change c0255): the nets of the
+    block are its keys, and no net is inferred from the pairs of the fit."""
     board, ours = reference.design.board, target.design.board
     if fit.transform is None or board is None or ours is None:
         return CopperCopy()
     transform = fit.transform
-    claimed = _net_map(fit)
+    if nets is not None:
+        claimed = {source: {image} for source, image in nets.items()}
+    else:
+        claimed = _net_map(fit)
     nets = {source: next(iter(images)) for source, images in claimed.items() if len(images) == 1}
     names = {net.id: net.name for net in reference.design.circuit.nets}
     target_names = {net.id: net.name for net in target.design.circuit.nets}
@@ -313,6 +320,49 @@ def copy_copper(
     return CopperCopy(tuple(copied), nets, tuple(dropped))
 
 
+def copy_block(
+    reference: Design,
+    transform: Transform,
+    nets: Mapping[str, str],
+    layers: Mapping[str, str],
+    *,
+    key: str,
+) -> CopperCopy:
+    """Every track, arc, via and zone of ``reference`` (a board laid out for one block alone) on a net of
+    the explicit map ``nets`` (reference net id → target net id), moved by ``transform`` onto the layers of
+    ``layers`` (change c0255, a block layout reuse in a build). An item of a net outside the map is
+    dropped (``net-unmapped``), one on a layer without an image ``layer-unknown``. The copies take ids
+    derived from ``key`` and the reference item, unlocked; the caller locks them."""
+    board = reference.board
+    if board is None:
+        return CopperCopy()
+    names = {net.id: net.name for net in reference.circuit.nets}
+    copied: list[CopiedItem] = []
+    dropped: list[Dropped] = []
+    for item in (*board.tracks, *board.arcs, *board.vias, *board.zones):
+        if item.net_id is None:
+            continue
+        name = names.get(item.net_id, item.net_id)
+        target = nets.get(item.net_id)
+        if target is None:
+            dropped.append(
+                Dropped(item.id, _kind(item), name, "net-unmapped", "its net is no port of the block")
+            )
+            continue
+        if isinstance(item, Zone):
+            shaped = _zone(item, transform, target, layers, f"{key}:{item.id}")
+            image = None if shaped is None else shaped[0]
+        else:
+            image = _moved(item, transform, target, layers, f"{key}:{item.id}")
+        if image is None:
+            dropped.append(
+                Dropped(item.id, _kind(item), name, "layer-unknown", "the target board lacks its layer")
+            )
+            continue
+        copied.append(CopiedItem(image, item.id, name))
+    return CopperCopy(tuple(copied), dict(nets), tuple(dropped))
+
+
 def with_copper(design: Design, items: Sequence[Copper]) -> Design:
     """``design`` with ``items`` added after its own tracks, arcs, vias and zones."""
     board = design.board
@@ -337,6 +387,7 @@ __all__ = [
     "Copper",
     "CopperCopy",
     "Dropped",
+    "copy_block",
     "copy_copper",
     "layer_map",
     "outline_of",

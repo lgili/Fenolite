@@ -6,7 +6,6 @@ hypothesis ``H-A-RULE-FILE``). Hermetic: the rules are authored here or come fro
 
 from __future__ import annotations
 
-import runpy
 import tempfile
 from pathlib import Path
 
@@ -20,6 +19,7 @@ from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.rul import read_rule_file
 from fenolite.backends.altium.read.rules import map_rules
 from fenolite.backends.kicad.dru import read_rules
+from fenolite.cli._script import run_design_script
 from fenolite.dsl import Design, mm, placements, to_model
 from fenolite.dsl.select import netclass
 from fenolite.exports import altium_rul
@@ -27,10 +27,20 @@ from fenolite.lens.altium import build_altium
 from fenolite.model.rules import Rule, Selector
 
 EXAMPLES = Path(__file__).resolve().parents[3] / "examples"
-SCRIPTS = sorted(path.relative_to(EXAMPLES).as_posix() for path in EXAMPLES.glob("*/*.py"))
+MODULES = {"import_python/copper.py"}
+"""Files of an example that its design script imports: modules, not scripts (change c0275)."""
+SCRIPTS = sorted(
+    name for path in EXAMPLES.glob("*/*.py") if (name := path.relative_to(EXAMPLES).as_posix()) not in MODULES
+)
 OFFICIAL = "blink_official/design.py"
 """The one example that resolves its parts from the official KiCad libraries when it is built; its rules
 need no library, so it is read here like the others."""
+
+
+def _design(script: str) -> Design:
+    """The design of an example script, run as ``fenolite build`` runs it (with the project devices of
+    ``devices/`` beside it, change c0248)."""
+    return run_design_script(EXAMPLES / script).design
 
 
 def with_rules(design: Design, *, vias: bool = True) -> Design:
@@ -83,7 +93,7 @@ def test_readback_of_a_rule_of_every_kind() -> None:
 def test_readback_of_every_example_script(script: str) -> None:
     """Scenario "Written file reads back": the rules of every example script. A script without a rule
     that lowers gives no bytes, which is no rule file."""
-    design = next(v for v in runpy.run_path(str(EXAMPLES / script)).values() if isinstance(v, Design))
+    design = _design(script)
     rules = rules_of(design)
     lowered = rulemap.lower(rules)
     data = rulemap.write_rule_file(rules, name=design.name)
@@ -97,7 +107,7 @@ def test_some_example_holds_rules() -> None:
     """The readback above is not empty: at least one example lowers a rule."""
     found = []
     for script in SCRIPTS:
-        design = next(v for v in runpy.run_path(str(EXAMPLES / script)).values() if isinstance(v, Design))
+        design = _design(script)
         found += rulemap.lower(rules_of(design)).records
     assert found
 

@@ -1,0 +1,64 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:SOT563_6_Diodes"
+version = "1.0.0"
+summary = "Six-lead Diodes SOT563 land"
+category = "Small-outline semiconductor"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0449"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["0.67mm", "0.3mm"]
+at = ["-0.635mm", "0.5mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["0.67mm", "0.3mm"]
+at = ["-0.635mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "3"
+shape = "rect"
+size = ["0.67mm", "0.3mm"]
+at = ["-0.635mm", "-0.5mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "4"
+shape = "rect"
+size = ["0.67mm", "0.3mm"]
+at = ["0.635mm", "-0.5mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "5"
+shape = "rect"
+size = ["0.67mm", "0.3mm"]
+at = ["0.635mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "6"
+shape = "rect"
+size = ["0.67mm", "0.3mm"]
+at = ["0.635mm", "0.5mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-0.6mm", "-0.8mm"], ["0.6mm", "0.8mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-1.47mm", "-1.3mm"], ["1.47mm", "1.3mm"]]
+width = "0.05mm"

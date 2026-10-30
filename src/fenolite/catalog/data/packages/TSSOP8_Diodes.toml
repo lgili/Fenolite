@@ -1,0 +1,78 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:TSSOP8_Diodes"
+version = "1.0.0"
+summary = "Diodes eight-lead TSSOP land"
+category = "Small-outline IC"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0383"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["1.78mm", "0.45mm"]
+at = ["-2.97mm", "0.975mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["1.78mm", "0.45mm"]
+at = ["-2.97mm", "0.325mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "3"
+shape = "rect"
+size = ["1.78mm", "0.45mm"]
+at = ["-2.97mm", "-0.325mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "4"
+shape = "rect"
+size = ["1.78mm", "0.45mm"]
+at = ["-2.97mm", "-0.975mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "5"
+shape = "rect"
+size = ["1.78mm", "0.45mm"]
+at = ["2.97mm", "-0.975mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "6"
+shape = "rect"
+size = ["1.78mm", "0.45mm"]
+at = ["2.97mm", "-0.325mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "7"
+shape = "rect"
+size = ["1.78mm", "0.45mm"]
+at = ["2.97mm", "0.325mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "8"
+shape = "rect"
+size = ["1.78mm", "0.45mm"]
+at = ["2.97mm", "0.975mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-2.2125mm", "-1.5125mm"], ["2.2125mm", "1.5125mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-4.36mm", "-2.0125mm"], ["4.36mm", "2.0125mm"]]
+width = "0.05mm"

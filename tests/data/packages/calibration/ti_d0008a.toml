@@ -1,9 +1,9 @@
-# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI D0008A outline and example board layout, LM358 data sheet (S-0860).
+# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI D0008A outline and example board layout, LM358 data sheet (S-0966).
 schema = "fenolite.package.v0"
 family = "gullwing"
 name = "SOIC8_TI_D0008A"
 evidence = "INFERRED"
-sources = ["S-0860"]
+sources = ["S-0966"]
 
 pins = 8
 pitch = "1.27mm"
@@ -17,6 +17,6 @@ lands = 1
 drawing = 1
 
 [land]
-source = "S-0860 TI D0008A outline and example board layout"
+source = "S-0966 TI D0008A outline and example board layout"
 pad = { length = "1.55mm", width = "0.6mm" }
 row_spacing = "5.4mm"

@@ -1,0 +1,47 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:JST_XH_B2B_XH_A"
+version = "1.0.0"
+summary = "JST B2B-XH-A vertical header without locating boss"
+category = "Through-hole connector"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0410"]
+generator = "explicit"
+kind = "through_hole"
+
+[[pad]]
+number = "1"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["1.25mm", "0mm"]
+kind = "thru_hole"
+drill = "1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "2"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-1.25mm", "0mm"]
+kind = "thru_hole"
+drill = "1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-3.7mm", "-2.35mm"], ["3.7mm", "3.4mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-4.2mm", "-2.85mm"], ["4.2mm", "3.9mm"]]
+width = "0.05mm"
+
+[[graphic]]
+key = "pin1"
+kind = "line"
+layer = "F.Fab"
+points = [["3mm", "-2.35mm"], ["3.7mm", "-1.65mm"]]
+width = "0.1mm"

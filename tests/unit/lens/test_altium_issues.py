@@ -177,17 +177,17 @@ KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
     "kicad-clean": (
         ("", ""),
         ("", ""),
-        {"altium.symbol-simplified", "altium.footprint-unresolved", "altium.pcbdoc-not-written"},
+        {"altium.footprint-unresolved", "altium.pcbdoc-not-written"},
     ),
     "unknown-pin": (
         ("u1[8]", 'u1["XYZ"]'),
         ("", ""),
-        {"altium.unknown-pin", "altium.symbol-simplified"},
+        {"altium.unknown-pin"},
     ),
     "off-grid": (
         ("", ""),
         ("(at 0 5.08 270)", "(at 0.001 5.08 270)"),
-        {"altium.symbol-off-grid", "altium.symbol-simplified"},
+        {"altium.symbol-off-grid"},
     ),
     "lossy": (
         ("", ""),
@@ -197,7 +197,6 @@ KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
         ),
         {
             "altium.pin-lossy",
-            "altium.symbol-simplified",
             "altium.footprint-unresolved",
             "altium.pcbdoc-not-written",
         },
@@ -205,15 +204,17 @@ KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
     "pin-text-too-long": (
         ("", ""),
         ('"CLK"', '"' + "C" * 256 + '"'),
-        {"altium.pin-text-too-long", "altium.symbol-simplified"},
+        {"altium.pin-text-too-long"},
     ),
     "description": (
         ("", ""),
         ("Resistor drawn upright", "Résistance"),
-        {"altium.text-unwritable", "altium.symbol-simplified"},
+        {"altium.text-unwritable"},
     ),
 }
-"""KiCad-example variants (change c0034): (script change, library change, codes)."""
+"""KiCad-example variants (change c0034): (script change, library change, codes). Since change c0261 the
+two-unit ``DUAL_OPAMP`` is drawn from its graphics per part, so no variant reports
+``altium.symbol-simplified``."""
 
 
 def run_kicad_case(name: str) -> tuple[Issue, ...]:
@@ -604,11 +605,14 @@ def test_closed_set() -> None:
         *run_too_large_case("ascii"),
         *run_pcb_too_large(),
         *run_bus_case(),
+        *run_block_clash_case(),
     ):
         produced.setdefault(found.code, set()).add(found.severity)
     for found in run_c0087_cases():
         produced.setdefault(found.code, set()).add(found.severity)
     for found in run_pour_cases():
+        produced.setdefault(found.code, set()).add(found.severity)
+    for found in run_request_case():
         produced.setdefault(found.code, set()).add(found.severity)
     for code, severities in produced.items():
         if code.startswith(PASS_THROUGH):
@@ -655,10 +659,58 @@ def run_pour_cases() -> tuple[Issue, ...]:
     return tuple(found)
 
 
+def run_request_case() -> tuple[Issue, ...]:
+    """Change c0247: the KiCad-sourced example with ``U2``'s supply pin 6 left open under an unused-pin
+    request (``build.must-connect-unconnected``) and the eight-pin ``U1`` used through its ends
+    (``build.not-two-terminal``)."""
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        copy = root / "example"
+        shutil.copytree(EXAMPLE_DIR, copy)
+        design = example("u2[1], u2[6], r1[1]", "u2[1], r1[1]")
+        resolver = example_resolver(root, project_dir=copy)
+        return build_altium(
+            to_model(design), name=design.name, resolver=resolver, unused={"U2": ()}, two_terminal=("U1",)
+        ).issues
+
+
+def test_request_case_codes() -> None:
+    found = {i.code: i for i in run_request_case()}
+    assert "U2" in found["build.must-connect-unconnected"].message
+    assert "6" in found["build.must-connect-unconnected"].message
+    assert "U1" in found["build.not-two-terminal"].message and "8" in found["build.not-two-terminal"].message
+
+
 def run_bus_case() -> tuple[Issue, ...]:
     """Change c0086: a bus whose nets are not one stem with consecutive integers is drawn as its nets."""
     model = with_bus(to_model(sample()), "CTRL", ("EN", "LED_DRV"))
     return build_altium(model, name="altium_sample").issues
+
+
+def run_block_clash_case() -> tuple[Issue, ...]:
+    """Change c0269: a port of a block and an escaping net of one name on the block's sheet."""
+    from fenolite.dsl import Net, block, connect
+
+    escaping = Net("IN")
+
+    @block
+    def stage(b: object) -> None:
+        port = b.port("IN", direction="in")  # type: ignore[attr-defined]
+        r = b.part("R", "Fenolite:Resistor", footprint="Lib:R0603")  # type: ignore[attr-defined]
+        connect(port, r[1])
+        connect(escaping, r[2])
+
+    from fenolite.dsl import Design as DslDesign
+
+    design = DslDesign("clash")
+    made = design.use(stage, "s")
+    j = design.part("J1", "Fenolite:Connector_4", footprint="Lib:HDR")
+    connect(Net("SRC"), j[1], made.IN)
+    connect(escaping, j[2])
+    from _altium_tree import catalog_symbols
+
+    model = to_model(design)
+    return build_altium(model, name="clash", sheets="modules", authored_symbols=catalog_symbols(model)).issues
 
 
 def test_bus_flattened_names_the_bus() -> None:
@@ -685,6 +737,9 @@ def test_the_table() -> None:
         "altium.harness-name": "error",
         "altium.harness-net-shared": "error",
         "altium.harness-power-net": "error",
+        "build.not-two-terminal": "error",  # c0247
+        "build.must-connect-unconnected": "error",
+        "build.block-sheet-name-clash": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.pin-lossy": "warning",

@@ -72,9 +72,17 @@ whose copper it does not care about passes `--level 4`.
 | 2 | `netlist` | the net of every `REF-PIN`, as a partition of the elements into nets |
 | 3 | `footprints` | per component, the footprint name and every pad, in the footprint's own frame |
 | 4 | `placement` | per footprint, the side, the position and the rotation |
-| 5 | `routing` | per net, which pads the copper joins, the vias per pair of copper layers and the routed length per copper layer |
+| 5 | `routing` | per net, which pads the copper joins, the vias per pair of copper layers and the routed length per copper layer; with `--strict`, every track, arc and via item by item |
+| 6 | `rules` | net classes and their members, custom rules, the board-wide rule set, the stack-up and the layer table |
+| 7 | `geometry` | the outline, zones by outline (never the fill), rule areas, board graphics, texts, holes and dimensions, and the graphics, texts and fields of each footprint |
+| 8 | `presentation` | each board layer (and each schematic sheet of `verify-source`) rendered by the viewer's scene builder and compared as pixels |
+| S | `schematic` | two drawn schematics item by item, and their drawn connectivity |
 
-Levels 6 to 8 of the roadmap (rules, geometry, presentation) are not built.
+Levels 6 to 8 and S are delivered by change c0278. `--level 6` and `--level 7` need a footprint on both
+sides; they run level 5 when both sides hold copper. `--level 8` runs the levels 1 to 7 and renders both
+boards. `compare_designs` runs the levels 1 to 7; level 8 lives in `fenolite.view.fidelity` (it needs the
+scene builders) and level S in `compare_drawn` (`fenolite verify-source` runs it; `fenolite equivalent --level S` still exits 2
+naming side `a` in this version). `fenolite verify-source` runs every level on a script and its original (`docs/fidelity.md`).
 
 - **Components are paired by reference.** Model ids differ between backends. A reference that a side
   holds more than once, or an empty reference, cannot be paired: it gives one `ref-ambiguous` difference
@@ -151,8 +159,80 @@ and the first three pads of the set, then `+n` for the rest (`VIN:C1-1,C2-1,U1-3
 sets that only that side holds, separated by ` | `.
 
 The rule above is one table, `DEFAULT_RULE` in `routing.py`. It is the default definition of level 5
-(`docs/roadmap.md`, open decision 25): a stricter mode that matches copper item by item would be a second
-table beside it.
+(`docs/roadmap.md`, open decision 25). The strict rule is a second table beside it.
+
+### Strict level 5
+
+`--strict` (`compare_designs(..., strict=True)`) runs the rule of `strict.py` after the routing rule; its
+differences follow those of the routing rule. Tracks, arcs and vias are matched as multisets of keys: a
+track by its copper span and its two ends as an unordered pair, an arc by its span, its ends in sorted
+order and its mid, a via by its position. Equal keys match first; then each unmatched item of side `a`, in
+key order, takes the first unmatched item of side `b` whose every coordinate lies within the length
+tolerance. Matched pairs compare the width (`track-width`, `arc-width`), the diameter, drill and span with
+type of a via (`via-size`, `via-drill`, `via-span`), the net (`*-net`: two nets that level 2 pairs are the
+same, an unpaired net compares by name) and the lock (`copper-locked`, a notice: a lock is editor state).
+`where` is `<net name>:<kind>:<span>:<points>`, points `x,y` joined by `-` in key order, for example
+`GND:via:top-bottom:20000000,25000000`. A track cut into two segments is a difference on purpose: a
+conversion must write the segments the original holds; the non-strict rule compares connectivity and
+length only.
+
+## Level 6: rules
+
+Net classes match by name and their members compare as sets of net names; custom rules match by name; the
+fields of the rule set other than its rules compare as one entity (`where` `ruleset`); stack-up layers
+match by name in order (a repeated name, a dielectric of several sheets, is `<name>#<n>`), and a change of
+order is one `stackup-missing` at `stackup`; the finish and the other stack-up fields are at `stackup`;
+board layers match by kind and ordinal (`where` `<kind>:<ordinal>`). The fields of an entity are those of
+its dataclass walked to the leaves, without `id`, `native_ids`, `ext` and `provenance`, so ids never
+matter; `field` is the dotted path (`selector_a.value`, `settings.clearance`). Integers compare with the
+length tolerance, points and sizes per coordinate, texts and booleans exactly.
+
+## Level 7: exact geometry
+
+Geometry is normalised in integer arithmetic before matching (`shapes.py`): a closed ring starts at its
+smallest point in `(x, y)` order and runs counter-clockwise by the sign of its doubled area, each edge
+keeping its arc mid; a segment's ends are an unordered pair; an arc keeps its mid with its ends in sorted
+order; a circle is its centre and squared radius; a rectangle is its four-point ring. Outline rings,
+cut-outs and slots, board graphics, holes and dimensions match as multisets by their whole key and give
+`<kind>-missing`. Zones match by net name, layers and outline and then compare their name, priority and
+every field of their settings (`zone-field`); fills, the fill state and the lock are never compared
+(`H-K-FID-ZONE-OUTLINE`). Rule areas match by layers and outline (`keepout-field`). Texts match by layer and
+text and compare position, size, thickness, rotation and justification (`text-field`). For each footprint
+pair of level 3, its graphics and texts are compared in the footprint's frame, and its fields match by name
+(`field-pose` at `<REF>:<field name>`, for example `R1:Reference` with field `position`). `where` is
+`board:<layer>:<points or text>`, `board:outline:<ring>` or `<REF>:<layer>:<points>`.
+
+## Level 8: presentation
+
+Both sides are drawn by the viewer's scene builders, the board with its zones by outline only
+(`fenolite.view.fidelity.board_scene`), and rasterised per layer onto one grid whose origin and size are the
+union of both sides' bounds (default pitch 50 µm, `--render-pitch-um`; 127 µm for a sheet). A pixel is inked
+when its centre lies in a primitive: polygons even-odd with exact rational edge crossings, strokes as
+capsules with round ends, discs, rings, arcs flattened by the geometry kernel, a text as the box of its
+glyphs. A pixel differs when it is inked on one side and no pixel within one pixel of it is inked on the
+other. A layer whose differing pixels times a million exceed `--pixel-ppm` (default 1000, the 0.1 % of the
+viewer's screenshot tests) times its inked pixels gives `render-pixels` at `<layer>:<x0>,<y0>-<x1>,<y1>`, the
+box of the largest connected differing region in nanometres; `a` and `b` are the pixels of each side over
+the inked pixels. A layer drawn by one side only gives `render-missing`. The level's summary names the first
+changes that the visual diff (`fenolite view NEW --compare OLD`) finds, so the moved primitive is named.
+Level 8 is `INFERRED`: one renderer draws both sides (`H-K-FID-PLOT-AGREE`).
+
+## Level S: schematic
+
+`compare_drawn(a, b, *, tolerances, pins_a, pins_b)` (`fenolite.checks.equivalence.drawn`) compares two drawn
+schematics (`docs/drawn-schematic.md`), each with the pin points of its drawn items. Sheet instances match
+by their key path (`/` for the root, `/a/b` below it); the sheets of a matched pair are compared once, at
+the first instance in page order where they meet. Symbols match by component path and unit; wires and
+buses become their maximal collinear segments first, so a wire split differently, or cut at a junction, is
+the same drawing; every other item matches as a multiset by kind, position and attributes (a label's kind,
+text, angle and shape; a sheet reference's name, size and pins), an opaque item by the SHA-256 of its
+fragment. An item of the same kind and position whose attributes differ gives `item-field` naming the
+attribute (`label.local.text`); the paper and title block of a sheet give `item-field` at `<path>:sheet`.
+`where` is the instance path followed by `:` and the symbol (`<component>:<unit>`) or the item kind and its
+first point in nanometres (`junction@127000000,57150000`). Both drawings are then resolved and the first pin
+of both, in sorted order, whose group of common pins differs gives one `drawn-net` at `<component>-<pin>`.
+Lengths match within `--tolerance-nm` per coordinate and angles within `--tolerance-udeg`. A field pose that
+one side leaves to the target gives `symbol-field` with an empty side.
 
 ## Kinds of difference
 
@@ -190,10 +270,55 @@ level are sorted by `where`, then kind.
 | 5 | `route-length` | `length` | for one pad set, a routed length per copper span differs beyond the tolerance |
 | 5 | `route-stub` | `stubs` | the pieces without a pad differ in number or in total length (a notice: a warning) |
 | 5 | `route-unjudged` | `zones` | the net's connectivity depends on a zone without a fill (a notice: an info) |
+| 5 | `track-missing` | `track` | strict: a track that only one side holds |
+| 5 | `track-width` | `width` | strict: matched tracks of different widths |
+| 5 | `track-net` | `net` | strict: matched tracks on nets of different names |
+| 5 | `arc-missing` | `arc` | strict: an arc that only one side holds |
+| 5 | `arc-width` | `width` | strict: matched arcs of different widths |
+| 5 | `arc-net` | `net` | strict: matched arcs on nets of different names |
+| 5 | `via-missing` | `via` | strict: a via that only one side holds |
+| 5 | `via-size` | `diameter` | strict: matched vias of different diameters |
+| 5 | `via-drill` | `drill` | strict: matched vias of different drills |
+| 5 | `via-span` | `layers` | strict: matched vias of different copper spans or types |
+| 5 | `via-net` | `net` | strict: matched vias on nets of different names |
+| 5 | `copper-locked` | `locked` | strict: matched items whose lock differs (a notice: a warning) |
+| 6 | `netclass-missing` | `name` | a net class that only one side holds |
+| 6 | `netclass-field` | the field | a field of a net class differs |
+| 6 | `netclass-members` | `nets` | the nets assigned to a net class differ |
+| 6 | `rule-missing` | `name` | a custom rule that only one side holds |
+| 6 | `rule-field` | the field | a field of a custom rule differs |
+| 6 | `ruleset-field` | the field | a board-wide rule or minimum differs |
+| 6 | `stackup-missing` | `layer` | a stack-up layer that only one side holds, or out of order |
+| 6 | `stackup-field` | the field | a field of a stack-up layer, or the finish, differs |
+| 6 | `layer-missing` | `layer` | a board layer of one name that only one side holds (`where` `<kind>:<name>`) |
+| 6 | `layer-field` | the field | a layer of one name has another `kind`, or the common layers stand in another `order` (c0281) |
+| 7 | `outline-missing` | `ring` | an outline ring, cut-out or slot that only one side holds |
+| 7 | `zone-missing` | `zone` | a zone outline that only one side holds |
+| 7 | `zone-field` | the field | a field of matched zones differs (never the fill) |
+| 7 | `keepout-missing` | `keepout` | a rule area that only one side holds |
+| 7 | `keepout-field` | the field | a field of matched rule areas differs |
+| 7 | `graphic-missing` | `graphic` | a board or footprint graphic that only one side holds |
+| 7 | `graphic-field` | the field | matched graphics (layer, kind, geometry, fill) differ in `width` (c0281) |
+| 7 | `text-missing` | `text` | a board or footprint text that only one side holds |
+| 7 | `text-field` | the field | a field of matched texts differs |
+| 7 | `field-pose` | the field | a field of a footprint field (reference, value, user field) differs |
+| 7 | `hole-missing` | `hole` | a board hole that only one side holds |
+| 7 | `dimension-missing` | `dimension` | a dimension that only one side holds |
+| 7 | `opaque-count` | the item kind | the opaque root items of one kind (teardrops, groups…) differ in count; added by `verify-source` (c0281) |
+| 8 | `render-missing` | `layer` | a layer or sheet that only one side renders |
+| 8 | `render-pixels` | `pixels` | a layer or sheet whose rendered masks differ beyond the pixel tolerance |
+| S | `sheet-missing` | `sheet` | a sheet instance that only one side holds |
+| S | `symbol-missing` | `symbol` | a symbol unit that only one side draws |
+| S | `symbol-pose` | the field | the position, rotation or mirror of a matched symbol differs |
+| S | `symbol-field` | the field | the pose of a field of a matched symbol differs |
+| S | `item-missing` | the item kind | a wire, bus, bus entry, junction, no-connect flag, label, power symbol, sheet reference, sheet pin or opaque item that only one side holds |
+| S | `item-field` | the field | an attribute of a matched item (label, power symbol, junction, bus entry, sheet reference and its pins) or the paper or title block of a sheet differs |
+| S | `drawn-net` | `net` | the drawn connectivity differs (a `REF-PIN` in another group) |
 
 The issue code of a difference is `equiv.<kind>`, except `net`, which carries
 `netlist.assignment-differs`, the code of the assignment comparison. Every kind is an error, except the
-two notices of level 5: `route-stub` is a warning and `route-unjudged` an info.
+notices of level 5: `route-stub` and `copper-locked` are warnings and `route-unjudged` an info. A field
+written "the field" is the dotted path of the field that differs, and "the item kind" the kind of the item.
 
 ## Tolerances and normalisation
 

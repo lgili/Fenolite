@@ -63,7 +63,7 @@ The DSL SHALL resolve a device id from, in this order: the records given to `Des
 #### Scenario: Project device beside the script
 - **GIVEN** `examples/devices/design.py` with `devices/example_buck.toml` beside it
 - **WHEN** `fenolite build examples/devices/design.py --out B --dry-run --json` runs
-- **THEN** the exit code is 4 and `result.devices` holds `Example:BUCK_6V_2A` with `origin` `authored`
+- **THEN** the exit code is 0 (a dry run) and `result.devices` holds `Example:BUCK_6V_2A` with `origin` `authored`
 
 ### Requirement: Project devices override shipped ones
 A project device whose id is a shipped id SHALL give `device.overrides-builtin` (info), and its `origin` SHALL be `authored`. An unmodified shipped device MUST be reported as `builtin`. Two project files with one id MUST raise `FormatError` (`FEN-3004`) naming both files.
@@ -79,11 +79,11 @@ A project device whose id is a shipped id SHALL give `device.overrides-builtin` 
 - **THEN** the exit code is 3, stderr carries `FEN-3004`, and the message names both files
 
 ### Requirement: Device files are build inputs
-`cmd_build` SHALL list the name, relative to the script folder, and the SHA-256 of every project device file in `input`, so that a changed device file changes the plan.
+`cmd_build` SHALL list the name, relative to the script folder, and the SHA-256 of every project device file in `result.device_files`, and SHALL add the files to the inputs that a plan id depends on (`Result.depends`), so that a changed device file changes the plan. The envelope's `input` keeps naming the design script alone (contract v0).
 
 #### Scenario: Device file in the input
 - **WHEN** `examples/devices/design.py` is built with `--dry-run --json`
-- **THEN** `input` lists `devices/example_buck.toml` with its SHA-256, and no absolute path
+- **THEN** `result.device_files` lists `devices/example_buck.toml` with its SHA-256, and no absolute path
 
 ### Requirement: Shipped generic devices
 The catalog SHALL ship the Fenolite-authored devices `Fenolite:R_0402`, `R_0603`, `R_0805`, `R_1206`, `C_0402`, `C_0603`, `C_0805`, `C_1206`, `LED_0603` and `Conn_1x2_P2.54`. Each MUST join one catalog symbol and one catalog footprint, have no manufacturer, MPN or ratings, carry `INFERRED` and the sources of its two entries, and pass `check_device`. Two-terminal devices name their functions `P1` and `P2` (the LED `A` and `K`) and list them in `ends`.

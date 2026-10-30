@@ -5,9 +5,11 @@ source of truth for layout, and `.fenolite/` is a cache the build regenerates (`
 "Layout authority"). This page describes what a rebuild keeps, re-places and drops, in Fenolite's own
 words. Facts about KiCad are in `docs/formats/kicad/board.md`; hypotheses in `docs/hypotheses.md`.
 
-The merge is two-way: the existing board against the new build. There is no stored base, because
-`.fenolite/` is not committed and is missing after a clone; a base taken from it would make the same
-sources and board give different results with and without the cache.
+Positions, rotations, values and footprints are merged three ways ("Three-way merge"): the script with
+`edits.toml`, the edited board and schematic, and the base record `fenolite-base.json` that the last build
+wrote into the output folder. The base record is committed with the output folder; `.fenolite/` is not,
+and the merge never reads it, so a clone gives the same result as the original. Everything else (field
+placement, copper, zones, the outline, the stack-up) keeps the rules below.
 
 The plan calls this a lens: the script is the *view* and the board is the *complement*. Its four names
 map to the modules of `fenolite.lens` like this: *adapt* is `preserve` (the view is written into the
@@ -37,6 +39,10 @@ The rebuild keeps its footprint under the new path (`layout.alias-used`, see "Re
 their edits"); its uuid then follows the new path, so the alias can be removed after one build. An alias
 that matches nothing, or whose new path was matched by uuid or path, gives `layout.alias-unused`. Aliases
 are not model data: ids and `.fenolite/` do not change. See `docs/dsl.md` for the rules on paths.
+
+A part renumbered through the design lock (`docs/dsl.md`, "Reference designators and the design lock") is
+matched like any part, by uuid and then by its path, so its footprint keeps its position, rotation, side and
+copper and carries the new reference; the lock entries follow `moved()` aliases as the layout does.
 
 ## Module aliases
 
@@ -87,20 +93,39 @@ exclusion of a renamed footprint has to be made again in KiCad.
 
 ## Placement precedence
 
-A part's placement comes from, in this order:
+A part's placement comes from, in this order (change c0255 wrote the six levels down):
 
-1. a locked `place(…, locked=True)` in the script;
-2. the existing board;
-3. the part's entry in `placements.toml` ("placements.toml");
-4. an unlocked `place()`;
-5. the build's staging row beside the outline (later, a placer).
+1. a locked `place(…, locked=True)` in the script, absolute or relative, composed with its block poses;
+2. the existing board: the three-way merge of its position and of its rotation with side ("Three-way
+   merge"), between the board and the part's request (levels 3 to 5); without a base entry for the part,
+   the board wins, as before. A part kept from the board moves rigidly with its block when the block's pose
+   changed in the script (`layout.block-moved`);
+3. for a part the board does not place: its edit of `edits.toml` (or entry of a legacy `placements.toml`);
+4. its unlocked `place()`, absolute or relative, composed with its block poses;
+5. the strategy of the innermost enclosing frame that has one: a layout strategy (`row`, `column`, `grid`,
+   `pack`) or a block layout reuse (`docs/dsl.md`, "Block layout");
+6. the build's staging row beside the outline; a strategy group without a pose is staged as one box.
+
+Levels 3 to 5 form the part's *code* placement. `cmd_build` injects the resolver of relative requests,
+poses and strategies (`fenolite.placement.relative`; `lens` imports no `placement`), and
+`lens.preserve.resolving` resolves them again against what the merge decided, so a relative request
+follows the merged position of its reference: a follower follows a reference moved in KiCad unless the
+follower itself was moved by hand. Positions become known in this order inside a frame: levels 1 to 3, the
+absolute requests, the frame's strategy, the relative requests (which may reference strategy-placed
+parts), staging; which source wins is the list above. A part kept from the board keeps its slot in a
+strategy, so moving one part in KiCad never moves the others of its row.
+
+Once the base record exists, a changed unlocked `place()` moves a part that nobody moved in KiCad
+(`edit.code-wins`); a part moved by hand is never moved by an unchanged script, and a hand move against a
+script move is a `sync.conflict`. Removing a `place()` never moves a part.
 
 "Locked" is the script's flag, not the board's: it is how an agent, which cannot move a part in KiCad,
 forces a position. An unlocked `place()` that the board overrides is reported as
 `layout.place-overridden` (info, repeated on every build); a locked one that moves a footprint as
 `layout.place-forced` (warning), because the footprint is then re-placed from its definition. An
 unlocked `place()` that an entry of `placements.toml` overrides gives `layout.place-overridden` too, with
-the hint to lock the placement or edit the file.
+the hint to lock the placement or edit the file. For a relative request the message also names the
+request (`right_of=U1 gap=1mm`).
 
 **Off-board parts.** A footprint whose position lies outside the bounding box of the design's outline
 counts as unplaced: it takes its `place()`, or is staged again. This applies only while the board's edge
@@ -140,7 +165,8 @@ precedence, applied per field:
 
 So a label dragged in KiCad stays where it is on every rebuild, and `locked=True` is the way a script, or
 an agent that cannot drag a label, forces a field on an existing board. `--discard-layout` starts again
-from the script. It is a two-way merge without a stored base, as for footprints.
+from the script. Field placement is no property of the three-way merge ("Three-way merge"): it is decided
+between the board and the request alone, without the base record.
 
 - On a **kept** footprint the board's node stays, fields included. A locked request is applied to it,
   on top of the board's field; an unlocked request whose result differs is not applied.
@@ -491,14 +517,15 @@ Fenolite's form; the next one changes nothing. A board saved by KiCad 10 cannot 
 
 `--discard-layout` reads no existing file and builds from scratch; the mutation protocol keeps a `.bak`
 of each replaced file. Without it, only `fp-lib-table` and the vendored footprints under `lib/` are
-still guarded by `build.layout-exists`: they have no merge. `placements.toml` still applies: it is
-source, like the script.
+still guarded by `build.layout-exists`: they have no merge, and so is `fenolite-base.json`. `edits.toml`
+(or a legacy `placements.toml`) still applies: it is source, like the script.
 
 ## placements.toml
 
-`placements.toml` is the committed copy of a layout's placements. It lives beside the design script,
-`fenolite sync --to-source` writes it and `fenolite build` reads it. With it, the placements of a layout
-can be rebuilt from the source tree alone; routing stays in the board.
+`placements.toml` is the committed copy of a layout's placements of Fenolite 0.6 and before. It lives
+beside the design script, and `fenolite build` still reads it when no `edits.toml` is there; `sync` now
+writes `edits.toml` instead ("From placements.toml to edits.toml"). With it, the placements of a layout can
+be rebuilt from the source tree alone; routing stays in the board.
 
 ```toml
 # Written by fenolite sync --to-source.
@@ -519,8 +546,9 @@ locked = false
   file is read with exact decimal numbers and printed from integers, so no float is ever created.
 - **`locked`** is the footprint's lock in KiCad. The build writes it, and it gives the entry no
   precedence: only `place(…, locked=True)` in the script forces a position.
-- **Precedence.** An entry wins over an unlocked `place()` and loses to the board and to a locked
-  `place()` ("Placement precedence"). An entry that differs from the placement the board keeps gives
+- **Precedence.** An entry is a position edit without a recorded script value, so it never goes stale.
+  It wins over an unlocked `place()` and loses to the board and to a locked `place()` ("Placement
+  precedence"). An entry that differs from the placement the board keeps gives
   `layout.source-stale` (info): run `sync` again. An entry that names no part gives
   `layout.source-unknown` (warning).
 - **Errors.** A file that is not TOML, or whose `schema` is missing or different, stops the build with
@@ -534,26 +562,147 @@ locked = false
 
 To drop the file, delete it.
 
+## Three-way merge
+
+Each merged property of each part is keyed `<component path>#<property>`: `position` (x and y),
+`rotation` (rotation and side together, since a flip mirrors the footprint), `value` (the `Value` text) and
+`footprint` (the library footprint id). `reference` and user properties keep their rules of before until
+the second phase of change c0250 (they need the design lock of c0249). Three sides decide a property
+(`fenolite.lens.edits.merge_property`):
+
+- *base*: what the last build was given (`code`) and what it wrote (`out`), read from `fenolite-base.json`;
+- *code*: the script, with the part's edit of `edits.toml` when the edit is not stale;
+- *CAD*: the board footprint, and for values and footprints also the schematic symbol with the same
+  `fenolite.path`. Each CAD side is compared with `out` on its own.
+
+| code (against base `code`) | CAD (against base `out`) | result |
+|---|---|---|
+| unchanged | unchanged | the CAD value |
+| unchanged | changed | the CAD value (`edit.unrecorded` until `sync` records it) |
+| changed | unchanged | the code value (`edit.code-wins`) |
+| changed | changed, equal to the code | the shared value |
+| changed | changed, different | a conflict (`sync.conflict`, exit 5, nothing written) |
+
+- **Removed request.** A code value removed from the script (a `place()` deleted) keeps the CAD value.
+- **No base.** A part without a base entry follows the rule of before: the board wins for position and
+  rotation, the script for value and footprint; one `edit.base-missing` (info) gives the count. The build
+  then writes the record, so the next build merges three ways.
+- **Locks.** A locked `place()` always wins (`layout.place-forced`). A footprint locked in KiCad (`(locked
+  yes)`) is never moved silently: a script change over its unchanged position is a `cad-locked` conflict.
+- **Two CAD sides.** A value changed only in the schematic editor wins and is written into the board and
+  into the regenerated schematic. Both sides changed to one value (KiCad's update of the board from the
+  schematic) is no conflict; to two values it is a `sides-disagree` conflict. A project built with
+  `--schematic skip` has the board as its only side.
+- **Footprints swapped in KiCad** keep their node: the build is given the board's library footprint id,
+  which must resolve through the project's libraries.
+- **No CAD file** (an empty folder, `--discard-layout`, `--target altium`): every property takes its code
+  value, edits included.
+- `result.preserved.edits` lists `kept`, `code`, `taken` and `unrecorded` (sorted key texts) and
+  `conflicts` (records with `key`, `reason`, `base`, `code` and `cad`); every list is empty on a first build
+  and on a rebuild of an unedited board.
+
+## The base record
+
+`<out>/fenolite-base.json` (schema `fenolite.base.v0`) is written by every build, beside `.fenolite/` and
+not in it: canonical JSON with sorted keys, no date, `target` (`kicad` or `altium`) and `parts`: component
+path → property → `{"code": …, "out": …}`. Positions are `[x, y]` in board nanometres, rotations
+`[microdegrees, "top"|"bottom"]`, other values texts; `code` is `null` when the script gives no value (a
+part without `place()`, or without a footprint of its own).
+
+- It is committed with the output folder, which is the layout authority; `.fenolite/` is not. The merge
+  takes the base from this file only, so a clone without `.fenolite/` builds as the original does.
+- It is a planned write, listed in the receipt and hashed in `.fenolite/build.json`, so a base record
+  changed by hand is refused (`build.layout-exists`, exit 7). Without `.fenolite/build.json` it cannot be
+  told from a hand edit and is not guarded.
+- A file that is not JSON, of another schema or target, or with a malformed entry is read as no record
+  (`edit.base-invalid`, warning).
+- A part matched through a `moved()` alias takes the entry of its old path.
+
+## edits.toml
+
+`edits.toml` (schema `fenolite.edits.v0`), beside the design script, holds the property values that differ
+from the script's, each with the script value it was made over. `fenolite sync --to-source` writes it and
+`fenolite build` reads it, for both targets.
+
+```toml
+# Written by fenolite sync --to-source.
+schema = "fenolite.edits.v0"
+
+[part."buck1/L"]
+x = 12.7
+y = 30
+value = "6u8"
+
+[part."buck1/L".over]
+unplaced = true
+value = "4u7"
+```
+
+- **Tables.** `[part."<component path>"]` with `x` and `y` (together, millimetres in the frame of
+  `place()`), `rotation` and `side` (together), `locked` (with `x` and `y`, the KiCad lock, printed only
+  when true), `value`, `footprint`, `reference` and `properties` (an inline table of strings), then its
+  `over` table with the same keys, or `unplaced = true` for a part the script did not place. Numbers are
+  read with exact decimals and printed in their shortest exact form.
+- **Stale and redundant edits.** An edit applies while the script still holds its `over` value. When the
+  script changed under it to another value, the edit is stale: a `stale-edit` conflict. When the script
+  changed to the edit's value, the edit is redundant: it applies, and the next `sync` drops it.
+- **Only differences.** A part whose board position equals its `place()` has no table; staged parts have
+  none. A table of a part the board does not hold is kept unchanged by `sync`.
+- **Errors.** A file that is not TOML, or whose `schema` is missing or different, exits 3 (`FEN-3004`). A
+  wrong table or key, an edit without its `over` value or an `over` value without its edit gives
+  `layout.source-invalid` (error) and leaves the table out; the build then writes nothing.
+
+## Conflicts and --take
+
+A conflict gives `sync.conflict` (error) in `build` and in `sync`, with the key as `where`, the base,
+script and CAD values in its message, and the takes that resolve it in its hint. A build with a conflict
+plans no write; `sync` with one writes nothing. Only the build writes the CAD file, so only the build
+resolves:
+
+```
+fenolite build design.py --out B --take cad:R1#value --dry-run    # one property
+fenolite build design.py --out B --take code:buck1/L --dry-run    # every conflict of one part
+fenolite build design.py --out B --take schematic:R1#value ...    # sides-disagree
+fenolite build design.py --out B --take code --dry-run            # every conflict
+```
+
+`SIDE` is `code`, `cad`, `board` or `schematic`; the most specific take wins, and two sides for one target
+are a usage error (`FEN-2001`). A take never changes a property that is not in conflict
+(`edit.take-unused`, warning). After the build the base record holds the written value, so the next build
+has no conflict; then `sync --to-source` records a kept CAD value, or drops a stale edit.
+
+## From placements.toml to edits.toml
+
+`build` reads `edits.toml`, and otherwise `placements.toml`, whose entries are position edits that never
+go stale. With both files present `placements.toml` is not read (`edit.legacy-file`, warning). `sync`
+writes only `edits.toml`: the entries it cannot take from the board are carried into it
+(`sync.placements-migrated`, info). Delete `placements.toml` after reviewing `edits.toml`.
+
 ## sync
 
 The default target is KiCad. For native Altium schematic presentation, use `--target altium`; the workflow
 and conservative source-conflict handling are in [Native Altium schematic layout](altium-schematic-layout.md).
 
-`fenolite sync DESIGN.py --out DIR --to-source` reads the board in `DIR`, matches it with the script as
-a build does, and writes `placements.toml` beside the script when its text would change
-(`fenolite.lens.sync.plan_sync`; `docs/cli-contract.md`, "sync"). It also says, before any build, what
-the next build would drop or overwrite:
+`fenolite sync DESIGN.py --out DIR --to-source` reads the board and the schematic in `DIR` and the base
+record, matches them with the script as a build does, and writes `edits.toml` beside the script when its
+text would change (`fenolite.lens.sync.plan_sync`, `fenolite.lens.edits.capture_edits`;
+`docs/cli-contract.md`, "sync"): for each property, the value the next build would write, over the
+script's value, when the two differ. A code change over an unchanged CAD value is not recorded
+(`result.pending`): the next build writes it. It also says, before any build, what the next build would
+drop or overwrite:
 
 | code | severity | when |
 |---|---|---|
 | `sync.would-change` | error | with `--check`, a file would change |
+| `sync.conflict` | error | a property changed in the script and in the CAD file to different values, or an edit is stale; nothing is written |
 | `sync.orphan` | warning | a footprint with `fenolite.path` matches no part; the next build removes it |
 | `sync.net-dropped` | warning | the board holds copper on a net that no design net or alias covers; the next build drops it |
-| `sync.value-differs` | warning | the board's value, library footprint or user property of a matched part differs from the script's; the next build writes the script's |
+| `sync.value-differs` | warning | without a base entry for the part, the board's value, library footprint or user property differs from the script's; the next build writes the script's |
 | `sync.symbol-off-grid` | warning | a symbol's position or frame cannot be written to `schematic-placements.toml` |
+| `sync.placements-migrated` | info | the entries of a legacy `placements.toml` were carried into `edits.toml` |
 
 - **`--check`** writes nothing and gives one `sync.would-change` per file that would change, so the
-  command exits 5 when the committed file is stale. Run it in CI.
+  command exits 5 when a committed file is stale or a property is in conflict. Run it in CI.
 - **Both files.** The second file of `sync` is `schematic-placements.toml`, the symbol placements of the
   generated schematic (`docs/schematic.md`, "Placements file"). `sync` reads `DIR/<name>.kicad_sch` and
   every sheet file it names, takes each symbol whose `fenolite.path` is a component path of the script,
@@ -568,16 +717,27 @@ the next build would drop or overwrite:
 - A schematic edited in KiCad is replaced by the next build, so run `sync` first: the build then draws
   the schematic again with every symbol where the file says.
 
+### The drawn schematic in the source tree
+
+For a design that loads a drawn schematic (change c0276), the drawing is CAD-owned like the layout: `sync
+--to-source` extracts the sheets of the built project and plans the drawn file beside the script when its
+canonical text differs, and plans no `schematic-placements.toml`. A sync never changes nets: it first
+resolves the sheets and compares them with the recorded circuit, and a connectivity difference plans
+nothing (`drawn.netlist-differs`, exit 5). Values, footprints and references edited in KiCad keep the rules
+of `edits.toml` (change c0250); the drawn file holds none of them. `--freeze-schematic` writes
+`schematic.toml` from a generated schematic, with `drawn.frozen` and the hint to call
+`design.load_schematic`; the script is never rewritten (`docs/drawn-schematic.md`).
+
 ## Issue codes
 
 | code | severity | when |
 |---|---|---|
 | `layout.copper-mismatch` | error | the board's copper layers are no table that Fenolite creates, so the board cannot follow `board(copper=…)`; the message names both counts and the hint `--discard-layout` |
-| `layout.source-invalid` | error | a table or key of `placements.toml` is invalid |
+| `layout.source-invalid` | error | a table or key of `edits.toml` or of a legacy `placements.toml` is invalid |
 | `layout.orphan` | warning | a footprint with `fenolite.path` matched no part and is removed |
 | `layout.alias-unused` | warning | a part alias, given or expanded from a module alias, matched nothing, or its part matched by uuid or path |
 | `layout.net-alias-unused` | warning | a `moved_net(old, new)` alias names no net of the board |
-| `layout.source-unknown` | warning | a table of `placements.toml` names no part of the design |
+| `layout.source-unknown` | warning | a table of `edits.toml` or `placements.toml` names no part of the design |
 | `layout.place-forced` | warning | a locked `place()` re-placed a footprint whose board placement differed |
 | `layout.footprint-replaced` | warning | the part's footprint changed; the footprint is re-placed |
 | `layout.net-removed` | warning | items on a net the design no longer has were dropped |
@@ -586,8 +746,15 @@ the next build would drop or overwrite:
 | `layout.place-overridden` | info | an unlocked `place()` differs from the kept board placement or from the `placements.toml` entry that wins |
 | `layout.alias-used` | info | a part was matched through an alias and kept or re-placed under its new path |
 | `layout.net-alias-used` | info | items of a board net were kept under the net's new name |
-| `layout.source-stale` | info | a `placements.toml` entry differs from the kept board placement |
+| `layout.source-stale` | info | an `edits.toml` or `placements.toml` entry differs from the kept board placement |
 | `layout.board-only` | info | a footprint without `fenolite.path` matched no part and is kept |
+| `sync.conflict` | error | a property changed on both sides since the base, to different values, or an edit is stale (`lens.edits`) |
+| `edit.take-unused` | warning | a `--take` matched no conflict |
+| `edit.legacy-file` | warning | `placements.toml` beside `edits.toml` was not read |
+| `edit.base-invalid` | warning | the base record was read as none |
+| `edit.unrecorded` | info | a kept CAD value is not in `edits.toml` |
+| `edit.code-wins` | info | a script change was written over an unchanged CAD value |
+| `edit.base-missing` | info | parts without a base entry were merged as before |
 | `kicad.copper.stale` | warning | script copper whose intent is gone was removed (`docs/copper.md`) |
 | `kicad.copper.regenerated` | info | script copper was edited in KiCad, or its pads moved, and was replaced |
 | `kicad.copper.duplicate` | info | an item equal to script copper was removed |
@@ -607,6 +774,10 @@ the next build would drop or overwrite:
 | `kicad.layers.added` | info | inner layers were added for the new copper count |
 
 ## Evidence
+
+`lens.edits.EVIDENCE` (`INFERRED`; `H-K-LENS-KEEP`, `H-K-SCH-UPDATE`, `H-K-EDIT-SCH-VALUE`) joins the
+`build` and `sync` envelopes when a base record or an edits file was read; the merge is Fenolite's own
+behaviour, proved on token-edited boards and schematics.
 
 `lens.preserve.EVIDENCE` (`INFERRED`; `H-K-LENS-KEEP`, `H-K-LENS-FILL`, `H-K-UUID-KEEP-2`,
 `H-K-BUILD-PATHPROP`) joins the `build` envelope when an existing board was read, with the board

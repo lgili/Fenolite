@@ -190,8 +190,36 @@ proposed by `sync --to-source`. c0253 judges the levels of the chosen pins. c025
 
 1. Should `take` also cover single-pin functions (an ADC channel, a timer output)? **Recommended:** yes, as
    kind `pin` with one role `io`, in the same change, since the solve is the same.
+   Decided 2026-10-29: yes. An option of kind `pin` maps the role `io`; `part.take("pin", option="ADC")`
+   gives a one-member take that is net-like (`MAIN_MEMBERS` gains `pin: io`), so `connect(net, adc)` works.
 2. Should the solve prefer alternatives near the consumer on the board? **Recommended:** no: placement is
    not known at solve time, and a layout-driven choice would depend on the board. A later change may propose
    a re-solve after placement, through the lock.
+   Decided 2026-10-29: no, as recommended.
 3. Is this change part of 1.0? **Recommended:** no, after 1.0 unless a reference board needs it (research,
    step 7); its design is fixed now so c0248 and c0249 leave room for `options` and `[pins]`.
+   Decided 2026-10-29: implemented now on `circuits-as-code` as the maintainer asked for tonight's batch;
+   whether it ships in 1.0 stays the maintainer's release decision.
+
+## Implementation notes (2026-10-29)
+
+- **Layering.** The package layering (`tests/unit/test_import_graph.py`) lets `dsl` import neither `lens`
+  nor `cli`, so the pure solve lives in `fenolite.model.pins` (model types only) and `fenolite.lens.pins`
+  re-exports it as the public name; `PIN_ISSUE_CODES` is registered for `explain` under `fenolite.model.pins`.
+  `fenolite.cli._pins` solves the takes against the lock's `[pins]` entries and applies the choices before
+  `to_model`; `to_model` solves takes never applied against an empty lock, as it assigns refs against an empty
+  lock (so tools that lower an example directly keep working); `fenolite sync` solves against the lock beside
+  the script.
+- **The take is a port.** `TakenInterface` is a `PortHandle` of the part (kept in `part.ports` under its take
+  key), not an `Interface`: two UART ports cross `tx` and `rx` (c0252), which a design-level `UART`
+  interface refuses. Its role nets are `TakenNet`s named `<part path>/<take key>/<role>`.
+- **The lock section.** `[pins]` gets a pass-through `LockSection` resolver in `dsl.lock`, so read, carry by
+  `moved()` and release work as for `refs`; the build replaces the kept entries with the solve's. Entries are
+  written in the order `kind`, `option`, `alternative`, `pins`, `choice`; the changes have the new reasons
+  `solved`, `stale` and `dropped`. A design with a take always gets a lock.
+- **Source `pinned`.** A choice is `pinned` when its take gives `pins=`, `locked` when it comes from a valid
+  lock entry, else `solved`.
+- **Bench (risk "Exponential worst case").** An authored 64-pin device with three I2C options of three
+  alternatives sharing pins, two UARTs, one SPI and a 16-channel ADC option, and eight takes (three `i2c`,
+  two `uart`, one `spi`, two `pin`): the solve tries 13 candidates
+  (`tests/unit/lens/test_pins.py::test_bench_64_pins_eight_takes`).

@@ -163,6 +163,14 @@ A reply (abridged):
 - Both drawings are resolved; a `REF-PIN` in another group gives `drawn-net`, so a junction removed gives
   `item-missing` and `drawn-net`.
 
+**Decided 2026-10-30 (implementation):** a drawn symbol names its component by path, and an original that
+Fenolite did not build has no `fenolite.path`. The two sides are therefore joined by reference, as levels 1
+and 2 join them: each reference names the `fenolite.path` of its component in the build, on both sides, so a
+repeated sheet of the original is one drawn sheet when the script's modules make it one. The sheets of a
+matched pair of instances are compared once, at the first instance where they meet; a sheet reference's file
+name is no part of the drawing. `drawn-net` compares groups over the pins both sides draw, so a symbol
+missing on one side gives `symbol-missing` alone.
+
 ### 8. `fenolite verify-source`
 
 - **Inputs.** `SCRIPT` (a design script) and `--against ORIGINAL` (a KiCad project folder or `.kicad_pro`,
@@ -286,14 +294,20 @@ No new `FEN-` code: usage `FEN-2001`, missing input `FEN-3001`, malformed proven
 
 1. **Default pixel tolerance**: 1000 ppm, as the viewer tests, or tighter for boards? Recommended: 1000 ppm,
    per-board override through `fidelity.tolerances`.
+   Decided 2026-10-29: 1000 ppm, overridden by `fidelity.tolerances.pixel_ppm` or `--pixel-ppm`.
 2. **KiCad plots as a second level-8 oracle** (SVG rasterised through an optional extra)? Recommended:
    later, as its own change with `H-K-FID-PLOT-AGREE`.
+   Decided 2026-10-29: later, as its own change; `H-K-FID-PLOT-AGREE` stays open.
 3. **A merged-segment mode of strict level 5** for originals whose tracks KiCad split on save?
    Recommended: only as an option (`--strict-merge`), never in the library proof.
+   Decided 2026-10-29: only as a later option; not built in this change, never in the library proof.
 4. **Who may write accepted entries** in `fenolite-library`? Recommended: only through a reviewed pull
    request; `--accept` prints the entry, `--record` writes it.
+   Decided 2026-10-29: as recommended; `--accept` lists the entry under `result.new_accepted`, `--record`
+   writes it.
 5. **Compare `locked` as an error** instead of a notice? Recommended: notice; c0275 locks everything, and a
    lock is lens state, not design.
+   Decided 2026-10-29: a notice (`copper-locked`, warning).
 
 ## Relation to the other changes of this batch
 

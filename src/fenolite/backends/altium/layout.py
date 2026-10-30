@@ -234,6 +234,9 @@ class Crossing:
     entries: tuple[tuple[str, str | None], ...] | None = None
     io: str = "unspecified"
     bus: tuple[str, ...] | None = None
+    label: str | None = None
+    """The net label of the stub beside the port and the sheet entry, when it is not ``name``: the circuit
+    net of a block port, whose crossing is named by the port (change c0269)."""
 
     @property
     def harness(self) -> bool:
@@ -588,7 +591,7 @@ def _attach(
         return None, harness_block(crossing, point), None
     if crossing.bus is not None:
         return None, None, bus_block(crossing.name, crossing.bus, point)
-    return _link(point, crossing.name, crossing.name), None, None
+    return _link(point, crossing.label or crossing.name, crossing.name), None, None
 
 
 def _reach(

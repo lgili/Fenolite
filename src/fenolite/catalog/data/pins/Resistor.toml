@@ -1,0 +1,58 @@
+schema = "fenolite.pins.v0"
+id = "Fenolite:Resistor"
+version = "1.0.0"
+summary = "Generic two-terminal resistor"
+category = "Passive"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0314", "S-0343"]
+
+[[pin]]
+number = "1"
+name = "A"
+type = "passive"
+
+[[pin]]
+number = "2"
+name = "B"
+type = "passive"
+
+[symbol]
+reference = "R"
+pin_names_hidden = true
+pins = [
+  { number = "1", at = ["-5.08mm", "0mm"], length = "2.54mm" },
+  { number = "2", at = ["5.08mm", "0mm"], rotation = "180deg", length = "2.54mm" },
+]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-2.54mm", "0mm"], ["-1.905mm", "1.05mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.905mm", "1.05mm"], ["-1.27mm", "-1.05mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.27mm", "-1.05mm"], ["-0.635mm", "1.05mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.635mm", "1.05mm"], ["0mm", "-1.05mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0mm", "-1.05mm"], ["0.635mm", "1.05mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.635mm", "1.05mm"], ["1.27mm", "-1.05mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.27mm", "-1.05mm"], ["1.905mm", "1.05mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.905mm", "1.05mm"], ["2.54mm", "0mm"]]

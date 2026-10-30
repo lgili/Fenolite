@@ -219,7 +219,7 @@ def test_refused_build_does_not_run_the_guard(tmp_path: Path, monkeypatch: pytes
     )
     code, env, _ = blink.build("--dry-run")
     assert code == 5 and "build.unknown-pin" in [i["code"] for i in env["issues"]]  # type: ignore[union-attr,index]
-    assert env["result"]["copper_check"] == {"mode": "refuse", "ran": False}  # type: ignore[index]
+    assert env["result"]["copper_check"] == {"mode": "refuse", "ran": False, "mode_source": "default"}  # type: ignore[index]
     assert copper_issues(env) == []
 
 

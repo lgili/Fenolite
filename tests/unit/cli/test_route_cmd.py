@@ -1171,3 +1171,229 @@ def test_narrower_copper_reported(monkeypatch, tmp_path: Path) -> None:
                                          net_id="n1"),))  # fmt: skip
     (hinted,) = guard(narrow, [cmd_route.JobNet("A", "n1", (), 200, 1, 1, 1)], (), "freerouting")
     assert "fanout=off" in (hinted.hint or "")
+
+
+# --- role mode (change c0244) ------------------------------------------------------------------------------
+
+TWO_PADS = ROOT / "tests/data/kicad/routing/two_pads.kicad_pcb"
+
+
+def test_roles_wrong_router(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "Wrong router" of "Route command role mode"."""
+    code, _, error, _ = run(
+        monkeypatch,
+        tmp_path,
+        "route",
+        str(TWO_PADS),
+        "--router",
+        "direct",
+        "--roles",
+        "critical",
+        "--dry-run",
+    )
+    assert code == 2 and error["code"] == "FEN-2001" and "octilinear" in error["hint"]
+
+
+@pytest.mark.parametrize(
+    ("given", "option"),
+    [
+        (("--group", "kelvin_R1"), "--group"),
+        (("--roles-file", "x.roles.json"), "--roles-file"),
+        (("--roles", "critical", "--nets", "ROUTE_ME"), "--nets"),
+        (("--roles", "critical", "--escape", "U1"), "--escape"),
+        (("--roles", "critical", "--order", "ROUTE_ME"), "--order"),
+        (("--roles", "critical", "--pairs-as-nets"), "--pairs-as-nets"),
+    ],
+)
+def test_roles_option_misuse(monkeypatch, tmp_path: Path, given: tuple[str, ...], option: str) -> None:
+    code, _, error, _ = run(
+        monkeypatch, tmp_path, "route", str(TWO_PADS), "--router", "octilinear", *given, "--dry-run"
+    )
+    assert code == 2 and error["code"] == "FEN-2001" and error["where"] == option
+
+
+def test_roles_none(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "No roles": a board with no stored or declared role plans nothing."""
+    board = tmp_path / "two_pads.kicad_pcb"
+    board.write_bytes(TWO_PADS.read_bytes())
+    code, env, error, _ = run(
+        monkeypatch,
+        tmp_path,
+        "route",
+        str(board),
+        "--router",
+        "octilinear",
+        "--roles",
+        "critical",
+        "--dry-run",
+    )
+    assert code == 0, error
+    assert [i["code"] for i in env["issues"] if i["code"].startswith("route.role")] == ["route.role-none"]
+    assert env["result"]["roles"] == [] and not env["result"].get("plan")
+    assert env["result"]["selected"] == [] and env["result"]["tracks"] == 0
+
+
+def test_roles_file_with_missing_pads(monkeypatch, tmp_path: Path) -> None:
+    """``--roles-file`` names the role document; a group whose pads the board lacks is ``unrouted`` with
+    reason ``pads``, its proposal and one ``route.role-unrouted``."""
+    board = tmp_path / "two_pads.kicad_pcb"
+    board.write_bytes(TWO_PADS.read_bytes())
+    document = {
+        "schema": "fenolite.roles.v0",
+        "roles": {
+            "gates": [{"name": "gate_X", "drive": "U9-1", "gate": "Q9-1", "source": "Q9-2", "ret": "U9-2"}]
+        },
+    }
+    (tmp_path / "mine.roles.json").write_text(json.dumps(document), encoding="utf-8")
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", str(board), "--router", "octilinear", "--roles", "critical",
+        "--roles-file", "mine.roles.json", "--dry-run",
+    )  # fmt: skip
+    assert code == 0, error
+    (entry,) = env["result"]["roles"]
+    assert (entry["group"], entry["status"], entry["reason"]) == ("gate_X", "unrouted", "pads")
+    assert entry["proposal"]["kind"] == "move-part"
+    assert [i["code"] for i in env["issues"] if i["code"].startswith("route.role")] == ["route.role-unrouted"]
+    code, _, error, _ = run(
+        monkeypatch, tmp_path, "route", str(board), "--router", "octilinear", "--roles", "critical",
+        "--roles-file", "mine.roles.json", "--require-complete", "--dry-run",
+    )  # fmt: skip
+    assert code == 5 and error["code"] == "FEN-5001"
+
+
+ROLE_BENCH = """\
+from fenolite.dsl import Design, Net, Part, connect, mm
+
+design = Design("rip_bench")
+design.board(mm(40), mm(30))
+r1 = Part("R1", "Fenolite:Resistor", footprint="Roles:Roles_Shunt_2512", value="5m")
+u1 = Part("U1", "Roles:Roles_Sense_Amplifier", footprint="Fenolite:SOT23_5", value="AMP")
+design.add(r1, u1)
+va, vb = Net("VA"), Net("VB")
+connect(va, r1[1], u1["IN+"])
+connect(vb, r1[2], u1["IN-"])
+design.net_role(va, "power")
+design.net_role(vb, "power")
+design.kelvin("kelvin_R1", (r1.pad(1), r1.pad(2)), (u1.pad(3), u1.pad(4)))
+r1.place(mm(8), mm(8), rot=90)
+u1.place(mm(28), mm(20), rot=90)
+{lines}
+"""
+BAD_LINES = """\
+design.track("bad_a", r1.pad(1).at(mm("-0.6")), u1.pad(3), width=mm("0.2"))
+design.track("bad_b", r1.pad(2), u1.pad(4), width=mm("0.2"))
+"""
+
+
+def _role_bench(tmp_path: Path, lines: str) -> Path:
+    sys.path.insert(0, str(ROOT / "tests" / "unit" / "roles"))
+    from _critical import bench
+
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    built = bench(tmp_path, "rip_bench", ROLE_BENCH.format(lines=lines))
+    return built.board
+
+
+def test_role_rip(monkeypatch, tmp_path: Path) -> None:
+    """``--rip`` in role mode (design decision 9): a Kelvin pair joined by copper drawn on the board, with a
+    branch from the outer half of its pad, is ``kept`` with ``route.role-kept`` without ``--rip``; with it,
+    the branches are removed and the pair is routed. Script copper stays and is counted."""
+    board = _role_bench(tmp_path / "drawn", "")
+    design = read_board(board.read_text(encoding="utf-8"), file=board.name)
+    script = _role_bench(tmp_path / "script", BAD_LINES)
+    drawn = read_board(script.read_text(encoding="utf-8"), file=script.name)
+    assert design.board is not None and drawn.board is not None
+    lines = tuple(
+        replace(track, id=derived_id("trk", "test", track.id), native_ids={}) for track in drawn.board.tracks
+    )
+    board.write_text(write_board(replace(design, board=replace(design.board, tracks=lines))).text, "utf-8")
+    route = ("route", str(board), "--router", "octilinear", "--roles", "critical", "--dry-run")
+    code, env, error, _ = run(monkeypatch, tmp_path, *route)
+    assert code == 0, error
+    (entry,) = env["result"]["roles"]
+    assert entry["status"] == "kept" and entry["proposal"]["kind"] == "rip"
+    assert "--rip" in entry["proposal"]["command"]
+    assert [i["code"] for i in env["issues"] if i["code"].startswith("route.role")] == ["route.role-kept"]
+    code, env, error, _ = run(monkeypatch, tmp_path, *route, "--rip")
+    assert code == 0, error
+    (entry,) = env["result"]["roles"]
+    assert entry["status"] == "routed" and env["result"]["ripped"] == 2
+    assert env["result"]["rip_kept"] == {"locked": 0, "script": 0}
+    code, env, error, _ = run(monkeypatch, tmp_path, "route", str(script), *route[2:], "--rip")
+    assert code == 0, error
+    (entry,) = env["result"]["roles"]
+    assert entry["status"] == "kept" and env["result"]["ripped"] == 0
+    assert env["result"]["rip_kept"] == {"locked": 0, "script": 2}
+
+
+def test_role_gate(monkeypatch, tmp_path: Path) -> None:
+    """``--gate drc`` in role mode (design decision 13): the gate gets each group's copper and corridors as
+    one ``together`` set, and a group whose copper it drops is ``unrouted`` with reason ``drc`` (the KiCad
+    part runs in ``tests/kicad/roles/test_critical_drc.py``)."""
+    from fenolite.cli import _gate
+
+    board = _role_bench(tmp_path / "gate", "")
+    seen: list[list[frozenset[str]]] = []
+
+    def fake_gate(board_path, before, after, *, kicad_cli, timeout, together=()):  # type: ignore[no-untyped-def]  # noqa: E501
+        sets = [frozenset(items) for items in together]
+        seen.append(sets)
+        dropped = sets[0]
+        kept = _gate.revert(after, before, dropped)
+        issue = Issue(_gate.DROPPED, "warning", "dropped by the test gate", where=sorted(dropped)[0])
+        listed = [{"id": item, "findings": []} for item in sorted(dropped)]
+        result = {"tool_version": "test", "runs": 1, "refilled": False, "items": len(dropped), "kept": 0,
+                  "dropped": listed, "findings": []}  # fmt: skip
+        return _gate.Gated(kept, dropped, result, (issue,), None)
+
+    monkeypatch.setattr(_gate, "gate", fake_gate)
+    monkeypatch.setattr(_gate, "preflight", lambda *args, **kwargs: None)
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", str(board), "--router", "octilinear", "--roles", "critical",
+        "--gate", "drc", "--dry-run",
+    )  # fmt: skip
+    assert code == 0, error
+    (sets,) = seen
+    (group,) = sets
+    (entry,) = env["result"]["roles"]
+    assert (entry["status"], entry["reason"]) == ("unrouted", "drc")
+    assert {item["id"] for item in env["result"]["gate"]["dropped"]} == set(group)
+    assert len(group) >= 6 + 2  # three tracks per branch, two corridors
+    assert entry["copper"] == [] and env["result"]["tracks"] == 0
+    assert not env["result"].get("plan")
+
+
+GATE_BENCH = """\
+from fenolite.dsl import Design, Net, Part, connect, mm
+
+design = Design("placement_bench")
+design.board(mm(40), mm(30))
+r5 = Part("R5", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="SWITCH")
+r6 = Part("R6", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="DRIVER")
+design.add(r5, r6)
+gh, sw = Net("GH"), Net("SW")
+connect(gh, r5[1], r6[1])
+connect(sw, r5[2], r6[2])
+design.net_role(gh, "gate")
+design.net_role(sw, "switch_node")
+design.gate_loop("gate_R5", drive=r6.pad(1), gate=r5.pad(1), source=r5.pad(2), ret=r6.pad(2))
+design.role_limits(kind="gate", gate_max="1mm2")
+r5.place(mm(10), mm(20))
+r6.place(mm(25), mm(10), rot=270)
+"""
+
+
+def test_role_placement(monkeypatch, tmp_path: Path) -> None:
+    """A gate loop whose placement bound is above the user's ``gate_max`` gives ``route.role-placement``
+    (info): no route brings its area under the limit."""
+    sys.path.insert(0, str(ROOT / "tests" / "unit" / "roles"))
+    from _critical import bench
+
+    built = bench(tmp_path, "placement_bench", GATE_BENCH)
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", str(built.board), "--router", "octilinear", "--roles", "critical",
+        "--dry-run",
+    )  # fmt: skip
+    assert code == 0, error
+    (found,) = [i for i in env["issues"] if i["code"] == "route.role-placement"]
+    assert found["severity"] == "info" and found["where"] == "gate_R5" and "gate_max" in found["message"]

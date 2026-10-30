@@ -1,0 +1,43 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:SOT223_3_Diodes"
+version = "1.0.0"
+summary = "Diodes SOT223-3 suggested land"
+category = "Power semiconductor"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0372"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["1.2mm", "1.4mm"]
+at = ["-2.3mm", "-3.1mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["3.5mm", "1.4mm"]
+at = ["0mm", "3.1mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "3"
+shape = "rect"
+size = ["1.2mm", "1.4mm"]
+at = ["2.3mm", "-3.1mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-3.25mm", "-1.75mm"], ["3.25mm", "1.75mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-3.75mm", "-4.3mm"], ["3.75mm", "4.3mm"]]
+width = "0.05mm"

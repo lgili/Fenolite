@@ -1,9 +1,9 @@
-# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI DRV0006A outline and example board layout, TPS62240 data sheet (S-0863).
+# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI DRV0006A outline and example board layout, TPS62240 data sheet (S-0969).
 schema = "fenolite.package.v0"
 family = "nolead"
 name = "SON6_TI_DRV0006A"
 evidence = "INFERRED"
-sources = ["S-0863"]
+sources = ["S-0969"]
 
 pins = 6
 pitch = "0.65mm"
@@ -17,7 +17,7 @@ lands = 1
 drawing = 1
 
 [land]
-source = "S-0863 TI DRV0006A outline and example board layout"
+source = "S-0969 TI DRV0006A outline and example board layout"
 pad = { length = "0.45mm", width = "0.3mm" }
 row_spacing = "1.95mm"
 ep = { length = "1.6mm", width = "1.0mm" }

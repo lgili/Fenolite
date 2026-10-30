@@ -1,0 +1,17 @@
+schema = "fenolite.device.v1"
+id = "Fenolite:R_0603"
+version = "1.0.0"
+summary = "Generic 0603 chip resistor"
+category = "Device"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0314", "S-0315", "S-0333", "S-0343"]
+symbol = "Fenolite:Resistor"
+footprint = "Fenolite:Chip_0603"
+ref_prefix = "R"
+value = "R_0603"
+ends = ["P1", "P2"]
+
+[pins]
+P1 = "1"
+P2 = "2"

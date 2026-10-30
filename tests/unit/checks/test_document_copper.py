@@ -142,6 +142,7 @@ def test_stage_order() -> None:
     """Scenario "Order"."""
     assert DOCUMENT_STAGES == (
         "model.validate",
+        "circuit.rules",
         "erc.lite",
         "copper.clearance",
         "placement.rules",

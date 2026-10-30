@@ -52,9 +52,11 @@ from fenolite.model.findings import Waiver
 
 if TYPE_CHECKING:
     from fenolite.checks.roles import RolesJudge
+    from fenolite.checks.stages import CircuitInputs
 
 DOCUMENT_STAGES: tuple[str, ...] = (
     "model.validate",
+    "circuit.rules",
     "erc.lite",
     "copper.clearance",
     "placement.rules",
@@ -68,7 +70,8 @@ DOCUMENT_STAGES: tuple[str, ...] = (
 """The stages of a document check that run by default, in the order they run. ``placement.rules`` (change
 c0113) judges the placement rules of a built project on the pad positions of the PCB document and measures
 every board. ``roles.rules`` (change c0222) judges the net roles of the PCB document with the judge that
-``fenolite check`` passes."""
+``fenolite check`` passes. ``circuit.rules`` (change c0252) judges the interface parameters of the
+``.fenolite/`` model of a built project and reads no document."""
 OPT_IN_DOCUMENT_STAGES: tuple[str, ...] = ("roundtrip.rta3",)
 """The stages that run only when ``--stages`` names them (change c0090): RT-A3 writes a whole project
 into a temporary folder and reads it again."""
@@ -242,6 +245,7 @@ def run_document_checks(
     cache_error: str = "",
     waivers: Sequence[Waiver] = (),
     roles_judge: RolesJudge | None = None,
+    circuit_inputs: CircuitInputs | None = None,
 ) -> CheckReport:
     """Run the selected stages in ``DOCUMENT_STAGES`` order on ``documents`` (``model`` is the ``.fenolite/``
     model of a built project). ``validator.read_documents`` runs at most once, and
@@ -468,8 +472,17 @@ def run_document_checks(
             return skipped(name, "read-refused")
         return rta3_stage(trip)
 
+    def circuit() -> StageResult:
+        from fenolite.checks.circuit import circuit_stage
+
+        devices, classes = (None, None)
+        if circuit_inputs is not None and usable is not None:
+            devices, classes = circuit_inputs(usable)
+        return circuit_stage(usable, built=built, cache_error=cache_error, devices=devices, classes=classes)
+
     runners: dict[str, Callable[[], StageResult]] = {
         "model.validate": model_stage,
+        "circuit.rules": circuit,
         "erc.lite": erc,
         "copper.clearance": copper,
         "placement.rules": placement,

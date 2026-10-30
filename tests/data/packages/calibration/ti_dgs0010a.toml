@@ -1,9 +1,9 @@
-# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI DGS0010A outline and example board layout, INA226 data sheet (S-0861).
+# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI DGS0010A outline and example board layout, INA226 data sheet (S-0967).
 schema = "fenolite.package.v0"
 family = "gullwing"
 name = "VSSOP10_TI_DGS0010A"
 evidence = "INFERRED"
-sources = ["S-0861"]
+sources = ["S-0967"]
 
 pins = 10
 pitch = "0.5mm"
@@ -17,6 +17,6 @@ lands = 1
 drawing = 1
 
 [land]
-source = "S-0861 TI DGS0010A outline and example board layout"
+source = "S-0967 TI DGS0010A outline and example board layout"
 pad = { length = "1.45mm", width = "0.3mm" }
 row_spacing = "4.4mm"

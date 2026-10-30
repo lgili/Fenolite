@@ -90,7 +90,7 @@ None.
   example's netlist with `kicad-cli` and finds every net under its circuit name and no ERC sheet-pin
   violation (`H-K-SCH-BLOCK-PINS`, `H-K-SCH-BLOCK-ERC`). `INFERRED` until then.
 - Altium entries from ports: `INFERRED` until the maintainer's kit compiles the block example and lists no
-  port message (`H-A-SCH-BLOCK-ENTRIES`).
+  port message (`H-A-BLOCK-ENTRIES`).
 - Groups and the shared arrangement: `INFERRED`, unit-tested (`H-G-BLOCK-SHEET-REUSE`).
 
 ## Impact

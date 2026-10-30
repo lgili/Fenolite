@@ -175,10 +175,8 @@ def test_re_exports_and_import_edges() -> None:
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("fenolite."):
-                # c0260: ``Footprint.from_package`` imports the generators of ``catalog`` lazily (LAZY of
-                # tests/unit/test_import_graph.py).
-                lazy = ("catalog",) if path.name == "footprint.py" else ()
-                assert node.module.split(".")[1] in ("core", "model", "dsl", "schematic", *lazy), (
+                # catalog: symbol prefixes (c0249) and devices (c0248); it imports only core and model
+                assert node.module.split(".")[1] in ("core", "model", "dsl", "schematic", "catalog"), (
                     path.name,
                     node.module,
                 )

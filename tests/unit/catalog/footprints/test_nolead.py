@@ -89,7 +89,7 @@ def test_dual_no_lead(record: Record) -> None:
     def dfn(raw: dict[str, Any]) -> None:
         raw.update(name="DFN6_Test", pins=6, arrangement="dual", pitch="0.65mm")
         raw["land"] = {
-            "source": "S-0856 test",
+            "source": "S-0962 test",
             "pad": {"length": "0.6mm", "width": "0.3mm"},
             "row_spacing": "2.8mm",
         }

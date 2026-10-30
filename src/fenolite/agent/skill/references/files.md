@@ -61,32 +61,6 @@ only:
 `result.level` is the highest level that holds. Exit 5 with `roundtrip.failed` (`where`: the first
 difference) means the write would change the file: edit it in KiCad, not with Fenolite.
 
-## Working on the owner's project
-
-```fenolite-cmd
-fenolite doctor --sessions project --json
-fenolite snapshot project/board.kicad_pcb --out work --confirm --json
-fenolite publish work --to project --receipt work/snapshot.json --dry-run --json
-fenolite refs work --json
-fenolite refs work --repoint C:/old/libs=C:/new/libs --dry-run --json
-```
-
-Do not edit the owner's files in place while they may be open:
-
-1. `doctor --sessions` lists the files open in KiCad (`safety.open-session`) and the files a sync client
-   keeps only online. Ask the owner to close them; every writing command repeats that warning for a file
-   of its plan.
-2. `snapshot` copies the board with its companions only when no save fell inside the copy, and writes
-   `snapshot.json`. Work on the copy.
-3. `publish` puts the copy back. It replaces a file only when its hash is still the one of
-   `snapshot.json`. A file the owner saved since is `safety.changed-since-receipt`, and nothing is written:
-   tell the owner, take a new snapshot, and do the edit again. Keep the envelope of the publish: it is the
-   receipt of the next one.
-4. `refs` lists the paths the documents hold. `refs.outside` means the copy still depends on another folder;
-   `--repoint OLD=NEW` rewrites a prefix in the KiCad documents.
-
-Exit 3 with `FEN-3007` means a file is kept only online: ask the owner to make the folder available offline.
-
 ## What changed between two files?
 
 ```fenolite-cmd
@@ -137,6 +111,31 @@ fenolite convert blink/build --to altium --out blink/altium --dry-run --json
 `result.report` counts what is written, changed or lost per kind and reason. A lost pad, copper or
 fitted flag needs `--allow-lossy` (exit 7); an unexplained difference exits 5.
 
+## A board as code
+
+```fenolite-cmd
+fenolite import blink/build/blink.kicad_pro --to python --out blink/code --dry-run --json
+```
+
+`import PATH --to python --out DIR` writes `design.py`, `copper.py` (the copper as `track_table`,
+`arc_table` and `via_table` rows in nm), the vendored `lib/`, `design.lock` and `PROVENANCE.json`. It
+builds the code first and compares it with the board (`result.equivalence`): `import.unequal` exits 5. An
+item the DSL cannot say exits 7 (`FEN-7001`) unless `--allow-lossy`. Pass `--licence`, `--copyright`,
+`--source` and `--timestamp` for a board you did not author; publish converted boards only where their
+licence allows.
+
+A table is one net's copper, each row in integer nm in the frame of `place()`:
+
+```fenolite-design
+from fenolite.dsl import Design, Net, mm
+
+design = Design("tables")
+design.board(mm(50), mm(30))
+gnd = Net("GND")
+rows = ((10_000_000, 10_000_000, 15_000_000, 10_000_000),)
+design.track_table("GND/F.Cu/1", net=gnd, layer="F.Cu", width=mm("0.25"), rows_nm=rows)
+```
+
 ## The canonical print
 
 ```fenolite-cmd
@@ -164,5 +163,57 @@ fenolite restore blink/last-write.json --confirm --json
 when a written file changed since (`restore.changed-since`), never deletes a file the write created
 (`restore.kept`), and has nothing to do when `receipt.undo` is `null` (`--no-backup`). Its own receipt
 undoes it.
+
+## The design lock
+
+A script with parts written without a ref gets `<script>.lock` beside it: every part path and its ref,
+written by `build` through the plan. Commit it, and review its changes like code. An edit of a ref there
+renumbers that part; deleting the file renumbers all. `--frozen` refuses any change (exit 7,
+`FEN-7004`, page `recovery`): run it in CI or before a release. `--lock FILE` names another file.
+
+```fenolite-cmd
+fenolite build reg/design.py --out reg/build --frozen --dry-run --json
+fenolite build reg/design.py --out reg/build --lock reg/release.lock --dry-run --json
+```
+
+## Parts chosen by parameters
+
+A query names a passive by what it must be; `build` picks a row of the local catalog (shipped families,
+`fenolite catalog list --kind family`, and `devices/` beside the script), records it in the lock's
+`[picks]` and never swaps it by itself. A generator picks values and reports `gen.achieved`.
+
+```fenolite-design
+from fenolite.dsl import I2C, Design, Net, amp, between, capacitor, connect, farad, henry, hertz, inductor
+from fenolite.dsl import i2c_pull_ups, led_resistor, mm, ohm, pct, rc_lowpass, resistor, shunt, volt
+from fenolite.dsl import voltage_divider
+
+design = Design("picks")
+design.board(mm(30), mm(20))
+design.defaults(resistor={"case": "0603", "tolerance": pct(1)})  # b.defaults(...), then the call, win
+v, fb, gnd, a = Net("V3V3"), Net("FB"), Net("GND"), Net("LED_A")
+r = design.part(device=resistor(ohm("10k")))  # pins 1 and 2 until the pick
+c = design.part(device=capacitor(farad("100n"), rating=volt(25), dielectric="X7R"))
+connect(v, r[1], c[1])
+connect(gnd, r[2], c[2])
+coil = inductor(henry("4u7"), current=amp(1))  # no shipped inductor family: rows in devices/
+voltage_divider(design, v, fb, gnd, target=volt("3.3").pct(5), ref=volt("0.6").pct(1),
+                current=between(amp("40u"), amp("100u")))
+rc_lowpass(design, fb, Net("F"), gnd, corner=hertz(1000).pct(10), c=capacitor(farad("10n"), dielectric="C0G"))
+led_resistor(design, v, a, current=between(amp("2m"), amp("5m")), vf=volt(2), vs=volt("3.3").pct(3))
+i2c_pull_ups(design, I2C(Net("SDA"), Net("SCL")), v, bus_capacitance=between(farad("50p"), farad("100p")),
+             vdd=volt("3.3").pct(3))
+shunt(design, v, Net("LOAD"), current=between(amp(0), amp("5m")), full_scale=volt("0.1").pct(2))
+```
+
+`pick` lists each pick and its state; a query that the locked part no longer meets is `pick.stale`
+(exit 5), fixed by `--update` through the plan. `--propose` writes `UNVERIFIED` rows to
+`devices/proposed/`, which only a query naming them (`row=`) picks.
+
+```fenolite-cmd
+fenolite pick picks/design.py --json
+fenolite pick picks --candidates C_in --limit 5 --json
+fenolite pick picks --update C_in --dry-run --json
+fenolite pick picks --propose "capacitor(10uF, dielectric=X7R)" --from rows.csv --dry-run --json
+```
 
 Read next: `checks`, `altium`, `recovery`.

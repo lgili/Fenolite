@@ -1,0 +1,282 @@
+schema = "fenolite.pins.v0"
+id = "Fenolite:Inductor"
+version = "1.0.0"
+summary = "Generic inductor"
+category = "Passive"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0314"]
+
+[[pin]]
+number = "1"
+name = "A"
+type = "passive"
+
+[[pin]]
+number = "2"
+name = "B"
+type = "passive"
+
+[symbol]
+reference = "L"
+pin_names_hidden = true
+pins = [
+  { number = "1", at = ["-5.08mm", "0mm"], length = "2.54mm" },
+  { number = "2", at = ["5.08mm", "0mm"], rotation = "180deg", length = "2.54mm" },
+]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-2.54mm", "0mm"], ["-2.460625mm", "0.248mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-2.460625mm", "0.248mm"], ["-2.38125mm", "0.486mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-2.38125mm", "0.486mm"], ["-2.301875mm", "0.705mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-2.301875mm", "0.705mm"], ["-2.2225mm", "0.898mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-2.2225mm", "0.898mm"], ["-2.143125mm", "1.057mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-2.143125mm", "1.057mm"], ["-2.06375mm", "1.174mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-2.06375mm", "1.174mm"], ["-1.984375mm", "1.246mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.984375mm", "1.246mm"], ["-1.905mm", "1.27mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.905mm", "1.27mm"], ["-1.825625mm", "1.246mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.825625mm", "1.246mm"], ["-1.74625mm", "1.174mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.74625mm", "1.174mm"], ["-1.666875mm", "1.057mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.666875mm", "1.057mm"], ["-1.5875mm", "0.898mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.5875mm", "0.898mm"], ["-1.508125mm", "0.705mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.508125mm", "0.705mm"], ["-1.42875mm", "0.486mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.42875mm", "0.486mm"], ["-1.349375mm", "0.248mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.349375mm", "0.248mm"], ["-1.27mm", "0mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.27mm", "0mm"], ["-1.190625mm", "0.248mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.190625mm", "0.248mm"], ["-1.11125mm", "0.486mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.11125mm", "0.486mm"], ["-1.031875mm", "0.705mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.031875mm", "0.705mm"], ["-0.9525mm", "0.898mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.9525mm", "0.898mm"], ["-0.873125mm", "1.057mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.873125mm", "1.057mm"], ["-0.79375mm", "1.174mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.79375mm", "1.174mm"], ["-0.714375mm", "1.246mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.714375mm", "1.246mm"], ["-0.635mm", "1.27mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.635mm", "1.27mm"], ["-0.555625mm", "1.246mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.555625mm", "1.246mm"], ["-0.47625mm", "1.174mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.47625mm", "1.174mm"], ["-0.396875mm", "1.057mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.396875mm", "1.057mm"], ["-0.3175mm", "0.898mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.3175mm", "0.898mm"], ["-0.238125mm", "0.705mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.238125mm", "0.705mm"], ["-0.15875mm", "0.486mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.15875mm", "0.486mm"], ["-0.079375mm", "0.248mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-0.079375mm", "0.248mm"], ["0mm", "0mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0mm", "0mm"], ["0.079375mm", "0.248mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.079375mm", "0.248mm"], ["0.15875mm", "0.486mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.15875mm", "0.486mm"], ["0.238125mm", "0.705mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.238125mm", "0.705mm"], ["0.3175mm", "0.898mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.3175mm", "0.898mm"], ["0.396875mm", "1.057mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.396875mm", "1.057mm"], ["0.47625mm", "1.174mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.47625mm", "1.174mm"], ["0.555625mm", "1.246mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.555625mm", "1.246mm"], ["0.635mm", "1.27mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.635mm", "1.27mm"], ["0.714375mm", "1.246mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.714375mm", "1.246mm"], ["0.79375mm", "1.174mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.79375mm", "1.174mm"], ["0.873125mm", "1.057mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.873125mm", "1.057mm"], ["0.9525mm", "0.898mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0.9525mm", "0.898mm"], ["1.031875mm", "0.705mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.031875mm", "0.705mm"], ["1.11125mm", "0.486mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.11125mm", "0.486mm"], ["1.190625mm", "0.248mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.190625mm", "0.248mm"], ["1.27mm", "0mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.27mm", "0mm"], ["1.349375mm", "0.248mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.349375mm", "0.248mm"], ["1.42875mm", "0.486mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.42875mm", "0.486mm"], ["1.508125mm", "0.705mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.508125mm", "0.705mm"], ["1.5875mm", "0.898mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.5875mm", "0.898mm"], ["1.666875mm", "1.057mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.666875mm", "1.057mm"], ["1.74625mm", "1.174mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.74625mm", "1.174mm"], ["1.825625mm", "1.246mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.825625mm", "1.246mm"], ["1.905mm", "1.27mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.905mm", "1.27mm"], ["1.984375mm", "1.246mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["1.984375mm", "1.246mm"], ["2.06375mm", "1.174mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["2.06375mm", "1.174mm"], ["2.143125mm", "1.057mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["2.143125mm", "1.057mm"], ["2.2225mm", "0.898mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["2.2225mm", "0.898mm"], ["2.301875mm", "0.705mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["2.301875mm", "0.705mm"], ["2.38125mm", "0.486mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["2.38125mm", "0.486mm"], ["2.460625mm", "0.248mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["2.460625mm", "0.248mm"], ["2.54mm", "0mm"]]

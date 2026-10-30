@@ -22,7 +22,7 @@ def test_override_recorded(record: Record) -> None:
     assert {abs(pad.position.x) for pad in fp.pads} == {2_750_000}
     assert result.land.source == "manufacturer" and result.land.table is None
     assert (result.land.z, result.land.g, result.land.x) == (7_020_000, 3_980_000, 600_000)
-    assert fp.description.endswith("land: manufacturer S-0855 soldering footprint")
+    assert fp.description.endswith("land: manufacturer S-0961 soldering footprint")
     assert result.stamp == "gullwing/1 manufacturer drawing/1" and result.stamp in fp.description
     infos = [i for i in result.issues if i.code == "package.land-override"]
     assert len(infos) == 1 and infos[0].severity == "info"

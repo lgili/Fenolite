@@ -14,7 +14,18 @@ from fenolite.checks import STAGE_ORDER, codes
 from fenolite.checks.codes import ERC_FINDING, FINDING, ISSUE_CODES, issue, oracle_code, table_key
 
 CHECKS = Path(codes.__file__).resolve().parent
-CODE = ("check.", "erc.lite.", "netlist.", "render.", "copper.", "zone.", "parity.", "placement.", "length.")
+CODE = (
+    "check.",
+    "erc.lite.",
+    "netlist.",
+    "render.",
+    "copper.",
+    "zone.",
+    "parity.",
+    "placement.",
+    "length.",
+    "circuit.",
+)
 TABLE = {
     "check.read-refused": ("error",),
     "check.cache-unreadable": ("warning",),
@@ -81,6 +92,44 @@ TABLE = {
     "length.out-of-range": ("error", "warning"),
     "length.skew-out-of-range": ("error", "warning"),
     "length.input-missing": ("warning",),
+    # the drawn schematic stage (c0276): the table of fenolite.model.drawn_connect, one severity per code
+    "drawn.netlist-differs": ("error",),
+    "drawn.symbol-missing": ("error",),
+    "drawn.part-unknown": ("error",),
+    "drawn.sheet-pin-unmatched": ("error",),
+    "drawn.sheet-unknown": ("error",),
+    "drawn.repeated-value-differs": ("error",),
+    "drawn.net-name-differs": ("warning",),
+    "drawn.unit-missing": ("warning",),
+    "drawn.dangling": ("warning",),
+    "drawn.label-unconnected": ("warning",),
+    "drawn.bus-member-unknown": ("warning",),
+    "drawn.placements-ignored": ("warning",),
+    "drawn.opaque-dropped": ("info",),
+    "drawn.frozen": ("info",),
+    "drawn.altium-repeat-flattened": ("info",),
+    "circuit.rail-voltage": ("error",),
+    "circuit.rail-current": ("error",),
+    "circuit.rail-sources": ("error",),
+    "circuit.rail-unset": ("warning",),
+    "circuit.logic-level": ("error",),
+    "circuit.logic-unknown": ("warning",),
+    "circuit.bus-pullup": ("warning",),
+    "circuit.requires-missing": ("warning",),
+    "circuit.port-split": ("warning",),
+    "circuit.rating-voltage": ("error",),  # c0253
+    "circuit.rating-current": ("error",),
+    "circuit.rating-power": ("error",),
+    "circuit.rating-temperature": ("error",),
+    "circuit.operating-range": ("error",),
+    "circuit.expect-failed": ("error",),
+    "circuit.expect-unsure": ("warning",),
+    "circuit.expect-unknown": ("warning",),
+    "circuit.value-conflict": ("warning",),
+    "circuit.device-changed": ("warning",),
+    "circuit.value-unknown": ("info", "warning"),
+    "circuit.rating-missing": ("info", "warning"),
+    "circuit.policy-missing": ("info",),
 }
 
 
@@ -112,13 +161,16 @@ def unknown(paths: list[Path]) -> set[str]:
 
 
 def test_codes_closed_set() -> None:
-    sources = sorted(CHECKS.glob("*.py"))
+    sources = sorted([*CHECKS.glob("*.py"), *CHECKS.glob("circuit/*.py")])  # circuit.*: change c0252
     assert unknown(sources) == set()
     # the finding row is generated from the report's type, never written as a literal
     # ``copper.clearance`` is also a stage name, which ``code_literals`` leaves out
     generated = (FINDING, ERC_FINDING)  # built from the report's type, never written as a literal
     wanted = {
-        k for k in TABLE if not k.startswith("erc.lite.") and k not in generated and k not in STAGE_ORDER
+        k
+        for k in TABLE
+        # the drawn codes are emitted by fenolite.model.drawn_connect, whose table the stage reuses (c0276)
+        if not k.startswith(("erc.lite.", "drawn.")) and k not in generated and k not in STAGE_ORDER
     }
     assert code_literals(sources) >= wanted
 
@@ -156,3 +208,13 @@ def test_codes_finding_row() -> None:
     # a finding code never equals a rules-verdict code
     assert table_key("kicad.drc.type-rules-not-loaded") == FINDING
     assert table_key("kicad.drc.rules-not-loaded") != FINDING
+
+
+def test_circuit_contract_codes() -> None:
+    """Change c0253, "Codes explained": thirteen contract codes beside c0252's nine, and a severity a code
+    does not take is refused."""
+    circuit = [code for code in ISSUE_CODES if code.startswith("circuit.")]
+    assert len(circuit) == 9 + 13
+    with pytest.raises(ValueError):
+        issue("circuit.expect-unsure", "m", severity="error")
+    assert issue("circuit.value-unknown", "m", severity="warning").severity == "warning"

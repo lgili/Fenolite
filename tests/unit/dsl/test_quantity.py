@@ -5,6 +5,8 @@ change c0073). The values are round numbers chosen for these tests."""
 
 from __future__ import annotations
 
+import json
+from collections.abc import Callable
 from fractions import Fraction
 
 import pytest
@@ -17,10 +19,14 @@ from fenolite.dsl import (
     DslError,
     Part,
     Quantity,
+    Range,
     amp,
+    between,
+    celsius,
     farad,
     henry,
     hertz,
+    kelvin,
     ohm,
     second,
     to_model,
@@ -112,9 +118,21 @@ def test_text_refusals() -> None:
 
 
 def test_exports() -> None:
-    names = ("Quantity", "ohm", "farad", "henry", "volt", "amp", "hertz", "watt", "second")
+    names = (
+        "Quantity",
+        "ohm",
+        "farad",
+        "henry",
+        "volt",
+        "amp",
+        "hertz",
+        "watt",
+        "second",
+        "celsius",
+        "kelvin",
+    )
     assert all(name in dsl.__all__ and hasattr(dsl, name) for name in names)
-    assert list(UNITS) == ["ohm", "farad", "henry", "volt", "ampere", "hertz", "watt", "second"]
+    assert list(UNITS) == ["ohm", "farad", "henry", "volt", "ampere", "hertz", "watt", "second", "kelvin"]
 
 
 def test_one_value_for_two_spellings() -> None:
@@ -149,3 +167,133 @@ def test_letter_code_parses_back(unit: str, value: Fraction) -> None:
             made.text(code=True)
         return
     assert MAKERS[unit](made.text(code=True)) == made
+
+
+# -- temperatures, products and one-sided ranges (change c0274, tasks 1.1 to 1.3)
+
+
+def test_celsius_range() -> None:
+    ambient = between(celsius(-20), celsius(70))
+    assert ambient.unit == "kelvin"
+    assert (ambient.low, ambient.high) == (Fraction("253.15"), Fraction("343.15"))
+    assert ambient.temperature_text() == "-20°C..70°C"
+    assert kelvin(15).text() == "15K" and celsius(-40).temperature_text() == "-40°C"
+    assert celsius("-40") == celsius("-40degC") == kelvin("233.15") == kelvin("233.15K")
+    assert celsius(25).text() == "298.15K"
+    assert between(celsius(0), celsius(85), nominal=celsius(25)).temperature_text() == "25°C (0°C..85°C)"
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: celsius(20.5),  # type: ignore[arg-type]
+        lambda: celsius(True),
+        lambda: kelvin(1.5),  # type: ignore[arg-type]
+        lambda: celsius(-274),
+        lambda: celsius("300K"),
+        lambda: volt("1").temperature_text(),
+        lambda: volt("1").pct(1).temperature_text(),
+    ],
+)
+def test_celsius_and_kelvin_refusals(call: Callable[[], object]) -> None:
+    with pytest.raises(DslError):
+        call()
+
+
+def test_kelvin_in_the_model() -> None:
+    from fenolite.dsl.convert import range_to_model
+    from fenolite.model import canonical
+
+    stored = range_to_model(between(celsius(-20), celsius(70)))
+    assert json.loads(canonical.dumps(stored)) == {
+        "high": {"e": -2, "m": 34315},
+        "low": {"e": -2, "m": 25315},
+        "unit": "kelvin",
+    }
+
+
+def test_products_power_of_a_bleeder() -> None:
+    v_squared = volt("13.2") * volt("13.2")
+    assert v_squared.unit == "volt_squared" and v_squared.low == v_squared.high == Fraction("174.24")
+    p = v_squared / ohm("1k").pct(1)
+    assert p.unit == "watt" and p.high == Fraction("174.24") / 990 and p.low == Fraction("174.24") / 1010
+    q = amp("0.5") * amp("0.5") * ohm("0.1")
+    assert q.unit == "watt" and q.low == q.high == q.nominal_value == Fraction(1, 40)
+    assert (watt("1").pct(0) / ohm("4")).unit == "ampere_squared"
+    assert (volt("13.2") * volt("13.2") / ohm("990")).text() == "176mW (176mW..176mW)"
+    with pytest.raises(TypeError):
+        _ = volt("1") * ohm("1")  # pyright: ignore[reportOperatorIssue, reportCallIssue, reportArgumentType]
+    with pytest.raises(TypeError):
+        _ = volt("1") * amp("1")  # pyright: ignore[reportOperatorIssue, reportCallIssue, reportArgumentType]
+
+
+def test_products_never_reach_the_model() -> None:
+    from typing import get_args
+
+    from fenolite.dsl.convert import range_to_model
+    from fenolite.model.circuit import RangeUnit
+
+    assert "kelvin" in get_args(RangeUnit)
+    assert not {"volt_squared", "ampere_squared"} & set(get_args(RangeUnit))
+    with pytest.raises(DslError, match="volt_squared"):
+        range_to_model(volt("2").pct(1) * volt("2").pct(1))
+    with pytest.raises(DslError):
+        _ = (volt("2") * volt("2")).min
+
+
+def test_one_sided_floor() -> None:
+    assert volt("4.5").min() + volt("0.2") == Range("volt", Fraction("4.7"), None)
+    assert amp("1").min() * ohm("2") == Range("volt", Fraction(2), None)
+    with pytest.raises(DslError, match="subtraction"):
+        _ = volt("4.5").min() - volt("1").min()
+    assert volt("5") - amp("1").min() * ohm("1") == Range("volt", None, Fraction(4))
+    assert volt("6").min() / ohm("2").pct(0) == Range("ampere", Fraction(3), None)
+    assert volt("6") / ohm("2").min() == Range("ampere", Fraction(0), Fraction(3))
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: volt("-1").min() * 2,  # signed one-sided product
+        lambda: volt("1").min() * between(volt("-1"), volt("1")) / ohm("1"),
+        lambda: volt("1").min() / between(ohm("0"), ohm("1")),  # divisor holds zero
+        lambda: volt("1") / ohm("0").min(),
+        lambda: volt("1").min() - volt("1").min(),  # unbounded on both sides
+    ],
+)
+def test_one_sided_refusals(call: Callable[[], object]) -> None:
+    with pytest.raises(DslError):
+        call()
+
+
+_POINT = st.fractions(min_value=0, max_value=1000, max_denominator=50)
+
+
+@given(_POINT, _POINT, _POINT, _POINT, _POINT)
+def test_one_sided_against_bounded_ranges(
+    a0: Fraction, b0: Fraction, b_span: Fraction, x_up: Fraction, t: Fraction
+) -> None:
+    """A one-sided result agrees with the same operation on a bounded range that cuts the open side at any
+    height: its kept bound is exact, and every sampled value lies in it."""
+    one_sided = Range("ratio", a0, None)
+    cut = Range("ratio", a0, a0 + x_up)
+    b = Range("ratio", b0, b0 + b_span)
+    y = b0 + b_span * (t / (1 + t))
+    x = a0 + x_up
+    ops: dict[str, Callable[[Range | Fraction, Range | Fraction], Range | Fraction]] = {
+        "+": lambda p, q: p + q,  # pyright: ignore[reportOperatorIssue]
+        "-": lambda p, q: p - q,  # pyright: ignore[reportOperatorIssue]
+        "*": lambda p, q: p * q,  # pyright: ignore[reportOperatorIssue]
+        "/": lambda p, q: p / q,  # pyright: ignore[reportOperatorIssue]
+    }
+    for name, op in ops.items():
+        if name == "/" and b0 == 0:
+            continue
+        open_result, bounded = op(one_sided, b), op(cut, b)
+        assert isinstance(open_result, Range) and isinstance(bounded, Range)
+        point = op(x, y) if y or name != "/" else x
+        assert isinstance(point, Fraction)
+        assert open_result.low == bounded.low and open_result.high is None
+        assert Range("ratio", point, point).within(open_result)
+    below = Range("ratio", None, a0)
+    assert (below + b).high == a0 + b.high and (below - b).high == a0 - b0 and (below + b).low is None

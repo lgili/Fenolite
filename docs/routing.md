@@ -391,7 +391,8 @@ and BGA benches it left fewer connections open with the stage than without, `H-G
 ## octilinear
 
 `fenolite route BOARD --router octilinear --nets GATE --confirm` (change c0228) is built in and meant for
-the few connections a person routes first, not for a whole board (its features are `pairs` and `short`).
+the few connections a person routes first, not for a whole board (its features are `pairs`, `short` and
+`roles`, the role mode of "Role mode" below).
 
 - **Connections.** The pads of a net, the pads already joined by its copper counting as one group, are
   joined by the edges of a minimum spanning tree, shortest first, each on a copper layer that both pads
@@ -414,6 +415,43 @@ the few connections a person routes first, not for a whole board (its features a
   check and removes the copper of each connection that brings a new finding (`route.check-refused`).
   `--gate drc` then has KiCad judge the written copper (`H-K-OCTI-DRC`).
 - Equal inputs give equal copper: nothing is random, so `--seed` changes nothing.
+
+## Role mode
+
+`fenolite route BOARD --router octilinear --roles critical --dry-run` (change c0244) routes the critical
+connections of the board's confirmed or declared net roles (`docs/roles.md`, "Critical routes") before any
+general router, and nothing else: the open connections of each gate loop and each Kelvin pair. The
+command plans them (`fenolite.roles.routes.plan_critical`) and gives them to a router with the feature
+`roles` as `RoutingJob.roles`, with the c0222 judge as `extra["role_check"]`; the router answers with one
+`RoleOutcome` per route in `RoutingResult.roles`.
+
+- **Order.** Gate loops (tier 0), then Kelvin pairs (tier 1), each by group name; the routes of one group
+  are routed whole or not at all, with the rounds of `octilinear` inside a tier. A hot loop is never
+  routed here: its copper is power copper, placed as pours by the power-copper phase.
+- **Shapes.** The five shapes of `octilinear` and up to eight Z shapes per layer (a first segment, a
+  middle one on a free line, a last one, after S-0837), whose middle lines come from the partner's
+  segments, from switching copper and from the obstacles near the straight line. Every accepted shape is
+  costed: the least gate-loop area (S-0891), else the shortest pair, then the length and the order.
+- **Ends.** A Kelvin branch ends on the inner half of its sense pad (S-0850), a gate return at the source
+  or Kelvin-source pad (S-0853).
+- **Isolation.** A branch of a power, switch-node or ground net keeps the clearance in force from the rest
+  of its own net's copper, and does not touch the outline of a zone of its net (S-0892).
+- **Keep-away.** A Kelvin branch, and a gate route of another switch, keeps the profile's
+  `switching_distance_nm` from switch-node copper and zone outlines on its layer and overlaps none of it on
+  the next copper layer, as `roles.near-switching` judges.
+- **Gate returns.** Beside the drive first; stacked under it on the next layer through one via at each end
+  when nothing beside passes; not routed when a zone of its ground net lies under the whole drive (S-0891).
+- **Judged twice.** The copper check, then `role_check` before and after: a group whose role findings get
+  worse is removed whole (`route.role-refused`). `--gate drc` drops a whole group at once.
+- **Locked and fenced.** Every item is `locked`, and every routed branch gets a corridor
+  `role.corridor.<group>.<net>`: a rule area that forbids pours (only) along the branch, replacing one of
+  that name. Pours, the power-copper phase's included, fill around it.
+- **Options.** `--router-option gate-vias=N` (default 2; 0 turns the stacked form off), `kelvin-vias=N`
+  (default 0; 2 allows one via per branch where the pads share no layer), `keep-away=LENGTH`, `z-shapes=off`,
+  `rounds=N`, and `max-length=LENGTH`, which has no default in role mode.
+- **Run order.** Critical routes first, then the power copper around them; the other order works too: the
+  outlines of the pours already on the board are obstacles of isolated and keep-away routes, and a
+  provisional corridor of the same name is replaced along the route.
 
 ## Loop order
 

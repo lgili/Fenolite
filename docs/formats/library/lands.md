@@ -82,11 +82,11 @@ The records used per class:
 
 | class | records |
 |---|---|
-| `chip` | Vishay D/CRCW e3 0402, 0603, 0805, 1206, 1210, 2010 and 2512 (S-0864) |
+| `chip` | Vishay D/CRCW e3 0402, 0603, 0805, 1206, 1210, 2010 and 2512 (S-0970) |
 | `molded` | Diodes SOD123 (S-0442), SOD123F (S-0443), SOD323 (S-0444), SOD523 (S-0445) |
-| `gullwing` | TI D0008A, PW0008A, DGK0008A (S-0860), D0014A (S-0378), PW0014A (S-0857), DBV0005A and DCK0005A (S-0858), onsemi 751-07 (S-0855) |
-| `gullwing-fine` | TI DGS0010A (S-0861), DYY0014A (S-0857), PT0048A (S-0402), PN0080A (S-0862) |
-| `nolead` | TI RGT0016C (S-0856), RGC0064B (S-0862), DRV0006A (S-0863), DSF0006A (S-0858) |
+| `gullwing` | TI D0008A, PW0008A, DGK0008A (S-0966), D0014A (S-0378), PW0014A (S-0963), DBV0005A and DCK0005A (S-0964), onsemi 751-07 (S-0961) |
+| `gullwing-fine` | TI DGS0010A (S-0967), DYY0014A (S-0963), PT0048A (S-0402), PN0080A (S-0968) |
+| `nolead` | TI RGT0016C (S-0962), RGC0064B (S-0968), DRV0006A (S-0969), DSF0006A (S-0964) |
 
 How close the calculator comes to the manufacturers' lands is measured by
 `tests/unit/catalog/footprints/test_lands.py::test_calibration_set_within_tolerance` (`H-G-LAND-CALC`): on
@@ -126,6 +126,6 @@ quad rows is at the top left (the most negative y of the Y-down library frame, `
 and numbering runs counter-clockwise in the top view. A released convention never changes; a new look is
 `drawing/2`.
 
-Sources: the calibration documents above (S-0378, S-0402, S-0442, S-0443, S-0444, S-0445, S-0855, S-0856,
-S-0857, S-0858, S-0860, S-0861, S-0862, S-0863, S-0864), read for numbers only; no figure, table layout or text
+Sources: the calibration documents above (S-0378, S-0402, S-0442, S-0443, S-0444, S-0445, S-0961, S-0962,
+S-0963, S-0964, S-0966, S-0967, S-0968, S-0969, S-0970), read for numbers only; no figure, table layout or text
 is copied.

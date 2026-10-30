@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example; an illustrative device, not a real product.
+schema = "fenolite.device.v0"
+id = "Example:DEBUG_HEADER"
+summary = "Three-pin header for a 3.3 V serial adapter (illustrative)"
+symbol = "Fenolite:Connector_3"
+footprint = "Fenolite:Header_1x3_P2.54"
+ref_prefix = "J"
+evidence = "UNVERIFIED"
+ground = "GND"
+
+[pins]
+TX = "1"
+RX = "2"
+GND = "3"
+
+[[interfaces]]
+name = "uart"
+kind = "uart"
+direction = "inout"
+members = { tx = ["TX"], rx = ["RX"] }

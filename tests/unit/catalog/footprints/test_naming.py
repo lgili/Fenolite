@@ -64,4 +64,4 @@ def test_millimetres_without_trailing_zeros() -> None:
 
 def test_naming_page() -> None:
     page = NAMING_PAGE.read_text(encoding="utf-8")
-    assert "<FAMILY><pins>_B<L>x<W>" in page and "package.name-mismatch" in page and "S-0862" in page
+    assert "<FAMILY><pins>_B<L>x<W>" in page and "package.name-mismatch" in page and "S-0968" in page

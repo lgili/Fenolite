@@ -35,6 +35,7 @@ from fenolite.model.board import (
     ZoneSettings,
 )
 from fenolite.model.circuit import (
+    BlockParam,
     Bus,
     BusMember,
     Circuit,
@@ -45,6 +46,7 @@ from fenolite.model.circuit import (
     NetClass,
     Pin,
     PinRef,
+    Port,
 )
 from fenolite.model.design import Design, DesignHeader
 from fenolite.model.findings import Findings
@@ -75,6 +77,7 @@ __all__ = [
     "Arc",
     "Artefact",
     "Board",
+    "BlockParam",
     "Bus",
     "BusMember",
     "Circuit",
@@ -112,6 +115,7 @@ __all__ = [
     "PaperSize",
     "Pin",
     "PinRef",
+    "Port",
     "PnpRow",
     "Rule",
     "RuleSet",
