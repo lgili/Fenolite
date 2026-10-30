@@ -51,10 +51,11 @@ def records(design: Design) -> dict[str, DeviceDef]:
 def judge(design: Design, *, devices: bool = True, classes: bool = True, **more: Any) -> CircuitResult:
     """The judgement of ``design``'s model with its records and the classes of ``roles.classify``."""
     model = to_model(design)
+    found = records(design)
     return judge_circuit(
         model,
-        devices=records(design) if devices else None,
-        classes=classes_of(model) if classes else None,
+        devices=found if devices else None,
+        classes=classes_of(model, found) if classes else None,
         **more,
     )
 

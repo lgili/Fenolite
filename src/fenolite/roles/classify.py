@@ -7,13 +7,16 @@ A part gets one class of ``PART_CLASSES`` with its terminals (which pins are the
 inputs, ...) and a confidence. The evidence is weighed strongest first:
 
 1. the class the user states (``design.part_class`` or ``--class REF=CLASS``): ``high``;
-2. the names of the pins, against the vocabulary below: ``high``;
-3. the types of the pins: they give no class on their own, they serve the rules of ``infer``;
-4. the value and the pad count: a value with its unit (``10uF``, ``4.7uH``, ``10kΩ``) is ``high``; a
+2. the ``class`` of the part's device record (change c0274): ``high``, evidence ``device``;
+3. the names of the pins, against the vocabulary below: ``high``;
+4. the types of the pins: they give no class on their own, they serve the rules of ``infer``;
+5. the prefixes ``FB``, ``F`` and ``JP`` (change c0274): ``ferrite``, ``fuse`` and ``jumper``, ``medium``,
+   read before the value, since a ferrite's impedance and a fuse's rating read like a resistance;
+6. the value and the pad count: a value with its unit (``10uF``, ``4.7uH``, ``10kΩ``) is ``high``; a
    resistance at or below the profile's ``shunt_max_mohm``, or a four-pad resistor, is a ``shunt`` of
    ``medium`` confidence (a heuristic); a bare number on a part whose reference says resistor is a
    ``medium`` resistor;
-5. the reference prefix (``Q``, ``D``, ``L``, ``C``, ``R``, ``J``, ``U``): ``low``, the weakest.
+7. the reference prefix (``Q``, ``D``, ``L``, ``C``, ``R``, ``J``, ``U``): ``low``, the weakest.
 
 A part in a net-tie group of the board is ``net_tie`` whatever else holds. The tables are Fenolite's own
 vocabulary, written for this module from the pin names that datasheets commonly print; they are taken from
@@ -26,6 +29,7 @@ import re
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from fractions import Fraction
+from typing import cast
 
 from fenolite.model.circuit import Circuit, Component
 from fenolite.model.rules import PART_CLASSES, PART_TERMINALS, PartClass, PartClassName
@@ -66,7 +70,13 @@ PREFIXES: tuple[tuple[str, PartClassName], ...] = (
     ("R", "resistor"),
     ("J", "connector"),
     ("U", "other"),
+    ("FB", "ferrite"),
+    ("F", "fuse"),
+    ("JP", "jumper"),
 )
+"""Reference prefix → class: the one prefix table of the package tree (``tests/unit/roles/test_classify.py``)."""
+LINK_PREFIXES: frozenset[str] = frozenset({"FB", "F", "JP"})
+"""The prefixes read before the value, with ``medium`` confidence (change c0274)."""
 _PREFIX = re.compile(r"^([A-Za-z]+)\d")
 _VALUE = re.compile(r"^\s*(\d+(?:\.\d+)?|\.\d+)\s*([pnuµmkMG]?)\s*(F|H|Ω|R|OHM|OHMS)?\s*$", re.IGNORECASE)
 _CODE = re.compile(r"^\s*(\d*)([RKM])(\d+)\s*$")
@@ -76,8 +86,8 @@ _EXPONENTS = {"p": -12, "n": -9, "u": -6, "µ": -6, "m": -3, "": 0, "k": 3, "M":
 @dataclass(frozen=True, slots=True)
 class Classified:
     """The class of one part: ``cls``, its ``terminals`` (terminal name → pin numbers), the confidence and
-    the evidence that decided it (``user``, ``pin-names``, ``value``, ``pads``, ``prefix``, ``net-tie``,
-    ``none``)."""
+    the evidence that decided it (``user``, ``device``, ``pin-names``, ``value``, ``pads``, ``prefix``,
+    ``net-tie``, ``none``)."""
 
     ref: str
     cls: PartClassName
@@ -168,9 +178,13 @@ def _unit(value: str) -> str | None:
     return {"F": "F", "H": "H"}.get(unit, "Ω")
 
 
-def _prefix(ref: str) -> PartClassName | None:
+def _head(ref: str) -> str:
     found = _PREFIX.match(ref)
-    head = found.group(1).upper() if found is not None else ""
+    return found.group(1).upper() if found is not None else ""
+
+
+def _prefix(ref: str) -> PartClassName | None:
+    head = _head(ref)
     return next((cls for letter, cls in PREFIXES if head == letter), None)
 
 
@@ -184,11 +198,13 @@ def classify_part(
     component: Component,
     *,
     user: PartClass | None = None,
+    device_cls: str | None = None,
     pads: int | None = None,
     net_tie: bool = False,
     shunt_max_mohm: int = 100,
 ) -> Classified:
-    """The class of one component (the evidence order of the module docstring)."""
+    """The class of one component (the evidence order of the module docstring); ``device_cls`` is the
+    ``class`` of its device record."""
     ref = component.ref
     if net_tie:
         return Classified(ref, "net_tie", "high", "net-tie")
@@ -196,10 +212,15 @@ def classify_part(
         terminals = {terminal.name: terminal.pins for terminal in user.terminals}
         return Classified(ref, user.cls, "high", "user", terminals)
     named = _by_names(component)
+    if device_cls is not None and device_cls in PART_CLASSES:
+        terminals = named[1] if named is not None and named[0] == device_cls else {}
+        return Classified(ref, cast(PartClassName, device_cls), "high", "device", terminals)
     if named is not None:
         return Classified(ref, named[0], "high", "pin-names", named[1])
     count = pads if pads is not None else len(component.pins)
     prefix = _prefix(ref)
+    if prefix is not None and _head(ref) in LINK_PREFIXES:
+        return Classified(ref, prefix, "medium", "prefix")
     unit = _unit(component.value)
     if unit == "F":
         return Classified(ref, "capacitor", "high", "value")
@@ -224,16 +245,20 @@ def classify(
     pad_counts: Mapping[str, int] | None = None,
     net_ties: Collection[str] = (),
     shunt_max_mohm: int = 100,
+    device_classes: Mapping[str, str] | None = None,
 ) -> dict[str, Classified]:
     """The class of every component of ``circuit``, by reference. ``user`` holds the classes the user
     states; ``pad_counts`` the number of pads of each part when the board is known; ``net_ties`` the
-    references of the parts in a net-tie group of the board."""
+    references of the parts in a net-tie group of the board; ``device_classes`` the ``class`` of each part's
+    device record, by reference (change c0274)."""
     stated = {found.ref: found for found in user}
     counts = pad_counts or {}
+    devices = device_classes or {}
     return {
         component.ref: classify_part(
             component,
             user=stated.get(component.ref),
+            device_cls=devices.get(component.ref),
             pads=counts.get(component.ref),
             net_tie=component.ref in net_ties,
             shunt_max_mohm=shunt_max_mohm,
@@ -247,8 +272,10 @@ __all__ = [
     "DRIVE",
     "FEEDBACK",
     "INPUT_PAIRS",
+    "LINK_PREFIXES",
     "PART_CLASSES",
     "PART_TERMINALS",
+    "PREFIXES",
     "RETURN",
     "SWITCH",
     "Classified",

@@ -32,8 +32,9 @@ voltages that do not overlap, the first is used and `circuit.value-conflict` (wa
 ## Part classes
 
 The derating keys, the series rule and the power rule need a part's class. There is one classifier,
-`fenolite.roles.classify` (`docs/roles.md`, "Part classes"): your `design.part_class`, the pin names, the
-value, the reference prefix. The commands run it and pass the classes to the stage. A part without a class
+`fenolite.roles.classify` (`docs/roles.md`, "Part classes"): your `design.part_class`, the `class` of the
+device record, the pin names, the prefixes `FB`, `F` and `JP`, the value, the reference prefix. The commands
+run it and pass the classes to the stage. A part without a class
 gives `unknown` rows (`no class`) for the checks that need one.
 
 ## Device records
@@ -64,7 +65,7 @@ judged by c0252's `circuit.rail-voltage`, not again here.
 | pin `voltage` | any device | the pin's net from the net of the device's `ground` function (a MOSFET's drain to source with `ground = "S"`) |
 | `[[limits]]` `voltage` | any device | `V(first) - V(second)` (`BST - SW`, a high-side gate to source); an unbounded second net is `unknown` |
 | device `current` | the owner of an `out` power port | the upper load sum of that port's rail |
-| device `current` | `inductor`, `shunt` | the smaller of its two nets' current bounds, only when both are known |
+| device `current` | `inductor`, `shunt`, `ferrite` | the smaller of its two nets' current bounds, only when both are known (a `fuse`'s current is not judged; a `jumper` has no rating row) |
 | pin `current` | any device | the net's current bound, when the pin is the part's only pin on the net |
 | device `power` | `resistor`, `shunt` | `V_across.max² / R.min`, else for a shunt `I.max² x R.max`; `R` is the part's value range |
 | device `temperature` | any device | the ambient range of `design.operating` |
@@ -83,8 +84,9 @@ design.derating(temperature_margin=kelvin(15))
 `ratio(50)` reads "at most 50 % of the rating" and is stored as 500 per mille; `pct()` is a ± tolerance and
 is refused here. The keys are `voltage`, `current`, `power`, `pin_voltage`, `pin_current`,
 `capacitor_voltage`, `resistor_power`, `resistor_voltage`, `shunt_power`, `inductor_current`,
-`diode_voltage`, `diode_current`, `transistor_voltage`, `transistor_current` and `temperature_margin`. The
-most specific rule wins: a part scope, then a class key, then a generic key. A rating no rule covers is
+`ferrite_current`, `diode_voltage`, `diode_current`, `transistor_voltage`, `transistor_current` and
+`temperature_margin`. The most specific rule wins: a part scope, then a class key, then a generic key. A
+rating no rule covers is
 judged at 100 %, with source `device`, and one `circuit.policy-missing` (info) lists it.
 
 Fenolite ships no derating number: no public source has been checked and registered for one. **Cite your

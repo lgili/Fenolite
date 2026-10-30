@@ -154,7 +154,8 @@ def circuit_inputs(root: Path) -> Callable[[Design], tuple[Mapping[str, DeviceDe
     def inputs(model: Design) -> tuple[Mapping[str, DeviceDef], Mapping[str, str]]:
         from fenolite.cli._contracts import classes_of, devices_of
 
-        return devices_of(model, root), classes_of(model)
+        devices = devices_of(model, root)
+        return devices, classes_of(model, devices)
 
     return inputs
 

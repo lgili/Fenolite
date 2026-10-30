@@ -42,8 +42,9 @@ CODES: Mapping[str, str] = {
     "power": "circuit.rating-power",
     "temperature": "circuit.rating-temperature",
 }
-SERIES: frozenset[str] = frozenset({"inductor", "shunt"})
-"""The classes whose device current is the series current of their two nets."""
+SERIES: frozenset[str] = frozenset({"inductor", "shunt", "ferrite"})
+"""The classes whose device current is the series current of their two nets (a ferrite since change c0274,
+derating key ``ferrite_current``; a fuse is not judged and a jumper has no rating row)."""
 POWERED: frozenset[str] = frozenset({"resistor", "shunt"})
 """The classes whose device power is judged."""
 

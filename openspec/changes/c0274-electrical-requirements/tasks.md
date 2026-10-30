@@ -32,10 +32,12 @@
 
 ## 3. Phase B: the one classifier (after c0253)
 
-Phases B to F (sections 3 to 6) wait for c0252 and c0253, which are not merged in `circuits-as-code` (2026-10-29): no stage `circuit.rules`, no `checks/circuit/`, no requirement table.
+Phases B to F (sections 3 to 6) waited for c0252 and c0253, which were not merged in `circuits-as-code` on 2026-10-29. 2026-10-30, base 0a710502 (`circuits-as-code`): c0252 and c0253 have landed (stage `circuit.rules`, `checks/circuit/` with `rails`, `values`, `ratings`, `expect`, `corners`, `table`; `core/requirement_table.py`; classes injected from `roles.classify` by `cli/_contracts.py`; `design.contracts(unknown=...)`), with c0254, c0257 and c0269. No other open change holds a delta of the waiver requirements or of "Part classes". Phases B to F build on that judge.
 
-- [ ] 3.1 Add `ferrite`, `fuse` and `jumper` to `PART_CLASSES`, the prefixes `FB`, `F` and `JP` and the device `class` evidence to `roles.classify`, and make c0252's device ports take thresholds from their pins (scenarios "A ferrite, a fuse and a jumper", "A ferrite says what it is", "A port takes its pins' thresholds"). Proof: `uv run pytest tests/unit/roles/test_classify.py tests/unit/roles/test_infer_reference.py tests/unit/catalog/test_device_ports.py -k "prefixes or thresholds or class" -q`.
-- [ ] 3.2 Add `ferrite` to c0253's series classes with the derating key `ferrite_current`, and update `docs/roles.md` and `docs/contracts.md`. Proof: `uv run pytest tests/unit/checks/circuit/test_ratings.py -k ferrite -q`.
+- [x] 3.1 Add `ferrite`, `fuse` and `jumper` to `PART_CLASSES`, the prefixes `FB`, `F` and `JP` and the device `class` evidence to `roles.classify`, and make c0252's device ports take thresholds from their pins (scenarios "A ferrite, a fuse and a jumper", "A ferrite says what it is", "A port takes its pins' thresholds"). Proof: `uv run pytest tests/unit/roles/test_classify.py tests/unit/roles/test_infer_reference.py tests/unit/catalog/test_device_ports.py -k "prefixes or thresholds or class" -q`.
+  - 2026-10-30: done. `PART_CLASSES` gains the three classes; `roles.classify` gains `FB`, `F`, `JP` (`medium`, before the value) and the device `class` (`high`, evidence `device`, through `classify(device_classes=...)`, which `cli._contracts.classes_of(model, devices)` fills from the records); device ports take omitted thresholds from their member pins (`dsl.devices.port_params`, the strictest). Proof passed (the full `test_infer_reference.py` too: the roles of `examples/roles` are unchanged).
+- [x] 3.2 Add `ferrite` to c0253's series classes with the derating key `ferrite_current`, and update `docs/roles.md` and `docs/contracts.md`. Proof: `uv run pytest tests/unit/checks/circuit/test_ratings.py -k ferrite -q`.
+  - 2026-10-30: done (`SERIES` holds `ferrite`, `DERATING_KEYS` `ferrite_current`; rules schema regenerated; `docs/roles.md` and `docs/contracts.md` updated). Proof passed.
 
 ## 4. Phase C and D: waivers and propagation
 

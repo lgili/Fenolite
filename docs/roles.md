@@ -50,13 +50,17 @@ The **groups** name pads as `REF-PIN`:
 ## Part classes
 
 The inference first gives each part a class: `transistor`, `diode`, `inductor`, `capacitor`, `resistor`,
-`shunt`, `driver`, `amplifier`, `controller`, `connector`, `net_tie` or `other`, with its terminals
-(`gate`, `drain`, `source`, `kelvin_source` of a transistor, `force` and `sense` of a shunt, `in_p`,
-`in_n`, `out` of an amplifier, `drive`, `ret`, `sw` of a driver or controller). The evidence is weighed in
-this order: the class you state (`design.part_class`, `--class REF=CLASS`), the pin names, the pin types,
-the value or the pad count (a resistor of at most `shunt_max_mohm` is a shunt; four pads make a four-pad
-shunt), and last the reference prefix. A class from the prefix alone is `low` confidence, and a rule that
-reads it gives no role.
+`shunt`, `ferrite`, `fuse`, `jumper`, `driver`, `amplifier`, `controller`, `connector`, `net_tie` or
+`other`, with its terminals (`gate`, `drain`, `source`, `kelvin_source` of a transistor, `force` and `sense`
+of a shunt, `in_p`, `in_n`, `out` of an amplifier, `drive`, `ret`, `sw` of a driver or controller). The
+evidence is weighed in this order: the class you state (`design.part_class`, `--class REF=CLASS`), the
+`class` of the part's device record (`high`, evidence `device`; `docs/devices.md`), the pin names, the pin
+types, the prefixes `FB`, `F` and `JP` (`ferrite`, `fuse` and `jumper`, `medium`: read before the value,
+since a ferrite's `600R` reads like a resistance), the value or the pad count (a resistor of at most
+`shunt_max_mohm` is a shunt; four pads make a four-pad shunt), and last the reference prefix. A class from
+the prefix alone is `low` confidence, and a rule that reads it gives no role. No inference rule reads
+`ferrite`, `fuse` or `jumper`: they serve the electrical contracts (`docs/contracts.md`), where a ferrite's
+current is judged like an inductor's and links carry a stated voltage.
 
 The pin names come from the circuit: the `.fenolite/` model of a project that Fenolite built, or the pads'
 pin functions of a board that holds them (KiCad writes them from a schematic). A board read alone without

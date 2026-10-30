@@ -560,8 +560,9 @@ def circuit_requirements(
         currents.setdefault(name, (Fraction(milliamps, 1000), "--current"))
     rules = model.rules if model.rules is not None else None
     judged_model = model if rules is None else replace(model, rules=replace(rules, roles=roles or None))
+    devices = devices_of(model, root)
     found = judge_circuit(
-        judged_model, devices=devices_of(model, root), classes=classes_of(judged_model), currents=currents
+        judged_model, devices=devices, classes=classes_of(judged_model, devices), currents=currents
     )
     return table_json(found.rows)
 
