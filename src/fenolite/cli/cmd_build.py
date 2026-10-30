@@ -133,6 +133,7 @@ from fenolite.dsl import (
 )
 from fenolite.dsl import Design as DslDesign
 from fenolite.dsl.convert import two_terminal, unused_marks
+from fenolite.dsl.lock import hand_refs
 from fenolite.dsl.relative import has_layout
 from fenolite.geometry.errors import BackendUnavailable
 from fenolite.lens import edits as edits_mod
@@ -924,6 +925,17 @@ def read_edit_source(
     return found.parts, edits_mod.EDITS_FILE, tuple(issues), hashlib.sha256(data).hexdigest()
 
 
+def reference_edits(edits: Mapping[str, edits_mod.PartEdits] | None) -> dict[str, tuple[str, str | None]]:
+    """The ``reference`` edits of ``edits.toml``: path → (ref, the ref it was recorded over), which the
+    design lock counts as hand refs (``dsl.lock.hand_refs``; change c0250, "Reference edits")."""
+    found: dict[str, tuple[str, str | None]] = {}
+    for path, part in (edits or {}).items():
+        edit = part.edit("reference")
+        if edit is not None and isinstance(edit.value, str):
+            found[path] = (edit.value, edit.over if isinstance(edit.over, str) else None)
+    return found
+
+
 def read_base_record(out_dir: Path) -> edits_mod.BaseRecord:
     """The base record of the output folder, or ``BaseRecord.absent`` when it holds none."""
     path = out_dir / edits_mod.BASE_FILE
@@ -1184,9 +1196,11 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             hint="select blocks or remove the script's layout declarations",
         )
     lock_given, lock_path = lock_location(args.design, getattr(args, "lock", None), ctx.cwd)
+    edits, edits_file, source_issues, source_sha = read_edit_source(script_path)
     try:
         schematic_composition(design, target=args.target, enabled=args.altium_layout == "blocks")
-        with picking(script_path) as picks:  # the query parts get their devices here (change c0254)
+        # the query parts get their devices here (change c0254); a reference edit is a hand ref (c0250)
+        with picking(script_path) as picks, hand_refs(reference_edits(edits)):
             lock = plan_lock(
                 design,
                 script=script_path,
@@ -1247,7 +1261,6 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
     takes = parse_take_option(getattr(args, "take", None))
     frozen = bool(getattr(args, "frozen", False))
     refuse_frozen_edits(frozen=frozen, takes=takes, issues=())
-    edits, edits_file, source_issues, source_sha = read_edit_source(script_path)
     refused = any(found.severity == "error" for found in source_issues)
     if args.target == ALTIUM_TARGET:
         if (generated_records or role_record is not None) and board_path is not None:

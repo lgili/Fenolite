@@ -1961,8 +1961,7 @@ def script_codes(
         codes[path] = {
             "position": (request.at.x, request.at.y) if request is not None else None,
             "rotation": (request.rotation, request.side) if request is not None else None,
-            "value": component.value,
-            "footprint": component.lib_footprint_ref or None,
+            **edits_mod.code_texts(component),
         }
     return codes
 
@@ -1981,6 +1980,12 @@ def written_values(layout: Design) -> dict[str, dict[str, edits_mod.Value]]:
             "rotation": (fp.rotation, fp.side),
             "value": component.value,
             "footprint": fp.lib_ref,
+            "reference": component.ref,
+            **{
+                f"{edits_mod.USER_PREFIX}{name}": text
+                for name, text in component.properties.items()
+                if not name.startswith(edits_mod.RESERVED_PREFIXES)
+            },
         }
     return written
 

@@ -43,7 +43,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "9707faf2c4ccf508e1c57256de9dfcdda838a42c2165e99c23c489133d19aca4"
         ),
         ".fenolite/board.json": "c5eda4a1cdb0bf5a03f747d3e17c6609e64a7a63f6d8a1c6a0b4762c001af202",
-        ".fenolite/build.json": "4a05120e951f7edd6a306d548163a41101bab0274594378923034a759af24623",
+        ".fenolite/build.json": "aa7334f13bf760d7f5f306e923964b27d97b0a6805fb5ac0fca7014158f1201f",
         ".fenolite/circuit.json": "b65a512b111fb99b619e4622bd5cb7f4fb5d9107ced2d6a9425a6e178e01ee7f",
         ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
         ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
@@ -55,14 +55,14 @@ RECORDED: dict[str, dict[str, str]] = {
         "blink.PrjPcb": "2c0fc10e49421372d5f65721d882751188c3eb42ee6b9fa5c43c7a45ba11b00c",
         "blink.SchDoc": "9707faf2c4ccf508e1c57256de9dfcdda838a42c2165e99c23c489133d19aca4",
         "blink.SchLib": "4f427227183102b479836e66d54a7a3cc0bae5794befc4d8a5a7e15362609517",
-        "fenolite-base.json": "5c9c05eee64badc503dd2c24bb1fd692ba96169bf17bab0d30e000cebcf1c36b",
+        "fenolite-base.json": "34d8eccd3c3b53d8ec4d979452ec404698df61e5afe0518cf90984d339bf27bb",
     },
     "blink_routed": {
         ".fenolite/altium-generated/blink_routed.SchDoc": (
             "c1c352438adcc9e0ff6ae003fb9123f5a83bf3e06f42de6f7f448da0b56b29a6"
         ),
         ".fenolite/board.json": "e461b091e03652df7adee52a7e8070ab479270efb12fcf9b47ab0cf7866f2ceb",
-        ".fenolite/build.json": "dad5825a88e5b39ae6570f29b6619af79b6eca454033f0e56d3af15c0ed0454e",
+        ".fenolite/build.json": "e6aad7062c35a55383fe2611ece28e034d7089b14ed7d915aa43bcc9919058a2",
         ".fenolite/circuit.json": "b65a512b111fb99b619e4622bd5cb7f4fb5d9107ced2d6a9425a6e178e01ee7f",
         ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
         ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
@@ -74,7 +74,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "blink_routed.PrjPcb": "99bcc6d91837bf0c0f55876e5be11ae444eca9c11c10bf8c6dbf56c110a8093d",
         "blink_routed.SchDoc": "c1c352438adcc9e0ff6ae003fb9123f5a83bf3e06f42de6f7f448da0b56b29a6",
         "blink_routed.SchLib": "2308a12fad9998dda03d2565d7c4bda512f8b5fa67ef0d3b4bdb3ad481fd0ebd",
-        "fenolite-base.json": "5c9c05eee64badc503dd2c24bb1fd692ba96169bf17bab0d30e000cebcf1c36b",
+        "fenolite-base.json": "34d8eccd3c3b53d8ec4d979452ec404698df61e5afe0518cf90984d339bf27bb",
     },
 }
 

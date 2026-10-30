@@ -68,10 +68,20 @@
 
 ## 5. References and user properties
 
-- [ ] 5.1 (waits for c0249) Merge `reference`: lock refs as the code side, and edits refs as hand refs (requirement "Reference edits"). Proof: `uv run pytest tests/unit/lens/test_edit_merge.py -k reference -q`.
-  2026-10-29: open: needs c0249's lock refs, not merged in `circuits-as-code`. Until then `reference` keeps its rule of before (requirement "Second-phase properties").
-- [ ] 5.2 Merge the user properties the script names, and treat a removed property as `""` (requirements "User property edits", "Second-phase properties"). Proof: `uv run pytest tests/unit/lens/test_edit_merge.py -k property -q`; `uv run pytest tests/unit/lens/test_build_properties.py -q`.
-  2026-10-29: open: second phase; user properties keep their rules of before. `edits.toml` already reads, writes and carries `properties` tables.
+- [x] 5.1 (waits for c0249) Merge `reference`: lock refs as the code side, and edits refs as hand refs (requirement "Reference edits"). Proof: `uv run pytest tests/unit/lens/test_edit_merge.py -k reference -q`.
+  2026-10-29: was open: needed c0249's lock refs, not merged in `circuits-as-code` then.
+  2026-10-30: `merge_properties` and `capture_edits` merge `reference` (code side: the ref the part is
+  lowered with); `dsl.lock.hand_refs` makes an edit's ref a hand ref of the lock when it was recorded over
+  the explicit or locked ref; `sync` reads the lock (`cli._lock.locked_refs`) for its code side. Proof passed
+  (4 tests). Deviation: two parts of a lock design that meet on one ref are renumbered by c0249's rule
+  (`lock.ref-taken`); `model.duplicate-ref` (exit 5) comes when explicit refs and edits meet.
+- [x] 5.2 Merge the user properties the script names, and treat a removed property as `""` (requirements "User property edits", "Second-phase properties"). Proof: `uv run pytest tests/unit/lens/test_edit_merge.py -k property -q`; `uv run pytest tests/unit/lens/test_build_properties.py -q`.
+  2026-10-29: was open (second phase).
+  2026-10-30: `property:<name>` for each user property the script names (`edits.user_names`), a CAD side
+  without it counts as `""`, one added in KiCad stays out of the base record. The base record gains
+  `reference` and the named user properties, so the pinned digests of `fenolite-base.json` and
+  `.fenolite/build.json` in `test_unused_keys*.py` were recorded again. Proof passed (4 tests;
+  `test_build_properties.py` 13 passed).
 
 ## 6. Viewer
 

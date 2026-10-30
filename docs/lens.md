@@ -145,7 +145,8 @@ footprint (`layout.footprint-replaced`) and a forced placement (`layout.place-fo
 ## User properties on kept footprints
 
 The script owns its parts' user properties (`docs/dsl.md`, "User properties"). On a kept footprint, a
-property of the same name (compared after `casefold`) takes the script's name and value and keeps its
+property of the same name (compared after `casefold`) takes the script's name and its merged value (the
+script's, or the one edited in KiCad: "Three-way merge") and keeps its
 uuid, position and visibility; a missing one is appended after the last property, with a uuid derived
 from the component path and the property name. Such a property is a field (c0030): only the slot of its
 value atom changes, and a missing one is the built copy's field, added after the footprint's last field. A property the script does not name stays: one added in
@@ -566,13 +567,17 @@ To drop the file, delete it.
 
 Each merged property of each part is keyed `<component path>#<property>`: `position` (x and y),
 `rotation` (rotation and side together, since a flip mirrors the footprint), `value` (the `Value` text) and
-`footprint` (the library footprint id). `reference` and user properties keep their rules of before until
-the second phase of change c0250 (they need the design lock of c0249). Three sides decide a property
-(`fenolite.lens.edits.merge_property`):
+`footprint` (the library footprint id), `reference` (the ref the part is lowered with: its explicit ref or
+the one of the design lock, c0249) and `property:<name>` for each user property the script names (one added
+in KiCad stays opaque; a named one removed in KiCad counts as changed to `""`). A `reference` of
+`edits.toml` is a hand ref of the design lock (`dsl.lock.hand_refs`) when it was recorded over the part's
+explicit or locked ref, so the lock records a part re-annotated in KiCad and the next sync drops the edit
+of a part without an explicit ref; two parts given one ref by explicit refs and edits give
+`model.duplicate-ref` (exit 5). Three sides decide a property (`fenolite.lens.edits.merge_property`):
 
 - *base*: what the last build was given (`code`) and what it wrote (`out`), read from `fenolite-base.json`;
 - *code*: the script, with the part's edit of `edits.toml` when the edit is not stale;
-- *CAD*: the board footprint, and for values and footprints also the schematic symbol with the same
+- *CAD*: the board footprint, and for the text properties also the schematic symbol with the same
   `fenolite.path`. Each CAD side is compared with `out` on its own.
 
 | code (against base `code`) | CAD (against base `out`) | result |
@@ -585,7 +590,7 @@ the second phase of change c0250 (they need the design lock of c0249). Three sid
 
 - **Removed request.** A code value removed from the script (a `place()` deleted) keeps the CAD value.
 - **No base.** A part without a base entry follows the rule of before: the board wins for position and
-  rotation, the script for value and footprint; one `edit.base-missing` (info) gives the count. The build
+  rotation, the script for the text properties; one `edit.base-missing` (info) gives the count. The build
   then writes the record, so the next build merges three ways.
 - **Locks.** A locked `place()` always wins (`layout.place-forced`). A footprint locked in KiCad (`(locked
   yes)`) is never moved silently: a script change over its unchanged position is a `cad-locked` conflict.

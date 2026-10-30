@@ -15,9 +15,9 @@ from __future__ import annotations
 
 import dataclasses
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Sequence
 from typing import Any
 
 from fenolite.cli._pins import plan_pins
@@ -109,6 +109,17 @@ def plan_lock(design: Design, *, script: Path, given: str, path: Path, frozen: b
     return LockPlan(dict(found.refs), write, summary, found.issues, tuple(pins.rows), pins.evidence)
 
 
+def locked_refs(design: Design, script: Path) -> dict[str, str] | None:
+    """The refs the next build gives the parts without an explicit ref, read from the lock beside
+    ``script`` without writing it (``fenolite sync``: the code side of ``reference``, change c0250);
+    ``None`` without a lock file."""
+    path = script.with_suffix(SUFFIX)
+    if not path.is_file():
+        return None
+    old = read_lock(path.read_bytes().decode("utf-8"), file=path.name)
+    return dict(assign_refs(design, old, moves=moves(design)).refs)
+
+
 def with_lock(result: Result, plan: LockPlan) -> Result:
     """``result`` with ``result.lock``, the lock's issues and, unless an error finding refuses the build,
     its planned write."""
@@ -178,6 +189,7 @@ __all__ = [
     "EditsFrozenError",
     "LockPlan",
     "lock_location",
+    "locked_refs",
     "plan_lock",
     "refuse_frozen_edits",
     "with_lock",

@@ -32,7 +32,7 @@ from fenolite.lens.placements import decimal_text, is_component_path, table_name
 from fenolite.model.board import FootprintInstance
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
-from fenolite.model.schematic import SchematicSheet
+from fenolite.model.schematic import SchematicSheet, SymbolInstance
 
 EDITS_SCHEMA = "fenolite.edits.v0"
 EDITS_FILE = "edits.toml"
@@ -40,9 +40,12 @@ BASE_SCHEMA = "fenolite.base.v0"
 BASE_FILE = "fenolite-base.json"
 PROPERTIES: tuple[str, ...] = ("position", "rotation", "value", "footprint", "reference")
 """The merged properties, in key order; a user property is named ``property:<name>``."""
-PHASE_ONE: tuple[str, ...] = ("position", "rotation", "value", "footprint")
-"""The properties this build merges; ``reference`` and user properties keep their rules of before."""
+TEXTS: tuple[str, ...] = ("value", "footprint", "reference")
+"""The merged text properties of every part; the user properties the script names join them."""
 USER_PREFIX = "property:"
+RESERVED_PREFIXES: tuple[str, ...] = ("fenolite.", "ki_")
+"""The prefixes of property names that are no user property (``design-dsl``, "User properties")."""
+_RESERVED_NAMES = frozenset({"reference", "value", "footprint", "datasheet", "description"})
 CAD_SIDES: tuple[str, ...] = ("board", "schematic")
 TAKE_SIDES: tuple[str, ...] = ("code", "cad", "board", "schematic")
 REASONS: tuple[str, ...] = ("both-changed", "stale-edit", "cad-locked", "sides-disagree")
@@ -251,11 +254,16 @@ def base_record(
     target: str,
 ) -> BaseRecord:
     """The record a build writes: for each written part and property, its code value and the value
-    written. A property without a written value is left out."""
+    written. A property without a written value is left out, and so is a user property the code side does
+    not name (one added in the CAD tool stays opaque)."""
     parts: dict[str, Mapping[str, BaseEntry]] = {}
     for path in sorted(written):
         held = codes.get(path, {})
-        entries = {prop: BaseEntry(held.get(prop), out) for prop, out in written[path].items()}
+        entries = {
+            prop: BaseEntry(held.get(prop), out)
+            for prop, out in written[path].items()
+            if not prop.startswith(USER_PREFIX) or prop in held
+        }
         if entries:
             parts[path] = MappingProxyType(dict(sorted(entries.items())))
     return BaseRecord(target, MappingProxyType(parts))
@@ -789,17 +797,80 @@ class PropertyMerge:
     used_takes: frozenset[Take] = frozenset()
 
 
-def _symbols(sheets: Sequence[SchematicSheet] | None) -> dict[str, list[tuple[int, str, str]]]:
-    """Component path → ``(unit, value, footprint)`` of each of its symbols, by unit."""
-    found: dict[str, list[tuple[int, str, str]]] = {}
+def _symbols(sheets: Sequence[SchematicSheet] | None) -> dict[str, list[tuple[int, SymbolInstance]]]:
+    """Component path → ``(unit, symbol)`` of each of its symbols, by unit."""
+    found: dict[str, list[tuple[int, SymbolInstance]]] = {}
     for sheet in sheets or ():
         for symbol in sheet.symbols:
             path = symbol.properties.get(PATH_PROPERTY)
             if path:
-                found.setdefault(path, []).append(
-                    (symbol.unit, symbol.properties.get("Value", symbol.value), symbol.footprint)
-                )
-    return {path: sorted(units) for path, units in found.items()}
+                found.setdefault(path, []).append((symbol.unit, symbol))
+    return {path: sorted(units, key=lambda unit: unit[0]) for path, units in found.items()}
+
+
+def user_names(component: Component) -> tuple[str, ...]:
+    """The user properties ``component`` names (the script's ``properties=``, and a device's), in
+    code-point order: its properties without ``fenolite.`` and ``ki_`` names and the fields of KiCad."""
+    return tuple(
+        sorted(
+            name
+            for name in component.properties
+            if not name.startswith(RESERVED_PREFIXES) and name.casefold() not in _RESERVED_NAMES
+        )
+    )
+
+
+def _symbol_text(symbol: SymbolInstance, prop: str) -> str:
+    """The text of ``prop`` in a symbol; a user property the symbol lacks is the empty text."""
+    if prop == "value":
+        return symbol.properties.get("Value", symbol.value)
+    if prop == "footprint":
+        return symbol.footprint
+    if prop == "reference":
+        return symbol.properties.get("Reference", symbol.ref)
+    return symbol.properties.get(prop[len(USER_PREFIX) :], "")
+
+
+def _board_text(read: Component | None, fp: FootprintInstance | None, prop: str) -> str | None:
+    """The text of ``prop`` on the board: ``None`` without a footprint, or for a value of a footprint without
+    its Value field (a board of an older Fenolite); a user property the footprint lacks is the empty text."""
+    if prop == "footprint":
+        return fp.lib_ref if fp is not None else None
+    if read is None:
+        return None
+    if prop == "value":
+        return read.properties.get("Value")
+    if prop == "reference":
+        return read.ref
+    return read.properties.get(prop[len(USER_PREFIX) :], "")
+
+
+def code_texts(component: Component) -> dict[str, Value | None]:
+    """The code side of the text properties of ``component``: value, footprint (``None`` when the part
+    names none and takes its symbol's), reference and each user property it names."""
+    texts: dict[str, Value | None] = {
+        "value": component.value,
+        "footprint": component.lib_footprint_ref or None,
+        "reference": component.ref,
+    }
+    for name in user_names(component):
+        texts[USER_PREFIX + name] = component.properties[name]
+    return texts
+
+
+def _with_texts(component: Component, changes: Mapping[str, str]) -> Component:
+    """``component`` with the decided texts of ``changes``."""
+    properties = dict(component.properties)
+    for prop, text in changes.items():
+        if prop.startswith(USER_PREFIX):
+            properties[prop[len(USER_PREFIX) :]] = text
+    return dataclasses.replace(
+        component,
+        value=changes.get("value", component.value),
+        lib_footprint_ref=changes.get("footprint", component.lib_footprint_ref),
+        ref=changes.get("reference", component.ref),
+        properties=properties,
+    )
 
 
 def merge_properties(
@@ -814,11 +885,13 @@ def merge_properties(
     aliases: Mapping[str, str] | None = None,
     target: str = "kicad",
 ) -> PropertyMerge:
-    """Decide ``value`` and ``footprint`` of every part before the build (phase 1 of change c0250).
+    """Decide ``value``, ``footprint``, ``reference`` and the user properties the script names of every
+    part before the build (change c0250).
 
     ``match`` maps component paths to their matched footprints of ``board``; ``sheets`` are the sheets of
     the existing schematic. ``aliases`` (new path → old) let a part matched through ``moved()`` take the
-    base entry of its old path. ``reference`` and user properties keep their rules of before."""
+    base entry of its old path. The code side of ``reference`` is the ref the part is lowered with (its
+    explicit ref, or the one of the design lock); a user property a CAD side lacks counts as ``""``."""
     on_board = {c.id: c for c in board.circuit.components} if board is not None else {}
     symbols = _symbols(sheets)
     decisions: list[Decision] = []
@@ -844,15 +917,11 @@ def merge_properties(
         if base is not None and has_cad and held_base is None:
             missing.append(path)
         changes: dict[str, str] = {}
-        values: tuple[tuple[str, str | None, str | None], ...] = (
-            # a footprint without its Value field (a board of an older Fenolite) holds no value
-            ("value", component.value, read.properties.get("Value") if read is not None else None),
-            # a part without its own footprint takes its symbol's: the script gives no value, as an unplaced
-            # part gives no position
-            ("footprint", component.lib_footprint_ref or None, fp.lib_ref if fp is not None else None),
-        )
-        for prop, script, board_value in values:
-            unit_texts = [(unit, value if prop == "value" else footprint) for unit, value, footprint in units]
+        # a part without its own footprint takes its symbol's: the script gives no value, as an unplaced
+        # part gives no position
+        for prop, script in code_texts(component).items():
+            board_value = _board_text(read, fp, prop)
+            unit_texts = [(unit, _symbol_text(symbol, prop)) for unit, symbol in units]
             key = PropertyKey(path, prop)
             cad: dict[str, Value] = {}
             if board_value is not None:
@@ -894,11 +963,7 @@ def merge_properties(
             if isinstance(decision.value, str) and decision.value != (script or "") and not unchanged:
                 changes[prop] = decision.value
         if changes:
-            replaced[component.id] = dataclasses.replace(
-                component,
-                value=changes.get("value", component.value),
-                lib_footprint_ref=changes.get("footprint", component.lib_footprint_ref),
-            )
+            replaced[component.id] = _with_texts(component, changes)
     merged = design
     if replaced:
         circuit = dataclasses.replace(
@@ -1059,14 +1124,12 @@ def capture_edits(
                 decided.append((prop, decision, script))
         if entry is not None:
             read = on_board.get(fp.component_id) if fp is not None else None
-            for prop, script, board_value in (
-                ("value", component.value, read.properties.get("Value") if read is not None else None),
-                ("footprint", component.lib_footprint_ref or None, fp.lib_ref if fp is not None else None),
-            ):
+            for prop, script in code_texts(component).items():
+                board_value = _board_text(read, fp, prop)
                 cad: dict[str, Value] = {}
                 if board_value is not None:
                     cad["board"] = board_value
-                texts = [value if prop == "value" else footprint for _, value, footprint in units]
+                texts = [_symbol_text(symbol, prop) for _, symbol in units]
                 if len(set(texts)) > 1:
                     key = PropertyKey(path, prop)
                     conflicts.append(
@@ -1107,12 +1170,6 @@ def capture_edits(
             values[prop] = value
             over[prop] = "" if prop == "footprint" and script is None else script
             captured.append(str(decision.key))
-        if held is not None:
-            # the second-phase properties keep their edits as they are
-            for prop, value in held.values.items():
-                if prop not in PHASE_ONE and held.over is not None:
-                    values[prop] = value
-                    over[prop] = held.over.get(prop)
         if values:
             locked = fp is not None and "position" in values and fp.locked
             parts[path] = PartEdits(
