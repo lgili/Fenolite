@@ -29,7 +29,6 @@ import re
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from fractions import Fraction
-from typing import cast
 
 from fenolite.model.circuit import Circuit, Component
 from fenolite.model.rules import PART_CLASSES, PART_TERMINALS, PartClass, PartClassName
@@ -74,7 +73,7 @@ PREFIXES: tuple[tuple[str, PartClassName], ...] = (
     ("F", "fuse"),
     ("JP", "jumper"),
 )
-"""Reference prefix → class: the one prefix table of the package tree (``tests/unit/roles/test_classify.py``)."""
+"""Reference prefix → class: the one prefix table of the package tree."""
 LINK_PREFIXES: frozenset[str] = frozenset({"FB", "F", "JP"})
 """The prefixes read before the value, with ``medium`` confidence (change c0274)."""
 _PREFIX = re.compile(r"^([A-Za-z]+)\d")
@@ -214,7 +213,7 @@ def classify_part(
     named = _by_names(component)
     if device_cls is not None and device_cls in PART_CLASSES:
         terminals = named[1] if named is not None and named[0] == device_cls else {}
-        return Classified(ref, cast(PartClassName, device_cls), "high", "device", terminals)
+        return Classified(ref, device_cls, "high", "device", terminals)
     if named is not None:
         return Classified(ref, named[0], "high", "pin-names", named[1])
     count = pads if pads is not None else len(component.pins)

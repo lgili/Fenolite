@@ -220,7 +220,8 @@ def run_checks(
 ) -> CheckReport:
     """Run the selected stages in ``STAGE_ORDER`` on ``project`` (``model`` is the ``.fenolite/`` model of a
     built project); ``validator.validate`` runs at most once. ``waivers`` are the design's waivers
-    (``checks.waivers``): they reach the copper stage and the DRC stage, and no other stage. Each stage
+    (``checks.waivers``): they reach the copper stage, the DRC stage and, for ``circuit.*`` codes, the stage
+    ``circuit.rules`` (change c0274), and no other stage. Each stage
     that runs is one unit of ``progress``, named by the stage. ``roles_judge`` judges the stage
     ``roles.rules`` (``checks.roles``). ``drawn`` is the drawn netlist of a built project with a drawn
     schematic, which the stage ``schematic.drawn`` judges (``checks.drawn``); without it the stage is
@@ -272,7 +273,9 @@ def run_checks(
         devices, classes = (None, None)
         if circuit_inputs is not None and model is not None and not cache_error:
             devices, classes = circuit_inputs(model)
-        return circuit_stage(model, built=built, cache_error=cache_error, devices=devices, classes=classes)
+        return circuit_stage(
+            model, built=built, cache_error=cache_error, devices=devices, classes=classes, waivers=waivers
+        )
 
     def erc() -> StageResult:
         if oracle is None:

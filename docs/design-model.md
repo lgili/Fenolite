@@ -821,13 +821,16 @@ documents it wrote before, byte for byte.
   group, and `Design.validate()` does not check the numbers against the pads. A backend that reads no
   groups leaves the field empty: the Altium import does. 0.2.x and 0.3.0 cannot read a document that
   carries `net_ties`.
-- **`waivers`** (`findings.json`). `Findings.waivers` holds `Waiver(name, code, items, reason, min_gap)`
-  values, sorted by name: the acceptance of one finding with a reason. `code` is a finding code
-  (`copper.short`, `copper.clearance`, `copper.zone-overlap` or `<oracle>.drc.<suffix>`), `items` are
-  the names of the finding's items as `where` prints them, or patterns of them, and `min_gap` is in
-  integer nm. What a waiver may say is checked where it is declared (`design.waive()`, `docs/dsl.md`);
-  how it matches is `fenolite.checks.waivers`. 0.2.x and 0.3.0 cannot read a `findings.json` that carries
-  `waivers`.
+- **`waivers`** (`findings.json`). `Findings.waivers` holds `Waiver(name, code, items, reason, min_gap,
+  digest)` values, sorted by name: the acceptance of one finding with a reason. `code` is a finding code
+  (`copper.short`, `copper.clearance`, `copper.zone-overlap`, `<oracle>.drc.<suffix>` or, since change
+  c0274, a `circuit.*` code), `items` are the names of the finding's items as `where` prints them, or
+  patterns of them (for a `circuit.*` code the one row id of the finding without its code), and `min_gap`
+  is in integer nm. `digest` is the 16 lowercase hexadecimal digits of the requirement row's digest at
+  waiver time, set for a `circuit.*` code and for no other (`ValueError` otherwise), and left out of
+  `findings.json` when absent. What a waiver may say is checked where it is declared (`design.waive()`,
+  `docs/dsl.md`); how it matches is `fenolite.checks.waivers`. 0.2.x and 0.3.0 cannot read a
+  `findings.json` that carries `waivers`, and 0.6.x cannot read one whose waiver carries `digest`.
 - **`severities`** (`rules.json`). `RuleSet.severities` maps the finding code of a check of a
   design-rule tool (`<oracle>.drc.<suffix>`) to `error`, `warning` or `ignore`, written with its keys
   sorted. A severity is not a rule: it has no `RuleKind` and no row in a backend's rule table. 0.2.x and

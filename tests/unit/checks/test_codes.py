@@ -79,6 +79,7 @@ TABLE = {
     "parity.oracle-differs": ("warning",),
     "parity.pad-without-pin": ("info",),
     "check.waiver-unmatched": ("warning",),
+    "check.waiver-expired": ("warning",),  # c0274
     "check.exclusion-stale": ("warning",),
     "check.exclusion-unmatched": ("error",),
     "check.exclusion-ambiguous": ("error",),
@@ -108,25 +109,25 @@ TABLE = {
     "drawn.opaque-dropped": ("info",),
     "drawn.frozen": ("info",),
     "drawn.altium-repeat-flattened": ("info",),
-    "circuit.rail-voltage": ("error",),
-    "circuit.rail-current": ("error",),
-    "circuit.rail-sources": ("error",),
-    "circuit.rail-unset": ("warning",),
-    "circuit.logic-level": ("error",),
-    "circuit.logic-unknown": ("warning",),
-    "circuit.bus-pullup": ("warning",),
-    "circuit.requires-missing": ("warning",),
-    "circuit.port-split": ("warning",),
-    "circuit.rating-voltage": ("error",),  # c0253
-    "circuit.rating-current": ("error",),
-    "circuit.rating-power": ("error",),
-    "circuit.rating-temperature": ("error",),
-    "circuit.operating-range": ("error",),
-    "circuit.expect-failed": ("error",),
-    "circuit.expect-unsure": ("warning",),
-    "circuit.expect-unknown": ("warning",),
-    "circuit.value-conflict": ("warning",),
-    "circuit.device-changed": ("warning",),
+    "circuit.rail-voltage": ("error", "info"),
+    "circuit.rail-current": ("error", "info"),
+    "circuit.rail-sources": ("error", "info"),
+    "circuit.rail-unset": ("warning", "info"),
+    "circuit.logic-level": ("error", "info"),
+    "circuit.logic-unknown": ("warning", "info"),
+    "circuit.bus-pullup": ("warning", "info"),
+    "circuit.requires-missing": ("warning", "info"),
+    "circuit.port-split": ("warning", "info"),
+    "circuit.rating-voltage": ("error", "info"),  # c0253
+    "circuit.rating-current": ("error", "info"),
+    "circuit.rating-power": ("error", "info"),
+    "circuit.rating-temperature": ("error", "info"),
+    "circuit.operating-range": ("error", "info"),
+    "circuit.expect-failed": ("error", "info"),
+    "circuit.expect-unsure": ("warning", "info"),
+    "circuit.expect-unknown": ("warning", "info"),
+    "circuit.value-conflict": ("warning", "info"),
+    "circuit.device-changed": ("warning", "info"),
     "circuit.value-unknown": ("info", "warning"),
     "circuit.rating-missing": ("info", "warning"),
     "circuit.policy-missing": ("info",),
@@ -218,3 +219,16 @@ def test_circuit_contract_codes() -> None:
     with pytest.raises(ValueError):
         issue("circuit.expect-unsure", "m", severity="error")
     assert issue("circuit.value-unknown", "m", severity="warning").severity == "warning"
+
+
+def test_waived_severities_are_allowed() -> None:
+    """Scenario "Waived severities are allowed" (change c0274): ``check.waiver-expired`` is a warning, and
+    every ``circuit.*`` code allows ``info``, the severity of a waived finding; the DSL's table of waivable
+    circuit codes is the codes that have an error or a warning."""
+    from fenolite.dsl.design import WAIVED_CIRCUIT
+
+    assert ISSUE_CODES["check.waiver-expired"] == ("warning",)
+    circuit = {code: found for code, found in ISSUE_CODES.items() if code.startswith("circuit.")}
+    assert all("info" in found for found in circuit.values())
+    assert set(WAIVED_CIRCUIT) == {c for c, found in circuit.items() if {"error", "warning"} & set(found)}
+    assert issue("circuit.rating-voltage", "m").severity == "error"

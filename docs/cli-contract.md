@@ -1687,6 +1687,7 @@ repeat.
 | `copper.hole-in-cutout` | error | a drilled hole breaks into a cut-out or a slot, or crosses the board edge; `where` names the hole's item and the ring |
 | `copper.hole-overlap` | warning | two drilled holes overlap; `where` names both items |
 | `check.waiver-unmatched` | warning | a waiver of the design script that was judged matched no finding; `where` is the waiver's name |
+| `check.waiver-expired` | warning | a `circuit.*` waiver whose code and item match a finding under another digest: the value or the limit judged changed since the waiver; `where` is the waiver's name, the message names both digests |
 | `check.exclusion-stale` | warning | a DRC exclusion stored in the KiCad project no longer applies: `moved` or `gone` |
 | `copper.rules-incomplete` | warning | a clearance rule stayed opaque, a project file was not read, or no rules source was given |
 | `copper.item-unsupported` | warning | copper items left out of the check, one issue per kind; `where` is the kind |
@@ -1733,13 +1734,25 @@ either target, applies them. A native project has no waiver.
   finding is at least that. The items of a copper finding are the two parts of its `where`; those of a
   DRC finding are the locations of its items.
 - **Stages.** `copper.*` waivers are applied by `copper.clearance`, on both pipelines; `kicad.drc.*`
-  waivers by `drc.kicad`. No other stage takes a waiver: ERC and parity findings are never waived.
+  waivers by `drc.kicad`; `circuit.*` waivers (change c0274) by `circuit.rules`, on both pipelines, and
+  by the circuit hook of `fenolite build`, so an accepted risk does not stop `build --confirm`. No other
+  stage takes a waiver: ERC and parity findings are never waived.
+- **Circuit waivers.** A `circuit.*` waiver names one item, the finding's requirement row id without the
+  code (`C3:voltage`; a finding no row gives is named by its `where`), and the digest of what was judged:
+  the first 16 hexadecimal digits of the SHA-256 of the canonical JSON of the row's id, the ranges of its
+  value and limit, the limit's kind and both sources (of a finding without a row: its code, `where` and
+  message). Each `circuit.*` error or warning's `hint` ends with `digest <16 hex>`, which the author
+  copies into `design.waive(..., digest=...)`. When the code and item match but the digest differs (a
+  rating, a pick or a kept CAD value changed), the finding is not waived and one `check.waiver-expired`
+  (warning) names the waiver, both digests and the row.
 - **Stale waivers.** A waiver is judged when the stage of its code ran with a verdict. A judged waiver
-  that matched nothing gives `check.waiver-unmatched` (warning), `where` its name. A waiver of
+  that matched nothing, and that no finding matches under another digest, gives `check.waiver-unmatched`
+  (warning), `where` its name. A waiver of
   `kicad.drc.clearance`, `hole-clearance`, `unconnected-items` or `shorting-items` is applied when it
   matches and never judged, because KiCad does not repeat those entries from run to run.
 - **`result.waivers`** holds `declared` (the count), `matched` (name → findings, for judged waivers),
-  `unmatched` (names) and `unjudged` (name → `stage-not-run` or `not-repeatable`). On Altium input every
+  `unmatched` (names), `expired` (names of circuit waivers whose digest changed) and `unjudged` (name →
+  `stage-not-run` or `not-repeatable`). On Altium input every
   `kicad.drc.*` waiver is `stage-not-run`: that pipeline has no DRC stage.
 
 **KiCad's own exclusions.** A KiCad project stores the entries its user excluded in the DRC dialog, each

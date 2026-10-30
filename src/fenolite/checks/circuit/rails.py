@@ -149,6 +149,9 @@ class View:
         self.circuit = circuit
         self.rows: list[RequirementRow] = []
         """The requirement rows of the rail and logic rules (change c0253)."""
+        self.links: dict[int, tuple[Issue, RequirementRow]] = {}
+        """The row of each finding that a row gives, by the finding's ``id()`` (change c0274: a waiver names
+        the row)."""
         self.nets = {net.id: net for net in circuit.nets}
         self.modules = {module.id: module for module in circuit.modules}
         self.components = {component.id: component for component in circuit.components}
@@ -328,14 +331,14 @@ def _rail_issues(view: View) -> list[Issue]:
                     )
                 )
                 if not passed:
-                    found.append(
-                        issue(
-                            "circuit.rail-voltage",
-                            f"{view.label(port)} accepts {range_text(accepted)}; {name} is {shown}",
-                            where=view.label(port),
-                            hint="change the rail's voltage or the part, or power the port from another rail",
-                        )
+                    made = issue(
+                        "circuit.rail-voltage",
+                        f"{view.label(port)} accepts {range_text(accepted)}; {name} is {shown}",
+                        where=view.label(port),
+                        hint="change the rail's voltage or the part, or power the port from another rail",
                     )
+                    view.links[id(made)] = (made, view.rows[-1])
+                    found.append(made)
         elif bounded:
             needing = ", ".join(view.label(port) for port in bounded)
             found.append(
@@ -412,15 +415,15 @@ def _rail_issues(view: View) -> list[Issue]:
                     )
                 )
                 if draw > capacity:
-                    found.append(
-                        issue(
-                            "circuit.rail-current",
-                            f"{name}: loads up to {amount('ampere', draw)} exceed sources "
-                            f"{amount('ampere', capacity)} ({', '.join(supplying)})",
-                            where=name,
-                            hint="lower the loads, or choose a source of more current",
-                        )
+                    made = issue(
+                        "circuit.rail-current",
+                        f"{name}: loads up to {amount('ampere', draw)} exceed sources "
+                        f"{amount('ampere', capacity)} ({', '.join(supplying)})",
+                        where=name,
+                        hint="lower the loads, or choose a source of more current",
                     )
+                    view.links[id(made)] = (made, view.rows[-1])
+                    found.append(made)
         drivers = rail.sources
         shared = any(interface.shared for interface in rail.interfaces)
         count = len(drivers) + len(rail.rig_sources)

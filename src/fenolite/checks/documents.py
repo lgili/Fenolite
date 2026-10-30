@@ -251,9 +251,10 @@ def run_document_checks(
     model of a built project). ``validator.read_documents`` runs at most once, and
     ``validator.container_roundtrip`` at most once per document and level.
 
-    ``waivers`` are the design's waivers (change c0114): they reach the ``copper.clearance`` stage and no
-    other. This pipeline has no DRC stage, so a ``<oracle>.drc.*`` waiver is listed as ``stage-not-run``,
-    and no stored exclusion is read. ``roles_judge`` judges the stage ``roles.rules`` (``checks.roles``)."""
+    ``waivers`` are the design's waivers (change c0114): they reach the ``copper.clearance`` stage and, for
+    ``circuit.*`` codes, the stage ``circuit.rules`` (change c0274), and no other. This pipeline has no DRC
+    stage, so a ``<oracle>.drc.*`` waiver is listed as ``stage-not-run``, and no stored exclusion is read.
+    ``roles_judge`` judges the stage ``roles.rules`` (``checks.roles``)."""
     from fenolite.checks import parity as parity_check
     from fenolite.checks.rta2 import body_total, predates_board, predates_graphics, rta2_stage
     from fenolite.checks.rta3 import compare, rta3_stage
@@ -478,7 +479,9 @@ def run_document_checks(
         devices, classes = (None, None)
         if circuit_inputs is not None and usable is not None:
             devices, classes = circuit_inputs(usable)
-        return circuit_stage(usable, built=built, cache_error=cache_error, devices=devices, classes=classes)
+        return circuit_stage(
+            usable, built=built, cache_error=cache_error, devices=devices, classes=classes, waivers=waivers
+        )
 
     runners: dict[str, Callable[[], StageResult]] = {
         "model.validate": model_stage,

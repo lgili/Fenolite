@@ -23,11 +23,13 @@ from fenolite.checks.circuit.rails import EVIDENCE, View, circuit_evidence, leve
 from fenolite.checks.circuit.ratings import DEVICE_PROPERTY, Judged, judge_parts
 from fenolite.checks.circuit.values import Values, ground_nets, part_classes, resolve
 from fenolite.checks.codes import issue
+from fenolite.checks.waivers import EXPIRED, CircuitWaived, Keyed, apply_circuit_waivers
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level, min_level
-from fenolite.core.requirement_table import Corner, RequirementRow, table_json
+from fenolite.core.requirement_table import Corner, RequirementRow, row_digest, table_json
 from fenolite.model import canonical
 from fenolite.model.design import Design
+from fenolite.model.findings import Waiver
 from fenolite.model.library import DeviceDef
 from fenolite.model.rules import ContractSet
 
@@ -73,6 +75,9 @@ class CircuitResult:
     rows: tuple[RequirementRow, ...]
     evidence: Evidence
     summary: Mapping[str, object] = field(default_factory=lambda: {})
+    waived: CircuitWaived | None = None
+    """What the circuit waivers did (change c0274): their outcome and their ``check.waiver-*`` warnings,
+    which the stage reports and the build does not."""
 
 
 @dataclass(slots=True)
@@ -150,20 +155,44 @@ def _severity(row: Judged, strict: bool) -> str | None:
     return None
 
 
+def finding_digest(found: Issue) -> str:
+    """The digest of a circuit finding that no requirement row gives (change c0274): of its code, place and
+    message, which name every number it judged."""
+    return row_digest({"code": found.code, "where": found.where, "message": found.message})
+
+
+def _keyed(found: Sequence[Issue], links: Mapping[int, tuple[Issue, RequirementRow]]) -> list[Keyed]:
+    """Each finding with its item and digest (a row's, else its own), its hint ending ``digest <digest>``
+    when it is an error or a warning: what a waiver copies (change c0274)."""
+    keyed: list[Keyed] = []
+    for item in found:
+        link = links.get(id(item))
+        row = link[1] if link is not None and link[0] is item else None
+        name, digest = (row.item, row.digest) if row is not None else (item.where, finding_digest(item))
+        if item.severity in ("error", "warning"):
+            hint = f"{item.hint}; digest {digest}" if item.hint else f"digest {digest}"
+            item = replace(item, hint=hint)
+        keyed.append(Keyed(item, name, digest, row.id if row is not None else ""))
+    return keyed
+
+
 def judge_circuit(
     design: Design,
     *,
     devices: Mapping[str, DeviceDef] | None = None,
     classes: Mapping[str, str] | None = None,
     currents: Mapping[str, tuple[Fraction, str]] | None = None,
+    waivers: Sequence[Waiver] = (),
 ) -> CircuitResult:
     """The rail rules (c0252) and the contracts (c0253) of ``design``, with the device records and classes
     the command resolved and, for ``fenolite roles --check``, the currents of ``[[current]]`` and
-    ``--current`` by net name."""
+    ``--current`` by net name. The ``circuit.*`` waivers of ``waivers`` accept their findings (change
+    c0274): a waived finding is ``info`` and its row names the waiver."""
     contracts = design.rules.contracts if design.rules is not None else None
     main = _evaluate(design, contracts, devices, classes, currents)
     view = main.view
     found: list[Issue] = [*main.rails, *main.values.issues, *main.changed]
+    links: dict[int, tuple[Issue, RequirementRow]] = dict(view.links)
     corner_set = rig_corners.corners(contracts)
     by_corner: list[tuple[str, dict[str, Judged]]] = []
     if corner_set and contracts is not None and any(row.rigs for row in main.rows):
@@ -218,7 +247,9 @@ def judge_circuit(
                 text += "; fails at " + "; ".join(
                     f"{c.corner}: {c.text} over {row.limit.text}" for c in failing
                 )
-            found.append(issue(row.check, text, severity=severity, where=row.part or row.id))  # type: ignore[arg-type]
+            made = issue(row.check, text, severity=severity, where=row.part or row.id)  # type: ignore[arg-type]
+            links[id(made)] = (made, rows[-1])
+            found.append(made)
     if unknown_rows:
         if strict:
             found += [
@@ -286,8 +317,16 @@ def judge_circuit(
         "requirements": table_json(rows),
         "corners": rig_corners.TOO_MANY if corner_set is None else len(corner_set),
     }
+    waived = apply_circuit_waivers(waivers, _keyed(found, links))
+    if waived.rows:
+        rows = [replace(r, waiver=waived.rows[r.id]) if r.id in waived.rows else r for r in rows]
+        summary["requirements"] = table_json(rows)
     return CircuitResult(
-        tuple(sorted(found, key=lambda i: (i.code, i.where, i.message))), tuple(rows), evidence, summary
+        tuple(sorted(waived.issues, key=lambda i: (i.code, i.where, i.message))),
+        tuple(rows),
+        evidence,
+        summary,
+        waived,
     )
 
 
@@ -296,11 +335,24 @@ def circuit_issues(
     *,
     devices: Mapping[str, DeviceDef] | None = None,
     classes: Mapping[str, str] | None = None,
+    waivers: Sequence[Waiver] = (),
 ) -> tuple[Issue, ...]:
     """Every finding of the circuit rules on ``design`` (c0252's rails and c0253's contracts), sorted by code,
     place and message; ``devices`` and ``classes`` are what the command resolved (``fenolite build`` and
-    ``fenolite check`` pass them, so both give the same ``circuit.*`` codes on one model)."""
-    return judge_circuit(design, devices=devices, classes=classes).issues
+    ``fenolite check`` pass them, so both give the same ``circuit.*`` codes on one model). The ``circuit.*``
+    waivers of ``waivers`` (the design's) accept their findings as the stage does, and a waiver whose digest
+    changed adds its ``check.waiver-expired`` (change c0274)."""
+    result = judge_circuit(design, devices=devices, classes=classes, waivers=waivers)
+    expired = () if result.waived is None else tuple(i for i in result.waived.reports if i.code == EXPIRED)
+    return (*result.issues, *expired)
 
 
-__all__ = ["HYPOTHESIS", "CircuitResult", "circuit_issues", "device_digest", "has_contracts", "judge_circuit"]
+__all__ = [
+    "HYPOTHESIS",
+    "CircuitResult",
+    "circuit_issues",
+    "device_digest",
+    "finding_digest",
+    "has_contracts",
+    "judge_circuit",
+]

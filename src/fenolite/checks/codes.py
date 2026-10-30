@@ -30,7 +30,8 @@ schematic stage issue codes", change c0276), the table of ``fenolite.model.drawn
 The ``length.*`` codes are those of the length rules stage (``checks.length``; "Length stage issue codes",
 change c0106); the governing rule sets the severity of a finding.
 The ``circuit.*`` codes are those of the stage ``circuit.rules`` (``checks.circuit``; change c0252), which the
-build reports too.
+build reports too; each of them also allows ``info``, the severity of a finding a waiver accepted, and
+``check.waiver-expired`` reports a circuit waiver whose digest no longer matches its row (change c0274).
 """
 
 from __future__ import annotations
@@ -103,6 +104,7 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "parity.oracle-differs": ("warning",),
         "parity.pad-without-pin": ("info",),
         "check.waiver-unmatched": ("warning",),
+        "check.waiver-expired": ("warning",),  # change c0274: a circuit waiver whose digest changed
         "check.exclusion-stale": ("warning",),
         "check.exclusion-unmatched": ("error",),
         "check.exclusion-ambiguous": ("error",),
@@ -118,26 +120,26 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "length.input-missing": ("warning",),
         # the drawn schematic stage (c0276): the codes of fenolite.model.drawn_connect.ISSUE_CODES
         **{code: (severity,) for code, severity in DRAWN_ISSUE_CODES.items()},
-        "circuit.rail-voltage": ("error",),
-        "circuit.rail-current": ("error",),
-        "circuit.rail-sources": ("error",),
-        "circuit.rail-unset": ("warning",),
-        "circuit.logic-level": ("error",),
-        "circuit.logic-unknown": ("warning",),
-        "circuit.bus-pullup": ("warning",),
-        "circuit.requires-missing": ("warning",),
-        "circuit.port-split": ("warning",),
+        "circuit.rail-voltage": ("error", "info"),
+        "circuit.rail-current": ("error", "info"),
+        "circuit.rail-sources": ("error", "info"),
+        "circuit.rail-unset": ("warning", "info"),
+        "circuit.logic-level": ("error", "info"),
+        "circuit.logic-unknown": ("warning", "info"),
+        "circuit.bus-pullup": ("warning", "info"),
+        "circuit.requires-missing": ("warning", "info"),
+        "circuit.port-split": ("warning", "info"),
         # change c0253: the contracts of the stage circuit.rules
-        "circuit.rating-voltage": ("error",),
-        "circuit.rating-current": ("error",),
-        "circuit.rating-power": ("error",),
-        "circuit.rating-temperature": ("error",),
-        "circuit.operating-range": ("error",),
-        "circuit.expect-failed": ("error",),
-        "circuit.expect-unsure": ("warning",),
-        "circuit.expect-unknown": ("warning",),
-        "circuit.value-conflict": ("warning",),
-        "circuit.device-changed": ("warning",),
+        "circuit.rating-voltage": ("error", "info"),
+        "circuit.rating-current": ("error", "info"),
+        "circuit.rating-power": ("error", "info"),
+        "circuit.rating-temperature": ("error", "info"),
+        "circuit.operating-range": ("error", "info"),
+        "circuit.expect-failed": ("error", "info"),
+        "circuit.expect-unsure": ("warning", "info"),
+        "circuit.expect-unknown": ("warning", "info"),
+        "circuit.value-conflict": ("warning", "info"),
+        "circuit.device-changed": ("warning", "info"),
         "circuit.value-unknown": ("info", "warning"),
         "circuit.rating-missing": ("info", "warning"),
         "circuit.policy-missing": ("info",),
