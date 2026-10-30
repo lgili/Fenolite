@@ -25,8 +25,8 @@ footprint="Fenolite:Chip_0603", value="330")`. A pad takes the net of the pin th
    is `INFERRED`: a generic symbol, not a device's pinout, and a land pattern nobody checked against your
    part. Compare both with the datasheet before you order boards.
 
-   `view --out FILE` plans an offline HTML browser of these entries: a symbol and footprint side by side;
-   a pad map confirmed against the datasheet gives a `Part` fragment. It never upgrades `INFERRED`.
+   `view --out FILE` plans an offline HTML browser: symbol and footprint side by side; a pad map confirmed
+   against the datasheet gives a `Part` fragment, still `INFERRED`.
 2. **KiCad's libraries.** Put an `fp-lib-table` and a `sym-lib-table` beside the script, and name parts
    as KiCad does (`Device:R`, `Resistor_SMD:R_0603_1608Metric`). The build copies what it places into the
    project.
@@ -119,8 +119,8 @@ r2.place(mm(13), mm(11))
   `q.min()` is `q..`; `between(a, b, nominal=None)` takes two quantities of one unit.
 - `+ - * /` mix ranges, quantities and exact numbers; a result may be wider than the truth, never narrower.
   Units follow a closed table (V/Ω is A, V·A is W, V·V/Ω is W); another pair raises `TypeError`, a divisor
-  that holds zero `DslError`. A one-sided range enters while the result keeps a bound. `a.within(b)` asks whether every value of `a` lies in `b`.
-- A ranged part value writes the nominal text (`100kΩ`) and keeps the range in `.fenolite/circuit.json`.
+  that holds zero `DslError`. A one-sided range enters while the result keeps a bound. `a.within(b)`: every value of `a` lies in `b`.
+- A ranged part value writes the nominal text (`100kΩ`); `.fenolite/circuit.json` keeps the range.
 
 ## Parts from devices
 
@@ -200,7 +200,7 @@ j1.place(mm(22), mm(10), rot=90)
   only in the last character, `P` and `N` or `+` and `-`; other names give `build.diff-pair-name`.
 - `Harness(name, members)` and `Interface(name, kind, members)` record any group of nets.
 - The script builds with warnings: `build.i2c-pullup-missing` (no two-pin part from a bus line to the
-  high net of a `Power`) and `model.dangling-net` for each net joining no pin yet.
+  high net of a `Power`) and `model.dangling-net` for a net joining no pin yet.
 - Interfaces are kept in `.fenolite/`; the board and the schematic do not change.
 
 ## Blocks
@@ -236,10 +236,10 @@ for n in range(2):
 ```
 
 - `design.use(block, name, **params)` runs the function once with a fresh block `b`; refs come from the
-  lock and never collide. `b.part(name, ...)` names a part locally.
+  lock and never collide; `b.part(name, ...)` names a local part.
 - `b.port(name, kind=Net, direction=...)` takes `Net` or an interface class (`I2C` gives `.sda`, `.scl`);
   unwired, its net is `<instance>/<port>` (`out` first); its sheet pin is `<port>` or `I2C_sda`.
-- Warnings: `build.port-unused`, a port with nothing outside its block (`optional=True` when meant), and
+- Warnings: `build.port-unused`, a port with nothing outside (`optional=True` when meant), and
   `build.block-net-escape`, a global net joining pins inside and outside a block without a port.
 
 ## What the checks still say

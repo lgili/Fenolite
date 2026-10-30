@@ -25,7 +25,7 @@ Without `--stages`, every stage of this table runs. `--stages A,B` selects some;
 | stage | what it judges | needs `kicad-cli` |
 |---|---|---|
 | `model.validate` | the design as data: references, nets, pins | no |
-| `circuit.rules` | the rails, logic levels, pull-ups, device ratings and expectations the script and devices state | no |
+| `circuit.rules` | rails, logic levels, pull-ups, ratings and expectations of the script and devices | no |
 | `erc.kicad` | KiCad's electrical rules check on the schematic | yes |
 | `copper.clearance` | Fenolite's own check of shorts and clearances on the copper | no |
 | `length.rules` | the length and skew rules (`length`, `skew`, `diff_pair_skew`) on the net lengths as KiCad counts them | no |
@@ -39,9 +39,9 @@ Without `--stages`, every stage of this table runs. `--stages A,B` selects some;
 
 - `--stages model.validate,copper.clearance` is the fast check that runs anywhere: use it after each
   edit, and the whole check before you report.
-- `circuit.rules` is skipped with `no-model` (no `.fenolite/`), `no-parameters`. Its errors (such as
-  `circuit.rail-voltage`, `circuit.logic-level`, `circuit.rating-voltage`, `circuit.expect-failed`) also
-  stop a build; `summary.requirements` lists each limit with its value, its source and its status:
+- `circuit.rules` is skipped with `no-model` (no `.fenolite/`), `no-parameters`. Its errors
+  (`circuit.rail-voltage`, `logic-level`, `rating-voltage`, `expect-failed`, ...) also stop a build;
+  `summary.requirements` lists each limit, its value, source and status:
 
 ```fenolite-cmd
 fenolite check blink/build --stages circuit.rules --json
@@ -49,8 +49,8 @@ fenolite check blink/build --stages circuit.rules --json
 
 - A selected stage that needs a missing `kicad-cli` exits 6.
 - An unrouted board exits 5: each open connection is a `kicad.drc.unconnected-items` error.
-- `result.stages` holds one entry per stage with `status` (`ok`, `errors` or `skipped`), the `reason`
-  of a skip, its own `evidence` and a `summary` of counts.
+- `result.stages` has per stage a `status` (`ok`, `errors`, `skipped`), the skip `reason`, its
+  `evidence`, a `summary`.
 
 ## Reading an issue
 
@@ -160,12 +160,12 @@ fenolite roles blink/build --set VIN=power:milliamps=500 --current VOUT=1 --dry-
 ```
 
 - `roles` infers what each net does (`power`, `switch_node`, `ground`, `kelvin`, `gate`, `signal`,
-  `high_voltage`) and the hot loops, gate loops and Kelvin pairs, and shows each with its rule and
-  confidence. Read-only until you accept, set or reject; then it writes the role document beside the
-  board, or `.fenolite/rules.json` of a built project, through a plan.
-- `--check` measures the copper against the roles and adds `result.measures` and `result.requirements`
-  (role and circuit rows, one table); it runs no tool. Findings of inferred roles stay warnings: confirm the roles before you trust them. A role
-  without a current is not judged for current (`roles.current-missing`): give it with `--current`.
+  `high_voltage`), the hot loops, gate loops and Kelvin pairs, each with its rule and confidence.
+  Read-only until you accept, set or reject; then it writes the role document beside the board (or
+  `.fenolite/rules.json` of a built project) through a plan.
+- `--check` measures the copper against the roles and adds `result.measures` and `result.requirements`;
+  it runs no tool. Findings of inferred roles stay warnings: confirm the roles first. A role without a
+  current is not judged for current (`roles.current-missing`): give it with `--current`.
 - The same check runs as the stage `roles.rules` of `check` on a board with stored or declared roles.
 
 ## Two designs compared
@@ -180,8 +180,8 @@ fenolite equivalent blink/build blink/altium/blink.PrjPcb --frame relative --tol
 - A side is a board, a project folder, an Altium document or project, a `.fenolite/` folder, or a root
   `.kicad_sch`, which is compared at levels 1 and 2 only. A schematic that `build` did not write needs
   `kicad-cli` (exit 6 without one).
-- `capabilities --command equivalent` lists the `levels` and the `sides` it reads; the reply follows the
-  schema `fenolite.equivalent.v0`. In Python, `fenolite.api.equivalent(a, b)` gives the same result.
+- `capabilities --command equivalent` lists the `levels` and `sides`; the reply follows
+  `fenolite.equivalent.v0`, as does `fenolite.api.equivalent(a, b)` in Python.
 
 ```fenolite-cmd
 fenolite equivalent a.kicad_pcb b.kicad_pcb --level 7 --strict --json
@@ -205,8 +205,8 @@ fenolite capabilities --command check --json
 fenolite capabilities --json --fields matrix
 ```
 
-- `doctor` reports each `kicad-cli` it finds with its version, and Java. `--no-run` lists the candidates
-  and starts nothing. An exit 6 from any command is answered here.
+- `doctor` reports each `kicad-cli` with its version, and Java; `--no-run` lists them and starts nothing.
+  An exit 6 from any command is answered here.
 - `capabilities --brief` is the small first reply; `--command NAME` gives one command's arguments as
   data; the long reply holds `matrix`, which says for each file kind what Fenolite can do with it and at
   which evidence level.
