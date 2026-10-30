@@ -24,6 +24,7 @@ from fenolite.catalog.records import DeviceRecord, LibraryTree, load_tree
 from fenolite.core.errors import FormatError, Issue
 from fenolite.dsl import Design, Panel
 from fenolite.dsl.devices import ProjectDevices, installed
+from fenolite.pick.rows import PROPOSED_DIR
 
 SCRIPT_OUTPUT_LIMIT = 4000
 TRUNCATED = "…[truncated]"
@@ -62,7 +63,8 @@ def read_project_library(folder: Path) -> tuple[LibraryTree, tuple[DeviceFile, .
     and a ``device.edited`` info for each edited device record. A malformed file raises its
     ``FormatError`` (FEN-3004 or FEN-3002); two records of one kind and id raise FEN-3004 naming both."""
     devices_dir = folder / DEVICES_DIR
-    tree = load_tree(devices_dir, label=f"{DEVICES_DIR}/")
+    # devices/proposed/ holds unreviewed rows that only a query naming them picks (change c0254)
+    tree = load_tree(devices_dir, label=f"{DEVICES_DIR}/", exclude=(PROPOSED_DIR,))
     files = (
         tuple(
             DeviceFile(path.relative_to(folder).as_posix(), hashlib.sha256(path.read_bytes()).hexdigest())

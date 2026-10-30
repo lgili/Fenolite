@@ -98,6 +98,7 @@ from fenolite.checks.waivers import copper_waivers
 from fenolite.cli import _layout
 from fenolite.cli._lock import lock_location, plan_lock, with_lock
 from fenolite.cli._padmap import DefaultPadMap, apply_default_pad_maps
+from fenolite.cli._picks import picking, proposed_files
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.cmd_export import preset_file
@@ -1009,6 +1010,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         _existing(lock_location(args.design, getattr(args, "lock", None), ctx.cwd)[1]),
     )
     built = _built(args, ctx)
+    read = (
+        *read,
+        *depends_on(
+            ctx.cwd,
+            *proposed_files(Path(args.design) if Path(args.design).is_absolute() else ctx.cwd / args.design),
+        ),
+    )
     files = cast(Sequence[Mapping[str, str]], built.result.get("device_files", []))
     if files:
         # the project devices beside the script are inputs too: a changed file changes the plan (c0248)
@@ -1144,13 +1152,17 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
     lock_given, lock_path = lock_location(args.design, getattr(args, "lock", None), ctx.cwd)
     try:
         schematic_composition(design, target=args.target, enabled=args.altium_layout == "blocks")
-        lock = plan_lock(
-            design,
-            script=script_path,
-            given=lock_given,
-            path=lock_path,
-            frozen=bool(getattr(args, "frozen", False)),
-        )
+        with picking(script_path) as picks:  # the query parts get their devices here (change c0254)
+            lock = plan_lock(
+                design,
+                script=script_path,
+                given=lock_given,
+                path=lock_path,
+                frozen=bool(getattr(args, "frozen", False)),
+            )
+        if picks.resolution is not None and picks.resolution.refused:
+            # a stale, missing or unmatched pick, or an unachievable generator: nothing is built
+            return with_lock(Result(result={**picks.summary(), "devices": []}), lock)
         model = to_model(design, refs=lock.refs)
         requested = placements(design)
         aliases = moves(design)
@@ -1265,6 +1277,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         return with_lock(
             dataclasses.replace(
                 made,
+                result={**made.result, **picks.summary()},
                 issues=(
                     *source_issues,
                     *sheet_issues,
@@ -1452,6 +1465,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         "script_output": run.output,
         "devices": device_rows(design),
         "device_files": [{"path": file.path, "sha256": file.sha256} for file in run.device_files],
+        **picks.summary(),
     }
     result["preserved"] = {
         **cast(Mapping[str, object], built.summary["preserved"]),

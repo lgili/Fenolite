@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast, get_args
 
 from fenolite.core.coords import Point
+from fenolite.core.partquery import Constraint
 from fenolite.core.units import Nm
 from fenolite.dsl import items as itemlib
 from fenolite.dsl.errors import DslError
@@ -633,6 +634,9 @@ class Design(Container):
         """The devices of ``devices()`` by id: they win over project and shipped devices (change c0248)."""
         self.device_parts: dict[str, tuple[PartEntry, ...]] = {}
         """The orderable parts of the devices of ``devices()`` by device id (change c0259)."""
+        self.query_defaults: dict[str, dict[str, Constraint | None]] = {}
+        """``defaults()``: per query kind, the constraint keys every query of the design starts from
+        (change c0254); a ``None`` value removes the key."""
         self.footprints: dict[str, Footprint] = {}
         self.symbols: dict[str, object] = {}
         self.modules: dict[str, Module] = {}
@@ -844,6 +848,15 @@ class Design(Container):
                 raise DslError(f"devices(): device {device.id!r} is registered twice with different records")
             self.device_records[device.id] = device
             self.device_parts[device.id] = parts
+
+    def defaults(self, **kinds: object) -> None:
+        """The design-level defaults of part queries: per kind (``resistor``, ``capacitor``, ``inductor``) a
+        mapping of its constraint keys, such as ``defaults(resistor={"case": "0603", "tolerance": pct(1)})``.
+        A block's ``b.defaults`` and the call's keywords win over them in turn; ``None`` removes a key
+        (``docs/picking.md``, "Defaults")."""
+        from fenolite.dsl.query import set_defaults
+
+        set_defaults(self.query_defaults, kinds, "defaults()")
 
     def add_footprint(self, footprint: Footprint) -> None:
         """Register a project-authored library footprint for backend builds (not model persistence)."""

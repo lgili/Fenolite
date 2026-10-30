@@ -16,6 +16,7 @@ from collections.abc import Callable, Mapping, Sequence
 from types import MappingProxyType
 from typing import TYPE_CHECKING, cast, overload
 
+from fenolite.core.partquery import Constraint, PartQuery
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.interfaces import I2C, SPI, UART, USB2, DiffPair, Ground, Harness, Interface, Logic, Power
 from fenolite.dsl.module import Container, Module
@@ -195,6 +196,8 @@ class Block(Module):
         """The strategy or reuse of ``b.layout(...)`` in the body: the block's default."""
         self.instance_layout: Strategy | Reuse | None = None
         """The strategy or reuse of ``inst.layout(...)``, which wins over the body's."""
+        self.query_defaults: dict[str, dict[str, Constraint | None]] = {}
+        """``b.defaults()``: the block level of the defaults of part queries (change c0254)."""
 
     @property
     def params(self) -> Mapping[str, object]:
@@ -203,6 +206,13 @@ class Block(Module):
 
     def describe(self) -> str:
         return f"block {self.path} ({self.definition.name})"
+
+    def defaults(self, **kinds: object) -> None:
+        """The block-level defaults of part queries, between the design's and the call's: per kind a
+        mapping of its constraint keys; ``None`` removes a key (``docs/picking.md``, "Defaults")."""
+        from fenolite.dsl.query import set_defaults
+
+        set_defaults(self.query_defaults, kinds, f"{self.describe()}: defaults()")
 
     def _local_part(self, name: str) -> Part | None:
         return next((c for c in self.children if isinstance(c, Part) and c.key == name), None)
@@ -216,7 +226,7 @@ class Block(Module):
         value: str | Quantity | Range | None = None,
         ref: str | None = None,
         prefix: str | None = None,
-        device: str | None = None,
+        device: str | PartQuery | None = None,
         properties: Mapping[str, str] | None = None,
         pad_map: Mapping[str, str | Sequence[str]] | None = None,
         height: object = None,

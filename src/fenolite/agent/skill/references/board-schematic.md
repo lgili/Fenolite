@@ -60,6 +60,16 @@ fenolite equivalent before/board.kicad_pcb after/board.kicad_pcb --json
   Swap pins on an instance only between pins that the datasheet calls equivalent, and record the swap.
   An update of the symbol from its library undoes the swap.
 
+## A drawn schematic
+
+`design.load_schematic("schematic.toml")` draws the sheets from that file beside the script instead of
+generating them. The script keeps the nets: `build` and the `check` stage `schematic.drawn` refuse a drawing
+that means other nets. After you redraw in KiCad, copy the drawing back; a generated schematic is frozen once:
+
+```fenolite-cmd
+fenolite sync blink/design.py --out build/blink --to-source --freeze-schematic --dry-run --json
+```
+
 ## Rails, levels and interfaces in the script
 
 State each supply's voltage once, and the operating range, draw and thresholds of each port from the

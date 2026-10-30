@@ -8,9 +8,9 @@ The shipped catalog SHALL hold family records (`fenolite.family.v0`) for E24 5 %
 - **THEN** every numeric attribute of every shipped family names a source id registered in `docs/evidence/sources.md`, no family has an MPN, and every symbol and footprint it names is a shipped entry
 
 ### Requirement: Catalog data version
-`fenolite.catalog.CATALOG_VERSION` SHALL name the version of the catalog data and MUST change whenever a family's canonical text changes. `fenolite catalog list --kind family` and `fenolite catalog show <family id>` MUST show the families with their sources.
+`fenolite.catalog.FAMILIES_VERSION` SHALL name the version of the catalog data and MUST change whenever a family's canonical text changes. `fenolite catalog list --kind family` and `fenolite catalog show <family id>` MUST show the families with their sources.
 
 #### Scenario: The version follows the data
-- **GIVEN** a shipped family whose canonical text differs from the one recorded for the current `CATALOG_VERSION` in `src/fenolite/catalog/families/VERSIONS.toml`
+- **GIVEN** a shipped family whose canonical text differs from the one recorded for the current `FAMILIES_VERSION` in `src/fenolite/catalog/families/VERSIONS.toml`
 - **WHEN** the catalog test runs
-- **THEN** it fails naming the family and asking for a new `CATALOG_VERSION`
+- **THEN** it fails naming the family and asking for a new `FAMILIES_VERSION`

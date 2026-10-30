@@ -76,6 +76,10 @@ KEYS: tuple[str, ...] = (
     "ref_prefix",
     "class",
     "value",
+    "kind",
+    "case",
+    "tolerance",
+    "dielectric",
     "evidence",
     "sources",
     "ground",
@@ -129,6 +133,16 @@ RESERVED_PROPERTIES: frozenset[str] = frozenset(
 """Names a device property cannot take (compared after ``str.casefold``): the part's own fields, and the
 two that the device's ``manufacturer`` and ``mpn`` give."""
 RESERVED_PREFIXES: tuple[str, ...] = ("fenolite.", "ki_")
+PICK_KEYS: Mapping[str, re.Pattern[str]] = {
+    "kind": re.compile(r"resistor|capacitor|inductor"),
+    "case": re.compile(r"[0-9]{4}"),
+    "tolerance": re.compile(r"[0-9]+(?:\.[0-9]+)?%|-[0-9]+(?:\.[0-9]+)?%\.\.\+[0-9]+(?:\.[0-9]+)?%"),
+    "dielectric": re.compile(r"[A-Za-z0-9][A-Za-z0-9_.+-]*"),
+}
+"""The optional keys that make a device a pickable row (change c0254, ``docs/picking.md``), and their form."""
+FAMILY_SCHEMA = "fenolite.family.v0"
+"""A family record (change c0254) may share the ``devices/`` folder; ``load_devices`` leaves it to
+``fenolite.pick.rows``."""
 DIGEST = re.compile(r"[0-9a-f]{64}")
 IMPORT_TOOL = "fenolite catalog import"
 EDITED_CODE = "device.edited"
@@ -359,6 +373,8 @@ PART_ATTRIBUTES: frozenset[str] = frozenset(
         "value_range", "zone_connection",
         # the placement edges and references of change c0255
         "bottom", "center_x", "center_y", "left", "relative", "right", "top", "turn",
+        # the part queries of change c0254
+        "call_query", "query",
     }
 )  # fmt: skip
 """The attributes of a DSL ``Part`` that an interface name cannot shadow (``fenolite.dsl.part.Part``; the
@@ -667,8 +683,11 @@ def parse_device_data(data: Mapping[str, object], *, file: str = "") -> DeviceDe
     fields = {key: read.text(data[key], key) for key in ("summary", "symbol", "footprint")}
     optional = {
         key: read.text(data.get(key, ""), key, empty=True)
-        for key in ("manufacturer", "mpn", "value", "ground")
+        for key in ("manufacturer", "mpn", "value", "ground", "kind", "case", "tolerance", "dielectric")
     }
+    for key, pattern in PICK_KEYS.items():
+        if optional[key] and not pattern.fullmatch(optional[key]):
+            raise read.fail(key, f"{optional[key]!r} does not match {pattern.pattern}")
     datasheet = read.text(data.get("datasheet", ""), "datasheet", empty=True)
     if datasheet and (not datasheet.startswith("https://") or " " in datasheet or len(datasheet) <= 8):
         raise read.fail("datasheet", "must be an https:// URL")
@@ -730,6 +749,10 @@ def parse_device_data(data: Mapping[str, object], *, file: str = "") -> DeviceDe
         datasheet=datasheet,
         ref_prefix=ref_prefix,
         value=optional["value"] or optional["mpn"] or name,
+        kind=optional["kind"],
+        case=optional["case"],
+        tolerance=optional["tolerance"],
+        dielectric=optional["dielectric"],
         evidence=evidence,
         sources=sources,
         ground=ground,
@@ -866,6 +889,10 @@ def device_text(device: DeviceDef, *, header: bool = True) -> str:
         ("ref_prefix", device.ref_prefix),
         ("class", device.cls),
         ("value", device.value),
+        ("kind", device.kind),
+        ("case", device.case),
+        ("tolerance", device.tolerance),
+        ("dielectric", device.dielectric),
         ("evidence", device.evidence if header else ""),
     )
     lines += [f"{key} = {_string(value)}" for key, value in scalars if value]
@@ -978,7 +1005,10 @@ def load_devices(folder: Path) -> tuple[tuple[DeviceDef, ...], tuple[Issue, ...]
     seen: dict[str, str] = {}
     for path in sorted(folder.glob("*.toml"), key=lambda found: found.name):
         name = f"{folder.name}/{path.name}"
-        device = parse_device(path.read_text(encoding="utf-8"), file=name)
+        text = path.read_text(encoding="utf-8")
+        if is_family(text):
+            continue
+        device = parse_device(text, file=name)
         if device.id in seen:
             raise DeviceFormatError(
                 f"id: device {device.id} is defined in {seen[device.id]} and in {name}",
@@ -990,6 +1020,11 @@ def load_devices(folder: Path) -> tuple[tuple[DeviceDef, ...], tuple[Issue, ...]
         if is_edited(device):
             issues.append(edited_issue(device, name))
     return tuple(devices), tuple(issues)
+
+
+def is_family(text: str) -> bool:
+    """Whether the TOML ``text`` names the schema of a family record (``fenolite.family.v0``)."""
+    return re.search(r'^schema\s*=\s*"fenolite\.family\.v0"', text, re.MULTILINE) is not None
 
 
 @cache
@@ -1059,6 +1094,7 @@ def check_device(
 
 __all__ = [
     "EDITED_CODE",
+    "FAMILY_SCHEMA",
     "IMPORT_TOOL",
     "KEYS",
     "LIMIT_KINDS",
@@ -1074,6 +1110,7 @@ __all__ = [
     "device_text",
     "edited_issue",
     "is_edited",
+    "is_family",
     "load_devices",
     "parse_device",
     "parse_device_data",

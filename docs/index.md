@@ -12,6 +12,7 @@ Create PCB projects from Python, inspect KiCad and Altium files, and review desi
 | Choose a built-in symbol or footprint and inspect its source/limits | [Component catalog](catalog/README.md), [coverage and pin mapping](catalog/coverage.md) |
 | Place parts from reviewed device records (symbol, footprint, pin map, ratings) | [Devices](devices.md) |
 | Read or write library records (pins, packages, devices, parts), versions and licences | [Library records](library-records.md) |
+| Choose passives by value and ratings, and let generators pick divider or filter values | [Picking parts](picking.md) |
 | Create components, connections, placement and copper in Python | [DSL](dsl.md), [copper](copper.md) |
 | Generate a symbol of any size from a pin table | [Symbols from pin tables](symbols.md) |
 | Convert KiCad and Altium projects; downgrade KiCad | [Conversion](conversion.md) |

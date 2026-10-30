@@ -397,3 +397,37 @@ def test_import_python_builds(tmp_path: Path) -> None:
     assert set(reply.result["libraries"].values()) == {"project"}
     lines = (folder / "design.py").read_text(encoding="utf-8").splitlines()
     assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[4].startswith("# Authored for Fenolite")
+
+
+# -- the parametric-pick example (change c0254)
+
+PICKS = ROOT / "examples" / "picks"
+
+
+def test_picks_header_and_listing() -> None:
+    for path in sorted(PICKS.rglob("*.py")) + sorted((PICKS / "devices").glob("*.toml")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith(
+            "# Authored for Fenolite"
+        ), path
+    assert "`picks/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+
+
+def test_picks_locks_round_trip() -> None:
+    from fenolite.dsl.lock import lock_text, read_lock
+
+    for name in ("design", "divider"):
+        text = (PICKS / f"{name}.lock").read_text(encoding="utf-8")
+        lock = read_lock(text, file=f"{name}.lock")
+        assert lock_text(lock) == text and lock.sections["picks"]
+
+
+@pytest.mark.parametrize("script", ["design.py", "divider.py"])
+def test_picks_build_frozen(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, script: str) -> None:
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    args = ["build", str(PICKS / script), "--out", str(tmp_path / "B"), "--frozen", "--dry-run", "--json"]
+    assert cli_main.main(args) == 0, err.getvalue()
+    envelope = json.loads(out.getvalue())
+    assert envelope["result"]["lock"]["changes"] == [] and envelope["result"]["generators"]

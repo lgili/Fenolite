@@ -2095,6 +2095,31 @@ p3.layout(reuse="channel.kicad_pcb", copper=True)
   only to their pads, and the build gives `layout.block-moved` (info); copper to other parts stays, with
   `place.copper-left`.
 
+## Part queries and generators
+
+A passive may be written by what it must be (change c0254; the full page is `docs/picking.md`):
+
+```python
+design.defaults(resistor={"case": "0603", "tolerance": pct(1)})  # design level
+r = design.part(device=resistor(ohm("10k")))  # resistor(10kΩ, tolerance<=1%, case=0603)
+c = design.part(device=capacitor(farad("10u"), rating=volt(25), case="0805"))
+```
+
+- `resistor`, `capacitor` and `inductor` return a `PartQuery` of plain data: a value (a quantity, or a
+  c0246 range that the row's worst-case span must lie in) and the closed keys of the kind (`tolerance`,
+  `power`, `voltage`, `rating`, `current`, `saturation`, `dcr`, `tempco`, `case`, `series`, `dielectric`,
+  `row`). An unknown key, a value of another unit, a float, or a range with `tolerance=` raise `DslError`.
+- `Design.defaults(**kinds)` and a block's `b.defaults(**kinds)` cascade design → block → call; the most
+  specific level wins and `None` removes a key. `r.query.text()` is the canonical text the lock compares.
+- A query part has the pins `1` and `2` until the build picks its device; the build resolves every query
+  against the design lock and the catalog, never the script.
+- Generators create query parts with a request and connect them: `voltage_divider(b, hi, mid, lo, *,
+  target, ref=None, vin=None, current, series=None, name=None)`, `rc_lowpass(b, inp, out, gnd, *, corner,
+  r=None, c=None)`, `led_resistor(b, supply, led, *, current, vf, vs)`, `i2c_pull_ups(b, bus, supply, *,
+  bus_capacitance, vdd, mode=None)` and `shunt(b, hi, lo, *, current, full_scale)`. A bare quantity where a
+  range is needed (`current` of the divider), a divider without `ref` or `vin`, or a used part name raise
+  `DslError`.
+
 ## Path aliases (`moved()`)
 
 `design.moved(old, new)` records that the part or the module at path `new` was at `old` in an earlier

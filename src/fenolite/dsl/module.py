@@ -7,6 +7,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
 
+from fenolite.core.partquery import PartQuery
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.part import Net, Part, check_name
@@ -41,7 +42,7 @@ class Container:
         *,
         name: str | None = None,
         prefix: str | None = None,
-        device: str | None = None,
+        device: str | PartQuery | None = None,
         properties: Mapping[str, str] | None = None,
         pad_map: Mapping[str, str | Sequence[str]] | None = None,
         height: object = None,

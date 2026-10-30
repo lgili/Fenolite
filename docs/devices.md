@@ -63,6 +63,7 @@ temperature = { abs_max = { min = "-55degC", max = "150degC" }, operating = { mi
 | `ref_prefix` | no | `[A-Z][A-Z_]*`; default: the prefix of a catalog symbol, else required |
 | `class` | no | one part class of the roles' vocabulary (`docs/roles.md`), evidence for `roles.classify` (change c0274) |
 | `value` | no | the default part value; default `mpn`, else the name part of `id` |
+| `kind`, `case`, `tolerance`, `dielectric` | no | a pickable row (change c0254, `docs/picking.md`): `kind` is `resistor`, `capacitor` or `inductor` and `value` a value of its unit; `case` an EIA inch code (`0603`), `tolerance` `1%` or `-20%..+80%`, `dielectric` a name (`X7R`) |
 | `evidence` | yes | one label of the evidence vocabulary |
 | `sources` | no | source ids of `docs/evidence/sources.md`; required for a `Fenolite:` device |
 | `ground` | no | the function pin voltages are measured from; default `GND` when it exists |

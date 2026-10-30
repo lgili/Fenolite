@@ -1978,6 +1978,16 @@ meaning = "With --gate drc, kicad-cli DRC found on the edited board a finding th
 fix = "Run 'fenolite check' on the written board and look at the finding; the edit was written."
 see = "route"
 
+["gen.achieved"]
+meaning = "What a generator achieved with the picked rows: the achieved range (a guaranteed enclosure, rounded outward) and the inputs. The same text is in result.generators and in achieved of each pick of the design lock."
+fix = "Nothing to do; review the range, and commit the design lock."
+see = "pick"
+
+["gen.unachievable"]
+meaning = "A generator found no accepted combination of rows: the message names the combination that leaves the target least and by how much. Nothing is built or planned."
+fix = "Use a tighter family (a smaller tolerance), widen the target or the search window, or tighten the reference; then build again."
+see = "pick"
+
 ["impedance.estimate-unsupported"]
 meaning = "Some rows have no closed form: differential rows, one reference on an inner layer, or two references on an outer layer. Fenolite estimates single-ended surface microstrip and stripline only."
 fix = "Nothing to do. Take the geometry of those rows from your fabricator or a field solver."
@@ -3096,6 +3106,46 @@ see = "parity"
 meaning = "A pin of a symbol has a number that no pad of its footprint has, so its connection can never be routed; an error when other pins are on its net."
 fix = "Choose a footprint that has a pad of that number, or correct the pin number of the symbol."
 see = "parity"
+
+["pick.attribute-unknown"]
+meaning = "A row was left out only because it does not state an attribute the query constrains (a rating, a dielectric, a tolerance); a missing attribute is never assumed."
+fix = "State the attribute in the row, with its source, if the part has it; or drop the constraint from the query."
+see = "pick"
+
+["pick.new"]
+meaning = "A query part got its first pick: the best match of the catalog. The pick is planned into the design lock and never changes by itself."
+fix = "Nothing to do; review the pick and commit the design lock."
+see = "pick"
+
+["pick.no-match"]
+meaning = "No row of the catalog meets a query: the message lists the first failed constraint of some rows. Nothing is built."
+fix = "Relax the query, or add a row to devices/ beside the script; fenolite pick PATH --candidates COMPONENT lists every row and why it is left out."
+see = "pick"
+
+["pick.query-changed"]
+meaning = "The query text changed and the locked part still meets it, so the device is kept and the new query text is planned into the design lock."
+fix = "Nothing to do; commit the design lock. Run fenolite pick --update COMPONENT to re-pick if a better part is wanted."
+see = "pick"
+
+["pick.row-changed"]
+meaning = "The locked row's canonical text changed since it was picked (its SHA-256 differs) but it still meets the query; the row is used as it is now and its new hash is planned."
+fix = "Review the change of the row, then commit the design lock."
+see = "pick"
+
+["pick.row-missing"]
+meaning = "The row the design lock names is no longer in the catalog (a removed family, device file or catalog version). Nothing is built."
+fix = "Restore the row, or re-pick with fenolite pick PATH --update COMPONENT and commit the lock."
+see = "pick"
+
+["pick.row-unverified"]
+meaning = "An UNVERIFIED row (a proposal not reviewed yet) would have ranked first and was left out: such a row is picked only when the query names it with row=."
+fix = "Read the datasheet, move the record out of devices/proposed/ and raise its evidence label; or name it with row=."
+see = "pick"
+
+["pick.stale"]
+meaning = "A changed query, or a generator's new inputs, are no longer met by the locked part: the message names the old device and the failed constraint. A locked pick is never swapped silently; nothing is built."
+fix = "Run fenolite pick PATH --update COMPONENT, review the plan, confirm it, and commit the design lock."
+see = "pick"
 
 ["place.copper-left"]
 meaning = "A footprint that was moved had tracks ending on its pads; the tracks stay where they were."

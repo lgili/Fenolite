@@ -18,6 +18,11 @@ from fenolite.model.library import FootprintDef, SymbolDef
 
 if TYPE_CHECKING:
     from fenolite.catalog.records import PackageRecord, PinsRecord
+FAMILIES_VERSION = "2026.10"
+"""The version of the shipped families of ``families/`` (change c0254). It changes whenever a family's
+canonical text changes (``families/VERSIONS.toml`` records the digests of each version), so a pick names the
+data it was made from, independently of the package version. It is not ``CATALOG_VERSION``, the version of
+the library records of ``data/`` (change c0259)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,6 +186,7 @@ __all__ = [
     "CATHODE_FIRST_LANDS",
     "CATHODE_FIRST_PAD_MAP",
     "ENTRIES",
+    "FAMILIES_VERSION",
     "CatalogEntry",
     "default_pad_map",
     "get_footprint",

@@ -19,7 +19,7 @@ import hashlib
 import re
 import tomllib
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from decimal import Decimal
 from functools import cache
@@ -1452,28 +1452,38 @@ class LibraryTree:
         return tuple(record.device for record in self.records if isinstance(record, DeviceRecord))
 
 
-def _walk(root: Traversable, prefix: str = "") -> list[tuple[str, Traversable]]:
+def _walk(
+    root: Traversable, prefix: str = "", exclude: Collection[str] = ()
+) -> list[tuple[str, Traversable]]:
     found: list[tuple[str, Traversable]] = []
     for entry in root.iterdir():
         path = f"{prefix}{entry.name}"
         if entry.is_dir():
-            found += _walk(entry, f"{path}/")
+            if path not in exclude:
+                found += _walk(entry, f"{path}/", exclude)
         elif entry.name.endswith(".toml") and entry.name != "VERSIONS.toml":
             found.append((path, entry))
     return found
 
 
-def load_tree(root: Path | Traversable, *, label: str = "", shipped: bool = False) -> LibraryTree:
+def load_tree(
+    root: Path | Traversable, *, label: str = "", shipped: bool = False, exclude: Collection[str] = ()
+) -> LibraryTree:
     """Every record below ``root`` in POSIX path order. ``label`` prefixes the paths in errors. Two
     records of one kind and id raise ``DeviceFormatError`` naming both files; a ``replaces`` must name a
-    record of the tree deprecated by it. ``shipped`` refuses c0248's ``v0`` device files."""
+    record of the tree deprecated by it. ``shipped`` refuses c0248's ``v0`` device files. A family file
+    (``fenolite.family.v0``, change c0254) is no record and is left to ``fenolite.pick``, and the folders of
+    ``exclude`` (paths relative to ``root``) are not read."""
     if isinstance(root, Path) and not root.is_dir():
         return LibraryTree()
     records: list[Record] = []
     files: dict[tuple[str, str], str] = {}
-    for path, entry in sorted(_walk(root), key=lambda item: item[0]):
+    for path, entry in sorted(_walk(root, exclude=exclude), key=lambda item: item[0]):
         name = f"{label}{path}"
-        record = parse_record(entry.read_text(encoding="utf-8"), file=name)
+        text = entry.read_text(encoding="utf-8")
+        if devicelib.is_family(text):
+            continue
+        record = parse_record(text, file=name)
         key = (kind_of(record), record.header.id)
         if key in files:
             raise DeviceFormatError(

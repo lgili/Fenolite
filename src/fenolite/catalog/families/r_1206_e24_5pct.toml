@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# Authored for Fenolite: a generic family of chip resistors (change c0254); every number names its source.
+schema = "fenolite.family.v0"
+id = "Fenolite:R_1206_E24_5pct"
+kind = "resistor"
+summary = "Generic thick-film chip resistor, 1206, 5 %, E24"
+symbol = "Fenolite:Resistor"
+footprint = "Fenolite:Chip_1206"
+case = "1206"
+series = "E24"
+values = { min = "10", max = "1M" }
+tolerance = "5%"
+power = "0.25W"
+voltage = "200V"
+evidence = "INFERRED"
+sources = { case = ["S-0315"], power = ["S-0942"], series = ["S-0940"], tolerance = ["S-0942"], values = ["S-0942"], voltage = ["S-0942"] }
