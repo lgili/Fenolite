@@ -220,13 +220,13 @@ label when its `[land]` gives the manufacturer's pattern.
 
 | Record | Family | Evidence | Sources | Numbers taken |
 |---|---|---|---|---|
-| `soic8.toml` | `gullwing` (dual) | `INFERRED` | S-0961 | onsemi 751-07 dimension table and soldering footprint |
-| `sot23_5.toml` | `gullwing` (sides) | `INFERRED` | S-0964 | TI DBV0005A outline and example board layout |
+| `soic8.toml` | `gullwing` (dual) | `INFERRED` | S-0981 | onsemi 751-07 dimension table and soldering footprint |
+| `sot23_5.toml` | `gullwing` (sides) | `INFERRED` | S-0984 | TI DBV0005A outline and example board layout |
 | `chip0603.toml` | `chip` | `INFERRED` | S-0315 | YAGEO RC0603 L, W, H and I2; no land given |
 | `sod123.toml` | `molded` | `INFERRED` | S-0442 | Diodes SOD123 dimension table and suggested pad layout |
-| `qfn16.toml` | `nolead` | `INFERRED` | S-0962 | TI RGT0016C outline and example board layout |
-| `bga12.toml` | `grid` | `INFERRED` | S-0963 | TI NMN0012A outline and example land diameter |
-| `dip8.toml` | `dip` | `INFERRED` | S-0965 | onsemi 626-05 dimension table; no land given |
+| `qfn16.toml` | `nolead` | `INFERRED` | S-0982 | TI RGT0016C outline and example board layout |
+| `bga12.toml` | `grid` | `INFERRED` | S-0983 | TI NMN0012A outline and example land diameter |
+| `dip8.toml` | `dip` | `INFERRED` | S-0985 | onsemi 626-05 dimension table; no land given |
 | `to220.toml` | `to` (THT) | `INFERRED` | S-0377 | Diodes TO220-3 dimension table; pitch is half of e1; no land given |
 | `header1x2.toml` | `header` | `INFERRED` | S-0408 | Würth WR-PHD 61300211121 pin, pitch and insulator; no land given |
 | `connector_xh.toml` | `connector` | `INFERRED` | S-0324 | JST XH top entry header dimensions and board hole |

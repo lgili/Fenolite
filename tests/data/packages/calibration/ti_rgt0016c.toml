@@ -1,9 +1,9 @@
-# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI RGT0016C outline and example board layout, TPS62130 data sheet (S-0962).
+# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI RGT0016C outline and example board layout, TPS62130 data sheet (S-0982).
 schema = "fenolite.package.v0"
 family = "nolead"
 name = "QFN16_TI_RGT0016C"
 evidence = "INFERRED"
-sources = ["S-0962"]
+sources = ["S-0982"]
 
 pins = 16
 pitch = "0.5mm"
@@ -17,7 +17,7 @@ lands = 1
 drawing = 1
 
 [land]
-source = "S-0962 TI RGT0016C outline and example board layout"
+source = "S-0982 TI RGT0016C outline and example board layout"
 pad = { length = "0.6mm", width = "0.24mm" }
 row_spacing_x = "2.8mm"
 row_spacing_y = "2.8mm"

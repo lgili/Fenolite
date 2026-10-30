@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from fenolite.model.board import ComponentBody
 
 SCHEMA = "AUTOMOTIVE_DESIGN { 1 0 10303 214 3 1 1 }"
-"""The schema of the file: AP214's name with its third-edition object identifier (S-0972)."""
+"""The schema of the file: AP214's name with its third-edition object identifier (S-0992)."""
 DEFAULT_TIMESTAMP = "1970-01-01T00:00:00"
 DARK = ("0.2", "0.2", "0.2")
 LIGHT = ("0.8", "0.8", "0.8")

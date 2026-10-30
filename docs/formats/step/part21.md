@@ -11,16 +11,16 @@ ISO 10303-21 refused the fetch tool (HTTP 403) on 2026-10-30; nothing of the sta
 
 | fact | source | label |
 |---|---|---|
-| The file starts with `ISO-10303-21;`, then a `HEADER` section and a `DATA` section, each closed by `ENDSEC;`; the example ends with `END-ISO-10303-21;` | S-0971 | INFERRED |
-| The header holds, in this order, `FILE_DESCRIPTION(description, implementation_level)` (level `'2;1'` in the article), `FILE_NAME(name, time_stamp, author, organization, preprocessor_version, originating_system, authorization)` with an ISO 8601 time stamp, and `FILE_SCHEMA` naming the EXPRESS schema; other header fields may be empty strings | S-0971 | INFERRED |
-| An instance is `#N=` with a positive integer N, the entity name in capitals and its explicit attribute values in order in parentheses; a reference may point before or after its instance | S-0971 | INFERRED |
-| Strings are in single quotes; enumerations and booleans in capitals between dots (`.T.`, `.MILLI.`); an unset value is `$`; an explicit attribute re-declared as derived in a subtype is `*`; aggregates are parenthesised lists separated by commas; numbers are written as in programming languages | S-0971 | INFERRED |
-| A complex instance of several leaf entities uses the external mapping: each constituent entity with its own attributes, in alphabetical order, in one pair of parentheses | S-0971 | INFERRED |
-| The schema name of AP214 is `AUTOMOTIVE_DESIGN`, followed for new files by the third-edition object identifier `{ 1 0 10303 214 3 1 1 }` | S-0972 | INFERRED |
+| The file starts with `ISO-10303-21;`, then a `HEADER` section and a `DATA` section, each closed by `ENDSEC;`; the example ends with `END-ISO-10303-21;` | S-0991 | INFERRED |
+| The header holds, in this order, `FILE_DESCRIPTION(description, implementation_level)` (level `'2;1'` in the article), `FILE_NAME(name, time_stamp, author, organization, preprocessor_version, originating_system, authorization)` with an ISO 8601 time stamp, and `FILE_SCHEMA` naming the EXPRESS schema; other header fields may be empty strings | S-0991 | INFERRED |
+| An instance is `#N=` with a positive integer N, the entity name in capitals and its explicit attribute values in order in parentheses; a reference may point before or after its instance | S-0991 | INFERRED |
+| Strings are in single quotes; enumerations and booleans in capitals between dots (`.T.`, `.MILLI.`); an unset value is `$`; an explicit attribute re-declared as derived in a subtype is `*`; aggregates are parenthesised lists separated by commas; numbers are written as in programming languages | S-0991 | INFERRED |
+| A complex instance of several leaf entities uses the external mapping: each constituent entity with its own attributes, in alphabetical order, in one pair of parentheses | S-0991 | INFERRED |
+| The schema name of AP214 is `AUTOMOTIVE_DESIGN`, followed for new files by the third-edition object identifier `{ 1 0 10303 214 3 1 1 }` | S-0992 | INFERRED |
 
 ## Entities written (attribute order)
 
-All from the EXPRESS pages of the AP214 AIM published by STEP Tools (S-0973), read for the explicit attributes
+All from the EXPRESS pages of the AP214 AIM published by STEP Tools (S-0993), read for the explicit attributes
 of each entity in Part 21 order (inherited first). Label: `INFERRED` until the oracle row below.
 
 | entity | explicit attributes, in order |

@@ -60,7 +60,7 @@ def _qfp(raw: dict[str, Any]) -> None:
     raw.update(span_x="5.80mm..6.20mm", span_y="5.80mm..6.20mm")
     raw["body"] = {"length": "3.80mm..4.00mm", "width": "3.80mm..4.00mm"}
     raw["land"] = {
-        "source": "S-0961 test",
+        "source": "S-0981 test",
         "pad": {"length": "1.0mm", "width": "0.4mm"},
         "row_spacing_x": "5.4mm",
         "row_spacing_y": "5.4mm",

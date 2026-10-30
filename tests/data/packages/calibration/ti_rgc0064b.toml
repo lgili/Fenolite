@@ -1,9 +1,9 @@
-# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI RGC0064B outline and example board layout, MSP430F5529 data sheet (S-0968).
+# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI RGC0064B outline and example board layout, MSP430F5529 data sheet (S-0988).
 schema = "fenolite.package.v0"
 family = "nolead"
 name = "QFN64_TI_RGC0064B"
 evidence = "INFERRED"
-sources = ["S-0968"]
+sources = ["S-0988"]
 
 pins = 64
 pitch = "0.5mm"
@@ -17,7 +17,7 @@ lands = 1
 drawing = 1
 
 [land]
-source = "S-0968 TI RGC0064B outline and example board layout"
+source = "S-0988 TI RGC0064B outline and example board layout"
 pad = { length = "0.6mm", width = "0.24mm" }
 row_spacing_x = "8.8mm"
 row_spacing_y = "8.8mm"

@@ -1,9 +1,9 @@
-# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI DYY0014A outline and example board layout, TXB0104 data sheet (S-0963).
+# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI DYY0014A outline and example board layout, TXB0104 data sheet (S-0983).
 schema = "fenolite.package.v0"
 family = "gullwing"
 name = "SOT14_TI_DYY0014A"
 evidence = "INFERRED"
-sources = ["S-0963"]
+sources = ["S-0983"]
 
 pins = 14
 pitch = "0.5mm"
@@ -17,6 +17,6 @@ lands = 1
 drawing = 1
 
 [land]
-source = "S-0963 TI DYY0014A outline and example board layout"
+source = "S-0983 TI DYY0014A outline and example board layout"
 pad = { length = "1.05mm", width = "0.3mm" }
 row_spacing = "3.0mm"

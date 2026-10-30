@@ -1,9 +1,9 @@
-# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI DSF0006A outline and example board layout, SN74LVC1G04 data sheet (S-0964).
+# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI DSF0006A outline and example board layout, SN74LVC1G04 data sheet (S-0984).
 schema = "fenolite.package.v0"
 family = "nolead"
 name = "SON6_TI_DSF0006A"
 evidence = "INFERRED"
-sources = ["S-0964"]
+sources = ["S-0984"]
 
 pins = 6
 pitch = "0.35mm"
@@ -16,6 +16,6 @@ lands = 1
 drawing = 1
 
 [land]
-source = "S-0964 TI DSF0006A outline and example board layout"
+source = "S-0984 TI DSF0006A outline and example board layout"
 pad = { length = "0.6mm", width = "0.17mm" }
 row_spacing = "0.8mm"

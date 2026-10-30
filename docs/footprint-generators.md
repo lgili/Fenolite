@@ -27,7 +27,7 @@ family = "gullwing"
 name = "SOIC8_B4.9x3.9_P1.27"
 summary = "8-lead 1.27 mm pitch small outline, 4.9 x 3.9 mm body"
 evidence = "INFERRED"
-sources = ["S-0961"]
+sources = ["S-0981"]
 
 pins = 8
 pitch = "1.27mm"
@@ -41,7 +41,7 @@ lands = 1        # the constant table of the calculator (required when it is use
 drawing = 1      # the drawing convention (required)
 
 [land]           # optional: the manufacturer's land wins over the calculator
-source = "S-0961 soldering footprint"
+source = "S-0981 soldering footprint"
 pad = { length = "1.52mm", width = "0.60mm" }
 row_spacing = "5.50mm"
 ```
@@ -147,7 +147,7 @@ the calculation), courtyard and bodies. See [`cli-contract.md`](cli-contract.md)
 
 The description of a generated footprint carries its stamp, for example `gullwing/1 lands/1 drawing/1
 nominal` (calculated) or `gullwing/1 manufacturer drawing/1`, followed by where the land came from
-(`land: manufacturer S-0961 soldering footprint` or `land: calculated lands/1 nominal (INFERRED)`). Equal
+(`land: manufacturer S-0981 soldering footprint` or `land: calculated lands/1 nominal (INFERRED)`). Equal
 record bytes and equal Fenolite code give equal footprints, `.kicad_mod` and `.step` bytes; a different
 stamp under the same name is a library change.
 

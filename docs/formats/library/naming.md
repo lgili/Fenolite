@@ -35,6 +35,6 @@ and no footprint is drawn. The pin count is checked when the family has pins (no
 
 Rows are lettered from `A` at the top in the top view, columns numbered from 1 at the left; `A1` is the
 top-left ball. The letters `I`, `O`, `Q`, `S`, `X` and `Z` are skipped, then the rows continue `AA`, `AB`, ...
-Evidence: the Texas Instruments ZXH0080A grid (S-0968) letters its nine rows `A` to `J` without `I`, which
+Evidence: the Texas Instruments ZXH0080A grid (S-0988) letters its nine rows `A` to `J` without `I`, which
 confirms the skipped `I` (`CORPUS-VERIFIED` is not claimed: one public drawing). The other skipped letters
 follow the same rule of leaving out letters that read like digits or like one another, and are `INFERRED`.
