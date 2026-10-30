@@ -19,8 +19,7 @@ routed at all. A single "best" score hides the trade-off (a shorter route over s
   `refused`) and `connection` (the rest).
 - **Candidates.** Up to `--candidates N` (default 4) distinct shapes per subject from the octilinear
   router: c0228's shapes, c0244's Z shapes, one-via L shapes, zone fan-out vias, and for a `group` c0244's
-  role mode with one named relaxation (`kelvin-vias`, `gate-vias`, `keep-away`). Optionally an external
-  router adds one candidate per net (`--propose-with freerouting`).
+  role mode with one named relaxation (`kelvin-vias`, `gate-vias`, `keep-away`).
 - **Facts, no score.** Each candidate carries facts: connections closed, open connections before and
   after, copper-check and role findings before and after, KiCad DRC findings with `--gate drc`, vias,
   length, layers, loop area where a role loop is measured, relaxations, conflicts, and what could not be
@@ -55,6 +54,8 @@ None.
 - No search router and no rip-up across nets: phase 3. No placement change.
 - No routing of a `.PcbDoc` in place (c0241). No creepage value of Fenolite's own.
 - No code from a third-party router; no value from a paid standard.
+- No external-router candidates (`--propose-with`): moved to a future change by the maintainer's decision of
+  2026-10-30; a subject without candidate names an external router as its `external-router` alternative.
 
 ## Evidence level required
 

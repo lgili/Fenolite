@@ -80,7 +80,7 @@
 
   ```
   fenolite route PATH --router octilinear --propose [--kind KIND]... [--nets GLOB]... [--group NAME]...
-                 [--candidates N] [--propose-with ROUTER] [--show-rejected] [--gate drc] [--roles-file FILE]
+                 [--candidates N] [--show-rejected] [--gate drc] [--roles-file FILE]
                  [--router-option KEY=VALUE]... [--timeout SECONDS]
   fenolite route PATH --router octilinear --accept ID... [--reject ID... [--reason TEXT]] [--gate drc]
                  [--dry-run | --confirm [--plan ID]]
@@ -179,7 +179,7 @@ class JobSubject:
 class Candidate:
     id: str  # "c-" + 16 hex digits of the content hash
     subject: str  # JobSubject.key
-    source: str  # "shape", "z-shape", "via-l", "fanout", "role", "external:<router>"
+    source: str  # "shape", "z-shape", "via-l", "fanout", "role" (a future family may add "external:<router>")
     relaxed: tuple[str, ...] = ()  # e.g. ("keep-away=clearance",)
     tracks: tuple[Track, ...] = ()
     arcs: tuple[Arc, ...] = ()
@@ -227,10 +227,9 @@ apart by more than the clearance in force anywhere):
    lowering the in-plane distance alone leaves c0244's test of no overlap on the next layer, so a pair over a
    switch-node pour stays refused). Isolation is never relaxed: a sense branch on its own pour is the fault
    the phase exists to avoid.
-6. **`external:<router>`** with `--propose-with ROUTER` (`connection` subjects only): the router routes the
-   selected nets once on a trial copy (its own job, its own budget); its copper is split per subject by
-   connectivity, one candidate per subject it closed. Off by default; `sends_data_offsite` needs
-   `--allow-offsite` as today.
+6. **`external:<router>`** (`--propose-with ROUTER`): moved to a future change by the maintainer's decision
+   of 2026-10-30. The protocol takes it without change (a candidate's `source` is free text); the reason
+   `external-trial-failed` of `not_evaluated` stays reserved for it, and this change never gives it.
 
 - **Width.** The net's class width, else the default class; for a `role-net` subject the class width with
   the fact `current: not-declared` (phase 1 sizes copper from a confirmed current only).
@@ -584,7 +583,8 @@ convert, as `docs/roles.md` says for phase 2.
 
 c0222 planned 7 days for phase 4; the decision record, replay and the viewer contract came in.
 
-**Cut order**, cheapest loss first: (1) `external:<router>` candidates; (2) DRC batches (`drc` stays in
+**Cut order**, cheapest loss first: (1) `external:<router>` candidates (moved to a future change by the
+maintainer's decision of 2026-10-30); (2) DRC batches (`drc` stays in
 `not_evaluated` without them, and the accept-time `--gate drc` still runs); (3) `--forget` (edit the record by
 hand); (4) the viewer actions (the data join stays). Never cut: the no-score reply, the reasons and
 alternatives, accept through a reviewed plan, the decision record, the reference gate.
@@ -621,5 +621,6 @@ alternatives, accept through a reviewed plan, the decision record, the reference
    board edits to the script, and locked proposals are such edits.
 6. **Who draws the proposals in the viewer?** **Decided (maintainer, 2026-10-30), as recommended:** this change fixes the data and the actions;
    the drawing goes to the next viewer change after c0305, so the viewer line keeps one owner.
-7. **External router candidates in this change?** **Decided (maintainer, 2026-10-30), as recommended:** yes, as the optional family
-   `--propose-with`, first to cut; c0222's plan sent "the rest" to an external router.
+7. **External router candidates in this change?** **Decided (maintainer, 2026-10-30):** no; the optional
+   family `--propose-with` moved to a future change by the maintainer's decision of 2026-10-30 (it was first in
+   the cut order). A subject without candidate names an external router as its `external-router` alternative.

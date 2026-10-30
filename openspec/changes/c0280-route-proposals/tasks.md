@@ -52,6 +52,10 @@
   - Open questions: the recommended answers of `design.md` are the maintainer's decisions (2026-10-30).
   - `npx` is not allowed in this session, so the `openspec validate` part of the proof could not run here.
 
+  Left unticked: the `openspec validate --strict` part of the proof needs `npx`, which this session may not
+  run; the `pytest` part passes. The deltas were checked by hand (each requirement holds SHALL or MUST and
+  at least one `#### Scenario:`); run the validator before archiving.
+
 ## 1. Protocol, codes and record
 
 - [x] 1.1 Add `JobAttach`, `JobSubject`, `Candidate`, `RoutingJob.subjects` and `RoutingResult.candidates` to `routing/protocol.py`, the feature `propose` to `ROUTER_FEATURES` and to `OctilinearRouter.features` (scenarios "A job built as before" of "Proposal subjects in a routing job", "The octilinear router takes roles"). Proof: `uv run pytest tests/unit/routing/test_protocol.py -q`; `uv run pyright src/fenolite/routing`.
@@ -64,10 +68,9 @@
 - [x] 2.2 Add `routing/propose.py` with the families `shape`, `z-shape` and `via-l`, the distinctness rule, `candidates=N` and the generation order, and the content ids (scenarios "Candidates only", "Ids ignore unrelated copper", "Distinct candidates"). Proof: `uv run pytest tests/unit/routing/test_propose.py -k "only or ids or families" -q`; `uv run pytest tests/unit/routing/test_octilinear.py tests/unit/routing/test_roleroute.py -q` (plain and role jobs unchanged).
 - [x] 2.3 The `fanout` family: the zone fan-out search inside the zone outline and its simulated fill (scenario "The same search as plane fan-out"). Proof: `uv run pytest tests/unit/routing/test_propose.py -k fanout -q`.
 - [x] 2.4 The `role` family: role mode with its defaults, then one relaxation at a time, isolation never relaxed (scenario "A pair over switching copper"). Proof: `uv run pytest tests/unit/routing/test_propose.py -k relaxed -q`.
-- [ ] 2.5 The optional `external:<router>` family behind `--propose-with` (a trial run on a copy, copper split per subject by connectivity, `--allow-offsite` rule), with a stand-in router. Proof: `uv run pytest tests/unit/cli/test_route_propose.py -k external -q`. First to cut (`design.md`, "Size and cut order").
-
-  Left open: cut, the first of the cut order (`design.md`, "Size and cut order"); `--propose-with` is not
-  added, and an external router remains the `external-router` alternative of a subject without candidate.
+- 2.5 (removed) The optional `external:<router>` family behind `--propose-with`: moved to a future change by the
+  maintainer's decision of 2026-10-30; `--propose-with` is not added, and an external router remains the
+  `external-router` alternative of a subject without candidate.
 
 ## 3. Command
 
@@ -111,7 +114,11 @@
   `--propose` gives `route.proposal-none` with every decision present, and `--replay` on a fresh build gives
   the accepted board byte for byte. The `open` half-bridge's sense pair is `group:kelvin_R1` with the reason
   `near-switching`; the `good` variants need nothing.
-- [ ] 4.3 KiCad DRC of the accepted variants on KiCad 9 and 10 (scenario "KiCad finds no unconnected item"; `H-K-PROP-DRC`). Proof: `uv run pytest tests/kicad/roles/test_proposal_drc.py -q` in the jobs `kicad-9` and `kicad-10` on the pushed commit.
+- [x] 4.3 KiCad DRC of the accepted variants on KiCad 9 and 10 (scenario "KiCad finds no unconnected item"; `H-K-PROP-DRC`). Proof: `uv run pytest tests/kicad/roles/test_proposal_drc.py -q` in the jobs `kicad-9` and `kicad-10` on the pushed commit.
+
+  Passed 2026-10-30 in the jobs `kicad-9` and `kicad-10` of CI run 41002715336 on commit `ef892747` (the six
+  cases each), and locally with `kicad-cli` 10.0.7. On 9 the outline fill of the unit tests stands for
+  KiCad's, so the zero of unconnected items is claimed on 10 and the no-growth on both (design decision 15.7).
 - [x] 4.4 Altium: convert each accepted variant and compare the read-back (scenario "Same accepted copper in Altium"; `H-A-PROP-READBACK`). Proof: `uv run pytest tests/unit/roles/test_proposal_reference.py -k altium -q`.
 
 ## 5. Viewer (after c0303 and c0305 land)
@@ -124,6 +131,10 @@
 - [x] 6.1 Docs: `docs/routing.md` ("Proposals": subjects, families, facts, no score, accept and reject, replay), `docs/roles.md` ("Proposals after the critical routes": the leftovers, the run order 1 → 2 → 4, the Altium deliverable through `convert`), `docs/cli-contract.md` ("route": the modes, `result.proposals`, the record, the codes; "view": `--proposals`). Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/cli -k "contract or explain" -q`.
 - [x] 6.2 Agent guide (AGENTS.md rule 6): a `fenolite-cmd` line and a bullet for `route --propose` and `route --accept` on the page `routing` (11 948 of 12 000 bytes: tighten sentences, or put the bullet on `board-routing` and keep only the command line on `routing`), and the order "critical routes, power copper, then proposals" on `board-power`. No limit as a value, no change id. Then run `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
 - [x] 6.3 Residue: every new `.py` starts with its SPDX and copyright lines; the authored benches carry the authored-for-Fenolite line. Proof: `make residue`.
-- [ ] 6.4 Run `make check-fast` and the focused tests of the touched files, then push the batch and confirm the required CI jobs on the exact commit (AGENTS.md rule 4; no full suite on the maintainer's machine). Proof: `make check-fast`, and the required jobs green on the exact commit.
+- [x] 6.4 Run `make check-fast` and the focused tests of the touched files, then push the batch and confirm the required CI jobs on the exact commit (AGENTS.md rule 4; no full suite on the maintainer's machine). Proof: `make check-fast`, and the required jobs green on the exact commit.
+
+  `make check-fast` passed locally on 2026-10-30 (after fixing five tests that name the router features and
+  the job fields); every job of CI run 41002715336 on commit `ef892747` passed (unit on Linux 3.11, 3.12,
+  3.13, macOS and Windows, kicad-9, kicad-10, routing 9 and 10, viewer, mcp, wheel, dco).
 - [x] 6.5 Evidence: the six hypotheses `H-G-PROP-LEFTOVERS`, `H-G-PROP-FACTS`, `H-G-PROP-COMPLETE`, `H-G-PROP-REPLAY`, `H-K-PROP-DRC` and `H-A-PROP-READBACK` in `docs/hypotheses.md` with their measurements; no new source (the facts reuse S-0850 to S-0853, S-0860 and S-0890 to S-0892 through the phases they come from); the evidence matrix regenerated. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
 - [x] 6.6 CHANGELOG: an entry under `## [Unreleased]` › `### Added` (`dev` is at `0.7.0.dev0`): "`fenolite route --router octilinear --propose` lists every open connection left after the power copper and the critical routes with candidate shapes and their facts, without a score; `--accept ID` locks a candidate through a reviewed plan, `--reject ID` remembers a refusal, `--replay` restores locked decisions (c0280)." Proof: `uv run pytest tests/unit -k changelog -q`.
