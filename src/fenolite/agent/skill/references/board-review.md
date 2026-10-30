@@ -131,6 +131,34 @@ Each of these is cheap to avoid before routing and expensive to argue about afte
   sign for them. Report the measurements and the open items, and never write that the board passed a
   gate.
 
+## The requirement matrix
+
+Attach the matrix to a review: every electrical limit with a stable id, its status and the digest of
+what it judged, and a receipt of the model and device records it read. It writes nothing.
+
+```fenolite-cmd
+fenolite check blink/build --matrix --json
+fenolite check blink/build --matrix --text
+```
+
+- `deferred` (with `decidable` `place` or `route`): the board has not reached the stage that decides the
+  row, such as a track width on a net with an open connection. It is not a pass.
+- `waived`: a waiver accepted the row's finding at its `digest`. A changed rating, pick or kept value
+  changes the digest: the finding is back and `check.waiver-expired` names both digests.
+- Device records split each limit into `abs_max` (damage) and `operating` (the range the part needs);
+  `[[limits]]` states a voltage between two pins, such as `between = ["BST", "SW"]`.
+
+Accept a known risk by its row id without the code and the digest that the finding's hint ends with:
+
+```fenolite-design
+from fenolite.dsl import Design, Part, mm
+
+design = Design("accepted_risk")
+design.board(mm(20), mm(10))
+design.add(Part("C1", "Fenolite:Capacitor", footprint="Fenolite:Chip_0603", value="1uF"))
+design.waive("circuit.rating-voltage", "C1:voltage", reason="bench is current-limited", digest="9f2c4a1b0d3e5f67")
+```
+
 ## Typical failures
 
 - **A first version rejected as a whole.** A board was blocked in review: its libraries did not follow

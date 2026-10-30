@@ -15,6 +15,7 @@ never appear: ``analysis.path-exceeded``, ``analysis.neck-narrow``, ``analysis.r
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from fractions import Fraction
 from typing import Any
 
@@ -566,7 +567,7 @@ def _path_rows(board: RoleBoard, measure: Measure) -> list[RequirementRow]:
     )
     return [
         RequirementRow(
-            f"{code}:{values['where']}",
+            f"{code}:{net}",
             code,
             f"{element} {values['where']} of {net}",
             "width",
@@ -580,21 +581,79 @@ def _path_rows(board: RoleBoard, measure: Measure) -> list[RequirementRow]:
             side,
             "fail" if failed else "pass",
             severity(code, source=source, limit_source=limit.origin) if failed else None,
-            (net,),
+            (net, values["where"]),
         )
     ]
+
+
+def _margin(row: RequirementRow) -> tuple[int, Fraction]:
+    """How close a path row is to its limit: a fail first, then the smallest width above the needed one."""
+    width = row.value.range.low if row.value is not None and row.value.range is not None else None
+    needed = row.limit.range.low if row.limit.range is not None else None
+    gap = Fraction(0) if width is None or needed is None else width - needed
+    return (0 if row.status == "fail" else 1, gap)
+
+
+def pending_rows(board: RoleBoard, have: Sequence[RequirementRow]) -> list[RequirementRow]:
+    """A ``roles.width-current`` row for each role with a current whose copper gave no width row (change
+    c0274): its path is open or not measured yet. Its value is unknown; ``checks.circuit.decidable`` makes it
+    ``deferred`` while the net has an open connection, so the requirement is listed and never passes."""
+    ids = {row.id for row in have}
+    found: list[RequirementRow] = []
+    for role in board.roles.nets:
+        row_id = f"roles.width-current:{role.net}"
+        if role.kind not in CURRENT_KINDS or role.milliamps is None or row_id in ids:
+            continue
+        if f"roles.section-current:{role.net}" in ids:
+            continue
+        limit = profile.resolve("width_per_amp_nm", board.roles.limits, net=role.net, kind=role.kind)
+        if not limit.value:
+            continue
+        required = limit.value * role.milliamps // 1000
+        side = _limit_side(limit, "metre", required * NM_TO_M, f"{mm(required)} mm for {role.milliamps} mA")
+        side = Side(
+            Bound("metre", required * NM_TO_M, None),
+            side.text,
+            side.source,
+            side.basis,
+            side.evidence,
+            side.kind,
+        )
+        found.append(
+            RequirementRow(
+                row_id,
+                "roles.width-current",
+                f"copper of {role.net}",
+                "width",
+                "metre",
+                None,
+                side,
+                "unknown",
+                None,
+                (role.net,),
+                missing="no measured copper: the power path is open or not routed",
+            )  # fmt: skip
+        )
+    return found
 
 
 def rows(board: RoleBoard, done: Measured) -> list[RequirementRow]:
     """The requirement rows of the measures of ``board`` judged against a limit (change c0253): each loop's
     area against ``loop_max``/``gate_max`` and its ratio against its ratio limit, and each power path's width
-    by the rule of thumb. The findings and their messages are ``judge``'s, unchanged."""
+    by the rule of thumb, one row per code and net (``roles.width-current:VBUS``, its narrowest element;
+    change c0274, a stable id). The findings and their messages are ``judge``'s, unchanged."""
     found: list[RequirementRow] = []
+    paths: dict[str, list[RequirementRow]] = {}
     for measure in done.measures:
         if measure.kind == "loop":
             found += _loop_rows(board, measure)
         elif measure.kind == "path":
-            found += _path_rows(board, measure)
+            for row in _path_rows(board, measure):
+                paths.setdefault(row.id, []).append(row)
+    for same in paths.values():  # change c0274: one row per code and net, its narrowest element
+        worst = min(same, key=_margin)
+        entities = tuple(dict.fromkeys(e for r in same for e in r.entities))
+        found.append(replace(worst, entities=entities))
     return found
 
 

@@ -2351,8 +2351,9 @@ design.waive("copper.clearance", "J1-3", "J1-4", reason="fixed by the mating con
 design.waive("copper.clearance", "J1-*", "*", min_gap=mm(0.15), reason="shield can keep-out")
 design.waive("kicad.drc.via-dangling", "*", reason="test points")
 design.waive("kicad.drc.courtyards-overlap", tp1, "U1", reason="stacked by design")
-design.waive("circuit.rating-voltage", "C3:voltage", reason="bench is current-limited",
-             digest="9f2c4a1b0d3e5f67")
+design.waive(
+    "circuit.rating-voltage", "C3:voltage", reason="bench is current-limited", digest="9f2c4a1b0d3e5f67"
+)
 ```
 
 - **Code.** `copper.short`, `copper.clearance`, `copper.zone-overlap`, or a finding of KiCad's DRC as

@@ -248,17 +248,18 @@ def _receipt_lines(envelope: Envelope) -> list[str]:
     return lines
 
 
-def render_text(envelope: Envelope, text: str | None = None) -> str:
+def render_text(envelope: Envelope, text: str | None = None, *, always: bool = False) -> str:
     """Human rendering of the same envelope (never a different data set).
 
-    ``text`` is a command's own text (``Result.text``). For a command that succeeded it is printed as
-    it is after the status line and one empty line, in place of the ``input``, ``result`` and
-    ``evidence`` lines; the issue and receipt lines, when there are any, follow it after one empty line.
+    ``text`` is a command's own text (``Result.text``). For a command that succeeded, or with ``always``
+    (``Result.text_on_failure``) for any, it is printed as it is after the status line and one empty line,
+    in place of the ``input``, ``result`` and ``evidence`` lines; the issue and receipt lines, when there are
+    any, follow it after one empty line.
     """
     data = to_jsonable(envelope)
     status = "ok" if envelope.ok else "FAILED"
     lines = [f"fenolite {envelope.command}: {status}"]
-    if text is not None and envelope.ok:
+    if text is not None and (envelope.ok or always):
         body = text[:-1] if text.endswith("\n") else text
         lines += ["", body]
         tail = _issue_lines(envelope) + _receipt_lines(envelope)

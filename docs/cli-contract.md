@@ -1308,7 +1308,7 @@ with `FEN-4002`.
 
 ## check
 
-`fenolite check PATH [--stages A,B] [--kicad-cli PATH] [--timeout SECONDS]` checks a KiCad project
+`fenolite check PATH [--stages A,B] [--kicad-cli PATH] [--timeout SECONDS] [--matrix]` checks a KiCad project
 read-only (`--exclude` alone writes: "Writing a DRC exclusion" below). `PATH` is a `.kicad_pcb`, a `.kicad_pro` (the board of its stem) or a folder holding one
 `.kicad_pro` (else one `.kicad_pcb`). `kicad-cli` only ever sees a copy of the files a DRC run reads
 (board, `<stem>.kicad_pro`, `<stem>.kicad_dru`, `fp-lib-table` and its `${KIPRJMOD}` libraries, the
@@ -1767,6 +1767,33 @@ judged. Two keys of one type, position and item pair in both orders are one acce
 either order, as excluded, else both unjudged (one of the four types) or both stale with one warning.
 `summary.accepted` of `drc.kicad` lists each such exception: `type`, `items` (the two uuids), `comment`,
 `state` (`live`, `stale` or `unjudged`) and `reported` (an entry of that type names the two items).
+
+### Verification matrix
+
+`fenolite check PATH --matrix` (change c0274) adds `result.matrix`, on KiCad and Altium input alike, and
+stays read-only (redirect the JSON reply to keep it). Without `--stages` only `circuit.rules` and
+`roles.rules` run, the two stages that give requirement rows; with `--stages` the named ones run and the
+matrix lists the rows of those two among them. Without `--matrix` the result holds no `matrix`.
+
+- **`rows`**: the requirement rows of the stages that ran, sorted by id (a repeated id keeps its first row),
+  each with `id`, `check`, `value` and `limit` (their texts), `source` (of the limit), `origin` (of the
+  value: `declared`, `rig`, `role`, `requirements`, `option` or `propagated via <refs> from <net>`, `null`
+  when none), `status` (`pass`, `fail`, `unsure`, `unknown`, `deferred`, or `waived` when a waiver
+  accepted the row's finding), `evidence` (the label of what states the limit), `decidable` (`build`,
+  `place` or `route`), `digest` (what a circuit waiver copies) and `waiver` (its name, else `null`).
+- **`receipt`**: `fenolite` (the version), `model_sha256` (the SHA-256 of the canonical `.fenolite/` texts,
+  each as `<file name>\n<text>` in layer order; `null` for a native project), `devices_sha256` (the
+  SHA-256 of the sorted digests of the device records judged, one per line) and `stages` (those whose rows
+  are listed).
+- **Ids.** Row ids are built from references, port paths, net and interface names and expectation ids only
+  (`circuit.rating-voltage:C3:voltage`, `circuit.rail-voltage:3V3:U3/vdd`, `circuit.rail-current:3V3`,
+  `circuit.expect:buck1/expect#1`, `roles.loop-area:buck:loop_ratio_max`, `roles.width-current:VBUS`),
+  never from entity ids, positions or seeds (`H-G-CIRCUIT-ROW-IDS`).
+- **Deferred rows.** A row whose decidable stage is not reached for its subject and that does not fail is
+  `deferred` and gives no issue; `summary.deferred` of each stage counts them by stage
+  (`docs/contracts.md`, "Decidable stages").
+- **Text.** With `--text` the matrix prints as a table with the columns `id`, `check`, `value`, `limit`,
+  `source` and `status`, one line per row, also when the check fails, followed by the issues.
 
 ### Writing a DRC exclusion
 

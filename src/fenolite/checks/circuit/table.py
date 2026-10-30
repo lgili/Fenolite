@@ -18,6 +18,7 @@ from dataclasses import dataclass, field, replace
 from fractions import Fraction
 
 from fenolite.checks.circuit import corners as rig_corners
+from fenolite.checks.circuit.decidable import deferred_counts
 from fenolite.checks.circuit.expect import Evaluator, judge_expectation
 from fenolite.checks.circuit.propagate import as_value, links, propagate
 from fenolite.checks.circuit.rails import EVIDENCE, View, circuit_evidence, level_of, rule_issues
@@ -328,6 +329,7 @@ def judge_circuit(
     evidence = Evidence(min_level(base.level, *levels), hypotheses=hypotheses)
     summary: dict[str, object] = {
         "requirements": table_json(rows),
+        "deferred": deferred_counts(rows),  # change c0274: a circuit row is decided on the built model
         "corners": rig_corners.TOO_MANY if corner_set is None else len(corner_set),
     }
     waived = apply_circuit_waivers(waivers, _keyed(found, links))

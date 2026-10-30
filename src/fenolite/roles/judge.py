@@ -21,9 +21,10 @@ from dataclasses import dataclass, field
 
 from fenolite.analysis.shapes import LOOP_EVIDENCE
 from fenolite.backends.base import BoardPad, ProjectSet
+from fenolite.core.decidable import Reach, Subject, decide, deferred_counts
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
-from fenolite.core.requirement_table import table_json
+from fenolite.core.requirement_table import RequirementRow, table_json
 from fenolite.model.circuit import Circuit
 from fenolite.model.design import Design
 from fenolite.model.rules import NetRole, PartClass, RoleSet
@@ -225,11 +226,54 @@ def run(
     evidence = Evidence.combine(
         Evidence(Level.INFERRED, hypotheses=checks.hypotheses(measured)), *measured.evidences, *extra
     )
+    table = checks.rows(board, measured)
+    table += checks.pending_rows(board, table)
+    reach, subjects = board_reach(design, pads, table)
+    table = decide(table, subjects, reach)  # change c0274: a row not reached is deferred, never pass
     summary = {
         **checks.summary(issues, measured, resolved.roles),
-        "requirements": table_json(checks.rows(board, measured)),  # change c0253
+        "requirements": table_json(table),  # change c0253
+        "deferred": deferred_counts(table),
     }
     return Judged(resolved, measured, issues, summary, evidence)
+
+
+def board_reach(
+    design: Design, pads: Sequence[BoardPad], rows: Sequence[RequirementRow]
+) -> tuple[Reach, dict[str, Subject]]:
+    """What the board ``design`` has reached for the role rows ``rows`` (change c0274;
+    ``checks.circuit.decidable``): the parts whose pads all lie inside the outline, the nets of the rows that
+    still have an open connection (``analysis.connectivity``), and each row's subject (the parts of its pads,
+    or of its net's pads, and their nets)."""
+    from fenolite.analysis.boundary import board_boundary
+    from fenolite.analysis.connectivity import connectivity
+    from fenolite.geometry.predicates import Location, point_in_ring
+
+    by_name = {f"{record.ref}-{record.number}": record for record in pads}
+    by_net: dict[str, list[BoardPad]] = {}
+    for record in pads:
+        if record.net:
+            by_net.setdefault(record.net, []).append(record)
+    subjects: dict[str, Subject] = {}
+    for row in rows:
+        held = [by_name[name] for name in row.entities if name in by_name]
+        nets = sorted(
+            {record.net for record in held if record.net} | {e for e in row.entities if e in by_net}
+        )
+        if not held:
+            held = [record for net in nets for record in by_net.get(net, [])]
+        subjects[row.id] = Subject(tuple(sorted({record.ref for record in held})), tuple(nets))
+    ring = board_boundary(design.board).outer if design.board is not None else ()
+    refs = {record.ref for record in pads}
+    outside = {
+        record.ref
+        for record in pads
+        if len(ring) < 3 or point_in_ring(record.position, ring) is Location.OUTSIDE
+    }
+    wanted = {net for subject in subjects.values() for net in subject.nets}
+    report = connectivity(design, pads=pads, nets=wanted) if wanted else None
+    open_nets: set[str] = {row.name for row in report.nets if row.open} if report is not None else set()
+    return Reach(frozenset(refs - outside), frozenset(open_nets)), subjects
 
 
 def split_roles(roles: RoleSet | None) -> tuple[RoleSet | None, RoleSet | None]:

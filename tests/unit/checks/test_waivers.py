@@ -373,26 +373,9 @@ def _circuit_check(monkeypatch: pytest.MonkeyPatch, out: Path) -> tuple[int, dic
 
 
 def _waived_sensor(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Path, str]:
-    """The bad sensor built in ``tmp_path`` with the waiver of ``C1``'s voltage row at its digest, also
-    written into ``bad.py``; the folder and the digest."""
-    from _contracts import built_sensor, sensor_model
+    from _contracts import waived_sensor
 
-    from fenolite.model import canonical
-
-    out = built_sensor(monkeypatch, tmp_path, "bad")
-    _code, env = _circuit_check(monkeypatch, out)
-    (issue_c1,) = [i for i in env["issues"] if i["code"] == "circuit.rating-voltage"]  # type: ignore[union-attr, index]
-    digest = issue_c1["hint"].rpartition("digest ")[2]
-    script = out.parent / "bad.py"
-    script.write_text(
-        script.read_text(encoding="utf-8")
-        + f'design.waive("circuit.rating-voltage", "C1:voltage", reason="bench is current-limited", '
-        f'digest="{digest}")\n',
-        encoding="utf-8",
-    )
-    model, _devices = sensor_model(out.parent, "bad")
-    canonical.dump_dir(model, out / ".fenolite")
-    return out, digest
+    return waived_sensor(monkeypatch, tmp_path)
 
 
 def test_circuit_waived_rating_on_the_stage_and_the_build(

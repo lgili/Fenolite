@@ -208,18 +208,23 @@ class _Reply:
     envelope: Envelope | None = None
     error: ErrorInfo | None = None
     text: str | None = None
+    always: bool = False
+    """``Result.text_on_failure``."""
 
 
-def _emit(envelope: Envelope, ctx: Context, out: TextIO, text: str | None = None) -> None:
+def _emit(
+    envelope: Envelope, ctx: Context, out: TextIO, text: str | None = None, always: bool = False
+) -> None:
     """Print the envelope. ``text`` (``Result.text``) is used by text mode only."""
     _quiet(ctx)
-    out.write((render_json(envelope) if ctx.mode == "json" else render_text(envelope, text)) + "\n")
+    rendered = render_json(envelope) if ctx.mode == "json" else render_text(envelope, text, always=always)
+    out.write(rendered + "\n")
 
 
 def _print(reply: _Reply, ctx: Context, out: TextIO, err: TextIO) -> None:
     """Print a reply: the envelope on ``out``, then the error object on ``err``."""
     if reply.envelope is not None:
-        _emit(reply.envelope, ctx, out, reply.text)
+        _emit(reply.envelope, ctx, out, reply.text, reply.always)
     if reply.error is not None:
         write_error(reply.error, ctx.mode, err)
 
@@ -635,7 +640,7 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
 
     ok = code is ExitCode.OK
     envelope = _envelope(command, shown_outcome, result, ok=ok, receipt=receipt, started=started)
-    return _Reply(int(code), envelope, error, outcome.text)
+    return _Reply(int(code), envelope, error, outcome.text, outcome.text_on_failure)
 
 
 def _recovery_path(path: Path, cwd: Path) -> str:

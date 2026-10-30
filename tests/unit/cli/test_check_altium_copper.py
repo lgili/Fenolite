@@ -225,6 +225,7 @@ def test_waiver_applies_to_the_built_altium_project_only(
         "declared": 2,
         "matched": {"pitch": 1},
         "unmatched": [],
+        "expired": [],
         "unjudged": {"tp": "stage-not-run"},
     }
     copy = native(routed.out, tmp_path / "native")

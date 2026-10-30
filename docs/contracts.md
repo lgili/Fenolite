@@ -171,6 +171,36 @@ sorted by `id`. Each row names its `value` and its `limit` with their range (c02
 corners and what is missing. Role rows (`docs/roles.md`, "The requirement table") take the source `policy`
 for a profile default and `user` for an override or a requirements limit.
 
+## Decidable stages
+
+Each row carries `decidable`: the stage at which it can be decided (change c0274). Every `circuit.*` row is
+`build`: the model is enough. `roles.loop-area` and `roles.gate-loop` are `place` (pad positions); every
+other judged `roles.*` row is `route` (copper widths, sections, vias, distances, returns). A `place` row is
+reached when every part of its subject has its pads inside the board outline, a `route` row when, in
+addition, no net of its subject has an open connection (`docs/analyses.md`, "Open connections"). A row
+whose stage is not reached and that does not fail is `deferred` and gives no issue; a `fail` stays a
+`fail`, since copper already too thin will not widen by routing the rest. Nothing not reached is ever
+`pass`. `summary.deferred` of each stage counts the deferred rows by stage. A role net with a current
+whose power path is still open gives one `roles.width-current:<net>` row with no measured value, deferred
+until the net is routed; each width or section row of a net is one row, its narrowest element.
+
+## Waivers that expire
+
+A known risk is accepted with `design.waive(code, "<row id without the code>", reason=..., digest=...)`
+(`docs/dsl.md`, "Waivers"). The digest is the start of the SHA-256 of what the row judged (its id, the
+ranges of its value and limit, the limit's kind and both sources); every `circuit.*` finding's hint ends
+with it, and the matrix lists it. While the numbers stay the same, the finding is `info` and its row
+`waived`; when a rating, a pick or a kept CAD value changes them, the finding stands again and
+`check.waiver-expired` names both digests. `fenolite build` applies the same waivers, so an accepted risk
+does not stop `build --confirm`.
+
+## The verification matrix
+
+`fenolite check PATH --matrix` lists the rows of `circuit.rules` and `roles.rules` with their stable ids,
+status (`waived` and `deferred` included), value, limit, source, origin, evidence, decidable stage and
+digest, and a receipt of the model and device digests (`docs/cli-contract.md`, "Verification matrix").
+It writes nothing.
+
 ## Severities
 
 A fail against a device rating, an operating range, your policy or an expectation is an `error`, and stops

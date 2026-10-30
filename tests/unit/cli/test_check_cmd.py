@@ -479,7 +479,13 @@ def test_waiver_native_project_has_none(monkeypatch: pytest.MonkeyPatch, tmp_pat
     ``.fenolite/`` model, so no finding of it is waived."""
     board = _copy(tmp_path)
     code, env, _, _ = run(monkeypatch, tmp_path, "check", str(board), "--stages", "copper.clearance")
-    assert env["result"]["waivers"] == {"declared": 0, "matched": {}, "unmatched": [], "unjudged": {}}
+    assert env["result"]["waivers"] == {
+        "declared": 0,
+        "matched": {},
+        "unmatched": [],
+        "expired": [],
+        "unjudged": {},
+    }
     shorts = [i for i in env["issues"] if i["code"] == "copper.short"]
     assert code == 5 and shorts and all(i["severity"] == "error" for i in shorts)
     assert "waivers" not in _stages(env)["copper.clearance"]["summary"]  # type: ignore[operator]
