@@ -21,7 +21,7 @@ from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad.lowering import MINIMUM_KEYS
 from fenolite.backends.kicad.outline import edge_outline
 from fenolite.backends.kicad.pro import project_minimums, template
-from fenolite.backends.kicad.sexpr import Node
+from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.importer import coverage
@@ -55,7 +55,7 @@ from fenolite.importer.tables import (
     protect_arguments,
     teardrop_arguments,
 )
-from fenolite.importer.texts import dimension_style, graphic_net, text_style
+from fenolite.importer.texts import area_placement, dimension_style, graphic_net, text_style
 from fenolite.importer.vendor import natural, vendor
 from fenolite.model.base import Entity, Opaque
 from fenolite.model.board import (
@@ -656,6 +656,8 @@ def _zones(
 def _areas(
     board: Board, layers: Sequence[str], ledger: Ledger, members: dict[str, Expr] | None = None
 ) -> list[list[str]]:
+    from fenolite.dsl.items import AREA_NAME
+
     out: list[list[str]] = []
     names: set[str] = set()
     index = 0
@@ -668,7 +670,7 @@ def _areas(
             ledger.add("rule-area-layer", area.name or area.id)
             continue
         args: list[tuple[str, Expr]] = []
-        if area.name and NAME.fullmatch(area.name) and area.name.casefold() not in names:
+        if area.name and AREA_NAME.fullmatch(area.name) and area.name.casefold() not in names:
             names.add(area.name.casefold())
             first: Expr = text(area.name)
             identity = area.name
@@ -681,6 +683,11 @@ def _areas(
             identity = f"area/{index}"
         if members is not None:
             members[_native(area)] = text(identity)
+        placement = area_placement(area)
+        if placement is None:
+            ledger.add("rule-area-placement", area.name or area.id)
+        elif placement:
+            args.append(("placement", text(placement)))
         if area.layers and tuple(area.layers) != tuple(layers):
             args.insert(0, ("layers", Tup(tuple(text(layer) for layer in area.layers))))
         forbid = tuple(text(word) for word, flag in FORBID if getattr(area, flag))
@@ -882,16 +889,80 @@ def _drawings(
     return out
 
 
-def _group_nodes(board: Board) -> list[Node]:
-    """The root ``group`` nodes the reader keeps in the board's slots."""
+def _root_nodes(board: Board) -> list[Node]:
+    """The root nodes the reader keeps in the board's slots, in file order."""
     bag = board.ext.get("kicad")
     found: list[Node] = []
     for slot in slotlib.from_ext(bag) if bag is not None else ():
         if isinstance(slot, Opaque):
             child = slotlib.opaque_child(slot)
-            if isinstance(child, Node) and child.name == "group":
+            if isinstance(child, Node):
                 found.append(child)
     return found
+
+
+def _group_nodes(board: Board) -> list[Node]:
+    """The root ``group`` nodes the reader keeps in the board's slots."""
+    return [child for child in _root_nodes(board) if child.name == "group"]
+
+
+def _verbatim_node(tree: Node, numbers: Mapping[int, str], built: Mapping[str, str]) -> Node | None:
+    """``tree`` as a verbatim item says it (change c0277): a net named by its number (a KiCad 9 board) named
+    by its name, and each copper uuid of a ``members`` list the uuid its table row takes in the build;
+    ``None`` when a net number or a member names nothing the code writes."""
+    if tree.name == "net":
+        atoms = tree.atoms()
+        if len(atoms) == 1 and atoms[0].kind == AtomKind.STRING:
+            return tree
+        name = numbers.get(int(atoms[0].value)) if len(atoms) == 1 and atoms[0].value.isdigit() else None
+        return None if not name else tree.with_children([Atom.string(name)])
+    if tree.name == "members":
+        mapped = [built.get(a.value) for a in tree.atoms()]
+        if any(found is None for found in mapped) or tree.nodes():
+            return None
+        return tree.with_children([Atom.string(cast(str, found)) for found in mapped])
+    children: list[Node | Atom] = []
+    for child in tree.children:
+        if isinstance(child, Node):
+            made = _verbatim_node(child, numbers, built)
+            if made is None:
+                return None
+            children.append(made)
+        else:
+            children.append(child)
+    return tree.with_children(children)
+
+
+def _verbatim(
+    board: Board,
+    numbers: Mapping[int, str],
+    built: Mapping[str, str],
+    members: dict[str, Expr],
+    ledger: Ledger,
+) -> list[list[str]]:
+    """``design.verbatim()`` of each root item the reader keeps and no other call says (change c0277): a
+    ``generated`` tuning pattern, an image, a target, a barcode… keyed ``<head>/<n>`` in file order. An item
+    that names copper the code does not write, or a net by a number the source table lacks, is unexpressed
+    by its head."""
+    from fenolite.backends.kicad import verbatim as verbatimlib
+    from fenolite.backends.kicad.sexpr import dumps
+
+    out: list[list[str]] = []
+    counters: dict[str, int] = {}
+    for child in _root_nodes(board):
+        if child.name in verbatimlib.ROOT_REFUSED or child.name in coverage.INFRASTRUCTURE:
+            continue
+        made = _verbatim_node(child, numbers, built)
+        if made is None:
+            ledger.add(child.name, child.name)
+            continue
+        counters[child.name] = counters.get(child.name, 0) + 1
+        key = f"{segment(child.name)}/{counters[child.name]}"
+        out.append(statement(Call("design.verbatim", (text(key), text(dumps(made, style="compact"))))))
+        held = child.find("uuid")
+        if held is not None and held.atoms():
+            members[held.atoms()[0].value] = text(key)
+    return out
 
 
 def _groups(board: Board, members: dict[str, Expr], ledger: Ledger) -> list[list[str]]:
@@ -1111,6 +1182,8 @@ def emit(source: Source, options: Options) -> Emission:
                 continue
             other = seen.get((ref, pad.number))
             if other is not None and other != net:
+                if net.startswith(UNCONNECTED) and other.startswith(UNCONNECTED):
+                    continue  # KiCad names an open pad's net per pad; the build names them again (c0277)
                 ledger.add("pad-net-conflict", f"{ref}.{pad.number}")
                 continue
             seen[(ref, pad.number)] = net
@@ -1250,6 +1323,7 @@ def emit(source: Source, options: Options) -> Emission:
     zone_lines = _zones(board, names, net_vars, layers, ledger, grouped)
     area_lines = _areas(board, layers, ledger, grouped)
     drawing_lines = _drawings(board, ledger, grouped, net_vars, numbers)
+    verbatim_lines = _verbatim(board, numbers, tables.built, grouped, ledger)
     group_lines = _groups(board, grouped, ledger)
     coverage.scan(design, ledger)
     issues += coverage.regenerated_issues(ledger)
@@ -1275,6 +1349,7 @@ def emit(source: Source, options: Options) -> Emission:
         zone_lines,
         area_lines,
         drawing_lines,
+        verbatim_lines,
         group_lines,
         copper_line,
     ):

@@ -17,6 +17,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
 from fenolite.backends.kicad import slots as slotlib
+from fenolite.backends.kicad import verbatim as verbatimlib
 from fenolite.backends.kicad.sexpr import Node
 from fenolite.checks.equivalence.model import LevelId
 from fenolite.core.errors import Issue
@@ -81,6 +82,8 @@ class Ledger:
         )
 
 
+VERBATIM_REFUSED = verbatimlib.ROOT_REFUSED
+"""The root heads no verbatim item may take: an opaque root item of another head is written as one."""
 TEARDROP_REGENERATED = "padvia"
 """The type of a teardrop zone that the filling tool draws again from the teardrop settings of the pad or via
 it joins, which the code keeps: the pads' in their vendored footprints, the vias' in their tables."""
@@ -95,8 +98,15 @@ def _root_heads(design: Design) -> Iterable[str]:
     for slot in slotlib.from_ext(board.ext["kicad"]):
         if isinstance(slot, Opaque):
             child = slotlib.opaque_child(slot)
-            if isinstance(child, Node) and child.name not in INFRASTRUCTURE and child.name != "group":
-                # a group the emitter cannot write is counted by the emitter (change c0277)
+            if (
+                isinstance(child, Node)
+                and child.name not in INFRASTRUCTURE
+                and child.name in VERBATIM_REFUSED
+            ):
+                # a group, and an item the emitter writes as a verbatim item, are counted by the emitter when
+                # it cannot write them (change c0277)
+                if child.name == "group":
+                    continue
                 attr = child.find("attr") if child.name == "zone" else None
                 drop = attr.find("teardrop") if attr is not None else None
                 if drop is None:

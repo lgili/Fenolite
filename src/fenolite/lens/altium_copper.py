@@ -642,6 +642,9 @@ def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue])
         label = group.name or group.id
         message = f"the group {label!r} is not written: the document has no group record"
         issues.append(_kept("group", group.id, message))
+    for item in board.verbatim:  # change c0277: KiCad text has no Altium record
+        message = f"the verbatim item {item.key!r} is KiCad text and is not written"
+        issues.append(Issue("altium.verbatim-skipped", "warning", message, where=f"verbatim/{item.key}"))
     graphics: list[Graphic] = []
     outline = 0
     for graphic in board.graphics:

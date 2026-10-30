@@ -30,6 +30,7 @@ from fenolite.backends.kicad import _pcbwrite, netnames, resolver
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad import stackup as stacklib
 from fenolite.backends.kicad import teardrops as tdlib
+from fenolite.backends.kicad import verbatim as verbatimlib
 from fenolite.backends.kicad import via_protection as vialib
 from fenolite.backends.kicad import zones as zonelib
 from fenolite.backends.kicad._edgesign import edge_text, edge_uuid, outline_digest, outline_edges
@@ -114,6 +115,7 @@ from fenolite.model.board import (
     Stackup,
     Text,
     Track,
+    VerbatimItem,
     Via,
     ViaProtection,
     ViaType,
@@ -517,6 +519,15 @@ def _emit_zone(zone: Zone | Keepout, nets: _Nets, *, major: int) -> Items:
             for head, attr in KEEPOUT_SETTINGS
         ]
         items["keepout"] = [node("keepout", *settings)]
+        if zone.placement is not None:
+            # a placement rule area of the multichannel tool (change c0277; S-0058, multichannel)
+            items["placement"] = [
+                node(
+                    "placement",
+                    node("enabled", Atom.symbol("yes")),
+                    node("sheetname", Atom.string(zone.placement)),
+                )
+            ]
     return items
 
 
@@ -2021,7 +2032,7 @@ FLOOR_HEADS: tuple[str, ...] = (
     "text_position_mode", "title", "title_block", "tracks", "units", "units_format", "vias", "zone_connect",
     "teardrops", "best_length_ratio", "max_length", "best_width_ratio", "max_width", "filter_ratio",
     "enabled", "allow_two_segments", "prefer_zone_connections", "face", "bold", "italic", "group",
-    "members", "free",
+    "members", "free", "placement", "sheetname",
 )  # fmt: skip
 """Names the writer creates that the 8.0 format already has and that neither the token inventory nor
 the skeleton holds (``board.md``, S-0021 and S-0033 at tag 8.0.0). The names of a linear dimension
@@ -2061,9 +2072,10 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "teardrops": tuple(head for head, _, _ in tdlib.CHILDREN),
         "zone": (
             "net", "net_name", "locked", "layer", "layers", "uuid", "name", "hatch", "priority",
-            "connect_pads", "min_thickness", "filled_areas_thickness", "keepout", "fill", "polygon",
-            "filled_polygon",
+            "connect_pads", "min_thickness", "filled_areas_thickness", "keepout", "placement", "fill",
+            "polygon", "filled_polygon",
         ),
+        "placement": ("enabled", "sheetname"),
         "connect_pads": ("connection", "clearance"),
         "fill": (
             "filled", "mode", "thermal_gap", "thermal_bridge_width", "smoothing", "radius",
@@ -2137,7 +2149,7 @@ _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyT
         "segment": TRACK_FIELDS,
         "arc": TRACK_FIELDS,
         "via": {**VIA_FIELDS, tdlib.HEAD: "teardrop", "free": "free"},
-        "zone": ZONE_FIELDS,
+        "zone": {**ZONE_FIELDS, "placement": "placement"},
         "filled_polygon": FILL_FIELDS,
         **dict.fromkeys(GR_GRAPHIC_HEADS, _GRAPHIC_WRITE_FIELDS),
         "gr_text": {**TEXT_FIELDS, "effects": "effects"},
@@ -2601,7 +2613,13 @@ class _Writer:
         slots = slotlib.from_ext(bag) if bag is not None else ()
         created = not slots
         items = self.items(entity, head, created=created)
-        return self.node(entity, head, items, slots, self.absent(entity, created))
+        built = self.node(entity, head, items, slots, self.absent(entity, created))
+        if isinstance(entity, FootprintInstance) and self.board.verbatim:
+            # a part's verbatim items are children of its footprint (change c0277)
+            built = self.with_verbatim(
+                built, verbatimlib.of_target(self.board, "footprint", entity.component_id)
+            )
+        return built
 
     def absent(self, entity: Entity, created: bool) -> set[str]:
         """Fields whose model value is what the reader gives a missing child."""
@@ -2825,7 +2843,34 @@ class _Writer:
         items["graphics.gr_line"] += lines
         items["graphics.gr_arc"] += arcs
         items["groups"] = self.groups()
-        return self.node(board, "kicad_pcb", items, slots)
+        root = self.node(board, "kicad_pcb", items, slots)
+        return self.with_verbatim(root, verbatimlib.of_target(board, "kicad_pcb"))
+
+    def with_verbatim(self, tree: Node, found: Sequence[VerbatimItem]) -> Node:
+        """``tree`` with the verbatim items ``found`` appended (change c0277): each with the uuids
+        ``verbatimlib.node`` gives it and its nets in the target's form, written as opaque content (the
+        emit check gates its tokens as it gates a read board's); a child a build wrote for one of them
+        before, which holds one of those uuids, is replaced."""
+        if not found:
+            return tree
+        names = {net.name: net.id for net in self.design.circuit.nets}
+
+        def net_node(name: str) -> Node | None:
+            written = self.nets.node(names[name]) if name in names else None
+            return written if isinstance(written, Node) else None
+
+        made = [verbatimlib.node(item, verbatimlib.uuid_of, net_node) for item in found]
+        uuids = {held.atoms()[0].value for m in made for held in verbatimlib.uuid_nodes(m) if held.atoms()}
+
+        def stale(child: Node | Atom) -> bool:
+            return isinstance(child, Node) and any(
+                held.atoms() and held.atoms()[0].value in uuids for held in child.nodes("uuid")
+            )
+
+        kept = [child for child in tree.children if not stale(child)]
+        for m in made:
+            self.opaque_ids.add(id(m))
+        return tree.with_children([*kept, *made])
 
     def groups(self) -> list[Node | Atom]:
         """The root ``group`` nodes of ``Board.groups`` (change c0277): each member by the uuid the writer
@@ -2841,6 +2886,8 @@ class _Writer:
             by_id[footprint.component_id] = kicad_uuid(footprint)
         for group in board.groups:
             by_id[group.id] = kicad_uuid(group)
+        for item in verbatimlib.of_target(board, "kicad_pcb"):
+            by_id[item.id] = verbatimlib.uuid_of(item.key, "/verbatim/0")  # the item's own uuid comes first
         out: list[Node | Atom] = []
         for group in sorted(board.groups, key=lambda g: g.id):
             members = sorted(by_id[m] for m in group.member_ids if m in by_id)
@@ -2964,6 +3011,11 @@ class _Writer:
                 atoms = held.atoms() if held is not None else ()
                 if len(atoms) == 1 and atoms[0].value in self.group_uuids:
                     slots[i] = Modeled("groups")
+                continue
+            if child.name == "placement" and head == "zone":
+                # the reader keeps a rule area's placement in its slot; a script placement replaces it (c0277)
+                if items.get("placement"):
+                    slots[i] = Modeled("placement")
                 continue
             if child.name == "free" and head == "via":
                 # the reader keeps (free yes) in its slot; a script via that is free writes it (c0277)

@@ -1512,7 +1512,7 @@ design.rules.pair(
 
 ## Rule areas
 
-`design.rule_area(name, outline, *, layers=None, forbid=(), key=None)` declares one rule area and returns its
+`design.rule_area(name, outline, *, layers=None, forbid=(), key=None, placement=None)` declares one rule area and returns its
 `RuleArea` record. It is the one call for rule areas and keep-outs: a keep-out is a rule area that forbids
 something.
 
@@ -1525,7 +1525,8 @@ design.rule_area(
 hv = design.rule_area("HV", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(30))], layers=("F.Cu",))
 ```
 
-- **`name`** matches `^[A-Za-z0-9_.+-]+$` and is unique. Two names that differ only in letter case are
+- **`name`** matches `^[A-Za-z0-9_.+/-]+$` (a slash since change c0277, as KiCad names its automatic
+  placement areas `auto-placement-area-/CH1/`) and is unique. Two names that differ only in letter case are
   refused: KiCad compares area names with letter case, so a rule written for one would miss the other.
 - **`key`** (change c0275) is the area's identity across builds, written nowhere in the board, in the
   alphabet of copper keys; without it the key is the name. With a key the name may be `""`: an unnamed
@@ -1536,6 +1537,9 @@ hv = design.rule_area("HV", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(30))],
 - **`forbid`** takes `tracks`, `vias`, `pads`, `pours` and `footprints`. With an empty `forbid` the area
   forbids nothing and only rules select it (`select.area`, "Rules with selectors"). `footprints` makes
   the area a placement keep-out ("Placement rules" below).
+- **`placement`** (change c0277) makes the area a placement rule area of KiCad's multichannel tool for the
+  sheet it names, as KiCad names it (`"/CH1/"`): it is written as `(placement (enabled yes) (sheetname
+  "/CH1/"))`. Fenolite's placement does not read it; KiCad's "Repeat layout" does.
 - **In the model** each area is a `Keepout` with its `name`, in name order, with the id
   `derived_id("kpo", "dsl", "area:<key>")`. `design.rule_areas` holds the records by key.
 - **What a keep-out does.** KiCad's DRC reports a track (one that only crosses the edge too), a via or a
@@ -1588,6 +1592,40 @@ design.text("note", "ASSEMBLY NOTE", (mm(5), mm(5)), layer="User.2")
 
 Texts, graphics and dimensions may go on a declared user layer. A rebuild adds a declared user layer the
 existing board lacks; one the board holds keeps its name there.
+
+## Verbatim items
+
+The last resort for what no call says (change c0277): an item kept as KiCad text.
+
+```python
+design.verbatim("art/qr", '(barcode (at 120 80) (layer "F.SilkS") (text "SN-0001") (type qr))')
+design.verbatim(
+    "rule/hv",
+    '(rule "hv" (constraint clearance (min 2mm)) (condition "A.NetClass == \'HV\'"))',
+    target="kicad_dru",
+)
+u1.verbatim("fab/mark", '(fp_line (start -1 0) (end 1 0) (stroke (width 0.1) (type solid)) (layer "F.Fab"))')
+```
+
+- **`design.verbatim(key, text, *, target="kicad_pcb")`** keeps a child of the board root, or with
+  `target="kicad_dru"` a rule of the rules file; **`part.verbatim(key, text)`** keeps a child of the part's
+  footprint. `key` matches the pattern of drawing keys and is unique (a part's within the part); `text` is
+  a non-empty string, which the DSL does not parse. Groups may hold a board item by its key.
+- **The build parses it** and refuses, as errors that stop it: text that is not one list
+  (`build.verbatim-invalid`); a head Fenolite writes itself (`build.verbatim-head`: the file's header, a
+  footprint, a track, a via, a zone, a drawing, a dimension, a group; a pad, a field, `at` or `layer` in a
+  footprint; anything but `rule` in the rules file); a layer the board does not hold
+  (`build.verbatim-layer`); a net the design does not hold, or one named by its number
+  (`build.verbatim-net`). Each item it writes gives one `build.verbatim-item` (info).
+- **What is written.** Every `uuid` child takes `embed.placement_uuid(<key>, "/verbatim/<n>")`, so two builds
+  agree and two items never share a uuid; a net is written in the form of the target (its number for 9);
+  other atoms, the `members` of a `generated` item among them, are written as they are. A board item goes
+  after every other root item, a part's at the end of its footprint, a rule at the end of the rules file.
+- **Versions.** The emit check gates the tokens as it gates a read board: a token KiCad 9 cannot read refuses
+  a target-9 build (`FEN-7001`), and `--allow-lossy` leaves the item out with a warning.
+- **Rebuilds.** An item replaces the one a build wrote before with its uuid; an item removed from the script
+  stays in the board until it is deleted there.
+- **Altium** has no record for KiCad text: each item is `altium.verbatim-skipped` (warning).
 
 ## Board drawings
 

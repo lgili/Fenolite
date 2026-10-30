@@ -70,6 +70,9 @@ def test_closed_set() -> None:
         **PRESERVE_ISSUE_CODES,  # c0019
         **EDIT_ISSUE_CODES,  # c0250: the edit merge passes through
         **DRAWN_ISSUE_CODES,  # c0276: the drawn schematic
+        # c0277: verbatim items
+        "build.verbatim-item": "info", "build.verbatim-invalid": "error", "build.verbatim-head": "error",
+        "build.verbatim-layer": "error", "build.verbatim-net": "error",
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table
     assert {code: BUILD_ISSUE_CODES[code] for code in LOCK_CODES} == dict(LOCK_CODES)
@@ -80,6 +83,7 @@ def test_closed_set() -> None:
         kicad / "schlayout.py",
         ROOT / "src" / "fenolite" / "cli" / "cmd_build.py",
         ROOT / "src" / "fenolite" / "catalog" / "devices.py",  # c0248: device.edited
+        kicad / "verbatim.py",  # c0277: verbatim items
     ]
     for path in [*(ROOT / "src" / "fenolite" / "lens").glob("*.py"), *generator]:
         literals |= set(

@@ -39,7 +39,7 @@ def test_keys_not_order() -> None:
     assert set(KEYS) == {
         "design", "board", "outline", "rules", "manifest", "module", "component", "pin", "net", "netclass",
         "interface", "port", "layer", "zone", "rule", "stackup", "stack_layer", "area", "text", "graphic",
-        "dimension", "impedance", "slot", "group",
+        "dimension", "impedance", "slot", "group", "verbatim",
     }  # fmt: skip
 
 

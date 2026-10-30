@@ -53,6 +53,7 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.backends.kicad.stackup", "MERGE_ISSUE_CODES"),
     ("fenolite.backends.kicad.stackup", "READ_ISSUE_CODES"),
     ("fenolite.backends.kicad.stackup", "WRITE_ISSUE_CODES"),
+    ("fenolite.backends.kicad.verbatim", "ISSUE_CODES"),
     ("fenolite.backends.kicad.via_protection", "ISSUE_CODES"),
     ("fenolite.backends.kicad.via_protection", "WRITE_ISSUE_CODES"),
     ("fenolite.backends.kicad.wks", "ISSUE_CODES"),

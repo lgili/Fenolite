@@ -288,6 +288,16 @@ NOT_PLANNED = {"altium.not-lowered", "altium.pcbdoc-not-written"}
 """Without the PCB document the net class of the blink sample is reported as kept in the model only."""
 PCB_CASES: dict[str, tuple[dict[str, object], set[str]]] = {
     "blink": ({}, BLINK_CODES),
+    "blink-verbatim": (
+        # change c0277: a verbatim item is KiCad text the PCB document has no record for
+        {
+            "script": (
+                "u1.place(mm(14), mm(15), locked=True)",
+                'u1.place(mm(14), mm(15), locked=True)\ndesign.verbatim("art/qr", "(barcode (at 1 1))")',
+            )
+        },
+        BLINK_CODES | {"altium.verbatim-skipped", "altium.experimental"},
+    ),
     "blink-kept": (
         {"project_exists": True},
         BLINK_CODES | {"altium.project-kept", "altium.schlib-not-in-project", "altium.pcb-not-in-project"},
@@ -727,6 +737,7 @@ def test_the_table() -> None:
         "altium.schlib-generic": "info",
         "altium.schlib-not-in-project": "info",
         "altium.not-lowered": "info",
+        "altium.verbatim-skipped": "warning",
         "altium.project-kept": "info",
         "altium.footprint-extras-dropped": "info",
         "altium.pcbdoc-not-written": "info",

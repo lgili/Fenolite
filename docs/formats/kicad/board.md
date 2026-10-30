@@ -891,6 +891,9 @@ token inside opaque content.
 | A dimension's `units` codes are 0 inches, 1 mils, 2 millimetres and 3 automatic | S-0001, S-0058 (`tinytapeout-demo`) | INFERRED | H-K-DIM |
 | `board_only` follows the type atom of `attr` (`(attr through_hole board_only exclude_from_pos_files exclude_from_bom)`) | S-0058 (150 footprints) | INFERRED | H-K-PCB-WRITE |
 | A zone's `smoothing` and `radius` follow `thermal_bridge_width` in its `fill` | S-0058 (`CM5_MINIMA_3`) | INFERRED | H-K-PCB-WRITE |
+| A placement rule area holds `(placement (enabled yes) (sheetname "/CH1/"))` after its `keepout`; KiCad 9 writes `(placement (enabled no) (sheetname ""))` on a rule area that places nothing | S-0058 (`multichannel_mixer`, `CM5_MINIMA_3`) | INFERRED | H-K-PCB-WRITE |
+| A chamfered pad of a bottom footprint names its corners in the board's frame: brought back to the top side, a top corner is a bottom one (`top_left` ↔ `bottom_left`, `top_right` ↔ `bottom_right`), as the pad is mirrored about its local X axis | S-0058 (`RoyalBlue54L-Feather`, J1) | INFERRED | H-G-FLIP |
+| A `generated` tuning pattern names the tracks it made in `members`, by uuid, and is written after the groups | S-0058 (`CM5_MINIMA_3`, `One-Air-Max`) | INFERRED | H-K-VERBATIM |
 
 - **Free vias.** The reader keeps a read via's `free` in its slots; a created via of `Via.free` writes it,
   and a script via over a read one replaces the read child.

@@ -47,6 +47,7 @@ from fenolite.backends.kicad import generate as generate_mod
 from fenolite.backends.kicad import lengths as lengths_mod
 from fenolite.backends.kicad import meander as meander_mod
 from fenolite.backends.kicad import stackup as stacklib
+from fenolite.backends.kicad import verbatim as verbatimlib
 from fenolite.backends.kicad import via_protection as vialib
 from fenolite.backends.kicad.copper import CopperIntentLike, is_copper_uuid, resolve_copper
 from fenolite.backends.kicad.embed import (
@@ -164,6 +165,8 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         **edits_mod.EDIT_ISSUE_CODES,
         # the drawn schematic (c0276; the table of fenolite.model.drawn_connect.ISSUE_CODES)
         **drawn_connect.ISSUE_CODES,
+        # verbatim items (c0277; the table of fenolite.backends.kicad.verbatim.ISSUE_CODES)
+        **verbatimlib.ISSUE_CODES,
     }
 )
 BUILD_EVIDENCE = Evidence(
@@ -1656,6 +1659,8 @@ def build_design(
             )
         )
     issues += impedance_checks(target_design, target=target)
+    if target_design.board is not None and target_design.board.verbatim:
+        issues += verbatimlib.check(target_design.board, {net.name for net in target_design.circuit.nets})
     issues += list(target_design.validate())
     if any(i.severity == "error" for i in issues):
         return _refused(built, issues, libraries, prepared)

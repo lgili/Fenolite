@@ -46,7 +46,7 @@
 
 ## 4. Verbatim items and writers
 
-- [ ] 4.1 `dsl/verbatim.py` and the build rules (scenarios "Recorded, not parsed", "Barcode kept", "Refused heads", "Too new for target 9"). Proof: `uv run pytest tests/unit/dsl/test_verbatim.py tests/unit/lens/test_build_verbatim.py -q`.
+- [x] 4.1 `Design.verbatim`, `Part.verbatim` and the build rules (`backends/kicad/verbatim.py`; scenarios "Recorded, not parsed", "Barcode kept", "Refused heads", "Too new for target 9"), the rules-file target, the Altium report, and the import of root items no call says (board-to-code, "Verbatim items in an import"). Proof: `uv run pytest tests/unit/dsl/test_verbatim.py tests/unit/lens/test_build_verbatim.py tests/unit/importer/test_verbatim.py -q`.
 - [ ] 4.2 KiCad writer and inventory rows for every item (scenarios "Read back what was written", "Created coverage tokens are known"). Proof: `uv run pytest tests/unit/backends/kicad/test_pcb_write.py -k coverage -q`.
 - [ ] 4.3 Altium reports (scenario "Every item accounted for"). Proof: `uv run pytest tests/unit/cli/test_build_altium.py -k coverage -q`.
 - [ ] 4.4 The KiCad oracle for every item; register `H-K-COPPER-ART`, `H-K-PAD-SHAPES`, `H-K-TEARDROP`, `H-K-GROUP`, `H-K-IMAGE`, `H-K-DIM-KINDS`, `H-K-ZONE-ARC`, `H-K-FP-OVERRIDE`, `H-K-MODEL-REF` and `H-K-VERBATIM` (scenarios "Items on KiCad 10", "Items on KiCad 9"). Proof: `uv run pytest tests/kicad/board/test_coverage_items.py -rA` (in CI, both majors).
@@ -71,6 +71,7 @@ Each task makes one kind that `fenolite import --to python` leaves out (c0275, `
   vendored footprint) unless the writer leaves out the outline segments a footprint's `Edge.Cuts` covers;
   how KiCad 9 and 10 treat a doubled edge must be measured first (needs `kicad-cli`, CI).
 - [x] 6.10 Board items of the demo boards (board-to-code, "Board items in an import"): user layers (design-dsl, "User layers in the DSL"), copper graphics with their net, filled shapes without an outline, free vias (design-dsl, "Free vias in the DSL"), smoothed zones, dimensions in mils or automatic units, and the material of a silkscreen (`stack.silkscreen(material=)`). Proof: `uv run pytest tests/unit/importer/test_board_items.py tests/unit/dsl/test_user_layers.py tests/unit/dsl/test_board_coverage_items.py tests/unit/dsl/test_stackup_dsl.py -q`.
+- [x] 6.11 Placement rule areas (design-dsl, "Placement rule areas in the DSL"), area names with a slash, chamfered pads of bottom footprints, and pads of one number on two of KiCad's unconnected nets, for `multichannel`, `RoyalBlue54L-Feather` and `CM5_MINIMA_3`. Proof: `uv run pytest tests/unit/dsl/test_placement_areas.py tests/unit/backends/kicad/test_chamfer_flip.py tests/unit/importer/test_verbatim.py -q`.
 
 ## 5. Closing
 

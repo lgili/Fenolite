@@ -532,6 +532,10 @@ class Keepout(Entity):
     no_footprints: bool = False
     name: str = ""
     intent: MechanicalIntent | None = None
+    placement: str | None = None
+    """The sheet whose parts KiCad's multichannel tool places in the area (a placement rule area, KiCad 9 and
+    10), as KiCad names the sheet (``/CH1/``); change c0277. Left out of the canonical JSON when ``None``; a
+    KiCad reader keeps a read area's ``placement`` in its slots."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -624,6 +628,23 @@ class Group(Entity):
     locked: bool = False
 
 
+VerbatimTarget = Literal["kicad_pcb", "kicad_dru", "footprint"]
+"""Where a verbatim item goes: a child of the board root, a rule of the rules file, or a child of the
+footprint of ``VerbatimItem.component_id`` (change c0277)."""
+
+
+@dataclass(frozen=True, slots=True)
+class VerbatimItem(Entity):
+    """One item a script keeps as KiCad text (change c0277): ``design.verbatim()`` and ``part.verbatim()``.
+    The model does not parse ``text``; the KiCad build parses it, checks it and writes it with uuids of its
+    own (``backends/kicad/verbatim.py``)."""
+
+    key: str
+    text: str
+    target: VerbatimTarget = "kicad_pcb"
+    component_id: str | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class Board(Entity):
     """The board layer of a design (``board.json``)."""
@@ -648,6 +669,8 @@ class Board(Entity):
     groups: tuple[Group, ...] = ()
     """The groups a script declares (change c0277); a KiCad reader keeps the groups of a board in its
     slots and does not project them."""
+    verbatim: tuple[VerbatimItem, ...] = ()
+    """The verbatim items a script declares, in key order (change c0277)."""
 
 
 __all__ = [
@@ -669,6 +692,8 @@ __all__ = [
     "GraphicKind",
     "Group",
     "HatchBorder",
+    "VerbatimItem",
+    "VerbatimTarget",
     "Hole",
     "HoleShape",
     "IslandRemoval",

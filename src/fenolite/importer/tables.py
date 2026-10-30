@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad import teardrops as tdlib
+from fenolite.backends.kicad.copper import copper_uuid
 from fenolite.backends.kicad.sexpr import Node
 from fenolite.core.coords import Point
 from fenolite.importer.keys import segment
@@ -61,6 +62,10 @@ class Tables:
     left_out: Mapping[str, int] = field(default_factory=lambda: {})
     teardrops_lost: int = 0
     """Vias left out that hold teardrop settings: KiCad would not draw their teardrops again."""
+    built: Mapping[str, str] = field(default_factory=lambda: {})
+    """The KiCad uuid of each source track, arc and via a table holds → the uuid its row takes in a build
+    (``copper.copper_uuid`` of the table key and the row), so text that names copper by uuid (the
+    ``members`` of a ``generated`` item) can follow it (change c0277)."""
 
     def count(self, kind: str) -> int:
         return sum(len(table.rows) for table in self.tables if table.kind == kind)
@@ -198,7 +203,15 @@ def span_ok(kind: str, layers: tuple[str, ...], stack: tuple[str, ...]) -> bool:
 
 
 _ViaGroup = tuple[
-    list[Row], int, int, str, "tuple[str, str] | None", ViaProtection, bool, "Teardrop | None", bool
+    list[tuple[Row, str]],
+    int,
+    int,
+    str,
+    "tuple[str, str] | None",
+    ViaProtection,
+    bool,
+    "Teardrop | None",
+    bool,
 ]
 """The rows of one via table and its shared fields, the ``free`` flag last (change c0277)."""
 
@@ -209,7 +222,7 @@ def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
         layer.name for layer in sorted(board.layers, key=lambda la: la.ordinal) if layer.kind == "copper"
     )
     left: Counter[str] = Counter()
-    lines: dict[tuple[str, str], dict[tuple[int, int, bool], list[Row]]] = {}
+    lines: dict[tuple[str, str], dict[tuple[int, int, bool], list[tuple[Row, str]]]] = {}
     for track in board.tracks:
         net = net_names.get(track.net_id or "")
         if net is None:
@@ -219,7 +232,9 @@ def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
             left["zero-length-track"] += 1
             continue
         groups = lines.setdefault((net, track.layer), {})
-        groups.setdefault((0, track.width, track.locked), []).append((*_rel(track.start), *_rel(track.end)))
+        groups.setdefault((0, track.width, track.locked), []).append(
+            ((*_rel(track.start), *_rel(track.end)), track.native_ids.get("kicad", ""))
+        )
     for arc in board.arcs:
         net = net_names.get(arc.net_id or "")
         if net is None:
@@ -230,17 +245,24 @@ def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
             continue
         groups = lines.setdefault((net, arc.layer), {})
         groups.setdefault((1, arc.width, arc.locked), []).append(
-            (*_rel(arc.start), *_rel(arc.mid), *_rel(arc.end))
+            ((*_rel(arc.start), *_rel(arc.mid), *_rel(arc.end)), arc.native_ids.get("kicad", ""))
         )
     tables: list[Table] = []
+    built: dict[str, str] = {}
     for (net, layer), groups in lines.items():
-        for index, ((kind, width, locked), rows) in enumerate(sorted(groups.items()), start=1):
+        for index, ((kind, width, locked), held) in enumerate(sorted(groups.items()), start=1):
+            key = f"{segment(net)}/{segment(layer)}/{index}"
+            ordered = sorted(held)
+            stem = "seg" if kind == 0 else "arc"
+            built.update(
+                (uuid, copper_uuid(key, f"{stem}[{k}]")) for k, (_, uuid) in enumerate(ordered) if uuid
+            )
             tables.append(
                 Table(
                     "track" if kind == 0 else "arc",
-                    f"{segment(net)}/{segment(layer)}/{index}",
+                    key,
                     net,
-                    tuple(sorted(rows)),
+                    tuple(row for row, _ in ordered),
                     locked,
                     layer=layer,
                     width=width,
@@ -280,18 +302,21 @@ def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
                 teardrop,
                 free,
             )
-        held[group][0].append(_rel(via.position))
+        held[group][0].append((_rel(via.position), via.native_ids.get("kicad", "")))
     for net, groups in holes.items():
         ordered = sorted(groups.items(), key=lambda item: item[0])  # type: ignore[arg-type,return-value]
         for index, (_, (rows, diameter, drill, kind, span, protection, locked, teardrop, free)) in enumerate(
             ordered, start=1
         ):
+            key = f"{segment(net)}/via/{index}"
+            placed = sorted(rows)
+            built.update((uuid, copper_uuid(key, f"via[{k}]")) for k, (_, uuid) in enumerate(placed) if uuid)
             tables.append(
                 Table(
                     "via",
-                    f"{segment(net)}/via/{index}",
+                    key,
                     net,
-                    tuple(sorted(rows)),
+                    tuple(row for row, _ in placed),
                     locked,
                     diameter=diameter,
                     drill=drill,
@@ -302,7 +327,7 @@ def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
                     free=free,
                 )
             )
-    return Tables(tuple(sorted(tables, key=lambda t: t.key)), dict(sorted(left.items())), lost)
+    return Tables(tuple(sorted(tables, key=lambda t: t.key)), dict(sorted(left.items())), lost, built)
 
 
 __all__ = [

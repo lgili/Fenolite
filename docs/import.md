@@ -143,7 +143,7 @@ Never silently. The kinds today:
 | `dimension`, `dimension-style` | a dimension of a kind the DSL does not say (radial, leader, centre) or on a layer it does not take; an aligned or orthogonal one whose `format` or `style` holds what `design.dimension()` does not write (a prefix, a text position…) |
 | `stackup`, `title-block` | a stack-up row or a title-block field the DSL refuses (a silkscreen row with a dielectric constant or a loss tangent) |
 | `custom-rule` | a `.kicad_dru` rule whose selector the DSL cannot write (a layer leaf, an undeclared class) |
-| `zone-setting`, `zone-name`, `zone-layer`, `zone-outline`, `rule-area-name`, `rule-area-layer` | a zone hatch, a repeated zone name, a zone or area off the copper layers or without an outline, an area name the DSL refuses |
+| `zone-setting`, `zone-name`, `zone-layer`, `zone-outline`, `rule-area-name`, `rule-area-layer`, `rule-area-placement` | a zone hatch, a repeated zone name, a zone or area off the copper layers or without an outline, an area name the DSL refuses, a placement area that places by another source than a sheet |
 | `drawing`, `drawing-layer`, `text`, `text-layer` | a drawing the DSL calls refuse (a hidden text, a mirror that does not follow the layer side, a knockout off copper and silkscreen, a dashed stroke, a copper graphic on a net the code does not declare), or one on a layer they do not take |
 | `copper-without-net`, `zero-length-track`, `degenerate-arc`, `via-protection`, `via-span`, `copper-layer`, `copper-count` | copper no table holds |
 | `teardrop-setting` | a via's `teardrops` child the import cannot read: the via is written without it |
@@ -162,7 +162,14 @@ this list, and each item it makes expressible removes its row. Since its first p
 - **copper graphics** with their net (`net=`), and filled shapes without an outline (`width=None`);
 - **free vias** (`free=True` of their tables, which group vias by it), **smoothed zones**
   (`smoothing=`, `smoothing_radius=`), **dimensions in mils or automatic units** and the **material of a
-  silkscreen** in the stack-up.
+  silkscreen** in the stack-up;
+- **verbatim items**: every root item the reader keeps and no call says (a `generated` tuning pattern, an
+  image, a target, a barcode…) is `design.verbatim("<head>/<n>", "<its text>")`, a net named by its
+  number named by its name and the copper uuids of its `members` replaced by the uuids its tracks take in
+  their tables; one that names copper the code does not write is unexpressed by its head;
+- **placement rule areas** (`placement=`; a disabled one without a sheet is none, another is
+  `rule-area-placement`), **chamfered pads of a bottom footprint**, and pads of one number that KiCad put
+  on two `unconnected-(…)` nets, which the build names again.
 
 ## Self-check
 

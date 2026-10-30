@@ -44,9 +44,18 @@ PLACE_PREFIX = "kicad-place"
 MIRROR_HEADS: frozenset[str] = frozenset({"at", "start", "mid", "end", "center", "xy", "offset"})
 """Heads whose Y is negated on the bottom side; ``offset`` only under ``drill``."""
 FLIP_UNSUPPORTED: frozenset[str] = frozenset(
-    {"rect_delta", "chamfer", "dimension", "image", "fp_text_box", "table", "barcode"}
+    {"rect_delta", "dimension", "image", "fp_text_box", "table", "barcode"}
 )
-"""Heads with geometry the mirror table does not cover; refused on the bottom side."""
+"""Heads with geometry the mirror table does not cover; refused on the bottom side. A pad's ``chamfer``
+is mirrored by ``_flip_corners`` (change c0277)."""
+CHAMFER_MIRROR: dict[str, str] = {
+    "top_left": "bottom_left",
+    "bottom_left": "top_left",
+    "top_right": "bottom_right",
+    "bottom_right": "top_right",
+}
+"""The corner each chamfered corner of a pad becomes when the pad is mirrored about its local X axis, as
+the bottom side mirrors it (y negated, the pad angle negated)."""
 HEADER = frozenset({"version", "generator", "generator_version"})
 TEXT_HEADS = frozenset({"property", "fp_text"})
 FLIP_CODE = "kicad.board.flip-unsupported"
@@ -156,9 +165,21 @@ def _flip(tree: Node, issues: list[Issue]) -> Node:
         result = current.with_children(children)
         if current.name in TEXT_HEADS and result.find("layer") != current.find("layer"):
             result = _toggle_mirror(result)
+        if current.name == "chamfer":
+            result = _flip_corners(result)
         return result
 
     return visit(tree, f"/{tree.name}", "")
+
+
+def _flip_corners(chamfer: Node) -> Node:
+    """A pad's ``chamfer`` mirrored about the pad's local X axis: the top corners become the bottom ones, in
+    the order KiCad writes them (change c0277)."""
+    order = ("top_left", "top_right", "bottom_left", "bottom_right")
+    named = {CHAMFER_MIRROR.get(a.value, a.value) for a in chamfer.atoms()}
+    atoms = [Atom.symbol(name) for name in order if name in named]
+    atoms += [Atom.symbol(name) for name in sorted(named) if name not in order]
+    return chamfer.with_children(atoms)
 
 
 def _toggle_mirror(text: Node) -> Node:

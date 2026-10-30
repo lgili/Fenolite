@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Collection
 
+from fenolite.backends.kicad import verbatim as verbatimlib
 from fenolite.backends.kicad.lowering import lower_rules
 from fenolite.backends.kicad.pcb import write_board
 from fenolite.backends.kicad.pro import apply_sheet_keys, synthesize_project, update_project
@@ -52,6 +53,9 @@ def write_triad(
     rules = design.rules if design.rules is not None else RuleSet(id=derived_id("rst", "fenolite", "empty"))
     lowered = lower_rules(rules, target=target, allow_lossy=allow_lossy)
     found += lowered.issues
+    rules_text = verbatimlib.with_rules(
+        lowered.text, design.board, target, allow_lossy=allow_lossy, issues=found
+    )
     if existing_project is None:
         project = synthesize_project(
             design, target=target, board_name=name, allow_lossy=allow_lossy, issues=found
@@ -72,7 +76,7 @@ def write_triad(
     project = apply_profile_keys(project, design, target=target, issues=found)
     if issues is not None:
         issues.extend(found)
-    return {f"{name}.kicad_pcb": board.text, f"{name}.kicad_pro": project, f"{name}.kicad_dru": lowered.text}
+    return {f"{name}.kicad_pcb": board.text, f"{name}.kicad_pro": project, f"{name}.kicad_dru": rules_text}
 
 
 __all__ = ["TRIAD_SUFFIXES", "write_triad"]

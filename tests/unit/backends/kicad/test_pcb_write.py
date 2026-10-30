@@ -257,6 +257,16 @@ def test_created_tokens() -> None:
             vias=(via, *board.vias[1:]),
             texts=(*board.texts, styled),
             groups=(group,),  # a group of c0277
+            keepouts=(  # a placement rule area of c0277
+                *board.keepouts,
+                Keepout(
+                    id="kpo_00000000-0000-4000-8000-0000000000c9",
+                    outline=(mm(100, 100), mm(110, 100), mm(110, 110)),
+                    layers=("F.Cu",),
+                    name="ch1",
+                    placement="/CH1/",
+                ),
+            ),
         ),
     )
     written = {n.name for _, n in walk(parse(write_board(with_dimensions, target=9).text))}

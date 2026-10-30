@@ -48,6 +48,8 @@ from fenolite.model.board import (
     StackLayer,
     Stackup,
     Text,
+    VerbatimItem,
+    VerbatimTarget,
     Zone,
 )
 from fenolite.model.circuit import (
@@ -110,6 +112,7 @@ KEYS: Mapping[str, tuple[str, str]] = MappingProxyType(
         "graphic": ("gfx", "graphic:<drawing key>"),
         "dimension": ("dim", "dimension:<drawing key>"),
         "group": ("grp", "group:<key>"),
+        "verbatim": ("vbt", "verbatim:<key>"),
         "stackup": ("stk", "stackup"),
         "stack_layer": ("sly", "stack_layer:<k>"),
         "impedance": ("imp", "impedance:<target name>"),
@@ -543,6 +546,7 @@ def _design_model(design: Design) -> ModelDesign:
             title_block=design.block,
             via_protection=design.via_default[0] if design.via_default is not None else None,
             groups=_groups(design),
+            verbatim=_verbatim(design),
         ),
         rules=RuleSet(
             id=key_id("rules"),
@@ -563,6 +567,28 @@ SHEET_SUFFIX = ".kicad_wks"
 
 def _at(pair: tuple[int, int]) -> Point:
     return Point(BOARD_ORIGIN.x + pair[0], BOARD_ORIGIN.y + pair[1])
+
+
+def _verbatim(design: Design) -> tuple[VerbatimItem, ...]:
+    """One model item per ``verbatim()`` call of the design and of its parts, in key order (change c0277): a
+    part's item is keyed ``<part path>/<key>`` and targets its footprint."""
+    found: list[VerbatimItem] = [
+        VerbatimItem(id=key_id("verbatim", key), key=key, text=text, target=cast("VerbatimTarget", target))
+        for key, (text, target) in design.verbatim_items.items()
+    ]
+    for part in design.parts.values():
+        for key, text in part.verbatim_items.items():
+            full = f"{part.path}/{key}"
+            found.append(
+                VerbatimItem(
+                    id=key_id("verbatim", full),
+                    key=full,
+                    text=text,
+                    target="footprint",
+                    component_id=key_id("component", part.path),
+                )
+            )
+    return tuple(sorted(found, key=lambda item: item.key))
 
 
 def _user_layers(design: Design) -> tuple[Layer, ...]:
@@ -595,6 +621,8 @@ def _groups(design: Design) -> tuple[Group, ...]:
             return key_id("zone", member)
         if member in design.rule_areas:
             return key_id("area", member)
+        if member in design.verbatim_items:
+            return key_id("verbatim", member)
         return key_id("group", member)
 
     return tuple(
@@ -621,6 +649,7 @@ def _keepouts(design: Design) -> tuple[Keepout, ...]:
             no_pads="pads" in area.forbid,
             no_copper_pour="pours" in area.forbid,
             no_footprints="footprints" in area.forbid,
+            placement=area.placement,
         )
         for name, area in sorted(design.rule_areas.items())
     )

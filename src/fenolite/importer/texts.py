@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad.sexpr import AtomKind, Node
 from fenolite.model.base import Opaque
-from fenolite.model.board import Dimension, Graphic, Text
+from fenolite.model.board import Dimension, Graphic, Keepout, Text
 
 FONT_KEPT = frozenset({"size", "thickness"})
 """Font children the reader projects into the model."""
@@ -195,6 +195,31 @@ def _plain_stroke(stroke: Node) -> bool:
     return not stroke.atoms()
 
 
+def area_placement(area: Keepout) -> str | None:
+    """The sheet of a placement rule area from its slots (change c0277): ``""`` for an area without a
+    ``placement``, ``None`` for one ``design.rule_area()`` cannot say (disabled, or placing by another
+    source than a sheet)."""
+    bag = area.ext.get("kicad")
+    for slot in slotlib.from_ext(bag) if bag is not None else ():
+        if not isinstance(slot, Opaque):
+            continue
+        child = slotlib.opaque_child(slot)
+        if not isinstance(child, Node) or child.name != "placement":
+            continue
+        enabled = child.find("enabled")
+        sheet = child.find("sheetname")
+        heads = sorted(c.name for c in child.nodes())
+        if heads != ["enabled", "sheetname"] or enabled is None or sheet is None:
+            return None
+        if len(sheet.atoms()) != 1 or [a.value for a in enabled.atoms()] not in (["yes"], ["no"]):
+            return None
+        if [a.value for a in enabled.atoms()] == ["no"]:
+            # KiCad 9 writes a disabled placement on every rule area: no placement (change c0277)
+            return "" if not sheet.atoms()[0].value else None
+        return sheet.atoms()[0].value
+    return ""
+
+
 NO_NET = ""
 """What ``graphic_net`` gives for a graphic without a net."""
 
@@ -228,4 +253,12 @@ def graphic_net(graphic: Graphic, numbers: Mapping[int, str]) -> str | None:
     return found
 
 
-__all__ = ["NO_NET", "DimensionStyle", "TextStyle", "dimension_style", "graphic_net", "text_style"]
+__all__ = [
+    "NO_NET",
+    "area_placement",
+    "DimensionStyle",
+    "TextStyle",
+    "dimension_style",
+    "graphic_net",
+    "text_style",
+]

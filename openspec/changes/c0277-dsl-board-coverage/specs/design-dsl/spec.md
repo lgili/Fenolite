@@ -80,6 +80,13 @@
 - **WHEN** the blink with `design.via("fv", …, free=True)` and `design.via_table("ft", …, free=True)` is built for targets 9 and 10
 - **THEN** both vias hold `(free yes)` right after `layers` and before `net`
 
+### Requirement: Placement rule areas in the DSL
+`Design.rule_area(..., placement=None)` SHALL take the sheet a placement rule area of KiCad's multichannel tool places, as KiCad names it (`"/CH1/"`; change c0277): the model `Keepout.placement` holds it (left out of the canonical JSON when `None`) and the KiCad writer SHALL write `(placement (enabled yes) (sheetname …))` after the area's `keepout`. A rule-area name MAY hold a slash. An empty or unprintable `placement` MUST raise `DslError`.
+
+#### Scenario: An automatic placement area
+- **WHEN** the blink with `design.rule_area("auto-placement-area-/CH1/", …, placement="/CH1/")` is built for targets 9 and 10
+- **THEN** the area's zone holds `(placement (enabled yes) (sheetname "/CH1/"))` right after its `keepout`
+
 ### Requirement: Images in the DSL
 `Design.image(key, file, at, *, layer="F.SilkS", scale="1")` SHALL declare one board image of the PNG `file`, a path relative to the script folder, which the build reads. `scale` MUST be a positive decimal string. A missing file MUST give `build.image-missing` and a file that is not a PNG `build.image-format` (both errors); the file is a declared input of the build.
 

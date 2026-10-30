@@ -236,6 +236,30 @@ def itemized(tmp: Path) -> Path:
     return _variant(tmp, "itemized", body[:-1] + ITEMS + ")\n")
 
 
+def tuned(tmp: Path) -> Path:
+    """The board with a ``generated`` tuning pattern over its first track, in a group, and a placement rule
+    area of the multichannel tool (change c0277)."""
+    text = BOARD.read_text(encoding="utf-8")
+    track = re.search(r'\(segment\b[^()]*(?:\([^()]*\)\s*)*?\(uuid "([0-9a-f-]+)"\)', text)
+    assert track is not None
+    items = (
+        '\t(generated (uuid "0e0e0e0e-0000-4000-8000-000000000061") (type tuning_pattern)'
+        ' (name "Tuning Pattern") (layer "B.Cu") (base_line (pts (xy 110 133) (xy 112 134)))'
+        f' (target_length 1000000) (members "{track.group(1)}"))\n'
+        '\t(group "tuned" (uuid "0e0e0e0e-0000-4000-8000-000000000062")'
+        ' (members "0e0e0e0e-0000-4000-8000-000000000061"))\n'
+        '\t(zone (net 0) (net_name "") (layers "F.Cu") (uuid "0e0e0e0e-0000-4000-8000-000000000063")'
+        ' (name "auto-placement-area-/CH1/") (hatch edge 0.5) (connect_pads (clearance 0))'
+        " (min_thickness 0.25)"
+        " (keepout (tracks allowed) (vias allowed) (pads allowed) (copperpour allowed) (footprints allowed))"
+        ' (placement (enabled yes) (sheetname "/CH1/")) (fill (thermal_gap 0.5) (thermal_bridge_width 0.5))'
+        " (polygon (pts (xy 100 140) (xy 110 140) (xy 110 150) (xy 100 150))))\n"
+    )
+    body = text.rstrip()
+    assert body.endswith(")")
+    return _variant(tmp, "tuned", body[:-1] + items + ")\n")
+
+
 def built_for(tmp: Path, major: int) -> Path:
     """The authored two-sheet board built from its script for KiCad ``major`` in ``tmp``."""
     work = tmp / "data" / "src"

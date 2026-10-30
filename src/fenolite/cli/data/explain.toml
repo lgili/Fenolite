@@ -129,6 +129,11 @@ meaning = "fenolite build --frozen found that the design lock would change: a ne
 fix = "Build without --frozen, review result.lock.changes and the planned lock, commit the lock, then build frozen again."
 see = "build"
 
+["altium.verbatim-skipped"]
+meaning = "The script keeps an item as KiCad text (a verbatim item), which the PCB document has no record for; the Altium build does not write it."
+fix = "Nothing to fix for a KiCad item. Build for KiCad to keep it, or say it with a DSL call the Altium writer lowers."
+see = "Build target"
+
 ["altium.bus-flattened"]
 meaning = "A bus of the design is drawn as its nets: its nets are not one stem followed by consecutive integers, or one of them is a power net, a harness net or a net of another bus."
 fix = "Nothing to do; name the nets <stem><n> with consecutive integers to have the bus drawn as a bus."
@@ -993,6 +998,31 @@ see = "bom"
 meaning = "A column of the BOM template names a property that no part of the design has, so the column is empty."
 fix = "Check the spelling of the property in the template, or add the property to the parts in the design script."
 see = "bom"
+
+["build.verbatim-item"]
+meaning = "The script keeps an item as KiCad text (design.verbatim or part.verbatim). The build writes it as given, with uuids of its own derived from its key, and its nets in the form of the target."
+fix = "Nothing to fix. Prefer the DSL call that says the item when there is one: a verbatim item is the last resort."
+see = "build"
+
+["build.verbatim-invalid"]
+meaning = "A verbatim item's text is not one KiCad list, so the build cannot write it."
+fix = "Write one list, such as (barcode (at 10 10) (layer \"F.SilkS\") ...), with balanced parentheses."
+see = "build"
+
+["build.verbatim-head"]
+meaning = "A verbatim item's head is one Fenolite writes itself (the file's header, a footprint, a track, a zone, a drawing, a group), or a rules-file item is not a (rule ...)."
+fix = "Use the DSL call that says the item, or keep another head in the verbatim item."
+see = "build"
+
+["build.verbatim-layer"]
+meaning = "A verbatim item names a layer the board's layer table does not hold."
+fix = "Name a layer of the board, or declare it (design.user_layers for User.<n>)."
+see = "build"
+
+["build.verbatim-net"]
+meaning = "A verbatim item names a net the design does not hold, or names one by its number."
+fix = "Name a net of the design by its name: (net \"GND\"). The build writes the target's form."
+see = "build"
 
 ["build.area-unknown"]
 meaning = "A rule selects a rule area by name (select.area) and the board that the build is about to write holds no rule area of that name. KiCad would load the rule and apply it to nothing."

@@ -325,6 +325,12 @@ def _check_editable(slots: Sequence[Slot]) -> None:
         require_editable(FormatInfo(kind, newest, major_for(kind, newest), classify(kind, newest)))
 
 
+def gate_rule(text: str, target: int) -> tuple[list[Issue], list[Issue], list[Issue]]:
+    """``(droppable errors, other errors, warnings)`` of one rule written as text for ``target``: the gate
+    of a preserved rule, which a verbatim rule of a script also passes (change c0277)."""
+    return _gate(text, target)
+
+
 def _gate(text: str, target: int) -> tuple[list[Issue], list[Issue], list[Issue]]:
     """``(droppable errors, other errors, warnings)`` of one preserved rule for ``target``."""
     try:
@@ -554,6 +560,7 @@ __all__ = [
     "RulesDocument",
     "RulesItem",
     "RulesLossError",
+    "gate_rule",
     "RulesSelfCheckError",
     "VersionItem",
     "parse_rules",

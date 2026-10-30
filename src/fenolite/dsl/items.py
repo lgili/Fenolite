@@ -22,7 +22,7 @@ from fenolite.dsl.part import FIELD_JUSTIFY
 from fenolite.dsl.units import as_nm, as_udeg
 from fenolite.model.board import DimensionDirection, DimensionKind, DimensionUnits, GraphicKind, LayerKind
 
-AREA_NAME = re.compile(r"^[A-Za-z0-9_.+-]+$")
+AREA_NAME = re.compile(r"^[A-Za-z0-9_.+/-]+$")
 AREA_KEY = re.compile(r"^[A-Za-z0-9_.+-]+(/[A-Za-z0-9_.+-]+)*$")
 """The key of a rule area or a zone (change c0275), the alphabet of copper keys."""
 """A rule-area name: no character a rules condition would have to escape, and no ``*``."""
@@ -93,6 +93,8 @@ class RuleArea:
     forbid: tuple[str, ...]
     key: str = ""
     """The area's identity across builds (change c0275): ``key=`` of the call, else the name."""
+    placement: str | None = None
+    """The KiCad sheet whose parts the multichannel tool places in the area (change c0277)."""
 
     def __post_init__(self) -> None:
         if not self.key:

@@ -461,6 +461,7 @@ The copper codes of the Altium build:
 | `altium.copper-stack` | error | the board's copper layers are not `F.Cu`, `B.Cu` or `F.Cu`, `In1.Cu`, `In2.Cu`, `B.Cu`, their count differs from `copper`, or a plane names a layer that is not an inner layer or a net the design does not hold |
 | `altium.copper-layer` | error | a track, arc, via or zone names a layer outside the board's copper layers |
 | `altium.via-unsupported` | error | a via is blind, buried or micro, or does not span the top and the bottom layer |
+| `altium.verbatim-skipped` | warning | a verbatim item, KiCad text that the PCB document has no record for, is not written (change c0277) |
 | `altium.zone-unsupported` | error | a zone has fewer than three outline points, or names no layer |
 | `altium.copper-invalid` | error | a track of zero length, a width of 0 or less, a drill not below its diameter, or a net id that names no net |
 | `altium.plane-copper` | error | a track or arc lies on a plane layer, or a zone on a plane layer has another net than the plane |
@@ -490,6 +491,8 @@ A build for the KiCad target also checks the blocks of the design (`docs/dsl.md`
 |---|---|---|
 | `build.port-unused` | warning | a port of a block instance that is not `optional` has nothing outside the block on its members; `where` is `<block path>/<port>` |
 | `build.block-net-escape` | warning | a script-named net joins pins inside and outside a block instance without a port of that block; `where` is `<block path>:<net>`, the hint "declare a port" |
+| `build.verbatim-item` | info | one per verbatim item the build writes as given (change c0277); `where` is its key |
+| `build.verbatim-invalid`, `build.verbatim-head`, `build.verbatim-layer`, `build.verbatim-net` | error | a verbatim item that is not one KiCad list, whose head Fenolite writes itself (or, for the rules file, is not `rule`), that names a layer the board does not hold or a net the design does not hold (change c0277) |
 
 A build for either target applies the catalog's default pin-to-pad map (change c0147,
 `docs/catalog/sources.md`) and reports each part it applies it to:

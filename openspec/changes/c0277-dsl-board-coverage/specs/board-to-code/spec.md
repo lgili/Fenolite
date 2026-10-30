@@ -53,6 +53,14 @@ The import SHALL write (change c0277): `design.user_layers()` up to the highest 
 - **WHEN** it is imported with `--confirm` and built
 - **THEN** `result.unexpressed` is empty, the code holds each call, and the built board holds the user layers, `(net "GND")` on the rectangle, `(width -0.000001)`, `(units 3)` and one free via at (110, 133)
 
+### Requirement: Verbatim items in an import
+The import SHALL write each root item the reader keeps and no DSL call says, whose head a verbatim item may take, as `design.verbatim("<head>/<n>", <its text>)`, keyed in file order (change c0277): a net named by its number named by its name through the source net table, and each copper uuid of a `members` list replaced by the uuid its track, arc or via takes in its table. An item that names copper the code does not write, or a net the table lacks, MUST be unexpressed by its head. A group of the board MAY hold a verbatim item by its key. The import SHALL also write a placement rule area with `placement=` (a disabled placement without a sheet being none, another placement `rule-area-placement`), the chamfered pads of a bottom footprint, and pads of one number that KiCad put on two `unconnected-(…)` nets.
+
+#### Scenario: A tuning pattern in a group
+- **GIVEN** the two-sheet board with a `generated` tuning pattern over its first track, a group `tuned` holding it, and a placement area of `/CH1/` (`tests/_importcode.py::tuned`)
+- **WHEN** it is imported with `--confirm` and built
+- **THEN** `result.unexpressed` is empty, `design.py` holds `design.verbatim("generated/1", …)`, `design.group("tuned", "generated/1")` and `placement="/CH1/"`, and the built board's `generated` names a track of the board in `members`, inside the group `tuned`
+
 ### Requirement: Texts and dimensions in an import
 The import SHALL write a board text on a layer the DSL takes, a copper layer included, as `design.text()` with the style the reader keeps in the text's slots (`knockout`, `bold`, `italic`, `face`), a size of two values as a `(width, height)` pair, several lines and an empty text as they are. A text whose slots hold what `design.text()` cannot say (a hidden text, a mirror that does not follow the layer side) MUST be the unexpressed kind `text`. An aligned or orthogonal dimension on a layer the DSL takes SHALL be written as `design.dimension()` when its `format` and `style` hold the values a created dimension writes, but its line width and its extension offset (`extension_offset=`); another one MUST be `dimension-style`, and a dimension of another kind stays `dimension`.
 

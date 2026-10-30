@@ -152,6 +152,12 @@
       "items": {
         "$ref": "#/$defs/Group"
       }
+    },
+    "verbatim": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VerbatimItem"
+      }
     }
   },
   "additionalProperties": false,
@@ -970,6 +976,16 @@
           "anyOf": [
             {
               "$ref": "#/$defs/MechanicalIntent"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "placement": {
+          "anyOf": [
+            {
+              "type": "string"
             },
             {
               "type": "null"
@@ -2001,6 +2017,67 @@
         "end",
         "width",
         "layer"
+      ]
+    },
+    "VerbatimItem": {
+      "description": "One item a script keeps as KiCad text (change c0277): ``design.verbatim()`` and ``part.verbatim()``.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "key": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "target": {
+          "enum": [
+            "kicad_pcb",
+            "kicad_dru",
+            "footprint"
+          ]
+        },
+        "component_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "key",
+        "text"
       ]
     },
     "Via": {

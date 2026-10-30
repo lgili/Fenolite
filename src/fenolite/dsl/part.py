@@ -387,6 +387,8 @@ class Part(Edges):
                 raise DslError(f"part {ref}: height must be above 0")
         if not isinstance(dnp, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part {ref}: dnp must be a bool, not {dnp!r}")
+        self.verbatim_items: dict[str, str] = {}
+        """The text of each ``verbatim()`` call of this part by key, in call order (change c0277)."""
         self.dnp = dnp
         """The part is not populated (change c0277): its symbol is marked, and its footprint takes the
         ``dnp`` attribute."""
@@ -408,6 +410,20 @@ class Part(Edges):
         then checks that its symbol has exactly two pins (``build.not-two-terminal``; change c0247)."""
         self.unused_request: frozenset[str] | None = None
         """The ``keep`` designators of ``unused_no_connect()``, as written; ``None`` without a request."""
+
+    def verbatim(self, key: str, text: str) -> None:
+        """One child of this part's footprint kept as KiCad text (change c0277); the DSL does not parse it.
+        The build checks it and writes it in the placed footprint (``docs/dsl.md``, "Verbatim items")."""
+        from fenolite.dsl.items import DRAWING_KEY
+
+        what = f"part {self.label}: verbatim {key!r}"
+        if not isinstance(key, str) or not DRAWING_KEY.fullmatch(key):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: the key must match {DRAWING_KEY.pattern}")
+        if key in self.verbatim_items:
+            raise DslError(f"{what}: the key is already used")
+        if not isinstance(text, str) or not text.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: text must be a non-empty string, not {text!r}")
+        self.verbatim_items[key] = text
 
     @property
     def ref(self) -> str | None:

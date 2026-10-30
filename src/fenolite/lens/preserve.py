@@ -1387,6 +1387,7 @@ def merge_layout(
         graphics=(*items.graphics, *scripted["graphics"]),
         dimensions=(*items.dimensions, *scripted["dimensions"]),
         groups=built.board.groups,
+        verbatim=built.board.verbatim,
     )
     nets = tuple(
         dataclasses.replace(net, members=tuple(sorted({*net.members, *extra_members.get(net.id, [])})))

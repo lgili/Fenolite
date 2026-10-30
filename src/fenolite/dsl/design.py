@@ -685,6 +685,8 @@ class Design(Container):
         ``polygon()`` and ``dimension()``, in call order."""
         self.groups: dict[str, itemlib.GroupSpec] = {}
         """The groups of ``group()`` by key, in call order (change c0277)."""
+        self.verbatim_items: dict[str, tuple[str, str]] = {}
+        """The text and target of each ``verbatim()`` call by key, in call order (change c0277)."""
         self.user_layer_count = 0
         """The user layers ``user_layers()`` declares, ``User.1`` … ``User.<count>`` (change c0277)."""
         self.user_layer_aliases: dict[str, str] = {}
@@ -1552,6 +1554,7 @@ class Design(Container):
         layers: Sequence[str] | None = None,
         forbid: Sequence[str] = (),
         key: str | None = None,
+        placement: str | None = None,
     ) -> itemlib.RuleArea:
         """One rule area named ``name``: a polygon of at least three ``(x, y)`` points in the frame of
         ``place()``, on ``layers`` (every copper layer of the board when ``None``).
@@ -1561,7 +1564,8 @@ class Design(Container):
         With an empty ``forbid`` it is a named area that only rules select (``select.area``). This is the
         one call for rule areas and keep-outs. Names differ in more than letter case. ``key`` (change
         c0275) is the area's identity across builds, written nowhere in the board; with a key the name may
-        be ``""``, an area that no ``select.area`` matches.
+        be ``""``, an area that no ``select.area`` matches. ``placement`` (change c0277) makes it a placement
+        rule area of KiCad's multichannel tool for the sheet it names, as KiCad names it (``"/CH1/"``).
         """
         if self.outline_path is None:
             raise DslError("rule_area(): call board() first")
@@ -1569,6 +1573,12 @@ class Design(Container):
             name, outline, layers, forbid, copper=self.copper_layers, key=key, keys=tuple(self.rule_areas),
             taken=tuple(a.name for a in self.rule_areas.values() if a.name),
         )  # fmt: skip
+        if placement is not None:
+            if not isinstance(placement, str) or not placement or not placement.isprintable():  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(
+                    f"rule_area(): placement must be a sheet name such as '/CH1/', not {placement!r}"
+                )
+            area = dataclasses.replace(area, placement=placement)
         self.rule_areas[area.key] = area
         return area
 
@@ -1762,6 +1772,22 @@ class Design(Container):
         )  # fmt: skip
         self.drawings[found.key] = found
 
+    def verbatim(self, key: str, text: str, *, target: str = "kicad_pcb") -> None:
+        """One item kept as KiCad text (change c0277): a child of the board root (``target="kicad_pcb"``) or a
+        rule of the rules file (``"kicad_dru"``). The DSL does not parse ``text``; the build checks it and
+        gives its uuids of its own (``docs/dsl.md``, "Verbatim items"). It is the last resort for what no
+        call says."""
+        what = f"verbatim {key!r}"
+        if not isinstance(key, str) or not itemlib.DRAWING_KEY.fullmatch(key):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: the key must match {itemlib.DRAWING_KEY.pattern}")
+        if key in self.verbatim_items:
+            raise DslError(f"{what}: the key is already used")
+        if not isinstance(text, str) or not text.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: text must be a non-empty string, not {text!r}")
+        if target not in ("kicad_pcb", "kicad_dru"):
+            raise DslError(f"{what}: target must be 'kicad_pcb' or 'kicad_dru', not {target!r}")
+        self.verbatim_items[key] = (text, target)
+
     @property
     def user_layer_names(self) -> tuple[str, ...]:
         """The names of the declared user layers, ``User.1`` first (change c0277)."""
@@ -1815,7 +1841,13 @@ class Design(Container):
                 kinds = (
                     [
                         held
-                        for held in (self.drawings, self.zones, self.rule_areas, self.groups)
+                        for held in (
+                            self.drawings,
+                            self.zones,
+                            self.rule_areas,
+                            self.groups,
+                            self.verbatim_items,
+                        )
                         if member in held
                     ]
                     if isinstance(member, str)

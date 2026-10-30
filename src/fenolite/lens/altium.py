@@ -140,6 +140,7 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.schlib-generic": "info",
         "altium.schlib-not-in-project": "info",
         "altium.not-lowered": "info",
+        "altium.verbatim-skipped": "warning",
         "altium.project-kept": "info",
         "altium.footprint-extras-dropped": "info",
         "altium.pcbdoc-not-written": "info",
