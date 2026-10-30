@@ -1,13 +1,12 @@
 ---
 topic: footprints
 title: Footprints and symbols written in the script
-summary: Footprint and Symbol from dimensions or pin tables, library records and orderable parts, and what a person must still check against the datasheet.
+summary: Author footprints, symbols and library records; obtain library items and check datasheets.
 ---
 
 # Footprints and symbols written in the script
 
-When neither the catalog nor a KiCad library has a part, a script can declare its footprint and its
-symbol from dimensions. The build writes both into the project's own libraries.
+Declare missing footprints and symbols in the script. The build writes project libraries.
 
 ## A script with one authored part
 
@@ -83,10 +82,7 @@ j1.place(mm(6), mm(10), rot=90)
 
 ## Symbols from pin tables
 
-A pin table (`fenolite.pins.v0`, TOML) lists each pin's `number`, `name` and `type`; the generator draws
-the symbol: supply on top, ground at the bottom, inputs left, outputs right, every pin on the 2.54 mm
-grid, units above 100 pins. `stacked` adds a hidden pin per further pad; `[[variant]]` rows give derived
-symbols.
+A pin table (`fenolite.pins.v0`, TOML) lists each pin's `number`, `name` and `type`; the generator draws the symbol: supply on top, ground at the bottom, inputs left, outputs right, every pin on the 2.54 mm grid, units above 100 pins. `stacked` adds a hidden pin per further pad; `[[variant]]` rows give derived symbols.
 
 ```fenolite-design
 from fenolite.catalog.pins import parse_pins
@@ -131,8 +127,7 @@ u1.place(mm(10), mm(8))
 
 ## Footprints from package records
 
-A package record (`fenolite.package.v0`) gives a package's dimensions as ranges with their source; the
-generator of its `family` draws pads, courtyard, silkscreen and 3D bodies (`docs/footprint-generators.md`).
+A package record (`fenolite.package.v0`) gives a package's dimensions as ranges with their source; the generator of its `family` draws pads, courtyard, silkscreen and 3D bodies (`docs/footprint-generators.md`).
 
 ```fenolite-design
 from fenolite.dsl import Design, Footprint, Part, mm
@@ -167,9 +162,7 @@ design.add(Part("R1", "Fenolite:Resistor", footprint=chip.lib_id, value="1k"))
 
 ## What a person still checks
 
-Geometry written from a datasheet is `INFERRED`: nobody has compared it with the real part, and no
-check of Fenolite or of KiCad can. Before boards are ordered, a person compares, with the datasheet of
-the exact part number:
+Geometry written from a datasheet is `INFERRED`: nobody has compared it with the real part, and no check of Fenolite or of KiCad can. Before boards are ordered, a person compares, with the datasheet of the exact part number:
 
 - the pad positions, sizes and numbering, seen from the top, and which pad is pin 1;
 - drill sizes with the plating, for the lead's largest diameter;
@@ -177,8 +170,7 @@ the exact part number:
 - the solder paste and mask openings, when the manufacturer asks for other than the default;
 - the symbol's pin numbers against the pinout of that package, not of another package of the family.
 
-`fenolite catalog show` gives the same warning for every catalog footprint: its evidence is `INFERRED`.
-Say so when you report a board that uses authored or catalog geometry.
+`fenolite catalog show` gives the same warning for every catalog footprint: its evidence is `INFERRED`. Say so when you report a board that uses authored or catalog geometry.
 
 ## When to author and when not
 
@@ -193,16 +185,11 @@ fenolite library blink/build --diff lib/Mini.pretty --json
 fenolite library blink/build --out board.pretty --confirm --json
 ```
 
-A footprint edited on the board (silkscreen clipped, a pad moved) drifts from its library. `--diff`
-names each footprint that differs and the kinds (`pads`, `silkscreen`, `courtyard`, `models`, `fields`,
-`missing`), exits 5 on drift and writes nothing. `--out` writes each footprint back at its origin,
-rotation 0 and top side; a second instance that differs becomes `<name>_2` (`library.instances-differ`).
+`--diff` reports board footprints that differ from the library and the kinds (`pads`, `silkscreen`, `courtyard`, `models`, `fields`, `missing`), exits 5 on drift and writes nothing. `--out` writes each footprint back at its origin, rotation 0 and top side; a second instance that differs becomes `<name>_2` (`library.instances-differ`).
 
 ## Library records and orderable parts
 
-A record of your own is a TOML file under `devices/` beside the script: `pins`, `package`, `device` or
-`part`. Each opens with a header: `schema`, `id`, `version`, `summary`, `licence`, `evidence`, `sources`
-(`docs/library-records.md`). An orderable part is `<device id>@<mpn>`.
+A record of your own is a TOML file under `devices/` beside the script: `pins`, `package`, `device` or `part`. Each opens with a header: `schema`, `id`, `version`, `summary`, `licence`, `evidence`, `sources` (`docs/library-records.md`). An orderable part is `<device id>@<mpn>`.
 
 ```fenolite-design
 from fenolite.catalog.records import parse_record
@@ -229,6 +216,32 @@ design.devices(parse_record(REG))
 design.part("U1", device="Proj:REG@REG100DR").place(mm(10), mm(5))  # MPN REG100DR
 ```
 
-Nothing is connected, so `fenolite check` reports `kicad.erc.pin-not-connected` for both pins of `U1`.
+`check` reports `kicad.erc.pin-not-connected` for both unconnected pins of `U1`.
+
+## Items from fenolite-library
+
+`fenolite-library` holds items with individual licences. `get` copies an item and its dependencies to `fenolite_library/`, keeps `LICENSE`, `NOTICE`, `PROVENANCE.json`, writes `ATTRIBUTION.md` and pins the lock. It never runs a payload.
+
+```fenolite-cmd
+fenolite get --search buck --licence cc0 --json
+fenolite get device Demo:EXB --from release --dry-run --json
+fenolite get footprint Demo:SA_PAD --from release --accept-licence CC-BY-SA-4.0 --confirm --json
+fenolite get board demo-src/blink --into blink --accept-licence CERN-OHL-S-2.0 --dry-run --json
+fenolite get --locked design.py --offline --dry-run --json
+fenolite get --status --json
+```
+
+- Read `result.licences` before confirming: an id other than `CC0-1.0` must be named in
+  `--accept-licence` (`FEN-4003`). A `reciprocal` item brings share-alike terms with it; tell the user.
+- A download happens only with `--confirm`; `--offline` uses the cache. A build whose pinned folder is
+  missing exits 6 (`FEN-6004`): restore it with `get --locked`.
+- The library's own CI runs `library audit`, `replay`, `release` and `gallery`:
+
+  ```fenolite-cmd
+  fenolite library audit . --json
+  fenolite library release . --version 1.0.0 --out dist --dry-run --json
+  fenolite library gallery . --release dist --out site --dry-run --json
+  fenolite library replay boards/cc-by-sa/kicad-demos/ecc83 --upstream upstream --json
+  ```
 
 Read next: `parts`, `placement`, `checks`.

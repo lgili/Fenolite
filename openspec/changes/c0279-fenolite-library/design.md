@@ -367,7 +367,7 @@ fenolite get --remove device FenoliteDevices:EXB6202 --script design.py --dry-ru
   `FEN-4003`, lists the missing ids and writes nothing. The accepted ids are echoed in the receipt.
 - **The client checks licences too.** An item whose `spdx` is not in the shipped
   `library-licences.toml`, whose index row and `PROVENANCE.json` disagree, or that lacks `LICENSE` or
-  `NOTICE`, is refused with `FEN-3008` (exit 3).
+  `NOTICE`, is refused with `FEN-3021` (exit 3).
 - **Update.** A request for a vendored item at another version replaces its folder. `result.items[]` then
   shows `before` and `after`. A folder whose tree differs from its pin (a local edit) is refused with
   `FEN-7001` (`library.item-modified`) unless `--allow-lossy` is given.
@@ -482,7 +482,7 @@ version = "1.2.0"
 | `library.item-missing` | error → exit 6 `FEN-6004` | a lock entry's folder is missing (build, `--status`) |
 | `library.item-modified` | error → exit 7 `FEN-7001` without `--allow-lossy` | an update or remove meets a locally edited folder |
 | `library.depends-conflict` | error → exit 5 | the closure needs another version of a vendored item |
-| `library.licence-denied` | error (audit) / exit 3 `FEN-3008` (get) | an SPDX id outside the allow-list, or a denied origin |
+| `library.licence-denied` | error (audit) / exit 3 `FEN-3021` (get) | an SPDX id outside the allow-list, or a denied origin |
 | `library.licence-text` | error | `LICENSE` does not match its id and has no `licence_review` |
 | `library.notice-missing` | error | `NOTICE` absent or without the dated modification notice |
 | `library.provenance-invalid` | error | `PROVENANCE.json` fails its schema or disagrees with `item.json` |
@@ -495,7 +495,7 @@ version = "1.2.0"
 | `FEN-6004` | exit 6, not retryable | "a library item pinned by the design lock is missing"; hint names `get --locked` |
 | `FEN-6006` | exit 6, not retryable | "the library index or asset is not in the offline cache" |
 | `FEN-4003` | exit 4 | "the item licences must be accepted by name"; hint names `--accept-licence` |
-| `FEN-3008` | exit 3 | "the item's licence is not allowed or its licence files are missing" |
+| `FEN-3021` | exit 3 | "the item's licence is not allowed or its licence files are missing" |
 | `FEN-3006` | exit 3 | existing: index, archive or tree digest mismatch |
 | `FEN-6003` | exit 6, retryable | existing: download failed |
 
@@ -534,16 +534,22 @@ version = "1.2.0"
 1. *Repository name and owner.* Decided: `lgili/fenolite-library`.
 2. *Licence of the repository's own files.* Recommended: CC0-1.0, with the README stating that items keep
    their own licences.
+   Decided 2026-10-29: CC0-1.0 for the repository's own files; the README states that items keep their own licences (`library audit` checks it).
 3. *Project licence compatibility.* Should `get` compare an item's licence with a licence the project
    declares? Recommended: later. Flag `reciprocal` now.
+   Decided 2026-10-29: later; `get` flags `reciprocal` and lists the obligations now.
 4. *Fabrication outputs.* Should `export` copy `fenolite_library/ATTRIBUTION.md` into the fabrication package?
    Recommended: yes, in a follow-up change.
+   Decided 2026-10-29: yes, in a follow-up change; `get` already writes `fenolite_library/ATTRIBUTION.md`.
 5. *Signed releases (Sigstore) besides SHA-256 pins?* Recommended: later. Pins already make a tampered
    asset fail.
+   Decided 2026-10-29: later; the index, archive and tree digests make a tampered asset fail (`FEN-3006`).
 6. *Proof of converted non-board items* (a footprint from a CC BY-SA library). Recommended: c0278's pad
    and geometry levels on a one-item board built by the replay. Revisit when c0278 lands.
+   Decided 2026-10-29: c0278's pad and geometry levels on a one-item board built by the replay, revisited when the first converted non-board item is proposed; not in this change.
 7. *Private libraries in the same format* (a company's own items). Recommended: later, as `get --source
    <url>` with its own `library.toml` row. Not in this change.
+   Decided 2026-10-29: later, as `get --source <url>` with its own `library.toml` row; not in this change (`--from DIR` reads a local checkout meanwhile).
 
 ## Relation to other changes
 
@@ -563,3 +569,21 @@ version = "1.2.0"
   is kept as written; this change owns `fenolite.provenance.v0` and its other members. c0278 calls the file
   `fenolite.provenance.v0` created by c0275, while c0275 writes `fenolite.import-provenance.v0` into `out/`;
   task 0.1 records which change writes which schema once both are implemented.
+
+## State at the end of the first implementation session (2026-10-30)
+
+Done in Fenolite: ADR-0008, the AGENTS.md rule, items, provenance, licence lists, `library audit` (with
+`--base` and `--proof`), `library release`, `replay`, `gallery`, the proof gate and benchmark table, `fenolite
+get` with cache, trust chain, lock section, `--locked`, `--status`, `--remove`, `--list`, `--search`,
+`--refresh`, the four `FEN-` codes, docs, agent guide and CHANGELOG.
+
+Left:
+
+- 0.1: `openspec validate c0279-fenolite-library --strict`.
+- 5.6: a complete `make check-fast` (the last one was cut off by the session limit; the failures of the
+  first run are fixed), then CI on the working branch.
+- 3.1, 3.2, 4.4, 4.5: work in the `fenolite-library` repository (licences.toml copy, LICENSE, README
+  statements, workflows calling the `library` verbs, `verify-source --record` again for the four boards so
+  that `fidelity.proof.skipped` names the reason of level S).
+- 3.3: the first library release and its row in `src/fenolite/cli/data/library.toml`.
+- 5.3: the example waits for c0266 (reading `fenolite_library/devices` as project records).

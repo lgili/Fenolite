@@ -1,7 +1,7 @@
 ---
 topic: files
 title: Reading, comparing and undoing
-summary: Read a file Fenolite did not write, tell whether editing it is safe, compare two files or two designs, and undo a confirmed write.
+summary: Inspect files, assess safe edits, compare designs and undo confirmed writes.
 ---
 
 # Reading, comparing and undoing
@@ -19,8 +19,7 @@ fenolite inspect blink/altium/blink.PcbDoc --streams --json
 
 `inspect FILE` reads a KiCad board, footprint, symbol library, schematic or drawing sheet, or an Altium
 document, and reports its `kind`, its `format_version`, the KiCad `major` that wrote it, a `status`
-(`supported`, or why it is not) and `counts`: footprints, pads, nets, tracks, vias, zones. Start here
-with any file you are handed. `--streams` lists the streams of an Altium compound file.
+(`supported`, or why it is not) and `counts`: footprints, pads, nets, tracks, vias, zones. `--streams` lists the streams of an Altium compound file.
 
 ```fenolite-cmd
 fenolite inspect blink/design.lock --blocks --json

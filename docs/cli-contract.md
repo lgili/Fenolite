@@ -92,8 +92,12 @@ and that the same command can be run again.
 | `FEN-3005` | geometry in the input cannot be represented | `GeometryError` (the message names the geometry code and the points) |
 | `FEN-3006` | fetched file does not match the pinned size or SHA-256 | the dispatcher, for a deferred write whose bytes differ from what the plan declared (see [fetch](#fetch)); the message holds the digest that was expected and the one that was found, and nothing is written |
 | `FEN-3007` | input file is kept only online by a sync client | `snapshot`, `publish` and `refs`, before any read: the message names the files that a sync client keeps online only (see [snapshot](#snapshot)); retryable once they are available offline |
+| `FEN-3021` | the item's licence is not allowed or its licence files are missing; nothing was written | `fenolite get` (see [get](#get)): an SPDX id outside the shipped allow-list, an index row and `PROVENANCE.json` that disagree, or no `LICENSE`/`NOTICE`; `issues` holds `library.licence-denied` |
 | `FEN-4002` | the plan named by `--plan` cannot be written as reviewed | the dispatcher, for `--confirm --plan ID`: the message names the first reason (see "Staged plans"); nothing is written |
+| `FEN-4003` | the item licences must be accepted by name; nothing was written | `fenolite get --confirm` of a plan holding a licence other than `CC0-1.0` without `--accept-licence` naming it; the message lists the missing ids |
 | `FEN-6003` | download failed | `fenolite fetch NAME --confirm` without `--from` (retryable; the hint names `--from FILE`) |
+| `FEN-6004` | a library item pinned by the design lock is missing | `fenolite build` when a `[library.items]` entry has no folder (not retryable; hint `fenolite get --locked <script> --dry-run`); `issues` holds `library.item-missing` |
+| `FEN-6006` | the library index or asset is not in the offline cache | `fenolite get` with `--offline`, and `--list`/`--search` without a cached index (not retryable; hint `fenolite get --refresh --dry-run` or `--from DIR`) |
 | `FEN-7001` | operation would lose information | `LossyWriteError` (a KiCad write meets content the target cannot hold; the hint names `--allow-lossy` only when every loss is droppable) |
 | `FEN-7002` | target format version older than the input; no downgrade was asked (hint: convert the project with `fenolite convert <project> --to kicad --kicad-version <target>`) | `DowngradeRefusedError` |
 | `FEN-7003` | input from KiCad 8.0 is read-only; writing needs a KiCad 9.0 or newer source | `LegacyEditRefusedError` (hint names `kicad-cli pcb upgrade`) |
@@ -1245,11 +1249,7 @@ Evidence is `INFERRED` (`H-K-LIB-FROM-BOARD`). The exit code is 5 when a footpri
 ### Action words and `library symbol`
 
 Since change c0261 the first positional of `fenolite library` is an **action** when it is one of `symbol`,
-`generate` (change c0260), `check`, `review`, `import`, `propose` or `fetch`, and the board `PATH` of the form
-above otherwise (a board folder named like an action is passed as `./check`). `symbol` and `generate` run in
-this version; the others are reserved for later changes and exit 2 with `FEN-2001` ("not available in this
-version"), writing nothing. The board form takes exactly one `PATH` and no `--library`; `--positions`,
-`--no-step` and `--no-pcblib` belong to `generate` only (`FEN-2001` elsewhere).
+`generate` (c0260), `check`, `review`, `import`, `propose`, `fetch`, `audit`, `replay`, `release` or `gallery` (c0279), and a board PATH otherwise (use `./check` for a folder named like an action). `symbol`, `generate`, `audit`, `replay`, `release` and `gallery` are available; the others exit 2 with `FEN-2001`. The board form takes one PATH and no `--library`. `--positions`, `--no-step` and `--no-pcblib` belong to `generate` only (`FEN-2001` elsewhere).
 
 `fenolite library symbol PINS... --out FILE [--library NAME]` generates the symbols of one or more pin
 tables (`fenolite.pins.v0`, [`docs/symbols.md`](symbols.md)) and plans one library file holding them:
@@ -1298,6 +1298,44 @@ order then position order: `name`, `family`, `id` (`<NICK>:<name>`), `stamp`, `l
 `files` (the planned paths) and `issues` (the codes of its findings). `--limit` and `--cursor` page
 `packages`. `issues` holds the `package.*` findings (`fenolite explain package.land-override`). Evidence is
 `INFERRED` (`H-G-LAND-CALC`; KiCad's reading of the models `H-K-STEP-MODELS`).
+
+### Library repository verbs
+
+Change c0279 adds four action words used by the CI of the library repository `fenolite-library`
+([`docs/library-repo.md`](library-repo.md)); the library holds no tooling code of its own. A board folder
+named like a verb is passed as `./audit`.
+
+- **`library audit ROOT [--item PATH] [--base REF]`** (read-only) checks the layout, `item.json`,
+  `PROVENANCE.json`, the licence lists, `LICENSE` and `NOTICE`, ids, files, dependencies and the README's
+  statements; `--item` limits the item rules to one folder, `--base` (a folder or a git ref) adds the version
+  rules. `result` holds `root`, `items` (`path`, `kind`, `family`, `id`, `version`, `spdx`, `tree`, `errors`)
+  and `counts` per kind. Exit 5 on any error finding.
+- **`library replay ITEM [--upstream DIR] [--keep DIR] [--with-current]`** (writes nothing into the tree)
+  fetches the upstream at the recorded commit (a shallow git fetch; `--upstream` copies a given checkout),
+  runs the recorded steps (`fenolite` and `kicad-cli` only, `FEN-3004` for another tool or a step holding
+  `--plan`, before any step runs) and compares the tree of `out/` with `conversion.outputs_tree` and the
+  payload (`library.replay-differs`). `result` holds `outputs_tree`, `expected`, `payload_tree`, `equal`,
+  `steps` and `differs` (the files that differ).
+- **`library release ROOT --version V --out DIR`** (mutating) audits the checkout, then plans the release
+  assets: `index.json` (`fenolite.library-index.v0`), the shard archives `<kind folder>-<family>.tar.gz`, one
+  archive per board and `SHA256SUMS`, byte-reproducible. `result` holds `version`, `items`, `archives`,
+  `index_sha256` and `index_bytes`.
+- **`library gallery ROOT --release DIR --out DIR`** (mutating) plans the static gallery: one card page per
+  item with its attribution line, proof result and `fenolite get` command, an index page and the benchmark
+  page; items with `trademarks.restricted` are left out.
+
+| code | severity | when |
+|---|---|---|
+| `library.duplicate-id` | error | one id in two folders of a kind |
+| `library.family-mismatch` | error | an item in a family folder its SPDX id does not map to |
+| `library.item-extra-file` | error | a file not listed in `files` |
+| `library.licence-denied` | error | an id outside the allow-list (with the reason), a platform-restricted origin, a vendor-bundled example |
+| `library.licence-text` | error | `LICENSE` missing or not a listed text, and no `licence_review` |
+| `library.notice-missing` | error | `NOTICE` missing or not headed by the dated modification notice |
+| `library.provenance-invalid` | error | a schema rule, a disagreement of `item.json` and `PROVENANCE.json`, a depends error, a step with `--plan`, a README statement missing |
+| `library.version-rule` | error | with `--base`, a changed item whose version did not rise |
+| `library.replay-differs` | error | the replay's outputs differ from the payload |
+| `library.proof-failed` | error | the proof gate of a board failed |
 
 ## import
 
@@ -4493,6 +4531,61 @@ otherwise). The evidence is `UNVERIFIED`: installing a tool proves nothing about
 | 3 | `FEN-3006` | the bytes do not have the pinned size or SHA-256 (the message holds both digests); nothing is written |
 | 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |
 | 6 | `FEN-6003` | the download failed (retryable); the hint names `--from FILE` |
+
+## get
+
+`fenolite get KIND ID [--version V] [--release R] [--script FILE] [--into DIR] [--from SRC] [--offline]
+[--index-sha256 HEX] [--accept-licence SPDX[,SPDX...]]` copies an item of `fenolite-library` and the closure
+of its `depends` into the project (change c0279; ADR-0008; [`docs/library-repo.md`](library-repo.md)). KIND is
+`symbol`, `footprint`, `device`, `block` or `board`. Symbols, footprints, devices and blocks go into
+`<script folder>/fenolite_library/<kind folder>/<id path>/` (`--script`, default `design.py`; `FEN-2001`
+without one); a board goes into `--into DIR` (default `./<name>`), which must be missing or empty, and its
+own `design.lock` gets the pin. Every folder keeps `item.json`, `LICENSE`, `NOTICE` and `PROVENANCE.json`
+byte for byte. The plan also holds `fenolite_library/ATTRIBUTION.md` (kind `attribution`, regenerated from
+every vendored item) and the lock (kind `lock`), and the cache writes (kind `library-cache`). All of it is
+written or none. `get` never imports, runs or builds a payload.
+
+- **Release.** `--from SRC` reads a release folder (`index.json` and its assets), a library checkout (the
+  release is built in memory) or a `file://` git URL (`#ref` optional); otherwise `--release R`, else the
+  newest release this version lists or the cache holds. An index is checked against the table
+  `cli/data/library.toml`, `--index-sha256`, or a lock entry's `index` (`FEN-3006`); each archive against its
+  index row and each item against its tree.
+- **Network.** Only under `--confirm`, never with `--offline`: one `https` request per missing asset, with
+  only `User-Agent: fenolite/<version>`, 60 s, `https`-only redirects, at most the expected bytes plus one,
+  no retry (`FEN-6003`). A dry run plans the downloads with their sizes and digests and opens no connection;
+  with no cached index it plans the index only (`result.stage` `index`). `--offline` exits 6 with `FEN-6006`
+  when something is not cached.
+- **Licences.** `result.items[]` gives `kind`, `id`, `version`, `release`, `spdx`, `family`, `reciprocal`,
+  `obligations`, `authors`, `upstream`, `path`, `tree`, `bytes`, `executes`, `required_by`, `proof`,
+  `evidence`, `action` (`added`, `kept`, `restored`, `updated`), `before` and `after`; `result.licences[]`
+  each distinct id with `accept_required` and `accepted`. A confirm of a plan holding an id other than
+  `CC0-1.0` not named by `--accept-licence` exits 4 with `FEN-4003`; `result.accepted` echoes the accepted
+  ids. An id outside the shipped allow-list, an index row and `PROVENANCE.json` that disagree, or a missing
+  `LICENSE`/`NOTICE` exit 3 with `FEN-3021`.
+- **Updates and conflicts.** A vendored item at another version is replaced (`action` `updated`, with
+  `before`); a folder whose tree differs from its pin exits 7 with `FEN-7001` (`library.item-modified`)
+  unless `--allow-lossy`. A dependency needed at another version than vendored gives
+  `library.depends-conflict` (exit 5) and plans nothing.
+- **Other forms** (exclusive with `KIND ID`): `--remove KIND ID` plans the folder's removal (listed in
+  `result.removes`, done after the writes), the lock entry's removal and the attribution file (exit 2 when
+  another vendored item depends on it); `--locked SCRIPT` restores every pinned item whose folder is missing,
+  from its pinned release and tree, and changes nothing else; `--status [--script FILE]` (read-only) gives
+  `rows` with `present`, `modified` and `newer` and exits 5 with `library.item-missing`; `--list` and
+  `--search TEXT [--kind K] [--licence ID|FAMILY]` read a cached index (or `--from`) only and give `rows`
+  (kind, id, version, title, SPDX, family, authors, gallery page), paged by `--limit`; `--refresh` caches one
+  release index. `get` refuses `--frozen` (exit 2).
+
+The design lock gains `[library.items."<kind>/<id>"]` with `index`, `path`, `release`, `spdx`, `tree` and
+`version`; only `get` changes it, and `fenolite build` reads it: an entry whose folder is missing exits 6
+with `FEN-6004` (`library.item-missing`, hint `fenolite get --locked <script> --dry-run`) and writes nothing.
+Evidence is `INFERRED` (`H-G-LIBRARY-GET`).
+
+| code | severity | when |
+|---|---|---|
+| `library.depends-conflict` | error | the closure needs another version of a vendored item |
+| `library.item-missing` | error | a pinned item has no folder (`build`: exit 6 `FEN-6004`; `--status`: exit 5) |
+| `library.item-modified` | error | an update or removal meets a locally edited folder (`FEN-7001`) |
+| `library.licence-denied` | error | the item's licence is refused (`FEN-3021`) |
 
 ## guide
 

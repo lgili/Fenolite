@@ -190,17 +190,3 @@ Back to [the command index](commands.md).
 
 - `PATH`: a board, footprint, schematic, symbol library or sheet
 - `--check`: report whether the file would change
-
-## guide
-
-`fenolite guide [TOPIC]`
-
-- `TOPIC`: the page to print, for example start (default: list them)
-
-## impedance
-
-`fenolite impedance [OPTIONS] PATH`
-
-- `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
-- `--estimate`: add the estimates of single-ended microstrip and stripline rows (INFERRED)
-- `-o`, `--out FILE`: also write the table as a CSV file

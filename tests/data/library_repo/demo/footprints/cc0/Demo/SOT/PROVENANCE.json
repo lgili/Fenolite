@@ -1,0 +1,25 @@
+{
+  "authors": [
+    "Fenolite contributors"
+  ],
+  "copyright": [],
+  "evidence": "UNVERIFIED",
+  "featured": null,
+  "id": "Demo:SOT",
+  "kind": "footprint",
+  "licence_text_sha256": "b98b2525d6b40584b6fa3c970ff258f907387b771b1ee31dc88369b390aefc94",
+  "modification_notice": "2026-10-30: authored for the Fenolite tests in the Fenolite formats; no upstream material",
+  "origin": "authored",
+  "schema": "fenolite.provenance.v0",
+  "sources": [
+    "D-0001"
+  ],
+  "spdx": "CC0-1.0",
+  "trademarks": {
+    "marks": [],
+    "note": "",
+    "restricted": false
+  },
+  "upstream": null,
+  "version": "1.0.0"
+}

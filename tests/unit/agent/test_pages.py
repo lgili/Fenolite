@@ -78,7 +78,7 @@ RULE = "adds a tested line to a page of the agent guide"
 HOME: Mapping[str, tuple[str, ...]] = {
     "design-script": ("init", "build", "sync", "template"),
     "parts": ("catalog",),
-    "footprints": ("library",),
+    "footprints": ("library", "get"),
     "placement": ("place", "pads", "neighbors", "region"),
     "routing": ("route", "tidy", "fill", "net", "fetch"),
     "rules": ("analyze",),

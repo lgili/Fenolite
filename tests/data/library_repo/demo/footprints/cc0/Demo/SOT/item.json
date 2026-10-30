@@ -1,0 +1,17 @@
+{
+  "depends": [],
+  "executes": false,
+  "files": [
+    "SOT.toml"
+  ],
+  "id": "Demo:SOT",
+  "kind": "footprint",
+  "schema": "fenolite.library-item.v0",
+  "spdx": "CC0-1.0",
+  "summary": "Three-lead demo package",
+  "tags": [
+    "smd"
+  ],
+  "title": "Demo SOT package",
+  "version": "1.0.0"
+}

@@ -15,18 +15,19 @@ from __future__ import annotations
 
 import dataclasses
 import os
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from fenolite.cli._pins import plan_pins
 from fenolite.cli.api import PlannedWrite, Result
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FenoliteError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.dsl import Design, moves
 from fenolite.dsl.lock import (
     SUFFIX,
+    Lock,
     LockFrozenError,
     assign_refs,
     frozen_issues,
@@ -39,6 +40,42 @@ from fenolite.dsl.lock import (
 
 KIND = "lock"
 """The kind of the planned write of the lock."""
+
+
+class LibraryItemMissing(FenoliteError):
+    """A ``[library.items]`` entry of the lock whose folder is missing (``FEN-6004``, change c0279): the
+    build writes nothing; ``fenolite get --locked`` restores the folder."""
+
+    cli_code = "FEN-6004"
+
+    def __init__(self, issues: tuple[Issue, ...], script: str) -> None:
+        self.issues = issues
+        self.hint = f"fenolite get --locked {script} --dry-run"
+        count = len(issues)
+        super().__init__(
+            f"{count} library item{'' if count == 1 else 's'} pinned by the design lock "
+            f"{'is' if count == 1 else 'are'} missing; nothing was written"
+        )
+
+
+def check_library(lock: Lock, script: Path, shown: str) -> None:
+    """Raise ``LibraryItemMissing`` when a vendored item of the lock's ``library`` section has no folder
+    beside the script. The build reads the section and never hashes the folders (``get --status`` does)."""
+    from fenolite.library.codes import issue as library_issue
+
+    folder = Path(os.path.abspath(script)).parent
+    missing = tuple(
+        library_issue(
+            "library.item-missing",
+            f"{key} is pinned by the lock, but its folder {entry['path']} is missing",
+            where=key,
+            hint=f"fenolite get --locked {shown} --dry-run",
+        )
+        for key, entry in sorted(lock.sections.get("library", {}).items())
+        if isinstance(entry, Mapping) and not (folder / str(entry["path"])).is_dir()
+    )
+    if missing:
+        raise LibraryItemMissing(missing, shown)
 
 
 @dataclass(frozen=True)
@@ -71,17 +108,22 @@ def _shown(path: Path, script: Path) -> str:
         return full.name
 
 
-def plan_lock(design: Design, *, script: Path, given: str, path: Path, frozen: bool) -> LockPlan:
+def plan_lock(
+    design: Design, *, script: Path, given: str, path: Path, frozen: bool, named: str | None = None
+) -> LockPlan:
     """The lock plan of ``design``, built from the script at ``script`` with the lock at ``path``.
 
     Raises ``FormatError`` for a malformed lock, ``LockVersionError`` for a newer one, ``DslError`` for
-    bad aliases, and ``LockFrozenError`` under ``frozen`` when the content would change."""
+    bad aliases, and ``LockFrozenError`` under ``frozen`` when the content would change. A lock entry of a
+    vendored library item whose folder is missing raises ``LibraryItemMissing`` (``named``: the script as the
+    command line gave it, for the hint)."""
     shown = _shown(path, script)
     exists = path.is_file()
     data = path.read_bytes() if exists else b""
     if not exists and not needs_lock(design):
         return LockPlan(None, None, None, ())
     old = read_lock(data.decode("utf-8"), file=shown) if exists else make_lock(design.name)
+    check_library(old, script, named or Path(script).name)
     found = assign_refs(design, old, moves=moves(design))
     pins = plan_pins(design, found.lock.sections["pins"])
     lock = make_lock(design.name, {**found.lock.sections, "pins": pins.entries})
@@ -186,6 +228,8 @@ def refuse_frozen_edits(*, frozen: bool, takes: Sequence[object], issues: Sequen
 
 __all__ = [
     "KIND",
+    "LibraryItemMissing",
+    "check_library",
     "EditsFrozenError",
     "LockPlan",
     "lock_location",

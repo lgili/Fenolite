@@ -35,6 +35,9 @@ Read this file before changing anything. Humans: this is also the short version 
 - **No runtime dependencies in the core.** `pyproject.toml` `dependencies` stays empty; third-party
   packages go to an extra and are imported lazily.
 - **Copyleft only across a process boundary.** Run GPL/AGPL tools as subprocesses; never import them.
+- **Third-party material lives only in `fenolite-library`** (github.com/lgili/fenolite-library): symbols,
+  footprints, devices, blocks and boards derived from third-party sources go there, never into this
+  repository, each item with its upstream licence, NOTICE and `PROVENANCE.json`.
 - **Never commit** anything under `private/`, KiCad official library files, or absolute user paths.
 - Every `.py` file starts with the SPDX and copyright lines.
 

@@ -1,0 +1,5 @@
+schema = "fenolite.library-sources.v0"
+
+[sources.D-0001]
+title = "Authored for the Fenolite tests"
+url = "https://github.com/lgili/Fenolite"
