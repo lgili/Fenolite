@@ -186,6 +186,7 @@ fenolite equivalent blink/build blink/altium/blink.PrjPcb --frame relative --tol
 ```fenolite-cmd
 fenolite equivalent a.kicad_pcb b.kicad_pcb --level 7 --strict --json
 fenolite verify-source boards/sensor/design.py --against upstream/sensor --json
+fenolite verify-source boards/sensor/design.py --against upstream/sensor --copper-check warn --json
 ```
 
 - `--level 6` compares rules, `7` exact geometry (zones by outline), `8` the rendered layers;
@@ -194,6 +195,8 @@ fenolite verify-source boards/sensor/design.py --against upstream/sensor --json
   differences; accept one with a reason in `fidelity.accepted` of `PROVENANCE.json`, and `--record` writes
   `fidelity.proof` through a plan. Codes: `fidelity.build-failed`, `fidelity.accepted-unused`,
   `fidelity.level-skipped` (read its reason), `fidelity.input-upgraded`.
+- An imported folder is a copy: its `PROVENANCE.json` makes `verify-source` and `build` warn on copper
+  findings instead of refusing; `--copper-check refuse|warn` overrides it.
 
 ## What is installed
 

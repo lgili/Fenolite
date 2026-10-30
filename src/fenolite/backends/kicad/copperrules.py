@@ -30,6 +30,9 @@ from fenolite.model.design import Design
 CLEARANCE = "clearance"
 MINIMUM_KEY = "min_clearance"
 EDGE_KEY = "min_copper_edge_clearance"
+KICAD_DRC_EPSILON_NM: Nm = 500
+"""KiCad's DRC reports a copper clearance only below the value in force minus 500 nm, for every pair kind
+and source, the class pair gap included (``H-K-COPPER-EPSILON``: measured on 10.0.6, change c0281)."""
 EDGE_CLEARANCE_DEFAULT: Nm = 500_000
 """The board setup's copper-to-edge clearance of a project that does not set ``EDGE_KEY``, and of a board
 without a project file: 0.5 mm on 9.0.9 and 10.0.6 (``H-K-EDGE-CENTRE``; change c0169)."""
@@ -129,6 +132,7 @@ def design_rules_from_texts(
         evidence=Evidence.combine(*evidence) if evidence else Evidence(),
         min_edge_clearance=edge,
         edge_floor_over_rules=major in lowering.FLOOR_OVER_RULES.get(EDGE_KEY, frozenset()),
+        clearance_tolerance=KICAD_DRC_EPSILON_NM,
     )
 
 

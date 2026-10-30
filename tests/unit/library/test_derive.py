@@ -89,3 +89,49 @@ def test_a_zero_board_angle_is_turned_back() -> None:
     (resistor,) = [fp for fp in derived.footprints if fp.name == "R_0603"]
     pads = {pad.number: pad.rotation for pad in resistor.definition.pads}
     assert pads["2"] % 360_000_000 == 270_000_000 and pads["1"] == 0
+
+
+def _bottom_board(tmp_path: Path, rotation: int) -> tuple[str, str]:
+    """The authored board with R1 replaced by its derived footprint, edited to hold a Reference at 90° and
+    pad 1 at 90°, placed on the bottom side at ``rotation``; and that edited library text."""
+    from fenolite.backends.kicad.embed import placed_tree
+    from fenolite.backends.kicad.pcb import read_board
+    from fenolite.backends.kicad.sexpr import dumps
+    from fenolite.core.coords import Point
+
+    text = board_text()
+    derived = derive_library(text, library="lib", target=10)
+    (resistor,) = [fp for fp in derived.footprints if fp.name == "R_0603"]
+    library = resistor.text.replace("(at 0 -1.43 0)", "(at 0 -1.43 90)").replace(
+        "(at -0.8 0)", "(at -0.8 0 90)"
+    )
+    path = tmp_path / "R_0603.kicad_mod"
+    path.write_text(library, encoding="utf-8")
+    defn = read_footprint(path)
+    design = read_board(text)
+    (component,) = [c for c in design.circuit.components if c.ref == "R1"]
+    tree = placed_tree(
+        defn,
+        component=component,
+        at=Point(20_000_000, 15_000_000),
+        rotation=rotation,
+        side="bottom",
+        key="R1",
+    )
+    start = text.index('\t(footprint "Fenolite_Test:R_0603"')
+    end = text.index('\t(footprint "Fenolite_Test:LED_THT_3mm"')
+    return text[:start] + "\t" + dumps(tree) + "\n" + text[end:], library
+
+
+def test_bottom_angles_turn_back(tmp_path: Path) -> None:
+    """Scenario "Reference at 270° on the bottom" (change c0281, issue 6 of the board library's report): a
+    bottom footprint whose Reference and pad stand at 90° in the library is stored at ``θ − 90°``, and the
+    derive brings the library angles back."""
+    for rotation in (0, 90_000_000, 180_000_000):
+        board, library = _bottom_board(tmp_path, rotation)
+        assert '(layer "B.Cu")' in board
+        derived = derive_library(board, library="lib", target=10)
+        (resistor,) = [fp for fp in derived.footprints if fp.name.startswith("R_0603")]
+        pads = {pad.number: pad.rotation % 360_000_000 for pad in resistor.definition.pads}
+        assert pads == {"1": 90_000_000, "2": 0}, rotation
+        assert "(at 0 -1.43 90)" in resistor.text, (rotation, resistor.text[:400])

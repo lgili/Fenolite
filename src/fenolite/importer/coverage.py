@@ -90,6 +90,12 @@ def _root_heads(design: Design) -> Iterable[str]:
                 yield "teardrop" if attr is not None and attr.find("teardrop") is not None else child.name
 
 
+def root_kinds(design: Design) -> Counter[str]:
+    """The opaque root items of a board by kind (``teardrop``, ``group``, ``generated``…), as the
+    coverage scan names them: what ``verify-source`` counts on both sides (change c0281)."""
+    return Counter(_root_heads(design))
+
+
 def scan(design: Design, ledger: Ledger) -> None:
     """Add the board's opaque root items and the model items no emitter writes to ``ledger``."""
     for head in _root_heads(design):
@@ -132,4 +138,13 @@ def explained(level: LevelId, kind: str, rows: Iterable[Unexpressed]) -> bool:
     return False
 
 
-__all__ = ["EXPLAINS", "INFRASTRUCTURE", "Ledger", "Unexpressed", "explained", "lossy_issues", "scan"]
+__all__ = [
+    "EXPLAINS",
+    "INFRASTRUCTURE",
+    "Ledger",
+    "Unexpressed",
+    "explained",
+    "lossy_issues",
+    "root_kinds",
+    "scan",
+]

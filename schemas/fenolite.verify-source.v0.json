@@ -146,17 +146,20 @@
             "stackup-missing",
             "stackup-field",
             "layer-missing",
+            "layer-field",
             "outline-missing",
             "zone-missing",
             "zone-field",
             "keepout-missing",
             "keepout-field",
             "graphic-missing",
+            "graphic-field",
             "text-missing",
             "text-field",
             "field-pose",
             "hole-missing",
             "dimension-missing",
+            "opaque-count",
             "render-missing",
             "render-pixels",
             "sheet-missing",
@@ -224,7 +227,7 @@
       ]
     },
     "VerifyBuild": {
-      "description": "The build of the script in the temporary folder: its target and the count of files written.",
+      "description": "The build of the script in the temporary folder: its target, the count of files written, the mode of",
       "type": "object",
       "properties": {
         "target": {
@@ -233,12 +236,23 @@
         "files": {
           "type": "integer",
           "minimum": 0
+        },
+        "copper_check": {
+          "enum": [
+            "refuse",
+            "warn"
+          ]
+        },
+        "copy": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
       "required": [
         "target",
-        "files"
+        "files",
+        "copper_check",
+        "copy"
       ]
     },
     "VerifyDifference": {
@@ -307,17 +321,20 @@
             "stackup-missing",
             "stackup-field",
             "layer-missing",
+            "layer-field",
             "outline-missing",
             "zone-missing",
             "zone-field",
             "keepout-missing",
             "keepout-field",
             "graphic-missing",
+            "graphic-field",
             "text-missing",
             "text-field",
             "field-pose",
             "hole-missing",
             "dimension-missing",
+            "opaque-count",
             "render-missing",
             "render-pixels",
             "sheet-missing",

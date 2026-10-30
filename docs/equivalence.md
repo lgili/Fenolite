@@ -273,18 +273,21 @@ level are sorted by `where`, then kind.
 | 6 | `ruleset-field` | the field | a board-wide rule or minimum differs |
 | 6 | `stackup-missing` | `layer` | a stack-up layer that only one side holds, or out of order |
 | 6 | `stackup-field` | the field | a field of a stack-up layer, or the finish, differs |
-| 6 | `layer-missing` | `layer` | a board layer of one kind and ordinal that only one side holds |
+| 6 | `layer-missing` | `layer` | a board layer of one name that only one side holds (`where` `<kind>:<name>`) |
+| 6 | `layer-field` | the field | a layer of one name has another `kind`, or the common layers stand in another `order` (c0281) |
 | 7 | `outline-missing` | `ring` | an outline ring, cut-out or slot that only one side holds |
 | 7 | `zone-missing` | `zone` | a zone outline that only one side holds |
 | 7 | `zone-field` | the field | a field of matched zones differs (never the fill) |
 | 7 | `keepout-missing` | `keepout` | a rule area that only one side holds |
 | 7 | `keepout-field` | the field | a field of matched rule areas differs |
 | 7 | `graphic-missing` | `graphic` | a board or footprint graphic that only one side holds |
+| 7 | `graphic-field` | the field | matched graphics (layer, kind, geometry, fill) differ in `width` (c0281) |
 | 7 | `text-missing` | `text` | a board or footprint text that only one side holds |
 | 7 | `text-field` | the field | a field of matched texts differs |
 | 7 | `field-pose` | the field | a field of a footprint field (reference, value, user field) differs |
 | 7 | `hole-missing` | `hole` | a board hole that only one side holds |
 | 7 | `dimension-missing` | `dimension` | a dimension that only one side holds |
+| 7 | `opaque-count` | the item kind | the opaque root items of one kind (teardrops, groups…) differ in count; added by `verify-source` (c0281) |
 | 8 | `render-missing` | `layer` | a layer or sheet that only one side renders |
 | 8 | `render-pixels` | `pixels` | a layer or sheet whose rendered masks differ beyond the pixel tolerance |
 | S | `sheet-missing` | `sheet` | a sheet instance that only one side holds |

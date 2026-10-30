@@ -12,7 +12,7 @@ pure: it reads no file and runs no tool.
 
 from __future__ import annotations
 
-from collections import Counter, defaultdict
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from fnmatch import fnmatchcase
@@ -153,11 +153,16 @@ def _elements(design: Design, refs: frozenset[str]) -> tuple[str, PadNetList, in
                     for pad in component.pads_of(pin.number):
                         parts[f"{component.ref}-{pad}"] = (component.ref, pad)
     # KiCad gives each pin on no net a net of its own, ``unconnected-(…)``, and a board built beside a
-    # schematic carries those names on its pads (c0061): such a net with one pad is a pad on no net.
+    # schematic carries those names on its pads (c0061): such a net held by one element (one pad, or the
+    # pads of one number, as two shield pads ``0``; change c0281) is a pad on no net.
     names = assignment_compare.net_names(design)
-    held = Counter(item.net for item in listed.assignments)
+    held: dict[str, set[str]] = defaultdict(set)
+    for item in listed.assignments:
+        held[item.net].add(item.element)
     open_nets = {
-        net for net, count in held.items() if count == 1 and names.get(net, "").startswith(UNCONNECTED)
+        net
+        for net, elements in held.items()
+        if len(elements) == 1 and names.get(net, "").startswith(UNCONNECTED)
     }
     kept = tuple(
         PadAssignment(item.element, assignment_compare.NO_NET) if item.net in open_nets else item

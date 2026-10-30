@@ -1774,7 +1774,12 @@ fix = "Make the two designs agree, or accept the difference with a reason (an ex
 see = "equivalent"
 
 ["equiv.layer-missing"]
-meaning = "Level 6: a board layer of one kind and ordinal exists on one side only."
+meaning = "Level 6: a board layer of this name exists on one side only (where names its kind and name)."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.layer-field"]
+meaning = "Level 6: a board layer of one name has another kind on each side (field kind), or the layers both sides hold stand in another order (field order)."
 fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
 see = "equivalent"
 
@@ -1808,6 +1813,11 @@ meaning = "Level 7: a board graphic, or a graphic of a footprint, exists on one 
 fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
 see = "equivalent"
 
+["equiv.graphic-field"]
+meaning = "Level 7: two graphics with the same layer, kind, geometry and fill differ in width (field width), for example a board outline drawn with another stroke."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
 ["equiv.text-missing"]
 meaning = "Level 7: a board text, or a text of a footprint, exists on one side only."
 fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
@@ -1830,6 +1840,11 @@ see = "equivalent"
 
 ["equiv.dimension-missing"]
 meaning = "Level 7: a dimension exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.opaque-count"]
+meaning = "Level 7: the board items Fenolite keeps opaque (teardrops, groups, generated items, images) differ in count for one kind (field), for example teardrops an import left out; counted by verify-source."
 fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
 see = "equivalent"
 

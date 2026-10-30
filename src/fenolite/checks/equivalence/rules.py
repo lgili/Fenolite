@@ -244,15 +244,35 @@ def _stackup(board_a: Board, board_b: Board, tolerances: Tolerances) -> tuple[li
 
 
 def _layers(board_a: Board, board_b: Board) -> tuple[list[Difference], int]:
-    held_a = {(layer.kind, layer.ordinal): layer.name for layer in board_a.layers}
-    held_b = {(layer.kind, layer.ordinal): layer.name for layer in board_b.layers}
+    """The board layers matched by name (change c0281): a name on one side only is ``layer-missing``, a
+    matched layer of another kind ``layer-field`` (``kind``), and common layers in another relative order
+    one ``layer-field`` (``order``). An ordinal is a position in the table, so a layer that one side lacks
+    would shift every later one: ordinals are not compared."""
+    held_a = {layer.name: layer for layer in board_a.layers}
+    held_b = {layer.name: layer for layer in board_b.layers}
     found: list[Difference] = []
-    for key in sorted(set(held_a) ^ set(held_b)):
-        where = f"{key[0]}:{key[1]}"
+    for name in sorted(set(held_a) ^ set(held_b)):
+        layer = held_a.get(name) or held_b[name]
+        where = f"{layer.kind}:{name}"
         found.append(
-            Difference(LEVEL, "layer-missing", where, "layer", held_a.get(key, ""), held_b.get(key, ""))
+            Difference(LEVEL, "layer-missing", where, "layer", name if name in held_a else "",
+                       name if name in held_b else "")
+        )  # fmt: skip
+    common = sorted(set(held_a) & set(held_b))
+    for name in common:
+        if held_a[name].kind != held_b[name].kind:
+            found.append(Difference(LEVEL, "layer-field", name, "kind", held_a[name].kind, held_b[name].kind))
+
+    def order(board: Board, other: Mapping[str, object]) -> list[str]:
+        ranked = sorted(enumerate(board.layers), key=lambda pair: (pair[1].ordinal, pair[0]))
+        return [layer.name for _, layer in ranked if layer.name in other]
+
+    order_a, order_b = order(board_a, held_b), order(board_b, held_a)
+    if order_a != order_b:
+        found.append(
+            Difference(LEVEL, "layer-field", "layers", "order", ",".join(order_a), ",".join(order_b))
         )
-    return found, len(set(held_a) & set(held_b))
+    return found, len(common)
 
 
 def level_rules(a: Design, b: Design, tolerances: Tolerances = EXACT) -> LevelResult:

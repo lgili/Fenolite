@@ -94,7 +94,8 @@ The footprints are the board's own instances brought back to their origin, rotat
 footprint without one), the instance's own properties removed. An instance that still differs from the
 first of its name (a moved field, an edited pad) is written as `<name>_2` and its part names that footprint
 (`import.footprint-variant`). Each footprint gets a symbol drawn by Fenolite, one passive pin per pad
-number, in `lib/<nickname>.kicad_sym` (`import.symbol-regenerated`); the source's symbols are not copied
+number (none for a number that no instance puts on a net, so a shield or thermal pad stays on no net;
+c0281), in `lib/<nickname>.kicad_sym` (`import.symbol-regenerated`); the source's symbols are not copied
 until the drawn schematic of c0276 needs them. 3D models are referenced by name, not copied.
 
 ## Provenance
@@ -133,6 +134,8 @@ Never silently. The kinds today:
 | `copper-without-net`, `zero-length-track`, `degenerate-arc`, `via-protection`, `via-span`, `copper-layer`, `copper-count` | copper no table holds |
 | `footprint-ref`, `duplicate-ref`, `footprint` | a footprint whose reference the DSL refuses, a second footprint of one reference, one the library derive cannot bring back |
 | `pad-net-unnumbered`, `pad-net-conflict`, `outline` | a pad on a net without a number, a pad number on two nets, no closed outline |
+| `outline-width` | root `Edge.Cuts` items drawn with another stroke than the 0.1 mm a DSL board writes (one row per width; c0281) |
+| `layer-table` | non-copper layers that the source and the DSL board of its copper count do not both hold, such as `Eco1.User` (c0281) |
 
 Change c0277 (verbatim items and the DSL coverage holes) is not merged yet: until it is, its kinds stay in
 this list, and each item it makes expressible removes its row.
@@ -146,7 +149,16 @@ via with its geometry, width or sizes, layers and lock flag. A difference an une
 the name of a variant footprint, is accepted; any other is `import.unequal` (error): exit 5, nothing
 written. `result.equivalence` is `{"levels": [1, 2, 3, 4, 5], "equivalent": true}` on success. The self-check build
 runs with `--copper-check warn` and without a schematic: a board that breaks Fenolite's copper rules (one
-the source already broke) is still compared, and building its code later needs `--copper-check warn` too.
+the source already broke) is still compared.
+
+## Copy mode
+
+`PROVENANCE.json` holds `"copy": true` (change c0281): the folder is a copy of someone else's finished
+board. `fenolite build design.py` and `fenolite verify-source design.py` then run the copper guard in `warn`
+without `--copper-check`: the source's own clearance findings are listed as warnings, never a refusal
+(`result.copper_check.mode_source` is `copy`). A record written before c0281 has no member and counts as a
+copy too. Set `"copy": false` when the board becomes your own design, and the guard refuses again; an
+explicit `--copper-check` always wins.
 
 ## Old KiCad files
 

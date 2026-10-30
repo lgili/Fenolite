@@ -11,10 +11,14 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, cast
 
 from fenolite.importer.source import InputFile, Upgrade
 
 SCHEMA = "fenolite.import-provenance.v0"
+LIBRARY_SCHEMA = "fenolite.provenance.v0"
+"""The record of an item of the board library (c0279), which holds the import record as its ``import``."""
 NOASSERTION = "NOASSERTION"
 """The SPDX expression of a licence nobody stated."""
 UNKNOWN_SOURCE = "an unstated source"
@@ -76,8 +80,49 @@ def record(
         "notices": list(provenance.notices),
         "findings": dict(sorted(findings.items())),
         "equivalence": dict(equivalence) if equivalence is not None else None,
+        "copy": True,
     }
     return json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
-__all__ = ["NOASSERTION", "SCHEMA", "Provenance", "record"]
+def import_record(data: object) -> Mapping[str, Any] | None:
+    """The import record a provenance value holds: the value itself when its ``schema`` is ``SCHEMA``, its
+    member ``import`` when that member is one (a library record, c0279), else ``None``."""
+    if not isinstance(data, dict):
+        return None
+    root = cast(dict[str, Any], data)
+    if root.get("schema") == SCHEMA:
+        return root
+    member = root.get("import")
+    if isinstance(member, dict) and cast(dict[str, Any], member).get("schema") == SCHEMA:
+        return cast(dict[str, Any], member)
+    return None
+
+
+def copy_mode(data: object) -> bool:
+    """Whether a provenance value marks its design as a copy of someone else's board (change c0281): it
+    holds an import record whose ``copy`` is not ``false``. A record written before c0281 has no ``copy``
+    and counts as a copy, since every import is one; ``"copy": false`` says the design is now its owner's."""
+    found = import_record(data)
+    return found is not None and found.get("copy", True) is not False
+
+
+def copy_file(path: Path) -> bool:
+    """``copy_mode`` of the provenance file at ``path``; a missing or unreadable file marks no copy (the
+    commands that read the file for more than the mode report what is wrong with it)."""
+    try:
+        return copy_mode(json.loads(path.read_text(encoding="utf-8")))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return False
+
+
+__all__ = [
+    "LIBRARY_SCHEMA",
+    "NOASSERTION",
+    "SCHEMA",
+    "Provenance",
+    "copy_file",
+    "copy_mode",
+    "import_record",
+    "record",
+]

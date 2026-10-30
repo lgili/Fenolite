@@ -255,10 +255,13 @@ class VerifyAgainst:
 
 @dataclass(frozen=True)
 class VerifyBuild:
-    """The build of the script in the temporary folder: its target and the count of files written."""
+    """The build of the script in the temporary folder: its target, the count of files written, the mode of
+    its copper guard and whether the provenance file marks the design as a copy (change c0281)."""
 
     target: str
     files: int = dataclasses.field(metadata=_COUNT)
+    copper_check: Literal["refuse", "warn"]
+    copy: bool
 
 
 @dataclass(frozen=True)

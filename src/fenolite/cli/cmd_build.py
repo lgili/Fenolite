@@ -214,6 +214,23 @@ of 2026-10-26; experimental until a round of kit group K6 passes)."""
 COPPER_CHECK_MODES = ("refuse", "warn")
 """``refuse`` (the default): a copper error stops the build before anything is written. ``warn``: copper
 errors are reported as warnings and the build writes. There is no ``off``."""
+PROVENANCE_FILE = "PROVENANCE.json"
+"""The provenance file beside a script; an import record in it marks the design as a copy (change c0281)."""
+
+
+def copper_mode(given: str | None, script_path: Path) -> tuple[str, str]:
+    """The copper guard's mode and where it comes from (change c0281, "Copy mode in build"): the
+    ``--copper-check`` given (``option``), else ``warn`` for a copy of someone else's board, which the
+    ``PROVENANCE.json`` beside the script marks (``copy``), else ``refuse`` (``default``)."""
+    from fenolite.importer.provenance import copy_file
+
+    if given is not None:
+        return given, "option"
+    if copy_file(script_path.resolve().parent / PROVENANCE_FILE):
+        return "warn", "copy"
+    return COPPER_CHECK_MODES[0], "default"
+
+
 WARN_NOTE = " (copper guard in warn mode)"
 SCRIPT_COPPER_CODES: tuple[str, ...] = (
     "kicad.copper.",
@@ -510,6 +527,7 @@ def copper_guard(
         edges=edges,
         min_edge_clearance=rules.min_edge_clearance,
         edge_floor_over_rules=rules.edge_floor_over_rules,
+        tolerance=rules.clearance_tolerance,
     )
     judged, waived = guard_waivers(report, waivers)
     found = [*judged, *rules_issues(rules), *edge_issues]
@@ -1017,6 +1035,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         getattr(args, "copper_from", None),
         getattr(args, "altium_template", None),
         _existing(lock_location(args.design, getattr(args, "lock", None), ctx.cwd)[1]),
+        _existing(_script_folder(args.design, ctx) / PROVENANCE_FILE),  # its copy mode (c0281)
     )
     built = _built(args, ctx)
     read = (
@@ -1033,6 +1052,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         folder = (script if script.is_absolute() else ctx.cwd / script).parent
         read = (*read, *depends_on(ctx.cwd, *(folder / row["path"] for row in files)))
     return dataclasses.replace(built, depends=tuple(sorted(set((*read, *built.depends)))))
+
+
+def _script_folder(given: str, ctx: Context) -> Path:
+    script = Path(given)
+    return (script if script.is_absolute() else ctx.cwd / script).parent
 
 
 def _existing(path: Path) -> Path | None:
@@ -1423,7 +1447,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
     _keep_confirmed_roles(out_dir, files)
     if any(found.severity == "error" for found in symbol_issues):
         files = {}  # a placements file with an error plans no write
-    mode = args.copper_check or COPPER_CHECK_MODES[0]
+    mode, mode_source = copper_mode(args.copper_check, script_path)
     copper_issues: tuple[Issue, ...] = ()
     copper_check: dict[str, object] = {"mode": mode, "ran": False}
     placement_issues, placement = placement_guard(
@@ -1444,6 +1468,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         )
         if any(issue.severity == "error" for issue in copper_issues):
             files = {}  # refused: a build with an error issue plans no write
+    copper_check = {**copper_check, "mode_source": mode_source}
     if files:
         # the root sheet and the child sheets under sheets/: views of the script, replaced when edited
         sheets = [f"{design.name}.kicad_sch", *sorted(rel for rel in files if _child_sheet(rel))]
@@ -1938,7 +1963,7 @@ def _run_altium(
         except LayoutConflict as error:
             layout_issues = error.issues
             files = {}
-    mode = args.copper_check or COPPER_CHECK_MODES[0]
+    mode, mode_source = copper_mode(args.copper_check, script_path)
     copper_issues: tuple[Issue, ...] = ()
     copper_check: dict[str, object] = {"mode": mode, "ran": False}
     if files:
@@ -1947,6 +1972,7 @@ def _run_altium(
         )
         if any(found.severity == "error" for found in copper_issues):
             files = {}  # refused: a build with an error issue plans no write
+    copper_check = {**copper_check, "mode_source": mode_source}
     if files:
         check_existing(out_dir, files, record=read_record(out_dir), discard_layout=bool(args.discard_layout))
     writes = tuple(

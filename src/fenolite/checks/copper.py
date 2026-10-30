@@ -825,8 +825,14 @@ def _candidates(items: _Items, layers: Sequence[str], grow: int, *, every_pair: 
 
 class _Judge:
     def __init__(
-        self, items: _Items, layers: Sequence[str], resolver: ClearanceResolver, areas: _Areas
+        self,
+        items: _Items,
+        layers: Sequence[str],
+        resolver: ClearanceResolver,
+        areas: _Areas,
+        tolerance: Nm = 0,
     ) -> None:
+        self.tolerance = tolerance
         self.items = items
         self.layers = layers
         self.resolver = resolver
@@ -866,9 +872,8 @@ class _Judge:
             zone_clearance=self._zone_clearance(a, b) if zone else None,
         )
 
-    @staticmethod
     def _too_close(
-        first: _Shape, second: _Shape, found: Clearance, base: Clearance | None
+        self, first: _Shape, second: _Shape, found: Clearance, base: Clearance | None
     ) -> Clearance | None:
         """The clearance the two shapes break, or ``None``.
 
@@ -878,14 +883,18 @@ class _Judge:
         arc narrowed by its band, and ``base``, the value in force without the zone, against the widened
         arc, so no finding of the rule without zones is lost."""
         assert found.value is not None
+        value = found.value - self.tolerance  # the tool's own tolerance (change c0281)
+        if value <= 0:
+            return None
         if base is None or not (first.banded or second.banded):
-            return found if thick_closer_than(first.wide, second.wide, found.value) else None
-        if thick_closer_than(first.narrow, second.narrow, found.value):
+            return found if thick_closer_than(first.wide, second.wide, value) else None
+        if thick_closer_than(first.narrow, second.narrow, value):
             return found
         if (
             base.value
             and base.severity is not None
-            and thick_closer_than(first.wide, second.wide, base.value)
+            and base.value > self.tolerance
+            and thick_closer_than(first.wide, second.wide, base.value - self.tolerance)
         ):
             return base
         return None
@@ -984,9 +993,12 @@ def _run(
     edges: Sequence[EdgeRing] | None = None,
     min_edge_clearance: Nm | None = None,
     edge_floor_over_rules: bool = False,
+    tolerance: Nm = 0,
 ) -> CopperReport:
     if type(arc_tol) is not int or arc_tol < 1:
         raise ValueError(f"arc_tol is an int of at least 1 nm, got {arc_tol!r}")
+    if type(tolerance) is not int or tolerance < 0:
+        raise ValueError(f"tolerance is a non-negative int of nm, got {tolerance!r}")
     board = design.board
     resolver = ClearanceResolver(
         design,
@@ -999,6 +1011,8 @@ def _run(
     findings: list[CopperFinding] = []
     others: list[Issue] = []
     summary: dict[str, object] = {"arc_tol": arc_tol, "max_clearance": resolver.max_value}
+    if tolerance:
+        summary["tolerance"] = tolerance
     counts = {"pairs": 0, "judged": 0, "unset_pairs": 0, "approximated": 0, "net_tie_pairs": 0}
     edge_counts: dict[str, object] = {"rings": None, "judged": 0, "unset_items": 0, "max": resolver.max_edge}
     layers: tuple[str, ...] = ()
@@ -1017,7 +1031,7 @@ def _run(
         )
         areas = _Areas(board, items)
         rule_areas = areas.named
-        judge = _Judge(items, layers, resolver, areas)
+        judge = _Judge(items, layers, resolver, areas, tolerance)
         for (a, b), shapes in sorted(pairs.items()):
             found = judge.pair(a, b, shapes)
             if found is not None:
@@ -1106,9 +1120,14 @@ def check_copper(
     edges: Sequence[EdgeRing] | None = None,
     min_edge_clearance: Nm | None = None,
     edge_floor_over_rules: bool = False,
+    tolerance: Nm = 0,
 ) -> CopperReport:
     """The shorts, clearance violations, zone overlaps and edge clearance violations of the copper of
     ``design.board``.
+
+    ``tolerance`` (nm, from ``DesignRules.clearance_tolerance``; change c0281) is how far below the value
+    in force a pair's gap may be before it is a clearance finding, as the tool's DRC allows; edge
+    clearance keeps the strict rule.
 
     ``pads`` are the board-frame pad records of ``BoardFrame.board_pads(design)``, or ``None`` when no
     frame is available (pads are then left out and reported). ``min_clearance``, ``rules_over_classes`` and
@@ -1129,6 +1148,7 @@ def check_copper(
         edges=edges,
         min_edge_clearance=min_edge_clearance,
         edge_floor_over_rules=edge_floor_over_rules,
+        tolerance=tolerance,
     )
 
 
@@ -1257,6 +1277,7 @@ def copper_stage(
         edges=edges,
         min_edge_clearance=rules.min_edge_clearance if rules is not None else None,
         edge_floor_over_rules=rules.edge_floor_over_rules if rules is not None else False,
+        tolerance=rules.clearance_tolerance if rules is not None else 0,
     )
     summary: dict[str, object] = {**report.summary, "rules": rules_summary(rules)}
     own = copper_waivers(waivers)

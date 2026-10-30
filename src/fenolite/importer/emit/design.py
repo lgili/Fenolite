@@ -16,8 +16,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import cast
 
+from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.lowering import MINIMUM_KEYS
 from fenolite.backends.kicad.outline import edge_outline
+from fenolite.backends.kicad.pcb import OUTLINE_WIDTH
 from fenolite.backends.kicad.pro import project_minimums, template
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
@@ -185,6 +187,29 @@ def _outline(design: Design) -> Outline | None:
     assert board is not None
     bare = dataclasses.replace(design, board=dataclasses.replace(board, footprints=()))
     return edge_outline(bare)
+
+
+def _losses(board: Board, copper: int, ledger: Ledger) -> None:
+    """What a DSL board writes its own way (change c0281): the stroke of its outline (``outline-width``,
+    one row per source width that is not ``OUTLINE_WIDTH``) and its non-copper layer table
+    (``layer-table``, the names one side holds and the other does not)."""
+    kinds = _kinds(board)
+    widths: dict[int, int] = {}
+    for graphic in board.graphics:
+        if kinds.get(graphic.layer) == "edge" and graphic.width != OUTLINE_WIDTH:
+            widths[graphic.width] = widths.get(graphic.width, 0) + 1
+    for width, count in sorted(widths.items()):
+        ledger.add("outline-width", f"{width} nm instead of {OUTLINE_WIDTH} nm", count)
+    try:
+        written = {layer.name for layer in created_layers(copper) if layer.kind != "copper"}
+    except ValueError:
+        return  # a copper count no DSL board has is already ``copper-count``
+    held = {layer.name for layer in board.layers if layer.kind != "copper"}
+    missing, extra = sorted(written - held), sorted(held - written)
+    if missing:
+        ledger.add("layer-table", "the source lacks " + ", ".join(missing), len(missing))
+    if extra:
+        ledger.add("layer-table", "the DSL board lacks " + ", ".join(extra), len(extra))
 
 
 def _board(design: Design, writer: _Writer, ledger: Ledger) -> tuple[list[list[str]], int]:
@@ -761,6 +786,10 @@ def emit(source: Source, options: Options) -> Emission:
     writer = _Writer()
     header = options.provenance.header()
     board_lines, copper_count = _board(design, writer, ledger)
+    if source.backend == "kicad":
+        # an Altium document's outline and layers are those of its in-memory conversion, not of its author
+        assert design.board is not None
+        _losses(design.board, copper_count, ledger)
     board_lines += _stackup(board, copper_count, writer, ledger)
     board_lines += _title_block(board, ledger)
     layers = _copper_names(copper_count)

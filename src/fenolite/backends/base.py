@@ -983,6 +983,9 @@ class DesignRules:
     clearance_cells: tuple[int, int] = (0, 0)
     min_edge_clearance: Nm | None = None
     edge_floor_over_rules: bool = False
+    clearance_tolerance: Nm = 0
+    """How far below the value in force the tool still accepts a gap (change c0281): the copper check
+    reports a pair only when its gap is below ``value − clearance_tolerance``."""
 
 
 @runtime_checkable

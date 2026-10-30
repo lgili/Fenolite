@@ -726,6 +726,7 @@ another type; a flag without a value is a switch.
 - `--reason TEXT` (repeatable): why --accept accepts
 - `--target {9,10}` (integer): the KiCad major to build for
 - `--upgrade`: upgrade a copy of an older original (kicad-cli)
+- `--copper-check {refuse,warn}`: the copper guard of the build: refuse or warn (default: warn for a copy, which the import record of the provenance file marks, else refuse)
 - `--kicad-cli PATH`: the kicad-cli of --upgrade
 - `--timeout SECONDS` (number, default `300.0`)
 
