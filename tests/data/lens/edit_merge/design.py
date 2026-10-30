@@ -1,9 +1,10 @@
-# SPDX-License-Identifier: CC0-1.0
-# Authored for Fenolite as a test fixture; no file, value, name or layout comes from any other project.
-"""The edit merge acceptance fixture (change c0250): a supply connector, a resistor with a user property at
-the root, and an indicator in the module ``led``. ``tests/unit/lens/test_edit_merge_acceptance.py`` builds
-it, edits the board and the schematic as KiCad would, and builds and syncs it again. Every symbol and
-footprint comes from Fenolite's own catalog, so the build reads no library."""
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
+"""The edit merge acceptance fixture (change c0250), authored for Fenolite: a supply connector, a
+resistor with a user property at the root, and an indicator in the module ``led``.
+``tests/unit/lens/test_edit_merge_acceptance.py`` builds it, edits the board and the schematic as KiCad
+would, and builds and syncs it again. Every symbol and footprint comes from Fenolite's own catalog, so the
+build reads no library."""
 
 from fenolite.dsl import Design, Module, Net, Power, connect, mm
 

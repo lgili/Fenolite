@@ -835,8 +835,9 @@ def _symbol_text(symbol: SymbolInstance, prop: str) -> str:
 
 
 def _board_text(read: Component | None, fp: FootprintInstance | None, prop: str) -> str | None:
-    """The text of ``prop`` on the board: ``None`` without a footprint, or for a value of a footprint without
-    its Value field (a board of an older Fenolite); a user property the footprint lacks is the empty text."""
+    """The text of ``prop`` on the board: ``None`` without a footprint, or for a value or reference of a
+    footprint without its Value or Reference field (a board of an older Fenolite); a user property the
+    footprint lacks is the empty text."""
     if prop == "footprint":
         return fp.lib_ref if fp is not None else None
     if read is None:
@@ -844,7 +845,7 @@ def _board_text(read: Component | None, fp: FootprintInstance | None, prop: str)
     if prop == "value":
         return read.properties.get("Value")
     if prop == "reference":
-        return read.ref
+        return read.properties.get("Reference")
     return read.properties.get(prop[len(USER_PREFIX) :], "")
 
 
