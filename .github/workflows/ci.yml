@@ -214,7 +214,7 @@ jobs:
           python-version: "3.12"
       - name: kicad-cli version
         run: kicad-cli version
-      - name: Sync (locked; geo: the role-copper planner of the reference boards, change c0280)
+      - name: Sync (locked, with geo for the role-copper planner, change c0280)
         run: uv sync --locked --extra dev --extra geo
       - name: Corpus cache (rt2-9 and sch-9 rows)
         uses: actions/cache@v4
