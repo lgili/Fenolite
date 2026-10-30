@@ -56,6 +56,7 @@ from fenolite.geometry import (
     thick_touch,
     thick_witness,
 )
+from fenolite.geometry.rings import zone_ring
 from fenolite.model.base import Entity
 from fenolite.model.board import Board, Graphic, Keepout, Zone
 from fenolite.model.design import Design
@@ -556,7 +557,8 @@ def _zone_overlaps(board: Board, items: _Items) -> list[CopperFinding]:
     usable: list[tuple[Zone, Polygon]] = []
     for zone in board.zones:
         try:
-            usable.append((zone, Polygon(_clean_ring(zone.outline))))
+            ring = zone_ring(zone.outline, [(a.edge, a.mid) for a in zone.arcs if a.ring == 0])
+            usable.append((zone, Polygon(_clean_ring(ring))))
         except GeometryError:
             items.unsupported["zone-outline"] += 1
     found: list[CopperFinding] = []

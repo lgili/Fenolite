@@ -189,9 +189,10 @@ new fields, omitted when unset. Units, precision and text sizes follow the linea
 
 `zone(outline=…)` accepts `arc_to` steps as `board(outline=…)` does, through `closed_ring`; `Zone.arcs`
 (`OutlineArc`) is new and omitted when empty. The KiCad writer emits the arc inside the polygon's
-`pts`; the fill engine and the copper guard flatten arcs with the tolerance the board outline uses.
-Altium: an arc edge is written as a region arc when the writer has one, else flattened with
-`altium.zone-arc-flattened` (info).
+`pts`; the copper guard flattens arcs (`geometry.rings.zone_ring`) with the tolerance the board outline
+uses (KiCad fills the zone; Fenolite has no fill engine of its own). Altium: a region holds no arc, so an
+arc edge is written as segments and counted as a changed item of the zone (the c0160 mechanism), not
+under a new `altium.zone-arc-flattened` code (implemented 2026-10-30).
 
 ### 9. Footprint-instance overrides
 

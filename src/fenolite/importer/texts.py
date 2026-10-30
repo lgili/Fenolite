@@ -14,8 +14,9 @@ from dataclasses import dataclass
 
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad.sexpr import AtomKind, Node
+from fenolite.core.coords import Point
 from fenolite.model.base import Opaque
-from fenolite.model.board import Dimension, Graphic, Keepout, Text
+from fenolite.model.board import Dimension, Graphic, Keepout, Text, Zone
 
 FONT_KEPT = frozenset({"size", "thickness"})
 """Font children the reader projects into the model."""
@@ -220,6 +221,61 @@ def area_placement(area: Keepout) -> str | None:
     return ""
 
 
+def zone_arc_ring(zone: Zone) -> tuple[tuple[Point, ...], dict[int, Point]] | None:
+    """The vertices and the arc edges (index → mid) of a zone outline that the reader kept in its slots
+    because it holds an arc (change c0277): one ``polygon`` whose ``pts`` hold ``xy`` and ``arc`` items, an
+    arc's end being a vertex, a line joining an item's last point to the next one's first. ``None`` for
+    another outline (several polygons, an unknown item)."""
+    bag = zone.ext.get("kicad")
+    polygons: list[Node] = []
+    for slot in slotlib.from_ext(bag) if bag is not None else ():
+        if isinstance(slot, Opaque):
+            child = slotlib.opaque_child(slot)
+            if isinstance(child, Node) and child.name == "polygon":
+                polygons.append(child)
+    if len(polygons) != 1:
+        return None
+    pts = polygons[0].find("pts")
+    if pts is None or len(polygons[0].nodes()) != 1:
+        return None
+    points: list[Point] = []
+    bends: dict[int, Point] = {}
+
+    def add(point: Point) -> None:
+        if not points or points[-1] != point:
+            points.append(point)
+
+    try:
+        for item in pts.nodes():
+            if item.name == "xy":
+                add(_point(item))
+            elif item.name == "arc":
+                ends = [item.find(head) for head in ("start", "mid", "end")]
+                if len(item.nodes()) != 3:
+                    return None
+                start, mid, end = (_point(found) for found in ends)
+                add(start)
+                bends[len(points) - 1] = mid
+                points.append(end)
+            else:
+                return None
+    except ValueError:
+        return None
+    if len(points) > 1 and points[-1] == points[0]:
+        points.pop()
+    return (tuple(points), bends) if len(points) >= 3 or (len(points) == 2 and bends) else None
+
+
+def _point(node: Node | None) -> Point:
+    """The point of an ``(xy x y)``-shaped node, in nanometres; ``ValueError`` for anything else."""
+    if node is None:
+        raise ValueError("no point")
+    atoms = node.atoms()
+    if len(atoms) != 2 or node.nodes():
+        raise ValueError(f"not a point: {node.name}")
+    return Point(atoms[0].to_nm(), atoms[1].to_nm())
+
+
 NO_NET = ""
 """What ``graphic_net`` gives for a graphic without a net."""
 
@@ -256,6 +312,7 @@ def graphic_net(graphic: Graphic, numbers: Mapping[int, str]) -> str | None:
 __all__ = [
     "NO_NET",
     "area_placement",
+    "zone_arc_ring",
     "DimensionStyle",
     "TextStyle",
     "dimension_style",

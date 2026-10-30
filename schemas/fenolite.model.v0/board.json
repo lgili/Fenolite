@@ -2330,6 +2330,12 @@
         },
         "locked": {
           "type": "boolean"
+        },
+        "arcs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OutlineArc"
+          }
         }
       },
       "additionalProperties": false,

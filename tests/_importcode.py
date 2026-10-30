@@ -260,6 +260,15 @@ def tuned(tmp: Path) -> Path:
     return _variant(tmp, "tuned", body[:-1] + items + ")\n")
 
 
+def rounded(tmp: Path) -> Path:
+    """The board whose GND zone has an arc edge, which the reader keeps in the zone's slots (change c0277)."""
+    text = BOARD.read_text(encoding="utf-8")
+    old = "(xy 135 112) (xy 155 112) (xy 155 128) (xy 135 128)"
+    assert text.count(old) == 1
+    text = text.replace(old, "(xy 135 112) (arc (start 155 112) (mid 157 120) (end 155 128)) (xy 135 128)")
+    return _variant(tmp, "rounded", text)
+
+
 def built_for(tmp: Path, major: int) -> Path:
     """The authored two-sheet board built from its script for KiCad ``major`` in ``tmp``."""
     work = tmp / "data" / "src"

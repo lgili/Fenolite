@@ -1069,7 +1069,7 @@ design.zone(
 | `layers` | the copper layers of the pour, any of `Design.copper_layers`: `F.Cu`, `B.Cu` and the inner layers `In1.Cu` … `In<copper − 2>.Cu` of the count (`In6.Cu` is the deepest with `copper=8`); a refused name lists the board's layers | required |
 | `name` | names the zone across builds; unique in the design | the net's name; required when `net` is `None` |
 | `key` | the zone's identity across builds when it has no name (change c0275), written nowhere in the board; with `key` and no `name` the zone has no name; unique among zones | the name |
-| `outline` | at least three `(x, y)` points in the frame of `place()` | the board rectangle |
+| `outline` | at least three `(x, y)` points in the frame of `place()`, which may hold `arc_to(mid, end)` steps as `board(outline=…)` does (change c0277): each is an arc edge, written in KiCad as an `arc` of the outline, polygonised by the copper check and written as segments in an Altium region | the board rectangle |
 | `priority` | an `int` of at least 0; a higher priority is filled first | 0 |
 | `clearance` | the distance the fill keeps from other nets (at least 0) | 0.5 mm |
 | `min_thickness` | the smallest width of copper that a fill keeps (above 0) | 0.25 mm |

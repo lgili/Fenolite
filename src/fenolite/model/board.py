@@ -516,6 +516,9 @@ class Zone(Entity):
     settings: ZoneSettings = ZoneSettings()
     filled: bool = False
     locked: bool = False
+    arcs: tuple[OutlineArc, ...] = ()
+    """The edges of ``outline`` that are arcs (ring 0; change c0277); left out of the canonical JSON when
+    empty. A consumer that needs the polygon takes ``CurvedRing``'s polygonisation of the ring."""
 
 
 @dataclass(frozen=True, slots=True)

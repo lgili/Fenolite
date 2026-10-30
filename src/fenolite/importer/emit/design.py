@@ -55,7 +55,7 @@ from fenolite.importer.tables import (
     protect_arguments,
     teardrop_arguments,
 )
-from fenolite.importer.texts import area_placement, dimension_style, graphic_net, text_style
+from fenolite.importer.texts import area_placement, dimension_style, graphic_net, text_style, zone_arc_ring
 from fenolite.importer.vendor import natural, vendor
 from fenolite.model.base import Entity, Opaque
 from fenolite.model.board import (
@@ -602,6 +602,7 @@ def _zones(
     layers: Sequence[str],
     ledger: Ledger,
     members: dict[str, Expr] | None = None,
+    writer: _Writer | None = None,
 ) -> list[list[str]]:
     out: list[list[str]] = []
     named: set[str] = set()
@@ -618,7 +619,13 @@ def _zones(
         if not zone.layers or any(layer not in layers for layer in zone.layers):
             ledger.add("zone-layer", where)
             continue
-        if len(zone.outline) < 3:
+        ring, bends = tuple(zone.outline), dict[int, Point]()
+        if len(ring) < 3 and writer is not None:
+            # an outline with an arc stays in the zone's slots; the code writes it with arc_to (change c0277)
+            found = zone_arc_ring(zone)
+            if found is not None:
+                ring, bends = found
+        if len(ring) < 3:
             ledger.add("zone-outline", where)
             continue
         args: list[tuple[str, Expr]] = [("layers", Tup(tuple(text(layer) for layer in zone.layers)))]
@@ -644,7 +651,10 @@ def _zones(
             keys.add(f"{stem}/{index}")
             args.append(("key", text(f"{stem}/{index}")))
             identity = f"{stem}/{index}"
-        args.append(("outline", Tup(tuple(_xy(p) for p in zone.outline))))
+        if bends and writer is not None:
+            args.append(("outline", _ring_path(ring, bends, writer)))
+        else:
+            args.append(("outline", Tup(tuple(_xy(p) for p in ring))))
         args += _zone_args(zone, ledger)
         target: Expr = Raw(nets[net]) if net is not None else Raw("None")
         out.append(statement(Call("design.zone", (target,), tuple(args))))
@@ -1320,7 +1330,7 @@ def emit(source: Source, options: Options) -> Emission:
     grouped: dict[str, Expr] = {
         _native(fp): Raw(part_vars[refs[fp.component_id]]) for fp in footprints if _native(fp)
     }
-    zone_lines = _zones(board, names, net_vars, layers, ledger, grouped)
+    zone_lines = _zones(board, names, net_vars, layers, ledger, grouped, writer)
     area_lines = _areas(board, layers, ledger, grouped)
     drawing_lines = _drawings(board, ledger, grouped, net_vars, numbers)
     verbatim_lines = _verbatim(board, numbers, tables.built, grouped, ledger)

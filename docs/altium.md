@@ -1529,6 +1529,7 @@ Fields of these kinds that the scope leaves out, and why:
 | `zone` | `fills`, `filled` | the writer does not write it: the poured copper is Altium's to compute |
 | `zone` | `settings` | the writer does not write it |
 | `zone` | `locked` | the writer does not write it |
+| `zone` | `arcs` | the writer writes a fixed value: a region holds no arc, so an arc edge is written as segments and the zone is counted as changed (change c0277) |
 | `hole` | `intent` | the writer does not write it: the mechanical intent of a hole stays in the neutral model |
 
 **Holes and cut-outs** (change c0168). A board hole is compared by its position, drill, plating, slot

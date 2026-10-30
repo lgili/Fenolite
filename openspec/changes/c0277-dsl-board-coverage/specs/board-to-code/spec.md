@@ -61,6 +61,14 @@ The import SHALL write each root item the reader keeps and no DSL call says, who
 - **WHEN** it is imported with `--confirm` and built
 - **THEN** `result.unexpressed` is empty, `design.py` holds `design.verbatim("generated/1", …)`, `design.group("tuned", "generated/1")` and `placement="/CH1/"`, and the built board's `generated` names a track of the board in `members`, inside the group `tuned`
 
+### Requirement: Zone arcs in an import
+The import SHALL write a zone outline that the reader keeps in the zone's slots because it holds an arc — one `polygon` of `xy` and `arc` items — as `outline=` with `arc_to` steps (change c0277); another kept outline (several polygons, an unknown item) MUST stay `zone-outline`.
+
+#### Scenario: A rounded pour
+- **GIVEN** the two-sheet board whose GND zone has an arc edge through (157, 120) (`tests/_importcode.py::rounded`)
+- **WHEN** it is imported with `--confirm` and built
+- **THEN** `result.unexpressed` is empty, `design.py` holds `arc_to((mm("57"), mm("20")), (mm("55"), mm("28")))`, and the built zone's `pts` hold `(arc (start 155 112) (mid 157 120) (end 155 128))`
+
 ### Requirement: Texts and dimensions in an import
 The import SHALL write a board text on a layer the DSL takes, a copper layer included, as `design.text()` with the style the reader keeps in the text's slots (`knockout`, `bold`, `italic`, `face`), a size of two values as a `(width, height)` pair, several lines and an empty text as they are. A text whose slots hold what `design.text()` cannot say (a hidden text, a mirror that does not follow the layer side) MUST be the unexpressed kind `text`. An aligned or orthogonal dimension on a layer the DSL takes SHALL be written as `design.dimension()` when its `format` and `style` hold the values a created dimension writes, but its line width and its extension offset (`extension_offset=`); another one MUST be `dimension-style`, and a dimension of another kind stays `dimension`.
 

@@ -514,6 +514,7 @@ def _design_model(design: Design) -> ModelDesign:
                 priority=spec.priority,
                 settings=spec.settings,
                 locked=spec.locked,
+                arcs=tuple(OutlineArc(0, edge, Point(x0 + mx, y0 + my)) for edge, (mx, my) in spec.arcs),
             )
             for name, spec in sorted(design.zones.items())
         )

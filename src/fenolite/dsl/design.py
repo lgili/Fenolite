@@ -92,6 +92,8 @@ class ZoneSpec:
     priority: int
     settings: ZoneSettings
     locked: bool
+    arcs: tuple[tuple[int, tuple[Nm, Nm]], ...] = ()
+    """Each edge of ``outline`` that is an arc, with its mid point, board-relative (change c0277)."""
 
 
 ZONE_CONNECTIONS: tuple[str, ...] = get_args(ZoneConnection)
@@ -1445,7 +1447,7 @@ class Design(Container):
         name = name if name is not None else ""
         what = f"zone {identity}"
         found_layers = self._zone_layers(layers, what)
-        points = self._zone_outline(outline, what)
+        points, arcs = self._zone_outline(outline, what)
         if isinstance(priority, bool) or not isinstance(priority, int) or priority < 0:  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"{what}: priority must be an int of at least 0, not {priority!r}")
         if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -1501,6 +1503,7 @@ class Design(Container):
             priority,
             ZoneSettings(**changes),  # type: ignore[arg-type]
             locked,
+            arcs,
         )
 
     def _zone_layers(self, layers: object, what: str) -> tuple[str, ...]:
@@ -1521,9 +1524,32 @@ class Design(Container):
         return tuple(found)
 
     @staticmethod
-    def _zone_outline(outline: object, what: str) -> tuple[tuple[Nm, Nm], ...] | None:
+    def _zone_outline(
+        outline: object, what: str
+    ) -> tuple[tuple[tuple[Nm, Nm], ...] | None, tuple[tuple[int, tuple[Nm, Nm]], ...]]:
+        """The board-relative points of ``outline`` and, for a path with ``arc_to`` steps (change c0277), each
+        arc edge with its mid point."""
         if outline is None:
-            return None
+            return None, ()
+        steps: Sequence[object] = (
+            cast("Sequence[object]", outline)
+            if isinstance(outline, Sequence) and not isinstance(outline, str)
+            else ()
+        )
+        if steps:
+            from fenolite.dsl.convert import BOARD_ORIGIN
+            from fenolite.dsl.intents import ArcStep
+            from fenolite.dsl.shape import closed_ring
+
+            if any(isinstance(step, ArcStep) for step in steps):
+                ring = closed_ring(steps, f"{what}: outline")
+                ox, oy = BOARD_ORIGIN.x, BOARD_ORIGIN.y
+                points = tuple((p.x - ox, p.y - oy) for p in ring.points)
+                return points, tuple((edge, (mid.x - ox, mid.y - oy)) for edge, mid in ring.arcs)
+        return Design._zone_points(cast(object, outline), what), ()
+
+    @staticmethod
+    def _zone_points(outline: object, what: str) -> tuple[tuple[Nm, Nm], ...]:
         if isinstance(outline, str) or not isinstance(outline, Sequence):
             raise DslError(f"{what}: outline must hold at least three (x, y) points")
         pairs = cast("Sequence[object]", outline)

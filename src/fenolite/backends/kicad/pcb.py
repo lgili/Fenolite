@@ -111,6 +111,7 @@ from fenolite.model.board import (
     Graphic,
     Keepout,
     Layer,
+    OutlineArc,
     Pad,
     Stackup,
     Text,
@@ -489,6 +490,33 @@ def _pts(points: Sequence[Point]) -> Node:
     return node("pts", *(point_node("xy", p) for p in points))
 
 
+def _arc_pts(points: Sequence[Point], arcs: Sequence[OutlineArc]) -> Node:
+    """The ``pts`` of a ring whose edges ``arcs`` names are arcs, as KiCad writes a zone outline (change
+    c0277; S-0058, ``RoyalBlue54L-Feather``): an arc edge is ``(arc (start) (mid) (end))``, a vertex that no
+    arc ends on is ``(xy)``, and the list starts at a vertex whose previous edge is a line, so no vertex is
+    written twice (a ring of arcs only repeats its first vertex)."""
+    mids = {arc.edge: arc.mid for arc in arcs if arc.ring == 0}
+    n = len(points)
+    start = next((i for i in range(n) if (i - 1) % n not in mids), 0)
+    children: list[Node | Atom] = []
+    ended = False
+    for step in range(n):
+        i = (start + step) % n
+        if i in mids:
+            ends = (
+                point_node("start", points[i]),
+                point_node("mid", mids[i]),
+                point_node("end", points[(i + 1) % n]),
+            )
+            children.append(node("arc", *ends))
+            ended = True
+            continue
+        if not ended:
+            children.append(point_node("xy", points[i]))
+        ended = False
+    return node("pts", *children)
+
+
 def form_major(version: int) -> int:
     """The major whose zone setting forms a board of format ``version`` uses: the oldest supported major
     that reads it, and the newest one for a version from the future."""
@@ -502,7 +530,14 @@ def _emit_zone(zone: Zone | Keepout, nets: _Nets, *, major: int) -> Items:
     items: Items = {
         "layers": [layers_node("layer" if len(layers) == 1 else "layers", layers)],
         "native_ids": uuid_items(zone.native_ids),
-        "outline": [node("polygon", _pts(zone.outline))],
+        "outline": [
+            node(
+                "polygon",
+                _arc_pts(zone.outline, zone.arcs)
+                if isinstance(zone, Zone) and zone.arcs
+                else _pts(zone.outline),
+            )
+        ],
     }
     if isinstance(zone, Zone):
         items["net_id"] = _opt(nets.node(zone.net_id, zone=True))
