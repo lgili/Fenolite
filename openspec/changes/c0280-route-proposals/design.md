@@ -500,7 +500,11 @@ convert, as `docs/roles.md` says for phase 2.
    rejected candidate is not listed again; `--replay` on a fresh build of the same script restores the
    accepted copper and the second replay writes nothing (`H-G-PROP-REPLAY`).
 7. **KiCad DRC** on 9 and 10 after refill (on 9 with the unit tests' fill, as c0244): zero unconnected
-   items, no violation type grows against the variant after phase 2 (`H-K-PROP-DRC`).
+   items, no violation type grows against the variant after phase 2 (`H-K-PROP-DRC`). Corrected in task 4.3:
+   the proposals are made on the board as built (zones unfilled, the simulated pour) on both majors, and the
+   outline fill goes only on the copy that `kicad-cli` 9 judges; since that fill stands for KiCad's, the zero
+   of unconnected items is claimed on 10 and the no-growth on both (the first CI run, which proposed on the
+   outline fill, found other subjects there).
 8. **Altium:** convert each accepted variant and compare the read-back (`H-A-PROP-READBACK`).
 9. **`good` and `open` variants:** `--propose` on each `good` variant gives `route.proposal-none`. On the
    `open` variants after phase 2, the proposals are recorded under task 4.2; the half-bridge's sense pair
