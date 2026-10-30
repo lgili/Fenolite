@@ -433,6 +433,8 @@ def place_footprint(
     assert design.board is not None
     (instance,) = design.board.footprints
     attributes = tuple(a for a in (defn.kind, *defn.flags) if a in _ATTRIBUTES)
+    if component.dnp and "dnp" not in attributes:
+        attributes = (*attributes, "dnp")  # a part not populated marks its footprint (change c0277)
     return dataclasses.replace(instance, provenance=None, component_id=component.id, attributes=attributes)  # type: ignore[arg-type]
 
 

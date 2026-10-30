@@ -32,7 +32,7 @@
 - [ ] 2.1 Copper text and graphics, the copper guard rule and `copper.text-unchecked` (scenario "Copper text and a copper shape on a net"). Proof: `uv run pytest tests/unit/dsl/test_drawings.py tests/unit/checks -k "copper_art or drawings" -q`.
 - [ ] 2.2 Dimensions `radial`, `leader`, `center` (scenario "Three new kinds"). Proof: `uv run pytest tests/unit/dsl/test_dimensions.py -q`.
 - [ ] 2.3 Zone arcs in the DSL, model, writer, fill and guard (scenario "Zone with an arc edge"). Proof: `uv run pytest tests/unit/dsl/test_zones.py tests/unit/lens -k zone_arc -q`.
-- [ ] 2.4 Groups (scenario "A labelled block"). Proof: `uv run pytest tests/unit/dsl/test_groups.py -q`.
+- [x] 2.4 Groups (scenario "A labelled block"; members of copper intents, images and verbatim items join with their tasks). Proof: `uv run pytest tests/unit/dsl/test_groups.py -q`.
 - [ ] 2.5 Images, read by the build as declared inputs (scenario "Logo image"); the test PNG is authored for Fenolite. Proof: `uv run pytest tests/unit/dsl/test_images.py -q`.
 - [x] 2.6a Teardrop settings of vias: `teardrop()`, `teardrop=` of `via` and `via_table`, `Teardrop` on `Pad` and `Via`, the writer's `teardrops` child and its replacement on a read item (scenarios "Settings on a via and a table", "Refused settings"). Proof: `uv run pytest tests/unit/dsl/test_teardrops.py tests/unit/backends/kicad/test_teardrops.py tests/unit/lens/test_build_teardrops.py -q`.
 - [ ] 2.6b `Design.teardrops(where=…)` over pads and vias of the built board (scenario "Teardrops on a class"). Proof: `uv run pytest tests/unit/dsl/test_teardrops.py -k where -q`.
@@ -61,11 +61,19 @@ Each task makes one kind that `fenolite import --to python` leaves out (c0275, `
 - [x] 6.2 Via spans: a blind via over both outer layers as a table row (design-dsl, "Blind vias over the board in via tables"; board-to-code, "Blind vias over the board in an import"). Proof: `uv run pytest tests/unit/importer/test_teardrops.py tests/unit/lens/test_build_teardrops.py -q`.
 - [x] 6.3 Texts: a text on a copper layer with `knockout`, `bold`, `italic`, `face`, a size of two values, several lines and an empty text in the DSL, the model, the writer and the import; `copper.text-unchecked`; the Altium writer reports the new styles (design-dsl, "Board drawings in the DSL", scenario "Copper text and text styles"; board-to-code, "Texts and dimensions in an import"). Copper graphics with a net stay with task 2.1. Proof: `uv run pytest tests/unit/dsl/test_board_texts.py tests/unit/dsl/test_drawings.py tests/unit/importer/test_drawn_items.py -q`.
 - [x] 6.4 Dimensions: `extension_offset` in the DSL and the model, and the aligned and orthogonal dimensions written by the import (`dimension-style` for a format or style the DSL does not say); the kinds radial, leader and centre stay with task 2.2. Proof: `uv run pytest tests/unit/importer/test_drawn_items.py -q`.
-- [ ] 6.5 Net ties of board footprints (`net-tie`). Proof: `uv run pytest tests/unit/importer -k net_tie -q`.
-- [ ] 6.6 `dnp` parts (`dnp`). Proof: `uv run pytest tests/unit/importer -k dnp -q`.
-- [ ] 6.7 Groups (task 2.4; `group`). Proof: `uv run pytest tests/unit/importer -k group -q`.
+- [x] 6.5 Net ties of board footprints (`net-tie`): they come back with the vendored footprint, so the kind is no longer counted (board-to-code, "Parts not populated and net ties in an import"). Proof: `uv run pytest tests/unit/importer/test_unfitted.py -q`.
+- [x] 6.6 `dnp` parts (`dnp`): `Part(..., dnp=True)` in the DSL (design-dsl, "Parts not populated in the DSL"), written by the import. Proof: `uv run pytest tests/unit/dsl/test_dnp.py tests/unit/importer/test_unfitted.py -q`.
+- [x] 6.7 Groups (task 2.4; `group`): a group whose members the code writes becomes `design.group()` (board-to-code, "Groups in an import"). Proof: `uv run pytest tests/unit/importer/test_groups.py tests/unit/importer/test_coverage.py -q`.
 - [ ] 6.8 Footprints that share a reference (`duplicate-ref`). Proof: `uv run pytest tests/unit/importer -k duplicate -q`.
+  Open (2026-10-30): the 131 of `tiny_tapeout` are stitching-via footprints with `(attr through_hole board_only
+  exclude_from_pos_files exclude_from_bom)`, all `STITCH1` and without a symbol, and the three of `microwave`
+  share `POLY`. A `Part` needs a unique ref and a symbol, so this waits for a decision in `design.md`: a
+  board-only footprint call that takes a library footprint, a position and a shared reference, and no symbol.
 - [ ] 6.9 Board outlines closed by the edge lines of a footprint (`outline`). Proof: `uv run pytest tests/unit/importer -k outline -q`.
+  Open (2026-10-30): only `tiny_tapeout` (its USB connector J15 closes the outline). `design.board(outline=)`
+  takes a closed path, so the import would write the footprint's edges twice (in the outline and in the
+  vendored footprint) unless the writer leaves out the outline segments a footprint's `Edge.Cuts` covers;
+  how KiCad 9 and 10 treat a doubled edge must be measured first (needs `kicad-cli`, CI).
 
 ## 5. Closing
 

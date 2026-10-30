@@ -12,13 +12,16 @@ from __future__ import annotations
 
 import dataclasses
 import re
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import cast
 
+from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad.lowering import MINIMUM_KEYS
 from fenolite.backends.kicad.outline import edge_outline
 from fenolite.backends.kicad.pro import project_minimums, template
+from fenolite.backends.kicad.sexpr import Node
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.importer import coverage
@@ -54,6 +57,7 @@ from fenolite.importer.tables import (
 )
 from fenolite.importer.texts import dimension_style, text_style
 from fenolite.importer.vendor import natural, vendor
+from fenolite.model.base import Entity, Opaque
 from fenolite.model.board import (
     Board,
     Dimension,
@@ -545,7 +549,12 @@ def _zone_args(zone: Zone, ledger: Ledger) -> list[tuple[str, Expr]]:
 
 
 def _zones(
-    board: Board, names: Mapping[str, str], nets: Mapping[str, str], layers: Sequence[str], ledger: Ledger
+    board: Board,
+    names: Mapping[str, str],
+    nets: Mapping[str, str],
+    layers: Sequence[str],
+    ledger: Ledger,
+    members: dict[str, Expr] | None = None,
 ) -> list[list[str]]:
     out: list[list[str]] = []
     named: set[str] = set()
@@ -569,12 +578,14 @@ def _zones(
         if net is not None and zone.name == net and net not in named and net not in keys:
             named.add(net)
             keys.add(net)
+            identity = net
         elif (
             zone.name and zone.name == zone.name.strip() and zone.name not in named and zone.name not in keys
         ):
             named.add(zone.name)
             keys.add(zone.name)
             args.append(("name", text(zone.name)))
+            identity = zone.name
         else:
             if zone.name:
                 ledger.add("zone-name", zone.name)
@@ -585,14 +596,19 @@ def _zones(
             counters[stem] = index
             keys.add(f"{stem}/{index}")
             args.append(("key", text(f"{stem}/{index}")))
+            identity = f"{stem}/{index}"
         args.append(("outline", Tup(tuple(_xy(p) for p in zone.outline))))
         args += _zone_args(zone, ledger)
         target: Expr = Raw(nets[net]) if net is not None else Raw("None")
         out.append(statement(Call("design.zone", (target,), tuple(args))))
+        if members is not None:
+            members[_native(zone)] = text(identity)
     return out
 
 
-def _areas(board: Board, layers: Sequence[str], ledger: Ledger) -> list[list[str]]:
+def _areas(
+    board: Board, layers: Sequence[str], ledger: Ledger, members: dict[str, Expr] | None = None
+) -> list[list[str]]:
     out: list[list[str]] = []
     names: set[str] = set()
     index = 0
@@ -608,12 +624,16 @@ def _areas(board: Board, layers: Sequence[str], ledger: Ledger) -> list[list[str
         if area.name and NAME.fullmatch(area.name) and area.name.casefold() not in names:
             names.add(area.name.casefold())
             first: Expr = text(area.name)
+            identity = area.name
         else:
             if area.name:
                 ledger.add("rule-area-name", area.name)
             index += 1
             first = text("")
             args.append(("key", text(f"area/{index}")))
+            identity = f"area/{index}"
+        if members is not None:
+            members[_native(area)] = text(identity)
         if area.layers and tuple(area.layers) != tuple(layers):
             args.insert(0, ("layers", Tup(tuple(text(layer) for layer in area.layers))))
         forbid = tuple(text(word) for word, flag in FORBID if getattr(area, flag))
@@ -718,7 +738,11 @@ def _dimension(item: Dimension, key: str) -> Call | None:
     return Call("design.dimension", (text(key), _xy(item.start), _xy(item.end)), tuple(kwargs))
 
 
-def _drawings(board: Board, ledger: Ledger) -> list[list[str]]:
+def _native(item: Entity) -> str:
+    return item.native_ids.get("kicad", "")
+
+
+def _drawings(board: Board, ledger: Ledger, members: dict[str, Expr] | None = None) -> list[list[str]]:
     from fenolite.dsl.items import BOARD_LAYER_KINDS
 
     # a DSL board holds the standard layers only: a drawing on another user layer cannot be written
@@ -745,11 +769,14 @@ def _drawings(board: Board, ledger: Ledger) -> list[list[str]]:
             continue
         slot = (graphic.layer, graphic.kind)
         counters[slot] = counters.get(slot, 0) + 1
-        made = _graphic(graphic, f"{segment(graphic.layer)}/{graphic.kind}/{counters[slot]}")
+        key = f"{segment(graphic.layer)}/{graphic.kind}/{counters[slot]}"
+        made = _graphic(graphic, key)
         if made is None:
             ledger.add("drawing", f"{graphic.kind} on {graphic.layer}")
             continue
         out.append(statement(made))
+        if members is not None:
+            members[_native(graphic)] = text(key)
 
     def tkey(item: Text) -> tuple[object, ...]:
         return (item.layer, item.position.x, item.position.y, item.text)
@@ -761,11 +788,14 @@ def _drawings(board: Board, ledger: Ledger) -> list[list[str]]:
             continue
         slot = (item.layer, "text")
         counters[slot] = counters.get(slot, 0) + 1
-        made = _text(item, f"{segment(item.layer)}/text/{counters[slot]}", kind == "copper")
+        key = f"{segment(item.layer)}/text/{counters[slot]}"
+        made = _text(item, key, kind == "copper")
         if made is None:
             ledger.add("text", item.text[:40])
             continue
         out.append(statement(made))
+        if members is not None:
+            members[_native(item)] = text(key)
 
     def dkey(item: Dimension) -> tuple[object, ...]:
         return (item.layer, item.start.x, item.start.y, item.end.x, item.end.y, item.offset)
@@ -777,11 +807,77 @@ def _drawings(board: Board, ledger: Ledger) -> list[list[str]]:
             continue
         slot = (dimension.layer, "dimension")
         counters[slot] = counters.get(slot, 0) + 1
-        made = _dimension(dimension, f"{segment(dimension.layer)}/dimension/{counters[slot]}")
+        key = f"{segment(dimension.layer)}/dimension/{counters[slot]}"
+        made = _dimension(dimension, key)
         if made is None:
             ledger.add("dimension-style", where)
             continue
         out.append(statement(made))
+        if members is not None:
+            members[_native(dimension)] = text(key)
+    return out
+
+
+def _group_nodes(board: Board) -> list[Node]:
+    """The root ``group`` nodes the reader keeps in the board's slots."""
+    bag = board.ext.get("kicad")
+    found: list[Node] = []
+    for slot in slotlib.from_ext(bag) if bag is not None else ():
+        if isinstance(slot, Opaque):
+            child = slotlib.opaque_child(slot)
+            if isinstance(child, Node) and child.name == "group":
+                found.append(child)
+    return found
+
+
+def _groups(board: Board, members: dict[str, Expr], ledger: Ledger) -> list[list[str]]:
+    """``design.group()`` calls for the board's groups whose members the code writes (change c0277); a
+    group holding a member it does not write (copper, a part or a drawing left out) is unexpressed. A group
+    inside a group is written after it, so the inner group's key exists."""
+    pending: list[tuple[str, str, bool, list[str], str]] = []
+    for node_ in _group_nodes(board):
+        atoms = node_.atoms()
+        name = atoms[0].value if atoms else ""
+        held = node_.find("uuid")
+        uuid = held.atoms()[0].value if held is not None and held.atoms() else ""
+        lock = node_.find("locked")
+        locked = lock is not None and [a.value for a in lock.atoms()] in ([], ["yes"])
+        listed = node_.find("members")
+        uuids = [a.value for a in listed.atoms()] if listed is not None else []
+        pending.append((name, uuid, locked, uuids, name or "group"))
+    out: list[list[str]] = []
+    said = Counter(flat(expr) for expr in members.values())
+    taken: set[str] = set(said)
+    # a key two items share (a zone and a rule area of one name) names neither in design.group()
+    ambiguous = {uuid for uuid, expr in members.items() if said[flat(expr)] > 1}
+    index = 0
+    progress = True
+    while pending and progress:
+        progress = False
+        for item in sorted(pending, key=lambda g: (g[0], g[3])):
+            name, uuid, locked, uuids, _ = item
+            if not uuids or not all(u in members and u not in ambiguous for u in uuids):
+                continue
+            pending.remove(item)
+            progress = True
+            if name and NAME.fullmatch(name) and flat(text(name)) not in taken:
+                key = name
+                kwargs: list[tuple[str, Expr]] = []
+            else:
+                index += 1
+                while flat(text(f"group/{index}")) in taken:
+                    index += 1
+                key = f"group/{index}"
+                kwargs = [("key", text(key))]
+            taken.add(flat(text(key)))
+            if locked:
+                kwargs.append(("locked", Raw("True")))
+            listed_members = tuple(sorted((members[u] for u in uuids), key=flat))
+            out.append(statement(Call("design.group", (text(name), *listed_members), tuple(kwargs))))
+            if uuid:
+                members[uuid] = text(key)
+    for _, _, _, _, label in pending:
+        ledger.add("group", label)
     return out
 
 
@@ -974,6 +1070,8 @@ def emit(source: Source, options: Options) -> Emission:
         props = _properties(component.properties)
         if props is not None:
             kwargs.append(("properties", props))
+        if component.dnp:
+            kwargs.append(("dnp", Raw("True")))
         part_lines.append(
             statement(Call("Part", (text(ref), text(vendored.symbols[ref])), tuple(kwargs)), target=var)
         )
@@ -1017,9 +1115,13 @@ def emit(source: Source, options: Options) -> Emission:
             connect_lines.append(statement(Call("connect", (Raw(net_vars[net]), *handles))))
     if connect_lines:
         writer.imports.add("connect")
-    zone_lines = _zones(board, names, net_vars, layers, ledger)
-    area_lines = _areas(board, layers, ledger)
-    drawing_lines = _drawings(board, ledger)
+    grouped: dict[str, Expr] = {
+        _native(fp): Raw(part_vars[refs[fp.component_id]]) for fp in footprints if _native(fp)
+    }
+    zone_lines = _zones(board, names, net_vars, layers, ledger, grouped)
+    area_lines = _areas(board, layers, ledger, grouped)
+    drawing_lines = _drawings(board, ledger, grouped)
+    group_lines = _groups(board, grouped, ledger)
     coverage.scan(design, ledger)
     issues += coverage.regenerated_issues(ledger)
     files: dict[str, str] = dict(vendored.files)
@@ -1044,6 +1146,7 @@ def emit(source: Source, options: Options) -> Emission:
         zone_lines,
         area_lines,
         drawing_lines,
+        group_lines,
         copper_line,
     ):
         writer.section(block)

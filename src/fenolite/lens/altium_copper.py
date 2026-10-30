@@ -638,6 +638,10 @@ def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue])
         else:
             issues.append(_kept("text", text.id, f"board text {text.text[:24]!r} is not written: {problem}"))
     counts["text"] = (len(texts), len(board.texts) - len(texts))
+    for group in board.groups:  # change c0277: the document has no group record
+        label = group.name or group.id
+        message = f"the group {label!r} is not written: the document has no group record"
+        issues.append(_kept("group", group.id, message))
     graphics: list[Graphic] = []
     outline = 0
     for graphic in board.graphics:

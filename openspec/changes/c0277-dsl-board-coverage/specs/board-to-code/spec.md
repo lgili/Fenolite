@@ -21,6 +21,22 @@ A blind via whose two layers are the outer copper layers SHALL be written as a r
 - **WHEN** it is imported and built
 - **THEN** the table `GND/via/1` holds that row with `kind="blind"`, `result.unexpressed` holds no `via-span`, and the built via is blind on both layers
 
+### Requirement: Parts not populated and net ties in an import
+The import SHALL write a part whose component is not populated as `Part(..., dnp=True)`, and MUST NOT count it as unexpressed. A footprint's net-tie pad groups SHALL come back with its vendored footprint and MUST NOT be counted as unexpressed.
+
+#### Scenario: One part not populated, one net tie
+- **GIVEN** the two-sheet board with R101's attribute `(attr smd dnp)` and R201 holding `(net_tie_pad_groups "1, 2")` (`tests/_importcode.py::unfitted`)
+- **WHEN** it is imported with `--confirm` and the code is built
+- **THEN** `result.unexpressed` is empty, `design.py` holds one `dnp=True`, and the built board holds `(attr smd dnp)` for R101 and the net-tie groups for R201
+
+### Requirement: Groups in an import
+The import SHALL write a group of the board whose members it all writes (parts, drawings, zones, rule areas and groups) as `design.group()` after the drawings, an inner group before the group that holds it, with the source name as name and key when the key pattern takes it and `key="group/<n>"` otherwise, and `locked=True` for a locked group. A group holding an item the code does not write MUST be the unexpressed kind `group`.
+
+#### Scenario: Nested groups
+- **GIVEN** the `drawn` board with a locked group `logo` of J1, a text and a dimension, an unnamed group of `logo` and a text, and a group `lost` of the hidden text (`tests/_importcode.py::drawn_grouped`)
+- **WHEN** it is imported with `--allow-lossy --confirm` and built
+- **THEN** `result.unexpressed` holds `group` (`lost`), `design.py` holds two `design.group()` calls, and the built board holds `logo`, locked, with the uuids of J1's footprint, the text and the dimension, and the unnamed group with the uuids of `logo` and the text
+
 ### Requirement: Texts and dimensions in an import
 The import SHALL write a board text on a layer the DSL takes, a copper layer included, as `design.text()` with the style the reader keeps in the text's slots (`knockout`, `bold`, `italic`, `face`), a size of two values as a `(width, height)` pair, several lines and an empty text as they are. A text whose slots hold what `design.text()` cannot say (a hidden text, a mirror that does not follow the layer side) MUST be the unexpressed kind `text`. An aligned or orthogonal dimension on a layer the DSL takes SHALL be written as `design.dimension()` when its `format` and `style` hold the values a created dimension writes, but its line width and its extension offset (`extension_offset=`); another one MUST be `dimension-style`, and a dimension of another kind stays `dimension`.
 

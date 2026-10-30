@@ -34,6 +34,7 @@ from fenolite.model.board import (
     Board,
     Dimension,
     Graphic,
+    Group,
     Hole,
     Keepout,
     Outline,
@@ -245,10 +246,17 @@ def test_created_tokens() -> None:
         italic=True,
         face="KiCad Font",
     )  # the text styles of c0277
+    group = Group(
+        id="grp_00000000-0000-4000-8000-0000000000c8", name="G", member_ids=(styled.id,), locked=True
+    )
     with_dimensions = dataclasses.replace(
         created_design,
         board=dataclasses.replace(
-            board, dimensions=two_dimensions(), vias=(via, *board.vias[1:]), texts=(*board.texts, styled)
+            board,
+            dimensions=two_dimensions(),
+            vias=(via, *board.vias[1:]),
+            texts=(*board.texts, styled),
+            groups=(group,),  # a group of c0277
         ),
     )
     written = {n.name for _, n in walk(parse(write_board(with_dimensions, target=9).text))}

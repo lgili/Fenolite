@@ -145,7 +145,11 @@ d.teardrops(
   rows' tables, zones, rule areas, drawings, images and other groups. A member in two groups, an unknown
   key or a cycle raises `DslError`. Model `Group(name, member_ids, locked)` in `Board.groups`, id
   `derived_id("grp", "dsl", "group:<name>")`; the KiCad uuid comes from the id.
-- Altium has no group record in the writer: `altium.group-skipped` (warning) per group.
+- Altium has no group record in the writer: each group is one `altium.not-lowered` (info), the code
+  every other item without a record gives; its members are written alone (implemented 2026-10-30).
+- A key, else the name, identifies a group (as for zones and rule areas), so an import keeps two groups
+  of one name; the id is `derived_id("grp", "dsl", "group:<key>")`. The reader keeps a read group
+  opaque, and the writer replaces the one whose uuid a script group has.
 
 ### 6. Images
 
@@ -240,7 +244,7 @@ d.verbatim(
 | `build.verbatim-item` | info | one per verbatim item |
 | `build.verbatim-invalid`, `-head`, `-layer`, `-net` | error | refused verbatim text |
 | `altium.stack-signal-limit` | error | more than 16 signal or 16 plane layers |
-| `altium.group-skipped`, `altium.image-skipped`, `altium.verbatim-skipped` | warning | no Altium record |
+| `altium.image-skipped`, `altium.verbatim-skipped` | warning | no Altium record (a group is `altium.not-lowered`, info) |
 | `altium.zone-arc-flattened` | info | an arc edge written as segments |
 
 ## Risks / Trade-offs

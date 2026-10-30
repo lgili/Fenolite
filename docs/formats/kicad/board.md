@@ -881,6 +881,18 @@ token inside opaque content.
   is `None`.
 - `INFERRED` until `H-K-COPPER-ART` loads a created board with a copper text and the styles on both majors.
 
+## Groups of a script (c0277)
+
+- **Written.** A `Group` of `Board.groups` is written as a root `(group "name" (uuid U) [(locked yes)]
+  (members "…" …))` after the zones, its members the uuids the writer gives the items (a component by the
+  uuid of its footprint), sorted: the place and the sorted members of the fact rows above (`H-K-PCB-WRITE`,
+  `H-K-LENS-RENAME`). A member that the board does not hold is left out.
+- **Read boards.** The reader does not project a group; it stays in its slot and is written back as read.
+  When a script group has the uuid of a read one (a rebuild), the writer writes the model's group in that
+  slot instead, so a rebuild changes no byte and a changed script group replaces the old one.
+- `INFERRED` for the created form until `H-K-GROUP` loads a created board with a nested and a locked group
+  and re-saves it unchanged on both majors (task 4.4 of c0277).
+
 ## Net-tie groups (c0114)
 
 A board footprint carries the `net_tie_pad_groups` child of its library footprint (`libraries.md`,

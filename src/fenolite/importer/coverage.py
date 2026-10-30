@@ -31,7 +31,6 @@ INFRASTRUCTURE = frozenset(
 a KiCad 9 board is one (the nets come from the pads), and the title block, which the model holds and the
 emitter writes as ``design.title_block()``."""
 EXPLAINS: Mapping[str, tuple[tuple[int, str], ...]] = {
-    "dnp": ((1, "dnp"),),
     "copper-without-net": ((5, "*"),),
     "zero-length-track": ((5, "*"),),
     "degenerate-arc": ((5, "*"),),
@@ -96,7 +95,8 @@ def _root_heads(design: Design) -> Iterable[str]:
     for slot in slotlib.from_ext(board.ext["kicad"]):
         if isinstance(slot, Opaque):
             child = slotlib.opaque_child(slot)
-            if isinstance(child, Node) and child.name not in INFRASTRUCTURE:
+            if isinstance(child, Node) and child.name not in INFRASTRUCTURE and child.name != "group":
+                # a group the emitter cannot write is counted by the emitter (change c0277)
                 attr = child.find("attr") if child.name == "zone" else None
                 drop = attr.find("teardrop") if attr is not None else None
                 if drop is None:
@@ -125,12 +125,6 @@ def scan(design: Design, ledger: Ledger) -> None:
         return
     for hole in board.holes:
         ledger.add("hole", hole.id)
-    for component in design.circuit.components:
-        if component.dnp:
-            ledger.add("dnp", component.ref)
-    for footprint in board.footprints:
-        if footprint.net_ties:
-            ledger.add("net-tie", footprint.lib_ref)
 
 
 def lossy_issues(rows: Iterable[Unexpressed]) -> tuple[Issue, ...]:

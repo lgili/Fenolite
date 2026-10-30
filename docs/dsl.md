@@ -216,6 +216,10 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   a symbol `Library:Name`; `footprint=None` falls back to the symbol's `Footprint` property, and
   `value=""` to its `Value` property. `properties` maps user property names to text ("User properties").
   The ref may be left out: the build then assigns one ("Reference designators and the design lock").
+  `height=` states how tall the part is ("Part heights and height limits"). `dnp=True` marks a part that
+  is not populated (change c0277): its schematic symbol is written with `(dnp yes)` and its board
+  footprint with the `dnp` attribute, KiCad's own marks, so `fenolite export bom` and `pnp` count it under
+  `counts.dnp`; its pins stay connected.
 - `Design.part(...)` and `Module.part(...)` take the arguments of `Part`, create the part and attach it.
 - `part[designator]` returns a pin handle; `connect(net, *pins)` joins pins to a net.
 - `no_connect(*pins)` marks pins as intentionally unconnected ("No-connect marks"); `part.unused_no_connect()`
@@ -491,6 +495,7 @@ Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl"
 | board text | `txt` | `text:<drawing key>` |
 | board graphic | `gfx` | `graphic:<drawing key>` |
 | dimension | `dim` | `dimension:<drawing key>` |
+| group | `grp` | `group:<key>` (the name unless `key=` is given; change c0277) |
 | stack-up | `stk` | `stackup` |
 | stack-up entry | `sly` | `stack_layer:<k>`, k from 0, top to bottom |
 | impedance target | `imp` | `impedance:<target name>`; its derived rules are `rule:named:<derived rule name>` (change c0105) |
@@ -1595,6 +1600,33 @@ design.dimension("width", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-5))
 - **Altium.** Centred texts and graphics are written; a justified text, a text of several lines or in a
   copper layer, a knocked-out, bold, italic or face text, and a dimension are reported and not written
   (`docs/altium.md`).
+
+## Groups
+
+A group gathers board items that move together in KiCad: a logo and its frame, a block of parts (change
+c0277).
+
+```python
+design.text("silk/logo", "LOGO", (mm(5), mm(5)))
+design.group("logo", r1, "silk/logo", locked=True)
+design.group("", "logo", d1, key="power")  # a group may hold a group declared before it
+```
+
+- **`group(name, *members, locked=False, key=None)`**: members are parts and keys of drawings, zones, rule
+  areas and earlier groups, at least one. `name` is the name KiCad shows, `""` for an unnamed group with
+  a `key`; the key, else the name, names the group across builds and in other groups, so two groups may
+  share a name under different keys. `locked=True` writes `(locked yes)`.
+- **In the model** a group is a `Group` (`grp`) of `Board.groups`, in key order, whose `member_ids` are the
+  ids of its parts' components and of its items, sorted.
+- **The KiCad writer** writes each group after the zones, as KiCad does: `(group "name" (uuid …) [(locked
+  yes)] (members "…" …))`, a part by the uuid of its footprint, the members sorted.
+- **Errors at the call** (`DslError`, nothing recorded): no member, a part not added to the design, a key
+  that names no item or more than one, a member already in a group, a key used twice, a name that is not
+  printable, `locked` not a bool. A group is declared after its members, so it cannot hold itself.
+- **Rebuilds.** A group of the script replaces the group of the same uuid in the board; a group drawn in
+  KiCad stays, and one removed from the script stays in the board until it is deleted there.
+- **Altium.** The document has no group record: each group is reported as `altium.not-lowered` (info) and
+  its members are written alone (`docs/altium.md`).
 
 ## Placement rules
 

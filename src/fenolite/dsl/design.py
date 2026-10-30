@@ -679,6 +679,8 @@ class Design(Container):
         self.drawings: dict[str, itemlib.Drawing] = {}
         """Board drawings by key, as declared by ``text()``, ``line()``, ``rect()``, ``circle()``, ``arc()``,
         ``polygon()`` and ``dimension()``, in call order."""
+        self.groups: dict[str, itemlib.GroupSpec] = {}
+        """The groups of ``group()`` by key, in call order (change c0277)."""
         self.near_rules: dict[str, NearSpec] = {}
         """Proximity rules by key, as declared by ``near()``."""
         self.height_limits: dict[str, HeightLimit] = {}
@@ -1668,6 +1670,59 @@ class Design(Container):
             thickness, width, extension_offset,
         )  # fmt: skip
         self.drawings[found.key] = found
+
+    def group(self, name: str, *members: object, locked: bool = False, key: str | None = None) -> None:
+        """A group of board items (change c0277): ``members`` are parts and keys of drawings, zones, rule
+        areas and earlier groups. ``name`` may be ``""`` with a ``key``; the key, else the name, names the
+        group across builds. A member belongs to one group."""
+        identity = key if key is not None else name
+        what = f"group {identity!r}"
+        if not isinstance(name, str) or (name and not name.isprintable()):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: name must be a printable string, not {name!r}")
+        if not isinstance(identity, str) or not itemlib.DRAWING_KEY.fullmatch(identity):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(
+                f"{what}: the key (or the name, without a key) must match {itemlib.DRAWING_KEY.pattern}"
+            )
+        if identity in self.groups:
+            raise DslError(f"{what}: the key is already used")
+        if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: locked must be a bool, not {locked!r}")
+        if not members:
+            raise DslError(f"{what}: a group holds at least one member")
+        taken = {self._member_name(m) for spec in self.groups.values() for m in spec.members}
+        seen: set[str] = set()
+        for member in members:
+            label = self._member_name(member)
+            if isinstance(member, Part):
+                if not any(part is member for part in self.parts.values()):
+                    raise DslError(f"{what}: part {label} is not added to this design")
+            else:
+                kinds = (
+                    [
+                        held
+                        for held in (self.drawings, self.zones, self.rule_areas, self.groups)
+                        if member in held
+                    ]
+                    if isinstance(member, str)
+                    else []
+                )
+                if not kinds:
+                    raise DslError(
+                        f"{what}: {member!r} is neither a part nor the key of a drawing, a zone, a rule area "
+                        "or an earlier group"
+                    )
+                if len(kinds) > 1:
+                    raise DslError(
+                        f"{what}: {member!r} is the key of more than one item; give them other keys"
+                    )
+            if label in taken or label in seen:
+                raise DslError(f"{what}: {label} is already a member of a group")
+            seen.add(label)
+        self.groups[identity] = itemlib.GroupSpec(identity, name, tuple(members), locked)
+
+    @staticmethod
+    def _member_name(member: object) -> str:
+        return f"part {member.label}" if isinstance(member, Part) else repr(member)
 
     def moved(self, old: str, new: str) -> None:
         """Record that the part or the module at path ``new`` was at ``old`` in an earlier build, so a

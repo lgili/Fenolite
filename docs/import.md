@@ -138,7 +138,8 @@ Never silently. The kinds today:
 | kind | what |
 |---|---|
 | a root item KiCad keeps that the model does not (`group`, `generated`, `image`, `target`…) | named by its head; a teardrop zone of a type other than `padvia`, or any teardrop zone when teardrop settings were lost (below), is `teardrop` |
-| `hole`, `net-tie`, `dnp` | model items no emitter writes yet |
+| `hole` | model items no emitter writes yet |
+| `group` | a group holding an item the code does not write (a track, a via, a footprint or a drawing left out), named by its name; a group whose members the code writes becomes `design.group()` (change c0277) |
 | `dimension`, `dimension-style` | a dimension of a kind the DSL does not say (radial, leader, centre) or on a layer it does not take; an aligned or orthogonal one whose `format` or `style` holds what `design.dimension()` does not write (a prefix, automatic units, a text position…) |
 | `stackup`, `stackup-field`, `title-block` | a stack-up row or a title-block field the DSL refuses; the material of a silkscreen row (the stack-up is written without it) |
 | `custom-rule` | a `.kicad_dru` rule whose selector the DSL cannot write (a layer leaf, an undeclared class) |

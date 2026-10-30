@@ -156,6 +156,17 @@ class DimensionSpec:
 Drawing = TextSpec | GraphicSpec | DimensionSpec
 
 
+@dataclass(frozen=True)
+class GroupSpec:
+    """One ``group()`` call (change c0277): its key, name, members and lock. A member is a ``Part`` or the
+    key of a drawing, a zone, a rule area or an earlier group."""
+
+    key: str
+    name: str
+    members: tuple[object, ...]
+    locked: bool
+
+
 def point(value: object, what: str) -> Pair:
     """An ``(x, y)`` pair of lengths as nanometres."""
     if isinstance(value, str) or not isinstance(value, Sequence):
@@ -434,6 +445,7 @@ __all__ = [
     "TEXT_THICKNESS",
     "DimensionSpec",
     "Drawing",
+    "GroupSpec",
     "GraphicSpec",
     "RuleArea",
     "TextSpec",

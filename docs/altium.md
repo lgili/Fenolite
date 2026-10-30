@@ -788,6 +788,7 @@ item, with `altium.not-lowered` (info) and `where` `<kind>/<id>`:
 | a text with a `justify` | not written: the text record has no key for a justification, and a centred text would be at another place | the text and its justification (`text/<id>`) |
 | a line, rectangle, circle, arc or polygon | a graphic, as before | as before |
 | a dimension | not written: the document has no dimension record | the dimension (`dimension/<id>`); `result.pcb.not_lowered` holds `dimension` |
+| a group (`design.group`, change c0277) | not written: the document has no group record, and its members are written alone | the group by its name (`group/<id>`) |
 
 - A rule whose selector holds `select.area(...)` has no scope in the rule records: it is not written and
   gives the `altium.not-lowered` warning of this section with the reason `scope-unsupported`

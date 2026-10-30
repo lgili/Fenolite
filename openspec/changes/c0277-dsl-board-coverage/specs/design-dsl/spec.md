@@ -37,12 +37,25 @@
 - **THEN** the first writes the blind via with both layers and exits 0, and the second exits 5 with `kicad.copper.bad-layer`
 
 ### Requirement: Groups in the DSL
-`Design.group(name, *members, locked=False)` SHALL declare one group; members are parts and keys of copper intents, zones, rule areas, drawings, images, verbatim items and other groups. An unknown key, a member of two groups, a cycle or a repeated name MUST raise `DslError`. The model `Group` has the id `derived_id("grp", "dsl", "group:<name>")`.
+`Design.group(name, *members, locked=False, key=None)` SHALL declare one group; members are parts and keys of zones, rule areas, drawings and groups declared before it (keys of copper intents, images and verbatim items join with their tasks). A key that names no item or more than one, a member of two groups, no member or a repeated key (the key, else the name) MUST raise `DslError`; a group declared after its members cannot form a cycle. The model `Group` of `Board.groups` has the id `derived_id("grp", "dsl", "group:<key>")` and the sorted ids of its members. The KiCad writer SHALL write each group after the zones as `(group "name" (uuid …) [(locked yes)] (members …))`, a part by the uuid of its footprint, and a rebuild SHALL replace the group of the same uuid. An Altium build SHALL report each group as `altium.not-lowered` (info).
 
 #### Scenario: A labelled block
 - **GIVEN** the blink with `d.text("lbl", "PWR", …)` and `d.group("power", r1, d1, "lbl", locked=True)`
 - **WHEN** `to_model(d)` runs
 - **THEN** `board.groups` holds one locked group `power` whose members are the ids of `R1`, `D1` and the text `lbl`, and `d.group("other", r1)` raises `DslError` naming `R1`
+
+#### Scenario: Groups written
+- **GIVEN** the blink with `design.text("silk/logo", …)`, `design.group("logo", r1, "silk/logo", locked=True)` and `design.group("", "logo", d1, key="outer")`
+- **WHEN** it is built for KiCad 9 and 10
+- **THEN** the board ends with the two groups, `logo` locked with the uuids of R1's footprint and of the text, the unnamed one with the uuids of `logo` and of D1's footprint; a rebuild changes no byte, and after `locked=True` is removed a rebuild holds one `logo` group, unlocked
+
+### Requirement: Parts not populated in the DSL
+`Part(..., dnp=True)` (and `design.part(..., dnp=True)`) SHALL mark a part that is not populated: the model `Component.dnp` is true, the schematic symbol is written with `(dnp yes)` and the board footprint with the `dnp` attribute. A value that is not a bool MUST raise `DslError`.
+
+#### Scenario: One part not populated
+- **GIVEN** the blink whose R1 is `Part(..., dnp=True)`
+- **WHEN** it is built for KiCad 9 and 10
+- **THEN** R1's footprint attribute ends with `dnp`, no other footprint holds it, and the schematic holds one `(dnp yes)`
 
 ### Requirement: Images in the DSL
 `Design.image(key, file, at, *, layer="F.SilkS", scale="1")` SHALL declare one board image of the PNG `file`, a path relative to the script folder, which the build reads. `scale` MUST be a positive decimal string. A missing file MUST give `build.image-missing` and a file that is not a PNG `build.image-format` (both errors); the file is a declared input of the build.

@@ -38,6 +38,7 @@ from fenolite.model.board import (
     Board,
     Dimension,
     Graphic,
+    Group,
     Keepout,
     Outline,
     OutlineArc,
@@ -106,6 +107,7 @@ KEYS: Mapping[str, tuple[str, str]] = MappingProxyType(
         "text": ("txt", "text:<drawing key>"),
         "graphic": ("gfx", "graphic:<drawing key>"),
         "dimension": ("dim", "dimension:<drawing key>"),
+        "group": ("grp", "group:<key>"),
         "stackup": ("stk", "stackup"),
         "stack_layer": ("sly", "stack_layer:<k>"),
         "impedance": ("imp", "impedance:<target name>"),
@@ -141,6 +143,7 @@ def _component(part: Part) -> Component:
         properties=dict(sorted(properties.items())),
         pin_pad_map=pad_pairs(part.pad_map),
         value_range=None if part.value_range is None else range_to_model(part.value_range),
+        dnp=part.dnp,
     )
 
 
@@ -535,6 +538,7 @@ def _design_model(design: Design) -> ModelDesign:
             sheet=_sheet(design),
             title_block=design.block,
             via_protection=design.via_default[0] if design.via_default is not None else None,
+            groups=_groups(design),
         ),
         rules=RuleSet(
             id=key_id("rules"),
@@ -555,6 +559,37 @@ SHEET_SUFFIX = ".kicad_wks"
 
 def _at(pair: tuple[int, int]) -> Point:
     return Point(BOARD_ORIGIN.x + pair[0], BOARD_ORIGIN.y + pair[1])
+
+
+def _groups(design: Design) -> tuple[Group, ...]:
+    """One model group per ``group()`` call, in key order; a member is the id of its entity (change c0277)."""
+
+    def member_id(member: object) -> str:
+        if isinstance(member, Part):
+            return key_id("component", member.path)
+        assert isinstance(member, str)
+        drawing = design.drawings.get(member)
+        if isinstance(drawing, TextSpec):
+            return key_id("text", member)
+        if isinstance(drawing, GraphicSpec):
+            return key_id("graphic", member)
+        if isinstance(drawing, DimensionSpec):
+            return key_id("dimension", member)
+        if member in design.zones:
+            return key_id("zone", member)
+        if member in design.rule_areas:
+            return key_id("area", member)
+        return key_id("group", member)
+
+    return tuple(
+        Group(
+            id=key_id("group", key),
+            name=spec.name,
+            member_ids=tuple(sorted(member_id(m) for m in spec.members)),
+            locked=spec.locked,
+        )
+        for key, spec in sorted(design.groups.items())
+    )
 
 
 def _keepouts(design: Design) -> tuple[Keepout, ...]:

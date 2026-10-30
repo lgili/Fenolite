@@ -268,6 +268,7 @@ class Part(Edges):
         properties: Mapping[str, str] | None = None,
         pad_map: Mapping[str, str | Sequence[str]] | None = None,
         height: object = None,
+        dnp: bool = False,
     ) -> None:
         self.explicit_ref: str | None = None if ref is None else check_name(ref, "ref")
         """The ref the script wrote, or ``None``: the build then assigns one (``docs/dsl.md``, "Reference
@@ -372,6 +373,11 @@ class Part(Edges):
             self.height = as_nm(height, name=f"part {ref}: height")
             if self.height <= 0:
                 raise DslError(f"part {ref}: height must be above 0")
+        if not isinstance(dnp, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part {ref}: dnp must be a bool, not {dnp!r}")
+        self.dnp = dnp
+        """The part is not populated (change c0277): its symbol is marked, and its footprint takes the
+        ``dnp`` attribute."""
         self.parent: Container | None = None
         self.request: Request | None = None
         self.relative: LiveRequest | None = None

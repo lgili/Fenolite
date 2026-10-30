@@ -48,15 +48,23 @@ def _variant(tmp: Path, name: str, text: str) -> Path:
     return target
 
 
-def grouped(tmp: Path) -> Path:
-    """The board with a ``group`` holding the footprint of J1, which the DSL cannot say."""
-    text = BOARD.read_text(encoding="utf-8")
+def _uuid_of_j1(text: str) -> str:
     at = text.index('"J1"')
     start = text.rindex("(footprint ", 0, at)
     member = re.search(r'\(uuid "([0-9a-f-]+)"\)', text[start:])
     assert member is not None
+    return member.group(1)
+
+
+def grouped(tmp: Path) -> Path:
+    """The board with a ``group`` holding the footprint of J1 and a track, which the code cannot say: the
+    tracks are rows of copper tables (change c0277)."""
+    text = BOARD.read_text(encoding="utf-8")
+    track = re.search(r'\(segment\b[^()]*(?:\([^()]*\)\s*)*?\(uuid "([0-9a-f-]+)"\)', text)
+    assert track is not None
     uuid = "0e0e0e0e-0000-4000-8000-000000000001"
-    group = f'\t(group ""\n\t\t(uuid "{uuid}")\n\t\t(members "{member.group(1)}")\n\t)\n'
+    members = f'"{_uuid_of_j1(text)}" "{track.group(1)}"'
+    group = f'\t(group ""\n\t\t(uuid "{uuid}")\n\t\t(members {members})\n\t)\n'
     body = text.rstrip()
     assert body.endswith(")")
     return _variant(tmp, "grouped", body[:-1] + group + ")\n")
@@ -145,6 +153,37 @@ def drawn(tmp: Path) -> Path:
     return _variant(tmp, "drawn", body[:-1] + DRAWN_TEXTS + DIMENSIONS + ")\n")
 
 
+def unfitted(tmp: Path) -> Path:
+    """The board with R101 not populated (``dnp``) and a net tie joining the two pads of R201 (c0277)."""
+    text = BOARD.read_text(encoding="utf-8")
+    for ref, extra in (("R101", " dnp)"), ("R201", ')\n\t\t(net_tie_pad_groups "1, 2")')):
+        at = text.index(f'"Reference" "{ref}"')
+        attr = text.index("(attr smd)", at)
+        end = attr + len("(attr smd)")
+        text = text[: end - 1] + extra + text[end:]
+    return _variant(tmp, "unfitted", text)
+
+
+GROUPS = (
+    '\t(group "logo" (uuid "0e0e0e0e-0000-4000-8000-000000000031") (locked yes)'
+    ' (members "{j1}" "0e0e0e0e-0000-4000-8000-000000000011" "0e0e0e0e-0000-4000-8000-000000000021"))\n'
+    '\t(group "" (uuid "0e0e0e0e-0000-4000-8000-000000000032")'
+    ' (members "0e0e0e0e-0000-4000-8000-000000000031" "0e0e0e0e-0000-4000-8000-000000000012"))\n'
+    '\t(group "lost" (uuid "0e0e0e0e-0000-4000-8000-000000000033")'
+    ' (members "0e0e0e0e-0000-4000-8000-000000000016"))\n'
+)
+"""A locked group of J1, a text and a dimension; an unnamed group holding it and a text; and a group of the
+hidden text, which the code does not write (change c0277)."""
+
+
+def drawn_grouped(tmp: Path) -> Path:
+    """The ``drawn`` board with ``GROUPS`` added (change c0277)."""
+    body = BOARD.read_text(encoding="utf-8").rstrip()
+    assert body.endswith(")")
+    groups = GROUPS.replace("{j1}", _uuid_of_j1(body))
+    return _variant(tmp, "drawn", body[:-1] + DRAWN_TEXTS + DIMENSIONS + groups + ")\n")
+
+
 def built_for(tmp: Path, major: int) -> Path:
     """The authored two-sheet board built from its script for KiCad ``major`` in ``tmp``."""
     work = tmp / "data" / "src"
@@ -226,4 +265,5 @@ __all__ = [
     "old",
     "sheeted",
     "teardropped",
+    "unfitted",
 ]

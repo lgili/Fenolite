@@ -605,6 +605,17 @@ class Hole(Entity):
 
 
 @dataclass(frozen=True, slots=True)
+class Group(Entity):
+    """A group of board items (change c0277): its name (``""`` for an unnamed group), the ids of its members
+    and whether it is locked. A member is a component (its footprint), a text, a graphic, a dimension, a
+    zone, a rule area or another group of the board."""
+
+    name: str = ""
+    member_ids: tuple[str, ...] = ()
+    locked: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class Board(Entity):
     """The board layer of a design (``board.json``)."""
 
@@ -625,6 +636,9 @@ class Board(Entity):
     title_block: TitleBlock | None = None
     via_protection: ViaProtection | None = None
     """The board's default protection for every via; ``None`` is the backend's own default."""
+    groups: tuple[Group, ...] = ()
+    """The groups a script declares (change c0277); a KiCad reader keeps the groups of a board in its
+    slots and does not project them."""
 
 
 __all__ = [
@@ -644,6 +658,7 @@ __all__ = [
     "FootprintInstance",
     "Graphic",
     "GraphicKind",
+    "Group",
     "HatchBorder",
     "Hole",
     "HoleShape",

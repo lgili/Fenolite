@@ -2013,7 +2013,8 @@ FLOOR_HEADS: tuple[str, ...] = (
     "smoothing", "solder_mask_margin", "solder_paste_margin", "stackup", "style", "suffix",
     "text_position_mode", "title", "title_block", "tracks", "units", "units_format", "vias", "zone_connect",
     "teardrops", "best_length_ratio", "max_length", "best_width_ratio", "max_width", "filter_ratio",
-    "enabled", "allow_two_segments", "prefer_zone_connections", "face", "bold", "italic",
+    "enabled", "allow_two_segments", "prefer_zone_connections", "face", "bold", "italic", "group",
+    "members",
 )  # fmt: skip
 """Names the writer creates that the 8.0 format already has and that neither the token inventory nor
 the skeleton holds (``board.md``, S-0021 and S-0033 at tag 8.0.0). The names of a linear dimension
@@ -2023,13 +2024,15 @@ in the 8.0 format hold all of them but ``orientation`` (S-0723), which the forma
 orthogonal dimension (S-0001). The ``teardrops`` child of a pad or via and its children but
 ``curved_edges`` (an inventory row) are those the pads and vias of the demo boards of 9.0.9 and 10.0.6 hold
 (S-0058; change c0277), and so are the font children ``face``, ``bold`` and ``italic`` of a board text
-(change c0277; S-0001 documents them in the text effects). The writer has no target below 9."""
+(change c0277; S-0001 documents them in the text effects), and the root ``group`` with its ``members``
+(S-0001, "Group"; change c0277). The writer has no target below 9."""
 CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "kicad_pcb": (
             *CREATED_ROOT_HEADS[:5], "title_block", *CREATED_ROOT_HEADS[5:], "footprint", *GR_GRAPHIC_HEADS,
-            "gr_text", "dimension", "segment", "arc", "via", "zone",
+            "gr_text", "dimension", "segment", "arc", "via", "zone", "group",
         ),
+        "group": ("name", "uuid", "locked", "members"),
         "title_block": ("title", "date", "rev", "company", "comment"),
         "footprint": (
             *FOOTPRINT_POSITIONAL, "locked", "layer", "uuid", "at", "property", "path", "attr", "pad",
@@ -2097,6 +2100,7 @@ POSITIONAL: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "connect_pads": ("connection",),
         "fill": ("filled",),
         "gr_text": TEXT_POSITIONAL,
+        "group": ("name",),
     }
 )
 """The entries of ``CANONICAL_ORDER`` that are leading atoms, not child heads."""
@@ -2113,7 +2117,7 @@ _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyT
     {
         "kicad_pcb": {
             **ROOT_FIELDS, "general": "general", "paper": "paper", "title_block": "title_block",
-            "setup": "setup", "zone": ("zones", "keepouts"),
+            "setup": "setup", "zone": ("zones", "keepouts"), "group": "groups",
         },
         "footprint": {**FOOTPRINT_FIELDS, "locked": "locked", "property": ("fields", "properties")},
         "property": {**FIELD_FIELDS},
@@ -2490,6 +2494,8 @@ class _Writer:
         pairs = _ext_pairs(board)
         self.source_major = form_major(int(pairs["version"])) if "version" in pairs else target
         """The major whose forms the read board uses; the target for a created board."""
+        self.group_uuids = {kicad_uuid(group) for group in board.groups}
+        """The uuids of the groups of the model (change c0277): a read group of one of them is replaced."""
 
     def error(self, code: str, message: str, where: str, hint: str = "") -> None:
         self.errors.append(Issue(code, WRITE_ISSUE_CODES[code], message, where=where, hint=hint))
@@ -2804,7 +2810,38 @@ class _Writer:
         lines, arcs = self.outline()
         items["graphics.gr_line"] += lines
         items["graphics.gr_arc"] += arcs
+        items["groups"] = self.groups()
         return self.node(board, "kicad_pcb", items, slots)
+
+    def groups(self) -> list[Node | Atom]:
+        """The root ``group`` nodes of ``Board.groups`` (change c0277): each member by the uuid the writer
+        gives its entity, a component by the uuid of its footprint, sorted; a member the board does not
+        hold is left out."""
+        board = self.board
+        if not board.groups:
+            return []
+        by_id: dict[str, str] = {}
+        for entity in (*board.texts, *board.graphics, *board.dimensions, *board.zones, *board.keepouts):
+            by_id[entity.id] = kicad_uuid(entity)
+        for footprint in board.footprints:
+            by_id[footprint.component_id] = kicad_uuid(footprint)
+        for group in board.groups:
+            by_id[group.id] = kicad_uuid(group)
+        out: list[Node | Atom] = []
+        for group in sorted(board.groups, key=lambda g: g.id):
+            members = sorted(by_id[m] for m in group.member_ids if m in by_id)
+            out.append(
+                _ordered(
+                    "group",
+                    {
+                        "name": [Atom.string(group.name)],
+                        "uuid": [_uuid_node(by_id[group.id])],
+                        "locked": [node("locked", Atom.symbol("yes"))] if group.locked else [],
+                        "members": [node("members", *(Atom.string(u) for u in members))],
+                    },
+                )
+            )
+        return out
 
     def outline(self) -> tuple[list[Node | Atom], list[Node | Atom]]:
         """The ``gr_line`` and the ``gr_arc`` nodes of ``Board.outline``, one per edge of each ring of its
@@ -2906,6 +2943,13 @@ class _Writer:
                     covered.add("locked")
                     if not entity.locked:
                         self.read_only("locked", where, "the footprint is locked by a header atom")
+                continue
+            if child.name == "group" and head == "kicad_pcb" and self.group_uuids:
+                # a group the script declares replaces the one a build wrote before (change c0277)
+                held = child.find("uuid")
+                atoms = held.atoms() if held is not None else ()
+                if len(atoms) == 1 and atoms[0].value in self.group_uuids:
+                    slots[i] = Modeled("groups")
                 continue
             if child.name == tdlib.HEAD and head in ("pad", "via"):
                 # the reader keeps the child in its slot; settings the script gives replace it (c0277)
