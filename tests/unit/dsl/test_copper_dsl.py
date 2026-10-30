@@ -353,14 +353,18 @@ def test_locked_via_track_and_stitch_are_recorded() -> None:
 
 def test_locked_is_the_last_field_and_defaults_to_false() -> None:
     """An intent built without ``locked`` compares equal to that of an earlier script. ``locked`` is the
-    last field of change c0108; a field added after it (``teardrop`` of a via, c0277) defaults to ``None``."""
-    later = {ViaIntent: ("teardrop",)}
+    last field of change c0108; a field added after it (``teardrop`` and ``free`` of a via, c0277) defaults to
+    ``None`` or ``False``."""
+    later = {ViaIntent: ("teardrop", "free")}
     for cls in (TrackIntent, ViaIntent, StitchIntent):
         fields = dataclasses.fields(cls)
         added = later.get(cls, ())
         last = fields[-1 - len(added)]
         assert (last.name, last.default) == ("locked", False), cls.__name__
-        assert [(f.name, f.default) for f in fields[len(fields) - len(added) :]] == [(n, None) for n in added]
+        defaults = {"teardrop": None, "free": False}
+        assert [(f.name, f.default) for f in fields[len(fields) - len(added) :]] == [
+            (n, defaults[n]) for n in added
+        ]
     assert ViaIntent("v", Point(0, 0), "GND") == ViaIntent("v", Point(0, 0), "GND", locked=False)
     assert ViaIntent("v", Point(0, 0), "GND") != ViaIntent("v", Point(0, 0), "GND", locked=True)
 

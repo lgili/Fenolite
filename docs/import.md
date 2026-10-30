@@ -140,18 +140,29 @@ Never silently. The kinds today:
 | a root item KiCad keeps that the model does not (`group`, `generated`, `image`, `target`…) | named by its head; a teardrop zone of a type other than `padvia`, or any teardrop zone when teardrop settings were lost (below), is `teardrop` |
 | `hole` | model items no emitter writes yet |
 | `group` | a group holding an item the code does not write (a track, a via, a footprint or a drawing left out), named by its name; a group whose members the code writes becomes `design.group()` (change c0277) |
-| `dimension`, `dimension-style` | a dimension of a kind the DSL does not say (radial, leader, centre) or on a layer it does not take; an aligned or orthogonal one whose `format` or `style` holds what `design.dimension()` does not write (a prefix, automatic units, a text position…) |
-| `stackup`, `stackup-field`, `title-block` | a stack-up row or a title-block field the DSL refuses; the material of a silkscreen row (the stack-up is written without it) |
+| `dimension`, `dimension-style` | a dimension of a kind the DSL does not say (radial, leader, centre) or on a layer it does not take; an aligned or orthogonal one whose `format` or `style` holds what `design.dimension()` does not write (a prefix, a text position…) |
+| `stackup`, `title-block` | a stack-up row or a title-block field the DSL refuses (a silkscreen row with a dielectric constant or a loss tangent) |
 | `custom-rule` | a `.kicad_dru` rule whose selector the DSL cannot write (a layer leaf, an undeclared class) |
-| `zone-setting`, `zone-name`, `zone-layer`, `zone-outline`, `rule-area-name`, `rule-area-layer` | a zone smoothing or hatch, a repeated zone name, a zone or area off the copper layers or without an outline, an area name the DSL refuses |
-| `drawing`, `drawing-layer`, `copper-drawing`, `text`, `text-layer` | a drawing the DSL calls refuse (a hidden text, a mirror that does not follow the layer side, a knockout off copper and silkscreen), or one on a layer they do not take (a graphic on copper, or a user layer a DSL board does not hold) |
+| `zone-setting`, `zone-name`, `zone-layer`, `zone-outline`, `rule-area-name`, `rule-area-layer` | a zone hatch, a repeated zone name, a zone or area off the copper layers or without an outline, an area name the DSL refuses |
+| `drawing`, `drawing-layer`, `text`, `text-layer` | a drawing the DSL calls refuse (a hidden text, a mirror that does not follow the layer side, a knockout off copper and silkscreen, a dashed stroke, a copper graphic on a net the code does not declare), or one on a layer they do not take |
 | `copper-without-net`, `zero-length-track`, `degenerate-arc`, `via-protection`, `via-span`, `copper-layer`, `copper-count` | copper no table holds |
 | `teardrop-setting` | a via's `teardrops` child the import cannot read: the via is written without it |
-| `footprint-ref`, `duplicate-ref`, `footprint` | a footprint whose reference the DSL refuses, a second footprint of one reference, one the library derive cannot bring back |
+| `footprint` | a footprint the library derive cannot bring back |
 | `pad-net-unnumbered`, `pad-net-conflict`, `outline` | a pad on a net without a number, a pad number on two nets, no closed outline |
 
 Change c0277 (verbatim items and the DSL coverage holes) is not merged yet: until it is, its kinds stay in
-this list, and each item it makes expressible removes its row.
+this list, and each item it makes expressible removes its row. Since its first part the import also writes
+(change c0277):
+
+- **board-only parts**: footprints that share a reference, or have none a script can name (`REF**`, an
+  empty one), are `Part(..., board_only=True)` named by key (`import.board-only`, info, counts those
+  that gain KiCad's `board_only` attribute); a footprint with the attribute is board-only too;
+- **user layers**: `design.user_layers()` up to the highest `User.<n>` of the source table, with its
+  names, and the drawings on them;
+- **copper graphics** with their net (`net=`), and filled shapes without an outline (`width=None`);
+- **free vias** (`free=True` of their tables, which group vias by it), **smoothed zones**
+  (`smoothing=`, `smoothing_radius=`), **dimensions in mils or automatic units** and the **material of a
+  silkscreen** in the stack-up.
 
 ## Self-check
 
@@ -208,6 +219,7 @@ of a third-party board belongs in the library repository or your own folder.
 | `import.provenance-missing` | warning | no `--licence`, `--copyright` or `--source` |
 | `import.timestamp-missing` | info | no `--timestamp`: the output is not reproducible |
 | `import.teardrops-regenerated` | info | teardrop zones left out because KiCad draws them again from the pad and via teardrop settings the code keeps (change c0277) |
+| `import.board-only` | info | footprints that share a reference or have none a script can name, written as board-only parts named by key; the count of those that gain KiCad's `board_only` attribute (change c0277) |
 
 ## Evidence
 

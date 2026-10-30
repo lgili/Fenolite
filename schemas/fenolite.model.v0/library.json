@@ -513,6 +513,16 @@
         },
         "filled": {
           "type": "boolean"
+        },
+        "net_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,

@@ -264,6 +264,10 @@ slots, projected into ``units``, ``precision``, ``width``, ``size`` and ``thickn
 "Dimensions")."""
 DIMENSION_KINDS = ("aligned", "orthogonal")
 DIMENSION_UNITS: Mapping[str, DimensionUnits] = MappingProxyType({"2": "mm", "0": "in"})
+"""The ``units`` codes a reader projects (S-0001, "Dimension": 0 inches, 1 mils, 2 millimetres, 3
+automatic): another code is read as ``mm`` and kept in the ``format`` slot, which the import reads (change
+c0277)."""
+DIMENSION_CODES: Mapping[DimensionUnits, int] = MappingProxyType({"in": 0, "mils": 1, "mm": 2, "auto": 3})
 DIMENSION_PROJECTED: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {"format": ("units", "precision"), "style": ("width",), "gr_text": ("size", "thickness")}
 )
@@ -471,6 +475,7 @@ def _emit_via(
         "drill": [node("drill", Atom.from_nm(via.drill))],
         "layers": [layers_node("layers", via.layers)],
         "locked": _lock_items(via.locked),
+        "free": [node("free", Atom.symbol("yes"))] if via.free else [],
         **{feature: [child] for feature, child in protection.items()},
         "teardrop": [] if via.teardrop is None else [tdlib.emit(via.teardrop)],
         "net_id": _opt(nets.node(via.net_id)),
@@ -563,12 +568,12 @@ def dimension_value(dimension: Dimension) -> str:
     elif dimension.direction == "vertical":
         dx = 0
     scale = 10**dimension.precision
-    unit = INCH if dimension.units == "in" else 1_000_000
+    unit = {"in": INCH, "mils": INCH // 1000}.get(dimension.units, 1_000_000)
     # round(sqrt(d2) * scale / unit) = floor((2 * scale * sqrt(d2) + unit) / (2 * unit))
     count = (math.isqrt(4 * scale * scale * (dx * dx + dy * dy)) + unit) // (2 * unit)
     whole, part = divmod(count, scale)
     digits = f"{whole}.{part:0{dimension.precision}d}" if dimension.precision else str(whole)
-    return f"{digits} {dimension.units}"
+    return f"{digits} {'mm' if dimension.units == 'auto' else dimension.units}"  # auto: KiCad's own mm
 
 
 def _atom_nm(atom: Atom) -> Nm | None:
@@ -938,6 +943,8 @@ def model_source(entity: Entity, ctx: EmitContext) -> ModelSource:
         items = _emit_dimension(entity)
     elif isinstance(entity, Graphic):
         items = emit_graphic(entity, _index(entity)[0])
+        if entity.net_id is not None:
+            items["net_id"] = _opt(ctx.nets.node(entity.net_id))  # a copper graphic's net (change c0277)
     else:
         raise TypeError(f"no KiCad board emitter for {type(entity).__name__}")
     wanted = _modeled(_slots(entity))
@@ -2014,7 +2021,7 @@ FLOOR_HEADS: tuple[str, ...] = (
     "text_position_mode", "title", "title_block", "tracks", "units", "units_format", "vias", "zone_connect",
     "teardrops", "best_length_ratio", "max_length", "best_width_ratio", "max_width", "filter_ratio",
     "enabled", "allow_two_segments", "prefer_zone_connections", "face", "bold", "italic", "group",
-    "members",
+    "members", "free",
 )  # fmt: skip
 """Names the writer creates that the 8.0 format already has and that neither the token inventory nor
 the skeleton holds (``board.md``, S-0021 and S-0033 at tag 8.0.0). The names of a linear dimension
@@ -2025,7 +2032,8 @@ orthogonal dimension (S-0001). The ``teardrops`` child of a pad or via and its c
 ``curved_edges`` (an inventory row) are those the pads and vias of the demo boards of 9.0.9 and 10.0.6 hold
 (S-0058; change c0277), and so are the font children ``face``, ``bold`` and ``italic`` of a board text
 (change c0277; S-0001 documents them in the text effects), and the root ``group`` with its ``members``
-(S-0001, "Group"; change c0277). The writer has no target below 9."""
+(S-0001, "Group"; change c0277), and a via's ``free`` (the demo boards of 9.0.9 and 10.0.6, S-0058; change
+c0277). The writer has no target below 9."""
 CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "kicad_pcb": (
@@ -2047,8 +2055,8 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "segment": ("start", "end", "width", "locked", "layer", "net", "uuid"),
         "arc": ("start", "mid", "end", "width", "locked", "layer", "net", "uuid"),
         "via": (
-            *VIA_POSITIONAL, "at", "size", "drill", "layers", "locked", *vialib.FEATURES, "teardrops", "net",
-            "uuid",
+            *VIA_POSITIONAL, "at", "size", "drill", "layers", "locked", "free", *vialib.FEATURES, "teardrops",
+            "net", "uuid",
         ),
         "teardrops": tuple(head for head, _, _ in tdlib.CHILDREN),
         "zone": (
@@ -2066,11 +2074,11 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "filled_polygon": ("layer", "island", "pts"),
         "keepout": tuple(head for head, _ in KEEPOUT_SETTINGS),
         "pts": ("xy",),
-        "gr_line": ("start", "end", "stroke", "layer", "uuid"),
-        "gr_arc": ("start", "mid", "end", "stroke", "layer", "uuid"),
-        "gr_circle": ("center", "end", "stroke", "fill", "layer", "uuid"),
-        "gr_rect": ("start", "end", "stroke", "fill", "layer", "uuid"),
-        "gr_poly": ("pts", "stroke", "fill", "layer", "uuid"),
+        "gr_line": ("start", "end", "stroke", "layer", "net", "uuid"),
+        "gr_arc": ("start", "mid", "end", "stroke", "layer", "net", "uuid"),
+        "gr_circle": ("center", "end", "stroke", "fill", "layer", "net", "uuid"),
+        "gr_rect": ("start", "end", "stroke", "fill", "layer", "net", "uuid"),
+        "gr_poly": ("pts", "stroke", "fill", "layer", "net", "uuid"),
         "stroke": ("width", "type"),
         "gr_text": (*TEXT_POSITIONAL, "at", "layer", "uuid", "effects"),
         "dimension": (
@@ -2112,7 +2120,11 @@ DEFAULT_THICKNESS = 1_600_000
 OUTLINE_WIDTH = 100_000
 TEXT_SIZE = Size(1_000_000, 1_000_000)
 TEXT_THICKNESS = 150_000
-_GRAPHIC_WRITE_FIELDS: Mapping[str, str] = MappingProxyType({**GRAPHIC_FIELDS, "stroke": "width"})
+_GRAPHIC_WRITE_FIELDS: Mapping[str, str] = MappingProxyType(
+    {**GRAPHIC_FIELDS, "stroke": "width", "net": "net_id"}
+)
+"""The fields of a created ``gr_*`` node; ``net`` is the net of a copper graphic (change c0277), which the
+reader keeps in the graphic's slots."""
 _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyType(
     {
         "kicad_pcb": {
@@ -2124,7 +2136,7 @@ _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyT
         "pad": {**BOARD_PAD_FIELDS, **MARGIN_HEADS, tdlib.HEAD: "teardrop"},
         "segment": TRACK_FIELDS,
         "arc": TRACK_FIELDS,
-        "via": {**VIA_FIELDS, tdlib.HEAD: "teardrop"},
+        "via": {**VIA_FIELDS, tdlib.HEAD: "teardrop", "free": "free"},
         "zone": ZONE_FIELDS,
         "filled_polygon": FILL_FIELDS,
         **dict.fromkeys(GR_GRAPHIC_HEADS, _GRAPHIC_WRITE_FIELDS),
@@ -2277,7 +2289,7 @@ def _dimension_children(dimension: Dimension, native: str) -> Items:
         {
             "prefix": [node("prefix", Atom.string(""))],
             "suffix": [node("suffix", Atom.string(""))],
-            "units": [node("units", Atom.integer(0 if dimension.units == "in" else 2))],
+            "units": [node("units", Atom.integer(DIMENSION_CODES[dimension.units]))],
             "units_format": [node("units_format", Atom.integer(1))],
             "precision": [node("precision", Atom.integer(dimension.precision))],
         },
@@ -2671,6 +2683,8 @@ class _Writer:
                 items["width"] = [_stroke(entity.width)]
                 if entity.kind not in _FILLED_KINDS:
                     items["filled"] = []
+            if entity.net_id is not None:
+                items["net_id"] = _opt(self.nets.node(entity.net_id))  # a copper graphic's net (change c0277)
         else:
             raise TypeError(f"no KiCad board writer for {type(entity).__name__}")
         items["native_ids"] = [_uuid_node(kicad_uuid(entity))]
@@ -2950,6 +2964,11 @@ class _Writer:
                 atoms = held.atoms() if held is not None else ()
                 if len(atoms) == 1 and atoms[0].value in self.group_uuids:
                     slots[i] = Modeled("groups")
+                continue
+            if child.name == "free" and head == "via":
+                # the reader keeps (free yes) in its slot; a script via that is free writes it (c0277)
+                if items.get("free"):
+                    slots[i] = Modeled("free")
                 continue
             if child.name == tdlib.HEAD and head in ("pad", "via"):
                 # the reader keeps the child in its slot; settings the script gives replace it (c0277)

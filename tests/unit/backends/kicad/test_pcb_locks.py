@@ -60,7 +60,7 @@ def test_lock_fields_and_order() -> None:
     # and `net`
     features = ("tenting", "capping", "covering", "plugging", "filling")
     order = CANONICAL_ORDER["via"]
-    later = (*features, "teardrops")
+    later = ("free", *features, "teardrops")
     assert tuple(name for name in order if name != "via_type" and name not in later) == VIA
     assert order[order.index("locked") + 1 : order.index("net")] == later
 

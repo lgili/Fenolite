@@ -49,6 +49,8 @@ class Table:
     layers: tuple[str, str] | None = None
     protection: ViaProtection = field(default_factory=ViaProtection)
     teardrop: Teardrop | None = None
+    free: bool = False
+    """The vias are KiCad's free vias, ``(free yes)`` (change c0277)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,6 +150,17 @@ def via_teardrop(item: Entity) -> tuple[Teardrop | None, bool]:
     return None, True
 
 
+def via_free(via: Entity) -> bool:
+    """Whether the reader kept KiCad's ``(free yes)`` in the slots of ``via`` (change c0277)."""
+    bag = via.ext.get("kicad")
+    for slot in slotlib.from_ext(bag) if bag is not None else ():
+        if isinstance(slot, Opaque):
+            child = slotlib.opaque_child(slot)
+            if isinstance(child, Node) and child.name == "free":
+                return [a.value for a in child.atoms()] in ([], ["yes"])
+    return False
+
+
 def has_teardrops(item: Entity) -> bool:
     """Whether a via or pad holds teardrop settings that are enabled, or that the import cannot read."""
     found, understood = via_teardrop(item)
@@ -182,6 +195,12 @@ def span_ok(kind: str, layers: tuple[str, ...], stack: tuple[str, ...]) -> bool:
     outer = sum(1 for index in (first, second) if index in (0, len(stack) - 1))
     fits = {"blind": outer >= 1, "buried": outer == 0, "micro": outer == 1 and second - first == 1}
     return first != second and fits.get(kind, False)
+
+
+_ViaGroup = tuple[
+    list[Row], int, int, str, "tuple[str, str] | None", ViaProtection, bool, "Teardrop | None", bool
+]
+"""The rows of one via table and its shared fields, the ``free`` flag last (change c0277)."""
 
 
 def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
@@ -227,8 +246,7 @@ def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
                     width=width,
                 )
             )
-    holes: dict[str, dict[tuple[object, ...], tuple[list[Row], int, int, str, tuple[str, str] | None,
-                                                    ViaProtection, bool, Teardrop | None]]] = {}  # fmt: skip
+    holes: dict[str, dict[tuple[object, ...], _ViaGroup]] = {}
     lost = 0
     for via in board.vias:
         net = net_names.get(via.net_id or "")
@@ -246,8 +264,9 @@ def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
         teardrop, understood = via_teardrop(via)
         if not understood:
             left["teardrop-setting"] += 1
+        free = via_free(via)
         group = (via.diameter, via.drill, via.via_type, span or ("", ""), _protection_key(via.protection),
-                 via.locked, _teardrop_key(teardrop))  # fmt: skip
+                 via.locked, _teardrop_key(teardrop), free)  # fmt: skip
         held = holes.setdefault(net, {})
         if group not in held:
             held[group] = (
@@ -259,11 +278,12 @@ def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
                 via.protection,
                 via.locked,
                 teardrop,
+                free,
             )
         held[group][0].append(_rel(via.position))
     for net, groups in holes.items():
         ordered = sorted(groups.items(), key=lambda item: item[0])  # type: ignore[arg-type,return-value]
-        for index, (_, (rows, diameter, drill, kind, span, protection, locked, teardrop)) in enumerate(
+        for index, (_, (rows, diameter, drill, kind, span, protection, locked, teardrop, free)) in enumerate(
             ordered, start=1
         ):
             tables.append(
@@ -279,6 +299,7 @@ def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
                     layers=span,
                     protection=protection,
                     teardrop=teardrop,
+                    free=free,
                 )
             )
     return Tables(tuple(sorted(tables, key=lambda t: t.key)), dict(sorted(left.items())), lost)
@@ -292,6 +313,7 @@ __all__ = [
     "protect_arguments",
     "protection_ok",
     "has_teardrops",
+    "via_free",
     "teardrop_arguments",
     "via_teardrop",
 ]

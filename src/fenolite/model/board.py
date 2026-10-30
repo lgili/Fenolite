@@ -65,7 +65,9 @@ FieldJustifyH = Literal["left", "center", "right"]
 FieldJustifyV = Literal["top", "center", "bottom"]
 DimensionKind = Literal["aligned", "orthogonal"]
 DimensionDirection = Literal["horizontal", "vertical"]
-DimensionUnits = Literal["mm", "in"]
+DimensionUnits = Literal["mm", "in", "mils", "auto"]
+"""The units of a dimension's text; ``auto`` follows the units the board editor shows (change c0277 adds
+``mils`` and ``auto``)."""
 ORDERED = {"ordered": True}
 
 
@@ -437,6 +439,9 @@ class Via(Entity):
     protection: ViaProtection = ViaProtection()
     locked: bool = False
     teardrop: Teardrop | None = None
+    free: bool = False
+    """KiCad's ``(free yes)``: the via keeps its net when no track joins it (change c0277). Left out of the
+    canonical JSON when false; a KiCad reader keeps a read via's ``free`` in its slots."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -559,6 +564,10 @@ class Graphic(Entity):
     points: tuple[Point, ...] = field(metadata=ORDERED)
     width: Nm = 0
     filled: bool = False
+    net_id: str | None = None
+    """The net of a graphic on a copper layer (change c0277); ``None``: copper of no net, or a graphic off
+    copper. Left out of the canonical JSON when ``None``; a KiCad reader keeps a read graphic's ``net`` in
+    its slots and does not project it."""
 
 
 @dataclass(frozen=True, slots=True)

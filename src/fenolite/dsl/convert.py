@@ -34,12 +34,14 @@ from fenolite.dsl.quantity import UNITS, Range
 from fenolite.dsl.roles import to_roles
 from fenolite.dsl.schematic import extract as schematic_composition
 from fenolite.dsl.shape import ring_box
+from fenolite.model.base import ExtBag
 from fenolite.model.board import (
     Board,
     Dimension,
     Graphic,
     Group,
     Keepout,
+    Layer,
     Outline,
     OutlineArc,
     OutlineSlot,
@@ -144,6 +146,7 @@ def _component(part: Part) -> Component:
         pin_pad_map=pad_pairs(part.pad_map),
         value_range=None if part.value_range is None else range_to_model(part.value_range),
         dnp=part.dnp,
+        board_only=part.board_only,
     )
 
 
@@ -528,6 +531,7 @@ def _design_model(design: Design) -> ModelDesign:
         ),
         board=Board(
             id=key_id("board"),
+            layers=_user_layers(design),
             outline=outline,
             zones=zones,
             keepouts=_keepouts(design),
@@ -559,6 +563,18 @@ SHEET_SUFFIX = ".kicad_wks"
 
 def _at(pair: tuple[int, int]) -> Point:
     return Point(BOARD_ORIGIN.x + pair[0], BOARD_ORIGIN.y + pair[1])
+
+
+def _user_layers(design: Design) -> tuple[Layer, ...]:
+    """The user layers ``user_layers()`` declares (change c0277), the only layers a DSL board holds: the
+    build writes its created table and these rows after it; a user name is the ``user_name`` of a
+    ``kicad`` bag, as the KiCad reader keeps it."""
+    out: list[Layer] = []
+    for ordinal, name in enumerate(design.user_layer_names):
+        alias = design.user_layer_aliases.get(name)
+        ext = {"kicad": ExtBag(None, (("user_name", alias),))} if alias is not None else {}
+        out.append(Layer(id=key_id("layer", name), ext=ext, name=name, kind="user", ordinal=ordinal))
+    return tuple(out)
 
 
 def _groups(design: Design) -> tuple[Group, ...]:
@@ -645,6 +661,7 @@ def _graphics(design: Design) -> tuple[Graphic, ...]:
             points=tuple(_at(p) for p in spec.points),
             width=spec.width,
             filled=spec.fill,
+            net_id=key_id("net", spec.net) if spec.net is not None else None,
         )
         for key, spec in sorted(design.drawings.items())
         if isinstance(spec, GraphicSpec)

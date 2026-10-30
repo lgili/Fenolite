@@ -144,6 +144,7 @@ class ViaIntent:
     protection: ViaProtection = ViaProtection()
     locked: bool = False
     teardrop: Teardrop | None = None
+    free: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,6 +209,7 @@ class ViaTableIntent:
     locked: bool = False
     table: str = "via"
     teardrop: Teardrop | None = None
+    free: bool = False
 
 
 TableIntent = TrackTableIntent | ArcTableIntent | ViaTableIntent
@@ -264,6 +266,7 @@ class _Via:
     protection: ViaProtection = ViaProtection()
     locked: bool = False
     teardrop: Teardrop | None = None
+    free: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -495,6 +498,13 @@ def teardrop(
     )
 
 
+def _free(value: object, what: str) -> bool:
+    """``free=`` of a via call (change c0277): ``True`` writes KiCad's ``(free yes)``."""
+    if not isinstance(value, bool):
+        raise DslError(f"{what}: free must be a bool, not {value!r}")
+    return value
+
+
 def _teardrop(value: object, what: str) -> Teardrop | None:
     """``teardrop=`` of a via call: ``None`` or the value of ``teardrop()``."""
     if value is not None and not isinstance(value, Teardrop):
@@ -624,6 +634,7 @@ def record_via(
     locked: object = False,
     protection: object = None,
     teardrop: object = None,
+    free: object = False,
 ) -> None:
     name = check_key(design, key)
     what = f"via {name}"
@@ -641,6 +652,7 @@ def record_via(
         _protection(protection, what),
         _locked(locked, what),
         _teardrop(teardrop, what),
+        _free(free, what),
     )
 
 
@@ -779,6 +791,7 @@ def record_table(
     locked: object = False,
     protection: object = None,
     teardrop: object = None,
+    free: object = False,
 ) -> None:
     """Record one copper table of ``table`` kind (``track``, ``arc`` or ``via``; change c0275)."""
     call = f"{table}_table"
@@ -802,6 +815,7 @@ def record_table(
         intent = ViaTableIntent(
             name, chosen.name, size, hole, cast("tuple[tuple[int, int], ...]", found), via_kind, span,
             _protection(protection, what), flag, teardrop=_teardrop(teardrop, what),
+            free=_free(free, what),
         )  # fmt: skip
     else:
         on = _table_layer(design, layer, what)
@@ -935,7 +949,7 @@ def copper(design: Design) -> tuple[CopperIntent, ...]:
             found.append(
                 ViaIntent(
                     key, at, net_name, item.diameter, item.drill, item.kind, item.layers,
-                    item.protection, item.locked, item.teardrop,
+                    item.protection, item.locked, item.teardrop, item.free,
                 )
             )  # fmt: skip
         elif isinstance(item, _Table):

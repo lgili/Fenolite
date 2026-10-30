@@ -55,7 +55,7 @@ from fenolite.importer.tables import (
     protect_arguments,
     teardrop_arguments,
 )
-from fenolite.importer.texts import dimension_style, text_style
+from fenolite.importer.texts import dimension_style, graphic_net, text_style
 from fenolite.importer.vendor import natural, vendor
 from fenolite.model.base import Entity, Opaque
 from fenolite.model.board import (
@@ -153,8 +153,51 @@ def _xy(point: Point) -> Tup:
     return Tup((length(point.x - ORIGIN.x), length(point.y - ORIGIN.y)))
 
 
+def net_numbers(design: Design) -> dict[int, str]:
+    """Each number of the source's net table and the name of its net, as the KiCad reader keeps them in the
+    nets' ``kicad`` bags (a KiCad 9 board numbers its nets; change c0277)."""
+    found: dict[int, str] = {}
+    for net in design.circuit.nets:
+        bag = net.ext.get("kicad")
+        number = dict(bag.payload).get("number", "") if bag is not None else ""
+        if number.isdigit():
+            found[int(number)] = net.name
+    return found
+
+
 def _kinds(board: Board) -> dict[str, str]:
     return {layer.name: layer.kind for layer in board.layers}
+
+
+_USER = re.compile(r"^User\.([1-9][0-9]*)$")
+
+
+def user_layers(board: Board) -> tuple[int, dict[str, str]]:
+    """The user layers the code declares for ``board`` (change c0277): ``User.1`` up to the highest
+    ``User.<k>`` of its table (45 at most), and the user name each of them has there."""
+    count = 0
+    names: dict[str, str] = {}
+    for layer in board.layers:
+        found = _USER.fullmatch(layer.name)
+        if found is None or int(found.group(1)) > 45:
+            continue
+        count = max(count, int(found.group(1)))
+        bag = layer.ext.get("kicad")
+        alias = dict(bag.payload).get("user_name", "") if bag is not None else ""
+        if alias and alias != layer.name:
+            names[layer.name] = alias
+    return count, names
+
+
+def _user_lines(board: Board) -> list[list[str]]:
+    count, names = user_layers(board)
+    if not count:
+        return []
+    kwargs: tuple[tuple[str, Expr], ...] = ()
+    if names:
+        ordered = sorted(names.items(), key=lambda item: natural(item[0]))
+        kwargs = (("names", Dct(tuple((name, text(alias)) for name, alias in ordered))),)
+    return [statement(Call("design.user_layers", (number(count),), kwargs))]
 
 
 def _copper_names(count: int) -> tuple[str, ...]:
@@ -259,7 +302,9 @@ def _stack_entry(layer: StackLayer) -> tuple[str, int | None, dict[str, str]] | 
     if layer.kind == "silkscreen":
         if layer.thickness:
             return None
-        return "silkscreen", None, {k: v for k, v in extras.items() if k == "color"}
+        if "epsilon_r" in extras or "loss_tangent" in extras:
+            return None
+        return "silkscreen", None, extras
     if layer.kind == "soldermask":
         return "mask", layer.thickness, extras
     if layer.kind == "copper":
@@ -288,10 +333,6 @@ def _stackup(board: Board, copper: int, writer: _Writer, ledger: Ledger) -> list
         if made is None:
             ledger.add("stackup", f"{layer.name} ({layer.kind})")
             return []
-        if layer.kind == "silkscreen":
-            for name in ("material", "epsilon_r", "loss_tangent"):
-                if getattr(layer, name):
-                    ledger.add("stackup-field", f"{layer.name} {name}")
         rows.append(made)
     probe = DslDesign("probe")
     probe.board(Length(1_000_000), Length(1_000_000), copper=copper)
@@ -535,9 +576,15 @@ def _zone_args(zone: Zone, ledger: Ledger) -> list[tuple[str, Expr]]:
         out.append(("islands", text(settings.island_removal)))
         if settings.island_removal == "below_area":
             out.append(("min_island_area", area_mm2(settings.min_island_area)))
+    if settings.smoothing != ZONE_DEFAULT.smoothing:
+        out.append(("smoothing", text(settings.smoothing)))  # change c0277
+        if settings.smoothing_radius != ZONE_DEFAULT.smoothing_radius:
+            out.append(("smoothing_radius", length(settings.smoothing_radius)))
     unsaid = (
-        settings.smoothing != ZONE_DEFAULT.smoothing
-        or settings.smoothing_radius != ZONE_DEFAULT.smoothing_radius
+        (
+            settings.smoothing == ZONE_DEFAULT.smoothing
+            and settings.smoothing_radius != ZONE_DEFAULT.smoothing_radius
+        )
         or settings.fill_mode != ZONE_DEFAULT.fill_mode
         or settings.hatch != ZONE_DEFAULT.hatch
     )
@@ -646,11 +693,19 @@ def _areas(
     return out
 
 
-def _graphic(graphic: Graphic, key: str) -> Call | None:
+def _graphic(graphic: Graphic, key: str, net: Expr | None = None) -> Call | None:
+    made = _graphic_call(graphic, key)
+    if made is None or net is None:
+        return made
+    return dataclasses.replace(made, kwargs=(*made.kwargs, ("net", net)))
+
+
+def _graphic_call(graphic: Graphic, key: str) -> Call | None:
     points = graphic.points
-    if graphic.width < 0:
+    if graphic.width < 0 and not (graphic.width == -1 and graphic.filled and graphic.kind != "line"):
         return None
-    width = length(graphic.width)
+    # a filled shape of width -1 nm has no outline: width=None says it (change c0277)
+    width: Expr = length(graphic.width) if graphic.width >= 0 else Raw("None")
     fill = (("fill", Raw("True")),) if graphic.filled else ()
     layer = ("layer", text(graphic.layer))
     if graphic.kind == "line" and len(points) == 2 and points[0] != points[1] and graphic.width > 0:
@@ -708,7 +763,7 @@ def _dimension(item: Dimension, key: str) -> Call | None:
     """``design.dimension()`` of an aligned or orthogonal dimension whose format and style are those a
     created dimension writes, but for its line width and its extension offset (change c0277); ``None``
     for another one."""
-    if item.start == item.end or not 0 <= item.precision <= 4 or item.units not in ("mm", "in"):
+    if item.start == item.end or not 0 <= item.precision <= 4:
         return None
     style = dimension_style(item)
     if style is None:
@@ -718,8 +773,8 @@ def _dimension(item: Dimension, key: str) -> Call | None:
         kwargs.append(("layer", text(item.layer)))
     if item.direction is not None:
         kwargs.append(("direction", text(item.direction)))
-    if item.units != "mm":
-        kwargs.append(("units", text(item.units)))
+    if style.units != "mm":
+        kwargs.append(("units", text(style.units)))
     if item.precision != 4:
         kwargs.append(("precision", number(item.precision)))
     if item.size is not None:
@@ -742,14 +797,22 @@ def _native(item: Entity) -> str:
     return item.native_ids.get("kicad", "")
 
 
-def _drawings(board: Board, ledger: Ledger, members: dict[str, Expr] | None = None) -> list[list[str]]:
+def _drawings(
+    board: Board,
+    ledger: Ledger,
+    members: dict[str, Expr] | None = None,
+    net_vars: Mapping[str, str] | None = None,
+    numbers: Mapping[int, str] | None = None,
+) -> list[list[str]]:
     from fenolite.dsl.items import BOARD_LAYER_KINDS
 
-    # a DSL board holds the standard layers only: a drawing on another user layer cannot be written
+    # a DSL board holds the standard layers and the user layers it declares (design.user_layers, c0277)
+    count, _ = user_layers(board)
+    declared = {f"User.{k}" for k in range(1, count + 1)}
     kinds = {
         name: kind
         for name, kind in _kinds(board).items()
-        if name in BOARD_LAYER_KINDS or kind in ("edge", "copper")
+        if name in BOARD_LAYER_KINDS or name in declared or kind in ("edge", "copper")
     }
     out: list[list[str]] = []
     counters: dict[tuple[str, str], int] = {}
@@ -761,16 +824,17 @@ def _drawings(board: Board, ledger: Ledger, members: dict[str, Expr] | None = No
         kind = kinds.get(graphic.layer, "")
         if kind == "edge":
             continue
-        if kind not in DRAWING_KINDS:
-            ledger.add(
-                "copper-drawing" if kind == "copper" else "drawing-layer",
-                f"{graphic.kind} on {graphic.layer}",
-            )
+        if kind not in (*DRAWING_KINDS, "copper"):
+            ledger.add("drawing-layer", f"{graphic.kind} on {graphic.layer}")
             continue
+        # a copper graphic takes its net (change c0277); a slot design.line() cannot say leaves it out
+        net = graphic_net(graphic, numbers or {})
+        if net is not None and net and (kind != "copper" or net not in (net_vars or {})):
+            net = None
         slot = (graphic.layer, graphic.kind)
         counters[slot] = counters.get(slot, 0) + 1
         key = f"{segment(graphic.layer)}/{graphic.kind}/{counters[slot]}"
-        made = _graphic(graphic, key)
+        made = None if net is None else _graphic(graphic, key, Raw((net_vars or {})[net]) if net else None)
         if made is None:
             ledger.add("drawing", f"{graphic.kind} on {graphic.layer}")
             continue
@@ -900,6 +964,8 @@ def _copper_file(tables: Sequence[Table], header: Sequence[str]) -> str:
                 values = tuple((name, Raw("True" if v is True else "False" if v is False else string(str(v))))
                                for name, v in said)  # fmt: skip
                 args.append(("protection", Call("protect", (), values)))
+            if table.free:
+                args.append(("free", Raw("True")))  # KiCad's free vias (change c0277)
             if table.teardrop is not None:
                 imports.add("teardrop")
                 stated: list[tuple[str, Expr]] = []
@@ -929,12 +995,54 @@ def _copper_file(tables: Sequence[Table], header: Sequence[str]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def board_only_keys(design: Design) -> tuple[Design, dict[str, str], frozenset[str]]:
+    """``design`` with a key in place of the reference of each footprint that shares its reference or has
+    one a script cannot name (change c0277), the source reference of each such component by id, and the
+    ids of the components that the code writes as board-only parts: those, and the footprints that carry
+    KiCad's ``board_only`` attribute. A key is the reference cut to the name alphabet (``fp`` when nothing
+    is left), then ``_<n>``, the lowest number no other reference or key holds, in placement order."""
+    board = design.board
+    if board is None:
+        return design, {}, frozenset()
+    refs = {c.id: c.ref for c in design.circuit.components}
+    counts = Counter(refs.get(fp.component_id, "") for fp in board.footprints)
+    taken = {ref for ref in refs.values() if NAME.fullmatch(ref)}
+    shown: dict[str, str] = {}
+    keys: dict[str, str] = {}
+    board_only = {fp.component_id for fp in board.footprints if "board_only" in fp.attributes}
+
+    def order(fp: FootprintInstance) -> tuple[object, ...]:
+        return (natural(refs.get(fp.component_id, "")), fp.side, fp.position.x, fp.position.y, fp.id)
+
+    for fp in sorted(board.footprints, key=order):
+        ref = refs.get(fp.component_id, "")
+        if fp.component_id in keys or (NAME.fullmatch(ref) and counts[ref] == 1):
+            continue
+        base = re.sub(r"[^A-Za-z0-9_.+-]", "", ref) or "fp"
+        number = 1
+        while f"{base}_{number}" in taken:
+            number += 1
+        keys[fp.component_id] = f"{base}_{number}"
+        taken.add(keys[fp.component_id])
+        shown[fp.component_id] = ref
+        board_only.add(fp.component_id)
+    if not keys:
+        return design, shown, frozenset(board_only)
+    components = tuple(
+        dataclasses.replace(c, ref=keys[c.id]) if c.id in keys else c for c in design.circuit.components
+    )
+    keyed = dataclasses.replace(design, circuit=dataclasses.replace(design.circuit, components=components))
+    return keyed, shown, frozenset(board_only)
+
+
 def emit(source: Source, options: Options) -> Emission:
     """The files of the Fenolite project folder of ``source``."""
     design = source.design
-    board = design.board
-    if board is None:
+    if design.board is None:
         raise ValueError("the source holds no board")
+    design, shown, board_only = board_only_keys(design)
+    board = design.board
+    assert board is not None
     ledger = Ledger()
     issues: list[Issue] = []
     writer = _Writer()
@@ -942,11 +1050,24 @@ def emit(source: Source, options: Options) -> Emission:
     board_lines, copper_count = _board(design, writer, ledger)
     board_lines += _stackup(board, copper_count, writer, ledger)
     board_lines += _title_block(board, ledger)
+    board_lines += _user_lines(board)
     layers = _copper_names(copper_count)
     names = {net.id: net.name for net in design.circuit.nets}
     refs = {c.id: c.ref for c in design.circuit.components}
     vendored = vendor(design, source.board_text, target=options.target)
     issues += vendored.issues
+    if shown:
+        bare = sum(
+            1 for fp in board.footprints if fp.component_id in shown and "board_only" not in fp.attributes
+        )
+        listed = ", ".join(sorted({repr(ref) for ref in shown.values()}, key=natural)[:3])
+        said = (
+            f"{len(shown)} footprint(s) share a reference or have none a script can name ({listed}): "
+            "they are board-only parts named by key"
+        )
+        if bare:
+            said += f"; {bare} of them gain KiCad's board_only attribute"
+        issues.append(issue("import.board-only", said, where="footprints"))
     tables = copper_tables(board, names)
     for kind, count in tables.left_out.items():
         ledger.add(kind, count=count)
@@ -997,6 +1118,10 @@ def emit(source: Source, options: Options) -> Emission:
     used_nets = {net for net, pins in members.items() if not (len(pins) == 1 and net.startswith(UNCONNECTED))}
     used_nets |= {table.net for table in kept_tables}
     used_nets |= {names[z.net_id] for z in board.zones if z.net_id in names}
+    numbers = net_numbers(design)
+    copper_layers = {layer.name for layer in board.layers if layer.kind == "copper"}
+    graphic_nets = (graphic_net(g, numbers) for g in board.graphics if g.layer in copper_layers)
+    used_nets |= {found for found in graphic_nets if found and found in names.values()}
     net_vars: dict[str, str] = {}
     net_lines: list[list[str]] = []
     for net in sorted(used_nets):
@@ -1060,20 +1185,24 @@ def emit(source: Source, options: Options) -> Emission:
         component = components[footprint.component_id]
         var = identifier(ref, writer.taken, prefix="p")
         part_vars[ref] = var
-        lock_refs["/".join(path)] = ref
+        if component.id not in board_only:
+            lock_refs["/".join(path)] = ref  # a board-only part keeps its ref and no lock entry
         lib_id = vendored.footprints[ref]
         kwargs = [("footprint", text(lib_id))]
         if component.value:
             kwargs.append(("value", text(component.value)))
-        if path[-1] != ref:
+        written = shown.get(component.id, ref)
+        if path[-1] != written:
             kwargs.append(("name", text(path[-1])))
         props = _properties(component.properties)
         if props is not None:
             kwargs.append(("properties", props))
         if component.dnp:
             kwargs.append(("dnp", Raw("True")))
+        if component.id in board_only:
+            kwargs.append(("board_only", Raw("True")))
         part_lines.append(
-            statement(Call("Part", (text(ref), text(vendored.symbols[ref])), tuple(kwargs)), target=var)
+            statement(Call("Part", (text(written), text(vendored.symbols[ref])), tuple(kwargs)), target=var)
         )
         for depth in range(1, len(path)):
             prefix = path[:depth]
@@ -1120,7 +1249,7 @@ def emit(source: Source, options: Options) -> Emission:
     }
     zone_lines = _zones(board, names, net_vars, layers, ledger, grouped)
     area_lines = _areas(board, layers, ledger, grouped)
-    drawing_lines = _drawings(board, ledger, grouped)
+    drawing_lines = _drawings(board, ledger, grouped, net_vars, numbers)
     group_lines = _groups(board, grouped, ledger)
     coverage.scan(design, ledger)
     issues += coverage.regenerated_issues(ledger)

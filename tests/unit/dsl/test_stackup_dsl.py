@@ -36,6 +36,7 @@ def test_entries_are_frozen_values() -> None:
     assert stack.copper("35um") == StackEntry("copper", 35_000)
     assert stack.mask("0mm", color="Green") == StackEntry("mask", 0, color="Green")
     assert stack.silkscreen(color="White") == StackEntry("silkscreen", color="White")
+    assert stack.silkscreen(material="Liquid Photo") == StackEntry("silkscreen", material="Liquid Photo")
 
 
 @pytest.mark.parametrize(
@@ -78,6 +79,7 @@ def test_thicknesses_and_texts_refused() -> None:
         lambda: stack.core("1mm", material=" FR4"),
         lambda: stack.mask("10um", color="Green "),
         lambda: stack.silkscreen(color=3),  # type: ignore[arg-type]
+        lambda: stack.silkscreen(material=" Liquid Photo"),
     ):
         with pytest.raises(DslError):
             call()

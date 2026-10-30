@@ -190,7 +190,8 @@ def natural_key(path: str) -> tuple[tuple[int, int, int, str], ...]:
 def _resolve_refs(design: Design, entries: Mapping[str, LockValue]) -> SectionResult:
     """The refs of every part: explicit refs, then kept lock entries, then new refs per prefix in natural
     path order with the lowest free number. ``entries`` are the lock's refs after carry and release."""
-    parts: dict[str, Part] = dict(design.parts)
+    # a board-only part keeps its ref as written and no lock entry: KiCad does not annotate it (change c0277)
+    parts: dict[str, Part] = {path: part for path, part in design.parts.items() if not part.board_only}
     explicit = {path: part.explicit_ref for path, part in parts.items() if part.explicit_ref is not None}
     owners = {ref: path for path, ref in explicit.items()}
     refs: dict[str, str] = dict(explicit)
@@ -200,7 +201,9 @@ def _resolve_refs(design: Design, entries: Mapping[str, LockValue]) -> SectionRe
     """Path → (locked ref, reason) of a part whose locked ref could not be kept."""
     for path in sorted(entries, key=natural_key):
         locked = cast(str, entries[path])
-        part = parts[path]
+        part = parts.get(path)
+        if part is None:
+            continue
         if path in explicit:
             ref = explicit[path]
             if locked != ref:

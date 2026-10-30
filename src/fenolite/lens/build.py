@@ -87,7 +87,7 @@ from fenolite.lens.moved import identity_map
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
 from fenolite.lens.rolecopper import RoleCopperPlanner, apply_plan
 from fenolite.model import canonical, drawn_connect, pairs
-from fenolite.model.board import ComponentBody, FootprintInstance, Pad, Side, ViaProtection
+from fenolite.model.board import ComponentBody, FootprintInstance, Layer, Pad, Side, ViaProtection
 from fenolite.model.circuit import Component, Interface, Net, NetClass, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.drawn import DrawnSchematic
@@ -295,6 +295,12 @@ class _Part:
     """The origin of the row that resolved the symbol, or ``authored``."""
 
 
+def _user_name(layer: Layer) -> str:
+    """The user name a script gives a user layer: the ``user_name`` pair of its ``kicad`` bag."""
+    bag = layer.ext.get("kicad")
+    return dict(bag.payload).get("user_name", "") if bag is not None else ""
+
+
 def _path(component: Component) -> str:
     return component.properties.get(PATH_PROPERTY, component.ref)
 
@@ -353,7 +359,10 @@ def _resolve(
                 errors.append(error)
                 continue
             libraries[fp_ref] = location.origin
-        value = component.value or symbol.properties.get("Value", "")
+        # a board-only part has no symbol on the sheet: its value is its own, empty included (change c0277)
+        value = (
+            component.value if component.board_only else component.value or symbol.properties.get("Value", "")
+        )
         component = dataclasses.replace(component, lib_footprint_ref=fp_ref, value=value)
         origin = libraries[component.lib_symbol_ref]
         found.append(_Part(component, _path(component), symbol, footprint, location, parents, origin))
@@ -1328,9 +1337,12 @@ def build_design(
     issues += check_outline(design)
     if any(found.code == "kicad.outline.invalid" for found in issues):
         return _refused(design, issues, libraries, prepared)
+    # the user layers a script declares (design.user_layers, change c0277) follow the created table
+    declared = [layer for layer in board.layers if layer.name.startswith("User.")]
+    user_names = {layer.name: _user_name(layer) for layer in declared if _user_name(layer)}
     layers = tuple(
         dataclasses.replace(layer, id=derived_id("lay", DSL_BACKEND, f"layer:{layer.name}"))
-        for layer in created_layers(copper)
+        for layer in created_layers(copper, len(declared), user_names)
     )
     copper_names = tuple(layer.name for layer in layers if layer.kind == "copper")
     cursor, top = _staging(design)
@@ -1650,11 +1662,13 @@ def build_design(
     generated: GeneratedSchematic | None = None
     symbol_files: dict[str, list[symembed.EmbeddedSymbol]] = {}
     drawn_texts: dict[str, str] | None = None
+    # a board-only part has no symbol on the sheet, as KiCad's board_only footprints (change c0277)
+    sheet_parts = [part for part in parts if not part.component.board_only]
     if schematic == "write" and drawn is not None:
         generated = drawn_mod.lower_drawn(
             drawn,
             target_design,
-            parts,
+            sheet_parts,
             name=name,
             target=target,
             vendor=vendor,
@@ -1673,7 +1687,7 @@ def build_design(
     elif schematic == "write":
         generated = schgen.generate_schematic(
             target_design,
-            parts,
+            sheet_parts,
             name=name,
             target=target,
             placements=symbol_placements,

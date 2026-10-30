@@ -84,9 +84,13 @@ boards. `compare_designs` runs the levels 1 to 7; level 8 lives in `fenolite.vie
 scene builders) and level S in `compare_drawn` (it needs change c0276, so `--level S` exits 2 in this
 version). `fenolite verify-source` runs every level on a script and its original (`docs/fidelity.md`).
 
-- **Components are paired by reference.** Model ids differ between backends. A reference that a side
-  holds more than once, or an empty reference, cannot be paired: it gives one `ref-ambiguous` difference
-  and takes no further part. `--ignore-ref GLOB` leaves such references out.
+- **Components are paired by reference.** Model ids differ between backends. A reference that both sides
+  hold equally often, more than once or empty, whose holders each have one footprint, is paired in
+  placement order (side, then x, y, rotation and footprint name): the holders become `REF#1`, `REF#2`, … on
+  both sides, so footprints that share a reference (stitching vias, logos) are compared one by one
+  (change c0277). Any other reference that a side holds more than once, or an empty one, cannot be
+  paired: it gives one `ref-ambiguous` difference and takes no further part. `--ignore-ref GLOB` leaves
+  such references out, and a reference it matches is not paired.
 - **Each fault is reported once.** A component reported as missing or ambiguous at level 1 is not
   compared at the later levels, and a component placed on one side only is reported at level 3 and not at
   level 4.

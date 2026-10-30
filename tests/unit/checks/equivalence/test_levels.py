@@ -76,6 +76,30 @@ def test_level1_empty_reference_is_ambiguous() -> None:
     assert refs == ("R1",)
 
 
+def _stitched(name: str, values: tuple[str, str], ref: str = "STITCH1") -> object:
+    pads = {ref: [_cases.pad("1")], "R1": [_cases.pad("1")]}
+    found = _cases.design([(ref, values[0]), (ref, values[1]), ("R1", "")], pads, name=name)
+    assert found.board is not None
+    moved = tuple(
+        dataclasses.replace(fp, position=Point(1_000_000 * k, 0))
+        for k, fp in enumerate(found.board.footprints)
+    )
+    return dataclasses.replace(found, board=dataclasses.replace(found.board, footprints=moved))
+
+
+@pytest.mark.parametrize("ref", ["STITCH1", ""])
+def test_shared_references_are_paired_by_placement(ref: str) -> None:
+    """Footprints that share a reference, equally many on each side and each placed once, are paired in
+    placement order (change c0277): the second one is ``REF#2`` on both sides."""
+    a = _stitched("a", ("", ""), ref)
+    same = compare_designs(a, _stitched("b", ("", ""), ref), level=4)  # type: ignore[arg-type]
+    assert same.equivalent and same.levels[0].compared == 3
+    changed = compare_designs(a, _stitched("b", ("", "x"), ref), level=4)  # type: ignore[arg-type]
+    assert [(d.level, d.kind, d.where) for d in changed.differences] == [(1, "value", f"{ref}#2")]
+    ignored = compare_designs(a, a, level=4, ignore_refs=(ref or "x",))  # type: ignore[arg-type]
+    assert not ref or [d.kind for d in ignored.differences] == []
+
+
 # --- level 2 ---------------------------------------------------------------------------------------
 
 

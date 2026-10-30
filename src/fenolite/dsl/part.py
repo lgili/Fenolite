@@ -269,13 +269,25 @@ class Part(Edges):
         pad_map: Mapping[str, str | Sequence[str]] | None = None,
         height: object = None,
         dnp: bool = False,
+        board_only: bool = False,
     ) -> None:
-        self.explicit_ref: str | None = None if ref is None else check_name(ref, "ref")
+        if not isinstance(board_only, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part {ref or name}: board_only must be a bool, not {board_only!r}")
+        self.board_only = board_only
+        """The part is on the board only (change c0277): no symbol in the schematic, KiCad's ``board_only``
+        attribute on its footprint, and a ref that is free text (``docs/dsl.md``, "Board-only parts")."""
+        self.explicit_ref: str | None = None if ref is None else self._checked_ref(ref)
         """The ref the script wrote, or ``None``: the build then assigns one (``docs/dsl.md``, "Reference
         designators and the design lock")."""
         self.assigned: str | None = None
         """The ref the build assigned to a part without an explicit ref (``to_model``)."""
         self.name: str | None = None if name is None else check_name(name, "part name")
+        if board_only and ref is None:
+            raise DslError(f"part {name}: a board-only part takes its ref as written; give ref")
+        if board_only and self.name is None and not NAME.fullmatch(cast(str, ref)):
+            raise DslError(
+                f"part {ref!r}: a board-only part whose ref is not a name of {NAME.pattern} needs name="
+            )
         if prefix is not None and (not isinstance(prefix, str) or not PREFIX.fullmatch(prefix)):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part prefix {prefix!r} must match {PREFIX.pattern}")
         label = ref or name or prefix or lib_id or device
@@ -405,7 +417,18 @@ class Part(Edges):
     @ref.setter
     def ref(self, value: str | None) -> None:
         """Setting a ref makes it the part's explicit ref (``None`` removes it)."""
-        self.explicit_ref = None if value is None else check_name(value, "ref")
+        self.explicit_ref = None if value is None else self._checked_ref(value)
+
+    def _checked_ref(self, value: object) -> str:
+        """``value`` as a ref: a name of ``NAME``, or for a board-only part any printable text without
+        surrounding spaces, the empty text included (``REF**``, ``STITCH1`` shared by many vias)."""
+        if not self.board_only:
+            return check_name(value, "ref")
+        if not isinstance(value, str) or not value.isprintable() or value != value.strip():
+            raise DslError(
+                f"ref {value!r} of a board-only part must be printable text without surrounding spaces"
+            )
+        return value
 
     @property
     def key(self) -> str:

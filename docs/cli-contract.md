@@ -1276,6 +1276,7 @@ with `FEN-4002`.
 | `import.provenance-missing` | warning | no `--licence`, `--copyright` or `--source` |
 | `import.timestamp-missing` | info | no `--timestamp`: the output is not reproducible |
 | `import.teardrops-regenerated` | info | teardrop zones left out because KiCad draws them again from the pad and via teardrop settings the code keeps (change c0277) |
+| `import.board-only` | info | footprints that share a reference or have none a script can name, written as board-only parts named by key; the count of those that gain KiCad's `board_only` attribute (change c0277) |
 
 ## check
 

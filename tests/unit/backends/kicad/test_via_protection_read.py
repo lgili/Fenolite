@@ -79,7 +79,7 @@ def test_module_tables() -> None:
     )
     order = pcb.CANONICAL_ORDER["via"]
     # after c0108's lock, before the teardrop settings of c0277
-    assert order[order.index("locked") + 1 : order.index("net")] == (*vp.FEATURES, "teardrops")
+    assert order[order.index("locked") + 1 : order.index("net")] == ("free", *vp.FEATURES, "teardrops")
     assert all(pcb.VIA_FIELDS[feature] == feature for feature in vp.FEATURES)
 
 

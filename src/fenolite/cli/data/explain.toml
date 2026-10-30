@@ -3977,6 +3977,11 @@ meaning = "No --timestamp: the header and PROVENANCE.json carry today's date, so
 fix = "Pass --timestamp to make the output reproducible."
 see = "import"
 
+["import.board-only"]
+meaning = "Footprints of the source board share a reference, or have one a script cannot name (REF**, an empty one). Each is written as Part(ref, ..., name=<key>, board_only=True): no schematic symbol, and KiCad's board_only footprint attribute, which a footprint without it gains (the message counts them)."
+fix = "Nothing to fix. Rename the key in name= if you want another one."
+see = "import"
+
 ["import.teardrops-regenerated"]
 meaning = "The source board holds teardrop zones that KiCad drew from the teardrop settings of its pads and vias. The code keeps those settings (the pads' in the vendored footprints, the vias' as teardrop= of their tables), so the zones are not written: KiCad draws them again when it fills the board."
 fix = "Nothing to fix. Run fenolite fill on the built board to draw the teardrops."

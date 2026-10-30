@@ -403,6 +403,7 @@ def _via(
     layers: tuple[str, str] | None = None,
     protection: ViaProtection | None = None,
     teardrop: Teardrop | None = None,
+    free: bool = False,
 ) -> Via:
     """A via of ``kind``; ``layers`` is its span in stack order, the whole board for a through via,
     ``protection`` the protection of its intent (``None``: the via follows the board default) and
@@ -419,6 +420,7 @@ def _via(
         via_type=cast(ViaType, kind),
         protection=protection if protection is not None else ViaProtection(),
         teardrop=teardrop,
+        free=free,
     )
 
 
@@ -578,6 +580,7 @@ class _ViaPlan:
     layers: object
     protection: object
     teardrop: object = None
+    free: bool = False
 
 
 def _plan_track(board: _Board, intent: TrackIntentLike) -> _TrackPlan:
@@ -612,7 +615,10 @@ def _plan_via(board: _Board, intent: ViaIntentLike) -> _ViaPlan:
     protection: object = getattr(intent, "protection", ViaProtection())
     teardrop: object = getattr(intent, "teardrop", None)
     at = board.spot(intent.at, key)
-    return _ViaPlan(key, at, intent.net, intent.diameter, intent.drill, kind, layers, protection, teardrop)
+    free = getattr(intent, "free", False) is True
+    return _ViaPlan(
+        key, at, intent.net, intent.diameter, intent.drill, kind, layers, protection, teardrop, free
+    )
 
 
 def _candidates(board: _Board, end: PadEndLike, layer: str, key: str) -> list[BoardPad]:
@@ -822,7 +828,10 @@ def _resolve_via(board: _Board, intent: _ViaPlan) -> Via:
         _copper_layer(board, second, key)
         span = _via_span(board, kind, first, second, key)
     sizes = _via_sizes((intent.diameter, intent.drill), board.netclass(net), net, key)
-    return _via(key, "via", intent.at, sizes, board, net, kind, span, protection, _via_teardrop(intent, key))
+    free = getattr(intent, "free", False) is True
+    return _via(
+        key, "via", intent.at, sizes, board, net, kind, span, protection, _via_teardrop(intent, key), free
+    )
 
 
 def _resolve_table(board: _Board, intent: TableIntentLike) -> tuple[list[Track], list[Arc], list[Via]]:
@@ -852,7 +861,19 @@ def _resolve_table(board: _Board, intent: TableIntentLike) -> tuple[list[Track],
         for index, row in enumerate(intent.rows):
             at = Point(row[0], row[1])
             vias.append(
-                _via(key, f"via[{index}]", at, sizes, board, net, via_kind, span, protection, teardrop)
+                _via(
+                    key,
+                    f"via[{index}]",
+                    at,
+                    sizes,
+                    board,
+                    net,
+                    via_kind,
+                    span,
+                    protection,
+                    teardrop,
+                    getattr(intent, "free", False) is True,
+                )  # fmt: skip
             )
         return tracks, arcs, vias
     layer = cast(str, getattr(intent, "layer", ""))

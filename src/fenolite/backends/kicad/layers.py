@@ -166,10 +166,27 @@ def created_count(names: Sequence[str]) -> int | None:
     return None
 
 
-def created_layers(copper: int) -> tuple[Layer, ...]:
+USER_LAYER_COUNT = 45
+"""The user layers a board may declare, ``User.1`` to ``User.45`` (S-0001, "Layers"; change c0277)."""
+
+
+def user_table_rows(
+    count: int, names: Mapping[str, str] | None = None
+) -> tuple[tuple[int, str, str, str | None], ...]:
+    """The rows of the user layers ``User.1`` … ``User.<count>`` as KiCad 9.0 and 10.0 write them after
+    ``B.Fab``: ``(39 + 2(k − 1), "User.<k>", "user")``, with the user name ``names`` gives (``board.md``,
+    "User layers for conversion", ``H-K-BOARD-USERLAYERS``; change c0277)."""
+    if isinstance(count, bool) or not 0 <= count <= USER_LAYER_COUNT:
+        raise ValueError(f"a board has 0 to {USER_LAYER_COUNT} user layers, not {count!r}")
+    given = names or {}
+    return tuple((37 + 2 * k, f"User.{k}", "user", given.get(f"User.{k}")) for k in range(1, count + 1))
+
+
+def created_layers(copper: int, user: int = 0, names: Mapping[str, str] | None = None) -> tuple[Layer, ...]:
     """The layers of a created board, with the KiCad number, type and user name in ``ext["kicad"]``.
-    ``copper`` is a count of ``CREATED_COPPER_COUNTS``; any other value raises ``ValueError``."""
-    rows = CREATED_ROWS[:1] + inner_rows(copper) + CREATED_ROWS[1:]
+    ``copper`` is a count of ``CREATED_COPPER_COUNTS``; any other value raises ``ValueError``. ``user``
+    user layers follow, with the user names of ``names`` (``user_table_rows``; change c0277)."""
+    rows = CREATED_ROWS[:1] + inner_rows(copper) + CREATED_ROWS[1:] + user_table_rows(user, names)
     layers: list[Layer] = []
     for ordinal, (number, name, row_type, user_name) in enumerate(rows):
         pairs = [("number", str(number)), ("type", row_type)]
@@ -336,6 +353,22 @@ def _issue(code: str, message: str, where: str, hint: str = "") -> Issue:
     return Issue(code, MERGE_ISSUE_CODES[code], message, where, hint)
 
 
+def merge_user_layers(board: Design, wanted: Sequence[Layer]) -> Design:
+    """``board`` with the ``User.<k>`` rows of ``wanted`` (a created table) that its table lacks appended,
+    so drawings a script puts on a user layer it declared find their layer on a rebuild (change c0277).
+    A row the board already holds keeps its KiCad name and user name."""
+    model = board.board
+    if model is None:
+        return board
+    held = {layer.name for layer in model.layers}
+    extra = [layer for layer in wanted if layer.name.startswith("User.") and layer.name not in held]
+    if not extra:
+        return board
+    rows = (*model.layers, *extra)
+    layers = tuple(dataclasses.replace(layer, ordinal=ordinal) for ordinal, layer in enumerate(rows))
+    return dataclasses.replace(board, board=dataclasses.replace(model, layers=layers))
+
+
 def merge_layers(board: Design, copper: int) -> LayerMerge:
     """Adapt an existing ``board`` whose copper layers are those of a created table of another count to the
     copper layers of ``created_layers(copper)`` (capability layout-lens, "Copper layer changes across
@@ -486,7 +519,10 @@ __all__ = [
     "is_canonical",
     "layer_kind",
     "merge_layers",
+    "merge_user_layers",
     "plane_layers",
+    "user_table_rows",
+    "USER_LAYER_COUNT",
     "with_plane_types",
 ]
 

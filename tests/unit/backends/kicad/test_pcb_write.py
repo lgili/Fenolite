@@ -233,7 +233,7 @@ def test_created_tokens() -> None:
     # the created test board holds no dimension: one of each kind is added here (c0103), and the teardrop
     # settings of c0277 on a via
     board = created_design.board
-    via = dataclasses.replace(board.vias[0], teardrop=FULL_TEARDROP)
+    via = dataclasses.replace(board.vias[0], teardrop=FULL_TEARDROP, free=True)  # and a free via
     styled = Text(
         id="txt_00000000-0000-4000-8000-0000000000c7",
         text="STYLED",

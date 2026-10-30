@@ -232,6 +232,9 @@
               "type": "null"
             }
           ]
+        },
+        "board_only": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,

@@ -881,6 +881,27 @@ token inside opaque content.
   is `None`.
 - `INFERRED` until `H-K-COPPER-ART` loads a created board with a copper text and the styles on both majors.
 
+## Board items of an import (c0277)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A via's `(free yes)` follows its `layers` and comes before its protection children (`tenting` …) | S-0058 (`CM5_MINIMA_3`, `One-Air-Max`, `RoyalBlue54L-Feather` at 10.0.6) | INFERRED | H-K-PCB-WRITE |
+| A graphic on a copper layer holds `(net …)` after its `layer`: the net number on a 9.0 board (`One-Air-Max`); a 10.0 board names its nets in every reference, so the writer names it there | S-0058 | INFERRED | H-K-COPPER-ART |
+| A filled shape without an outline is written with `(stroke (width -0.000001) (type solid))` | S-0058 (`CM5_MINIMA_3`) | INFERRED | H-K-PCB-WRITE |
+| A dimension's `units` codes are 0 inches, 1 mils, 2 millimetres and 3 automatic | S-0001, S-0058 (`tinytapeout-demo`) | INFERRED | H-K-DIM |
+| `board_only` follows the type atom of `attr` (`(attr through_hole board_only exclude_from_pos_files exclude_from_bom)`) | S-0058 (150 footprints) | INFERRED | H-K-PCB-WRITE |
+| A zone's `smoothing` and `radius` follow `thermal_bridge_width` in its `fill` | S-0058 (`CM5_MINIMA_3`) | INFERRED | H-K-PCB-WRITE |
+
+- **Free vias.** The reader keeps a read via's `free` in its slots; a created via of `Via.free` writes it,
+  and a script via over a read one replaces the read child.
+- **Copper graphics.** `Graphic.net_id` is written through the net table of the target, as a track's net;
+  the reader keeps a read graphic's `net` in its slots.
+- **Dimensions.** The reader now projects the codes 1 and 3 into `Dimension.units` (`mils`, `auto`), which
+  it read as `mm` before; a created dimension in `auto` caches its text in millimetres, as KiCad does
+  before it recomputes it.
+- **User layers** of a script are the rows of "User layers for conversion" (`H-K-BOARD-USERLAYERS`), with the
+  user name a script gives.
+
 ## Groups of a script (c0277)
 
 - **Written.** A `Group` of `Board.groups` is written as a root `(group "name" (uuid U) [(locked yes)]

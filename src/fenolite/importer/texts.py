@@ -9,12 +9,13 @@ rest itself.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad.sexpr import AtomKind, Node
 from fenolite.model.base import Opaque
-from fenolite.model.board import Dimension, Text
+from fenolite.model.board import Dimension, Graphic, Text
 
 FONT_KEPT = frozenset({"size", "thickness"})
 """Font children the reader projects into the model."""
@@ -115,9 +116,15 @@ DIMENSION_STYLE = {
 "Dimensions"); ``thickness`` is the model's ``width`` and ``extension_offset`` a DSL argument."""
 
 
+UNITS_OF_CODE = {"0": "in", "1": "mils", "2": "mm", "3": "auto"}
+"""The units of each ``units`` code of a dimension's ``format`` (S-0001); the reader projects only 0 and 2."""
+
+
 @dataclass(frozen=True, slots=True)
 class DimensionStyle:
     extension_offset: int | None = None
+    units: str = "mm"
+    """The units of the ``format`` slot, which the reader does not project for mils and automatic units."""
 
 
 def _children_match(node: Node, fixed: dict[str, str], free: frozenset[str]) -> dict[str, Node] | None:
@@ -138,6 +145,7 @@ def dimension_style(dimension: Dimension) -> DimensionStyle | None:
     """The extension offset of a linear dimension whose ``format`` and ``style`` the DSL writes; ``None``
     when another child or value is in them (a prefix, automatic units, a text position…)."""
     gap: int | None = None
+    units = dimension.units
     bag = dimension.ext.get("kicad")
     for slot in slotlib.from_ext(bag) if bag is not None else ():
         if not isinstance(slot, Opaque):
@@ -149,11 +157,14 @@ def dimension_style(dimension: Dimension) -> DimensionStyle | None:
             fields = _children_match(child, DIMENSION_FORMAT, frozenset({"units", "precision"}))
             if fields is None:
                 return None
-            wanted = {"units": "0" if dimension.units == "in" else "2", "precision": str(dimension.precision)}
-            for name, value in wanted.items():
-                held = fields.get(name)
-                if held is None or [a.text for a in held.atoms()] != [value] or held.nodes():
-                    return None
+            held = fields.get("units")
+            code = [a.text for a in held.atoms()] if held is not None and not held.nodes() else []
+            if len(code) != 1 or code[0] not in UNITS_OF_CODE:
+                return None
+            units = UNITS_OF_CODE[code[0]]
+            held = fields.get("precision")
+            if held is None or [a.text for a in held.atoms()] != [str(dimension.precision)] or held.nodes():
+                return None
         elif child.name == "style":
             found = _children_match(child, DIMENSION_STYLE, frozenset({"thickness", "extension_offset"}))
             if found is None:
@@ -169,7 +180,52 @@ def dimension_style(dimension: Dimension) -> DimensionStyle | None:
                     return None
         elif child.name != "gr_text":
             return None
-    return DimensionStyle(None if gap == 500_000 else gap)
+    return DimensionStyle(None if gap == 500_000 else gap, units)
 
 
-__all__ = ["DimensionStyle", "TextStyle", "dimension_style", "text_style"]
+def _plain_stroke(stroke: Node) -> bool:
+    """A ``stroke`` the DSL writes again: its width (the model's) and a ``solid`` or ``default`` type; a
+    dashed or coloured stroke is not."""
+    for child in stroke.nodes():
+        if child.name == "type":
+            if [a.value for a in child.atoms()] not in (["solid"], ["default"]):
+                return False
+        elif child.name != "width":
+            return False
+    return not stroke.atoms()
+
+
+NO_NET = ""
+"""What ``graphic_net`` gives for a graphic without a net."""
+
+
+def graphic_net(graphic: Graphic, numbers: Mapping[int, str]) -> str | None:
+    """The name of the net of a copper graphic from its slots (change c0277): ``(net 1)`` of a KiCad 9 board,
+    named through ``numbers`` (the source net table), or ``(net "GND")`` of a KiCad 10 one; ``NO_NET``
+    for a graphic without a net, and ``None`` when a slot holds something ``design.line()`` and the other
+    graphic calls cannot say (a lock, a net that names no net, an unknown child)."""
+    found = NO_NET
+    bag = graphic.ext.get("kicad")
+    for slot in slotlib.from_ext(bag) if bag is not None else ():
+        if not isinstance(slot, Opaque):
+            continue
+        child = slotlib.opaque_child(slot)
+        if isinstance(child, Node) and child.name == "stroke":
+            if not _plain_stroke(child):
+                return None
+            continue
+        if not isinstance(child, Node) or child.name != "net" or child.nodes() or len(child.atoms()) != 1:
+            return None
+        atom = child.atoms()[0]
+        if atom.kind == AtomKind.STRING:
+            found = atom.value
+        elif atom.value.isdigit():
+            found = numbers.get(int(atom.value), "") if int(atom.value) else NO_NET
+            if not found and int(atom.value):
+                return None
+        else:
+            return None
+    return found
+
+
+__all__ = ["NO_NET", "DimensionStyle", "TextStyle", "dimension_style", "graphic_net", "text_style"]

@@ -62,7 +62,7 @@ A net, named globally and literally; a module-local net is named by the script.
 
 ## Part
 
-Class: `Part(ref: 'str \| None' = None, lib_id: 'str \| None' = None, footprint: 'str \| None' = None, value: 'str \| Quantity \| Range \| None' = None, *, name: 'str \| None' = None, prefix: 'str \| None' = None, device: 'str \| None' = None, properties: 'Mapping[str, str] \| None' = None, pad_map: 'Mapping[str, str \| Sequence[str]] \| None' = None, height: 'object' = None, dnp: 'bool' = False) -> 'None'`
+Class: `Part(ref: 'str \| None' = None, lib_id: 'str \| None' = None, footprint: 'str \| None' = None, value: 'str \| Quantity \| Range \| None' = None, *, name: 'str \| None' = None, prefix: 'str \| None' = None, device: 'str \| None' = None, properties: 'Mapping[str, str] \| None' = None, pad_map: 'Mapping[str, str \| Sequence[str]] \| None' = None, height: 'object' = None, dnp: 'bool' = False, board_only: 'bool' = False) -> 'None'`
 
 A component: reference, symbol lib id, optional footprint lib id, value and user properties; or a reference and a device id, which gives the rest.
 
@@ -426,7 +426,7 @@ The entries of the packaged preset `name`, from the top face of the board to its
 
 ### stack.silkscreen
 
-Function: `stack.silkscreen(*, color: 'str' = '') -> 'StackEntry'`
+Function: `stack.silkscreen(*, color: 'str' = '', material: 'str' = '') -> 'StackEntry'`
 
 A silkscreen, above the top mask or below the bottom one; it has no thickness.
 

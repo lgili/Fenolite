@@ -136,14 +136,14 @@ DIMENSIONS = (
     " (effects (font (size 1.524 1.524) (thickness 0.2)))))\n"
     '\t(dimension (type aligned) (layer "Dwgs.User") (uuid "0e0e0e0e-0000-4000-8000-000000000022")'
     " (pts (xy 100 145) (xy 120 145)) (height -3)"
-    ' (format (prefix "") (suffix "") (units 3) (units_format 1) (precision 4))'
+    ' (format (prefix "~") (suffix "") (units 2) (units_format 1) (precision 4))'
     " (style (thickness 0.2) (arrow_length 1.27) (text_position_mode 0) (arrow_direction outward)"
     " (extension_height 0.58642) (extension_offset 0.5) (keep_text_aligned yes))"
-    ' (gr_text "20.0000 mm" (at 110 142 0) (layer "Dwgs.User") (uuid "0e0e0e0e-0000-4000-8000-000000000022")'
+    ' (gr_text "~20.0000 mm" (at 110 142 0) (layer "Dwgs.User") (uuid "0e0e0e0e-0000-4000-8000-000000000022")'
     " (effects (font (size 1 1) (thickness 0.15)))))\n"
 )
-"""An aligned dimension of an older demo (extension offset 0) and one in automatic units, which the DSL
-cannot say."""
+"""An aligned dimension of an older demo (extension offset 0) and one with a prefix, which the DSL cannot
+say."""
 
 
 def drawn(tmp: Path) -> Path:
@@ -182,6 +182,58 @@ def drawn_grouped(tmp: Path) -> Path:
     assert body.endswith(")")
     groups = GROUPS.replace("{j1}", _uuid_of_j1(body))
     return _variant(tmp, "drawn", body[:-1] + DRAWN_TEXTS + DIMENSIONS + groups + ")\n")
+
+
+def shared(tmp: Path) -> Path:
+    """The board with R201 renamed R101 and J1 renamed ``REF**``: references a script cannot give a part
+    (change c0277)."""
+    text = BOARD.read_text(encoding="utf-8")
+    assert text.count('"Reference" "R201"') == 1 and text.count('"Reference" "J1"') == 1
+    text = text.replace('"Reference" "R201"', '"Reference" "R101"').replace(
+        '"Reference" "J1"', '"Reference" "REF**"'
+    )
+    return _variant(tmp, "shared", text)
+
+
+ITEMS = (
+    '\t(gr_rect (start 100 150) (end 104 152) (stroke (width 0.2) (type solid)) (fill yes) (layer "F.Cu")'
+    ' (net "GND") (uuid "0e0e0e0e-0000-4000-8000-000000000051"))\n'
+    "\t(gr_poly (pts (xy 120 150) (xy 124 150) (xy 122 153)) (stroke (width -0.000001) (type solid))"
+    ' (fill yes) (layer "F.SilkS") (uuid "0e0e0e0e-0000-4000-8000-000000000052"))\n'
+    '\t(gr_text "NOTE" (at 130 150 0) (layer "User.2") (uuid "0e0e0e0e-0000-4000-8000-000000000053")'
+    " (effects (font (size 1 1) (thickness 0.15))))\n"
+    '\t(dimension (type aligned) (layer "Dwgs.User") (uuid "0e0e0e0e-0000-4000-8000-000000000054")'
+    " (pts (xy 100 160) (xy 120 160)) (height -3)"
+    ' (format (prefix "") (suffix "") (units 3) (units_format 1) (precision 4))'
+    " (style (thickness 0.2) (arrow_length 1.27) (text_position_mode 0) (arrow_direction outward)"
+    " (extension_height 0.58642) (extension_offset 0.5) (keep_text_aligned yes))"
+    ' (gr_text "20.0000 mm" (at 110 157 0) (layer "Dwgs.User") (uuid "0e0e0e0e-0000-4000-8000-000000000054")'
+    " (effects (font (size 1.524 1.524) (thickness 0.2)))))\n"
+)
+"""Board items of change c0277: a copper rectangle of GND, a filled polygon without an outline, a text on a
+user layer and a dimension in automatic units."""
+
+
+def itemized(tmp: Path) -> Path:
+    """The board with ``ITEMS``, user layers ``User.1`` and ``User.2`` (named ``notes``), its via at
+    (110, 133) free and its GND zone smoothed with fillets of 0.5 mm (change c0277)."""
+    text = BOARD.read_text(encoding="utf-8")
+    fab = '\t\t(33 "B.Fab" user)\n'
+    assert text.count(fab) == 1
+    text = text.replace(fab, fab + '\t\t(39 "User.1" user)\n\t\t(41 "User.2" user "notes")\n')
+    via = '(at 110 133)\n\t\t(size 0.8)\n\t\t(drill 0.4)\n\t\t(layers "F.Cu" "B.Cu")\n'
+    assert text.count(via) == 1
+    text = text.replace(via, via + "\t\t(free yes)\n")
+    fill = "\t\t\t(thermal_bridge_width 0.5)\n\t\t\t(island_removal_mode 0)\n"
+    assert text.count(fill) == 1
+    text = text.replace(
+        fill,
+        "\t\t\t(thermal_bridge_width 0.5)\n\t\t\t(smoothing fillet)\n\t\t\t(radius 0.5)\n"
+        "\t\t\t(island_removal_mode 0)\n",
+    )
+    body = text.rstrip()
+    assert body.endswith(")")
+    return _variant(tmp, "itemized", body[:-1] + ITEMS + ")\n")
 
 
 def built_for(tmp: Path, major: int) -> Path:

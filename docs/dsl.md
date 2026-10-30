@@ -220,6 +220,7 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   is not populated (change c0277): its schematic symbol is written with `(dnp yes)` and its board
   footprint with the `dnp` attribute, KiCad's own marks, so `fenolite export bom` and `pnp` count it under
   `counts.dnp`; its pins stay connected.
+- `Part(..., board_only=True)` is a part on the board only ("Board-only parts"; change c0277).
 - `Design.part(...)` and `Module.part(...)` take the arguments of `Part`, create the part and attach it.
 - `part[designator]` returns a pin handle; `connect(net, *pins)` joins pins to a net.
 - `no_connect(*pins)` marks pins as intentionally unconnected ("No-connect marks"); `part.unused_no_connect()`
@@ -924,7 +925,7 @@ design.stitch("ep", net=gnd, pitch=mm(1), region=u1.pad(33), diameter=mm(0.6), d
 | `via_step(x, y, *, to, diameter=None, drill=None, kind="through")`, `via_step(point, *, to, …)` | a via inside a track path, after which the track runs on the copper layer `to`; `kind` is `through`, `blind`, `buried` or `micro`. The point is two lengths, or one argument: an `(x, y)` pair or an anchor |
 | `arc_to(mid, end)` | an arc inside a track path: from the point of the element before it through `mid` to `end`, each an `(x, y)` point or an anchor; the path continues from `end` |
 | `design.track(key, *path, layer="F.Cu", width=None, net=None, locked=False)` | a track along `path`: pad references, `(x, y)` points, anchors, arc steps and via steps, starting on `layer` |
-| `design.via(key, x, y, *, net, diameter=None, drill=None, kind="through", layers=None, locked=False)`, `design.via(key, point, *, net, …)` | one via, at two lengths or at one point (an `(x, y)` pair or an anchor); a via that is not a through via names its two copper layers in `layers` |
+| `design.via(key, x, y, *, net, diameter=None, drill=None, kind="through", layers=None, locked=False, protection=None, teardrop=None, free=False)`, `design.via(key, point, *, net, …)` | one via, at two lengths or at one point (an `(x, y)` pair or an anchor); a via that is not a through via names its two copper layers in `layers`; `free=True` writes KiCad's `(free yes)`, a via that keeps its net when no track joins it (change c0277; `via_table` takes it too) |
 | `design.stitch(key, *, net, pitch, along=(), region=(), origin=None, diameter=None, drill=None, clearance=None, margin=None, locked=False)` | through vias every `pitch` along a polyline, or on a grid inside a region; `region=part.pad(number)` is the copper of that pad (a thermal array) |
 | `copper(design)` | the intents as frozen dataclasses in key order (`TrackIntent`, `ViaIntent`, `StitchIntent`, with `PadEnd`, `Anchor`, `ViaStep` and `ArcStep`), which the build resolves |
 
@@ -1077,10 +1078,11 @@ design.zone(
 | `islands` | `always` removes unconnected copper, `never` keeps it, `below_area` keeps islands of at least `min_island_area` | `always` |
 | `min_island_area` | a string with the unit `mm2`, such as `"2.5mm2"`; only with `islands="below_area"` | 10 mm² |
 | `locked` | the script wins over an edit of the zone in KiCad, and the zone is locked there | `False` |
+| `smoothing`, `smoothing_radius` | `chamfer` or `fillet` cuts or rounds the corners of the fill by `smoothing_radius` (a length of at least 0); the radius only with a smoothing (change c0277) | no smoothing |
 
 - **Defaults are KiCad's.** A setting left out takes the value KiCad gives a new zone
-  (`docs/design-model.md`, "Zone settings"). Hatched fills and corner smoothing are not DSL arguments;
-  the model API sets them.
+  (`docs/design-model.md`, "Zone settings"). Hatched fills are not DSL arguments; the model API sets
+  them.
 - **Lengths carry a unit**, as everywhere in the DSL: `clearance=0.3` is refused.
 - **One zone, several layers.** A zone on two layers is one KiCad zone. A second zone on the same net
   needs its own `name=`.
@@ -1149,7 +1151,7 @@ design.stackup(
 
 | entry | arguments |
 |---|---|
-| `stack.silkscreen(*, color="")` | no thickness |
+| `stack.silkscreen(*, color="", material="")` | no thickness; `material` names the ink (change c0277) |
 | `stack.mask(thickness, *, material="", epsilon_r=None, loss_tangent=None, color="")` | a thickness of at least 0 |
 | `stack.copper(thickness)` | a thickness above 0 |
 | `stack.core(thickness, *, material="", epsilon_r=None, loss_tangent=None, color="")` | a thickness above 0 |
@@ -1548,6 +1550,45 @@ hv = design.rule_area("HV", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(30))],
   no place in the record and is reported, and an area that forbids nothing is reported and not written
   (`docs/altium.md`, "Rule areas, texts and dimensions").
 
+## Board-only parts
+
+A logo, a stitching via kept as a footprint, a mounting hole: KiCad marks a footprint that has no symbol
+with the `board_only` attribute, and such footprints often share a reference (`STITCH1`) or have one no
+part could take (`REF**`). `Part(..., board_only=True)` says it (change c0277):
+
+```python
+logo = Part("REF**", "Imported:Logo", footprint="Imported:Logo", name="logo", board_only=True)
+vias = [
+    Part("STITCH1", "Imported:Via", footprint="Imported:Via", name=f"stitch_{k}", board_only=True)
+    for k in range(1, 4)
+]
+```
+
+- **The ref is written as given**: any printable text without surrounding spaces, an empty one included,
+  and several board-only parts may share it. The build neither assigns nor renumbers it, and the design
+  lock holds no entry for it. `name=` then names the part across builds; it is required when the ref is
+  not a name of the path alphabet. A board-only part takes its ref as written, so `ref=None` is refused.
+- **On the board** its footprint carries KiCad's `board_only` attribute after its type, where KiCad writes
+  it. Its pins still connect it: `connect(gnd, vias[0][1])` puts its pad on `GND`.
+- **On the schematic** it has no symbol, as KiCad's board-only footprints, and its value is the one
+  `value=` gives (empty without it), not its symbol's.
+- **Comparisons** (`fenolite verify-source`, the import's self-check) pair footprints that share a
+  reference by their place (`docs/equivalence.md`, "Level 1").
+
+## User layers
+
+`design.user_layers(count, *, names=None)` declares the user layers `User.1` … `User.<count>` (1 to 45),
+once per design (change c0277). The board's layer table holds them after `B.Fab` as KiCad 9.0 and 10.0
+write them, at the odd numbers from 39, and `names` gives one the name KiCad shows:
+
+```python
+design.user_layers(9, names={"User.9": "plugins.config"})
+design.text("note", "ASSEMBLY NOTE", (mm(5), mm(5)), layer="User.2")
+```
+
+Texts, graphics and dimensions may go on a declared user layer. A rebuild adds a declared user layer the
+existing board lacks; one the board holds keeps its name there.
+
 ## Board drawings
 
 Seven calls declare texts, graphics and dimensions of the board. Each takes a key first, which matches
@@ -1564,11 +1605,13 @@ design.dimension("width", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-5))
 ```
 
 - **Layers.** A drawing goes on a silkscreen, solder-mask, fabrication or user layer: `F.SilkS`, `B.SilkS`,
-  `F.Mask`, `B.Mask`, `F.Fab`, `B.Fab`, `Dwgs.User`, `Cmts.User`, `Eco1.User` and `Eco2.User`. A text may
-  also go on a copper layer of the board (change c0277): KiCad reports a copper text across a track as a
-  short, and the copper check, which draws no glyphs, leaves it out (`copper.text-unchecked`, info). A
-  graphic and a dimension stay off copper: KiCad does not report a copper line across a track at all.
-  `Edge.Cuts` belongs to the outline of `board()`.
+  `F.Mask`, `B.Mask`, `F.Fab`, `B.Fab`, `Dwgs.User`, `Cmts.User`, `Eco1.User` and `Eco2.User`, and the user
+  layers `design.user_layers()` declares. A text may also go on a copper layer of the board (change c0277):
+  KiCad reports a copper text across a track as a short, and the copper check, which draws no glyphs,
+  leaves it out (`copper.text-unchecked`, info). A graphic may go on a copper layer too and take
+  `net=`, a `Net` that joins the design: the copper check judges it as copper of that net (of no net
+  without one), so a copper shape across a pad of another net is a `copper.short`. A dimension stays
+  off copper. `Edge.Cuts` belongs to the outline of `board()`.
 - **`text(key, text, at, *, layer="F.SilkS", size=None, thickness=None, rot=0, justify=None,
   knockout=False, bold=False, italic=False, face=None)`**: printable lines joined by `\n` (an empty text is
   kept, as KiCad keeps one), 1 mm high with a 0.15 mm stroke unless `size` and `thickness` say otherwise.
@@ -1578,16 +1621,17 @@ design.dimension("width", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-5))
   `bold`, `italic` and `face` (a font name such as `KiCad Font`) style it (change c0277). A centred label
   close to the board edge reaches it: KiCad then warns with `silk_edge_clearance`.
 - **`line(key, start, end)`, `rect(key, start, end)`, `circle(key, center, edge)`, `arc(key, start, mid,
-  end)` and `polygon(key, points)`** take `layer` and `width`; `rect`, `circle` and `polygon` take
-  `fill=False`. `width` is above 0 for a line, an arc and a shape that is not filled, and may be `mm(0)` for
-  a filled one. The three points of an arc are not on one line.
+  end)` and `polygon(key, points)`** take `layer`, `width` and `net=None`; `rect`, `circle` and `polygon`
+  take `fill=False`. `width` is above 0 for a line, an arc and a shape that is not filled, and may be
+  `mm(0)` for a filled one, or `None`: a filled shape without an outline, which KiCad writes with a stroke
+  width of −1 nm (`-0.000001`; change c0277). The three points of an arc are not on one line.
 - **`dimension(key, start, end, *, offset, layer="Dwgs.User", direction=None, units="mm", precision=4,
   size=None, thickness=None, width=None, extension_offset=None)`**: a linear dimension. Without `direction` it is aligned with the
   two points; with `horizontal` or `vertical` it measures that coordinate difference only. `offset` is the
   signed distance of the dimension line from the measured points, KiCad's `height`: for a dimension from
   left to right a negative offset puts the line above the points (towards smaller y), and for one from top
-  to bottom a negative offset puts it to their right. `units` is `mm` or `in`, `precision` 0 to 4
-  decimals. `extension_offset` is the gap between a measured point and its extension line (`None`: 0.5 mm),
+  to bottom a negative offset puts it to their right. `units` is `mm`, `in`, `mils` or `auto` (the units
+  the board editor shows; change c0277), `precision` 0 to 4 decimals. `extension_offset` is the gap between a measured point and its extension line (`None`: 0.5 mm),
   and `size` may be a `(width, height)` pair, as a text's (change c0277). KiCad computes the text, its place and its angle from the points when it loads the board.
 - **In the model** a text is a `Text` (`txt`), a graphic a `Graphic` (`gfx`) and a dimension a `Dimension`
   (`dim`), each in key order; `design.drawings` holds the records by key.

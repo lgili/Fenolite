@@ -22,6 +22,7 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "import.provenance-missing": "warning",
         "import.timestamp-missing": "info",
         "import.teardrops-regenerated": "info",
+        "import.board-only": "info",
     }
 )
 """Every code that ``fenolite.importer`` and ``fenolite import`` report, with its severity."""

@@ -27,10 +27,11 @@ from fenolite.model.design import Design
 from fenolite.model.pairs import coupled_name, net_bases
 from fenolite.model.rules import LEAF_OPS, Rule, RuleSeverity, RuleSubject, Selector
 
-CopperKind = Literal["track", "arc", "via", "pad", "fill", "zone", "keepout", "edge", "hole"]
+CopperKind = Literal["track", "arc", "via", "pad", "fill", "zone", "keepout", "edge", "hole", "graphic"]
 """The kinds of copper items; a rule sees an arc as a ``track`` and a fill as a ``zone``. ``keepout`` names
 the area of a ``copper.keepout`` finding, ``edge`` the edge ring of a ``copper.edge-clearance`` or
-``copper.hole-in-cutout`` finding and ``hole`` a board hole (change c0169); no rule subject takes them."""
+``copper.hole-in-cutout`` finding and ``hole`` a board hole (change c0169); no rule subject takes them. A
+``graphic`` is a drawing on a copper layer (change c0277), which a rule sees as KiCad's ``Graphic``."""
 ITEM_KINDS: dict[str, str] = {
     "track": "track",
     "arc": "track",
@@ -38,6 +39,7 @@ ITEM_KINDS: dict[str, str] = {
     "pad": "pad",
     "fill": "zone",
     "zone": "zone",
+    "graphic": "graphic",
 }
 DEFAULT_CLASS = "Default"
 """The class of a net without one, when the design holds a class of this name."""

@@ -151,6 +151,20 @@ d.teardrops(
   of one name; the id is `derived_id("grp", "dsl", "group:<key>")`. The reader keeps a read group
   opaque, and the writer replaces the one whose uuid a script group has.
 
+### 5a. Board-only parts, user layers and the items of the demo boards (2026-10-30)
+
+- **Board-only parts.** A footprint without a symbol (a logo, a stitching via kept as a footprint) often
+  shares a reference or has none a part could take. `Part(..., board_only=True)` keeps its ref as text, is
+  named by `name=`, gets KiCad's `board_only` attribute and no schematic symbol; it reuses the part
+  machinery (a symbol still gives its pins). *Alternative:* a separate `design.footprint()` without
+  pins; rejected for now, because connections, placement and the lock all hang on parts.
+- **Shared references in comparisons.** `compare_designs` pairs references that both sides hold equally
+  often by placement, so an import of stitching vias checks each one (`design-equivalence`).
+- **User layers** are declared once by count (`design.user_layers`), as KiCad's board setup does, with
+  their user names.
+- **Free vias, smoothing, dimension units, `width=None`, silkscreen material**: small fields the demo
+  boards use, each left out of the canonical JSON when unset.
+
 ### 6. Images
 
 - `d.image(key, file, at, *, layer="F.SilkS", scale="1")`: `file` is a PNG path relative to the script

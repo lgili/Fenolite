@@ -75,6 +75,71 @@ def _by_ref(design: Design, ignore_refs: Sequence[str]) -> tuple[dict[str, list[
     return found, ignored
 
 
+SHARED_MARK = "#"
+"""The separator of the number a shared reference takes when it is paired by placement (change c0277)."""
+
+
+def _holders(design: Design) -> dict[str, list[Component]]:
+    found: dict[str, list[Component]] = defaultdict(list)
+    for component in design.circuit.components:
+        found[component.ref].append(component)
+    return found
+
+
+def _placement_order(design: Design, holders: Sequence[Component]) -> list[Component] | None:
+    """``holders`` in placement order (side, position, rotation, footprint name), or ``None`` when one of
+    them has no footprint or several."""
+    placed: dict[str, list[FootprintInstance]] = defaultdict(list)
+    for footprint in design.board.footprints if design.board is not None else ():
+        placed[footprint.component_id].append(footprint)
+    keyed: list[tuple[tuple[object, ...], Component]] = []
+    for component in holders:
+        held = placed.get(component.id, [])
+        if len(held) != 1:
+            return None
+        fp = held[0]
+        keyed.append(
+            ((fp.side, fp.position.x, fp.position.y, fp.rotation, norm.footprint_name(fp.lib_ref)), component)
+        )
+    return [component for _, component in sorted(keyed, key=lambda item: item[0])]
+
+
+def paired_references(a: Design, b: Design, *, ignore_refs: Sequence[str] = ()) -> tuple[Design, Design]:
+    """The two designs with each reference that both sides hold equally often, more than once or empty,
+    numbered ``REF#1``, ``REF#2``, … in placement order on each side (change c0277: footprints that share a
+    reference, such as stitching vias or logos, are paired by where they are). A reference that the sides
+    hold a different number of times, that matches ``ignore_refs``, or one of whose holders is not placed
+    exactly once, keeps its ``ref-ambiguous`` difference."""
+    held_a, held_b = _holders(a), _holders(b)
+    taken = set(held_a) | set(held_b)
+    renamed_a: dict[str, str] = {}
+    renamed_b: dict[str, str] = {}
+    for ref in sorted(set(held_a) & set(held_b)):
+        count = len(held_a[ref])
+        if count != len(held_b[ref]) or (ref and count < 2):
+            continue
+        if any(fnmatchcase(ref, glob) for glob in ignore_refs):
+            continue
+        order_a, order_b = _placement_order(a, held_a[ref]), _placement_order(b, held_b[ref])
+        if order_a is None or order_b is None:
+            continue
+        names = [f"{ref}{SHARED_MARK}{k}" for k in range(1, count + 1)]
+        if taken & set(names):
+            continue
+        renamed_a.update((c.id, name) for c, name in zip(order_a, names, strict=True))
+        renamed_b.update((c.id, name) for c, name in zip(order_b, names, strict=True))
+
+    def renamed(design: Design, names: Mapping[str, str]) -> Design:
+        if not names:
+            return design
+        components = tuple(
+            replace(c, ref=names[c.id]) if c.id in names else c for c in design.circuit.components
+        )
+        return replace(design, circuit=replace(design.circuit, components=components))
+
+    return renamed(a, renamed_a), renamed(b, renamed_b)
+
+
 def level_components(
     a: Design, b: Design, *, ignore_refs: Sequence[str] = ()
 ) -> tuple[LevelResult, tuple[str, ...]]:
@@ -408,6 +473,7 @@ def compare_designs(
             f"level {level} needs {needs} on both sides, and side {bare} holds none; "
             f"the highest level available is {highest}"
         )
+    a, b = paired_references(a, b, ignore_refs=ignore_refs)
     first, refs = level_components(a, b, ignore_refs=ignore_refs)
     results = [first]
     shift = Point(0, 0)
@@ -454,4 +520,5 @@ __all__ = [
     "level_placement",
     "level_routing",
     "max_level",
+    "paired_references",
 ]

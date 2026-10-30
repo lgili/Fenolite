@@ -33,7 +33,7 @@ def test_copper_lock_default_is_unlocked() -> None:
         assert item.locked is False
         assert dataclasses.replace(item, locked=True) != item
         names = [f.name for f in dataclasses.fields(item)]
-        assert names[-1] == "locked" or names[-2:] == ["locked", "teardrop"]
+        assert names[-1] == "locked" or names[-3:] == ["locked", "teardrop", "free"]
 
 
 def test_copper_lock_is_written_only_when_true() -> None:

@@ -29,7 +29,7 @@
 
 ## 2. Board items
 
-- [ ] 2.1 Copper text and graphics, the copper guard rule and `copper.text-unchecked` (scenario "Copper text and a copper shape on a net"). Proof: `uv run pytest tests/unit/dsl/test_drawings.py tests/unit/checks -k "copper_art or drawings" -q`.
+- [x] 2.1 Copper text and graphics, the copper guard rule and `copper.text-unchecked` (scenarios "Copper text and a copper shape on a net", "A copper shape across a pad of another net"; graphics also take `width=None`). Proof: `uv run pytest tests/unit/dsl/test_drawings.py tests/unit/checks -k "copper_art or drawings" -q`.
 - [ ] 2.2 Dimensions `radial`, `leader`, `center` (scenario "Three new kinds"). Proof: `uv run pytest tests/unit/dsl/test_dimensions.py -q`.
 - [ ] 2.3 Zone arcs in the DSL, model, writer, fill and guard (scenario "Zone with an arc edge"). Proof: `uv run pytest tests/unit/dsl/test_zones.py tests/unit/lens -k zone_arc -q`.
 - [x] 2.4 Groups (scenario "A labelled block"; members of copper intents, images and verbatim items join with their tasks). Proof: `uv run pytest tests/unit/dsl/test_groups.py -q`.
@@ -64,16 +64,13 @@ Each task makes one kind that `fenolite import --to python` leaves out (c0275, `
 - [x] 6.5 Net ties of board footprints (`net-tie`): they come back with the vendored footprint, so the kind is no longer counted (board-to-code, "Parts not populated and net ties in an import"). Proof: `uv run pytest tests/unit/importer/test_unfitted.py -q`.
 - [x] 6.6 `dnp` parts (`dnp`): `Part(..., dnp=True)` in the DSL (design-dsl, "Parts not populated in the DSL"), written by the import. Proof: `uv run pytest tests/unit/dsl/test_dnp.py tests/unit/importer/test_unfitted.py -q`.
 - [x] 6.7 Groups (task 2.4; `group`): a group whose members the code writes becomes `design.group()` (board-to-code, "Groups in an import"). Proof: `uv run pytest tests/unit/importer/test_groups.py tests/unit/importer/test_coverage.py -q`.
-- [ ] 6.8 Footprints that share a reference (`duplicate-ref`). Proof: `uv run pytest tests/unit/importer -k duplicate -q`.
-  Open (2026-10-30): the 131 of `tiny_tapeout` are stitching-via footprints with `(attr through_hole board_only
-  exclude_from_pos_files exclude_from_bom)`, all `STITCH1` and without a symbol, and the three of `microwave`
-  share `POLY`. A `Part` needs a unique ref and a symbol, so this waits for a decision in `design.md`: a
-  board-only footprint call that takes a library footprint, a position and a shared reference, and no symbol.
+- [x] 6.8 Footprints that share a reference (`duplicate-ref`, `footprint-ref`): board-only parts (design-dsl, "Board-only parts in the DSL"; board-to-code, "Board-only parts in an import") and references paired by placement (design-equivalence, "Level 1 compares components"). Proof: `uv run pytest tests/unit/dsl/test_board_only.py tests/unit/importer/test_board_only.py tests/unit/checks/equivalence/test_levels.py -q`.
 - [ ] 6.9 Board outlines closed by the edge lines of a footprint (`outline`). Proof: `uv run pytest tests/unit/importer -k outline -q`.
   Open (2026-10-30): only `tiny_tapeout` (its USB connector J15 closes the outline). `design.board(outline=)`
   takes a closed path, so the import would write the footprint's edges twice (in the outline and in the
   vendored footprint) unless the writer leaves out the outline segments a footprint's `Edge.Cuts` covers;
   how KiCad 9 and 10 treat a doubled edge must be measured first (needs `kicad-cli`, CI).
+- [x] 6.10 Board items of the demo boards (board-to-code, "Board items in an import"): user layers (design-dsl, "User layers in the DSL"), copper graphics with their net, filled shapes without an outline, free vias (design-dsl, "Free vias in the DSL"), smoothed zones, dimensions in mils or automatic units, and the material of a silkscreen (`stack.silkscreen(material=)`). Proof: `uv run pytest tests/unit/importer/test_board_items.py tests/unit/dsl/test_user_layers.py tests/unit/dsl/test_board_coverage_items.py tests/unit/dsl/test_stackup_dsl.py -q`.
 
 ## 5. Closing
 

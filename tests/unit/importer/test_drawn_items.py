@@ -3,7 +3,7 @@
 """Board texts and dimensions through ``fenolite import --to python`` (change c0277): knockout, bold,
 italic, face, sizes of two values, several lines, an empty text and a copper text become ``design.text()``
 calls, an aligned dimension with its extension offset a ``design.dimension()`` call, and what the DSL cannot
-say (a hidden text, automatic units) is reported."""
+say (a hidden text, a prefix) is reported."""
 
 from __future__ import annotations
 

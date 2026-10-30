@@ -96,6 +96,15 @@ def copper_differences(source: Design, built: Design) -> tuple[Difference, ...]:
     return tuple(out)
 
 
+def _variant_of(source: str, built: str) -> bool:
+    """``built`` names a variant ``<name>_<n>`` of the footprint ``source`` names: the library derive writes
+    an instance that differs from the first one of its name so (a footprint of a board-only part, whose ref
+    the level-3 difference names by its placement, ``POLY#2``; change c0277)."""
+    name = source.rsplit(":", 1)[-1]
+    tail = built.rsplit(":", 1)[-1]
+    return bool(name) and tail.startswith(f"{name}_") and tail[len(name) + 1 :].isdigit()
+
+
 def self_check(
     source: Design, built: Design, unexpressed: Sequence[Unexpressed], *, variants: Collection[str] = ()
 ) -> SelfCheck:
@@ -112,7 +121,9 @@ def self_check(
         found += copper_differences(source, built)
     for difference in found:
         level_kind = (difference.level, difference.kind)
-        renamed = level_kind == (3, "footprint-name") and difference.where in variants
+        renamed = level_kind == (3, "footprint-name") and (
+            difference.where in variants or _variant_of(difference.a, difference.b)
+        )
         if renamed or explained(difference.level, difference.kind, unexpressed):
             said.append(difference)
         else:

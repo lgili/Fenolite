@@ -1498,6 +1498,7 @@ Fields of these kinds that the scope leaves out, and why:
 | `component` | `path` | the reader maps it elsewhere: an imported path is built from the sheet names |
 | `component` | `pins` | the writer writes a fixed value: the pins of the body it draws, whose ids and, for a generic body, names are its own |
 | `component` | `value_range` | the writer does not write it (it stays in `.fenolite/circuit.json`, change c0246) |
+| `component` | `board_only` | the writer does not write it: a board-only part (change c0277) is written as any other component, and the KiCad attribute has no Altium record |
 | `net` | `netclass_id` | the reader maps it elsewhere: a class is a record of the PCB document, and a schematic reading holds none |
 | `netclass` | `clearance`, `track_width`, `via_diameter`, `via_drill` | the reader maps it elsewhere: the values are written as design rules and read as rules |
 | `netclass` | `description` | the writer does not write it |
@@ -1521,6 +1522,8 @@ Fields of these kinds that the scope leaves out, and why:
 | `via` | `protection` | the writer writes a fixed value for a tenting side that neither the via nor the board default states (a clear flag, read back as `False`), and nothing for covering, plugging, capping and filling: a `None` has no Altium form, so a written and re-read model differs from the original where a side is stated nowhere (c0112). Stated tenting is written and read back, and a test of c0112 proves it |
 | `via` | `via_type` | the writer writes a fixed value: only through vias are written |
 | `via` | `teardrop` | the writer does not write it: no public source says where an Altium via record holds teardrop settings (change c0277) |
+| `via` | `free` | the writer does not write it: KiCad's free via has no Altium record (change c0277) |
+| `footprint_graphic` | `net_id` | the writer does not write it: a footprint graphic holds no net, and a board graphic of a net (change c0277) is lowered without it |
 | `zone` | `name` | the writer writes a fixed value for a zone without a name: a generated one |
 | `zone` | `priority` | the reader maps it elsewhere: the priority is written as the pour order |
 | `zone` | `fills`, `filled` | the writer does not write it: the poured copper is Altium's to compute |

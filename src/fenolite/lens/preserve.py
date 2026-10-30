@@ -1124,6 +1124,8 @@ def merge_layout(
         board = adapted_layers.board
         issues += adapted_layers.issues
         assert board.board is not None
+    board = layers.merge_user_layers(board, built.board.layers)
+    assert board.board is not None
     copper = [layer.name for layer in board.board.layers if layer.kind == "copper"]
     if copper != wanted_copper:
         issues.append(

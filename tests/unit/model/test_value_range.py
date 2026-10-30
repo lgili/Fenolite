@@ -64,7 +64,8 @@ def test_decimal_values() -> None:
 
 
 def test_value_range_is_the_last_field_of_a_component() -> None:
-    assert [f.name for f in dataclasses.fields(Component)][-1] == "value_range"
+    """``value_range`` is the last field of change c0246; ``board_only`` (change c0277) follows it."""
+    assert [f.name for f in dataclasses.fields(Component)][-2:] == ["value_range", "board_only"]
     assert Component(id="cmp_x", ref="R1").value_range is None
 
 

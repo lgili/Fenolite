@@ -40,10 +40,10 @@ FORBID: Mapping[str, str] = MappingProxyType(
 """The values of ``rule_area(forbid=…)`` and the ``Keepout`` field each sets. ``footprints`` makes the
 area a placement keep-out, which the legality check of ``place`` and ``build`` judges (change c0113)."""
 DRAWING_LAYER_KINDS: tuple[LayerKind, ...] = ("silkscreen", "soldermask", "fabrication", "user")
-"""The kinds of layer a drawing may be on. A text may also be on a copper layer of the board (change
-c0277): KiCad's DRC judges a copper text over a track (``H-K-BOARD-TEXT``), which the copper check, drawing no
-glyphs, leaves out (``copper.text-unchecked``). A copper graphic stays refused: KiCad reports a copper line
-across a track neither as a short nor as a clearance."""
+"""The kinds of layer a drawing may be on. A text and a graphic may also be on a copper layer of the board
+(change c0277): KiCad's DRC judges a copper text over a track (``H-K-BOARD-TEXT``), which the copper check,
+drawing no glyphs, leaves out (``copper.text-unchecked``); a copper graphic takes a net, and the copper
+check judges it with its geometry and net."""
 KNOCKOUT_KINDS: tuple[LayerKind, ...] = ("copper", "silkscreen")
 """The kinds of layer a knocked-out text may be on."""
 BOARD_LAYER_KINDS: Mapping[str, LayerKind] = MappingProxyType(
@@ -74,7 +74,8 @@ TEXT_SIZE: Nm = 1_000_000
 TEXT_THICKNESS: Nm = 150_000
 """The size and stroke of a text without one: the values the KiCad writer gives created footprint fields
 (``pcb.TEXT_SIZE``, ``pcb.TEXT_THICKNESS``), repeated here because the DSL imports no backend."""
-DIMENSION_UNITS: tuple[str, ...] = ("mm", "in")
+DIMENSION_UNITS: tuple[str, ...] = ("mm", "in", "mils", "auto")
+"""The units of a dimension's text; ``mils`` and ``auto`` (the board editor's units) since change c0277."""
 DIMENSION_DIRECTIONS: tuple[str, ...] = ("horizontal", "vertical")
 MAX_PRECISION = 4
 
@@ -129,6 +130,8 @@ class GraphicSpec:
     layer: str
     width: Nm
     fill: bool
+    net: str | None = None
+    """The name of the net of a copper graphic (change c0277)."""
 
 
 @dataclass(frozen=True)
@@ -252,14 +255,16 @@ def drawing_key(key: object, taken: Mapping[str, object]) -> str:
     return key
 
 
-def drawing_layer(layer: object, what: str, copper: Sequence[str] = ()) -> str:
-    """A layer a drawing may be on: one of the board whose kind is in ``DRAWING_LAYER_KINDS``, or one of
-    ``copper`` (the board's copper layers, for a text)."""
-    if isinstance(layer, str) and layer in copper:
+def drawing_layer(layer: object, what: str, copper: Sequence[str] = (), user: Sequence[str] = ()) -> str:
+    """A layer a drawing may be on: one of the board whose kind is in ``DRAWING_LAYER_KINDS``, one of
+    ``copper`` (the board's copper layers, for a text), or one of ``user`` (the user layers the design
+    declares, ``design.user_layers``; change c0277)."""
+    if isinstance(layer, str) and (layer in copper or layer in user):
         return layer
     kind = BOARD_LAYER_KINDS.get(layer) if isinstance(layer, str) else None
     if kind not in DRAWING_LAYER_KINDS:
-        allowed = ", ".join((*copper, *(n for n, k in BOARD_LAYER_KINDS.items() if k in DRAWING_LAYER_KINDS)))
+        standard = (n for n, k in BOARD_LAYER_KINDS.items() if k in DRAWING_LAYER_KINDS)
+        allowed = ", ".join((*copper, *standard, *user))
         raise DslError(f"{what}: layer {layer!r} takes no drawing; the layers are {allowed}")
     return cast("str", layer)
 
@@ -297,8 +302,8 @@ def _text_size(value: object, what: str) -> tuple[Nm, Nm | None]:
 
 def text(
     key: str, text: object, at: object, layer: object, size: object, thickness: object, rot: object,
-    justify: object, *, copper: Sequence[str] = (), knockout: object = False, bold: object = False,
-    italic: object = False, face: object = None,
+    justify: object, *, copper: Sequence[str] = (), user: Sequence[str] = (), knockout: object = False,
+    bold: object = False, italic: object = False, face: object = None,
 ) -> TextSpec:  # fmt: skip
     """The record of one ``text()`` call; ``copper`` are the board's copper layers, which a text may be on
     (change c0277)."""
@@ -306,7 +311,7 @@ def text(
     if not isinstance(text, str) or not all(line.isprintable() for line in text.split("\n")):
         raise DslError(f"{what}: text must be a string of printable lines joined by \\n, not {text!r}")
     position = point(at, f"{what}: at")
-    on = drawing_layer(layer, what, copper)
+    on = drawing_layer(layer, what, copper, user)
     height, width = _text_size(size, f"{what}: size")
     stroke = _positive(thickness, f"{what}: thickness", TEXT_THICKNESS)
     assert stroke is not None
@@ -325,7 +330,14 @@ def text(
     )  # fmt: skip
 
 
+NO_STROKE: Nm = -1
+"""The width of a filled shape without an outline, ``width=None`` (change c0277): KiCad writes such a shape's
+stroke as ``(width -0.000001)``, the −1 nm of the demo boards' converted art."""
+
+
 def _width(value: object, what: str, *, stroked: bool) -> Nm:
+    if value is None and not stroked:
+        return NO_STROKE
     width = as_nm(value, name=f"{what}: width")
     if width < 0 or (stroked and width == 0):
         raise DslError(f"{what}: width must be " + ("above 0" if stroked else "at least 0"))
@@ -338,60 +350,129 @@ def _fill(value: object, what: str) -> bool:
     return value
 
 
-def line(key: str, start: object, end: object, layer: object, width: object) -> GraphicSpec:
+def line(
+    key: str,
+    start: object,
+    end: object,
+    layer: object,
+    width: object,
+    user: Sequence[str] = (),
+    copper: Sequence[str] = (),
+) -> GraphicSpec:
     what = f"line {key}"
     a, b = point(start, f"{what}: start"), point(end, f"{what}: end")
     if a == b:
         raise DslError(f"{what}: start and end are the same point")
     return GraphicSpec(
-        key, "line", (a, b), drawing_layer(layer, what), _width(width, what, stroked=True), False
+        key,
+        "line",
+        (a, b),
+        drawing_layer(layer, what, copper, user),
+        _width(width, what, stroked=True),
+        False,
     )
 
 
-def rect(key: str, start: object, end: object, layer: object, width: object, fill: object) -> GraphicSpec:
+def rect(
+    key: str,
+    start: object,
+    end: object,
+    layer: object,
+    width: object,
+    fill: object,
+    user: Sequence[str] = (),
+    copper: Sequence[str] = (),
+) -> GraphicSpec:
     what = f"rect {key}"
     a, b = point(start, f"{what}: start"), point(end, f"{what}: end")
     if a[0] == b[0] or a[1] == b[1]:
         raise DslError(f"{what}: start and end must differ in x and in y")
     filled = _fill(fill, what)
     return GraphicSpec(
-        key, "rect", (a, b), drawing_layer(layer, what), _width(width, what, stroked=not filled), filled
+        key,
+        "rect",
+        (a, b),
+        drawing_layer(layer, what, copper, user),
+        _width(width, what, stroked=not filled),
+        filled,
     )
 
 
-def circle(key: str, center: object, edge: object, layer: object, width: object, fill: object) -> GraphicSpec:
+def circle(
+    key: str,
+    center: object,
+    edge: object,
+    layer: object,
+    width: object,
+    fill: object,
+    user: Sequence[str] = (),
+    copper: Sequence[str] = (),
+) -> GraphicSpec:
     what = f"circle {key}"
     a, b = point(center, f"{what}: center"), point(edge, f"{what}: edge")
     if a == b:
         raise DslError(f"{what}: edge must differ from center")
     filled = _fill(fill, what)
     return GraphicSpec(
-        key, "circle", (a, b), drawing_layer(layer, what), _width(width, what, stroked=not filled), filled
+        key,
+        "circle",
+        (a, b),
+        drawing_layer(layer, what, copper, user),
+        _width(width, what, stroked=not filled),
+        filled,
     )
 
 
-def arc(key: str, start: object, mid: object, end: object, layer: object, width: object) -> GraphicSpec:
+def arc(
+    key: str,
+    start: object,
+    mid: object,
+    end: object,
+    layer: object,
+    width: object,
+    user: Sequence[str] = (),
+    copper: Sequence[str] = (),
+) -> GraphicSpec:
     what = f"arc {key}"
     a, m, b = point(start, f"{what}: start"), point(mid, f"{what}: mid"), point(end, f"{what}: end")
     if (m[0] - a[0]) * (b[1] - a[1]) == (m[1] - a[1]) * (b[0] - a[0]):
         raise DslError(f"{what}: the points start, mid and end must be distinct and not on one line")
     return GraphicSpec(
-        key, "arc", (a, m, b), drawing_layer(layer, what), _width(width, what, stroked=True), False
+        key,
+        "arc",
+        (a, m, b),
+        drawing_layer(layer, what, copper, user),
+        _width(width, what, stroked=True),
+        False,
     )
 
 
-def polygon(key: str, pts: object, layer: object, width: object, fill: object) -> GraphicSpec:
+def polygon(
+    key: str,
+    pts: object,
+    layer: object,
+    width: object,
+    fill: object,
+    user: Sequence[str] = (),
+    copper: Sequence[str] = (),
+) -> GraphicSpec:
     what = f"polygon {key}"
     found = points(pts, f"{what}: points", 3)
     filled = _fill(fill, what)
     return GraphicSpec(
-        key, "polygon", found, drawing_layer(layer, what), _width(width, what, stroked=not filled), filled
+        key,
+        "polygon",
+        found,
+        drawing_layer(layer, what, copper, user),
+        _width(width, what, stroked=not filled),
+        filled,
     )
 
 
 def dimension(
     key: str, start: object, end: object, offset: object, layer: object, direction: object, units: object,
     precision: object, size: object, thickness: object, width: object, extension_offset: object = None,
+    user: Sequence[str] = (),
 ) -> DimensionSpec:  # fmt: skip
     what = f"dimension {key}"
     gap: Nm | None = None
@@ -403,13 +484,13 @@ def dimension(
     if a == b:
         raise DslError(f"{what}: start and end are the same point")
     height = as_nm(offset, name=f"{what}: offset")
-    on = drawing_layer(layer, what)
+    on = drawing_layer(layer, what, user=user)
     if direction is not None and direction not in DIMENSION_DIRECTIONS:
         raise DslError(f"{what}: direction must be None, 'horizontal' or 'vertical', not {direction!r}")
     if (direction == "horizontal" and a[0] == b[0]) or (direction == "vertical" and a[1] == b[1]):
         raise DslError(f"{what}: direction {direction!r} measures a difference of 0 between the points")
     if units not in DIMENSION_UNITS:
-        raise DslError(f"{what}: units must be 'mm' or 'in', not {units!r}")
+        raise DslError(f"{what}: units must be one of {', '.join(DIMENSION_UNITS)}, not {units!r}")
     if isinstance(precision, bool) or not isinstance(precision, int) or not 0 <= precision <= MAX_PRECISION:
         raise DslError(f"{what}: precision must be an int from 0 to {MAX_PRECISION}, not {precision!r}")
     text_height, text_width = (None, None) if size is None else _text_size(size, f"{what}: size")
@@ -434,6 +515,7 @@ def dimension(
 __all__ = [
     "AREA_NAME",
     "BOARD_LAYER_KINDS",
+    "NO_STROKE",
     "DIMENSION_DIRECTIONS",
     "DIMENSION_UNITS",
     "DRAWING_KEY",
