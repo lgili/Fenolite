@@ -604,6 +604,31 @@ an integer (nm, nm², mA, mV, mK, per mille).
   with `roles` `None`, and `schema_version` stays `"0"`. The other direction does not hold. Fenolite
   0.5.0 cannot read a `rules.json` that carries `roles`: its reader of the canonical form is strict.
 
+## Electrical contracts
+
+`RuleSet.contracts` holds the electrical contracts of a design (change c0253; guide `docs/contracts.md`),
+records of the rules layer that no circuit reader sees. `ContractSet(derating=(), operating=None,
+unknown="info", expects=(), rig=())`, every range in c0246's encoding (a unit name and `Decimal10` bounds):
+
+- `DeratingRule(key, permille=0, margin_mk=0, parts="", source="")`: a key of the closed table
+  `DERATING_KEYS` (scope, rating and class of each key), a ratio of 1 to 1000 per mille (`ratio(50)` is
+  500) or, for `temperature_margin`, a margin in millikelvin; `parts` is a glob of references. Fenolite
+  ships no rule and no value.
+- `OperatingRange(ambient)`: the ambient temperature range, a kelvin range with both bounds.
+- `Expectation(id, instance, reason, origin, test)`: `id` is `<instance path>/expect#<n>` (the top level is
+  `design`), `origin` is `module:line`, never a path, and `test` is a tree of `ExpectNode` whose top
+  operation is one of `EXPECT_OPS` (`within`, `at_least`, `at_most`), whose inner operations are
+  `add`, `sub`, `mul`, `div` and `neg`, and whose leaves are a literal range (`lit`), an exact number
+  (`num`, `[numerator, denominator]` in lowest terms) or a ref of `EXPECT_REFS` (`value` and `rating`
+  name a component id, `voltage` and `current` a net id; a `rating` names its `key`, its `limit` and an
+  optional `pin`).
+- `RigSupply(kind="supply", name, pos, neg, voltage, current=None)` and `RigSink(kind="sink", name, net,
+  ret, current)`: the test rig, by net id, sorted by name; a name is unique.
+- `unknown` is `info` or `warning`, the severity of the rows that cannot be judged.
+- The field is additive: an empty `ContractSet` is stored as `None` and `canonical` omits `contracts`, so a
+  `rules.json` written before the field loads and is written back to the same bytes. No backend lowers
+  contracts.
+
 ## Impedance targets
 
 `RuleSet.impedance` holds the impedance targets of a design (change c0105; guide `docs/impedance.md`).

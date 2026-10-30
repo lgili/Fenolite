@@ -38,7 +38,8 @@ from fenolite.dsl import (
 )
 
 HELPERS = (
-    "within", "at_least", "at_most", "value_of", "rating_of", "voltage_of", "current_of", "supply", "sink", "ratio",
+    "within", "at_least", "at_most", "value_of", "rating_of", "voltage_of", "current_of", "supply", "sink",
+    "ratio",
 )  # fmt: skip
 
 

@@ -776,7 +776,7 @@ of the raw key's unit (nm, nm², mA, mK, mV). Electrical values and temperature 
 `fenolite.core.quantities`, lengths and areas by `fenolite.core.units`. A string without its unit, with
 another unit or not whole in the raw unit, a float, and both forms of one key in a row are errors that
 name the unit key. Every row may also hold `source`, a non-empty text that names where your numbers come
-from; it becomes the basis of the row's limits in the requirement table (`docs/contracts.md`). A loader
+from; it becomes the basis of the row's limits in the requirement table ([contracts.md](contracts.md)). A loader
 that predates unit keys refuses a file that uses them. This example is authored for Fenolite; its values
 are illustrative, not requirements:
 
