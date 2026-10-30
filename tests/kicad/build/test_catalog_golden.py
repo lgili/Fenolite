@@ -26,7 +26,9 @@ def test_built_files_are_byte_identical(monkeypatch: pytest.MonkeyPatch, tmp_pat
     tool = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tool)
     built = tool.builds()
+    base = "fenolite-base.json"  # the base record of the three-way merge (c0250), written after the golden
     for example, files in GOLDEN["builds"].items():
+        built[example].pop(base, None)
         assert set(built[example]) == set(files), example
         changed = sorted(path for path, digest in files.items() if built[example][path] != digest)
         print(f"{example}: {len(files)} files, changed {changed}")
