@@ -197,6 +197,38 @@ r1.place(mm(18), mm(10))
 fenolite impedance blink/build --estimate --json
 ```
 
+## Electrical contracts
+
+`circuit.rules` judges them on every check (`docs/contracts.md`); a rig is never a part.
+
+```fenolite-design
+from fenolite.catalog.devices import parse_device
+from fenolite.dsl import (Design, amp, at_least, at_most, connect, current_of, mm, ohm, rating_of, ratio, sink,
+                          supply, value_of, volt, voltage_of, within)
+
+design = Design("contracts")
+design.board(mm(30), mm(20))
+design.devices(parse_device('schema = "fenolite.device.v0"\nid = "My:R_0W25"\nsummary = "R"\n'
+    'evidence = "UNVERIFIED"\nsymbol = "Fenolite:Resistor"\nfootprint = "Fenolite:Chip_0805"\n'
+    'ends = ["P1", "P2"]\n[pins]\nP1 = "1"\nP2 = "2"\n[ratings]\npower = { abs_max = "0.25W" }\n'))
+gnd = design.ground("GND")
+v12 = design.rail("V12", ground=gnd)
+r1 = design.part("R1", device="My:R_0W25", value=ohm("1k").pct(1))
+connect(v12, r1.P1)
+connect(gnd, r1.P2)
+design.rig(supply(v12, gnd, voltage=volt("12").pct(10), current=amp(1), name="bench"),
+           sink(v12, gnd, current=amp("0.1"), name="probe"))
+design.derating(resistor_power=ratio(80))  # Fenolite ships no derating number
+design.contracts(unknown="warning")  # each row not judged warns
+power = voltage_of(v12) * voltage_of(v12) / value_of(r1)
+design.expect(within(power, rating_of(r1, "power")), "R1 within its rating")
+design.expect(at_most(current_of(v12), amp(1)), "the bench is enough")
+design.expect(at_least(value_of(r1), ohm(900)), "R1 is not too small")
+```
+
+`ratio(50)` is "at most 50 % of the rating". An expectation passes, is
+unsure (warning) or fails (error). `requirements.toml` takes `clearance = "1.2mm"`, `current = "2A"`.
+
 ## Measuring a board
 
 ```fenolite-cmd

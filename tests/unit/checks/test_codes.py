@@ -117,6 +117,19 @@ TABLE = {
     "circuit.bus-pullup": ("warning",),
     "circuit.requires-missing": ("warning",),
     "circuit.port-split": ("warning",),
+    "circuit.rating-voltage": ("error",),  # c0253
+    "circuit.rating-current": ("error",),
+    "circuit.rating-power": ("error",),
+    "circuit.rating-temperature": ("error",),
+    "circuit.operating-range": ("error",),
+    "circuit.expect-failed": ("error",),
+    "circuit.expect-unsure": ("warning",),
+    "circuit.expect-unknown": ("warning",),
+    "circuit.value-conflict": ("warning",),
+    "circuit.device-changed": ("warning",),
+    "circuit.value-unknown": ("info", "warning"),
+    "circuit.rating-missing": ("info", "warning"),
+    "circuit.policy-missing": ("info",),
 }
 
 
@@ -195,3 +208,13 @@ def test_codes_finding_row() -> None:
     # a finding code never equals a rules-verdict code
     assert table_key("kicad.drc.type-rules-not-loaded") == FINDING
     assert table_key("kicad.drc.rules-not-loaded") != FINDING
+
+
+def test_circuit_contract_codes() -> None:
+    """Change c0253, "Codes explained": thirteen contract codes beside c0252's nine, and a severity a code
+    does not take is refused."""
+    circuit = [code for code in ISSUE_CODES if code.startswith("circuit.")]
+    assert len(circuit) == 9 + 13
+    with pytest.raises(ValueError):
+        issue("circuit.expect-unsure", "m", severity="error")
+    assert issue("circuit.value-unknown", "m", severity="warning").severity == "warning"

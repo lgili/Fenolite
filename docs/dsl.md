@@ -529,6 +529,63 @@ closed: `pullup` (`i2c`, `logic`: each line has a pull-up), `supply` (logic and 
 somewhere). An entry outside it, or one the kind does not take, raises `DslError`; an unmet entry is the
 warning `circuit.requires-missing`.
 
+## Electrical contracts
+
+Change c0253 lets a script state what its parts must withstand and what its circuit must achieve. The stage
+`circuit.rules` of `fenolite check` (and `fenolite build`) judges it on the built model; nothing is judged
+at script time. The full guide, with the sources of each value and the requirement table, is
+[contracts.md](contracts.md).
+
+```python
+from fenolite.dsl import (
+    at_least,
+    at_most,
+    between,
+    celsius,
+    current_of,
+    kelvin,
+    rating_of,
+    ratio,
+    select,
+    sink,
+    supply,
+    value_of,
+    voltage_of,
+    within,
+)
+
+design.derating(capacitor_voltage=ratio(50), source="our rule 4.2")  # at most 50 % of the rating
+design.derating(capacitor_voltage=ratio(80), parts=select.ref("C1*"))  # a part scope wins
+design.derating(temperature_margin=kelvin(15))  # a temperature rating narrowed by 15 K at each end
+design.operating(ambient=between(celsius(-20), celsius(70)))
+design.contracts(unknown="warning")  # each row that cannot be judged is a warning, not one info count
+design.rig(
+    supply(v12, gnd, voltage=volt("12").pct(10), current=amp(3), name="bench"),
+    sink(v33, gnd, current=amp("0.2"), name="probe"),
+)
+design.expect(within(voltage_of(v33), rating_of(sen, "voltage", pin="VDD", limit="operating")), "VDD range")
+```
+
+| name | what it records |
+|---|---|
+| `design.derating(*, parts=None, source="", **keys)` | per-mille limits of `abs_max` ratings by key (`capacitor_voltage`, `resistor_power`, `inductor_current`, `pin_voltage`, ... and `temperature_margin`); Fenolite ships none |
+| `design.operating(*, ambient)` | the ambient temperature range, a kelvin range |
+| `design.contracts(*, unknown="info")` | `"warning"` makes each row that cannot be judged a warning |
+| `design.expect(test, reason)`, `b.expect(test, reason)` | an expectation, id `<instance path>/expect#<n>` (`design/expect#1` at the top level) |
+| `design.rig(*elements)` | the test rig: `supply(pos, neg=None, *, voltage, current=None, name=None)` and `sink(net, ret=None, *, current, name=None)`; an omitted `neg` or `ret` is the design's one ground |
+| `within(a, b)`, `at_least(a, b)`, `at_most(a, b)` | the tests of an expectation, judged pass, unsure or fail on worst-case ranges |
+| `value_of(part)`, `rating_of(part, key, pin=None, limit="abs_max")`, `voltage_of(x)`, `current_of(x)` | handles that the stage reads from the model; `+ - * /` on handles, ranges, quantities and exact numbers builds an expression |
+| `ratio(p)` | a derating, "at most `p` % of the rating", stored in whole per-mille |
+
+- A derating is `ratio(p)`, never `pct()`: c0246's `pct()` is a ± tolerance, and `derating(...=pct(50))`
+  raises `DslError` with the hint `ratio(50)`. A ratio above 100 %, a key outside the table and a value that
+  is not whole per-mille raise `DslError`.
+- A handle, an expression or a test has no truth value and no order: `if rating_of(l1, "current"):` raises
+  `DslError`, and so does `expect(True, ...)`; write `within(a, b)` so that both ranges are recorded.
+- `rating_of` raises `DslError` listing what the device states when it lacks the key, the pin or the kind.
+- A rig is a record of the rules layer, never a part: it reaches no netlist, schematic, board, BOM or export.
+  It names only nets that have a pin of a board part, and its names are unique.
+
 ## Connecting interfaces
 
 `connect` keeps its net form and gains an interface form: when every argument is an interface or a port,

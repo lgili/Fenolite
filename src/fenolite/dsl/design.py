@@ -692,6 +692,11 @@ class Design(Container):
 
         self.role_records = RoleRecords()
         """The net roles, role groups, limits and part classes of the role calls (change c0222)."""
+        from fenolite.dsl.contracts import ContractRecords
+
+        self.contract_records = ContractRecords()
+        """The derating rules, operating range, strictness, expectations and rig of the contract calls
+        (change c0253)."""
 
     @property
     def board_ref(self) -> BoardRef:
@@ -2171,6 +2176,47 @@ class Design(Container):
         from fenolite.dsl import roles
 
         roles.part_class(self, part, cls, terminals)
+
+    # -- electrical contracts (change c0253; docs/contracts.md)
+
+    def derating(self, *, parts: object = None, source: str = "", **keys: object) -> None:
+        """Limit ``abs_max`` ratings to a share of the rating, by key of ``DERATING_KEYS``:
+        ``capacitor_voltage=ratio(50)`` is "at most 50 % of a capacitor's voltage rating", and
+        ``temperature_margin=kelvin(15)`` narrows a temperature rating at each end. ``parts`` (a part or
+        ``select.ref(<glob>)``) scopes the rule; ``source`` names where it comes from. Fenolite ships no
+        derating value: every rule is yours, and a rating no rule covers is judged at 100 %."""
+        from fenolite.dsl import contracts
+
+        contracts.derating(self, parts, source, keys)
+
+    def operating(self, *, ambient: object) -> None:
+        """State the design's ambient temperature range (a range in kelvin, such as
+        ``between(celsius(-20), celsius(70))``), judged against each device's temperature range."""
+        from fenolite.dsl import contracts
+
+        contracts.operating(self, ambient)
+
+    def contracts(self, *, unknown: str = "info") -> None:
+        """Make each contract row that cannot be judged a ``warning`` (``unknown="warning"``) instead of one
+        ``info`` count (``"info"``, the default)."""
+        from fenolite.dsl import contracts
+
+        contracts.contracts(self, unknown)
+
+    def expect(self, test: object, reason: str) -> None:
+        """Record an expectation, ``within(a, b)``, ``at_least(a, b)`` or ``at_most(a, b)`` over handles and
+        ranges, with its reason; the stage ``circuit.rules`` judges it on every check (pass, unsure or
+        fail). It stops nothing at script time."""
+        from fenolite.dsl import contracts
+
+        contracts.expect_on(self, test, reason)
+
+    def rig(self, *elements: object) -> None:
+        """State the test rig: ``supply(...)`` and ``sink(...)`` elements, the voltages and currents of the
+        outside world. They are records of the rules layer and reach no output."""
+        from fenolite.dsl import contracts
+
+        contracts.rig(self, elements)
 
     @staticmethod
     def _near_side(value: object, what: str) -> tuple[object, ...]:

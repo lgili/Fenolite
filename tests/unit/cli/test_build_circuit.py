@@ -41,7 +41,9 @@ def test_over_budget_rail_stops_the_build(monkeypatch: pytest.MonkeyPatch, tmp_p
     assert (
         current["severity"] == "error" and "3V3" in current["message"] and "buck/VOUT" in current["message"]
     )
-    assert {i["code"] for i in env["issues"] if i["code"].startswith("circuit.")} == {
+    assert {
+        i["code"] for i in env["issues"] if i["code"].startswith("circuit.") and i["severity"] != "info"
+    } == {
         "circuit.rail-current",
         "circuit.bus-pullup",
         "circuit.logic-level",
@@ -53,7 +55,9 @@ def test_good_variant_builds_without_circuit_issues(monkeypatch: pytest.MonkeyPa
     folder = copy_example(tmp_path / "ex")
     code, env = build(monkeypatch, folder / "good.py", tmp_path / "out", "--dry-run")
     # c0269 adds the info build.block-port-merged for the block whose port members share a net
-    assert code == 0 and [i for i in env["issues"] if i["code"] != "build.block-port-merged"] == []
+    assert code == 0 and [i for i in env["issues"] if i["severity"] != "info"] == []
+    # change c0253: the capacitors, the connector and the regulator have no rating for a check that applies
+    assert {i["code"] for i in env["issues"]} <= {"circuit.rating-missing", "build.block-port-merged"}
 
 
 DEVICE_PULLUP = """

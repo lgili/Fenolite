@@ -363,6 +363,14 @@ class Block(Module):
         anchors and flow, reused by every instance (``docs/dsl.md``, "Block schematic groups")."""
         self.schematic_groups = declare(self, groups)
 
+    def expect(self, test: object, reason: str) -> None:
+        """Record an expectation of this block instance (change c0253): ``within(a, b)``, ``at_least(a, b)``
+        or ``at_most(a, b)`` with its reason, judged by the stage ``circuit.rules`` on every check. Its id is
+        ``<instance path>/expect#<n>``."""
+        from fenolite.dsl.contracts import expect_in
+
+        expect_in(self, test, reason)
+
     def use(self, definition: BlockDef, name: str, **params: object) -> BlockInstance:
         """A nested instance of ``definition`` named ``name`` inside this block."""
         return instantiate(self, definition, name, params)

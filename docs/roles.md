@@ -162,6 +162,20 @@ Two measures have no analysis; `fenolite.roles.kelvin` walks the copper of `anal
 Each finding names its limit as `key=value (origin)`: `profile` with the source of the default,
 `override` or `requirements`.
 
+## The requirement table
+
+Change c0253 gives the role checks rows in the one requirement table of [contracts.md](contracts.md):
+`summary.requirements` of the stage `roles.rules` and `result.requirements` of `fenolite roles --check`.
+Each loop measured against a limit is a row (`roles.loop-area:<loop>:loop_ratio_max`, and
+`...:loop_max` when you set one; the same for gate loops and Kelvin pairs), and each power path's width
+by the rule of thumb is a row (`roles.width-current:<where>`). A limit of the profile has the source
+`policy`, with a basis naming its key and its `S-` or `H-G-ROLE-` id; an override has the source `user`
+and the basis `role_limits`; a requirements limit has the source `user` and the basis `requirements.toml`.
+A measure of a role is a value of source `role`. For a project that Fenolite built, `fenolite roles
+--check` joins the rows of the stage `circuit.rules` on its model (part ratings, expectations), and a
+`[[current]]` row or `--current` bounds the circuit rows too. The findings, their messages and their
+severities do not change.
+
 ## Codes
 
 The seventeen codes of `fenolite.roles.codes.ISSUE_CODES` are explained by `fenolite explain CODE`. A

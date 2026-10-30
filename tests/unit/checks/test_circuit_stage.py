@@ -81,11 +81,11 @@ def test_good_variant_passes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     found = stage(env)
     assert found["status"] == "ok" and found["summary"]["halves"] == {
         "rails": "ran",
-        "contracts": "no-contracts",
+        "contracts": "ran",  # change c0253: the model has device parts
     }
     assert found["summary"]["rails"] == found["summary"]["judged"] == 2
     assert found["evidence"]["level"] == "UNVERIFIED"  # the illustrative device records
-    assert not [i for i in env["issues"] if i["code"].startswith("circuit.")]
+    assert not [i for i in env["issues"] if i["code"].startswith("circuit.") and i["severity"] != "info"]
 
 
 def test_over_budget_bad_variant_model(tmp_path: Path) -> None:

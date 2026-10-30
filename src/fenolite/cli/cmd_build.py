@@ -96,6 +96,7 @@ from fenolite.checks.copper import (
 )
 from fenolite.checks.waivers import copper_waivers
 from fenolite.cli import _layout
+from fenolite.cli._contracts import classes_of
 from fenolite.cli._lock import lock_location, plan_lock, with_lock
 from fenolite.cli._padmap import DefaultPadMap, apply_default_pad_maps
 from fenolite.cli._picks import picking, proposed_files
@@ -632,6 +633,13 @@ def _catalog_definitions(
             footprints[fp_id] = catalog_footprint(fp_id)
             used_builtin.add(fp_id)
     return {**footprints, **authored_footprints}, {**symbols, **authored_symbols}, frozenset(used_builtin)
+
+
+def contract_devices(design: DslDesign) -> dict[str, DeviceDef]:
+    """The device records of the parts by device id, as the stage ``circuit.rules`` takes them (c0253)."""
+    return {
+        part.device.id: part.device for _, part in sorted(design.parts.items()) if part.device is not None
+    }
 
 
 def design_devices(design: DslDesign) -> dict[str, DeviceDef]:
@@ -1407,7 +1415,9 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         layout_issues = [*layout_issues, *_resolution_issues(plan)]
         refused = refused or any(found.severity == "error" for found in layout_issues)
     files = {} if refused else dict(built.files)
-    circuit_found = circuit_issues(built.design)
+    circuit_found = circuit_issues(
+        built.design, devices=contract_devices(design), classes=classes_of(built.design)
+    )  # the contracts of change c0253 judge the model with the records this build placed
     if any(found.severity == "error" for found in circuit_found):
         files = {}  # a circuit error stops the write, as every build error does (change c0252)
     _keep_confirmed_roles(out_dir, files)
@@ -1852,7 +1862,7 @@ def _run_altium(
                 hint="pip install 'fenolite[geo]', or use --altium-pour outline",
             ) from error
     files = dict(built.files)
-    circuit_found = circuit_issues(model)
+    circuit_found = circuit_issues(model, devices=contract_devices(run.design), classes=classes_of(model))
     if any(found.severity == "error" for found in circuit_found):
         files = {}  # a circuit error stops the write (change c0252)
     _keep_confirmed_roles(out_dir, files)

@@ -1373,9 +1373,52 @@ level. The codes:
 | `circuit.requires-missing` | warning | a declared companion (`pullup`, `supply`, `chip_select`) is absent |
 | `circuit.port-split` | warning | the pins of one member of a device port are on two nets; that member is not judged |
 
-The summary holds `rails`, `judged` (the rails with a voltage to judge against) and `halves`
-(`{"rails": "ran", "contracts": "no-contracts"}`; change c0253 judges the contract half). Waivers of
-`circuit.*` findings come with change c0274.
+The summary holds `rails`, `judged` (the rails with a voltage to judge against), `halves` and, since
+change c0253, `requirements` and `corners`. Waivers of `circuit.*` findings come with change c0274.
+
+**Contracts in the circuit stage** (change c0253; `docs/contracts.md`). The same stage judges the electrical
+contracts: each device part's `abs_max` ratings (derated by the script's `design.derating` policy; Fenolite
+ships no derating value) and `operating` ranges (exact) against the voltages and currents its nets carry,
+the expectations of `design.expect` and `b.expect`, and the test rig of `design.rig`. Applied values come
+only from what the user stated: a rig element, a rail, a declared or confirmed net role, a ground. The
+command resolves each component's `fenolite.device` record (the design's own records at build; at check,
+`devices/` of the project folder or of its parent, then the shipped devices) and classifies the parts with
+`fenolite.roles.classify`, and passes both to the stage (`checks` imports neither the catalog nor the
+roles). `summary.halves` is `{"rails": "ran" | "no-parameters", "contracts": "ran" | "no-contracts"}`;
+the stage is skipped with `no-parameters` only when both halves have nothing (`no-contracts`: no device part,
+no expectation and no rig element). The thirteen contract codes:
+
+| code | severity | when |
+|---|---|---|
+| `circuit.rating-voltage` | error | a voltage across a two-pin part, of a pin from its device's ground function, or between two functions (`[[limits]]`) exceeds the `abs_max` rating or the derated limit |
+| `circuit.rating-current` | error | a regulator's output (the loads of its `out` power port's rail), an inductor's or a shunt's series current, or a single pin's net current exceeds the rating |
+| `circuit.rating-power` | error | a resistor's or shunt's worst-case power (V²/R, or I²R of a shunt) exceeds the rating |
+| `circuit.rating-temperature` | error | the ambient range (`design.operating`) is not within the `abs_max` temperature range less the margin |
+| `circuit.operating-range` | error | an applied range is not within an `operating` range |
+| `circuit.expect-failed` | error | an expectation holds for none of the ranges |
+| `circuit.expect-unsure` | warning | an expectation holds for part of the ranges |
+| `circuit.expect-unknown` | warning | an expectation reads a handle that cannot be resolved or bounded |
+| `circuit.value-conflict` | warning | stated sources of different kinds give one net voltages that do not overlap |
+| `circuit.device-changed` | warning | the record resolved now differs from the digest the build recorded |
+| `circuit.value-unknown` | info, warning | rows not judged for a missing input: one count, or one warning per row under `design.contracts(unknown="warning")` |
+| `circuit.rating-missing` | info, warning | parts without a record or without a rating for a check that applies |
+| `circuit.policy-missing` | info | ratings judged at 100 % because no derating rule covers them |
+
+Every row and expectation whose value reads a rig supply is also evaluated at each corner (each supply at
+its minimum and at its maximum, `bench=max,aux=min`); a failing row's issue names its failing corners, and
+the corners never change a verdict. `summary.corners` is the number of corners, or `too-many-supplies`
+above six supplies. The stage evidence is `INFERRED` with `H-G-CIRCUIT-EXAMPLE`, lowered to the lowest label
+of the device records whose limits it judged.
+
+**The requirement table** (change c0253). `summary.requirements` of `circuit.rules` and of `roles.rules`,
+and `result.requirements` of `fenolite roles --check`, are lists of rows sorted by `id`: `id`
+(`<code>:<subject>[:<key>]`, such as `circuit.rating-voltage:C1:voltage` or `circuit.expect:buck1/expect#1`),
+`check` (the code the row reports), `entities` (entity ids), `subject`, `quantity`, `unit`, `value` (or
+`null`) and `limit`, each `{range, text, source, basis}` where `range` is c0246's encoding (`unit`, and `low`
+and `high` as `{m, e}`) and `source` is `device`, `role`, `policy` or `user`, the limit also with `evidence`
+and `kind` (`abs_max`, `operating`, `requirement`); `corners` (`{corner, status, text}`), `status` (`pass`,
+`fail`, `unsure`, `unknown`), `severity` and `missing` (what is not stated, for an `unknown` row). No number
+of the table is a JSON float.
 
 **Length rules.** `length.rules` (KiCad input only; the Altium pipeline neither runs nor names it)
 judges the rules of the kinds `length`, `skew` and `diff_pair_skew` of the project's rules file on the
@@ -2735,8 +2778,13 @@ infers, shows, confirms and checks the net roles of a board (schema `fenolite.ro
   `<board stem>.roles.json` beside the board or `--roles FILE`), relative to the board's folder.
 - `--class REF=CLASS` states a part's class for the inference (one of the classes of `docs/roles.md`).
 - `--check` measures the board against its roles through the analyses of `docs/analyses.md` and adds
-  `result.measures` (each with `kind`, `subject`, `analysis`, `copper` and `values`) and `result.summary`.
-  It runs no tool. The measuring options are those of `analyze`, parsed by the same code with the same
+  `result.measures` (each with `kind`, `subject`, `analysis`, `copper` and `values`), `result.summary` and
+  `result.requirements` (change c0253): the requirement table ("Circuit stage") of the role checks and, for
+  a project that Fenolite built, of the stage `circuit.rules` on its `.fenolite/` model, sorted by `id`. A
+  `[[current]]` row of `--requirements`, and after it `--current NET=AMPS`, bound the current of their nets
+  for the circuit rows too, with source `user` and the row's `source` text, `requirements.toml` or
+  `--current` as basis; neither bounds a net that a rig or a rail bounds. Without `--check` the result holds
+  no `requirements`. It runs no tool. The measuring options are those of `analyze`, parsed by the same code with the same
   errors; without `--check` each of them is `FEN-2001`, exit 2.
 - `--accept`, `--accept-all` (`--min-confidence` keeps roles and groups of at least that confidence),
   `--set NET=KIND[:milliamps=N][:working_mv=N][:sensitive=0|1]`, `--reject NET` (stored as a confirmed

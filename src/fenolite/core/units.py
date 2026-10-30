@@ -30,8 +30,13 @@ LENGTH_UNITS: dict[str, int] = {
     "in": 25_400_000,
 }
 ANGLE_UNITS: dict[str, int] = {"udeg": 1, "µdeg": 1, "deg": 1_000_000}
+AREA_UNITS: dict[str, int] = {
+    **{f"{name}2": scale * scale for name, scale in LENGTH_UNITS.items()},
+    **{f"{name}²": scale * scale for name, scale in LENGTH_UNITS.items()},
+}
+"""The units of an area (change c0253): the square of each length unit, written ``mm2`` or ``mm²``."""
 
-_QUANTITY = re.compile(r"^\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([A-Za-zµ]*)\s*$")
+_QUANTITY = re.compile(r"^\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([A-Za-zµ]*[2²]?)\s*$")
 
 
 def _parse(text: str, units: dict[str, int], default_unit: str | None, what: str) -> int:
@@ -45,7 +50,7 @@ def _parse(text: str, units: dict[str, int], default_unit: str | None, what: str
         raise ValueError(f"unknown unit {unit!r} in {text!r} (one of {', '.join(units)})")
     value = Fraction(number) * units[unit]
     if value.denominator != 1:
-        base = "nanometres" if what == "length" else "microdegrees"
+        base = {"length": "nanometres", "area": "square nanometres"}.get(what, "microdegrees")
         raise ValueError(f"{text!r} is not representable in {base}")
     return value.numerator
 
@@ -53,6 +58,12 @@ def _parse(text: str, units: dict[str, int], default_unit: str | None, what: str
 def parse_length(text: str, *, default_unit: str | None = None) -> Nm:
     """``"0.25mm"`` → ``250000``. Rejects values that are not a whole number of nanometres."""
     return _parse(text, LENGTH_UNITS, default_unit, "length")
+
+
+def parse_area(text: str, *, default_unit: str | None = None) -> int:
+    """``"60mm2"`` (or ``"60mm²"``) → ``60_000_000_000_000`` nm². Rejects values that are not a whole number
+    of square nanometres (change c0253)."""
+    return _parse(text, AREA_UNITS, default_unit, "area")
 
 
 def parse_angle(text: str, *, default_unit: str | None = None) -> Udeg:
@@ -129,6 +140,7 @@ def nm_to_u(nm: Nm) -> int:
 
 __all__ = [
     "ANGLE_UNITS",
+    "AREA_UNITS",
     "LENGTH_UNITS",
     "NM_PER_MIL",
     "Nm",
@@ -136,6 +148,7 @@ __all__ = [
     "format_angle",
     "format_length",
     "nm_to_u",
+    "parse_area",
     "parse_angle",
     "parse_length",
     "round_half_even_div",

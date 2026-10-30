@@ -22,6 +22,7 @@ from fenolite.core.coords import Point, Size
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm
 from fenolite.dsl.block import Block, blocks
+from fenolite.dsl.contracts import to_contracts
 from fenolite.dsl.design import MINIMUM_KINDS, Design, ImpedanceSpec
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.interfaces import Interface as DslInterface
@@ -607,6 +608,7 @@ def _design_model(design: Design) -> ModelDesign:
             heights=tuple(limit for _, limit in sorted(design.height_limits.items())),
             impedance=targets,
             roles=to_roles(design),
+            contracts=to_contracts(design),
         ),
         findings=Findings(waivers=tuple(waiver for _, waiver in sorted(design.waivers.items()))),
         manufacturing=Manifest(id=key_id("manifest")),

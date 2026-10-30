@@ -18,7 +18,7 @@ Create PCB projects from Python, inspect KiCad and Altium files, and review desi
 | Convert KiCad and Altium projects; downgrade KiCad | [Conversion](conversion.md) |
 | Turn a KiCad board into Fenolite code | [Import](import.md) |
 | Compare designs and check what changed | [Equivalence](equivalence.md) |
-| Run electrical and physical checks | [CLI contract](cli-contract.md), [analyses](analyses.md), [net roles](roles.md) |
+| Run electrical and physical checks | [CLI contract](cli-contract.md), [analyses](analyses.md), [net roles](roles.md), [electrical contracts](contracts.md) |
 | Preserve editor changes and sync placement into source | [Layout and rebuilds](lens.md) |
 | Produce fabrication and assembly files | [Exports](exports.md), [assembly](assembly.md), [drawings](drawings.md) |
 | Use my own sheet template | [Sheet templates](sheet-templates.md) |

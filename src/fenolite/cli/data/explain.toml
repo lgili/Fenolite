@@ -4453,3 +4453,68 @@ see = "check"
 meaning = "The pins of one member of a device port are on two nets (such as VDD and VDDA on separate rails), so the member is left out of the model port and its parameters are not judged."
 fix = "Join the pins of the member, or accept the split."
 see = "check"
+
+["circuit.rating-voltage"]
+meaning = "A voltage exceeds a part's absolute maximum rating (abs_max) or the derated limit of your policy, worst case: the voltage across a two-pin part, a pin's voltage from its device's ground function, or the voltage between two functions of a [[limits]] row. The message names the part, the value with its source (rig, rail, role) and the limit with its source (device or policy)."
+fix = "Choose a part of a higher rating, lower the voltage, or state the derating that matches the part (design.derating). See docs/contracts.md."
+see = "check"
+
+["circuit.rating-current"]
+meaning = "A current exceeds a part's absolute maximum rating or derated limit: a regulator's output (the loads of its out power port's rail), an inductor's or a shunt's series current (the smaller of its two nets' current bounds), or a single pin's net."
+fix = "Choose a part of a higher current rating, or lower the loads."
+see = "check"
+
+["circuit.rating-power"]
+meaning = "A resistor's or shunt's worst-case power exceeds its power rating or derated limit: V²/R from the voltages of its two nets and its smallest resistance, or I²R of a shunt from its current bound."
+fix = "Choose a part of a higher power rating or a larger resistance."
+see = "check"
+
+["circuit.rating-temperature"]
+meaning = "The design's ambient range (design.operating) is not within a part's absolute maximum temperature range narrowed by your temperature_margin."
+fix = "Choose a part of a wider temperature range, or narrow the ambient range if the product allows it."
+see = "check"
+
+["circuit.operating-range"]
+meaning = "An applied voltage, current or ambient range is not within a part's operating range, compared exactly and never derated (a derating would loosen a minimum such as VIN >= 2.7 V)."
+fix = "Change the rail or the rig, or choose a part whose operating range holds the applied value."
+see = "check"
+
+["circuit.expect-failed"]
+meaning = "An expectation of the script (design.expect or b.expect) never holds over the worst-case ranges: the message names its id, its reason and both ranges."
+fix = "Change the values the expectation reads (a resistor, a rail), or correct the expectation."
+see = "check"
+
+["circuit.expect-unsure"]
+meaning = "An expectation holds for part of the ranges only: its ranges overlap without the test holding for all of them."
+fix = "Tighten the tolerances the expectation reads, or widen what it is compared with if the design allows it."
+see = "check"
+
+["circuit.expect-unknown"]
+meaning = "An expectation reads a handle that cannot be resolved or bounded: a value that became text, a rail without a voltage, a device limit that no record gives."
+fix = "State the missing value (a range on the part, a rail voltage, a rig supply) or the device record."
+see = "check"
+
+["circuit.value-conflict"]
+meaning = "Two stated sources of different kinds (a rig, a rail, a role, a ground) give one net voltages that do not overlap. The first in the order rig, rail, role, ground is used."
+fix = "State one voltage for the net: correct the rail, the rig or the role."
+see = "check"
+
+["circuit.device-changed"]
+meaning = "The device record resolved now differs from the digest the build recorded on the part (fenolite.device.sha256). The current record is used."
+fix = "Rebuild the design so the model records the current device, or restore the record."
+see = "check"
+
+["circuit.value-unknown"]
+meaning = "Contract rows that are not judged because a voltage, a current, a class or a value range is not stated. By default one info gives their count; under design.contracts(unknown='warning') each row is a warning naming what is missing."
+fix = "State the missing value: a rig supply, a rail voltage, a role current, a part class or a value with a tolerance."
+see = "check"
+
+["circuit.rating-missing"]
+meaning = "Device parts that cannot be judged for lack of a record or of a rating for a check that applies (such as a capacitor with no voltage rating on a known 12 V net). One info gives their count, or one warning per part under design.contracts(unknown='warning')."
+fix = "Add the rating to the device record (its datasheet value), or give the command the record."
+see = "check"
+
+["circuit.policy-missing"]
+meaning = "Ratings judged at 100 % because no derating rule of the script covers them. Fenolite ships no derating number."
+fix = "State your derating policy with design.derating(...) and ratio(), citing its source, or accept full ratings."
+see = "check"

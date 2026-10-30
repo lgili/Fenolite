@@ -3147,3 +3147,75 @@ path = "examples/picks/rows.csv"
 origin = "authored"
 corpus_id = ""
 notes = "illustrative proposal rows of fenolite pick --propose in examples/picks (c0254), authored for Fenolite"
+
+[[file]]
+path = "examples/circuit/sensor/bad.py"
+origin = "authored"
+corpus_id = ""
+notes = "example file of change c0253, authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/circuit/sensor/contract_board/__init__.py"
+origin = "authored"
+corpus_id = ""
+notes = "example file of change c0253, authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/circuit/sensor/contract_board/board.py"
+origin = "authored"
+corpus_id = ""
+notes = "example file of change c0253, authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/circuit/sensor/devices/example_buck_18v.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative library record of the example of change c0253, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/circuit/sensor/devices/example_cap_16v.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative library record of the example of change c0253, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/circuit/sensor/devices/example_cap_50v.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative library record of the example of change c0253, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/circuit/sensor/devices/example_ind_1a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative library record of the example of change c0253, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/circuit/sensor/devices/example_ind_3a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative library record of the example of change c0253, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/circuit/sensor/devices/example_load.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative library record of the example of change c0253, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/circuit/sensor/devices/example_res_100mw.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative library record of the example of change c0253, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/circuit/sensor/good.py"
+origin = "authored"
+corpus_id = ""
+notes = "example file of change c0253, authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/circuit/sensor/requirements.toml"
+origin = "authored"
+corpus_id = ""
+notes = "example file of change c0253, authored for Fenolite (CC0)"
