@@ -69,6 +69,14 @@ The import SHALL write a zone outline that the reader keeps in the zone's slots 
 - **WHEN** it is imported with `--confirm` and built
 - **THEN** `result.unexpressed` is empty, `design.py` holds `arc_to((mm("57"), mm("20")), (mm("55"), mm("28")))`, and the built zone's `pts` hold `(arc (start 155 112) (mid 157 120) (end 155 128))`
 
+### Requirement: Outlines closed by a footprint in an import
+When the root edge graphics of a source board do not close an outline and the `Edge.Cuts` of its footprints close it (change c0277), the import SHALL declare the closed outline, and the KiCad writer SHALL NOT write an edge of a created outline that the `Edge.Cuts` of a footprint of the board draws, in either direction.
+
+#### Scenario: A notch drawn by a footprint
+- **GIVEN** the two-sheet board whose left edge is an `Edge.Cuts` line of D101 instead of a root line (`tests/_importcode.py::notched`)
+- **WHEN** it is imported with `--confirm` and built
+- **THEN** `result.unexpressed` is empty, `design.py` holds `design.board(mm("60"), mm("40"))`, and the built board holds three root `Edge.Cuts` lines, none from (100, 140)
+
 ### Requirement: Texts and dimensions in an import
 The import SHALL write a board text on a layer the DSL takes, a copper layer included, as `design.text()` with the style the reader keeps in the text's slots (`knockout`, `bold`, `italic`, `face`), a size of two values as a `(width, height)` pair, several lines and an empty text as they are. A text whose slots hold what `design.text()` cannot say (a hidden text, a mirror that does not follow the layer side) MUST be the unexpressed kind `text`. An aligned or orthogonal dimension on a layer the DSL takes SHALL be written as `design.dimension()` when its `format` and `style` hold the values a created dimension writes, but its line width and its extension offset (`extension_offset=`); another one MUST be `dimension-style`, and a dimension of another kind stays `dimension`.
 

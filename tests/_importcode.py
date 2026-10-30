@@ -269,6 +269,25 @@ def rounded(tmp: Path) -> Path:
     return _variant(tmp, "rounded", text)
 
 
+def notched(tmp: Path) -> Path:
+    """The board whose left edge is drawn by D101's own ``Edge.Cuts`` instead of a root line, as a USB
+    connector closes a board outline (change c0277)."""
+    text = BOARD.read_text(encoding="utf-8")
+    edge = re.search(r"\t\(gr_line\s*\(start 100 140\)\s*\(end 100 100\)[\s\S]*?\n\t\)\n", text)
+    assert edge is not None
+    text = text.replace(edge.group(0), "")
+    at = text.index('"Reference" "D101"')
+    start = text.rindex("(footprint ", 0, at)
+    end = text.index("\n\t\t(pad ", at)
+    line = (
+        '\n\t\t(fp_line (start -28 25) (end -28 -15) (stroke (width 0.05) (type solid)) (layer "Edge.Cuts")'
+    )
+    line += ' (uuid "0e0e0e0e-0000-4000-8000-000000000071"))'
+    text = text[:end] + line + text[end:]
+    assert start < end
+    return _variant(tmp, "notched", text)
+
+
 def built_for(tmp: Path, major: int) -> Path:
     """The authored two-sheet board built from its script for KiCad ``major`` in ``tmp``."""
     work = tmp / "data" / "src"

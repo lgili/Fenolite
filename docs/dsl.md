@@ -507,7 +507,9 @@ Footprints and pads are keyed by the component path through the KiCad embedder.
 
 `board(width, height)` declares a rectangle. `board(outline=path)` declares any closed ring instead, and
 `cutout(path)` adds a cut-out to either form; exactly one form of `board()` is given. `slot()` adds a
-milled slot (change c0167).
+milled slot (change c0167). An edge of the outline that a footprint's own `Edge.Cuts` draws (a USB
+connector's notch) is not written again: KiCad joins the footprint's edges to the board's (change c0277;
+`H-K-OUTLINE-FPEDGE`).
 
 ```python
 from fenolite.dsl import arc_to, mm, shape

@@ -236,11 +236,13 @@ def _ring_path(points: Sequence[Point], mids: Mapping[int, Point], writer: _Writ
 
 
 def _outline(design: Design) -> Outline | None:
-    """The outline of the board's root edge graphics; footprint edges come back with their footprints."""
+    """The outline of the board's root edge graphics; footprint edges come back with their footprints. When
+    the root graphics do not close, the edges of the footprints join them (a USB connector's notch, change
+    c0277): the build writes the outline without the edges a footprint draws."""
     board = design.board
     assert board is not None
     bare = dataclasses.replace(design, board=dataclasses.replace(board, footprints=()))
-    return edge_outline(bare)
+    return edge_outline(bare) or edge_outline(design)
 
 
 def _board(design: Design, writer: _Writer, ledger: Ledger) -> tuple[list[list[str]], int]:

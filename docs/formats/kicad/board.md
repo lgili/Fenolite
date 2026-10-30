@@ -894,6 +894,7 @@ token inside opaque content.
 | A placement rule area holds `(placement (enabled yes) (sheetname "/CH1/"))` after its `keepout`; KiCad 9 writes `(placement (enabled no) (sheetname ""))` on a rule area that places nothing | S-0058 (`multichannel_mixer`, `CM5_MINIMA_3`) | INFERRED | H-K-PCB-WRITE |
 | A chamfered pad of a bottom footprint names its corners in the board's frame: brought back to the top side, a top corner is a bottom one (`top_left` ↔ `bottom_left`, `top_right` ↔ `bottom_right`), as the pad is mirrored about its local X axis | S-0058 (`RoyalBlue54L-Feather`, J1) | INFERRED | H-G-FLIP |
 | A `generated` tuning pattern names the tracks it made in `members`, by uuid, and is written after the groups | S-0058 (`CM5_MINIMA_3`, `One-Air-Max`) | INFERRED | H-K-VERBATIM |
+| A board outline may be closed by the `Edge.Cuts` of a footprint (`tinytapeout-demo`'s USB connector J15): the created outline leaves out an edge a footprint draws, in either direction | S-0058 | INFERRED | H-K-OUTLINE-FPEDGE |
 | A zone outline with an arc edge holds `(arc (start) (mid) (end))` items in its `pts`, beside `xy` items; a line joins an item's last point to the next one's first, and the last item to the first | S-0058 (`RoyalBlue54L-Feather`) | INFERRED | H-K-ZONE-ARC |
 
 - **Free vias.** The reader keeps a read via's `free` in its slots; a created via of `Via.free` writes it,

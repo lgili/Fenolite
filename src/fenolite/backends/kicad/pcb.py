@@ -490,6 +490,29 @@ def _pts(points: Sequence[Point]) -> Node:
     return node("pts", *(point_node("xy", p) for p in points))
 
 
+def _edge_key(start: Point, end: Point, mid: Point | None) -> tuple[object, ...]:
+    """An edge of the board outline or of a footprint's ``Edge.Cuts``, whichever way it runs."""
+    ends = tuple(sorted(((start.x, start.y), (end.x, end.y))))
+    return (ends, None if mid is None else (mid.x, mid.y))
+
+
+def _footprint_edge_keys(board: Board) -> set[tuple[object, ...]]:
+    """The edges that the footprints of ``board`` draw on ``Edge.Cuts`` (a USB connector's notch), in the
+    board frame (change c0277): an outline edge among them is not written again."""
+    from fenolite.backends.kicad.frame import footprint_edges
+
+    found: set[tuple[object, ...]] = set()
+    for item in footprint_edges(board, ("Edge.Cuts",)):
+        points = item.points
+        if item.kind == "line" and len(points) == 2:
+            found.add(_edge_key(points[0], points[1], None))
+        elif item.kind == "arc" and len(points) == 3:
+            found.add(_edge_key(points[0], points[2], points[1]))
+        elif item.kind == "polygon":
+            found.update(_edge_key(a, points[(k + 1) % len(points)], None) for k, a in enumerate(points))
+    return found
+
+
 def _arc_pts(points: Sequence[Point], arcs: Sequence[OutlineArc]) -> Node:
     """The ``pts`` of a ring whose edges ``arcs`` names are arcs, as KiCad writes a zone outline (change
     c0277; S-0058, ``RoyalBlue54L-Feather``): an arc edge is ``(arc (start) (mid) (end))``, a vertex that no
@@ -2981,7 +3004,10 @@ class _Writer:
         digest = outline_digest(texts)
         lines: list[Node | Atom] = []
         arcs: list[Node | Atom] = []
+        drawn = _footprint_edge_keys(board)
         for edge, text in zip(found, texts, strict=True):
+            if drawn and _edge_key(edge.start, edge.end, edge.mid) in drawn:
+                continue  # a footprint's Edge.Cuts draws this edge, as on the source board (change c0277)
             common: dict[str, Sequence[Node | Atom]] = {
                 "stroke": [_stroke(OUTLINE_WIDTH)],
                 "layer": [node("layer", Atom.string("Edge.Cuts"))],

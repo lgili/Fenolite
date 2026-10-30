@@ -168,6 +168,8 @@ this list, and each item it makes expressible removes its row. Since its first p
   number named by its name and the copper uuids of its `members` replaced by the uuids its tracks take in
   their tables; one that names copper the code does not write is unexpressed by its head;
 - **zone outlines with arcs**, which the reader keeps in the zone's slots, as `outline=` with `arc_to` steps;
+- **a board outline closed by a footprint's `Edge.Cuts`** (a USB connector's notch): the code declares the
+  closed outline, and the build leaves out the edges the footprint draws;
 - **placement rule areas** (`placement=`; a disabled one without a sheet is none, another is
   `rule-area-placement`), **chamfered pads of a bottom footprint**, and pads of one number that KiCad put
   on two `unconnected-(…)` nets, which the build names again.
