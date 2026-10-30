@@ -160,9 +160,8 @@ fenolite roles blink/build --set VIN=power:milliamps=500 --current VOUT=1 --dry-
 ```
 
 - `roles` infers what each net does (`power`, `switch_node`, `ground`, `kelvin`, `gate`, `signal`,
-  `high_voltage`), the hot loops, gate loops and Kelvin pairs, each with its rule and confidence.
-  Read-only until you accept, set or reject; then it writes the role document beside the board (or
-  `.fenolite/rules.json` of a built project) through a plan.
+  `high_voltage`), the hot loops, gate loops and Kelvin pairs, with rule and confidence.
+  Accepting, setting or rejecting writes the role document through a plan.
 - `--check` measures the copper against the roles and adds `result.measures` and `result.requirements`;
   it runs no tool. Findings of inferred roles stay warnings: confirm the roles first. A role without a
   current is not judged for current (`roles.current-missing`): give it with `--current`.
@@ -185,18 +184,16 @@ fenolite equivalent blink/build blink/altium/blink.PrjPcb --frame relative --tol
 
 ```fenolite-cmd
 fenolite equivalent a.kicad_pcb b.kicad_pcb --level 7 --strict --json
-fenolite verify-source boards/sensor/design.py --against upstream/sensor --json
 fenolite verify-source boards/sensor/design.py --against upstream/sensor --copper-check warn --json
 ```
 
 - `--level 6` compares rules, `7` exact geometry (zones by outline), `8` the rendered layers;
   `--strict` matches every track, arc and via.
-- `verify-source` builds the script in a temporary folder and proves it at every level. Exit 5 lists the
-  differences; accept one with a reason in `fidelity.accepted` of `PROVENANCE.json`, and `--record` writes
+- `verify-source` builds the script in a temporary folder and proves it at every level; exit 5 lists the
+  differences. Accept one with a reason in `fidelity.accepted` of `PROVENANCE.json`; `--record` writes
   `fidelity.proof` through a plan. Codes: `fidelity.build-failed`, `fidelity.accepted-unused`,
-  `fidelity.level-skipped` (read its reason), `fidelity.input-upgraded`.
-- An imported folder is a copy: its `PROVENANCE.json` makes `verify-source` and `build` warn on copper
-  findings instead of refusing; `--copper-check refuse|warn` overrides it.
+  `fidelity.level-skipped` (read its reason), `fidelity.input-upgraded`. An imported folder is a copy:
+  copper findings warn instead of refusing (`--copper-check refuse|warn` overrides).
 
 ## What is installed
 
@@ -208,8 +205,7 @@ fenolite capabilities --command check --json
 fenolite capabilities --json --fields matrix
 ```
 
-- `doctor` reports each `kicad-cli` with its version, and Java; `--no-run` lists them and starts nothing.
-  An exit 6 from any command is answered here.
+- `doctor` reports each `kicad-cli` with its version, and Java; `--no-run` starts nothing. Answer exit 6 here.
 - `capabilities --brief` is the small first reply; `--command NAME` gives one command's arguments as
   data; the long reply holds `matrix`, which says for each file kind what Fenolite can do with it and at
   which evidence level.
