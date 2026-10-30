@@ -82,7 +82,9 @@
 
 - [ ] 4.2 Generate the symbol of a c0259 device that names a pin table and no symbol, with `Footprint` and `ki_fp_filters` from its package. Proof: `uv run pytest tests/unit/catalog/test_devices.py -k pins -q`.
 
-  Open (2026-10-29): depends on c0259 (device records, the data tree and the device key that names a pin table) and c0248 (`DeviceDef`, `tests/unit/catalog/test_devices.py`), neither merged into `circuits-as-code`. `generate_symbol(table, library=, footprint=, fp_filters=)` already takes the device's `Footprint` and `ki_fp_filters`.
+  Open (2026-10-29): depends on c0259 (device records, the data tree and the device key that names a pin table) and c0248 (`DeviceDef`, `tests/unit/catalog/test_devices.py`), neither merged into `circuits-as-code`.
+
+  Still open (2026-10-30): the maintainer keeps this task open until c0248 and c0259 are merged into `circuits-as-code` and from there into this branch; this branch now holds c0248 through `cac/sync-dev`, not c0259. `generate_symbol(table, library=, footprint=, fp_filters=)` already takes the device's `Footprint` and `ki_fp_filters`.
 
 - [x] 4.3 Add the action words of `fenolite library` and `fenolite library symbol` (scenarios "Existing form unchanged", "Reserved action", "Plan and write", "Wrong suffix"), and describe both in `docs/cli-contract.md`, "library". Proof: `uv run pytest tests/unit/cli/test_library.py tests/unit/cli/test_library_symbol.py -q`; `uv run pytest tests/consistency -q`.
 
@@ -106,11 +108,9 @@
 
   2026-10-29: `H-G-SYMBOL-LAYOUT`, `H-K-SYM-UNITS-WRITE` and `H-A-SCHLIB-GEN-PARTS` are registered; `H-A-SCHLIB-GEN-PARTS` joins `schlib.EVIDENCE`, so the evidence matrix and the Altium graduation snapshot are regenerated. Proof passed: `tests/unit/test_hypotheses_register.py` 38 passed; `gen_evidence_matrix.py --check` clean.
 
-- [ ] 5.5 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
+- [x] 5.5 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. Proof: `uv run pytest tests/unit -k changelog -q`.
 
-  Open (2026-10-29): `circuits-as-code` is still at 0.6.0, whose release-record guard requires `[Unreleased]` to stay empty; the entry is added once the branch receives `dev`'s `0.7.0.dev0`.
-
-  Still open (2026-10-29): the maintainer decided on 2026-10-29 that `circuits-as-code` keeps its current base, version 0.6.0, until the line is ready for `dev`; the v0.6 guard requires `## [Unreleased]` to stay empty until then.
+  Done (2026-10-30): `cac/sync-dev` (dev's 0.7.0.dev0 merged into `circuits-as-code`) merged into this branch; the entry "Symbol generator" (c0261) stands under `## [Unreleased]` › `### Added`; `uv run pytest tests/unit -k changelog -q` passed.
 
 - [x] 5.6 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
 
