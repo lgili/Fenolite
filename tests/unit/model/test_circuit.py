@@ -286,3 +286,29 @@ def test_param_unknown_kind_refused() -> None:
         Port(id="prt_x", name="I2C", owner="mod_x", kind="i2c", requires=("supply", "pullup"))
     port = Port(id="prt_x", name="I2C", owner="mod_x", kind="i2c", requires=("pullup", "supply"))
     assert port.requires == ("pullup", "supply")
+
+
+def test_block_version_older_circuit_file() -> None:
+    """Scenario "Older circuit file" (change c0268): a c0251 block module without ``block_version`` loads
+    and is written back with the same bytes."""
+    from fenolite.model import BlockParam, Module
+
+    module = Module(
+        id=new_id("mod", random.Random(9)), path="d1", block="div", params=(BlockParam("n", "int", "1"),)
+    )
+    old = dumps(Circuit(modules=(module,)))
+    assert "block_version" not in old
+    loaded = loads(old, Circuit)
+    assert loaded.modules[0].block_version == "" and dumps(loaded) == old
+
+
+def test_block_version_without_a_block() -> None:
+    """Scenario "Version without a block"."""
+    from fenolite.model import Module
+
+    with pytest.raises(ValueError, match="block_version"):
+        Module(id=new_id("mod", random.Random(10)), path="d1", block_version="1.0.0")
+    with pytest.raises(ValueError, match="block_version"):
+        Module(id=new_id("mod", random.Random(10)), path="d1", block="Acme:div", block_version="1.0")
+    made = Module(id=new_id("mod", random.Random(10)), path="d1", block="Acme:div", block_version="1.0.0")
+    assert '"block_version": "1.0.0"' in dumps(Circuit(modules=(made,)))

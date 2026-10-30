@@ -24,6 +24,7 @@ from fenolite.cli.cmd_publish import EXAMPLE_SOURCE, EXAMPLE_TARGET
 from fenolite.cli.cmd_restore import EXAMPLE_RECEIPT
 
 BOARD = Path(__file__).resolve().parent / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
+DIVIDER = Path(__file__).resolve().parent / "data" / "blocks" / "divider.py"
 
 
 def _fmt(folder: Path) -> None:
@@ -81,6 +82,11 @@ def _pick(folder: Path) -> None:
     )
 
 
+def _blocks(folder: Path) -> None:
+    """The authored block module that ``blocks doc --from divider.py`` documents (change c0268)."""
+    shutil.copy(DIVIDER, folder / "divider.py")
+
+
 PREPARED: dict[str, Callable[[Path], None]] = {
     "fmt": _fmt,
     "copper": _copper,
@@ -88,6 +94,7 @@ PREPARED: dict[str, Callable[[Path], None]] = {
     "edit": _edit,
     "publish": _publish,
     "pick": _pick,
+    "blocks": _blocks,
 }
 """Command name → the function that writes its example files into a folder."""
 PLANS_NOTHING = frozenset({"check", "models", "refs"})

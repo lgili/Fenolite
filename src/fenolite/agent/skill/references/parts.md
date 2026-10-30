@@ -25,8 +25,7 @@ footprint="Fenolite:Chip_0603", value="330")`. A pad takes the net of the pin th
    is `INFERRED`: a generic symbol, not a device's pinout, and a land pattern nobody checked against your
    part. Compare both with the datasheet before you order boards.
 
-   `view --out FILE` plans an offline HTML browser: symbol and footprint side by side; a pad map confirmed
-   against the datasheet gives a `Part` fragment, still `INFERRED`.
+   `view --out FILE` plans an offline HTML browser of both.
 2. **KiCad's libraries.** Put an `fp-lib-table` and a `sym-lib-table` beside the script, and name parts
    as KiCad does (`Device:R`, `Resistor_SMD:R_0603_1608Metric`). The build copies what it places into the
    project.
@@ -119,7 +118,7 @@ r2.place(mm(13), mm(11))
   `q.min()` is `q..`; `between(a, b, nominal=None)` takes two quantities of one unit.
 - `+ - * /` mix ranges, quantities and exact numbers; a result may be wider than the truth, never narrower.
   Units follow a closed table (V/Ω is A, V·A is W, V·V/Ω is W); another pair raises `TypeError`, a divisor
-  that holds zero `DslError`. A one-sided range enters while the result keeps a bound. `a.within(b)`: every value of `a` lies in `b`.
+  that holds zero `DslError`. `a.within(b)`: every value of `a` lies in `b`.
 - A ranged part value writes the nominal text (`100kΩ`); `.fenolite/circuit.json` keeps the range.
 
 ## Parts from devices
@@ -208,39 +207,40 @@ j1.place(mm(22), mm(10), rot=90)
 A block is a circuit written once and used many times: a function marked `@block`, its ports typed.
 
 ```fenolite-design
-from fenolite.dsl import Design, Net, block, connect, mm, ohm, schematic_group
+from fenolite.dsl import Design, Net, block, connect, mm, ohm, param, schematic_group
 
 design = Design("blocks")
 design.board(mm(40), mm(20))
 
 
-@block
-def divider(b, *, r_top=ohm("10k")):  # keyword-only, recorded
+@block(id="Acme:divider", version="1.0.0", summary="A divider", licence="MIT")
+def divider(b, *, r_top=param(ohm("10k"), min=ohm("1k"))):  # checked
     vin = b.port("VIN", direction="in")
     gnd = b.port("GND", direction="in")
-    mid = b.net("MID")  # a local net: div0/MID
+    mid = b.net("MID")  # div0/MID
     top = b.part("R_TOP", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value=r_top)
     low = b.part("R_LOW", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="10k")
-    connect(vin, top[1])  # wired like a net
+    connect(vin, top[1])
     connect(mid, top[2], low[1])
-    connect(gnd, low[2]); b.schematic(schematic_group("chain", top, low))  # sheet order, all instances
+    connect(gnd, low[2]); b.schematic(schematic_group("chain", top, low))  # sheet order
 
 
 vin, gnd = Net("VIN"), Net("GND")
 for n in range(2):
-    div = design.use(divider, f"div{n}", r_top=ohm("22k"))  # the paths div0/R_TOP, div1/R_TOP
-    connect(vin, div.VIN)  # the port net is VIN
+    div = design.use(divider, f"div{n}", r_top=ohm("22k"))  # div0/R_TOP, div1/R_TOP
+    connect(vin, div.VIN)
     connect(gnd, div.GND)
     div.part("R_TOP").place(mm(10 + 15 * n), mm(6))
     div.part("R_LOW").place(mm(10 + 15 * n), mm(14))
 ```
 
-- `design.use(block, name, **params)` runs the function once with a fresh block `b`; refs come from the
+- `design.use(block, name, **params)` runs the function once with a fresh `b`; refs come from the
   lock and never collide; `b.part(name, ...)` names a local part.
 - `b.port(name, kind=Net, direction=...)` takes `Net` or an interface class (`I2C` gives `.sda`, `.scl`);
   unwired, its net is `<instance>/<port>` (`out` first); its sheet pin is `<port>` or `I2C_sda`.
 - Warnings: `build.port-unused`, a port with nothing outside (`optional=True` when meant), and
   `build.block-net-escape`, a global net joining pins inside and outside a block without a port.
+- `id=`, `version=`: the lock's `[blocks]` pins each instance; another version is `lock.block-version`.
 
 ## What the checks still say
 

@@ -393,12 +393,21 @@ unit, outside its range or not a choice. No new `FEN-` code.
 1. **Should project blocks need an id?** Recommended: no. A project block lives in the project's git
    history, and its version is the commit. An id is optional, and a project block with an id is pinned like
    a shipped one.
+
+   Decided 2026-10-30: no. An id is optional; a project block with an id is recorded and pinned like a
+   shipped one.
 2. **Describe with other parameter values** (`blocks show ID --set vout=1.8V±5%`)? Recommended: later.
    Parsing texts into values needs the c0246 parser in the CLI, and defaults cover the catalog.
+
+   Decided 2026-10-30: later. `describe` uses the defaults only.
 3. **Should a PATCH difference also stop a build?** Recommended: yes, for 0.7. Every difference is a lock
    review, which is one command. Revisit if it proves noisy.
+
+   Decided 2026-10-30: yes. Any version difference of a locked id is `lock.block-version`.
 4. **Licence of shipped blocks.** Recommended: Apache-2.0 like the code (research question 2). Items of
    `fenolite-library` keep their own licences (c0279).
+
+   Decided 2026-10-30: Apache-2.0; `@block` refuses another licence for a `Fenolite:` id.
 
 ## Relation to the other changes of this batch
 

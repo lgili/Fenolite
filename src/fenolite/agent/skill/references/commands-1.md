@@ -46,6 +46,16 @@ Back to [the command index](commands.md).
 - `--victim GLOB` (repeatable): with --kinds coupling: the victim nets (repeatable; required)
 - `--barrier REF[,REF...]` (repeatable): with --kinds domains: parts (isolators, transformers) that separate the islands of nets (repeatable)
 
+## blocks
+
+`fenolite blocks [OPTIONS] VERB [ID]`
+
+- `VERB` (one of `doc`, `list`, `show`, `where`): list, show, doc or where
+- `TARGET` (repeatable): the block id (show, doc, where); for where, then the folders to search (default .)
+- `--from FILE.py` (repeatable): also list the blocks of this Python file; importing it runs its code (repeatable)
+- `--category {analog,connector,indicator,interface,other,power,protection,timing}`: list: only the blocks of this category
+- `--out DIR`: doc: write the page under DIR/<namespace>/<name>.md
+
 ## bom
 
 `fenolite bom [OPTIONS] PATH`
@@ -93,21 +103,3 @@ Back to [the command index](commands.md).
 - `--no-tools`: skip external tool detection
 - `--brief`: the small first reply: commands with a summary, targets, tools, routers, guide pages, starters
 - `--command NAME`: describe one command: its entry, its usage and its arguments as data
-
-## catalog
-
-`fenolite catalog [OPTIONS] {import,list,show,view} [lib_id]`
-
-- `CATALOG_ACTION` (one of `import`, `list`, `show`, `view`): list entries, show one ID, export a browser, or import a device template from a symbol and a footprint
-- `LIB_ID`: catalog ID required by show
-- `--kind {device,family,footprint,symbol}`: list or show only this kind; show takes it when a device id equals a symbol or footprint id
-- `--query QUERY`: case-insensitive search in id, category and summary
-- `--out FILE`: required by view (a standalone HTML browser) and by import (the device TOML to write)
-- `--symbol LIB:SYM`: import: the symbol the device joins
-- `--footprint LIB:FP`: import: the footprint the device joins
-- `--id NS:NAME`: import: the id of the device
-- `--pin FUNCTION=PIN[:PAD[+PAD]]` (repeatable): import: put symbol pin PIN in FUNCTION, on the given pads (default: the pad of its number)
-- `--manufacturer MANUFACTURER` (default ``): import: the manufacturer, printable text
-- `--mpn MPN` (default ``): import: the manufacturer part number, printable text
-- `--datasheet DATASHEET` (default ``): import: an https:// URL
-- `--ref-prefix REF_PREFIX` (default ``): import: the reference prefix

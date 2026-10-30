@@ -46,6 +46,7 @@ ALLOWED: dict[str, set[str]] = {
     "routing": {"model", "geometry"},
     "routing.plugins.<x>": {"routing", "model", "geometry", "backends.<same>"},
     "templates": {"model"},
+    "blocks": {"dsl", "model"},  # c0268: shipped blocks build on the DSL only
     "render": {"model", "geometry", "backends*"},
     "exports": {"model", "geometry", "backends*"},
     "convert": {"model", "geometry", "backends*"},
@@ -67,7 +68,7 @@ LAZY: dict[str, set[str]] = {"api": {"cli"}}
 ``fenolite.api.run`` imports the dispatcher of ``cli`` when it is called (capability package-layering,
 "Public API runs the commands lazily"; change c0206). ``cli`` imports ``api`` at the top, so a top-level
 edge back would be a cycle."""
-STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog", "schematic", "mcp", "pick", "testing"}
+STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog", "schematic", "mcp", "pick", "testing", "blocks"}
 EXTRA_LOADER = "geometry/boolean/_extra.py"
 PYPROJECT = SRC.parents[1] / "pyproject.toml"
 
@@ -281,6 +282,22 @@ def test_layering() -> None:
 )
 def test_rule_table(source: str, target: str, ok: bool) -> None:
     assert _allowed(source, target) is ok
+
+
+def test_shipped_blocks_build_on_the_dsl_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Capability package-layering, "Allowed import edges", scenario "Shipped blocks build on the DSL only"
+    (change c0268)."""
+    fake = _fake_tree(tmp_path, "blocks/divider.py", "import fenolite.dsl\nimport fenolite.core.units\n")
+    (fake / "dsl").mkdir()
+    (fake / "dsl" / "block.py").write_text("import fenolite.model.circuit\n")
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    assert _violations() == []
+    for target in ("catalog", "backends"):
+        (fake / "blocks" / "divider.py").write_text(f"import fenolite.dsl\nimport fenolite.{target}.x\n")
+        assert any(f"blocks → {target}" in p for p in _violations()), target
+    (fake / "blocks" / "divider.py").write_text("import fenolite.dsl\n")
+    (fake / "dsl" / "block.py").write_text("import fenolite.blocks\n")
+    assert any("dsl → blocks" in p for p in _violations())
 
 
 def test_detects_forbidden_edge(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

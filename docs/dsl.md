@@ -2111,6 +2111,67 @@ connect(Net("VIN"), ch0.VIN)  # the port net takes the name VIN
 - **When to keep `Module`.** Use a block for anything repeated or reused; keep `Module` for grouping parts
   whose refs and nets the script names by hand.
 
+### Block records, parameter metadata and versions
+
+A block may carry a **record** (change c0268; `docs/blocks.md`): its identity, version, licence, evidence
+and sources, its parameters with meaning, unit and limits, and its ports with docs, all in the code that
+defines it.
+
+```python
+from fenolite.dsl import Rail, block, param, volt
+
+
+@block(
+    id="Acme:divider",  # <namespace>:<name>, each part [A-Za-z0-9_.+-]+
+    version="1.0.0",  # MAJOR.MINOR.PATCH, MAJOR stays 1
+    summary="Resistive divider",  # one line, at most 120 characters
+    category="analog",
+    licence="MIT",  # an SPDX expression; Apache-2.0 for Fenolite: blocks
+    sources=("my notes",),
+)
+def divider(
+    b,
+    *,
+    vout=param(volt("3.3").pct(5), doc="target output range"),
+    ratio=param(2, min=1, max=10),
+    series=param("E96", choices=("E24", "E96")),
+):
+    hi = b.port("HI", Rail, direction="in", doc="input")
+    ...
+```
+
+- **Keywords.** `id`, `version`, `summary`, `category` (`analog`, `power`, `protection`, `interface`,
+  `indicator`, `timing`, `connector` or `other`, the default), `licence` (required but for the namespace
+  `Fenolite`), `evidence` (a label of the evidence vocabulary, `INFERRED` by default), `sources`, `replaces`
+  (an id) and `deprecated` (`{"by": id, "since": version, "reason": text}`). `id` and `version` go
+  together; `id` and `name` cannot both be given; the other keywords need an id. A bad value raises
+  `DslError` at decoration naming the block and the keyword. A block without `id` is a **project block**,
+  as before: no record header, no version and no lock entry.
+- **Reserved namespace.** `Fenolite:` ids belong to the blocks shipped under `fenolite.blocks`; a block of
+  another module with such an id raises `DslError`. A shipped block is `Apache-2.0` and names at least one
+  `S-` source of `docs/evidence/sources.md`.
+- **`param(default=REQUIRED, *, doc="", unit=None, min=None, max=None, choices=None)`** is a parameter's
+  default with its metadata. `@block` checks that the default is recordable, matches `unit` (a unit name
+  such as `volt` or `ampere`, or `length`), lies within `min` and `max` (both ends of a range) and is one of
+  `choices` (at least two distinct values of one type), and that `doc` is one line of at most 200
+  characters. `use` refuses, before the function runs, a value of another unit, outside the limits or not
+  a choice, naming the parameter, the value and what is allowed. The metadata stays in the record: the
+  model keeps `BlockParam(name, type, text)` only.
+- **Port docs.** `b.port(..., doc="input")` documents a port in the record; the model's `Port` has no doc.
+- **Identity.** A block with a record is named by its id: the model `Module` holds `block = "<id>"` and
+  `block_version = "<version>"`, the KiCad sheet is shown as `sense_a (Acme:divider)`, and two different
+  functions with one id in one design are refused at the second `use`.
+- **The lock.** Each instance of a block with a record, at any depth, is pinned in the lock section
+  `[blocks]` as `"<instance path>" = "<id>@<version>"`, and a design with such an instance has a lock. The
+  first build plans the entry (`block-locked`). A build whose block version differs from the locked one
+  reports `lock.block-version` (error) and writes nothing: review the new version with `fenolite blocks
+  show ID` and change the entry by hand. Another id at a locked path replaces the entry
+  (`lock.block-replaced`, info); an entry whose path is no recorded instance is dropped
+  (`lock.block-released`, info). Entries follow `design.moved()` of the instance, and `build --frozen`
+  refuses any change of the section (`FEN-7004`). A deprecated block builds with `block.deprecated`
+  (warning) once per id, naming its replacement.
+- **`describe(block)`** gives the block's record without a build (`docs/blocks.md`).
+
 ## Relative placement
 
 A part may be placed by references instead of coordinates (change c0255; the example is

@@ -18,6 +18,7 @@ another type; a flag without a value is a switch.
 | command | writes | summary |
 |---|---|---|
 | `analyze` | no | measure current capacity, clearance and creepage of a board (read-only) |
+| `blocks` | yes | list, show, document and find the uses of block records (list, show, doc, where) |
 | `bom` | yes | the bill of materials of a project, through a column template (writes FILE with --out) |
 | `build` | yes | build a design script into a KiCad project (runs DESIGN.py as your own code: never run it on an untrusted script) |
 | `capabilities` | no | list commands, backends, extras and external tools available here |
@@ -39,7 +40,7 @@ another type; a flag without a value is a switch.
 | `impedance` | yes | the impedance table of a project for the fabricator, with --estimate rough estimates (writes FILE with --out) |
 | `import` | yes | turn a KiCad or Altium board into a Fenolite project folder (design.py, copper tables, library) |
 | `init` | yes | write a starter project (a design script that builds with the built-in catalog) into a folder |
-| `inspect` | no | summarise a KiCad or an Altium file, or list a compound file's streams (runs no tool) |
+| `inspect` | no | summarise a KiCad or an Altium file, list a compound file's streams, or list the block versions of a design lock or a circuit.json (runs no tool) |
 | `kit` | yes | build the Altium verification kit, check the files a run left, record the run, list the runs |
 | `library` | yes | write a footprint library made from a KiCad board, or report how a library differs from it; 'library symbol PINS... --out FILE' writes symbols generated from pin tables; 'library generate PACKAGE... --out DIR' writes footprints, STEP models and a PcbLib from package records |
 | `manifest` | yes | write the project manifest: every design file and artefact with its SHA-256 and a state |
@@ -76,10 +77,11 @@ another type; a flag without a value is a switch.
 | command | arguments |
 |---|---|
 | `analyze` | [Arguments](commands-1.md#analyze) |
+| `blocks` | [Arguments](commands-1.md#blocks) |
 | `bom` | [Arguments](commands-1.md#bom) |
 | `build` | [Arguments](commands-1.md#build) |
 | `capabilities` | [Arguments](commands-1.md#capabilities) |
-| `catalog` | [Arguments](commands-1.md#catalog) |
+| `catalog` | [Arguments](commands-2.md#catalog) |
 | `check` | [Arguments](commands-2.md#check) |
 | `convert` | [Arguments](commands-2.md#convert) |
 | `copper` | [Arguments](commands-2.md#copper) |
@@ -95,10 +97,10 @@ another type; a flag without a value is a switch.
 | `fmt` | [Arguments](commands-2.md#fmt) |
 | `guide` | [Arguments](commands-2.md#guide) |
 | `impedance` | [Arguments](commands-2.md#impedance) |
-| `import` | [Arguments](commands-2.md#import) |
-| `init` | [Arguments](commands-2.md#init) |
-| `inspect` | [Arguments](commands-2.md#inspect) |
-| `kit` | [Arguments](commands-2.md#kit) |
+| `import` | [Arguments](commands-3.md#import) |
+| `init` | [Arguments](commands-3.md#init) |
+| `inspect` | [Arguments](commands-3.md#inspect) |
+| `kit` | [Arguments](commands-3.md#kit) |
 | `library` | [Arguments](commands-3.md#library) |
 | `manifest` | [Arguments](commands-3.md#manifest) |
 | `mcp` | [Arguments](commands-3.md#mcp) |
@@ -113,9 +115,9 @@ another type; a flag without a value is a switch.
 | `place` | [Arguments](commands-3.md#place) |
 | `pnp` | [Arguments](commands-3.md#pnp) |
 | `publish` | [Arguments](commands-3.md#publish) |
-| `ready` | [Arguments](commands-3.md#ready) |
-| `refs` | [Arguments](commands-3.md#refs) |
-| `region` | [Arguments](commands-3.md#region) |
+| `ready` | [Arguments](commands-4.md#ready) |
+| `refs` | [Arguments](commands-4.md#refs) |
+| `region` | [Arguments](commands-4.md#region) |
 | `render` | [Arguments](commands-4.md#render) |
 | `restore` | [Arguments](commands-4.md#restore) |
 | `roles` | [Arguments](commands-4.md#roles) |
@@ -127,6 +129,6 @@ another type; a flag without a value is a switch.
 | `sync` | [Arguments](commands-4.md#sync) |
 | `template` | [Arguments](commands-4.md#template) |
 | `testpoints` | [Arguments](commands-4.md#testpoints) |
-| `tidy` | [Arguments](commands-4.md#tidy) |
+| `tidy` | [Arguments](commands-5.md#tidy) |
 | `verify-source` | [Arguments](commands-5.md#verify-source) |
 | `view` | [Arguments](commands-5.md#view) |

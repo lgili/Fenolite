@@ -450,6 +450,9 @@
           "items": {
             "$ref": "#/$defs/BlockParam"
           }
+        },
+        "block_version": {
+          "type": "string"
         }
       },
       "additionalProperties": false,

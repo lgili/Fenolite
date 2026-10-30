@@ -1196,6 +1196,9 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         if picks.resolution is not None and picks.resolution.refused:
             # a stale, missing or unmatched pick, or an unachievable generator: nothing is built
             return with_lock(Result(result={**picks.summary(), "devices": []}), lock)
+        if any(found.code == "lock.block-version" for found in lock.issues):
+            # a locked block version differs from the script's (change c0268): nothing is built
+            return with_lock(Result(result={**picks.summary(), "devices": []}), lock)
         model = to_model(design, refs=lock.refs)
         requested = placements(design)
         aliases = moves(design)

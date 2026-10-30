@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import dataclasses
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from fractions import Fraction
@@ -324,6 +325,8 @@ class Interface(Entity):
         check_params(f"interface {self.name}", self.kind, self.params)
 
 
+BLOCK_VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
+"""The form of ``Module.block_version`` (change c0268)."""
 BlockParamType = Literal["bool", "int", "str", "length", "quantity", "range", "none"]
 BLOCK_PARAM_TYPES: tuple[str, ...] = ("bool", "int", "str", "length", "quantity", "range", "none")
 """The closed set of ``BlockParam.type`` (change c0251)."""
@@ -351,13 +354,15 @@ class BlockParam:
 @dataclass(frozen=True, slots=True)
 class Module(Entity):
     """A node of the design hierarchy (``power/ldo``) and the components it owns. A module made by a
-    block (change c0251) names it in ``block`` and records its parameters in ``params``, ordered by name."""
+    block (change c0251) names it in ``block`` and records its parameters in ``params``, ordered by name; a
+    block with a record (change c0268) also records its version in ``block_version``."""
 
     path: str
     parent: str | None = None
     component_ids: tuple[str, ...] = ()
     block: str = ""
     params: tuple[BlockParam, ...] = field(default=(), metadata={"ordered": True})
+    block_version: str = ""
 
     def __post_init__(self) -> None:
         names = [param.name for param in self.params]
@@ -367,6 +372,12 @@ class Module(Entity):
             raise ValueError(f"module {self.path}: block parameters must be ordered by name")
         if self.params and not self.block:
             raise ValueError(f"module {self.path}: block parameters need a block name")
+        if self.block_version and not self.block:
+            raise ValueError(f"module {self.path}: block_version needs a block name")
+        if self.block_version and not BLOCK_VERSION.fullmatch(self.block_version):
+            raise ValueError(
+                f"module {self.path}: block_version {self.block_version!r} is not MAJOR.MINOR.PATCH"
+            )
 
 
 PortDirection = Literal["in", "out", "inout"]
@@ -501,6 +512,7 @@ __all__ = [
     "PARAM_WHERE",
     "PORT_DIRECTIONS",
     "REQUIRES",
+    "BLOCK_VERSION",
     "BlockParam",
     "BlockParamType",
     "Bus",

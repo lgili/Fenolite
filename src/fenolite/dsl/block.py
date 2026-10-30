@@ -24,6 +24,7 @@ from fenolite.dsl.module import Container, Module
 from fenolite.dsl.part import Net, Part, check_name
 from fenolite.dsl.portnets import DIRECTIONS, PortHandle
 from fenolite.dsl.quantity import Quantity, Range
+from fenolite.dsl.record import REQUIRED, Header, ParamMeta, check_header, check_param, check_value
 from fenolite.dsl.relative import (
     Edges,
     LiveRequest,
@@ -106,13 +107,33 @@ def record(value: object, *, block: str, param: str) -> tuple[str, str]:
 
 
 class BlockDef:
-    """A block definition: its name, its function and the keyword parameters with their defaults."""
+    """A block definition: its name, its function and the keyword parameters with their defaults; a block
+    with an id also has its record ``header`` (change c0268), and its name is the id."""
 
-    def __init__(self, name: str, function: Callable[..., object], keywords: Mapping[str, object]) -> None:
+    def __init__(
+        self,
+        name: str,
+        function: Callable[..., object],
+        keywords: Mapping[str, object],
+        *,
+        header: Header | None = None,
+        params: Mapping[str, ParamMeta] | None = None,
+    ) -> None:
         self.name = name
         self.function = function
         self.keywords: Mapping[str, object] = MappingProxyType(dict(keywords))
         """Keyword parameter → its default, or ``inspect.Parameter.empty`` for a required one."""
+        self.header = header
+        """The record header of ``@block(id=, version=, ...)``; ``None`` for a project block."""
+        self.params: Mapping[str, ParamMeta] = MappingProxyType(
+            dict(params) if params is not None else {key: ParamMeta(key) for key in keywords}
+        )
+        """Keyword parameter → its metadata (``param``), checked at ``use``."""
+
+    @property
+    def version(self) -> str:
+        """The record's version; empty for a project block."""
+        return self.header.version if self.header is not None else ""
 
     def __call__(self, *args: object, **kwargs: object) -> None:
         raise DslError(
@@ -124,16 +145,27 @@ class BlockDef:
         return f"BlockDef({self.name!r})"
 
 
-def _define(function: object, name: str | None) -> BlockDef:
+def _define(function: object, name: str | None, record_keywords: Mapping[str, object]) -> BlockDef:
     if not callable(function):
         raise DslError(f"@block decorates a function, not {function!r}")
-    label = name if name is not None else cast(str, getattr(function, "__name__", ""))
-    label = check_name(label, "block name")
+    given_id = record_keywords.get("id")
+    header: Header | None = None
+    if given_id is not None:
+        label = str(given_id)
+        header = check_header(
+            label,
+            cast(str, getattr(function, "__module__", "")),
+            **record_keywords,  # pyright: ignore[reportArgumentType]
+        )
+    else:
+        label = name if name is not None else cast(str, getattr(function, "__name__", ""))
+        label = check_name(label, "block name")
     parameters = list(inspect.signature(function).parameters.values())
     positional = (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
     if not parameters or parameters[0].kind not in positional:
         raise DslError(f"block {label}: the first parameter is the builder, such as `def {label}(b, *, ...)`")
     keywords: dict[str, object] = {}
+    metas: dict[str, ParamMeta] = {}
     for parameter in parameters[1:]:
         if parameter.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
             stars = "*" if parameter.kind is inspect.Parameter.VAR_POSITIONAL else "**"
@@ -146,10 +178,17 @@ def _define(function: object, name: str | None) -> BlockDef:
                 f"block {label}: parameter {parameter.name} must be keyword-only; parameters must be "
                 f"keyword-only after the builder: def {label}(b, *, {parameter.name}=...)"
             )
-        if parameter.default is not _EMPTY:
-            record(parameter.default, block=label, param=parameter.name)
-        keywords[parameter.name] = parameter.default
-    return BlockDef(label, function, keywords)
+        given = REQUIRED if parameter.default is _EMPTY else parameter.default
+        meta = check_param(label, parameter.name, given)
+        metas[parameter.name] = meta
+        keywords[parameter.name] = _EMPTY if meta.required else meta.default
+    return BlockDef(label, function, keywords, header=header, params=metas)
+
+
+RECORD_KEYWORDS: tuple[str, ...] = (
+    "id", "version", "summary", "category", "licence", "evidence", "sources", "replaces", "deprecated",
+)  # fmt: skip
+"""The keywords of ``@block`` that give a block its record (change c0268)."""
 
 
 @overload
@@ -157,25 +196,67 @@ def block(function: Callable[..., None], /) -> BlockDef: ...
 
 
 @overload
-def block(*, name: str | None = None) -> Callable[[Callable[..., None]], BlockDef]: ...
+def block(
+    *,
+    name: str | None = None,
+    id: str | None = None,  # noqa: A002 - the record's id
+    version: str | None = None,
+    summary: str = "",
+    category: str = "other",
+    licence: str | None = None,
+    evidence: str = "INFERRED",
+    sources: Sequence[str] = (),
+    replaces: str | None = None,
+    deprecated: Mapping[str, str] | None = None,
+) -> Callable[[Callable[..., None]], BlockDef]: ...
 
 
 def block(
-    function: Callable[..., None] | None = None, /, *, name: str | None = None
+    function: Callable[..., None] | None = None,
+    /,
+    *,
+    name: str | None = None,
+    id: str | None = None,  # noqa: A002 - the record's id
+    version: str | None = None,
+    summary: str = "",
+    category: str = "other",
+    licence: str | None = None,
+    evidence: str = "INFERRED",
+    sources: Sequence[str] = (),
+    replaces: str | None = None,
+    deprecated: Mapping[str, str] | None = None,
 ) -> BlockDef | Callable[[Callable[..., None]], BlockDef]:
-    """Mark ``def name(b, *, param=default, ...)`` as a block: ``@block`` or ``@block(name="buck")``.
+    """Mark ``def name(b, *, param=default, ...)`` as a block: ``@block`` or ``@block(name="buck")``; or
+    give it a record with ``@block(id="Acme:divider", version="1.0.0", summary=..., licence=...)`` and
+    ``category``, ``evidence``, ``sources``, ``replaces`` and ``deprecated`` (``docs/dsl.md``, "Block
+    records"). A block with an id is named by it, and its version is kept in the design lock.
 
     The signature is checked here: the builder is the one positional parameter, every other parameter is
-    keyword-only with a recordable default or none, and there is no ``*args`` and no ``**kwargs``."""
+    keyword-only with a recordable default, a ``param(...)`` or none, and there is no ``*args`` and no
+    ``**kwargs``."""
     if name is not None and not isinstance(name, str):  # pyright: ignore[reportUnnecessaryIsInstance]
         raise DslError(f"@block(name=...) takes a str, not {name!r}")
+    if name is not None and id is not None:
+        raise DslError("@block: give name or id, not both; a block with an id is named by its id")
+    if (id is None) != (version is None):
+        raise DslError("@block: id and version go together; give both, or neither for a project block")
+    keywords: dict[str, object] = {}
+    if id is not None:
+        keywords = {
+            "id": id, "version": version, "summary": summary, "category": category, "licence": licence,
+            "evidence": evidence, "sources": sources, "replaces": replaces, "deprecated": deprecated,
+        }  # fmt: skip
+    elif (summary, category, licence, evidence, tuple(sources), replaces, deprecated) != (
+        "", "other", None, "INFERRED", (), None, None,
+    ):  # fmt: skip
+        raise DslError("@block: the record keywords need an id and a version")
     if function is None:
 
         def decorate(found: Callable[..., None]) -> BlockDef:
-            return _define(found, name)
+            return _define(found, name, keywords)
 
         return decorate
-    return _define(function, name)
+    return _define(function, name, keywords)
 
 
 class Block(Module):
@@ -191,6 +272,8 @@ class Block(Module):
         )
         """``(name, type, text)`` of every parameter, by name (``BlockParam``)."""
         self.ports: dict[str, PortHandle] = {}
+        self.port_docs: dict[str, str] = {}
+        """The ``doc`` of each documented port (change c0268): kept for ``describe``, not in the model."""
         self.local_nets: dict[str, Net] = {}
         self.pose: Pose | LiveRequest | None = None
         """The pose of ``inst.place(...)`` in the parent frame (change c0255), or ``None`` (the identity)."""
@@ -312,6 +395,7 @@ class Block(Module):
         requires: Sequence[str] = (),
         reference: object = None,
         share: bool = False,
+        doc: str = "",
         **params: object,
     ) -> PortHandle:
         """Declare the port ``name`` of interface type ``kind`` (``Net`` or an ``Interface`` class) and
@@ -339,6 +423,10 @@ class Block(Module):
         handle = PortHandle(self, name, kind_name, direction, optional, names)
         handle.requires = check_requires(requires, kind_name, direction, f"{self.describe()}: port {name}")
         handle.set(reference=reference, share=share or None, **params)
+        if doc:
+            self.port_docs[name] = _port_doc(doc, f"{self.describe()}: port {name}: doc")
+        elif not isinstance(doc, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{self.describe()}: port {name}: doc is a text")
         self.ports[name] = handle
         return handle
 
@@ -387,6 +475,12 @@ class Block(Module):
 
     def __repr__(self) -> str:
         return f"Block({self.name!r}, {self.definition.name!r})"
+
+
+def _port_doc(doc: object, what: str) -> str:
+    if not isinstance(doc, str) or "\n" in doc or "\r" in doc or len(doc) > 200:
+        raise DslError(f"{what} is one line of at most 200 characters")
+    return doc
 
 
 REQUIRES: Mapping[str, tuple[str, ...]] = MappingProxyType(
@@ -574,6 +668,7 @@ def _bind(definition: BlockDef, params: Mapping[str, object]) -> dict[str, objec
         else:
             value = default
         record(value, block=definition.name, param=key)
+        check_value(definition.name, definition.params[key], value)
         values[key] = value
     return values
 
@@ -615,6 +710,7 @@ def blocks(design: Design) -> tuple[Block, ...]:
 __all__ = [
     "PORT_KINDS",
     "PORT_MEMBERS",
+    "RECORD_KEYWORDS",
     "REQUIRES",
     "RESERVED_PORT_NAMES",
     "Block",

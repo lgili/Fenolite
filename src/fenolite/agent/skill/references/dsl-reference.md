@@ -164,9 +164,9 @@ The range from `a` to `b`, two quantities of one unit with `a <= b`, with an opt
 
 ## block
 
-Function: `block(function: 'Callable[..., None] \| None' = None, /, *, name: 'str \| None' = None) -> 'BlockDef \| Callable[[Callable[..., None]], BlockDef]'`
+Function: `block(function: 'Callable[..., None] \| None' = None, /, *, name: 'str \| None' = None, id: 'str \| None' = None, version: 'str \| None' = None, summary: 'str' = '', category: 'str' = 'other', licence: 'str \| None' = None, evidence: 'str' = 'INFERRED', sources: 'Sequence[str]' = (), replaces: 'str \| None' = None, deprecated: 'Mapping[str, str] \| None' = None) -> 'BlockDef \| Callable[[Callable[..., None]], BlockDef]'`
 
-Mark `def name(b, *, param=default, ...)` as a block: `@block` or `@block(name="buck")`.
+Mark `def name(b, *, param=default, ...)` as a block: `@block` or `@block(name="buck")`; or give it a record with `@block(id="Acme:divider", version="1.0.0", summary=..., licence=...)` and `category`, `evidence`, `sources`, `replaces` and `deprecated`.
 
 ## capacitor
 
@@ -293,6 +293,12 @@ A resistance: `ohm("4k7")`, `ohm("4.7 kΩ")`, `ohm(4700)`.
 Function: `pack(width: 'object', gap: 'object' = Length(nm=0), at: 'object' = None) -> 'Strategy'`
 
 Shelf packing within `width`: tallest boxes first, each right of the previous while it fits, else on a new shelf.
+
+## param
+
+Function: `param(default: 'object' = REQUIRED, *, doc: 'str' = '', unit: 'str \| None' = None, min: 'object' = None, max: 'object' = None, choices: 'Sequence[object] \| None' = None) -> 'Any'`
+
+The default of a block parameter with its metadata: a `doc` text (one line, at most 200 characters), the `unit` (a unit name such as `volt` or `ampere`, or `length`), the limits `min` and `max` and a closed tuple of `choices`.
 
 ## pct
 

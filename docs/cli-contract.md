@@ -537,6 +537,15 @@ in `issues`, and nothing written, also under `--dry-run`; a frozen build never w
 that differs in formatting only is no change. A malformed lock is `FEN-3004`; a newer schema, or content in
 the reserved section `picks`, is `FEN-3002`.
 
+Block versions (change c0268; `docs/dsl.md`, "Block records, parameter metadata and versions"): each
+instance of a block with a record is pinned in the lock section `[blocks]` as `<id>@<version>`, so such a
+design always has a lock. The reasons of its changes are `block-locked` (a first pin; no issue),
+`block-replaced` (another id at the path; `lock.block-replaced`, info) and `block-released` (the path is no
+recorded instance; `lock.block-released`, info). A locked path whose block now has another version gives
+`lock.block-version` (error), naming the path and both versions: the build stops before lowering the
+design, exits 5 and writes nothing, the lock included. A deprecated block gives `block.deprecated`
+(warning) once per id. Under `--frozen` a change of the section is a lock change (`FEN-7004`).
+
 Pin assignment (change c0257; `docs/pins.md`): every `part.take(...)` of the script is given one alternative
 of the device's `[[options]]` before the design is lowered, valid choices of the lock's `[pins]` section kept
 first, the others searched in the canonical order (part path, take key, option name, alternative index), so
@@ -2276,7 +2285,7 @@ needs no tool.
 
 ## inspect
 
-`fenolite inspect FILE [--summary | --streams] [--limit-bytes N]` runs no tool. `--summary` is the
+`fenolite inspect FILE [--summary | --streams | --blocks] [--limit-bytes N]` runs no tool. `--summary` is the
 default view: boards, footprint files and symbol libraries (file or `.kicad_symdir`) use their reader;
 `.kicad_sch` and `.kicad_wks` are read header-only, with counts of root children by head. `result` holds
 `kind`, `format_version`, `major`, `status`, `generator`, `generator_version`, `counts`, `opaque_count`
@@ -2336,6 +2345,42 @@ and the IPC-2581 export hold only the vias that carry the value themselves. For 
 the vias whose top and bottom tenting flag is set, under `tenting_front` and `tenting_back`, and 0 for
 the six other fields; `by_default` is 0 everywhere. The two flags are `INFERRED` (`H-A-PCB-CU-VIATENT`).
 Footprint files, symbol libraries, Altium libraries and schematic documents do not carry the key.
+
+`--blocks` (change c0268) is a third view, for a design lock (`*.lock`) or a built `.fenolite/circuit.json`:
+`result.kind` is `design_lock` or `circuit` and `result.blocks` holds one row per block id and version,
+sorted, with `instances`: the instance paths, and for a `circuit.json` each instance's recorded `params`
+(`name`, `type`, `text`). Only instances of blocks with a record appear. `--blocks` with `--summary` or
+`--streams`, or on any other file, exits 2 (`FEN-2001`). The evidence is `INFERRED`
+(`H-G-BLOCK-RECORDS`).
+
+## blocks
+
+`fenolite blocks VERB` reads the catalog of block records (`docs/blocks.md`; change c0268). The verbs are
+`list`, `show`, `doc` and `where`; `capabilities` lists them in the entry of `blocks` as `verbs`
+(`blocks list`, `blocks show`, `blocks doc`, `blocks where`). No verb opens a network connection or runs a
+tool, and only `doc --out` writes. The evidence is `INFERRED` (`H-G-BLOCK-RECORDS`); a block's own
+`evidence` is its author's statement and the catalog never raises it.
+
+- `fenolite blocks list [--from FILE.py]... [--category C]`: `result.blocks`, one row per catalog entry
+  sorted by id and then by source, each with `id`, `version`, `summary`, `category`, `licence`,
+  `evidence`, `source` (`builtin` for `fenolite.blocks`, `file` for a `--from` file), `where` (a module
+  name or the file as given, never an absolute path), `deprecated` (a bool) and `digest` (the record
+  digest). A project block of a `--from` file is listed under its block name with `version: null`. Two
+  entries with one id give `blocks.duplicate-id` (error, exit 5) naming both sources. `--from` imports the
+  file, which runs its code: keep block modules apart from design scripts.
+- `fenolite blocks show ID [--from FILE.py]...`: `result.block`, the `fenolite.block.v0` record with
+  `source` and `where`. An unknown id exits 2 (`FEN-2001`) with up to five closest ids in the hint. A
+  duplicate id, a block that cannot be elaborated, or a `replaces` whose block does not name the record in
+  `deprecated.by` exits 3 (`FEN-3004`).
+- `fenolite blocks doc ID [--from FILE.py]... [--out DIR]`: the generated Markdown page. Without `--out`
+  it is `result.text`, printed as it is under `--text`; with `--out DIR` it is planned as one write
+  `DIR/<namespace>/<name>.md` of kind `block-doc` and written under `--confirm`, through the mutation
+  protocol.
+- `fenolite blocks where ID [PATH]...`: reads every `*.lock` file below each path (default `.`; hidden
+  folders skipped) as a design lock, imports nothing and runs no script, and gives `result.uses`, sorted by
+  lock and instance, each with `lock` (relative to the working directory), `design`, `instance` and
+  `version`. A lock that does not parse gives `blocks.lock-unreadable` (warning) and is skipped; a path
+  that does not exist exits 3 (`FEN-3001`).
 
 ## doctor
 
