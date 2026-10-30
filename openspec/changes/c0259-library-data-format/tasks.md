@@ -115,4 +115,7 @@
   `explain.toml` (no new code) and a tested line in `files.md` (`fenolite.device.v0` in `TEACHES`); generated
   pages rewritten. Proofs passed (`test_fmt_cmd.py` and `test_records.py -k "fmt or upgrade"`: 20 tests;
   `test_pages.py`; with the hypotheses register, `test_explain_cmd.py` and `tests/consistency`: 711 passed).
-- [ ] 6.3 Run `make check-fast`, push to `cac/c0259-library-data-format`, and confirm the required CI jobs on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
+- [x] 6.3 Run `make check-fast`, push to `cac/c0259-library-data-format`, and confirm the required CI jobs on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
+  Done (2026-10-30): `make check-fast` passed (15469 passed, 46 skipped); pushed to
+  `cac/c0259-library-data-format`; run 40978032969 on e4197764 is green in every job (unit on Linux, macOS and
+  Windows, kicad-9, kicad-10, routing, mcp, viewer, wheel, dco).
