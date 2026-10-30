@@ -283,7 +283,8 @@ def test_class_key() -> None:
     assert device.cls == "controller" and 'class = "controller"' in device_text(device)
     assert parse_device(device_text(device)) == device
     error = _refused(_record('class = "bead"\n'))
-    assert "bead" in str(error) and "controller" in str(error)
+    assert "bead" in str(error) and "controller" in str(error) and "ferrite" in str(error)
+    assert parse_device(_record('class = "ferrite"\n')).cls == "ferrite"  # phase B of change c0274
 
 
 def test_canonical_text_round_trip() -> None:

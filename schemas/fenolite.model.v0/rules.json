@@ -135,6 +135,9 @@
               }
             ]
           }
+        },
+        "propagate": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
@@ -694,6 +697,9 @@
             "capacitor",
             "resistor",
             "shunt",
+            "ferrite",
+            "fuse",
+            "jumper",
             "driver",
             "amplifier",
             "controller",

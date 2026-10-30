@@ -1439,9 +1439,14 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         layout_issues = [*layout_issues, *_resolution_issues(plan)]
         refused = refused or any(found.severity == "error" for found in layout_issues)
     files = {} if refused else dict(built.files)
+    # the contracts of change c0253 judge the model with the records this build placed
+    placed = contract_devices(design)
     circuit_found = circuit_issues(
-        built.design, devices=contract_devices(design), classes=classes_of(built.design)
-    )  # the contracts of change c0253 judge the model with the records this build placed
+        built.design,
+        devices=placed,
+        classes=classes_of(built.design, placed),
+        waivers=built.design.findings.waivers,  # change c0274: an accepted risk does not stop the build
+    )
     if any(found.severity == "error" for found in circuit_found):
         files = {}  # a circuit error stops the write, as every build error does (change c0252)
     _keep_confirmed_roles(out_dir, files)
@@ -1887,7 +1892,10 @@ def _run_altium(
                 hint="pip install 'fenolite[geo]', or use --altium-pour outline",
             ) from error
     files = dict(built.files)
-    circuit_found = circuit_issues(model, devices=contract_devices(run.design), classes=classes_of(model))
+    placed = contract_devices(run.design)
+    circuit_found = circuit_issues(
+        model, devices=placed, classes=classes_of(model, placed), waivers=model.findings.waivers
+    )
     if any(found.severity == "error" for found in circuit_found):
         files = {}  # a circuit error stops the write (change c0252)
     _keep_confirmed_roles(out_dir, files)

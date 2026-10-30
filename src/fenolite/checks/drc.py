@@ -316,7 +316,9 @@ def drc_stage(
             unrepeatable = {type_code(oracle.name, name) for name in UNREPEATABLE_TYPES}
             verdict, stale = judge(own, counts, unrepeatable=unrepeatable)
             issues += stale
-            summary["waivers"] = {key: value for key, value in verdict.to_json().items() if key != "declared"}
+            summary["waivers"] = {
+                k: v for k, v in verdict.to_json().items() if k not in ("declared", "expired")
+            }
     stale_exclusions, summary["exclusions"] = exclusion_issues(
         exclusions, outcome.report, oracle=oracle.name, design=design
     )

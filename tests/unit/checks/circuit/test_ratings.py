@@ -283,3 +283,27 @@ def test_a_design_that_states_nothing_does_not_pass_quietly() -> None:
     assert len(unknown) == 10 and all(i.severity == "warning" and "voltage of" in i.message for i in unknown)
     with pytest.raises(DslError, match="info, warning"):
         d.contracts(unknown="error")
+
+
+FERRITE = device(
+    'id = "Test:FB_1A"\nsymbol = "Fenolite:Inductor"\nfootprint = "Fenolite:Chip_0805"\nclass = "ferrite"\n'
+    'ends = ["P1", "P2"]\n[pins]\nP1 = "1"\nP2 = "2"\n[ratings]\ncurrent = { abs_max = "1A" }\n'
+)
+
+
+def test_ferrite_current_is_a_series_current() -> None:
+    """Change c0274, phase B: a ferrite (its record's ``class``) is judged like an inductor, by the smaller
+    current bound of its two nets, derated by ``ferrite_current``."""
+    d = Design("t")
+    v33, _gnd = _rail_with_loads(d, amp("1.2"))
+    d.devices(FERRITE)
+    fb1 = d.part("FB1", device="Test:FB_1A")
+    analog = Net("3V3A")
+    connect(v33, fb1.P1)
+    connect(analog, fb1.P2)
+    d.net_role(analog, "power", current=amp("0.9"))
+    d.derating(ferrite_current=ratio(80), source="the tests' own policy")
+    result = judge(d)
+    found = row(result, "circuit.rating-current:FB1:current")
+    assert (found.status, found.limit.text, found.limit.source) == ("fail", "..800mA", "policy")
+    assert "ferrite_current" in found.limit.basis and found.value.basis.startswith("declared power role")

@@ -386,3 +386,43 @@ Both are registered in `docs/hypotheses.md` by the tasks, as `INFERRED`. This ch
 - **c0256 (K):** test helpers can assert on matrix rows by id.
 - **c0222 (roles, on `dev`):** the vocabulary and prefix table gain three classes; role rows gain
   `decidable` and appear in the matrix.
+
+### Decisions taken while implementing phases B to F (2026-10-30)
+
+- **Device class evidence.** `roles.classify(..., device_classes=)` takes the records' `class` by reference;
+  `cli._contracts.classes_of(model, devices)` fills it, so build, check and roles inject it alike. With a
+  device class, the terminal map comes from the pin names when they give the same class.
+- **Thresholds from pins** are added where the model port is made (`dsl.devices.port_params`, called by
+  `dsl.convert`), only for a threshold the port's kind and direction take; the record's canonical text is
+  unchanged.
+- **Findings without a row.** c0252's logic, bus, companion and split-port rules and the value conflicts give
+  findings, not rows. They are waived the same way, named by their `where` and the digest of their code,
+  `where` and message (which name every number judged), so every circuit error can be accepted. Logic and
+  bus rows (`circuit.logic-level:...`, `circuit.bus-pullup:...` of decision 7) are not added by this
+  change: those rules still give findings only.
+- **Waiver outcome keys.** `result.waivers` always holds `expired`; the copper and DRC stage summaries keep
+  their bytes (no `expired` key there), and `circuit.rules` lists its circuit waivers in `summary.waivers`
+  only when the design has some. The build applies circuit waivers and adds `check.waiver-expired` to its
+  issues; it does not report unmatched waivers (`fenolite check` does).
+- **Origins.** The closed set is `declared`, `rig`, `role`, `requirements`, `option`, `propagated`; a ground
+  is `declared` (c0252 ground) or `role`. A two-net value takes the origin of its non-ground net, a
+  propagated one first. The precedence of currents is not changed: both the role checks
+  (`roles.infer.with_currents`) and the circuit rows read a role's own current, then `[[current]]`, then
+  `--current`; the circuit rows read a rig and a rail's loads before them, as c0253 states. The origin
+  (`requirements` or `option`) now says which one was used, so no reconciliation was needed.
+- **Propagation** stops at a stated net (it never crosses one to reach another) and takes the hull of the
+  stated nets reached; `from` and `via` name the first one reached (breadth first, net-name order).
+- **Role rows.** A width or section row is one row per code and net (`roles.width-current:VBUS`, its
+  narrowest element), so its id is stable; a role net with a current whose power path gives no measured
+  copper (open or unrouted) lists `roles.width-current:<net>` with no value, `unknown` and so `deferred`
+  while the net has an open connection. The reach reads the board boundary (`analysis.boundary`) and the
+  open connections (`analysis.connectivity`) in `roles.judge.board_reach`; `core.decidable` holds the
+  closed table and the rule (in `core`, since `roles` imports no module of `checks`;
+  `checks.circuit.decidable` re-exports it).
+- **`--matrix` stages.** Without `--stages`, `--matrix` runs only `circuit.rules` and `roles.rules` (the
+  stages that give rows) instead of the default stages, so it needs no `kicad-cli`. Its text table is
+  printed in text mode also when the check fails (`Result.text_on_failure`).
+- **Row id forms.** `circuit.rail-voltage:<rail>:<port path>` (port path `U3/vdd` or `buck/VOUT`).
+- **Agent guide.** `design-script`, `checks` and `board-power` are at their 12 000-byte budget; the matrix,
+  `deferred`, `waived`, `check.waiver-expired`, a circuit waiver with its digest, `abs_max`, `operating` and
+  `[[limits]]` are taught in a section of `board-review` (reviewing is where the matrix is read).

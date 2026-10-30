@@ -138,6 +138,7 @@ def test_judge_matched_unmatched_and_unrepeatable() -> None:
         "declared": 3,
         "matched": {"via": 2},
         "unmatched": ["silk"],
+        "expired": [],
         "unjudged": {"clr": "not-repeatable"},
     }
 
@@ -149,9 +150,16 @@ def test_combine_marks_the_waivers_no_stage_listed() -> None:
         "declared": 2,
         "matched": {"s": 1},
         "unmatched": [],
+        "expired": [],
         "unjudged": {"x": STAGE_NOT_RUN},
     }
-    assert combine((), []).to_json() == {"declared": 0, "matched": {}, "unmatched": [], "unjudged": {}}
+    assert combine((), []).to_json() == {
+        "declared": 0,
+        "matched": {},
+        "unmatched": [],
+        "expired": [],
+        "unjudged": {},
+    }
 
 
 # --- the copper stage -----------------------------------------------------------------------------
@@ -188,7 +196,13 @@ def test_copper_stage_gap_bound_keeps_a_closer_finding() -> None:
         (UNMATCHED, "warning"),
         ("copper.clearance", "error"),
     ]
-    assert close.waivers == {"declared": 1, "matched": {}, "unmatched": ["bound"], "unjudged": {}}
+    assert close.waivers == {
+        "declared": 1,
+        "matched": {},
+        "unmatched": ["bound"],
+        "expired": [],
+        "unjudged": {},
+    }
     far = copper_run(near_tracks(160_000), bound)
     (stage,) = far.stages
     (found,) = stage.issues
@@ -211,7 +225,7 @@ def test_copper_stage_reports_a_stale_waiver() -> None:
 def test_copper_stage_without_waivers_has_no_summary_entry() -> None:
     report_ = copper_run(near_tracks(120_000))
     assert "waivers" not in report_.stages[0].summary
-    assert report_.waivers == {"declared": 0, "matched": {}, "unmatched": [], "unjudged": {}}
+    assert report_.waivers == {"declared": 0, "matched": {}, "unmatched": [], "expired": [], "unjudged": {}}
     design = near_tracks(120_000)
     plain = check_copper(design, pads=None)
     assert waived_issues(plain, ())[0] == plain.issues  # no waiver: the report's own issues
@@ -259,6 +273,7 @@ def test_drc_stage_unrepeatable_and_unrun_waivers_are_not_judged() -> None:
         "declared": 2,
         "matched": {},
         "unmatched": ["silk"],
+        "expired": [],
         "unjudged": {"clr": NOT_REPEATABLE},
     }
     second = copper_run(near_tracks(mm(1)), clearance, silk)
@@ -304,6 +319,7 @@ def test_command_pads_waived_on_a_built_project(tmp_path: Path, monkeypatch: pyt
         "declared": 3,
         "matched": {PITCH_11_NAME: 1, "escape": 2, "pitch": 1},
         "unmatched": [],
+        "expired": [],
         "unjudged": {},
     }
     assert stages(env)["copper.clearance"]["status"] == "ok"
@@ -345,3 +361,61 @@ def test_command_altium_project_takes_the_same_waivers(
     assert waivers["declared"] == 4 and waivers["matched"]["pitch"] == 1 and waivers["unmatched"] == []
     assert waivers["unjudged"] == {"tp": STAGE_NOT_RUN}
     assert "exclusions" not in stages(env)["copper.clearance"]["summary"]
+
+
+# ------------------------------------------------------------------ circuit waivers (change c0274)
+
+
+def _circuit_check(monkeypatch: pytest.MonkeyPatch, out: Path) -> tuple[int, dict[str, object]]:
+    from _contracts import cli as contracts_cli
+
+    return contracts_cli(monkeypatch, "check", str(out), "--stages", "circuit.rules")
+
+
+def _waived_sensor(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Path, str]:
+    from _contracts import waived_sensor
+
+    return waived_sensor(monkeypatch, tmp_path)
+
+
+def test_circuit_waived_rating_on_the_stage_and_the_build(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scenario "A waived rating on the circuit stage": check and build give the waived issue as ``info``."""
+    from _contracts import cli as contracts_cli
+
+    out, _digest = _waived_sensor(monkeypatch, tmp_path)
+    name = "circuit.rating-voltage:C1:voltage"
+    code, env = _circuit_check(monkeypatch, out)
+    (found,) = [i for i in env["issues"] if i["code"] == "circuit.rating-voltage"]  # type: ignore[union-attr, index]
+    assert found["severity"] == "info"
+    assert found["message"].endswith(f"(waived by {name}: bench is current-limited)")
+    assert env["result"]["waivers"]["matched"] == {name: 1}  # type: ignore[index]
+    assert code == 5  # the inductor and the bleeder still fail
+    script, target = str(out.parent / "bad.py"), str(tmp_path / "b")
+    code, built = contracts_cli(monkeypatch, "build", script, "--out", target, "--dry-run")
+    (found,) = [i for i in built["issues"] if i["code"] == "circuit.rating-voltage"]
+    assert found["severity"] == "info" and f"(waived by {name}:" in found["message"]
+
+
+def test_circuit_waiver_expired(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario "A changed rating expires the waiver": a 20 V record (10 V under the policy) changes the
+    row's digest; the finding is an error again and ``check.waiver-expired`` names both digests."""
+    from _contracts import sensor_model
+
+    from fenolite.model import canonical
+
+    out, digest = _waived_sensor(monkeypatch, tmp_path)
+    record = out.parent / "devices" / "example_cap_16v.toml"
+    record.write_text(record.read_text(encoding="utf-8").replace('"16V" }', '"20V" }'), encoding="utf-8")
+    model, _devices = sensor_model(out.parent, "bad")
+    canonical.dump_dir(model, out / ".fenolite")
+    code, env = _circuit_check(monkeypatch, out)
+    (found,) = [i for i in env["issues"] if i["code"] == "circuit.rating-voltage"]  # type: ignore[union-attr, index]
+    assert found["severity"] == "error" and "10V" in found["message"]
+    (expired,) = [i for i in env["issues"] if i["code"] == "check.waiver-expired"]  # type: ignore[union-attr, index]
+    now = found["hint"].rpartition("digest ")[2]
+    assert expired["severity"] == "warning" and digest in expired["message"] and now in expired["message"]
+    assert digest != now
+    assert env["result"]["waivers"]["expired"] == ["circuit.rating-voltage:C1:voltage"]  # type: ignore[index]
+    assert code == 5

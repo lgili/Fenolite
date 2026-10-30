@@ -24,6 +24,7 @@ from fenolite.core.units import Nm
 from fenolite.dsl.block import Block, blocks
 from fenolite.dsl.contracts import to_contracts
 from fenolite.dsl.design import MINIMUM_KINDS, Design, ImpedanceSpec
+from fenolite.dsl.devices import port_params
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.interfaces import Interface as DslInterface
 from fenolite.dsl.items import DimensionSpec, GraphicSpec, TextSpec
@@ -473,7 +474,7 @@ def _device_ports(design: Design, part: Part) -> list[Port]:
                 kind=spec.kind,
                 direction=spec.direction,
                 members=members,
-                params=dict(spec.params),
+                params=port_params(device, spec),
                 reference=key_id("port", part.path, spec.reference) if spec.reference else None,
                 requires=spec.requires,
                 split=split,

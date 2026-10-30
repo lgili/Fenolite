@@ -98,3 +98,44 @@ def test_shunt_limit_comes_from_the_profile() -> None:
 )
 def test_resistance(text: str, milliohms: Fraction | None) -> None:
     assert resistance_mohm(text) == milliohms
+
+
+def test_prefixes_of_a_ferrite_a_fuse_and_a_jumper() -> None:
+    """Scenario "A ferrite, a fuse and a jumper" (change c0274): the prefixes ``FB``, ``F`` and ``JP`` give
+    their classes with ``medium`` confidence, read before the value (``600R`` reads like a resistance)."""
+    circuit = Circuit(
+        components=(part("FB1", "", "", value="600R"), part("F1", "", "", value="2A"), part("JP1", "", ""))
+    )
+    found = classify(circuit)
+    assert [(found[r].cls, found[r].confidence, found[r].evidence) for r in ("FB1", "F1", "JP1")] == [
+        ("ferrite", "medium", "prefix"),
+        ("fuse", "medium", "prefix"),
+        ("jumper", "medium", "prefix"),
+    ]
+    stated = classify(circuit, user=(PartClass("FB1", "resistor"),))
+    assert (stated["FB1"].cls, stated["FB1"].evidence) == ("resistor", "user")
+
+
+def test_prefixes_are_one_table() -> None:
+    """The prefix table of the classifier is the one of the package tree: every class it names is a part
+    class, and no module of ``checks`` holds a table of reference prefixes."""
+    from pathlib import Path
+
+    from fenolite.model.rules import PART_CLASSES
+    from fenolite.roles.classify import LINK_PREFIXES, PREFIXES
+
+    assert {cls for _, cls in PREFIXES} <= set(PART_CLASSES)
+    assert LINK_PREFIXES == {"FB", "F", "JP"}
+    checks = Path(__file__).resolve().parents[3] / "src" / "fenolite" / "checks"
+    assert not [p for p in checks.rglob("*.py") if '("FB", "ferrite")' in p.read_text(encoding="utf-8")]
+
+
+def test_class_of_the_device_record() -> None:
+    """Scenario "A ferrite says what it is" (change c0274): the ``class`` of a part's device record is
+    ``high`` evidence ``device``, after the user's class and before the pin names and the prefix."""
+    circuit = Circuit(components=(part("L4", "", "", value="4.7uH"), part("Q2", "G", "D", "S")))
+    found = classify(circuit, device_classes={"L4": "ferrite", "Q2": "transistor"})
+    assert (found["L4"].cls, found["L4"].confidence, found["L4"].evidence) == ("ferrite", "high", "device")
+    assert (found["Q2"].evidence, found["Q2"].terminals["gate"]) == ("device", ("1",))
+    stated = classify(circuit, user=(PartClass("L4", "inductor"),), device_classes={"L4": "ferrite"})
+    assert stated["L4"].evidence == "user"

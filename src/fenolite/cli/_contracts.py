@@ -55,12 +55,24 @@ def devices_of(
     return dict(sorted(found.items()))
 
 
-def classes_of(model: Design) -> dict[str, str]:
+def device_classes(model: Design, devices: Mapping[str, DeviceDef] | None) -> dict[str, str]:
+    """The ``class`` of each component's device record, by reference (change c0274): the evidence that
+    ``roles.classify`` weighs right after the user's class."""
+    found: dict[str, str] = {}
+    for component in model.circuit.components:
+        record = (devices or {}).get(component.properties.get(DEVICE_PROPERTY, ""))
+        if record is not None and record.cls:
+            found[component.ref] = record.cls
+    return found
+
+
+def classes_of(model: Design, devices: Mapping[str, DeviceDef] | None = None) -> dict[str, str]:
     """The class of each component id by ``fenolite.roles.classify`` with the classes the user states in the
-    model (``design.part_class``, confirmed classes)."""
+    model (``design.part_class``, confirmed classes) and the ``class`` of the device records ``devices``
+    (by device id; change c0274)."""
     roles = model.rules.roles if model.rules is not None else None
     user = roles.classes if roles is not None else ()
-    by_ref = classify(model.circuit, user=user)
+    by_ref = classify(model.circuit, user=user, device_classes=device_classes(model, devices))
     return {
         component.id: by_ref[component.ref].cls
         for component in model.circuit.components
@@ -68,4 +80,4 @@ def classes_of(model: Design) -> dict[str, str]:
     }
 
 
-__all__ = ["classes_of", "devices_of"]
+__all__ = ["classes_of", "device_classes", "devices_of"]

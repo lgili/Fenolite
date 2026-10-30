@@ -1312,7 +1312,7 @@ with `FEN-4002`.
 
 ## check
 
-`fenolite check PATH [--stages A,B] [--kicad-cli PATH] [--timeout SECONDS]` checks a KiCad project
+`fenolite check PATH [--stages A,B] [--kicad-cli PATH] [--timeout SECONDS] [--matrix]` checks a KiCad project
 read-only (`--exclude` alone writes: "Writing a DRC exclusion" below). `PATH` is a `.kicad_pcb`, a `.kicad_pro` (the board of its stem) or a folder holding one
 `.kicad_pro` (else one `.kicad_pcb`). `kicad-cli` only ever sees a copy of the files a DRC run reads
 (board, `<stem>.kicad_pro`, `<stem>.kicad_dru`, `fp-lib-table` and its `${KIPRJMOD}` libraries, the
@@ -1691,6 +1691,7 @@ repeat.
 | `copper.hole-in-cutout` | error | a drilled hole breaks into a cut-out or a slot, or crosses the board edge; `where` names the hole's item and the ring |
 | `copper.hole-overlap` | warning | two drilled holes overlap; `where` names both items |
 | `check.waiver-unmatched` | warning | a waiver of the design script that was judged matched no finding; `where` is the waiver's name |
+| `check.waiver-expired` | warning | a `circuit.*` waiver whose code and item match a finding under another digest: the value or the limit judged changed since the waiver; `where` is the waiver's name, the message names both digests |
 | `check.exclusion-stale` | warning | a DRC exclusion stored in the KiCad project no longer applies: `moved` or `gone` |
 | `copper.rules-incomplete` | warning | a clearance rule stayed opaque, a project file was not read, or no rules source was given |
 | `copper.item-unsupported` | warning | copper items left out of the check, one issue per kind; `where` is the kind |
@@ -1737,13 +1738,25 @@ either target, applies them. A native project has no waiver.
   finding is at least that. The items of a copper finding are the two parts of its `where`; those of a
   DRC finding are the locations of its items.
 - **Stages.** `copper.*` waivers are applied by `copper.clearance`, on both pipelines; `kicad.drc.*`
-  waivers by `drc.kicad`. No other stage takes a waiver: ERC and parity findings are never waived.
+  waivers by `drc.kicad`; `circuit.*` waivers (change c0274) by `circuit.rules`, on both pipelines, and
+  by the circuit hook of `fenolite build`, so an accepted risk does not stop `build --confirm`. No other
+  stage takes a waiver: ERC and parity findings are never waived.
+- **Circuit waivers.** A `circuit.*` waiver names one item, the finding's requirement row id without the
+  code (`C3:voltage`; a finding no row gives is named by its `where`), and the digest of what was judged:
+  the first 16 hexadecimal digits of the SHA-256 of the canonical JSON of the row's id, the ranges of its
+  value and limit, the limit's kind and both sources (of a finding without a row: its code, `where` and
+  message). Each `circuit.*` error or warning's `hint` ends with `digest <16 hex>`, which the author
+  copies into `design.waive(..., digest=...)`. When the code and item match but the digest differs (a
+  rating, a pick or a kept CAD value changed), the finding is not waived and one `check.waiver-expired`
+  (warning) names the waiver, both digests and the row.
 - **Stale waivers.** A waiver is judged when the stage of its code ran with a verdict. A judged waiver
-  that matched nothing gives `check.waiver-unmatched` (warning), `where` its name. A waiver of
+  that matched nothing, and that no finding matches under another digest, gives `check.waiver-unmatched`
+  (warning), `where` its name. A waiver of
   `kicad.drc.clearance`, `hole-clearance`, `unconnected-items` or `shorting-items` is applied when it
   matches and never judged, because KiCad does not repeat those entries from run to run.
 - **`result.waivers`** holds `declared` (the count), `matched` (name → findings, for judged waivers),
-  `unmatched` (names) and `unjudged` (name → `stage-not-run` or `not-repeatable`). On Altium input every
+  `unmatched` (names), `expired` (names of circuit waivers whose digest changed) and `unjudged` (name →
+  `stage-not-run` or `not-repeatable`). On Altium input every
   `kicad.drc.*` waiver is `stage-not-run`: that pipeline has no DRC stage.
 
 **KiCad's own exclusions.** A KiCad project stores the entries its user excluded in the DRC dialog, each
@@ -1758,6 +1771,33 @@ judged. Two keys of one type, position and item pair in both orders are one acce
 either order, as excluded, else both unjudged (one of the four types) or both stale with one warning.
 `summary.accepted` of `drc.kicad` lists each such exception: `type`, `items` (the two uuids), `comment`,
 `state` (`live`, `stale` or `unjudged`) and `reported` (an entry of that type names the two items).
+
+### Verification matrix
+
+`fenolite check PATH --matrix` (change c0274) adds `result.matrix`, on KiCad and Altium input alike, and
+stays read-only (redirect the JSON reply to keep it). Without `--stages` only `circuit.rules` and
+`roles.rules` run, the two stages that give requirement rows; with `--stages` the named ones run and the
+matrix lists the rows of those two among them. Without `--matrix` the result holds no `matrix`.
+
+- **`rows`**: the requirement rows of the stages that ran, sorted by id (a repeated id keeps its first row),
+  each with `id`, `check`, `value` and `limit` (their texts), `source` (of the limit), `origin` (of the
+  value: `declared`, `rig`, `role`, `requirements`, `option` or `propagated via <refs> from <net>`, `null`
+  when none), `status` (`pass`, `fail`, `unsure`, `unknown`, `deferred`, or `waived` when a waiver
+  accepted the row's finding), `evidence` (the label of what states the limit), `decidable` (`build`,
+  `place` or `route`), `digest` (what a circuit waiver copies) and `waiver` (its name, else `null`).
+- **`receipt`**: `fenolite` (the version), `model_sha256` (the SHA-256 of the canonical `.fenolite/` texts,
+  each as `<file name>\n<text>` in layer order; `null` for a native project), `devices_sha256` (the
+  SHA-256 of the sorted digests of the device records judged, one per line) and `stages` (those whose rows
+  are listed).
+- **Ids.** Row ids are built from references, port paths, net and interface names and expectation ids only
+  (`circuit.rating-voltage:C3:voltage`, `circuit.rail-voltage:3V3:U3/vdd`, `circuit.rail-current:3V3`,
+  `circuit.expect:buck1/expect#1`, `roles.loop-area:buck:loop_ratio_max`, `roles.width-current:VBUS`),
+  never from entity ids, positions or seeds (`H-G-CIRCUIT-ROW-IDS`).
+- **Deferred rows.** A row whose decidable stage is not reached for its subject and that does not fail is
+  `deferred` and gives no issue; `summary.deferred` of each stage counts them by stage
+  (`docs/contracts.md`, "Decidable stages").
+- **Text.** With `--text` the matrix prints as a table with the columns `id`, `check`, `value`, `limit`,
+  `source` and `status`, one line per row, also when the check fails, followed by the issues.
 
 ### Writing a DRC exclusion
 

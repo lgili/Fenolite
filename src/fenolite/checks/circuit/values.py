@@ -25,7 +25,7 @@ from fractions import Fraction
 from fenolite.checks.circuit.rails import View, bounds
 from fenolite.checks.codes import issue
 from fenolite.core.errors import Issue
-from fenolite.core.requirement_table import Bound, Source
+from fenolite.core.requirement_table import Bound, Origin, Source
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
 from fenolite.model.library import DeviceDef
@@ -34,6 +34,11 @@ from fenolite.model.rules import ContractSet, RigSink, RigSupply, RoleSet
 MILLI = Fraction(1, 1000)
 STATED_ROLES: frozenset[str] = frozenset({"declared", "confirmed"})
 """The role sources that give a value: an inferred role carries none (c0222)."""
+OPTION_BASIS = "--current"
+"""The basis of a current that ``--current`` gives (origin ``option``); any other given current comes from a
+``[[current]]`` row (origin ``requirements``)."""
+RIG = Origin("rig")
+ROLE = Origin("role")
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +52,8 @@ class Value:
     basis: str
     kind: str
     rigs: frozenset[str] = frozenset()
+    origin: Origin = Origin("declared")
+    """Where the bound comes from (change c0274; ``docs/contracts.md``, "Origins")."""
 
     def bound(self, unit: str) -> Bound:
         return Bound(unit, self.low, self.high)
@@ -110,16 +117,22 @@ def resolve(
             if isinstance(element, RigSupply) and element.pos == net_id:
                 low, high = bounds(element.voltage)
                 volts.append(
-                    Value(low, high, "user", f"rig {element.name}", "rig", frozenset({element.name}))
+                    Value(low, high, "user", f"rig {element.name}", "rig", frozenset({element.name}), RIG)
                 )
                 if element.current is not None:
-                    amps.append(Value(None, bounds(element.current)[1], "user", f"rig {element.name}", "rig"))
+                    amps.append(
+                        Value(
+                            None, bounds(element.current)[1], "user", f"rig {element.name}", "rig", origin=RIG
+                        )
+                    )
             if isinstance(element, RigSink) and element.net == net_id:
-                amps.append(Value(None, bounds(element.current)[1], "user", f"rig {element.name}", "rig"))
+                amps.append(
+                    Value(None, bounds(element.current)[1], "user", f"rig {element.name}", "rig", origin=RIG)
+                )
         rail = view.rails.get(net_id)
         if rail is not None:
             label = f"rail {name}"
-            if rail.voltage is not None:
+            if rail.voltage is not None and rail.propagated is None:
                 reads = frozenset(r.name for r in rail.rig_sources)
                 volts.append(Value(rail.voltage[0], rail.voltage[1], "user", label, "rail", reads))
             if rail.load_high is not None:
@@ -129,15 +142,17 @@ def resolve(
             what = f"{role.source} {role.kind} role of {name}"
             if role.working_mv is not None:
                 volt = Fraction(role.working_mv) * MILLI
-                volts.append(Value(-volt, volt, "role", what, "role"))
+                volts.append(Value(-volt, volt, "role", what, "role", origin=ROLE))
             if role.milliamps is not None:
-                amps.append(Value(None, Fraction(role.milliamps) * MILLI, "role", what, "role"))
+                amps.append(Value(None, Fraction(role.milliamps) * MILLI, "role", what, "role", origin=ROLE))
         if name in given:
             amount, basis = given[name]
-            amps.append(Value(None, amount, "user", basis, "requirements"))
+            origin = Origin("option") if basis == OPTION_BASIS else Origin("requirements")
+            amps.append(Value(None, amount, "user", basis, "requirements", origin=origin))
         if net_id in grounds:
             source, basis = grounds[net_id]
-            volts.append(Value(Fraction(0), Fraction(0), source, basis, "ground"))
+            origin = ROLE if source == "role" else Origin("declared")
+            volts.append(Value(Fraction(0), Fraction(0), source, basis, "ground", origin=origin))
         if volts:
             first = volts[0]
             found.voltage[net_id] = first

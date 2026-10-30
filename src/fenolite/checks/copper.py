@@ -1286,7 +1286,7 @@ def copper_stage(
     if own:
         outcome, stale = judge_waivers(own, counts)
         issues += stale
-        summary["waivers"] = {key: value for key, value in outcome.to_json().items() if key != "declared"}
+        summary["waivers"] = {k: v for k, v in outcome.to_json().items() if k not in ("declared", "expired")}
     level = report.evidence
     if any(found.code in LOWERING_CODES for found in issues):
         level = Evidence(Level.UNVERIFIED, hypotheses=level.hypotheses)

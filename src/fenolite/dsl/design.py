@@ -130,6 +130,32 @@ SHORT_CODES: tuple[str, ...] = ("copper.short", "kicad.drc.shorting-items")
 """A short is waived by exact names only: an intended short is one net tie, and a pattern could cover a
 second one."""
 GLOB_CHARS = "*?["
+WAIVED_CIRCUIT: tuple[str, ...] = (
+    "circuit.bus-pullup",
+    "circuit.device-changed",
+    "circuit.expect-failed",
+    "circuit.expect-unknown",
+    "circuit.expect-unsure",
+    "circuit.logic-level",
+    "circuit.logic-unknown",
+    "circuit.operating-range",
+    "circuit.port-split",
+    "circuit.rail-current",
+    "circuit.rail-sources",
+    "circuit.rail-unset",
+    "circuit.rail-voltage",
+    "circuit.rating-current",
+    "circuit.rating-missing",
+    "circuit.rating-power",
+    "circuit.rating-temperature",
+    "circuit.rating-voltage",
+    "circuit.requires-missing",
+    "circuit.value-conflict",
+    "circuit.value-unknown",
+)
+"""The circuit finding codes a waiver can name (change c0274): the ``circuit.*`` codes of
+``checks.codes.ISSUE_CODES`` that have the severity ``error`` or ``warning`` (a test keeps the two equal)."""
+DIGEST = re.compile(r"[0-9a-f]{16}")
 
 
 def _drc_suffix(code: object) -> str | None:
@@ -779,12 +805,16 @@ class Design(Container):
         *items: object,
         reason: str,
         min_gap: object = None,
+        digest: str | None = None,
         name: str | None = None,
     ) -> None:
-        """Accept one finding of ``fenolite check`` or of the build's copper guard, with a reason
-        (``docs/dsl.md``, "Waivers").
+        """Accept one finding of ``fenolite check``, of the build's copper guard or of its circuit hook, with
+        a reason (``docs/dsl.md``, "Waivers").
 
-        ``code`` is ``copper.short``, ``copper.clearance``, ``copper.zone-overlap`` or ``kicad.drc.<type>``.
+        ``code`` is ``copper.short``, ``copper.clearance``, ``copper.zone-overlap``, ``kicad.drc.<type>`` or,
+        since change c0274, a ``circuit.*`` code of an error or a warning: a circuit finding is waived by its
+        one row id without the code (``C3:voltage``) and the ``digest`` its hint ends with; when the judged
+        value or limit changes, the digest differs and ``check.waiver-expired`` says the waiver expired.
         ``items`` are the names of the finding's items as its ``where`` prints them (``REF-PIN``, ``REF``, a
         locator, ``@x,y``), in any order; a ``Part`` stands for its reference, and ``*``, ``?`` and ``[…]``
         are patterns. A short takes exact names only. ``min_gap`` belongs to ``copper.clearance``: the
@@ -792,11 +822,12 @@ class Design(Container):
         listed, as ``info``, with the waiver's name and reason; a waiver that matches nothing is reported by
         ``fenolite check``."""
         suffix = _drc_suffix(code)
-        if code not in WAIVED_COPPER and suffix is None:
+        circuit = code in WAIVED_CIRCUIT
+        if code not in WAIVED_COPPER and suffix is None and not circuit:
             raise DslError(
-                f"waive(): {code!r} is not a finding that can be waived; only copper and DRC findings "
-                f"are: {', '.join(WAIVED_COPPER)} or 'kicad.drc.<type>' (the verdicts "
-                f"{', '.join(DRC_VERDICTS)} are not findings)"
+                f"waive(): {code!r} is not a finding that can be waived; only copper, DRC and circuit "
+                f"findings are: {', '.join(WAIVED_COPPER)}, 'kicad.drc.<type>' (the verdicts "
+                f"{', '.join(DRC_VERDICTS)} are not findings) or a circuit.* code of an error or a warning"
             )
         names: list[str] = []
         for item in items:
@@ -811,6 +842,18 @@ class Design(Container):
             wanted = "two items" if code in WAIVED_COPPER else "one or two items"
             raise DslError(f"waive(): a finding of {code} has {wanted}; {len(names)} were given")
         globbed = any(mark in text for text in names for mark in GLOB_CHARS)
+        if circuit and (len(names) != 1 or globbed):
+            raise DslError(
+                f"waive(): a circuit finding ({code}) is waived by its exact row: one item, the row id "
+                f"without the code (as its hint and the matrix print it), not {', '.join(names)}"
+            )
+        if circuit and (not isinstance(digest, str) or not DIGEST.fullmatch(digest)):
+            raise DslError(
+                f"waive(): a circuit waiver ({code}) needs digest=, the 16 lowercase hexadecimal digits that "
+                f"the finding's hint ends with, not {digest!r}"
+            )
+        if not circuit and digest is not None:
+            raise DslError(f"waive(): digest belongs to a circuit.* waiver; a finding of {code} has none")
         if code in SHORT_CODES and globbed:
             raise DslError(
                 f"waive(): a short ({code}) is waived by exact names only; {', '.join(names)} holds a pattern"
@@ -837,7 +880,12 @@ class Design(Container):
         if label in self.waivers:
             raise DslError(f"waive(): a waiver named {label!r} is already recorded")
         self.waivers[label] = Waiver(
-            name=label, code=code, items=tuple(names), reason=reason.strip(), min_gap=gap
+            name=label,
+            code=code,
+            items=tuple(names),
+            reason=reason.strip(),
+            min_gap=gap,
+            digest=digest if circuit else None,
         )
 
     def devices(self, *records: DeviceSource) -> None:
@@ -2196,12 +2244,14 @@ class Design(Container):
 
         contracts.operating(self, ambient)
 
-    def contracts(self, *, unknown: str = "info") -> None:
+    def contracts(self, *, unknown: str = "info", propagate: bool = True) -> None:
         """Make each contract row that cannot be judged a ``warning`` (``unknown="warning"``) instead of one
-        ``info`` count (``"info"``, the default)."""
+        ``info`` count (``"info"``, the default). ``propagate=False`` stops a net without a stated voltage
+        from taking the voltage of a stated net it reaches through a ferrite, a fuse, a net tie, a stated
+        jumper or a 0 Ω part (change c0274; ``docs/contracts.md``, "Propagation through links")."""
         from fenolite.dsl import contracts
 
-        contracts.contracts(self, unknown)
+        contracts.contracts(self, unknown, propagate)
 
     def expect(self, test: object, reason: str) -> None:
         """Record an expectation, ``within(a, b)``, ``at_least(a, b)`` or ``at_most(a, b)`` over handles and

@@ -29,11 +29,37 @@ An inferred role that is not confirmed gives nothing. When two sources of differ
 voltages that do not overlap, the first is used and `circuit.value-conflict` (warning) names both.
 `fenolite check` takes neither a requirements file nor `--current`, so only orders 1 to 3 and 6 reach it.
 
+## Propagation through links
+
+A net with no stated voltage takes the voltage of the stated nets it reaches through **links** (change
+c0274): two-net parts of class `ferrite`, `fuse` or `net_tie`, a `jumper` whose class you state
+(`design.part_class(jp, "jumper")`: a stated jumper is a closed one; an open jumper is simply not stated),
+and a `resistor` or `shunt` whose value range is exactly 0 Ω (`value=ohm(0).pct(1)`). Nothing else is
+crossed: no inductor, regulator, diode or resistor above 0 Ω. The search runs breadth first in net-name
+order and stops at a stated net; the net takes the hull of what it reaches. A stated net keeps its own
+value, and two stated nets joined by links whose ranges do not overlap give `circuit.value-conflict`
+naming the links. A c0252 rail with no voltage set is judged with a propagated voltage instead of
+`circuit.rail-unset`. The range is the source's: the DC drop of a ferrite or a fuse is not subtracted, so
+the lower bound is optimistic by that drop (`H-G-CIRCUIT-PROPAGATION`).
+`design.contracts(propagate=False)` turns propagation off for a design.
+
+`examples/circuit/ferrite/` holds a sensor whose `vdda` port sits on `3V3A`, fed from `3V3` (3.3 V ± 3 %)
+through `FB1`: `3V3A` is 3.201 V to 3.399 V, `propagated via FB1 from 3V3`, and the port passes. The bad
+variant puts a 10 Ω resistor in its place: nothing propagates and `circuit.rail-unset` names `3V3A`.
+
+## Origins
+
+Every voltage and current bound records where it comes from, in `value.origin` of each row: `declared`
+(a design rail, a ground or an `out` port's promise), `rig`, `role`, `requirements` (a `[[current]]` row),
+`option` (`--current`) or `propagated`, the last with `via` (the link references in order) and `from` (the
+stated net), and the basis text `propagated via FB1 from 3V3`.
+
 ## Part classes
 
 The derating keys, the series rule and the power rule need a part's class. There is one classifier,
-`fenolite.roles.classify` (`docs/roles.md`, "Part classes"): your `design.part_class`, the pin names, the
-value, the reference prefix. The commands run it and pass the classes to the stage. A part without a class
+`fenolite.roles.classify` (`docs/roles.md`, "Part classes"): your `design.part_class`, the `class` of the
+device record, the pin names, the prefixes `FB`, `F` and `JP`, the value, the reference prefix. The commands
+run it and pass the classes to the stage. A part without a class
 gives `unknown` rows (`no class`) for the checks that need one.
 
 ## Device records
@@ -64,7 +90,7 @@ judged by c0252's `circuit.rail-voltage`, not again here.
 | pin `voltage` | any device | the pin's net from the net of the device's `ground` function (a MOSFET's drain to source with `ground = "S"`) |
 | `[[limits]]` `voltage` | any device | `V(first) - V(second)` (`BST - SW`, a high-side gate to source); an unbounded second net is `unknown` |
 | device `current` | the owner of an `out` power port | the upper load sum of that port's rail |
-| device `current` | `inductor`, `shunt` | the smaller of its two nets' current bounds, only when both are known |
+| device `current` | `inductor`, `shunt`, `ferrite` | the smaller of its two nets' current bounds, only when both are known (a `fuse`'s current is not judged; a `jumper` has no rating row) |
 | pin `current` | any device | the net's current bound, when the pin is the part's only pin on the net |
 | device `power` | `resistor`, `shunt` | `V_across.max² / R.min`, else for a shunt `I.max² x R.max`; `R` is the part's value range |
 | device `temperature` | any device | the ambient range of `design.operating` |
@@ -83,8 +109,9 @@ design.derating(temperature_margin=kelvin(15))
 `ratio(50)` reads "at most 50 % of the rating" and is stored as 500 per mille; `pct()` is a ± tolerance and
 is refused here. The keys are `voltage`, `current`, `power`, `pin_voltage`, `pin_current`,
 `capacitor_voltage`, `resistor_power`, `resistor_voltage`, `shunt_power`, `inductor_current`,
-`diode_voltage`, `diode_current`, `transistor_voltage`, `transistor_current` and `temperature_margin`. The
-most specific rule wins: a part scope, then a class key, then a generic key. A rating no rule covers is
+`ferrite_current`, `diode_voltage`, `diode_current`, `transistor_voltage`, `transistor_current` and
+`temperature_margin`. The most specific rule wins: a part scope, then a class key, then a generic key. A
+rating no rule covers is
 judged at 100 %, with source `device`, and one `circuit.policy-missing` (info) lists it.
 
 Fenolite ships no derating number: no public source has been checked and registered for one. **Cite your
@@ -143,6 +170,36 @@ sorted by `id`. Each row names its `value` and its `limit` with their range (c02
 `source` (`device`, `role`, `policy` or `user`) and basis, its `status`, the severity of its finding, its
 corners and what is missing. Role rows (`docs/roles.md`, "The requirement table") take the source `policy`
 for a profile default and `user` for an override or a requirements limit.
+
+## Decidable stages
+
+Each row carries `decidable`: the stage at which it can be decided (change c0274). Every `circuit.*` row is
+`build`: the model is enough. `roles.loop-area` and `roles.gate-loop` are `place` (pad positions); every
+other judged `roles.*` row is `route` (copper widths, sections, vias, distances, returns). A `place` row is
+reached when every part of its subject has its pads inside the board outline, a `route` row when, in
+addition, no net of its subject has an open connection (`docs/analyses.md`, "Open connections"). A row
+whose stage is not reached and that does not fail is `deferred` and gives no issue; a `fail` stays a
+`fail`, since copper already too thin will not widen by routing the rest. Nothing not reached is ever
+`pass`. `summary.deferred` of each stage counts the deferred rows by stage. A role net with a current
+whose power path is still open gives one `roles.width-current:<net>` row with no measured value, deferred
+until the net is routed; each width or section row of a net is one row, its narrowest element.
+
+## Waivers that expire
+
+A known risk is accepted with `design.waive(code, "<row id without the code>", reason=..., digest=...)`
+(`docs/dsl.md`, "Waivers"). The digest is the start of the SHA-256 of what the row judged (its id, the
+ranges of its value and limit, the limit's kind and both sources); every `circuit.*` finding's hint ends
+with it, and the matrix lists it. While the numbers stay the same, the finding is `info` and its row
+`waived`; when a rating, a pick or a kept CAD value changes them, the finding stands again and
+`check.waiver-expired` names both digests. `fenolite build` applies the same waivers, so an accepted risk
+does not stop `build --confirm`.
+
+## The verification matrix
+
+`fenolite check PATH --matrix` lists the rows of `circuit.rules` and `roles.rules` with their stable ids,
+status (`waived` and `deferred` included), value, limit, source, origin, evidence, decidable stage and
+digest, and a receipt of the model and device digests (`docs/cli-contract.md`, "Verification matrix").
+It writes nothing.
 
 ## Severities
 

@@ -2342,8 +2342,8 @@ design.add_footprint(tie)
 
 ## Waivers
 
-`design.waive()` accepts one finding of `fenolite check`, or of the copper guard of the build, with a
-reason. The finding stays listed, as `info`, with the waiver's name and reason, so the exit code no
+`design.waive()` accepts one finding of `fenolite check`, of the copper guard of the build or of its
+circuit hook, with a reason. The finding stays listed, as `info`, with the waiver's name and reason, so the exit code no
 longer counts it and nothing is hidden.
 
 ```python
@@ -2351,6 +2351,9 @@ design.waive("copper.clearance", "J1-3", "J1-4", reason="fixed by the mating con
 design.waive("copper.clearance", "J1-*", "*", min_gap=mm(0.15), reason="shield can keep-out")
 design.waive("kicad.drc.via-dangling", "*", reason="test points")
 design.waive("kicad.drc.courtyards-overlap", tp1, "U1", reason="stacked by design")
+design.waive(
+    "circuit.rating-voltage", "C3:voltage", reason="bench is current-limited", digest="9f2c4a1b0d3e5f67"
+)
 ```
 
 - **Code.** `copper.short`, `copper.clearance`, `copper.zone-overlap`, or a finding of KiCad's DRC as
@@ -2358,6 +2361,13 @@ design.waive("kicad.drc.courtyards-overlap", tp1, "U1", reason="stacked by desig
   `rules-unchecked`, `parity-unchecked`) are not findings. ERC and parity findings are not waived: an
   ERC finding has its own means in the script (`no_connect`, a power flag), and a parity finding is a
   defect of the build.
+- **Circuit findings** (change c0274): a `circuit.*` code of an error or a warning, with one item, the
+  exact row id without the code (`C3:voltage`, `buck1/expect#1`; a finding without a row by its
+  `where`), and `digest=`, the 16 lowercase hexadecimal digits its hint ends with (`fenolite check
+  --matrix` lists them too). The waiver accepts the numbers that were judged: when the value or the
+  limit changes (a rating, a pick, a value kept from a CAD edit), the digest differs, the finding stands
+  again and `check.waiver-expired` says why. A pattern, a missing digest, a digest on another code and
+  `circuit.policy-missing` (an info) are refused.
 - **Items.** One name per item of the finding, as its `where` prints it: `REF-PIN` for a pad, `REF` for a
   footprint, a locator for a track, a via or a zone, `@x,y` for an item without a name. The order does not
   matter, a `Part` stands for its reference, and `*`, `?` and `[…]` are patterns. A copper finding has two

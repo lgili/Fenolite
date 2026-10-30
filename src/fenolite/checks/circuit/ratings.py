@@ -21,7 +21,7 @@ from fractions import Fraction
 
 from fenolite.checks.circuit.rails import View, bounds
 from fenolite.checks.circuit.values import Value, Values, function_nets
-from fenolite.core.requirement_table import Bound, LimitKind, Side, Source, Status, amount_text
+from fenolite.core.requirement_table import Bound, LimitKind, Origin, Side, Source, Status, amount_text
 from fenolite.model.circuit import Component, Port
 from fenolite.model.library import DeviceDef, Rating
 from fenolite.model.rules import DERATING_KEYS, ContractSet, DeratingRule
@@ -42,8 +42,9 @@ CODES: Mapping[str, str] = {
     "power": "circuit.rating-power",
     "temperature": "circuit.rating-temperature",
 }
-SERIES: frozenset[str] = frozenset({"inductor", "shunt"})
-"""The classes whose device current is the series current of their two nets."""
+SERIES: frozenset[str] = frozenset({"inductor", "shunt", "ferrite"})
+"""The classes whose device current is the series current of their two nets (a ferrite since change c0274,
+derating key ``ferrite_current``; a fuse is not judged and a jumper has no rating row)."""
 POWERED: frozenset[str] = frozenset({"resistor", "shunt"})
 """The classes whose device power is judged."""
 
@@ -144,6 +145,11 @@ class Applied:
     source: Source = "user"
     rigs: frozenset[str] = frozenset()
     missing: str = ""
+    origin: Origin | None = None
+    """Where the value comes from (change c0274)."""
+
+
+DECLARED = Origin("declared")
 
 
 @dataclass(slots=True)
@@ -252,7 +258,7 @@ class RatingJudge:
             low, high = applied.value
             if low is not None or high is not None:
                 bound = Bound(unit, low, high)
-                side = Side(bound, bound.text(), applied.source, applied.basis)
+                side = Side(bound, bound.text(), applied.source, applied.basis, origin=applied.origin)
         verb = "exceeds the" if rating.limit == "abs_max" else "is not within the operating range"
         text = (
             f"{part.subject}: {what} {'' if side is None else side.text} ({applied.basis}) {verb} "
@@ -304,7 +310,9 @@ class RatingJudge:
         source: Source = "user" if any(v.source == "user" for v in values) else values[0].source
         basis = "; ".join(dict.fromkeys(v.basis for v in values))
         rigs = frozenset[str]().union(*(v.rigs for v in values))
-        return Applied(span, basis, source, rigs)
+        stated = [v for v in values if v.kind != "ground"] or list(values)
+        origin = next((v.origin for v in stated if v.origin.kind == "propagated"), stated[0].origin)
+        return Applied(span, basis, source, rigs, origin=origin)
 
     def _lacking(self, *pairs: tuple[str | None, Value | None]) -> Applied:
         names = [self._name(net) for net, value in pairs if value is None]
@@ -393,7 +401,9 @@ class RatingJudge:
                     applied = (
                         Applied(None, missing=f"current of {self._name(net)}")
                         if bound is None
-                        else Applied((Fraction(0), bound.high), bound.basis, bound.source)
+                        else Applied(
+                            (Fraction(0), bound.high), bound.basis, bound.source, origin=bound.origin
+                        )
                     )
                     self._add(
                         part, applied, key=pin.function, label=pin.function, rating=rating, scope="pin",
@@ -428,7 +438,9 @@ class RatingJudge:
             what = f"the output current of {out.name} (loads of {name})"
             entities = [hv] if hv else []
             if rail is not None and rail.load_high is not None:
-                applied = Applied((Fraction(0), rail.load_high), f"rail {name} loads", "user")
+                applied = Applied(
+                    (Fraction(0), rail.load_high), f"rail {name} loads", "user", origin=DECLARED
+                )
             else:
                 applied = Applied(None, missing=f"loads of {name}")
         elif part.cls is None:
@@ -442,7 +454,9 @@ class RatingJudge:
             known = [b for b in found if b is not None and b.high is not None]
             if len(known) == 2:
                 smaller = min(known, key=lambda b: b.high or Fraction(0))
-                applied = Applied((Fraction(0), smaller.high), smaller.basis, smaller.source)
+                applied = Applied(
+                    (Fraction(0), smaller.high), smaller.basis, smaller.source, origin=smaller.origin
+                )
             else:
                 lacking = [self._name(n) for n, b in zip(end_nets, found, strict=True) if b is None]
                 applied = Applied(None, missing="current of " + " and ".join(lacking or ["a net"]))
@@ -488,7 +502,7 @@ class RatingJudge:
         if across.value is not None and across.value[1] is not None and r_low:
             top = across.value[1]
             basis = f"{across.basis}; V²/R with R ≥ {amount_text('ohm', r_low)}"
-            return Applied((None, top * top / r_low), basis, across.source, across.rigs)
+            return Applied((None, top * top / r_low), basis, across.source, across.rigs, origin=across.origin)
         if part.cls == "shunt" and r_high is not None:
             known = [self.values.current[n] for n in end_nets if n and n in self.values.current]
             highs = [b for b in known if b.high is not None]
@@ -496,7 +510,7 @@ class RatingJudge:
                 smaller = min(highs, key=lambda b: b.high or Fraction(0))
                 amps = smaller.high or Fraction(0)
                 basis = f"{smaller.basis}; I²R with R ≤ {amount_text('ohm', r_high)}"
-                return Applied((None, amps * amps * r_high), basis, smaller.source)
+                return Applied((None, amps * amps * r_high), basis, smaller.source, origin=smaller.origin)
             return Applied(None, missing="voltage or current of the shunt's nets")
         return Applied(None, missing=across.missing or "voltage of its nets")
 
@@ -510,7 +524,7 @@ class RatingJudge:
         applied = (
             Applied(None, missing="ambient range (design.operating)")
             if operating is None
-            else Applied(bounds(operating.ambient), "design.operating ambient")
+            else Applied(bounds(operating.ambient), "design.operating ambient", origin=DECLARED)
         )
         for rating in ratings:
             self._add(

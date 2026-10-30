@@ -23,7 +23,8 @@ from typing import TYPE_CHECKING, Literal
 from fenolite.catalog.devices import shipped_devices
 from fenolite.catalog.records import DeviceRecord, PartEntry, effective_part, shipped_tree
 from fenolite.dsl.errors import DslError
-from fenolite.model.library import DeviceDef
+from fenolite.model.circuit import ValueRange
+from fenolite.model.library import DeviceDef, DeviceInterface
 
 if TYPE_CHECKING:
     from fenolite.dsl.part import Part, PinHandle
@@ -276,6 +277,47 @@ def device_port(part: Part, name: str) -> PortHandle:
     return handle
 
 
+THRESHOLD_PICK: Mapping[str, str] = MappingProxyType(
+    {
+        "input_high_min": "highest",
+        "input_low_max": "lowest",
+        "output_high_min": "lowest",
+        "output_low_max": "highest",
+        "output_current_max": "lowest",
+    }
+)
+"""Logic threshold → which of its member pins' values a device port takes when its own table omits it: the
+strictest (change c0274; ``docs/devices.md``, "Logic thresholds")."""
+
+
+def port_params(device: DeviceDef, spec: DeviceInterface) -> dict[str, ValueRange]:
+    """The parameters of the model port of the device interface ``spec``: its own, and for a ``logic`` or bus
+    port each threshold it omits and its direction takes, from the thresholds of its member pins, the
+    strictest of them (``THRESHOLD_PICK``; change c0274). A port that states a threshold keeps its own."""
+    from fractions import Fraction
+
+    from fenolite.model.circuit import INTERFACE_PARAMS, PARAM_WHERE, exact_decimal10
+
+    params = dict(spec.params)
+    allowed = INTERFACE_PARAMS.get(spec.kind, {})
+    functions = sorted({function for names in spec.members.values() for function in names})
+    pins = {pin.function: pin for pin in device.pins}
+    for key, pick in THRESHOLD_PICK.items():
+        if key in params or key not in allowed or spec.direction not in PARAM_WHERE[key]:
+            continue
+        values = [
+            found.value
+            for function in functions
+            if function in pins
+            for found in pins[function].thresholds
+            if found.key == key
+        ]
+        if values:
+            bound = exact_decimal10(Fraction(max(values) if pick == "highest" else min(values), 10**6))
+            params[key] = ValueRange(allowed[key], bound, bound, bound)
+    return dict(sorted(params.items()))
+
+
 def must_connect_pins(device: DeviceDef | None) -> tuple[str, ...]:
     """The symbol pins of the functions of ``device`` marked ``must_connect``, in code-point order: what
     ``must_connect_pins(component, device)`` of change c0247 reads."""
@@ -286,6 +328,7 @@ def must_connect_pins(device: DeviceDef | None) -> tuple[str, ...]:
 
 __all__ = [
     "PIN_LIST_LIMIT",
+    "THRESHOLD_PICK",
     "DeviceSource",
     "PartEntry",
     "Origin",
@@ -305,6 +348,7 @@ __all__ = [
     "known_ids",
     "must_connect_pins",
     "pin_name_error",
+    "port_params",
     "project_devices",
     "resolve",
     "shadowed",

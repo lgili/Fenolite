@@ -99,3 +99,31 @@ def test_part_attributes_are_the_dsl_part_attributes() -> None:
 
     part = Design("t").part("R1", "Fenolite:Resistor", footprint="Fenolite:Chip_0603")
     assert {name for name in dir(part) if not name.startswith("_")} == PART_ATTRIBUTES
+
+
+PIN_THRESHOLDS = HEAD.replace('SDA = "3"\nSCL = "4"\n', "") + (
+    'SDA = { pins = ["3"], input_high_min = "1.4V" }\nSCL = { pins = ["4"], input_high_min = "1.3V" }\n'
+)
+
+
+def _port(record: str):  # type: ignore[no-untyped-def]
+    from fenolite.dsl import Design, to_model
+
+    device = parse_device(record, file="sensor.toml")
+    design = Design("thresholds")
+    design.devices(device)
+    u1 = design.part("U1", device="Proj:SENSOR")
+    u1.port("i2c1")
+    (port,) = [p for p in to_model(design).circuit.ports if p.name == "i2c1"]
+    return port
+
+
+def test_a_port_takes_its_pins_thresholds() -> None:
+    """Scenario "A port takes its pins' thresholds" (change c0274): a bus port that omits a threshold takes
+    the strictest of its member pins' (the highest ``input_high_min``); one it states stays its own."""
+    taken = _port(PIN_THRESHOLDS + VDD + I2C.replace('input_high_min = "1.3V"\n', ""))
+    assert taken.params["input_high_min"].low == Decimal10(14, -1)
+    assert taken.params["input_high_min"].high == Decimal10(14, -1)
+    assert taken.params["output_low_max"].high == Decimal10(4, -1)
+    own = _port(PIN_THRESHOLDS + VDD + I2C.replace('input_high_min = "1.3V"', 'input_high_min = "1.2V"'))
+    assert own.params["input_high_min"].low == Decimal10(12, -1)

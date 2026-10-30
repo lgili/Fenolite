@@ -16,6 +16,8 @@ the two byte-identical. No number of the table is a JSON float.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -30,8 +32,20 @@ SOURCES: tuple[Source, ...] = ("device", "role", "policy", "user")
 role profile default) or the user's own number (a rig, a rail, a requirements row, an option)."""
 LimitKind = Literal["abs_max", "operating", "requirement"]
 LIMIT_KINDS: tuple[LimitKind, ...] = ("abs_max", "operating", "requirement")
-Status = Literal["pass", "fail", "unsure", "unknown"]
-STATUSES: tuple[Status, ...] = ("pass", "fail", "unsure", "unknown")
+Status = Literal["pass", "fail", "unsure", "unknown", "deferred"]
+STATUSES: tuple[Status, ...] = ("pass", "fail", "unsure", "unknown", "deferred")
+"""The status of a row; ``deferred`` (change c0274) is a row whose decidable stage is not reached for its
+subject and that does not fail."""
+Stage = Literal["build", "place", "route"]
+STAGES: tuple[Stage, ...] = ("build", "place", "route")
+"""The stage at which a row can be decided (change c0274; ``docs/contracts.md``, "Decidable stages")."""
+OriginKind = Literal["declared", "rig", "role", "requirements", "option", "propagated"]
+ORIGINS: tuple[OriginKind, ...] = ("declared", "rig", "role", "requirements", "option", "propagated")
+"""Where an applied voltage or current bound comes from (change c0274): a design rail, a ground or an
+``out`` port's promise (``declared``), a rig element, a stated net role, a ``[[current]]`` row
+(``requirements``), ``--current`` (``option``) or links from a stated net (``propagated``)."""
+DIGEST_DIGITS = 16
+"""The hexadecimal digits of a row digest (the start of a SHA-256)."""
 TABLE_UNITS: tuple[str, ...] = (*UNITS, "metre", "square_metre", "ratio")
 """The unit names of a row: c0246's and c0274's, and for role rows ``metre``, ``square_metre`` and
 ``ratio``."""
@@ -172,6 +186,32 @@ class Bound:
 
 
 @dataclass(frozen=True, slots=True)
+class Origin:
+    """Where an applied value comes from (change c0274): its ``kind`` (``ORIGINS``) and, for a propagated
+    value, the link references it went through in order (``via``) and the stated net (``source``, ``from``
+    in JSON)."""
+
+    kind: OriginKind
+    via: tuple[str, ...] = ()
+    source: str = ""
+
+    def __post_init__(self) -> None:
+        if self.kind not in ORIGINS:
+            raise ValueError(f"origin {self.kind!r} is not one of {', '.join(ORIGINS)}")
+
+    def to_json(self) -> dict[str, object]:
+        if self.kind != "propagated":
+            return {"kind": self.kind}
+        return {"from": self.source, "kind": self.kind, "via": list(self.via)}
+
+    def text(self) -> str:
+        """``rig``, ``propagated via FB1 from 3V3``."""
+        if self.kind != "propagated":
+            return self.kind
+        return f"propagated via {', '.join(self.via)} from {self.source}"
+
+
+@dataclass(frozen=True, slots=True)
 class Side:
     """The value or the limit of a row: its range (``None`` when it has none, such as a value not known),
     its text for people, its source and its basis. A limit also has the evidence label of what states it
@@ -183,6 +223,8 @@ class Side:
     basis: str
     evidence: str = ""
     kind: LimitKind | None = None
+    origin: Origin | None = None
+    """Where an applied value comes from (change c0274); a limit has none."""
 
     def __post_init__(self) -> None:
         if self.source not in SOURCES:
@@ -200,6 +242,8 @@ class Side:
         if limit:
             found["evidence"] = self.evidence
             found["kind"] = self.kind
+        elif self.origin is not None:
+            found["origin"] = self.origin.to_json()
         return found
 
 
@@ -232,10 +276,40 @@ class RequirementRow:
     corners: tuple[Corner, ...] = field(default=())
     missing: str = ""
     """What is not stated when the row is ``unknown`` (``voltage of V12``, ``no rating``, ``no class``)."""
+    decidable: Stage = "build"
+    """The stage at which the row can be decided (change c0274): ``build`` for a ``circuit.*`` row, ``place``
+    for a loop row, ``route`` for any other role row."""
+    waiver: str = ""
+    """The name of the waiver that accepted the row's finding (change c0274), ``""`` when none did."""
 
     def __post_init__(self) -> None:
         if self.status not in STATUSES:
             raise ValueError(f"row {self.id}: status {self.status!r} is not one of {', '.join(STATUSES)}")
+        if self.decidable not in STAGES:
+            raise ValueError(f"row {self.id}: decidable {self.decidable!r} is not one of {', '.join(STAGES)}")
+
+    @property
+    def item(self) -> str:
+        """The row id without its code: what a ``circuit.*`` waiver names (``C3:voltage``)."""
+        return self.id.partition(":")[2] or self.id
+
+    @property
+    def digest(self) -> str:
+        """The first 16 hexadecimal digits of the SHA-256 of the canonical JSON of the row's id, the ranges of
+        its value and limit, the limit's kind and both sources (change c0274): what a ``circuit.*`` waiver
+        accepts. The texts and bases are left out, so a reworded message is not a change."""
+        return row_digest(
+            {
+                "id": self.id,
+                "value": None
+                if self.value is None or self.value.range is None
+                else self.value.range.to_json(),
+                "limit": None if self.limit.range is None else self.limit.range.to_json(),
+                "kind": self.limit.kind,
+                "value_source": None if self.value is None else self.value.source,
+                "limit_source": self.limit.source,
+            }
+        )
         if self.unit not in TABLE_UNITS:
             raise ValueError(f"row {self.id}: unknown unit {self.unit!r}")
         if self.severity not in (None, "info", "warning", "error"):
@@ -255,7 +329,17 @@ class RequirementRow:
             "status": self.status,
             "severity": self.severity,
             "missing": self.missing,
+            "decidable": self.decidable,
+            "digest": self.digest,
+            "waiver": self.waiver or None,
         }
+
+
+def row_digest(data: Mapping[str, object]) -> str:
+    """The first ``DIGEST_DIGITS`` hexadecimal digits of the SHA-256 of ``data`` as canonical JSON (sorted
+    keys, no spaces, integers only)."""
+    text = json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:DIGEST_DIGITS]
 
 
 def table_json(rows: Iterable[RequirementRow]) -> list[dict[str, object]]:
@@ -276,19 +360,26 @@ def joined(*tables: Sequence[Mapping[str, object]]) -> list[Mapping[str, object]
 
 
 __all__ = [
+    "DIGEST_DIGITS",
     "LIMIT_KINDS",
+    "ORIGINS",
     "SOURCES",
+    "STAGES",
     "STATUSES",
     "TABLE_UNITS",
     "Bound",
     "Corner",
     "LimitKind",
+    "Origin",
+    "OriginKind",
     "RequirementRow",
     "Side",
     "Source",
+    "Stage",
     "Status",
     "amount_text",
     "decimal10",
     "joined",
+    "row_digest",
     "table_json",
 ]

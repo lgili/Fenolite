@@ -11,6 +11,9 @@ a set of documents (an Altium document, library, project file or project folder)
 ``checks.documents.run_document_checks`` without any external tool; since change c0088 its stages include
 ``copper.clearance`` and ``parity``.
 
+Change c0274: ``--matrix`` adds ``result.matrix``, the verification matrix of the requirement rows
+(``checks.circuit.matrix``); without ``--stages`` it runs only ``circuit.rules`` and ``roles.rules``.
+
 Change c0209: ``--exclude CODE:ITEM_A:ITEM_B --reason TEXT`` runs no stage; it writes one KiCad DRC
 exclusion into the board's project file under the mutation protocol (``cli._exclude``). Without it the
 command plans no write, so ``--dry-run`` and ``--confirm`` change nothing.
@@ -107,6 +110,12 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "checking; needs --reason and the mutation protocol (KiCad input only)",
     )
     parser.add_argument("--reason", metavar="TEXT", help="with --exclude: the comment stored with it")
+    parser.add_argument(
+        "--matrix",
+        action="store_true",
+        help="add result.matrix: the requirement rows of circuit.rules and roles.rules with their status, "
+        "digest and a receipt of the inputs (read-only; without --stages only those two stages run)",
+    )
 
 
 def parse_stages(text: str | None) -> tuple[str, ...]:
@@ -154,9 +163,29 @@ def circuit_inputs(root: Path) -> Callable[[Design], tuple[Mapping[str, DeviceDe
     def inputs(model: Design) -> tuple[Mapping[str, DeviceDef], Mapping[str, str]]:
         from fenolite.cli._contracts import classes_of, devices_of
 
-        return devices_of(model, root), classes_of(model)
+        devices = devices_of(model, root)
+        return devices, classes_of(model, devices)
 
     return inputs
+
+
+MATRIX_STAGES: tuple[str, ...] = ("circuit.rules", "roles.rules")
+"""The stages ``--matrix`` runs when ``--stages`` is not given: those that give requirement rows."""
+
+
+def _add_matrix(
+    result: dict[str, Any], args: argparse.Namespace, root: Path, model: Design | None
+) -> str | None:
+    """With ``--matrix``, ``result.matrix`` from the stages of ``result`` and its table for a terminal."""
+    if not args.matrix:
+        return None
+    from fenolite.checks.circuit.matrix import matrix, matrix_text
+    from fenolite.cli._contracts import devices_of
+
+    devices = devices_of(model, root) if model is not None else {}
+    found = matrix(result["stages"], model=model, devices=devices)
+    result["matrix"] = found
+    return matrix_text(cast(list[dict[str, object]], found["rows"]))
 
 
 def _cache(root: Path) -> tuple[bool, Design | None, str]:
@@ -176,6 +205,8 @@ def _run_documents(
     """The check of document input (capability altium-verification, "Check on Altium inputs"): no oracle is
     built and no subprocess runs; ``--kicad-cli`` and ``--timeout`` are accepted and ignored."""
     stages = _document_stages(args.stages)
+    if args.matrix and args.stages is None:
+        stages = tuple(name for name in stages if name in MATRIX_STAGES)
     built, model, cache_error = built_cache(documents.root)
     report = run_document_checks(
         documents=documents,
@@ -196,8 +227,14 @@ def _run_documents(
         "stages": [stage.to_json() for stage in report.stages],
         "waivers": dict(report.waivers),
     }
+    text = _add_matrix(result, args, documents.root, model if not cache_error else None)
     return Result(
-        result=result, issues=report.issues, evidence=report.evidence, input=input_ref(path, documents)
+        result=result,
+        issues=report.issues,
+        evidence=report.evidence,
+        input=input_ref(path, documents),
+        text=text,
+        text_on_failure=text is not None,
     )
 
 
@@ -299,6 +336,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             raise CliError("FEN-2001", "--exclude runs no stage: leave out --stages", where="--stages")
         return run_exclude(args, ctx, resolve_board(path))
     stages = parse_stages(args.stages)
+    if args.matrix and args.stages is None:
+        stages = MATRIX_STAGES
     board = resolve_board(path)
     checked = run_stages(
         board,
@@ -321,11 +360,15 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "stages": [stage.to_json() for stage in report.stages],
         "waivers": dict(report.waivers),
     }
+    _built, model, cache_error = _cache(board.parent) if args.matrix else (False, None, "")
+    text = _add_matrix(result, args, board.parent, model if not cache_error else None)
     data = board.read_bytes()
     return Result(
         result=result,
         issues=report.issues,
         evidence=report.evidence,
+        text=text,
+        text_on_failure=text is not None,
         input=InputRef(
             path=board.name, sha256=hashlib.sha256(data).hexdigest(), kind="kicad_pcb", format_version=None
         ),  # fmt: skip

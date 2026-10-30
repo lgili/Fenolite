@@ -178,6 +178,7 @@ another type; a flag without a value is a switch.
 - `--timeout SECONDS` (number, default `300.0`): kicad-cli timeout (300; unused for Altium input)
 - `--exclude CODE:ITEM_A:ITEM_B`: store a KiCad DRC exclusion of this finding in the project (both item orders) instead of checking; needs --reason and the mutation protocol (KiCad input only)
 - `--reason TEXT`: with --exclude: the comment stored with it
+- `--matrix`: add result.matrix: the requirement rows of circuit.rules and roles.rules with their status, digest and a receipt of the inputs (read-only; without --stages only those two stages run)
 
 ## convert
 `fenolite convert [OPTIONS] --to {altium,kicad} --out DIR SRC`

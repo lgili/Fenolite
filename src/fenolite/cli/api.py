@@ -85,6 +85,9 @@ class Result:
     text: str | None = None
     """A text the command wants printed as it is in text mode, after the status line (a page of the
     guide). JSON mode ignores it: the envelope holds no key for it."""
+    text_on_failure: bool = False
+    """Print ``text`` in text mode also when the command failed (``check --matrix``: a matrix is read most
+    when rows fail; change c0274)."""
     depends: tuple[str, ...] = ()
     """The inputs of the command that are not its targets, as :func:`depends_on` spells them: a plan id
     binds their digests, and ``--confirm --plan`` refuses when one changed (cli-contract, "Staged plans")."""

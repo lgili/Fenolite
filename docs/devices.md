@@ -61,7 +61,7 @@ temperature = { abs_max = { min = "-55degC", max = "150degC" }, operating = { mi
 | `manufacturer`, `mpn` | no | printable text; a generic device has neither |
 | `datasheet` | no | an `https://` URL |
 | `ref_prefix` | no | `[A-Z][A-Z_]*`; default: the prefix of a catalog symbol, else required |
-| `class` | no | one part class of the roles' vocabulary (`docs/roles.md`), evidence for `roles.classify` (change c0274) |
+| `class` | no | one part class of the roles' vocabulary (`docs/roles.md`), evidence for `roles.classify`, right after the class you state (`ferrite` makes a part a link that carries a stated voltage; change c0274) |
 | `value` | no | the default part value; default `mpn`, else the name part of `id` |
 | `kind`, `case`, `tolerance`, `dielectric` | no | a pickable row (change c0254, `docs/picking.md`): `kind` is `resistor`, `capacitor` or `inductor` and `value` a value of its unit; `case` an EIA inch code (`0603`), `tolerance` `1%` or `-20%..+80%`, `dielectric` a name (`X7R`) |
 | `evidence` | yes | one label of the evidence vocabulary |
@@ -127,7 +127,11 @@ in the shape above). An unknown function, a pair stated twice (in either order) 
 
 A pin may state `input_high_min`, `input_low_max`, `output_high_min`, `output_low_max` (voltages from
 `ground`) and `output_current_max` (a current), each one quantity text from the datasheet. They are stored
-as `Threshold(key, unit, value)` on the pin; no threshold is shipped or assumed.
+as `Threshold(key, unit, value)` on the pin; no threshold is shipped or assumed. A `logic` or bus port of
+the device takes each threshold its own table omits (and its direction allows) from its member pins, the
+strictest of them: the highest `input_high_min`, the lowest `input_low_max`, the lowest
+`output_high_min`, the highest `output_low_max`, the lowest `output_current_max`. A port that states a
+threshold keeps its own.
 
 ### Interface ports
 
