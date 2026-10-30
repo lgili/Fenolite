@@ -116,6 +116,21 @@ connection, each of exactly one kind, tried in this order:
   the `role-net` key names the connection as the `join` and `connection` keys do). A `group` subject is one
   per group; its role routes are open by c0222's walk, and may be closed on the board's connectivity (task
   0.1 found such groups on the role-copper variants).
+- **Along the power pads** (added in task 4.1): the open connections of a role net are taken along its
+  power pads (`roles.measure.power_pads`): the islands that hold a power pad are joined first, then each other
+  island by its nearest edge. Measured on the bms: the nearest-anchor tree of `connectivity` joins each source
+  pad to its own Kelvin-source pad, and every candidate of both edges then makes the gate returns the path of
+  the pack current (`roles.gate-return-shared`, error, on both gate loops); along the power pads the two
+  sources are joined and one Kelvin-source pad, and clean candidates exist. The count of open connections is
+  the same.
+- **Pad entry** (added in task 4.1): a pad end whose island has a track, arc or via touching the pad is moved
+  to the nearest point of the pad (50 µm grid) whose disc of the net's width keeps 50 µm from that copper, so
+  that new copper meets the pad and not the branch that leaves it. Measured on the half-bridge: from the
+  Kelvin-source pad's centre, where the gate return starts, every candidate touched the return and gave
+  `roles.gate-return-shared`; from the moved end most candidates are clean, and the facts name the others.
+- **Covered by a group:** an open connection whose two islands hold the two pads of a role route of an open
+  `group` subject is not a subject of its own (the half-bridge `open` variant's sense branches), so the
+  group's role-aware candidates are not doubled by plain ones.
 - **Attach-point names** in keys: a pad `REF-N`, a track end `trk@<x>,<y>` in nanometres, a zone by its
   name or `zone@<layer>`. Keys are sorted, so equal boards give equal keys.
 - **Hot loops** are never subjects of their own: an open hot-loop connection is a `join` (phase 1's
@@ -207,8 +222,11 @@ apart by more than the clearance in force anywhere):
 5. **`role`** (for `group` subjects only): c0244's role mode on the group's routes, first with its
    defaults (a shape that phase 2 refused because of its rounds or another group can pass now), then with
    one relaxation at a time from a closed list: `kelvin-vias=2`, `gate-vias=2`, `keep-away=clearance` (the
-   keep-away lowered to the clearance in force). Isolation is never relaxed: a sense branch on its own pour
-   is the fault the phase exists to avoid.
+   keep-away lowered to the clearance in force: the aggressors drop out of the route, and the clearance test,
+   which keeps the clearance in force from every other net's copper, keeps it from them; task 2.4 found that
+   lowering the in-plane distance alone leaves c0244's test of no overlap on the next layer, so a pair over a
+   switch-node pour stays refused). Isolation is never relaxed: a sense branch on its own pour is the fault
+   the phase exists to avoid.
 6. **`external:<router>`** with `--propose-with ROUTER` (`connection` subjects only): the router routes the
    selected nets once on a trial copy (its own job, its own budget); its copper is split per subject by
    connectivity, one candidate per subject it closed. Off by default; `sends_data_offsite` needs
