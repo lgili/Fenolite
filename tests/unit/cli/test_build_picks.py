@@ -93,7 +93,7 @@ def test_a_proposal_is_not_picked_by_itself(monkeypatch: pytest.MonkeyPatch, tmp
         'schema = "fenolite.device.v0"\nid = "Vendor:CAP10U"\nsummary = "s"\nsymbol = "Fenolite:Capacitor"\n'
         'footprint = "Fenolite:Chip_0805"\nvalue = "10uF"\nkind = "capacitor"\ncase = "0805"\n'
         'tolerance = "20%"\ndielectric = "X7R"\nevidence = "UNVERIFIED"\n\n[pins]\nP1 = "1"\nP2 = "2"\n\n'
-        '[ratings]\nvoltage = { max = "25V" }\n',
+        '[ratings]\nvoltage = { abs_max = "25V" }\n',
         encoding="utf-8",
     )
     (work / "design.lock").unlink()

@@ -52,7 +52,8 @@ def test_over_budget_rail_stops_the_build(monkeypatch: pytest.MonkeyPatch, tmp_p
 def test_good_variant_builds_without_circuit_issues(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     folder = copy_example(tmp_path / "ex")
     code, env = build(monkeypatch, folder / "good.py", tmp_path / "out", "--dry-run")
-    assert code == 0 and env["issues"] == []
+    # c0269 adds the info build.block-port-merged for the block whose port members share a net
+    assert code == 0 and [i for i in env["issues"] if i["code"] != "build.block-port-merged"] == []
 
 
 DEVICE_PULLUP = """
