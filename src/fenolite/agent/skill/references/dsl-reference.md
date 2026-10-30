@@ -30,6 +30,12 @@ Class: `Footprint(library: 'str', name: 'str', *, kind: 'FootprintKind' = 'unspe
 
 Author a library footprint with DSL lengths (`mm()`, `mil()`, `nm()` or unit strings).
 
+## Ground
+
+Class: `Ground(gnd: 'Net', *, name: 'str \| None' = None) -> 'None'`
+
+A ground: the member `gnd`; the default name is the net's name.
+
 ## Harness
 
 Class: `Harness(name: 'str', members: 'Mapping[str, Net]') -> 'None'`
@@ -38,7 +44,7 @@ A named group of nets with different names, such as SPI with MOSI, MISO and SCK.
 
 ## I2C
 
-Class: `I2C(sda: 'Net', scl: 'Net', *, name: 'str \| None' = None) -> 'None'`
+Class: `I2C(sda: 'Net', scl: 'Net', *, name: 'str \| None' = None, reference: 'object' = None, pullup: 'Range \| Quantity \| None' = None) -> 'None'`
 
 An I2C bus: `sda` and `scl` nets; the default name is `<sda>/<scl>`.
 
@@ -46,7 +52,13 @@ An I2C bus: `sda` and `scl` nets; the default name is `<sda>/<scl>`.
 
 Class: `Interface(name: 'str', kind: 'str', members: 'Mapping[str, Net]') -> 'None'`
 
-A typed bundle of nets: role → net.
+A typed bundle of nets: role → net; with the parameters, the reference rail and the sharing flag of.
+
+## Logic
+
+Class: `Logic(io: 'Net', *, name: 'str \| None' = None, reference: 'object' = None) -> 'None'`
+
+A logic line: the member `io` and the rail its levels refer to (`reference`, a `Rail` or a power port handle); the default name is the net's name.
 
 ## Module
 
@@ -74,9 +86,15 @@ A designator that is neither a function nor a listed symbol pin of a device part
 
 ## Power
 
-Class: `Power(hv: 'Net', lv: 'Net', *, name: 'str \| None' = None) -> 'None'`
+Class: `Power(hv: 'Net', lv: 'Net \| None' = None, *, name: 'str \| None' = None, voltage: 'Range \| Quantity \| None' = None, shared: 'bool' = False, **params: 'object') -> 'None'`
 
-A supply: `hv` and `lv` nets; the default name is `<hv>/<lv>`.
+A supply rail: the `hv` net and, when given, the `lv` net; the default name is `<hv>/<lv>`, or `<hv>`.
+
+## Rail
+
+Class: `Rail(hv: 'Net', lv: 'Net \| None' = None, *, name: 'str \| None' = None, voltage: 'Range \| Quantity \| None' = None, shared: 'bool' = False, **params: 'object') -> 'None'`
+
+A supply rail: the `hv` net and, when given, the `lv` net; the default name is `<hv>/<lv>`, or `<hv>`.
 
 ## Range
 
@@ -86,7 +104,7 @@ An exact interval of one unit (a unit of `UNITS`, or `"ratio"`) with an optional
 
 ## SPI
 
-Class: `SPI(sck: 'Net', mosi: 'Net', miso: 'Net', *, cs: 'Sequence[Net]' = (), name: 'str \| None' = None) -> 'None'`
+Class: `SPI(sck: 'Net', mosi: 'Net', miso: 'Net', *, cs: 'Sequence[Net]' = (), name: 'str \| None' = None, reference: 'object' = None) -> 'None'`
 
 An SPI bus: `sck`, `mosi`, `miso` and one `cs<i>` net per chip select, in the order given.
 
@@ -104,13 +122,13 @@ A per-cent tolerance without unit, from `lo` % to `hi` % (`lo <= 0 <= hi`); buil
 
 ## UART
 
-Class: `UART(tx: 'Net', rx: 'Net', *, name: 'str \| None' = None) -> 'None'`
+Class: `UART(tx: 'Net', rx: 'Net', *, name: 'str \| None' = None, reference: 'object' = None) -> 'None'`
 
 A UART link: `tx` and `rx` nets, named from device A (side `a`).
 
 ## USB2
 
-Class: `USB2(dp: 'Net', dn: 'Net', *, vbus: 'Net \| None' = None, gnd: 'Net \| None' = None, name: 'str \| None' = None) -> 'None'`
+Class: `USB2(dp: 'Net', dn: 'Net', *, vbus: 'Net \| None' = None, gnd: 'Net \| None' = None, name: 'str \| None' = None, reference: 'object' = None) -> 'None'`
 
 A USB 2.0 port: `dp` and `dn` nets, and `vbus` and `gnd` when given.
 
@@ -158,7 +176,7 @@ Join each pin to `net`; one designator of one part on two nets is refused.
 
 ## decouple
 
-Function: `decouple(rail: 'Net', ground: 'Net', *capacitors: 'Part', near: 'object' = None, within: 'object' = None, severity: 'str' = 'error') -> 'None'`
+Function: `decouple(rail: 'object', ground: 'object', *capacitors: 'Part', near: 'object' = None, within: 'object' = None, severity: 'str' = 'error') -> 'None'`
 
 Join each capacitor's `a` to `rail` and its `b` to `ground`.
 
@@ -248,13 +266,13 @@ How a via is protected.
 
 ## pull_down
 
-Function: `pull_down(target: 'Net \| I2C', ground: 'Net', *resistors: 'Part') -> 'None'`
+Function: `pull_down(target: 'object', ground: 'object', *resistors: 'Part') -> 'None'`
 
 Join each resistor's `a` to a net of `target` and its `b` to `ground`, as `pull_up`.
 
 ## pull_up
 
-Function: `pull_up(target: 'Net \| I2C', rail: 'Net', *resistors: 'Part') -> 'None'`
+Function: `pull_up(target: 'object', rail: 'object', *resistors: 'Part') -> 'None'`
 
 Join each resistor's `a` to a net of `target` and its `b` to `rail`.
 

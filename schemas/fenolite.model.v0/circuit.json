@@ -325,7 +325,7 @@
       "additionalProperties": false
     },
     "Interface": {
-      "description": "A typed bundle of nets (power, I2C, SPI…): role name → net id.",
+      "description": "A typed bundle of nets (power, I2C, SPI…): role name → net id. ``params`` (change c0252) are exact",
       "type": "object",
       "properties": {
         "id": {
@@ -365,6 +365,25 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ValueRange"
+          }
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "shared": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -738,6 +757,43 @@
         },
         "optional": {
           "type": "boolean"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ValueRange"
+          }
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "share": {
+          "type": "boolean"
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "split": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "evidence": {
+          "type": "string"
         }
       },
       "additionalProperties": false,

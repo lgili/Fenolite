@@ -3045,3 +3045,57 @@ path = "tests/data/drawn/repeat/sym-lib-table"
 origin = "authored"
 corpus_id = ""
 notes = "symbol table of the drawn fixture repeat naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "examples/sensor_rails/good.py"
+origin = "authored"
+corpus_id = ""
+notes = "rails example of change c0252, the good variant: every rail, logic level and pull-up passes circuit.rules; authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/sensor_rails/good.lock"
+origin = "authored"
+corpus_id = ""
+notes = "the committed design lock of examples/sensor_rails/good.py (c0252, lock of c0249), written by fenolite build"
+
+[[file]]
+path = "examples/sensor_rails/bad.py"
+origin = "authored"
+corpus_id = ""
+notes = "rails example of change c0252, the bad variant: an overloaded rail and a pull-up to the wrong rail; authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/sensor_rails/rails/__init__.py"
+origin = "authored"
+corpus_id = ""
+notes = "package marker of the board module of examples/sensor_rails (c0252)"
+
+[[file]]
+path = "examples/sensor_rails/rails/board.py"
+origin = "authored"
+corpus_id = ""
+notes = "the sensor board shared by the two variants of examples/sensor_rails (c0252), authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/sensor_rails/devices/example_fan.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative device record with interface parameters of examples/sensor_rails (c0252), authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/sensor_rails/devices/example_mcu.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative device record with interface parameters of examples/sensor_rails (c0252), authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/sensor_rails/devices/example_regulator.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative device record with interface parameters of examples/sensor_rails (c0252), authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/sensor_rails/devices/example_sensor.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative device record with interface parameters of examples/sensor_rails (c0252), authored for Fenolite; not a real product"

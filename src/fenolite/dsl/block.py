@@ -17,7 +17,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, cast, overload
 
 from fenolite.dsl.errors import DslError
-from fenolite.dsl.interfaces import I2C, SPI, UART, USB2, DiffPair, Harness, Interface, Power
+from fenolite.dsl.interfaces import I2C, SPI, UART, USB2, DiffPair, Ground, Harness, Interface, Logic, Power
 from fenolite.dsl.module import Container, Module
 from fenolite.dsl.part import Net, Part, check_name
 from fenolite.dsl.portnets import DIRECTIONS, PortHandle
@@ -46,6 +46,8 @@ RESERVED_PORT_NAMES: tuple[str, ...] = (
 PORT_KINDS: Mapping[type, str] = MappingProxyType(
     {
         Power: "power",
+        Ground: "ground",
+        Logic: "logic",
         DiffPair: "diff_pair",
         I2C: "i2c",
         UART: "uart",
@@ -54,11 +56,14 @@ PORT_KINDS: Mapping[type, str] = MappingProxyType(
         Harness: "harness",
     }
 )
-"""Interface class → the kind of a port of that class; c0252 adds its classes."""
+"""Interface class → the kind of a port of that class (``Rail`` is ``Power``; ``Ground``, ``Logic``: c0252).
+"""
 PORT_MEMBERS: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "net": ("net",),
         "power": ("hv", "lv"),
+        "ground": ("gnd",),
+        "logic": ("io",),
         "diff_pair": ("p", "n"),
         "i2c": ("sda", "scl"),
         "uart": ("tx", "rx"),
@@ -290,9 +295,16 @@ class Block(Module):
         optional: bool = False,
         members: Sequence[str] | None = None,
         selects: int | None = None,
+        requires: Sequence[str] = (),
+        reference: object = None,
+        share: bool = False,
+        **params: object,
     ) -> PortHandle:
         """Declare the port ``name`` of interface type ``kind`` (``Net`` or an ``Interface`` class) and
-        ``direction`` (``in``, ``out`` or ``inout``). ``optional`` silences ``build.port-unused``."""
+        ``direction`` (``in``, ``out`` or ``inout``). ``optional`` silences ``build.port-unused``. Change
+        c0252: ``params`` are the parameters of the kind's table for that direction (``PARAMETERS``;
+        ``current`` needs ``direction="in"`` or ``"out"``), ``reference`` the rail its levels refer to,
+        ``share`` lets an out power port share its rail, and ``requires`` its companions."""
         check_name(name, "port name")
         if name in RESERVED_PORT_NAMES:
             raise DslError(
@@ -310,6 +322,8 @@ class Block(Module):
         kind_name = _kind(kind, f"{self.describe()}: port {name}")
         names = _members(kind_name, members, selects, f"{self.describe()}: port {name}")
         handle = PortHandle(self, name, kind_name, direction, optional, names)
+        handle.requires = check_requires(requires, kind_name, direction, f"{self.describe()}: port {name}")
+        handle.set(reference=reference, share=share or None, **params)
         self.ports[name] = handle
         return handle
 
@@ -329,6 +343,37 @@ class Block(Module):
 
     def __repr__(self) -> str:
         return f"Block({self.name!r}, {self.definition.name!r})"
+
+
+REQUIRES: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {
+        "chip_select": ("spi",),
+        "pullup": ("i2c", "logic"),
+        "supply": ("i2c", "logic", "power", "spi", "uart", "usb2"),
+    }
+)
+"""The closed vocabulary of a port's companions (change c0252) → the kinds that take each entry; the same
+table as ``fenolite.model.circuit.REQUIRES``."""
+
+
+def check_requires(requires: object, kind: str, direction: str, what: str) -> tuple[str, ...]:
+    """``requires`` as a sorted tuple of entries of ``REQUIRES`` that ``kind`` takes; ``DslError`` naming
+    the entry and the kind otherwise. ``supply`` on a ``power`` port needs ``direction="in"``."""
+    if isinstance(requires, str) or not isinstance(requires, Sequence):
+        raise DslError(
+            f"{what}: requires is a list of entries such as ('pullup', 'supply'), not {requires!r}"
+        )
+    found: set[str] = set()
+    for entry in cast(Sequence[object], requires):
+        kinds = REQUIRES.get(entry) if isinstance(entry, str) else None
+        if kinds is None:
+            raise DslError(f"{what}: requires entry {entry!r} is not one of {', '.join(REQUIRES)}")
+        if kind not in kinds:
+            raise DslError(f"{what}: requires entry {entry!r} is not taken by a {kind} port")
+        if entry == "supply" and kind == "power" and direction != "in":
+            raise DslError(f"{what}: requires entry 'supply' is taken by an in power port")
+        found.add(cast(str, entry))
+    return tuple(sorted(found))
 
 
 def _kind(kind: object, what: str) -> str:
@@ -526,6 +571,7 @@ def blocks(design: Design) -> tuple[Block, ...]:
 __all__ = [
     "PORT_KINDS",
     "PORT_MEMBERS",
+    "REQUIRES",
     "RESERVED_PORT_NAMES",
     "Block",
     "BlockDef",
@@ -533,6 +579,7 @@ __all__ = [
     "PortHandle",
     "block",
     "blocks",
+    "check_requires",
     "instantiate",
     "record",
 ]

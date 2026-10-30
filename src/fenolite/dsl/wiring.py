@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.interfaces import I2C, Interface
 from fenolite.dsl.part import Net, Part, PinHandle, connect
-from fenolite.dsl.portnets import same_net
+from fenolite.dsl.portnets import MAIN_MEMBERS, PortHandle, as_net, same_net
 from fenolite.dsl.quantity import Quantity
 
 if TYPE_CHECKING:
@@ -41,9 +41,14 @@ def _part(value: object, what: str) -> Part:
 
 
 def _net(value: object, what: str) -> Net:
-    if not isinstance(value, Net):
-        raise DslError(f"{what} must be a Net, not {value!r}")
-    return value
+    """``value`` as a net: a ``Net``, or a net-like ``Rail``, ``Ground``, ``Logic`` or port (change c0252)."""
+    if isinstance(value, Net):
+        return value
+    if isinstance(value, Interface | PortHandle) and value.kind in MAIN_MEMBERS:
+        found = as_net(value, what=what)
+        if found is not None:
+            return found
+    raise DslError(f"{what} must be a Net, not {value!r}")
 
 
 def _join(links: Sequence[Link], call: str) -> None:
@@ -144,8 +149,8 @@ def series(*chain: object) -> tuple[Net, ...]:
 
 
 def decouple(
-    rail: Net,
-    ground: Net,
+    rail: object,
+    ground: object,
     *capacitors: Part,
     near: object = None,
     within: object = None,
@@ -155,8 +160,8 @@ def decouple(
     (given together, no default distance), each capacitor gets the placement rule
     ``design.near("decouple/<capacitor path>", capacitor, near, within=within, severity=severity)``."""
     call = "decouple()"
-    _net(rail, f"{call}: the rail")
-    _net(ground, f"{call}: the ground")
+    rail = _net(rail, f"{call}: the rail")
+    ground = _net(ground, f"{call}: the ground")
     if rail is ground or rail.name == ground.name:
         raise DslError(f"{call}: the rail and the ground are both {rail.name}")
     if not capacitors:
@@ -191,16 +196,22 @@ def decouple(
         part.two_terminal = True
 
 
-def _pull(target: object, other: Net, resistors: Sequence[object], call: str, what: str) -> None:
+def _pull(target: object, rail: object, resistors: Sequence[object], call: str, what: str) -> None:
+    signals: list[Net]
     if isinstance(target, Net):
         signals = [target]
-    elif isinstance(target, I2C):
+    elif isinstance(target, I2C) or (isinstance(target, PortHandle) and target.kind == "i2c"):
         signals = [target.members["sda"], target.members["scl"]]
-    elif isinstance(target, Interface):
-        raise DslError(f"{call}: the target is a Net or an I2C bus, not a {target.kind} interface")
+    elif isinstance(target, Interface | PortHandle) and target.kind == "logic":
+        signals = [target.members["io"]]  # a Logic interface or a logic port (change c0252)
+    elif isinstance(target, Interface | PortHandle):
+        raise DslError(
+            f"{call}: the target is a Net, an I2C bus or port, or a Logic line or port, not a {target.kind} "
+            "interface or port"
+        )
     else:
-        raise DslError(f"{call}: the target is a Net or an I2C bus, not {target!r}")
-    _net(other, f"{call}: the {what}")
+        raise DslError(f"{call}: the target is a Net, an I2C bus or port, or a Logic line, not {target!r}")
+    other = _net(rail, f"{call}: the {what}")
     parts = [_part(resistor, call) for resistor in resistors]
     if len(parts) != len(signals):
         raise DslError(
@@ -217,13 +228,15 @@ def _pull(target: object, other: Net, resistors: Sequence[object], call: str, wh
         part.two_terminal = True
 
 
-def pull_up(target: Net | I2C, rail: Net, *resistors: Part) -> None:
+def pull_up(target: object, rail: object, *resistors: Part) -> None:
     """Join each resistor's ``a`` to a net of ``target`` and its ``b`` to ``rail``. ``target`` is a ``Net``
-    (one resistor) or an ``I2C`` bus (two resistors: the first on SDA, the second on SCL)."""
+    (one resistor), an ``I2C`` bus or ``i2c`` port (two resistors: the first on SDA, the second on SCL), or a
+    ``Logic`` line or ``logic`` port (one resistor, change c0252); ``rail`` is a ``Net`` or a net-like
+    ``Rail`` or power port."""
     _pull(target, rail, resistors, "pull_up()", "rail")
 
 
-def pull_down(target: Net | I2C, ground: Net, *resistors: Part) -> None:
+def pull_down(target: object, ground: object, *resistors: Part) -> None:
     """Join each resistor's ``a`` to a net of ``target`` and its ``b`` to ``ground``, as ``pull_up``."""
     _pull(target, ground, resistors, "pull_down()", "ground")
 

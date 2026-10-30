@@ -117,6 +117,23 @@
         "height"
       ]
     },
+    "Decimal10": {
+      "description": "The exact decimal m · 10^e in its one canonical form (change c0246).",
+      "type": "object",
+      "properties": {
+        "m": {
+          "type": "integer"
+        },
+        "e": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "m",
+        "e"
+      ]
+    },
     "DeviceDef": {
       "description": "A device (change c0248): one reviewed record that joins a symbol, a footprint, the map from pin",
       "type": "object",
@@ -199,6 +216,12 @@
         "cls": {
           "type": "string"
         },
+        "interfaces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeviceInterface"
+          }
+        },
         "provenance": {
           "anyOf": [
             {
@@ -213,6 +236,57 @@
       "additionalProperties": false,
       "required": [
         "id"
+      ]
+    },
+    "DeviceInterface": {
+      "description": "An interface port a device declares (``[[interfaces]]``, change c0252): its name, kind and direction,",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "direction": {
+          "enum": [
+            "in",
+            "out",
+            "inout"
+          ]
+        },
+        "members": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ValueRange"
+          }
+        },
+        "reference": {
+          "type": "string"
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "kind"
       ]
     },
     "DevicePin": {
@@ -1279,6 +1353,59 @@
         "key",
         "unit",
         "value"
+      ]
+    },
+    "ValueRange": {
+      "description": "An exact range of an electrical value: unit, low, nominal and high, at least one bound given.",
+      "type": "object",
+      "properties": {
+        "unit": {
+          "enum": [
+            "ohm",
+            "farad",
+            "henry",
+            "volt",
+            "ampere",
+            "hertz",
+            "watt",
+            "second",
+            "kelvin"
+          ]
+        },
+        "low": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nominal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "high": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "unit"
       ]
     }
   }

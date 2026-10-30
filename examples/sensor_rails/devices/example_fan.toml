@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example; an illustrative device, not a real product. Its values are chosen
+# for the example and come from no datasheet.
+schema = "fenolite.device.v0"
+id = "Example:FAN_HEADER"
+summary = "Two-pin header for a 3.3 V fan of up to 1.1 A (illustrative)"
+symbol = "Fenolite:Connector_2"
+footprint = "Fenolite:Header_1x2_P2.54"
+ref_prefix = "J"
+evidence = "UNVERIFIED"
+
+[pins]
+P1 = "1"
+P2 = "2"
+
+[[interfaces]]
+name = "supply"
+kind = "power"
+direction = "in"
+members = { hv = ["P1"], lv = ["P2"] }
+voltage = { min = "3V", max = "3.6V" }
+current = { max = "1.1A" }

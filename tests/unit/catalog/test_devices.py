@@ -118,7 +118,7 @@ def test_shipped_namespace_needs_sources() -> None:
     )
 
 
-@pytest.mark.parametrize("key", ["interfaces", "options"])
+@pytest.mark.parametrize("key", ["options"])
 def test_reserved_key(key: str) -> None:
     error = _refused(_record(f'[{key}]\nI2C = "x"\n'), "FEN-3002")
     assert key in str(error) and isinstance(error, DeviceFormatTooNewError)

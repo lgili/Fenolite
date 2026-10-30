@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from fenolite.dsl.devices import Origin
     from fenolite.dsl.intents import AnchorRef, PadRef
     from fenolite.dsl.module import Container
-    from fenolite.dsl.portnets import Group
+    from fenolite.dsl.portnets import Group, PortHandle
 
 Side = Literal["top", "bottom"]
 NAME = re.compile(r"[A-Za-z0-9_.+-]+")
@@ -383,6 +383,8 @@ class Part(Edges):
         self.pad_zone_requests: dict[tuple[str, int | None], PadZoneRequest] = {}
         """The requests of ``zone_connection()``, by pad number and index."""
         self.connections: dict[str, Net] = {}
+        self.ports: dict[str, PortHandle] = {}
+        """The device ports of this part that the script reached (``port``; change c0252), by name."""
         self.no_connects: set[str] = set()
         """Designators marked as intentionally unconnected, as written (``no_connect``)."""
         self.two_terminal = False
@@ -475,14 +477,24 @@ class Part(Edges):
             kept.add(str(designator))
         self.unused_request = frozenset(kept)
 
-    def __getattr__(self, name: str) -> PinHandle:
-        """A function of a device part read as an attribute (``u1.VIN``); reached only for names that
-        ``Part`` does not define, so every attribute of the part wins."""
+    def port(self, name: str) -> PortHandle:
+        """The interface port ``name`` that the part's device declares (``[[interfaces]]``, change c0252):
+        a ``PortHandle`` whose members are the part's pins, through port nets owned by the part's path."""
+        from fenolite.dsl.devices import device_port
+
+        return device_port(self, name)
+
+    def __getattr__(self, name: str) -> PinHandle | PortHandle:
+        """A device port (change c0252) or a function of a device part read as an attribute (``u1.vdd``,
+        ``u1.VIN``); reached only for names that ``Part`` does not define, so every attribute of the part
+        wins."""
         if name.startswith("_"):
             raise AttributeError(name)
         device = self.__dict__.get("device")
         if device is None:
             raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
+        if any(found.name == name for found in device.interfaces):
+            return self.port(name)
         from fenolite.dsl.devices import designator as checked
 
         return PinHandle(self, checked(self, device, name))
@@ -703,20 +715,36 @@ class Part(Edges):
 def connect(net: object, *pins: object) -> Net:
     """Join each pin to ``net``; one designator of one part on two nets is refused.
 
-    ``net`` is a ``Net``, a port net or a net-like port of a block; a pin argument may also be a port net
-    or a net-like port, which binds it to ``net`` (``docs/dsl.md``, "Port nets")."""
+    ``net`` is a ``Net``, a port net, a net-like port or a net-like interface (a ``Rail``, a ``Ground`` or a
+    ``Logic``, change c0252); a pin argument may also be a port net, a net-like port or a compatible net-like
+    interface, which binds it to ``net`` (``docs/dsl.md``, "Port nets"). When every argument is an
+    interface or a port, whole interfaces are joined member by member (``fenolite.dsl.rails``)."""
+    from fenolite.dsl.interfaces import Interface
     from fenolite.dsl.portnets import PortHandle, PortNet, as_net, join, same_net
 
+    if pins and all(isinstance(item, Interface | PortHandle) for item in (net, *pins)):
+        from fenolite.dsl.rails import connect_interfaces
+
+        return connect_interfaces((net, *pins))
     first = as_net(net, what="connect()")
     if first is None:
         raise DslError(f"connect() needs a Net first, not {net!r}")
+    if any(isinstance(pin, Interface | PortHandle) for pin in pins):
+        from fenolite.dsl.rails import check_net_like
+
+        for pin in pins:
+            if isinstance(pin, Interface | PortHandle):
+                check_net_like(net, pin)
     for pin in pins:
-        if isinstance(pin, (PortNet, PortHandle)):
+        if isinstance(pin, (PortNet, PortHandle, Interface)):
             join(first, cast(Net, as_net(pin, what="connect()")))
             continue
         if not isinstance(pin, PinHandle):
             raise DslError(f"connect() takes pins such as part['1'], not {pin!r}")
         current = pin.part.connections.get(pin.designator)
+        if isinstance(current, PortNet) and current.port.owner is pin.part and not same_net(current, first):
+            join(first, current)  # a pin of a device port (change c0252): the port net joins the net
+            current = first
         if current is not None and not same_net(current, first):
             raise DslError(
                 f"pin {pin.part.label} {pin.designator} is already on net {current.name}; "

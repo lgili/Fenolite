@@ -194,4 +194,4 @@ A port SHALL accept `requires`, a list of entries of the closed vocabulary `pull
 #### Scenario: Over-budget rail stops the build
 - **GIVEN** the `bad` variant of `examples/sensor_rails/`, whose loads on `3V3` draw up to 1.15 A from a source of 1 A
 - **WHEN** it is built with `--confirm --json`
-- **THEN** the exit code is 5, `issues` hold one `circuit.rail-current` naming `3V3` and `buck.VOUT`, and no file is written
+- **THEN** the exit code is 5, `issues` hold one `circuit.rail-current` naming `3V3` and `buck/VOUT`, and no file is written

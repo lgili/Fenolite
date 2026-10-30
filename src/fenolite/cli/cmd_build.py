@@ -84,6 +84,7 @@ from fenolite.catalog import (
 )
 from fenolite.catalog.devices import check_device, device_digest, edited_issue, is_edited
 from fenolite.checks import placement as placement_rules
+from fenolite.checks.circuit import circuit_issues
 from fenolite.checks.copper import (
     LOWERING_CODES,
     CopperReport,
@@ -1391,6 +1392,9 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         layout_issues = [*layout_issues, *_resolution_issues(plan)]
         refused = refused or any(found.severity == "error" for found in layout_issues)
     files = {} if refused else dict(built.files)
+    circuit_found = circuit_issues(built.design)
+    if any(found.severity == "error" for found in circuit_found):
+        files = {}  # a circuit error stops the write, as every build error does (change c0252)
     _keep_confirmed_roles(out_dir, files)
     if any(found.severity == "error" for found in symbol_issues):
         files = {}  # a placements file with an error plans no write
@@ -1461,6 +1465,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             *source_issues,
             *default_issues,
             *built.issues,
+            *circuit_found,
             *symbol_issues,
             *plane_issues(plane_nets, built.layout or built.design),
             *copper_issues,
@@ -1831,6 +1836,9 @@ def _run_altium(
                 hint="pip install 'fenolite[geo]', or use --altium-pour outline",
             ) from error
     files = dict(built.files)
+    circuit_found = circuit_issues(model)
+    if any(found.severity == "error" for found in circuit_found):
+        files = {}  # a circuit error stops the write (change c0252)
     _keep_confirmed_roles(out_dir, files)
     if files and RECORD_FILE in files:
         # the base record of the Altium folder: what the build was given and wrote (change c0250)
@@ -1969,7 +1977,14 @@ def _run_altium(
         evidence = Evidence.combine(evidence, native_evidence)
     return Result(
         result=result,
-        issues=(*reader_issues, *script_issues, *built.issues, *copper_issues, *layout_issues),
+        issues=(
+            *reader_issues,
+            *script_issues,
+            *built.issues,
+            *circuit_found,
+            *copper_issues,
+            *layout_issues,
+        ),
         evidence=evidence,
         input=InputRef(
             path=str(args.design),

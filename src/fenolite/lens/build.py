@@ -137,6 +137,16 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.pad-map-default": "warning",
         "build.port-unused": "warning",  # c0251: blocks
         "build.block-net-escape": "warning",
+        # c0252: the circuit rules, which cmd_build runs on the model it builds (checks.circuit)
+        "circuit.rail-voltage": "error",
+        "circuit.rail-current": "error",
+        "circuit.rail-sources": "error",
+        "circuit.rail-unset": "warning",
+        "circuit.logic-level": "error",
+        "circuit.logic-unknown": "warning",
+        "circuit.bus-pullup": "warning",
+        "circuit.requires-missing": "warning",
+        "circuit.port-split": "warning",
         "layout.unplaced": "warning",
         "build.pad-without-pin": "info",
         "device.edited": "info",
@@ -802,8 +812,8 @@ def interface_checks(
     that no rule selects, ``build.diff-pair-name`` for a pair whose names KiCad does not pair,
     ``build.diff-pair-gap-shadowed`` for a pair KiCad would report at its class gap, and
     ``build.i2c-pullup-missing`` for an I2C line without a two-pin part to the ``hv`` net of a ``power``
-    interface. ``pins`` and ``on_net`` are those of ``_resolve_pins``; ``layers`` are the copper layers of
-    the board. Nothing is changed."""
+    interface or of a ``power`` port (change c0252). ``pins`` and ``on_net`` are those of ``_resolve_pins``;
+    ``layers`` are the copper layers of the board. Nothing is changed."""
     found: list[Issue] = []
     nets = {net.id: net for net in design.circuit.nets}
     names = {net.id: net.name for net in design.circuit.nets}
@@ -814,6 +824,7 @@ def interface_checks(
         for leaf in (*_leaves(rule.selector_a, "diff_pair"), *_leaves(rule.selector_b, "diff_pair"))
     ]
     supplies = {i.members["hv"] for i in design.circuit.interfaces if i.kind == "power" and "hv" in i.members}
+    supplies |= {p.members["hv"] for p in design.circuit.ports if p.kind == "power" and "hv" in p.members}
     for itf in design.circuit.interfaces:
         if itf.kind in pairs.PAIR_ROLES:
             words = PAIR_WORDS[itf.kind]
@@ -854,7 +865,7 @@ def interface_checks(
                     issue(
                         "build.i2c-pullup-missing",
                         f"I2C interface {itf.name}: the line {line} (net {names.get(net_id, net_id)}) has no "
-                        "pull-up to the hv net of a power interface",
+                        "pull-up to the hv net of a power interface or power port",
                         itf.name,
                         "add a resistor from the line to the supply, or ignore this when the pull-up is on "
                         "another board; a pull-up of more than two pins is not recognised",

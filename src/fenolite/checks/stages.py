@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 
 STAGE_ORDER: tuple[str, ...] = (
     "model.validate",
+    "circuit.rules",
     "erc.kicad",
     "copper.clearance",
     "length.rules",
@@ -64,9 +65,11 @@ length and the congestion of every board; it needs no tool either and follows ``
 ``length.rules`` (change c0106) judges the length and skew rules on the net lengths a ``LengthSource``
 gives; it needs no tool, stands right after ``copper.clearance`` and so before ``drc.kicad``.
 ``roles.rules`` (change c0222) judges the net roles of a board with the judge that ``fenolite check`` passes;
-it needs no tool and follows ``placement.rules``. ``schematic.drawn`` (change c0276) compares the drawn
-schematic of a built project with its circuit; it needs no tool, follows ``parity``, and ``fenolite check``
-lists it only for input whose build recorded a drawn schematic."""
+it needs no tool and follows ``placement.rules``. ``circuit.rules`` (change c0252) judges the interface
+parameters of the ``.fenolite/`` model (``checks.circuit``); it runs no tool and reads no board, and stands
+right after ``model.validate``. ``schematic.drawn`` (change c0276) compares the drawn schematic of a built
+project with its circuit; it needs no tool, follows ``parity``, and ``fenolite check`` lists it only for
+input whose build recorded a drawn schematic."""
 OPT_IN_STAGES: tuple[str, ...] = ("roundtrip.rt2", "render")
 """Stages that run only when ``--stages`` names them: RT2 costs two re-saves and three DRC runs."""
 DEFAULT_STAGES: tuple[str, ...] = tuple(name for name in STAGE_ORDER if name not in OPT_IN_STAGES)
@@ -110,6 +113,8 @@ StageSkip = Literal[
     "no-frame",
     "no-roles",
     "no-drawing",
+    "no-model",
+    "no-parameters",
 ]
 _COUNTED_SKIPS = frozenset({"read-refused", "cache-unreadable"})
 
@@ -254,6 +259,11 @@ def run_checks(
             return skipped("model.validate", "read-refused")
         return validate_stage(validation.read.design, built=False, evidence=validation.read.evidence)
 
+    def circuit() -> StageResult:
+        from fenolite.checks.circuit import circuit_stage
+
+        return circuit_stage(model, built=built, cache_error=cache_error)
+
     def erc() -> StageResult:
         if oracle is None:
             raise ValueError("erc.kicad is selected but no oracle was given")
@@ -359,6 +369,7 @@ def run_checks(
 
     runners: dict[str, Callable[[], StageResult]] = {
         "model.validate": model_stage,
+        "circuit.rules": circuit,
         "erc.kicad": erc,
         "copper.clearance": copper,
         "length.rules": length,

@@ -25,6 +25,7 @@ Without `--stages`, every stage of this table runs. `--stages A,B` selects some;
 | stage | what it judges | needs `kicad-cli` |
 |---|---|---|
 | `model.validate` | the design as data: references, nets, pins | no |
+| `circuit.rules` | the rails, logic levels, pull-ups and companions that the script and device records state | no |
 | `erc.kicad` | KiCad's electrical rules check on the schematic | yes |
 | `copper.clearance` | Fenolite's own check of shorts and clearances on the copper | no |
 | `length.rules` | the length and skew rules (`length`, `skew`, `diff_pair_skew`) on the net lengths as KiCad counts them | no |
@@ -38,6 +39,10 @@ Without `--stages`, every stage of this table runs. `--stages A,B` selects some;
 
 - `--stages model.validate,copper.clearance` is the fast check that runs anywhere: use it after each
   edit, and the whole check before you report.
+- `circuit.rules` is skipped with `no-model` (no `.fenolite/`) or `no-parameters`. Its errors
+  `circuit.rail-voltage`, `circuit.rail-current`, `circuit.rail-sources` and `circuit.logic-level` also stop
+  a build; `circuit.rail-unset`, `circuit.logic-unknown`, `circuit.bus-pullup`, `circuit.requires-missing`
+  and `circuit.port-split` warn.
 - Selecting a stage that needs `kicad-cli` on a machine without it exits 6.
 - An unrouted board exits 5: each open connection is a `kicad.drc.unconnected-items` error.
 - `result.stages` holds one entry per stage with `status` (`ok`, `errors` or `skipped`), the `reason`

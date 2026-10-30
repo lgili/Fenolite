@@ -74,12 +74,13 @@ fenolite copper board/board.kicad_pcb --dry-run --json
   conductor's current, its cross-section and its temperature rise. Its inputs are the current, the
   temperature rise that the user accepts, the copper thickness, and whether the layer is outer or
   inner. Ask for the current and the accepted rise; do not assume them.
-- **Use the right current.** Size the copper for the RMS value of the real, pulsed current at the
-  highest operating point, not for power divided by voltage. Measure it at the narrowest section and at
-  the pad entries. Compute again whenever the pours, the copper thickness or the stack-up change.
-- **Never narrow a power path silently.** Compare the old and the new section of a
-  narrowed path, and have the narrower one accepted.
-- **Size a via group by the barrels' cross-section**, and check how the current shares between the vias.
+- **Use the right current:** the RMS of the real, pulsed current at the highest operating point,
+  not power divided by voltage, at the narrowest section and the pad entries.
+- **Budget each rail:** a source port states `current` with `direction="out"`, a load with `"in"`;
+  `circuit.rail-current` compares them (page `board-schematic`).
+- **Never narrow a power path silently:** compare the old and the new section, and have the narrower
+  one accepted.
+- **Size a via group by the barrels' cross-section** and by how the current shares between them.
 - **Measure what you drew.** `analyze` reports the capacity of each track and via for your inputs.
   `--kinds power` measures the resistance and the voltage drop of the copper between two sets of pads,
   pours included. An ampacity is never claimed from a geometry check alone.

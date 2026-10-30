@@ -47,6 +47,7 @@ WITH_PCB = {
     "symbols/design.py",  # c0261
     "relative/pads.py",  # c0255
     "relative/blocks.py",  # c0255
+    "sensor_rails/good.py",  # c0252
 }
 """The examples whose build writes a PCB document."""
 SCHEMATIC_ONLY = {
@@ -59,6 +60,10 @@ SCHEMATIC_ONLY = {
     "schematic_blocks/grid.py",
 }
 REFUSED = {
+    "sensor_rails/bad.py": (
+        "the bad variant of change c0252, refused by design: circuit.rail-current on 3V3 and "
+        "circuit.logic-level on U2.i2c1 and U3.i2c"
+    ),
     "yardstick/design.py": (
         "needs the official KiCad libraries, and with them the Altium build is refused in both forms: "
         "altium.text-unwritable on the description of Isolator_Analog:AMC1200BDWV, which holds U+00B1"

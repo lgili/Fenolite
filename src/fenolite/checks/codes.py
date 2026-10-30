@@ -29,6 +29,8 @@ The ``drawn.*`` codes are those of the drawn schematic stage ``schematic.drawn``
 schematic stage issue codes", change c0276), the table of ``fenolite.model.drawn_connect``.
 The ``length.*`` codes are those of the length rules stage (``checks.length``; "Length stage issue codes",
 change c0106); the governing rule sets the severity of a finding.
+The ``circuit.*`` codes are those of the stage ``circuit.rules`` (``checks.circuit``; change c0252), which the
+build reports too.
 """
 
 from __future__ import annotations
@@ -116,6 +118,15 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "length.input-missing": ("warning",),
         # the drawn schematic stage (c0276): the codes of fenolite.model.drawn_connect.ISSUE_CODES
         **{code: (severity,) for code, severity in DRAWN_ISSUE_CODES.items()},
+        "circuit.rail-voltage": ("error",),
+        "circuit.rail-current": ("error",),
+        "circuit.rail-sources": ("error",),
+        "circuit.rail-unset": ("warning",),
+        "circuit.logic-level": ("error",),
+        "circuit.logic-unknown": ("warning",),
+        "circuit.bus-pullup": ("warning",),
+        "circuit.requires-missing": ("warning",),
+        "circuit.port-split": ("warning",),
     }
 )
 

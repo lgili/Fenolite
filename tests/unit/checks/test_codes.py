@@ -14,7 +14,18 @@ from fenolite.checks import STAGE_ORDER, codes
 from fenolite.checks.codes import ERC_FINDING, FINDING, ISSUE_CODES, issue, oracle_code, table_key
 
 CHECKS = Path(codes.__file__).resolve().parent
-CODE = ("check.", "erc.lite.", "netlist.", "render.", "copper.", "zone.", "parity.", "placement.", "length.")
+CODE = (
+    "check.",
+    "erc.lite.",
+    "netlist.",
+    "render.",
+    "copper.",
+    "zone.",
+    "parity.",
+    "placement.",
+    "length.",
+    "circuit.",
+)
 TABLE = {
     "check.read-refused": ("error",),
     "check.cache-unreadable": ("warning",),
@@ -97,6 +108,15 @@ TABLE = {
     "drawn.opaque-dropped": ("info",),
     "drawn.frozen": ("info",),
     "drawn.altium-repeat-flattened": ("info",),
+    "circuit.rail-voltage": ("error",),
+    "circuit.rail-current": ("error",),
+    "circuit.rail-sources": ("error",),
+    "circuit.rail-unset": ("warning",),
+    "circuit.logic-level": ("error",),
+    "circuit.logic-unknown": ("warning",),
+    "circuit.bus-pullup": ("warning",),
+    "circuit.requires-missing": ("warning",),
+    "circuit.port-split": ("warning",),
 }
 
 
@@ -128,7 +148,7 @@ def unknown(paths: list[Path]) -> set[str]:
 
 
 def test_codes_closed_set() -> None:
-    sources = sorted(CHECKS.glob("*.py"))
+    sources = sorted([*CHECKS.glob("*.py"), *CHECKS.glob("circuit/*.py")])  # circuit.*: change c0252
     assert unknown(sources) == set()
     # the finding row is generated from the report's type, never written as a literal
     # ``copper.clearance`` is also a stage name, which ``code_literals`` leaves out

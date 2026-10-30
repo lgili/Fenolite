@@ -699,6 +699,28 @@ Change c0251 records the blocks of a design script (`docs/dsl.md`, "Blocks").
   blocks gives the bytes it gave before, and an older file loads with `block == ""`, no params and no
   ports. `SCHEMA_VERSION` stays `"0"`. No backend writes ports to a KiCad or Altium file.
 
+### Interface parameters
+
+Change c0252 gives interfaces and ports electrical parameters (`docs/dsl.md`, "Interface parameters").
+
+- `Interface` gains `params: dict[str, ValueRange]`, `reference: str | None` (the id of the `power`
+  interface or port a logic level or a bus refers to) and `shared: bool` (several sources may drive the
+  rail). `Port` gains `params`, `reference`, `share: bool`, `requires: tuple[str, ...]` (sorted, from the
+  closed vocabulary `REQUIRES`: `chip_select`, `pullup`, `supply`), `split` (a member of a device port
+  whose pins are on two nets → those net ids; such a member is not in `members`) and `evidence` (the label
+  of the device record a device port comes from).
+- `INTERFACE_PARAMS` is the model-side parameter table: `power` takes `voltage` (volt) and `current`
+  (ampere); `logic` and the buses take `abs_max`, `input_high_min`, `input_low_max`, `output_high_min`,
+  `output_low_max` (volt) and `output_current_max` (ampere); `i2c` also takes `pullup` (ohm). `ground`
+  and any other kind take none. A param outside the table, or of another unit, raises `ValueError`
+  naming the kind and the param, and so does `current` on an `inout` port.
+- Each param is a c0246 `ValueRange`: the unit name and `Decimal10` bounds, never `min`/`max` text.
+- The kinds `ground` (member `gnd`) and `logic` (member `io`) are new. `power_interface_nets` still
+  reads the kind `power` only.
+- A device port is a `Port` owned by its component, with the id
+  `derived_id("prt", "dsl", "port:<component path>:<port name>")`.
+- Every new field is omitted when empty or default, so older files keep their bytes.
+
 ## Ids of design scripts
 
 Normative text: the fourth case of requirement "Identifier derivation" of the `design-model`
