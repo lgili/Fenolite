@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living specs this change touches (`cli-contract`, and `part-selection` once c0254 is archived) and the changes it builds on (c0248, c0254, c0259). Write under this task, with the date and the base commit:
+- [x] 0.1 Read `openspec list`, the living specs this change touches (`cli-contract`, and `part-selection` once c0254 is archived) and the changes it builds on (c0248, c0254, c0259). Write under this task, with the date and the base commit:
   - c0254's final names for the query model, the row loader, the ranking function, `pick.series.SERIES` and the lock entry keys;
   - c0259's record keys and its stable-id function (decision 2 of `design.md`);
   - c0248's `DeviceDef` fields and rating units (decision 7);
