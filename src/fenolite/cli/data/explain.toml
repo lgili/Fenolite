@@ -1204,6 +1204,11 @@ meaning = "A board image of the script is not written to the PCB document: the w
 fix = "Nothing to do for KiCad; place the picture in Altium if the document needs it."
 see = "Build target"
 
+["build.pad-unknown"]
+meaning = "Part.edit_pad() names a pad number the part's footprint does not hold; nothing is written."
+fix = "Name a pad number of the footprint, as its library file numbers it."
+see = "Build target"
+
 ["build.teardrops-overlap"]
 meaning = "Pads or vias are selected by more than one design.teardrops() call; each takes the settings of the later call."
 fix = "Nothing to do when the later call is meant to win; otherwise narrow the where= of one call."

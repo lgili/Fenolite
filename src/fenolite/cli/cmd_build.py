@@ -129,7 +129,15 @@ from fenolite.dsl import (
     via_protection_locked,
 )
 from fenolite.dsl import Design as DslDesign
-from fenolite.dsl.convert import images, model_refs, teardrop_rules, two_terminal, unused_marks
+from fenolite.dsl.convert import (
+    footprint_overrides,
+    images,
+    model_refs,
+    pad_edits,
+    teardrop_rules,
+    two_terminal,
+    unused_marks,
+)
 from fenolite.dsl.relative import has_layout
 from fenolite.geometry.errors import BackendUnavailable
 from fenolite.lens import edits as edits_mod
@@ -1395,6 +1403,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         planes=plane_nets,
         teardrops=teardrop_rules(design),
         models=model_refs(design),
+        overrides=footprint_overrides(design),
+        pad_edits=pad_edits(design),
         lock_outline=outline_locked(design),
         heights=heights(design),
         unused=unused_marks(design),

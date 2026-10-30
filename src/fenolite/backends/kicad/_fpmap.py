@@ -559,8 +559,8 @@ _PRIMITIVE_POINTS: Mapping[str, tuple[str, ...]] = MappingProxyType(
 
 def ppm_text(ppm: int) -> Atom:
     """A ratio in parts per million as the decimal KiCad writes (``250000`` → ``0.25``)."""
-    whole, frac = divmod(ppm, 1_000_000)
-    text = str(whole) + (f".{frac:06d}".rstrip("0") if frac else "")
+    whole, frac = divmod(abs(ppm), 1_000_000)
+    text = ("-" if ppm < 0 else "") + str(whole) + (f".{frac:06d}".rstrip("0") if frac else "")
     return Atom(text, AtomKind.NUMBER)
 
 

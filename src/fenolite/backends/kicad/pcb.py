@@ -55,6 +55,7 @@ from fenolite.backends.kicad._fpmap import (
     opaque_zone_connects,
     padstack_key,
     point_node,
+    ppm_text,
     projected_fab_property,
     projected_net_ties,
     projected_zone_connect,
@@ -109,6 +110,7 @@ from fenolite.model.board import (
     FootprintAttribute,
     FootprintField,
     FootprintInstance,
+    FootprintOverrides,
     Graphic,
     Image,
     Keepout,
@@ -453,6 +455,39 @@ def model_ref_node(model: ModelRef) -> Node:
         xyz("scale", *(Atom(factor, AtomKind.NUMBER) for factor in model.scale)),
         xyz("rotate", *(angle_atom(-angle if angle else 0) for angle in model.rotation)),
     )
+
+
+OVERRIDE_HEADS: tuple[tuple[str, str], ...] = (
+    ("solder_mask_margin", "mask_margin"),
+    ("solder_paste_margin", "paste_margin"),
+    ("solder_paste_margin_ratio", "paste_ratio"),
+    ("clearance", "clearance"),
+    ("zone_connect", "zone_connection"),
+    ("thermal_width", "thermal_spoke_width"),
+    ("thermal_gap", "thermal_gap"),
+)
+"""The footprint-level children of ``FootprintOverrides``, in the order of the demo boards (S-0058: after
+``sheetfile`` and ``units``, before ``attr``) and of S-0001."""
+
+
+def with_overrides(footprint: Node, overrides: FootprintOverrides) -> Node:
+    """``footprint`` with a child per set field of ``overrides`` (change c0277): a read child of that head is
+    replaced, a new one goes before ``attr`` (at the end without one)."""
+    made: list[Node] = []
+    for head, name in OVERRIDE_HEADS:
+        value = getattr(overrides, name)
+        if value is None:
+            continue
+        if name == "zone_connection":
+            made.append(zonelib.pad_connect_node(value))
+        elif name == "paste_ratio":
+            made.append(node(head, ppm_text(value)))
+        else:
+            made.append(node(head, Atom.from_nm(value)))
+    heads = {child.name for child in made}
+    children = [c for c in footprint.children if not (isinstance(c, Node) and c.name in heads)]
+    at = next((i for i, c in enumerate(children) if isinstance(c, Node) and c.name == "attr"), len(children))
+    return footprint.with_children([*children[:at], *made, *children[at:]])
 
 
 def with_models(footprint: Node, models: Sequence[ModelRef]) -> Node:
@@ -2952,6 +2987,8 @@ class _Writer:
             )
         if isinstance(entity, FootprintInstance) and entity.models:
             built = with_models(built, entity.models)
+        if isinstance(entity, FootprintInstance) and entity.overrides is not None:
+            built = with_overrides(built, entity.overrides)
         return built
 
     def absent(self, entity: Entity, created: bool) -> set[str]:

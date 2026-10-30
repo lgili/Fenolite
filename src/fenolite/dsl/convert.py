@@ -38,6 +38,7 @@ from fenolite.model.base import ExtBag
 from fenolite.model.board import (
     Board,
     Dimension,
+    FootprintOverrides,
     Graphic,
     Group,
     Keepout,
@@ -844,6 +845,26 @@ def unused_marks(design: Design) -> Mapping[str, tuple[str, ...]]:
     )
 
 
+def footprint_overrides(design: Design) -> Mapping[str, FootprintOverrides]:
+    """The footprint-level settings of each part that gives some (``Part.override``; change c0277), by
+    component path in path order."""
+    return MappingProxyType(
+        {path: part.overrides for path, part in sorted(design.parts.items()) if part.overrides is not None}
+    )
+
+
+def pad_edits(design: Design) -> Mapping[str, tuple[tuple[str, Mapping[str, object]], ...]]:
+    """The pad edits of each part that makes some (``Part.edit_pad``; change c0277), by component path in
+    path order, each ``(pad number, fields)`` in call order."""
+    return MappingProxyType(
+        {
+            path: tuple((number, MappingProxyType(dict(values))) for number, values in part.pad_edits)
+            for path, part in sorted(design.parts.items())
+            if part.pad_edits
+        }
+    )
+
+
 def model_refs(design: Design) -> Mapping[str, tuple[ModelRef, ...]]:
     """The 3D models of each part that names some (``Part.model``; change c0277), by component path in
     path order: the build gives them to the part's footprint instance."""
@@ -998,6 +1019,8 @@ __all__ = [
     "stackup_locked",
     "teardrop_rules",
     "model_refs",
+    "footprint_overrides",
+    "pad_edits",
     "images",
     "to_model",
     "two_terminal",

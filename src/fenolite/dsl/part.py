@@ -17,7 +17,7 @@ from fenolite.dsl.errors import DslError
 from fenolite.dsl.quantity import RATIO, SIGNED, Quantity, Range
 from fenolite.dsl.relative import Edges, LiveRequest, check_frame, parse_request
 from fenolite.dsl.units import as_nm, as_udeg
-from fenolite.model.board import MechanicalIntent, ModelRef
+from fenolite.model.board import FootprintOverrides, MechanicalIntent, ModelRef
 from fenolite.model.library import DeviceDef
 
 _SCALE = re.compile(r"^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$")
@@ -148,6 +148,8 @@ class Request:
 
 
 PAD_ZONE_CONNECTIONS = ("solid", "thermal", "none", "thru_hole_only")
+PAD_EDIT_FIELDS: tuple[str, ...] = ("at", "size", "rotation", "shape", "drill", "mask_margin", "paste_margin")
+"""The pad fields ``Part.edit_pad`` replaces (change c0277)."""
 """The values of ``Pad.zone_connection`` (``docs/design-model.md``)."""
 
 
@@ -407,6 +409,8 @@ class Part(Edges):
         """``place(rot=..., side=...)`` without a position: a layout strategy places the part, turned."""
         self.field_requests: dict[str, FieldRequest] = {}
         self.model_refs: list[ModelRef] = []
+        self.overrides: FootprintOverrides | None = None
+        self.pad_edits: list[tuple[str, dict[str, object]]] = []
         """The field placement requests of ``field()``, by field name."""
         self.pad_zone_requests: dict[tuple[str, int | None], PadZoneRequest] = {}
         """The requests of ``zone_connection()``, by pad number and index."""
@@ -639,6 +643,91 @@ class Part(Edges):
         self.request = Request(
             as_nm(x, name="x"), as_nm(y, name="y"), as_udeg(rot, name="rot"), side, locked, anchor
         )
+
+    def override(
+        self,
+        *,
+        clearance: object = None,
+        mask_margin: object = None,
+        paste_margin: object = None,
+        paste_ratio: int | None = None,
+        zone_connection: str | None = None,
+        thermal_gap: object = None,
+        thermal_spoke_width: object = None,
+    ) -> None:
+        """Footprint-level settings of this part's instance (change c0277), once per part: the clearance of
+        its pads, the solder-mask and paste margins, the paste ratio (parts per million of the pad size, may
+        be negative), the zone connection (``solid``, ``thermal``, ``none`` or ``thru_hole_only``) and the
+        thermal relief. ``None`` keeps what the footprint says; the library footprint is unchanged."""
+        what = f"part {self.label}: override"
+        if self.overrides is not None:
+            raise DslError(f"{what}: called once per part")
+        lengths: dict[str, Nm | None] = {}
+        given = {
+            "clearance": clearance, "mask_margin": mask_margin, "paste_margin": paste_margin,
+            "thermal_gap": thermal_gap, "thermal_spoke_width": thermal_spoke_width,
+        }  # fmt: skip
+        for label, value in given.items():
+            lengths[label] = None if value is None else as_nm(value, name=f"{what}: {label}")
+        for label in ("clearance", "thermal_gap", "thermal_spoke_width"):
+            if lengths[label] is not None and lengths[label] <= 0:  # type: ignore[operator]
+                raise DslError(f"{what}: {label} must be positive")
+        ratio: object = paste_ratio
+        if ratio is not None and (
+            isinstance(ratio, bool) or not isinstance(ratio, int) or abs(ratio) > 1_000_000  # pyright: ignore[reportUnnecessaryIsInstance]
+        ):
+            raise DslError(f"{what}: paste_ratio must be an int of parts per million, not {paste_ratio!r}")
+        if zone_connection is not None and zone_connection not in PAD_ZONE_CONNECTIONS:
+            names = ", ".join(PAD_ZONE_CONNECTIONS)
+            raise DslError(f"{what}: zone_connection must be one of {names}, not {zone_connection!r}")
+        found = FootprintOverrides(
+            clearance=lengths["clearance"], mask_margin=lengths["mask_margin"],
+            paste_margin=lengths["paste_margin"], paste_ratio=paste_ratio,
+            zone_connection=zone_connection,  # type: ignore[arg-type]
+            thermal_gap=lengths["thermal_gap"], thermal_spoke_width=lengths["thermal_spoke_width"],
+        )  # fmt: skip
+        if found == FootprintOverrides():
+            raise DslError(f"{what}: the call sets nothing")
+        self.overrides = found
+
+    def edit_pad(self, number: str | int, **fields: object) -> None:
+        """Replace fields of every pad numbered ``number`` of this part's instance only (change c0277): ``at``
+        and ``size`` (pairs of lengths in the footprint frame), ``rotation`` (degrees, footprint-relative),
+        ``shape`` (``circle``, ``rect``, ``oval`` or ``roundrect``), ``drill``, ``mask_margin`` and
+        ``paste_margin``. A number the footprint does not hold is ``build.pad-unknown``; the library
+        footprint is unchanged."""
+        what = f"part {self.label}: edit_pad({number!r})"
+        name = str(number)
+        if not name or isinstance(number, bool):
+            raise DslError(f"{what}: a pad number is a non-empty string or an int")
+        unknown = sorted(set(fields) - set(PAD_EDIT_FIELDS))
+        if unknown or not fields:
+            raise DslError(
+                f"{what}: fields are some of {', '.join(PAD_EDIT_FIELDS)}, not {unknown or 'none'}"
+            )
+        values: dict[str, object] = {}
+        for key, value in fields.items():
+            if key in ("at", "size"):
+                if not isinstance(value, tuple) or len(value) != 2:  # pyright: ignore[reportUnknownArgumentType]
+                    raise DslError(f"{what}: {key} must be an (x, y) pair of lengths")
+                pair = (as_nm(value[0], name=f"{what}: {key}"), as_nm(value[1], name=f"{what}: {key}"))  # pyright: ignore[reportUnknownArgumentType]
+                if key == "size" and (pair[0] <= 0 or pair[1] <= 0):
+                    raise DslError(f"{what}: size must be positive")
+                values[key] = pair
+            elif key == "rotation":
+                values[key] = as_udeg(value, name=f"{what}: rotation")
+            elif key == "shape":
+                if value not in ("circle", "rect", "oval", "roundrect"):
+                    raise DslError(f"{what}: shape must be circle, rect, oval or roundrect, not {value!r}")
+                values[key] = value
+            else:
+                found = as_nm(value, name=f"{what}: {key}")
+                if key == "drill" and found <= 0:
+                    raise DslError(f"{what}: drill must be positive")
+                values[key] = found
+        if any(n == name for n, _ in self.pad_edits):
+            raise DslError(f"{what}: the pad is already edited")
+        self.pad_edits.append((name, values))
 
     def model(
         self,

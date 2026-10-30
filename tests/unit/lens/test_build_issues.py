@@ -46,6 +46,7 @@ def test_closed_set() -> None:
         "build.plane-zone-missing": "warning",  # c0107 (build.plane-not-lowered of c0038 left the table)
         "build.teardrops-overlap": "info",  # c0277
         "build.image-missing": "error",
+        "build.pad-unknown": "error",
         "build.image-format": "error",
         "build.diff-pair-name": "warning", "build.i2c-pullup-missing": "warning",  # c0073
         "build.diff-pair-gap-shadowed": "warning",  # c0104

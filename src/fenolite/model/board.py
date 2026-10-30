@@ -331,6 +331,22 @@ class FootprintField(Entity):
 
 
 @dataclass(frozen=True, slots=True)
+class FootprintOverrides:
+    """Footprint-level settings of one placed footprint (change c0277), KiCad's footprint ``clearance``,
+    ``solder_mask_margin``, ``solder_paste_margin``, ``solder_paste_margin_ratio`` (parts per million, may be
+    negative), ``zone_connect``, ``thermal_width`` and ``thermal_gap``; ``None`` keeps what the footprint
+    says."""
+
+    clearance: Nm | None = None
+    mask_margin: Nm | None = None
+    paste_margin: Nm | None = None
+    paste_ratio: int | None = None
+    zone_connection: ZoneConnection | None = None
+    thermal_gap: Nm | None = None
+    thermal_spoke_width: Nm | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ModelRef:
     """A 3D model of a placed footprint named by a script (change c0277): ``name`` is a reference only (a
     path or ``${KICAD10_3DMODEL_DIR}/…``), never read; ``offset`` ``(x, y, z)`` in nm in the footprint
@@ -397,6 +413,9 @@ class FootprintInstance(Entity):
     models: tuple[ModelRef, ...] = field(default=(), metadata=ORDERED)
     """The 3D models a script gives this instance (change c0277): any replaces the footprint's own models
     for the instance; empty keeps them. Left out of the canonical JSON when empty."""
+    overrides: FootprintOverrides | None = None
+    """The footprint-level settings a script gives this instance (change c0277); ``None`` keeps the
+    footprint's. A KiCad reader does not project them: the children stay in their slots."""
 
 
 def outward_height(footprint: FootprintInstance) -> Nm | None:
@@ -766,6 +785,7 @@ __all__ = [
     "Board",
     "CHAMFER_CORNERS",
     "ChamferCorner",
+    "FootprintOverrides",
     "Image",
     "ModelRef",
     "PadAnchor",

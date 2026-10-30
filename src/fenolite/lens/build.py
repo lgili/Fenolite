@@ -76,7 +76,7 @@ from fenolite.backends.kicad.schlayout import SymbolPlacement
 from fenolite.backends.kicad.sexpr import parse_bytes
 from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.kicad.zones import PadZoneRequestLike, apply_pad_connections, keep_pad_connections
-from fenolite.core.coords import Point
+from fenolite.core.coords import Point, Size
 from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
@@ -91,6 +91,7 @@ from fenolite.model import canonical, drawn_connect, pairs
 from fenolite.model.board import (
     ComponentBody,
     FootprintInstance,
+    FootprintOverrides,
     Image,
     Layer,
     ModelRef,
@@ -158,6 +159,7 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.plane-zone-missing": "warning",
         "build.teardrops-overlap": "info",  # c0277
         "build.image-missing": "error",  # c0277
+        "build.pad-unknown": "error",
         "build.image-format": "error",
         "build.impedance-layer": "error",
         "build.impedance-shadowed": "warning",
@@ -1244,6 +1246,32 @@ def board_images(design: Design, sources: Sequence[ImageSource]) -> tuple[Design
     ), issues
 
 
+def edit_pads(
+    footprint: FootprintInstance,
+    edits: Sequence[tuple[str, Mapping[str, object]]],
+    where: str,
+    issues: list[Issue],
+) -> FootprintInstance:
+    """``footprint`` with each edit applied to every pad of its number (``Part.edit_pad``; change c0277): a
+    number the footprint does not hold is ``build.pad-unknown`` (error)."""
+    pads = list(footprint.pads)
+    for number, values in edits:
+        if not any(pad.number == number for pad in pads):
+            message = f"{where}: the footprint {footprint.lib_ref} has no pad {number!r} to edit"
+            issues.append(issue("build.pad-unknown", message, where, "name a pad number of the footprint"))
+            continue
+        change: dict[str, object] = {}
+        for key, value in values.items():
+            if key == "at":
+                change["position"] = Point(*value)  # type: ignore[misc]
+            elif key == "size":
+                change["size"] = Size(*value)  # type: ignore[misc]
+            else:
+                change[key] = value
+        pads = [dataclasses.replace(pad, **change) if pad.number == number else pad for pad in pads]  # type: ignore[arg-type]
+    return dataclasses.replace(footprint, pads=tuple(pads))
+
+
 def apply_teardrops(design: Design, rules: Sequence[TeardropRule], issues: list[Issue]) -> Design:
     """``design`` with the settings of ``rules`` on every pad and via each selects (change c0277): a pad is
     the subject ``pad`` of its net, the net's class (``Default`` without one) and its part's reference, a via
@@ -1326,6 +1354,8 @@ def build_design(
     planes: Mapping[str, str] | None = None,
     teardrops: Sequence[TeardropRule] = (),
     models: Mapping[str, Sequence[ModelRef]] = MappingProxyType({}),
+    overrides: Mapping[str, FootprintOverrides] = MappingProxyType({}),
+    pad_edits: Mapping[str, Sequence[tuple[str, Mapping[str, object]]]] = MappingProxyType({}),
     lock_outline: bool = False,
     heights: Mapping[str, Nm] | None = None,
     unused: Mapping[str, Sequence[str]] | None = None,
@@ -1485,6 +1515,8 @@ def build_design(
     identities: dict[str, Mapping[str, str]] = {}
     lacking: set[str] = set()
     models_by_id: dict[str, tuple[ModelRef, ...]] = {}
+    overrides_by_id: dict[str, FootprintOverrides] = {}
+    edits_by_id: dict[str, tuple[str, tuple[tuple[str, Mapping[str, object]], ...]]] = {}
     for part in parts:
         missing = [name for name in MANDATORY_FIELDS if name not in part.footprint.properties]
         if missing and part.footprint.lib_id not in lacking:
@@ -1568,6 +1600,10 @@ def build_design(
         instance = apply_requests(instance, fields.get(part.path, ()))
         if part.path in models:
             models_by_id[part.component.id] = tuple(models[part.path])  # the part's 3D models (c0277)
+        if part.path in overrides:
+            overrides_by_id[part.component.id] = overrides[part.path]
+        if part.path in pad_edits:
+            edits_by_id[part.component.id] = (part.path, tuple(pad_edits[part.path]))
         stated = (heights or {}).get(part.path)
         if stated is not None:
             instance = dataclasses.replace(
@@ -1732,6 +1768,18 @@ def build_design(
         )
     if teardrops:
         target_design = apply_teardrops(target_design, teardrops, issues)
+    if (overrides_by_id or edits_by_id) and target_design.board is not None:
+        edited: list[FootprintInstance] = []
+        for fp in target_design.board.footprints:
+            if fp.component_id in overrides_by_id:
+                fp = dataclasses.replace(fp, overrides=overrides_by_id[fp.component_id])
+            if fp.component_id in edits_by_id:
+                path, edits = edits_by_id[fp.component_id]
+                fp = edit_pads(fp, edits, path, issues)
+            edited.append(fp)
+        target_design = dataclasses.replace(
+            target_design, board=dataclasses.replace(target_design.board, footprints=tuple(edited))
+        )
     if models_by_id and target_design.board is not None:
         with_models = tuple(
             dataclasses.replace(fp, models=models_by_id[fp.component_id])

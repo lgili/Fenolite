@@ -800,6 +800,16 @@
           "items": {
             "$ref": "#/$defs/ModelRef"
           }
+        },
+        "overrides": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FootprintOverrides"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -809,6 +819,88 @@
         "lib_ref",
         "position"
       ]
+    },
+    "FootprintOverrides": {
+      "description": "Footprint-level settings of one placed footprint (change c0277), KiCad's footprint ``clearance``,",
+      "type": "object",
+      "properties": {
+        "clearance": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mask_margin": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "paste_margin": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "paste_ratio": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "zone_connection": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "thermal",
+                "none",
+                "thru_hole_only"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "thermal_gap": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "thermal_spoke_width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
     },
     "Graphic": {
       "description": "A drawing primitive on a non-copper or copper layer; ``points`` meaning depends on ``kind``.",

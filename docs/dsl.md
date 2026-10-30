@@ -872,6 +872,15 @@ r1.field("Reference", dx=mm(0), dy="-2.5mm", rot=0, justify="left", locked=True)
 - **`locked`.** On a first build every request applies. On a rebuild over an existing board, a field
   edited in KiCad wins over an unlocked request; `locked=True` makes the request win (`docs/lens.md`,
   "Footprint fields").
+- **Overrides** (change c0277). `Part.override(*, clearance=None, mask_margin=None, paste_margin=None,
+  paste_ratio=None, zone_connection=None, thermal_gap=None, thermal_spoke_width=None)`, once per part, sets
+  the footprint-level settings of this part's instance: KiCad's footprint `clearance`, `solder_mask_margin`,
+  `solder_paste_margin`, `solder_paste_margin_ratio` (`paste_ratio` in parts per million, may be negative),
+  `zone_connect` (`solid`, `thermal`, `none`, `thru_hole_only`), `thermal_width` and `thermal_gap`, written
+  before the footprint's `attr` (`FootprintInstance.overrides`, `FootprintOverrides`). `Part.edit_pad(number,
+  **fields)` replaces `at`, `size`, `rotation`, `shape`, `drill`, `mask_margin` or `paste_margin` of every
+  pad of that number of this instance only; a number the footprint does not hold is `build.pad-unknown`
+  (error). The vendored library footprint is unchanged, and the copper guard judges the edited pads.
 - **3D models** (change c0277). `Part.model(name, *, offset=(0, 0, 0), rotation=(0, 0, 0), scale=("1", "1",
   "1"), hidden=False)` adds one 3D model to the part's footprint instance; any call replaces the footprint's
   own models for this part. `name` is a reference only (`"${KICAD10_3DMODEL_DIR}/Package_SO.3dshapes/
