@@ -4419,7 +4419,8 @@ or layer filters with KiCad plots give `FEN-2001`, exit 2. `--nets` still enable
 `check.result.subjects` is a list of `{issue, items}`: the zero-based index into envelope `issues` and
 `items` with `{kind, id, name}`. With concise output the grouped subjects are retained; with pagination indices are local to the visible issues.
 Issues themselves retain their exact existing keys. Available producers
-are copper, length, placement and roles stages; circuit contract subjects wait for c0252/c0253.
+are the copper, length, placement, roles and circuit stages; a `circuit.rules` finding of a
+requirement row names its part and nets (a ground net only when the row names no other).
 
 `build.unattached` is a warning for a live script-created Part, Net or Interface that never reached the
 design. Its `where` is script-relative `file:line:N`; add, connect or delete that object. Creation tracking

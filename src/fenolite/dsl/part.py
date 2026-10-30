@@ -405,7 +405,7 @@ class Part(Edges):
         self.pad_zone_requests: dict[tuple[str, int | None], PadZoneRequest] = {}
         """The requests of ``zone_connection()``, by pad number and index."""
         self.connections: dict[str, Net] = {}
-        record(self, "Part", self.ref)
+        record(self, "Part", self.label)
         self.ports: dict[str, PortHandle] = {}
         """The device ports of this part that the script reached (``port``; change c0252), by name."""
         self.no_connects: set[str] = set()

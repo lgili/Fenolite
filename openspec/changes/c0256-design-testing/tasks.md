@@ -9,8 +9,10 @@
 
 - [x] 1.1 Add `checks/subjects.py` (`Subject`, `SUBJECT_KINDS`) and `StageResult.subjects` with its length check (scenarios "Misaligned subjects refused", "Closed kinds"). Proof: `uv run pytest tests/unit/checks/test_subjects.py -k misaligned -q`.
   - 2026-10-29: proof passed, exit 0 (2 tests); closed subject kinds and alignment are enforced.
-- [ ] 1.2 Fill subjects in `copper.clearance`, `length.rules`, `placement.rules`, `roles.rules` and `circuit.rules`, and write `result.subjects` in `cmd_check` (scenarios "A rating finding names its part and net", "A length finding names its net", "Envelope unchanged"). Proof: `uv run pytest tests/unit/checks/test_subjects.py tests/consistency -k "subjects or envelope" -q`.
+- [x] 1.2 Fill subjects in `copper.clearance`, `length.rules`, `placement.rules`, `roles.rules` and `circuit.rules`, and write `result.subjects` in `cmd_check` (scenarios "A rating finding names its part and net", "A length finding names its net", "Envelope unchanged"). Proof: `uv run pytest tests/unit/checks/test_subjects.py tests/consistency -k "subjects or envelope" -q`.
   - 2026-10-29: available stage/subject and envelope proof passed (54 tests, exit 0). Implemented the four available stages and global indices, including input issues. Remains open for c0252/c0253 circuit.rules and its real rating scenario.
+  - 2026-10-30: completed after merging `circuits-as-code` (c0252/c0253 landed). `circuit.rules` subjects come from each finding's requirement row (part and nets by model id; a ground net only when the row names no other), else from `where`; `CircuitResult.entities` is aligned with the sorted findings. Added "A rating finding names its part and net" (`C1`, `V12` with model ids). Proof passed, exit 0: 59 passed (`tests/unit/checks/test_subjects.py tests/consistency -k "subjects or envelope"`); `tests/unit/checks tests/unit/cli/test_check_subjects.py tests/unit/roles` 1044 passed.
+
 - [x] 1.3 Resolve findings by subject in `view/check_overlay.py` and list the names in the panel (scenario "A finding with an empty where"). Proof: `uv run pytest tests/unit/view/test_check_overlay.py -q`.
 
   - 2026-10-29: overlay proof passed, exit 0 (5 tests), including id-first resolution, name fallback and empty locations.
@@ -41,12 +43,16 @@
   - 2026-10-29: import-graph proof passed, exit 0 (52 tests); testing is a stdlib-only top layer and no lower layer may import it.
 - [x] 4.2 `load` and `TestDesign` lifecycle (scenarios "Built in a temporary folder", "Same inputs, same model", "Folder removed", "A failing script fails the test"). Proof: `uv run pytest tests/unit/testing/test_load.py -q`.
   - 2026-10-29: lifecycle proof passed, exit 0 (3 tests); owned temporary plans/builds removed, caller workdir retained, deterministic model and script error locations preserved.
-- [ ] 4.3 `instantiate` for one c0251 block (scenario "A buck block alone"). Proof: `uv run pytest tests/unit/testing/test_instantiate.py -q`.
+- [x] 4.3 `instantiate` for one c0251 block (scenario "A buck block alone"). Proof: `uv run pytest tests/unit/testing/test_instantiate.py -q`.
   - 2026-10-29: deferred: c0251 has not landed. No instantiate stub is exported and no passing block scenario is claimed.
+  - 2026-10-30: `instantiate(block, /, **params)` writes a bench script in the private folder (100 mm board, block used as `dut`), copies the block's project `devices/`, and loads it like `load`; `ref()` accepts block paths (`fenolite.path`), `net("dut/VOUT")` reads a multi-member port's main member. The buck block is authored in the test with catalog parts (c0251's example has none). Proof passed, exit 0: `tests/unit/testing/test_instantiate.py` 2 passed.
+
 - [x] 4.4 `net`, `ref`, `connected` (scenarios "Views of the example", "Unknown names", "Pins on one net, not yet routed"). Proof: `uv run pytest tests/unit/testing/test_queries.py -q`.
   - 2026-10-29: query proof passed, exit 0 (2 tests); uses model identities, netlist vs physical copper and close-name hints. voltage/device remain None pending c0246/c0248/c0252; c0251 block paths remain deferred.
-- [ ] 4.5 `findings` (scenarios "Circuit findings in a test", "Oracle stage refused"). Proof: `uv run pytest tests/unit/testing/test_findings.py -q`.
+- [x] 4.5 `findings` (scenarios "Circuit findings in a test", "Oracle stage refused"). Proof: `uv run pytest tests/unit/testing/test_findings.py -q`.
   - 2026-10-29: available findings proof passed, exit 0 (2 tests), covering filters, evidence, build warnings and oracle refusal before calls. Remains partial/open for the real circuit.* rating scenario of c0252/c0253.
+  - 2026-10-30: "Circuit findings in a test" reads the capacitor's rating row as a `circuit.value-unknown` warning (subjects `C1`, `V12`), and a failing rating makes `load` raise `TestingError` naming `circuit.rating-voltage at C1` (a circuit error stops the build, c0252); the spec scenario is reworded to match (design.md, "Completion decisions"). `load` copies the script's `devices/` beside the private build so the check judges the same records. Proof passed, exit 0: `tests/unit/testing/test_findings.py` 3 passed.
+
 - [x] 4.6 `svgdiff.py` and `assert_render` (scenarios "A moved track fails the golden test", "Same bytes, same verdict"). Proof: `uv run pytest tests/unit/testing/test_golden.py -q`.
 
   - 2026-10-29: golden proof passed, exit 0 (3 tests); exact bytes, no reference writes, missing-file diagnostics and one-element track changes are covered.
@@ -54,8 +60,10 @@
 
 ## 5. Example, docs and guide
 
-- [ ] 5.1 `examples/testing/`: an authored design (catalog parts only), its `test_design.py` using every helper, and its golden `gnd.svg` written by `fenolite render --confirm`; the example tests run in `make check-fast`. Proof: `uv run pytest examples/testing -q`; `make residue`.
+- [x] 5.1 `examples/testing/`: an authored design (catalog parts only), its `test_design.py` using every helper, and its golden `gnd.svg` written by `fenolite render --confirm`; the example tests run in `make check-fast`. Proof: `uv run pytest examples/testing -q`; `make residue`.
   - 2026-10-29: available example proof passed, exit 0 (2 tests), and residue scan is clean. Canonical golden is net-GND.svg, generated via reviewed dry-run/confirm; grid-coordinate numeric matches have one exact-file waiver. Example is in check-fast and the platform unit suite. Remains open only for instantiate/block coverage after c0251.
+  - 2026-10-30: `examples/testing/test_design.py` now also uses `instantiate` on an authored divider block defined in the test file (no new script file, so the example script discovery is unchanged); its MANIFEST rows exist. Proof passed, exit 0: `uv run pytest examples/testing -q` 3 passed; `make residue` 0 hits.
+
 - [x] 5.2 Docs: `docs/testing.md` (new, linked from `docs/index.md` and `docs/dsl.md`), `docs/exports.md` ("Net renders"), `docs/viewer.md` (subjects), `docs/cli-contract.md` (`render --net`, `result.subjects`, `build.unattached`). Proof: `uv run pytest tests/consistency -q`.
   - 2026-10-29: consistency proof passed, exit 0 (572 passed, 35 skipped). Docs distinguish implemented helpers from pending dependencies and describe subjects and model renders.
 - [x] 5.3 Agent guide: a tested line for `render --net` on `checks` and for `fenolite.testing` and `build.unattached` on `design-script`; keep every reference page within 12000 bytes by splitting the existing oversized generated command reference into linked pages; then `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
@@ -64,16 +72,18 @@
 
 ## 6. Closing
 
-- [x] 6.1 Run `make check-fast`, then the required CI jobs on the pushed head of the branch (Linux, macOS and Windows unit jobs carry `H-G-RENDER-DETERMINISTIC`). Proof: `make check-fast`, and the required jobs green on the exact commit.
+- [ ] 6.1 Run `make check-fast`, then the required CI jobs on the pushed head of the branch (Linux, macOS and Windows unit jobs carry `H-G-RENDER-DETERMINISTIC`). Proof: `make check-fast`, and the required jobs green on the exact commit.
   - 2026-10-29: first check-fast finished with exit 2 (10 failed, 15305 passed, 42 skipped); no push made. Failures exposed example discovery/classification and start-page/Makefile invariants. Fixed discovery to exclude test modules, classified the new two-part PCB, retained the required guide statements and command names, and kept example execution through the unit-suite wrapper instead of changing the Makefile recipe. Focused regression proof: 93 passed (4 resource-dependent cases deselected), exit 0. Final quick gate and CI still pending.
   - 2026-10-30: intermediate quick gate exited 0 (15311 passed, 42 skipped). Review then added regressions for merged simulated-zone counts and subject indices after concise/paginated output; those 9 focused tests passed. A fresh quick gate is required for the final edits before pushing.
   - 2026-10-30: fresh final quick gate passed, exit 0 (15313 passed, 42 skipped; 928.23 s with four workers). Includes merged-zone and concise/pagination regressions. This task stays open until the required CI jobs pass on the pushed commit.
   - 2026-10-30: CI run 40910694158 on 302b3bf failed the provenance manifest check in Linux, macOS and Windows: the three authored example files were not declared. Added their authored provenance to tests/data/MANIFEST.toml; all 48 focused manifest tests passed, exit 0. The helpers and committed SVG comparison passed in those platform jobs; this does not close the required CI gate.
   - 2026-10-30: fresh quick gate after the manifest fix passed, exit 0 (15313 passed, 42 skipped, 566.85 s with four workers). Required CI remains pending on the next pushed head.
   - 2026-10-30: required CI passed: all 13 jobs of run 40917763154 are success on exact commit 8c614f61764f053dcb26314ae4c9604a3a59ce4c. Includes Linux Python 3.11/3.12/3.13, macOS/Windows Python 3.12, both KiCad oracles and routers, viewer, MCP, wheel and DCO. Verified completed/success metadata and head SHA before beginning 6.2.
+  - 2026-10-30: reopened after the merge of `circuits-as-code` and the completion of 1.2, 4.3, 4.5, 5.1 and 6.3: the earlier green run covers 8c614f61 only. `make check-fast PYTEST_WORKERS=2` passed, exit 0 (16977 passed, 50 skipped, 2210 s); CI runs with the batch.
 - [x] 6.2 Evidence: register `H-G-RENDER-DETERMINISTIC` in `docs/hypotheses.md` with its measurement and regenerate the evidence matrix. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
   - 2026-10-30: proof passed, exit 0: 38 hypothesis-register tests and evidence-matrix --check. Regenerated the matrix (no byte change: backend levels remain unchanged). Replaced the proposed render hypothesis with the measured platform matrix, exact CI SHA/run and golden digest; render evidence now cites it alongside H-G-REGION-RENDER. Focused register/renderer/golden/example/net-render proof also passed (57 tests, exit 0).
   - 2026-10-30: strict OpenSpec validation passed. Fresh check-fast for this final evidence change passed, exit 0 (15313 passed, 42 skipped, 439.10 s with four workers), before committing/pushing. The final pushed SHA will receive its own complete CI run.
-- [ ] 6.3 Add an entry to `CHANGELOG.md` under `## [Unreleased]`. This waits for `0.7.0.dev0`: on `0.6.0` the v0.6 guard requires `[Unreleased]` empty. Proof: `uv run pytest tests/unit -k changelog -q`.
+- [x] 6.3 Add an entry to `CHANGELOG.md` under `## [Unreleased]`. This waits for `0.7.0.dev0`: on `0.6.0` the v0.6 guard requires `[Unreleased]` empty. Proof: `uv run pytest tests/unit -k changelog -q`.
 
   - 2026-10-30: left open by explicit maintainer instruction: this branch remains on unpublished 0.6.0 and its guard requires an empty [Unreleased]. No CHANGELOG entry or version bump was made. Maintainer-only release/integration work remains outside this implementation.
+  - 2026-10-30: dev is 0.7.0.dev0; entry "Design testing (c0256)" added under `## [Unreleased]` / Added. Proof passed, exit 0: `uv run pytest tests/unit -k changelog -q` 8 passed.

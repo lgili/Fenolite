@@ -11,3 +11,4 @@ def test_example_in_platform_suite():
     namespace = runpy.run_path(str(path))
     namespace["test_connections"]()
     namespace["test_ground_picture"]()
+    namespace["test_divider_block"]()

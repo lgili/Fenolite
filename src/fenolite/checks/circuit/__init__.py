@@ -8,11 +8,14 @@ read the model and the device records the command passes, and run no tool."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import dataclasses
+from collections.abc import Mapping, Sequence
 
 from fenolite.checks.circuit.rails import circuit_evidence, has_parameters, rail_counts
 from fenolite.checks.circuit.table import circuit_issues, has_contracts, judge_circuit
+from fenolite.checks.circuit.values import ground_nets
 from fenolite.checks.stages import StageResult, ran, skipped
+from fenolite.checks.subjects import Subject, for_issues
 from fenolite.model.design import Design
 from fenolite.model.library import DeviceDef
 
@@ -49,7 +52,34 @@ def circuit_stage(
         },
         **result.summary,
     }
-    return ran(STAGE, result.issues, result.evidence, summary)
+    stage = ran(STAGE, result.issues, result.evidence, summary)
+    return dataclasses.replace(stage, subjects=_subjects(model, stage, result.issues, result.entities))
+
+
+def _subjects(
+    model: Design, stage: StageResult, issues: Sequence[object], entities: Sequence[tuple[str, ...]]
+) -> tuple[tuple[Subject, ...], ...]:
+    """The subjects of the stage's issues: the components and nets of the requirement row a finding comes
+    from (a ground net only when the row names no other net), else what its ``where`` names."""
+    if not stage.issues:
+        return ()
+    ids = {id(found): row for found, row in zip(issues, entities, strict=False)}
+    by_id: dict[str, Subject] = {
+        part.id: Subject("component", part.id, part.ref) for part in model.circuit.components
+    }
+    by_id.update({net.id: Subject("net", net.id, net.name) for net in model.circuit.nets})
+    grounds = ground_nets(model)
+    named = for_issues(model, stage.issues)
+    found: list[tuple[Subject, ...]] = []
+    for index, finding in enumerate(stage.issues):
+        row = [by_id[ident] for ident in ids.get(id(finding), ()) if ident in by_id]
+        if not row:
+            found.append(named[index])
+            continue
+        if any(s.kind == "net" and s.id not in grounds for s in row):
+            row = [s for s in row if s.kind != "net" or s.id not in grounds]
+        found.append(tuple(sorted(set(row), key=lambda s: (s.kind, s.name, s.id))))
+    return tuple(found)
 
 
 __all__ = [

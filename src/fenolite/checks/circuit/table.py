@@ -73,6 +73,9 @@ class CircuitResult:
     rows: tuple[RequirementRow, ...]
     evidence: Evidence
     summary: Mapping[str, object] = field(default_factory=lambda: {})
+    entities: tuple[tuple[str, ...], ...] = ()
+    """Aligned with ``issues``: the model ids (components, nets) of the row each finding comes from, empty
+    for a finding of no row (change c0256, finding subjects)."""
 
 
 @dataclass(slots=True)
@@ -173,6 +176,7 @@ def judge_circuit(
     strict = contracts is not None and contracts.unknown == "warning"
     rows: list[RequirementRow] = []
     unknown_rows: list[Judged] = []
+    entities: dict[int, tuple[str, ...]] = {}
     no_rating: dict[str, None] = dict.fromkeys(main.missing_parts)
     policy: list[str] = []
     levels: list[Level] = []
@@ -219,18 +223,21 @@ def judge_circuit(
                     f"{c.corner}: {c.text} over {row.limit.text}" for c in failing
                 )
             found.append(issue(row.check, text, severity=severity, where=row.part or row.id))  # type: ignore[arg-type]
+            entities[len(found) - 1] = row.entities
     if unknown_rows:
         if strict:
-            found += [
-                issue(
-                    "circuit.value-unknown",
-                    f"{row.id} is not judged: {row.missing or 'an input is not stated'}",
-                    severity="warning",
-                    where=row.part or row.id,
-                    hint="state the missing value: a rig supply, a rail voltage, a role current or a class",
+            for row in unknown_rows:
+                entities[len(found)] = row.entities
+                found.append(
+                    issue(
+                        "circuit.value-unknown",
+                        f"{row.id} is not judged: {row.missing or 'an input is not stated'}",
+                        severity="warning",
+                        where=row.part or row.id,
+                        hint="state the missing value: a rig supply, a rail voltage, a role current "
+                        "or a class",
+                    )
                 )
-                for row in unknown_rows
-            ]
         else:
             found.append(
                 issue(
@@ -286,8 +293,13 @@ def judge_circuit(
         "requirements": table_json(rows),
         "corners": rig_corners.TOO_MANY if corner_set is None else len(corner_set),
     }
+    order = sorted(range(len(found)), key=lambda k: (found[k].code, found[k].where, found[k].message))
     return CircuitResult(
-        tuple(sorted(found, key=lambda i: (i.code, i.where, i.message))), tuple(rows), evidence, summary
+        tuple(found[k] for k in order),
+        tuple(rows),
+        evidence,
+        summary,
+        tuple(entities.get(k, ()) for k in order),
     )
 
 

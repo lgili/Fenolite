@@ -114,10 +114,12 @@ with load("design.py") as d:
     assert not d.findings("build.unattached")
 ```
 
-`connected(..., copper=True)` tests real copper, through the pin-to-pad map. `assert_render` compares an
-SVG golden byte for byte; a mismatch prints a diff and the commands that regenerate it, and never
-updates the reference. `check.result.subjects` names the part and net ids of each issue: read those
-before parsing `where`.
+`instantiate(block, **params)` builds one block alone as `dut`: its parts read as `dut/U1`, its ports as
+the nets `dut/<port>`. `connected(..., copper=True)` tests real copper, through the pin-to-pad map.
+`assert_render` compares an SVG golden byte for byte; a mismatch prints a diff and the commands that
+regenerate it, and never updates the reference. `findings("circuit.*")` runs the circuit rules on the
+private build. `check.result.subjects` names the part and net ids of each issue: read those before
+parsing `where`.
 
 ```fenolite-cmd
 fenolite explain build.unattached --json

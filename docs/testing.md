@@ -5,7 +5,7 @@ commands in process. It needs neither pytest nor a CAD installation; catalog-onl
 external libraries. Design scripts execute as your own Python code, as with `fenolite build`.
 
 ```python
-from fenolite.testing import load, assert_render
+from fenolite.testing import assert_render, instantiate, load
 
 with load("design.py") as d:
     assert d.net("GND").pins == ("R1-1", "R2-1")
@@ -42,9 +42,26 @@ its finalizer also removes owned files. A caller-provided `workdir` is never rem
   before any command runs. Exit 5 means findings, not an exception. Unattached warnings from the build
   are included, combining evidence conservatively.
 
-On this branch, device and rail/range definitions are unavailable, so `PartView.device` and
-`NetView.voltage` are `None`. `instantiate(block, ...)` is not exported until c0251 lands. Real
-`circuit.*` findings await c0252/c0253; no substitute electrical-contract stage is supplied.
+`PartView.device` and `NetView.voltage` are `None` in this version. `findings("circuit.*")` runs the
+tool-free stage `circuit.rules` on the private build, with the device records of `devices/` beside the
+script; each finding's subjects name the part and the nets of its requirement row (a ground net only when
+the row names no other). A rating that fails stops the build itself (`fenolite build` refuses to write),
+so `load` raises `TestingError` naming the finding, such as `circuit.rating-voltage at C1`.
+
+## A block alone
+
+`instantiate(block, **params)` tests one block (`@block`) without a design of its own. It writes a
+throwaway script in its private folder that makes a design with a 100 mm square board, uses the block
+once as `dut` with `params`, and loads it as `load` does. A part reads by its block path
+(`d.ref("dut/U1")`) and a port as the net `dut/<port>`; a port of several members, such as a `Rail`,
+reads as its main member (`dut/VOUT` is `dut/VOUT.hv`). The project devices beside the block's file, or
+beside its package, are copied in. Nothing is written outside the private folder.
+
+```python
+with instantiate(divider, bottom="3000") as d:
+    assert d.ref("dut/R_BOT").value == "3000"
+    assert d.connected(d.ref("dut/R_TOP")[2], d.net("dut/MID"))
+```
 
 ## Golden SVGs
 
