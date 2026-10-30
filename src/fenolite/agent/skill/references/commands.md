@@ -744,7 +744,7 @@ another type; a flag without a value is a switch.
 - `--docs ID,...`: --export only these
 - `--variant NAME`: show an Altium project's variant
 - `--compare OLD`: draw what changed since the board or sheet OLD
-- `--check FILE|run`: draw a check reply's findings; run: check first
+- `--check FILE|run`: draw the findings of a check, build or sync reply; run: check first
 - `--report FILE` (repeatable): recorded convert/export JSON for project review; repeat for different commands
 - `--select REF`: open at this part or net
 - `--marks FILE`: review marks: list them; --serve saves new ones there

@@ -112,3 +112,70 @@ def test_sheet_findings() -> None:
 def test_not_a_check_reply() -> None:
     with pytest.raises(FormatError, match="analyze"):
         read_reply({"command": "analyze", "issues": []}, name="a.json")
+
+
+def test_conflict_marked_on_its_footprint(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenarios "Conflict marked on its footprint" and "Command lines offered" (change c0250)."""
+    import io  # noqa: PLC0415
+    import json  # noqa: PLC0415
+
+    from _edit_help import edit as edit_parts  # noqa: PLC0415
+    from _project import Project, footprint  # noqa: PLC0415
+
+    import fenolite.cli.main as cli_main  # noqa: PLC0415
+    from fenolite.view.export import embedded  # noqa: PLC0415
+
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kicad-config"))
+    p = Project(tmp_path, monkeypatch)
+    edit_parts(p, {"R1": {"value": "4k7"}})
+    p.edit_script('value="330"', 'value="470"')
+    code, env, _ = p.build("--dry-run")
+    assert code == 5
+    reply = tmp_path / "reply.json"
+    reply.write_text(json.dumps(env), encoding="utf-8")
+    page = tmp_path / "page.html"
+    out = io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    args = ["view", str(p.board), "--check", str(reply), "--export", str(page), "--confirm", "--json"]
+    assert cli_main.main(args) == 0
+    data = embedded(page.read_text(encoding="utf-8"))
+    assert data is not None
+    (scene,) = data["scenes"].values()
+    (conflict,) = [f for f in scene["check"]["findings"] if f["code"] == "sync.conflict"]
+    assert conflict["severity"] == "error" and conflict["where"] == "R1#value"
+    for text in ("both-changed", "'330'", "'470'", "'4k7'"):
+        assert text in conflict["message"]
+    fp, _ = footprint(p.read(), "R1")
+    x, y = fp.position.x / 1000, fp.position.y / 1000  # type: ignore[attr-defined]
+    box = conflict["box"]
+    assert box[0] <= x <= box[2] and box[1] <= y <= box[3]
+    code_line, cad_line = conflict["commands"]
+    assert "--take code:R1#value --dry-run" in code_line and "--take cad:R1#value --dry-run" in cad_line
+    assert code_line.startswith("fenolite build ") and f"--out {p.out}" in code_line
+
+
+def test_build_and_sync_replies_are_read() -> None:
+    for command in ("build", "sync"):
+        assert read_reply({"command": command, "issues": []})["command"] == command
+    placed = overlay(
+        {
+            "command": "sync",
+            "issues": [
+                {
+                    "code": "sync.conflict",
+                    "severity": "error",
+                    "message": "U9#value: base 'a', script 'b', board 'c', schematic 'd' (sides-disagree)",
+                    "where": "U9#value",
+                    "hint": "",
+                }
+            ],
+            "evidence": {"level": "INFERRED"},
+        },
+        {"prims": [], "pads": [], "comps": [], "nets": [], "meta": {}},
+    )
+    (conflict,) = placed["findings"]
+    assert conflict["at"] is None  # no footprint of that path on the board: listed only
+    assert [c.split("--take ")[1] for c in conflict["commands"]] == [
+        "board:U9#value --dry-run",
+        "schematic:U9#value --dry-run",
+    ]

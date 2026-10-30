@@ -12,11 +12,17 @@ A ``check`` reply names where a finding is in three forms (``docs/viewer.md``, "
 ``overlay(reply, scene)`` resolves each finding against the scene shown: a marker at its first position, a box
 around everything it names, and its layer when the finding states one. Findings that resolve to nothing are
 listed only. Each finding carries the evidence of the stage its code belongs to. Standard library only.
+
+The reply of ``fenolite build`` or ``fenolite sync --to-source`` is read too (change c0250): its
+``sync.conflict`` findings name a property key ``<component path>#<property>`` and are marked on the
+footprint whose ``fenolite.path`` is that path, with the two ``build --take ... --dry-run`` command lines
+that resolve them. The viewer never runs them.
 """
 
 from __future__ import annotations
 
 import re
+import shlex
 from typing import Any, cast
 
 from fenolite.core.errors import FormatError
@@ -42,6 +48,11 @@ _MESSAGE_AT = re.compile(r"(?:\bon (?P<layer>\S+) )?at \((?P<x>-?\d+(?:\.\d+)?),
 _LOCATOR = re.compile(r"^/kicad_pcb/(?P<kind>segment|arc|via|zone)\[(?P<k>\d+)\]$")
 _LABEL = {"segment": "track", "arc": "arc", "via": "via"}
 UM_PER_MM = 1000
+REPLY_COMMANDS = ("check", "build", "sync")
+"""The commands whose replies ``--check`` reads."""
+CONFLICT = "sync.conflict"
+PATH_PROPERTY = "fenolite.path"
+_PLAIN = re.compile(r"[\w@%+=:,./#-]+")
 
 Box = list[float]
 
@@ -49,12 +60,12 @@ Box = list[float]
 def read_reply(data: Any, *, name: str = "") -> dict[str, Any]:
     """The ``check`` reply ``data`` (a parsed JSON envelope); ``FormatError`` when it is not one."""
     if not isinstance(data, dict):
-        raise FormatError(f"{name or 'the reply'} is not a fenolite check reply", file=name)
+        raise FormatError(f"{name or 'the reply'} is not a fenolite check, build or sync reply", file=name)
     reply = cast("dict[str, Any]", data)
-    if reply.get("command") != "check" or not isinstance(reply.get("issues"), list):
+    if reply.get("command") not in REPLY_COMMANDS or not isinstance(reply.get("issues"), list):
         found = reply.get("command")
         raise FormatError(
-            f"{name or 'the reply'} is not a fenolite check reply"
+            f"{name or 'the reply'} is not a fenolite check, build or sync reply"
             + (f" (it is a {found} reply)" if isinstance(found, str) else ""),
             file=name,
         )
@@ -121,9 +132,13 @@ class _BoardIndex:
         for pad in cast("list[dict[str, Any]]", scene.get("pads", [])):
             x, y = pad["x"], pad["y"]
             self.names.setdefault(str(pad["label"]), ([x, y, x, y], None))
+        self.paths: dict[str, tuple[Box, str | None]] = {}
         for comp in cast("list[dict[str, Any]]", scene.get("comps", [])):
             if comp.get("bbox"):
                 self.names.setdefault(str(comp["ref"]), (list(comp["bbox"]), None))
+                path = cast("dict[str, Any]", comp.get("params") or {}).get(PATH_PROPERTY)
+                if path:
+                    self.paths.setdefault(str(path), (list(comp["bbox"]), None))
         nets = cast("list[str]", scene.get("nets", []))
         net_boxes: dict[int, Box] = {}
         for prim in cast("list[list[Any]]", scene.get("prims", [])):
@@ -141,6 +156,10 @@ class _BoardIndex:
         for k, box in net_boxes.items():
             if k < len(nets) and nets[k]:
                 self.names.setdefault(nets[k], (box, None))
+
+    def find_path(self, path: str) -> tuple[Box, str | None] | None:
+        """The footprint whose ``fenolite.path`` is ``path``; a board without paths matches it as a ref."""
+        return self.paths.get(path) or self.names.get(path)
 
     def find(self, name: str) -> tuple[Box, str | None] | None:
         located = _LOCATOR.match(name)
@@ -182,6 +201,28 @@ def _sheet_matches(path: str, document: str) -> bool:
     return not segments or segments[-1].casefold() == stem
 
 
+def take_commands(reply: dict[str, Any], key: str, message: str) -> list[str]:
+    """The two ``fenolite build ... --take <side>:<key> --dry-run`` command lines that resolve the conflict
+    of ``key`` (``board`` and ``schematic`` for a ``sides-disagree`` conflict, else ``code`` and ``cad``)."""
+    source = cast("dict[str, Any]", reply.get("input") or {})
+    result = cast("dict[str, Any]", reply.get("result") or {})
+    script = str(source.get("path") or "DESIGN.py")
+    out = str(result.get("out") or "DIR")
+    sides = ("board", "schematic") if "(sides-disagree)" in message else ("code", "cad")
+    return [
+        " ".join(
+            _arg(a)
+            for a in ("fenolite", "build", script, "--out", out, "--take", f"{side}:{key}", "--dry-run")
+        )
+        for side in sides
+    ]
+
+
+def _arg(text: str) -> str:
+    """``text`` as one shell word: as it is when it holds no special character (``#`` included)."""
+    return text if _PLAIN.fullmatch(text) else shlex.quote(text)
+
+
 def overlay(reply: dict[str, Any], scene: dict[str, Any], *, root_sheet: bool = True) -> dict[str, Any]:
     """The findings of the ``check`` reply placed on ``scene`` (module docstring): ``findings`` sorted by
     severity then code, ``counts`` per severity, ``placed`` and ``notes``. ``root_sheet`` says whether a sheet
@@ -216,6 +257,14 @@ def overlay(reply: dict[str, Any], scene: dict[str, Any], *, root_sheet: bool = 
             layer = said["layer"]
         named: list[Box] = []
         parts = [] if elsewhere else [p.strip() for p in where.split(", ") if p.strip()]
+        commands: list[str] = []
+        if code == CONFLICT:
+            commands = take_commands(reply, where, message)
+            parts = []
+            path = where.rsplit("#", 1)[0]
+            found = index.find_path(path) if isinstance(index, _BoardIndex) else index.find(path)
+            if found is not None:
+                named.append(found[0])
         for part in parts:
             point = _AT.match(part)
             if point:
@@ -256,6 +305,7 @@ def overlay(reply: dict[str, Any], scene: dict[str, Any], *, root_sheet: bool = 
                 "at": at,
                 "box": box,
             }
+            | ({"commands": commands} if commands else {})
         )
     findings.sort(key=lambda f: (SEVERITY_ORDER.get(f["severity"], 3), f["code"]))
     counts = {severity: sum(1 for f in findings if f["severity"] == severity) for severity in SEVERITY_ORDER}
@@ -284,4 +334,14 @@ def summary(placed: dict[str, Any]) -> dict[str, Any]:
     return {**placed["counts"], "total": len(placed["findings"]), "placed": placed["placed"]}
 
 
-__all__ = ["BOARD_STAGES", "SEVERITY_ORDER", "SHEET_STAGES", "STAGE_OF", "overlay", "read_reply", "summary"]
+__all__ = [
+    "BOARD_STAGES",
+    "REPLY_COMMANDS",
+    "SEVERITY_ORDER",
+    "SHEET_STAGES",
+    "STAGE_OF",
+    "overlay",
+    "read_reply",
+    "summary",
+    "take_commands",
+]

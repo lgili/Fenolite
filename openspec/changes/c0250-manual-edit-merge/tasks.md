@@ -85,8 +85,11 @@
 
 ## 6. Viewer
 
-- [ ] 6.1 `view --check` accepts `build` and `sync` replies and marks `sync.conflict` on its footprint (requirement "Edit conflicts on the board"; the command lines of "Conflict resolution from the viewer"). Proof: `uv run pytest tests/unit/view/test_check_overlay.py -q`.
-  2026-10-29: open: the overlay change was left for a later batch; the build and sync replies already carry the conflict records.
+- [x] 6.1 `view --check` accepts `build` and `sync` replies and marks `sync.conflict` on its footprint (requirement "Edit conflicts on the board"; the command lines of "Conflict resolution from the viewer"). Proof: `uv run pytest tests/unit/view/test_check_overlay.py -q`.
+  2026-10-29: was open: left for a later batch.
+  2026-10-30: `view.check_overlay.read_reply` reads `check`, `build` and `sync` replies; a `sync.conflict` is
+  marked on the footprint of its `fenolite.path` and carries `commands`, the two `build --take ... --dry-run`
+  lines, shown on selection (the page runs nothing); `docs/viewer.md` updated. Proof passed (6 tests).
 - [ ] 6.2 (waits for c0245) Add the Properties view of a conflict and the "Take code" and "Take CAD" actions through the Pending panel (requirement "Conflict resolution from the viewer"). Proof: `uv run pytest tests/unit/view/test_check_overlay.py -k workbench -q`.
   2026-10-29: open: waits for c0245.
 
