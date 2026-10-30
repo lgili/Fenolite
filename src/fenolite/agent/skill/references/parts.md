@@ -155,6 +155,7 @@ d1.place(mm(15), mm(5))
 
 - The shipped devices are generic (`INFERRED`, no MPN). Your own records go in `devices/` beside the
   script; `catalog import` writes an `UNVERIFIED` template; `<device id>@<mpn>` is an orderable part.
+- A grammar family (`fenolite.family.v1`) in `devices/` gives queries exact MPNs; `family`, page `files`.
 - A wrong pin name raises `PinNameError` with the closest names. A device that disagrees with its symbol or
   footprint is `build.device-mismatch`; `result.devices` lists each device, `device.edited` an edited one.
 - `mcu.take(I2C, option=, pins=, name=)` takes an interface the device's `[[options]]` offer; the build
@@ -201,7 +202,6 @@ j1.place(mm(22), mm(10), rot=90)
 - `Harness(name, members)` and `Interface(name, kind, members)` record any group of nets.
 - The script builds with warnings: `build.i2c-pullup-missing` (no two-pin part from a bus line to the
   high net of a `Power`) and `model.dangling-net` for a net joining no pin yet.
-- Interfaces are kept in `.fenolite/`; the board and the schematic do not change.
 
 ## Blocks
 
@@ -244,7 +244,7 @@ for n in range(2):
 
 ## What the checks still say
 
-No script here is a finished board: connections stay open until routed. KiCad 10 also reports
+No script here is a finished board: nothing is routed. KiCad 10 reports
 `kicad.erc.power-pin-not-driven` (passive pins feed the regulator) and `kicad.erc.pin-not-connected`.
 
 Read next: `footprints`, `placement`, `rules`.

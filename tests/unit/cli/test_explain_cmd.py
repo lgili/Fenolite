@@ -130,3 +130,12 @@ def test_placement_in_code_is_explained(code: str) -> None:
     """Change c0255: every code of placement in code is explained under ``build``."""
     found = explain.explain(code)
     assert found is not None and found.see == "build"
+
+
+def test_every_family_code_is_explained() -> None:
+    """Change c0263, scenario "Every family code is explained": every ``family.*`` code points to the
+    heading ``family`` of the CLI contract."""
+    from fenolite.pick.grammar.codes import ISSUE_CODES as FAMILY_CODES
+
+    entries = explain.entries()
+    assert {code: entries[code]["see"] for code in FAMILY_CODES} == dict.fromkeys(FAMILY_CODES, "family")

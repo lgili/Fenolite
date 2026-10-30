@@ -31,6 +31,7 @@ another type; a flag without a value is a switch.
 | `equivalent` | no | say whether two designs are equivalent, level by level, and locate each difference |
 | `explain` | no | say what an error code or an issue code means and what to do about it |
 | `export` | yes | export fabrication files through kicad-cli on a copy of the project (writes under DIR) |
+| `family` | no | list, show, lint grammar families, decode MPNs, encode a query into MPNs, or expand a family |
 | `fetch` | yes | download an external tool (freerouting) after --confirm, checked against its pinned SHA-256 |
 | `fill` | yes | fill a KiCad board through kicad-cli 10 on a copy, preserving its format major |
 | `fmt` | yes | give a KiCad S-expression file Fenolite's canonical print, or check it with --check |
@@ -287,6 +288,14 @@ another type; a flag without a value is a switch.
 - `--readback`: read the Gerber, drill and position files back and compare them with the board before anything is written (export.readback-*)
 - `--kicad-cli PATH`: the kicad-cli to run
 - `--timeout SECONDS` (number, default `300.0`): per kicad-cli run (300)
+
+## family
+`fenolite family [OPTIONS] {decode,encode,expand,lint,list,show} [ARG]`
+
+- `FAMILY_ACTION` (one of `decode`, `encode`, `expand`, `lint`, `list`, `show`): what to do
+- `TARGETS` (repeatable): show and expand: a family ID; lint: grammar files; decode: MPNs; encode: one query text
+- `--project PATH`: a design script or its folder: the families of its devices/ (default: the working directory)
+- `--families DIR` (repeatable): a folder of grammar family files (repeatable)
 
 ## fetch
 `fenolite fetch [OPTIONS] [NAME]`

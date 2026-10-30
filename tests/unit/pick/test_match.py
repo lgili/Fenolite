@@ -60,3 +60,19 @@ def test_smaller_case_ranks_first_and_ratings_compare() -> None:
 
     best = match(resistor(ohm("1k"), power=watt("100m")), (*big, *small)).best
     assert best is not None and best.device.startswith("Fenolite:R_0805")
+
+
+def test_grammar_encode_gives_an_exact_mpn() -> None:
+    """Change c0263, scenario "A query gives an exact MPN": encode expands every grammar family of the
+    query's kind and ranks the candidates by c0254's rules (the larger tolerance first)."""
+    from _grammars import authored
+
+    from fenolite.pick.match import encode
+    from fenolite.pick.query import parse_query
+
+    found = encode(parse_query("capacitor(100nF, rating>=25V, case=0603, dielectric=X7R)"), authored())
+    assert [row.device for row in found] == ["Example:EX_MLCC@EX03R104KAT", "Example:EX_MLCC@EX03R104JAT"]
+    assert found[0].record.mpn == "EX03R104KAT" and found[0].row == "Example:EX_MLCC"
+    assert encode(parse_query("capacitor(100nF, case=0805)"), authored()) == ()
+    resistors = encode(parse_query("resistor(10kΩ, tolerance<=1%)"), authored())
+    assert resistors[0].device == "Example:EX_CHIP_R@EXR06F1002T"  # 1 % before 0.5 %, then the smaller case

@@ -17,11 +17,14 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from fenolite.core.partquery import KEYS, VALUE_UNITS, Constraint, Key, PartQuery, Percent
 from fenolite.core.quantities import decimal_digits
-from fenolite.pick.rows import SHIPPED, Row, case_rank, value_text
+from fenolite.pick.rows import PROJECT, SHIPPED, Origin, Row, case_rank, value_text
+
+if TYPE_CHECKING:
+    from fenolite.pick.grammar.schema import GrammarFamily
 
 Reason = Literal["failed", "unknown", "unverified"]
 
@@ -91,7 +94,8 @@ def value_failure(query: PartQuery, row: Row) -> tuple[str, Reason] | None:
     return f"value within {shown}", "failed"
 
 
-def _meets(found: Key, wanted: Constraint, have: Constraint) -> bool:
+def meets(found: Key, wanted: Constraint, have: Constraint) -> bool:
+    """Whether the attribute value ``have`` meets the constraint ``wanted`` of key ``found``."""
     if found.name == "tolerance":
         return isinstance(have, Percent) and isinstance(wanted, Percent) and have.within(wanted)
     if found.unit in ("text", "texts"):
@@ -121,7 +125,7 @@ def failure(query: PartQuery, row: Row) -> Exclusion | None:
         have = row.attributes.get(found.name)
         if have is None:
             return Exclusion(row, found.name, constraint_text(found, wanted), "unknown")
-        if not _meets(found, wanted, have):
+        if not meets(found, wanted, have):
             return Exclusion(row, found.name, constraint_text(found, wanted), "failed")
     if row.unverified and named not in (row.row, row.device):
         return Exclusion(row, "evidence", "an UNVERIFIED row is picked only when row= names it", "unverified")
@@ -188,13 +192,29 @@ def candidates(
     return result.matches[:limit], result.excluded
 
 
+def encode(
+    query: PartQuery, families: Sequence[GrammarFamily], *, origin: Origin = PROJECT
+) -> tuple[Row, ...]:
+    """Encode (change c0263): the candidates of every grammar family of ``query``'s kind under ``query``,
+    as rows, matched and ranked by this module's rules; the first is what a pick takes. Each family's
+    ``catalog`` is ``project:<file>``. ``DeviceFormatError`` when a cut product is above the limit."""
+    from fenolite.pick.grammar.candidates import grammar_rows
+
+    rows: list[Row] = []
+    for family in sorted(families, key=lambda item: item.id):
+        rows.extend(grammar_rows(family, queries=(query,), origin=origin, catalog=f"project:{family.file}"))
+    return match(query, rows).matches
+
+
 __all__ = [
     "Exclusion",
     "MatchResult",
     "candidates",
     "constraint_text",
+    "encode",
     "failure",
     "match",
+    "meets",
     "rank_key",
     "unknown_rows",
     "unverified_ahead",

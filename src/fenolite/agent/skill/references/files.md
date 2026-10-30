@@ -216,4 +216,12 @@ fenolite pick picks --update C_in --dry-run --json
 fenolite pick picks --propose "capacitor(10uF, dielectric=X7R)" --from rows.csv --dry-run --json
 ```
 
+A grammar family in `devices/` gives exact MPNs; `family` decodes, encodes, lints, expands it.
+
+```fenolite-cmd
+fenolite family encode "capacitor(100nF, case=0603)" --project picks --json
+fenolite family decode EX05C471JBT --project picks --json
+fenolite family lint picks/devices/example_mlcc.toml --json
+```
+
 Read next: `checks`, `altium`, `recovery`.

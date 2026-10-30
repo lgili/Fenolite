@@ -48,8 +48,13 @@ EXAMPLE_SCRIPT = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/
 EXAMPLE_PICKS = str(Path(fenolite.__file__).resolve().parents[2] / "examples/picks")
 """The parametric-pick example (change c0254) with its committed design lock: ``fenolite pick`` lists it."""
 
+EXAMPLE_FAMILIES = str(Path(fenolite.__file__).resolve().parents[2] / "examples/families")
+"""The grammar-family example (change c0263): illustrative ``fenolite.family.v1`` files in ``devices/`` beside
+a design script that picks exact MPNs from them (``fenolite family``)."""
+
 __all__ = [
     "EXAMPLE_BOARD",
+    "EXAMPLE_FAMILIES",
     "EXAMPLE_PICKS",
     "EXAMPLE_SCRIPT",
     "EXAMPLE_PARITY",

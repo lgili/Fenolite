@@ -124,3 +124,28 @@ def test_a_row_with_other_pins_is_refused() -> None:
 
 def test_case_order() -> None:
     assert CASE_ORDER.index("0402") < CASE_ORDER.index("0603") < CASE_ORDER.index("1206")
+
+
+def test_a_grammar_family_is_a_row_source(tmp_path: Path) -> None:
+    """Change c0263: ``folder_rows`` dispatches on the schema; a ``fenolite.family.v1`` file gives the
+    candidates of the queries and the locked devices of it, never its whole expansion."""
+    from _grammars import MLCC
+
+    from fenolite.pick.query import parse_query
+
+    (tmp_path / "example_mlcc.toml").write_text(MLCC.read_text(encoding="utf-8"), encoding="utf-8")
+    assert folder_rows(tmp_path, "devices") == ()
+    query = parse_query("capacitor(100nF, rating>=25V, case=0603, dielectric=X7R)")
+    found = folder_rows(tmp_path, "devices", queries=(query,), devices=("Example:EX_MLCC@EX05C471JBT",))
+    assert [row.device for row in found] == [
+        "Example:EX_MLCC@EX03R104JAT",
+        "Example:EX_MLCC@EX03R104KAT",
+        "Example:EX_MLCC@EX05C471JBT",
+    ]
+    assert {row.catalog for row in found} == {"project:devices/example_mlcc.toml"} and found[
+        0
+    ].origin == PROJECT
+    broken = MLCC.read_text(encoding="utf-8").replace('codes."05"', 'codes."0"')
+    (tmp_path / "example_mlcc.toml").write_text(broken, encoding="utf-8")
+    with pytest.raises(FormatError, match="family.ambiguous-code"):
+        folder_rows(tmp_path, "devices", queries=(query,))

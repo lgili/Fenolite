@@ -431,3 +431,67 @@ def test_picks_build_frozen(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, scr
     assert cli_main.main(args) == 0, err.getvalue()
     envelope = json.loads(out.getvalue())
     assert envelope["result"]["lock"]["changes"] == [] and envelope["result"]["generators"]
+
+
+# -- the grammar-family example (change c0263)
+
+FAMILIES = ROOT / "examples" / "families"
+
+
+def test_families_header_and_listing() -> None:
+    for path in [FAMILIES / "design.py", *sorted((FAMILIES / "devices").glob("*.toml"))]:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith(
+            "# Authored for Fenolite"
+        ), path
+    assert "`families/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+
+
+def test_families_pick_of_an_exact_mpn(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "A pick of an exact MPN": with an empty lock the build picks EX03R104KAT for C_in, gives
+    pick.new, and the planned parts name the manufacturer and the MPN."""
+    import shutil
+
+    work = tmp_path / "families"
+    shutil.copytree(FAMILIES, work)
+    (work / "design.lock").unlink()
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    args = ["build", str(work / "design.py"), "--out", str(tmp_path / "B"), "--dry-run", "--json"]
+    assert cli_main.main(args) == 0, err.getvalue()
+    envelope = json.loads(out.getvalue())
+    picks = {pick["path"]: pick for pick in envelope["result"]["picks"]}
+    assert picks["C_in"]["device"] == "Example:EX_MLCC@EX03R104KAT" and picks["C_in"]["state"] == "new"
+    assert "pick.new" in {issue["code"] for issue in envelope["issues"]}
+    design = run_design_script(work / "design.py").design
+    from fenolite.cli._lock import plan_lock
+    from fenolite.cli._picks import picking
+
+    with picking(work / "design.py"):
+        plan_lock(
+            design, script=work / "design.py", given="design.lock", path=work / "design.lock", frozen=False
+        )
+    properties = design.parts["C_in"].properties
+    assert properties["MPN"] == "EX03R104KAT" and properties["Manufacturer"] == "Example Passive"
+
+
+def test_families_build_frozen(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    args = [
+        "build",
+        str(FAMILIES / "design.py"),
+        "--out",
+        str(tmp_path / "B"),
+        "--frozen",
+        "--dry-run",
+        "--json",
+    ]
+    assert cli_main.main(args) == 0, err.getvalue()
+    envelope = json.loads(out.getvalue())
+    assert envelope["result"]["lock"]["changes"] == []
+    assert {pick["device"] for pick in envelope["result"]["picks"]} == {
+        "Example:EX_MLCC@EX03R104KAT", "Example:EX_CHIP_R@EXR06F1002T", "Example:EX_MF_R@EXM-4K7J"
+    }  # fmt: skip
