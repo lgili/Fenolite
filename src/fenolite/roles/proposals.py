@@ -42,10 +42,18 @@ from fenolite.analysis.connectivity import (
     connectivity,
     net_islands,
 )
-from fenolite.analysis.pour import DEFAULT_GRID_NM, Cell, PourCopper, pour_copper
+from fenolite.analysis.pour import DEFAULT_GRID_NM, Cell, PourCopper, covers, pour_copper
 from fenolite.backends.base import BoardPad
 from fenolite.core.coords import Point
-from fenolite.geometry import Location, dist2_point_segment, point_in_ring
+from fenolite.geometry import (
+    GeometryError,
+    Location,
+    Thick,
+    dist2_point_segment,
+    point_in_ring,
+    thick_bbox,
+    thick_touch,
+)
 from fenolite.model.board import Zone
 from fenolite.model.design import Design
 from fenolite.model.rules import RoleSet
@@ -58,6 +66,10 @@ ROLE_NET_KINDS = frozenset({"power", "switch_node", "ground", "high_voltage"})
 """The role kinds whose inferred nets are ``role-net`` subjects and whose zones are role copper."""
 ATTACH_REACH = 20_000_000
 """How far from an anchor the nearest point of a zone's copper is looked for."""
+ENTRY_STEP = 50_000
+"""The grid on which a pad end is moved off the branches that leave the pad."""
+ENTRY_MARGIN = 50_000
+"""The gap a moved pad end's disc keeps from those branches."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -238,6 +250,64 @@ def _pair_key(kind: str, net: str, a: Attach, b: Attach) -> str:
     return f"{kind}:{net}:{first}~{second}"
 
 
+def _nearest(one: NetIsland, other: NetIsland) -> tuple[int, tuple[object, ...], LinkEnd, LinkEnd] | None:
+    best: tuple[int, tuple[object, ...], LinkEnd, LinkEnd] | None = None
+    for first in one.ends:
+        for second in other.ends:
+            d2 = (first.position.x - second.position.x) ** 2 + (first.position.y - second.position.y) ** 2
+            a, b = sorted((first, second), key=lambda e: (e.where, e.position, e.kind, e.layers))
+            rank = (a.where, b.where, a.position, b.position)
+            if best is None or (d2, rank) < best[:2]:
+                best = (d2, rank, a, b)
+    return best
+
+
+def _edges(
+    open_: Sequence[OpenConnection], islands: Sequence[NetIsland], power: Sequence[str]
+) -> list[OpenConnection]:
+    """The open connections of a role net taken along its power pads: the islands that hold a power pad joined
+    first (nearest anchors, Kruskal), then each other island joined to them by its nearest edge (Prim), so
+    that a Kelvin-source branch is not made the path of the power current. The connections of
+    ``connectivity`` otherwise, or when fewer than two islands hold a power pad; the count is the same."""
+    held = set(power)
+    powered = [i for i, island in enumerate(islands) if held & set(island.pads)]
+    if len(powered) < 2 or len(islands) != len(open_) + 1:
+        return list(open_)
+    parent = list(range(len(islands)))
+
+    def find(index: int) -> int:
+        while parent[index] != index:
+            index = parent[index]
+        return index
+
+    edges: list[OpenConnection] = []
+    pairs = [
+        (found[0], found[1], i, j, found[2], found[3])
+        for i in powered
+        for j in powered
+        if i < j and (found := _nearest(islands[i], islands[j])) is not None
+    ]
+    for d2, _rank, i, j, a, b in sorted(pairs, key=lambda e: (e[0], e[1])):
+        if find(i) != find(j):
+            parent[max(find(i), find(j))] = min(find(i), find(j))
+            edges.append(OpenConnection(a, b, (isqrt(4 * d2) + 1) // 2))
+    tree = {i for i in range(len(islands)) if find(i) == find(powered[0])}
+    while len(tree) < len(islands):
+        options = [
+            (found[0], found[1], j, found[2], found[3])
+            for j in range(len(islands))
+            if j not in tree
+            for i in sorted(tree)
+            if (found := _nearest(islands[i], islands[j])) is not None
+        ]
+        if not options:
+            return list(open_)
+        d2, _rank, j, a, b = min(options, key=lambda e: (e[0], e[1]))
+        tree.add(j)
+        edges.append(OpenConnection(a, b, (isqrt(4 * d2) + 1) // 2))
+    return edges
+
+
 def _island(islands: Sequence[NetIsland], end: LinkEnd) -> NetIsland | None:
     return next((island for island in islands if island.holds(end)), None)
 
@@ -254,6 +324,8 @@ class _Context:
     zones: dict[str, Zone] = field(default_factory=lambda: {})
     locked: frozenset[str] = frozenset()
     role_nets: frozenset[str] = frozenset()
+    kinds: frozenset[str] = frozenset()
+    copper_layers: tuple[str, ...] = ()
     inferred: dict[str, str] = field(default_factory=lambda: {})
     hot: frozenset[str] = frozenset()
 
@@ -272,8 +344,14 @@ def _context(
     held = _Context(design, records, roles, copper, widths, reach, frozenset(blocked))
     if board is not None:
         held.zones = {zone.id: zone for zone in board.zones}
+        held.copper_layers = tuple(
+            layer.name
+            for layer in sorted(board.layers, key=lambda item: item.ordinal)
+            if layer.kind == "copper"
+        )
         held.locked = frozenset(item.id for item in (*board.tracks, *board.arcs, *board.vias) if item.locked)
     if roles is not None:
+        held.kinds = frozenset(role.net for role in roles.nets if role.kind in ROLE_NET_KINDS)
         held.role_nets = frozenset(
             role.net for role in roles.nets if role.kind in ROLE_NET_KINDS and role.source != "inferred"
         )
@@ -360,6 +438,77 @@ def _zone_targets(
     return found
 
 
+def _item_shapes(island: NetIsland, ctx: _Context) -> list[tuple[tuple[str, ...], Thick]]:
+    """The shapes of the tracks, arcs and vias of an island, with their copper layers."""
+    board = ctx.design.board
+    if board is None:
+        return []
+    ids = {entity for kind, entity in island.items if kind in ("track", "arc", "via")}
+    found: list[tuple[tuple[str, ...], Thick]] = []
+    for track in (*board.tracks, *board.arcs):
+        if track.id in ids:
+            found.append(((track.layer,), Thick((track.start, track.end), track.width)))
+    for via in board.vias:
+        if via.id in ids:
+            found.append((tuple(ctx.copper_layers), Thick((via.position,), via.diameter)))
+    return found
+
+
+def _entry(attach: Attach, island: NetIsland | None, toward: Point, ctx: _Context) -> Attach:
+    """A pad end moved to the point of the pad's copper nearest to ``toward`` whose disc of the net's width
+    keeps clear of the tracks, arcs and vias of its island that touch the pad, so that new copper meets the
+    pad and not a branch that leaves it (a gate return leaves its Kelvin-source pad; S-0852, S-0853). The pad
+    centre when nothing touches the pad, or when no point is clear."""
+    record = ctx.records.get(attach.name)
+    if attach.kind != "pad" or island is None or record is None:
+        return attach
+    pads: list[Thick] = []
+    for entry in record.copper:
+        if entry.layer in attach.layers:
+            try:
+                pads.append(Thick(tuple(entry.core), entry.width, entry.filled))
+            except (GeometryError, ValueError):
+                continue
+    if not pads:
+        return attach
+    near = [
+        shape
+        for layers, shape in _item_shapes(island, ctx)
+        if set(layers) & set(attach.layers) and any(thick_touch(shape, pad) for pad in pads)
+    ]
+    if not near:
+        return attach
+    width = ctx.widths.get(attach.net, 0) + 2 * ENTRY_MARGIN
+    boxes = [thick_bbox(pad) for pad in pads]
+    x0, y0 = min(b.x0 for b in boxes), min(b.y0 for b in boxes)
+    x1, y1 = max(b.x1 for b in boxes), max(b.y1 for b in boxes)
+    best: tuple[int, int, int] | None = None
+    for x in range(x0 - x0 % ENTRY_STEP, x1 + 1, ENTRY_STEP):
+        for y in range(y0 - y0 % ENTRY_STEP, y1 + 1, ENTRY_STEP):
+            point = Point(x, y)
+            d2 = (x - toward.x) ** 2 + (y - toward.y) ** 2
+            if best is not None and (d2, x, y) >= best:
+                continue
+            if not any(covers(pad, point) for pad in pads):
+                continue
+            disc = Thick((point,), max(width, 1))
+            if any(thick_touch(disc, shape) for shape in near):
+                continue
+            best = (d2, x, y)
+    if best is None:
+        return attach
+    return Attach(attach.kind, attach.net, Point(best[1], best[2]), attach.layers, attach.name)
+
+
+def _pad_ends(
+    net: str, a: Attach, b: Attach, first: NetIsland | None, second: NetIsland | None, ctx: _Context
+) -> tuple[Attach, Attach]:
+    """Both pad ends moved off the branches of their islands, each toward the other."""
+    a = _entry(a, first, b.at, ctx)
+    b = _entry(b, second, a.at, ctx)
+    return a, b
+
+
 def _join_ends(
     net: str, conn: OpenConnection, first: NetIsland, second: NetIsland, ctx: _Context
 ) -> tuple[Attach, Attach]:
@@ -381,7 +530,28 @@ def _join_ends(
                 rank = (start.name, target.name)
                 if (d2, rank) < best[:2]:
                     best = (d2, rank, start, target)
-    return best[2], best[3]
+    a, b = best[2], best[3]
+    own, other = (first, second) if _owner(a, first) else (second, first)
+    if b.kind != "zone":
+        return _pad_ends(net, a, b, own, other, ctx)
+    moved = _entry(a, own, b.at, ctx)
+    if moved.at != a.at:
+        width = ctx.widths.get(net, 0)
+        for zone_id in sorted(other.zones):
+            zone = ctx.zones.get(zone_id)
+            if zone is None or b.layers[0] not in zone.layers:
+                continue
+            reach = (width + 1) // 2 + zone.settings.clearance
+            point = ctx.copper.nearest(net, b.layers[0], moved.at, reach, ATTACH_REACH)
+            if point is not None:
+                b = Attach(b.kind, b.net, point, b.layers, b.name)
+                break
+    return moved, b
+
+
+def _owner(attach: Attach, island: NetIsland) -> bool:
+    """Whether the anchor ``attach`` stands for is one of ``island``'s."""
+    return any(end.position == attach.at for end in island.ends)
 
 
 def subjects(
@@ -394,11 +564,13 @@ def subjects(
     pour: PourCopper | None = None,
     blocked: Collection[str] = (),
     reach: int = FANOUT_REACH,
+    power: Mapping[str, tuple[str, ...]] | None = None,
 ) -> SubjectPlan:
     """The subjects of the board ``design`` after phases 1 and 2 (see the module). ``roles`` are the roles in
     force (inferred ones with ``source`` ``inferred``); ``groups`` the critical groups phase 2 left open;
     ``widths`` the track width of each net; ``pour`` the board's pour when the caller has it; ``blocked`` the
-    nets of phase 1's ``roles.copper-blocked`` edges."""
+    nets of phase 1's ``roles.copper-blocked`` edges; ``power`` the power pads of each net
+    (``roles.measure.power_pads``), along which the open connections of a role net are taken."""
     board = design.board
     if board is None:
         return SubjectPlan()
@@ -413,7 +585,7 @@ def subjects(
     for row in report.nets:
         net = row.name
         held = islands.get(net, ())
-        for conn in row.open:
+        for conn in _edges(row.open, held, (power or {}).get(net, ()) if net in ctx.kinds else ()):
             first, second = _island(held, conn.a), _island(held, conn.b)
             subject = _fanout(net, conn, first, second, ctx, fanned)
             if subject is None and first is not None and second is not None:
@@ -430,6 +602,7 @@ def subjects(
                     )
             if subject is None:
                 a, b = _attach(net, conn.a, first), _attach(net, conn.b, second)
+                a, b = _pad_ends(net, a, b, first, second, ctx)
                 kind = "role-net" if net in ctx.inferred else "connection"
                 subject = Subject(
                     _pair_key(kind, net, a, b),

@@ -486,6 +486,33 @@ def pour_copper(
     return PourCopper(grid, shaped, final, named, loose)
 
 
+def rejoin(
+    pour: PourCopper, design: Design, *, pads: Sequence[BoardPad] | None, arc_tol: int = ARC_TOL_NM
+) -> PourCopper:
+    """The copper of ``design`` on the simulated cells of ``pour`` (change c0280): the items of ``design``
+    shaped again, the zone layers in their states of ``pour``, and each kept island joined to the items of its
+    net that cover one of its cells. ``design`` is the board of ``pour`` with items added; the result equals
+    ``pour_copper`` of ``design`` when no added item comes within the clearance of a zone of another net and
+    none lands only on an island that ``pour`` dropped, which the caller tests."""
+    board = design.board
+    copper = net_copper(design, pads=pads, arc_tol=arc_tol)
+    loose = loose_copper(design, pads=pads, arc_tol=arc_tol)
+    if board is None:
+        return PourCopper(pour.grid, copper, loose=loose)
+    names = {net.id: net.name for net in design.circuit.nets}
+    by_net = _replace_fills(copper, board.zones, pour.zones, names)
+    islands: list[Island] = []
+    for island in pour.islands:
+        joins: set[tuple[str, str, str]] = set()
+        for shape in by_net.get(island.net, ()):
+            if shape.layer == island.layer and shape.kind in NON_FILL:
+                if not island.cells.isdisjoint(shape_cells(shape.shape, pour.grid)):
+                    joins.add((shape.kind, shape.entity_id, shape.where))
+        islands.append(Island(island.net, island.layer, island.cells, island.zones, frozenset(joins)))
+    shaped = NetCopper(by_net, copper.unsupported, copper.outer, copper.layers)
+    return PourCopper(pour.grid, shaped, pour.zones, tuple(islands), loose)
+
+
 def _earlier_fill(
     shape: CopperShape, rank: int, order: Sequence[tuple[Zone, int]], states: Sequence[ZoneLayer], layer: str
 ) -> bool:
@@ -583,6 +610,7 @@ __all__ = [
     "islands_of",
     "layer_matches",
     "pour_copper",
+    "rejoin",
     "ring_cells",
     "row_spans",
     "segments_of",

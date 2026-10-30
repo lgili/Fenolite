@@ -15,10 +15,13 @@ each axis.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from _critical import bench
 from _roleboards import Built
+
+from fenolite.routing.protocol import RoutingJob
 
 SUBJECTS = """
 from fenolite.dsl import Design, Net, Part, amp, connect, mm
@@ -98,3 +101,95 @@ def subject_bench(tmp: Path, name: str = "subjects", extra: str = "") -> Built:
 def wall_bench(tmp: Path, name: str = "walled") -> Built:
     """The wall bench built in ``tmp``."""
     return bench(tmp, name, WALL.format(name=name))
+
+
+FAMILY = """
+from fenolite.dsl import Design, Net, Part, connect, mm
+
+design = Design("{name}")
+design.board(mm(40), mm(30))
+j2 = Part("J2", "Fenolite:Connector_2", footprint="Roles:Roles_Terminal_2P", value="A")
+j3 = Part("J3", "Fenolite:Connector_2", footprint="Roles:Roles_Terminal_2P", value="B")
+design.add(j2, j3)
+lnk = Net("LNK")
+connect(lnk, j2[1], j3[1])
+design.rules.netclass("SIGNAL", clearance=mm("0.2"), track_width=mm("0.25"), via_diameter=mm("0.6"),
+                      via_drill=mm("0.3"), nets=(lnk,))
+j2.place(mm(10), mm(8))
+j3.place(mm(18), mm(14))
+r10 = Part("R10", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="1k")
+r11 = Part("R11", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="1k")
+design.add(r10, r11)
+lnk2 = Net("LNK2")
+connect(lnk2, r10[1], r11[1])
+design.rules.netclass("SIGNAL2", clearance=mm("0.2"), track_width=mm("0.25"), via_diameter=mm("0.6"),
+                      via_drill=mm("0.3"), nets=(lnk2,))
+r10.place(mm(28), mm(6))
+r11.place(mm(34), mm(12), side="bottom")  # its pads on B.Cu only: a via-L or nothing
+{extra}
+"""
+
+
+def family_bench(tmp: Path, name: str = "families", extra: str = "") -> Built:
+    """Two through-hole terminals whose ``LNK`` connection has room for shapes on both layers, and ``LNK2``
+    between an SMD pad on ``F.Cu`` and one on ``B.Cu``, which only a via-L joins."""
+    return bench(tmp, name, FAMILY.format(name=name, extra=extra))
+
+
+def propose_job(
+    built: Built, options: Mapping[str, str] | None = None, kinds: Sequence[str] = ()
+) -> RoutingJob:
+    """The routing job of ``fenolite route --propose`` for the subjects of a built bench (its roles from its
+    model, its project's classes and rules), without group subjects."""
+    from _critical import board as read_built
+    from _roleboards import judge
+
+    from fenolite.analysis.boundary import board_boundary
+    from fenolite.analysis.pour import DEFAULT_GRID_NM, pour_copper
+    from fenolite.backends.kicad.outline import board_outline
+    from fenolite.backends.kicad.pcb import read_board
+    from fenolite.cli import cmd_route
+    from fenolite.roles.proposals import ZoneCopper, subjects
+    from fenolite.routing.protocol import JobAttach, JobNet, JobPad, JobSubject
+
+    design, pads = read_built(built)
+    rules = cmd_route._project_rules(  # pyright: ignore[reportPrivateUsage]
+        read_board(built.board.read_text(encoding="utf-8"), file=built.board.name), built.board, []
+    )
+    checks = cmd_route._job_checks(design, rules)  # pyright: ignore[reportPrivateUsage]
+    classes = {item.id: item for item in design.circuit.netclasses}
+    default = next((c for c in design.circuit.netclasses if c.name.casefold() == "default"), None)
+    values = {
+        net.name: cmd_route._net_values(net, classes, default)  # pyright: ignore[reportPrivateUsage]
+        for net in design.circuit.nets
+    }
+    assert design.board is not None
+    pour = pour_copper(design, pads=pads, boundary=board_boundary(design.board), grid=DEFAULT_GRID_NM)
+    roles = judge(built, check=False).resolved.roles
+    plan = subjects(design, pads, roles=roles, widths={k: v[0] for k, v in values.items()}, pour=pour)
+    layers = tuple(
+        layer.name
+        for layer in sorted(design.board.layers, key=lambda item: item.ordinal)
+        if layer.kind == "copper"
+    )
+    found: list[JobSubject] = []
+    nets: dict[str, JobNet] = {}
+    ids = {net.name: net.id for net in design.circuit.nets}
+    for s in plan.subjects:
+        if kinds and s.kind not in kinds:
+            continue
+        width, clearance, diameter, drill = values[s.net]
+        a = JobAttach(s.a.kind, s.net, s.a.at, s.a.layers, s.a.name)
+        b = JobAttach(s.b.kind, s.net, s.b.at, s.b.layers, s.b.name)
+        found.append(JobSubject(s.key, s.kind, s.net, a, b, width, layers, diameter, drill))
+        held = tuple(
+            JobPad(p.ref, p.number, s.net, p.position, p.layers, p.drill) for p in pads if p.net == s.net
+        )
+        nets[s.net] = JobNet(s.net, ids[s.net], held, width, clearance, diameter, drill)
+    extra = {
+        "board_pads": pads,
+        "outline": board_outline(design).rings,
+        **checks,
+        "zone_copper": ZoneCopper(design, pour).covers,
+    }
+    return RoutingJob(design, tuple(nets.values()), layers, dict(options or {}), extra, subjects=tuple(found))

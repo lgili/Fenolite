@@ -17,7 +17,9 @@ The command gives the job the clearance in force (``extra["clearance"]``) and th
 (``extra["copper_check"]``), which this package may not import; the check judges the result, and the
 copper of a connection that brings a new finding is removed (``route.check-refused``).
 
-A job with role routes (``RoutingJob.roles``, change c0244) is routed by ``routing.roleroute`` instead, on
+A job with subjects (``RoutingJob.subjects``, change c0280) is answered by ``routing.propose`` with candidates
+and nothing merged. A job with role routes (``RoutingJob.roles``, change c0244) is routed by
+``routing.roleroute`` instead, on
 this module's world, shapes and pair offsets: ``World``, ``Pad``, ``PairConn``, ``pair_lines``, ``thick``,
 ``length``, ``apart`` and ``unit`` are shared with it and stay internal to the routing package.
 """
@@ -563,7 +565,8 @@ class OctilinearRouter:
         """Route the job's nets and pairs, or its role routes only when it has any (``routing.roleroute``);
         the result is ``UNVERIFIED`` until KiCad checks it."""
         issues: list[Issue] = []
-        max_length, rounds = _options(job.options, issues) if not job.roles else (MAX_LENGTH, ROUNDS)
+        plain = not job.roles and not job.subjects
+        max_length, rounds = _options(job.options, issues) if plain else (MAX_LENGTH, ROUNDS)
         pads = job.extra.get("board_pads")
         outline = job.extra.get("outline")
         if not isinstance(pads, tuple) or job.design.board is None:
@@ -579,6 +582,10 @@ class OctilinearRouter:
             return self._result((), (), names, issues)
         rings = cast("tuple[tuple[Point, ...], ...]", outline) if isinstance(outline, tuple) else ()
         world = World(job, cast("tuple[object, ...]", pads), rings)
+        if job.subjects:  # proposal mode (change c0280): candidates only, nothing merged
+            from fenolite.routing.propose import propose
+
+            return propose(job, world, cast("tuple[object, ...]", pads), self.name)
         if job.roles:  # role mode (change c0244): the role routes and nothing else
             from fenolite.routing.roleroute import route_roles
 

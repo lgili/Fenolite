@@ -113,6 +113,10 @@ def check(args: argparse.Namespace, router: Router) -> None:
     """``FEN-2001`` for an option that role mode does not take, a role option without ``--roles``, or a
     router without the feature ``roles``."""
     if args.roles is None:
+        if getattr(args, "propose", False) or getattr(args, "accept", None) or getattr(args, "reject", None):
+            return  # the proposal mode takes --group and --roles-file (change c0280)
+        if getattr(args, "replay", False) or getattr(args, "forget", None):
+            return
         for given, option in ((args.group, "--group"), (args.roles_file, "--roles-file")):
             if given:
                 raise CliError(
@@ -207,7 +211,7 @@ class Judge:
         return tuple(sorted(set(found), key=lambda f: (f[1], f[0], f[2], -1 if f[3] is None else f[3])))
 
 
-def _roles(
+def roles_of(
     args: argparse.Namespace, ctx: Context, board_path: Path
 ) -> tuple[RoleSet | None, RoleSet | None, object | None, Path | None]:
     """``(declared, confirmed, circuit, file)``: the stored roles of the board, and the circuit to infer
@@ -418,7 +422,7 @@ def _area(name: str, ring: Sequence[Point], layers: Sequence[str]) -> Keepout:
     )
 
 
-def _with_corridors(design: Design, made: Mapping[str, Sequence[Keepout]]) -> Design:
+def with_corridors(design: Design, made: Mapping[str, Sequence[Keepout]]) -> Design:
     """``design`` with the corridors of ``made``, each replacing every rule area of its name, and the further
     pieces ``<name>.<n>`` of a provisional corridor of phase 1 (``fenolite copper``, change c0243)."""
     board = design.board
@@ -565,7 +569,7 @@ def run_roles(
     read_issues: Sequence[Issue],
 ) -> Result:
     """``route --roles critical``: see the module."""
-    declared, confirmed, circuit, roles_file = _roles(args, ctx, board_path)
+    declared, confirmed, circuit, roles_file = roles_of(args, ctx, board_path)
     pads = board_pads(design, issues=[])
     records = {f"{p.ref}-{p.number}": p for p in pads}
     judge = Judge(pads, circuit, confirmed, declared)
@@ -647,7 +651,7 @@ def run_roles(
         issues.extend(exc.issues)
         by_key = {key: RoleOutcome(key, route.group, "unrouted", "no-room") for key, route in routes.items()}
     made = corridors(merged, list(by_key.values()), routes, nets, clearance)
-    merged = _with_corridors(merged, made)
+    merged = with_corridors(merged, made)
     copper_of = _group_items(outcome, routes, by_key)
     gate_result: dict[str, object] | None = None
     gate_evidence: Evidence | None = None
@@ -925,5 +929,7 @@ __all__ = [
     "job_route",
     "pair_clearance",
     "register",
+    "roles_of",
     "run_roles",
+    "with_corridors",
 ]
