@@ -125,6 +125,12 @@
 
 - [ ] 8.1 Run `make check-fast` and the residue scan; publish the batch to the working branch for CI. Proof: `make check-fast`; CI `unit` and `kicad` jobs green on the exact commit.
   2026-10-29: open: `make check-fast` passes locally; CI runs with the batch (the coordinator pushes it).
+  2026-10-30: open: a full `make check-fast PYTEST_WORKERS=2` on `ee5d4929` ran to its end with 4 failures
+  (16987 passed): three of `tests/unit/cli/test_catalog_only.py` (a footprint without its Reference field
+  read as the reference `""`) and the SPDX header of the new fixture; both fixed in `01f729bf`, the failed
+  files and the edit-merge tests pass (152 passed), and lint passed. The confirming full rerun was stopped
+  when the session closed. CI runs with the batch.
+  6.2 stays open: c0245 (workbench, Pending panel) is not in `circuits-as-code`.
 - [ ] 8.2 Update the evidence labels: `docs/evidence/` rows of the merge at `INFERRED`, `H-K-EDIT-SCH-VALUE` as registered, and the oracle results. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py -q`.
   2026-10-29: open.
   2026-10-30: open: `docs/lens.md` ("Evidence") names the oracle and its local 10.0.6 result; the merge
