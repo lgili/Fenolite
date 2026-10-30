@@ -184,8 +184,8 @@ def test_offered_lists_every_action(tree: ProjectTree) -> None:
 
 def test_route_accept_and_reject_name_the_session_ids(tree: ProjectTree) -> None:
     """Scenario "Accept a candidate from the page" (c0280): ``route-accept`` is ``route --router octilinear
-    --accept`` on the board with candidate ids of the session's proposal data; ``route-reject`` takes candidate
-    or proposal ids and a reason; any other id is refused (400)."""
+    --accept`` on the board with candidate ids of the session's proposal data; ``route-reject`` takes
+    candidate or proposal ids and a reason; any other id is refused (400)."""
     chosen, proposal = "c-0123456789abcdef", "p-fedcba9876543210"
     context = Context(candidates=frozenset({chosen}), proposals=frozenset({proposal}))
 

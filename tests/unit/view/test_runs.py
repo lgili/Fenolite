@@ -68,8 +68,8 @@ def test_roles_runs_on_the_board_without_options(tree: ProjectTree) -> None:
 
 
 def test_proposals_run_on_the_board_without_options(tree: ProjectTree) -> None:
-    """Change c0280: the run ``proposals`` is ``route --router octilinear --propose`` on the board's file, takes
-    no option, and writes nothing."""
+    """Change c0280: the run ``proposals`` is ``route --router octilinear --propose`` on the board's file,
+    takes no option, and writes nothing."""
     found = request({"command": "proposals", "doc": _doc(tree, BOARD.name)}, tree, CHOICES)
     assert isinstance(found, RunRequest) and found.arguments == {"path": BOARD.name}
     assert found.command == "proposals"

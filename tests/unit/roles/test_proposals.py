@@ -76,7 +76,8 @@ def test_group_subjects(bench_board: Built) -> None:
     )
     assert found["group:kelvin_Y"].reason == "pads"
     kinds = [s.kind for s in plan.subjects]
-    assert kinds.index("group") > kinds.index("role-net") and kinds[-1] == "connection"
+    assert kinds.index("group") > kinds.index("join") and kinds[-1] == "connection"
+    assert "role-net:VS:R6-1~R7-1" not in [s.key for s in plan.subjects]  # a route of an open group
 
 
 LEFTOVERS = {

@@ -268,8 +268,8 @@ def test_tidy_with_the_drc_gate(served: _Served) -> None:
 
 
 def test_route_accept_from_the_page(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Scenario "Accept a candidate from the page" (c0280): over a copy of the buck role-copper variant and its
-    proposal data, ``route-accept`` with a candidate id of the data plans ``route --router octilinear
+    """Scenario "Accept a candidate from the page" (c0280): over a copy of the buck role-copper variant and
+    its proposal data, ``route-accept`` with a candidate id of the data plans ``route --router octilinear
     --accept=<id> -- <board>`` (the board and the decision record), and an id the data lacks is refused with
     400 naming it."""
     import _roles  # noqa: F401, PLC0415  (puts tests/unit/roles on the path)

@@ -92,7 +92,7 @@ def bench_board(tmp_path_factory: pytest.TempPathFactory) -> Built:
     return subject_bench(tmp_path_factory.mktemp("subjects"))
 
 
-# --- task 3.1 ------------------------------------------------------------------------------------------------
+# --- task 3.1 -----------------------------------------------------------------------------------------------
 
 
 def test_wrong_router(bench_board: Built) -> None:
@@ -118,7 +118,8 @@ def test_wrong_router(bench_board: Built) -> None:
     ],
 )
 def test_router_options_of_the_modes(bench_board: Built, more: tuple[str, ...]) -> None:
-    """The modes exclude each other (``--accept`` and ``--reject`` excepted) and the options of other modes."""
+    """The modes exclude each other (``--accept`` and ``--reject`` excepted) and the options of other
+    modes."""
     code, _, err = route(bench_board.board, *more)
     assert code == 2 and "FEN-2001" in err
 
@@ -185,7 +186,7 @@ def test_blocked_connection(tmp_path: Path) -> None:
     assert codes(env) == ["route.proposal-open"]
 
 
-# --- task 3.2 ------------------------------------------------------------------------------------------------
+# --- task 3.2 -----------------------------------------------------------------------------------------------
 
 
 def test_drc_batches(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -226,7 +227,7 @@ def test_drc_batches(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     ]
 
 
-# --- task 3.3 ------------------------------------------------------------------------------------------------
+# --- task 3.3 -----------------------------------------------------------------------------------------------
 
 
 def _fanout_id(env: dict[str, Any]) -> str:
@@ -306,15 +307,15 @@ def test_a_malformed_record_is_refused(bench_board: Built, tmp_path: Path) -> No
     assert code == 3 and "FEN-3004" in err
 
 
-# --- task 3.4 ------------------------------------------------------------------------------------------------
+# --- task 3.4 -----------------------------------------------------------------------------------------------
 
 
 def test_replay_on_a_fresh_build(
     p2: Callable[[str, str], Built], tmp_path: Path, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
     """Scenario "Replay on a fresh build": the record of the accepted buck beside a fresh build of the same
-    script in another folder; ``--replay --confirm`` writes the accepted items with their ids, the board equals
-    the accepted one byte for byte, and a second replay plans no write."""
+    script in another folder; ``--replay --confirm`` writes the accepted items with their ids, the board
+    equals the accepted one byte for byte, and a second replay plans no write."""
     accepted = copy_of(p2("buck_shunt", "bad"), tmp_path / "accepted")
     chosen = _fanout_id(propose(accepted.board))
     planned(accepted.board, "--accept", chosen)
