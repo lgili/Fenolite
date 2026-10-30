@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living specs this change touches (`design-dsl`, `design-model`,
+- [x] 0.1 Read `openspec list`, the living specs this change touches (`design-dsl`, `design-model`,
   `kicad-schematic`, `altium-schematic-writer`, `verification-loop`, `layout-lens`) and the state of c0269,
   c0250, c0249 and c0275. Write under this task the date, the base commit, and:
   - whether c0269 is archived, with the names of `SheetPin`, `sch.opaque_sheet_pins` and the block-sheet
