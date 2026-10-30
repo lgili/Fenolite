@@ -48,16 +48,19 @@ PAPERS: tuple[str, ...] = get_args(PaperSize)
 """The paper names of ``sheet()``; ``custom`` takes ``width`` and ``height``."""
 SHEET_SUFFIXES: tuple[str, ...] = (".kicad_wks", ".sheet.toml")
 """What a drawing sheet named by ``sheet()`` ends in."""
-COPPER_COUNTS: tuple[int, ...] = (2, 4, 6, 8)
-"""The copper layer counts of ``board()`` (change c0100). The KiCad backend holds the same counts in
-``layers.CREATED_COPPER_COUNTS``; the DSL imports only the model, so a unit test keeps the two equal."""
+COPPER_COUNTS: tuple[int, ...] = tuple(range(2, 33, 2))
+"""The copper layer counts of ``board()``: every even count from 2 to 32 (change c0100; 10 to 32 since
+change c0277). The KiCad backend holds the same counts in ``layers.CREATED_COPPER_COUNTS``; the DSL imports
+only the model, so a unit test keeps the two equal. One copper layer is not a count: KiCad 9.0.9 and
+10.0.6 refuse a table without ``B.Cu`` (``H-K-PCB-ONE-COPPER``)."""
+SINGLE_SIDED_HINT = "a single-sided board is copper=2 with nothing on B.Cu"
+"""What ``board(copper=1)`` says (change c0277)."""
 USER_LAYERS = 45
 """The user layers a design may declare, ``User.1`` to ``User.45`` (``user_layers``; change c0277)."""
 
 
 def _counts_text() -> str:
-    counts = [str(count) for count in COPPER_COUNTS]
-    return f"{', '.join(counts[:-1])} or {counts[-1]}"
+    return f"an even count from {COPPER_COUNTS[0]} to {COPPER_COUNTS[-1]}"
 
 
 def inner_layers(copper: int) -> tuple[str, ...]:
@@ -872,9 +875,9 @@ class Design(Container):
     ) -> BoardRef:
         """The board: a rectangle of ``width`` × ``height``, or the closed path ``outline`` (pairs of
         lengths and ``arc_to`` steps in the frame of ``place()``; ``fenolite.dsl.shape`` gives ``rect``,
-        ``circle`` and ``slot``), with 2, 4, 6 or 8 copper layers. Exactly one form is given. An inner
-        layer is a signal layer unless ``planes`` names it: ``planes={"In1.Cu": gnd}`` makes that layer an
-        internal plane on that net (a ``Net`` or a net name). A plane holds one net; it is a build
+        ``circle`` and ``slot``), with an even count of 2 to 32 copper layers. Exactly one form is given.
+        An inner layer is a signal layer unless ``planes`` names it: ``planes={"In1.Cu": gnd}`` makes that
+        layer an internal plane on that net (a ``Net`` or a net name). A plane holds one net; it is a build
         parameter, as ``copper`` is, and what a target does with it is its build's rule (``docs/dsl.md``).
         ``locked=True`` makes the script's outline replace an outline edited in KiCad when the board is
         rebuilt (``docs/lens.md``, "Outline changes"). It returns the board as a placement reference
@@ -882,7 +885,8 @@ class Design(Container):
         if self.outline_path is not None:
             raise DslError("board() is called once")
         if isinstance(copper, bool) or not isinstance(copper, int) or copper not in COPPER_COUNTS:  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise DslError(f"copper must be {_counts_text()}, not {copper!r}")
+            extra = f"; {SINGLE_SIDED_HINT}" if copper == 1 and not isinstance(copper, bool) else ""
+            raise DslError(f"copper must be {_counts_text()}, not {copper!r}{extra}")
         if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"board(): locked must be a bool, not {locked!r}")
         size: tuple[Nm, Nm] | None = None
@@ -1382,7 +1386,7 @@ class Design(Container):
         for layer, net in planes.items():  # pyright: ignore[reportUnknownVariableType]
             if not inner:
                 raise DslError(
-                    f"planes need copper={_counts_text().removeprefix('2, ')}: "
+                    f"planes need copper of 4 to {COPPER_COUNTS[-1]}: "
                     f"a board of {copper} copper layers has no inner layer"
                 )
             if layer not in inner:

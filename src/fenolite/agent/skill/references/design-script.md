@@ -46,7 +46,7 @@ d1.place(mm(15), mm(6), rot=180)
 ## What each piece is
 
 - **`Design(name)`** holds everything. `design.board(width, height, copper=2)` declares the outline, once;
-  `copper` is 2, 4, 6 or 8.
+  `copper` is an even count, 2 to 32.
 - **`Module(name)`** groups parts. A module has `add()` like the design, and modules nest. A part's path
   is its reference at the top and `module/REF` inside a module; the path names the part across builds.
 - **`Part(ref, lib_id, footprint=..., value=...)`** is one component (page `parts`).

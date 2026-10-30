@@ -23,7 +23,7 @@ def fresh() -> tuple[Design, Net, Net]:
 
 
 def test_the_two_constants_are_equal() -> None:
-    assert COPPER_COUNTS == (2, 4, 6, 8) == layers.CREATED_COPPER_COUNTS
+    assert COPPER_COUNTS == tuple(range(2, 33, 2)) == layers.CREATED_COPPER_COUNTS
     assert not hasattr(design_mod, "INNER_LAYERS")
 
 
@@ -36,13 +36,30 @@ def test_inner_layers() -> None:
         assert ("F.Cu", *inner_layers(count), "B.Cu") == tuple(table)
 
 
-@pytest.mark.parametrize("count", [3, 10, True, 6.0, 0, "4", None])
+@pytest.mark.parametrize("count", [3, 5, 34, True, 6.0, 0, "4", None])
 def test_unsupported_copper_count(count: object) -> None:
     """Scenario "Unsupported copper count"."""
     d, _, _ = fresh()
-    with pytest.raises(DslError, match="copper must be 2, 4, 6 or 8, not "):
+    with pytest.raises(DslError, match="copper must be an even count from 2 to 32, not ") as caught:
         d.board(mm(50), mm(30), copper=count)  # type: ignore[arg-type]
+    assert "single-sided" not in str(caught.value)
     assert d.size is None and d.copper == 2  # a refused call declares nothing
+
+
+def test_one_copper_layer_is_refused() -> None:
+    """KiCad refuses a table of one copper layer (``H-K-PCB-ONE-COPPER``; change c0277)."""
+    d, _, _ = fresh()
+    with pytest.raises(DslError, match="a single-sided board is copper=2 with nothing on B.Cu"):
+        d.board(mm(50), mm(30), copper=1)
+
+
+def test_thirty_two_copper_layers() -> None:
+    """Scenario "Thirty-two copper layers"."""
+    d, gnd, _ = fresh()
+    d.board(mm(50), mm(30), copper=32, planes={"In30.Cu": gnd})
+    assert d.copper_layers == ("F.Cu", *(f"In{k}.Cu" for k in range(1, 31)), "B.Cu")
+    assert planes(d) == {"In30.Cu": "GND"}
+    assert COPPER_COUNTS == layers.CREATED_COPPER_COUNTS
 
 
 def test_six_and_eight_copper_layers() -> None:
@@ -84,7 +101,7 @@ def test_planes_in_layer_order_on_six() -> None:
 
 def test_planes_need_an_inner_layer() -> None:
     d, gnd, _ = fresh()
-    with pytest.raises(DslError, match="planes need copper=4, 6 or 8: a board of 2 copper layers"):
+    with pytest.raises(DslError, match="planes need copper of 4 to 32: a board of 2 copper layers"):
         d.board(mm(50), mm(30), planes={"In1.Cu": gnd})
     with pytest.raises(DslError, match=r"\(In1\.Cu, In2\.Cu\), not on 'F\.Cu'"):
         d.board(mm(50), mm(30), copper=4, planes={"F.Cu": gnd})

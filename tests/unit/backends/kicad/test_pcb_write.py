@@ -189,8 +189,8 @@ def test_four_copper_layers() -> None:
     ]
     assert copper == [("F.Cu", "0"), ("In1.Cu", "4"), ("In2.Cu", "6"), ("B.Cu", "2")]
     assert len(created_layers(2)) == 20 and len(layers) == 22
-    for count in (3, 10):
-        with pytest.raises(ValueError, match="2, 4, 6 or 8"):
+    for count in (3, 34):
+        with pytest.raises(ValueError, match="an even count from 2 to 32"):
             created_layers(count)
 
 

@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Layer tables of n copper layers for the table probes (capability kicad-oracle, "Created layer tables
-are probed on both majors"; hypothesis H-K-PCB-LAYERS; change c0100, design Decisions 2 and 10).
+are probed on both majors"; hypothesis H-K-PCB-LAYERS; change c0100, design Decisions 2 and 10; every
+even count to 32 and the table of one copper layer since change c0277, H-K-PCB-ONE-COPPER).
 
 ``rows(n)`` is the test's own statement of the row rule, for any n: the rows of the two-copper table with
-one row ``(2k + 2, "In<k>.Cu", "signal")`` per inner layer k = 1 … n − 2 right after ``F.Cu``. It also
-gives the table of 3, which ``layers.created_layers`` refuses to create. A hermetic test compares it
-with ``created_layers(n)`` for the counts Fenolite creates.
+one row ``(2k + 2, "In<k>.Cu", "signal")`` per inner layer k = 1 … n − 2 right after ``F.Cu``, and for
+n = 1 the two-copper table without ``B.Cu``. It also gives the table of 3, which ``layers.created_layers``
+refuses to create. A hermetic test compares it with ``created_layers(n)`` for the counts Fenolite creates.
 """
 
 from __future__ import annotations
@@ -27,16 +28,20 @@ from fenolite.model.board import Layer
 from fenolite.model.design import Design
 
 Row = tuple[int, str, str, str | None]
-COUNTS: tuple[int, ...] = (2, 4, 6, 8)
+COUNTS: tuple[int, ...] = tuple(range(2, 33, 2))
 ODD = 3
 """The negative control: a count KiCad refuses."""
+ONE = 1
+"""The table of one copper layer, whose outcome settles H-K-PCB-ONE-COPPER (change c0277)."""
 TARGETS: tuple[int, ...] = (9, 10)
 PROJECT = "{}\n"
 
 
 def rows(copper: int) -> tuple[Row, ...]:
-    """The table of ``copper`` copper layers by the row rule, for any count of at least 2."""
-    assert copper >= 2
+    """The table of ``copper`` copper layers by the row rule, for any count of at least 1."""
+    assert copper >= 1
+    if copper == 1:
+        return tuple(row for row in CREATED_ROWS if row[1] != "B.Cu")
     inner: tuple[Row, ...] = tuple((2 * k + 2, f"In{k}.Cu", "signal", None) for k in range(1, copper - 1))
     return CREATED_ROWS[:1] + inner + CREATED_ROWS[1:]
 
@@ -78,6 +83,10 @@ def board(copper: int) -> Design:
     design = created_board(2)
     assert design.board is not None
     board = dataclasses.replace(design.board, layers=table(copper), stackup=None)
+    if copper == ONE:
+        # a one-copper table holds no B.Cu: the zone and the via of the test board go (change c0277)
+        zones = tuple(z for z in board.zones if "B.Cu" not in z.layers)
+        board = dataclasses.replace(board, zones=zones, vias=())
     return dataclasses.replace(design, board=board)
 
 
@@ -159,4 +168,5 @@ def table_probes() -> dict[str, tuple[object, tuple[int, ...]]]:
                 (10,),
             )
         probes[f"pcb-layers-odd-t{target}"] = (lambda target=target: load_outcome(ODD, target), majors)
+        probes[f"pcb-layers-1-t{target}"] = (lambda target=target: load_outcome(ONE, target), majors)
     return probes

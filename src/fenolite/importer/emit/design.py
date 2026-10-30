@@ -73,7 +73,7 @@ from fenolite.model.board import (
 from fenolite.model.design import Design
 from fenolite.model.rules import Rule, Selector
 
-COPPER_COUNTS = (2, 4, 6, 8)
+COPPER_COUNTS = tuple(range(2, 33, 2))
 NAME = re.compile(r"^[A-Za-z0-9_.+-]+$")
 DESIGN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 UNCONNECTED = "unconnected-("

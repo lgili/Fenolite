@@ -1655,16 +1655,19 @@ def document_stack(spec: PcbDocSpec) -> StackSpec:
     planes. ``ValueError`` when the stack does not hold one id per copper layer (a signal layer's id of
     ``pcbrecords.LAYER_MAP``, or a plane on an inner layer), or when a plane's net is not a net of the
     document."""
-    signal = rec.copper_stack(spec.copper_layers)
     if spec.stack is None:
-        return StackSpec.default(signal)
+        return StackSpec.default(rec.copper_stack(spec.copper_layers))
     stack = spec.stack
     planes = [
         name
         for name, layer in zip(spec.copper_layers, stack.copper, strict=False)
         if layer >= rec.FIRST_PLANE and name not in (spec.copper_layers[0], spec.copper_layers[-1])
     ]
-    if len(stack.copper) != len(signal) or rec.copper_stack(spec.copper_layers, planes) != stack.copper:
+    # a stack of more than 16 copper layers holds planes; the ids are checked with them (change c0277)
+    if (
+        len(stack.copper) != len(spec.copper_layers)
+        or rec.copper_stack(spec.copper_layers, planes) != stack.copper
+    ):
         raise ValueError(
             f"the stack {stack.copper!r} does not hold one id per copper layer of {spec.copper_layers!r}"
         )

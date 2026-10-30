@@ -234,9 +234,13 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
 - `Design.sheet(paper, …, drawing_sheet=…)` and `Design.title_block(…)`: the paper, your drawing sheet and the title block ("Drawing sheet and title block").
 - `Design.moved(old, new)`: a path alias that keeps the layout of a renamed part or module ("Path
   aliases"); `Design.moved_net(old, new)`: the same for a renamed net.
-- `Design.board(width, height, copper=2, planes=None)`, once per design. `copper` is 2, 4, 6 or 8
-  (`fenolite.dsl.design.COPPER_COUNTS`); any other value, a `bool` or a `float` included, is a
-  `DslError` that names the counts. `design.board(mm(50), mm(30), copper=6)` declares the layers `F.Cu`,
+- `Design.board(width, height, copper=2, planes=None)`, once per design. `copper` is an even count from 2
+  to 32 (`fenolite.dsl.design.COPPER_COUNTS`; 10 to 32 since change c0277); any other value, an odd
+  count, a `bool` or a `float` included, is a `DslError` that names the counts. KiCad refuses a table of
+  one copper layer, so `copper=1` is a `DslError` that says a single-sided board is `copper=2` with
+  nothing on `B.Cu` (`H-K-PCB-ONE-COPPER`). Every count gets zones, planes on any inner layer, script
+  copper, the copper guard and one Gerber per copper layer, as eight layers do; an Altium build refuses
+  more than 16 signal layers (the count less its planes) or 16 planes with `altium.stack-signal-limit`. `design.board(mm(50), mm(30), copper=6)` declares the layers `F.Cu`,
   `In1.Cu`, `In2.Cu`, `In3.Cu`, `In4.Cu` and `B.Cu`. `Design.copper_layers` gives those names for the
   declared count, top to bottom (`("F.Cu", "B.Cu")` before `board()`), and
   `fenolite.dsl.design.inner_layers(copper)` the inner ones. Both KiCad targets get the layer table that
@@ -296,7 +300,7 @@ Nothing of the DSL is re-exported from the root `fenolite` package: the DSL `Des
   `Net(f"{m.path}/FB")`.
 - Errors are raised as `DslError` at the offending call, so the traceback points at the script line:
   duplicate paths, duplicate net, class or interface names, two `Net` objects with one name, a net in
-  two classes, a second `place()` or `board()`, a `copper` that is not 2, 4, 6 or 8, a plane or a zone
+  two classes, a second `place()` or `board()`, a `copper` that is not an even count from 2 to 32, a plane or a zone
   on a layer that the count does not have, one designator on two nets,
   an unknown `side`, an invalid name. Equal refs in different modules are reported by
   `Design.validate()` (`model.duplicate-ref`).

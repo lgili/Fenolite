@@ -31,7 +31,7 @@ def copper_rows(table: tuple[Layer, ...]) -> list[Row]:
 
 
 def test_counts() -> None:
-    assert CREATED_COPPER_COUNTS == (2, 4, 6, 8)
+    assert CREATED_COPPER_COUNTS == tuple(range(2, 33, 2))  # every even count to 32 (change c0277)
     assert not hasattr(layers, "INNER_ROWS")
     assert inner_rows(2) == ()
     assert inner_rows(4) == ((4, "In1.Cu", "signal", None), (6, "In2.Cu", "signal", None))
@@ -90,14 +90,28 @@ def test_created_count() -> None:
     assert created_count(("F.Cu", "In1.Cu", "B.Cu")) is None
     assert created_count(("F.Cu", "In2.Cu", "In1.Cu", "B.Cu")) is None  # table order
     assert created_count(("B.Cu", "F.Cu")) is None
-    assert created_count(("F.Cu", *(f"In{k}.Cu" for k in range(1, 9)), "B.Cu")) is None
+    assert created_count(("F.Cu", *(f"In{k}.Cu" for k in range(1, 9)), "B.Cu")) == 10
+    assert created_count(("F.Cu", *(f"In{k}.Cu" for k in range(1, 31)), "B.Cu")) == 32
+    assert created_count(("F.Cu", *(f"In{k}.Cu" for k in range(1, 33)), "B.Cu")) is None
     assert created_count(()) is None
 
 
-@pytest.mark.parametrize("count", [0, 3, 10, True, 6.0, "4", None, -2])
+@pytest.mark.parametrize("count", [0, 1, 3, 31, 34, True, 6.0, "4", None, -2])
 def test_counts_outside_the_table(count: object) -> None:
     """Scenario "Counts outside the table"."""
-    with pytest.raises(ValueError, match="2, 4, 6 or 8"):
+    with pytest.raises(ValueError, match="an even count from 2 to 32"):
         created_layers(count)  # type: ignore[arg-type]
-    with pytest.raises(ValueError, match="2, 4, 6 or 8"):
+    with pytest.raises(ValueError, match="an even count from 2 to 32"):
         inner_rows(count)  # type: ignore[arg-type]
+
+
+def test_thirty_two_copper_layers() -> None:
+    """Scenario "Thirty-two copper layers" (kicad-file-backend): ``In30.Cu`` is number 62, and no number of
+    the table repeats."""
+    table = created_layers(32, user=45)
+    copper = [
+        (layer.name, dict(layer.ext["kicad"].payload)["number"]) for layer in table if layer.kind == "copper"
+    ]
+    assert copper[0] == ("F.Cu", "0") and copper[-2:] == [("In30.Cu", "62"), ("B.Cu", "2")]
+    numbers = [dict(layer.ext["kicad"].payload)["number"] for layer in table]
+    assert len(numbers) == len(set(numbers)) == 32 + 18 + 45

@@ -438,7 +438,7 @@ changes the text, and a re-save keeps both.
 
 ### Copper count changes
 
-A board whose copper layers are those of a table that Fenolite creates (2, 4, 6 or 8 layers: `F.Cu`,
+A board whose copper layers are those of a table that Fenolite creates (an even count of 2 to 32 layers: `F.Cu`,
 `In1.Cu` … `B.Cu`) follows a new `board(copper=…)`:
 
 - **Rows.** The rows of the layers that stay keep what KiCad set on them; new inner rows are added

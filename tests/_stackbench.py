@@ -40,7 +40,9 @@ from fenolite.model.board import Layer, StackLayer, Stackup
 PROJECT = "{}\n"
 STEM = "bench"
 JOB = f"{STEM}-job.gbrjob"
-WANTED_COUNTS: tuple[int, ...] = (2, 4, 6, 8)
+WANTED_COUNTS: tuple[int, ...] = (2, 4, 6, 8, 10, 16, 32)
+"""The counts of c0100 and three of change c0277, whose default stack-up KiCad states
+(``pcb-stackup-default-<n>``)."""
 INCOMPLETE: tuple[str, ...] = ("physical", "nosilk", "fewer", "more", "names", "twodiel", "nopaste")
 """The node cases KiCad ignores (``pcb-stackup-incomplete-<case>``, expected ``absent``)."""
 USED: tuple[str, ...] = ("order", "nopaste-table")

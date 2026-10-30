@@ -75,9 +75,10 @@ CREATED_ROWS: tuple[tuple[int, str, str, str | None], ...] = (
     (33, "B.Fab", "user", None),
 )
 """The two-copper layer table KiCad 10.0.6 writes (``board.md``): number, name, type, user name."""
-CREATED_COPPER_COUNTS: tuple[int, ...] = (2, 4, 6, 8)
-"""The copper layer counts of a created board (change c0100); ``fenolite.dsl.design.COPPER_COUNTS``
-holds the same counts, and a unit test keeps the two equal."""
+CREATED_COPPER_COUNTS: tuple[int, ...] = tuple(range(2, 33, 2))
+"""The copper layer counts of a created board, every even count from 2 to 32 (change c0100; 10 to 32
+since change c0277, ``H-K-PCB-LAYERS``); ``fenolite.dsl.design.COPPER_COUNTS`` holds the same counts, and a
+unit test keeps the two equal. KiCad refuses a table of one copper layer (``H-K-PCB-ONE-COPPER``)."""
 
 
 def _compile(pattern: str) -> re.Pattern[str]:
@@ -139,8 +140,7 @@ def flip_layer(name: str) -> str:
 
 
 def _counts_text() -> str:
-    counts = [str(count) for count in CREATED_COPPER_COUNTS]
-    return f"{', '.join(counts[:-1])} or {counts[-1]}"
+    return f"an even count from {CREATED_COPPER_COUNTS[0]} to {CREATED_COPPER_COUNTS[-1]} of"
 
 
 def _check_count(copper: object) -> int:

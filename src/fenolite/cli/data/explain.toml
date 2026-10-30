@@ -164,6 +164,11 @@ meaning = "A copper source was given, but the PCB document is not written in thi
 fix = "Meet the conditions of the PCB document (see altium.pcbdoc-not-written) or drop the copper source."
 see = "Build target"
 
+["altium.stack-signal-limit"]
+meaning = "The script's copper layers less its planes exceed the 16 signal layers of an Altium document, or its planes exceed 16."
+fix = "Declare planes= for the layers beyond 16 signal layers, or build the board for KiCad."
+see = "Build target"
+
 ["altium.copper-stack"]
 meaning = "The number of copper layers of the board differs from the count the build asks for, a copper layer is named twice, or a plane names a wrong layer or net."
 fix = "Build with the copper count of the board, and put planes on inner layers with nets of the design."

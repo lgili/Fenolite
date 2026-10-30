@@ -430,6 +430,13 @@ def _plane_unknown(model: ModelDesign) -> tuple[ModelDesign, dict[str, object]]:
     return model, {"planes": {"In1.Cu": "NOPE", "F.Cu": "GND"}}
 
 
+def _signal_limit(model: ModelDesign) -> tuple[ModelDesign, dict[str, object]]:
+    """Twenty copper layers of the script and no plane: 20 signal layers (change c0277)."""
+    assert model.board is not None
+    bare = tuple(layer for layer in model.board.layers if layer.kind != "copper")
+    return _copper_board(model, layers=bare), {"copper": 20}
+
+
 COPPER_PARTS = ("tracks", "arc", "vias", "inner", "zones", "class")
 COPPER_CASES: dict[
     str, tuple[Callable[[ModelDesign], tuple[ModelDesign, dict[str, object]]], dict[str, int]]
@@ -438,6 +445,7 @@ COPPER_CASES: dict[
     "zone": (_zone_opaque, {"altium.zone-unsupported": 2}),
     "plane": (_plane_copper, {"altium.plane-copper": 3}),
     "plane-net": (_plane_unknown, {"altium.copper-stack": 2}),
+    "signal": (_signal_limit, {"altium.stack-signal-limit": 1}),
     "stack": (_copper_stack, {"altium.copper-layer": 3}),  # c0085: an odd count gives the default stack
     "via": (_via_blind, {"altium.via-unsupported": 1, "altium.copper-invalid": 1}),  # c0085: a micro via
     "invalid": (_copper_invalid, {"altium.copper-invalid": 4}),
@@ -531,7 +539,7 @@ def test_zone_on_a_missing_layer() -> None:
 @pytest.mark.parametrize("name", sorted(COPPER_CASES))
 def test_copper_case(name: str) -> None:
     """One issue per entity, an error each, with the entity id in ``where``; no file is written."""
-    codes = ("altium.copper", "altium.via", "altium.zone-unsupported", "altium.plane-copper")
+    codes = ("altium.copper", "altium.via", "altium.zone-unsupported", "altium.plane-copper", "altium.stack-")
     issues = [i for i in run_copper_case(name) if i.code.startswith(codes)]
     counts: dict[str, int] = {}
     for found in issues:
@@ -747,6 +755,7 @@ def test_the_table() -> None:
         "altium.outjob-not-listed": "info",
         "altium.experimental": "info",
         "altium.copper-stack": "error",
+        "altium.stack-signal-limit": "error",
         "altium.copper-layer": "error",
         "altium.via-unsupported": "warning",
         "altium.copper-invalid": "error",
@@ -1062,8 +1071,8 @@ def test_eight_layers_read_back() -> None:
     names = tuple(layer.name for layer in back.board.layers if layer.kind == "copper")
     assert names == ("F.Cu", "In1.Cu", "In2.Cu", "In3.Cu", "In4.Cu", "In5.Cu", "In6.Cu", "B.Cu")
     assert names == design.copper_layers
-    for count in COPPER_COUNTS:  # no count of the DSL is refused as such
-        layers, issues = altium_copper.board_layers(to_model(design), count)
+    for count in COPPER_COUNTS:  # no count of the DSL is refused as such, with planes past 16 signal layers
+        layers, issues = altium_copper.board_layers(to_model(design), count, max(0, count - 16))
         assert issues == [] and len(layers) == count
 
 
