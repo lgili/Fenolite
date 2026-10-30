@@ -58,7 +58,7 @@ ALLOWED: dict[str, set[str]] = {
     "tidy": {"model", "geometry", "backends.base"},
     "reuse": {"model", "geometry", "backends.base"},
     "silk": {"model", "geometry", "backends*"},
-    "library": {"model", "geometry", "backends*"},
+    "library": {"model", "geometry", "backends*", "dsl", "catalog"},  # c0279: the lock section, record ids
     "importer": {"model", "geometry", "backends*", "checks", "library", "dsl"},  # board to code (c0275)
 }
 LAZY: dict[str, set[str]] = {"api": {"cli"}}

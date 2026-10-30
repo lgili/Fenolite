@@ -89,6 +89,12 @@ _SPECS = (
         retryable=True,
     ),
     ErrorSpec(
+        "FEN-3021",
+        ExitCode.INPUT,
+        "the item's licence is not allowed or its licence files are missing; nothing was written",
+        "only items under a licence of the allow-list, with LICENSE and NOTICE, can be got",
+    ),
+    ErrorSpec(
         "FEN-4001",
         ExitCode.CONFIRM_REQUIRED,
         "confirmation required; nothing was written",
@@ -100,6 +106,12 @@ _SPECS = (
         ExitCode.CONFIRM_REQUIRED,
         "the plan named by --plan cannot be written as reviewed; nothing was written",
         "run the command with --dry-run again, review the new plan, and confirm it with its id",
+    ),
+    ErrorSpec(
+        "FEN-4003",
+        ExitCode.CONFIRM_REQUIRED,
+        "the item licences must be accepted by name; nothing was written",
+        "read result.licences, then confirm with --accept-licence naming each id that needs acceptance",
     ),
     ErrorSpec(
         "FEN-5001",
@@ -123,6 +135,18 @@ _SPECS = (
         "download failed",
         "retry later, or download the file another way and install it with --from FILE",
         retryable=True,
+    ),
+    ErrorSpec(
+        "FEN-6004",
+        ExitCode.TOOL,
+        "a library item pinned by the design lock is missing",
+        "restore it with 'fenolite get --locked <script> --dry-run', then confirm",
+    ),
+    ErrorSpec(
+        "FEN-6006",
+        ExitCode.TOOL,
+        "the library index or asset is not in the offline cache",
+        "run the same command without --offline, or name a release folder with --from DIR",
     ),
     ErrorSpec(
         "FEN-7001",

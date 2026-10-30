@@ -132,9 +132,18 @@ def download(row: FetchRow) -> bytes:
     ``urllib`` does) or ``ValueError``; the caller turns it into ``FEN-6003``."""
     if not row.url.lower().startswith(SCHEME) or "?" in row.url:
         raise ValueError(f"the address of {row.name!r} is not a plain https address: {row.url}")
-    request = urllib.request.Request(row.url, headers={"User-Agent": f"fenolite/{__version__}"})
+    return download_url(row.url, row.bytes)
+
+
+def download_url(url: str, size: int) -> bytes:
+    """The bytes at ``url``, at most ``size + 1`` of them, under the rules of :func:`download` (one request,
+    only the ``User-Agent`` header, 60 s, ``https``-only redirects, no retry). ``fenolite get`` uses it for
+    library assets (change c0279, ADR-0008)."""
+    if not url.lower().startswith(SCHEME) or "?" in url:
+        raise ValueError(f"not a plain https address: {url}")
+    request = urllib.request.Request(url, headers={"User-Agent": f"fenolite/{__version__}"})
     with _opener().open(request, timeout=TIMEOUT_S) as response:
-        return cast(bytes, response.read(row.bytes + 1))
+        return cast(bytes, response.read(size + 1))
 
 
 def read_package(row: FetchRow) -> bytes:
@@ -157,6 +166,7 @@ __all__ = [
     "TIMEOUT_S",
     "FetchRow",
     "download",
+    "download_url",
     "matches",
     "public_names",
     "read_file",

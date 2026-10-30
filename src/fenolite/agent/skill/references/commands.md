@@ -34,6 +34,7 @@ another type; a flag without a value is a switch.
 | `fetch` | yes | download an external tool (freerouting) after --confirm, checked against its pinned SHA-256 |
 | `fill` | yes | fill a KiCad board through kicad-cli 10 on a copy, preserving its format major |
 | `fmt` | yes | give a KiCad S-expression file Fenolite's canonical print, or check it with --check |
+| `get` | yes | copy a fenolite-library item and its dependencies into the project with their licence files, and pin them in the design lock |
 | `guide` | no | print the agent guide of the installed version: the list of its pages, or one page |
 | `impedance` | yes | the impedance table of a project for the fabricator, with --estimate rough estimates (writes FILE with --out) |
 | `import` | yes | turn a KiCad or Altium board into a Fenolite project folder (design.py, copper tables, library) |
@@ -310,6 +311,29 @@ another type; a flag without a value is a switch.
 - `PATH`: a board, footprint, schematic, symbol library or sheet
 - `--check`: report whether the file would change
 
+## get
+`fenolite get [OPTIONS] [KIND] [ID]`
+
+- `KIND`: the item kind: symbol, footprint, device, block, board
+- `ID`: the item id: <Namespace>:<name>, or <source>/<name> for a board
+- `--version V`: the item version (default: the release's)
+- `--release R`: the library release to read
+- `--script FILE`: the design script whose folder receives items (default design.py)
+- `--into DIR`: board: the folder to create (default ./<name>), missing or empty
+- `--from SRC`: a release folder, a fenolite-library checkout, or a file:// git URL (#ref)
+- `--offline`: open no connection; use the cache or --from only
+- `--index-sha256 HEX`: the SHA-256 of a release index this version does not list
+- `--accept-licence SPDX[,SPDX...]` (repeatable): accept these licences of the planned items (needed for any id but CC0-1.0)
+- `--list`: list the items of a cached index
+- `--search TEXT`: search ids, titles, summaries and tags of a cached index
+- `--status`: report the pinned items: present, modified, newer
+- `--locked SCRIPT`: restore every pinned item whose folder is missing
+- `--remove`: with KIND ID: remove a vendored item and its pin
+- `--refresh`: download one release index into the cache
+- `--kind K`: --list, --search: only this kind
+- `--licence ID|FAMILY`: --list, --search: only this SPDX id or family
+- `--frozen`: refused: get changes the lock (exit 2)
+
 ## guide
 `fenolite guide [TOPIC]`
 
@@ -370,6 +394,14 @@ another type; a flag without a value is a switch.
 - `--out LIB.pretty`: the library folder to write, relative; for 'symbol', a relative .kicad_sym or .SchLib file
 - `--diff LIBRARY`: a .pretty folder to compare with the board; writes nothing
 - `--library NAME`: 'symbol' only: the library name (default: the stem of --out)
+- `--item PATH`: audit: check only this item folder, relative to ROOT
+- `--base REF`: audit: a base tree (folder or git ref) for the version rules
+- `--proof FILE`: audit with --item: gate this verify-source --json reply of the board (the proof job)
+- `--version V`: release: the release version
+- `--upstream DIR`: replay: use this upstream checkout instead of fetching
+- `--keep DIR`: replay: keep the work folder here (must be missing or empty)
+- `--with-current`: replay: run the fenolite steps with this Fenolite instead of the recorded version
+- `--release DIR`: gallery: the folder of a release made by 'library release'
 
 ## manifest
 `fenolite manifest [OPTIONS] PATH`

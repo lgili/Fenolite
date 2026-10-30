@@ -10,7 +10,8 @@ per footprint under ``--out``, or with ``--diff`` writes nothing and reports the
 Change c0261 adds action words: a first positional of ``ACTIONS`` is an action, any other the board of the
 form above. ``fenolite library symbol PINS... --out FILE.kicad_sym|FILE.SchLib`` plans one symbol library
 generated from pin tables (``fenolite.catalog.pins``, ``fenolite.catalog.generate.symbol``); the other
-actions are reserved for later changes.
+actions are reserved for later changes. Change c0279 adds the verbs of the library repository (``audit``,
+``replay``, ``release``, ``gallery``; ``fenolite.cli._library_repo``).
 """
 
 from __future__ import annotations
@@ -30,6 +31,8 @@ from fenolite.backends.kicad.sym import write_symbol_library
 from fenolite.catalog.generate.symbol import generate_symbol, sides
 from fenolite.catalog.pins import read_pins
 from fenolite.cli._examples import EXAMPLE_BOARD
+from fenolite.cli._library_repo import VERBS, run_verb
+from fenolite.cli._library_repo import register as register_verbs
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
@@ -44,11 +47,12 @@ HELP = (
 )
 PRETTY = ".pretty"
 WRITE_KIND = "kicad_mod"
-ACTIONS = ("symbol", "check", "review", "import", "propose", "fetch")
+ACTIONS = ("symbol", "check", "review", "import", "propose", "fetch", *VERBS)
 """The action words of ``fenolite library`` (change c0261); a first positional of another text is a board."""
-AVAILABLE = frozenset({"symbol"})
+AVAILABLE = frozenset({"symbol", *VERBS})
 """The actions this version runs; the others are reserved (``FEN-2001``) until their changes land: ``check``
-and ``review`` (c0262), ``import`` (c0264), ``propose`` (c0265) and ``fetch`` (c0266)."""
+and ``review`` (c0262), ``import`` (c0264), ``propose`` (c0265) and ``fetch`` (c0266). The verbs ``audit``,
+``replay``, ``release`` and ``gallery`` of the library repository come from change c0279."""
 SYMBOL_SUFFIXES = {".kicad_sym": "kicad_sym", ".SchLib": SCHLIB_KIND}
 _LIBRARY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+-]*$")
 SYMBOL_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-SYMBOL-LAYOUT", "H-K-SYM-UNITS-WRITE"))
@@ -76,6 +80,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--library", metavar="NAME", help="'symbol' only: the library name (default: the stem of --out)"
     )
+    register_verbs(parser)
 
 
 def _relative(path: Path, cwd: Path) -> str:
@@ -175,6 +180,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 where=action,
                 hint="pass ./" + action + " for a board folder of that name",
             )
+        if action in VERBS:
+            return run_verb(action, args, ctx)
         return _symbols(args, ctx)
     if len(args.path) > 1:
         raise CliError("FEN-2001", f"library takes one board, not {len(args.path)} paths", where=args.path[1])

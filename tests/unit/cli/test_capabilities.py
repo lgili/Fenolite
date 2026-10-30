@@ -109,3 +109,14 @@ def test_features(capsys: pytest.CaptureFixture[str]) -> None:
         "octilinear": ["pairs", "roles", "short"],
     }
     assert all("features" not in row for row in result["matrix"])  # type: ignore[union-attr]
+
+
+def test_get_and_library_verbs_listed(capsys: pytest.CaptureFixture[str]) -> None:
+    """Capability cli-contract, "Library tooling verbs", scenario "Verbs listed" (change c0279)."""
+    commands = {c["name"]: c for c in _capabilities(capsys, "--no-tools")["commands"]}  # type: ignore[union-attr]
+    assert commands["get"]["mutates"] is True and commands["get"]["paged"] == "rows"
+    for verb, writes in (("audit", False), ("replay", False), ("release", True), ("gallery", True)):
+        entry = commands[f"library {verb}"]
+        assert entry["mutates"] is writes and entry["usage"].startswith(f"fenolite library {verb} ")
+    assert "--base REF" in commands["library audit"]["usage"]
+    assert "--version V --out DIR" in commands["library release"]["usage"]

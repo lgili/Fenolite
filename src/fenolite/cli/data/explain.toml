@@ -79,6 +79,11 @@ meaning = "A file the command would read is kept only online by a sync client (O
 fix = "Make the project folder available offline in the sync client, wait until it is downloaded, and run the command again."
 see = "snapshot"
 
+["FEN-3021"]
+meaning = "fenolite get refused an item: its SPDX licence id is not in the allow-list shipped with this Fenolite (non-commercial, no-derivatives, no licence, a LicenseRef or another id), its index row and PROVENANCE.json name different licences, or it lacks LICENSE or NOTICE. Nothing was written."
+fix = "Choose another item; report a wrong licence to fenolite-library. Only items under an allowed licence, with their licence files, can be got."
+see = "get"
+
 ["FEN-4001"]
 meaning = "The command would write files and was given neither --dry-run nor --confirm, so it wrote nothing."
 fix = "Review result.plan, then run the same command with --confirm to write, or with --dry-run to only preview."
@@ -88,6 +93,11 @@ see = "Writing files"
 meaning = "The plan named by --plan cannot be written as it was reviewed: a target or a declared input changed since the dry run, the command line or the working folder is another one, the staged bytes are damaged, or no plan of that id is staged and the plan made now has another id. Nothing was written."
 fix = "Read the message, which names the first reason. Run the command with --dry-run again, review the new plan, and confirm it with --confirm --plan and its new id."
 see = "Writing files"
+
+["FEN-4003"]
+meaning = "fenolite get --confirm met a planned item whose licence is not CC0-1.0 and was not accepted by name. Nothing was written."
+fix = "Read result.licences and the obligations of each item, then confirm again with --accept-licence naming each id (for example --accept-licence CC-BY-SA-4.0)."
+see = "get"
 
 ["FEN-5001"]
 meaning = "The command ran and reported at least one issue of severity error. The envelope on stdout holds them."
@@ -108,6 +118,16 @@ see = "Discovery"
 meaning = "'fenolite fetch' could not download the tool: no network, a proxy or a firewall, a redirect to an address that is not https, or the publisher's address did not answer. Nothing was written."
 fix = "Retry later. On a machine without a network, download the file another way from the address that --dry-run shows and install it with --from FILE: the size and the SHA-256 are checked the same way."
 see = "fetch"
+
+["FEN-6004"]
+meaning = "The design lock pins a library item (section library) whose folder beside the script is missing, for example after a fresh clone that does not commit fenolite_library/. The build wrote nothing."
+fix = "Restore the folders with fenolite get --locked <script> --dry-run, review the plan, then confirm; it reads the offline cache or --from DIR."
+see = "get"
+
+["FEN-6006"]
+meaning = "The library index or an archive that the command needs is not in the offline cache, and --offline (or a read-only form: --list, --search, --status) forbids a download."
+fix = "Run the same command without --offline, name a release folder with --from DIR, or cache an index first with fenolite get --refresh --dry-run and then --confirm."
+see = "get"
 
 ["FEN-7001"]
 meaning = "The operation would lose or overwrite information, so Fenolite refused it and wrote nothing."
@@ -4061,6 +4081,71 @@ see = "build"
 meaning = "A library record the design uses changed after its last review: the review names another digest. A record with an origin stays UNVERIFIED until it is reviewed again."
 fix = "Review the record again and record the review (reviewed_by) with its current digest."
 see = "build"
+
+["library.depends-conflict"]
+meaning = "fenolite get: the dependencies of the requested item need a version of an item that the project already vendors at another version. Nothing is planned."
+fix = "Get the other version of the vendored item first (fenolite get KIND ID --version V), or keep the item version that needs it."
+see = "get"
+
+["library.duplicate-id"]
+meaning = "fenolite library audit: one item id appears in two folders of the same kind (for example under two licence families)."
+fix = "Keep one folder per id; an id is unique within its kind across all families."
+see = "library"
+
+["library.family-mismatch"]
+meaning = "fenolite library audit: an item lies in a licence-family folder that its SPDX id does not map to in licences.toml."
+fix = "Move the item to <kind>/<family>/ of its licence, as the message names."
+see = "library"
+
+["library.item-extra-file"]
+meaning = "fenolite library audit: an item folder holds a file that item.json does not list in files (besides item.json, PROVENANCE.json, LICENSE, NOTICE and README.md)."
+fix = "List the file in item.json files, or remove it."
+see = "library"
+
+["library.item-missing"]
+meaning = "A library item pinned in the design lock has no folder beside the script (fenolite build exits 6 with FEN-6004; fenolite get --status reports it)."
+fix = "Restore it with fenolite get --locked <script> --dry-run, then confirm."
+see = "get"
+
+["library.item-modified"]
+meaning = "fenolite get: a vendored item folder differs from the tree its lock entry pins (a local edit), so an update or removal would lose the edit."
+fix = "Keep the edit elsewhere first, or pass --allow-lossy to replace the folder."
+see = "get"
+
+["library.licence-denied"]
+meaning = "An item's licence is refused: an SPDX id outside the allow-list (non-commercial, no-derivatives, no licence, a LicenseRef or another id), an upstream on a platform whose terms forbid copying, or an example bundled with commercial CAD software."
+fix = "Only items under an allowed licence enter fenolite-library or a project; choose another source."
+see = "library"
+
+["library.licence-text"]
+meaning = "fenolite library audit: LICENSE is missing, or its normalised text matches no digest listed for its SPDX id and PROVENANCE.json has no licence_review."
+fix = "Use the listed licence text, or record licence_review (by, date, note) approved by a CODEOWNER."
+see = "library"
+
+["library.notice-missing"]
+meaning = "fenolite library audit: NOTICE is missing or does not start with the dated modification notice of PROVENANCE.json."
+fix = "Head NOTICE with modification_notice, then copy the upstream notices verbatim."
+see = "library"
+
+["library.proof-failed"]
+meaning = "The proof gate of a board item failed: a verify-source level differs, a new difference appeared, a level was skipped without a recorded reason (or with build-failed), or the statuses differ from fidelity.proof.levels."
+fix = "Fix the cause, add a reviewed fidelity.accepted entry, or record the skip reason; then run verify-source --record again."
+see = "library"
+
+["library.provenance-invalid"]
+meaning = "fenolite library audit: item.json or PROVENANCE.json breaks its schema, the two disagree (the message names both values), a depends target is missing or forms a cycle, a conversion step names another tool or holds --plan, or README.md lacks a required statement."
+fix = "Correct the field the message names; record a writing step with --confirm alone."
+see = "library"
+
+["library.replay-differs"]
+meaning = "fenolite library replay: the outputs of the recorded conversion steps differ from the item's payload or from conversion.outputs_tree, or an input digest differs."
+fix = "Regenerate the item with the pinned tools and record its new outputs_tree, or find what changed upstream."
+see = "library"
+
+["library.version-rule"]
+meaning = "fenolite library audit --base: an item changed but its version did not rise above the base version."
+fix = "Raise MINOR for a regeneration, MAJOR for a new upstream commit."
+see = "library"
 
 ["library.drift"]
 meaning = "With --diff, a footprint made from the board differs from the library's footprint of the same name in the kinds the message names (pads, silkscreen, courtyard, models, fields), or the library lacks it (missing). Nothing is written."

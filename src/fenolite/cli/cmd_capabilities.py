@@ -220,7 +220,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "write_kinds": [row.kind for row in support],
     }
 
-    commands = [_entry(c) for c in sorted(discover().values(), key=lambda c: c.name)]
+    from fenolite.cli._library_repo import capability_entries
+
+    # the verbs of the library repository are listed as ``library <verb>`` with their usage (change c0279)
+    entries = [_entry(c) for c in discover().values()] + capability_entries()
+    commands = sorted(entries, key=lambda e: str(e["name"]))
     from fenolite.cli.main import MUTATION_FLAGS, global_flags
 
     result: dict[str, Any] = {

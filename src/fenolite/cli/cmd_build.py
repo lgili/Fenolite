@@ -1192,6 +1192,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
                 given=lock_given,
                 path=lock_path,
                 frozen=bool(getattr(args, "frozen", False)),
+                named=args.design,
             )
         if picks.resolution is not None and picks.resolution.refused:
             # a stale, missing or unmatched pick, or an unachievable generator: nothing is built

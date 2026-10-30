@@ -17,6 +17,7 @@ Create PCB projects from Python, inspect KiCad and Altium files, and review desi
 | Generate a symbol of any size from a pin table | [Symbols from pin tables](symbols.md) |
 | Convert KiCad and Altium projects; downgrade KiCad | [Conversion](conversion.md) |
 | Turn a KiCad board into Fenolite code | [Import](import.md) |
+| Get third-party symbols, footprints, devices, blocks and boards from fenolite-library, with their licences | [The library repository](library-repo.md) |
 | Compare designs and check what changed | [Equivalence](equivalence.md) |
 | Run electrical and physical checks | [CLI contract](cli-contract.md), [analyses](analyses.md), [net roles](roles.md), [electrical contracts](contracts.md) |
 | Preserve editor changes and sync placement into source | [Layout and rebuilds](lens.md) |

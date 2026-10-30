@@ -30,6 +30,9 @@ EXAMPLE_TIDY = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/ki
 """The copper-tidy bench of ``tests/_tidybench.py`` written for KiCad 10: a routed net with a stub, a dead
 lead with its via and a right angle (``fenolite tidy``). A test keeps it equal to a fresh write."""
 
+EXAMPLE_LIBRARY = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/library_repo/demo")
+"""The authored demo library of change c0279 (``fenolite get --list --from``, ``fenolite library audit``)."""
+
 EXAMPLE_SCHEMATIC = str(
     Path(fenolite.__file__).resolve().parents[2] / "tests/data/kicad/schematic/flat.kicad_sch"
 )
