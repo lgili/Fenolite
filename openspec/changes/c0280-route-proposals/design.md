@@ -504,7 +504,10 @@ convert, as `docs/roles.md` says for phase 2.
    the proposals are made on the board as built (zones unfilled, the simulated pour) on both majors, and the
    outline fill goes only on the copy that `kicad-cli` 9 judges; since that fill stands for KiCad's, the zero
    of unconnected items is claimed on 10 and the no-growth on both (the first CI run, which proposed on the
-   outline fill, found other subjects there).
+   outline fill, found other subjects there). The second found that the job `kicad-9` synced without the
+   `geo` extra, so phase 1's planner ran without its `clipper` backend and left other opens (the buck's `SW`,
+   the half-bridge's `GND`); the job now syncs `geo`, as `unit` and `kicad-10` do, and the test skips without
+   that backend.
 8. **Altium:** convert each accepted variant and compare the read-back (`H-A-PROP-READBACK`).
 9. **`good` and `open` variants:** `--propose` on each `good` variant gives `route.proposal-none`. On the
    `open` variants after phase 2, the proposals are recorded under task 4.2; the half-bridge's sense pair

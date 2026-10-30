@@ -31,6 +31,7 @@ from _probes import runner
 from _resources import kicad_cli, kicad_cli_major
 
 import fenolite.cli.main as cli_main
+from fenolite.geometry import available_backends
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "unit" / "roles"))
 from _roleboards import EXAMPLES, fill_as_outline  # noqa: E402
@@ -118,6 +119,10 @@ def _clean(candidate: dict[str, Any]) -> bool:
 def test_accepted_proposals_pass_drc(tmp_path: Path, board: str, variant: str) -> None:
     """``H-K-PROP-DRC``: zero ``unconnected_items`` and no violation type with more entries than after
     phase 2."""
+    if "clipper" not in available_backends():
+        pytest.skip(
+            "the role-copper planner needs the geo extra (clipper) to make the reference boards' copper"
+        )
     cli = kicad_cli()
     major = kicad_cli_major()
     assert cli is not None and major is not None
