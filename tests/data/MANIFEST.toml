@@ -3801,3 +3801,75 @@ path = "tests/data/library_repo/demo/symbols/cc0/Demo/EXB/item.json"
 origin = "authored"
 corpus_id = ""
 notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "examples/circuit/ferrite/bad.py"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: c0274 example; illustrative data, no third-party payload"
+
+[[file]]
+path = "examples/circuit/ferrite/devices/example_cap_10v.toml"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: c0274 example; illustrative data, no third-party payload"
+
+[[file]]
+path = "examples/circuit/ferrite/devices/example_fb_600r.toml"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: c0274 example; illustrative data, no third-party payload"
+
+[[file]]
+path = "examples/circuit/ferrite/devices/example_sensor_analog.toml"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: c0274 example; illustrative data, no third-party payload"
+
+[[file]]
+path = "examples/circuit/ferrite/ferrite_board/__init__.py"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: c0274 example; illustrative data, no third-party payload"
+
+[[file]]
+path = "examples/circuit/ferrite/ferrite_board/board.py"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: c0274 example; illustrative data, no third-party payload"
+
+[[file]]
+path = "examples/circuit/ferrite/good.py"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: c0274 example; illustrative data, no third-party payload"
+
+[[file]]
+path = "examples/families/design.lock"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: c0263 example; illustrative data, no third-party payload"
+
+[[file]]
+path = "examples/families/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: c0263 example; illustrative data, no third-party payload"
+
+[[file]]
+path = "examples/families/devices/example_chip_r.toml"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: c0263 example; illustrative data, no third-party payload"
+
+[[file]]
+path = "examples/families/devices/example_film_r.toml"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: c0263 example; illustrative data, no third-party payload"
+
+[[file]]
+path = "examples/families/devices/example_mlcc.toml"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: c0263 example; illustrative data, no third-party payload"
