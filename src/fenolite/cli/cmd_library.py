@@ -345,7 +345,7 @@ def _generate(args: argparse.Namespace, ctx: Context) -> Result:
             kept.append(pcblib.LibFootprint(defn, extras))
         if kept:
             pcblib_path = f"{folder}/{library}.PcbLib"
-            data = pcblib.write_pcblib(kept, filename=f"{library}.PcbLib")
+            data = pcblib.write_pcblib(kept, filename=f"{library}.PcbLib", disambiguate_storages=True)
             writes.append(PlannedWrite(pcblib_path, data, PCBLIB_KIND))
     assert first is not None
     return Result(

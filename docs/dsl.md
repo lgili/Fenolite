@@ -50,6 +50,31 @@ components from the part and reads none of this.
 Python facts are cited from `docs/evidence/sources.md` (S-0070 … S-0074); KiCad facts from
 `docs/formats/kicad/`. Everything else on this page is a Fenolite choice.
 
+## Generated footprints (c0260)
+
+`Footprint.from_package(text, *, library="Local", positions=None)` returns the footprint a package record
+(`fenolite.package.v0`, given as its text) describes, drawn by the generator of its family: pads, courtyard,
+silkscreen, fabrication drawing, extruded bodies and, under `drawing >= 1`, the STEP model path
+`${KIPRJMOD}/lib/<library>.3dshapes/<name>.step`, which `fenolite build` writes beside
+`lib/<library>.pretty/`. `positions` picks one position count of a connector series (default: the first).
+The footprint is sealed: `.pad()`, `.graphic()` and `.net_tie()` raise `DslError`. An unreadable record
+raises `DslError` naming `FEN-3004`, and an error finding of the generator one naming its `package.*` code.
+
+```python
+from pathlib import Path
+
+from fenolite.dsl import Design, Footprint, Part
+
+design = Design("demo")
+soic = Footprint.from_package(Path("packages/soic8.toml").read_text(encoding="utf-8"))
+design.add_footprint(soic)
+u1 = Part("U1", "Fenolite:Microcontroller", footprint=soic.lib_id)
+```
+
+The DSL reads no file itself; the families, keys, land calculator and conventions are in
+[Footprints from package records](footprint-generators.md), and `examples/generated/` uses one footprint of
+each family.
+
 ## Assembly and test features (c0118)
 
 A pad of an authored footprint takes a fabrication mark, the value KiCad calls the fabrication property of

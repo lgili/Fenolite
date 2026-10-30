@@ -15,6 +15,7 @@ Create PCB projects from Python, inspect KiCad and Altium files, and review desi
 | Choose passives by value and ratings, and let generators pick divider or filter values | [Picking parts](picking.md) |
 | Create components, connections, placement and copper in Python | [DSL](dsl.md), [copper](copper.md) |
 | Generate a symbol of any size from a pin table | [Symbols from pin tables](symbols.md) |
+| Generate a footprint, its 3D body and STEP model from package dimensions | [Footprints from package records](footprint-generators.md) |
 | Convert KiCad and Altium projects; downgrade KiCad | [Conversion](conversion.md) |
 | Turn a KiCad board into Fenolite code | [Import](import.md) |
 | Compare designs and check what changed | [Equivalence](equivalence.md) |
