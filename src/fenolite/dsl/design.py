@@ -1786,6 +1786,7 @@ class Design(Container):
         thickness: object = None,
         width: object = None,
         extension_offset: object = None,
+        text_at: tuple[object, object] | None = None,
     ) -> None:
         """A linear dimension between ``start`` and ``end``, its line ``offset`` away from them: aligned
         with the two points, or, with ``direction``, ``horizontal`` or ``vertical``. KiCad computes the
@@ -1794,7 +1795,7 @@ class Design(Container):
         (change c0277; ``None``: 0.5 mm)."""
         found = itemlib.dimension(
             self._drawing("dimension", key), start, end, offset, layer, direction, units, precision, size,
-            thickness, width, extension_offset, user=self.user_layer_names,
+            thickness, width, extension_offset, user=self.user_layer_names, text_at=text_at,
         )  # fmt: skip
         self.drawings[found.key] = found
 

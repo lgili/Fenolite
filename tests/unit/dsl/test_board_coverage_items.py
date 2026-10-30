@@ -25,7 +25,8 @@ LINES = (
     'design.via_table("ft", net=gnd, diameter=mm("0.6"), drill=mm("0.3"),'
     " rows_nm=((20_000_000, 26_000_000),), free=True)\n"
     'design.zone(gnd, layers=("B.Cu",), smoothing="fillet", smoothing_radius=mm("0.5"))\n'
-    'design.dimension("auto", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-4), units="auto")\n'
+    'design.dimension("auto", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-4), units="auto",'
+    " text_at=(mm(20), mm(-6)))\n"
     'design.dimension("mil", (mm(0), mm(0)), (mm(0), mm(30)), offset=mm(4), units="mils", precision=0)\n'
 )
 
@@ -126,6 +127,12 @@ def test_items_written(tmp_path: Path, target: int) -> None:
     assert units == ["1", "3"]
     texts = sorted(d.find("gr_text").atoms()[0].value for d in root.nodes("dimension"))  # type: ignore[union-attr]
     assert texts == ["1181 mils", "50.0000 mm"]
+    (manual,) = [
+        d
+        for d in root.nodes("dimension")
+        if d.find("style").find("text_position_mode") == parse("(text_position_mode 2)")
+    ]  # type: ignore[union-attr]
+    assert manual.find("gr_text").find("at") == parse("(at 120 94 0)")  # type: ignore[union-attr]
 
 
 def test_copper_guard_judges_a_copper_graphic(tmp_path: Path) -> None:

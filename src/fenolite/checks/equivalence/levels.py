@@ -218,9 +218,10 @@ def _elements(design: Design, refs: frozenset[str]) -> tuple[str, PadNetList, in
                     for pad in component.pads_of(pin.number):
                         parts[f"{component.ref}-{pad}"] = (component.ref, pad)
     # KiCad gives each pin on no net a net of its own, ``unconnected-(…)``, and a board built beside a
-    # schematic carries those names on its pads (c0061): such a net with one pad is a pad on no net.
+    # schematic carries those names on its pads (c0061): such a net with one element (two pads of one
+    # number, as a pin header's front and back, count once; change c0277) is a pad on no net.
     names = assignment_compare.net_names(design)
-    held = Counter(item.net for item in listed.assignments)
+    held = Counter(net for net, _ in {(item.net, item.element) for item in listed.assignments})
     open_nets = {
         net for net, count in held.items() if count == 1 and names.get(net, "").startswith(UNCONNECTED)
     }

@@ -25,6 +25,7 @@ def test_board_items_are_written(tmp_path: Path) -> None:
         "width=None",
         'layer="User.2"',
         'units="auto"',
+        'text_at=(mm("12"), mm("56"))',
         'smoothing="fillet"',
         'smoothing_radius=mm("0.5")',
     ):

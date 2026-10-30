@@ -156,6 +156,8 @@ class DimensionSpec:
     extension_offset: Nm | None = None
     text_width: Nm | None = None
     """The width of the text's font when ``size`` was a ``(width, height)`` pair that is not square."""
+    text_at: Pair | None = None
+    """Where the text stands when it is placed by hand (change c0277), board-relative."""
 
 
 Drawing = TextSpec | GraphicSpec | DimensionSpec
@@ -474,7 +476,7 @@ def polygon(
 def dimension(
     key: str, start: object, end: object, offset: object, layer: object, direction: object, units: object,
     precision: object, size: object, thickness: object, width: object, extension_offset: object = None,
-    user: Sequence[str] = (),
+    user: Sequence[str] = (), text_at: object = None,
 ) -> DimensionSpec:  # fmt: skip
     what = f"dimension {key}"
     gap: Nm | None = None
@@ -511,6 +513,7 @@ def dimension(
         _positive(width, f"{what}: width", None),
         gap,
         text_width,
+        None if text_at is None else point(text_at, f"{what}: text_at"),
     )
 
 

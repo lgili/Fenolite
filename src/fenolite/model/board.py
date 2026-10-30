@@ -597,6 +597,9 @@ class Dimension(Entity):
     extension_offset: Nm | None = None
     """The gap between a measured point and the start of its extension line (change c0277); ``None`` is the
     backend's default. Left out of the canonical JSON when ``None``."""
+    text_position: Point | None = None
+    """Where the text of the dimension stands when it is placed by hand (KiCad's ``text_position_mode 2``;
+    change c0277); ``None``: KiCad places it. Left out of the canonical JSON when ``None``."""
 
 
 @dataclass(frozen=True, slots=True)

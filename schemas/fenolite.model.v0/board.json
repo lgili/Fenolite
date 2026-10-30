@@ -433,6 +433,16 @@
               "type": "null"
             }
           ]
+        },
+        "text_position": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,

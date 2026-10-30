@@ -2346,7 +2346,9 @@ def _dimension_children(dimension: Dimension, native: str) -> Items:
         {
             "thickness": [node("thickness", Atom.from_nm(width))],
             "arrow_length": [node("arrow_length", Atom.from_nm(1_270_000))],
-            "text_position_mode": [node("text_position_mode", Atom.integer(0))],
+            "text_position_mode": [
+                node("text_position_mode", Atom.integer(0 if dimension.text_position is None else 2))
+            ],
             "arrow_direction": [node("arrow_direction", Atom.symbol("outward"))],
             "extension_height": [node("extension_height", Atom.from_nm(586_420))],
             "extension_offset": [
@@ -2364,7 +2366,11 @@ def _dimension_children(dimension: Dimension, native: str) -> Items:
         "gr_text",
         {
             "text": [Atom.string(dimension_value(dimension))],
-            "at": [at_node(middle, 0, always=True)],
+            "at": [
+                at_node(
+                    middle if dimension.text_position is None else dimension.text_position, 0, always=True
+                )
+            ],
             "layer": [node("layer", Atom.string(dimension.layer))],
             "uuid": [_uuid_node(native)],
             "effects": [_effects(size, thickness, mirror=False)],

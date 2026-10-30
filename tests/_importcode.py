@@ -205,13 +205,13 @@ ITEMS = (
     '\t(dimension (type aligned) (layer "Dwgs.User") (uuid "0e0e0e0e-0000-4000-8000-000000000054")'
     " (pts (xy 100 160) (xy 120 160)) (height -3)"
     ' (format (prefix "") (suffix "") (units 3) (units_format 1) (precision 4))'
-    " (style (thickness 0.2) (arrow_length 1.27) (text_position_mode 0) (arrow_direction outward)"
+    " (style (thickness 0.2) (arrow_length 1.27) (text_position_mode 2) (arrow_direction outward)"
     " (extension_height 0.58642) (extension_offset 0.5) (keep_text_aligned yes))"
-    ' (gr_text "20.0000 mm" (at 110 157 0) (layer "Dwgs.User") (uuid "0e0e0e0e-0000-4000-8000-000000000054")'
+    ' (gr_text "20.0000 mm" (at 112 156 0) (layer "Dwgs.User") (uuid "0e0e0e0e-0000-4000-8000-000000000054")'
     " (effects (font (size 1.524 1.524) (thickness 0.2)))))\n"
 )
 """Board items of change c0277: a copper rectangle of GND, a filled polygon without an outline, a text on a
-user layer and a dimension in automatic units."""
+user layer and a dimension in automatic units whose text is placed by hand."""
 
 
 def itemized(tmp: Path) -> Path:

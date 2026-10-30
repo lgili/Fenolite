@@ -1664,13 +1664,16 @@ design.dimension("width", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-5))
   `mm(0)` for a filled one, or `None`: a filled shape without an outline, which KiCad writes with a stroke
   width of −1 nm (`-0.000001`; change c0277). The three points of an arc are not on one line.
 - **`dimension(key, start, end, *, offset, layer="Dwgs.User", direction=None, units="mm", precision=4,
-  size=None, thickness=None, width=None, extension_offset=None)`**: a linear dimension. Without `direction` it is aligned with the
-  two points; with `horizontal` or `vertical` it measures that coordinate difference only. `offset` is the
-  signed distance of the dimension line from the measured points, KiCad's `height`: for a dimension from
-  left to right a negative offset puts the line above the points (towards smaller y), and for one from top
-  to bottom a negative offset puts it to their right. `units` is `mm`, `in`, `mils` or `auto` (the units
-  the board editor shows; change c0277), `precision` 0 to 4 decimals. `extension_offset` is the gap between a measured point and its extension line (`None`: 0.5 mm),
-  and `size` may be a `(width, height)` pair, as a text's (change c0277). KiCad computes the text, its place and its angle from the points when it loads the board.
+  size=None, thickness=None, width=None, extension_offset=None, text_at=None)`**: a linear dimension.
+  Without `direction` it is aligned with the two points; with `horizontal` or `vertical` it measures that
+  coordinate difference only. `offset` is the signed distance of the dimension line from the measured
+  points, KiCad's `height`: for a dimension from left to right a negative offset puts the line above the
+  points (towards smaller y), and for one from top to bottom a negative offset puts it to their right.
+  `units` is `mm`, `in`, `mils` or `auto` (the units the board editor shows; change c0277), `precision` 0
+  to 4 decimals. `extension_offset` is the gap between a measured point and its extension line (`None`:
+  0.5 mm), `size` may be a `(width, height)` pair, as a text's, and `text_at` places the text by hand
+  (KiCad's `text_position_mode 2`; change c0277). KiCad computes the text, and without `text_at` its place
+  and its angle, from the points when it loads the board.
 - **In the model** a text is a `Text` (`txt`), a graphic a `Graphic` (`gfx`) and a dimension a `Dimension`
   (`dim`), each in key order; `design.drawings` holds the records by key.
 - **Errors at the call** (`DslError`, nothing recorded): no `board()` yet, a key used twice, a layer that

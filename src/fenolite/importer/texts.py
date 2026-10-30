@@ -108,7 +108,6 @@ DIMENSION_FORMAT = {"prefix": '""', "suffix": '""', "units_format": "1"}
 and ``precision`` are model fields."""
 DIMENSION_STYLE = {
     "arrow_length": "1.27",
-    "text_position_mode": "0",
     "arrow_direction": "outward",
     "extension_height": "0.58642",
     "keep_text_aligned": "yes",
@@ -126,6 +125,8 @@ class DimensionStyle:
     extension_offset: int | None = None
     units: str = "mm"
     """The units of the ``format`` slot, which the reader does not project for mils and automatic units."""
+    text_at: Point | None = None
+    """Where a text placed by hand stands (``text_position_mode 2``; change c0277)."""
 
 
 def _children_match(node: Node, fixed: dict[str, str], free: frozenset[str]) -> dict[str, Node] | None:
@@ -147,6 +148,8 @@ def dimension_style(dimension: Dimension) -> DimensionStyle | None:
     when another child or value is in them (a prefix, automatic units, a text position…)."""
     gap: int | None = None
     units = dimension.units
+    manual = False
+    text_at: Point | None = None
     bag = dimension.ext.get("kicad")
     for slot in slotlib.from_ext(bag) if bag is not None else ():
         if not isinstance(slot, Opaque):
@@ -167,9 +170,16 @@ def dimension_style(dimension: Dimension) -> DimensionStyle | None:
             if held is None or [a.text for a in held.atoms()] != [str(dimension.precision)] or held.nodes():
                 return None
         elif child.name == "style":
-            found = _children_match(child, DIMENSION_STYLE, frozenset({"thickness", "extension_offset"}))
+            found = _children_match(
+                child, DIMENSION_STYLE, frozenset({"thickness", "extension_offset", "text_position_mode"})
+            )
             if found is None:
                 return None
+            mode = found.get("text_position_mode")
+            mode_atoms = [a.text for a in mode.atoms()] if mode is not None and not mode.nodes() else ["0"]
+            if mode_atoms not in (["0"], ["2"]):
+                return None
+            manual = mode_atoms == ["2"]
             offset = found.get("extension_offset")
             if offset is not None:
                 atoms = offset.atoms()
@@ -179,9 +189,21 @@ def dimension_style(dimension: Dimension) -> DimensionStyle | None:
                     gap = atoms[0].to_nm()
                 except ValueError:
                     return None
-        elif child.name != "gr_text":
+        elif child.name == "gr_text":
+            at = child.find("at")
+            try:
+                text_at = (
+                    _point(at.with_children(at.children[:2]))
+                    if at is not None and len(at.atoms()) >= 2
+                    else None
+                )
+            except ValueError:
+                return None
+        else:
             return None
-    return DimensionStyle(None if gap == 500_000 else gap, units)
+    if manual and text_at is None:
+        return None
+    return DimensionStyle(None if gap == 500_000 else gap, units, text_at if manual else None)
 
 
 def _plain_stroke(stroke: Node) -> bool:

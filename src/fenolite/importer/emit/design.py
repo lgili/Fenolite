@@ -807,6 +807,8 @@ def _dimension(item: Dimension, key: str) -> Call | None:
             kwargs.append((name, length(value)))
     if style.extension_offset is not None:
         kwargs.append(("extension_offset", length(style.extension_offset)))
+    if style.text_at is not None:
+        kwargs.append(("text_at", _xy(style.text_at)))  # a text placed by hand (change c0277)
     return Call("design.dimension", (text(key), _xy(item.start), _xy(item.end)), tuple(kwargs))
 
 
