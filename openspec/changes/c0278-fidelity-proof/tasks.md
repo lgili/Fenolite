@@ -46,11 +46,17 @@
 - [x] 2.3 Add `shapes.py` and level 7 (scenarios of "Level 7 compares exact geometry" and "Level 7
   normalisation"). Proof: `uv run pytest tests/unit/checks/equivalence/test_level7.py tests/unit/checks/equivalence/test_shapes.py -q`.
   Done 2026-10-29: `shapes.py` (normalisation and `level_geometry`); proof passed.
-- [ ] 2.4 Add `drawn.py` with `compare_drawn` (scenarios of "Level S compares drawn schematics"); waits for
+- [x] 2.4 Add `drawn.py` with `compare_drawn` (scenarios of "Level S compares drawn schematics"); waits for
   c0276. Proof: `uv run pytest tests/unit/checks/equivalence/test_level_s.py -q`.
   Open 2026-10-29: waits for c0276 (`DrawnSchematic`, `extract`, `resolve`), not merged in the integration
   branch. Until then `equivalent --level S` exits 2 naming side `a`, and `verify-source` skips level S with
   the reason `drawn-unavailable`.
+  Done 2026-10-30 (with c0276's open tasks): `checks/equivalence/drawn.py` (`compare_drawn`, exported by the
+  package) and `cli/_drawn_level.py`; `verify-source` runs level S on KiCad originals (sides joined by
+  reference, each named by the build's `fenolite.path`), and `drawn-unavailable` now means a side's sheets were
+  not read. The authored `sensor` fixture is `equal` at S; `tests/unit/cli/test_verify_source_drawn.py` proves
+  the drawn fixtures `flat`, `hier` and `repeat` and a removed junction. Proof passed (12 tests). Not done:
+  `fenolite equivalent --level S` still exits 2, since `fenolite.equivalent.v0` types `level` as an integer.
 - [x] 2.5 Add `view/fidelity.py` with `render_masks` and `compare_masks`, and the level-8 kinds (scenarios
   "Grid shared", "Located change", "Same board, no difference", "Moved logo on silkscreen"). Proof:
   `uv run pytest tests/unit/view/test_fidelity_masks.py -q`.

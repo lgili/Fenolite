@@ -85,17 +85,7 @@ A `sheet_ref` SHALL name a drawn sheet by `sheet` and a code module by `module`,
 - **THEN** the nets and their names are unchanged
 
 ### Requirement: Drawn connectivity rules
-The resolver SHALL join: the two ends of a wire segment; segment ends that meet; a label anchor lying on a segment, its inside included; every segment end, segment inside and pin at a junction; local labels of one text on one sheet instance; global labels and power symbols of one text on all sheets; a hidden `power_in` pin with the global net of its name; a hierarchical label with the sheet pin of its name on its instance's reference. A segment end lying inside another segment (a T) and crossing segments MUST NOT join without a junction on that point, and a pin MUST join a wire at the wire's end only (`H-K-SCH-WIRE-END`), as `kicad-cli` 9.0.9 and 10.0.6 read them (measured on 2026-10-29).
-
-#### Scenario: T joint and crossing
-- **GIVEN** a drawn sheet where wire `A` ends inside wire `B`, and wire `C` crosses `B`, both without a junction
-- **WHEN** it is resolved
-- **THEN** the pins on `B` form one net, the pin on `A` stays apart, and the pins on `C` form another net
-
-#### Scenario: Junction on a crossing
-- **GIVEN** the same sheet with junctions on the end of `A` and on the crossing point of `C` and `B`
-- **WHEN** it is resolved
-- **THEN** the pins on `A`, `B` and `C` form one net
+The resolver SHALL join: the two ends of a wire segment; segment ends that meet; a label anchor lying on a segment, its inside included; every segment end, segment inside and pin at a junction; local labels of one text on one sheet instance; global labels and power symbols of one text on all sheets; a hidden `power_in` pin with the global net of its name; a hierarchical label with the sheet pin of its name on its instance's reference.
 
 #### Scenario: Hierarchical pin
 - **GIVEN** `tests/data/drawn/hier/schematic.toml`, whose child sheet labels `R2` pin 1 `IN` (hierarchical) and whose root wires the sheet pin `IN` to `U1` pin 3
@@ -106,6 +96,19 @@ The resolver SHALL join: the two ends of a wire segment; segment ends that meet;
 - **GIVEN** the repeated sheet fixture, whose sheet `channel` labels a local net `FB`
 - **WHEN** it is resolved
 - **THEN** `ch0/R1` pin 2 and `ch1/R1` pin 2 are on two different nets
+
+### Requirement: Drawn joints need a junction
+A segment end lying inside another segment (a T) and crossing segments MUST NOT join without a junction on that point, and a pin MUST join a wire at the wire's end only (`H-K-SCH-WIRE-END`), as `kicad-cli` 9.0.9 and 10.0.6 read them (measured on 2026-10-29).
+
+#### Scenario: T joint and crossing
+- **GIVEN** a drawn sheet where wire `A` ends inside wire `B`, and wire `C` crosses `B`, both without a junction
+- **WHEN** it is resolved
+- **THEN** the pins on `B` form one net, the pin on `A` stays apart, and the pins on `C` form another net
+
+#### Scenario: Junction on a crossing
+- **GIVEN** the same sheet with junctions on the end of `A` and on the crossing point of `C` and `B`
+- **WHEN** it is resolved
+- **THEN** the pins on `A`, `B` and `C` form one net
 
 ### Requirement: Drawn bus connectivity
 The resolver SHALL expand bus labels of the forms `NAME[a..b]` and `{A B}` and the sheet's bus aliases into member names, and SHALL carry each member net between a sheet pin and its hierarchical label of bus form. A wire on a bus entry MUST join a member only through its own label. A bus member that no label carries MUST give `drawn.bus-member-unknown` (warning).

@@ -14,8 +14,8 @@ from fenolite.checks import equivalence
 ROOT = Path(__file__).resolve().parents[4]
 PACKAGE = ROOT / "src" / "fenolite" / "checks" / "equivalence"
 MODULES = (
-    "__init__.py", "codes.py", "exclusions.py", "levels.py", "model.py", "norm.py", "routing.py", "rules.py",
-    "shapes.py", "strict.py",
+    "__init__.py", "codes.py", "drawn.py", "exclusions.py", "levels.py", "model.py", "norm.py", "routing.py",
+    "rules.py", "shapes.py", "strict.py",
 )  # fmt: skip
 ALLOWED = (
     "fenolite.core",

@@ -1676,6 +1676,7 @@ def build_design(
             vendor=vendor,
             allow_lossy=allow_lossy,
             power_symbols=_power_symbols(drawn, resolver, authored_symbols),
+            groups=schematic_groups,
         )
         issues += generated.issues
         symbol_files = _symbol_libraries(generated, authored_symbols, target, allow_lossy, issues)

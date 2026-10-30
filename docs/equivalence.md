@@ -76,13 +76,13 @@ whose copper it does not care about passes `--level 4`.
 | 6 | `rules` | net classes and their members, custom rules, the board-wide rule set, the stack-up and the layer table |
 | 7 | `geometry` | the outline, zones by outline (never the fill), rule areas, board graphics, texts, holes and dimensions, and the graphics, texts and fields of each footprint |
 | 8 | `presentation` | each board layer (and each schematic sheet of `verify-source`) rendered by the viewer's scene builder and compared as pixels |
-| S | `schematic` | two drawn schematics item by item, and their drawn connectivity (needs change c0276) |
+| S | `schematic` | two drawn schematics item by item, and their drawn connectivity |
 
 Levels 6 to 8 and S are delivered by change c0278. `--level 6` and `--level 7` need a footprint on both
 sides; they run level 5 when both sides hold copper. `--level 8` runs the levels 1 to 7 and renders both
 boards. `compare_designs` runs the levels 1 to 7; level 8 lives in `fenolite.view.fidelity` (it needs the
-scene builders) and level S in `compare_drawn` (it needs change c0276, so `--level S` exits 2 in this
-version). `fenolite verify-source` runs every level on a script and its original (`docs/fidelity.md`).
+scene builders) and level S in `compare_drawn` (`fenolite verify-source` runs it; `fenolite equivalent --level S` still exits 2
+naming side `a` in this version). `fenolite verify-source` runs every level on a script and its original (`docs/fidelity.md`).
 
 - **Components are paired by reference.** Model ids differ between backends. A reference that a side
   holds more than once, or an empty reference, cannot be paired: it gives one `ref-ambiguous` difference
@@ -217,6 +217,23 @@ the inked pixels. A layer drawn by one side only gives `render-missing`. The lev
 changes that the visual diff (`fenolite view NEW --compare OLD`) finds, so the moved primitive is named.
 Level 8 is `INFERRED`: one renderer draws both sides (`H-K-FID-PLOT-AGREE`).
 
+## Level S: schematic
+
+`compare_drawn(a, b, *, tolerances, pins_a, pins_b)` (`fenolite.checks.equivalence.drawn`) compares two drawn
+schematics (`docs/drawn-schematic.md`), each with the pin points of its drawn items. Sheet instances match
+by their key path (`/` for the root, `/a/b` below it); the sheets of a matched pair are compared once, at
+the first instance in page order where they meet. Symbols match by component path and unit; wires and
+buses become their maximal collinear segments first, so a wire split differently, or cut at a junction, is
+the same drawing; every other item matches as a multiset by kind, position and attributes (a label's kind,
+text, angle and shape; a sheet reference's name, size and pins), an opaque item by the SHA-256 of its
+fragment. An item of the same kind and position whose attributes differ gives `item-field` naming the
+attribute (`label.local.text`); the paper and title block of a sheet give `item-field` at `<path>:sheet`.
+`where` is the instance path followed by `:` and the symbol (`<component>:<unit>`) or the item kind and its
+first point in nanometres (`junction@127000000,57150000`). Both drawings are then resolved and the first pin
+of both, in sorted order, whose group of common pins differs gives one `drawn-net` at `<component>-<pin>`.
+Lengths match within `--tolerance-nm` per coordinate and angles within `--tolerance-udeg`. A field pose that
+one side leaves to the target gives `symbol-field` with an empty side.
+
 ## Kinds of difference
 
 A difference is `{level, kind, where, field, a, b}`. `a` and `b` are the two values as exact strings: text
@@ -295,7 +312,7 @@ level are sorted by `where`, then kind.
 | S | `symbol-pose` | the field | the position, rotation or mirror of a matched symbol differs |
 | S | `symbol-field` | the field | the pose of a field of a matched symbol differs |
 | S | `item-missing` | the item kind | a wire, bus, bus entry, junction, no-connect flag, label, power symbol, sheet reference, sheet pin or opaque item that only one side holds |
-| S | `item-field` | the field | a field of a matched label, sheet reference or sheet pin differs |
+| S | `item-field` | the field | an attribute of a matched item (label, power symbol, junction, bus entry, sheet reference and its pins) or the paper or title block of a sheet differs |
 | S | `drawn-net` | `net` | the drawn connectivity differs (a `REF-PIN` in another group) |
 
 The issue code of a difference is `equiv.<kind>`, except `net`, which carries

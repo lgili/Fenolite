@@ -149,7 +149,10 @@ def test_project_two_projects_in_one_folder(tmp_path: Path, verify) -> None:  # 
 
 
 def test_skipped_level_recorded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Scenario "Level S recorded with its reason"."""
+    """Scenario "Level S recorded with its reason": sheets that extraction cannot read skip level S."""
+    from fenolite.cli import cmd_verify_source
+
+    monkeypatch.setattr(cmd_verify_source, "schematic_level", lambda *_args, **_kwargs: None)
     script = variant(tmp_path / "rec")
     args = (str(script), "--against", str(ORIGINAL), "--record", "--timestamp", "2026-11-01T00:00:00Z")
     code, env, _, _ = run_verify(monkeypatch, tmp_path, *args, "--dry-run")

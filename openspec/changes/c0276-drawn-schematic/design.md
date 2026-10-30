@@ -326,6 +326,15 @@ reference to component path:
 - So a person can draw the top sheet and leave blocks to the generator, and a block sheet can be frozen
   later (decision 9).
 
+**Decided 2026-10-30 (implementation):** the generator runs once on the whole design, as a generated build
+runs it, and each instance of a `generated` sheet takes the generator's sheet of its module and of its
+sub-modules unchanged, so those files are byte-equal to a generated build's. Their symbols' paths are the
+generator's, so the instance must stand where the generator puts the module (its reference in the sheet of
+the parent module, with the generator's uuid, which the drawn reference already takes when it is the only one
+of its module); else `drawn.sheet-unknown`. The block sheets put labels on the sheet pins of their
+sub-blocks without a wire; the resolver joins a label to a sheet pin at its point, as to a symbol pin
+(measured equal to `kicad-cli` 10.0.6 on the block example).
+
 ### 12. Writer additions for KiCad
 
 `sch.write_schematic` writes the new entities of created sheets in the form of S-0367 for both targets:

@@ -92,7 +92,7 @@ def test_authored_board_proves_itself(monkeypatch: pytest.MonkeyPatch, tmp_path:
     assert result["equivalent"] is True and result["differences"] == []
     assert statuses(env) == {
         "1": "equal", "2": "equal", "3": "equal", "4": "equal", "5": "equal", "6": "equal", "7": "equal",
-        "S": "skipped", "8": "equal",
+        "S": "equal", "8": "equal",
     }  # fmt: skip
     routing = next(level for level in result["levels"] if level["level"] == 5)
     assert routing["summary"]["strict"]["vias"]["matched"] == 3
@@ -100,8 +100,10 @@ def test_authored_board_proves_itself(monkeypatch: pytest.MonkeyPatch, tmp_path:
         "target": "kicad-10", "files": result["build"]["files"], "copper_check": "refuse", "copy": False,
     }  # fmt: skip
     assert result["against"]["backend"] == "kicad" and "sensor.kicad_pcb" in result["against"]["files"]
-    skipped = [i for i in env["issues"] if i["code"] == "fidelity.level-skipped"]
-    assert [i["where"] for i in skipped] == ["S"] and "drawn-unavailable" in skipped[0]["message"]
+    assert "fidelity.level-skipped" not in codes(env)
+    drawn = next(level for level in result["levels"] if level["level"] == "S")
+    assert drawn["summary"]["symbols"] == 3 and drawn["summary"]["extraction_issues"] == 0
+    assert "H-K-DRAWN-CONNECT" in env["evidence"]["hypotheses"]
     assert (tree_snapshot(SCRIPT.parent), tree_snapshot(ORIGINAL)) == before
 
 
@@ -137,7 +139,7 @@ def test_levels_subset(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     code, env, _, _ = verify(
         monkeypatch, tmp_path, str(SCRIPT), "--against", str(ORIGINAL), "--levels", "1-3,S"
     )
-    assert code == 0 and statuses(env) == {"1": "equal", "2": "equal", "3": "equal", "S": "skipped"}
+    assert code == 0 and statuses(env) == {"1": "equal", "2": "equal", "3": "equal", "S": "equal"}
 
 
 # --- differences and acceptances -------------------------------------------------------------------
@@ -175,7 +177,9 @@ def test_fixed_since(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 def test_an_entry_of_a_skipped_level_is_not_unused(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     entry = {**ACCEPT_VIA, "level": "S", "kind": "item-missing", "where": "*"}
     script = variant(tmp_path / "skipped", provenance=fidelity(entry))
-    code, env, _, _ = verify(monkeypatch, tmp_path, str(script), "--against", str(ORIGINAL))
+    code, env, _, _ = verify(
+        monkeypatch, tmp_path, str(script), "--against", str(ORIGINAL), "--levels", "1-7"
+    )
     assert code == 0 and "fidelity.accepted-unused" not in codes(env)
 
 

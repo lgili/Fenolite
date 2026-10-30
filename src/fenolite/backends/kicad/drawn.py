@@ -35,7 +35,9 @@ from fenolite.backends.kicad.schgen import (
     SHEETS_DIR,
     GeneratedSchematic,
     SchematicPart,
+    generate_schematic,
     library_row,
+    sheet_file,
 )
 from fenolite.backends.kicad.sexpr import Atom, dumps
 from fenolite.backends.kicad.symembed import EmbeddedSymbol
@@ -92,6 +94,7 @@ from fenolite.model.schematic import (
     SymbolUse,
     Wire,
 )
+from fenolite.schematic.block_sheets import SheetGroup
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-DRAWN-CONNECT", "H-K-DRAWN-WRITE"))
 """``INFERRED`` until the KiCad CI job measures ``H-K-DRAWN-CONNECT`` and ``H-K-DRAWN-WRITE``."""
@@ -264,11 +267,14 @@ def lower_drawn(
     vendor: str = "all",
     allow_lossy: bool = False,
     power_symbols: Mapping[str, PowerSymbol] = MappingProxyType({}),
+    groups: Mapping[str, Sequence[SheetGroup]] | None = None,
 ) -> GeneratedSchematic:
     """The created sheets of ``drawn`` for ``design``, whose components ``parts`` resolve to symbols, in the
     form ``schgen.generate_schematic`` returns. ``power_symbols`` holds the resolved power symbols the
     drawing names. Coverage errors (``drawn_connect.coverage``) and unknown sheets are in ``issues``; the
-    build refuses on them."""
+    build refuses on them. A ``generated`` sheet is drawn by the generator for each module instance that
+    references it, with the block rules of change c0269 (``groups`` as ``schgen.generate_schematic`` takes
+    them), and written at ``schgen.sheet_file(<module path>)`` with the sheets of its sub-modules."""
     issues: list[Issue] = []
     found, walk_issues = instances(drawn)
     issues += walk_issues
@@ -297,17 +303,6 @@ def lower_drawn(
         for path, (part, component) in by_path.items()
     }
     issues += coverage(drawn, circuit, units)
-    if any(sheet.generated for sheet in drawn.sheets):
-        issues.append(
-            issue(
-                "drawn.sheet-unknown",
-                "a generated sheet inside a drawing needs the block sheets of change c0269, which "
-                "this version "
-                "does not hold",
-                next(sheet.key for sheet in drawn.sheets if sheet.generated),
-                "draw the sheet, or build with the generated schematic",
-            )
-        )
     root_file = f"{name}.kicad_sch"
     files = _files(drawn, found, root_file)
     issues += files.issues
@@ -348,8 +343,12 @@ def lower_drawn(
                                        position=Point(0, 0), size=Size(1, 1)))  # fmt: skip
         use_paths.append(f"{use_paths[instance.parent]}/{ref_uuid}")
         board_paths.append(f"{board_paths[instance.parent]}/{ref_uuid}")
-    pad_nets: dict[tuple[str, str], str] = {}
-    paths: dict[str, tuple[int, str]] = {}
+    blocks = _generated_sheets(
+        drawn, found, use_paths, design, parts, name, target, vendor, allow_lossy, groups
+    )
+    issues += blocks.issues
+    pad_nets: dict[tuple[str, str], str] = dict(blocks.pad_nets)
+    paths: dict[str, tuple[int, str]] = {cid: (0, path) for cid, path in blocks.paths.items()}
     board = design.board
     sheets: dict[str, SchematicSheet] = {}
     power_count = 0
@@ -431,18 +430,25 @@ def lower_drawn(
             )
         block = board.title_block if board is not None else None
         sheets[key] = _sheet(state, drawn, sheet, key, file, symbols, used, indices, found, files, ref_ids,
-                             use_paths, sheet_ids[key], block)  # fmt: skip
+                             use_paths, sheet_ids[key], block, blocks.ref_files)  # fmt: skip
     libraries: dict[str, list[EmbeddedSymbol]] = {}
-    unvendored: list[str] = []
-    for definition in sorted(state.embedded.values(), key=lambda e: e.lib_id):
-        if vendor == "project" and state.origins.get(definition.lib_id) not in ("project", "authored"):
+    unvendored: list[str] = list(blocks.unvendored)
+    listed: set[str] = set()
+    for definition in sorted((*state.embedded.values(), *blocks.definitions), key=lambda e: e.lib_id):
+        if definition.lib_id in listed or definition.lib_id in unvendored:
+            continue
+        listed.add(definition.lib_id)
+        if vendor == "project" and state.origins.get(definition.lib_id, blocks.origin) not in (
+            "project",
+            "authored",
+        ):
             unvendored.append(definition.lib_id)
             continue
         libraries.setdefault(definition.nickname, []).append(definition)
     root = sheets.get(drawn.root) or SchematicSheet(
         id=sheet_ids[drawn.root], name=name, pages=(SheetPage("/", "1"),)
     )
-    children = {files.by_key[k]: s for k, s in sheets.items() if k != drawn.root}
+    children = {files.by_key[k]: s for k, s in sheets.items() if k != drawn.root} | dict(blocks.children)
     return GeneratedSchematic(
         root,
         MappingProxyType({nick: tuple(defs) for nick, defs in sorted(libraries.items())}),
@@ -450,10 +456,159 @@ def lower_drawn(
         MappingProxyType(dict(sorted(pad_nets.items()))),
         MappingProxyType({cid: path for cid, (_, path) in sorted(paths.items())}),
         tuple(issues),
-        tuple(unvendored),
+        tuple(sorted(set(unvendored))),
         0,
         MappingProxyType(children),
         0,
+    )
+
+
+@dataclass(frozen=True)
+class _Blocks:
+    """The sheets the generator draws for the ``generated`` sheets of a drawing: the files (from the root's
+    folder) and their sheets, the file each reference names, (holder sheet key, reference key) → file,
+    the footprint paths and unconnected-pin names of their components, the symbol definitions they embed,
+    those left unvendored, the origin of a generator library and the issues."""
+
+    children: Mapping[str, SchematicSheet] = field(default_factory=lambda: {})
+    ref_files: Mapping[tuple[str, str], str] = field(default_factory=lambda: {})
+    paths: Mapping[str, str] = field(default_factory=lambda: {})
+    pad_nets: Mapping[tuple[str, str], str] = field(default_factory=lambda: {})
+    definitions: tuple[EmbeddedSymbol, ...] = ()
+    unvendored: tuple[str, ...] = ()
+    origin: str = "project"
+    issues: tuple[Issue, ...] = ()
+
+
+def _uses(sheet: SchematicSheet) -> set[str]:
+    return {u.path for s in sheet.symbols for u in s.uses} | {u.path for r in sheet.sheets for u in r.uses}
+
+
+def _generated_sheets(
+    drawn: DrawnSchematic,
+    found: Sequence[DrawnInstance],
+    use_paths: Sequence[str],
+    design: Design,
+    parts: Sequence[SchematicPart],
+    name: str,
+    target: int,
+    vendor: str,
+    allow_lossy: bool,
+    groups: Mapping[str, Sequence[SheetGroup]] | None,
+) -> _Blocks:
+    """The generator's sheets for each instance of a ``generated`` drawn sheet (capability drawn-schematic,
+    "Generated sheets inside a drawing"). The generator runs once on the whole design; an instance takes
+    the sheet of its module and of its sub-modules, which must lie at the instance's place in the
+    hierarchy (its use path), and its reference must carry the generator's sheet pins by name and shape
+    (``drawn.sheet-pin-unmatched``)."""
+    wanted = [
+        index
+        for index, instance in enumerate(found)
+        if instance.ref is not None and (sheet := drawn.sheet(instance.sheet)) is not None and sheet.generated
+    ]
+    if not wanted:
+        return _Blocks()
+    issues: list[Issue] = []
+    generated = generate_schematic(
+        design, parts, name=name, target=target, vendor=vendor, allow_lossy=allow_lossy, groups=groups
+    )
+    issues += [i for i in generated.issues if i.severity == "error"]
+    sheets = {"": generated.sheet, **{module_file: s for module_file, s in generated.children.items()}}
+    children: dict[str, SchematicSheet] = {}
+    ref_files: dict[tuple[str, str], str] = {}
+    modules: list[str] = []
+    for index in wanted:
+        instance = found[index]
+        ref = instance.ref
+        assert ref is not None and instance.parent is not None
+        holder = found[instance.parent].sheet
+        module = instance.module
+        file = sheet_file(module) if module else ""
+        where = instance.path
+        if not module or file not in generated.children:
+            issues.append(
+                issue(
+                    "drawn.sheet-unknown",
+                    f"the generated sheet {ref.sheet} at {where} shows the module {module or '(root)'!r}, "
+                    "which has no sheet of its own in the generated schematic",
+                    where,
+                    "reference a module that holds parts, or draw the sheet",
+                )
+            )
+            continue
+        known = ref_files.setdefault((holder, ref.key), file)
+        if known != file:
+            issues.append(
+                issue(
+                    "drawn.sheet-unknown",
+                    f"the reference {ref.key} of the repeated sheet {holder} shows the modules of {known} "
+                    f"and {file}; a generated sheet is written once per module",
+                    where,
+                    "give each instance its own drawn sheet",
+                )
+            )
+            continue
+        sheet = generated.children[file]
+        placed = _uses(sheet)
+        if placed and placed != {use_paths[index]}:
+            issues.append(
+                issue(
+                    "drawn.sheet-unknown",
+                    f"the generated sheet of {module} lies at another place of the hierarchy than the "
+                    f"reference {where}",
+                    where,
+                    "reference a generated module from the sheet of its parent module",
+                )
+            )
+            continue
+        parent = module.rpartition("/")[0]
+        holder_sheet = sheets.get(sheet_file(parent) if parent else "")
+        native = derived_id("shr", ID_BACKEND, f"{name}:sheet:{module}")
+        given = next((r for r in (holder_sheet.sheets if holder_sheet else ()) if r.id == native), None)
+        want = {(pin.name, pin.shape or "passive") for pin in (given.pins if given else ())}
+        have = {(pin.name, pin.shape) for pin in ref.pins}
+        for pin_name, shape in sorted(want - have):
+            issues.append(
+                issue(
+                    "drawn.sheet-pin-unmatched",
+                    f"the reference {where} lacks the sheet pin {pin_name} ({shape}) that the generated "
+                    f"sheet of {module} gives",
+                    f"{where}:{pin_name}",
+                    "add the pin to the drawn reference",
+                )
+            )
+        for pin_name, shape in sorted(have - want):
+            issues.append(
+                issue(
+                    "drawn.sheet-pin-unmatched",
+                    f"the reference {where} carries the sheet pin {pin_name} ({shape}), which the generated "
+                    f"sheet of {module} does not give",
+                    f"{where}:{pin_name}",
+                    "remove the pin, or give it the generated sheet's name and shape",
+                )
+            )
+        modules.append(module)
+        for child_file, child in generated.children.items():
+            if child_file == file or child_file.startswith(
+                sheet_file(module).removesuffix(".kicad_sch") + "."
+            ):
+                children[child_file] = child
+    inside = {
+        c.id for c in design.circuit.components if any(component_path(c).startswith(f"{m}/") for m in modules)
+    }
+    used = {d.lib_id for child in children.values() for d in child.lib_symbols}
+    definitions = tuple(
+        d for found_defs in generated.libraries.values() for d in found_defs if d.lib_id in used
+    )
+    return _Blocks(
+        MappingProxyType(children),
+        MappingProxyType(ref_files),
+        MappingProxyType({cid: path for cid, path in generated.paths.items() if cid in inside}),
+        MappingProxyType({key: text for key, text in generated.pad_nets.items() if key[0] in inside}),
+        definitions,
+        tuple(lib_id for lib_id in generated.unvendored if lib_id in used),
+        "project",
+        tuple(issues),
     )
 
 
@@ -535,6 +690,7 @@ def _sheet(
     use_paths: Sequence[str],
     sheet_id: str,
     board_block: TitleBlock | None,
+    ref_files: Mapping[tuple[str, str], str] = MappingProxyType({}),
 ) -> SchematicSheet:
     name = state.name
     base = f"{name}:drawn:{key}"
@@ -564,7 +720,7 @@ def _sheet(
     ]
     refs: list[SheetRef] = []
     for k, ref in enumerate(sheet.sheet_refs):
-        child_file = files.by_key.get(ref.sheet)
+        child_file = ref_files.get((key, ref.key)) or files.by_key.get(ref.sheet)
         ref_id = ref_ids.get((key, ref.key))
         if child_file is None or ref_id is None:
             continue
@@ -573,7 +729,9 @@ def _sheet(
             SheetRef(
                 id=ref_id,
                 name=ref.name,
-                file=ref.file or _ref_text(file, child_file),
+                file=_ref_text(file, child_file)
+                if (key, ref.key) in ref_files
+                else ref.file or _ref_text(file, child_file),
                 position=ref.at,
                 size=ref.size,
                 uses=uses,

@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living specs this change touches (`design-dsl`, `design-model`,
+- [x] 0.1 Read `openspec list`, the living specs this change touches (`design-dsl`, `design-model`,
   `kicad-schematic`, `altium-schematic-writer`, `verification-loop`, `layout-lens`) and the state of c0269,
   c0250, c0249 and c0275. Write under this task the date, the base commit, and:
   - whether c0269 is archived, with the names of `SheetPin`, `sch.opaque_sheet_pins` and the block-sheet
@@ -12,6 +12,10 @@
     stays in this change.
 
   Proof: `openspec validate c0276-drawn-schematic --strict`; `make check-fast`.
+  2026-10-30: base `0a710502` (circuits-as-code). c0269 is merged now (`SheetPin`, `SheetRef.pins`,
+  `sch.opaque_sheet_pins`, the block sheets of `schgen.generate_schematic` with `groups`), and so is c0250;
+  the stub of 2026-10-29 was resolved into c0269's names by the merge. Still open: `openspec validate --strict`
+  is run by the coordinator (the CLI is not installed here); `make check-fast` is recorded under 9.2.
   2026-10-29: base `a170bc55` (circuits-as-code with c0246, c0247, c0249, dev 0.7.0.dev0 with c0243/c0244). c0269 is not merged (no `SheetPin`, no `sch.opaque_sheet_pins`, no block-sheet generator): this change adds the minimal stub c0269 specifies (`SheetPin`, `SheetRef.pins`, the writer's `pin`, `sch.opaque_sheet_pins`). c0250 is not merged (branch `cac/c0250-manual-edit-merge` in progress): decision 9 stands on the existing sync. `load_schematic`, `drawn_schematic`, `fenolite.model.drawn` and `fenolite.lens.drawn` were free; no other change adds a stage after `parity`. Open questions decided under each in design.md (maintainer's delegation): phase 6 stays in this change and is left open. Not ticked: the `openspec` CLI is not installed in this environment, so `openspec validate --strict` did not run; `make check-fast` is recorded under 9.2.
 
 ## 1. Facts and hypotheses
@@ -41,10 +45,11 @@
   "Instances from paths"). Proof: `uv run pytest tests/unit/model/test_drawn_value.py -q`.
   2026-10-29: `model/drawn.py` (`DrawnSchematic.walk()`/`instances()`; the title block as text pairs so the value hashes). Proof passed.
 
-- [ ] 2.3 Author the fixtures `tests/data/drawn/{flat,full,hier,bus,repeat}/` (CC0, authored for
+- [x] 2.3 Author the fixtures `tests/data/drawn/{flat,full,hier,bus,repeat}/` (CC0, authored for
   Fenolite, each with its design script) and declare them in `tests/data/MANIFEST.toml` with
   `origin = "authored"`. Proof: `uv run pytest tests/residue tests/corpus/test_manifest.py -q`.
   2026-10-29: `tests/data/drawn/{flat,full,hier,bus,repeat}/` and `examples/drawn/` (design script, `schematic.toml`, library tables naming the authored mini library), declared in the manifest. `tests/residue` passes; `tests/corpus/test_manifest.py` fails only on `examples/lock/design.lock` and `examples/lock/design.py`, undeclared by c0249 before this change (not touched here, for a clean merge).
+  2026-10-30: the proof passes on `0a710502` (88 passed, 1 skipped without `kicad-cli`); ticked.
 
 - [x] 2.4 Add `lens/drawn.py` with `read_drawn` and `write_drawn`, and
   `schemas/fenolite.drawn-schematic.v0.json` (scenarios of "Drawn schematic file", "Drawn file numbers",
@@ -108,9 +113,18 @@
   `uv run pytest tests/unit/lens/test_build_drawn.py tests/unit/lens/test_build_drawn_guard.py tests/unit/lens/test_build_bytes_pinned.py -q`.
   2026-10-29: `cmd_build` reads the file (`FEN-3004`), `build_design(drawn=)` lowers it, the read-back guard (`drawn_netlist_issues`), `result.schematic.source`/`drawn`, the build record's `schematic`, `drawn.placements-ignored`, `examples/drawn/`. Proof passed.
 
-- [ ] 5.3 Generated sheets inside a drawing (scenarios "Drawn top, generated block", "Missing pin").
+- [x] 5.3 Generated sheets inside a drawing (scenarios "Drawn top, generated block", "Missing pin").
   Proof: `uv run pytest tests/unit/lens/test_build_drawn.py -k generated -q`.
   2026-10-29: open: needs c0269's block rules, which are not merged. A `generated = true` sheet is read and left out of the coverage, and a build refuses it with `drawn.sheet-unknown` until c0269 lands.
+  2026-10-30: done on c0269's block sheets: `lower_drawn(..., groups=)` runs the generator once and takes, for
+  each instance of a `generated` sheet, the generator's sheet of its module and its sub-modules (byte-equal to
+  a generated build), at `schgen.sheet_file(<module>)`, with their footprint paths, open-pin names and symbol
+  definitions; the reference must carry the generator's sheet pins by name and shape
+  (`drawn.sheet-pin-unmatched`), and the instance must stand at the module's place of the generated hierarchy
+  (`drawn.sheet-unknown`). The resolver now joins a label standing on a sheet pin's point to that pin, as the
+  block sheets draw them (row in `docs/formats/kicad/schematic.md`). Proof passed (2 tests); the KiCad check
+  `test_generated_blocks_inside_a_drawing` in `tests/kicad/schematic/test_drawn_oracle.py` passed locally on
+  `docker:kicad/kicad:10.0.6` (KiCad's partition equal, ERC clean).
 
 - [x] 5.4 Add `checks/drawn.py`, the stage, its injection in `cmd_check` and its codes (scenarios of
   "Drawn schematic stage" and "Drawn schematic stage issue codes"). Proof:
@@ -128,11 +142,15 @@
   "Off-grid point", "Text dropped"). Record the record forms used in `docs/formats/altium/` with S-0185
   and their labels. Proof: `uv run pytest tests/unit/backends/altium/test_drawn_altium.py -q`.
   2026-10-29: open: the Altium writer phase is not implemented in this batch (open question 4).
+  2026-10-30: still open: the Altium sheet writer (`schdoc.py`) writes from a composition `SheetPlan`, not
+  from drawn geometry; drawn polylines, junctions, ports, sheet entries and power ports need a writer of
+  their own and record forms from S-0185, a phase of its own that can follow this change.
 
 - [ ] 6.2 Add a kit step that compiles the drawn example and records the nets and messages
   (`H-A-DRAWN-WRITE`); the row stays `INFERRED` until the maintainer reports. Proof:
   `uv run pytest tests/unit/test_altium_verification_docs.py -q`.
   2026-10-29: open: depends on 6.1 and the maintainer's kit.
+  2026-10-30: still open (6.1, then the maintainer's Altium).
 
 ## 7. Evidence
 
@@ -142,12 +160,15 @@
   10.0.x)` only after the job passes. Proof: the KiCad job of the commit on GitHub CI is green;
   `uv run pytest tests/kicad/schematic/test_drawn_oracle.py tests/kicad/schematic/test_drawn_write_oracle.py -rA` there.
   2026-10-29: `tests/kicad/schematic/test_drawn_oracle.py` (resolver against `sch export netlist`, and ERC of the written sheets; one file for both scenarios) passed locally on `docker:kicad/kicad:9.0.9` and `:10.0.6`: connectivity and names equal on all six fixtures. Open: CI runs with the batch; the probes are not registered and no level is raised before the CI job passes.
+  2026-10-30: `test_generated_blocks_inside_a_drawing` added to the same file; the file passed locally on
+  `docker:kicad/kicad:10.0.6` (13 tests). Still open: CI runs with the batch; no 9.0.9 image here today.
 
 - [ ] 7.2 Extract each demo schematic row of the corpus into a temporary folder, lower it, resolve it and
   record counts and timings in `docs/evidence/drawn-schematic.md` (row ids, kinds and counts only; no
   derived file is kept). Proof: `uv run pytest tests/kicad/schematic/test_drawn_corpus.py -rA` in the
   KiCad job.
   2026-10-29: open: the corpus is not fetched in this environment; `test_drawn_corpus.py` is not written.
+  2026-10-30: still open for the same reason (no corpus here); it belongs to the KiCad job.
 
 ## 8. Documentation and guide
 
@@ -170,3 +191,7 @@
   and KiCad jobs on the exact commit. Proof: `make check-fast`; the required CI jobs are green on the
   commit.
   2026-10-29: open: CI runs with the batch. `make check-fast PYTEST_WORKERS=2`: lint, format, pyright and residue pass; the tests pass except two failures present on the base commit `a170bc55` (`tests/unit/test_altium_rows.py::test_rows_are_well_formed` on the row of c0269's proposal, since renamed `H-A-BLOCK-ENTRIES`, and `tests/unit/lens/test_altium_build.py::test_evidence`), not touched by this change.
+  2026-10-30: `make check-fast PYTEST_WORKERS=2` on the finished batch: lint, format, pyright and residue
+  pass; the tests gave 16 954 passed, 50 skipped and one failure (`test_package.py::test_modules`, the module
+  list lacked `drawn.py` in order), fixed and passed after; lint, format, pyright and residue re-run clean.
+  Open: CI runs with the batch.

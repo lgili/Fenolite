@@ -11,12 +11,16 @@ pins of drawn components; names are printed and compared apart, since a name dif
 from __future__ import annotations
 
 from collections import Counter
+from pathlib import Path
 
 import _drawn
 import _erc
 import _probes
 import pytest
 
+from fenolite.api.sides import read_side
+from fenolite.backends.kicad import drawn as kdrawn
+from fenolite.backends.kicad import sch
 from fenolite.model.drawn_connect import DrawnNetlist
 
 pytestmark = pytest.mark.needs_kicad
@@ -85,3 +89,41 @@ def test_kicad_loads_the_drawn_sheets(name: str) -> None:
     if name == "full" and _probes.major() == 9:
         connectivity.discard("label_dangling")
     assert not set(found) & connectivity, found
+
+
+def test_generated_blocks_inside_a_drawing(tmp_path: Path) -> None:
+    """Scenario "Drawn top, generated block" against KiCad: the drawn root of the block example with its
+    channels left to the generator (c0269's block sheets, whose labels stand on the sheet pins without a
+    wire) gives KiCad's connectivity, and ERC reports no hierarchical mismatch or dangling label."""
+    script = _drawn.blocks_top(tmp_path)
+    out = tmp_path / "B"
+    code, envelope = _drawn.cli_build(script, out, "--kicad-version", str(_probes.major()))
+    assert code == 0, envelope
+    files = {
+        p.relative_to(out).as_posix(): p.read_bytes()
+        for p in out.rglob("*")
+        if p.is_file() and ".fenolite" not in p.parts
+    }
+    root_file = "blocks_demo.kicad_sch"
+    tree = sch.sheet_files(out / root_file)
+    root = sch.read_schematic(out / root_file, file=root_file)
+    children = {f: sch.read_schematic(out / f, file=f) for f in tree.files[1:]}
+    circuit = read_side(out).design.circuit
+    _value, netlist, _issues = kdrawn.resolve_sheets(root, children, circuit=circuit, name="blocks_demo",
+                                                     root_file=root_file)  # fmt: skip
+    refs = {c.properties["fenolite.path"]: c.ref for c in circuit.components}
+    pins = {(refs[p], n) for p, n in netlist.pins}
+    exported = _erc.netlist(_probes.runner(), root_file, files)
+    ours, theirs = _partition(netlist, refs), _kicad_partition(exported, pins)
+    print(f"blocks: only ours {sorted(map(sorted, ours - theirs))}")
+    print(f"blocks: only KiCad's {sorted(map(sorted, theirs - ours))}")
+    assert ours == theirs
+    report = _erc.run_erc(_probes.runner(), root_file, files)
+    found: Counter[str] = _erc.types(_erc.violations(report))
+    print(f"blocks: ERC {dict(found)}")
+    assert not set(found) & {
+        "hier_label_mismatch",
+        "label_dangling",
+        "global_label_dangling",
+        "wire_dangling",
+    }
