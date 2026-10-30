@@ -389,3 +389,9 @@ c0277's verbatim item does not cover Altium records (they are KiCad text), so th
 | upgrade on copies | `KICAD-VERIFIED` (10.0.x) | `H-K-IMPORT-UPGRADE` |
 | adoption | `KICAD-VERIFIED` (9.0.x, 10.0.x) | `H-K-IMPORT-ADOPT` |
 | Altium inputs | `INFERRED` (Fenolite-written documents) | `H-A-IMPORT-CODE` |
+
+## Decided: the skill folder budget (2026-10-30)
+
+The circuits-as-code batches (c0252 to c0269) add commands, guide lines and DSL names that take the skill
+folder past 300 000 bytes (312 592 bytes at batch 3). The folder budget of "Page budgets and size" rises to
+400 000 bytes in this change, beside the 800-line limit of generated pages; the per-page limits stay.

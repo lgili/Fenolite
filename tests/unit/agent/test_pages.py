@@ -69,7 +69,7 @@ WRITTEN = (*TOOLS, *PRACTICE)
 GENERATED = guide.GENERATED_TOPICS
 RUN_TAGS = ("fenolite-loop", "fenolite-cmd", "fenolite-recipe")
 """The tags whose lines are commands: a public command needs a line in one of them."""
-WRITTEN_LINES, WRITTEN_BYTES, GENERATED_LINES, START_LINES, FOLDER_BYTES = 250, 12_000, 800, 200, 300_000
+WRITTEN_LINES, WRITTEN_BYTES, GENERATED_LINES, START_LINES, FOLDER_BYTES = 250, 12_000, 800, 200, 400_000
 KICAD_TARGETS = ("9", "10")
 LABELS = ("KICAD-VERIFIED", "ORACLE-VERIFIED", "CORPUS-VERIFIED", "ALTIUM-VERIFIED", "INFERRED", "UNVERIFIED")
 RULE = "adds a tested line to a page of the agent guide"
@@ -679,7 +679,7 @@ def test_budget_holds() -> None:
     ]
     assert budget_problems([guide.SkillFile("SKILL.md", b"line\n" * START_LINES)])
     assert any(
-        "stays under 300000" in p for p in budget_problems([guide.SkillFile("x.bin", b"x" * FOLDER_BYTES)])
+        "stays under 400000" in p for p in budget_problems([guide.SkillFile("x.bin", b"x" * FOLDER_BYTES)])
     )
 
 

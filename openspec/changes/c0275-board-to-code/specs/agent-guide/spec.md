@@ -2,7 +2,7 @@
 
 ### Requirement: Page budgets and writing rules
 The pages SHALL stay small enough to be read whole. A tool page SHALL state only what Fenolite does; a practice page SHALL state design practice and SHALL state what Fenolite does only where it names a command.
-- A written page MUST have at most 250 lines and 12 000 bytes. A generated page MUST have at most 800 lines (change c0275: the commands page with `import`). The files of the skill folder together MUST stay under 300 000 bytes.
+- A written page MUST have at most 250 lines and 12 000 bytes. A generated page MUST have at most 800 lines (change c0275: the commands page with `import`). The files of the skill folder together MUST stay under 400 000 bytes (change c0275: the circuits-as-code commands, pages and DSL names).
 - A page MUST NOT name a company, a fabricator, a standard's table, a private path or a person, and MUST NOT hold a change id (`c0000` form) or a hypothesis id (`H-…`).
 - A line of prose that holds a call of `rules.minimum` or `rules.netclass` with a number MUST hold the word `example`.
 - A sentence that says a result is verified MUST name the evidence label.
@@ -11,7 +11,7 @@ The pages SHALL stay small enough to be read whole. A tool page SHALL state only
 
 #### Scenario: Budgets hold
 - **WHEN** `uv run pytest tests/unit/agent/test_pages.py -k budget` runs
-- **THEN** every written page is within 250 lines and 12 000 bytes, every generated page within 800 lines, and the folder under 300 000 bytes
+- **THEN** every written page is within 250 lines and 12 000 bytes, every generated page within 800 lines, and the folder under 400 000 bytes
 
 #### Scenario: Forbidden forms are reported
 - **GIVEN** a copy of a page, made in the test, that holds `c0042` in a sentence
