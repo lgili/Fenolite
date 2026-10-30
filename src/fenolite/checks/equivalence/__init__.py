@@ -10,6 +10,7 @@ The package imports only the standard library, ``fenolite.core``, ``fenolite.mod
 from __future__ import annotations
 
 from fenolite.checks.equivalence.codes import EQUIVALENCE_CODES, difference_issues
+from fenolite.checks.equivalence.drawn import compare_drawn
 from fenolite.checks.equivalence.exclusions import (
     Profile,
     Rule,
@@ -47,6 +48,7 @@ __all__ = [
     "Tolerances",
     "accepted_rules",
     "compare_designs",
+    "compare_drawn",
     "difference_issues",
     "load_profiles",
     "max_level",

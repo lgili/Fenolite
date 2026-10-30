@@ -52,6 +52,7 @@ from fenolite.checks.equivalence import (
 from fenolite.checks.equivalence.exclusions import apply_rules
 from fenolite.checks.equivalence.model import FRAMES, Difference, Frame, LevelId
 from fenolite.cli import cmd_build
+from fenolite.cli._drawn_level import DRAWN_EVIDENCE, UNREADABLE, root_schematic, schematic_level
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, board_format, supported_tool
 from fenolite.cli._presentation import board_scenes, presentation_level, sheet_scenes
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
@@ -59,6 +60,7 @@ from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FenoliteError, FormatError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
+from fenolite.model.design import Design
 from fenolite.view.fidelity import DEFAULT_PIXEL_PPM
 
 HELP = (
@@ -396,6 +398,27 @@ def _has_sheets(root: Path) -> bool:
     return any(p.suffix == ".kicad_sch" for p in _kicad_files(root))
 
 
+def _drawn_level(
+    original: Original, out: Path, a: Design, b: Design, wanted: Sequence[LevelId],
+    skipped: dict[LevelId, str], tolerances: Tolerances,
+) -> LevelResult | None:  # fmt: skip
+    """Level S (drawn schematics, c0276) of the original's sheets against the build's, before any rule;
+    ``None`` with the skip reason in ``skipped`` when a side has no sheets that extraction reads."""
+    if SCHEMATIC_LEVEL not in wanted:
+        return None
+    root_a, root_b = root_schematic(original.path), root_schematic(out)
+    if original.backend != "kicad":
+        skipped[SCHEMATIC_LEVEL] = "altium-drawing-unread"
+    elif root_a is None or root_b is None or not (_has_sheets(original.root) and _has_sheets(out)):
+        skipped[SCHEMATIC_LEVEL] = "no-schematic"
+    else:
+        found = schematic_level(root_a, root_b, a.circuit, b.circuit, tolerances=tolerances)
+        if found is None:
+            skipped[SCHEMATIC_LEVEL] = UNREADABLE
+        return found
+    return None
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     script = _path(args.script, ctx)
     if not script.is_file() or script.suffix != ".py":
@@ -564,24 +587,21 @@ def _compare(
                 rendered = apply_rules(level8, extra)
         return report, rendered
 
+    drawn = _drawn_level(original, out, a, b, wanted, skipped, tolerances)
     report, rendered = run(rules)
     new_entries: list[dict[str, Any]] = []
     if args.accept:
         found = [*(report.differences if report else ()), *(rendered.differences if rendered else ())]
+        found += drawn.differences if drawn else ()
         date = ctx.timestamp.strftime("%Y-%m-%d")
         new_entries = _accepted_entries(args.accept, args.reason, found, provenance.accepted, date)
         rules = (*rules, *accepted_rules(new_entries, file="--accept"))
         report, rendered = run(rules)
-    if SCHEMATIC_LEVEL in wanted:
-        if original.backend != "kicad":
-            skipped[SCHEMATIC_LEVEL] = "altium-drawing-unread"
-        elif not (_has_sheets(original.root) and _has_sheets(out)):
-            skipped[SCHEMATIC_LEVEL] = "no-schematic"
-        else:
-            skipped[SCHEMATIC_LEVEL] = "drawn-unavailable"
     by_level: dict[LevelId, LevelResult] = {}
     if report is not None:
         by_level.update({level.level: level for level in report.levels if level.level in wanted})
+    if drawn is not None:
+        by_level[SCHEMATIC_LEVEL] = apply_rules(drawn, rules)
     if rendered is not None:
         by_level[PRESENTATION_LEVEL] = rendered
     ran = [by_level[level] for level in wanted if level in by_level]
@@ -647,7 +667,10 @@ def _compare(
     writes: tuple[PlannedWrite, ...] = ()
     if args.record:
         writes = (_record(provenance, ctx, sha, base, levels, new_entries),)
-    evidence = Evidence.combine(side_a.evidence, side_b.evidence, built.evidence, PRESENTATION_EVIDENCE)
+    evidence = Evidence.combine(
+        side_a.evidence, side_b.evidence, built.evidence, PRESENTATION_EVIDENCE,
+        *((DRAWN_EVIDENCE,) if drawn is not None else ()),
+    )  # fmt: skip
     return Result(
         result=result,
         issues=(*equivalence, *fidelity_issues, *notes, *side_a.issues, *side_b.issues, *build_issues),

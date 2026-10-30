@@ -239,3 +239,21 @@ def test_a_pin_inside_a_wire_stays_open() -> None:
     assert ("M", "1") in resolve(DrawnSchematic("root", (alone,)), pins).open
     joined = dataclasses.replace(alone, junctions=(DrawnJunction(P(30, 0)),))
     assert _group(resolve(DrawnSchematic("root", (joined,)), pins), ("M", "1")) >= {("M", "1"), ("B1", "1")}
+
+
+def test_label_on_a_sheet_pin() -> None:
+    """A label on a sheet pin's point joins the pin without a wire (the generated block sheets of c0269)."""
+    value = _drawn.drawn("hier")
+    root = value.sheets[0]
+    (start, end), *_ = root.segments()
+    labels = (
+        *root.labels,
+        DrawnLabel("local", "LINK", start),
+        DrawnLabel("local", "LINK", end),
+    )
+    value = DrawnSchematic(
+        value.root, (dataclasses.replace(root, wires=(), labels=labels), *value.sheets[1:])
+    )
+    netlist = _drawn.netlist("hier", value)
+    assert _group(netlist, ("U1", "3")) == {("U1", "3"), ("child/R2", "1")}
+    assert not [i for i in netlist.issues if i.code == "drawn.label-unconnected"]

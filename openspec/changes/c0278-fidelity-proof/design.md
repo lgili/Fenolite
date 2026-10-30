@@ -163,6 +163,14 @@ A reply (abridged):
 - Both drawings are resolved; a `REF-PIN` in another group gives `drawn-net`, so a junction removed gives
   `item-missing` and `drawn-net`.
 
+**Decided 2026-10-30 (implementation):** a drawn symbol names its component by path, and an original that
+Fenolite did not build has no `fenolite.path`. The two sides are therefore joined by reference, as levels 1
+and 2 join them: each reference names the `fenolite.path` of its component in the build, on both sides, so a
+repeated sheet of the original is one drawn sheet when the script's modules make it one. The sheets of a
+matched pair of instances are compared once, at the first instance where they meet; a sheet reference's file
+name is no part of the drawing. `drawn-net` compares groups over the pins both sides draw, so a symbol
+missing on one side gives `symbol-missing` alone.
+
 ### 8. `fenolite verify-source`
 
 - **Inputs.** `SCRIPT` (a design script) and `--against ORIGINAL` (a KiCad project folder or `.kicad_pro`,

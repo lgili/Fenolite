@@ -123,3 +123,37 @@ def test_coverage_error_writes_nothing(monkeypatch: pytest.MonkeyPatch, tmp_path
     code, env, _ = run(monkeypatch, str(script), "--out", str(out), "--confirm")
     assert code == 5 and not out.exists()
     assert "drawn.symbol-missing" in [i["code"] for i in env["issues"]]  # type: ignore[union-attr,index]
+
+
+# --- generated sheets inside a drawing (c0269's block sheets) ---------------------------------------
+
+
+def test_generated_block_inside_a_drawing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Drawn top, generated block"."""
+    script = _drawn.blocks_top(tmp_path)
+    out = tmp_path / "B"
+    code, env, err = run(monkeypatch, str(script), "--out", str(out), "--confirm")
+    assert code == 0, err
+    files = written(env, out)
+    assert {
+        "blocks_demo.kicad_sch",
+        "sheets/ch0.kicad_sch",
+        "sheets/ch0.led.kicad_sch",
+        "sheets/ch1.kicad_sch",
+    } <= set(files)
+    assert env["result"]["schematic"]["source"] == "drawn"  # type: ignore[index]
+    assert not [i for i in env["issues"] if i["code"].startswith(("drawn.", "build.schematic"))]  # type: ignore[union-attr,index]
+    # the generated block sheet is the generator's own
+    generated = (tmp_path / "gen" / "sheets" / "ch0.kicad_sch").read_bytes()
+    assert (out / "sheets" / "ch0.kicad_sch").read_bytes() == generated
+
+
+def test_generated_block_missing_pin(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Missing pin"."""
+    script = _drawn.blocks_top(tmp_path, drop="EN")
+    out = tmp_path / "B"
+    code, env, _ = run(monkeypatch, str(script), "--out", str(out), "--confirm")
+    assert code == 5 and not out.exists()
+    unmatched = [i for i in env["issues"] if i["code"] == "drawn.sheet-pin-unmatched"]  # type: ignore[union-attr,index]
+    assert len(unmatched) == 1 and unmatched[0]["severity"] == "error"  # type: ignore[index]
+    assert "ch0" in unmatched[0]["where"] and unmatched[0]["where"].endswith(":EN")  # type: ignore[index]

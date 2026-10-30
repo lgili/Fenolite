@@ -121,9 +121,39 @@ wires and flags, which take their ids from their sheet and index.
 
 ## Generated sheets inside a drawing
 
-A sheet marked `generated = true` holds no item; its content would come from the generator with the block
-rules of change c0269. That change is not merged yet: a build refuses a generated sheet inside a drawing
-with `drawn.sheet-unknown` until it is.
+A sheet marked `generated = true` holds no item: the generator draws it, with the block rules of change
+c0269 (hierarchical labels from the block's ports, block-local groups, one arrangement per block). For each
+reference to it, the build writes the generator's sheet of that module instance at
+`sheets/<module path>.kicad_sch` (with `.` between the segments), with the sheets of its sub-modules, byte
+for byte as a generated build writes them. So a person can draw the top sheet and leave the blocks to the
+generator:
+
+```toml
+[[sheet.sheet_ref]]
+key = "ch0"
+sheet = "channel"
+module = "ch0"
+name = "ch0 (channel)"
+at = [101.6, 50.8]
+size = [20.32, 10.16]
+page = "2"
+
+[[sheet.sheet_ref.pin]]
+name = "VIN"
+shape = "input"
+at = [101.6, 53.34]
+rotation = 180
+
+[[sheet]]
+key = "channel"
+generated = true
+```
+
+The reference must carry the sheet pins the generator gives, by name and shape, at the drawing's positions;
+a missing or extra pin is `drawn.sheet-pin-unmatched` (error). A generated sheet must show a module that
+holds parts, from the sheet of its parent module (its place in the generated hierarchy), and one reference
+of a repeated drawn sheet cannot show several modules; else `drawn.sheet-unknown`. A label on a sheet pin's
+point joins the pin, as on a symbol pin.
 
 ## Codes
 

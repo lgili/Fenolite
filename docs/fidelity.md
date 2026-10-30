@@ -34,9 +34,17 @@ fenolite verify-source ... --record --timestamp 2026-11-01T00:00:00Z --confirm -
 | `no-copper` | a side has no track, arc or via: level 5 |
 | `no-board` | a side has no board: level 8 |
 | `no-schematic` | a side has no `.kicad_sch`: level S |
-| `drawn-unavailable` | both sides have sheets, but the drawn-schematic extraction of change c0276 is not part of this version: level S |
+| `drawn-unavailable` | both sides have sheets, but a side's sheets are not read or not extracted: level S |
 | `altium-drawing-unread` | an Altium original: the Altium reader keeps no wire geometry: level S |
 | `build-failed` | the build wrote no file: every level |
+
+Level S reads the sheets of both sides, extracts their drawings (`docs/drawn-schematic.md`) and compares
+them with `compare_drawn` (`docs/equivalence.md`, "Level S: schematic"). The two sides are joined by
+reference, as levels 1 and 2 join them: each reference names the `fenolite.path` of its component in the
+build, so a repeated sheet of the original is one drawn sheet when the script's modules make it one. A
+symbol that names no component of the build is kept as an opaque item and compared as one; the level's
+`summary.extraction_issues` counts such issues of both extractions. Level S is `INFERRED`
+(`H-K-DRAWN-CONNECT`, `H-K-DRAWN-WRITE`) until the KiCad job measures the extraction.
 
 Level 8 renders the board of both sides, layer by layer, and each schematic sheet that both sides hold
 under the same path, with the viewer's scene builders (`docs/equivalence.md`, "Level 8: presentation").

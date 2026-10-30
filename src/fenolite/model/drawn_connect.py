@@ -351,6 +351,11 @@ def resolve(
         for entry in sheet.bus_entries:
             touched[entry.at] += 1
             touched[entry.end] += 1
+        for ref in sheet.sheet_refs:  # a label on a sheet pin joins it, as on a symbol pin
+            if child_of.get((index, ref.key)) is not None:
+                for pin in ref.pins:
+                    if wires.under(pin.at) or not buses.under(pin.at):
+                        touched[pin.at] += 1
         bus_labels: list[tuple[str, str, Point]] = []
         for label in sheet.labels:
             on_wire = bool(wires.under(label.at)) or touched[label.at] > 0
@@ -395,7 +400,6 @@ def resolve(
                 if buses.under(pin.at) and not wires.under(pin.at):
                     bus_pins.append((child, pin.name, pin.at))
                     continue
-                touched[pin.at] += 1
                 union.join(point(pin.at), ("H", child, pin.name))
         for at in interest:
             for start, _end in wires.under(at):
@@ -635,7 +639,9 @@ def compare(netlist: DrawnNetlist, circuit: Circuit) -> tuple[Issue, ...]:
         if theirs is None or theirs != frozenset(net.members):
             continue
         wanted = code_name.get(element, "")
-        if not wanted or wanted in net.labels or wanted in seen:
+        # a sheet written for KiCad stores a / of a label text as {slash} (``netnames.stored_name``)
+        escaped = wanted.replace("/", "{slash}")
+        if not wanted or wanted in net.labels or escaped in net.labels or wanted in seen:
             continue
         seen.add(wanted)
         found.append(
