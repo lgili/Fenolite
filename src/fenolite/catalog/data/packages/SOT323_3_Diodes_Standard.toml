@@ -1,0 +1,43 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:SOT323_3_Diodes_Standard"
+version = "1.0.0"
+summary = "Three-lead Diodes SOT323 Standard land"
+category = "Small-outline semiconductor"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0447"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["0.6mm", "0.47mm"]
+at = ["-0.95mm", "0.325mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["0.6mm", "0.47mm"]
+at = ["-0.95mm", "-0.325mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "3"
+shape = "rect"
+size = ["0.6mm", "0.47mm"]
+at = ["0.95mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-0.625mm", "-1mm"], ["0.625mm", "1mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-1.75mm", "-1.5mm"], ["1.75mm", "1.5mm"]]
+width = "0.05mm"

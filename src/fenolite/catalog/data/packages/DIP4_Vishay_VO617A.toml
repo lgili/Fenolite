@@ -1,0 +1,65 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:DIP4_Vishay_VO617A"
+version = "1.0.0"
+summary = "4-lead manufacturer body with inferred 7.62 mm through-hole land"
+category = "Through-hole IC"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0405"]
+generator = "explicit"
+kind = "through_hole"
+
+[[pad]]
+number = "1"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.81mm", "1.27mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "2"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.81mm", "-1.27mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "3"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.81mm", "-1.27mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "4"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.81mm", "1.27mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-3.5mm", "-2.44mm"], ["3.5mm", "2.44mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-5.21mm", "-2.94mm"], ["5.21mm", "2.94mm"]]
+width = "0.05mm"
+
+[[graphic]]
+key = "pin1"
+kind = "line"
+layer = "F.Fab"
+points = [["-3.5mm", "2.04mm"], ["-3.1mm", "2.44mm"]]
+width = "0.1mm"

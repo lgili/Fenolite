@@ -1,0 +1,43 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:DO214AB_Diodes_SMC"
+version = "1.0.0"
+summary = "Diodes SMC / DO-214AB reference land"
+category = "Diode package"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0441", "S-0446"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["2.5mm", "3.3mm"]
+at = ["-3.45mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["2.5mm", "3.3mm"]
+at = ["3.45mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-3.45mm", "-2.95mm"], ["3.45mm", "2.95mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-5.2mm", "-3.45mm"], ["5.2mm", "3.45mm"]]
+width = "0.05mm"
+
+[[graphic]]
+key = "cathode"
+kind = "line"
+layer = "F.Fab"
+points = [["3.25mm", "-2.8mm"], ["3.25mm", "2.8mm"]]
+width = "0.1mm"

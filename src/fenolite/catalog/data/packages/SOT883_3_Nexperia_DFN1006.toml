@@ -1,0 +1,43 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:SOT883_3_Nexperia_DFN1006"
+version = "1.0.0"
+summary = "Nexperia SOT883-2 / DFN1006-3 reflow land"
+category = "Leadless semiconductor"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0376"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["0.4mm", "0.25mm"]
+at = ["-0.35mm", "0.225mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["0.4mm", "0.25mm"]
+at = ["-0.35mm", "-0.225mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "3"
+shape = "rect"
+size = ["0.4mm", "0.7mm"]
+at = ["0.35mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-0.5mm", "-0.3mm"], ["0.5mm", "0.3mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-1.05mm", "-0.85mm"], ["1.05mm", "0.85mm"]]
+width = "0.05mm"

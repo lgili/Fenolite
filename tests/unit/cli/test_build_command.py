@@ -70,6 +70,7 @@ def test_confirmed_build_and_rebuild(monkeypatch: pytest.MonkeyPatch, tmp_path: 
             *(f"lib/Mini.pretty/{n}.kicad_mod" for n in FOOTPRINTS),
             *(f".fenolite/{n}.json" for n in ("board", "build", "circuit", "findings", "manufacturing")),
             ".fenolite/meta.json", ".fenolite/rules.json",
+            "fenolite-base.json",  # c0250
         ]
     )  # fmt: skip
     before = {p: p.read_bytes() for p in out.rglob("*") if p.is_file()}
@@ -343,7 +344,7 @@ def test_unknown_plane_net_stops_the_build(monkeypatch: pytest.MonkeyPatch, tmp_
 
 SIX = ["F.Cu", "In1.Cu", "In2.Cu", "In3.Cu", "In4.Cu", "B.Cu"]
 EIGHT = [*SIX[:-1], "In5.Cu", "In6.Cu", "B.Cu"]
-VIA_IMPORT = "from fenolite.dsl import Design, Net, Part, Power, connect, mm, no_connect"
+VIA_IMPORT = "from fenolite.dsl import Design, Net, Part, Power, connect, mm"
 DEEP_TRACK = """
 design.track(
     "led_a",
@@ -466,3 +467,92 @@ def test_layer_outside_the_table(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     found = [i for i in env["issues"] if i["code"] == "kicad.copper.bad-layer"]  # type: ignore[index, union-attr]
     assert code == 5 and len(found) == 1 and not out.exists()
     assert "In7.Cu" in found[0]["message"] and all(name in found[0]["message"] for name in EIGHT)
+
+
+# --- edits.toml (change c0250, design-dsl "Placements file in a build") ----------------------------
+
+EDITS_R1 = (
+    '# Written by fenolite sync --to-source.\nschema = "fenolite.edits.v0"\n\n'
+    '[part."R1"]\nvalue = "4k7"\n\n[part."R1".over]\nvalue = "330"\n'
+)
+
+
+def _value_of(out: Path, ref: str = "R1") -> str:
+    from fenolite.backends.kicad.pcb import read_board
+
+    board = read_board((out / "blink.kicad_pcb").read_text(encoding="utf-8"))
+    (component,) = [c for c in board.circuit.components if c.ref == ref]
+    return component.value
+
+
+def test_edits_value_applied_without_the_board(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    script = blink_copy(tmp_path)
+    (script.parent / "edits.toml").write_text(EDITS_R1, encoding="utf-8")
+    out = tmp_path / "B"
+    code, env, err = run(monkeypatch, str(script), "--out", str(out), "--confirm")
+    assert code == 0, err
+    assert _value_of(out) == "4k7"
+    assert '"4k7"' in (out / ".fenolite/circuit.json").read_text(encoding="utf-8")
+    assert env["result"]["preserved"]["source"]["file"] == "edits.toml"  # type: ignore[index]
+    base = json.loads((out / "fenolite-base.json").read_text(encoding="utf-8"))
+    assert base["parts"]["R1"]["value"] == {"code": "4k7", "out": "4k7"}
+    record = json.loads((out / ".fenolite/build.json").read_text(encoding="utf-8"))
+    assert list(record["source"]) == ["edits.toml"]
+    altium = tmp_path / "A"
+    code, _, err = run(monkeypatch, str(script), "--out", str(altium), "--target", "altium", "--confirm")
+    assert code == 0, err
+    assert '"4k7"' in (altium / ".fenolite/circuit.json").read_text(encoding="utf-8")
+    altium_base = json.loads((altium / "fenolite-base.json").read_text(encoding="utf-8"))
+    assert altium_base["target"] == "altium" and altium_base["parts"]["R1"]["value"]["out"] == "4k7"
+
+
+def test_edits_and_placements_both_present(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    script = blink_copy(tmp_path)
+    (script.parent / "edits.toml").write_text(EDITS_R1, encoding="utf-8")
+    (script.parent / "placements.toml").write_text(
+        '# Written by fenolite sync --to-source.\nschema = "fenolite.placements.v0"\n', encoding="utf-8"
+    )
+    code, env, _ = run(monkeypatch, str(script), "--out", str(tmp_path / "B"), "--dry-run")
+    assert code == 0 and env["result"]["preserved"]["source"]["file"] == "edits.toml"  # type: ignore[index]
+    legacy = [i for i in env["issues"] if i["code"] == "edit.legacy-file"]  # type: ignore[union-attr, index]
+    assert len(legacy) == 1 and legacy[0]["where"] == "placements.toml"  # type: ignore[index]
+
+
+def test_edits_survive_a_discarded_layout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    script = blink_copy(tmp_path)
+    out = tmp_path / "B"
+    assert run(monkeypatch, str(script), "--out", str(out), "--confirm")[0] == 0
+    (script.parent / "edits.toml").write_text(EDITS_R1, encoding="utf-8")
+    code, _, err = run(monkeypatch, str(script), "--out", str(out), "--discard-layout", "--confirm")
+    assert code == 0, err
+    assert _value_of(out) == "4k7"
+
+
+def test_edits_stale_edit_and_the_script_catching_up(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    script = blink_copy(tmp_path)
+    (script.parent / "edits.toml").write_text(EDITS_R1, encoding="utf-8")
+    text = script.read_text(encoding="utf-8")
+    script.write_text(text.replace('value="330"', 'value="470"'), encoding="utf-8")
+    out = tmp_path / "B"
+    code, env, _ = run(monkeypatch, str(script), "--out", str(out), "--dry-run")
+    (conflict,) = [i for i in env["issues"] if i["code"] == "sync.conflict"]  # type: ignore[union-attr, index]
+    assert code == 5 and conflict["where"] == "R1#value" and "stale-edit" in conflict["message"]  # type: ignore[index]
+    assert "'470'" in conflict["message"] and "'4k7'" in conflict["message"]  # type: ignore[index]
+    script.write_text(text.replace('value="330"', 'value="4k7"'), encoding="utf-8")
+    code, env, err = run(monkeypatch, str(script), "--out", str(out), "--confirm")
+    assert code == 0, err
+    assert _value_of(out) == "4k7"
+
+
+def test_edits_invalid_table_stops_the_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    script = blink_copy(tmp_path)
+    (script.parent / "edits.toml").write_text(
+        'schema = "fenolite.edits.v0"\n[part."R1"]\nvalue = "4k7"\n', encoding="utf-8"
+    )
+    out = tmp_path / "B"
+    code, env, _ = run(monkeypatch, str(script), "--out", str(out), "--confirm")
+    assert code == 5 and not out.exists()
+    assert any(i["code"] == "layout.source-invalid" for i in env["issues"])  # type: ignore[union-attr, index]
+    (script.parent / "edits.toml").write_text('[part."R1"]\nvalue = "4k7"\n', encoding="utf-8")
+    code, _, err = run(monkeypatch, str(script), "--out", str(out), "--confirm")
+    assert code == 3 and json.loads(err)["code"] == "FEN-3004"

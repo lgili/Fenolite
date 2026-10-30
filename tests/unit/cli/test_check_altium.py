@@ -260,8 +260,11 @@ def test_built_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     stages = _stages(env)
     assert code == 0, env["issues"]
     assert env["result"]["project"]["built"] is True
-    assert [stage["status"] for stage in stages.values()] == ["ok"] * 4 + ["skipped"] + ["ok"] * 5
+    assert [stage["status"] for stage in stages.values()] == ["ok", "skipped"] + ["ok"] * 3 + ["skipped"] + [
+        "ok"
+    ] * 5
     assert stages["roles.rules"]["reason"] == "no-roles"  # c0222: blink declares no role
+    assert stages["circuit.rules"]["reason"] == "no-parameters"  # c0252: blink states no parameter
     pairs = stages["netlist.assignment_compare"]["summary"]["pairs"]
     assert [(p["a"], p["b"], p["differences"]) for p in pairs] == [
         ("model", "schematic", 0),

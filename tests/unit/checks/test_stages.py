@@ -35,6 +35,7 @@ from fenolite.model.design import Design
 def test_stage_order() -> None:
     assert STAGE_ORDER == (
         "model.validate",
+        "circuit.rules",
         "erc.kicad",
         "copper.clearance",
         "length.rules",
@@ -43,6 +44,7 @@ def test_stage_order() -> None:
         "zone.fill",
         "drc.kicad",
         "parity",
+        "schematic.drawn",  # c0276: needs no tool; listed by fenolite check for drawn input only
         "netlist.assignment_compare",
         "roundtrip",
         "roundtrip.rt2",
@@ -80,7 +82,7 @@ def test_skipped_by_design_without_a_schematic() -> None:
     oracle = FakeErcOracle()
     report = run_checks(
         project=project(),
-        stages=STAGE_ORDER[:2] + ("roundtrip",),
+        stages=("model.validate", "erc.kicad", "roundtrip"),
         model=None,
         built=False,
         validator=FakeValidator(),

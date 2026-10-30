@@ -1,0 +1,44 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:SOD128_Nexperia_CFP5"
+version = "1.0.0"
+summary = "Nexperia SOD128 / CFP5 reflow land"
+category = "Diode package"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0375"]
+generator = "explicit"
+kind = "smd"
+pad1 = "cathode"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["1.4mm", "2.1mm"]
+at = ["-2.2mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["1.4mm", "2.1mm"]
+at = ["2.2mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-1.9mm", "-1.3mm"], ["1.9mm", "1.3mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-3.4mm", "-1.8mm"], ["3.4mm", "1.8mm"]]
+width = "0.05mm"
+
+[[graphic]]
+key = "cathode"
+kind = "line"
+layer = "F.Fab"
+points = [["-1.3mm", "-1.15mm"], ["-1.3mm", "1.15mm"]]
+width = "0.1mm"

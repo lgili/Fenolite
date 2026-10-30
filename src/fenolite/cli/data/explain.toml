@@ -124,6 +124,11 @@ meaning = "The input comes from KiCad 8.0, which Fenolite reads but does not wri
 fix = "Convert it with 'kicad-cli pcb upgrade' of KiCad 10, or re-save it in KiCad 9, then run again."
 see = "KiCad output"
 
+["FEN-7004"]
+meaning = "fenolite build --frozen found that the design lock would change: a new, released, moved or replaced ref, or another design name. A frozen build never writes the lock, and nothing was written."
+fix = "Build without --frozen, review result.lock.changes and the planned lock, commit the lock, then build frozen again."
+see = "build"
+
 ["altium.bus-flattened"]
 meaning = "A bus of the design is drawn as its nets: its nets are not one stem followed by consecutive integers, or one of them is a power net, a harness net or a net of another bus."
 fix = "Nothing to do; name the nets <stem><n> with consecutive integers to have the bus drawn as a bus."
@@ -735,7 +740,7 @@ fix = "Use a symbol drawn on the 10 mil grid, or correct the symbol."
 see = "Build target"
 
 ["altium.symbol-simplified"]
-meaning = "A symbol is drawn as one rectangle per part (--altium-symbols generic, no graphics, a graphic without a record such as an arc, or several units or body styles), or its other body styles or alternates were dropped."
+meaning = "A symbol is drawn as one rectangle per part (--altium-symbols generic, no graphics, a graphic without a record such as an arc, or a part of a multi-unit symbol without a graphic of its own), or its other body styles or alternates were dropped."
 fix = "Nothing to do; redraw the symbol in Altium if its look matters."
 see = "Build target"
 
@@ -994,6 +999,16 @@ meaning = "A rule selects a rule area by name (select.area) and the board that t
 fix = "Declare the area with design.rule_area(), draw and name it in KiCad, or remove the selector. Area names are compared with letter case."
 see = "build"
 
+["build.not-two-terminal"]
+meaning = "A part used through its ends part.a and part.b, or passed to series, decouple, pull_up or pull_down, has a symbol with other than two pins, so pins 1 and 2 are not its two ends."
+fix = "Connect the part's pins by number with part[<number>], or use a part whose symbol has two pins."
+see = "build"
+
+["build.must-connect-unconnected"]
+meaning = "part.unused_no_connect() met an open must-connect pin: a pin of type power_in (or a pin a catalog device flags must_connect). Marking it as not connected would hide a missing supply, so the build stops."
+fix = "Connect the pin, or list it in keep= of unused_no_connect() to leave it open without a mark."
+see = "build"
+
 ["build.diff-pair-gap-shadowed"]
 meaning = "The two nets of a pair interface are in a net class with a pair gap, but KiCad would report two tracks laid at that gap: a clearance rule above the gap governs between the two nets, or the board minimum clearance is above the gap and no diff_pair_gap rule selects the pair."
 fix = "Call design.rules.pair(pair, clearance=…, gap_min=…) with values at or below the class gap: it writes a clearance rule and a gap rule for the pair after the rules that shadow it. Or raise the class pair gap."
@@ -1012,6 +1027,11 @@ see = "build"
 ["build.global-library"]
 meaning = "A part's footprint comes from a library outside the project, so it was copied into the project's libraries."
 fix = "Nothing to do; result.vendored lists the copied files."
+see = "build"
+
+["build.block-net-escape"]
+meaning = "A net named by the script joins pins of parts inside a block instance and pins outside it, and no port of the block binds the net: the block uses a net it does not declare, often a global net closed over by the block's function."
+fix = "Declare a port in the block (b.port) and connect the net to the port of the instance outside the block; or ignore the warning for a net that is meant to be global."
 see = "build"
 
 ["build.i2c-pullup-missing"]
@@ -1099,6 +1119,21 @@ meaning = "A pad of the footprint has no symbol pin mapped to it and stays witho
 fix = "Nothing to do for a mechanical pad; else correct the pin-to-pad map."
 see = "build"
 
+["build.device-mismatch"]
+meaning = "A part placed from a device: the device disagrees with the symbol or the footprint it names. A symbol pin is in no function, a function lists a pin the symbol lacks, or a mapped pad is not on the footprint. Nothing is written."
+fix = "Correct the device's [pins] table against the symbol and the footprint (fenolite catalog show), or point the device at the symbol and footprint its pin map was reviewed for."
+see = "build"
+
+["device.edited"]
+meaning = "A device record stamped by fenolite catalog import was changed after the stamp: its SHA-256 no longer matches the provenance. The evidence label stays as written."
+fix = "Nothing, when the edit is your review. A re-import over the file is refused unless --allow-lossy is given."
+see = "build"
+
+["device.overrides-builtin"]
+meaning = "A project device (devices/*.toml beside the script, or design.devices()) has the id of a shipped Fenolite: device and is used in its place."
+fix = "Nothing, if the override is meant; else give the project device an id of its own namespace."
+see = "build"
+
 ["build.pin-ambiguous"]
 meaning = "A pin designator is one pin's number and another pin's name; the number wins."
 fix = "Use the pin number to be exact."
@@ -1123,6 +1158,11 @@ see = "build"
 meaning = "A plane of the script has no copper on a KiCad board: no zone of its net lies on its layer. The layer is still written as a plane layer (type power); one issue per plane."
 fix = "Draw that copper in the script with design.zone(<net>, layers=(\"<layer>\",))."
 see = "Build target"
+
+["build.port-unused"]
+meaning = "A port of a block instance that is not optional has nothing outside the block on any of its members: no pin, net, port or interface outside the block is connected to it."
+fix = "Connect a net to the port of the instance (connect(net, inst.PORT)), or declare the port with optional=True when leaving it unwired is intended."
+see = "build"
 
 ["build.property-conflict"]
 meaning = "A user property of a part has another value than the footprint library already holds for it."
@@ -1156,6 +1196,16 @@ see = "build"
 ["build.schematic-too-large"]
 meaning = "The symbols of one sheet of the design do not fit an A0 page. The message names the sheet: the root holds the parts outside every module, and each module has a sheet of its own."
 fix = "Put parts of that sheet into modules, so each gets its own sheet, or build with --schematic skip."
+see = "build"
+
+["build.block-port-merged"]
+meaning = "Two port members or more of one block instance are bound to one net, for example by connect(x.A, x.B) outside the block. On the block's KiCad sheet that net keeps global labels with its circuit name, and those members get no sheet pin, so the net name stays the circuit's."
+fix = "Nothing to fix when the ports are meant to be joined; otherwise connect them to different nets."
+see = "build"
+
+["build.block-sheet-name-clash"]
+meaning = "On the Altium sheet of a block instance (sheets=\"modules\"), a port of the block and a net that leaves the sheet without a port have one name, so their sheet entries would be one. Nothing is written."
+fix = "Rename the net, or declare a port in the block for it and connect it through that port."
 see = "build"
 
 ["build.sheet-file-collision"]
@@ -1468,6 +1518,36 @@ meaning = "The board holds no stack-up that Fenolite reads, so the fabrication d
 fix = "Define the stack-up of the board (Board Setup in KiCad), or leave stackup out of [fab] tables in the drawing specification."
 see = "export"
 
+["edit.base-invalid"]
+meaning = "The base record fenolite-base.json of the output folder is not JSON, is of another schema or target, or has a malformed entry; it is read as no record, so every part is merged by the rule of before."
+fix = "Rebuild: the build writes the record again. Do not edit the file by hand."
+see = "build"
+
+["edit.base-missing"]
+meaning = "Parts with a footprint on the board have no entry in fenolite-base.json, as on a board built before change c0250: the board wins for their positions and the script for their values, as before."
+fix = "Nothing to do: this build writes the record, and the next build merges three ways."
+see = "build"
+
+["edit.code-wins"]
+meaning = "A property the script changed since the last build was written over a CAD value nobody edited, for example a changed unlocked place() moved an untouched part."
+fix = "Nothing to do when the change is wanted; otherwise change the script back."
+see = "build"
+
+["edit.legacy-file"]
+meaning = "placements.toml is beside edits.toml and is not read: edits.toml replaces it."
+fix = "Review edits.toml, then delete placements.toml."
+see = "build"
+
+["edit.take-unused"]
+meaning = "A --take matched no sync.conflict of the build and changed nothing."
+fix = "Drop the option, or check its side and target (SIDE[:PATH[#PROPERTY]])."
+see = "build"
+
+["edit.unrecorded"]
+meaning = "A value, footprint or position edited in KiCad is kept over the script's, and edits.toml does not hold it yet."
+fix = "Run fenolite sync --to-source to record it in edits.toml, or change the script to the same value."
+see = "build"
+
 ["equiv.component-missing"]
 meaning = "A component reference exists on one side of the comparison only."
 fix = "Add or remove the component, or leave such references out with --ignore-ref."
@@ -1593,6 +1673,211 @@ meaning = "A net holds a zone without a fill on a side, and its pads are not joi
 fix = "Fill the zones (fenolite fill) and compare again."
 see = "equivalent"
 
+["equiv.track-missing"]
+meaning = "Strict level 5: a track (by copper span and its two ends) exists on one side only. A track drawn on another path, or cut into other segments, is such a difference."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.track-width"]
+meaning = "Strict level 5: two matched tracks have different widths."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.track-net"]
+meaning = "Strict level 5: two matched tracks lie on nets of different names."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.arc-missing"]
+meaning = "Strict level 5: an arc (by copper span, ends and mid) exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.arc-width"]
+meaning = "Strict level 5: two matched arcs have different widths."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.arc-net"]
+meaning = "Strict level 5: two matched arcs lie on nets of different names."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.via-missing"]
+meaning = "Strict level 5: a via (by position and copper span) exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.via-size"]
+meaning = "Strict level 5: two matched vias have different diameters."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.via-drill"]
+meaning = "Strict level 5: two matched vias have different drills."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.via-span"]
+meaning = "Strict level 5: two matched vias span other copper layers or are of other types (through, blind, buried, micro)."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.via-net"]
+meaning = "Strict level 5: two matched vias lie on nets of different names."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.copper-locked"]
+meaning = "Strict level 5: two matched tracks, arcs or vias differ only in their lock. It is a warning and does not fail the comparison: a lock is the state of an editor, not of the design."
+fix = "Nothing to do, or lock the item on the side that should hold the lock."
+see = "equivalent"
+
+["equiv.netclass-missing"]
+meaning = "Level 6: a net class exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.netclass-field"]
+meaning = "Level 6: a field of a net class (clearance, track width, via sizes, pair values) differs; field names it."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.netclass-members"]
+meaning = "Level 6: the nets assigned to a net class differ."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.rule-missing"]
+meaning = "Level 6: a custom design rule exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.rule-field"]
+meaning = "Level 6: a field of a custom design rule differs; field names it as a dotted path."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.ruleset-field"]
+meaning = "Level 6: a board-wide rule, severity or limit of the rule set differs; field names it as a dotted path."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.stackup-missing"]
+meaning = "Level 6: a stack-up layer exists on one side only, or the layers come in another order."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.stackup-field"]
+meaning = "Level 6: a field of a stack-up layer, or the finish of the stack-up, differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.layer-missing"]
+meaning = "Level 6: a board layer of one kind and ordinal exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.outline-missing"]
+meaning = "Level 7: an outline ring, cut-out or slot exists on one side only, after the rings were normalised (start point and direction do not matter)."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.zone-missing"]
+meaning = "Level 7: a zone (by net, layers and outline) exists on one side only. Fills are never compared."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.zone-field"]
+meaning = "Level 7: a field of two matched zones (name, priority, settings) differs. Fills are never compared."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.keepout-missing"]
+meaning = "Level 7: a rule area (keep-out) exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.keepout-field"]
+meaning = "Level 7: a field of two matched rule areas differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.graphic-missing"]
+meaning = "Level 7: a board graphic, or a graphic of a footprint, exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.text-missing"]
+meaning = "Level 7: a board text, or a text of a footprint, exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.text-field"]
+meaning = "Level 7: the position, size, thickness, rotation or justification of two matched texts differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.field-pose"]
+meaning = "Level 7: the pose of a footprint field (reference, value or user field) differs: position, layer, size, rotation, visibility or justification."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.hole-missing"]
+meaning = "Level 7: a board hole exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.dimension-missing"]
+meaning = "Level 7: a dimension exists on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.render-missing"]
+meaning = "Level 8: a layer or sheet is rendered by one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.render-pixels"]
+meaning = "Level 8: the rendered masks of a layer or sheet differ beyond the pixel tolerance (parts per million of the inked pixels, after a tolerance of one pixel); where names the box of the largest differing region."
+fix = "Look at the box on both sides (fenolite view NEW --compare OLD names the changed primitives); raise --pixel-ppm only for a known rendering difference."
+see = "equivalent"
+
+["equiv.sheet-missing"]
+meaning = "Level S: a sheet instance exists in one drawn schematic only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.symbol-missing"]
+meaning = "Level S: a symbol unit is drawn on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.symbol-pose"]
+meaning = "Level S: the position, rotation or mirror of a matched symbol differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.symbol-field"]
+meaning = "Level S: the pose of a field of a matched symbol differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.item-missing"]
+meaning = "Level S: a wire, bus, bus entry, junction, no-connect flag, label, power symbol, sheet reference, sheet pin or opaque item is drawn on one side only."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.item-field"]
+meaning = "Level S: a field of a matched label, sheet reference or sheet pin differs."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
+["equiv.drawn-net"]
+meaning = "Level S: the drawn connectivity differs: a pin joins another group of pins."
+fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
+see = "equivalent"
+
 ["equiv.route-vias"]
 meaning = "For the same joined pads, the count of vias per pair of copper layers differs."
 fix = "Restore the via that was lost, or remove the one that was added."
@@ -1702,6 +1987,16 @@ see = "route"
 meaning = "With --gate drc, kicad-cli DRC found on the edited board a finding that the board without the edit lacks but that names no item of the edit; KiCad can report clearance and unconnected entries differently between two runs of one board, so it may be noise of the tool."
 fix = "Run 'fenolite check' on the written board and look at the finding; the edit was written."
 see = "route"
+
+["gen.achieved"]
+meaning = "What a generator achieved with the picked rows: the achieved range (a guaranteed enclosure, rounded outward) and the inputs. The same text is in result.generators and in achieved of each pick of the design lock."
+fix = "Nothing to do; review the range, and commit the design lock."
+see = "pick"
+
+["gen.unachievable"]
+meaning = "A generator found no accepted combination of rows: the message names the combination that leaves the target least and by how much. Nothing is built or planned."
+fix = "Use a tighter family (a smaller tolerance), widen the target or the search window, or tighten the reference; then build again."
+see = "pick"
 
 ["impedance.estimate-unsupported"]
 meaning = "Some rows have no closed form: differential rows, one reference on an inner layer, or two references on an outer layer. Fenolite estimates single-ended surface microstrip and stripline only."
@@ -2009,8 +2304,8 @@ fix = "Nothing to do; distances to that pad may be reported slightly short."
 see = "check"
 
 ["kicad.generate.altium"]
-meaning = "The script holds generated-copper calls (band, keepout_ring, barrier, body_keepout, fanout_zone, stitch_pieces), which only a KiCad build resolves; the Altium build writes nothing."
-fix = "Build for a KiCad target, or draw the zones and rule areas with zone() and rule_area()."
+meaning = "An Altium build with --copper-from holds generated-copper calls (band, keepout_ring, barrier, body_keepout, fanout_zone, stitch_pieces) or design.role_copper(): the board is the copper source, so the calls would be lost; the Altium build writes nothing."
+fix = "Drop --copper-from to have the script's copper resolved in memory, or build the board for KiCad."
 see = "build"
 
 ["kicad.generate.band-narrow"]
@@ -2602,6 +2897,11 @@ meaning = "A part was found on the board through a moved() alias and is now kept
 fix = "Nothing to do; the alias can be removed after this build."
 see = "build"
 
+["layout.block-moved"]
+meaning = "A block's pose changed in the script since the last build: its parts kept from the board moved with it as one rigid group, with the copper joined only to their pads."
+fix = "Nothing to do; check the copper that place.copper-left names, which stayed where it was."
+see = "build"
+
 ["layout.board-only"]
 meaning = "A footprint of the board that Fenolite did not create matched no part of the script and is kept."
 fix = "Nothing to do."
@@ -2652,6 +2952,16 @@ meaning = "An unlocked place() differs from the footprint's placement on the boa
 fix = "Nothing to do; lock the place() to make the script win."
 see = "build"
 
+["layout.relative-cycle"]
+meaning = "Relative placements reference each other in a cycle (a right_of b and b right_of a), so none of them can be resolved. The build stops."
+fix = "Place one part of the cycle with x and y, or break the chain of references."
+see = "build"
+
+["layout.relative-unresolved"]
+meaning = "A relative placement references a part or block that has no placement (staged, or itself unresolved), or a pad of by= that the footprint lacks; the part is staged."
+fix = "Place the reference, or give the part a position of its own."
+see = "build"
+
 ["layout.source-invalid"]
 meaning = "A table or a key of placements.toml is not valid: a path that is no component path, an unknown key, a missing x or y, a value that is not a whole number of nanometres or microdegrees, or a side other than top and bottom. The build stops."
 fix = "Correct the entry, or write the file again with fenolite sync --to-source."
@@ -2666,6 +2976,11 @@ see = "sync"
 meaning = "A table of placements.toml names a component path that is not a part of the design."
 fix = "Remove the table, or run fenolite sync --to-source, which writes the parts of the design only."
 see = "sync"
+
+["layout.strategy-overflow"]
+meaning = "A box is wider than the width of a pack() strategy, so it takes a shelf of its own and crosses the width, or a strategy puts a part beyond the outline."
+fix = "Widen the pack, turn the part with place(rot=90), or place it with place()."
+see = "build"
 
 ["layout.unplaced"]
 meaning = "A part has no placement, so its footprint was put in a row beside the board."
@@ -2686,6 +3001,41 @@ see = "check"
 meaning = "A net's length differs from the longest net of its group by more than the max of the skew rule that governs it. A skew rule groups every net it governs; a diff_pair_skew rule each pair among them. The longest net is never reported; the rule sets the severity."
 fix = "Lengthen the shorter net (Design.meander), shorten the longer one, or change the rule."
 see = "check"
+
+["lock.changed"]
+meaning = "Under build --frozen, one change of the design lock: the section, the key, the value before and after, and the reason (assigned, released, moved, explicit, taken, prefix-changed or design-renamed; for a pin choice of change c0257: solved, stale or dropped)."
+fix = "Build without --frozen, review the change, commit the lock, then build frozen again."
+see = "build"
+
+["lock.design-renamed"]
+meaning = "The design lock names another design than the script; the lock is rewritten with the script's design name."
+fix = "Nothing to do; commit the rewritten lock."
+see = "build"
+
+["lock.ref-explicit"]
+meaning = "An explicit ref of the script replaced the different ref the lock held for that path; the lock records the explicit ref."
+fix = "Nothing to do; commit the lock."
+see = "build"
+
+["lock.ref-moved"]
+meaning = "A design.moved() alias carried a lock entry from the old path to the new one, so the part keeps its ref."
+fix = "Nothing to do; commit the lock. The alias can be removed after one build."
+see = "build"
+
+["lock.ref-prefix-changed"]
+meaning = "The reference prefix of a part changed, so its locked ref, which does not start with the new prefix, was replaced by a new one."
+fix = "Nothing to do if the new prefix is intended; commit the lock."
+see = "build"
+
+["lock.ref-released"]
+meaning = "A lock entry names a path that is no longer a part, and no moved() alias carries it, so its ref is released and may be given to another part later."
+fix = "If the part was renamed, add design.moved(old, new) and build again; otherwise commit the lock."
+see = "build"
+
+["lock.ref-taken"]
+meaning = "A ref held by the lock for one part is now the explicit ref of another part, so the first part was given a new ref."
+fix = "Keep the new ref, or edit the lock or the script so that each part has the ref you want, then build again."
+see = "build"
 
 ["manifest.changed"]
 meaning = "A file is not the one its manifest lists: its SHA-256 differs. Under 'manifest --verify' it is an error. When 'fenolite manifest' writes, it is a warning: the file is listed as it is now, without its tool and source, so it stays 'generated'."
@@ -2766,6 +3116,46 @@ see = "parity"
 meaning = "A pin of a symbol has a number that no pad of its footprint has, so its connection can never be routed; an error when other pins are on its net."
 fix = "Choose a footprint that has a pad of that number, or correct the pin number of the symbol."
 see = "parity"
+
+["pick.attribute-unknown"]
+meaning = "A row was left out only because it does not state an attribute the query constrains (a rating, a dielectric, a tolerance); a missing attribute is never assumed."
+fix = "State the attribute in the row, with its source, if the part has it; or drop the constraint from the query."
+see = "pick"
+
+["pick.new"]
+meaning = "A query part got its first pick: the best match of the catalog. The pick is planned into the design lock and never changes by itself."
+fix = "Nothing to do; review the pick and commit the design lock."
+see = "pick"
+
+["pick.no-match"]
+meaning = "No row of the catalog meets a query: the message lists the first failed constraint of some rows. Nothing is built."
+fix = "Relax the query, or add a row to devices/ beside the script; fenolite pick PATH --candidates COMPONENT lists every row and why it is left out."
+see = "pick"
+
+["pick.query-changed"]
+meaning = "The query text changed and the locked part still meets it, so the device is kept and the new query text is planned into the design lock."
+fix = "Nothing to do; commit the design lock. Run fenolite pick --update COMPONENT to re-pick if a better part is wanted."
+see = "pick"
+
+["pick.row-changed"]
+meaning = "The locked row's canonical text changed since it was picked (its SHA-256 differs) but it still meets the query; the row is used as it is now and its new hash is planned."
+fix = "Review the change of the row, then commit the design lock."
+see = "pick"
+
+["pick.row-missing"]
+meaning = "The row the design lock names is no longer in the catalog (a removed family, device file or catalog version). Nothing is built."
+fix = "Restore the row, or re-pick with fenolite pick PATH --update COMPONENT and commit the lock."
+see = "pick"
+
+["pick.row-unverified"]
+meaning = "An UNVERIFIED row (a proposal not reviewed yet) would have ranked first and was left out: such a row is picked only when the query names it with row=."
+fix = "Read the datasheet, move the record out of devices/proposed/ and raise its evidence label; or name it with row=."
+see = "pick"
+
+["pick.stale"]
+meaning = "A changed query, or a generator's new inputs, are no longer met by the locked part: the message names the old device and the failed constraint. A locked pick is never swapped silently; nothing is built."
+fix = "Run fenolite pick PATH --update COMPONENT, review the plan, confirm it, and commit the design lock."
+see = "pick"
 
 ["place.copper-left"]
 meaning = "A footprint that was moved had tracks ending on its pads; the tracks stay where they were."
@@ -3002,6 +3392,11 @@ meaning = "A part (or the anchor) has no pad whose number occurs once in both it
 fix = "Map the part to a reference part of the same footprint with --map, pick another --anchor, or raise --tolerance only for a known small difference."
 see = "place"
 
+["reuse.port-unmapped"]
+meaning = "A net of the reference board of a block reuse with copper=True is neither a port nor a local net of the block, so its copper has no net to land on. The build stops."
+fix = "Name the net after a port or a local net of the block in the reference board, or reuse without copper=True."
+see = "build"
+
 ["reuse.project-unread"]
 meaning = "The project file or the rules file beside the target board could not be read, so the copper check that judges the copy runs without its net classes and rules."
 fix = "Repair or remove the file named in where, then run reuse again."
@@ -3015,6 +3410,46 @@ see = "place"
 ["roles.ambiguous"]
 meaning = "Two rules of the role inference gave a net different roles at one confidence; the first is kept (`docs/roles.md`, \"Inference rules\"). The message names the net, the two kinds and the rules."
 fix = "Confirm the net's role with `fenolite roles PATH --set NET=KIND --confirm`, or declare it in the script with `design.net_role(...)`."
+see = "roles"
+
+["roles.copper-blocked"]
+meaning = "The role copper found no free path between two pad clusters of a net on a layer (or no room for a via array): the band would cross the copper of another net, a corridor or a keep-out. Nothing is forced; that connection is missing."
+fix = "Move the parts or the copper between them, or route that connection by hand (phase 2 routes the switch-node connections it leaves)."
+see = "roles"
+
+["roles.copper-extra"]
+meaning = "A net's role copper branches, and uniting its bands into one zone needs the Clipper union of the `geo` extra, which is not installed; only the longest edge (or the single chain) was generated."
+fix = "Install the extra (`pip install fenolite[geo]`) and run again."
+see = "roles"
+
+["roles.copper-kept"]
+meaning = "A role item that you edited since the last run (its fingerprint differs from `.fenolite/role-copper.json`) was kept as it is and treated as an obstacle."
+fix = "Nothing to do; to have the generated item back, pass `--regenerate KEY` or `role_copper(regenerate=(KEY,))`."
+see = "roles"
+
+["roles.copper-narrow"]
+meaning = "A band of role copper cannot keep its clearance from other copper even at its base width in some cells; the fill carves the copper there, so the section there may be below the current's width."
+fix = "Move the spine's neighbours, or check the section with `fenolite fill` then `fenolite check`."
+see = "roles"
+
+["roles.copper-placement"]
+meaning = "The placement bound of a hot loop (the polygon of its pad centres) is already over your `loop_max`: no copper can meet the limit. The copper is still drawn; phase 1 never moves parts."
+fix = "Place the input capacitor across the switches, then run the role copper again."
+see = "roles"
+
+["roles.copper-skipped"]
+meaning = "A role net got no role copper: `unconfirmed` (an inferred role you have not confirmed), `current-missing` (a power or switch-node role without a current; warning), `user-copper` (your own zone holds the net on that layer) or `shared-layer` (the ground planes went to another ground net)."
+fix = "Confirm the role with `fenolite roles PATH --accept`, give it a current, or remove your zone to get role copper there."
+see = "roles"
+
+["roles.copper-worse"]
+meaning = "The role copper would add a role finding of warning or above that the board did not have (judged on the simulated pour, before and after); nothing is written. The topological findings of the routes (Kelvin and gate-return attachments) are not counted."
+fix = "Read the finding it names; move the parts, or pass other layers, widths or `kinds` to the role copper."
+see = "roles"
+
+["roles.corridor-blocked"]
+meaning = "A provisional corridor of a critical route (`role.corridor.<group>.<net>`) would cover another net's pad or a locked item of another net, so it was not written; phase 2 routes around that copper."
+fix = "Nothing to do for phase 1; route the gate loop or the Kelvin pair (phase 2), or move the copper that blocks it."
 see = "roles"
 
 ["roles.current-missing"]
@@ -3146,6 +3581,36 @@ see = "route"
 meaning = "The copper check judged the copper the octilinear router placed and found a short or clearance finding that the board did not have before; the copper of that connection was removed and the net stays open."
 fix = "Read the finding in the message, give the connection room with fenolite place --move, or route it with another router; fenolite check shows the board's findings."
 see = "route"
+
+["route.role-unrouted"]
+meaning = "In role mode (route --roles critical), a gate loop or Kelvin pair was not routed. The message gives the reason (no-room, too-long, no-layer, near-switching, isolation, drc or pads), and result.roles holds the proposal with its command and a render --region command for the place."
+fix = "Run the proposal's command: free the corridor it names, allow a via with --router-option kelvin-vias=2, raise max-length, or move a part; then run route --roles critical again. Draw the place with the render command first."
+see = "route"
+
+["route.role-refused"]
+meaning = "In role mode, a group was routed, but the role check of c0222 then found a role finding on it that was new or larger than before; the whole copper of the group was removed."
+fix = "Read the finding in the message, free the place it names, and run route --roles critical again; fenolite roles PATH --check shows the role findings."
+see = "route"
+
+["route.role-unconfirmed"]
+meaning = "In role mode, inferred role groups that nobody confirmed were not routed: copper is placed and locked only for confirmed or declared groups. The message names them."
+fix = "Review them with fenolite roles PATH, confirm the right ones with --accept-group NAME, then run route --roles critical again."
+see = "roles"
+
+["route.role-kept"]
+meaning = "In role mode, a group whose connections copper already joins still has role findings; role mode removes no copper on its own, so the group was left as it is."
+fix = "Run route --roles critical again with --rip to replace the group's branches; locked and script copper stay, so change the script when the old copper is script copper."
+see = "route"
+
+["route.role-placement"]
+meaning = "In role mode, the placement bound of a gate loop is above the gate_max you set: no route can bring the loop's area under your limit."
+fix = "Place the driver closer to the switch with fenolite place --move, or raise the limit with fenolite roles."
+see = "roles"
+
+["route.role-none"]
+meaning = "In role mode, the board holds no gate loop or Kelvin pair to route: no role is stored or declared, or the groups named by --group are not among them."
+fix = "Run fenolite roles PATH to see the inferred groups and confirm them with --accept-group or --accept-all; a hot loop is power copper and is not routed here."
+see = "roles"
 
 ["route.pair-uncoupled"]
 meaning = "With --pairs-as-nets, the two nets of a differential pair were given to the router as two single nets: their copper is not coupled at the pair gap."
@@ -3372,6 +3837,26 @@ meaning = "A clearance or edge-clearance rule names layers. The Specctra file ha
 fix = "Nothing to do; the router keeps at least what the rule asks."
 see = "route"
 
+["sync.conflict"]
+meaning = "A property changed both in the script (or edits.toml) and in the CAD file since the last build, to different values, or an edit of edits.toml was made over a script value that changed since (stale-edit); nothing is written."
+fix = "Choose a side with fenolite build ... --take code:PATH#PROPERTY or --take cad:PATH#PROPERTY (board or schematic when the two CAD sides disagree), then run fenolite sync --to-source."
+see = "build"
+
+["symbol.bus-gap"]
+meaning = "A bus of a pin table skips an index (D0, D1, D3): the generated symbol draws the bus in natural order with the gap, and the message names the missing indices."
+fix = "Nothing to do when the part has no such pin; otherwise add the missing row to the pin table."
+see = "library"
+
+["symbol.bus-split"]
+meaning = "A bus of a pin table holds more rows than one unit may (unit_pins), so the automatic split cut it across units."
+fix = "Raise unit_pins in [symbol], split the bus into named buses, or give every row an explicit unit."
+see = "library"
+
+["symbol.units-split"]
+meaning = "The pin table has more visible rows than split_above, so the generated symbol was split into signal units and power units; the message names the pins per unit."
+fix = "Nothing to do; give every row a unit, or change split_above or unit_pins in [symbol], to choose the units yourself."
+see = "library"
+
 ["sync.net-dropped"]
 meaning = "The board holds copper on a net that the design no longer has and that no alias covers; the next build drops that copper."
 fix = "Keep the net in the script, or name its new name with moved_net(old, new) before building."
@@ -3380,6 +3865,11 @@ see = "sync"
 ["sync.orphan"]
 meaning = "A footprint that Fenolite placed is on the board and its part is not in the design; the next build removes it."
 fix = "Keep the part in the script, or name its new path with moved(old, new) before building."
+see = "sync"
+
+["sync.placements-migrated"]
+meaning = "No edits.toml was beside the script: the entries of the legacy placements.toml are carried into the edits.toml that sync writes."
+fix = "Review edits.toml, commit it, then delete placements.toml."
 see = "sync"
 
 ["sync.symbol-off-grid"]
@@ -3491,6 +3981,72 @@ see = "tidy"
 meaning = "A net is in a differential pair, or a length, skew or pair-skew rule selects it, so straighten leaves its runs as they are: a new shape would change its length or its coupling."
 fix = "Nothing is needed. Tidy a pair by hand, or route it again with the router."
 see = "tidy"
+
+["import.item-unexpressed"]
+meaning = "An item of the source, of the kind 'where' names, cannot be written by any call of the DSL (a group, a stack-up, a hole, a dimension, a custom rule...). With --allow-lossy it is left out of the emitted code; without it the import refuses with FEN-7001."
+fix = "Accept the loss with --allow-lossy, or keep the item in the board: change c0277 adds verbatim items for what the DSL does not say."
+see = "import"
+
+["import.unequal"]
+meaning = "The self-check of the import built the emitted code in a private folder and compared its board with the source at equivalence levels 1 to 5 and copper item by item; a difference that no unexpressed kind explains was found, so nothing is written."
+fix = "Report the board: the emitted code does not rebuild it. --no-verify writes it anyway, unproved."
+see = "import"
+
+["import.unverified"]
+meaning = "--no-verify: the emitted code was neither built nor compared with the source."
+fix = "Run the import without --no-verify to prove the code rebuilds the board."
+see = "import"
+
+["import.schematic-generated"]
+meaning = "The source has schematic sheets, but the import writes no drawn schematic yet: the build of the emitted code generates its own schematic from the circuit."
+fix = "Nothing is needed; change c0276 imports the drawn schematic."
+see = "import"
+
+["import.footprint-variant"]
+meaning = "An instance of a footprint differs from the first instance of its name once brought back to its origin (moved fields, an edited pad...), so it is vendored as <name>_2 and its part names that footprint."
+fix = "Make the instances equal on the board if they should be one footprint; otherwise keep the variant."
+see = "import"
+
+["import.symbol-regenerated"]
+meaning = "The vendored symbols are drawn by Fenolite, one passive pin per pad number of the footprint, so every connection of the code is a pad; the source's own symbols are not copied."
+fix = "Nothing is needed; replace a symbol in lib/ by the original if the drawn schematic matters."
+see = "import"
+
+["import.sheet-renamed"]
+meaning = "The name of a KiCad sheet that a footprint comes from was changed to a module name of lower-case letters, digits and underscores."
+fix = "Nothing is needed; the message names both."
+see = "import"
+
+["import.upgraded"]
+meaning = "A board below the read floor was upgraded by kicad-cli on a private copy before it was read; the source file is unchanged, and PROVENANCE.json records the versions and digests before and after."
+fix = "Nothing is needed; commit the upgraded project upstream to skip the step."
+see = "import"
+
+["import.provenance-missing"]
+meaning = "No --licence, --copyright or --source was given, so the header of every emitted file says NOASSERTION where the upstream is not stated."
+fix = "State the upstream licence, copyright holders and location; converted boards are published only with them."
+see = "import"
+
+["import.timestamp-missing"]
+meaning = "No --timestamp: the header and PROVENANCE.json carry today's date, so two imports give different bytes."
+fix = "Pass --timestamp to make the output reproducible."
+see = "import"
+
+["library.deprecated"]
+meaning = "The design uses a library record (pins, package, device or part) that is deprecated: its interface was replaced by another record. The design still builds."
+fix = "Move the part to the record named in the message (deprecated.by) when you can; read the reason in the record."
+see = "build"
+
+["library.generator-missing"]
+meaning = "The design uses a pins or package record that has no explicit geometry, and the generator of its family is not part of this version. Nothing is written."
+fix = "Write the drawing ([symbol]) or the lands (generator = \"explicit\", [[pad]] and [[graphic]]) into the record, or use another symbol or footprint."
+see = "build"
+
+["library.review-stale"]
+meaning = "A library record the design uses changed after its last review: the review names another digest. A record with an origin stays UNVERIFIED until it is reviewed again."
+fix = "Review the record again and record the review (reviewed_by) with its current digest."
+see = "build"
+
 ["library.drift"]
 meaning = "With --diff, a footprint made from the board differs from the library's footprint of the same name in the kinds the message names (pads, silkscreen, courtyard, models, fields), or the library lacks it (missing). Nothing is written."
 fix = "Write the library again from the board with fenolite library --out, or edit the board's instances to match the library."
@@ -3751,4 +4307,254 @@ see = "panel"
 ["build.unattached"]
 meaning = "A Part, Net or Interface created by the script never reached the design; where names its creation file and line."
 fix = "Add it with design.add(...), connect it, or delete it."
+see = "build"
+
+["fidelity.build-failed"]
+meaning = "verify-source built the script in its temporary folder and the build wrote no file, so no level ran; the build's own errors are listed beside this issue."
+fix = "Fix the script or the libraries it names until fenolite build writes the project, then verify again."
+see = "verify-source"
+
+["fidelity.accepted-unused"]
+meaning = "An accepted difference of fidelity.accepted in PROVENANCE.json matched no difference in a level that ran: the difference it accepted is gone."
+fix = "Remove the entry from fidelity.accepted, so acceptances shrink as Fenolite improves."
+see = "verify-source"
+
+["fidelity.level-skipped"]
+meaning = "verify-source skipped a level that a side cannot reach; the message names the reason (no-footprints, no-copper, no-board, no-schematic, drawn-unavailable, altium-drawing-unread, build-failed)."
+fix = "Nothing to do when the reason is expected; a skipped level is never a pass."
+see = "verify-source"
+
+["fidelity.input-upgraded"]
+meaning = "verify-source upgraded a copy of an original older than KiCad 9.0 with kicad-cli pcb upgrade (--upgrade); the message names the tool version and both SHA-256."
+fix = "Nothing to do; the original itself is unchanged."
+see = "verify-source"
+
+["catalog.pin-without-pad"]
+meaning = "fenolite catalog import: a symbol pin has no footprint pad of its number, and no --pin maps it. Nothing is written."
+fix = "Map the pin with --pin FUNCTION=PIN:PAD, or pick the footprint the symbol is meant for."
+see = "catalog"
+
+["catalog.pad-unmapped"]
+meaning = "fenolite catalog import: a footprint pad is named by no symbol pin and is left out of the device."
+fix = "Nothing for a mechanical pad (list it in unused_pads when you review the file); else map it with --pin."
+see = "catalog"
+
+["drawn.netlist-differs"]
+meaning = "The drawn schematic does not mean the netlist of the code: a pin is in another group in the drawing than in code, or open on one side only. The message names the first REF-PIN, both nets and the reason (open, split or merged). Code is the only source of nets."
+fix = "Change the code (or fenolite edit) so that it means the drawing, or redraw schematic.toml (or the sheet in KiCad) so that it means the code."
+see = "check"
+
+["drawn.symbol-missing"]
+meaning = "A unit of a code component with a symbol, which has a pin on a net, is not drawn in schematic.toml for one instance of its module."
+fix = "Draw the unit (place it in KiCad and run fenolite sync --to-source), or remove the part from the code."
+see = "build"
+
+["drawn.part-unknown"]
+meaning = "A drawn symbol stands for no component of the code (or one without a symbol, or a unit the symbol lacks), a unit is drawn twice, or a power symbol is in no library."
+fix = "Add the part to the code, remove or fix the symbol in the drawing, or add the power symbol's library to sym-lib-table."
+see = "build"
+
+["drawn.sheet-pin-unmatched"]
+meaning = "A sheet pin of a drawn sheet reference has no hierarchical label of its name on the instance's sheet, or a hierarchical label has no sheet pin of its name."
+fix = "Add the missing label or pin, or rename one of them so that the names match."
+see = "build"
+
+["drawn.sheet-unknown"]
+meaning = "A sheet reference of the drawing names no sheet, sheets reference each other in a cycle, a sheet is reached by no reference, or its file lies outside the project folder."
+fix = "Fix the sheet and file names of the references in schematic.toml, and remove sheets nothing references."
+see = "build"
+
+["drawn.repeated-value-differs"]
+meaning = "One symbol of a repeated drawn sheet stands for components whose values or footprints differ. A KiCad repeated sheet carries one value per symbol."
+fix = "Give the parts equal values and footprints, or give each instance its own drawn sheet."
+see = "build"
+
+["drawn.net-name-differs"]
+meaning = "A drawn net has the pins of a code net, but none of its labels carries the code net's name. The board keeps the code's name."
+fix = "Rename the label, or the net in the code; nothing else is needed."
+see = "check"
+
+["drawn.unit-missing"]
+meaning = "A unit of a code component is not drawn; it has no pin on a net, so the drawing still means the code."
+fix = "Nothing to do; draw the unit if the sheet should show it."
+see = "build"
+
+["drawn.dangling"]
+meaning = "A wire end of the drawing joins nothing: no other wire, pin, label, sheet pin, junction or bus entry lies on it."
+fix = "Connect or remove the wire end."
+see = "check"
+
+["drawn.label-unconnected"]
+meaning = "A label of the drawing touches no wire and no pin, so it names nothing."
+fix = "Move the label onto a wire or a pin, or remove it."
+see = "check"
+
+["drawn.bus-member-unknown"]
+meaning = "A bus member of the drawing is carried by no label of its name on the sheet, or a bus label names a member that no alias or vector defines."
+fix = "Label the wire of the member on its bus entry, or define the alias."
+see = "check"
+
+["drawn.placements-ignored"]
+meaning = "schematic-placements.toml lies beside a script that loads a drawn schematic; the drawing owns the symbol positions, so the placements file is not read."
+fix = "Delete schematic-placements.toml; move symbols in schematic.toml or in KiCad and run fenolite sync --to-source."
+see = "build"
+
+["drawn.opaque-dropped"]
+meaning = "An opaque item of the drawing (text or graphics kept verbatim for KiCad) has no form for the target and is not written."
+fix = "Nothing to do for the nets; give the item an altium text if the target should show it."
+see = "build"
+
+["drawn.frozen"]
+meaning = "fenolite sync --to-source --freeze-schematic wrote schematic.toml from the generated schematic of the built project."
+fix = "Add design.load_schematic(\"schematic.toml\") to the script so that the next build draws the sheets from the file."
+see = "sync"
+
+["drawn.altium-repeat-flattened"]
+meaning = "A repeated drawn sheet is written once per instance for Altium."
+fix = "Nothing to do."
+see = "build"
+
+["circuit.rail-voltage"]
+meaning = "A rail's voltage is not what a port on it needs: the voltages set on the rail (by the design rail and by out power ports) do not meet, or the rail's range is not within the operating range an in power port accepts. The message names the rail, the port and both ranges."
+fix = "Change the rail's voltage or its source, choose a part that accepts the rail, or power the port from another rail."
+see = "check"
+
+["circuit.rail-current"]
+meaning = "The loads of a rail can draw more than its sources give, worst case: the sum of the upper bounds of the draws of its in power ports exceeds the sum of the lower bounds of the capacities of its out power ports. A block's out port replaces the out ports inside it."
+fix = "Lower the loads, choose a source of more current, or split the loads over two rails."
+see = "check"
+
+["circuit.rail-sources"]
+meaning = "Two or more out power ports drive one rail, and neither the rail is declared shared nor every source port has share."
+fix = "Drive the rail from one source, or declare the rail shared (design.rail(..., shared=True)) when the sources are made to share it."
+see = "check"
+
+["circuit.rail-unset"]
+meaning = "Something on a rail could not be judged: ports state limits and no voltage is set, or loads state a draw and no source states a capacity, or a draw has no upper bound."
+fix = "Give the rail a voltage (design.rail(..., voltage=...)) or its source port one, and state the source's current."
+see = "check"
+
+["circuit.logic-level"]
+meaning = "A logic driver and a reader on one net refer to different rails, and one of three worst-case comparisons fails: the driver's output_high_min is below the reader's input_high_min, its output_low_max is above the reader's input_low_max, or its rail's upper bound is above the reader's abs_max."
+fix = "Add a level shifter, move both ports to one reference rail, or choose parts whose levels meet."
+see = "check"
+
+["circuit.logic-unknown"]
+meaning = "A logic driver and a reader on one net refer to different rails, and a threshold that a comparison needs is not stated; the comparison is never passed by assuming that the driver's level is its rail."
+fix = "State the missing threshold on the port or in the device record, from the part's datasheet."
+see = "check"
+
+["circuit.bus-pullup"]
+meaning = "A pull-up of an I2C line goes to a rail other than the bus's reference rail, its resistance range is not within the accepted pullup range of the bus and its ports, or its worst-case current exceeds a bus port's output_current_max."
+fix = "Pull the bus up to its reference rail with a resistance in the accepted range."
+see = "check"
+
+["circuit.requires-missing"]
+meaning = "A port declares a companion it needs (requires: pullup, supply or chip_select) and the board does not give it: a line without a pull-up, a reference rail without a voltage and a source, or a chip select that goes nowhere."
+fix = "Connect the companion, or remove the entry when the board does not need it."
+see = "check"
+
+["circuit.port-split"]
+meaning = "The pins of one member of a device port are on two nets (such as VDD and VDDA on separate rails), so the member is left out of the model port and its parameters are not judged."
+fix = "Join the pins of the member, or accept the split."
+see = "check"
+
+["circuit.rating-voltage"]
+meaning = "A voltage exceeds a part's absolute maximum rating (abs_max) or the derated limit of your policy, worst case: the voltage across a two-pin part, a pin's voltage from its device's ground function, or the voltage between two functions of a [[limits]] row. The message names the part, the value with its source (rig, rail, role) and the limit with its source (device or policy)."
+fix = "Choose a part of a higher rating, lower the voltage, or state the derating that matches the part (design.derating). See docs/contracts.md."
+see = "check"
+
+["circuit.rating-current"]
+meaning = "A current exceeds a part's absolute maximum rating or derated limit: a regulator's output (the loads of its out power port's rail), an inductor's or a shunt's series current (the smaller of its two nets' current bounds), or a single pin's net."
+fix = "Choose a part of a higher current rating, or lower the loads."
+see = "check"
+
+["circuit.rating-power"]
+meaning = "A resistor's or shunt's worst-case power exceeds its power rating or derated limit: V²/R from the voltages of its two nets and its smallest resistance, or I²R of a shunt from its current bound."
+fix = "Choose a part of a higher power rating or a larger resistance."
+see = "check"
+
+["circuit.rating-temperature"]
+meaning = "The design's ambient range (design.operating) is not within a part's absolute maximum temperature range narrowed by your temperature_margin."
+fix = "Choose a part of a wider temperature range, or narrow the ambient range if the product allows it."
+see = "check"
+
+["circuit.operating-range"]
+meaning = "An applied voltage, current or ambient range is not within a part's operating range, compared exactly and never derated (a derating would loosen a minimum such as VIN >= 2.7 V)."
+fix = "Change the rail or the rig, or choose a part whose operating range holds the applied value."
+see = "check"
+
+["circuit.expect-failed"]
+meaning = "An expectation of the script (design.expect or b.expect) never holds over the worst-case ranges: the message names its id, its reason and both ranges."
+fix = "Change the values the expectation reads (a resistor, a rail), or correct the expectation."
+see = "check"
+
+["circuit.expect-unsure"]
+meaning = "An expectation holds for part of the ranges only: its ranges overlap without the test holding for all of them."
+fix = "Tighten the tolerances the expectation reads, or widen what it is compared with if the design allows it."
+see = "check"
+
+["circuit.expect-unknown"]
+meaning = "An expectation reads a handle that cannot be resolved or bounded: a value that became text, a rail without a voltage, a device limit that no record gives."
+fix = "State the missing value (a range on the part, a rail voltage, a rig supply) or the device record."
+see = "check"
+
+["circuit.value-conflict"]
+meaning = "Two stated sources of different kinds (a rig, a rail, a role, a ground) give one net voltages that do not overlap. The first in the order rig, rail, role, ground is used."
+fix = "State one voltage for the net: correct the rail, the rig or the role."
+see = "check"
+
+["circuit.device-changed"]
+meaning = "The device record resolved now differs from the digest the build recorded on the part (fenolite.device.sha256). The current record is used."
+fix = "Rebuild the design so the model records the current device, or restore the record."
+see = "check"
+
+["circuit.value-unknown"]
+meaning = "Contract rows that are not judged because a voltage, a current, a class or a value range is not stated. By default one info gives their count; under design.contracts(unknown='warning') each row is a warning naming what is missing."
+fix = "State the missing value: a rig supply, a rail voltage, a role current, a part class or a value with a tolerance."
+see = "check"
+
+["circuit.rating-missing"]
+meaning = "Device parts that cannot be judged for lack of a record or of a rating for a check that applies (such as a capacitor with no voltage rating on a known 12 V net). One info gives their count, or one warning per part under design.contracts(unknown='warning')."
+fix = "Add the rating to the device record (its datasheet value), or give the command the record."
+see = "check"
+
+["circuit.policy-missing"]
+meaning = "Ratings judged at 100 % because no derating rule of the script covers them. Fenolite ships no derating number."
+fix = "State your derating policy with design.derating(...) and ratio(), citing its source, or accept full ratings."
+see = "check"
+
+["pins.unsatisfiable"]
+meaning = "No assignment gives every take its own pins (change c0257): the message names the smallest set of takes that cannot all be served and the pins they compete for."
+fix = "Drop a take, widen its option= or pins=, or free a pin connected by hand; then build again."
+see = "build"
+
+["pins.option-unknown"]
+meaning = "A take names, with option=, no option of its kind in the part's device record."
+fix = "Name one of the options of the device record (the message lists them), or leave option= out."
+see = "build"
+
+["pins.pinned-conflict"]
+meaning = "The pins= of a take match no alternative of the device, or name a pin already connected or marked no-connect by hand."
+fix = "Give pins that one alternative of the device offers, free the pin, or leave pins= out."
+see = "build"
+
+["pins.search-limit"]
+meaning = "The pin solve tried more candidates than its bound (100 000) without an answer."
+fix = "Narrow the takes with option= or pins= so that fewer alternatives remain."
+see = "build"
+
+["pins.lock-stale"]
+meaning = "A pin choice recorded in the [pins] section of the design lock is no longer valid (the device record, the take or a hand connection changed), so the take was solved again."
+fix = "Review result.pins and the planned lock write; commit the lock when the new choice is right."
+see = "build"
+
+["pins.unused-take"]
+meaning = "A take's nets reach no pin besides the take's own: the chosen pins connect to nothing."
+fix = "Connect the take (connect(take, other.port)), or remove it."
+see = "build"
+
+["pins.lock-dropped"]
+meaning = "A [pins] entry of the design lock names a take the script no longer makes; the confirmed build removes it."
+fix = "Nothing to do if the take was removed on purpose; commit the lock."
 see = "build"

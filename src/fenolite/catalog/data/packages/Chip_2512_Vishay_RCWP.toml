@@ -1,0 +1,36 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:Chip_2512_Vishay_RCWP"
+version = "1.0.0"
+summary = "2512 Vishay RCWP resistor land"
+category = "Chip passive"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0353", "S-0357"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["1.02mm", "3.18mm"]
+at = ["-3.175mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["1.02mm", "3.18mm"]
+at = ["3.175mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-3.175mm", "-1.575mm"], ["3.175mm", "1.575mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-4.185mm", "-2.09mm"], ["4.185mm", "2.09mm"]]
+width = "0.05mm"

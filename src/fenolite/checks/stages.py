@@ -36,10 +36,17 @@ from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
 
 if TYPE_CHECKING:
+    from fenolite.checks.drawn import DrawnInput
     from fenolite.checks.roles import RolesJudge
+    from fenolite.model.library import DeviceDef
+
+CircuitInputs = Callable[[Design], "tuple[Mapping[str, DeviceDef], Mapping[str, str]]"]
+"""What the command injects into the stage ``circuit.rules`` (change c0253): for a model, its device records
+by device id and the class of each component id by ``fenolite.roles.classify``."""
 
 STAGE_ORDER: tuple[str, ...] = (
     "model.validate",
+    "circuit.rules",
     "erc.kicad",
     "copper.clearance",
     "length.rules",
@@ -48,6 +55,7 @@ STAGE_ORDER: tuple[str, ...] = (
     "zone.fill",
     "drc.kicad",
     "parity",
+    "schematic.drawn",
     "netlist.assignment_compare",
     "roundtrip",
     "roundtrip.rt2",
@@ -63,7 +71,11 @@ length and the congestion of every board; it needs no tool either and follows ``
 ``length.rules`` (change c0106) judges the length and skew rules on the net lengths a ``LengthSource``
 gives; it needs no tool, stands right after ``copper.clearance`` and so before ``drc.kicad``.
 ``roles.rules`` (change c0222) judges the net roles of a board with the judge that ``fenolite check`` passes;
-it needs no tool and follows ``placement.rules``."""
+it needs no tool and follows ``placement.rules``. ``circuit.rules`` (change c0252) judges the interface
+parameters of the ``.fenolite/`` model (``checks.circuit``); it runs no tool and reads no board, and stands
+right after ``model.validate``. ``schematic.drawn`` (change c0276) compares the drawn schematic of a built
+project with its circuit; it needs no tool, follows ``parity``, and ``fenolite check`` lists it only for
+input whose build recorded a drawn schematic."""
 OPT_IN_STAGES: tuple[str, ...] = ("roundtrip.rt2", "render")
 """Stages that run only when ``--stages`` names them: RT2 costs two re-saves and three DRC runs."""
 DEFAULT_STAGES: tuple[str, ...] = tuple(name for name in STAGE_ORDER if name not in OPT_IN_STAGES)
@@ -106,6 +118,9 @@ StageSkip = Literal[
     "model-predates-graphics",
     "no-frame",
     "no-roles",
+    "no-drawing",
+    "no-model",
+    "no-parameters",
 ]
 _COUNTED_SKIPS = frozenset({"read-refused", "cache-unreadable"})
 
@@ -206,14 +221,20 @@ def run_checks(
     waivers: Sequence[Waiver] = (),
     progress: Progress = NULL_PROGRESS,
     roles_judge: RolesJudge | None = None,
+    drawn: DrawnInput | None = None,
+    circuit_inputs: CircuitInputs | None = None,
 ) -> CheckReport:
     """Run the selected stages in ``STAGE_ORDER`` on ``project`` (``model`` is the ``.fenolite/`` model of a
     built project); ``validator.validate`` runs at most once. ``waivers`` are the design's waivers
     (``checks.waivers``): they reach the copper stage and the DRC stage, and no other stage. Each stage
     that runs is one unit of ``progress``, named by the stage. ``roles_judge`` judges the stage
-    ``roles.rules`` (``checks.roles``)."""
+    ``roles.rules`` (``checks.roles``). ``drawn`` is the drawn netlist of a built project with a drawn
+    schematic, which the stage ``schematic.drawn`` judges (``checks.drawn``); without it the stage is
+    skipped with ``no-drawing``. ``circuit_inputs`` gives the stage ``circuit.rules`` its device records and
+    part classes (change c0253)."""
     from fenolite.checks.assignment_compare import assignment_stage
     from fenolite.checks.copper import copper_stage
+    from fenolite.checks.drawn import drawn_stage
     from fenolite.checks.drc import drc_stage
     from fenolite.checks.erc import erc_stage
     from fenolite.checks.fill import fill_stage
@@ -250,6 +271,14 @@ def run_checks(
         if validation is None:
             return skipped("model.validate", "read-refused")
         return validate_stage(validation.read.design, built=False, evidence=validation.read.evidence)
+
+    def circuit() -> StageResult:
+        from fenolite.checks.circuit import circuit_stage
+
+        devices, classes = (None, None)
+        if circuit_inputs is not None and model is not None and not cache_error:
+            devices, classes = circuit_inputs(model)
+        return circuit_stage(model, built=built, cache_error=cache_error, devices=devices, classes=classes)
 
     def erc() -> StageResult:
         if oracle is None:
@@ -327,6 +356,11 @@ def run_checks(
             drc=done.get("drc.kicad"),
         )
 
+    def drawn_check() -> StageResult:
+        if drawn is None:
+            return skipped("schematic.drawn", "no-drawing")
+        return drawn_stage(drawn.netlist, drawn.circuit, issues=drawn.issues)
+
     def fill() -> StageResult:
         if validation is None:
             return skipped("zone.fill", "read-refused")
@@ -351,6 +385,7 @@ def run_checks(
 
     runners: dict[str, Callable[[], StageResult]] = {
         "model.validate": model_stage,
+        "circuit.rules": circuit,
         "erc.kicad": erc,
         "copper.clearance": copper,
         "length.rules": length,
@@ -359,6 +394,7 @@ def run_checks(
         "zone.fill": fill,
         "drc.kicad": drc,
         "parity": parity,
+        "schematic.drawn": drawn_check,
         "netlist.assignment_compare": assignment,
         "roundtrip": roundtrip,
         "roundtrip.rt2": rt2,
@@ -385,6 +421,7 @@ __all__ = [
     "ORACLE_STAGES",
     "STAGE_ORDER",
     "CheckReport",
+    "CircuitInputs",
     "StageResult",
     "StageSkip",
     "StageStatus",

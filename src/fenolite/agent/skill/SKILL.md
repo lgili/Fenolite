@@ -114,7 +114,7 @@ limits; their example numbers are not universal requirements.
 - `altium`: Altium builds, blocks, native sync, evidence and the verification kit.
 - `board-assembly`: Designators and silkscreen, polarity and pin 1, test points and fiducials, footprints by IPC-7351, 3D bodies, and the board as the master of its library.
 - `board-emc`: An immunity basis first, the mains entry in order, filter sides kept apart, the earth bond in copper, staged pin protection, gate buses and analog lines.
-- `board-floorplan`: Mechanical constraints first, regions by domain and function, a power flow in one direction, the loop parts first, decoupling at the pin, and reference blocks.
+- `board-floorplan`: Mechanical constraints first, regions by domain and function, one-way power flow, loop parts first, decoupling at the pin, reference blocks, placement in code.
 - `board-grounds`: Ground domains, one tie between two domains and where it goes, Kelvin sensing, return paths, proving a single tie, and the commands that show a net.
 - `board-insulation`: Insulation domains, the inputs that set a distance, slots and grooves, copper under parts and on both faces, measuring with analyze, and what not to claim.
 - `board-power`: Current loops and loop area, copper sized by a public method, pours as wide straight bands, necks, parallel vias, gate drive, and connectivity after cut-outs.
@@ -129,13 +129,14 @@ limits; their example numbers are not universal requirements.
 - `commands-2`: Generated argument descriptions; use commands for the command index.
 - `commands-3`: Generated argument descriptions; use commands for the command index.
 - `commands-4`: Generated argument descriptions; use commands for the command index.
+- `commands-5`: Generated argument descriptions; use commands for the command index.
 - `design-script`: The shape of a script: design, modules, nets, parts, lengths with units, the board frame, and the edit and build cycle.
 - `dsl-reference`: The complete list: each name a design script imports from fenolite.dsl, with its signature.
 - `fabrication`: export, the bill of materials, the position table, the manifest and its states, render, and what is not produced.
 - `files`: Read a file Fenolite did not write, tell whether editing it is safe, compare two files or two designs, and undo a confirmed write.
-- `footprints`: Footprint and Symbol from dimensions when no library has the part, and what a person must still check against the datasheet.
-- `parts`: Where symbols and footprints come from, how a pin is named, pad_map, values with units, user properties and typed interfaces.
-- `placement`: place() in the script, staged parts and the grid strategy, moving a part on the board, copying a block by its pads, where the pads are, and text fields.
+- `footprints`: Footprint and Symbol from dimensions or pin tables, library records and orderable parts, and what a person must still check against the datasheet.
+- `parts`: Where symbols and footprints come from, how a pin is named, pad_map, values with units, user properties, typed interfaces and blocks.
+- `placement`: place() by coordinates or by reference, staged parts and the grid strategy, moving parts on the board, copying a block by its pads, pads and text fields.
 - `recovery`: One tested recipe per exit code from 2 to 7 and for shorted copper, the table of every error code, and reading the guide itself.
 - `routing`: Which router does what, route with --nets and --rip, what unrouted means, copper written in the script, zones and fill.
 - `rules`: Net classes against minimums, rules with selectors, the stack-up, whose numbers apply, and analyze for current, clearance and creepage.

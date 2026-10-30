@@ -3,20 +3,125 @@
 """Groups of nets (``docs/dsl.md``, "Interfaces"): kept in the model, never lowered to KiCad.
 
 ``Harness`` (change c0037) is lowered by the Altium build only. ``I2C``, ``SPI``, ``UART`` and ``USB2``
-(change c0073) are buses with fixed roles; ``attach`` joins the pins of one part to them by role."""
+(change c0073) are buses with fixed roles; ``attach`` joins the pins of one part to them by role.
+
+Change c0252 gives interfaces parameters (``PARAMETERS``: exact c0246 ranges, each ``alias``, ``sum``,
+``bound`` or ``link``), a reference rail and the classes ``Rail`` (``Power`` is another name of it),
+``Ground`` and ``Logic``; ``fenolite.dsl.rails`` connects whole interfaces."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import cast
+from dataclasses import dataclass
+from types import MappingProxyType
+from typing import TYPE_CHECKING, cast
 
 from fenolite.dsl._sites import record
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.part import Net, Part, PinHandle, connect
+from fenolite.dsl.quantity import Quantity, Range
+
+if TYPE_CHECKING:
+    from fenolite.dsl.portnets import PortHandle
+
+WHERE: tuple[str, ...] = ("out", "in", "inout", "design")
+"""Where a parameter may be set: on a port of each direction, or on the design interface."""
+
+
+@dataclass(frozen=True, slots=True)
+class Parameter:
+    """One row of ``PARAMETERS``: its semantics (``alias``, ``sum``, ``bound`` or ``link``), the c0246 unit
+    name of its value (empty for a link) and where it may be set (``WHERE``)."""
+
+    semantics: str
+    unit: str
+    where: frozenset[str]
+
+
+def _row(semantics: str, unit: str, *where: str) -> Parameter:
+    return Parameter(semantics, unit, frozenset(where))
+
+
+_LOGIC: Mapping[str, Parameter] = {
+    "abs_max": _row("bound", "volt", "out", "in", "inout"),
+    "input_high_min": _row("bound", "volt", "in", "inout"),
+    "input_low_max": _row("bound", "volt", "in", "inout"),
+    "output_high_min": _row("bound", "volt", "out", "inout"),
+    "output_low_max": _row("bound", "volt", "out", "inout"),
+    "output_current_max": _row("bound", "ampere", "out", "inout"),
+    "reference": _row("link", "", *WHERE),
+}
+PARAMETERS: Mapping[str, Mapping[str, Parameter]] = MappingProxyType(
+    {
+        "power": MappingProxyType(
+            {
+                "voltage": _row("alias", "volt", *WHERE),
+                "current": _row("sum", "ampere", "out", "in"),
+            }
+        ),
+        "ground": MappingProxyType({}),
+        "logic": MappingProxyType(_LOGIC),
+        "i2c": MappingProxyType({**_LOGIC, "pullup": _row("bound", "ohm", "in", "inout", "design")}),
+        "spi": MappingProxyType(_LOGIC),
+        "uart": MappingProxyType(_LOGIC),
+        "usb2": MappingProxyType(_LOGIC),
+    }
+)
+"""Kind → its closed parameter table (``docs/dsl.md``, "Interface parameters"; change c0252). ``reference`` is
+given as its own keyword (``reference=``), never as a value; every other parameter takes a c0246 ``Range``
+or ``Quantity`` of its unit."""
+
+
+def check_param(kind: str, where: str, name: str, value: object, what: str) -> Range:
+    """``value`` as the range of parameter ``name`` of ``kind`` set ``where`` (``WHERE``); ``DslError`` naming
+    ``what`` and the parameter when the table does not allow it there, or for a value of another unit."""
+    table = PARAMETERS.get(kind, {})
+    row = table.get(name)
+    if row is None or row.semantics == "link":
+        taken = ", ".join(key for key, found in table.items() if found.semantics != "link") or "none"
+        raise DslError(f"{what}: a {kind} interface has no parameter {name!r}; it takes {taken}")
+    if where not in row.where:
+        if row.semantics == "sum" and where == "inout":
+            raise DslError(
+                f"{what}: {name} is stated by a port that draws or sources it; say whether this port draws "
+                f'or sources current with direction="in" or direction="out" (a pass-through port states none)'
+            )
+        if where == "design":
+            raise DslError(f"{what}: {name} is set on ports only, not on the design interface")
+        raise DslError(f"{what}: {name} is not set on an {where} {kind} port")
+    if isinstance(value, Quantity):
+        value = value.as_range()
+    if not isinstance(value, Range):
+        raise DslError(f"{what}: {name} takes a Range or a Quantity in {row.unit}, not {value!r}")
+    if value.unit != row.unit:
+        raise DslError(f"{what}: {name} is a value in {row.unit}, not in {value.unit} ({value.text()})")
+    return value
+
+
+def check_params(kind: str, where: str, params: Mapping[str, object], what: str) -> dict[str, Range]:
+    """Every parameter of ``params`` checked by ``check_param``, by name; ``None`` values left out."""
+    return {
+        name: check_param(kind, where, name, value, what)
+        for name, value in sorted(params.items())
+        if value is not None
+    }
+
+
+def check_reference(value: object, what: str) -> Interface | PortHandle | None:
+    """``value`` as a reference rail: ``None``, a ``Rail`` (a ``power`` interface) or a ``power`` port
+    handle; anything else raises ``DslError``."""
+    from fenolite.dsl.portnets import PortHandle
+
+    if value is None:
+        return None
+    if isinstance(value, Interface | PortHandle) and value.kind == "power":
+        return value
+    raise DslError(f"{what}: reference is a Rail or a power port handle, not {value!r}")
 
 
 class Interface:
-    """A typed bundle of nets: role → net."""
+    """A typed bundle of nets: role → net; with the parameters, the reference rail and the sharing flag of
+    change c0252."""
 
     def __init__(self, name: str, kind: str, members: Mapping[str, Net]) -> None:
         if not isinstance(name, str) or not name:  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -30,16 +135,68 @@ class Interface:
         self.kind = kind
         self.members = dict(members)
         record(self, "Interface", self.name)
+        self.params: dict[str, Range] = {}
+        self.reference: Interface | PortHandle | None = None
+        self.shared = False
+
+    def main(self) -> Net | None:
+        """The member a net-like interface stands for (``hv``, ``gnd``, ``io``), or ``None``."""
+        from fenolite.dsl.portnets import MAIN_MEMBERS
+
+        found = MAIN_MEMBERS.get(self.kind)
+        return None if found is None else self.members.get(found)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.name!r})"
 
 
-class Power(Interface):
-    """A supply: ``hv`` and ``lv`` nets; the default name is ``<hv>/<lv>``."""
+class Rail(Interface):
+    """A supply rail (change c0252): the ``hv`` net and, when given, the ``lv`` net; the default name is
+    ``<hv>/<lv>``, or ``<hv>``. ``voltage`` is the declared operating range (a c0246 range or quantity of
+    volts), ``shared`` lets several sources drive the rail. ``Power`` is another name of this class, and a
+    rail without parameters gives the model of ``Power`` byte for byte."""
 
-    def __init__(self, hv: Net, lv: Net, *, name: str | None = None) -> None:
-        super().__init__(name or f"{hv.name}/{lv.name}", "power", {"hv": hv, "lv": lv})
+    def __init__(
+        self,
+        hv: Net,
+        lv: Net | None = None,
+        *,
+        name: str | None = None,
+        voltage: Range | Quantity | None = None,
+        shared: bool = False,
+        **params: object,
+    ) -> None:
+        members = {"hv": hv} if lv is None else {"hv": hv, "lv": lv}
+        default = ""
+        if isinstance(hv, Net) and (lv is None or isinstance(lv, Net)):  # pyright: ignore[reportUnnecessaryIsInstance]
+            default = hv.name if lv is None else f"{hv.name}/{lv.name}"
+        super().__init__(name or default, "power", members)
+        if not isinstance(shared, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"rail {self.name}: shared must be a bool, not {shared!r}")
+        self.params = check_params("power", "design", {**params, "voltage": voltage}, f"rail {self.name}")
+        self.shared = shared
+
+
+Power = Rail
+"""The name of ``Rail`` before change c0252, kept: ``Power(vin, gnd)`` gives the same model."""
+
+
+class Ground(Interface):
+    """A ground (change c0252): the member ``gnd``; the default name is the net's name."""
+
+    def __init__(self, gnd: Net, *, name: str | None = None) -> None:
+        default = gnd.name if isinstance(gnd, Net) else ""  # pyright: ignore[reportUnnecessaryIsInstance]
+        super().__init__(name or default, "ground", {"gnd": gnd})
+
+
+class Logic(Interface):
+    """A logic line (change c0252): the member ``io`` and the rail its levels refer to (``reference``, a
+    ``Rail`` or a power port handle); the default name is the net's name. Thresholds are stated on ports."""
+
+    def __init__(self, io: Net, *, name: str | None = None, reference: object = None) -> None:
+        default = io.name if isinstance(io, Net) else ""  # pyright: ignore[reportUnnecessaryIsInstance]
+        super().__init__(name or default, "logic", {"io": io})
+        self.reference = check_reference(reference, f"logic {self.name}")
 
 
 class DiffPair(Interface):
@@ -72,7 +229,9 @@ Pin = PinHandle | str | int
 class Bus(Interface):
     """The base of the buses with fixed roles: distinct nets, a default name, and ``attach`` by role."""
 
-    def __init__(self, kind: str, members: Mapping[str, Net], name: str | None) -> None:
+    def __init__(
+        self, kind: str, members: Mapping[str, Net], name: str | None, reference: object = None
+    ) -> None:
         seen: dict[str, str] = {}
         for role, net in members.items():
             if not isinstance(net, Net):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -84,6 +243,7 @@ class Bus(Interface):
             seen[net.name] = role
         first, second = list(members.values())[:2]
         super().__init__(name or f"{first.name}/{second.name}", kind, members)
+        self.reference = check_reference(reference, f"{kind} interface {self.name}")
 
     def _join(self, part: Part, pins: Sequence[tuple[str, Pin]]) -> None:
         """Connect each ``(role, pin)`` to the net of the role; nothing is connected when one is refused."""
@@ -118,8 +278,17 @@ class Bus(Interface):
 class I2C(Bus):
     """An I2C bus: ``sda`` and ``scl`` nets; the default name is ``<sda>/<scl>``."""
 
-    def __init__(self, sda: Net, scl: Net, *, name: str | None = None) -> None:
-        super().__init__("i2c", {"sda": sda, "scl": scl}, name)
+    def __init__(
+        self,
+        sda: Net,
+        scl: Net,
+        *,
+        name: str | None = None,
+        reference: object = None,
+        pullup: Range | Quantity | None = None,
+    ) -> None:
+        super().__init__("i2c", {"sda": sda, "scl": scl}, name, reference)
+        self.params = check_params("i2c", "design", {"pullup": pullup}, f"i2c interface {self.name}")
 
     def attach(self, part: Part, *, sda: Pin, scl: Pin) -> None:
         """Join the SDA and SCL pins of ``part`` to the bus."""
@@ -130,13 +299,20 @@ class SPI(Bus):
     """An SPI bus: ``sck``, ``mosi``, ``miso`` and one ``cs<i>`` net per chip select, in the order given."""
 
     def __init__(
-        self, sck: Net, mosi: Net, miso: Net, *, cs: Sequence[Net] = (), name: str | None = None
+        self,
+        sck: Net,
+        mosi: Net,
+        miso: Net,
+        *,
+        cs: Sequence[Net] = (),
+        name: str | None = None,
+        reference: object = None,
     ) -> None:
         if isinstance(cs, Net) or not isinstance(cs, Sequence):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"spi interface: cs is a sequence of nets, not {cs!r}")
         members = {"sck": sck, "mosi": mosi, "miso": miso}
         members.update({f"cs{index}": net for index, net in enumerate(cs)})
-        super().__init__("spi", members, name)
+        super().__init__("spi", members, name, reference)
         self.selects = len(cs)
 
     def attach(
@@ -183,8 +359,8 @@ class SPI(Bus):
 class UART(Bus):
     """A UART link: ``tx`` and ``rx`` nets, named from device A (side ``a``)."""
 
-    def __init__(self, tx: Net, rx: Net, *, name: str | None = None) -> None:
-        super().__init__("uart", {"tx": tx, "rx": rx}, name)
+    def __init__(self, tx: Net, rx: Net, *, name: str | None = None, reference: object = None) -> None:
+        super().__init__("uart", {"tx": tx, "rx": rx}, name, reference)
 
     def attach(self, part: Part, *, side: str, tx: Pin, rx: Pin) -> None:
         """Join the TX and RX pins of ``part``: straight on side ``a``, crossed on side ``b``."""
@@ -200,14 +376,21 @@ class USB2(Bus):
     """A USB 2.0 port: ``dp`` and ``dn`` nets, and ``vbus`` and ``gnd`` when given."""
 
     def __init__(
-        self, dp: Net, dn: Net, *, vbus: Net | None = None, gnd: Net | None = None, name: str | None = None
+        self,
+        dp: Net,
+        dn: Net,
+        *,
+        vbus: Net | None = None,
+        gnd: Net | None = None,
+        name: str | None = None,
+        reference: object = None,
     ) -> None:
         members = {"dp": dp, "dn": dn}
         if vbus is not None:
             members["vbus"] = vbus
         if gnd is not None:
             members["gnd"] = gnd
-        super().__init__("usb2", members, name)
+        super().__init__("usb2", members, name, reference)
 
     def attach(
         self, part: Part, *, dp: Pin, dn: Pin, vbus: Pin | None = None, gnd: Pin | None = None
@@ -221,4 +404,23 @@ class USB2(Bus):
         self._join(part, pins)
 
 
-__all__ = ["I2C", "SPI", "UART", "USB2", "Bus", "DiffPair", "Harness", "Interface", "Power"]
+__all__ = [
+    "I2C",
+    "PARAMETERS",
+    "SPI",
+    "UART",
+    "USB2",
+    "WHERE",
+    "Bus",
+    "DiffPair",
+    "Ground",
+    "Harness",
+    "Interface",
+    "Logic",
+    "Parameter",
+    "Power",
+    "Rail",
+    "check_param",
+    "check_params",
+    "check_reference",
+]

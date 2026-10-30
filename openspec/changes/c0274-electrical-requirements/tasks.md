@@ -1,0 +1,69 @@
+## 0. Entry check
+
+- [ ] 0.1 Read `openspec list`, `AGENTS.md`, `docs/research/electrical-requirements.md` and the living specs this change touches (`fenolite-component-catalog`, `design-model`, `design-dsl`, `verification-loop`, `cli-contract`, `net-roles`). Write under this task, with the date and the base commit:
+  - what c0246 and c0248 landed: the unit table and `Decimal10`; `Rating`, `DevicePin`, `core/quantities` and the record keys. If either folder is archived, regenerate this change's requirements against the living text;
+  - that no device record with c0248's single `{ min, max }` form has shipped (phase A refuses it);
+  - before phase B: what c0252 and c0253 landed (the stage `circuit.rules`, `checks/circuit/`, the requirement table, the classes injected from `roles.classify`, `design.contracts`);
+  - which open change holds a delta of "Waivers in the check", "Waivers in the DSL", "Waivers in the findings layer" or "Part classes"; if one was archived, rewrite the MODIFIED block from the living text;
+  - the maintainer's answers to the open questions of `design.md`.
+  - 2026-10-29, base a15e51ae (`circuits-as-code`, dev 0.7.0.dev0). c0246 landed `Range`, `Tolerance`, `UNIT_PRODUCTS`/`UNIT_QUOTIENTS`, `Decimal10`, `ValueRange`/`RangeUnit` (eight units); c0248 landed `fenolite.device.v0`, `DeviceDef`, `DevicePin(voltage, current)`, `Rating(key, unit, min, max)` in µV/µA/µW/m°C and `core/quantities` (unit `celsius`). Both folders are still open (not archived), so this change's requirements stand as written. No record with c0248's single form has shipped: the shipped `Fenolite:` devices hold no rating, and the only rated records are the authored test and example records, rewritten in the split form here. c0252 and c0253 have not landed (no `checks/circuit/`, no stage `circuit.rules`): phases B to F wait. The waiver requirements ("Waivers in the check", "Waivers in the DSL", "Waivers in the findings layer") and "Part classes" are held by no other open change than this one in its MODIFIED blocks; recheck before phase C. Open questions: decided with the recommended answers (design.md, "Decided 2026-10-29"). `openspec validate` could not run here (no `openspec` CLI in this container); `make check-fast` passed.
+
+  Proof: `openspec validate c0274-electrical-requirements --strict`; `make check-fast`.
+
+## 1. Phase A: units and products (after c0246, before c0252)
+
+- [x] 1.1 Add the unit `kelvin` to `dsl/quantity.py` and to the model's `RangeUnit`, `celsius()` and `kelvin()` to `fenolite.dsl`, temperature texts in `core/quantities`, and the Celsius text of absolute temperatures (scenarios "A Celsius range", "An ambient range in kelvin"). Proof: `uv run pytest tests/unit/dsl/test_quantity.py -k "celsius or kelvin" tests/unit/model/test_circuit.py -k kelvin -q`; `uv run python tools/gen_schemas.py --check`.
+  - 2026-10-29: done. `core.quantities` reads `kelvin` from `K` and `degC` texts (`ZERO_CELSIUS`, `celsius_text`), `dsl.quantity` gains `kelvin()`, `celsius()` and `temperature_text()`, `RangeUnit` gains `kelvin`; schemas regenerated. Proof passed (`-k "celsius or kelvin"`, `test_circuit.py -k kelvin`, `gen_schemas.py --check`).
+- [x] 1.2 Add the products and quotients of `volt_squared` and `ampere_squared`, refused by `RangeUnit` (scenario "The power of a bleeder"). Proof: `uv run pytest tests/unit/dsl/test_quantity.py -k products -q`.
+  - 2026-10-29: done. `SQUARED` units, the five products and quotients, and `volt(a) * volt(b)` / `amp(a) * amp(b)` as the one product of two quantities (design.md, "Decisions taken while implementing phase A"). Proof passed.
+- [x] 1.3 Allow one-sided ranges in arithmetic where the result keeps a bound (scenario "A one-sided floor"), with property tests against `Fraction` on bounded ranges. Proof: `uv run pytest tests/unit/dsl/test_quantity.py -k one_sided -q`.
+  - 2026-10-29: done, with a Hypothesis test of one-sided results against bounded ranges cut at any height. Proof passed.
+
+## 2. Phase A: device limits (after c0248, before c0252)
+
+- [x] 2.1 Split every limit of the device record into `abs_max` and `operating`, refuse the single form, and store temperatures in mK (scenarios "Both kinds on one pin", "The ambiguous form is refused", "Celsius and kelvin agree"); rewrite the shipped and test records in the split form. Proof: `uv run pytest tests/unit/catalog/test_devices.py -q`.
+  - 2026-10-29: done. `_limit` reads `abs_max`/`operating`, refuses the single form (`DeviceLimitFormError`, FEN-3004, with the hint) and an `operating` range outside `abs_max`; temperatures in mK. Test and example records rewritten (`tests/data/devices/*.toml`, `examples/devices/devices/example_buck.toml`). Proof passed.
+- [x] 2.2 Add `[[limits]]`, the five pin thresholds and the `class` key to the parser, the canonical text and the digest (scenarios "Bootstrap to switch node" of the catalog, "A ferrite says what it is" for the parse only). Proof: `uv run pytest tests/unit/catalog/test_devices.py -k "limits or thresholds or class" -q`.
+  - 2026-10-29: done (`[[limits]]`, the five thresholds, `class` in parser, canonical text and digest). "A ferrite says what it is" is tested with `class = "controller"` and `"bead"` refused: `ferrite` joins the vocabulary in phase B. Proof passed.
+- [x] 2.3 Add `Rating.limit`, `DevicePin.ratings` and `thresholds`, `PinPairLimit`, `DeviceDef.limits` and `cls` to `model/library.py`, regenerate the library schema, and update `docs/design-model.md` and `docs/catalog/README.md` (scenario "A split record round-trips"). Proof: `uv run pytest tests/unit/model/test_library.py -k limits -q`; `uv run python tools/gen_schemas.py --check`.
+  - 2026-10-29: done. `Rating.limit`, `DevicePin.ratings`/`thresholds` with `rating()`/`threshold()`, `Threshold`, `PinPairLimit`, `DeviceDef.limits` and `cls`; `library.json` regenerated; `docs/design-model.md` and `docs/devices.md` (where device records are documented; `docs/catalog/README.md` covers the symbol and footprint catalog only) updated. Proof passed.
+- [ ] 2.4 Tell c0252 and c0253 that phase A has landed: run their entry checks' reading of `abs_max`, `operating`, `[[limits]]`, kelvin and the products. Proof: `openspec validate c0252-parametric-interfaces --strict`; `openspec validate c0253-electrical-contracts --strict`.
+  - 2026-10-29: phase A has landed on this branch; c0253's entry check (task 0.1) already lists what to read. The names as implemented: `Rating(key, unit, min, max, limit)`, `DevicePin.rating(key, limit)` and `threshold(key)`, `PinPairLimit(between, ratings)`, `DeviceDef.limits`, `DeviceDef.cls`, `RatingUnit` `mK`, `RangeUnit` `kelvin`, `dsl.quantity.SQUARED`. Left open: its proof (`openspec validate` of c0252 and c0253) cannot run in this container (no `openspec` CLI), and their folders are left untouched so parallel branches merge cleanly.
+
+## 3. Phase B: the one classifier (after c0253)
+
+Phases B to F (sections 3 to 6) wait for c0252 and c0253, which are not merged in `circuits-as-code` (2026-10-29): no stage `circuit.rules`, no `checks/circuit/`, no requirement table.
+
+- [ ] 3.1 Add `ferrite`, `fuse` and `jumper` to `PART_CLASSES`, the prefixes `FB`, `F` and `JP` and the device `class` evidence to `roles.classify`, and make c0252's device ports take thresholds from their pins (scenarios "A ferrite, a fuse and a jumper", "A ferrite says what it is", "A port takes its pins' thresholds"). Proof: `uv run pytest tests/unit/roles/test_classify.py tests/unit/roles/test_infer_reference.py tests/unit/catalog/test_device_ports.py -k "prefixes or thresholds or class" -q`.
+- [ ] 3.2 Add `ferrite` to c0253's series classes with the derating key `ferrite_current`, and update `docs/roles.md` and `docs/contracts.md`. Proof: `uv run pytest tests/unit/checks/circuit/test_ratings.py -k ferrite -q`.
+
+## 4. Phase C and D: waivers and propagation
+
+- [ ] 4.1 Add `Waiver.digest`, the `circuit.*` codes and the digest rules to `Design.waive`, regenerate the findings schema (scenarios "A circuit waiver keeps its digest", "A circuit waiver with its digest"). Proof: `uv run pytest tests/unit/model -k waiver_digest tests/unit/dsl/test_waivers.py -q`; `uv run python tools/gen_schemas.py --check`.
+- [ ] 4.2 Add the row digest, the hint `digest <digest>`, circuit matching in `checks/waivers.py`, the waivers in the stage and in `cmd_build`'s circuit hook, `check.waiver-expired`, `result.waivers.expired` and `info` on every `circuit.*` code, with `explain.toml` and `docs/cli-contract.md` (scenarios "A waived rating on the circuit stage", "A changed rating expires the waiver", "Waived severities are allowed"; every existing scenario of "Waivers in the check" keeps passing). Proof: `uv run pytest tests/unit/checks/test_waivers.py tests/unit/checks -k "codes or waiver" -q`.
+- [ ] 4.3 Add `checks/circuit/propagate.py`: links, the breadth-first hull, conflicts, origins in the table, rails judged with propagated voltages, and `design.contracts(propagate=False)`; add `examples/circuit/ferrite/` (good and bad, authored for Fenolite); register `H-G-CIRCUIT-PROPAGATION` in `docs/hypotheses.md` (scenarios "An analog rail behind a ferrite", "The origin of a propagated value"). Proof: `uv run pytest tests/unit/checks/circuit/test_propagate.py tests/unit/test_hypotheses_register.py -q`.
+
+## 5. Phase E: decidable stages
+
+- [ ] 5.1 Add `decidable` to `RequirementRow`, the closed table, the per-subject reach (outline and open connections), the status `deferred` and `summary.deferred` to `circuit.rules` and `roles.rules`; role findings that do not fail are not reported while deferred (scenario "Track width before routing"). Proof: `uv run pytest tests/unit/checks/circuit/test_decidable.py tests/unit/roles -q`.
+
+## 6. Phase F: the matrix
+
+- [ ] 6.1 Give every row family its stable id form (`design.md`, decision 7) (scenario "Ids survive a reordered script"). Proof: `uv run pytest tests/unit/checks/circuit/test_matrix.py -k stable -q`.
+- [ ] 6.2 Add `--matrix` to `fenolite check`: `result.matrix` with rows and receipt, statuses `waived` and `deferred`, the text table, and `docs/cli-contract.md` (scenarios "The matrix of the bad sensor", "The matrix in a terminal"). Proof: `uv run pytest tests/unit/cli/test_check_matrix.py tests/unit/cli/test_check_cmd.py -q`.
+- [ ] 6.3 Register `H-G-CIRCUIT-ROW-IDS` in `docs/hypotheses.md` with its measurement. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`.
+
+## 7. Docs, guide, changelog and CI
+
+- [ ] 7.1 Docs: `docs/catalog/README.md` (limits, `[[limits]]`, thresholds, `class`, temperatures), `docs/dsl.md` (temperatures, products, one-sided ranges, circuit waivers), `docs/contracts.md` (origins, propagation, decidable stages, the matrix, waivers that expire), `docs/roles.md` (the three classes). Proof: `uv run pytest tests/consistency tests/unit/test_docs_links.py -q`.
+  - 2026-10-29: phase A part done (`docs/devices.md`, `docs/dsl.md`: temperatures, products, one-sided ranges; `docs/design-model.md`). Open: circuit waivers, `docs/contracts.md` and `docs/roles.md` wait for phases B to F.
+- [ ] 7.2 Agent guide (AGENTS.md rule 6): tested lines for `celsius`, `kelvin` and a `circuit.*` waiver with its digest on `design-script`; `fenolite check --matrix`, `deferred` and `check.waiver-expired` on `checks`; `[[limits]]`, `abs_max` and `operating` on `board-power`. Then run the generator. Proof: `uv run python tools/gen_agent_guide.py`; `uv run pytest tests/unit/agent/test_pages.py -q`.
+  - 2026-10-29: phase A part done: `celsius` and `kelvin` are taught in a tested block of `parts.md` (the page of value ranges; `design-script.md` has no byte left under the 12 000-byte budget), generator run. Open: the `circuit.*` waiver, `--matrix`, `deferred`, `check.waiver-expired` (phases C to F) and `[[limits]]`/`abs_max`/`operating` on `board-power` (that page is 15 bytes under its budget; it needs trimming with phase B).
+- [ ] 7.3 `CHANGELOG.md`: one entry under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: at `0.6.0` the v0.6 guard requires `[Unreleased]` to be empty. Proof: `uv run pytest tests/unit/test_release_record_v06.py tests/consistency -q` on the `0.7.0.dev0` base.
+  - 2026-10-29: the phase A entry is in `## [Unreleased]` (dev is at 0.7.0.dev0). Left open: later phases extend the entry.
+- [ ] 7.4 Residue: every authored record and example carries its authored-for-Fenolite line, and no threshold, rating or table comes from another project or a standard. Proof: `make residue`.
+  - 2026-10-29: the rewritten records keep their authored-for-Fenolite line; no threshold, rating or table is taken from another project. `make residue` runs in `make check-fast`, which passed. Left open until phases B to F add `examples/circuit/ferrite/`.
+- [ ] 7.5 Push each phase to the working branch and confirm that the required unit and KiCad jobs pass on that exact commit; run only `make check-fast` and the focused tests locally (AGENTS.md, workflow 4). Proof: the CI run of the commit is green; `make check-fast` passes locally.
+  - 2026-10-29: CI runs with the batch (not pushed: the coordinator batches the push). `make check-fast PYTEST_WORKERS=2` passed locally.
+- [ ] 7.6 Validate the change. Proof: `openspec validate c0274-electrical-requirements --strict`.
+  - 2026-10-29: `openspec` CLI not available in this container; left for the coordinator.

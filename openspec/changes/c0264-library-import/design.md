@@ -21,7 +21,7 @@
   `edited` detection and the `FEN-7001` no-clobber rule. c0259: the record files (`package`, `pins`,
   `device`, `part`), the project device tree and stable ids from `(kind, canonical name)`. c0260: per
   family generators and a land calculator. c0261: symbol from a pin table. c0262: `library check`,
-  `library review`. c0266: device packs and `library fetch`.
+  `library review`. c0266: device kinds of `fenolite-library` (c0279), vendored by `fenolite get`.
 
 ## Goals / Non-Goals
 
@@ -30,7 +30,7 @@
 - One command turns a downloaded archive into a project device that a design can place with
   `design.part(ref, device=...)`, with no hand wiring.
 - Every imported byte is traceable: source name, member path, SHA-256, date, tool.
-- Imported data can never reach the shipped catalog or a pack, by construction and by a check.
+- Imported data can never reach the shipped catalog or `fenolite-library`, by construction and by a check.
 - A hostile or broken archive cannot write outside `--into`, exhaust memory or hide a file.
 - A broken download is caught at import by comparison with the generator, not at the assembly house.
 - Same sources, same flags, same `--timestamp` give the same bytes.
@@ -54,7 +54,7 @@ fenolite library import --symbol Fenolite:Resistor --footprint Fenolite:Chip_060
 ```
 
 - `library` already takes a board path (c0223). The first positional word picks a subcommand when it is
-  one of the reserved words `import`, `propose` (c0265), `check`, `review` (c0262) and `fetch` (c0266);
+  one of the reserved words `import`, `propose` (c0265), `check`, `review` (c0262) and `seed` (c0266);
   anything else keeps the c0223 form unchanged. A board path that is literally one of those words is
   written `./import`. Whichever library change lands first adds this dispatch; the others add their word.
   *Alternative:* a new top-level command `devices`. Rejected: the research and every change of the
@@ -197,15 +197,15 @@ Archives are read with `zipfile` from the standard library, **in memory**, never
 - Output paths never come from member names: they are built from the device id (decision 3), so a member
   name cannot steer a write.
 
-### 6. Never into the shipped catalog or a pack
+### 6. Never into the shipped catalog or the library
 
 - `--into` must be relative, resolve inside the working directory, and contain no `..` after
-  normalisation. It must not be inside the installed `fenolite` package, an installed or fetched device
-  pack (c0266: a folder that holds a pack marker file, or the pack cache), or any folder whose
+  normalisation. It must not be inside the installed `fenolite` package, a vendored library folder
+  (`fenolite_library/`, c0279) or the library cache, or any folder whose
   `device.toml` files carry `licence = "CC0-1.0"` and no `[origin]`. Each case exits 2 with `FEN-2001`.
 - `origin.shippable = false` is written on every imported record. `fenolite.library.importer.shippable(
   record) -> bool` is false for it, and for any record with `licence = "see source terms"`. c0262's check
-  in pack mode and c0266's CI call it and refuse the record (`library.not-shippable`, error, defined
+  and `fenolite library audit` (c0266, c0279) call it and refuse the record (`library.not-shippable`, error, defined
   here).
 - Nothing is uploaded; no subprocess runs; no network module is imported.
 
@@ -290,9 +290,9 @@ and the usual `plan`. The envelope evidence is `INFERRED` (`H-L-IMPORT`); the de
 | `library.import-package-mismatch` | error | `--package` names a package of another family |
 | `library.import-pad-count`, `-numbering`, `-pin1` | error / warning | decision 7 |
 | `library.import-pitch`, `-land`, `-sources-disagree` | warning | decision 7 |
-| `library.not-shippable` | error | an imported record met by a pack check (c0262, c0266) |
+| `library.not-shippable` | error | an imported record met by a library check (c0262, c0279) |
 | `catalog.import-deprecated` | info | the alias was used |
-| `FEN-2001` | exit 2 | `.IntLib`, ambiguous item, `--into` outside the project or inside a pack |
+| `FEN-2001` | exit 2 | `.IntLib`, ambiguous item, `--into` outside the project or inside a vendored library folder |
 | `FEN-3004` | exit 3 | an unsafe archive, a malformed source, a STEP without its header |
 | `FEN-7001` | exit 7 | re-import over an edited device |
 
@@ -330,9 +330,9 @@ No new `FEN-` code. Each `library.*` code joins `fenolite.library.codes` and `ex
 - **c0260** gives the generators and the land calculator that the cross-check draws with; the classifier
   lives here and recognises its families.
 - **c0261** draws the symbol of an Altium import from its pins.
-- **c0262** runs `crosscheck` on imported devices and refuses them in pack mode; its review can raise an
+- **c0262** runs `crosscheck` on imported devices and refuses them in library mode; its review can raise an
   imported device's label like any other.
 - **c0265** writes devices the same way (records, origin, generator, checks) from a datasheet proposal
   instead of a download.
-- **c0266** refuses records that are not shippable.
+- **c0266 / c0279**: `fenolite-library` refuses records that are not shippable.
 - **c0267** may fill identity fields later; it never feeds an import.

@@ -1,0 +1,53 @@
+schema = "fenolite.pins.v0"
+id = "Fenolite:BJT_NPN"
+version = "1.0.0"
+summary = "Conceptual NPN B/C/E; not a device pinout"
+category = "Discrete semiconductor"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0423"]
+
+[[pin]]
+number = "1"
+name = "B"
+type = "input"
+
+[[pin]]
+number = "2"
+name = "C"
+type = "passive"
+
+[[pin]]
+number = "3"
+name = "E"
+type = "passive"
+
+[symbol]
+reference = "Q"
+pin_names_hidden = true
+pins = [
+  { number = "1", at = ["-5.08mm", "0mm"], length = "2.54mm" },
+  { number = "2", at = ["2.54mm", "5.08mm"], rotation = "270deg", length = "2.54mm" },
+  { number = "3", at = ["2.54mm", "-5.08mm"], rotation = "90deg", length = "2.54mm" },
+]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-2.54mm", "0mm"], ["-1.27mm", "0mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.27mm", "-1.905mm"], ["-1.27mm", "1.905mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.27mm", "1.27mm"], ["2.54mm", "2.54mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.27mm", "-1.27mm"], ["2.54mm", "-2.54mm"]]
+
+[[symbol.graphic]]
+kind = "polygon"
+points = [["1.775mm", "-2.285mm"], ["1.225mm", "-1.768mm"], ["1.025mm", "-2.368mm"]]
+filled = true

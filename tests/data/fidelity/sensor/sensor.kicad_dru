@@ -1,0 +1,6 @@
+(version 1)
+(rule "fenolite_0_sig_gap"
+	(condition "A.NetClass == 'SIG'")
+	(constraint clearance (min 0.2mm))
+	(severity error)
+)

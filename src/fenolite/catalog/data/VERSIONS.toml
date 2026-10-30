@@ -1,0 +1,1278 @@
+# The version of every shipped library record (change c0259, docs/library-records.md).
+# Written by tools/catalog/versions.py --update; tests/unit/catalog/test_versions.py checks it.
+
+[catalog]
+version = "1.0.0"
+entries = "61c4012c66c660269136c0f7025888bd7f41d9b685a5db0940777564f610fc7a"
+
+[[entry]]
+kind = "device"
+id = "Fenolite:C_0402"
+version = "1.0.0"
+digest = "010ebd5671be5dc8de54f9a82cf872bb04c796af1e83a0caf380eaad42319c3a"
+output = "19b43e5b75447fb6b899d85794756183689d462d85fe5583051771484badc94b"
+interface = "f656c11c3ccc448ba634bc050afb599084e88f9c4897bf8f466a9eead75ad624"
+
+[[entry]]
+kind = "device"
+id = "Fenolite:C_0603"
+version = "1.0.0"
+digest = "55f6ac0b0f78ca3d8f4623703b703eb64b07124e8270efec31de918daa7f8cdc"
+output = "68cdb1d6c78296c7fcb6fc40ba0f8bc9452f851db74a30f48c83a9c05d1d327d"
+interface = "454b3983a8a1507af25c2713e8e699bdf3c02574d9fcd105d9ab8a951c5e1624"
+
+[[entry]]
+kind = "device"
+id = "Fenolite:C_0805"
+version = "1.0.0"
+digest = "e2607430eaaf6ebac1c957378d4e8c5e6b6be98307458dc0de046f362f2e4344"
+output = "aa1462b47a6fa456d570f856a64fe8fe80173f9cd603001e3924cdfd26e079dd"
+interface = "ce621596131de1af4652fe50e31f30afb8164c0ec1b45560d479216984b852fd"
+
+[[entry]]
+kind = "device"
+id = "Fenolite:C_1206"
+version = "1.0.0"
+digest = "f95dc12c299787fef632ef166daa0fbc4d177dfda47575659fd5d4823a2648e7"
+output = "1e1fff173f1f2d614cb97c6616737b280878c8284d8f14dc2c1a7d052162ea18"
+interface = "d0f3837d120d234f861a30a6ffdadaeb2ea473fde5ed7a39702842bbc36c2fcf"
+
+[[entry]]
+kind = "device"
+id = "Fenolite:Conn_1x2_P2.54"
+version = "1.0.0"
+digest = "9f8f7c472066fc40ffd718895f8b727e5c3bed2ca040b6d8d736ce43b8f135a8"
+output = "d8c36eae8b53de61628f4a7c839d1fcac50029180bfe0b494cedbd992cb49c9f"
+interface = "99b5b15894da0176462383d5524d5f6d64e89426458ea1dd570fe510e5fffacc"
+
+[[entry]]
+kind = "device"
+id = "Fenolite:LED_0603"
+version = "1.0.0"
+digest = "141852f10ced15d4f43b27e05fe2a0653ff759d12d00443371bd0e2aa336f2f8"
+output = "f32ccb764be90c30d301b11e0d154ce810990699d3a0d9a77342edcfd21f7b55"
+interface = "48e1458402cb9b57720c0b48959b4471446a773aee56e3bacc8a82ac98ce7ff9"
+
+[[entry]]
+kind = "device"
+id = "Fenolite:R_0402"
+version = "1.0.0"
+digest = "3a8b7c0135dccb84d61322746c9c9ec1cac837dd70f487ddaeb5f0e934bd3611"
+output = "27aab6c47a990200ea97a1c17fa706718e1a76f817fca8590c400d9615ceb5cc"
+interface = "9e9b7fad6527497372c9c91b2a36a583783a74a0acf1d0619635ade08a1e63af"
+
+[[entry]]
+kind = "device"
+id = "Fenolite:R_0603"
+version = "1.0.0"
+digest = "d12a19a3c82d518bc4f7850cb7eea1172255cb80187ad755fc70804ee2b2868c"
+output = "3e4d44b2e01b625b9675aca08be0be9f984f5cfc81cc7905e73642e6fc8c8a18"
+interface = "8099b753aba8b6fc9c4817235f47e8d2637ed780821c8ee2511db37d0feb14e4"
+
+[[entry]]
+kind = "device"
+id = "Fenolite:R_0805"
+version = "1.0.0"
+digest = "ebcb7a732e2e7fca1d8351ee6e3b4a69df16480ff806a260294300522c77405c"
+output = "80419cb48cfeeec93ad642c1c24a8bfb643ab9cd8b0b0d18483d08496ec8f44f"
+interface = "1f99a05f1155c0dd3e7ad44ffb24583862bd104bb0cfa27806cea78502dbe48d"
+
+[[entry]]
+kind = "device"
+id = "Fenolite:R_1206"
+version = "1.0.0"
+digest = "fa738d74fdf9da9f87339eee6ac52b938c8c1240a46cf70a0aa6d025a05292bf"
+output = "dd4e2759af6c60410c4dda9e4d59ca718389cb6cea6524d520198fcb44ed644f"
+interface = "9be5dbdd5c5b8e434d9b4e3d50493dd5260a1c1eb8531447c3f2c0560c7e617d"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:C_Electrolytic_Panasonic_FR_D5_P2"
+version = "1.0.0"
+digest = "d15968a5705764471d4c90709d696f405b56b20d313d845d299bc1ec147b7465"
+output = "3da5c1e6daa1b3b48008c8b3ee6a424372a8ac10193057d08d0d02e05e877ff0"
+interface = "e19291c8209908ede169c98c18cb3da7eef3a18f52ed09050a72658d681a093f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:C_Electrolytic_Panasonic_FR_D6.3_P2.5"
+version = "1.0.0"
+digest = "16c89f477f998d0235aa2ffaa41e514cdf6dadb4869281af2e046fc768cad7c1"
+output = "7bd78fe32dc33c18ae6ed527776efa1ede3dc474ca94e1db069b87294f5a53e9"
+interface = "e19291c8209908ede169c98c18cb3da7eef3a18f52ed09050a72658d681a093f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:C_Film_Wima_MKS02_L4.6_W2.5_P2.5"
+version = "1.0.0"
+digest = "3ec53df8d6c6516ae289ac5524ece12cc297cf2f2d11ced10a240ca2a668b691"
+output = "32d5f3011942bac80a9d1ed98e7bb266d3786b4cc7f980f5b67d0f5421a0d921"
+interface = "e19291c8209908ede169c98c18cb3da7eef3a18f52ed09050a72658d681a093f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:C_Film_Wima_MKS2_L7.2_W2.5_P5"
+version = "1.0.0"
+digest = "3911ea4efa990af6c83b99c5046b5ae1ff9ae58a884b810f5b998a9a544cd9a9"
+output = "aaba3fd3f1b231f310b4ad8a6cc709dffa076befd8b26bdd922893df8d66d348"
+interface = "e19291c8209908ede169c98c18cb3da7eef3a18f52ed09050a72658d681a093f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Chip_0201_Vishay_Draloric"
+version = "1.0.0"
+digest = "472cae66431c5e2df5c1146c3ceff2bf0780dd7130af29a921ec9182ca1251f8"
+output = "2c2e1a6bc65c26de1aa33a8f11ae2bd13e2a00fe3048be19cc78abf1e5e989dc"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Chip_0402"
+version = "1.0.0"
+digest = "aa23056925b2c1763c2c4b07930793d130f9f088184c5add7293cd32d2ec4575"
+output = "c59c3168d48924b23e684ea718024837c9f64c3c901280356403f66991b07215"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Chip_0603"
+version = "1.0.0"
+digest = "f6a31990720364fcef6667e24bde051d0edf4dbb17cbd0df30ca3023a197e64c"
+output = "494a6cd3843c3312adef34bb5a6c6bc4b846a744efdee73317198f5f2d31af9d"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Chip_0805"
+version = "1.0.0"
+digest = "95a15e2a0f1e89bb5ee9dfe7bd8b8b6b168acdd1a856801f0ed0cf79b378cf56"
+output = "ae4251fce9285d4d937f46037da1eae88cd4f82ccc664e253d96acd70e3190de"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Chip_1206"
+version = "1.0.0"
+digest = "cae51fb2f76b7cc8d3b6b42dec1b58bab08fca7a77b0736c7fd356b4f2499864"
+output = "0be2cabc1ebc97dd19651480d5d0ca4f628a941a7a069ccedab6b1062590d0f9"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Chip_1210_Vishay_Draloric"
+version = "1.0.0"
+digest = "20e36d97973f72f5908932a75b098f73013d910e51f1ecd5c591498b676c48e0"
+output = "13b7def9d915c74250eef8323af6975c33cfd52c1048f317cc17a2f2d68ea03e"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Chip_1812_TDK_CGA8"
+version = "1.0.0"
+digest = "b63e749c8c1d138d9a835d65e9254f920b3e6e1635fdf9144f23fc725f0264b6"
+output = "1c779fab2d42bd025702bfd6d70f2417465289bffe796e6a959ccd1fdb74353d"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Chip_2010_Vishay_RCWP"
+version = "1.0.0"
+digest = "4f6eefc1dba2585c3f8e5dc44b7fa25fdd6be6e803e32d0215deb72c0cc3cf7c"
+output = "b746ec35f234d1a75f6671aee8282c54b5cc57f8d9d95bd429006cc96301081e"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Chip_2512_Vishay_RCWP"
+version = "1.0.0"
+digest = "d016d66b1cd15ebf228a0e581d116d9209527af73a6a896505c6f14626b99ca3"
+output = "b46a68a0d0e6d20785e9b7d753ff5df4386ac0b886a6ea6807c70f8b7791bbbc"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Crystal_3225_Abracon_ABM8"
+version = "1.0.0"
+digest = "6175ab1f87350908e6c2ffe6f20e116a658cd4fcbdebe47b326603d04e66510f"
+output = "d6d42639e1e70e00b97b55ee9af2d11894dd3a5dab80fdcd90dce95cf88586ad"
+interface = "c6d9caccee162c2b7a5d4ba15171997c38780358db905c3057d87c7d092b0cfd"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:DFN6_Diodes_W2020_US"
+version = "1.0.0"
+digest = "99e96acb536cc9b442c058538d57319fe7d8221303c5c7c3f7c48dc39dc77404"
+output = "c30904c7257231051c0d4fa827c708b7ba2b851a1a965c7e74a740dd385fb93c"
+interface = "1213a0184ff42d1828472cc628a55bf1e4237fc2ddf5a7ca9ed6699a791bbe94"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:DFN8_Diodes_W3030_UXF"
+version = "1.0.0"
+digest = "ed5bb674e4f04f893efc2eaffbd157f6c81f347283b634d90bf3c4a8d37a5af9"
+output = "a91051e3222022d510efe6b74f9ebacc7e299d6f350ed207c86a3161245156ec"
+interface = "2b672c173e1756343df3c0870bb3dd6eafef50f1541b1e58d15b669bbfeb85ef"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:DIP14_Microchip_P"
+version = "1.0.0"
+digest = "2ff3f562202d2920b5d5c35acda9aa2bc2ebfd90164f20d53cbd8e227da549b0"
+output = "0e8c85e172019cd82bf1ff91e759cbfc0a5f607f3125447510d37ee680219c6d"
+interface = "37f2a4af62392944a06a796bb9ba691cb14af5286b47472d9cf8e7d61115c865"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:DIP16_Microchip_P"
+version = "1.0.0"
+digest = "e2ae6fe9079cba1418a54f1610ed9767b330db5386557bff8149d65e7fd6ab03"
+output = "e293229286c38afb7bda6ac1869405159f8241f459cc2d0fe60bfce47fe2bd39"
+interface = "ac7d8c8b8bcf43491c378efcd7821db2d4acc85e6c24a9de75790036fc1bfe29"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:DIP20_Microchip_P"
+version = "1.0.0"
+digest = "225a2e95bf7b408b1cb1f2ae15a943b866c86f8a0106a6300a22311daa7a6ec5"
+output = "5959b4d08e1287d57f7ea48529571ab32e999dd24324cbbdc202a59fbc2fec76"
+interface = "a820bb67a1e3c5650f603c6e8fddc2351eb886d1c8ff39bada93532dfc6805c2"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:DIP28_Microchip_SP"
+version = "1.0.0"
+digest = "531ab6c571a48895bf4bdcf2efb971da885bc682d3258e5dcc79b7766420edaa"
+output = "3ee57e0e22b06ae54841b804ca48aabb3a5090b4ffe74b1788e8e893604427b9"
+interface = "92beb07a91b1a5f14c60ab012342727f9d266f9dcad182f44cfe547f7254f272"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:DIP4_Vishay_VO617A"
+version = "1.0.0"
+digest = "14587a9c5f6cd9600d3fed911d136fdf843bb94fa82d47cedbc02816c067a137"
+output = "cf99b949557191e6841b7b67cf437845d08371afbbda9d58e01a37f8c8ddcb75"
+interface = "9ff256ed2788e5a406059cc1910f433fb4d8a17da15d1777a156b416be0619f4"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:DIP6_Vishay_CNY17"
+version = "1.0.0"
+digest = "71280b5f7c85140bad7c6da94e2defaf24e6389406be1240a2a17d52f2b78a7c"
+output = "2ccc62a2e40fc83ec61814356a9550dc70799f95a5db36d1cb2c00030af51552"
+interface = "5fa2ad4aa36dd14e5ff229a027cf34e8b14460de40eecd1ef1d1e9bbb9a2366f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:DIP8_Microchip_P"
+version = "1.0.0"
+digest = "4f19c18709e42585d5bd79daa2180e4d6ed42f68a97291bc9e7e25b8978a5a79"
+output = "fdd909e0a439e49b4b7197ac4e08d7e8be8d35ade8f8036502e6895c7b5330d8"
+interface = "3f8d9134bab045f7af2177c56b06114bf8555ca6ba14e9152652d9fdc4f4eda1"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:DO214AA_Diodes_SMB"
+version = "1.0.0"
+digest = "4169b2e622bd71cd4729689bfc9c0da709fe3a2cc648d241d679a17342ebbe8e"
+output = "88b3ad2a08b92b36592db6f90c073e57b60b4f3c533d3e2ca9110a00a7dab007"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:DO214AB_Diodes_SMC"
+version = "1.0.0"
+digest = "249d9cee0edd7cfc6b293fca548ae3741f47866f4106e58b2ef36ea4a80c2390"
+output = "4c7eb363129b160c423d36ead34278531e72a738ba3122919c74799293c0f200"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:DO214AC"
+version = "1.0.0"
+digest = "d54067c8327f964616471508793a097482c5220a622a903f5c85bceb06e31a1b"
+output = "2176622c5d2c07301324ff4b1032b9976ca4a815af2a8f771080dfeb3862f041"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:DO35_P10.16_Diodes"
+version = "1.0.0"
+digest = "66ea2a5e3f7ad9fa02c8e09479bc663ed024751a97f87294b95b780500a09ae8"
+output = "945976f2b1c8f8b48734a070b8c1b757334e9d1b2660ce9cf72f3deee5e7a090"
+interface = "e19291c8209908ede169c98c18cb3da7eef3a18f52ed09050a72658d681a093f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:DO41_P10.16_Diodes"
+version = "1.0.0"
+digest = "f3c9984e63421cecc464c05833a8660cbd3ec21e291abb739bf6d13938f31daa"
+output = "09857b0e330dbe05e3b10cac0aff30f3af0356eb13fae84134d071092d997283"
+interface = "e19291c8209908ede169c98c18cb3da7eef3a18f52ed09050a72658d681a093f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Header_1x10_P2.54"
+version = "1.0.0"
+digest = "b815a0393f14a5cfc7ee859332f406df9fc85b7e9b87647ed359120169c7a0b7"
+output = "c0a8c6994bf04557483bc67e80439e1c3e93afa3f5b7788afd74ac0e526ebf5d"
+interface = "99b06ed0e69a9df25f10980575fd001926a30a1be1cbf9235bd88f028c6c3f6b"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Header_1x1_P2.54"
+version = "1.0.0"
+digest = "c41a0115cce7c4e93bf53f8100a2a6cfe15ceab3db5de53b213e29df67b0ac8c"
+output = "f6fcc743ad548ea70c380663d1acc718e58d7567d1b6c529d50e9f37551b2475"
+interface = "583dc858592870361f1328d5d40164b5720ed34448e2c0294678fb1f17b866f0"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Header_1x2_P2.5"
+version = "1.0.0"
+digest = "c70e8f9c974fb296e087197d0af6a0bebfc337b93eef57073b84b2de383bdec5"
+output = "0a5abe7fac0b6fc1310e30fbf2d30f6b8384290f65e87dbd12ba77e8e65fd3b5"
+interface = "e19291c8209908ede169c98c18cb3da7eef3a18f52ed09050a72658d681a093f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Header_1x2_P2.54"
+version = "1.0.0"
+digest = "f9c5e62569faa459798b731c93944e9fd11f34ea55b34e762298f3f900cfd95f"
+output = "e879de2fcf91ffe5f6800af5f353d70c898af739273c50b46649fe190c1d9332"
+interface = "e19291c8209908ede169c98c18cb3da7eef3a18f52ed09050a72658d681a093f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Header_1x3_P2.5"
+version = "1.0.0"
+digest = "719f2934c8dc21fe90a4a37f2c0f171494bcf39f1f322faf3025aa43f7c993bd"
+output = "189b455ee1f1894ca9e295850e6c9f2e3f24d1761e9a0788585959156d7980ca"
+interface = "67d1cd01ae861ff840b85d39e65ffce09b4c71628e6f5f1feb0f84218dbd1c23"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Header_1x3_P2.54"
+version = "1.0.0"
+digest = "7ca9fbd50431161c094fb608de2b08acc7ffff9f3fdbf9a49ff3a032fdc6f875"
+output = "99e0a698b3eea106d0b8fec0391b59767e643ba7d4653324840a383245f9a4fb"
+interface = "67d1cd01ae861ff840b85d39e65ffce09b4c71628e6f5f1feb0f84218dbd1c23"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Header_1x4_P2.5"
+version = "1.0.0"
+digest = "f267df8737ae322913fe21cf27c3137ae42be8ed2893cb2852566cfc16748eaa"
+output = "5e963ee8c8e4b9f02e00e601871099042ca280ba456b2eb8ebeda20ab595c25e"
+interface = "9ff256ed2788e5a406059cc1910f433fb4d8a17da15d1777a156b416be0619f4"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Header_1x4_P2.54"
+version = "1.0.0"
+digest = "b367ba2572d17693eec463a6c6e092c4bdd15263f7f3c4ca21db93b4e70c77e4"
+output = "8c5bf000b514405209d76f6b0ebfe07434ca8246d7064334338614ec8d61d896"
+interface = "9ff256ed2788e5a406059cc1910f433fb4d8a17da15d1777a156b416be0619f4"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Header_1x6_P2.54"
+version = "1.0.0"
+digest = "b999d4f3b3679da3e9b227799494762f40a9dc71afd84afa368a5d0007be9b69"
+output = "478b017dc9897aac978b90347fde8f590787db9918dc0d3821cf2d1f091100bd"
+interface = "5fa2ad4aa36dd14e5ff229a027cf34e8b14460de40eecd1ef1d1e9bbb9a2366f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Header_1x8_P2.54"
+version = "1.0.0"
+digest = "1f06c513269af4c1542dae6845d16392f6cd47f28c7c9cc2bf6e1506ec1b307c"
+output = "ffeeecba5364f29e2d107c4b1b7b29100b13992aa638a492f5e2e9ed76436d9b"
+interface = "3f8d9134bab045f7af2177c56b06114bf8555ca6ba14e9152652d9fdc4f4eda1"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Header_2x3_P2.54"
+version = "1.0.0"
+digest = "13f8c042a1cf093e8b69441041ec409d042b6b03f3ffc395ab054cde8b302498"
+output = "0dcafbbd2ecca81aa9228906d43a379bb5d7b93721422d7f7b0241e330c27b3f"
+interface = "5fa2ad4aa36dd14e5ff229a027cf34e8b14460de40eecd1ef1d1e9bbb9a2366f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:Header_2x5_P2.54"
+version = "1.0.0"
+digest = "6570e9a90f44c10254370dea41cad7f33f1ed1cbf424546189e58e7cb2cc7d35"
+output = "889492bc82f1c004870745b4986e5f96b88fe6c9041d34ad933a2cf5cb62f55a"
+interface = "99b06ed0e69a9df25f10980575fd001926a30a1be1cbf9235bd88f028c6c3f6b"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:JST_XH_B2B_XH_A"
+version = "1.0.0"
+digest = "0ebfc2b57007b18ef17169d11b5e3df7f3167abd7d1707aa6981f06af48e7d8f"
+output = "b50c81d56e3cb1543f5c5f8ae0612ba9fcecfa708118348b7e4845a20dca5484"
+interface = "e19291c8209908ede169c98c18cb3da7eef3a18f52ed09050a72658d681a093f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:JST_XH_B4B_XH_A"
+version = "1.0.0"
+digest = "2c81833febcf819fba6edfca318ca457e77cbb9122fdcc96ae4888d2a06b75d5"
+output = "015e2c03a93fea6fdbbc59e6a6438d4ad85d2e932a12e581c732212d423e7dd1"
+interface = "9ff256ed2788e5a406059cc1910f433fb4d8a17da15d1777a156b416be0619f4"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:LED0603_Kingbright_APT1608SURCK"
+version = "1.0.0"
+digest = "ff6b73638dc6c6d090ffa79f1efec22b16fc090253e65f0b9e845e68ce1f6610"
+output = "b57183613280a40fa2ac0a269dcdf41be7a89372573cb12c7751dd3c5232daa3"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:LED0805_Kingbright_APT2012SURCK"
+version = "1.0.0"
+digest = "f2370fe0e6b31c89ec84d07de335b9e777db8b9ed63cc87f5ff869d8e453d099"
+output = "80e01df50386fcea0284b9fec108693e8b485b5a947c2bdcc4c01508c5c58fcd"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:LED5050_Worldsemi_WS2812B_V6"
+version = "1.0.0"
+digest = "804b64a2890997e52ca074c75c673e827b8a9f215c2bf08ab0b98e8bcd7ea6ab"
+output = "daa8bb45c67415ca4b76d771382ba240e2b4fc6e299f6567a4fd2955744f2f66"
+interface = "c6d9caccee162c2b7a5d4ba15171997c38780358db905c3057d87c7d092b0cfd"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:LQFP100_TI_PZ0100A"
+version = "1.0.0"
+digest = "3e8eb9a7daecd65182f0de322fb816ba0637e8d170db3f71265fdf7cc8f9e0b9"
+output = "c4d045eae34e0c260f26431feefea6fdf20e9c8dd681eac86144fad466f2d55b"
+interface = "0e5e366024d45b05a520727aab3fd6a1a64d7422c714e4f13051e310cb4fda53"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:LQFP32_P0.8"
+version = "1.0.0"
+digest = "2a91350dafee724194e3e53663cf504aec73fb9038802453c472aa3a92beffc4"
+output = "133b7d2c17542fe6d2ef0345579dff728e048d17f8ce62dc172a30d30e135861"
+interface = "9784333ff66b0071d723c26b0594c478ab1677c33a0b9c8b1f5b29a477797210"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:LQFP48_TI_PT0048A"
+version = "1.0.0"
+digest = "49726b51f600ff2bf2b06a214591e9a5e43fc03c384c0a3d94a4979569e21d0e"
+output = "ec5124c7256beaf74fd16cb17870d372cb3a82f8c614a9ca6f29bb92d3570269"
+interface = "d5cd71f70d79ffbbf6c5373e6b0f3ef80c5ee6d7c17ead28dde542cd6f32a2c0"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:LQFP64_TI_PM0064A"
+version = "1.0.0"
+digest = "fb7ccf0e7b0dbcfa1117bc73989d735d4605ccd4f40ca245fd63b3e598f4acad"
+output = "e67283f31e49f7d54a8ad9f03c8ba2435bf1c75b6ce7ebd84d98470c01bc94da"
+interface = "c7a25962eeaa7f4a6c62284540b184531c78ffd46ee9bd65fa385a0e762948b9"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:MELF_0102_Vishay_MMU"
+version = "1.0.0"
+digest = "b44279bb646eb8e0215f9e0dbf1d646447592a17133f9b8f3a916b99ee0cf466"
+output = "e4e27065b5db7d9d5673b4800fce863125c52da36e528a919b194a58b57bb3c3"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:MSOP10_Diodes"
+version = "1.0.0"
+digest = "22e3173012516ce003eb871cf5d21fb00fbab0fff016d1ea0dd8fc449733a2e0"
+output = "f27847d6710a2fb82c055b27b6ab7541b4acd9fb68986f1852e9c082388e386e"
+interface = "5aa5ee5f3c5c2682f1eb1ca33ce769022d6af66aa97e93b0f12c813908ef79c3"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:MSOP8_Diodes"
+version = "1.0.0"
+digest = "c1aa9be8a5d51d2f5551b8123f1dc2e43ca70ba2a892379188c14a90f169dc2b"
+output = "9659cbb421fb6eb4924d7b049acf93b1b6171dabb07526f5d14cb2189b78517d"
+interface = "2ede246bfd5d1b202245fdfc78ac0c8406fac5e45216f15508fad79aa311a448"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:MicroUSB_B_Wurth_629105150521"
+version = "1.0.0"
+digest = "cb85078c4aa8372b1680c63ef43f80cd667273509c6d9cacb1266c00952eef8f"
+output = "4c733641e34d654dc04ea0efeeb4cbaaa11eb98a8eb05ec0b95ac1d2026355f4"
+interface = "1fcbbd5290ac734fc1496eceab99749257b0791bbcc8d1f3fef96a68afd6005b"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:MountingHole_M2_D2.4"
+version = "1.0.0"
+digest = "4b3166859a0b4f64f747ae8bf91e0ad148c4b7093be86fef07b0ff1ecbec30f4"
+output = "c6ae0ecb10a7a3613e893141a73d163b39dc80ad3f3f8a5d08a20971725eea99"
+interface = "261b6bdcc22740d2bf7ec13025e60ec671cd07045501a98f74126d9ea0cb8b62"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:MountingHole_M3_D3.4"
+version = "1.0.0"
+digest = "45c9cb36cca465d09ce1b5b032159954835d8b93fb511fddf2c93abd88a30b7f"
+output = "17636375aa2af0d7f9d78b800a33f17c724a4bdffbe58dc2bed7b205ece5b514"
+interface = "261b6bdcc22740d2bf7ec13025e60ec671cd07045501a98f74126d9ea0cb8b62"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:QFN16_Diodes_W3030_A1"
+version = "1.0.0"
+digest = "b3b8b58024976d055e8586a1ff11e2eaeec37f16df560a890f9014bed79ff823"
+output = "d2767e01c1bf90cf81e832bc0c241acd445eac8266214f2fc0a42cc4a896f2c5"
+interface = "03c1a6dd7eafc4a1f9e2ea1fb9efa3cb7eef57daee319089662b6fa1f64f0669"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:QFN20_Diodes_U4040"
+version = "1.0.0"
+digest = "6de5bd5dc77c0fb5a9633c71b889882077fb04c11e4b573150228821cf7d06a6"
+output = "4019581efa5babada3ddc4277ce9d52a40e707a2797aa7a26cfdc8d628e3baaa"
+interface = "d984ab7398b838bd98aa943f774b62fb73f6e1baf6b37d1a4b1952c1e9db40f5"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:QFN24_Diodes_W4040_SWP_A1"
+version = "1.0.0"
+digest = "2a8e07d48ebb3f55d0032b4a0362876a476a1840a46beaa66d64845e34c87cd0"
+output = "27dd9ea2fd3623a8e8ea9b4599ba0d50238e9175157baf39c68c7a1e2dc8dce9"
+interface = "c052ac47c1a524c9f7cd28d0b840524b09f6a7dc75f0701c53ade0da8e9c8157"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:QFN28_Diodes_W5050_A1"
+version = "1.0.0"
+digest = "6484e2f932402917a17a235c96c6d02b678b39c8996ec858c837605e928a9bc5"
+output = "b8d70d704dcd7e0f23de8ff26f4f2ad2ccda5637b2173a3d5de0d78e1ff631a3"
+interface = "603d607070b0f26752107311528dd89349150610f2c7014aea72b11c2207e075"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:QFN32_Diodes_W5050"
+version = "1.0.0"
+digest = "4442dfe9635fa1d84f5aeccff60597bcefdd02e2dbfd72451201c1358e4768b0"
+output = "a43b91117b67f17d22b0c8b2494b25102d8c55a6a8132291d5015f3526caacb7"
+interface = "f392fe84a53ca729a96c4926436631ad86c55f6a926f0068c2ef45523f0fdd8b"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:QFN48_TI_RGZ0048A"
+version = "1.0.0"
+digest = "a6793ae555b6249abc617e3cea90bcade09fe895381b6a983f275668ee27ada8"
+output = "a95c65fceacd7b949707934304c7b87b9906daa9ccfac4642a4a8724a1fc4e11"
+interface = "838e6ea1835c06867d4276b71e743ef9ef4665ea16832452a2991ddc7f176336"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:R_Axial_Vishay_MRS16_P7.62"
+version = "1.0.0"
+digest = "4c3d1e85f205b94cf21ba32d21f99b8a61e62cedb5813844377a07b900a91fd0"
+output = "bb23fe84454c9957d09e598f749796a27d5dadefba8b44ff051835d36e947d4e"
+interface = "e19291c8209908ede169c98c18cb3da7eef3a18f52ed09050a72658d681a093f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:R_Axial_Vishay_MRS25_P10.16"
+version = "1.0.0"
+digest = "6bdb8a57a5e1ea8198a24414afd7b8befc2f1b0e9996c4c1b0ae9c8100882ee0"
+output = "c46875839ee5ac205ac7615108af16aab1d5beebcab2d25e5d1eabd59dee12a9"
+interface = "e19291c8209908ede169c98c18cb3da7eef3a18f52ed09050a72658d681a093f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SC70_5"
+version = "1.0.0"
+digest = "16e2630cdd0c652ff4704ddc1515e1abe0aacebb39e88b4246d4ed564d41d980"
+output = "eb1f934bcd561ac38b47dbcf511ac55380ef92a8b54490ef325aeb0c6368f193"
+interface = "1c103016fbf5c07dfefe25a0b560870a79e57aa205bda594e7dccb3f5ba89c9f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SC70_6_TI_DCK0006A"
+version = "1.0.0"
+digest = "c37b8ed73784f818794774f9e604e6319fd02212004c8f05ee711aad898c3cb2"
+output = "b62f8427ef503856b212e019c0f6762c868408c5d7036d3351371296787ba5ed"
+interface = "41cd8e63f1c1e059d077e401558d03478675637b791d3001305cd9bec393f455"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOD123F_Diodes_Standard"
+version = "1.0.0"
+digest = "e1ec5dc4a25ea84d8a789687f2c1a9212ea15b9e795c2ac5d9b6362ee0217e98"
+output = "60c90ae6f95006a4b74b8b9ba3a1f7b5f44d89b2933be394b90413e9e4e2fdd0"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOD123_Diodes"
+version = "1.0.0"
+digest = "ab135eaf9915db53e5c852922e83d852ecd127b0f42cb2279a1bcde250067c02"
+output = "5f92454d75454214e28d95bb1a8d8a6c0f66bd47aaa822b567cc22c7b00427cc"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOD128_Nexperia_CFP5"
+version = "1.0.0"
+digest = "ac10a019ef21a6eff7784a44d860e9c033202c4214163186f540a4f3459c2a88"
+output = "807bd553bab50f49ee9c8c105037f6878b7b8a3ed773ec22dd08de10bb8be4fd"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOD323_Diodes"
+version = "1.0.0"
+digest = "bfa5a56f08916df0faa7182520c2c74c841c0d7cec2d71aa9abc8d7703f75072"
+output = "c848586e768c0906802d393e9fe134cffb4bc4fb9abd72ea9a5d2adda8277dcb"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOD523_Diodes"
+version = "1.0.0"
+digest = "6473756372cd597654a64e336baafc7cd001f5bd14f3ab4668d17963fab76173"
+output = "533cd357b1955bf29dddc595cf0367af750d518d3d4a4b62f31164440e502a1b"
+interface = "953ce6b0f700b3d8b58a98848d11de3f5500db543dc0f06a92c214a725ea9665"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOIC14_TI_D0014A"
+version = "1.0.0"
+digest = "8eeab3660568b9f0a319251d416c8cf448c3dfc6760db98dfdbf23f4d94651ab"
+output = "7b77520b41ee35a0f9de47fab7ebd5cb28e4ee5cc137a5f0428f36512cdd51d6"
+interface = "657e46fdd193ce23867570529d58ede6418b1b12076c6f079e95fd4ed93ba616"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOIC16_TI_D0016A"
+version = "1.0.0"
+digest = "bfcb5121e6f4d9ac63292c08a5f2768aa74db5e50d96886d464e82b2a850faa6"
+output = "813ff093ddb71f1e760b2948d31e572c23425e2f967b593eed55e2d7d8968cd5"
+interface = "7322d87b37a39e3f265b0890d85843bc99309940992f4b281b1ac6e677a91631"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOIC20_TI_DW0020A"
+version = "1.0.0"
+digest = "8b2ebe5328d714f965b30cdfab21d57d365f9fd2c990d94a724fa1bf019b1ed4"
+output = "943c24710dc585eae6950e30af01d96bbe80f41c6621ac59f24a6f7da7fd3027"
+interface = "4d0fbb39a554ae8392ef00630d06f13188a25011a14bafdc9af67d8d7479501e"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOIC24_Microchip_K3X"
+version = "1.0.0"
+digest = "c8ae97a0772c716017ede3e5c6442aed0b588ca74115c39cb60d9bc3520e8789"
+output = "831c7c6852a53af0a9df252bfe8f7825d7c4831e5be46e37fa5b718d067d9340"
+interface = "cf9c1db13972c8e513b70bfc8ed8255dfeee7d1543efd71ae88335b23737206d"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOIC28_MPS_Wide"
+version = "1.0.0"
+digest = "b5881ed5cb0e81a249a692542eb97dfc1385eeea5734fb3f342c4dbb593c142e"
+output = "750cbd20e7bf9eb55acd1384f4d5e32c5df02e494954419d8c4f1431521c752d"
+interface = "546128a895e2c55ea87fa07bc904a74bc1f106de5440ad05b3c81c06870b7910"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOIC_8"
+version = "1.0.0"
+digest = "6b9d6b29b9afc42ebbdd80347428eb2da2572d4f2ed04e914355336ebfd33b2e"
+output = "cf49c67946251a93c33096789871cb79fa63037098ab6bd9ec618a457a3b0a8c"
+interface = "2ede246bfd5d1b202245fdfc78ac0c8406fac5e45216f15508fad79aa311a448"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOT143_4_Diodes"
+version = "1.0.0"
+digest = "9047c548c1948c5af27c806fcd19e72ef9963e136cb1ce6c3f265d3a21c260f4"
+output = "7a64dadd63f89d6de3c59255f7eb382fcd5bf076824151a50a598641a5c167a2"
+interface = "c6d9caccee162c2b7a5d4ba15171997c38780358db905c3057d87c7d092b0cfd"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOT223_3_Diodes"
+version = "1.0.0"
+digest = "afa8f13ff2dea1adab9337cc235bc92eb270aa30f62ee409b0578712534b7fb6"
+output = "5f88e213112c5a221cacc4a9a3acbda4fe9fa9cfd694d62451af197663786583"
+interface = "6f7a516bb905bacc69bfd5c13bb5e204441d8cb6579c2dfdc3df1769e9dccb1f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOT23_3"
+version = "1.0.0"
+digest = "0b8f3cdca673a29cbea1a0002de8a113362c18f1e28fe4bb98f5977080789584"
+output = "7a3e5683111cdb9f41baaafe6ad39207457b61d294d6ab1f52195d6c296c6a01"
+interface = "6f7a516bb905bacc69bfd5c13bb5e204441d8cb6579c2dfdc3df1769e9dccb1f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOT23_5"
+version = "1.0.0"
+digest = "67c43b43314c2adf9e9cd7ad958b6bf20b317a111947b70420eea0e0ac6213bb"
+output = "c41b5413a6df3735e9c0ac1d1204078fd0cc463a3e15030857035fd9c237375a"
+interface = "1c103016fbf5c07dfefe25a0b560870a79e57aa205bda594e7dccb3f5ba89c9f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOT23_6_TI_DBV0006A"
+version = "1.0.0"
+digest = "ebfabf19d6ea6139b5b25a6b811c78d5a7c4c264ed7ff9d9e1e072826a45aa16"
+output = "d863c72e9e7c01ae93ed1884341e8f79d9ca579940f1013c087f1703bde721fe"
+interface = "41cd8e63f1c1e059d077e401558d03478675637b791d3001305cd9bec393f455"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOT323_3_Diodes_Standard"
+version = "1.0.0"
+digest = "d3f7269efd686a6dfd77e030b5640e6c4a81403486c499f7724fd3f1a31e3475"
+output = "24165b123c39c6a24952e4c7a7d792bf9de448d502df3ba9a29db94458032698"
+interface = "6f7a516bb905bacc69bfd5c13bb5e204441d8cb6579c2dfdc3df1769e9dccb1f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOT523_3_Diodes"
+version = "1.0.0"
+digest = "e1616c2ce1fa885b0441b1cbc88a46c13db74fecd043729d2084fa3cf5b23c4e"
+output = "558292f3e55b4ccbeaf6f394dc16b137d4d7635da598f75fd7df223b1ecd951d"
+interface = "6f7a516bb905bacc69bfd5c13bb5e204441d8cb6579c2dfdc3df1769e9dccb1f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOT563_6_Diodes"
+version = "1.0.0"
+digest = "ba67382340baf7ec0c02ad841998696172d0c24a9f49c9c8249836b4aaf46f3c"
+output = "fae2a3596739dd52b96c83f0079de6d08ae826d7321a805d0f7bc2a13a441fd2"
+interface = "41cd8e63f1c1e059d077e401558d03478675637b791d3001305cd9bec393f455"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOT883_3_Nexperia_DFN1006"
+version = "1.0.0"
+digest = "f8dc7c64c2382a82fca2993d3fdb2091b0083fe043cc7c9e443ae53c29f27ff9"
+output = "0b3dd046574b19c8f02da09fc1897e4a29fedb3a24308890788688ff92dd0b36"
+interface = "6f7a516bb905bacc69bfd5c13bb5e204441d8cb6579c2dfdc3df1769e9dccb1f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SOT89_3"
+version = "1.0.0"
+digest = "7db84ad6b16f3a1479603e444c7bd0da17630ed11cf09d172ce63781cbf2115c"
+output = "5ece76a13fda686a4c430f52de3794dcc57618a4c9692a8dd12a704a96bf6045"
+interface = "6f7a516bb905bacc69bfd5c13bb5e204441d8cb6579c2dfdc3df1769e9dccb1f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SSOP16_Diodes_CJ"
+version = "1.0.0"
+digest = "3fab9ee4094a29a32e3a9a4016a4d07401640a64db16c7365a5439107dfe60a8"
+output = "19357168811dbf6d20c5a7919205335a968334d712c055255af2f6029bf5bbb8"
+interface = "7322d87b37a39e3f265b0890d85843bc99309940992f4b281b1ac6e677a91631"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SW_Tact_Wurth_430181038816"
+version = "1.0.0"
+digest = "5d24abc2f0d5f628dd8e34b0c92031e712ad15fcf54b5b2dd5d8c88b232106b7"
+output = "e6e0c917806a8cd512fd1026f2f3566ad754a433a15f064ff26dbe805540d9c6"
+interface = "c6d9caccee162c2b7a5d4ba15171997c38780358db905c3057d87c7d092b0cfd"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:SW_Tact_Wurth_430186043716"
+version = "1.0.0"
+digest = "dea89586aafde804dfda334e14aa239b392cbdca9589e6dc7a26257ed113ecef"
+output = "85f6f53210683eef90cd79333565376f23602d08dcca1393dc38bbaa538f2b33"
+interface = "9ff256ed2788e5a406059cc1910f433fb4d8a17da15d1777a156b416be0619f4"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:TO220_3_Diodes_Vertical"
+version = "1.0.0"
+digest = "b341642e750556d9793c184866720607e5566027cfce864c6a215b1ec04d9cc9"
+output = "3a4d4960ef71c2ea44aec9d447b82b686a5c40551897d3c70149e9d98d12b142"
+interface = "67d1cd01ae861ff840b85d39e65ffce09b4c71628e6f5f1feb0f84218dbd1c23"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:TO252_3_Diodes_Standard"
+version = "1.0.0"
+digest = "c468137a7c7871a9b680f904ebb8dce269bf818ac6b23de150fb34d4351bd216"
+output = "045f8a01c45323425f451aff6f32879d27d2ee0ff03a92c7e318a60fad76a9c4"
+interface = "6f7a516bb905bacc69bfd5c13bb5e204441d8cb6579c2dfdc3df1769e9dccb1f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:TO263_3_Diodes_Standard"
+version = "1.0.0"
+digest = "4bd85da2a0e95f71dc76a1290c61febd43a48730378724aad2ad4ba3ebb404a3"
+output = "86d047a9bd52a1a4a17d6d2eda3aa2749d4aa3dcc14934b56a1a1669a2da2932"
+interface = "6f7a516bb905bacc69bfd5c13bb5e204441d8cb6579c2dfdc3df1769e9dccb1f"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:TQFP44_Microchip_PT"
+version = "1.0.0"
+digest = "fce725cc5d6317ad5adc0713fc8de41c6f44191f3d46cfea13cff04f12da5fc6"
+output = "a621bcf1f6c75d50ee1de4447ec814807c0dc74c03fc950f258d59496f8ade4c"
+interface = "fc3a0e2899c93d412caf7b18ca2e35ad8e96da20b0bf87d813b977f29543ae2d"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:TSSOP14_Diodes"
+version = "1.0.0"
+digest = "440f10ebfee8ed14f773723f23c9d222c61e08b37adc5cafb3a466f291eee12e"
+output = "c06a1cd5ccb5386ec7ff9566f3cf6d3036b5c5d454a86c016afe9807359c504a"
+interface = "657e46fdd193ce23867570529d58ede6418b1b12076c6f079e95fd4ed93ba616"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:TSSOP16_Diodes_A1"
+version = "1.0.0"
+digest = "82f4d27fd55931258a274e8235ced540c3acef89001b5528973a2ce935498642"
+output = "b02d53eb7be985c7b8737510ad80b33d1a563c9175db06b392db5ddafd37809f"
+interface = "7322d87b37a39e3f265b0890d85843bc99309940992f4b281b1ac6e677a91631"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:TSSOP20_Diodes"
+version = "1.0.0"
+digest = "efeade2946262e61b59b4ed92f5929ec1d6c0c30449a195c9d60f5b69f5825df"
+output = "e14e3101fd7bb9e0fe8edd85d74d58882253c879a02c769bedb2e0a91d06b161"
+interface = "4d0fbb39a554ae8392ef00630d06f13188a25011a14bafdc9af67d8d7479501e"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:TSSOP24_TI_PW0024A"
+version = "1.0.0"
+digest = "0f153f727b1b338092a8982df2270788dc1db5cdb018ffd5d6606fabdf2d3af8"
+output = "98caf4511d428c453ecf5f311dc2c746eff5fad07aa38ef2011da0817bc2b66b"
+interface = "cf9c1db13972c8e513b70bfc8ed8255dfeee7d1543efd71ae88335b23737206d"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:TSSOP28_Microchip_NRB"
+version = "1.0.0"
+digest = "bb29249b57118fb6f1f102bb4e504d27b3f24d07d6a1e54ef5748019fc995c1f"
+output = "92c47a379dbedbd130b9903ed2cd91c2dd59656e657f38a026db68efab31e4f8"
+interface = "546128a895e2c55ea87fa07bc904a74bc1f106de5440ad05b3c81c06870b7910"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:TSSOP8_Diodes"
+version = "1.0.0"
+digest = "cedc65ce88d48338e2229968b287638b17887443ed4136089d3faec5060ef193"
+output = "b782b70b5b532d08933f9a3df7f0bc93c7d82b1d00a87ad20629ab7c20d701db"
+interface = "2ede246bfd5d1b202245fdfc78ac0c8406fac5e45216f15508fad79aa311a448"
+
+[[entry]]
+kind = "package"
+id = "Fenolite:TestPoint_SMD_D1.0"
+version = "1.0.0"
+digest = "ea4dd139f63d98c63a1f27d50dad5a83eb5edf6daf13f4649a959b30f5497d3d"
+output = "9a6915a3fc517e22c17e819499b7724b549eeef092774c09b85922a3c9c4d51b"
+interface = "34ff26e74997c6aabc28ca74de8a1cf4e684ae8542bf91b6ae43339b53552501"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:BJT_NPN"
+version = "1.0.0"
+digest = "ee101775f83904e826aab232e916e0625192d0b0598b55b80fcb5172ede1ca71"
+output = "e2c4124ae054b6fd89d08237c91d3d98af9af58343700142b6a3880d532b9e07"
+interface = "4c4a7611d0ef724187358cd556e8a5bed9fbefedad704d62ba2c951b1e56dcbe"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:BJT_PNP"
+version = "1.0.0"
+digest = "32930372b86471209286ed9e2f38bdb49a140e05cd0518a2409b34b19e7a003f"
+output = "c0b1cc453f0fc14cc108967d538b835ff88111dbd6ad6ec583c303c6fa32f542"
+interface = "4c4a7611d0ef724187358cd556e8a5bed9fbefedad704d62ba2c951b1e56dcbe"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Bridge_Rectifier"
+version = "1.0.0"
+digest = "4446a75e32c337479aeee6c8bb54358fe95776c01a087cf42fb8c414ece2ca65"
+output = "fe766e178bcf15e7560ae2e355e482275fce50b4904d6202d1585e43e7697dec"
+interface = "6151bb6257984ff378ed4328d224f2ccb29149a9d3bc05e861e82df741f89ad5"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Capacitor"
+version = "1.0.0"
+digest = "20468c3d0bb8a21f3e52682b2dfd8ef8cb0aff14b358d8f8e2362503476c8067"
+output = "15b04a53d1ec99c3311f333f453c1990a2fe08dd190aa17fb75b2d6a36d5cac9"
+interface = "9736002e3ecbeedd60e4f5f6effef43faa0fd9cbe004f9dc7f149a1752df2534"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Capacitor_Ceramic"
+version = "1.0.0"
+digest = "2830de769bfaff7b2e3ffe5c600720b3a65bb0b820620b553c302419934483c6"
+output = "8bc7ab812f3686c96cf95236e94af43300225b38e27d86bd2a8581ad7daa6acf"
+interface = "9736002e3ecbeedd60e4f5f6effef43faa0fd9cbe004f9dc7f149a1752df2534"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Capacitor_Electrolytic"
+version = "1.0.0"
+digest = "6e9345dadf1eb71cc32e60be79a72d503bff8fdd86298932ffdee256f9f9dd46"
+output = "472ff212730fd36e9c336ae61ee43de9f931c6050fb95877faf7eab09e657a59"
+interface = "bf40b3817fe81c748295d6dc12e34651c63e44602f5d6872133f9a5186f57ce0"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Capacitor_Film"
+version = "1.0.0"
+digest = "2aa589370640f1ab06637234091301c3749b381d3a4fa81336e2e8e06d57b033"
+output = "9447c3cc7274767a1a5dc43c10551865a3bc97556a9ad508db649c62c666883c"
+interface = "9736002e3ecbeedd60e4f5f6effef43faa0fd9cbe004f9dc7f149a1752df2534"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Capacitor_Polarized"
+version = "1.0.0"
+digest = "b89bfe4bfc226f9837ccbf7075b57c6635b0f8dae1e9fc828fa9ca87a334958b"
+output = "462804538b28c8807a77de3743965c1f863bb488041836246dfc1f214f8075de"
+interface = "bf40b3817fe81c748295d6dc12e34651c63e44602f5d6872133f9a5186f57ce0"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Common_Mode_Choke"
+version = "1.0.0"
+digest = "f9c8fc4220e68dd38bca964f3eea6c7141633b978594e2316347591abc0335e1"
+output = "b4670cacccba7fb72f24f69ecbedc3ac44d158075bc7dcb18c5042db704a701d"
+interface = "d9ce7b0cd3ad420e7fc4e3d9026a4b0fa6821a823800fe9f3522e1fc5a7adc12"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Comparator"
+version = "1.0.0"
+digest = "71b6d9949937b9de55a89f87c3ec0a92f70f5704efa5cdb6452ae73c917b2bcf"
+output = "87868eb5de6d42f8b64c52739ba5831056303a56efbf2809fd6cf6cc5a4a83a7"
+interface = "17370fa61e40667404abc3859625dbff5467f14b274b02bfb8b102b9d8f4adfc"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Connector_2"
+version = "1.0.0"
+digest = "66782fd6ecb585f17686e4fdcf3348e891aea8a5dd131baea48a7177e2f583d8"
+output = "aed7a1c1f9aba46e0f63c1e0dbc1b3df91a259536180365d2a1ff4c4af6102cd"
+interface = "7c479ed93286d3c728cd683b98598249e9643002df354a62d7d5bd2035430d96"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Connector_3"
+version = "1.0.0"
+digest = "c2e05b65ab548eb00ad78f3734485ff47f04620b70e9a221e71affbb824822ce"
+output = "0202bfa5523a2c83b20a22f7c499d1c73d12976d03dd96cd5cc5f4284e18e982"
+interface = "e965571d8b97b1d49eb8aab8b04b8c157d0ecfec10501ef3751d1aac03fd58ff"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Connector_4"
+version = "1.0.0"
+digest = "99fd3ac94cfa2bf7bc0aa39406b044bdb5a9dbfd939f744c4dc6224f9e9f578e"
+output = "845e08c6affc6c835b3ce0a9850548484ec3882b6d06c149dd1181188c17fde5"
+interface = "b7be43e64e35241be01448b3e63543da102551afce70a1999012abffac6fc016"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Crystal"
+version = "1.0.0"
+digest = "21b3274d98b8f097af48777dce0ab8b77767f4cf73f2df7445ce4ebc66997acc"
+output = "4e8cc882ab480792b467a68720b2c0e329d6d77b29c204263619a85d6d0ff296"
+interface = "8cef58f9f5ba55c8963cd35adbd84a71aa4cb64176d308ed9fb2f352cd633bbb"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Diode"
+version = "1.0.0"
+digest = "be70af8d4b5e0b605362f3145815b8357679a59b6599a8062e0fd43d9d791dd3"
+output = "0011197c232cfe5ee1c9e475a4da9ec9f717c1041658e914d53d07a876b71a73"
+interface = "3cca5b4d2a6a32d45e55b3c8a1e5d69fe3fb54d17124302227363dbf9530c9e5"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Dual_LED_Common_Cathode"
+version = "1.0.0"
+digest = "8d19d0093679656db63cf6109914b1e4f8adc29233e29b08da504f6c46d85196"
+output = "2112d0b728727ab835b5366280dd42d72df86d6971b50c7913dd2aad03a225c3"
+interface = "713a633cb00fe4218e29c23a044ba50a54442ffe5cb4e6abb3a91c2f6d339070"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Ferrite_Bead"
+version = "1.0.0"
+digest = "ef69ab479929936ca3dc64d59e4f944608c3d3e13ccb41cfc37d4f664c3b7f75"
+output = "ac3c141e8d8e65fbf48f912b16060de95741f80c3344950ec95938e7bc09a3db"
+interface = "9736002e3ecbeedd60e4f5f6effef43faa0fd9cbe004f9dc7f149a1752df2534"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Fuse"
+version = "1.0.0"
+digest = "a10a666f0efec8ddd7e520d21a1c25e2b03c1b70ae8817c752e1fc734380d2e7"
+output = "a1611f6c2ad4c7d3d64fa6699fb8ab0700f6a30c59470cacd247665f0c539fbd"
+interface = "9736002e3ecbeedd60e4f5f6effef43faa0fd9cbe004f9dc7f149a1752df2534"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Gas_Discharge_Tube"
+version = "1.0.0"
+digest = "2f6c0c406058e8d6fb66d44ecb8977a4a00ccea5e6cfa264345f20cd7d6b20e2"
+output = "ca8428b9900c3af11fb7ddf0355951e8cb77da13cf6547febc7e9e0b63decd2a"
+interface = "9736002e3ecbeedd60e4f5f6effef43faa0fd9cbe004f9dc7f149a1752df2534"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:IGBT"
+version = "1.0.0"
+digest = "08110a2a720ae11651e05b7346dd9d66f2f73edf6f65f13f1f4cb15df3f4244d"
+output = "b6ace34b060c5630e061e4b644612f9b7ad4e1773dacee2e784771a4f89b072a"
+interface = "772183da0c4d96d8bcac76d2b20e348a5f17f39120abee8acf22d197051df7e1"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Inductor"
+version = "1.0.0"
+digest = "4e48c6eb4c5faff79c1ee4f4ae59e61d8fb6c5f7af00004be025d02d0467ec8d"
+output = "f98aec43114e139f26728901b54ae1ef41255fbea8b0a82d154aee8196b88a4f"
+interface = "9736002e3ecbeedd60e4f5f6effef43faa0fd9cbe004f9dc7f149a1752df2534"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:LED"
+version = "1.0.0"
+digest = "d52a639d617a0e96ab04cd28b087c237a55089d079e479412f1ac40f82558f71"
+output = "8a44dba8f5c2a922795b6e5e6d601028725d3c6309fc0c74e54c11a369a4424f"
+interface = "3cca5b4d2a6a32d45e55b3c8a1e5d69fe3fb54d17124302227363dbf9530c9e5"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Linear_Regulator"
+version = "1.0.0"
+digest = "c6b66196063e97267c72a506a8435c4f6a96d4335487c0310b2c3ff96c8c9636"
+output = "1c1f2eb5f9050a2ba071627e05064b4940fd87b9f9672bde4c67ffa04932d641"
+interface = "26bc2203b72353740249e65d70dea4344dc3bfccd990feb2a89c0e4c16c785b1"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:MOSFET_N_Channel"
+version = "1.0.0"
+digest = "4b3fdd3ba4ba99bed6bb460f6ab6863650b0b88b755c961152a9061fe6f1eba1"
+output = "ee7760ea8ad3efeccecce2fa1352079885a9043d5753c57912e129e578dbe6ee"
+interface = "ecf676862f861e40c1f98a2c5103f2063250cf7eeee7994be267548470d7240d"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:MOSFET_P_Channel"
+version = "1.0.0"
+digest = "d44c703f3647aebc0a02e8d34dfc6d56c6a6e11d65beab23265c0bf49e7f8953"
+output = "32729ea3486f458d06f997d0f92d7e5d61533b2fecd5f3a61e9c9c557e87ad91"
+interface = "ecf676862f861e40c1f98a2c5103f2063250cf7eeee7994be267548470d7240d"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Microcontroller"
+version = "1.0.0"
+digest = "3d1989a594fd28bd3272e92db492b590b2155077db56611416000f1eb85f9558"
+output = "7307b112348b10dff6fd59a9299743f45ab693e227b1e77e034910abb27eb591"
+interface = "af32eecd4a5ff6881723b3cb5cf4fbc84c0b196ac128edc7fddf0e9845ba12ab"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Offline_Power_Controller"
+version = "1.0.0"
+digest = "99e398a3def2cc865f42dbdb029c57a17d2b11becf48ba8dd899cefa15190b67"
+output = "f733560e16bb4f0fbb413c2574697e89137e88e07fddc99ab3a58580f74d2942"
+interface = "d73bf3401518f31b7766b62393fd819862bbd851304406a35bc2be62001e0705"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Operational_Amplifier"
+version = "1.0.0"
+digest = "c0377c537824ab5c53436d85274e9b21def55ea61eccfc6ac56f48d3c9a418f8"
+output = "a6b1f04a9e857bd3721f753bcc561daf6d764ceb133c066384e50d92543043bf"
+interface = "17370fa61e40667404abc3859625dbff5467f14b274b02bfb8b102b9d8f4adfc"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Optocoupler"
+version = "1.0.0"
+digest = "51367e47f5181a764adb1cb9db1c7acca2e2f1b173f7f4f70b3ddde0b64354e1"
+output = "37cd0779fc9e8bdfce79e23ae6215dcedde63ff37bf839e031d6af85958c8361"
+interface = "cfe6f5fbd5faa947134d409a5a238d782e0794820e2efd84dcdddf29bdd5899d"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Photodiode"
+version = "1.0.0"
+digest = "bb5d83c6dc279c49f79256ce7b70dec28eeaacc3b8325234be427cb372b8677b"
+output = "09102e6adb8cc046896ba9db9afce0cb6ae573b62eb6f7b140e465712aa66334"
+interface = "3cca5b4d2a6a32d45e55b3c8a1e5d69fe3fb54d17124302227363dbf9530c9e5"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Phototransistor"
+version = "1.0.0"
+digest = "bb2d8e39ec16eaf240afbf2848e16a0a6ccb35154f6ecc5a0478b565f1cad7fb"
+output = "b5a69e09de5004c0ba869c2470c6b1acf55d9c7442705a4ab71d12dc57505df3"
+interface = "0341c8bf60e1de6e623bb3ccd2c607bea1584ef178de1b7fb43cc32a5b1f9c31"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Potentiometer"
+version = "1.0.0"
+digest = "2a8dfba7478564c45f9fc06fc00c64ea3fe81a519e4544c71e0a0ea92073e523"
+output = "15b9e41b0e515c526f8b6a4f6f167dcfeae1bab756fa44b3363c02b06a2a728a"
+interface = "bfdb9a06039f26b4acad639db8f5c8fa1de569a35916586bd05678ddd127531d"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Power_Module"
+version = "1.0.0"
+digest = "3f6f454db51a3a5cf35cb4faf42736ef1c8c43850dcc505de4ad52419724a446"
+output = "dbf60baec8a58354bdcb0f0c56536a38fa05c0efef57fae4bed4761170c5fb63"
+interface = "021b7de06062339db49641b2bbd3e425c5849390cab7376db64d07305a31e5b9"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Pushbutton_NO"
+version = "1.0.0"
+digest = "a867faaca235fe321ce6bef06e67fa2d0dba91cfe2ed8965a5d7101491b5ffd6"
+output = "390ecb7877f58717938ed89a92244350c59cf8eecf49c2ec286590e1a7d094d5"
+interface = "d9ce7b0cd3ad420e7fc4e3d9026a4b0fa6821a823800fe9f3522e1fc5a7adc12"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Relay_SPDT"
+version = "1.0.0"
+digest = "82f614080dae0ba33c393e305e0b0eff4947cb9801cbb0c9293b72bf48cb57df"
+output = "333da92022f51e09f01a50de7f6dd7b4926f0b8940055d363c9fa1f5357d9afa"
+interface = "625ad78aca1d15aca047aaf233eecbe34e0a0081f078feaf4b2e4722bb04eef4"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Resistor"
+version = "1.0.0"
+digest = "821e9ad4cdf1b19b1eafffe7977f2846fdb6d9b7a74fa8e2ef4899b3063ba446"
+output = "3b71435f96348dc3beb8492fb4c92c0826ace2a263e64bbd1bbe69dac4efebbf"
+interface = "9736002e3ecbeedd60e4f5f6effef43faa0fd9cbe004f9dc7f149a1752df2534"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:SCR"
+version = "1.0.0"
+digest = "7abac09504f8ed382697a90b868658b030666444e5864b7eb1116c840cb986d3"
+output = "fdf6af1da8149a5ebea8fd0531fdb0d923ee4738e55b8390e618e4eaac3b9514"
+interface = "70ff7b5f99ab7dc3521e647b3563ede8aa7452599a56cfb6aa09fec34c3ec500"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Schottky_Diode"
+version = "1.0.0"
+digest = "5075d53492d0413265f59d568adf590cb792e6de224b63f713658cbbff7825f2"
+output = "01ad32ce2e5c889c5027d85c0aaca442f1bbb03587f8670ca2a3729b3467cf68"
+interface = "3cca5b4d2a6a32d45e55b3c8a1e5d69fe3fb54d17124302227363dbf9530c9e5"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Surge_Suppressor"
+version = "1.0.0"
+digest = "107ded3b55aeb3d3dfaebb9d80905811ab122fb3f71cf8b36e41ad2bb81b713d"
+output = "d72b8d24721639244f7dfefe9d3cf2e986a37eab3d377fa3dc2ac7ee4e0e7b50"
+interface = "9736002e3ecbeedd60e4f5f6effef43faa0fd9cbe004f9dc7f149a1752df2534"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Switch_SPDT"
+version = "1.0.0"
+digest = "c0ad319d11fa3e70c586b6ae25a2f90355fb4100c560093674b4255a3676dd61"
+output = "ade68a1058c7248f18f5b0ee2ac3e609fdabdb13a425031501c4259840494e6b"
+interface = "687ca462a2cf920c07dcd8b7dd7ec9cfee466b1a0d89194df4e1e2bdba32f47d"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Switch_SPST"
+version = "1.0.0"
+digest = "a2b0cd6f10baf956a58f845f4f2f407b81dc3e8b4f644f9c3d78d0bc268815f0"
+output = "9ea9407d6382e6fe7031e5eab6599efefc2b1c6f2657f37d9189c89c426756d1"
+interface = "9736002e3ecbeedd60e4f5f6effef43faa0fd9cbe004f9dc7f149a1752df2534"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:TRIAC"
+version = "1.0.0"
+digest = "ac684438c0ecd429d10936ee512f2fc11918d6694309ad723c37dc703afe03dd"
+output = "556ef1168925d24b67f6b8b6211776f21907ed08f3fa467a4eb6d9f62d86e264"
+interface = "ac25c834a3bbab54dad4d7e898a1625362817a2e51b34da7a7a4a9b49b25c0d4"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:TVS_Bidirectional"
+version = "1.0.0"
+digest = "884b64c8de43e8830a44d4ebf8d37d45c862a01594d2832d7dd353bb2097c5a2"
+output = "4e011f22df7a289f4a100fffe6e6256dbebe34dd62a425331c429bebe0d2b6d8"
+interface = "9736002e3ecbeedd60e4f5f6effef43faa0fd9cbe004f9dc7f149a1752df2534"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Terminal_1Pin"
+version = "1.0.0"
+digest = "83ded6d316d3a2ddc180c6ddb264b7e0a83f983eb718b52ce98cd9d742dc27ca"
+output = "1b25881bcaca59c4bb9e884eb9a09059a51756d9e4c234582483b3a05cccc36c"
+interface = "506aeae60c5d4746bfe422b7a62bf4ec826807aea30d949e4b80667950d14ccd"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Thermistor_NTC"
+version = "1.0.0"
+digest = "9926009e4bde37c5a8363aca23e1177297da8c6b4d77b6da22d03ed5bf04eef0"
+output = "d23f3165364d2032e1af13f57cb84929659bc6ccc01734872026f092076229fc"
+interface = "9736002e3ecbeedd60e4f5f6effef43faa0fd9cbe004f9dc7f149a1752df2534"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Thermistor_PTC"
+version = "1.0.0"
+digest = "383fb3b55bc2d2a348ebc3aa2e9ca4cba75d86899e494e33ea66072f4ea308ed"
+output = "690fe0cbc361e8717726c984ad8abfda5bf9ab85816983417c6a6b1d14b52cef"
+interface = "9736002e3ecbeedd60e4f5f6effef43faa0fd9cbe004f9dc7f149a1752df2534"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Transformer"
+version = "1.0.0"
+digest = "80eebab8f1d17e07e0281c9983e45a7ba221bdb31cbff8236fb3cde7baa79e42"
+output = "a06fc0aa6d878f7f770f0fb835084200aedcd1c801c0b33d89bd85599b2611da"
+interface = "d3204925ab5897f08b5e792e01e2c850d0a9b3a1e6fa8492d2113bb6ef79d602"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Varistor"
+version = "1.0.0"
+digest = "74b4f0889ecc7bb1c700afcc60b3c865316864de4b56d8be259f8af9539d936a"
+output = "b0c71346637087bae236210b467226229932dc09e78405e472d9d0ceb5cb6bb2"
+interface = "9736002e3ecbeedd60e4f5f6effef43faa0fd9cbe004f9dc7f149a1752df2534"
+
+[[entry]]
+kind = "pins"
+id = "Fenolite:Zener_Diode"
+version = "1.0.0"
+digest = "cb08dcdd1bedde5939b6635912791ff8fd64e995ee103c7fe5d3f7c65339436c"
+output = "e4d6d84ff74da0293b1b0278eda4438712f060e84e36dd80d6c77b39c1872563"
+interface = "3cca5b4d2a6a32d45e55b3c8a1e5d69fe3fb54d17124302227363dbf9530c9e5"

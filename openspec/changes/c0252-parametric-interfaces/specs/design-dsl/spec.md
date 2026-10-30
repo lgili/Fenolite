@@ -105,11 +105,20 @@ A build SHALL check the interfaces of the design after the parts are resolved, a
 - **THEN** the model holds the nets `GND` and `V12`, the interface `GND` of kind `ground`, and the interface `V12/GND` of kind `power` with the param `voltage`
 
 ### Requirement: Interface parameters in the DSL
-Each interface kind SHALL have a closed parameter table, `fenolite.dsl.interfaces.PARAMETERS`, that marks each parameter `alias`, `sum`, `bound` or `link` and says where it may be set, as decision 1 of `design.md` lists. A value MUST be a c0246 range or quantity of the parameter's unit. A parameter outside the table, or not allowed for the kind and direction, MUST raise `DslError` at the call.
+Each interface kind SHALL have a closed parameter table, `fenolite.dsl.interfaces.PARAMETERS`, that marks each parameter `alias`, `sum`, `bound` or `link` and says where it may be set (`design.md`, decision 1). A value MUST be a c0246 range or quantity of the parameter's unit. A parameter outside the table, not allowed for the kind and direction, or a sum parameter (`current`) on a port whose direction is not explicitly `in` or `out`, MUST raise `DslError` at the call.
 
 #### Scenario: Current on a design rail refused
 - **WHEN** `Rail(v33, current=amp(1))` is called
 - **THEN** `DslError` is raised naming `current` and saying that it is set on ports only
+
+#### Scenario: Current on a pass-through port refused
+- **WHEN** a block calls `b.port("VBUS", Rail, current=amp(1))`, whose direction is c0251's default `inout`
+- **THEN** `DslError` is raised naming `VBUS` and `current`, and asking for `direction="in"` or `direction="out"`
+
+#### Scenario: Logic thresholds on a block port
+- **GIVEN** a block with `b.port("INT", Logic, direction="out", output_high_min=volt("2.4"), output_low_max=volt("0.4"))`
+- **WHEN** `to_model` runs
+- **THEN** the model `Port` `INT` holds the params `output_high_min` and `output_low_max` in c0246's encoding, and `input_high_min` on that port raises `DslError`
 
 ### Requirement: Port parameters
 c0251's `port(name, kind, *, direction="inout", optional=False, **params)` SHALL accept the parameters of the kind's table for that direction, and `PortHandle.set(**params)` SHALL set them later in the block. A parameter set twice MUST raise `DslError`. `to_model` MUST record each on the model `Port`.
@@ -171,10 +180,18 @@ c0247's `pull_up(target, rail, *resistors)` SHALL also accept an `i2c` port as `
 - **WHEN** it is built with `--dry-run --json`
 - **THEN** `r_sda` is between `SDA` and `3V3`, `r_scl` between `SCL` and `3V3`, and `issues` hold no `build.i2c-pullup-missing`
 
+### Requirement: Interface companions
+A port SHALL accept `requires`, a list of entries of the closed vocabulary `pullup` (`i2c`, `logic`), `supply` (`logic` and buses with a `reference`, `power` `in` ports) and `chip_select` (`spi`): what must be connected for the port to work. Block ports take it as `b.port(..., requires=(...))`. An entry outside the vocabulary, or one that the port's kind does not take, MUST raise `DslError`. `to_model` MUST record it on the model `Port`.
+
+#### Scenario: A sensor port that needs pull-ups
+- **GIVEN** a block with `b.port("I2C", I2C, requires=("pullup", "supply"), reference=vdd)`
+- **WHEN** `to_model` runs
+- **THEN** the model `Port` `I2C` has `requires == ("pullup", "supply")`, and `requires=("chip_select",)` on that port raises `DslError` naming `chip_select` and `i2c`
+
 ### Requirement: Circuit findings in a build
-`cmd_build` SHALL run `checks.circuit.circuit_issues` on the model that it builds, and SHALL add the `circuit.*` issues to the build envelope as codes added under "Build issue codes". Each issue keeps the severity of `verification-loop`, "Circuit stage". An error issue MUST stop the write, as other build errors do, unless a waiver covers it.
+`cmd_build` SHALL run `checks.circuit.circuit_issues` on the model that it builds, and SHALL add the `circuit.*` issues to the build envelope as codes added under "Build issue codes". Each issue keeps the severity of `verification-loop`, "Circuit stage". An error issue MUST stop the write, as other build errors do; c0274 adds the waivers that accept one.
 
 #### Scenario: Over-budget rail stops the build
 - **GIVEN** the `bad` variant of `examples/sensor_rails/`, whose loads on `3V3` draw up to 1.15 A from a source of 1 A
 - **WHEN** it is built with `--confirm --json`
-- **THEN** the exit code is 5, `issues` hold one `circuit.rail-current` naming `3V3` and `buck.VOUT`, and no file is written
+- **THEN** the exit code is 5, `issues` hold one `circuit.rail-current` naming `3V3` and `buck/VOUT`, and no file is written

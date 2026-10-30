@@ -10,14 +10,15 @@ Unit 0 and body style 0 mean "common to all units" and "common to all body style
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Sequence
+from dataclasses import dataclass, field, replace
 from typing import Literal
 
 from fenolite.core.coords import Point
 from fenolite.core.units import Nm, Udeg
 from fenolite.model.base import Entity
 from fenolite.model.board import ORDERED, ComponentBody, Graphic, Pad
-from fenolite.model.circuit import PinType
+from fenolite.model.circuit import PinType, PortDirection, ValueRange
 
 FootprintKind = Literal["smd", "through_hole", "unspecified"]
 PinShape = Literal[
@@ -124,12 +125,15 @@ class SymbolUnit:
 
 @dataclass(frozen=True, slots=True)
 class SymbolGraphic:
-    """A vector primitive in symbol-local coordinates (nanometres)."""
+    """A vector primitive in symbol-local coordinates (nanometres). ``unit`` and ``body_style`` say which
+    unit and body style draw it; 0 (the default) is common to all (change c0261)."""
 
     kind: Literal["line", "circle", "rect", "polygon"]
     points: tuple[Point, ...] = field(metadata=ORDERED)
     width: Nm = 254_000
     filled: bool = False
+    unit: int = 0
+    body_style: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,26 +202,319 @@ class SymbolDef(Entity):
         return tuple(p for p in self.pins if p.unit in (0, unit) and p.body_style in (0, body_style))
 
 
+RatingUnit = Literal["uV", "uA", "uW", "mK"]
+"""The integer units of a device rating: µV, µA, µW and millikelvin (changes c0248 and c0274)."""
+LimitKind = Literal["abs_max", "operating"]
+"""The kind of a device limit (change c0274): ``abs_max``, beyond which the part may be damaged, or
+``operating``, the range in which the part works as specified."""
+ThresholdKey = Literal[
+    "input_high_min", "input_low_max", "output_current_max", "output_high_min", "output_low_max"
+]
+"""The logic thresholds of a device pin (change c0274)."""
+
+
+@dataclass(frozen=True, slots=True)
+class Rating:
+    """One limit of a device, of a device pin or of a pair of pins: ``key`` (``voltage``, ``current``,
+    ``power`` or ``temperature``), its integer ``unit``, the bounds, each an ``int`` in that unit or
+    ``None``, and its ``limit`` kind (change c0274)."""
+
+    key: str
+    unit: RatingUnit
+    min: int | None = None
+    max: int | None = None
+    limit: LimitKind = "abs_max"
+
+
+@dataclass(frozen=True, slots=True)
+class Threshold:
+    """One logic threshold of a device pin (change c0274): ``key``, its integer ``unit`` (``uV`` for a
+    voltage measured from the device's ``ground``, ``uA`` for ``output_current_max``) and the value."""
+
+    key: ThresholdKey
+    unit: RatingUnit
+    value: int
+
+
+@dataclass(frozen=True, slots=True)
+class DevicePin:
+    """One function of a device: its name, the symbol pins it joins and their pads as ordered
+    ``(pin, pad)`` pairs in the form of ``Component.pin_pad_map``, its limits (``voltage`` measured from the
+    device's ``ground``; sorted by key then kind), its logic thresholds (sorted by key) and whether it must
+    be connected."""
+
+    function: str
+    pin_pads: tuple[tuple[str, str], ...] = field(default=(), metadata=ORDERED)
+    ratings: tuple[Rating, ...] = field(default=(), metadata=ORDERED)
+    thresholds: tuple[Threshold, ...] = field(default=(), metadata=ORDERED)
+    must_connect: bool = False
+
+    @property
+    def pins(self) -> tuple[str, ...]:
+        """The symbol pins of the function, in map order, without repeats."""
+        return tuple(dict.fromkeys(pin for pin, _ in self.pin_pads))
+
+    @property
+    def pads(self) -> tuple[str, ...]:
+        """The pads of the function, in map order."""
+        return tuple(pad for _, pad in self.pin_pads)
+
+    def rating(self, key: str, limit: LimitKind = "abs_max") -> Rating | None:
+        """The pin limit of ``key`` and kind ``limit``, or ``None``."""
+        return next((found for found in self.ratings if (found.key, found.limit) == (key, limit)), None)
+
+    def threshold(self, key: str) -> Threshold | None:
+        """The logic threshold ``key``, or ``None``."""
+        return next((found for found in self.thresholds if found.key == key), None)
+
+
+@dataclass(frozen=True, slots=True)
+class PinPairLimit:
+    """A limit between two functions of a device (change c0274): ``between`` names them, the voltage being
+    the first's minus the second's; ``ratings`` are ``voltage`` limits, sorted by kind."""
+
+    between: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    ratings: tuple[Rating, ...] = field(default=(), metadata=ORDERED)
+
+
+@dataclass(frozen=True, slots=True)
+class DeviceInterface:
+    """An interface port a device declares (``[[interfaces]]``, change c0252): its name, kind and direction,
+    member name → the device functions it joins (in code-point order), its parameters (exact c0246 ranges:
+    operating values and thresholds, never absolute ratings except the logic ``abs_max``), the name of the
+    ``power`` interface its levels refer to, its companions (sorted) and its evidence label."""
+
+    name: str
+    kind: str
+    direction: PortDirection = "inout"
+    members: dict[str, tuple[str, ...]] = field(default_factory=lambda: {})
+    params: dict[str, ValueRange] = field(default_factory=lambda: {})
+    reference: str = ""
+    requires: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    evidence: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class DeviceOption:
+    """One interface option a device offers (``[[options]]``, change c0257): the interface ``kind``
+    (``i2c``, ``spi``, ``uart``, ``usb2``, ``diff_pair`` or ``pin``), its ``name`` (unique per device and
+    kind), its ``alternatives`` in file order, each a map from every role of the kind to a function of the
+    device, and its evidence label."""
+
+    kind: str
+    name: str
+    alternatives: tuple[dict[str, str], ...] = field(default=(), metadata=ORDERED)
+    evidence: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class DeviceProvenance:
+    """The stamp of a device written by a tool: the tool, its source (lib ids, never a path), the ISO 8601
+    date and the SHA-256 of the record as written (``fenolite.catalog.devices.device_digest``)."""
+
+    tool: str
+    source: str
+    date: str
+    sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class DeviceDef:
+    """A device (change c0248): one reviewed record that joins a symbol, a footprint, the map from pin
+    function to pins and pads, an identity, ratings and an evidence label. ``pins`` are in code-point order
+    of their functions and ``ratings`` in order of their keys then kinds. A device is library data: it is
+    never part of a ``Design``, and a built component names it only through the properties
+    ``fenolite.device`` and ``fenolite.device.sha256``."""
+
+    id: str
+    summary: str = ""
+    symbol: str = ""
+    footprint: str = ""
+    manufacturer: str = ""
+    mpn: str = ""
+    datasheet: str = ""
+    ref_prefix: str = ""
+    value: str = ""
+    kind: str = ""
+    """The query kind of a pickable row (``resistor``, ``capacitor``, ``inductor``; change c0254),
+    or ``""``."""
+    case: str = ""
+    """The EIA inch case code of a pickable row (``0603``), or ``""``."""
+    tolerance: str = ""
+    """The tolerance of a pickable row's value (``1%``, ``-20%..+80%``), or ``""``."""
+    dielectric: str = ""
+    """The dielectric of a pickable capacitor row (``X7R``), or ``""``."""
+    evidence: str = "UNVERIFIED"
+    sources: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    ground: str = ""
+    unused_pads: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    ends: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    """Two function names that the named ends of a part (``part.a`` and ``part.b``) resolve to, or ``()``."""
+    properties: dict[str, str] = field(default_factory=lambda: {})
+    pins: tuple[DevicePin, ...] = field(default=(), metadata=ORDERED)
+    ratings: tuple[Rating, ...] = field(default=(), metadata=ORDERED)
+    limits: tuple[PinPairLimit, ...] = field(default=(), metadata=ORDERED)
+    """The limits between two functions, sorted by ``between`` (change c0274)."""
+    cls: str = ""
+    """The part class of the roles' vocabulary (TOML key ``class``), evidence for ``roles.classify``, or
+    ``""`` (change c0274)."""
+    interfaces: tuple[DeviceInterface, ...] = field(default=(), metadata=ORDERED)
+    """The interface ports of the device, sorted by name (change c0252)."""
+    options: tuple[DeviceOption, ...] = field(default=(), metadata=ORDERED)
+    """The interface options of the device, sorted by kind then name (change c0257)."""
+    provenance: DeviceProvenance | None = None
+
+    @property
+    def pad_map(self) -> tuple[tuple[str, str], ...]:
+        """The derived pad map: every ``(pin, pad)`` pair of every function, sorted by pin then in map
+        order, the form of ``Component.pin_pad_map``."""
+        pairs = [pair for pin in self.pins for pair in pin.pin_pads]
+        order = {pin: index for index, pin in enumerate(sorted({pin for pin, _ in pairs}))}
+        return tuple(sorted(pairs, key=lambda pair: order[pair[0]]))
+
+    def pin(self, function: str) -> DevicePin:
+        """The function named ``function``; ``KeyError`` when the device has none."""
+        for found in self.pins:
+            if found.function == function:
+                return found
+        raise KeyError(function)
+
+    def rating(self, key: str, limit: LimitKind = "abs_max") -> Rating | None:
+        """The device rating of ``key`` and kind ``limit``, or ``None``."""
+        return next((found for found in self.ratings if (found.key, found.limit) == (key, limit)), None)
+
+
+def flatten_symbol(symbol: SymbolDef, parents: Sequence[SymbolDef] = ()) -> SymbolDef:
+    """``symbol`` with the body of the root of its ``extends`` chain (change c0261): the root's flags, units,
+    pins and graphics, ``extends`` cleared, and the properties of the chain, the nearest first. ``parents``
+    holds the symbols it may extend, in any order; a symbol without ``extends`` is returned as it is.
+    ``ValueError`` names a missing parent or a loop."""
+    by_name = {parent.name: parent for parent in parents}
+    chain = [symbol]
+    while chain[-1].extends:
+        parent = by_name.get(chain[-1].extends)
+        if parent is None or parent in chain:
+            raise ValueError(f"{symbol.lib_id}: cannot resolve the symbol {chain[-1].extends!r} it extends")
+        chain.append(parent)
+    if len(chain) == 1:
+        return symbol
+    properties: dict[str, str] = {}
+    for item in reversed(chain):
+        properties.update(item.properties)
+    return replace(
+        chain[-1],
+        id=symbol.id,
+        native_ids=symbol.native_ids,
+        name=symbol.name,
+        library=symbol.library,
+        properties=properties,
+    )
+
+
+PinGroup = Literal["", "supply", "ground", "input", "control", "output", "io", "passive", "nc"]
+"""The function group of a pin-table row (change c0261); ``""`` takes the default group of its type."""
+PinSide = Literal["", "left", "right", "top", "bottom"]
+"""The side of a generated symbol a row is drawn on; ``""`` takes the side of its group."""
+
+
+@dataclass(frozen=True, slots=True)
+class PinRow:
+    """One row of a pin table (``fenolite.pins.v0``, change c0261): the facts of one pin. ``unit`` is
+    ``None`` when the table leaves the split to the generator; ``stacked`` holds further pad numbers of the
+    same pin."""
+
+    number: str
+    name: str
+    etype: PinType
+    group: PinGroup = ""
+    side: PinSide = ""
+    bus: str = ""
+    unit: int | None = None
+    shape: PinShape = "line"
+    hidden: bool = False
+    stacked: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    alternates: tuple[PinAlternate, ...] = field(default=(), metadata=ORDERED)
+
+
+@dataclass(frozen=True, slots=True)
+class PinVariant:
+    """A ``[[variant]]`` row of a pin table: a derived symbol with only its own properties."""
+
+    name: str
+    value: str = ""
+    description: str = ""
+    datasheet: str = ""
+    footprint: str = ""
+    keywords: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    fp_filters: tuple[str, ...] = field(default=(), metadata=ORDERED)
+
+
+@dataclass(frozen=True, slots=True)
+class PinTable:
+    """A parsed pin table (``fenolite.pins.v0``, change c0261), rows in table order.
+
+    ``namespace``, ``version``, ``summary``, ``licence``, ``evidence``, ``sources`` and ``category`` are the
+    minimum of the record header that change c0259 owns; the rest is the body: the ``[symbol]`` settings,
+    ``unit_names`` as ``(unit, name)`` pairs and the variants."""
+
+    name: str
+    rows: tuple[PinRow, ...] = field(default=(), metadata=ORDERED)
+    namespace: str = ""
+    version: str = ""
+    summary: str = ""
+    licence: str = ""
+    evidence: str = ""
+    sources: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    category: str = ""
+    reference: str = "U"
+    description: str = ""
+    keywords: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    split_above: int = 100
+    unit_pins: int = 48
+    auto_bus: bool = True
+    unit_names: tuple[tuple[int, str], ...] = field(default=(), metadata=ORDERED)
+    variants: tuple[PinVariant, ...] = field(default=(), metadata=ORDERED)
+
+
 @dataclass(frozen=True, slots=True)
 class Library:
-    """A set of definitions under one name (the schema root of ``library.json``)."""
+    """A set of definitions under one name (the schema root of ``library.json``). ``devices`` are sorted
+    by id (change c0248)."""
 
     name: str = ""
     footprints: tuple[FootprintDef, ...] = ()
     symbols: tuple[SymbolDef, ...] = ()
+    devices: tuple[DeviceDef, ...] = field(default=(), metadata=ORDERED)
 
 
 __all__ = [
     "PPM",
+    "DeviceDef",
+    "DeviceInterface",
+    "DeviceOption",
+    "DevicePin",
+    "DeviceProvenance",
     "FootprintDef",
     "FootprintKind",
     "Library",
+    "LimitKind",
     "ModelPlacement",
     "PinAlternate",
+    "PinGroup",
+    "PinPairLimit",
+    "PinRow",
     "PinShape",
+    "PinSide",
+    "PinTable",
+    "PinVariant",
     "PowerKind",
+    "Rating",
+    "RatingUnit",
     "SymbolDef",
     "SymbolGraphic",
     "SymbolPin",
     "SymbolUnit",
+    "Threshold",
+    "ThresholdKey",
+    "flatten_symbol",
 ]

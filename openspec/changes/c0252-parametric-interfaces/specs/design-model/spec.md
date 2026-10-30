@@ -1,12 +1,12 @@
 ## ADDED Requirements
 
 ### Requirement: Interface parameters in the model
-The model `Interface` SHALL gain `params` (parameter name to a c0246 `ValueRange`), `reference: str | None = None` (the id of a `power` interface) and `shared: bool = False`. c0251's `Port` SHALL gain `params`, `reference` (the id of a `power` port or interface) and `share: bool = False`. Each field MUST be left out of `circuit.json` when empty or default.
+The model `Interface` SHALL gain `params` (name to a c0246 `ValueRange`), `reference: str | None = None` (the id of a `power` interface) and `shared: bool = False`. c0251's `Port` SHALL gain `params`, `reference` (the id of a `power` port or interface), `share: bool = False` and `requires: tuple[str, ...] = ()`, sorted. A param MUST be written in c0246's encoding (unit name, `Decimal10` bounds). Each field MUST be left out of `circuit.json` when empty or default.
 
 #### Scenario: Parameters round trip
 - **GIVEN** a `power` interface with the param `voltage` and `shared=True`, and a `power` port with the params `voltage` and `current`
 - **WHEN** the design is written with `canonical.dump_dir` and loaded with `canonical.load_dir`
-- **THEN** the loaded entities equal the originals, and every bound in `circuit.json` is an integer mantissa and exponent
+- **THEN** the loaded entities equal the originals, every bound in `circuit.json` is an integer mantissa and exponent, every unit is a c0246 unit name such as `volt`, and no `min` or `max` key is written
 
 #### Scenario: Older circuit files keep their bytes
 - **GIVEN** a `circuit.json` written before this change, holding a `power` interface
@@ -21,7 +21,7 @@ The circuit model SHALL know the interface kinds `ground` (member `gnd`) and `lo
 - **THEN** `ValueError` is raised naming `ground` and `voltage`
 
 ### Requirement: Device ports in the model
-`to_model` SHALL give one `Port` per declared port of each part placed from a device record, owned by the component's id, with the id `derived_id("prt", "dsl", "port:<component path>:<port name>")`, the params of the record and the net of each member. A member whose pins are on two nets MUST be left out of `members`.
+`to_model` SHALL give one `Port` per declared port of each part placed from a device record, owned by the component's id, with the id `derived_id("prt", "dsl", "port:<component path>:<port name>")`, the params of the record, its evidence label (`evidence`) and the net of each member. A member whose pins are on two nets MUST be left out of `members` and recorded in `split` (member name to the sorted net ids), so that the model alone can name the split.
 
 #### Scenario: Device port recorded
 - **GIVEN** a sensor part `U3` whose device declares the `power` port `vdd` (pin `VDD`, `voltage` 1.71 V to 3.6 V), with `VDD` on the net `3V3`

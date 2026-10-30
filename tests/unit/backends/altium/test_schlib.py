@@ -24,6 +24,8 @@ from fenolite.backends.altium.binary import frame_record, storage_stream
 from fenolite.backends.altium.cfb import Entry, Storage, storage_from_paths, write_compound
 from fenolite.backends.altium.project import generic_symbols, schlib_name, storage_name, unique_id
 from fenolite.backends.altium.schlib import HEADER_TEXT, data_stream, pin_record, write_schlib
+from fenolite.core.errors import Issue
+from fenolite.model.library import SymbolDef
 
 LIBRARY = "FenoliteSample.SchLib"
 
@@ -359,3 +361,45 @@ def test_pin_with_a_byte_left_over() -> None:
 def test_reader_returns_records() -> None:
     library: dict[str, list[LibRecord]] = read_schlib(sample_library())
     assert all(records[0]["RECORD"] == "1" for records in library.values())
+
+
+# --- change c0261: generated multi-unit symbols ------------------------------------------------------
+
+
+def _generated(path: str) -> tuple[SymbolDef, ...]:
+    from pathlib import Path
+
+    from fenolite.catalog.generate.symbol import generate_symbol
+    from fenolite.catalog.pins import read_pins
+
+    root = Path(__file__).resolve().parents[4]
+    base, derived, _ = generate_symbol(read_pins(root / path), library="Example")
+    return (base, *derived)
+
+
+@pytest.mark.parametrize(
+    ("path", "parts", "zero"),
+    [("examples/symbols/pins/EXM120.toml", 3, 0), ("tests/data/pins/example_dual.toml", 2, 3)],
+)
+def test_generated_symbol_to_schlib(path: str, parts: int, zero: int) -> None:
+    """Scenario "Generated MCU to SchLib": one part per unit, Part Zero for unit 0 pins, one rectangle
+    per part, no ``_FRAC`` key; the derived symbol is written flat under its own lib ref."""
+    base, *derived = _generated(path)
+    issues: list[Issue] = []
+    symbols = [
+        from_symbol_def(s, lib_ref=s.name, footprint=None, issues=issues, parents=(base,))
+        for s in (base, *derived)
+    ]
+    assert not [i for i in issues if i.code == "altium.symbol-off-grid"]
+    library = read_schlib(write_schlib(symbols, library="Example.SchLib"))
+    assert sorted(library) == sorted(s.name for s in (base, *derived))
+    for name in library:
+        records = library[name]
+        assert records[0]["PARTCOUNT"] == str(parts + 1)
+        pins = [r for r in records if r.get("BINARY")]
+        assert len(pins) == len([p for p in base.pins if p.body_style in (0, 1)])
+        assert sum(1 for p in pins if p["OWNERPARTID"] == 0) == zero
+        assert {p["OWNERPARTID"] for p in pins} - {0} == set(range(1, parts + 1))
+        rectangles = [r for r in records if r.get("RECORD") == "14"]
+        assert sorted(r["OWNERPARTID"] for r in rectangles) == [str(k) for k in range(1, parts + 1)]
+        assert not [key for r in records for key in r if str(key).endswith("_FRAC")]

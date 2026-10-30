@@ -218,7 +218,7 @@ def test_zone_ids_from_the_zone_name() -> None:
     assert [z.name for z in first] == ["GND", "VIN_POUR"]  # name order
     assert first[0].id == derived_id("zon", "dsl", "zone:GND")
     assert first[1].id == derived_id("zon", "dsl", "zone:VIN_POUR")
-    assert KEYS["zone"] == ("zon", "zone:<name>")
+    assert KEYS["zone"] == ("zon", "zone:<key>")
 
 
 def test_designs_without_zones_are_unchanged() -> None:
@@ -247,3 +247,23 @@ def test_zone_on_a_round_board() -> None:
     box = ((100, 100), (145, 100), (145, 130), (100, 130))
     assert gnd.outline == tuple(Point(x * MM, y * MM) for x, y in box)
     assert vin.outline == (Point(101 * MM, 101 * MM), Point(109 * MM, 101 * MM), Point(109 * MM, 109 * MM))
+
+
+def test_unnamed_zone_with_a_key() -> None:
+    """Change c0275: ``key=`` names a zone across builds; with no name the zone has none."""
+    d = Design("keyed")
+    d.board(mm(50), mm(30))
+    gnd = Net("GND")
+    d.zone(gnd, layers=("B.Cu",), key="GND/2")
+    d.zone(gnd, layers=("F.Cu",), key="GND/1")
+    d.zone(gnd, layers=("F.Cu",))  # the net's name is not taken by the keyed zones
+    with pytest.raises(DslError, match="key 'GND/1'"):
+        d.zone(gnd, layers=("F.Cu",), key="GND/1", name="OTHER")
+    with pytest.raises(DslError, match="key"):
+        d.zone(gnd, layers=("F.Cu",), key="bad key")
+    board = to_model(d).board
+    assert board is not None
+    zones = {zone.id: zone for zone in board.zones}
+    first, second = derived_id("zon", "dsl", "zone:GND/1"), derived_id("zon", "dsl", "zone:GND/2")
+    assert zones[first].name == "" and zones[second].name == "" and zones[first].layers == ("F.Cu",)
+    assert zones[derived_id("zon", "dsl", "zone:GND")].name == "GND"

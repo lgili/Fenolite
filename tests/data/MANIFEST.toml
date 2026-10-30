@@ -1469,6 +1469,12 @@ corpus_id = ""
 notes = "tree sample design script (thin DSL, c0086): modules power, io and io/leds, catalog symbols, nets D0 to D3 for the bus that tests/_altium_tree.py adds, an accented value and two properties"
 
 [[file]]
+path = "tests/data/altium/blocks/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "block sample design script (c0269): a block filt with ports IN, OUT and GND used as f1, the nets SRC and DST on a connector, an escaping net TEST and a Power interface of VCC and GND, catalog symbols"
+
+[[file]]
 path = "tests/data/altium/tree/tree.PrjPcb"
 origin = "authored"
 corpus_id = ""
@@ -2393,6 +2399,12 @@ corpus_id = ""
 notes = "net-role reference board, bad variant (c0222; DSL source)"
 
 [[file]]
+path = "examples/roles/bms/bad_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, bad variant with role copper (c0243; DSL source)"
+
+[[file]]
 path = "examples/roles/bms/bms_board.py"
 origin = "authored"
 corpus_id = ""
@@ -2411,6 +2423,18 @@ corpus_id = ""
 notes = "net-role reference board, good variant (c0222; DSL source)"
 
 [[file]]
+path = "examples/roles/bms/good_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, good variant with role copper (c0243; DSL source)"
+
+[[file]]
+path = "examples/roles/bms/open.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, open variant: bad without its critical copper (c0244; DSL source)"
+
+[[file]]
 path = "examples/roles/bms/sym-lib-table"
 origin = "authored"
 corpus_id = ""
@@ -2421,6 +2445,12 @@ path = "examples/roles/buck_shunt/bad.py"
 origin = "authored"
 corpus_id = ""
 notes = "net-role reference board, bad variant (c0222; DSL source)"
+
+[[file]]
+path = "examples/roles/buck_shunt/bad_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, bad variant with role copper (c0243; DSL source)"
 
 [[file]]
 path = "examples/roles/buck_shunt/buck_shunt_board.py"
@@ -2441,6 +2471,18 @@ corpus_id = ""
 notes = "net-role reference board, good variant (c0222; DSL source)"
 
 [[file]]
+path = "examples/roles/buck_shunt/good_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, good variant with role copper (c0243; DSL source)"
+
+[[file]]
+path = "examples/roles/buck_shunt/open.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, open variant: bad without its critical copper (c0244; DSL source)"
+
+[[file]]
 path = "examples/roles/buck_shunt/sym-lib-table"
 origin = "authored"
 corpus_id = ""
@@ -2451,6 +2493,12 @@ path = "examples/roles/half_bridge/bad.py"
 origin = "authored"
 corpus_id = ""
 notes = "net-role reference board, bad variant (c0222; DSL source)"
+
+[[file]]
+path = "examples/roles/half_bridge/bad_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, bad variant with role copper (c0243; DSL source)"
 
 [[file]]
 path = "examples/roles/half_bridge/fp-lib-table"
@@ -2465,10 +2513,22 @@ corpus_id = ""
 notes = "net-role reference board, good variant (c0222; DSL source)"
 
 [[file]]
+path = "examples/roles/half_bridge/good_roles.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, good variant with role copper (c0243; DSL source)"
+
+[[file]]
 path = "examples/roles/half_bridge/half_bridge_board.py"
 origin = "authored"
 corpus_id = ""
 notes = "the shared drawing of a net-role reference board (c0222)"
+
+[[file]]
+path = "examples/roles/half_bridge/open.py"
+origin = "authored"
+corpus_id = ""
+notes = "net-role reference board, open variant: bad without its critical copper (c0244; DSL source)"
 
 [[file]]
 path = "examples/roles/half_bridge/requirements.toml"
@@ -2499,3 +2559,711 @@ path = "examples/testing/golden/net-GND.svg"
 origin = "authored"
 corpus_id = ""
 notes = "Canonical SVG generated from the authored c0256 fixture through reviewed render plan/confirm."
+
+[[file]]
+path = "tests/data/fidelity/sensor_code/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "the converted script of the authored fidelity fixture (c0278): a four-layer board with net classes, a custom rule, a zone, an arc, through and blind vias and board text, authored for Fenolite (CC0)"
+
+[[file]]
+path = "tests/data/fidelity/sensor_code/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "the footprint table of the fidelity script (c0278): the authored mini library of tests/data/libs"
+
+[[file]]
+path = "tests/data/fidelity/sensor_code/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "the symbol table of the fidelity script (c0278): the authored mini library of tests/data/libs"
+
+[[file]]
+path = "tests/data/fidelity/sensor/sensor.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "board of the authored fidelity original (c0278), written by the target-10 build of tests/data/fidelity/sensor_code/design.py; a text stand-in for a project saved by the KiCad GUI (task 4.1 of c0278 stays open until the GUI save)"
+
+[[file]]
+path = "tests/data/fidelity/sensor/sensor.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "schematic of the same build (c0278), beside its board"
+
+[[file]]
+path = "tests/data/fidelity/sensor/sensor.kicad_pro"
+origin = "authored"
+corpus_id = ""
+notes = "project file of the same build (c0278)"
+
+[[file]]
+path = "tests/data/fidelity/sensor/sensor.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "custom rules of the same build (c0278): the rule sig_gap of the script"
+
+[[file]]
+path = "tests/data/devices/example_buck.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative device record of change c0248, authored for Fenolite; not a real product"
+
+[[file]]
+path = "tests/data/devices/grouped_ground.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative device record of change c0248, authored for Fenolite; not a real product"
+
+[[file]]
+path = "tests/data/devices/stamped.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative device record of change c0248, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/devices/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "device example of change c0248: a 5 V to 3.3 V board placed from device records"
+
+[[file]]
+path = "examples/devices/devices/example_buck.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative device record of the device example (c0248), authored for Fenolite; not a real product"
+
+[[file]]
+path = "tests/data/lens/sync_minimal/fenolite-base.json"
+origin = "authored"
+corpus_id = ""
+notes = "base record of the target-10 build of the packaged minimal script (c0250): what the build was given and wrote; a test keeps it equal to a fresh build"
+
+[[file]]
+path = "examples/lock/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design-lock example (c0249): two modules with parts without a ref, one named part and one explicit ref, authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/lock/design.lock"
+origin = "authored"
+corpus_id = ""
+notes = "the committed design lock of examples/lock (c0249), written by fenolite build"
+
+[[file]]
+path = "examples/blocks/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "blocks example (c0251): one circuit written once and used twice, authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/blocks/design.lock"
+origin = "authored"
+corpus_id = ""
+notes = "the committed design lock of examples/blocks (c0251), written by fenolite build"
+
+[[file]]
+path = "tests/data/catalog/golden.json"
+origin = "authored"
+corpus_id = ""
+notes = "golden digests of the shipped catalog (c0259), written by tools/catalog/golden.py from the Python catalog before its move to data files"
+
+[[file]]
+path = "examples/catalog/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "catalog example of change c0259: a linear supply built from the built-in catalog alone"
+
+[[file]]
+path = "tests/data/library/pins/two_pin.toml"
+origin = "authored"
+corpus_id = ""
+notes = "library record of change c0259, authored for Fenolite; illustrative, not a real product"
+
+[[file]]
+path = "tests/data/library/packages/two_pad.toml"
+origin = "authored"
+corpus_id = ""
+notes = "library record of change c0259, authored for Fenolite; illustrative, not a real product"
+
+[[file]]
+path = "tests/data/library/devices/example_reg.toml"
+origin = "authored"
+corpus_id = ""
+notes = "library record of change c0259, authored for Fenolite; illustrative, not a real product"
+
+[[file]]
+path = "tests/data/library/parts/example_reg_grade.toml"
+origin = "authored"
+corpus_id = ""
+notes = "library record of change c0259, authored for Fenolite; illustrative, not a real product"
+
+[[file]]
+path = "examples/devices/devices/pins/buck_6pin.toml"
+origin = "authored"
+corpus_id = ""
+notes = "library record of change c0259, authored for Fenolite; illustrative, not a real product"
+
+[[file]]
+path = "examples/devices/devices/pins/test_point.toml"
+origin = "authored"
+corpus_id = ""
+notes = "library record of change c0259, authored for Fenolite; illustrative, not a real product"
+
+[[file]]
+path = "examples/devices/devices/packages/test_pad.toml"
+origin = "authored"
+corpus_id = ""
+notes = "library record of change c0259, authored for Fenolite; illustrative, not a real product"
+
+[[file]]
+path = "examples/devices/devices/parts/exb6202_automotive.toml"
+origin = "authored"
+corpus_id = ""
+notes = "library record of change c0259, authored for Fenolite; illustrative, not a real product"
+
+[[file]]
+path = "tests/data/pins/example_buck.toml"
+origin = "authored"
+corpus_id = ""
+notes = "pin table of an illustrative regulator with one stacked pad and one variant (change c0261)"
+
+[[file]]
+path = "tests/data/pins/example_dual.toml"
+origin = "authored"
+corpus_id = ""
+notes = "pin table of an illustrative dual buffer with explicit units, alternates, a hidden pin and a variant (change c0261)"
+
+[[file]]
+path = "examples/symbols/pins/EXB6202.toml"
+origin = "authored"
+corpus_id = ""
+notes = "pin table of the illustrative regulator of examples/symbols (change c0261)"
+
+[[file]]
+path = "examples/symbols/pins/EXM120.toml"
+origin = "authored"
+corpus_id = ""
+notes = "pin table of an illustrative 120-pin microcontroller, split into three units (change c0261)"
+
+[[file]]
+path = "examples/symbols/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design script of examples/symbols: two symbols generated from pin tables (change c0261)"
+
+[[file]]
+path = "tests/data/import_python/src/two_sheet.py"
+origin = "authored"
+corpus_id = ""
+notes = "input script of the import tests (c0275): two channels of a resistor and an LED in modules, authored for Fenolite"
+
+[[file]]
+path = "tests/data/import_python/src/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of the import test script (c0275): the authored mini library of tests/data/libs"
+
+[[file]]
+path = "tests/data/import_python/src/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of the import test script (c0275): the authored mini library of tests/data/libs"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/two_sheet.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "board of the import test source (c0275), written by the build of tests/data/import_python/src/two_sheet.py; a test keeps it a fresh build"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/two_sheet.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "root schematic of the same build (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/two_sheet.kicad_pro"
+origin = "authored"
+corpus_id = ""
+notes = "project file of the same build (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/two_sheet.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "custom rules of the same build (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/sheets/ch1.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "sheet ch1 of the same build (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/sheets/ch2.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "sheet ch2 of the same build (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of the same build (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of the same build (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/lib/Mini.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "symbols the same build copied from the authored mini library (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "footprint the same build copied from the authored mini library (c0275)"
+
+[[file]]
+path = "tests/data/import_python/two_sheet/lib/Mini.pretty/Mini_R_0603.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "footprint the same build copied from the authored mini library (c0275)"
+
+[[file]]
+path = "examples/import_python/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): the design code fenolite import writes from tests/data/import_python/two_sheet (CC0); a test keeps it a fresh import"
+
+[[file]]
+path = "examples/import_python/copper.py"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): the copper tables of the same import"
+
+[[file]]
+path = "examples/import_python/design.lock"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): the design lock of the same import"
+
+[[file]]
+path = "examples/import_python/PROVENANCE.json"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): the provenance record of the same import"
+
+[[file]]
+path = "examples/import_python/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): the footprint table of the same import"
+
+[[file]]
+path = "examples/import_python/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): the symbol table of the same import"
+
+[[file]]
+path = "examples/import_python/lib/Mini.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): the symbols the import vendored (drawn by Fenolite from pad numbers)"
+
+[[file]]
+path = "examples/import_python/lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): a footprint the import vendored from the authored source"
+
+[[file]]
+path = "examples/import_python/lib/Mini.pretty/Mini_R_0603.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): a footprint the import vendored from the authored source"
+
+[[file]]
+path = "examples/relative/pads.py"
+origin = "authored"
+corpus_id = ""
+notes = "c0255 placement in code example"
+
+[[file]]
+path = "examples/relative/blocks.py"
+origin = "authored"
+corpus_id = ""
+notes = "c0255 placement in code example"
+
+[[file]]
+path = "examples/relative/blocks.lock"
+origin = "authored"
+corpus_id = ""
+notes = "c0255 placement in code example"
+
+[[file]]
+path = "examples/relative/channel.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "c0255 placement in code example"
+
+[[file]]
+path = "examples/relative/bench/channel.py"
+origin = "authored"
+corpus_id = ""
+notes = "c0255 placement in code example"
+
+[[file]]
+path = "examples/relative/bench/channel.lock"
+origin = "authored"
+corpus_id = ""
+notes = "the committed design lock of examples/relative/bench (c0255, lock of c0249), written by fenolite build"
+
+[[file]]
+path = "examples/drawn/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design script of the drawn schematic fixture examples/drawn (c0276; authored for Fenolite)"
+
+[[file]]
+path = "examples/drawn/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of the drawn fixture examples/drawn naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "examples/drawn/schematic.toml"
+origin = "authored"
+corpus_id = ""
+notes = "drawn schematic (fenolite.drawn-schematic.v0) of the fixture examples/drawn (c0276; authored for Fenolite)"
+
+[[file]]
+path = "examples/drawn/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of the drawn fixture examples/drawn naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/bus/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design script of the drawn schematic fixture bus (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/bus/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of the drawn fixture bus naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/bus/schematic.toml"
+origin = "authored"
+corpus_id = ""
+notes = "drawn schematic (fenolite.drawn-schematic.v0) of the fixture bus (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/bus/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of the drawn fixture bus naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/flat/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design script of the drawn schematic fixture flat (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/flat/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of the drawn fixture flat naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/flat/schematic.toml"
+origin = "authored"
+corpus_id = ""
+notes = "drawn schematic (fenolite.drawn-schematic.v0) of the fixture flat (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/flat/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of the drawn fixture flat naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/full/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design script of the drawn schematic fixture full (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/full/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of the drawn fixture full naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/full/schematic.toml"
+origin = "authored"
+corpus_id = ""
+notes = "drawn schematic (fenolite.drawn-schematic.v0) of the fixture full (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/full/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of the drawn fixture full naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/hier/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design script of the drawn schematic fixture hier (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/hier/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of the drawn fixture hier naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/hier/schematic.toml"
+origin = "authored"
+corpus_id = ""
+notes = "drawn schematic (fenolite.drawn-schematic.v0) of the fixture hier (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/hier/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of the drawn fixture hier naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/repeat/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design script of the drawn schematic fixture repeat (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/repeat/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table of the drawn fixture repeat naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "tests/data/drawn/repeat/schematic.toml"
+origin = "authored"
+corpus_id = ""
+notes = "drawn schematic (fenolite.drawn-schematic.v0) of the fixture repeat (c0276; authored for Fenolite)"
+
+[[file]]
+path = "tests/data/drawn/repeat/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table of the drawn fixture repeat naming the authored mini library through ${KIPRJMOD} (c0276)"
+
+[[file]]
+path = "examples/sensor_rails/good.py"
+origin = "authored"
+corpus_id = ""
+notes = "rails example of change c0252, the good variant: every rail, logic level and pull-up passes circuit.rules; authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/sensor_rails/good.lock"
+origin = "authored"
+corpus_id = ""
+notes = "the committed design lock of examples/sensor_rails/good.py (c0252, lock of c0249), written by fenolite build"
+
+[[file]]
+path = "examples/sensor_rails/bad.py"
+origin = "authored"
+corpus_id = ""
+notes = "rails example of change c0252, the bad variant: an overloaded rail and a pull-up to the wrong rail; authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/sensor_rails/rails/__init__.py"
+origin = "authored"
+corpus_id = ""
+notes = "package marker of the board module of examples/sensor_rails (c0252)"
+
+[[file]]
+path = "examples/sensor_rails/rails/board.py"
+origin = "authored"
+corpus_id = ""
+notes = "the sensor board shared by the two variants of examples/sensor_rails (c0252), authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/sensor_rails/devices/example_fan.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative device record with interface parameters of examples/sensor_rails (c0252), authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/sensor_rails/devices/example_mcu.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative device record with interface parameters of examples/sensor_rails (c0252), authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/sensor_rails/devices/example_regulator.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative device record with interface parameters of examples/sensor_rails (c0252), authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/sensor_rails/devices/example_sensor.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative device record with interface parameters of examples/sensor_rails (c0252), authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/picks/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "parametric-pick example of change c0254: passives by value and a generator, authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/picks/design.lock"
+origin = "authored"
+corpus_id = ""
+notes = "the committed design lock of examples/picks/design.py with its [picks] (c0254), written by fenolite build"
+
+[[file]]
+path = "examples/picks/divider.py"
+origin = "authored"
+corpus_id = ""
+notes = "parametric-pick example of change c0254: a voltage divider generator, authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/picks/divider.lock"
+origin = "authored"
+corpus_id = ""
+notes = "the committed design lock of examples/picks/divider.py with its [picks] (c0254), written by fenolite build"
+
+[[file]]
+path = "examples/picks/devices/caps.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative project family of examples/picks (c0254), authored for Fenolite; not a real product line"
+
+[[file]]
+path = "examples/picks/devices/caps_50v.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative project family of examples/picks (c0254), authored for Fenolite; not a real product line"
+
+[[file]]
+path = "examples/picks/rows.csv"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative proposal rows of fenolite pick --propose in examples/picks (c0254), authored for Fenolite"
+
+[[file]]
+path = "examples/circuit/sensor/bad.py"
+origin = "authored"
+corpus_id = ""
+notes = "example file of change c0253, authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/circuit/sensor/contract_board/__init__.py"
+origin = "authored"
+corpus_id = ""
+notes = "example file of change c0253, authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/circuit/sensor/contract_board/board.py"
+origin = "authored"
+corpus_id = ""
+notes = "example file of change c0253, authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/circuit/sensor/devices/example_buck_18v.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative library record of the example of change c0253, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/circuit/sensor/devices/example_cap_16v.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative library record of the example of change c0253, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/circuit/sensor/devices/example_cap_50v.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative library record of the example of change c0253, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/circuit/sensor/devices/example_ind_1a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative library record of the example of change c0253, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/circuit/sensor/devices/example_ind_3a.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative library record of the example of change c0253, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/circuit/sensor/devices/example_load.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative library record of the example of change c0253, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/circuit/sensor/devices/example_res_100mw.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative library record of the example of change c0253, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/circuit/sensor/good.py"
+origin = "authored"
+corpus_id = ""
+notes = "example file of change c0253, authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/circuit/sensor/requirements.toml"
+origin = "authored"
+corpus_id = ""
+notes = "example file of change c0253, authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/pins/design.lock"
+origin = "authored"
+corpus_id = ""
+notes = "the committed design lock of examples/pins/design.py (c0257), written by fenolite build"
+
+[[file]]
+path = "examples/pins/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "example file of change c0257, authored for Fenolite (CC0)"
+
+[[file]]
+path = "examples/pins/devices/example_debug_header.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative library record of the example of change c0257, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/pins/devices/example_mcu_qfn32.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative library record of the example of change c0257, authored for Fenolite; not a real product"
+
+[[file]]
+path = "examples/pins/devices/example_sensor.toml"
+origin = "authored"
+corpus_id = ""
+notes = "illustrative library record of the example of change c0257, authored for Fenolite; not a real product"

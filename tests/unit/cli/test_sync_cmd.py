@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """``fenolite sync --to-source`` (capability cli-contract, "Sync command"; design-dsl, "Placements file in a
-build"; change c0069). Each test works on a copy of the blink built into ``tmp_path``."""
+build"; changes c0069 and c0250). Each test works on a copy of the blink built into ``tmp_path``."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from fenolite.backends.kicad.sch import read_schematic
 from fenolite.cli.cmd_build import MINIMAL
 from fenolite.cli.cmd_sync import COMMAND, EXAMPLE_SYNC_OUT
 from fenolite.dsl import BOARD_ORIGIN
-from fenolite.lens.placements import read_placements
+from fenolite.lens.edits import read_edits
 from fenolite.lens.schplacements import read_placements as read_symbol_placements
 
 MM = 1_000_000
@@ -32,6 +32,10 @@ def isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
 
 def source(p: Project) -> Path:
+    return p.script.parent / "edits.toml"
+
+
+def legacy(p: Project) -> Path:
     return p.script.parent / "placements.toml"
 
 
@@ -59,12 +63,14 @@ def test_placements_written_beside_the_script(tmp_path: Path, monkeypatch: pytes
     code, env, err = p.run("sync", *SYNC, "--confirm")
     assert code == 0, err
     assert [w["path"] for w in env["receipt"]["written"]] == [str(source(p)), str(symbols(p))]  # type: ignore[index]
-    entries = read_placements(source(p).read_text(encoding="utf-8"), origin=BOARD_ORIGIN).entries
-    assert list(entries) == ["D1", "R1", "U1"]
-    assert entries["D1"].at.x == placed.position.x + D1_SHIFT  # type: ignore[attr-defined]
+    parts = read_edits(source(p).read_text(encoding="utf-8"), origin=BOARD_ORIGIN).parts
+    assert list(parts) == ["D1"]
+    assert parts["D1"].values["position"][0] == placed.position.x + D1_SHIFT  # type: ignore[attr-defined, index]
+    assert parts["D1"].over == {"position": (placed.position.x, placed.position.y)}  # type: ignore[attr-defined]
     result = env["result"]
-    assert result["placements"] == 3 and result["symbols"] == 3  # type: ignore[index]
-    assert result["files"] == ["placements.toml", "schematic-placements.toml"]  # type: ignore[index]
+    assert result["placements"] == 1 and result["symbols"] == 3  # type: ignore[index]
+    assert result["edits"] == ["D1#position"]  # type: ignore[index]
+    assert result["files"] == ["edits.toml", "schematic-placements.toml"]  # type: ignore[index]
     assert result["board"] == "blink.kicad_pcb"  # type: ignore[index]
     assert env["evidence"]["level"] == "INFERRED" and env["issues"] == []  # type: ignore[index]
 
@@ -86,7 +92,7 @@ def test_mutation_protocol(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
     # a changed board is written again, with a backup of the committed file
     p.edit_board(lambda t: move_footprint(t, "R1", MM, 0))
     code, env, _ = p.run("sync", *SYNC, "--confirm")
-    assert code == 0 and source(p).with_name("placements.toml.bak").is_file()
+    assert code == 0 and source(p).with_name("edits.toml.bak").is_file()
 
 
 def test_stale_file_found_by_check(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -96,7 +102,7 @@ def test_stale_file_found_by_check(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     code, env, _ = p.run("sync", *SYNC, "--check")
     assert code == 5 and source(p).read_bytes() == before
     (found,) = [i for i in env["issues"] if i["code"] == "sync.would-change"]  # type: ignore[union-attr,index]
-    assert found["where"] == "placements.toml" and 'part."R1"' in found["message"]
+    assert found["where"] == "edits.toml" and 'part."R1"' in found["message"]
     assert found["severity"] == "error" and "plan" not in env["result"]  # type: ignore[operator]
 
 
@@ -110,7 +116,7 @@ def test_check_without_a_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     p = Project(tmp_path, monkeypatch)
     code, env, _ = p.run("sync", *SYNC, "--check")
     assert code == 5 and codes(env) == ["sync.would-change"] * 2 and not source(p).exists()
-    assert [i["where"] for i in env["issues"]] == ["placements.toml", "schematic-placements.toml"]  # type: ignore[union-attr,index]
+    assert [i["where"] for i in env["issues"]] == ["edits.toml", "schematic-placements.toml"]  # type: ignore[union-attr,index]
 
 
 def test_usage_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -144,6 +150,10 @@ def test_complement_issues_through_the_command(tmp_path: Path, monkeypatch: pyte
     code, env, _ = p.run("sync", *SYNC, "--dry-run")
     assert code == 0 and codes(env) == ["sync.net-dropped"]
     p.edit_script('value="330"', 'value="4k7"')
+    code, env, _ = p.run("sync", *SYNC, "--dry-run")
+    # with a base record the changed script is a pending change, which the next build writes (c0250)
+    assert codes(env) == ["sync.net-dropped"] and env["result"]["pending"] == ["R1#value"]  # type: ignore[index]
+    (p.out / "fenolite-base.json").unlink()
     code, env, _ = p.run("sync", *SYNC, "--dry-run")
     assert sorted(codes(env)) == ["sync.net-dropped", "sync.value-differs"]
 
@@ -211,7 +221,7 @@ def test_no_schematic_no_symbol_file(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert p.run("build", "--schematic", "skip", "--confirm", out=skipped)[0] == 0
     code, env, err = p.run("sync", *SYNC, "--dry-run", out=skipped)
     assert code == 0, err
-    assert env["result"]["symbols"] is None and env["result"]["files"] == ["placements.toml"]  # type: ignore[index]
+    assert env["result"]["symbols"] is None and env["result"]["files"] == ["edits.toml"]  # type: ignore[index]
 
 
 # -- the file in a build ("Placements file in a build")
@@ -220,7 +230,7 @@ def test_no_schematic_no_symbol_file(tmp_path: Path, monkeypatch: pytest.MonkeyP
 def test_file_places_a_part(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     p = Project(tmp_path, monkeypatch)
     p.edit_script("r1.place(mm(32), mm(9))\n", "")
-    source(p).write_text('schema = "fenolite.placements.v0"\n[part."R1"]\nx = 20\ny = 10\n', encoding="utf-8")
+    legacy(p).write_text('schema = "fenolite.placements.v0"\n[part."R1"]\nx = 20\ny = 10\n', encoding="utf-8")
     fresh = tmp_path / "fresh"
     code, env, err = p.run("build", "--confirm", out=fresh)
     assert code == 0, err
@@ -248,13 +258,13 @@ def test_file_survives_a_discarded_layout(tmp_path: Path, monkeypatch: pytest.Mo
     assert not set(EDIT_UUIDS) & {t.native_ids["kicad"] for t in design.board.tracks}
     overridden = [i["where"] for i in env["issues"] if i["code"] == "layout.place-overridden"]  # type: ignore[union-attr,index]
     assert overridden == ["D1"]
-    assert env["result"]["preserved"]["source"]["used"] == ["D1", "R1"]  # type: ignore[index]
+    assert env["result"]["preserved"]["source"]["used"] == ["D1"]  # type: ignore[index]
 
 
 def test_invalid_file_stops_the_build(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     p = Project(tmp_path, monkeypatch)
     before = p.files()
-    source(p).write_text(
+    legacy(p).write_text(
         'schema = "fenolite.placements.v0"\n[part."R1"]\nx = 1\ny = 2\nside = "left"\n', encoding="utf-8"
     )
     code, env, _ = p.build("--confirm")
@@ -265,26 +275,27 @@ def test_invalid_file_stops_the_build(tmp_path: Path, monkeypatch: pytest.Monkey
 
 def test_broken_file_exits_3(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     p = Project(tmp_path, monkeypatch)
-    source(p).write_text('[part."R1"]\nx = 1\ny = 2\n', encoding="utf-8")
+    legacy(p).write_text('[part."R1"]\nx = 1\ny = 2\n', encoding="utf-8")
     code, _, err = p.build("--dry-run")
     assert code == 3 and json.loads(err)["code"] == "FEN-3004" and "placements.toml" in err
 
 
 def test_stale_and_unknown_entries_in_a_build(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     p = synced(tmp_path, monkeypatch)
-    p.edit_board(lambda t: move_footprint(t, "R1", MM, 0))
+    assert p.build(*COPPER_WARN, "--confirm")[0] == 0  # the build records the synced edit in its base
+    p.edit_board(lambda t: move_footprint(t, "D1", MM, 0))
     text = source(p).read_text(encoding="utf-8")
-    source(p).write_text(text + '\n[part."R9"]\nx = 1\ny = 2\n', encoding="utf-8")
+    source(p).write_text(text + '\n[part."R9"]\nx = 1\ny = 2\n\n[part."R9".over]\nunplaced = true\n', "utf-8")
     code, env, err = p.build(*COPPER_WARN, "--confirm")
     assert code == 0, err
     preserved = env["result"]["preserved"]["source"]  # type: ignore[index]
-    assert preserved == {"file": "placements.toml", "used": [], "stale": ["R1"], "unknown": ["R9"]}
+    assert preserved == {"file": "edits.toml", "used": [], "stale": ["D1"], "unknown": ["R9"]}
     assert {"layout.source-stale", "layout.source-unknown"} <= set(codes(env))
 
 
 def test_altium_build_places_from_the_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     p = Project(tmp_path, monkeypatch)
-    source(p).write_text('schema = "fenolite.placements.v0"\n[part."R1"]\nx = 20\ny = 10\n', encoding="utf-8")
+    legacy(p).write_text('schema = "fenolite.placements.v0"\n[part."R1"]\nx = 20\ny = 10\n', encoding="utf-8")
     code, env, err = p.run("build", "--target", "altium", "--dry-run", out=tmp_path / "A")
     assert code == 0, err
     overridden = [i["where"] for i in env["issues"] if i["code"] == "layout.place-overridden"]  # type: ignore[union-attr,index]
@@ -307,13 +318,11 @@ def test_a_hole_in_the_placements_file(tmp_path: Path, monkeypatch: pytest.Monke
     )
     code, _, err = p.build("--confirm")
     assert code == 0, err
-    code, _, err = p.run("sync", *SYNC, "--confirm")
+    code, env, err = p.run("sync", *SYNC, "--confirm")
     assert code == 0, err
+    # the holes stand where the script places them: edits.toml holds no table for them (c0250)
     text = source(p).read_text(encoding="utf-8")
-    assert '[part."H1"]' in text and '[part."H2"]' in text
-    entries = read_placements(text, origin=BOARD_ORIGIN).entries
-    assert entries["H1"].locked and entries["H2"].locked  # type: ignore[attr-defined]
-    assert entries["H1"].at == footprint(p.read(), "H1")[0].position  # type: ignore[attr-defined]
+    assert '[part."H1"]' not in text and '[part."H2"]' not in text
     code, env, err = p.build("--confirm")
     assert code == 0, err
     named = [i for i in env["issues"] if "H1" in i["message"] or "H2" in i["message"]]  # type: ignore[union-attr, index]
@@ -349,3 +358,57 @@ def test_example_folder_is_a_fresh_build(tmp_path: Path, monkeypatch: pytest.Mon
         if p.is_file() and ".fenolite" not in p.parts
     }
     assert held == built
+
+
+# -- edits and conflicts (change c0250)
+
+
+def test_value_edit_recorded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from _layout_edit import edit_properties
+
+    p = Project(tmp_path, monkeypatch)
+    p.edit_board(lambda t: edit_properties(t, None, {"R1": {"value": "4k7"}})[0] or t)
+    code, env, err = p.run("sync", *SYNC, "--confirm")
+    assert code == 0, err
+    parts = read_edits(source(p).read_text(encoding="utf-8"), origin=BOARD_ORIGIN).parts
+    assert parts["R1"].values == {"value": "4k7"} and parts["R1"].over == {"value": "330"}
+    assert "H-K-EDIT-SCH-VALUE" in env["evidence"]["hypotheses"]  # type: ignore[index]
+    # the next build applies the recorded edit: no edit.unrecorded
+    code, env, err = p.build("--confirm")
+    assert code == 0 and "edit.unrecorded" not in codes(env), err
+
+
+def test_conflict_found_by_check(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from _layout_edit import edit_properties
+
+    p = synced(tmp_path, monkeypatch)
+    before = source(p).read_bytes()
+    p.edit_board(lambda t: edit_properties(t, None, {"R1": {"value": "4k7"}})[0] or t)
+    p.edit_script('value="330"', 'value="470"')
+    code, env, _ = p.run("sync", *SYNC, "--check")
+    assert code == 5 and source(p).read_bytes() == before
+    (conflict,) = [i for i in env["issues"] if i["code"] == "sync.conflict"]  # type: ignore[union-attr,index]
+    assert conflict["where"] == "R1#value"  # type: ignore[index]
+    code, env, _ = p.run("sync", *SYNC, "--confirm")
+    assert code == 5 and source(p).read_bytes() == before
+
+
+def test_take_is_a_build_option(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    p = Project(tmp_path, monkeypatch)
+    code, _, err = p.run("sync", *SYNC, "--take", "cad", "--dry-run")
+    error = json.loads(err)
+    assert code == 2 and error["code"] == "FEN-2001" and "fenolite build --take" in error["hint"]
+
+
+def test_legacy_placements_migrated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    p = Project(tmp_path, monkeypatch)
+    p.edit_board(edit_blink)
+    legacy(p).write_text(
+        '# Written by fenolite sync --to-source.\nschema = "fenolite.placements.v0"\n\n'
+        '[part."D1"]\nx = 42\ny = 20\nrotation = 0\nside = "bottom"\nlocked = false\n',
+        encoding="utf-8",
+    )
+    code, env, err = p.run("sync", *SYNC, "--confirm")
+    assert code == 0, err
+    assert "sync.placements-migrated" in codes(env) and source(p).is_file()
+    assert legacy(p).is_file(), "sync never writes or removes placements.toml"

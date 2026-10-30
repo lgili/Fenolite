@@ -1,7 +1,7 @@
 ---
 topic: placement
 title: Placing parts
-summary: place() in the script, staged parts and the grid strategy, moving a part on the board, copying a block by its pads, where the pads are, and text fields.
+summary: place() by coordinates or by reference, staged parts and the grid strategy, moving parts on the board, copying a block by its pads, pads and text fields.
 ---
 
 # Placing parts
@@ -55,6 +55,10 @@ design.tooling_hole("TH1", mm(27.5), mm(2.5), drill=mm(2))
   the outline's top-left corner, Y down, and they position the footprint's own origin. `rot` is the
   footprint's angle in degrees, as KiCad stores it. `side` is `top` or `bottom`.
 - **`locked=True`** is the placement lock: `fenolite place` refuses to move the part (`place.locked`).
+- **By reference:** `c2.place(right_of=u1, gap=mm(1))`, `c1.place(left_of=u1.pad(1), by=c1.pad(2))`,
+  `j1.place(left=board.left + mm(2), center_y=board.center_y)`, with `above`, `below` and `align=`; the
+  build resolves them (`result.placement.relative`). Who wins: locked `place()`, the board, `edits.toml`,
+  `place()`, the block's `layout()`, staging (page `board-floorplan`).
 - **A part without `place()`** is staged: the build puts it in a row 5 mm to the right of the outline
   and reports `layout.unplaced` (warning). `result.staged` of `build` lists these parts.
 - **`design.near(key, parts, anchor, within=…)`** is a placement rule: each part of `parts` keeps a

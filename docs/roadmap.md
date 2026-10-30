@@ -2,7 +2,7 @@
 
 ## Current status — 2026-10-29
 
-**Released: 0.5.0. Prepared: 0.6.0 (change c0242), waiting for the maintainer's verdict, merge and tag.**
+**Released: 0.6.0 (tag `v0.6.0`, 2026-10-29; PyPI and the GitHub Release by the release workflow). In development: `0.7.0.dev0`.**
 By the maintainer's decision of 2026-10-29 the v1.0 freeze (c0216 to c0220) is held, and `0.6.0` ships what
 `dev` implemented after `0.5.0`: the MCP server and `fenolite edit` (c0195, c0196), the board engineering
 tools of c0175 in their own changes (c0197 to c0214, c0223 to c0229), computed Altium pours (c0215,
@@ -523,10 +523,11 @@ and `docs/evidence/altium-kit/2026-10-13-87c930fa-publication.md`.
 | 2 | netlist (`REF-PIN`) | v0.3 read; delivered by c0045 (`docs/equivalence.md`) |
 | 3 | footprints and pads | v0.3 read; delivered by c0045 (`docs/equivalence.md`) |
 | 4 | placement | v0.3 read; delivered by c0045 (`docs/equivalence.md`) |
-| 5 | routing (per net: the pads joined, the vias, the length per layer) | v0.3 write; delivered by c0089 (`docs/equivalence.md`, "Level 5: routing") |
-| 6 | rules | v0.6 |
-| 7 | geometry (XOR) | v0.6 |
-| 8 | presentation | after 1.0 |
+| 5 | routing (per net: the pads joined, the vias, the length per layer) | v0.3 write; delivered by c0089 (`docs/equivalence.md`, "Level 5: routing"); its strict rule (item by item) by c0278 |
+| 6 | rules | delivered by c0278 (`docs/equivalence.md`, "Level 6: rules") |
+| 7 | geometry (normalised rings, zones by outline) | delivered by c0278 (`docs/equivalence.md`, "Level 7: exact geometry") |
+| 8 | presentation (rendered layers) | delivered by c0278 (`docs/equivalence.md`, "Level 8: presentation") |
+| S | drawn schematics | delivered by c0278 once c0276 lands (`docs/equivalence.md`, "Levels") |
 
 ## v0.4: the agent track, board authoring and the complex board
 

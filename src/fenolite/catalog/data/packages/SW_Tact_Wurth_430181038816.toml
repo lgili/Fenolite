@@ -1,0 +1,57 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:SW_Tact_Wurth_430181038816"
+version = "1.0.0"
+summary = "Wurth 4.5 mm SMT tact switch, terminals 1-2 and 3-4 internally common"
+category = "Switch land"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0417"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["2mm", "1.4mm"]
+at = ["-3.5mm", "1.5mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["2mm", "1.4mm"]
+at = ["3.5mm", "1.5mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "3"
+shape = "rect"
+size = ["2mm", "1.4mm"]
+at = ["-3.5mm", "-1.5mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "4"
+shape = "rect"
+size = ["2mm", "1.4mm"]
+at = ["3.5mm", "-1.5mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-2.25mm", "-2.25mm"], ["2.25mm", "2.25mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-5mm", "-2.75mm"], ["5mm", "2.75mm"]]
+width = "0.05mm"
+
+[[graphic]]
+key = "actuator"
+kind = "circle"
+layer = "F.Fab"
+points = [["0mm", "0mm"], ["1.25mm", "0mm"]]
+width = "0.1mm"

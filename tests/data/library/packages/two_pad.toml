@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as test data (change c0259).
+schema = "fenolite.package.v0"
+id = "Proj:Two_Pad"
+version = "1.0.0"
+summary = "Two-pad test land"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"
+generator = "explicit"
+kind = "smd"
+body = { length = "1.6mm", width = "0.8mm" }
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["0.9mm", "1mm"]
+at = ["-0.8mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["0.9mm", "1mm"]
+at = ["0.8mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-1.5mm", "-0.75mm"], ["1.5mm", "0.75mm"]]
+width = "0.05mm"

@@ -369,7 +369,7 @@ whose name does not match the numbers of its record:
   Pads keep the 0.6 id rule; graphics and bodies use `derived_id` over the lib id and a role name;
   iteration orders are fixed (pads by numbering order, graphics by layer then role).
 - The stamp (`gullwing/1 lands/1 drawing/1 nominal`, or `... manufacturer ...`) is the start of the
-  description's second sentence and of `Generated.stamp`. c0249's lock and c0266's packs can record it;
+  description's second sentence and of `Generated.stamp`. c0249's lock and c0279's library items can record it;
   a change of stamp with the same name is a library change that c0262 reports.
 
 ### 16. Catalog migration
@@ -389,7 +389,7 @@ USB connector) stay explicit pad lists of c0259 and are not generated.
   defaults to `Local`. It writes all files or none, through plan and confirm, with a receipt.
 - **Verb dispatch.** `fenolite library` keeps its c0223 form: a first argument that is not a verb is a
   board path. The verbs are `generate` here and those later changes add (`check` c0262, `import` c0264,
-  `propose` and `review` c0265, `fetch` c0266). A board path literally named `generate` is written
+  `propose` and `review` c0265, `seed` c0266, `audit`, `replay`, `release` and `gallery` c0279). A board path literally named `generate` is written
   `./generate`. *Alternative:* a new top-level command `fenolite package`; rejected, the batch groups
   library work under one command.
 - Result (`result.packages[]`): `name`, `family`, `id`, `stamp`, `land` (`source`, `z`, `g`, `x`, pad

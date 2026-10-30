@@ -2794,11 +2794,15 @@ The copper guard of `build` (`design-dsl`, "Copper guard before writing") SHALL 
 - **THEN** every via lies inside both outlines, at least two are written, and none comes nearer other copper than the clearance
 
 ### Requirement: Generated copper codes
-The codes `kicad.generate.altium`, `unknown`, `off-board`, `no-hole`, `no-plan`, `no-zone`, `size-missing`, `pieces`, `name-taken`, `crossing` (error), `unplaced`, `band-narrow`, `encloses` and `stitch-short` (warning) SHALL be the table `GENERATE_ISSUE_CODES` of `fenolite.backends.kicad.generate`, each explained by `fenolite explain`. An error of a call MUST create nothing for that call and stop the build's write.
+The codes `kicad.generate.altium`, `unknown`, `off-board`, `no-hole`, `no-plan`, `no-zone`, `size-missing`, `pieces`, `name-taken`, `crossing` (error), `unplaced`, `band-narrow`, `encloses` and `stitch-short` (warning) SHALL be the table `GENERATE_ISSUE_CODES` of `fenolite.backends.kicad.generate`, each explained by `fenolite explain`. An error of a call MUST create nothing for that call and stop the build's write. `kicad.generate.altium` MUST be given only with `--copper-from`.
 
 #### Scenario: Every code is explained
 - **WHEN** `uv run pytest tests/unit/cli/test_explain_cmd.py` runs
 - **THEN** every `kicad.generate.*` code has an entry
+
+#### Scenario: Generated copper reaches Altium
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_generated.py` builds a blink variant with `band` and `stitch_pieces` for `--target altium --dry-run`, then again with `--copper-from` a KiCad build
+- **THEN** the first exits 0 with the band's polygon and vias in `result.copper`, and the second exits 5 with `kicad.generate.altium`
 
 ### Requirement: Net roles in the DSL
 `Design` SHALL offer `net_role(net, kind, *, current=None, voltage=None, sensitive=False)`, `hot_loop(name, pads)`, `kelvin(name, element, receiver, force=())`, `gate_loop(name, drive, gate, source, ret, resistor=())`, `role_limits(*, net=None, kind=None, **limits)` and `part_class(part, cls, terminals=None)`. The calls MUST record plain data, which the build resolves after placement and stores as `declared`. A bad kind, key, unit or pad, or a name used twice, MUST raise `DslError`.
@@ -2811,3 +2815,17 @@ The codes `kicad.generate.altium`, `unknown`, `off-board`, `no-hole`, `no-plan`,
 #### Scenario: A pad of another part is refused
 - **WHEN** a script calls `design.kelvin("i", element=(r1.pad(1), r2.pad(2)), receiver=(u1.pad("IN+"), u1.pad("IN-")))`
 - **THEN** `DslError` names `kelvin() 'i'` and says that both element pads must belong to one part
+
+### Requirement: Role copper in the DSL
+`Design.role_copper(*, kinds=…, layers=None, ground_layers=None, ground_fill="reference", connection=None, stitch_pitch=None, temp_rise=None, widen=None, corridors=True, keep=(), regenerate=(), requirements=None)` SHALL record plain data, returned by `fenolite.dsl.role_copper(design)`. A second call, an unknown kind, mode or layer MUST raise `DslError`. The build MUST resolve it after the roles, script copper and generated records.
+
+#### Scenario: Recorded and built
+- **WHEN** `uv run pytest tests/unit/dsl/test_role_copper.py` records valid and invalid calls and builds `examples/roles/buck_shunt/good_roles.py` for KiCad
+- **THEN** `role_copper(design)` holds the record, a second call or `kinds=("motor",)` raises `DslError`, and the board holds locked zones whose names start with `role.`
+
+### Requirement: Requirements file of the role copper
+`role_copper(requirements=…)` SHALL name a requirements file beside the script, whose distance rows the build's role-copper planner uses for the high-voltage copper.
+
+#### Scenario: The half-bridge distances
+- **WHEN** `uv run pytest tests/unit/roles/test_copper_hv.py` builds the half-bridge role script, which names `requirements.toml`
+- **THEN** the board holds the barrier `role.hv.VBUS.*` at the file's distance

@@ -1,0 +1,119 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:Header_2x5_P2.54"
+version = "1.0.0"
+summary = "10-position generic 2.54 mm double-row header"
+category = "Through-hole connector"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0409"]
+generator = "explicit"
+kind = "through_hole"
+
+[[pad]]
+number = "1"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-1.27mm", "5.08mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "2"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["1.27mm", "5.08mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "3"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-1.27mm", "2.54mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "4"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["1.27mm", "2.54mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "5"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-1.27mm", "0mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "6"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["1.27mm", "0mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "7"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-1.27mm", "-2.54mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "8"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["1.27mm", "-2.54mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "9"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-1.27mm", "-5.08mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "10"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["1.27mm", "-5.08mm"]
+kind = "thru_hole"
+drill = "1.1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-2.54mm", "-6.35mm"], ["2.54mm", "6.35mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-3.04mm", "-6.85mm"], ["3.04mm", "6.85mm"]]
+width = "0.05mm"
+
+[[graphic]]
+key = "pin1"
+kind = "line"
+layer = "F.Fab"
+points = [["-2.54mm", "5.95mm"], ["-2.14mm", "6.35mm"]]
+width = "0.1mm"

@@ -122,7 +122,7 @@ service `fenolite.suppliers.<source>` when the extra is installed.
   plan and receipt is checked by a test that injects a canary secret and greps every output for it. Query
   strings that carry a key (one source sends it in the URL) are redacted before any message is built.
 - Missing credentials: exit 6, `FEN-6001`, hint naming the variables and the keyring service (never their
-  values). Rejected credentials (HTTP 401 or 403): exit 6, `FEN-6004` (new, not retryable).
+  values). Rejected credentials (HTTP 401 or 403): exit 6, `FEN-6005` (new, not retryable).
 - `fenolite suppliers login` to store a key in the keyring is left out: the keyring's own CLI does it
   (open question 2).
 
@@ -189,7 +189,7 @@ policy, without reading credentials beyond their presence and without a network 
   waits for a token up to `--timeout` (default 30 s) and then fails.
 - HTTP 429: honour `Retry-After` up to the remaining timeout, once, with `supplier.rate-limited`
   (warning); still refused: exit 6, `FEN-6003` (retryable), naming the source.
-- Network errors, timeouts and 5xx: `FEN-6003` (retryable). 401/403: `FEN-6004`. A response that does not
+- Network errors, timeouts and 5xx: `FEN-6003` (retryable). 401/403: `FEN-6005`. A response that does not
   match the documented shape: `FEN-3004` naming the source and the missing key (not retryable).
 - Responses are capped at 4 MiB, redirects are followed only within the policy's host list.
 
@@ -226,7 +226,7 @@ comments). Every supplier test runs with `socket.socket` patched to raise. No te
 | `supplier.unmapped` | info | a reported parameter that maps to no query key (shown, not used) |
 
 They are `fenolite.suppliers.codes.ISSUE_CODES`, explained by `fenolite explain` (heading `suppliers`).
-New `FEN-6004` "supplier refused the credentials" (exit 6, not retryable, hint: check the variables or
+New `FEN-6005` "supplier refused the credentials" (exit 6, not retryable, hint: check the variables or
 the keyring entry named). `FEN-6001` (credentials missing) and `FEN-6003` (request failed, retryable) keep
 their meanings.
 

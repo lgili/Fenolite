@@ -190,7 +190,22 @@ class StitchIntentLike(Protocol):
     def margin(self) -> Nm: ...
 
 
-CopperIntentLike = TrackIntentLike | ViaIntentLike | StitchIntentLike
+class TableIntentLike(Protocol):
+    """A copper table (change c0275): ``table`` is ``track``, ``arc`` or ``via``; ``rows`` hold plain
+    integers in the written board frame, ``(x1, y1, x2, y2)``, ``(sx, sy, mx, my, ex, ey)`` or ``(x, y)``.
+    The sizes a kind does not use are read by attribute."""
+
+    @property
+    def key(self) -> str: ...
+    @property
+    def table(self) -> str: ...
+    @property
+    def net(self) -> str: ...
+    @property
+    def rows(self) -> Sequence[Sequence[int]]: ...
+
+
+CopperIntentLike = TrackIntentLike | ViaIntentLike | StitchIntentLike | TableIntentLike
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-FRAME-UUID", "H-G-FRAME-ROUTE"))
 """``INFERRED``: the two rows cover the routed blink, not every design."""
@@ -789,6 +804,51 @@ def _resolve_via(board: _Board, intent: _ViaPlan) -> Via:
     return _via(key, "via", intent.at, sizes, board, net, kind, span, protection)
 
 
+def _resolve_table(board: _Board, intent: TableIntentLike) -> tuple[list[Track], list[Arc], list[Via]]:
+    """The copper of a table: row ``i`` is the item ``seg[i]``, ``arc[i]`` or ``via[i]`` of its key, so it
+    keeps the uuid a build derives for the same item of a path intent."""
+    key, kind = intent.key, intent.table
+    net = _required_net(board, intent.net, key, f"{kind} table")
+    tracks: list[Track] = []
+    arcs: list[Arc] = []
+    vias: list[Via] = []
+    if kind == "via":
+        sizes = _via_sizes(
+            (getattr(intent, "diameter", None), getattr(intent, "drill", None)), None, net, key
+        )
+        via_kind = _via_kind(intent, key)
+        protection = _via_protection(intent, key)
+        span: tuple[str, str] | None = None
+        named: object = getattr(intent, "layers", None)
+        if via_kind != "through":
+            pair = cast("tuple[str, str]", tuple(cast("Sequence[str]", named or ())))
+            if len(pair) != 2:
+                raise _Refused("kicad.copper.bad-layer", f"{key}: a {via_kind} via names its two layers", key)
+            for layer in pair:
+                _copper_layer(board, layer, key)
+            span = _via_span(board, via_kind, pair[0], pair[1], key)
+        for index, row in enumerate(intent.rows):
+            at = Point(row[0], row[1])
+            vias.append(_via(key, f"via[{index}]", at, sizes, board, net, via_kind, span, protection))
+        return tracks, arcs, vias
+    layer = cast(str, getattr(intent, "layer", ""))
+    _copper_layer(board, layer, key)
+    width = _positive(cast(int, getattr(intent, "width", 0)), "track width", key)
+    for index, row in enumerate(intent.rows):
+        if kind == "track":
+            tracks.append(
+                _track(key, f"seg[{index}]", Point(row[0], row[1]), Point(row[2], row[3]), width, layer, net)
+            )
+        elif kind == "arc":
+            points = (Point(row[0], row[1]), Point(row[2], row[3]), Point(row[4], row[5]))
+            if len(set(points)) < 3 or _on_one_line(*points):
+                raise _Refused("kicad.copper.bad-intent", f"{key}: row {index} does not make an arc", key)
+            arcs.append(_arc(key, f"arc[{index}]", points, width, layer, net))
+        else:
+            raise _Refused("kicad.copper.bad-intent", f"{key}: {kind!r} is not a table kind", key)
+    return tracks, arcs, vias
+
+
 # --- stitching ------------------------------------------------------------------------------------
 
 
@@ -1382,7 +1442,12 @@ def resolve_copper(
                 raise _Refused("kicad.copper.bad-intent", f"{key}: the key is used by an earlier intent", key)
             seen.add(key)
             locked = getattr(intent, "locked", False) is True
-            if hasattr(intent, "path"):
+            if hasattr(intent, "table"):
+                new_tracks, new_arcs, new_vias = _resolve_table(board, cast(TableIntentLike, intent))
+                tracks += _with_lock(new_tracks, locked)
+                arcs += _with_lock(new_arcs, locked)
+                vias += _with_lock(new_vias, locked)
+            elif hasattr(intent, "path"):
                 plan = _plan_track(board, cast(TrackIntentLike, intent))
                 new_tracks, new_arcs, new_vias = _resolve_track(board, plan)
                 tracks += _with_lock(new_tracks, locked)
@@ -1434,6 +1499,7 @@ __all__ = [
     "CopperMerge",
     "PadEndLike",
     "StitchIntentLike",
+    "TableIntentLike",
     "TrackIntentLike",
     "ViaIntentLike",
     "ViaStepLike",

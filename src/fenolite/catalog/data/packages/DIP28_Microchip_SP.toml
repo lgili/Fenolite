@@ -1,0 +1,281 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:DIP28_Microchip_SP"
+version = "1.0.0"
+summary = "28-lead manufacturer body with inferred 7.62 mm through-hole land"
+category = "Through-hole IC"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0407"]
+generator = "explicit"
+kind = "through_hole"
+
+[[pad]]
+number = "1"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.81mm", "16.51mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "2"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.81mm", "13.97mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "3"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.81mm", "11.43mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "4"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.81mm", "8.89mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "5"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.81mm", "6.35mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "6"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.81mm", "3.81mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "7"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.81mm", "1.27mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "8"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.81mm", "-1.27mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "9"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.81mm", "-3.81mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "10"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.81mm", "-6.35mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "11"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.81mm", "-8.89mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "12"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.81mm", "-11.43mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "13"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.81mm", "-13.97mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "14"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-3.81mm", "-16.51mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "15"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.81mm", "-16.51mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "16"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.81mm", "-13.97mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "17"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.81mm", "-11.43mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "18"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.81mm", "-8.89mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "19"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.81mm", "-6.35mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "20"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.81mm", "-3.81mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "21"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.81mm", "-1.27mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "22"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.81mm", "1.27mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "23"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.81mm", "3.81mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "24"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.81mm", "6.35mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "25"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.81mm", "8.89mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "26"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.81mm", "11.43mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "27"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.81mm", "13.97mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "28"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["3.81mm", "16.51mm"]
+kind = "thru_hole"
+drill = "0.9mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-3.7465mm", "-17.78mm"], ["3.7465mm", "17.78mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-5.21mm", "-18.28mm"], ["5.21mm", "18.28mm"]]
+width = "0.05mm"
+
+[[graphic]]
+key = "pin1"
+kind = "line"
+layer = "F.Fab"
+points = [["-3.7465mm", "17.38mm"], ["-3.3465mm", "17.78mm"]]
+width = "0.1mm"

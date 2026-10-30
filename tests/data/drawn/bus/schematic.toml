@@ -1,0 +1,179 @@
+# Drawn schematic of a Fenolite design (docs/drawn-schematic.md). Code owns the nets.
+schema = "fenolite.drawn-schematic.v0"
+root = "root"
+
+[[sheet]]
+key = "root"
+paper = "A4"
+
+[[sheet.symbol]]
+part = "U1"
+unit = 1
+at = [63.5, 76.2]
+rotation = 0
+
+[[sheet.wire]]
+pts = [[76.2, 57.15], [88.9, 57.15]]
+
+[[sheet.wire]]
+pts = [[76.2, 59.69], [88.9, 59.69]]
+
+[[sheet.wire]]
+pts = [[76.2, 62.23], [88.9, 62.23]]
+
+[[sheet.wire]]
+pts = [[76.2, 64.77], [88.9, 64.77]]
+
+[[sheet.bus]]
+pts = [[91.44, 50.8], [91.44, 76.2], [101.6, 76.2]]
+
+[[sheet.bus_entry]]
+at = [88.9, 57.15]
+size = [2.54, -2.54]
+
+[[sheet.bus_entry]]
+at = [88.9, 59.69]
+size = [2.54, -2.54]
+
+[[sheet.bus_entry]]
+at = [88.9, 62.23]
+size = [2.54, -2.54]
+
+[[sheet.bus_entry]]
+at = [88.9, 64.77]
+size = [2.54, -2.54]
+
+[[sheet.label]]
+kind = "local"
+text = "D0"
+at = [81.28, 57.15]
+rotation = 0
+
+[[sheet.label]]
+kind = "local"
+text = "D1"
+at = [81.28, 59.69]
+rotation = 0
+
+[[sheet.label]]
+kind = "local"
+text = "D2"
+at = [81.28, 62.23]
+rotation = 0
+
+[[sheet.label]]
+kind = "local"
+text = "D3"
+at = [81.28, 64.77]
+rotation = 0
+
+[[sheet.label]]
+kind = "local"
+text = "D[0..3]"
+at = [95.25, 76.2]
+rotation = 0
+
+[[sheet.sheet_ref]]
+key = "child"
+sheet = "child"
+module = "child"
+name = "child"
+at = [101.6, 69.85]
+size = [25.4, 15.24]
+page = "2"
+
+[[sheet.sheet_ref.pin]]
+name = "D[0..3]"
+shape = "bidirectional"
+at = [101.6, 76.2]
+rotation = 180
+
+[[sheet]]
+key = "child"
+paper = "A4"
+
+[[sheet.symbol]]
+part = "R10"
+unit = 1
+at = [101.6, 53.34]
+rotation = 90
+
+[[sheet.symbol]]
+part = "R11"
+unit = 1
+at = [101.6, 58.42]
+rotation = 90
+
+[[sheet.symbol]]
+part = "R12"
+unit = 1
+at = [101.6, 63.5]
+rotation = 90
+
+[[sheet.symbol]]
+part = "R13"
+unit = 1
+at = [101.6, 68.58]
+rotation = 90
+
+[[sheet.wire]]
+pts = [[78.74, 53.34], [97.79, 53.34]]
+
+[[sheet.wire]]
+pts = [[78.74, 58.42], [97.79, 58.42]]
+
+[[sheet.wire]]
+pts = [[78.74, 63.5], [97.79, 63.5]]
+
+[[sheet.wire]]
+pts = [[78.74, 68.58], [97.79, 68.58]]
+
+[[sheet.bus]]
+pts = [[63.5, 76.2], [76.2, 76.2], [76.2, 50.8]]
+
+[[sheet.bus_entry]]
+at = [76.2, 50.8]
+size = [2.54, 2.54]
+
+[[sheet.bus_entry]]
+at = [76.2, 55.88]
+size = [2.54, 2.54]
+
+[[sheet.bus_entry]]
+at = [76.2, 60.96]
+size = [2.54, 2.54]
+
+[[sheet.bus_entry]]
+at = [76.2, 66.04]
+size = [2.54, 2.54]
+
+[[sheet.label]]
+kind = "hierarchical"
+text = "D[0..3]"
+at = [63.5, 76.2]
+rotation = 180
+shape = "bidirectional"
+
+[[sheet.label]]
+kind = "local"
+text = "D0"
+at = [86.36, 53.34]
+rotation = 0
+
+[[sheet.label]]
+kind = "local"
+text = "D1"
+at = [86.36, 58.42]
+rotation = 0
+
+[[sheet.label]]
+kind = "local"
+text = "D2"
+at = [86.36, 63.5]
+rotation = 0
+
+[[sheet.label]]
+kind = "local"
+text = "D3"
+at = [86.36, 68.58]
+rotation = 0

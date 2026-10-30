@@ -41,7 +41,7 @@ c = design.part(device=capacitor(farad("100n"), rating=volt(25), case="0603", di
 # picks Fenolite:C_0603_X7R_25V@100n: generic, no MPN; the BOM says "100n X7R 0603"
 ```
 
-**Proposed:** the same line, with a grammar family in `devices/families/` (or an installed c0266 pack),
+**Proposed:** the same line, with a grammar family in `devices/families/` (or a family item vendored from `fenolite-library`, c0266),
 picks `Example:EX_MLCC@EX03R104KAT`, an exact MPN with its manufacturer, recorded in the design lock:
 
 ```toml
@@ -232,8 +232,8 @@ the family's. The BOM thus carries the manufacturer and the exact MPN.
 ### 8. Picks and the lock
 
 A grammar family is a row source of c0254 beside v0 families and discrete devices, read from the same
-places (`devices/` beside the script, and the packs c0266 installs). The lock entry is c0254's, with:
-`device` the candidate id, `row` the family id, `catalog` the source label c0254 (or c0266, for a pack)
+places (`devices/` beside the script, and `fenolite_library/devices`, vendored by `fenolite get`, c0266). The lock entry is c0254's, with:
+`device` the candidate id, `row` the family id, `catalog` the source label c0254 (or `library:device/<id>@<version>`, c0266, for a vendored item)
 defines, and `sha256` the SHA-256 of the **candidate's canonical text**: the family id and version, the MPN
 and the sorted attributes. An edit of the grammar that leaves a locked candidate unchanged therefore keeps
 its hash; one that changes it gives c0254's `pick.row-changed`; one that removes it, `pick.row-missing`.
@@ -242,7 +242,7 @@ its hash; one that changes it gives c0254's `pick.row-changed`; one that removes
 
 `fenolite family {list|show ID|lint PATH...|decode MPN...|encode QUERY|expand ID} [--project PATH]
 [--families DIR]... [--limit N]`, `mutates=False`, no subprocess, no network. Families come from the
-project (`devices/` beside the script that `--project` names), every `--families DIR`, and installed packs.
+project (`devices/` beside the script that `--project` names), every `--families DIR`, and family items vendored from `fenolite-library` (c0266).
 `lint` exits 5 on an error finding; `decode` exits 5 when an MPN does not decode; `encode` exits 5 with
 `pick.no-match` when nothing matches. The MCP server gets the tool by c0195's rule.
 

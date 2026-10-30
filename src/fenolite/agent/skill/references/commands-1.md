@@ -67,6 +67,9 @@ Back to [the command index](commands.md).
 - `--out DIR`: the project folder to write
 - `--altium-template FILE.SchDot`: apply a native binary sheet template to every Altium schematic, preserving page settings, fonts and embedded images; requires binary Altium output and no drawing_sheet in the script
 - `--discard-layout`: replace outputs changed since the last build (backups kept)
+- `--lock FILE`: the design lock to read and write, in place of <script stem>.lock beside the script
+- `--frozen`: refuse with exit 7 (FEN-7004) when the design lock would change; never write it
+- `--take SIDE[:TARGET]` (repeatable): resolve a sync.conflict: SIDE is code, cad, board or schematic, TARGET a component path or PATH#PROPERTY (every conflict without one); repeatable
 - `--target {altium,kicad}` (default `kicad`): kicad (default), or altium: an experimental Altium project file and schematic instead
 - `--altium-format {ascii,binary}`: the form of the Altium schematic with --target altium: binary (default, Altium's own) or ascii; a usage error with --target kicad (default form: binary)
 - `--altium-sheets {flat,modules}`: the sheets of the Altium schematic with --target altium: flat (default, one sheet) or modules (a top sheet with sheet symbols and one sheet per top-level module, with ports, sheet entries and signal harnesses); a usage error with --target kicad (default: flat)
@@ -93,21 +96,18 @@ Back to [the command index](commands.md).
 
 ## catalog
 
-`fenolite catalog [OPTIONS] {list,show,view} [lib_id]`
+`fenolite catalog [OPTIONS] {import,list,show,view} [lib_id]`
 
-- `CATALOG_ACTION` (one of `list`, `show`, `view`): list entries, show one ID or export a browser
+- `CATALOG_ACTION` (one of `import`, `list`, `show`, `view`): list entries, show one ID, export a browser, or import a device template from a symbol and a footprint
 - `LIB_ID`: catalog ID required by show
-- `--kind {footprint,symbol}`
+- `--kind {device,family,footprint,symbol}`: list or show only this kind; show takes it when a device id equals a symbol or footprint id
 - `--query QUERY`: case-insensitive search in id, category and summary
-- `--out FILE`: required by view: write a standalone HTML browser
-
-## check
-
-`fenolite check [OPTIONS] PATH`
-
-- `PATH`: a .kicad_pcb, a .kicad_pro or a project folder; an Altium document, .PrjPcb or project folder
-- `--stages A,B`: stages to run, of model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,roles.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip,roundtrip.rt2,render (default: model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,roles.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip); for Altium input, of model.validate,erc.lite,copper.clearance,placement.rules,roles.rules,parity,netlist.assignment_compare,roundtrip.rta0,roundtrip.rta1,roundtrip.rta2 (default: all)
-- `--kicad-cli PATH`: the kicad-cli to run (unused for Altium input)
-- `--timeout SECONDS` (number, default `300.0`): kicad-cli timeout (300; unused for Altium input)
-- `--exclude CODE:ITEM_A:ITEM_B`: store a KiCad DRC exclusion of this finding in the project (both item orders) instead of checking; needs --reason and the mutation protocol (KiCad input only)
-- `--reason TEXT`: with --exclude: the comment stored with it
+- `--out FILE`: required by view (a standalone HTML browser) and by import (the device TOML to write)
+- `--symbol LIB:SYM`: import: the symbol the device joins
+- `--footprint LIB:FP`: import: the footprint the device joins
+- `--id NS:NAME`: import: the id of the device
+- `--pin FUNCTION=PIN[:PAD[+PAD]]` (repeatable): import: put symbol pin PIN in FUNCTION, on the given pads (default: the pad of its number)
+- `--manufacturer MANUFACTURER` (default ``): import: the manufacturer, printable text
+- `--mpn MPN` (default ``): import: the manufacturer part number, printable text
+- `--datasheet DATASHEET` (default ``): import: an https:// URL
+- `--ref-prefix REF_PREFIX` (default ``): import: the reference prefix

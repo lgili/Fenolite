@@ -3,19 +3,22 @@
 """The files that a command's examples need in the working directory (change c0066).
 
 Most commands take their example input from the test data and write somewhere new, so their examples run
-in an empty folder. ``fmt`` and ``edit`` rewrite the file they are given and ``restore`` puts back the
-backups of an earlier write: their examples name files that the suites prepare here first (capability
-cli-contract, "Fmt command", "Edit command" and "Restore command").
+in an empty folder. ``fmt``, ``edit`` and ``copper`` rewrite the file they are given, ``pick --propose``
+writes beside the script it is given, and ``restore`` puts back the backups of an earlier write: their
+examples name files that the suites prepare here first
+(capability cli-contract, "Fmt command", "Edit command", "Copper command" and "Restore command").
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from collections.abc import Callable
 from pathlib import Path
 
-from fenolite.cli import cmd_edit
+from fenolite.cli import cmd_copper, cmd_edit, cmd_pick
+from fenolite.cli._examples import EXAMPLE_PICKS
 from fenolite.cli.cmd_fmt import EXAMPLE_COPY
 from fenolite.cli.cmd_publish import EXAMPLE_SOURCE, EXAMPLE_TARGET
 from fenolite.cli.cmd_restore import EXAMPLE_RECEIPT
@@ -28,6 +31,11 @@ def _fmt(folder: Path) -> None:
     text = BOARD.read_text(encoding="utf-8")
     assert text.startswith("(kicad_pcb\n")
     (folder / EXAMPLE_COPY).write_bytes(text.replace("(kicad_pcb\n", "(kicad_pcb  \n", 1).encode("utf-8"))
+
+
+def _copper(folder: Path) -> None:
+    """A copy of the authored board, which ``copper`` writes with its role copper (change c0243)."""
+    (folder / cmd_copper.EXAMPLE_COPY).write_bytes(BOARD.read_bytes())
 
 
 def _restore(folder: Path) -> None:
@@ -66,11 +74,20 @@ def _publish(folder: Path) -> None:
     (folder / EXAMPLE_SOURCE / "snapshot.json").write_bytes((json.dumps(manifest) + "\n").encode("utf-8"))
 
 
+def _pick(folder: Path) -> None:
+    """A copy of ``examples/picks``, whose ``rows.csv`` the example proposes into ``devices/proposed/``."""
+    shutil.copytree(
+        EXAMPLE_PICKS, folder / cmd_pick.EXAMPLE_COPY, ignore=shutil.ignore_patterns("__pycache__")
+    )
+
+
 PREPARED: dict[str, Callable[[Path], None]] = {
     "fmt": _fmt,
+    "copper": _copper,
     "restore": _restore,
     "edit": _edit,
     "publish": _publish,
+    "pick": _pick,
 }
 """Command name → the function that writes its example files into a folder."""
 PLANS_NOTHING = frozenset({"check", "models", "refs"})

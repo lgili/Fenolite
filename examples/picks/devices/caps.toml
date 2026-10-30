@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example: an illustrative project family, not a real product line.
+schema = "fenolite.family.v0"
+id = "Example:C_0805_X7R_25V"
+kind = "capacitor"
+summary = "Example multilayer ceramic capacitor family, 0805, X7R, 25 V, 10 %"
+symbol = "Fenolite:Capacitor"
+footprint = "Fenolite:Chip_0805"
+case = "0805"
+series = "E6"
+values = { min = "1u", max = "10u" }
+tolerance = "10%"
+rating = "25V"
+dielectric = "X7R"
+evidence = "UNKNOWN"

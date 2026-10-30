@@ -1,0 +1,87 @@
+# Design lock written by fenolite build. Review changes in git; hand edits are honoured.
+schema = "fenolite.lock.v0"
+design = "picks_demo"
+
+[refs]
+"C_in" = "C1"
+"D1" = "D1"
+"J1" = "J1"
+"J2" = "J2"
+"LED_A_R" = "R1"
+"PU_scl" = "R2"
+"PU_sda" = "R3"
+"SENSE_F_C" = "C2"
+"SENSE_F_R" = "R4"
+"buck1/FB_bot" = "R5"
+"buck1/FB_top" = "R6"
+
+[picks."C_in"]
+"query" = "capacitor(10uF, rating>=25V, case=0805, dielectric=X7R)"
+"device" = "Example:C_0805_X7R_25V@10u"
+"row" = "Example:C_0805_X7R_25V"
+"catalog" = "project:devices/caps.toml"
+"sha256" = "aa0662e0971ce5afa64cccb65c96f0d7ff14a7489016b632bc94406fe7abb027"
+"by" = "query"
+
+[picks."LED_A_R"]
+"query" = "led_resistor(current=2mA..5mA, vf=1.8V..2.2V, vs=3.3V (3.201V..3.399V), tolerance<=1%, case=0603, role=r)"
+"device" = "Fenolite:R_0603_E96_1pct@374R"
+"row" = "Fenolite:R_0603_E96_1pct"
+"catalog" = "fenolite-catalog 2026.10"
+"sha256" = "81a35d339c7d4692476c67a93895579372e7942c002600032b4046a3cec46ee9"
+"by" = "led_resistor"
+"achieved" = "I 2649uA..4319uA"
+
+[picks."PU_scl"]
+"query" = "i2c_pull_ups(bus_capacitance=50pF..100pF, vdd=3.3V (3.201V..3.399V), mode=fast, tolerance<=1%, case=0603, role=scl)"
+"device" = "Fenolite:R_0603_E96_1pct@3k48"
+"row" = "Fenolite:R_0603_E96_1pct"
+"catalog" = "fenolite-catalog 2026.10"
+"sha256" = "81a35d339c7d4692476c67a93895579372e7942c002600032b4046a3cec46ee9"
+"by" = "i2c_pull_ups"
+"achieved" = "Rp 3445200000uohm..3514800000uohm"
+
+[picks."PU_sda"]
+"query" = "i2c_pull_ups(bus_capacitance=50pF..100pF, vdd=3.3V (3.201V..3.399V), mode=fast, tolerance<=1%, case=0603, role=sda)"
+"device" = "Fenolite:R_0603_E96_1pct@3k48"
+"row" = "Fenolite:R_0603_E96_1pct"
+"catalog" = "fenolite-catalog 2026.10"
+"sha256" = "81a35d339c7d4692476c67a93895579372e7942c002600032b4046a3cec46ee9"
+"by" = "i2c_pull_ups"
+"achieved" = "Rp 3445200000uohm..3514800000uohm"
+
+[picks."SENSE_F_C"]
+"query" = "rc_lowpass(corner=1kHz (900Hz..1.1kHz), c=capacitor(10nF, dielectric=C0G), role=c)"
+"device" = "Fenolite:C_0805_C0G_50V@10n"
+"row" = "Fenolite:C_0805_C0G_50V"
+"catalog" = "fenolite-catalog 2026.10"
+"sha256" = "616d5c5633e58172ce7de6aac0c54f3a40fc018b992d744609fb30a55d2c774f"
+"by" = "rc_lowpass"
+"achieved" = "corner 949844192uHz..1071036435uHz"
+
+[picks."SENSE_F_R"]
+"query" = "rc_lowpass(corner=1kHz (900Hz..1.1kHz), c=capacitor(10nF, dielectric=C0G), role=r)"
+"device" = "Fenolite:R_0603_E96_1pct@15k8"
+"row" = "Fenolite:R_0603_E96_1pct"
+"catalog" = "fenolite-catalog 2026.10"
+"sha256" = "81a35d339c7d4692476c67a93895579372e7942c002600032b4046a3cec46ee9"
+"by" = "rc_lowpass"
+"achieved" = "corner 949844192uHz..1071036435uHz"
+
+[picks."buck1/FB_bot"]
+"query" = "voltage_divider(target=3.3V (3.135V..3.465V), ref=600mV (594mV..606mV), current=40uA..100uA, tolerance<=1%, case=0603, series=E96, role=bot)"
+"device" = "Fenolite:R_0603_E96_1pct@13k7"
+"row" = "Fenolite:R_0603_E96_1pct"
+"catalog" = "fenolite-catalog 2026.10"
+"sha256" = "81a35d339c7d4692476c67a93895579372e7942c002600032b4046a3cec46ee9"
+"by" = "voltage_divider"
+"achieved" = "VOUT 3224694uV..3399373uV"
+
+[picks."buck1/FB_top"]
+"query" = "voltage_divider(target=3.3V (3.135V..3.465V), ref=600mV (594mV..606mV), current=40uA..100uA, tolerance<=1%, case=0603, series=E96, role=top)"
+"device" = "Fenolite:R_0603_E96_1pct@61k9"
+"row" = "Fenolite:R_0603_E96_1pct"
+"catalog" = "fenolite-catalog 2026.10"
+"sha256" = "81a35d339c7d4692476c67a93895579372e7942c002600032b4046a3cec46ee9"
+"by" = "voltage_divider"
+"achieved" = "VOUT 3224694uV..3399373uV"

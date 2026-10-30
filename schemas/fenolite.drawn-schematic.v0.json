@@ -1,0 +1,516 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.drawn-schematic.v0",
+  "title": "DrawnSchematic",
+  "description": "schematic.toml of a design that loads a drawn schematic (change c0276; docs/drawn-schematic.md), as JSON for editors; the reader of fenolite.lens.drawn is normative.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.drawn-schematic.v0"
+    },
+    "root": {
+      "type": "string"
+    },
+    "sheet": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sheet"
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "schema",
+    "root",
+    "sheet"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "bus": {
+      "type": "object",
+      "properties": {
+        "pts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/point"
+          },
+          "minItems": 2
+        }
+      },
+      "required": [
+        "pts"
+      ],
+      "additionalProperties": false
+    },
+    "bus_alias": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "members"
+      ],
+      "additionalProperties": false
+    },
+    "bus_entry": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/point"
+        },
+        "size": {
+          "$ref": "#/$defs/point"
+        }
+      },
+      "required": [
+        "at",
+        "size"
+      ],
+      "additionalProperties": false
+    },
+    "field": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "[x, y] in millimetres, whole nanometres"
+        },
+        "rotation": {
+          "type": "integer",
+          "enum": [
+            0,
+            90
+          ]
+        },
+        "justify": {
+          "type": "string"
+        },
+        "hide": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "at"
+      ],
+      "additionalProperties": false
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/field"
+      }
+    },
+    "junction": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/point"
+        },
+        "diameter": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "at"
+      ],
+      "additionalProperties": false
+    },
+    "label": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "local",
+            "global",
+            "hierarchical"
+          ]
+        },
+        "text": {
+          "type": "string"
+        },
+        "at": {
+          "$ref": "#/$defs/point"
+        },
+        "rotation": {
+          "type": "integer",
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ]
+        },
+        "shape": {
+          "type": "string",
+          "enum": [
+            "bidirectional",
+            "input",
+            "output",
+            "passive",
+            "tri_state"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "text",
+        "at"
+      ],
+      "additionalProperties": false
+    },
+    "no_connect": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/point"
+        }
+      },
+      "required": [
+        "at"
+      ],
+      "additionalProperties": false
+    },
+    "opaque": {
+      "type": "object",
+      "properties": {
+        "kicad": {
+          "type": "string"
+        },
+        "altium": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kicad"
+      ],
+      "additionalProperties": false
+    },
+    "pin": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "shape": {
+          "type": "string",
+          "enum": [
+            "bidirectional",
+            "input",
+            "output",
+            "passive",
+            "tri_state"
+          ]
+        },
+        "at": {
+          "$ref": "#/$defs/point"
+        },
+        "rotation": {
+          "type": "integer",
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "shape",
+        "at"
+      ],
+      "additionalProperties": false
+    },
+    "point": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "[x, y] in millimetres, whole nanometres"
+    },
+    "power": {
+      "type": "object",
+      "properties": {
+        "symbol": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "at": {
+          "$ref": "#/$defs/point"
+        },
+        "rotation": {
+          "type": "integer",
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ]
+        },
+        "fields": {
+          "$ref": "#/$defs/fields"
+        }
+      },
+      "required": [
+        "symbol",
+        "net",
+        "at"
+      ],
+      "additionalProperties": false
+    },
+    "sheet": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "paper": {
+          "type": "string",
+          "enum": [
+            "A0",
+            "A1",
+            "A2",
+            "A3",
+            "A4",
+            "A5",
+            "Letter",
+            "Legal",
+            "Tabloid"
+          ]
+        },
+        "title_block": {
+          "$ref": "#/$defs/title_block"
+        },
+        "generated": {
+          "type": "boolean"
+        },
+        "symbol": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/symbol"
+          }
+        },
+        "power": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/power"
+          }
+        },
+        "wire": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire"
+          }
+        },
+        "bus": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bus"
+          }
+        },
+        "bus_entry": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bus_entry"
+          }
+        },
+        "junction": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/junction"
+          }
+        },
+        "no_connect": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/no_connect"
+          }
+        },
+        "label": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/label"
+          }
+        },
+        "bus_alias": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bus_alias"
+          }
+        },
+        "sheet_ref": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sheet_ref"
+          }
+        },
+        "opaque": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/opaque"
+          }
+        }
+      },
+      "required": [
+        "key",
+        "paper"
+      ],
+      "additionalProperties": false
+    },
+    "sheet_ref": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "sheet": {
+          "type": "string"
+        },
+        "module": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "at": {
+          "$ref": "#/$defs/point"
+        },
+        "size": {
+          "$ref": "#/$defs/point"
+        },
+        "page": {
+          "type": "string"
+        },
+        "pin": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pin"
+          }
+        }
+      },
+      "required": [
+        "key",
+        "sheet",
+        "module",
+        "name",
+        "at",
+        "size",
+        "page"
+      ],
+      "additionalProperties": false
+    },
+    "symbol": {
+      "type": "object",
+      "properties": {
+        "part": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "at": {
+          "$ref": "#/$defs/point"
+        },
+        "rotation": {
+          "type": "integer",
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ]
+        },
+        "mirror": {
+          "type": "string",
+          "enum": [
+            "",
+            "x",
+            "y"
+          ]
+        },
+        "fields": {
+          "$ref": "#/$defs/fields"
+        }
+      },
+      "required": [
+        "part",
+        "at"
+      ],
+      "additionalProperties": false
+    },
+    "title_block": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "organization": {
+          "type": "string"
+        },
+        "doc_id": {
+          "type": "string"
+        },
+        "responsible": {
+          "type": "string"
+        },
+        "approver": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "wire": {
+      "type": "object",
+      "properties": {
+        "pts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/point"
+          },
+          "minItems": 2
+        }
+      },
+      "required": [
+        "pts"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

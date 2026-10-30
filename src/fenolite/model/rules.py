@@ -9,6 +9,7 @@ records). Priority 1 is the highest; backends preserve that meaning when lowerin
 from __future__ import annotations
 
 import fnmatch
+import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ from typing import Literal
 
 from fenolite.core.units import Nm
 from fenolite.model.base import Entity
+from fenolite.model.circuit import ValueRange
 from fenolite.model.pairs import base_matches
 
 RuleKind = Literal[
@@ -598,6 +600,226 @@ class RoleSet:
         return next((role for role in self.nets if role.net == net), None)
 
 
+# ------------------------------------------------------------------------------------------ contracts
+
+DERATING_KEYS: dict[str, tuple[str, str, str]] = {
+    "voltage": ("device", "voltage", ""),
+    "current": ("device", "current", ""),
+    "power": ("device", "power", ""),
+    "pin_voltage": ("pin", "voltage", ""),
+    "pin_current": ("pin", "current", ""),
+    "capacitor_voltage": ("device", "voltage", "capacitor"),
+    "resistor_power": ("device", "power", "resistor"),
+    "resistor_voltage": ("device", "voltage", "resistor"),
+    "shunt_power": ("device", "power", "shunt"),
+    "inductor_current": ("device", "current", "inductor"),
+    "diode_voltage": ("device", "voltage", "diode"),
+    "diode_current": ("pin", "current", "diode"),
+    "transistor_voltage": ("pin", "voltage", "transistor"),
+    "transistor_current": ("pin", "current", "transistor"),
+    "temperature_margin": ("device", "temperature", ""),
+}
+"""The closed keys of a derating rule (change c0253; ``docs/contracts.md``, "Derating"): key → (scope, rating,
+class). ``device`` scope is a device rating, ``pin`` a pin's rating or a ``[[limits]]`` voltage between two
+functions; a class key applies to parts of that class only. Every key applies to ``abs_max`` limits only.
+``temperature_margin`` is a temperature difference in millikelvin; every other key a per-mille ratio. Fenolite
+ships no rule and no value for any key: every rule is the user's."""
+EXPECT_OPS: tuple[str, ...] = ("within", "at_least", "at_most")
+"""The top operations of an expectation's test."""
+EXPECT_INNER: tuple[str, ...] = ("add", "sub", "mul", "div", "neg")
+"""The operations inside an expectation's expression."""
+EXPECT_REFS: tuple[str, ...] = ("value", "rating", "voltage", "current")
+"""The handles an expression reads: a component's ``value_range``, a device limit, a net's voltage bound and
+a net's current bound."""
+CONTRACT_STRICTNESS: tuple[str, ...] = ("info", "warning")
+"""``ContractSet.unknown``: the severity of the findings of rows that cannot be judged."""
+_ORIGIN = re.compile(r"^[A-Za-z_<][\w.<>-]*:\d+$")
+_EXPECT_ID = re.compile(r"^(?P<instance>[A-Za-z0-9_.+/-]+)/expect#(?P<n>[1-9]\d*)$")
+
+
+@dataclass(frozen=True, slots=True)
+class DeratingRule:
+    """A derating rule of the user (change c0253): its key (``DERATING_KEYS``), its ratio in per-mille
+    (``500`` is "at most 50 % of the rating", 1 to 1000) or, for ``temperature_margin``, its margin in
+    millikelvin; ``parts``, a glob of references the rule is scoped to (``""``: every part); and the
+    user's ``source``."""
+
+    key: str
+    permille: int = 0
+    margin_mk: int = 0
+    parts: str = ""
+    source: str = ""
+
+    def __post_init__(self) -> None:
+        if self.key not in DERATING_KEYS:
+            raise ValueError(f"derating: unknown key {self.key!r}; keys: {', '.join(DERATING_KEYS)}")
+        for name, value in (("permille", self.permille), ("margin_mk", self.margin_mk)):
+            if isinstance(value, bool) or not isinstance(value, int):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise ValueError(f"derating {self.key}: {name} must be an integer")
+        if self.key == "temperature_margin":
+            if self.permille or self.margin_mk <= 0:
+                raise ValueError("derating temperature_margin: a margin above 0 mK, and no permille")
+        elif self.margin_mk or not 1 <= self.permille <= 1000:
+            raise ValueError(f"derating {self.key}: permille lies in 1..1000 (a ratio never raises a rating)")
+
+
+@dataclass(frozen=True, slots=True)
+class OperatingRange:
+    """The design's operating conditions (change c0253): the ambient temperature range, in kelvin."""
+
+    ambient: ValueRange
+
+    def __post_init__(self) -> None:
+        if self.ambient.unit != "kelvin" or self.ambient.low is None or self.ambient.high is None:
+            raise ValueError("operating: the ambient is a range in kelvin with both bounds")
+
+
+@dataclass(frozen=True, slots=True)
+class ExpectNode:
+    """One node of an expectation's tree (change c0253): an operation ``op`` with operands ``a`` and ``b``
+    (``neg`` takes ``a`` only), a literal range ``lit``, an exact number ``num`` (numerator, denominator in
+    lowest terms) or a ref (``value``, ``rating``, ``voltage``, ``current``) naming an entity id."""
+
+    op: str = ""
+    a: ExpectNode | None = None
+    b: ExpectNode | None = None
+    lit: ValueRange | None = None
+    num: tuple[int, ...] = field(default=(), metadata={"ordered": True})
+    ref: str = ""
+    component: str = ""
+    net: str = ""
+    key: str = ""
+    pin: str = ""
+    limit: str = ""
+
+    def __post_init__(self) -> None:
+        forms = [bool(self.op), self.lit is not None, bool(self.num), bool(self.ref)]
+        if sum(forms) != 1:
+            raise ValueError("an expectation node is exactly one of an op, a lit, a num and a ref")
+        if self.op:
+            if self.op not in (*EXPECT_OPS, *EXPECT_INNER):
+                raise ValueError(
+                    f"expectation: op {self.op!r} is not one of {', '.join(EXPECT_OPS + EXPECT_INNER)}"
+                )
+            if self.a is None or (self.b is None) != (self.op == "neg"):
+                raise ValueError(
+                    f"expectation: {self.op} takes {'one operand' if self.op == 'neg' else 'two'}"
+                )
+            for child in (self.a, self.b):
+                if child is not None and child.op in EXPECT_OPS:
+                    raise ValueError(f"expectation: {child.op} is a top operation, not an operand")
+        if self.num:
+            if len(self.num) != 2 or self.num[1] <= 0 or math.gcd(self.num[0], self.num[1]) != 1:
+                raise ValueError("expectation: num is [numerator, denominator] in lowest terms")
+        if self.ref:
+            if self.ref not in EXPECT_REFS:
+                raise ValueError(f"expectation: ref {self.ref!r} is not one of {', '.join(EXPECT_REFS)}")
+            needs = "component" if self.ref in ("value", "rating") else "net"
+            if not getattr(self, needs):
+                raise ValueError(f"expectation: a {self.ref} ref names a {needs}")
+            if self.ref == "rating" and (not self.key or self.limit not in ("abs_max", "operating")):
+                raise ValueError("expectation: a rating ref names a key and a limit (abs_max or operating)")
+
+
+@dataclass(frozen=True, slots=True)
+class Expectation:
+    """An expectation (change c0253): ``id`` (``<instance path>/expect#<n>``), the block instance path (or
+    ``design``), the reason, the origin (``module:line``, never a path) and the test, a tree whose top
+    operation is ``within``, ``at_least`` or ``at_most``."""
+
+    id: str
+    instance: str
+    reason: str
+    origin: str
+    test: ExpectNode
+
+    def __post_init__(self) -> None:
+        found = _EXPECT_ID.fullmatch(self.id)
+        if found is None or found.group("instance") != self.instance:
+            raise ValueError(f"expectation {self.id!r}: the id is <instance>/expect#<n> of {self.instance!r}")
+        if not self.reason.strip():
+            raise ValueError(f"expectation {self.id}: the reason is empty")
+        if not _ORIGIN.fullmatch(self.origin):
+            raise ValueError(f"expectation {self.id}: the origin {self.origin!r} is module:line, not a path")
+        if self.test.op not in EXPECT_OPS:
+            raise ValueError(f"expectation {self.id}: the test is one of {', '.join(EXPECT_OPS)}")
+
+
+def _rig_name(name: str) -> None:
+    if not ROLE_KEY.fullmatch(name):
+        raise ValueError(f"rig: the name {name!r} must match {ROLE_KEY.pattern}")
+
+
+@dataclass(frozen=True, slots=True)
+class RigSupply:
+    """A test-rig supply (change c0253): the outside world holds the net ``pos`` at ``voltage`` against
+    ``neg`` (net ids) and delivers at most ``current``. A record of the rules layer, never a component."""
+
+    kind: Literal["supply"]
+    name: str
+    pos: str
+    neg: str
+    voltage: ValueRange
+    current: ValueRange | None = None
+
+    def __post_init__(self) -> None:
+        _rig_name(self.name)
+        if self.voltage.unit != "volt" or (self.current is not None and self.current.unit != "ampere"):
+            raise ValueError(f"rig {self.name}: a voltage in volt and a current in ampere")
+
+
+@dataclass(frozen=True, slots=True)
+class RigSink:
+    """A test-rig sink (change c0253): the outside world draws ``current`` from ``net`` to ``ret``."""
+
+    kind: Literal["sink"]
+    name: str
+    net: str
+    ret: str
+    current: ValueRange
+
+    def __post_init__(self) -> None:
+        _rig_name(self.name)
+        if self.current.unit != "ampere":
+            raise ValueError(f"rig {self.name}: a current in ampere")
+
+
+@dataclass(frozen=True, slots=True)
+class ContractSet:
+    """The electrical contracts of a design (change c0253; ``docs/contracts.md``): the derating rules in call
+    order, the operating conditions, the strictness of unknown rows, the expectations in id order and the
+    rig elements in name order. A value; ``RuleSet`` stores it under ``contracts`` only when not empty."""
+
+    derating: tuple[DeratingRule, ...] = field(default=(), metadata={"ordered": True})
+    operating: OperatingRange | None = None
+    unknown: Literal["info", "warning"] = "info"
+    expects: tuple[Expectation, ...] = field(default=(), metadata={"ordered": True})
+    rig: tuple[RigSupply | RigSink, ...] = field(default=(), metadata={"ordered": True})
+
+    def __post_init__(self) -> None:
+        if self.unknown not in CONTRACT_STRICTNESS:
+            raise ValueError(f"contracts: unknown is one of {', '.join(CONTRACT_STRICTNESS)}")
+        object.__setattr__(self, "expects", tuple(sorted(self.expects, key=lambda e: _expect_order(e.id))))
+        object.__setattr__(self, "rig", tuple(sorted(self.rig, key=lambda element: element.name)))
+        for what, names in (
+            ("expectations", [e.id for e in self.expects]),
+            ("rig elements", [r.name for r in self.rig]),
+        ):
+            twice = sorted({name for name in names if names.count(name) > 1})
+            if twice:
+                raise ValueError(f"contracts: two {what} are named {twice[0]!r}")
+
+    def __bool__(self) -> bool:
+        return bool(
+            self.derating or self.operating is not None or self.unknown != "info" or self.expects or self.rig
+        )
+
+
+def _expect_order(expect_id: str) -> tuple[str, int]:
+    instance, _, number = expect_id.rpartition("/expect#")
+    return (instance, int(number) if number.isdigit() else 0)
+
+
 @dataclass(frozen=True, slots=True)
 class RuleSet(Entity):
     """The rules layer of a design (``rules.json``). ``severities`` gives the checks of a design-rule tool
@@ -617,10 +839,14 @@ class RuleSet(Entity):
     heights: tuple[HeightLimit, ...] = field(default=(), metadata={"ordered": True})
     impedance: tuple[ImpedanceTarget, ...] = field(default=(), metadata={"ordered": True})
     roles: RoleSet | None = None
+    contracts: ContractSet | None = None
+    """The electrical contracts (change c0253); an empty ``ContractSet`` is stored as ``None``."""
 
     def __post_init__(self) -> None:
         if self.roles is not None and not self.roles:
             object.__setattr__(self, "roles", None)
+        if self.contracts is not None and not self.contracts:
+            object.__setattr__(self, "contracts", None)
         seen: set[str] = set()
         for rule in self.proximity:
             if rule.name in seen:
@@ -635,6 +861,18 @@ class RuleSet(Entity):
 
 __all__ = [
     "CONFIDENCES",
+    "CONTRACT_STRICTNESS",
+    "DERATING_KEYS",
+    "EXPECT_INNER",
+    "EXPECT_OPS",
+    "EXPECT_REFS",
+    "ContractSet",
+    "DeratingRule",
+    "ExpectNode",
+    "Expectation",
+    "OperatingRange",
+    "RigSink",
+    "RigSupply",
     "LEAF_OPS",
     "ROLE_KEY",
     "ROLE_KINDS",

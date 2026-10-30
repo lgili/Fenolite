@@ -1,0 +1,36 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:MELF_0102_Vishay_MMU"
+version = "1.0.0"
+summary = "0102 Vishay MMU MELF reflow resistor land"
+category = "Cylindrical resistor"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0333", "S-0354"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["1.05mm", "1.25mm"]
+at = ["-1mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["1.05mm", "1.25mm"]
+at = ["1mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-1.1mm", "-0.55mm"], ["1.1mm", "0.55mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-2.025mm", "-1.125mm"], ["2.025mm", "1.125mm"]]
+width = "0.05mm"

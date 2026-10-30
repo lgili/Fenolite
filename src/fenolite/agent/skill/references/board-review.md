@@ -102,6 +102,30 @@ Each of these is cheap to avoid before routing and expensive to argue about afte
   second face.
 - **A board that cannot be tested,** and a design that hides its open items.
 
+## Test the design
+
+Keep tests beside the script and run them with pytest before every review. `fenolite.testing` builds
+the script privately through the reviewed plan protocol; this sample is exercised by the testing suite:
+
+```text
+from fenolite.testing import load
+with load("design.py") as d:
+    assert d.connected("R1-1", "R2-1")
+    assert not d.findings("build.unattached")
+```
+
+`connected(..., copper=True)` tests real copper, through the pin-to-pad map. `assert_render` compares an
+SVG golden byte for byte; a mismatch prints a diff and the commands that regenerate it, and never
+updates the reference. `check.result.subjects` names the part and net ids of each issue: read those
+before parsing `where`.
+
+```fenolite-cmd
+fenolite explain build.unattached --json
+```
+
+`build.unattached` warns at `file:line:N` about a Part, Net or Interface that was never added or
+connected: add it, connect it, or delete it.
+
 ## Answering findings
 
 - **Answer each finding on its own line,** with a stable id: what you changed, where (file, version,

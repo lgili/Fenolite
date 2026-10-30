@@ -30,4 +30,4 @@ def test_oracle_refused_before_any_call(script: Path, monkeypatch):
         with pytest.raises(TestingError, match="drc.kicad.*fenolite check"):
             d.findings(stages=("model.validate", "drc.kicad"))
         with pytest.raises(TestingError, match="unknown"):
-            d.findings(stages=("circuit.rules",))
+            d.findings(stages=("no.such-stage",))

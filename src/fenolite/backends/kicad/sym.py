@@ -80,8 +80,17 @@ def split_unit_name(parent: str, name: str) -> tuple[int, int]:
     return int(parts[0]), int(parts[1])
 
 
+_STANDARD_FIELDS = ("Reference", "Value", "Footprint", "Datasheet", "Description")
+
+
 def write_symbol_library(symbols: Sequence[SymbolDef], *, target: int = 10) -> str:
-    """Serialize the simple authored symbol subset as a KiCad symbol library."""
+    """Serialize authored and generated symbols as a KiCad symbol library (change c0261).
+
+    Items of unit ``u`` and body style ``s`` go to the sub-symbol ``<name>_<u>_<max(s, 1)>`` in unit order
+    (graphics, then pins); a named unit writes ``unit_name``; a hidden pin ``(hide yes)``; each alternate
+    ``(alternate "<name>" <type> <shape>)``. Properties other than the five standard fields follow them,
+    sorted and hidden. A derived symbol writes ``extends`` and only its own properties, directly after its
+    base. A one-unit symbol without these features keeps the bytes of change c0058."""
 
     def q(value: str) -> str:
         return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
@@ -117,11 +126,30 @@ def write_symbol_library(symbols: Sequence[SymbolDef], *, target: int = 10) -> s
             body = f"(polyline (pts {pts}) {stroke} (fill (type {fill})))"
         return [f"\t\t\t{body}"]
 
-    version = FORMAT_VERSIONS[FileKind.SYMBOL_LIB][target]
-    out = ["(kicad_symbol_lib", f"\t(version {version})", '\t(generator "fenolite")']
-    for symbol in sorted(symbols, key=lambda item: item.lib_id):
+    def pin_text(pin: SymbolPin) -> list[str]:
+        lines = [
+            f"\t\t\t(pin {pin.etype} {pin.shape}",
+            f"\t\t\t\t(at {mm(pin.position.x)} {mm(pin.position.y)} {pin.rotation // 1_000_000})",
+            f"\t\t\t\t(length {mm(pin.length)})",
+        ]
+        if pin.hidden:
+            lines.append("\t\t\t\t(hide yes)")
+        lines += [
+            f"\t\t\t\t(name {q(pin.name)} (effects (font (size 1.27 1.27))))",
+            f"\t\t\t\t(number {q(pin.number)} (effects (font (size 1.27 1.27))))",
+        ]
+        lines += [f"\t\t\t\t(alternate {q(alt.name)} {alt.etype} {alt.shape})" for alt in pin.alternates]
+        return [*lines, "\t\t\t)"]
+
+    def property_text(key: str, value: str, y: int, hidden: bool = False) -> list[str]:
+        effects = "(effects (font (size 1.27 1.27)) (justify left)" + (" (hide yes))" if hidden else ")")
+        return [f"\t\t(property {q(key)} {q(value)}", f"\t\t\t(at 0 {mm(y)} 0)", f"\t\t\t{effects}", "\t\t)"]
+
+    def symbol_text(symbol: SymbolDef) -> list[str]:
+        out = [f"\t(symbol {q(symbol.name)}"]
+        if symbol.extends:
+            out.append(f"\t\t(extends {q(symbol.extends)})")
         out += [
-            f"\t(symbol {q(symbol.name)}",
             f"\t\t(exclude_from_sim {'yes' if symbol.exclude_from_sim else 'no'})",
             f"\t\t(in_bom {'yes' if symbol.in_bom else 'no'})",
             f"\t\t(on_board {'yes' if symbol.on_board else 'no'})",
@@ -134,43 +162,62 @@ def write_symbol_library(symbols: Sequence[SymbolDef], *, target: int = 10) -> s
             ("Datasheet", "", -5_080_000),
             ("Description", "", 0),
         ):
+            if symbol.extends and key not in props:
+                continue
             value = props.get(key, default)
             if key == "Description" and not value:
                 continue
-            out += [
-                f"\t\t(property {q(key)} {q(value)}",
-                f"\t\t\t(at 0 {mm(y)} 0)",
-                "\t\t\t(effects (font (size 1.27 1.27)) (justify left))",
-                "\t\t)",
-            ]
+            out += property_text(key, value, y)
+        for key in sorted(k for k in props if k not in _STANDARD_FIELDS):
+            out += property_text(key, props[key], 0, hidden=True)
+        if symbol.extends:
+            return [*out, "\t)"]
         out += [
             f"\t\t(pin_names (offset 0.508) (hide {'yes' if symbol.pin_names_hidden else 'no'}))",
             f"\t\t(pin_numbers (hide {'yes' if symbol.pin_numbers_hidden else 'no'}))",
         ]
-        out += [f"\t\t(symbol {q(symbol.name + '_0_1')}"]
+        blocks: dict[tuple[int, int], list[str]] = {}
+        names = {unit.unit: unit.name for unit in symbol.units if unit.name}
+        for unit in symbol.units:
+            if unit.unit > 0:
+                blocks.setdefault((unit.unit, max(unit.body_style, 1)), [])
         if symbol.graphics:
             for graphic in symbol.graphics:
-                out.extend(graphic_text(graphic))
+                blocks.setdefault((graphic.unit, max(graphic.body_style, 1)), []).extend(
+                    graphic_text(graphic)
+                )
         else:
             xs = [pin.position.x for pin in symbol.pins]
             ys = [pin.position.y for pin in symbol.pins]
             margin = 1_270_000
-            out.append(
+            blocks.setdefault((0, 1), []).append(
                 f"\t\t\t(rectangle (start {mm(min(xs) - margin)} {mm(min(ys) - margin)}) "
                 f"(end {mm(max(xs) + margin)} {mm(max(ys) + margin)}) "
                 "(stroke (width 0.254) (type default)) (fill (type background)))"
             )
-        out += ["\t\t)", f"\t\t(symbol {q(symbol.name + '_1_1')}"]
         for pin in symbol.pins:
-            out += [
-                f"\t\t\t(pin {pin.etype} {pin.shape}",
-                f"\t\t\t\t(at {mm(pin.position.x)} {mm(pin.position.y)} {pin.rotation // 1_000_000})",
-                f"\t\t\t\t(length {mm(pin.length)})",
-                f"\t\t\t\t(name {q(pin.name)} (effects (font (size 1.27 1.27))))",
-                f"\t\t\t\t(number {q(pin.number)} (effects (font (size 1.27 1.27))))",
-                "\t\t\t)",
-            ]
-        out += ["\t\t)", "\t)"]
+            blocks.setdefault((pin.unit, max(pin.body_style, 1)), []).extend(pin_text(pin))
+        for (unit, style), items in sorted(blocks.items()):
+            out.append(f"\t\t(symbol {q(f'{symbol.name}_{unit}_{style}')}")
+            if unit in names and style == 1:
+                out.append(f"\t\t\t(unit_name {q(names[unit])})")
+            out += [*items, "\t\t)"]
+        return [*out, "\t)"]
+
+    version = FORMAT_VERSIONS[FileKind.SYMBOL_LIB][target]
+    out = ["(kicad_symbol_lib", f"\t(version {version})", '\t(generator "fenolite")']
+    bases = sorted((s for s in symbols if not s.extends), key=lambda item: item.lib_id)
+    derived = sorted((s for s in symbols if s.extends), key=lambda item: item.lib_id)
+    placed: set[int] = set()
+    for symbol in bases:
+        out += symbol_text(symbol)
+        for index, child in enumerate(derived):
+            if child.extends == symbol.name and child.library == symbol.library:
+                placed.add(index)
+                out += symbol_text(child)
+    for index, child in enumerate(derived):
+        if index not in placed:
+            out += symbol_text(child)
     return "\n".join(out + [")", ""])
 
 
@@ -342,7 +389,7 @@ class _Reader:
         properties: dict[str, str] = {}
         units: list[SymbolUnit] = []
         pins: list[SymbolPin] = []
-        graphics: list[SymbolGraphic] = []
+        graphics: list[tuple[int, int, SymbolGraphic]] = []
         for index, (child_loc, child) in enumerate(child_locators(loc, node)):
             if not isinstance(child, Node):
                 continue
@@ -387,8 +434,12 @@ class _Reader:
                         if pin.name == "pin":
                             pins.append(self.pin(pin, pin_loc, unit, style))
                         elif pin.name in ("polyline", "rectangle", "circle"):
-                            graphics.append(self.graphic(pin, pin_loc))
+                            graphics.append((unit, style, self.graphic(pin, pin_loc)))
         power: PowerKind = fields.pop("power", "")  # type: ignore[assignment]
+        # a graphic keeps its unit and body style only in a symbol of several (change c0261), so a
+        # one-unit, one-style symbol reads as it did before
+        several = any(u.unit > 1 or u.body_style > 1 for u in units)
+        drawn = tuple(replace(g, unit=u, body_style=s) if several else g for u, s, g in graphics)
         return SymbolDef(
             id=derived_id("sym", "kicad", native),
             native_ids={"kicad": native},
@@ -400,7 +451,7 @@ class _Reader:
             properties=properties,
             units=tuple(units),
             pins=tuple(pins),
-            graphics=tuple(graphics),
+            graphics=drawn,
             **fields,  # type: ignore[arg-type]
         )
 

@@ -25,10 +25,11 @@ def test_profiles_load() -> None:
     found = profiles()
     assert sorted(found) == [
         "altium-to-kicad",
+        "import",
         "kicad-downgrade",
         "kicad-to-altium",
         "kicad-to-kicad",
-    ]  # c0162: the downgrade
+    ]  # c0162: the downgrade; c0275: the self-check of fenolite import
     altium = found["kicad-to-altium"]
     assert (altium.frame, altium.tolerance_nm, altium.tolerance_ppm) == ("relative", 3, 20)
     assert (found["kicad-to-kicad"].frame, found["kicad-to-kicad"].tolerance_nm) == ("absolute", 0)

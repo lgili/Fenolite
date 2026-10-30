@@ -1,0 +1,106 @@
+schema = "fenolite.pins.v0"
+id = "Fenolite:MOSFET_P_Channel"
+version = "1.0.0"
+summary = "Conceptual P-channel enhancement G/D/S; not a device pinout"
+category = "Discrete semiconductor"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0426"]
+
+[[pin]]
+number = "1"
+name = "G"
+type = "input"
+
+[[pin]]
+number = "2"
+name = "D"
+type = "passive"
+
+[[pin]]
+number = "3"
+name = "S"
+type = "passive"
+
+[symbol]
+reference = "Q"
+pin_names_hidden = true
+pins = [
+  { number = "1", at = ["-5.08mm", "0mm"], length = "2.54mm" },
+  { number = "2", at = ["2.54mm", "5.08mm"], rotation = "270deg", length = "2.54mm" },
+  { number = "3", at = ["2.54mm", "-5.08mm"], rotation = "90deg", length = "2.54mm" },
+]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-2.54mm", "0mm"], ["-1.27mm", "0mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-1.27mm", "-1.905mm"], ["-1.27mm", "1.905mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0mm", "-1.905mm"], ["0mm", "-1.016mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0mm", "-0.508mm"], ["0mm", "0.508mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0mm", "1.016mm"], ["0mm", "1.905mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0mm", "1.524mm"], ["2.54mm", "1.524mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["2.54mm", "1.524mm"], ["2.54mm", "2.54mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0mm", "-1.524mm"], ["2.54mm", "-1.524mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["2.54mm", "-1.524mm"], ["2.54mm", "-2.54mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["0mm", "0mm"], ["2.54mm", "0mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["2.54mm", "0mm"], ["2.54mm", "-1.524mm"]]
+
+[[symbol.graphic]]
+kind = "polygon"
+points = [["1.5mm", "0mm"], ["0.85mm", "0.3mm"], ["0.85mm", "-0.3mm"]]
+filled = true
+
+[[symbol.graphic]]
+kind = "line"
+points = [["2.54mm", "1.524mm"], ["3.81mm", "1.524mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["3.81mm", "1.524mm"], ["3.81mm", "0.6mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["2.54mm", "-1.524mm"], ["3.81mm", "-1.524mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["3.81mm", "-1.524mm"], ["3.81mm", "-0.6mm"]]
+
+[[symbol.graphic]]
+kind = "polygon"
+points = [["3.21mm", "0.6mm"], ["4.41mm", "0.6mm"], ["3.81mm", "-0.6mm"]]
+filled = true
+
+[[symbol.graphic]]
+kind = "line"
+points = [["3.21mm", "-0.6mm"], ["4.41mm", "-0.6mm"]]

@@ -132,8 +132,10 @@ def test_capabilities_list_the_paged_commands(monkeypatch: pytest.MonkeyPatch, t
         "silk": ("placements", None),  # c0212
         "testpoints": ("test_points", None),  # c0118
         "tidy": ("edits", None),  # c0208
-        "library": ("drift|footprints", None),  # c0223
+        "library": ("drift|footprints|symbols", None),  # c0223, c0261
         "roles": ("roles", None),  # c0222
+        "import": ("files|unexpressed", None),  # c0275
+        "pick": ("candidates|picks", 20),  # c0254
     }
     assert {name for name, command in discover().items() if command.paged} == set(paged)
 

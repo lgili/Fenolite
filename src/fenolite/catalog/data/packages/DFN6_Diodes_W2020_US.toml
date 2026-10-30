@@ -1,0 +1,106 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:DFN6_Diodes_W2020_US"
+version = "1.0.0"
+summary = "Diodes W-DFN2020-6 Type US land with EP"
+category = "Leadless IC"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0399", "S-0397"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["0.545mm", "0.35mm"]
+at = ["-0.9025mm", "0.65mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["0.545mm", "0.35mm"]
+at = ["-0.9025mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "3"
+shape = "rect"
+size = ["0.545mm", "0.35mm"]
+at = ["-0.9025mm", "-0.65mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "4"
+shape = "rect"
+size = ["0.545mm", "0.35mm"]
+at = ["0.9025mm", "-0.65mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "5"
+shape = "rect"
+size = ["0.545mm", "0.35mm"]
+at = ["0.9025mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "6"
+shape = "rect"
+size = ["0.545mm", "0.35mm"]
+at = ["0.9025mm", "0.65mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "EP"
+shape = "rect"
+size = ["0.85mm", "1.55mm"]
+at = ["0mm", "0mm"]
+layers = ["F.Cu", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-1mm", "-1mm"], ["1mm", "1mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-1.675mm", "-1.5mm"], ["1.675mm", "1.5mm"]]
+width = "0.05mm"
+
+[[graphic]]
+key = "pin1"
+kind = "line"
+layer = "F.Fab"
+points = [["-1mm", "0.6mm"], ["-0.6mm", "1mm"]]
+width = "0.1mm"
+
+[[graphic]]
+key = "paste:0"
+kind = "rect"
+layer = "F.Paste"
+points = [["-0.3825mm", "-0.6975mm"], ["-0.0425mm", "-0.0775mm"]]
+filled = true
+
+[[graphic]]
+key = "paste:1"
+kind = "rect"
+layer = "F.Paste"
+points = [["-0.3825mm", "0.0775mm"], ["-0.0425mm", "0.6975mm"]]
+filled = true
+
+[[graphic]]
+key = "paste:2"
+kind = "rect"
+layer = "F.Paste"
+points = [["0.0425mm", "-0.6975mm"], ["0.3825mm", "-0.0775mm"]]
+filled = true
+
+[[graphic]]
+key = "paste:3"
+kind = "rect"
+layer = "F.Paste"
+points = [["0.0425mm", "0.0775mm"], ["0.3825mm", "0.6975mm"]]
+filled = true

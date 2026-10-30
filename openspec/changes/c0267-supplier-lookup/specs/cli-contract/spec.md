@@ -9,9 +9,9 @@
 - **THEN** `result.suppliers` lists `digikey`, `farnell`, `mouser` and `nexar` with `sends_data_offsite: true`, only `mouser` is `available`, and `result.sends_data_offsite` is `false`
 
 ### Requirement: Supplier errors
-`FEN-6004` SHALL mean that a supplier refused the credentials (exit 6, not retryable), with a hint naming the variables and keyring service to check; it MUST be listed in `docs/cli-contract.md` beside `FEN-6001` and `FEN-6003`.
+`FEN-6005` SHALL mean that a supplier refused the credentials (exit 6, not retryable), with a hint naming the variables and keyring service to check; it MUST be listed in `docs/cli-contract.md` beside `FEN-6001` and `FEN-6003`.
 
 #### Scenario: Rejected credentials
 - **GIVEN** a fake transport answering 403 to the token request of `nexar`
 - **WHEN** `fenolite pick examples/picks --propose "resistor(10kΩ)" --supplier nexar --allow-offsite --dry-run --json` runs
-- **THEN** the exit code is 6, stderr holds `FEN-6004` with `retryable` false, and nothing is planned
+- **THEN** the exit code is 6, stderr holds `FEN-6005` with `retryable` false, and nothing is planned

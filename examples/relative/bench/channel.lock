@@ -1,0 +1,8 @@
+# Design lock written by fenolite build. Review changes in git; hand edits are honoured.
+schema = "fenolite.lock.v0"
+design = "channel_bench"
+
+[refs]
+"ch/C" = "C1"
+"ch/D" = "D1"
+"ch/R" = "R1"

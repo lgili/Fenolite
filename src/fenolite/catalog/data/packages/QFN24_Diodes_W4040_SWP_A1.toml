@@ -1,0 +1,232 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:QFN24_Diodes_W4040_SWP_A1"
+version = "1.0.0"
+summary = "Diodes W-QFN4040-24 SWP Type A1 land with EP"
+category = "Leadless IC"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0394", "S-0397"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["0.75mm", "0.3mm"]
+at = ["-1.925mm", "1.25mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["0.75mm", "0.3mm"]
+at = ["-1.925mm", "0.75mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "3"
+shape = "rect"
+size = ["0.75mm", "0.3mm"]
+at = ["-1.925mm", "0.25mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "4"
+shape = "rect"
+size = ["0.75mm", "0.3mm"]
+at = ["-1.925mm", "-0.25mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "5"
+shape = "rect"
+size = ["0.75mm", "0.3mm"]
+at = ["-1.925mm", "-0.75mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "6"
+shape = "rect"
+size = ["0.75mm", "0.3mm"]
+at = ["-1.925mm", "-1.25mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "7"
+shape = "rect"
+size = ["0.3mm", "0.75mm"]
+at = ["-1.25mm", "-1.925mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "8"
+shape = "rect"
+size = ["0.3mm", "0.75mm"]
+at = ["-0.75mm", "-1.925mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "9"
+shape = "rect"
+size = ["0.3mm", "0.75mm"]
+at = ["-0.25mm", "-1.925mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "10"
+shape = "rect"
+size = ["0.3mm", "0.75mm"]
+at = ["0.25mm", "-1.925mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "11"
+shape = "rect"
+size = ["0.3mm", "0.75mm"]
+at = ["0.75mm", "-1.925mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "12"
+shape = "rect"
+size = ["0.3mm", "0.75mm"]
+at = ["1.25mm", "-1.925mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "13"
+shape = "rect"
+size = ["0.75mm", "0.3mm"]
+at = ["1.925mm", "-1.25mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "14"
+shape = "rect"
+size = ["0.75mm", "0.3mm"]
+at = ["1.925mm", "-0.75mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "15"
+shape = "rect"
+size = ["0.75mm", "0.3mm"]
+at = ["1.925mm", "-0.25mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "16"
+shape = "rect"
+size = ["0.75mm", "0.3mm"]
+at = ["1.925mm", "0.25mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "17"
+shape = "rect"
+size = ["0.75mm", "0.3mm"]
+at = ["1.925mm", "0.75mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "18"
+shape = "rect"
+size = ["0.75mm", "0.3mm"]
+at = ["1.925mm", "1.25mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "19"
+shape = "rect"
+size = ["0.3mm", "0.75mm"]
+at = ["1.25mm", "1.925mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "20"
+shape = "rect"
+size = ["0.3mm", "0.75mm"]
+at = ["0.75mm", "1.925mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "21"
+shape = "rect"
+size = ["0.3mm", "0.75mm"]
+at = ["0.25mm", "1.925mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "22"
+shape = "rect"
+size = ["0.3mm", "0.75mm"]
+at = ["-0.25mm", "1.925mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "23"
+shape = "rect"
+size = ["0.3mm", "0.75mm"]
+at = ["-0.75mm", "1.925mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "24"
+shape = "rect"
+size = ["0.3mm", "0.75mm"]
+at = ["-1.25mm", "1.925mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "EP"
+shape = "rect"
+size = ["2.5mm", "2.5mm"]
+at = ["0mm", "0mm"]
+layers = ["F.Cu", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-2mm", "-2mm"], ["2mm", "2mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-2.8mm", "-2.8mm"], ["2.8mm", "2.8mm"]]
+width = "0.05mm"
+
+[[graphic]]
+key = "pin1"
+kind = "line"
+layer = "F.Fab"
+points = [["-2mm", "1.6mm"], ["-1.6mm", "2mm"]]
+width = "0.1mm"
+
+[[graphic]]
+key = "paste:0"
+kind = "rect"
+layer = "F.Paste"
+points = [["-1.125mm", "-1.125mm"], ["-0.125mm", "-0.125mm"]]
+filled = true
+
+[[graphic]]
+key = "paste:1"
+kind = "rect"
+layer = "F.Paste"
+points = [["-1.125mm", "0.125mm"], ["-0.125mm", "1.125mm"]]
+filled = true
+
+[[graphic]]
+key = "paste:2"
+kind = "rect"
+layer = "F.Paste"
+points = [["0.125mm", "-1.125mm"], ["1.125mm", "-0.125mm"]]
+filled = true
+
+[[graphic]]
+key = "paste:3"
+kind = "rect"
+layer = "F.Paste"
+points = [["0.125mm", "0.125mm"], ["1.125mm", "1.125mm"]]
+filled = true

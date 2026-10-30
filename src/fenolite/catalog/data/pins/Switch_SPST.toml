@@ -1,0 +1,46 @@
+schema = "fenolite.pins.v0"
+id = "Fenolite:Switch_SPST"
+version = "1.0.0"
+summary = "Conceptual SPST contact, open at rest; not a device pinout"
+category = "Electromechanical interface"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0435"]
+
+[[pin]]
+number = "1"
+name = "A"
+type = "passive"
+
+[[pin]]
+number = "2"
+name = "B"
+type = "passive"
+
+[symbol]
+reference = "SW"
+pin_names_hidden = true
+pins = [
+  { number = "1", at = ["-5.08mm", "0mm"], length = "2.54mm" },
+  { number = "2", at = ["5.08mm", "0mm"], rotation = "180deg", length = "2.54mm" },
+]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-2.54mm", "0mm"], ["-2.2mm", "0mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["2.2mm", "0mm"], ["2.54mm", "0mm"]]
+
+[[symbol.graphic]]
+kind = "line"
+points = [["-2.2mm", "0mm"], ["1.905mm", "1.905mm"]]
+
+[[symbol.graphic]]
+kind = "circle"
+points = [["-2.2mm", "0mm"], ["-2.03mm", "0mm"]]
+
+[[symbol.graphic]]
+kind = "circle"
+points = [["2.2mm", "0mm"], ["2.37mm", "0mm"]]

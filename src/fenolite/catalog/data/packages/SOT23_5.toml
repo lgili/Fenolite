@@ -1,0 +1,57 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:SOT23_5"
+version = "1.0.0"
+summary = "Five-lead SOT-23 package land"
+category = "Small-outline IC"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0323", "S-0335"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["1.1mm", "0.6mm"]
+at = ["-1.3mm", "0.95mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["1.1mm", "0.6mm"]
+at = ["-1.3mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "3"
+shape = "rect"
+size = ["1.1mm", "0.6mm"]
+at = ["-1.3mm", "-0.95mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "4"
+shape = "rect"
+size = ["1.1mm", "0.6mm"]
+at = ["1.3mm", "-0.95mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "5"
+shape = "rect"
+size = ["1.1mm", "0.6mm"]
+at = ["1.3mm", "0.95mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-0.8mm", "-1.45mm"], ["0.8mm", "1.45mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-2.35mm", "-1.95mm"], ["2.35mm", "1.95mm"]]
+width = "0.05mm"

@@ -30,6 +30,12 @@ Class: `Footprint(library: 'str', name: 'str', *, kind: 'FootprintKind' = 'unspe
 
 Author a library footprint with DSL lengths (`mm()`, `mil()`, `nm()` or unit strings).
 
+## Ground
+
+Class: `Ground(gnd: 'Net', *, name: 'str \| None' = None) -> 'None'`
+
+A ground: the member `gnd`; the default name is the net's name.
+
 ## Harness
 
 Class: `Harness(name: 'str', members: 'Mapping[str, Net]') -> 'None'`
@@ -38,7 +44,7 @@ A named group of nets with different names, such as SPI with MOSI, MISO and SCK.
 
 ## I2C
 
-Class: `I2C(sda: 'Net', scl: 'Net', *, name: 'str \| None' = None) -> 'None'`
+Class: `I2C(sda: 'Net', scl: 'Net', *, name: 'str \| None' = None, reference: 'object' = None, pullup: 'Range \| Quantity \| None' = None) -> 'None'`
 
 An I2C bus: `sda` and `scl` nets; the default name is `<sda>/<scl>`.
 
@@ -46,7 +52,13 @@ An I2C bus: `sda` and `scl` nets; the default name is `<sda>/<scl>`.
 
 Class: `Interface(name: 'str', kind: 'str', members: 'Mapping[str, Net]') -> 'None'`
 
-A typed bundle of nets: role → net.
+A typed bundle of nets: role → net; with the parameters, the reference rail and the sharing flag of.
+
+## Logic
+
+Class: `Logic(io: 'Net', *, name: 'str \| None' = None, reference: 'object' = None) -> 'None'`
+
+A logic line: the member `io` and the rail its levels refer to (`reference`, a `Rail` or a power port handle); the default name is the net's name.
 
 ## Module
 
@@ -62,19 +74,37 @@ A net, named globally and literally; a module-local net is named by the script.
 
 ## Part
 
-Class: `Part(ref: 'str', lib_id: 'str', footprint: 'str \| None' = None, value: 'str \| Quantity' = '', *, properties: 'Mapping[str, str] \| None' = None, pad_map: 'Mapping[str, str \| Sequence[str]] \| None' = None, height: 'object' = None) -> 'None'`
+Class: `Part(ref: 'str \| None' = None, lib_id: 'str \| None' = None, footprint: 'str \| None' = None, value: 'str \| Quantity \| Range \| None' = None, *, name: 'str \| None' = None, prefix: 'str \| None' = None, device: 'str \| PartQuery \| None' = None, properties: 'Mapping[str, str] \| None' = None, pad_map: 'Mapping[str, str \| Sequence[str]] \| None' = None, height: 'object' = None) -> 'None'`
 
-A component: reference, symbol lib id, optional footprint lib id, value and user properties.
+A component: reference, symbol lib id, optional footprint lib id, value and user properties; or a reference and a device id, which gives the rest.
+
+## PinNameError
+
+Class: `PinNameError`
+
+A designator that is neither a function nor a listed symbol pin of a device part.
 
 ## Power
 
-Class: `Power(hv: 'Net', lv: 'Net', *, name: 'str \| None' = None) -> 'None'`
+Class: `Power(hv: 'Net', lv: 'Net \| None' = None, *, name: 'str \| None' = None, voltage: 'Range \| Quantity \| None' = None, shared: 'bool' = False, **params: 'object') -> 'None'`
 
-A supply: `hv` and `lv` nets; the default name is `<hv>/<lv>`.
+A supply rail: the `hv` net and, when given, the `lv` net; the default name is `<hv>/<lv>`, or `<hv>`.
+
+## Rail
+
+Class: `Rail(hv: 'Net', lv: 'Net \| None' = None, *, name: 'str \| None' = None, voltage: 'Range \| Quantity \| None' = None, shared: 'bool' = False, **params: 'object') -> 'None'`
+
+A supply rail: the `hv` net and, when given, the `lv` net; the default name is `<hv>/<lv>`, or `<hv>`.
+
+## Range
+
+Class: `Range(unit: 'str', low: 'Fraction \| None', high: 'Fraction \| None', nominal: 'Fraction \| None' = None) -> 'None'`
+
+An exact interval of one unit (a unit of `UNITS`, or `"ratio"`) with an optional nominal.
 
 ## SPI
 
-Class: `SPI(sck: 'Net', mosi: 'Net', miso: 'Net', *, cs: 'Sequence[Net]' = (), name: 'str \| None' = None) -> 'None'`
+Class: `SPI(sck: 'Net', mosi: 'Net', miso: 'Net', *, cs: 'Sequence[Net]' = (), name: 'str \| None' = None, reference: 'object' = None) -> 'None'`
 
 An SPI bus: `sck`, `mosi`, `miso` and one `cs<i>` net per chip select, in the order given.
 
@@ -82,17 +112,23 @@ An SPI bus: `sck`, `mosi`, `miso` and one `cs<i>` net per chip select, in the or
 
 Class: `Symbol(library: 'str', name: 'str', *, reference: 'str', value: 'str' = '', footprint: 'str' = '', description: 'str' = '') -> 'None'`
 
-Author a one-unit symbol.
+Author a symbol.
+
+## Tolerance
+
+Class: `Tolerance(lo: 'Fraction', hi: 'Fraction') -> None`
+
+A per-cent tolerance without unit, from `lo` % to `hi` % (`lo <= 0 <= hi`); build one with `pct()`.
 
 ## UART
 
-Class: `UART(tx: 'Net', rx: 'Net', *, name: 'str \| None' = None) -> 'None'`
+Class: `UART(tx: 'Net', rx: 'Net', *, name: 'str \| None' = None, reference: 'object' = None) -> 'None'`
 
 A UART link: `tx` and `rx` nets, named from device A (side `a`).
 
 ## USB2
 
-Class: `USB2(dp: 'Net', dn: 'Net', *, vbus: 'Net \| None' = None, gnd: 'Net \| None' = None, name: 'str \| None' = None) -> 'None'`
+Class: `USB2(dp: 'Net', dn: 'Net', *, vbus: 'Net \| None' = None, gnd: 'Net \| None' = None, name: 'str \| None' = None, reference: 'object' = None) -> 'None'`
 
 A USB 2.0 port: `dp` and `dn` nets, and `vbus` and `gnd` when given.
 
@@ -108,17 +144,77 @@ Function: `arc_to(mid: 'object', end: 'object') -> 'ArcStep'`
 
 An arc from the point of the path element before it through `mid` to `end`, each an `(x, y)` pair of lengths in the frame of `place()` or an anchor; the path continues from `end`.
 
+## at_least
+
+Function: `at_least(a: 'object', b: 'object') -> 'Test'`
+
+The test "`a` is at least `b`": it passes when `a.min >= b.max`, fails when `a.max < b.min`.
+
+## at_most
+
+Function: `at_most(a: 'object', b: 'object') -> 'Test'`
+
+The test "`a` is at most `b`": it passes when `a.max <= b.min`, fails when `a.min > b.max`.
+
+## between
+
+Function: `between(a: 'Quantity', b: 'Quantity', *, nominal: 'Quantity \| None' = None) -> 'Range'`
+
+The range from `a` to `b`, two quantities of one unit with `a <= b`, with an optional nominal of that unit between them.
+
+## block
+
+Function: `block(function: 'Callable[..., None] \| None' = None, /, *, name: 'str \| None' = None) -> 'BlockDef \| Callable[[Callable[..., None]], BlockDef]'`
+
+Mark `def name(b, *, param=default, ...)` as a block: `@block` or `@block(name="buck")`.
+
+## capacitor
+
+Function: `capacitor(value: 'Quantity \| Range', **constraints: 'object') -> 'PartQuery'`
+
+A capacitor by value (in farads) and `tolerance`, `rating`, `case`, `dielectric`, `series`, `row`.
+
+## celsius
+
+Function: `celsius(value: 'int \| Fraction \| str') -> 'Quantity'`
+
+An absolute temperature given in degrees Celsius, as a value in kelvin: `celsius(-20)` is exactly `kelvin("253.15")` and prints `-20°C` with `temperature_text()`.
+
+## column
+
+Function: `column(gap: 'object' = Length(nm=0), align: 'str' = 'start', at: 'object' = None) -> 'Strategy'`
+
+The frame's unplaced parts top to bottom from `at`, `gap` apart, aligned on their left edges (`start`), centres or right edges (`end`).
+
 ## connect
 
-Function: `connect(net: 'Net', *pins: 'PinHandle') -> 'Net'`
+Function: `connect(net: 'object', *pins: 'object') -> 'Net'`
 
 Join each pin to `net`; one designator of one part on two nets is refused.
+
+## current_of
+
+Function: `current_of(target: 'object') -> 'Ref'`
+
+The handle of the current bound of a net, a rail or a power port.
+
+## decouple
+
+Function: `decouple(rail: 'object', ground: 'object', *capacitors: 'Part', near: 'object' = None, within: 'object' = None, severity: 'str' = 'error') -> 'None'`
+
+Join each capacitor's `a` to `rail` and its `b` to `ground`.
 
 ## farad
 
 Function: `farad(value: 'int \| Fraction \| str') -> 'Quantity'`
 
 A capacitance: `farad("100n")`.
+
+## grid
+
+Function: `grid(columns: 'int', gap: 'object' = Length(nm=0), at: 'object' = None) -> 'Strategy'`
+
+Cells of the largest box's size plus `gap`, `columns` per row, each box centred in its cell.
 
 ## henry
 
@@ -132,11 +228,35 @@ Function: `hertz(value: 'int \| Fraction \| str') -> 'Quantity'`
 
 A frequency: `hertz("16M")`.
 
+## i2c_pull_ups
+
+Function: `i2c_pull_ups(b: 'object', bus: 'object', supply: 'object', *, bus_capacitance: 'Range', vdd: 'Range \| Quantity', mode: 'str \| None' = None, name: 'str' = 'PU') -> 'tuple[Part, Part]'`
+
+One pull-up value for both lines of `bus` (an `I2C`), from `supply`: the largest series value whose worst-case span lies in the window of the I2C specification for `mode` (`standard`, `fast` — the default — or `fast-plus`), `bus_capacitance` and the supply range `vdd`.
+
 ## inch
 
 Function: `inch(value: 'int \| str \| float') -> 'Length'`
 
 `value` inches.
+
+## inductor
+
+Function: `inductor(value: 'Quantity \| Range', **constraints: 'object') -> 'PartQuery'`
+
+An inductor by value (in henries) and `tolerance`, `current`, `saturation`, `dcr`, `case`, `row`.
+
+## kelvin
+
+Function: `kelvin(value: 'int \| Fraction \| str') -> 'Quantity'`
+
+A temperature in kelvin: `kelvin(15)` is a difference of 15 K, `kelvin("233.15")` the absolute temperature -40 °C.
+
+## led_resistor
+
+Function: `led_resistor(b: 'object', supply: 'object', led: 'object', *, current: 'Range', vf: 'Range \| Quantity', vs: 'Range \| Quantity', name: 'str \| None' = None) -> 'Part'`
+
+The series resistor of an LED, from `supply` to `led` (the net of the LED's anode), whose worst-case current `(VS − VF) / R` lies within `current` and whose power rating covers the worst dissipation.
 
 ## mil
 
@@ -168,15 +288,75 @@ Function: `ohm(value: 'int \| Fraction \| str') -> 'Quantity'`
 
 A resistance: `ohm("4k7")`, `ohm("4.7 kΩ")`, `ohm(4700)`.
 
+## pack
+
+Function: `pack(width: 'object', gap: 'object' = Length(nm=0), at: 'object' = None) -> 'Strategy'`
+
+Shelf packing within `width`: tallest boxes first, each right of the previous while it fits, else on a new shelf.
+
+## pct
+
+Function: `pct(lo: 'int \| Fraction \| str', hi: 'int \| Fraction \| str \| None' = None) -> 'Tolerance'`
+
+A per-cent tolerance: `pct(5)` is `±5 %`, `pct(-20, 80)` from −20 % to +80 %.
+
 ## protect
 
 Function: `protect(*, tenting: 'object' = None, covering: 'object' = None, plugging: 'object' = None, capping: 'object' = None, filling: 'object' = None) -> 'ViaProtection'`
 
 How a via is protected.
 
+## pull_down
+
+Function: `pull_down(target: 'object', ground: 'object', *resistors: 'Part') -> 'None'`
+
+Join each resistor's `a` to a net of `target` and its `b` to `ground`, as `pull_up`.
+
+## pull_up
+
+Function: `pull_up(target: 'object', rail: 'object', *resistors: 'Part') -> 'None'`
+
+Join each resistor's `a` to a net of `target` and its `b` to `rail`.
+
+## rating_of
+
+Function: `rating_of(part: 'Part', key: 'str', pin: 'str \| None' = None, limit: 'str' = 'abs_max') -> 'Ref'`
+
+The handle of a limit of `part`'s device: the device rating `key` (`voltage`, `current`, `power`, `temperature`), or the pin's when `pin` names a function, of kind `limit` (`abs_max` or `operating`).
+
+## ratio
+
+Function: `ratio(percent: 'int \| Fraction \| str') -> 'Derating'`
+
+A derating, "at most `percent` % of the rating": `ratio(50)` limits a part to half its rating.
+
+## rc_lowpass
+
+Function: `rc_lowpass(b: 'object', inp: 'object', out: 'object', gnd: 'object', *, corner: 'Range', r: 'PartQuery \| None' = None, c: 'PartQuery \| None' = None, name: 'str \| None' = None) -> 'tuple[Part, Part]'`
+
+A resistor from `inp` to `out` and a capacitor from `out` to `gnd` (`<name>_R`, `<name>_C`) whose worst-case corner `1 / (2πRC)` lies within `corner`; `r=` or `c=` fixes one part by a query of its kind.
+
+## resistor
+
+Function: `resistor(value: 'Quantity \| Range', **constraints: 'object') -> 'PartQuery'`
+
+A resistor by value (a quantity or a range in ohms) and constraints: `tolerance`, `power`, `voltage`, `case`, `series`, `tempco`, `row`.
+
+## row
+
+Function: `row(gap: 'object' = Length(nm=0), align: 'str' = 'start', at: 'object' = None) -> 'Strategy'`
+
+The frame's unplaced parts left to right from `at`, `gap` apart, aligned on their top edges (`start`), centres or bottom edges (`end`).
+
 ## schematic_composition
 
 Function: `schematic_composition(design: 'Design', *, target: 'str \| None' = None, enabled: 'bool' = False) -> 'CompositionIntent \| None'`
+
+## schematic_group
+
+Function: `schematic_group(key: 'str', *members: 'Part \| str', title: 'str \| None' = None, anchor: 'Part \| str \| None' = None, after: 'str \| None' = None, flow: 'str' = 'left-to-right') -> 'SchematicGroup'`
+
+A group of a block's own parts for `b.schematic`: a member is a part handle or a local part name; `anchor` is a member, `after` the key of another group of the call, `flow` `left-to-right` or `top-to-bottom`.
 
 ## second
 
@@ -232,6 +412,12 @@ Function: `select.ref(name: 'str \| Part') -> 'Select'`
 
 The items of a part (for a courtyard rule, the part's footprint), by reference or as the `Part`.
 
+## series
+
+Function: `series(*chain: 'object') -> 'tuple[Net, ...]'`
+
+Connect a chain from a net through two-pin parts to a net: `series(vin, f1, d1, vprot)`.
+
 ## shape
 
 Module.
@@ -286,6 +472,18 @@ Function: `shape.stadium(x: 'object', y: 'object', length: 'object', width: 'obj
 
 The ring of `design.slot()` as a path.
 
+## shunt
+
+Function: `shunt(b: 'object', hi: 'object', lo: 'object', *, current: 'Range', full_scale: 'Range \| Quantity', name: 'str' = 'SHUNT') -> 'Part'`
+
+A current-sense resistor from `hi` to `lo`: the largest row value whose worst-case drop at the largest `current` stays within the smallest `full_scale` input and whose power rating covers the dissipation.
+
+## sink
+
+Function: `sink(net: 'object', ret: 'object' = None, *, current: 'object', name: 'str \| None' = None) -> 'Sink'`
+
+A rig sink: the outside world draws `current` from `net` to `ret` (the design's one ground when omitted).
+
 ## stack
 
 Module.
@@ -334,11 +532,23 @@ Function: `stack.silkscreen(*, color: 'str' = '') -> 'StackEntry'`
 
 A silkscreen, above the top mask or below the bottom one; it has no thickness.
 
+## supply
+
+Function: `supply(pos: 'object', neg: 'object' = None, *, voltage: 'object', current: 'object' = None, name: 'str \| None' = None) -> 'Supply'`
+
+A rig supply: the outside world holds `pos` at `voltage` against `neg` (the design's one ground when omitted) and delivers at most `current`.
+
 ## trace
 
 Function: `trace(layer: 'str', *, refs: 'str \| tuple[str, ...]', width: 'object', gap: 'object' = None) -> 'Trace'`
 
 One layer of an impedance target: `layer` a copper layer name, `refs` one reference layer or a tuple of two, `width` the track width and `gap` the gap between the two tracks of a pair (lengths with a unit, for example `mm(0.2)`).
+
+## value_of
+
+Function: `value_of(part: 'Part') -> 'Ref'`
+
+The handle of `part`'s value range: what the stage reads from the built model, so an edit kept after the build is judged.
 
 ## via_step
 
@@ -352,8 +562,26 @@ Function: `volt(value: 'int \| Fraction \| str') -> 'Quantity'`
 
 A voltage: `volt("3.3")`; may be negative.
 
+## voltage_divider
+
+Function: `voltage_divider(b: 'object', hi: 'object', mid: 'object', lo: 'object', *, target: 'Range', ref: 'Range \| Quantity \| None' = None, vin: 'Range \| Quantity \| None' = None, current: 'Range', series: 'str \| None' = None, name: 'str \| None' = None) -> 'tuple[Part, Part]'`
+
+Two resistors from `hi` over `mid` to `lo` (`<name>_top`, `<name>_bot`; `name` defaults to the leaf name of `mid`).
+
+## voltage_of
+
+Function: `voltage_of(target: 'object') -> 'Ref'`
+
+The handle of the voltage bound of a net, a rail or a power port: from the rig, the rail or the net's declared role, never inferred.
+
 ## watt
 
 Function: `watt(value: 'int \| Fraction \| str') -> 'Quantity'`
 
 A power: `watt("250m")`.
+
+## within
+
+Function: `within(a: 'object', b: 'object') -> 'Test'`
+
+The test "every value of `a` lies in `b`": it passes when `a` is inside `b`, fails when they do not overlap, and is unsure otherwise.

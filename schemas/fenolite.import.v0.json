@@ -1,0 +1,319 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.import.v0",
+  "title": "ImportReply",
+  "description": "The result of fenolite import.",
+  "type": "object",
+  "properties": {
+    "source": {
+      "$ref": "#/$defs/ImportSource"
+    },
+    "out": {
+      "type": "string"
+    },
+    "design": {
+      "type": "string"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ImportFile"
+      }
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "counts": {
+      "$ref": "#/$defs/ImportCounts"
+    },
+    "unexpressed": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ImportUnexpressed"
+      }
+    },
+    "upgrade": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ImportUpgrade"
+      }
+    },
+    "equivalence": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ImportEquivalence"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "provenance": {
+      "$ref": "#/$defs/ImportProvenance"
+    },
+    "adopted": {
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "plan": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "the planned writes"
+    },
+    "plan_id": {
+      "type": "string",
+      "description": "the id of the staged plan"
+    },
+    "page": {
+      "type": "object",
+      "description": "with --limit"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "source",
+    "out",
+    "design",
+    "files",
+    "modules",
+    "counts",
+    "unexpressed",
+    "upgrade",
+    "equivalence",
+    "provenance",
+    "adopted"
+  ],
+  "$defs": {
+    "ImportCounts": {
+      "description": "What the emitted code holds.",
+      "type": "object",
+      "properties": {
+        "parts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "nets": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tracks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "arcs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "vias": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "zones": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rule_areas": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "drawings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tables": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "parts",
+        "nets",
+        "tracks",
+        "arcs",
+        "vias",
+        "zones",
+        "rule_areas",
+        "drawings",
+        "tables"
+      ]
+    },
+    "ImportEquivalence": {
+      "description": "The self-check: the levels compared and whether every difference is explained.",
+      "type": "object",
+      "properties": {
+        "levels": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "equivalent": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "levels",
+        "equivalent"
+      ]
+    },
+    "ImportFile": {
+      "description": "One file of the project folder, relative to ``--out``.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "bytes"
+      ]
+    },
+    "ImportProvenance": {
+      "description": "The upstream as the command line states it.",
+      "type": "object",
+      "properties": {
+        "licence": {
+          "type": "string"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "licence",
+        "source",
+        "revision"
+      ]
+    },
+    "ImportSource": {
+      "description": "The board read: its file name, the backend and the format version of each input that has one.",
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "backend": {
+          "type": "string"
+        },
+        "versions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "backend",
+        "versions"
+      ]
+    },
+    "ImportUnexpressed": {
+      "description": "One kind of item no DSL call expresses, its count and up to three examples.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "count",
+        "examples"
+      ]
+    },
+    "ImportUpgrade": {
+      "description": "One file upgraded by ``kicad-cli`` on a private copy.",
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "tool_version": {
+          "type": "string"
+        },
+        "from_version": {
+          "type": "integer"
+        },
+        "to_version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sha256_before": {
+          "type": "string"
+        },
+        "sha256_after": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "tool",
+        "tool_version",
+        "from_version",
+        "to_version",
+        "sha256_before",
+        "sha256_after"
+      ]
+    }
+  }
+}

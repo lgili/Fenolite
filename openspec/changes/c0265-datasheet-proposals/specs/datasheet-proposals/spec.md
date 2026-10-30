@@ -94,7 +94,7 @@ After drawing, `library propose` SHALL run the library rules on the drawn device
 - **THEN** the exit code is 5 and a finding of the generator or of the library rules names the span
 
 ### Requirement: Proposal target and re-proposal
-`--out` SHALL follow the target rule of the library import (relative, inside the project, never the shipped catalog or a pack). A corrected proposal over an unreviewed, unedited folder MUST replace it; over a reviewed or edited folder it MUST exit 7 with `FEN-7001`.
+`--out` SHALL follow the target rule of the library import (relative, inside the project, never the shipped catalog or a vendored library folder). A corrected proposal over an unreviewed, unedited folder MUST replace it; over a reviewed or edited folder it MUST exit 7 with `FEN-7001`.
 
 #### Scenario: Corrected proposal over a reviewed device
 - **GIVEN** a proposed folder that a review accepted

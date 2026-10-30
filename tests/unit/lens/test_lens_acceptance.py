@@ -175,8 +175,10 @@ def test_layout_restored_from_the_source_tree(
     rebuilt = p.read()
     code, env, err = p.run("sync", "--to-source", "--confirm")
     assert code == 0, err
-    source = p.script.parent / "placements.toml"
-    assert source.is_file() and env["result"]["placements"] == len(PATHS)  # type: ignore[index]
+    source = p.script.parent / "edits.toml"
+    # c0250: edits.toml holds only the parts whose board placement differs from their place()
+    assert source.is_file() and 0 < env["result"]["placements"] < len(PATHS)  # type: ignore[index, operator]
+    captured = env["result"]["placements"]  # type: ignore[index]
     assert env["result"]["unplaced"] == ["io/R9"]  # type: ignore[index]
     empty = tmp_path / "restored"
     code, env, err = p.run("build", "--discard-layout", "--confirm", out=empty)
@@ -188,7 +190,7 @@ def test_layout_restored_from_the_source_tree(
     assert [i["where"] for i in env["issues"] if i["code"] == "layout.unplaced"] == ["io/R9"]  # type: ignore[union-attr,index]
     assert restored.board is not None and not restored.board.tracks
     used = env["result"]["preserved"]["source"]["used"]  # type: ignore[index]
-    assert used == sorted(renamed(path) for path in PATHS.values() if path != "U1")
+    assert len(used) == captured and set(used) <= {renamed(path) for path in PATHS.values() if path != "U1"}
 
 
 def test_offsets_are_distinct_and_small() -> None:

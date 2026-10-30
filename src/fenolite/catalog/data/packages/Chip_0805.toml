@@ -1,0 +1,36 @@
+schema = "fenolite.package.v0"
+id = "Fenolite:Chip_0805"
+version = "1.0.0"
+summary = "Generic two-terminal 0805 chip land"
+category = "Chip passive"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0315", "S-0333"]
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["0.9mm", "1.45mm"]
+at = ["-0.95mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["0.9mm", "1.45mm"]
+at = ["0.95mm", "0mm"]
+layers = ["F.Cu", "F.Paste", "F.Mask"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.Fab"
+points = [["-1mm", "-0.625mm"], ["1mm", "0.625mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-1.9mm", "-1.225mm"], ["1.9mm", "1.225mm"]]
+width = "0.05mm"

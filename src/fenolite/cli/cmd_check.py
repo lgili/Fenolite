@@ -20,10 +20,11 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-from collections.abc import Mapping, Sequence
+import json
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from fenolite.backends import registry
 from fenolite.backends.base import BoardPad, DocumentSet, DocumentValidator, ProjectSet, Validator
@@ -32,6 +33,8 @@ from fenolite.backends.kicad.oracle import KicadOracle
 from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.checks import DEFAULT_STAGES, ORACLE_STAGES, STAGE_ORDER, run_checks
 from fenolite.checks.documents import ALL_DOCUMENT_STAGES, DOCUMENT_STAGES, run_document_checks
+from fenolite.checks.drawn import NAME as DRAWN_STAGE
+from fenolite.checks.drawn import DrawnInput
 from fenolite.checks.stages import CheckReport, relative_file
 from fenolite.cli._documents import built_cache, find_documents, input_ref, project_result
 from fenolite.cli._examples import EXAMPLE_BOARD
@@ -45,6 +48,7 @@ from fenolite.core.evidence import Evidence
 from fenolite.core.progress import NULL_PROGRESS, Progress
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
+from fenolite.model.library import DeviceDef
 
 HELP = (
     "check a KiCad project (model, KiCad ERC and DRC findings, pad nets, round trips) or an Altium "
@@ -142,6 +146,19 @@ def roles_judge(
     return judge(design, model, project, pads)
 
 
+def circuit_inputs(root: Path) -> Callable[[Design], tuple[Mapping[str, DeviceDef], Mapping[str, str]]]:
+    """The ``CircuitInputs`` of the stage ``circuit.rules`` for the project in ``root`` (change c0253): the
+    device records of its model (``devices/`` of ``root``, then the shipped devices) and the classes of
+    ``fenolite.roles.classify``."""
+
+    def inputs(model: Design) -> tuple[Mapping[str, DeviceDef], Mapping[str, str]]:
+        from fenolite.cli._contracts import classes_of, devices_of
+
+        return devices_of(model, root), classes_of(model)
+
+    return inputs
+
+
 def _cache(root: Path) -> tuple[bool, Design | None, str]:
     """``(built, model, cache_error)`` from ``<root>/.fenolite/``."""
     return built_cache(root)
@@ -169,6 +186,7 @@ def _run_documents(
         cache_error=cache_error,
         waivers=_waivers(model, cache_error),
         roles_judge=roles_judge,
+        circuit_inputs=circuit_inputs(documents.root),
     )
     error = report.read_error
     if isinstance(error, FormatError):
@@ -195,6 +213,36 @@ class Checked:
     tool_version: str | None
 
 
+def drawn_input(root: Path, model: Design | None, cache_error: str) -> DrawnInput | None:
+    """The drawn netlist of a built project whose ``.fenolite/build.json`` records a drawn schematic (change
+    c0276): its sheets as they are on disk, extracted and resolved (``backends.kicad.drawn.resolve_sheets``),
+    with the circuit of the ``.fenolite/`` model; ``None`` for any other project."""
+    if model is None or cache_error:
+        return None
+    try:
+        loaded: object = json.loads((root / ".fenolite" / "build.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    record = cast(dict[str, object], loaded) if isinstance(loaded, dict) else {}
+    schematic = record.get("schematic")
+    if not isinstance(schematic, dict) or cast(dict[str, object], schematic).get("source") != "drawn":
+        return None
+    name = str(record.get("design", ""))
+    root_file = root / f"{name}.kicad_sch"
+    if not root_file.is_file():
+        return None
+    from fenolite.backends.kicad import drawn as kicad_drawn
+    from fenolite.backends.kicad import sch
+
+    tree = sch.sheet_files(root_file)
+    sheet = sch.read_schematic(root_file, file=root_file.name)
+    children = {f: sch.read_schematic(root / f, file=f) for f in tree.files[1:]}
+    _drawn, netlist, issues = kicad_drawn.resolve_sheets(
+        sheet, children, circuit=model.circuit, name=name, root_file=root_file.name
+    )
+    return DrawnInput(netlist, model.circuit, issues)
+
+
 def run_stages(
     board: Path,
     stages: tuple[str, ...],
@@ -203,6 +251,7 @@ def run_stages(
     timeout: float,
     hint: str = NO_TOOL_HINT,
     progress: Progress = NULL_PROGRESS,
+    default: bool = False,
 ) -> Checked:
     """Run ``stages`` on the project of ``board`` as ``fenolite check`` does: the pre-flight of the
     ``ORACLE_STAGES`` (a supported ``kicad-cli`` that reads this board's format, else ``FEN-6001`` or
@@ -214,6 +263,9 @@ def run_stages(
     if not isinstance(backend, Validator):
         raise CliError("FEN-2001", f"no backend validates {board.name}", hint="pass a KiCad .kicad_pcb")
     built, model, cache_error = _cache(root)
+    drawn = drawn_input(root, model, cache_error) if built else None
+    if default and drawn is None:  # the stage is listed only for a built project with a drawn schematic
+        stages = tuple(name for name in stages if name != DRAWN_STAGE)
     oracle = None
     if set(ORACLE_STAGES) & set(stages):
         oracle = KicadOracle(preflight(kicad_cli, timeout, board, hint=hint))
@@ -222,7 +274,8 @@ def run_stages(
                         plotter=oracle if "render" in stages else None,
                         fill_oracle=oracle if "zone.fill" in stages else None,
                         waivers=_waivers(model, cache_error), progress=progress,
-                        roles_judge=roles_judge)  # fmt: skip
+                        roles_judge=roles_judge, drawn=drawn,
+                        circuit_inputs=circuit_inputs(root))  # fmt: skip
     error = report.read_error
     if isinstance(error, FormatError) and not report.drc_reported:
         old = isinstance(error, versions.UnsupportedFormatError)
@@ -260,7 +313,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         return run_exclude(args, ctx, resolve_board(path))
     stages = parse_stages(args.stages)
     board = resolve_board(path)
-    checked = run_stages(board, stages, kicad_cli=args.kicad_cli, timeout=args.timeout, progress=ctx.progress)
+    checked = run_stages(
+        board,
+        stages,
+        kicad_cli=args.kicad_cli,
+        timeout=args.timeout,
+        progress=ctx.progress,
+        default=args.stages is None,
+    )
     project, built, report = checked.project, checked.built, checked.report
     result: dict[str, Any] = {
         "project": {

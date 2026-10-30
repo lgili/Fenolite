@@ -21,9 +21,10 @@ another type; a flag without a value is a switch.
 | `bom` | yes | the bill of materials of a project, through a column template (writes FILE with --out) |
 | `build` | yes | build a design script into a KiCad project (runs DESIGN.py as your own code: never run it on an untrusted script) |
 | `capabilities` | no | list commands, backends, extras and external tools available here |
-| `catalog` | yes | inspect the built-in component catalog or export its visual browser (view --out FILE) |
+| `catalog` | yes | inspect the built-in component catalog and devices, export its visual browser (view --out FILE) or import a device template (import --symbol --footprint --id --out) |
 | `check` | yes | check a KiCad project (model, KiCad ERC and DRC findings, pad nets, round trips) or an Altium project or document (model, ERC lite, copper shorts and clearance, schematic parity, pad nets, round trips RT-A0 to RT-A2), read-only; --exclude writes one KiCad DRC exclusion into the project |
 | `convert` | yes | convert a project to another backend or KiCad major, reporting what is lost |
+| `copper` | yes | generate the power and ground copper of a KiCad board from its net roles (writes with --confirm) |
 | `diff` | yes | list the differences between two boards, libraries, built models or Altium files, gate them by kind, or merge them into a third KiCad board (runs no tool) |
 | `doctor` | no | report the external tools Fenolite can use: kicad-cli candidates and their commands, java, docker |
 | `edit` | yes | write a design script, a TOML file or a library table from a new text or exact edits, through a plan |
@@ -35,10 +36,11 @@ another type; a flag without a value is a switch.
 | `fmt` | yes | give a KiCad S-expression file Fenolite's canonical print, or check it with --check |
 | `guide` | no | print the agent guide of the installed version: the list of its pages, or one page |
 | `impedance` | yes | the impedance table of a project for the fabricator, with --estimate rough estimates (writes FILE with --out) |
+| `import` | yes | turn a KiCad or Altium board into a Fenolite project folder (design.py, copper tables, library) |
 | `init` | yes | write a starter project (a design script that builds with the built-in catalog) into a folder |
 | `inspect` | no | summarise a KiCad or an Altium file, or list a compound file's streams (runs no tool) |
 | `kit` | yes | build the Altium verification kit, check the files a run left, record the run, list the runs |
-| `library` | yes | write a footprint library made from a KiCad board, or report how a library differs from it |
+| `library` | yes | write a footprint library made from a KiCad board, or report how a library differs from it; 'library symbol PINS... --out FILE' writes symbols generated from pin tables |
 | `manifest` | yes | write the project manifest: every design file and artefact with its SHA-256 and a state |
 | `mcp` | no | serve Fenolite's commands as tools to an MCP client on standard input and output |
 | `models` | yes | list the 3D model files a board's footprints name and where each is found (runs no tool) |
@@ -48,6 +50,7 @@ another type; a flag without a value is a switch.
 | `pads` | no | list the pads of a board in the board frame: position, layers, net (runs no tool) |
 | `panel` | yes | write a panel of copies of one built board |
 | `parity` | no | compare the board of a KiCad project with its schematic, and symbol pins with footprint pads: without kicad-cli for a project that fenolite build wrote, and for an Altium project (writes nothing) |
+| `pick` | yes | list the picks of a design's query parts, rank candidates, update picks, or propose rows |
 | `place` | yes | place staged parts on the board in a grid, or move named parts (edits the board) |
 | `pnp` | yes | the placement (pick-and-place) table of a board, through a column template (writes FILE with --out) |
 | `publish` | yes | put an edited copy back over a project, replacing only the files unchanged since the receipt |
@@ -66,6 +69,7 @@ another type; a flag without a value is a switch.
 | `template` | yes | build a drawing sheet from a *.sheet.toml specification, or import an Altium sheet template (writes OUT) |
 | `testpoints` | yes | the test points, fiducials and holes of a board, and its net coverage, from its pad marks (writes FILE with --out) |
 | `tidy` | yes | prune, straighten and chamfer the routed copper of a KiCad board, edit by edit; or report its style |
+| `verify-source` | yes | prove that a design script rebuilds an original project, level by level (writes PROVENANCE.json with --record) |
 | `view` | yes | show a project's boards, sheets and drawings in a web page (writes FILE with --export) |
 
 | command | arguments |
@@ -75,8 +79,9 @@ another type; a flag without a value is a switch.
 | `build` | [Arguments](commands-1.md#build) |
 | `capabilities` | [Arguments](commands-1.md#capabilities) |
 | `catalog` | [Arguments](commands-1.md#catalog) |
-| `check` | [Arguments](commands-1.md#check) |
+| `check` | [Arguments](commands-2.md#check) |
 | `convert` | [Arguments](commands-2.md#convert) |
+| `copper` | [Arguments](commands-2.md#copper) |
 | `diff` | [Arguments](commands-2.md#diff) |
 | `doctor` | [Arguments](commands-2.md#doctor) |
 | `edit` | [Arguments](commands-2.md#edit) |
@@ -88,19 +93,21 @@ another type; a flag without a value is a switch.
 | `fmt` | [Arguments](commands-2.md#fmt) |
 | `guide` | [Arguments](commands-2.md#guide) |
 | `impedance` | [Arguments](commands-2.md#impedance) |
+| `import` | [Arguments](commands-2.md#import) |
 | `init` | [Arguments](commands-2.md#init) |
 | `inspect` | [Arguments](commands-2.md#inspect) |
 | `kit` | [Arguments](commands-2.md#kit) |
 | `library` | [Arguments](commands-2.md#library) |
-| `manifest` | [Arguments](commands-2.md#manifest) |
-| `mcp` | [Arguments](commands-2.md#mcp) |
-| `models` | [Arguments](commands-2.md#models) |
-| `neighbors` | [Arguments](commands-2.md#neighbors) |
-| `net` | [Arguments](commands-2.md#net) |
-| `netlist` | [Arguments](commands-2.md#netlist) |
-| `pads` | [Arguments](commands-2.md#pads) |
-| `panel` | [Arguments](commands-2.md#panel) |
-| `parity` | [Arguments](commands-2.md#parity) |
+| `manifest` | [Arguments](commands-3.md#manifest) |
+| `mcp` | [Arguments](commands-3.md#mcp) |
+| `models` | [Arguments](commands-3.md#models) |
+| `neighbors` | [Arguments](commands-3.md#neighbors) |
+| `net` | [Arguments](commands-3.md#net) |
+| `netlist` | [Arguments](commands-3.md#netlist) |
+| `pads` | [Arguments](commands-3.md#pads) |
+| `panel` | [Arguments](commands-3.md#panel) |
+| `parity` | [Arguments](commands-3.md#parity) |
+| `pick` | [Arguments](commands-3.md#pick) |
 | `place` | [Arguments](commands-3.md#place) |
 | `pnp` | [Arguments](commands-3.md#pnp) |
 | `publish` | [Arguments](commands-3.md#publish) |
@@ -109,9 +116,9 @@ another type; a flag without a value is a switch.
 | `region` | [Arguments](commands-3.md#region) |
 | `render` | [Arguments](commands-3.md#render) |
 | `restore` | [Arguments](commands-3.md#restore) |
-| `roles` | [Arguments](commands-3.md#roles) |
-| `roundtrip` | [Arguments](commands-3.md#roundtrip) |
-| `route` | [Arguments](commands-3.md#route) |
+| `roles` | [Arguments](commands-4.md#roles) |
+| `roundtrip` | [Arguments](commands-4.md#roundtrip) |
+| `route` | [Arguments](commands-4.md#route) |
 | `silk` | [Arguments](commands-4.md#silk) |
 | `skill` | [Arguments](commands-4.md#skill) |
 | `snapshot` | [Arguments](commands-4.md#snapshot) |
@@ -119,4 +126,5 @@ another type; a flag without a value is a switch.
 | `template` | [Arguments](commands-4.md#template) |
 | `testpoints` | [Arguments](commands-4.md#testpoints) |
 | `tidy` | [Arguments](commands-4.md#tidy) |
-| `view` | [Arguments](commands-4.md#view) |
+| `verify-source` | [Arguments](commands-4.md#verify-source) |
+| `view` | [Arguments](commands-5.md#view) |

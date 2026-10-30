@@ -1,0 +1,66 @@
+schema = "fenolite.pins.v0"
+id = "Fenolite:Power_Module"
+version = "1.0.0"
+summary = "Conceptual power-module block; not a device pinout"
+category = "Power and control IC"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+sources = ["S-0316", "S-0331"]
+
+[[pin]]
+number = "1"
+name = "DC+"
+type = "passive"
+
+[[pin]]
+number = "2"
+name = "DC-"
+type = "passive"
+
+[[pin]]
+number = "3"
+name = "U"
+type = "passive"
+
+[[pin]]
+number = "4"
+name = "V"
+type = "passive"
+
+[[pin]]
+number = "5"
+name = "W"
+type = "passive"
+
+[[pin]]
+number = "6"
+name = "IN1"
+type = "passive"
+
+[[pin]]
+number = "7"
+name = "IN2"
+type = "passive"
+
+[[pin]]
+number = "8"
+name = "IN3"
+type = "passive"
+
+[symbol]
+reference = "U"
+pins = [
+  { number = "1", at = ["-12.7mm", "5.08mm"], length = "2.54mm" },
+  { number = "2", at = ["-12.7mm", "2.54mm"], length = "2.54mm" },
+  { number = "3", at = ["-12.7mm", "-2.54mm"], length = "2.54mm" },
+  { number = "4", at = ["-12.7mm", "-5.08mm"], length = "2.54mm" },
+  { number = "5", at = ["12.7mm", "5.08mm"], rotation = "180deg", length = "2.54mm" },
+  { number = "6", at = ["12.7mm", "2.54mm"], rotation = "180deg", length = "2.54mm" },
+  { number = "7", at = ["12.7mm", "-2.54mm"], rotation = "180deg", length = "2.54mm" },
+  { number = "8", at = ["12.7mm", "-5.08mm"], rotation = "180deg", length = "2.54mm" },
+]
+
+[[symbol.graphic]]
+kind = "rect"
+points = [["-10.16mm", "-7.62mm"], ["10.16mm", "7.62mm"]]
+filled = true

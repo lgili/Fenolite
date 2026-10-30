@@ -9,7 +9,7 @@ def test_testing_guide_example(script, monkeypatch):
     monkeypatch.chdir(script.parent)
     samples = [
         block
-        for block in guide.blocks(guide.page("design-script"))
+        for block in guide.blocks(guide.page("board-review"))
         if "from fenolite.testing import load" in block.lines
     ]
     assert len(samples) == 1

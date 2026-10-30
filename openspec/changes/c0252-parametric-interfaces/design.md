@@ -82,17 +82,22 @@
 ### 1. Parameter semantics: alias, sum, bound, link
 
 Each kind has a closed table, `fenolite.dsl.interfaces.PARAMETERS`, which `checks.circuit` mirrors on the
-model side. Value units are c0246's:
+model side. Value units are c0246's unit names (`volt`, `ampere`, `ohm`):
 
-| kind | parameter | semantics | unit | on an `out` port | on an `in` port | on the design interface |
-|---|---|---|---|---|---|---|
-| `power` | `voltage` | alias | V | sets (a promise) | bounds (the accepted range) | sets (the declared range) |
-| `power` | `current` | sum | A | adds capacity | adds draw | not allowed |
-| `logic` | `voltage` | bound | V | not allowed | the accepted input range | not allowed |
-| `logic` | `high_min` | bound | V | not allowed | the lowest high input level | not allowed |
-| `logic`, `i2c`, `spi`, `uart`, `usb2` | `reference` | link | (a port or rail) | the reference rail | the reference rail | the reference rail |
-| `i2c` | `voltage`, `high_min` | bound | V | not allowed | as `logic` | not allowed |
-| `i2c` | `pullup` | bound | Ω | not allowed | the accepted pull-up range | the accepted pull-up range |
+| kind | parameter | semantics | unit | on an `out` port | on an `in` port | on an `inout` port | on the design interface |
+|---|---|---|---|---|---|---|---|
+| `power` | `voltage` | alias | volt | sets (an operating promise) | bounds (the operating range accepted) | bounds | sets (the declared range) |
+| `power` | `current` | sum | ampere | adds capacity | adds draw | refused | refused |
+| `logic`, buses | `abs_max` | bound | volt | the range the pin withstands | as `out` | as `out` | refused |
+| `logic`, buses | `input_high_min`, `input_low_max` | bound | volt | refused | the input thresholds | the input thresholds | refused |
+| `logic`, buses | `output_high_min`, `output_low_max` | bound | volt | the output levels | refused | the output levels | refused |
+| `logic`, buses | `output_current_max` | bound | ampere | the most current the output sinks or sources at its levels | refused | as `out` | refused |
+| `logic`, buses | `reference` | link | (a port or rail) | the reference rail | the reference rail | the reference rail | the reference rail |
+| `i2c` | `pullup` | bound | ohm | refused | the accepted pull-up range | the accepted pull-up range | the accepted pull-up range |
+
+"Buses" are `i2c`, `spi`, `uart` and `usb2`. A threshold is one quantity (a degenerate c0246 range) or a
+one-sided range (`volt("1.3").min()`); each comes from the part's datasheet, through the device record or the
+block author, never from a shipped table.
 
 - **alias:** one value per connected group, the rail. The design interface and `out` ports *set* it. When
   several values are set, they must agree: the rail's value is their intersection, and an empty
@@ -101,12 +106,24 @@ model side. Value units are c0246's:
 - **sum:** `out` ports add capacity and `in` ports add draw. The check is the worst case: the sum of the
   draws' upper bounds must not exceed the sum of the capacities' lower bounds. A source states the
   capacity it guarantees: an exact value, or a range whose lower bound it guarantees.
+  - **Direction is mandatory.** `current` is accepted only on a port whose direction was given explicitly
+    as `in` or `out`. On an `inout` port, the default of c0251, it raises `DslError` ("say whether this port
+    draws or sources current"), and a device `[[interfaces]]` table with `current` and `direction = "inout"`
+    is refused. A pass-through port (a connector, a jumper, a test point) is `inout` and states no current.
+  - **Loads against sources, never all ports.** Draws are never added to capacity, and capacity is never
+    added to draws. Summing every port of both sides would compare a number with itself and could never
+    fail; the scenario "1.2 A load on a 1 A source" keeps that mistake out.
 - **bound:** a limit of one port, compared with the value that reaches it.
 - **link:** `reference` names the rail that a logic level or a bus refers to. On a device port it names
   another port of the same device (`reference = "vdd"`). On a design interface or block port it is a
   `Rail` or a power port handle.
-- `inout` power ports (a connector, a jumper, a test point) neither set nor add. Their values, when given,
-  are bounds.
+- `inout` power ports (a connector, a jumper, a test point) neither set nor add. Their `voltage`, when
+  given, is a bound.
+- **Operating values, not absolute limits.** A power port's `voltage` is an operating range: what an `in`
+  port needs to work, what an `out` port promises. It is judged by `circuit.rail-voltage` exactly, never
+  derated. Absolute maximum ratings live on the device's pins (c0248, split into `abs_max` and `operating`
+  by c0274) and are c0253's, with the derating policy. The logic `abs_max` above is the one absolute value
+  an interface carries, because the logic check needs it at the port.
 - A parameter that the table does not allow for the kind and direction raises `DslError` at the call.
 - **Alternatives considered.**
   - A general constraint solver (atopile). Rejected, as in the research page's "What we deliberately do not
@@ -172,9 +189,9 @@ the member's port net (`connect(mcu.pa3, bus.sda)`), which is the net form.
 
 ### 5. Ports with parameters and device ports
 
-- **Block ports (c0251):** `b.port(name, kind, *, direction=..., optional=..., **params)` and
+- **Block ports (c0251):** `b.port(name, kind, *, direction=..., optional=..., requires=(), **params)` and
   `handle.set(**params)`. Each parameter can be set once, and only as decision 1 allows. `reference` takes
-  a power port handle of the same block or a `Rail`.
+  a power port handle of the same block or a `Rail`. `requires` is decision 7's companion list.
 - **Device ports.** c0248's device record (`fenolite.device.v0`) reserves the key `interfaces`; this change
   defines it as an array of tables. Members name c0248 *functions* (the keys of `[pins]`), not raw pin
   numbers, and parameter values use c0248's `{ min = "...", max = "..." }` spelling. An illustrative record,
@@ -196,20 +213,26 @@ the member's port net (`connect(mcu.pa3, bus.sda)`), which is the net form.
   direction = "inout"
   members = { sda = ["PB7"], scl = ["PB6"] }
   reference = "vdd"
-  voltage = { min = "-0.3V", max = "3.9V" }
-  high_min = { min = "1.3V" }
+  requires = ["pullup", "supply"]
+  abs_max = { min = "-0.3V", max = "3.9V" }
+  input_high_min = "1.3V"
+  input_low_max = "0.5V"
+  output_low_max = "0.4V"
+  output_current_max = "3mA"
   ```
 
-  These are *operating* values of an interface. c0248's per-pin `voltage` and `current` and its `[ratings]`
-  are absolute limits, which c0253 judges with derating. A missing `min` reads as 0 for a draw and as
-  unbounded for a voltage, as c0248 reads its ratings.
+  These are *operating* values and thresholds of an interface. The device's absolute maximum ratings are
+  its pins' `abs_max` and its `[ratings]` (c0248, as c0274 splits them), which c0253 judges with derating.
+  A threshold is one quantity text; a range keeps c0248's `{ min, max }` spelling. A missing `min` reads as
+  0 for a draw and as unbounded for a voltage, as c0248 reads its ratings.
 
   Catalog validation refuses:
   - a kind or member outside the tables;
   - a function that the device does not have;
   - a function in two members of one interface;
   - a `reference` that names no `power` port of the device;
-  - a parameter that decision 1 does not allow;
+  - a parameter that decision 1 does not allow, `current` on an `inout` interface included;
+  - a `requires` entry outside decision 7's vocabulary, or one that the kind does not take;
   - an interface name equal to a function of the device or to an attribute of `Part`.
 - `part.port(name)` and `part.<name>` return a `PortHandle` whose members are the part's pins, through
   port nets owned by the component path. `to_model` gives one model `Port` per declared port, owned by the
@@ -220,52 +243,92 @@ the member's port net (`connect(mcu.pa3, bus.sda)`), which is the net form.
 
 ### 6. The checks: stage `circuit.rules`
 
-- **Package.** `checks/circuit/rails.py`, in the package `checks/circuit/` that c0253 also uses, imports
-  `model` only. It exposes `circuit_issues(model) -> tuple[Issue, ...]`.
+- **Package.** This change creates the package `checks/circuit/`, the one home of every `circuit.*` judge of
+  the batch. `rails.py` imports `model` only and holds the rail, logic, bus, companion and port rules. The
+  package exposes `circuit_issues(model) -> tuple[Issue, ...]`; c0253 adds its modules to the same package
+  and a keyword to the same function, and creates no other.
 - **Stage.** The stage `circuit.rules` is a default stage of `fenolite check`. It stands right after
-  `model.validate` in `STAGE_ORDER` and in `DOCUMENT_STAGES`, the order that c0253 decision 1 also states.
-  It is not in `ORACLE_STAGES` and runs no tool. It reads the `.fenolite/` model of a built project.
-  Whichever of c0252 and c0253 lands first creates the stage; the other adds its checks to it (c0253, open
-  question 1). The stage is skipped with:
-  - `no-parameters` when there is no model, or the model holds no parameter, no `ground` or `logic`
-    interface and no port. With c0253 the stage is skipped only when its `no-contracts` holds too;
-  - the existing `read-refused` and `cache-unreadable`, as for `placement.rules`.
+  `model.validate` in `STAGE_ORDER` and in `DOCUMENT_STAGES`. It is not in `ORACLE_STAGES` and runs no
+  tool. It reads the `.fenolite/` model of a built project. This change creates it (step 4); c0253 (step 5)
+  adds its checks to it.
+- **Skip vocabulary.** The batch has one vocabulary for this stage, shared with c0253:
+  - `no-model`: there is no `.fenolite/` model (a native board), or it cannot be read (`read-refused` and
+    `cache-unreadable` keep their meaning, as for `placement.rules`);
+  - `no-parameters`: the model holds no parameter, no `ground` or `logic` interface, no port and no
+    `requires`, so the rail half has nothing to judge;
+  - `no-contracts`: c0253's, for the contract half.
+
+  The stage is skipped with `no-model`, or with `no-parameters` when the contract half also has nothing
+  (`no-contracts`). When it runs, `summary.halves` names the state of each half (`ran`, `no-parameters`,
+  `no-contracts`), so a reader sees which half judged.
 - **Build.** `cmd_build` calls `circuit_issues` on the model it builds and adds the issues to the build
-  envelope, as later codes of "Build issue codes". An error stops the write, as every build error does,
-  unless it is waived (c0114).
+  envelope, as later codes of "Build issue codes". An error stops the write, as every build error does.
+  Waivers of `circuit.*` codes come with c0274 (a waiver keyed on the judged value's digest).
 - **Rails.** A rail is an `hv` net of a `power` interface or of a `power` port. For each rail:
   - **voltage V:** the intersection of the values set by design interfaces and `out` ports;
   - **sources:** `out` power ports on the rail;
   - **loads:** `in` power ports;
+  - **neither:** `inout` power ports, which state no current;
   - **hiding:** a block's `out` port hides the `out` ports of its own parts and inner blocks on the same
     rail, because the block's promise replaces them. A block's `in` port that states `current` hides the
     `in` ports inside it on that rail.
 
 | code | severity | when | message example |
 |---|---|---|---|
-| `circuit.rail-voltage` | error | the set values do not intersect; or V is not within the range accepted by an `in` port | `sen.vdd accepts 1.71–3.6 V; 5V0 is 4.75–5.25 V` |
+| `circuit.rail-voltage` | error | the set values do not intersect; or V is not within the operating range accepted by an `in` port | `sen.vdd accepts 1.71–3.6 V; 5V0 is 4.75–5.25 V` |
 | `circuit.rail-current` | error | the sum of the loads' upper draws exceeds the sum of the sources' lower capacities | `3V3: loads up to 1.15 A exceed sources 1 A (buck.VOUT)` |
 | `circuit.rail-sources` | error | two or more sources on a rail, unless the rail is `shared` or every source port has `share` | `buck1.VOUT and J2.vbus both drive 5V0` |
 | `circuit.rail-unset` | warning | the ports on a rail state limits but no voltage is set; or loads state draw and no source states capacity | `3V3: no voltage is set; sen.vdd needs one to be judged` |
-| `circuit.logic-level` | error | a reader's reference rail differs from the driver's, and the driver rail's range is not within the reader's `voltage`, or its lower bound is under the reader's `high_min` | `sen.int_ (3V3) drives mcu.pa3 (1V8): 3.399 V is above 1.98 V` |
-| `circuit.logic-unknown` | warning | the reference rails differ and the reader states neither `voltage` nor `high_min` | |
-| `circuit.bus-pullup` | warning | a pull-up of a bus line goes to a rail other than the bus's reference rail; or its resistance range is not within the accepted `pullup` range | `SDA pulled up to 5V0; bus reference is 3V3` |
+| `circuit.logic-level` | error | one of the three comparisons below fails | `sen.int_ drives mcu.pa3: output high 2.4 V is below input high 2.6 V` |
+| `circuit.logic-unknown` | warning | the reference rails differ and a threshold that a comparison needs is not stated | `mcu.pa3 states no input_low_max` |
+| `circuit.bus-pullup` | warning | a pull-up goes to a rail other than the bus's reference rail; its resistance range is not within the accepted `pullup` range; or its worst-case current exceeds a bus port's `output_current_max` | `SDA pulled up to 5V0; bus reference is 3V3` |
+| `circuit.requires-missing` | warning | a port's declared companion is absent (decision 7) | `sen.i2c requires a pull-up on SCL` |
 | `circuit.port-split` | warning | the pins of one member of a device port are on two nets | |
 
-- **Logic.** A driver is an `out` logic port. A reader is an `in` or `inout` logic port on the same net.
-  On an I2C bus, the high level comes from the pull-up rail, so that rail is the driver of every bus port.
-  Two ports with the same reference rail always pass.
+- **Logic.** A driver is an `out` logic port, or an `inout` port that states output levels. A reader is an
+  `in` or `inout` logic port on the same net. Two ports with the same reference rail always pass: the
+  datasheet levels of one supply domain are the part's own business. Otherwise three comparisons, each
+  worst case:
+  1. **high:** the driver's `output_high_min` is at least the reader's `input_high_min`;
+  2. **low:** the driver's `output_low_max` is at most the reader's `input_low_max`;
+  3. **withstand:** the upper bound of the driver's reference rail is at most the upper bound of the
+     reader's `abs_max`.
+
+  A comparison whose threshold is not stated gives `circuit.logic-unknown` naming the missing key; it is
+  never passed by assuming that the driver's level is its rail.
+- **I2C.** The high level comes from the pull-up rail, so on an I2C line the pull-up rail is the driver of
+  comparison 1 (its lower bound stands for `output_high_min`) and comparison 3. Every bus port that states
+  `output_low_max` is a driver of comparison 2 for every other port.
 - **Bus reference.** The bus interface's `reference`, else the reference shared by all its ports. When the
   ports disagree, the pull-up rail is compared with each port as a logic reader.
 - **Pull-up resistance.** The range is the part's c0246 value range when the part carries one (c0247,
   c0248), else its exact value. It is compared with the intersection of the `pullup` bounds of the bus and
-  its ports. No range comes from a standard in this change (open question 3).
+  its ports. Its worst-case current, the pull-up rail's upper bound over the resistance's lower bound, is
+  compared with each bus port's `output_current_max`. No range comes from a standard in this change (open
+  question 3).
 - **Evidence.** A finding's evidence is `INFERRED`, or the lowest evidence of the device rows it judged,
   whichever is lower. Every finding names its numbers in c0246's canonical text, its ports by path, and
   where each limit came from: `design.rail`, a block port, or a device record with its id.
-- `checks.codes.ISSUE_CODES` gains the eight codes. `docs/cli-contract.md` and `explain.toml` document them.
+- `checks.codes.ISSUE_CODES` gains the nine codes. `docs/cli-contract.md` and `explain.toml` document them.
 
-### 7. Pull-up on a bus and `build.i2c-pullup-missing`
+### 7. Companions: `requires`
+
+A port may state what must be connected for it to work. The vocabulary is closed:
+
+| entry | kinds | met when |
+|---|---|---|
+| `pullup` | `i2c`, `logic` | each line (`sda` and `scl`, or `io`) has a pull-up as "Interface checks in a build" defines it |
+| `supply` | `logic` and buses with a `reference`; `power` `in` ports | the reference port's `hv` net (or the port's own) is a rail with a voltage set and a source, or a rig supply (c0253) |
+| `chip_select` | `spi` | each `cs` member is on a net with at least one other pin |
+
+- A device states it in its `[[interfaces]]` table (`requires = ["pullup", "supply"]`), a block author on
+  `b.port(..., requires=(...))`. It is recorded on the model `Port` as a sorted tuple.
+- Each unmet entry gives one `circuit.requires-missing` warning naming the port, the entry and what is
+  missing. A port that is not connected at all is left to the existing open-net and unconnected-pin checks.
+- **Alternative considered:** one code per entry (`circuit.pullup-missing`, ...). Rejected: the vocabulary
+  will grow (c0257, c0258), and one code with the entry in the message keeps the code table closed.
+
+### 8. Pull-up on a bus and `build.i2c-pullup-missing`
 
 - c0247's `pull_up(target, rail, *resistors)` takes a `Net` (one resistor) or an `I2C` interface (two
   resistors: the first on `sda`, the second on `scl`). This change widens `target`, as c0247 decision 4
@@ -280,7 +343,7 @@ the member's port net (`connect(mcu.pa3, bus.sda)`), which is the net form.
   of a power port as well as on that of a `power` interface, because a rail may be declared only by device
   or block ports. Whether it is the *right* rail is `circuit.bus-pullup`.
 
-### 8. Model
+### 9. Model
 
 - `model.circuit.Interface` gains:
   - `params: dict[str, ValueRange]` (c0246's model range: exact decimals as integer mantissa and exponent);
@@ -289,32 +352,41 @@ the member's port net (`connect(mcu.pa3, bus.sda)`), which is the net form.
 - c0251's `Port` gains:
   - `params`;
   - `reference: str | None = None`: the id of a `power` port or interface;
-  - `share: bool = False`.
+  - `share: bool = False`;
+  - `requires: tuple[str, ...] = ()`, sorted (decision 7).
 - Each field is omitted when empty or default, so old `circuit.json` files keep their bytes.
-- Example (ids shortened, range spelling as c0246 fixes it):
+- **Encoding.** Every parameter is a c0246 `ValueRange` in c0246's encoding: the unit *name* (`volt`,
+  `ampere`, `ohm`), and `low`, `nominal` and `high` as `Decimal10` objects (integer mantissa `m` and
+  exponent `e`), each omitted when absent. No `min`/`max` text and no unit symbol is written. Example (ids
+  shortened):
 
   ```json
   {"interfaces": [{"id": "itf_…", "kind": "power", "members": {"hv": "net_…(3V3)", "lv": "net_…(GND)"},
      "name": "3V3/GND"}],
    "ports": [{"direction": "out", "id": "prt_…", "kind": "power", "members": {"hv": "net_…(3V3)"},
      "name": "VOUT", "owner": "mod_…(buck)",
-     "params": {"current": {"max": "…", "min": "…", "unit": "A"},
-                "voltage": {"max": "…", "min": "…", "unit": "V"}}},
+     "params": {"current": {"high": {"e": 0, "m": 1}, "low": {"e": 0, "m": 1},
+                            "nominal": {"e": 0, "m": 1}, "unit": "ampere"},
+                "voltage": {"high": {"e": -3, "m": 3399}, "low": {"e": -3, "m": 3201},
+                            "nominal": {"e": -1, "m": 33}, "unit": "volt"}}},
      {"direction": "in", "id": "prt_…", "kind": "power", "members": {"hv": "net_…(3V3)"},
-     "name": "vdd", "owner": "cmp_…(U3)", "params": {"voltage": {"…": "…"}}}]}
+     "name": "vdd", "owner": "cmp_…(U3)", "requires": ["supply"],
+     "params": {"voltage": {"high": {"e": -1, "m": 36}, "low": {"e": -2, "m": 171}, "unit": "volt"}}}]}
   ```
 
 - New model kinds: `ground` and `logic`. `power_interface_nets` is unchanged and still reads kind `power`
   only.
 
-### 9. Codes and errors
+### 10. Codes and errors
 
-- New check and build issue codes: the eight `circuit.*` codes of decision 6.
-- New skip reason: `no-parameters`.
+- New check and build issue codes: the nine `circuit.*` codes of decision 6.
+- New skip reasons: `no-model` and `no-parameters` (decision 6; c0253 adds `no-contracts`).
 - New `DslError` cases, each reported by `cmd_build` as `FEN-3004`:
   - an incompatible `connect` pair;
   - a missing required member;
   - a parameter not allowed for its kind or direction, or set twice;
+  - `current` on a port whose direction is not `in` or `out`;
+  - a `requires` entry outside the vocabulary or not taken by the kind;
   - a bad `reference`;
   - a UART bus joined to a port.
 - No new `FEN-` code. The research sketch's "FEN- finding on a type mismatch" becomes a `DslError` at the
@@ -328,26 +400,35 @@ the member's port net (`connect(mcu.pa3, bus.sda)`), which is the net form.
   `circuit.rail-unset` and `circuit.logic-unknown` say what could not be judged, and the stage summary
   counts judged and unjudged rails.
 - **Build stops on circuit errors.** A real `circuit.rail-current` blocks the write. That is intended, and a
-  waiver states an accepted risk. Open question 1 asks whether 0.7 should start with warnings.
+  waiver (c0274) states an accepted risk. Open question 1 asks whether 0.7 should start with warnings.
+- **Thresholds missing from device data.** Most records will first state no logic thresholds, so mixed-rail
+  connections give `circuit.logic-unknown`. That is intended: the alternative, assuming the driver's level
+  is its rail, passes a 3.3 V output into a 5 V input whose high threshold is 3.5 V.
 - **Auto-named nets from port-to-port connections** (`U2/i2c1.sda`). Mitigation: documented, and naming a
   bus interface first gives readable names.
 
 ## Open Questions
 
-1. **Should `circuit.*` errors block `build --confirm` in 0.7?** Recommended: yes, with waivers. This is
+1. **Should `circuit.*` errors block `build --confirm` in 0.7?** Recommended: yes, with c0274's waivers. This is
    consistent with the other build errors, and the checks fire only on values the user or a device record
    stated.
+   Decided 2026-10-29: yes. An error stops the write of `build` (KiCad and Altium targets); c0274's waivers
+   will accept one.
 2. **Should `Power` print a deprecation hint?** Recommended: no. It stays a silent alias, and the docs
    teach `Rail`.
+   Decided 2026-10-29: no. `Power` stays a silent alias of `Rail`; the docs teach `Rail`.
 3. **Should the I2C pull-up range be derived from a public method** (the bus specification's formulas for
    the minimum and maximum pull-up, given the low-level current, rise time and bus capacitance)?
    Recommended: later, in c0258, with the source registered under `docs/evidence/` and its values as user
    inputs. Here the range is the user's or the device's.
+   Decided 2026-10-29: later, in c0258. Here the range is the user's or the device's.
 4. **Should `logic` ports also exist on single pins without a device record** (`part.logic("PA3",
    reference=v33)`)? Recommended: yes, as a small follow-up, once c0248's records cover the reference
    boards' parts.
+   Decided 2026-10-29: yes, as a follow-up change; not in this change.
 5. **Should a bus speed parameter be added now?** Recommended: no. Speed belongs with topologies and
    constraints (c0258).
+   Decided 2026-10-29: no. Speed belongs with topologies and constraints (c0258).
 
 ## Relation to the other changes of this batch
 
@@ -358,8 +439,12 @@ the member's port net (`connect(mcu.pa3, bus.sda)`), which is the net form.
 - **c0249 (C):** no change. Auto-named nets are not locked; only refs and picks are.
 - **c0251 (D):** ports, port nets, naming and the model `Port` are its. This change adds parameters, kinds,
   the interface form of `connect` and device ports.
-- **c0253 (F):** adds ratings with derating, `expect()` and `rig()` to the stage `circuit.rules`, reading
-  the rails defined here.
+- **c0253 (F):** adds ratings with derating, `expect()` and `rig()` to the stage `circuit.rules` and to the
+  package `checks/circuit/`, reading the rails defined here, with the same skip vocabulary and encoding.
+- **c0274 (electrical requirements):** waivers of `circuit.*` findings keyed on a value digest; threshold
+  keys on device pins that fill a logic port's missing thresholds; voltage propagated into rails through
+  ferrites, fuses and 0 Ω links (with the value's origin); decidable stages and `fenolite check --matrix`
+  over the rows of this stage.
 - **c0254 (H):** a divider generator can promise a block port's `voltage` from its achieved range.
 - **c0256 (K):** test helpers assert on `circuit_issues`.
 - **c0257 (L):** chooses pins for a declared interface port. **c0258 (M):** bus speed and topology.

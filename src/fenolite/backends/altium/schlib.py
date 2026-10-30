@@ -46,6 +46,7 @@ COMMENT_DROP = 200
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
+        "H-A-SCHLIB-GEN-PARTS",
         "H-A-SCHLIB-IMPLIDX",
         "H-A-SCHLIB-KICAD",
         "H-A-SCHLIB-OPEN",
