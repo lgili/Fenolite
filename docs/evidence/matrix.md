@@ -484,7 +484,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `textink` | `EVIDENCE` KICAD-VERIFIED: `H-K-SILK-INK` |
 | `triad` | see `dru`, `pcb`, `pro` |
 | `tuning` | `EVIDENCE` INFERRED: `H-K-PRO-TUNING-DRC`, `H-K-PRO-TUNING-KEYS` |
-| `verbatim` | none:  |
+| `verbatim` | `EVIDENCE` INFERRED: `H-K-VERBATIM` |
 | `versions` | `EVIDENCE` INFERRED: `H-K-TOK-CONSTANTS` |
 | `via_protection` | `EVIDENCE` KICAD-VERIFIED: `H-K-VIAPROT-FORMS`, `H-K-VIAPROT-MASK`, `H-K-VIAPROT-NINE`, `H-K-VIAPROT-UPGRADE`, `H-K-VIAPROT-OUTPUTS` |
 | `wks` | `EVIDENCE` INFERRED: `H-K-WKS-CORNER`<br>`WRITE_EVIDENCE` INFERRED: `H-K-WKS-CORNER` |
