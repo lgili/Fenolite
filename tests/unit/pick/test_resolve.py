@@ -149,3 +149,66 @@ def test_deterministic_picks() -> None:
     assert (
         "Fenolite:R_0603_E96_1pct@61k9" in outputs[0][0] and "Fenolite:R_0603_E96_1pct@13k7" in outputs[0][0]
     )
+
+
+# -- grammar families (change c0263, "Picks of grammar candidates")
+
+
+def _grammar_rows(family_text: str, query: object, locked: dict[str, PickEntry]) -> tuple:  # type: ignore[type-arg]
+    from fenolite.pick.grammar.candidates import grammar_rows
+    from fenolite.pick.grammar.schema import parse_family
+
+    grammar = parse_family(family_text, file="example_mlcc.toml")
+    return grammar_rows(
+        grammar,
+        queries=(query,),  # type: ignore[arg-type]
+        devices=tuple(entry.device for entry in locked.values()),
+        origin="project",
+        catalog="project:devices/example_mlcc.toml",
+    )
+
+
+GRAMMAR_QUERY = capacitor(farad("100n"), rating=volt(25), case="0603", dielectric="X7R")
+
+
+def test_grammar_pick_of_an_exact_mpn() -> None:
+    from _grammars import MLCC
+
+    text = MLCC.read_text(encoding="utf-8")
+    first = resolve({"C_in": GRAMMAR_QUERY}, {}, _grammar_rows(text, GRAMMAR_QUERY, {}))
+    entry = first.entries["C_in"]
+    assert entry.device == "Example:EX_MLCC@EX03R104KAT" and entry.row == "Example:EX_MLCC"
+    assert entry.catalog == "project:devices/example_mlcc.toml" and [i.code for i in first.issues] == [
+        "pick.new"
+    ]
+    record = first.picks[0].row.record  # type: ignore[union-attr]
+    assert (
+        record.manufacturer == "Example Passive" and record.mpn == "EX03R104KAT" and record.value == "100nF"
+    )
+    assert [(r.key, r.max, r.limit) for r in record.ratings] == [("voltage", 25_000_000, "abs_max")]
+
+
+def test_grammar_an_unrelated_edit_keeps_the_pick() -> None:
+    """Scenario "An unrelated grammar edit keeps the pick": a widened [[valid]] row for size 05 keeps the
+    locked candidate's hash, so no row-changed and no lock change."""
+    from _grammars import MLCC
+
+    text = MLCC.read_text(encoding="utf-8")
+    locked = dict(resolve({"C_in": GRAMMAR_QUERY}, {}, _grammar_rows(text, GRAMMAR_QUERY, {})).entries)
+    widened = text.replace('value = { min = "10pF", max = "1nF" }', 'value = { min = "10pF", max = "2.2nF" }')
+    again = resolve({"C_in": GRAMMAR_QUERY}, locked, _grammar_rows(widened, GRAMMAR_QUERY, locked))
+    assert again.issues == () and again.changes == () and dict(again.entries) == locked
+
+
+def test_grammar_a_changed_or_removed_candidate() -> None:
+    from _grammars import MLCC
+
+    text = MLCC.read_text(encoding="utf-8")
+    locked = dict(resolve({"C_in": GRAMMAR_QUERY}, {}, _grammar_rows(text, GRAMMAR_QUERY, {})).entries)
+    changed = text.replace('codes.T = { packing = "reel" }', 'codes.T = { packing = "tape" }')
+    found = resolve({"C_in": GRAMMAR_QUERY}, locked, _grammar_rows(changed, GRAMMAR_QUERY, locked))
+    assert [i.code for i in found.issues] == ["pick.row-changed"]
+    assert found.entries["C_in"].device == locked["C_in"].device
+    removed = text.replace('tolerance = ["K", "J"]', 'tolerance = "J"')
+    found = resolve({"C_in": GRAMMAR_QUERY}, locked, _grammar_rows(removed, GRAMMAR_QUERY, locked))
+    assert [i.code for i in found.issues] == ["pick.row-missing"]

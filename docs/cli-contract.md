@@ -3535,6 +3535,50 @@ The build reports the same codes (`fenolite build`, result keys `picks` and `gen
 | `pick.row-unverified` | info | an `UNVERIFIED` proposed row ranked out |
 | `gen.achieved` | info | what a generator achieved |
 
+## family
+
+`fenolite family {list|show ID|lint PATH...|decode MPN...|encode QUERY|expand ID} [--project PATH]
+[--families DIR]...` reads grammar families, `fenolite.family.v1` records that describe a whole series by
+its ordering code (change c0263, `docs/picking.md`, "Families with ordering codes"). Families come from the
+project (`devices/` and `devices/proposed/` beside the script that `--project` names, or in that folder; the
+working directory by default) and from every `--families DIR`; two files of one id are `FEN-3004`. The
+command is read-only (`mutates=False`): it writes no file, runs no subprocess and opens no network
+connection.
+
+- **`list`**: `result.families`, per family `id`, `kind`, `manufacturer`, `summary`, `version`, `evidence`,
+  `file`, `uid` (c0259's stable id, computed) and the counts of lint `errors` and `warnings`.
+- **`show ID`**: `result.family` with the pattern, the tail, the fields and their codes, the `valid` and
+  `exclude` rows, the sources and `combinations` (the size of the full product). An unknown id is `FEN-2001`.
+- **`lint PATH...`**: the lint of each file (`result.files`); an error finding exits 5. A malformed file is
+  `FEN-3004`, a newer schema `FEN-3002`.
+- **`decode MPN...`**: `result.decoded`, per full parse `mpn`, `family`, `device`, `manufacturer`, `value`,
+  every attribute as written, `codes`, `suffix`, `in_matrix` and `evidence`; `result.failures` the position
+  and field where each family failed. An MPN that no family parses exits 5.
+- **`encode QUERY`**: `result.candidates`, the MPNs of every family of the query's kind that meet `QUERY`
+  (c0254's query text), ranked by c0254's rules, with `mpn`, `family`, `device` and the attributes; exit 5
+  with `pick.no-match` when none matches.
+- **`expand ID`**: `result.candidates` in canonical order (fields in pattern order, codes in code-point order,
+  values rising), every ordering code, at most `EXPANSION_LIMIT` (100 000) listed, `combinations` the size of
+  the product.
+- The lists are paged: `--limit` (default 20) and `--cursor`. The envelope's evidence is `INFERRED`
+  (`H-G-FAMILY-ROUNDTRIP`) combined with each family's label; a decode with an opaque tail is `UNVERIFIED`.
+  A family with a lint error is not used to decode, encode or expand (`FEN-3004`).
+
+| code | severity | when |
+|---|---|---|
+| `family.ambiguous-code` | error | a code is a proper prefix of another code of the same field |
+| `family.pattern-field` | error | a placeholder without a field, a field without a placeholder, or not one value field |
+| `family.matrix-unknown-code` | error | a `[[valid]]` or `[[exclude]]` row names a code its field lacks |
+| `family.value-unencodable` | error | a value of a row's domain the scheme cannot spell |
+| `family.prefer-missing` | error | an ordering field without `prefer`, or `prefer` not among its codes |
+| `family.source-missing` | error | a numeric attribute without a source |
+| `family.decode-no-match` | error | an MPN that no family parses |
+| `family.decode-ambiguous` | error | an MPN that two families parse |
+| `family.expansion-limit` | error | a cut product above `EXPANSION_LIMIT` |
+| `family.matrix-empty-row` | warning | a `[[valid]]` row that admits no combination |
+| `family.decode-outside-matrix` | warning | an MPN that parses outside the validity matrix |
+| `family.suffix-opaque` | info | an MPN decoded with an opaque tail |
+
 ## restore
 
 `fenolite restore RECEIPT [--in DIR]` puts back the backups of one confirmed write. `RECEIPT` is a file

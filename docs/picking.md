@@ -149,9 +149,97 @@ otherwise `pick.stale`.
   current stays within the smallest full-scale input, with a power rating that covers `I,max² · R,max`. The
   part gets the class `shunt` for net roles.
 
+## Families with ordering codes
+
+A grammar family (`fenolite.family.v1`, change c0263) describes a whole manufacturer series once, from its
+public datasheet: the fields of its ordering code, the codes of each field, the value code and the validity
+matrix. It is a row source beside generic families and device records, read from the same `devices/` and
+`devices/proposed/` folders beside the script; its candidates are exact MPNs with their manufacturer. The
+core package ships no real series: Fenolite's own grammars are illustrative (`examples/families/`), and real
+series grammars belong to the data repository of change c0266, one file per series, each cited to its
+datasheet.
+
+```toml
+schema = "fenolite.family.v1"
+id = "Example:EX_MLCC"
+kind = "capacitor"
+summary = "Multilayer ceramic chip capacitors, EX series (illustrative)"
+manufacturer = "Example Passive"
+version = "1.0.0"
+licence = "CC0-1.0"
+evidence = "INFERRED"
+sources = ["EX series datasheet rev A, ordering code table (illustrative)"]
+symbol = "Fenolite:Capacitor"
+pattern = "EX{size}{dielectric}{value}{tolerance}{voltage}{packing}"
+
+[fields.size]
+codes."03" = { case = "0603", footprint = "Fenolite:Chip_0603" }
+[fields.value]
+scheme = "eia3"   # 104 = 100 nF in pF
+unit = "pF"
+series = "E12"
+[fields.packing]
+role = "ordering"  # does not change what the part is; encode uses prefer
+prefer = "T"
+codes.T = { packing = "reel" }
+# ... dielectric, tolerance, voltage
+
+[[valid]]          # the validity matrix, row by row
+size = "03"
+voltage = ["A", "B"]
+value = { min = "100pF", max = "100nF" }
+
+[[exclude]]        # removes combinations a valid row admitted
+size = "03"
+voltage = "B"
+value = { min = "47nF", max = "100nF" }
+```
+
+- **Keys.** `schema`, `id`, `kind`, `summary`, `manufacturer`, `version`, `licence`, `evidence`, `sources`,
+  `pattern`, `fields` and at least one `[[valid]]` row are required; `datasheet` (an http(s) URL), `symbol`,
+  `footprint`, `pins` (`{ "1" = pad, "2" = pad }`), `tail`, `exclude` and `reviewed_by` are optional. Any
+  other key or a float is `FEN-3004` naming the file and the key; a newer schema `FEN-3002`. `sources` is a
+  list for every attribute, or a table `attribute → list`. The stable id of the record is c0259's
+  `record_uid("family", id)`, computed, never stored.
+- **Pattern and fields.** Literal text `[A-Z0-9-]` and `{field}` placeholders; every placeholder names one
+  field, every field appears once, exactly one field has a `scheme` (the value field). A code's attributes are
+  the constraint keys of the family's kind (`tolerance`, `rating`, `case`, `dielectric`, `series` for a
+  capacitor; `tolerance`, `power`, `voltage`, `case`, `series`, `tempco` for a resistor; `tolerance`, `current`,
+  `saturation`, `dcr`, `case` for an inductor) plus `footprint`, `symbol` and `packing`. An `ordering` field
+  names `prefer`, the code encode uses, so one query gives one MPN per electrical combination.
+- **Value codes.** `eia3`, `eia4`, `eia96` and `rkm`, one canonical spelling per value, exact integers
+  (`docs/formats/library/value-codes.md`). A row's value domain is its series (or the field's) within
+  `min`..`max`, both included, or its explicit `values`.
+- **Matrix.** A combination is valid when some `[[valid]]` row admits it (each field it names holds one of its
+  codes, the value lies in its span; a field it omits is free) and no `[[exclude]]` row removes it.
+- **Lint.** `fenolite family lint FILE` proves without enumerating that every MPN parses one way: no code of
+  a field is a proper prefix of another (an `rkm` field is checked over the family's domain). It also checks
+  the pattern, the matrix codes, values the scheme cannot spell, `prefer` and the sources of the numeric
+  attributes. A family with a lint error is never used to pick or decode (`FEN-3004`).
+- **Encode.** The expansion is lazy, in canonical order (fields in pattern order, codes in code-point order,
+  values rising): a query first cuts each electrical field to the codes whose attributes meet it, ordering
+  fields to `prefer` and the values to those it admits; a cut product above 100 000 is refused
+  (`family.expansion-limit`) before the first step. The candidates are then matched and ranked by the rules
+  above. `fenolite family encode QUERY` lists them; a build picks the first.
+- **Decode.** `fenolite family decode MPN` parses left to right against each family in id order and gives
+  every attribute, the value and `in_matrix` (`family.decode-outside-matrix` when the matrix does not admit
+  it); a failed parse names the position and the field (`family.decode-no-match`), two full parses
+  `family.decode-ambiguous`. With `tail = "opaque"` characters after the last field are kept as `suffix`,
+  unread, and the decode is `UNVERIFIED` (`family.suffix-opaque`); encode never produces a tail.
+- **Picks and the lock.** A candidate is an in-memory device: `id = "<family id>@<MPN>"`, the manufacturer
+  and the MPN, the symbol and footprint (family or code), pins `1` and `2`, the value and its ratings
+  (`rating` and `voltage` → `voltage`, `power`, `current`) as `abs_max`. The lock entry holds that `device`,
+  `row` = the family id, `catalog` = `project:devices/<file>` and `sha256` = the SHA-256 of the candidate's
+  canonical text (family id and version, MPN, manufacturer, value and sorted attributes). An edit of the
+  grammar that leaves a locked candidate unchanged keeps its hash; one that changes it gives
+  `pick.row-changed`; one that removes it from the matrix, `pick.row-missing`. A generator's parts pick from
+  generic families and devices only.
+
 ## Evidence
 
 Picks are `INFERRED` (`H-G-PICK-DETERMINISTIC`: the same lock and catalog give the same picks and bytes),
 generator results `INFERRED` (`H-G-GEN-ENCLOSURE`: the achieved range encloses the exact one), both proven
-by unit tests; `fenolite pick` combines them with the label of each picked row (lowest wins). A built board
+by unit tests; `fenolite pick` combines them with the label of each picked row (lowest wins). Grammar
+families are `INFERRED` (`H-G-FAMILY-ROUNDTRIP`: every expanded MPN of the authored grammars decodes to
+itself), combined with each family's own label. A built board
 with picked parts is read back like any build.

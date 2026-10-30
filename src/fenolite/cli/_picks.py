@@ -70,7 +70,12 @@ def _resolver(run: PickRun):  # noqa: ANN202 - the lock's Resolver
             return SectionResult(entries=MappingProxyType({}))
         if not run.rows:
             folder = Path(os.path.abspath(run.script)).parent
-            run.rows = all_rows(folder, tuple(design.device_records.values()))
+            run.rows = all_rows(
+                folder,
+                tuple(design.device_records.values()),
+                queries=tuple(queries.values()),  # pyright: ignore[reportArgumentType]
+                devices=tuple(entry.device for entry in locked.values()),
+            )
         found = resolve(queries, locked, run.rows, update=run.update)  # pyright: ignore[reportArgumentType]
         run.resolution = found
         for pick in found.picks:

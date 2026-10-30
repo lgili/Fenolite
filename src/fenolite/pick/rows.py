@@ -36,7 +36,7 @@ from fenolite.catalog.devices import (
 )
 from fenolite.catalog.records import DeviceRecord, parse_record
 from fenolite.core.errors import FormatError
-from fenolite.core.partquery import KEYS, KINDS, PINS, PREFIXES, VALUE_UNITS, Constraint, Percent
+from fenolite.core.partquery import KEYS, KINDS, PINS, PREFIXES, VALUE_UNITS, Constraint, PartQuery, Percent
 from fenolite.core.quantities import MICRO_UNITS, QuantityError, decimal_digits, parse, power
 from fenolite.core.quantities import PREFIXES as SI_PREFIXES
 from fenolite.model.library import DeviceDef, DevicePin, Rating, RatingUnit
@@ -100,6 +100,12 @@ SHIPPED = "shipped"
 PROJECT = "project"
 PROPOSED_DIR = "proposed"
 Origin = Literal["shipped", "project"]
+
+
+def is_grammar(text: str) -> bool:
+    """Whether the TOML ``text`` names the schema of a grammar family (``fenolite.family.v1``, change
+    c0263); ``pick/rows.py`` dispatches on the schema."""
+    return re.search(r'^schema\s*=\s*"fenolite\.family\.v1"', text, re.MULTILINE) is not None
 
 
 def catalog_name() -> str:
@@ -505,16 +511,31 @@ def _check_pins(family: Family, file: str) -> None:
         )
 
 
-def folder_rows(folder: Path, prefix: str) -> tuple[Row, ...]:
+def folder_rows(
+    folder: Path, prefix: str, *, queries: Iterable[PartQuery] = (), devices: Iterable[str] = ()
+) -> tuple[Row, ...]:
     """The rows of the ``*.toml`` files of ``folder`` (families and pickable devices), in file-name order;
-    ``prefix`` is the folder relative to the script (``devices`` or ``devices/proposed``)."""
+    ``prefix`` is the folder relative to the script (``devices`` or ``devices/proposed``). A grammar family
+    (``fenolite.family.v1``, change c0263) gives the candidates of ``queries`` and the locked ``devices``
+    of it, never its whole expansion."""
     if not folder.is_dir():
         return ()
     rows: list[Row] = []
+    queries = tuple(queries)
+    devices = tuple(devices)
     for path in sorted(folder.glob("*.toml"), key=lambda found: found.name):
         file = f"{prefix}/{path.name}"
         text = path.read_text(encoding="utf-8")
         catalog = f"project:{file}"
+        if is_grammar(text):
+            from fenolite.pick.grammar.candidates import checked, grammar_rows
+            from fenolite.pick.grammar.schema import parse_family as parse_grammar
+
+            grammar = checked(parse_grammar(text, file=file))
+            rows.extend(
+                grammar_rows(grammar, queries=queries, devices=devices, origin=PROJECT, catalog=catalog)
+            )
+            continue
         if is_family(text):
             family = parse_family(text, file=file)
             _check_pins(family, file)
@@ -530,12 +551,19 @@ def folder_rows(folder: Path, prefix: str) -> tuple[Row, ...]:
     return tuple(rows)
 
 
-def project_rows(script_folder: Path, devices_dir: str = "devices") -> tuple[Row, ...]:
+def project_rows(
+    script_folder: Path,
+    devices_dir: str = "devices",
+    *,
+    queries: Iterable[PartQuery] = (),
+    devices: Iterable[str] = (),
+) -> tuple[Row, ...]:
     """The project rows beside a script: ``devices/*.toml`` and then ``devices/proposed/*.toml``."""
     base = script_folder / devices_dir
+    queries, devices = tuple(queries), tuple(devices)
     return (
-        *folder_rows(base, devices_dir),
-        *folder_rows(base / PROPOSED_DIR, f"{devices_dir}/{PROPOSED_DIR}"),
+        *folder_rows(base, devices_dir, queries=queries, devices=devices),
+        *folder_rows(base / PROPOSED_DIR, f"{devices_dir}/{PROPOSED_DIR}", queries=queries, devices=devices),
     )
 
 
@@ -545,10 +573,19 @@ def design_rows(records: Iterable[DeviceDef]) -> tuple[Row, ...]:
     return tuple(row for row in found if row is not None)
 
 
-def all_rows(script_folder: Path | None, records: Sequence[DeviceDef] = ()) -> tuple[Row, ...]:
+def all_rows(
+    script_folder: Path | None,
+    records: Sequence[DeviceDef] = (),
+    *,
+    queries: Iterable[PartQuery] = (),
+    devices: Iterable[str] = (),
+) -> tuple[Row, ...]:
     """Every row a build of the script in ``script_folder`` can pick: design records, project rows, then
-    the shipped rows."""
-    project = project_rows(script_folder) if script_folder is not None else ()
+    the shipped rows. A grammar family among the project rows gives the candidates of ``queries`` and the
+    locked ``devices`` (device ids) of it (change c0263)."""
+    project = (
+        project_rows(script_folder, queries=queries, devices=devices) if script_folder is not None else ()
+    )
     return (*design_rows(records), *project, *shipped_rows())
 
 
@@ -573,6 +610,7 @@ __all__ = [
     "digest",
     "expand",
     "family_text",
+    "is_grammar",
     "folder_rows",
     "parse_family",
     "project_rows",

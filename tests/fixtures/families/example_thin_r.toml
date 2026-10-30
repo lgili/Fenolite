@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as a test fixture: an illustrative grammar family, not a real product line.
+schema = "fenolite.family.v1"
+id = "Example:EX_THIN_R"
+kind = "resistor"
+summary = "Thin-film chip resistors, EXT series, value in EIA-96 code (illustrative)"
+manufacturer = "Example Passive"
+version = "1.0.0"
+licence = "CC0-1.0"
+evidence = "INFERRED"
+datasheet = "https://example.invalid/ext-thin.pdf"
+symbol = "Fenolite:Resistor"
+pattern = "EXT{size}{value}{tolerance}"
+
+[sources]
+tolerance = ["EXT series datasheet rev A, table 2 (illustrative)"]
+power = ["EXT series datasheet rev A, table 1 (illustrative)"]
+value = ["EXT series datasheet rev A, table 3 (illustrative)"]
+
+[fields.size]
+codes."04" = { case = "0402", footprint = "Fenolite:Chip_0402", power = "0.0625W" }
+codes."06" = { case = "0603", footprint = "Fenolite:Chip_0603", power = "0.1W" }
+
+[fields.value]
+scheme = "eia96"
+unit = "Ω"
+series = "E96"
+
+[fields.tolerance]
+codes.B = { tolerance = "0.1%" }
+codes.D = { tolerance = "0.5%" }
+
+[[valid]]
+size = "04"
+tolerance = "B"
+value = { min = "100", max = "100k" }
+
+[[valid]]
+size = "06"
+value = { min = "10", max = "976k" }
+
+[[exclude]]
+size = "06"
+tolerance = "B"
+value = { min = "10", max = "97.6" }

@@ -31,6 +31,7 @@ another type; a flag without a value is a switch.
 | `equivalent` | no | say whether two designs are equivalent, level by level, and locate each difference |
 | `explain` | no | say what an error code or an issue code means and what to do about it |
 | `export` | yes | export fabrication files through kicad-cli on a copy of the project (writes under DIR) |
+| `family` | no | list, show, lint grammar families, decode MPNs, encode a query into MPNs, or expand a family |
 | `fetch` | yes | download an external tool (freerouting) after --confirm, checked against its pinned SHA-256 |
 | `fill` | yes | fill a KiCad board through kicad-cli 10 on a copy, preserving its format major |
 | `fmt` | yes | give a KiCad S-expression file Fenolite's canonical print, or check it with --check |
@@ -88,6 +89,7 @@ another type; a flag without a value is a switch.
 | `equivalent` | [Arguments](commands-2.md#equivalent) |
 | `explain` | [Arguments](commands-2.md#explain) |
 | `export` | [Arguments](commands-2.md#export) |
+| `family` | [Arguments](commands-2.md#family) |
 | `fetch` | [Arguments](commands-2.md#fetch) |
 | `fill` | [Arguments](commands-2.md#fill) |
 | `fmt` | [Arguments](commands-2.md#fmt) |
@@ -97,7 +99,7 @@ another type; a flag without a value is a switch.
 | `init` | [Arguments](commands-2.md#init) |
 | `inspect` | [Arguments](commands-2.md#inspect) |
 | `kit` | [Arguments](commands-2.md#kit) |
-| `library` | [Arguments](commands-2.md#library) |
+| `library` | [Arguments](commands-3.md#library) |
 | `manifest` | [Arguments](commands-3.md#manifest) |
 | `mcp` | [Arguments](commands-3.md#mcp) |
 | `models` | [Arguments](commands-3.md#models) |

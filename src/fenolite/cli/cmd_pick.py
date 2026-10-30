@@ -126,7 +126,9 @@ def _candidates(args: argparse.Namespace, design: Any, script: Path) -> Result:
             f"--candidates: {component} is no query part; the query parts: {known}",
             where=component,
         )
-    rows = all_rows(Path(os.path.abspath(script)).parent, tuple(design.device_records.values()))
+    rows = all_rows(
+        Path(os.path.abspath(script)).parent, tuple(design.device_records.values()), queries=(query,)
+    )
     result = match(query, rows)
     excluded: dict[str, dict[str, object]] = {}
     for found in result.excluded:

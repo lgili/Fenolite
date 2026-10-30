@@ -3177,6 +3177,66 @@ meaning = "A changed query, or a generator's new inputs, are no longer met by th
 fix = "Run fenolite pick PATH --update COMPONENT, review the plan, confirm it, and commit the design lock."
 see = "pick"
 
+["family.ambiguous-code"]
+meaning = "A code of a grammar family's field is a proper prefix of another code of the same field (or two rkm spellings of the domain are), so an MPN could parse two ways. The family is not used to pick or decode."
+fix = "Make the codes of the field prefix-free, or split the family or the field in two; fenolite family lint FILE checks it."
+see = "family"
+
+["family.pattern-field"]
+meaning = "The pattern of a grammar family has a placeholder without a field, a field without a placeholder, a field twice, or not exactly one value field (the field with a scheme)."
+fix = "Make every {field} of pattern name one field, each field appear once, and give exactly one field a scheme."
+see = "family"
+
+["family.matrix-unknown-code"]
+meaning = "A [[valid]] or [[exclude]] row of a grammar family names a code that its field lacks."
+fix = "Correct the code in the row, or add the code to the field with its attributes and source."
+see = "family"
+
+["family.value-unencodable"]
+meaning = "A [[valid]] row admits a value that the value field's scheme cannot spell in its unit (eia3 has two significant digits, eia4 three, eia96 the E96 values, rkm a finite decimal)."
+fix = "Cut the row's span or series to what the scheme spells, or change the value field's unit."
+see = "family"
+
+["family.prefer-missing"]
+meaning = "An ordering field of a grammar family names no prefer code, or one that is not among its codes; encode needs it to give one MPN per electrical combination."
+fix = "Set prefer to one of the field's codes."
+see = "family"
+
+["family.source-missing"]
+meaning = "A numeric attribute of a grammar family (a tolerance, a rating, a power, the value) names no source."
+fix = "List the datasheet in sources, or give sources.<attribute> for each numeric attribute."
+see = "family"
+
+["family.matrix-empty-row"]
+meaning = "A [[valid]] row of a grammar family admits no combination: its value span holds no value of its series, or it names only codes its fields lack."
+fix = "Correct the row's span, series or codes, or remove the row."
+see = "family"
+
+["family.decode-no-match"]
+meaning = "No grammar family parses the MPN: the message names, per family whose literal prefix matched, the character position (from 0) and the field where the parse failed."
+fix = "Check the MPN against the datasheet, or add or complete the grammar of its series."
+see = "family"
+
+["family.decode-ambiguous"]
+meaning = "Two grammar families parse one MPN completely; the message names both. Which part it is cannot be told from the MPN."
+fix = "Make the families' literal prefixes or codes distinct, or remove the duplicate family."
+see = "family"
+
+["family.expansion-limit"]
+meaning = "The product of a grammar family's domains, after the query cut them, is above the expansion limit (100 000): the message gives each domain's size. Nothing is picked from the family."
+fix = "Narrow the query: an exact value, a case, a dielectric or a rating cut the domains before the expansion."
+see = "family"
+
+["family.decode-outside-matrix"]
+meaning = "An MPN parses in a grammar family but outside its validity matrix: the grammar may be incomplete, or the part may not exist."
+fix = "Check the part in the manufacturer's datasheet; widen the [[valid]] rows only from the datasheet."
+see = "family"
+
+["family.suffix-opaque"]
+meaning = "An MPN of a family with tail = opaque carries characters after its last field; they are kept as suffix, unread, and the decode is UNVERIFIED because a tail may change what the other fields mean."
+fix = "Nothing to do when the tail is known to be cosmetic; otherwise describe it as a field of the grammar."
+see = "family"
+
 ["place.copper-left"]
 meaning = "A footprint that was moved had tracks ending on its pads; the tracks stay where they were."
 fix = "Route those nets again, or move the tracks in KiCad."

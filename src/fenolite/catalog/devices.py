@@ -1127,8 +1127,9 @@ def load_devices(folder: Path) -> tuple[tuple[DeviceDef, ...], tuple[Issue, ...]
 
 
 def is_family(text: str) -> bool:
-    """Whether the TOML ``text`` names the schema of a family record (``fenolite.family.v0``)."""
-    return re.search(r'^schema\s*=\s*"fenolite\.family\.v0"', text, re.MULTILINE) is not None
+    """Whether the TOML ``text`` names the schema of a family record: a generic family
+    (``fenolite.family.v0``, change c0254) or a grammar family (``fenolite.family.v1``, change c0263)."""
+    return re.search(r'^schema\s*=\s*"fenolite\.family\.v[01]"', text, re.MULTILINE) is not None
 
 
 @cache

@@ -139,6 +139,15 @@ Back to [the command index](commands.md).
 - `--kicad-cli PATH`: the kicad-cli to run
 - `--timeout SECONDS` (number, default `300.0`): per kicad-cli run (300)
 
+## family
+
+`fenolite family [OPTIONS] {decode,encode,expand,lint,list,show} [ARG]`
+
+- `FAMILY_ACTION` (one of `decode`, `encode`, `expand`, `lint`, `list`, `show`): what to do
+- `TARGETS` (repeatable): show and expand: a family ID; lint: grammar files; decode: MPNs; encode: one query text
+- `--project PATH`: a design script or its folder: the families of its devices/ (default: the working directory)
+- `--families DIR` (repeatable): a folder of grammar family files (repeatable)
+
 ## fetch
 
 `fenolite fetch [OPTIONS] [NAME]`
@@ -222,12 +231,3 @@ Back to [the command index](commands.md).
 - `-o`, `--out DIR`: build: the folder to write the kit into; record: the repository that gets the run record
 - `--samples DIR`: build, status: the folder of the sample scripts (default: examples/kit of the source checkout)
 - `--repo DIR`: status: the repository to read (default: this folder)
-
-## library
-
-`fenolite library [OPTIONS] PATH`
-
-- `PATH` (repeatable): a .kicad_pcb, .kicad_pro or project folder; or the action 'symbol' followed by pin tables
-- `--out LIB.pretty`: the library folder to write, relative; for 'symbol', a relative .kicad_sym or .SchLib file
-- `--diff LIBRARY`: a .pretty folder to compare with the board; writes nothing
-- `--library NAME`: 'symbol' only: the library name (default: the stem of --out)

@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example: an illustrative grammar family, not a real product line.
+schema = "fenolite.family.v1"
+id = "Example:EX_CHIP_R"
+kind = "resistor"
+summary = "Thick-film chip resistors, EXR series (illustrative)"
+manufacturer = "Example Passive"
+version = "1.0.0"
+licence = "CC0-1.0"
+evidence = "INFERRED"
+sources = ["EXR series datasheet rev A, ordering code table (illustrative)"]
+datasheet = "https://example.invalid/exr-chip.pdf"
+symbol = "Fenolite:Resistor"
+pattern = "EXR{size}{tolerance}{value}{packing}"
+tail = "opaque"
+
+[fields.size]
+codes."06" = { case = "0603", footprint = "Fenolite:Chip_0603", power = "0.1W", voltage = "75V" }
+codes."08" = { case = "0805", footprint = "Fenolite:Chip_0805", power = "0.125W", voltage = "150V" }
+
+[fields.tolerance]
+codes.F = { tolerance = "1%" }
+codes.D = { tolerance = "0.5%" }
+
+[fields.value]
+scheme = "eia4"
+unit = "Ω"
+series = "E96"
+
+[fields.packing]
+role = "ordering"
+prefer = "T"
+codes.T = { packing = "reel" }
+codes.B = { packing = "bulk" }
+
+[[valid]]
+size = ["06", "08"]
+tolerance = "F"
+value = { min = "10", max = "1M" }
+
+[[valid]]
+size = "08"
+tolerance = "D"
+value = { min = "100", max = "100k" }
