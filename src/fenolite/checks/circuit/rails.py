@@ -757,6 +757,18 @@ def _split_issues(view: View) -> list[Issue]:
     return found
 
 
+def rule_issues(view: View) -> list[Issue]:
+    """The findings of the rail rules on ``view`` (which sets each rail's voltage and loads), then of the
+    logic, bus, companion and split-port rules."""
+    return [
+        *_rail_issues(view),
+        *_logic_issues(view),
+        *_bus_issues(view),
+        *_requires_issues(view),
+        *_split_issues(view),
+    ]
+
+
 def has_parameters(design: Design) -> bool:
     """Whether the model holds anything this stage judges: a param, a ``ground`` or ``logic`` interface, a
     port or a ``requires``."""
@@ -794,5 +806,6 @@ __all__ = [
     "level_of",
     "rail_counts",
     "range_text",
+    "rule_issues",
     "span_text",
 ]

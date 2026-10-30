@@ -19,17 +19,7 @@ from fractions import Fraction
 
 from fenolite.checks.circuit import corners as rig_corners
 from fenolite.checks.circuit.expect import Evaluator, judge_expectation
-from fenolite.checks.circuit.rails import (
-    EVIDENCE,
-    View,
-    _bus_issues,  # pyright: ignore[reportPrivateUsage]
-    _logic_issues,  # pyright: ignore[reportPrivateUsage]
-    _rail_issues,  # pyright: ignore[reportPrivateUsage]
-    _requires_issues,  # pyright: ignore[reportPrivateUsage]
-    _split_issues,  # pyright: ignore[reportPrivateUsage]
-    circuit_evidence,
-    level_of,
-)
+from fenolite.checks.circuit.rails import EVIDENCE, View, circuit_evidence, level_of, rule_issues
 from fenolite.checks.circuit.ratings import DEVICE_PROPERTY, Judged, judge_parts
 from fenolite.checks.circuit.values import Values, ground_nets, part_classes, resolve
 from fenolite.checks.codes import issue
@@ -110,7 +100,7 @@ def _evaluate(
     currents: Mapping[str, tuple[Fraction, str]] | None,
 ) -> _Pass:
     view = View(design.circuit, contracts.rig if contracts is not None else ())
-    rails = _rail_issues(view)
+    rails = rule_issues(view)
     values = resolve(design, view, contracts, currents=currents)
     found_classes = part_classes(design, classes)
     parts: list[tuple[object, DeviceDef, str | None]] = []
@@ -173,15 +163,7 @@ def judge_circuit(
     contracts = design.rules.contracts if design.rules is not None else None
     main = _evaluate(design, contracts, devices, classes, currents)
     view = main.view
-    found: list[Issue] = [
-        *main.rails,
-        *_logic_issues(view),
-        *_bus_issues(view),
-        *_requires_issues(view),
-        *_split_issues(view),
-        *main.values.issues,
-        *main.changed,
-    ]
+    found: list[Issue] = [*main.rails, *main.values.issues, *main.changed]
     corner_set = rig_corners.corners(contracts)
     by_corner: list[tuple[str, dict[str, Judged]]] = []
     if corner_set and contracts is not None and any(row.rigs for row in main.rows):

@@ -91,10 +91,6 @@ def ratio(percent: int | Fraction | str) -> Derating:
 # ------------------------------------------------------------------------------------- expressions
 
 
-def _unit_of(value: object) -> str | None:
-    return value.unit if isinstance(value, Expr) else None
-
-
 class Expr:
     """An expression of a contract: a handle, a literal or an operation on them. It has no truth value and
     no order (``docs/contracts.md``, "Expectations")."""
@@ -369,7 +365,7 @@ def _amount(value: object, unit: str, what: str) -> Range:
 def _name_or_none(name: object, what: str) -> str | None:
     if name is not None and (not isinstance(name, str) or not ROLE_KEY.fullmatch(name)):
         raise DslError(f"{what}: the name {name!r} must match {ROLE_KEY.pattern}")
-    return cast(str | None, name)
+    return name
 
 
 def supply(

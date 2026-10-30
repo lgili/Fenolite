@@ -27,7 +27,8 @@ from fenolite.model.canonical import to_data
 @pytest.mark.parametrize(
     "value",
     [volt("12").pct(10), volt("3.3").pct(3), Range("ohm", Fraction(1, 3), Fraction(2, 3)),
-     Range("volt", Fraction(-5, 7), Fraction(13, 1000)), Range("kelvin", Fraction(25315, 100), Fraction(34315, 100))],
+     Range("volt", Fraction(-5, 7), Fraction(13, 1000)),
+     Range("kelvin", Fraction(25315, 100), Fraction(34315, 100))],
 )  # fmt: skip
 def test_bound_encoding_is_the_models(value: Range) -> None:
     """``Bound`` re-states c0246's ``ValueRange`` encoding byte for byte, rounding outward included."""

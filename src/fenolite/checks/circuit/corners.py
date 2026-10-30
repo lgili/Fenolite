@@ -18,7 +18,7 @@ import itertools
 from collections.abc import Mapping
 
 from fenolite.model.circuit import ValueRange
-from fenolite.model.rules import ContractSet, RigSupply
+from fenolite.model.rules import ContractSet, RigSink, RigSupply
 
 MAX_SUPPLIES = 6
 """The most rig supplies whose corners are evaluated (64 corners)."""
@@ -52,7 +52,7 @@ def name(corner: Mapping[str, str]) -> str:
 
 def pinned(contracts: ContractSet, corner: Mapping[str, str]) -> ContractSet:
     """``contracts`` with each rig supply's voltage pinned to the end ``corner`` names."""
-    elements = []
+    elements: list[RigSupply | RigSink] = []
     for element in contracts.rig:
         if isinstance(element, RigSupply) and element.name in corner:
             voltage = element.voltage

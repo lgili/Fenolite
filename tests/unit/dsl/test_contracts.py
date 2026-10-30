@@ -37,8 +37,9 @@ from fenolite.dsl import (
     within,
 )
 
-HELPERS = ("within", "at_least", "at_most", "value_of", "rating_of", "voltage_of", "current_of", "supply", "sink",
-           "ratio")  # fmt: skip
+HELPERS = (
+    "within", "at_least", "at_most", "value_of", "rating_of", "voltage_of", "current_of", "supply", "sink", "ratio",
+)  # fmt: skip
 
 
 def test_build_contracts_are_built(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

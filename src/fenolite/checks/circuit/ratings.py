@@ -21,7 +21,7 @@ from fractions import Fraction
 
 from fenolite.checks.circuit.rails import View, bounds
 from fenolite.checks.circuit.values import Value, Values, function_nets
-from fenolite.core.requirement_table import Bound, LimitKind, Side, Status, amount_text
+from fenolite.core.requirement_table import Bound, LimitKind, Side, Source, Status, amount_text
 from fenolite.model.circuit import Component, Port
 from fenolite.model.library import DeviceDef, Rating
 from fenolite.model.rules import DERATING_KEYS, ContractSet, DeratingRule
@@ -115,15 +115,35 @@ def derating_rule(
         where, rating, owner = DERATING_KEYS[rule.key]
         return where == scope and rating == key and (not owner or owner == cls)
 
-    for level in (
-        lambda r: _glob_matches(r, ref) and applies(r),
-        lambda r: not r.parts and applies(r) and bool(DERATING_KEYS[r.key][2]),
-        lambda r: not r.parts and applies(r) and not DERATING_KEYS[r.key][2],
-    ):
+    def scoped(rule: DeratingRule) -> bool:
+        return _glob_matches(rule, ref) and applies(rule)
+
+    def by_class(rule: DeratingRule) -> bool:
+        return not rule.parts and applies(rule) and bool(DERATING_KEYS[rule.key][2])
+
+    def generic(rule: DeratingRule) -> bool:
+        return not rule.parts and applies(rule) and not DERATING_KEYS[rule.key][2]
+
+    for level in (scoped, by_class, generic):
         found = next((rule for rule in rules if level(rule)), None)
         if found is not None:
             return found
     return None
+
+
+Span = tuple[Fraction | None, Fraction | None]
+
+
+@dataclass(frozen=True, slots=True)
+class Applied:
+    """An applied value of a row: its span (``None`` when it is not known), basis, source, the rig supplies
+    it reads and, when unknown, what is missing."""
+
+    value: Span | None
+    basis: str = ""
+    source: Source = "user"
+    rigs: frozenset[str] = frozenset()
+    missing: str = ""
 
 
 @dataclass(slots=True)
@@ -206,17 +226,13 @@ class RatingJudge:
     def _add(
         self,
         part: Part,
+        applied: Applied,
         *,
         key: str,
         label: str,
         rating: Rating,
         scope: str,
         quantity: str,
-        value: tuple[Fraction | None, Fraction | None] | None,
-        value_basis: str,
-        value_source: str,
-        missing: str,
-        rigs: frozenset[str],
         entities: Sequence[str],
         what: str,
     ) -> None:
@@ -226,20 +242,20 @@ class RatingJudge:
         row_id = f"{code}:{part.ref}:{key}"
         if rating.limit == "operating" and key not in CODES:
             row_id = f"{code}:{part.ref}:{key}:{rating.key}"
-        if value is None:
-            status: Status = "unknown"
-            side = None
-        else:
-            status = compare(value, limit_range)
+        missing = applied.missing
+        side: Side | None = None
+        status: Status = "unknown"
+        if applied.value is not None:
+            status = compare(applied.value, limit_range)
             if status == "unknown" and not missing:
                 missing = f"an unbounded {quantity}"
-            bound = Bound(unit, *value) if value[0] is not None or value[1] is not None else None
-            side = (
-                None if bound is None else Side(bound, bound.text(), value_source, value_basis)  # type: ignore[arg-type]
-            )
+            low, high = applied.value
+            if low is not None or high is not None:
+                bound = Bound(unit, low, high)
+                side = Side(bound, bound.text(), applied.source, applied.basis)
         verb = "exceeds the" if rating.limit == "abs_max" else "is not within the operating range"
         text = (
-            f"{part.subject}: {what} {'' if side is None else side.text} ({value_basis}) {verb} "
+            f"{part.subject}: {what} {'' if side is None else side.text} ({applied.basis}) {verb} "
             f"{limit_side.text} ({limit_side.basis})"
         )
         self.rows.append(
@@ -255,7 +271,7 @@ class RatingJudge:
                 (part.component.id, *entities),
                 part.ref,
                 missing if status == "unknown" else "",
-                rigs if status != "unknown" else frozenset(),
+                applied.rigs if status != "unknown" else frozenset(),
                 text,
                 policy=no_policy and rating.limit == "abs_max",
                 device_evidence=part.device.evidence,
@@ -283,25 +299,37 @@ class RatingJudge:
         )
 
     @staticmethod
-    def _merge(*values: Value | None) -> tuple[str, str, frozenset[str]]:
-        known = [v for v in values if v is not None]
-        source = "user" if any(v.source == "user" for v in known) else (known[0].source if known else "user")
-        basis = "; ".join(dict.fromkeys(v.basis for v in known))
-        rigs = frozenset().union(*(v.rigs for v in known)) if known else frozenset()
-        return source, basis, rigs
+    def _merge(span: Span, *values: Value) -> Applied:
+        """An applied value read from ``values``: ``user`` when any of them is the user's."""
+        source: Source = "user" if any(v.source == "user" for v in values) else values[0].source
+        basis = "; ".join(dict.fromkeys(v.basis for v in values))
+        rigs = frozenset[str]().union(*(v.rigs for v in values))
+        return Applied(span, basis, source, rigs)
 
-    def _difference(
-        self, first: str | None, second: str | None
-    ) -> tuple[tuple[Fraction | None, Fraction | None] | None, str, str, frozenset[str], str]:
-        """``V(first) - V(second)`` worst case, with source, basis, rigs and what is missing."""
+    def _lacking(self, *pairs: tuple[str | None, Value | None]) -> Applied:
+        names = [self._name(net) for net, value in pairs if value is None]
+        return Applied(None, missing="voltage of " + " and ".join(names or ["a net"]))
+
+    def _difference(self, first: str | None, second: str | None) -> Applied:
+        """``V(first) - V(second)``, worst case at both ends."""
         a, b = self._voltage(first), self._voltage(second)
         if a is None or b is None:
-            lacking = [self._name(net) for net, v in ((first, a), (second, b)) if v is None]
-            return None, "", "user", frozenset(), "voltage of " + " and ".join(lacking)
+            return self._lacking((first, a), (second, b))
         low = None if a.low is None or b.high is None else a.low - b.high
         high = None if a.high is None or b.low is None else a.high - b.low
-        source, basis, rigs = self._merge(a, b)
-        return (low, high), basis, source, rigs, ""
+        return self._merge((low, high), a, b)
+
+    def _across(self, first: str | None, second: str | None) -> Applied:
+        """``|V(first) - V(second)|``, worst case: ``max(a.max - b.min, b.max - a.min)`` above."""
+        a, b = self._voltage(first), self._voltage(second)
+        if a is None or b is None:
+            return self._lacking((first, a), (second, b))
+        if a.low is None or a.high is None or b.low is None or b.high is None:
+            return Applied(None, missing=f"a bounded voltage of {self._name(first)} and {self._name(second)}")
+        lo_d, hi_d = a.low - b.high, a.high - b.low
+        top = max(abs(lo_d), abs(hi_d))
+        bottom = Fraction(0) if lo_d <= 0 <= hi_d else min(abs(lo_d), abs(hi_d))
+        return self._merge((bottom, top), a, b)
 
     # --------------------------------------------------------------------------------------- rows
 
@@ -309,89 +337,69 @@ class RatingJudge:
         device = part.device
         functions = [pin.function for pin in device.pins]
         ends = device.ends if len(device.ends) == 2 else (tuple(functions) if len(functions) == 2 else ())
-        two_pin = len(ends) == 2
-        end_nets = tuple(part.nets.get(f) for f in ends) if two_pin else ()
-        across = None
-        if two_pin:
-            a, b = self._voltage(end_nets[0]), self._voltage(end_nets[1])
-            if a is not None and b is not None and None not in (a.low, a.high, b.low, b.high):
-                lo_d = a.low - b.high  # type: ignore[operator]
-                hi_d = a.high - b.low  # type: ignore[operator]
-                top = max(abs(lo_d), abs(hi_d))
-                bottom = Fraction(0) if lo_d <= 0 <= hi_d else min(abs(lo_d), abs(hi_d))
-                source, basis, rigs = self._merge(a, b)
-                across = ((bottom, top), basis, source, rigs, "")
-            else:
-                lacking = [self._name(n) for n, v in zip(end_nets, (a, b), strict=True) if v is None]
-                across = (None, "", "user", frozenset(), "voltage of " + " and ".join(lacking or ["a net"]))
-        between = f"{self._name(end_nets[0])}–{self._name(end_nets[1])}" if two_pin else ""
-        # device voltage (two-pin parts)
-        voltage_ratings = [r for r in device.ratings if r.key == "voltage"]
-        if two_pin and across is not None:
+        end_nets: tuple[str | None, ...] = tuple(part.nets.get(f) for f in ends)
+        across = self._across(end_nets[0], end_nets[1]) if len(end_nets) == 2 else None
+        nets = [n for n in end_nets if n]
+        if across is not None:
+            between = f"{self._name(end_nets[0])}–{self._name(end_nets[1])}"
+            voltage_ratings = [r for r in device.ratings if r.key == "voltage"]
             for rating in voltage_ratings:
-                value, basis, source, rigs, missing = across
                 self._add(
-                    part, key="voltage", label="", rating=rating, scope="device", quantity="voltage",
-                    value=value, value_basis=basis, value_source=source, missing=missing, rigs=rigs,
-                    entities=[n for n in end_nets if n], what=f"the voltage across {between}",
+                    part, across, key="voltage", label="", rating=rating, scope="device", quantity="voltage",
+                    entities=nets, what=f"the voltage across {between}",
                 )  # fmt: skip
-            if not voltage_ratings and across[0] is not None:
-                self._no_rating(part, "voltage", "voltage", "volt", [n for n in end_nets if n])
-        # pin voltages and currents
-        ground_net = part.nets.get(device.ground) if device.ground else self.ground
-        excluded = self._port_functions(part)
-        for pin in device.pins:
-            net = part.nets.get(pin.function)
-            for rating in pin.ratings:
-                if rating.key == "voltage":
-                    if pin.function == device.ground:
-                        continue
-                    if rating.limit == "operating" and pin.function in excluded:
-                        continue
-                    value, basis, source, rigs, missing = self._difference(net, ground_net)
-                    origin = device.ground or "ground"
-                    self._add(
-                        part, key=pin.function, label=pin.function, rating=rating, scope="pin",
-                        quantity="voltage",
-                        value=value, value_basis=basis, value_source=source, missing=missing, rigs=rigs,
-                        entities=[n for n in (net, ground_net) if n],
-                        what=f"{pin.function} on {self._name(net)} from {origin}",
-                    )  # fmt: skip
-                elif rating.key == "current":
-                    alone = net is not None and sum(1 for f in functions if part.nets.get(f) == net) == 1
-                    if not alone:
-                        continue
-                    bound = self.values.current.get(net) if net is not None else None
-                    self._add(
-                        part, key=pin.function, label=pin.function, rating=rating, scope="pin",
-                        quantity="current",
-                        value=None if bound is None else (Fraction(0), bound.high),
-                        value_basis="" if bound is None else bound.basis,
-                        value_source="user" if bound is None else bound.source,
-                        missing="" if bound is not None else f"current of {self._name(net)}",
-                        rigs=frozenset(), entities=[net] if net else [],
-                        what=f"the current of {pin.function} on {self._name(net)}",
-                    )  # fmt: skip
-        # pin pairs
+            if not voltage_ratings and across.value is not None:
+                self._no_rating(part, "voltage", "voltage", "volt", nets)
+        self._pins(part, functions)
         for pair in device.limits:
             if len(pair.between) != 2:
                 continue
             first, second = pair.between
-            nets = (part.nets.get(first), part.nets.get(second))
-            value, basis, source, rigs, missing = self._difference(*nets)
+            pair_nets = (part.nets.get(first), part.nets.get(second))
+            applied = self._difference(*pair_nets)
             for rating in pair.ratings:
                 self._add(
-                    part, key=f"{first}-{second}", label=f"{first}-{second}", rating=rating, scope="pin",
-                    quantity="voltage", value=value, value_basis=basis, value_source=source, missing=missing,
-                    rigs=rigs, entities=[n for n in nets if n],
-                    what=f"{first} − {second} ({self._name(nets[0])} − {self._name(nets[1])})",
+                    part, applied, key=f"{first}-{second}", label=f"{first}-{second}", rating=rating,
+                    scope="pin", quantity="voltage", entities=[n for n in pair_nets if n],
+                    what=f"{first} − {second} ({self._name(pair_nets[0])} − {self._name(pair_nets[1])})",
                 )  # fmt: skip
-        # device current by class
-        self._current(part, two_pin, end_nets)
-        # power
-        self._power(part, two_pin, end_nets, across)
-        # temperature
+        self._current(part, end_nets)
+        self._power(part, end_nets, across)
         self._temperature(part)
+
+    def _pins(self, part: Part, functions: Sequence[str]) -> None:
+        device = part.device
+        ground_net = part.nets.get(device.ground) if device.ground else self.ground
+        excluded = self._port_functions(part)
+        origin = device.ground or "ground"
+        for pin in device.pins:
+            net = part.nets.get(pin.function)
+            for rating in pin.ratings:
+                if rating.key == "voltage":
+                    if pin.function == device.ground or (
+                        rating.limit == "operating" and pin.function in excluded
+                    ):
+                        continue
+                    self._add(
+                        part, self._difference(net, ground_net), key=pin.function, label=pin.function,
+                        rating=rating, scope="pin", quantity="voltage",
+                        entities=[n for n in (net, ground_net) if n],
+                        what=f"{pin.function} on {self._name(net)} from {origin}",
+                    )  # fmt: skip
+                elif rating.key == "current":
+                    if net is None or sum(1 for f in functions if part.nets.get(f) == net) != 1:
+                        continue
+                    bound = self.values.current.get(net)
+                    applied = (
+                        Applied(None, missing=f"current of {self._name(net)}")
+                        if bound is None
+                        else Applied((Fraction(0), bound.high), bound.basis, bound.source)
+                    )
+                    self._add(
+                        part, applied, key=pin.function, label=pin.function, rating=rating, scope="pin",
+                        quantity="current", entities=[net],
+                        what=f"the current of {pin.function} on {self._name(net)}",
+                    )  # fmt: skip
 
     def _port_functions(self, part: Part) -> set[str]:
         """The functions of the device ports that state ``voltage``: c0252 judges their operating voltage."""
@@ -402,7 +410,7 @@ class RatingJudge:
                     found |= set(functions)
         return found
 
-    def _current(self, part: Part, two_pin: bool, end_nets: tuple[str | None, ...]) -> None:
+    def _current(self, part: Part, end_nets: tuple[str | None, ...]) -> None:
         ratings = [r for r in part.device.ratings if r.key == "current"]
         out = next(
             (
@@ -412,8 +420,7 @@ class RatingJudge:
             ),
             None,
         )
-        value: tuple[Fraction | None, Fraction | None] | None = None
-        basis, source, missing, what, entities = "", "user", "", "", []
+        entities: list[str] = []
         if out is not None:
             hv = out.members.get("hv")
             rail = self.view.rails.get(hv) if hv is not None else None
@@ -421,102 +428,94 @@ class RatingJudge:
             what = f"the output current of {out.name} (loads of {name})"
             entities = [hv] if hv else []
             if rail is not None and rail.load_high is not None:
-                value = (Fraction(0), rail.load_high)
-                basis = f"rail {name} loads"
+                applied = Applied((Fraction(0), rail.load_high), f"rail {name} loads", "user")
             else:
-                missing = f"loads of {name}"
+                applied = Applied(None, missing=f"loads of {name}")
         elif part.cls is None:
-            if ratings:
-                missing, what = "no class", "the series current"
-            else:
+            if not ratings:
                 return
-        elif part.cls in SERIES and two_pin:
-            bounds_ = [self.values.current.get(n) if n else None for n in end_nets]
+            applied, what = Applied(None, missing="no class"), "the series current"
+        elif part.cls in SERIES and len(end_nets) == 2:
             what = f"the series current ({' and '.join(self._name(n) for n in end_nets)})"
             entities = [n for n in end_nets if n]
-            if all(b is not None and b.high is not None for b in bounds_):
-                smaller = min((b for b in bounds_ if b is not None), key=lambda b: b.high or 0)
-                value, basis, source = (Fraction(0), smaller.high), smaller.basis, smaller.source
+            found = [self.values.current.get(n) if n else None for n in end_nets]
+            known = [b for b in found if b is not None and b.high is not None]
+            if len(known) == 2:
+                smaller = min(known, key=lambda b: b.high or Fraction(0))
+                applied = Applied((Fraction(0), smaller.high), smaller.basis, smaller.source)
             else:
-                lacking = [self._name(n) for n, b in zip(end_nets, bounds_, strict=True) if b is None]
-                missing = "current of " + " and ".join(lacking)
+                lacking = [self._name(n) for n, b in zip(end_nets, found, strict=True) if b is None]
+                applied = Applied(None, missing="current of " + " and ".join(lacking or ["a net"]))
         else:
             return
         if not ratings:
-            if value is not None:
+            if applied.value is not None:
                 self._no_rating(part, "current", "current", "ampere", entities)
             return
         for rating in ratings:
             self._add(
-                part, key="current", label="", rating=rating, scope="device", quantity="current", value=value,
-                value_basis=basis, value_source=source, missing=missing, rigs=frozenset(), entities=entities,
-                what=what,
+                part, applied, key="current", label="", rating=rating, scope="device", quantity="current",
+                entities=entities, what=what,
             )  # fmt: skip
 
-    def _power(
-        self,
-        part: Part,
-        two_pin: bool,
-        end_nets: tuple[str | None, ...],
-        across: tuple[object, ...] | None,
-    ) -> None:
+    def _power(self, part: Part, end_nets: tuple[str | None, ...], across: Applied | None) -> None:
         ratings = [r for r in part.device.ratings if r.key == "power"]
         if part.cls is None:
             if not ratings:
                 return
-            value, basis, source, rigs, missing = None, "", "user", frozenset[str](), "no class"
-        elif part.cls not in POWERED or not two_pin:
+            applied = Applied(None, missing="no class")
+        elif part.cls not in POWERED or across is None:
             return
         else:
-            value, basis, source, rigs, missing = None, "", "user", frozenset[str](), ""
-            resistance = part.component.value_range
-            if resistance is None or resistance.unit != "ohm":
-                missing = "no value range"
-            else:
-                r_low, r_high = bounds(resistance)
-                volts = across[0] if across is not None else None
-                if volts is not None and r_low:
-                    top = volts[1]  # type: ignore[index]
-                    value = (None, top * top / r_low)
-                    basis, source, rigs = across[1], across[2], across[3]  # type: ignore[index, assignment]
-                    basis = f"{basis}; V²/R with R ≥ {amount_text('ohm', r_low)}"
-                elif part.cls == "shunt" and r_high is not None:
-                    known = [self.values.current.get(n) for n in end_nets if n and n in self.values.current]
-                    if known:
-                        smaller = min(known, key=lambda b: b.high or 0)  # type: ignore[union-attr]
-                        if smaller is not None and smaller.high is not None:
-                            value = (None, smaller.high * smaller.high * r_high)
-                            basis = f"{smaller.basis}; I²R with R ≤ {amount_text('ohm', r_high)}"
-                            source = smaller.source
-                    if value is None:
-                        missing = "voltage or current of the shunt's nets"
-                else:
-                    missing = str(across[4]) if across is not None and across[4] else "voltage of its nets"
+            applied = self._dissipation(part, end_nets, across)
+        nets = [n for n in end_nets if n]
         if not ratings:
-            if value is not None:
-                self._no_rating(part, "power", "power", "watt", [n for n in end_nets if n])
+            if applied.value is not None:
+                self._no_rating(part, "power", "power", "watt", nets)
             return
         for rating in ratings:
             self._add(
-                part, key="power", label="", rating=rating, scope="device", quantity="power", value=value,
-                value_basis=str(basis), value_source=str(source), missing=missing, rigs=rigs,  # type: ignore[arg-type]
-                entities=[n for n in end_nets if n], what="the worst-case power",
+                part, applied, key="power", label="", rating=rating, scope="device", quantity="power",
+                entities=nets, what="the worst-case power",
             )  # fmt: skip
+
+    def _dissipation(self, part: Part, end_nets: tuple[str | None, ...], across: Applied) -> Applied:
+        """``V_across.max² / R.min``, else for a shunt ``I.max² × R.max``, with c0274's products."""
+        resistance = part.component.value_range
+        if resistance is None or resistance.unit != "ohm":
+            return Applied(None, missing="no value range")
+        r_low, r_high = bounds(resistance)
+        if across.value is not None and across.value[1] is not None and r_low:
+            top = across.value[1]
+            basis = f"{across.basis}; V²/R with R ≥ {amount_text('ohm', r_low)}"
+            return Applied((None, top * top / r_low), basis, across.source, across.rigs)
+        if part.cls == "shunt" and r_high is not None:
+            known = [self.values.current[n] for n in end_nets if n and n in self.values.current]
+            highs = [b for b in known if b.high is not None]
+            if highs:
+                smaller = min(highs, key=lambda b: b.high or Fraction(0))
+                amps = smaller.high or Fraction(0)
+                basis = f"{smaller.basis}; I²R with R ≤ {amount_text('ohm', r_high)}"
+                return Applied((None, amps * amps * r_high), basis, smaller.source)
+            return Applied(None, missing="voltage or current of the shunt's nets")
+        return Applied(None, missing=across.missing or "voltage of its nets")
 
     def _temperature(self, part: Part) -> None:
         ratings = [r for r in part.device.ratings if r.key == "temperature"]
         operating = self.contracts.operating if self.contracts is not None else None
-        ambient = None if operating is None else bounds(operating.ambient)
         if not ratings:
-            if ambient is not None:
+            if operating is not None:
                 self._no_rating(part, "temperature", "temperature", "kelvin", [])
             return
+        applied = (
+            Applied(None, missing="ambient range (design.operating)")
+            if operating is None
+            else Applied(bounds(operating.ambient), "design.operating ambient")
+        )
         for rating in ratings:
             self._add(
-                part, key="temperature", label="", rating=rating, scope="device", quantity="temperature",
-                value=ambient, value_basis="design.operating ambient", value_source="user",
-                missing="" if ambient is not None else "ambient range (design.operating)", rigs=frozenset(),
-                entities=[], what="the ambient range",
+                part, applied, key="temperature", label="", rating=rating, scope="device",
+                quantity="temperature", entities=[], what="the ambient range",
             )  # fmt: skip
 
 
@@ -547,6 +546,7 @@ __all__ = [
     "DEVICE_PROPERTY",
     "POWERED",
     "SERIES",
+    "Applied",
     "Judged",
     "RatingJudge",
     "compare",

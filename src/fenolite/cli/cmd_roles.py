@@ -507,7 +507,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         result["measures"] = [measure.to_json() for measure in judged.measured.measures]
         result["summary"] = dict(judged.summary)
         role_rows = cast(Sequence[Mapping[str, object]], judged.summary.get("requirements", []))
-        circuit_rows: list[Mapping[str, object]] = []
+        circuit_rows: Sequence[Mapping[str, object]] = []
         if model is not None:
             roles_now = merged(declared, before, classes)
             circuit_rows = circuit_requirements(model, root, roles_now, inputs, _currents(args.currents))
@@ -539,7 +539,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
 
 def circuit_requirements(
     model: Design, root: Path, roles: RoleSet, inputs: Inputs, given: Mapping[str, int]
-) -> list[Mapping[str, object]]:
+) -> list[dict[str, object]]:
     """The requirement rows of the stage ``circuit.rules`` on the ``.fenolite/`` model of a built project
     (change c0253), with the roles in force and the currents of ``[[current]]`` rows and then ``--current``
     (the order of roles), each with its basis: the row's ``source`` text, ``requirements.toml`` or

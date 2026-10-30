@@ -98,12 +98,12 @@ def _side(a: Fraction | None, b: Fraction | None, how: str) -> Fraction | None:
 
 def _mul(a: Interval, b: Interval, unit: str) -> Interval:
     rigs = a.rigs | b.rigs
-    if None in (a.low, a.high, b.low, b.high):
+    if a.low is None or a.high is None or b.low is None or b.high is None:
         if a.low is None or b.low is None or a.low < 0 or b.low < 0:
             raise Unknown(f"a product of the one-sided {_text(a)} and {_text(b)}")
         high = None if a.high is None or b.high is None else a.high * b.high
         return Interval(unit, a.low * b.low, high, rigs)
-    products = [x * y for x in (a.low, a.high) for y in (b.low, b.high)]  # type: ignore[operator]
+    products = [x * y for x in (a.low, a.high) for y in (b.low, b.high)]
     return Interval(unit, min(products), max(products), rigs)
 
 
