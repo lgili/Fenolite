@@ -59,6 +59,8 @@ from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FenoliteError, FormatError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
+from fenolite.importer.coverage import root_kinds
+from fenolite.importer.provenance import copy_mode
 from fenolite.view.fidelity import DEFAULT_PIXEL_PPM
 
 HELP = (
@@ -132,6 +134,11 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--upgrade", action="store_true", help="upgrade a copy of an older original (kicad-cli)"
     )
+    parser.add_argument(
+        "--copper-check", choices=cmd_build.COPPER_CHECK_MODES, default=None,
+        help="the copper guard of the build: refuse or warn (default: warn for a copy, which the import "
+        "record of the provenance file marks, else refuse)",
+    )  # fmt: skip
     parser.add_argument("--kicad-cli", metavar="PATH", help="the kicad-cli of --upgrade")
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT, metavar="SECONDS")
 
@@ -188,13 +195,41 @@ def _kicad_files(root: Path) -> tuple[Path, ...]:
     return tuple(found)
 
 
+def _project_files(path: Path) -> tuple[Path, ...]:
+    """The files of the one KiCad project that ``path`` names (change c0281): its ``.kicad_pro``, the board
+    and ``.kicad_dru`` of its stem and the sheet tree of its root sheet. A folder that resolves to no single
+    board keeps every KiCad file of the folder, as before."""
+    from fenolite.backends.kicad.sch import sheet_files
+
+    try:
+        board = resolve_board(path)
+    except FenoliteError:
+        return _kicad_files(path if path.is_dir() else path.parent)
+    root = board.parent
+    found = [root / f"{board.stem}{suffix}" for suffix in (".kicad_pro", ".kicad_pcb", ".kicad_dru")]
+    schematic = root / f"{board.stem}.kicad_sch"
+    if schematic.is_file():
+        found.append(schematic)
+        try:
+            tree = sheet_files(schematic)
+        except (FormatError, OSError, UnicodeDecodeError, ValueError):
+            tree = None
+        if tree is not None:
+            found += [root / name for name in tree.files[1:]]
+    return tuple(sorted({p for p in found if p.is_file()}))
+
+
+def _sheets_of(original: Original) -> tuple[Path, ...]:
+    return tuple(p for p in original.files if p.suffix == ".kicad_sch")
+
+
 def _original(path: Path) -> Original:
     if path.is_file() and path.suffix.lower() == ALTIUM_PROJECT:
         files = [path, *(p for p in sorted(path.parent.iterdir()) if p.suffix.lower() in ALTIUM_DOCUMENTS)]
         return Original(path, path.parent, "altium", tuple(files))
     if path.is_dir() or path.suffix == ".kicad_pro":
         root = path if path.is_dir() else path.parent
-        return Original(path, root, "kicad", _kicad_files(root))
+        return Original(path, root, "kicad", _project_files(path))
     raise _usage(
         f"{path.name} is not an original verify-source reads",
         where="--against",
@@ -225,19 +260,19 @@ def _upgraded(
         where=board.name,
     )
     path = copy if original.path.is_dir() else copy / original.path.name
-    return Original(path, copy, original.backend, _kicad_files(copy)), found
+    return Original(path, copy, original.backend, _project_files(path)), found
 
 
 # --- the build -------------------------------------------------------------------------------------
 
 
-def _build(script: Path, out: Path, ctx: Context, major: int) -> tuple[Result, int, str]:
-    """``fenolite build SCRIPT --out OUT`` for ``major`` without the confirmation step: the build's result,
-    the count of files written under ``out`` and, for a build that refused, its error. A write outside the
-    temporary folder (a design lock beside the script) is left out."""
+def _build(script: Path, out: Path, ctx: Context, major: int, copper: str) -> tuple[Result, int, str]:
+    """``fenolite build SCRIPT --out OUT --copper-check COPPER`` for ``major`` without the confirmation
+    step: the build's result, the count of files written under ``out`` and, for a build that refused, its
+    error. A write outside the temporary folder (a design lock beside the script) is left out."""
     parser = argparse.ArgumentParser(add_help=False)
     cmd_build.COMMAND.register(parser)
-    namespace = parser.parse_args([os.fspath(script), "--out", os.fspath(out)])
+    namespace = parser.parse_args([os.fspath(script), "--out", os.fspath(out), "--copper-check", copper])
     try:
         built = cmd_build.COMMAND.run(namespace, dataclasses.replace(ctx, cwd=out.parent, kicad_target=major))
     except FenoliteError as error:
@@ -274,6 +309,11 @@ class Provenance:
     tolerances: dict[str, int]
     accepted: list[dict[str, Any]]
     rules: tuple[Rule, ...]
+
+    @property
+    def copy(self) -> bool:
+        """Whether the file marks the design as a copy of someone else's board (change c0281)."""
+        return copy_mode(self.data)
 
 
 def _provenance(args: argparse.Namespace, script: Path, ctx: Context) -> Provenance:
@@ -392,8 +432,45 @@ def _row(difference: Difference) -> dict[str, Any]:
     }
 
 
-def _has_sheets(root: Path) -> bool:
-    return any(p.suffix == ".kicad_sch" for p in _kicad_files(root))
+def _has_sheets(files: Sequence[Path]) -> bool:
+    return any(p.suffix == ".kicad_sch" for p in files)
+
+
+OPAQUE_LEVEL = 7
+
+
+def _opaque_differences(a: Any, b: Any) -> tuple[Difference, ...]:
+    """One level-7 ``opaque-count`` per kind of opaque root item whose counts differ (change c0281): copper
+    an import left out (teardrops) shows in the proof instead of passing unseen."""
+    held_a, held_b = root_kinds(a), root_kinds(b)
+    return tuple(
+        Difference(
+            OPAQUE_LEVEL, "opaque-count", f"board:opaque:{kind}", kind, str(held_a[kind]), str(held_b[kind])
+        )
+        for kind in sorted(set(held_a) | set(held_b))
+        if held_a[kind] != held_b[kind]
+    )
+
+
+def _with_opaque(
+    report: EquivalenceReport, found: Sequence[Difference], rules: Sequence[Rule]
+) -> EquivalenceReport:
+    """``report`` with ``found`` added to its level 7, after the accepted rules."""
+    if not found:
+        return report
+    levels: list[LevelResult] = []
+    for level in report.levels:
+        if level.level == OPAQUE_LEVEL:
+            added = apply_rules(LevelResult(OPAQUE_LEVEL, len(found), tuple(found)), rules)
+            ordered = tuple(
+                sorted((*level.differences, *added.differences), key=lambda d: (d.where, d.kind, d.field))
+            )
+            level = dataclasses.replace(
+                level, differences=ordered, excluded=(*level.excluded, *added.excluded),
+                summary={**level.summary, "opaque": len(found)},
+            )  # fmt: skip
+        levels.append(level)
+    return dataclasses.replace(report, levels=tuple(levels))
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
@@ -468,14 +545,20 @@ def _verify(
             major = found_major
     out = work / "build" / script.stem
     out.parent.mkdir(parents=True)
-    built, count, refused = _build(script, out, ctx, major)
+    copper = args.copper_check or ("warn" if provenance.copy else cmd_build.COPPER_CHECK_MODES[0])
+    built, count, refused = _build(script, out, ctx, major, copper)
     build_issues = tuple(i for i in built.issues if i.severity != "info" or count == 0)
     sha = _sha256(script)
     against_files = {p.relative_to(original.root).as_posix(): _sha256(p) for p in original.files}
     base: dict[str, Any] = {
         "script": {"name": script.name, "sha256": sha},
         "against": {"name": original.path.name, "backend": original.backend, "files": against_files},
-        "build": {"target": f"kicad-{major}", "files": count},
+        "build": {
+            "target": f"kicad-{major}",
+            "files": count,
+            "copper_check": copper,
+            "copy": provenance.copy,
+        },
         "tolerances": {
             "length_nm": tolerances.length_nm,
             "angle_udeg": tolerances.angle_udeg,
@@ -545,11 +628,14 @@ def _compare(
     top = max((level for level in model_levels if level not in skipped), default=0)
     rules = provenance.rules
 
+    opaque = _opaque_differences(a, b)
+
     def run(extra: tuple[Rule, ...]) -> tuple[EquivalenceReport | None, LevelResult | None]:
         report = None
         if top:
             report = compare_designs(a, b, level=top, tolerances=tolerances, frame=frame, rules=extra,
                                      strict=top >= 5 and highest == 5)  # fmt: skip
+            report = _with_opaque(report, opaque, extra)
         rendered = None
         if PRESENTATION_LEVEL in wanted:
             if a.board is None or b.board is None:
@@ -557,9 +643,10 @@ def _compare(
             else:
                 scenes_a = dict(board_scenes(a, side_a.backend))
                 scenes_b = dict(board_scenes(b, side_b.backend))
-                if original.backend == "kicad" and _has_sheets(original.root) and _has_sheets(out):
-                    scenes_a.update(sheet_scenes(original.root))
-                    scenes_b.update(sheet_scenes(out))
+                built_files = _project_files(out)
+                if original.backend == "kicad" and _has_sheets(original.files) and _has_sheets(built_files):
+                    scenes_a.update(sheet_scenes(original.root, _sheets_of(original)))
+                    scenes_b.update(sheet_scenes(out, _sheets_of(Original(out, out, "kicad", built_files))))
                 level8 = presentation_level(scenes_a, scenes_b, pixel_ppm=pixel_ppm, pitch_nm=pitch_um * 1000)
                 rendered = apply_rules(level8, extra)
         return report, rendered
@@ -575,7 +662,7 @@ def _compare(
     if SCHEMATIC_LEVEL in wanted:
         if original.backend != "kicad":
             skipped[SCHEMATIC_LEVEL] = "altium-drawing-unread"
-        elif not (_has_sheets(original.root) and _has_sheets(out)):
+        elif not (_has_sheets(original.files) and _has_sheets(_project_files(out))):
             skipped[SCHEMATIC_LEVEL] = "no-schematic"
         else:
             skipped[SCHEMATIC_LEVEL] = "drawn-unavailable"
@@ -654,7 +741,9 @@ def _compare(
         evidence=evidence,
         input=InputRef(path=script.name, sha256=sha, kind="design-script", format_version=None),
         writes=writes,
-        depends=depends_on(ctx.cwd, script, *original.files),
+        depends=depends_on(
+            ctx.cwd, script, *original.files, *((provenance.path,) if provenance.path.is_file() else ())
+        ),
     )
 
 
@@ -676,6 +765,9 @@ def _record(
         "tolerances": base["tolerances"],
         "levels": {str(row["level"]): row["status"] for row in levels},
     }
+    skipped = {str(row["level"]): row["reason"] for row in levels if row["status"] == "skipped"}
+    if skipped:
+        member["proof"]["skipped"] = skipped  # why each skipped level was skipped (change c0281)
     data["fidelity"] = member
     text = json.dumps(data, sort_keys=True, indent=2, ensure_ascii=False) + "\n"
     return PlannedWrite(_shown(provenance.path, ctx.cwd), text.encode("utf-8"), "provenance")

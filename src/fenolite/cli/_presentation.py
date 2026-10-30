@@ -10,7 +10,7 @@ package that may import both ``view`` and ``checks``.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -42,11 +42,12 @@ def board_scenes(design: Design, backend: str) -> dict[str, Mapping[str, Any]]:
     return {BOARD: fidelity.board_scene(design, _frame(backend), name=BOARD, backend=backend)}
 
 
-def sheet_scenes(root: Path) -> dict[str, Mapping[str, Any]]:
-    """The scene of each KiCad schematic sheet under the folder ``root``, by its path relative to it."""
+def sheet_scenes(root: Path, sheets: Sequence[Path] | None = None) -> dict[str, Mapping[str, Any]]:
+    """The scene of each KiCad schematic sheet under the folder ``root``, by its path relative to it; with
+    ``sheets``, of those sheets only (one project's sheet tree, change c0281)."""
     palette = themes.palette("kicad")
     found: dict[str, Mapping[str, Any]] = {}
-    for path in sorted(root.rglob("*.kicad_sch")):
+    for path in sorted(root.rglob("*.kicad_sch") if sheets is None else sheets):
         rel = path.relative_to(root).as_posix()
         if rel.startswith((".", "lib/")) or "/." in rel:
             continue

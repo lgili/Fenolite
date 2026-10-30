@@ -29,6 +29,9 @@ from fenolite.model.board import Board, FootprintInstance, Graphic, Outline, Tex
 from fenolite.model.design import Design
 
 LEVEL = 7
+LENS_FIELDS = frozenset({"fenolite.path"})
+"""Footprint fields a build writes as the lens key of each footprint (change c0281): not design, so level 7
+leaves them out."""
 Edge = tuple[Point, Point | None]
 """A vertex of a ring and the mid of the arc that starts at it (``None`` for a straight edge)."""
 Key = tuple[object, ...]
@@ -266,11 +269,14 @@ def _keepouts(board: Board) -> list[Shape]:
 
 
 def _graphics(graphics: Sequence[Graphic], prefix: str) -> list[Shape]:
+    """Graphics keyed by layer, kind, normalised geometry and fill; the width is compared once matched
+    (``graphic-field``, change c0281), so a stroke drawn wider is one difference, not two missing items."""
     shapes: list[Shape] = []
     for graphic in graphics:
         found = graphic_points(graphic)
-        key = (graphic.layer, graphic.kind, found, graphic.width, graphic.filled)
-        shapes.append(Shape(key, f"{prefix}:{graphic.layer}:{geometry_text(found)}"))
+        key = (graphic.layer, graphic.kind, found, graphic.filled)
+        value: dict[str, Leaf] = {"width": graphic.width}
+        shapes.append(Shape(key, f"{prefix}:{graphic.layer}:{geometry_text(found)}", value))
     return shapes
 
 
@@ -327,8 +333,8 @@ def _dimensions(board: Board) -> list[Shape]:
 def _field_pose(
     ref: str, one: FootprintInstance, other: FootprintInstance, tolerances: Tolerances
 ) -> list[Difference]:
-    held_a = {f.name: f for f in one.fields}
-    held_b = {f.name: f for f in other.fields}
+    held_a = {f.name: f for f in one.fields if f.name not in LENS_FIELDS}
+    held_b = {f.name: f for f in other.fields if f.name not in LENS_FIELDS}
     found: list[Difference] = []
     for name in sorted(set(held_a) | set(held_b)):
         where = f"{ref}:{name}"
@@ -370,6 +376,7 @@ def level_geometry(
         return compare
 
     zone_field, keepout_field = fields_of("zone-field"), fields_of("keepout-field")
+    graphic_field = fields_of("graphic-field")
     board_items: tuple[tuple[str, tuple[list[Difference], int]], ...] = (
         ("outline", _compare_set("outline-missing", "ring", _outline(board_a.outline),
                                  _outline(board_b.outline), tolerances)),
@@ -378,7 +385,7 @@ def level_geometry(
         ("keepouts", _compare_set("keepout-missing", "keepout", _keepouts(board_a), _keepouts(board_b),
                                   tolerances, keepout_field)),
         ("graphics", _compare_set("graphic-missing", "graphic", _graphics(board_a.graphics, "board"),
-                                  _graphics(board_b.graphics, "board"), tolerances)),
+                                  _graphics(board_b.graphics, "board"), tolerances, graphic_field)),
         ("texts", _text_pairs("text-field", _texts(board_a.texts, "board"), _texts(board_b.texts, "board"),
                               tolerances)),
         ("holes", _compare_set("hole-missing", "hole", _holes(board_a), _holes(board_b), tolerances)),
@@ -396,6 +403,7 @@ def level_geometry(
             _graphics(one.graphics, ref),
             _graphics(other.graphics, ref),
             tolerances,
+            graphic_field,
         )
         found += differences
         footprint_items += compared
@@ -405,13 +413,14 @@ def level_geometry(
         found += differences
         footprint_items += compared
         found += _field_pose(ref, one, other, tolerances)
-        footprint_items += len({f.name for f in one.fields} & {f.name for f in other.fields})
+        footprint_items += len({f.name for f in one.fields} & {f.name for f in other.fields} - LENS_FIELDS)
     counts["footprint_items"] = footprint_items
     ordered = tuple(sorted(found, key=lambda d: (d.where, d.kind, d.field, d.a, d.b)))
     return LevelResult(LEVEL, sum(counts.values()), ordered, (), counts)
 
 
 __all__ = [
+    "LENS_FIELDS",
     "arc",
     "circle",
     "doubled_area",

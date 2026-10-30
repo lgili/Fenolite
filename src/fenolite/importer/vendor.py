@@ -6,7 +6,8 @@ one generated symbol per footprint in ``lib/<nickname>.kicad_sym``, and the proj
 under ``${KIPRJMOD}/lib``.
 
 A symbol is drawn by Fenolite from the footprint's pad numbers (one passive pin per number, in natural
-order), so every pin a script connects is a pad of the footprint; the source's own symbols are not copied
+order, leaving out a number that no instance puts on a net, change c0281), so every pin a script connects
+is a pad of the footprint; the source's own symbols are not copied
 until the drawn schematic of c0276 needs them.
 """
 
@@ -109,10 +110,14 @@ def vendor(design: Design, text: str, *, target: int) -> Vendored:
     issues: list[Issue] = []
     variants: list[str] = []
     numbers: dict[tuple[str, str], tuple[str, ...]] = {}
+    netted: dict[str, set[str]] = {}
     for footprint in board.footprints:
         found = tuple(sorted({pad.number for pad in footprint.pads if pad.number}, key=natural))
         ref = refs.get(footprint.component_id, "")
         numbers.setdefault((nickname_of(footprint.lib_ref, DEFAULT_NICKNAME), ref), found)
+        netted.setdefault(ref, set()).update(
+            pad.number for pad in footprint.pads if pad.number and pad.net_id
+        )
     prefixes: dict[str, str] = {}
     for nickname in nicknames:
         derived = derive_from_model(design, text, library=nickname, target=target, nickname=nickname,
@@ -122,6 +127,12 @@ def vendor(design: Design, text: str, *, target: int) -> Vendored:
         for footprint in derived.footprints:
             files[f"lib/{nickname}.pretty/{footprint.name}.kicad_mod"] = footprint.text
             pads = numbers.get((nickname, footprint.refs[0]), ()) if footprint.refs else ()
+            # a pad number on no net in every instance gets no pin: the build leaves it on no net, as the
+            # source's own symbol did (a shield or thermal pad; change c0281)
+            wired: set[str] = set()
+            for ref in footprint.refs:
+                wired |= netted.get(ref, set())
+            pads = tuple(number for number in pads if number in wired)
             if footprint.name != footprint.source:
                 variants += footprint.refs
                 issues.append(

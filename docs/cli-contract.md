@@ -655,7 +655,11 @@ the planned project and rules files give the clearance in force, and copper kept
 is judged with the rest. `--copper-check refuse` (the default) adds the `copper.*` issues as they are,
 so a `copper.short` or a `copper.clearance` error exits 5 and writes nothing. `--copper-check warn`
 reports those errors as warnings, with ` (copper guard in warn mode)` at the end of the message, and
-writes. There is no way to switch the guard off. `result.copper_check` holds `mode`, `ran` (false when
+writes. There is no way to switch the guard off. Without `--copper-check`, a script whose
+`PROVENANCE.json` holds an import record whose `copy` is not `false` (a copy of someone else's board,
+`docs/import.md`, "Copy mode"; change c0281) builds in `warn`, any other in `refuse`; the guard judges a
+gap down to 500 nm below the clearance as clean, as KiCad's DRC does (`H-K-COPPER-EPSILON`).
+`result.copper_check` holds `mode`, `mode_source` (`option`, `copy` or `default`), `ran` (false when
 the build was already refused), `shorts`, `clearance`, `edge_clearance`, `rules` (`min_clearance`,
 `opaque_clearance_rules`, `unread`), `evidence` and `waivers`. The design's `copper.*` waivers
 (`design.waive()`) are applied before the mode: a waived finding is `info` in `refuse` and in `warn`
@@ -3699,8 +3703,8 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 | `equiv.track-missing`, `equiv.arc-missing`, `equiv.via-missing` | error | `--strict`: a track, an arc or a via that only one side holds (matched by copper span and geometry) |
 | `equiv.track-width`, `equiv.track-net`, `equiv.arc-width`, `equiv.arc-net`, `equiv.via-size`, `equiv.via-drill`, `equiv.via-span`, `equiv.via-net` | error | `--strict`: a field of two matched copper items differs |
 | `equiv.copper-locked` | warning | `--strict`: two matched items differ only in their lock; it does not fail the comparison |
-| `equiv.netclass-missing`, `equiv.netclass-field`, `equiv.netclass-members`, `equiv.rule-missing`, `equiv.rule-field`, `equiv.ruleset-field`, `equiv.stackup-missing`, `equiv.stackup-field`, `equiv.layer-missing` | error | level 6: a net class, a custom rule, the rule set, the stack-up or the layer table differs |
-| `equiv.outline-missing`, `equiv.zone-missing`, `equiv.zone-field`, `equiv.keepout-missing`, `equiv.keepout-field`, `equiv.graphic-missing`, `equiv.text-missing`, `equiv.text-field`, `equiv.field-pose`, `equiv.hole-missing`, `equiv.dimension-missing` | error | level 7: the exact geometry differs (zone fills are never compared) |
+| `equiv.netclass-missing`, `equiv.netclass-field`, `equiv.netclass-members`, `equiv.rule-missing`, `equiv.rule-field`, `equiv.ruleset-field`, `equiv.stackup-missing`, `equiv.stackup-field`, `equiv.layer-field`, `equiv.layer-missing` | error | level 6: a net class, a custom rule, the rule set, the stack-up or the layer table differs |
+| `equiv.outline-missing`, `equiv.zone-missing`, `equiv.zone-field`, `equiv.keepout-missing`, `equiv.keepout-field`, `equiv.graphic-missing`, `equiv.graphic-field`, `equiv.opaque-count`, `equiv.text-missing`, `equiv.text-field`, `equiv.field-pose`, `equiv.hole-missing`, `equiv.dimension-missing` | error | level 7: the exact geometry differs (zone fills are never compared) |
 | `equiv.render-missing`, `equiv.render-pixels` | error | level 8: a layer drawn on one side only, or rendered masks that differ beyond `--pixel-ppm` |
 | `equiv.sheet-missing`, `equiv.symbol-missing`, `equiv.symbol-pose`, `equiv.symbol-field`, `equiv.item-missing`, `equiv.item-field`, `equiv.drawn-net` | error | level S: the drawn schematics differ (needs change c0276) |
 | `equiv.excluded` | info | a rule of the profile matched differences (count and reason) |
@@ -3722,8 +3726,8 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 
 `fenolite verify-source SCRIPT --against ORIGINAL [--levels SPEC] [--tolerance-nm N] [--tolerance-udeg N]
 [--tolerance-ppm N] [--frame absolute|relative] [--pixel-ppm N] [--render-pitch-um N] [--provenance FILE]
-[--record] [--accept KEY --reason TEXT]… [--target 9|10] [--upgrade] [--kicad-cli PATH] [--timeout SECONDS]`
-proves that a design script rebuilds an original project (change c0278; `docs/fidelity.md`). It builds
+[--record] [--accept KEY --reason TEXT]… [--target 9|10] [--upgrade] [--copper-check refuse|warn] [--kicad-cli PATH]
+[--timeout SECONDS]` proves that a design script rebuilds an original project (change c0278; `docs/fidelity.md`). It builds
 `SCRIPT` as `build` does, for the KiCad major of the original or `--target`, into a temporary folder that it
 removes on every exit, reads the build and the original as `equivalent` reads its sides, and compares them
 at levels 1 to 7 (level 5 strict), S and 8. It writes nothing unless `--record` is given, and runs no tool
@@ -3740,9 +3744,11 @@ unless `--upgrade` is given. Its `result` follows `schemas/fenolite.verify-sourc
 | `--accept KEY --reason TEXT` | accept the difference `<level>:<kind>:<where>` of this run with a reason (one reason for all, or one per key): the entry is listed under `result.new_accepted` and written by `--record` |
 | `--target 9\|10` | the KiCad major of the build (default: the original's) |
 | `--upgrade` | upgrade a copy of an original older than KiCad 9.0 with `kicad-cli pcb upgrade` |
+| `--copper-check refuse\|warn` | the copper guard of the build; default `warn` for a copy (the provenance file holds an import record whose `copy` is not `false`; change c0281), else `refuse` |
 
 `result` holds `script` (`name`, `sha256`), `against` (`name`, `backend`, `files`: the SHA-256 of each file
-read), `build` (`target`, `files`), `tolerances`, `provenance` (`path`, `accepted`, `record`), `levels` (one
+read; for a `.kicad_pro`, only that project's board, rules and sheet tree), `build` (`target`, `files`,
+`copper_check`, `copy`), `tolerances`, `provenance` (`path`, `accepted`, `record`), `levels` (one
 object per level: `level`, `name`, `status` of `equal`, `accepted`, `differs` or `skipped`, the counts
 `compared`, `differences`, `excluded` and `notices`, `reason` for a skipped level, and `summary`),
 `equivalent`, `differences`, `accepted` (the differences an accepted entry matched, with its id as `rule`)

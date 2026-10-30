@@ -20,12 +20,21 @@ fenolite verify-source ... --record --timestamp 2026-11-01T00:00:00Z --confirm -
    files are written there without the confirmation step; a write outside it (a design lock beside the
    script) is left out. The folder is removed on every exit, and no temporary path reaches the reply. A
    build that writes no file gives `fidelity.build-failed` with the build's errors, and no level runs.
+   **Copy mode** (change c0281): when the provenance file holds an import record (`fenolite import`, or a
+   library record holding it as `import`) whose `copy` is not `false`, the design is a copy of someone
+   else's finished board, and the build's copper guard runs in `warn`: its findings stay in `issues` as
+   warnings and the levels run. Otherwise it refuses as `fenolite build` does. `--copper-check refuse|warn`
+   overrides both; `result.build` reports `copper_check` and `copy`.
 2. **Read.** The original (a KiCad project folder or `.kicad_pro`, or an Altium `.PrjPcb`) and the build are
-   read as `fenolite equivalent` reads its sides. A KiCad board older than 9.0 is refused (`FEN-3003`, exit
+   read as `fenolite equivalent` reads its sides. A `.kicad_pro` (or a folder of one project) names one
+   project: only its `.kicad_pro`, the board and `.kicad_dru` of its stem and the sheet tree of its root
+   sheet are read, recorded and rendered, never a second project of the same folder. A KiCad board older than 9.0 is refused (`FEN-3003`, exit
    3) unless `--upgrade` upgrades a copy with `kicad-cli pcb upgrade`, which `fidelity.input-upgraded`
    records with the tool version and both SHA-256.
 3. **Compare.** Levels 1 to 7, level 5 with its strict rule (every track, arc and via item by item), then
-   level S, then level 8. `--levels 1-7,8` runs a subset. A level a side cannot reach is `skipped` with
+   level S, then level 8. Level 7 also counts the opaque root items of each side by kind (teardrops,
+   groups, generated items, images) and reports `opaque-count` for a kind whose counts differ, so a board
+   whose import left copper out cannot pass unless the difference is accepted. `--levels 1-7,8` runs a subset. A level a side cannot reach is `skipped` with
    `fidelity.level-skipped` and its reason, never passed silently.
 
 | reason | when |
@@ -37,6 +46,11 @@ fenolite verify-source ... --record --timestamp 2026-11-01T00:00:00Z --confirm -
 | `drawn-unavailable` | both sides have sheets, but the drawn-schematic extraction of change c0276 is not part of this version: level S |
 | `altium-drawing-unread` | an Altium original: the Altium reader keeps no wire geometry: level S |
 | `build-failed` | the build wrote no file: every level |
+
+`--record` writes the reason of each skipped level to `fidelity.proof.skipped` (`{"S": "drawn-unavailable"}`).
+The library's gate (c0279) accepts a skipped level only with such a reason, never `build-failed`. Level S
+stays skipped until c0278's drawn comparison runs on boards whose import draws their schematic (c0275 with
+c0276); the reason `drawn-unavailable` then disappears for those boards.
 
 Level 8 renders the board of both sides, layer by layer, and each schematic sheet that both sides hold
 under the same path, with the viewer's scene builders (`docs/equivalence.md`, "Level 8: presentation").

@@ -96,7 +96,9 @@ def test_authored_board_proves_itself(monkeypatch: pytest.MonkeyPatch, tmp_path:
     }  # fmt: skip
     routing = next(level for level in result["levels"] if level["level"] == 5)
     assert routing["summary"]["strict"]["vias"]["matched"] == 3
-    assert result["build"] == {"target": "kicad-10", "files": result["build"]["files"]}
+    assert result["build"] == {
+        "target": "kicad-10", "files": result["build"]["files"], "copper_check": "refuse", "copy": False,
+    }  # fmt: skip
     assert result["against"]["backend"] == "kicad" and "sensor.kicad_pcb" in result["against"]["files"]
     skipped = [i for i in env["issues"] if i["code"] == "fidelity.level-skipped"]
     assert [i["where"] for i in skipped] == ["S"] and "drawn-unavailable" in skipped[0]["message"]

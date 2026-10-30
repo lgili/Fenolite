@@ -574,7 +574,8 @@ BOARD_PAD_HEADS: frozenset[str] = frozenset({"net", "pinfunction", "pintype"})
 def local_footprint(root: Node, rotation: Udeg, side: Side, issues: list[Issue]) -> Node:
     """A board footprint node brought back to its own origin, rotation 0 and the top side: the placement
     children and the pads' nets dropped, the angles of pads, properties and texts turned back by
-    ``rotation``, and a bottom footprint flipped (c0161 derived libraries; ``fenolite library``, c0223)."""
+    ``rotation`` (``θ − stored`` on the bottom, the inverse of ``_angles``), and a bottom footprint
+    flipped (c0161 derived libraries; ``fenolite library``, c0223)."""
     from fenolite.core.units import parse_angle
 
     children: list[Node | Atom] = []
@@ -591,7 +592,9 @@ def local_footprint(root: Node, rotation: Udeg, side: Side, issues: list[Issue])
             if at is not None and (len(at.atoms()) >= 3 or (len(at.atoms()) == 2 and rotation)):
                 atoms = at.atoms()
                 stored = parse_angle(atoms[2].value + "deg") if len(atoms) >= 3 else 0
-                angle = stored - rotation
+                # the inverse of the placement: ``(φ + θ)`` on the top, ``(−φ + θ)`` on the bottom
+                # (``_angles``), so a bottom angle turns back to ``θ − stored`` (change c0281)
+                angle = (rotation - stored) % 360_000_000 if side == "bottom" else stored - rotation
                 replacement = at.with_children((*at.children[:2], angle_atom(angle)))
                 child = child.with_children(tuple(replacement if c is at else c for c in child.children))
         children.append(child)
