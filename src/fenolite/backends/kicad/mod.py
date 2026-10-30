@@ -313,11 +313,28 @@ def prepare_authored_definition(defn: FootprintDef) -> FootprintDef:
                         Modeled("shape"),
                         Modeled("position"),
                         Modeled("size"),
+                        *([] if pad.trapezoid_delta is None else [Modeled("trapezoid_delta")]),
                         Modeled("drill"),
                         *([] if pad.fab_property is None else [Modeled("fab_property")]),
                         Modeled("layers"),
+                        # the shape children of change c0277, in the order of the demo boards (S-0058)
+                        *(
+                            []
+                            if pad.corner_ratio is None or pad.shape != "roundrect"
+                            else [Modeled("corner_ratio")]
+                        ),
+                        *(
+                            []
+                            if pad.chamfer_ratio is None
+                            else [Modeled("chamfer_ratio"), Modeled("chamfer_corners")]
+                        ),
                         *([] if pad.mask_margin is None else [Modeled("mask_margin")]),
                         *([] if pad.paste_margin is None else [Modeled("paste_margin")]),
+                        *(
+                            []
+                            if pad.anchor_shape is None
+                            else [Modeled("anchor_shape"), Modeled("primitives")]
+                        ),
                         Modeled("native_ids"),
                     ]
                 ),

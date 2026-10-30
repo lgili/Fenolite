@@ -8,6 +8,7 @@ import dataclasses
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, cast, get_args
 
 from fenolite.core.coords import Point
@@ -32,7 +33,14 @@ from fenolite.model.findings import Waiver
 from fenolite.model.library import DeviceDef
 from fenolite.model.pairs import PAIR_ROLES
 from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, TitleBlock
-from fenolite.model.rules import HeightLimit, PlacementSeverity, RuleKind, RuleSeverity, Selector
+from fenolite.model.rules import (
+    HeightLimit,
+    PlacementSeverity,
+    RuleKind,
+    RuleSeverity,
+    Selector,
+    TeardropRule,
+)
 
 if TYPE_CHECKING:
     from fenolite.dsl.block import BlockDef, BlockInstance
@@ -691,6 +699,8 @@ class Design(Container):
         self.groups: dict[str, itemlib.GroupSpec] = {}
         """The groups of ``group()`` by key, in call order (change c0277)."""
         self.verbatim_items: dict[str, tuple[str, str]] = {}
+        self.teardrop_rules: list[TeardropRule] = []
+        self.images: dict[str, itemlib.ImageSpec] = {}
         """The text and target of each ``verbatim()`` call by key, in call order (change c0277)."""
         self.user_layer_count = 0
         """The user layers ``user_layers()`` declares, ``User.1`` … ``User.<count>`` (change c0277)."""
@@ -1868,6 +1878,76 @@ class Design(Container):
             user=self.user_layer_names,
         )  # fmt: skip
         self.drawings[found.key] = found
+
+    def image(
+        self,
+        key: str,
+        file: str,
+        at: tuple[object, object],
+        *,
+        layer: str = "F.SilkS",
+        scale: str = "1",
+    ) -> None:
+        """A picture on the board (change c0277): the PNG ``file``, a path relative to the script folder that
+        the build reads (a declared input of the build), at ``at`` on ``layer``, drawn ``scale`` times its
+        own size (a positive decimal string such as ``"0.5"``)."""
+        what = f"image {key!r}"
+        if self.outline_path is None:
+            raise DslError("image(): call board() first")
+        if not isinstance(key, str) or not itemlib.DRAWING_KEY.fullmatch(key):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: the key must match {itemlib.DRAWING_KEY.pattern}")
+        if key in self.images or key in self.drawings:
+            raise DslError(f"{what}: the key is already used")
+        path = PurePosixPath(file.replace("\\", "/")) if isinstance(file, str) else None  # pyright: ignore[reportUnnecessaryIsInstance]
+        if path is None or not file or path.is_absolute() or ".." in path.parts or ":" in file:
+            raise DslError(f"{what}: file must be a path relative to the script folder, not {file!r}")
+        if not isinstance(scale, str) or not itemlib.IMAGE_SCALE.fullmatch(scale) or float(scale) <= 0:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: scale must be a positive decimal string such as '0.5', not {scale!r}")
+        point = itemlib.point(at, f"{what}: at")
+        on = itemlib.drawing_layer(layer, what, user=self.user_layer_names)
+        self.images[key] = itemlib.ImageSpec(key, path.as_posix(), point, on, scale)
+
+    def teardrops(
+        self,
+        *,
+        where: object = None,
+        pads: bool = True,
+        vias: bool = True,
+        max_length: object = None,
+        max_width: object = None,
+        length_ratio: object = None,
+        width_ratio: object = None,
+        curved: object = None,
+        filter_ratio: object = None,
+        two_segments: object = None,
+        prefer_zones: object = None,
+        enabled: bool = True,
+    ) -> None:
+        """Teardrop settings for every pad and via of the built board that ``where`` selects (a ``select``
+        expression; ``None``: all of them), as ``teardrop()`` takes them (change c0277). ``pads=False`` or
+        ``vias=False`` leaves that kind out. A pad or via that two calls select takes the later call
+        (``build.teardrops-overlap``, info); a via's own ``teardrop=`` wins over every call."""
+        from fenolite.dsl.intents import teardrop
+        from fenolite.dsl.select import Select
+
+        for name, flag in (("pads", pads), ("vias", vias)):
+            if not isinstance(flag, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"teardrops(): {name} must be a bool, not {flag!r}")
+        if not pads and not vias:
+            raise DslError("teardrops(): pads and vias are both False, so the call selects nothing")
+        if where is not None and not isinstance(where, Select):
+            hint = "a select expression such as select.netclass('Default')"
+            raise DslError(f"teardrops(): where must be {hint}, not {where!r}")
+        try:
+            settings = teardrop(
+                max_length=max_length, max_width=max_width, length_ratio=length_ratio,
+                width_ratio=width_ratio, curved=curved, filter_ratio=filter_ratio, two_segments=two_segments,
+                prefer_zones=prefer_zones, enabled=enabled,
+            )  # fmt: skip
+        except DslError as error:
+            raise DslError(str(error).replace("teardrop():", "teardrops():")) from None
+        selector = Selector("all") if where is None else where.to_model()
+        self.teardrop_rules.append(TeardropRule(settings, selector, pads, vias))
 
     def verbatim(self, key: str, text: str, *, target: str = "kicad_pcb") -> None:
         """One item kept as KiCad text (change c0277): a child of the board root (``target="kicad_pcb"``) or a

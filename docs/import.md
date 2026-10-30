@@ -137,10 +137,11 @@ Never silently. The kinds today:
 
 | kind | what |
 |---|---|
-| a root item KiCad keeps that the model does not (`group`, `generated`, `image`, `target`…) | named by its head; a teardrop zone of a type other than `padvia`, or any teardrop zone when teardrop settings were lost (below), is `teardrop` |
+| a root item KiCad keeps that the model does not (`group`, `generated`, `target`…) | named by its head; a teardrop zone of a type other than `padvia`, or any teardrop zone when teardrop settings were lost (below), is `teardrop` |
 | `hole` | model items no emitter writes yet |
 | `group` | a group holding an item the code does not write (a track, a via, a footprint or a drawing left out), named by its name; a group whose members the code writes becomes `design.group()` (change c0277) |
-| `dimension`, `dimension-style` | a dimension of a kind the DSL does not say (radial, leader, centre) or on a layer it does not take; an aligned or orthogonal one whose `format` or `style` holds what `design.dimension()` does not write (a prefix, a text position…) |
+| `dimension`, `dimension-style` | a dimension on a layer the DSL does not take, or one whose `format` or `style` holds what `design.dimension()`, `radial_dimension()`, `leader()` or `center_mark()` does not write (a prefix, a text position…) |
+| `image` | a board image whose data is not a PNG, on a layer the DSL does not take, or with a scale that is not a plain decimal; another image becomes `design.image()` and its file `images/<layer>-<n>.png` (change c0277) |
 | `stackup`, `title-block` | a stack-up row or a title-block field the DSL refuses (a silkscreen row with a dielectric constant or a loss tangent) |
 | `custom-rule` | a `.kicad_dru` rule whose selector the DSL cannot write (a layer leaf, an undeclared class) |
 | `zone-setting`, `zone-name`, `zone-layer`, `zone-outline`, `rule-area-name`, `rule-area-layer`, `rule-area-placement` | a zone hatch, a repeated zone name, a zone or area off the copper layers or without an outline, an area name the DSL refuses, a placement area that places by another source than a sheet |

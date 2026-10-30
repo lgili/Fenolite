@@ -21,7 +21,7 @@
 - **THEN** each raises `DslError`, naming `length_ratio`, `width_ratio`, `max_length` and `via v: teardrop`
 
 ### Requirement: Teardrops in the DSL
-`Design.teardrops(*, where=None, pads=True, vias=True, max_length=None, max_width=None, length_ratio=None, width_ratio=None, curved=None)` SHALL set teardrop settings on every matching pad and via of the built board; `None` omits the token so KiCad's default applies. Ratios are `int` parts per million. A pad or via matched by two calls MUST take the later call with `build.teardrops-overlap` (info). (Open: task 2.6b; the per-via settings above are written since 2026-10-30.)
+`Design.teardrops(*, where=None, pads=True, vias=True, max_length=None, max_width=None, length_ratio=None, width_ratio=None, curved=None)` SHALL set teardrop settings on every matching pad and via of the built board; `None` omits the token so KiCad's default applies. Ratios are `int` parts per million. A pad or via matched by two calls MUST take the later call with `build.teardrops-overlap` (info). A via's own `teardrop=` wins over every call.
 
 #### Scenario: Teardrops on a class
 - **GIVEN** the blink with `d.teardrops(where=select.netclass("Default"), max_length=mm(1), length_ratio=500_000)`

@@ -229,6 +229,25 @@ class Padstack(Entity):
 
 MAX_CORNER_RATIO = 500_000
 """The largest ``Pad.corner_ratio``: half the shorter side, a pad with fully rounded ends."""
+ChamferCorner = Literal["top_left", "top_right", "bottom_left", "bottom_right"]
+CHAMFER_CORNERS: tuple[ChamferCorner, ...] = ("top_left", "top_right", "bottom_left", "bottom_right")
+"""The corners a pad's chamfer may cut, in KiCad's order (S-0001)."""
+PadPrimitiveKind = Literal["poly", "segment", "circle", "arc"]
+PadAnchor = Literal["circle", "rect"]
+
+
+@dataclass(frozen=True, slots=True)
+class PadPrimitive:
+    """One shape of a custom pad, in the pad's own frame (change c0277): a ``poly`` (its corners), a
+    ``segment`` (start, end), a ``circle`` (centre, a point of the circle) or an ``arc`` (start, middle,
+    end), drawn ``width`` wide; ``filled`` for a closed shape."""
+
+    kind: PadPrimitiveKind
+    points: tuple[Point, ...] = field(default=(), metadata=ORDERED)
+    width: Nm = 0
+    filled: bool = False
+
+
 PPM_PER_PERCENT = 5_000
 """One Altium corner percentage (a percent of half the shorter side) in ``Pad.corner_ratio`` units."""
 
@@ -265,6 +284,19 @@ class Pad(Entity):
     teardrop: Teardrop | None = None
     """The pad's teardrop settings (change c0277); ``None`` keeps what the pad's footprint says. A KiCad
     reader does not project the pad's ``teardrops`` child, which stays in its slot."""
+    trapezoid_delta: Point | None = None
+    """How much a ``trapezoid`` pad's opposite sides differ, along x or along y (KiCad's ``rect_delta``;
+    change c0277); ``None`` for the other shapes."""
+    chamfer_ratio: int | None = None
+    """The chamfer of the pad's corners ``chamfer_corners`` in parts per million of the shorter side of
+    ``size``, 0 to ``MAX_CORNER_RATIO`` (change c0277); ``None``: no chamfer."""
+    chamfer_corners: tuple[ChamferCorner, ...] = field(default=(), metadata=ORDERED)
+    """The corners the chamfer cuts, in ``CHAMFER_CORNERS`` order (change c0277)."""
+    anchor_shape: PadAnchor | None = None
+    """The anchor of a ``custom`` pad, ``circle`` or ``rect`` of ``size`` (change c0277)."""
+    primitives: tuple[PadPrimitive, ...] = field(default=(), metadata=ORDERED)
+    """The shapes a ``custom`` pad adds to its anchor (change c0277). A KiCad reader projects the four
+    shape fields from the pad's children and keeps the children as read."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -289,6 +321,27 @@ class FootprintField(Entity):
     h_justify: FieldJustifyH = "center"
     v_justify: FieldJustifyV = "center"
     mirrored: bool = False
+    bold: bool | None = None
+    """A bold font for the field (change c0277); ``None`` keeps the font the footprint gives. A KiCad reader
+    does not project it: the field's ``effects`` stay as read, and a value set here is written into them."""
+    italic: bool | None = None
+    """An italic font for the field, as ``bold`` (change c0277)."""
+    face: str | None = None
+    """The font face of the field, as ``bold`` (change c0277)."""
+
+
+@dataclass(frozen=True, slots=True)
+class ModelRef:
+    """A 3D model of a placed footprint named by a script (change c0277): ``name`` is a reference only (a
+    path or ``${KICAD10_3DMODEL_DIR}/…``), never read; ``offset`` ``(x, y, z)`` in nm in the footprint
+    frame (Y down, Z up from the footprint's face), ``rotation`` ``(x, y, z)`` in µdeg counter-clockwise,
+    ``scale`` ``(x, y, z)`` as positive decimal strings, and ``hidden`` for a model the 3D view leaves out."""
+
+    name: str
+    offset: tuple[Nm, Nm, Nm] = (0, 0, 0)
+    rotation: tuple[Udeg, Udeg, Udeg] = (0, 0, 0)
+    scale: tuple[str, str, str] = ("1", "1", "1")
+    hidden: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -341,6 +394,9 @@ class FootprintInstance(Entity):
     """The net-tie groups of the footprint (change c0114): each group lists the numbers of pads of
     different nets that the footprint joins on purpose, in the order its source lists them."""
     anchor: MechanicalIntent | None = None
+    models: tuple[ModelRef, ...] = field(default=(), metadata=ORDERED)
+    """The 3D models a script gives this instance (change c0277): any replaces the footprint's own models
+    for the instance; empty keeps them. Left out of the canonical JSON when empty."""
 
 
 def outward_height(footprint: FootprintInstance) -> Nm | None:
@@ -616,6 +672,17 @@ class Dimension(Entity):
 
 
 @dataclass(frozen=True, slots=True)
+class Image(Entity):
+    """A picture on a board layer (change c0277): the PNG bytes of ``data`` (base64 text) at ``position``,
+    KiCad's ``at`` of the image, drawn ``scale`` times its own size (a positive decimal string)."""
+
+    position: Point
+    layer: str
+    data: str
+    scale: str = "1"
+
+
+@dataclass(frozen=True, slots=True)
 class Hole(Entity):
     """A mechanical hole that is not part of a footprint.
 
@@ -690,11 +757,20 @@ class Board(Entity):
     slots and does not project them."""
     verbatim: tuple[VerbatimItem, ...] = ()
     """The verbatim items a script declares, in key order (change c0277)."""
+    images: tuple[Image, ...] = ()
+    """The board images (change c0277): a script's in key order, a read board's in file order."""
 
 
 __all__ = [
     "Arc",
     "Board",
+    "CHAMFER_CORNERS",
+    "ChamferCorner",
+    "Image",
+    "ModelRef",
+    "PadAnchor",
+    "PadPrimitive",
+    "PadPrimitiveKind",
     "BodyKind",
     "ComponentBody",
     "DielectricKind",

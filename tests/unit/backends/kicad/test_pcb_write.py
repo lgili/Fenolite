@@ -36,6 +36,7 @@ from fenolite.model.board import (
     Graphic,
     Group,
     Hole,
+    Image,
     Keepout,
     Outline,
     StackLayer,
@@ -278,6 +279,15 @@ def test_created_tokens() -> None:
             vias=(via, *board.vias[1:]),
             texts=(*board.texts, styled),
             groups=(group,),  # a group of c0277
+            images=(  # and a board image of c0277
+                Image(
+                    id="img_00000000-0000-4000-8000-0000000000cc",
+                    position=mm(80, 80),
+                    layer="F.SilkS",
+                    data="iVBORw0KGgo=",
+                    scale="0.5",
+                ),
+            ),  # fmt: skip
             keepouts=(  # a placement rule area of c0277
                 *board.keepouts,
                 Keepout(

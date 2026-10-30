@@ -52,6 +52,40 @@ Python facts are cited from `docs/evidence/sources.md` (S-0070 … S-0074); KiCa
 
 ## Assembly and test features (c0118)
 
+A pad of an authored footprint may have a shape beyond a circle, a rectangle, an oval and a rounded
+rectangle (change c0277):
+
+```python
+from fenolite.dsl.footprint import circle, poly, segment
+
+fp.pad("1", at=(mm(0), mm(0)), size=(mm(1), mm(2)), shape="trapezoid", delta=(mm("0.2"), mm(0)))
+fp.pad("2", at=(mm(2), mm(0)), size=(mm(1), mm(1)), shape="rect", chamfer=250_000, corners=("top_left",))
+fp.pad("3", at=(mm(4), mm(0)), size=(mm(1), mm(1)), shape="roundrect", radius_ratio=200_000)
+fp.pad(
+    "4",
+    at=(mm(6), mm(0)),
+    size=(mm("0.5"), mm("0.5")),
+    shape="custom",
+    anchor="circle",
+    primitives=(segment((mm(0), mm(0)), (mm(0.6), mm(0)), width=mm(0.2)), circle((mm(0.6), mm(0)), mm(0.15))),
+)
+```
+
+- `delta` (a trapezoid only, required) says how much the opposite sides differ, along x or along y: one of
+  the two is 0 (KiCad's `rect_delta`).
+- `chamfer` (an `int` of parts per million of the shorter side, 0 to 500 000) cuts the `corners` (some of
+  `top_left`, `top_right`, `bottom_left`, `bottom_right`) of a `rect` or `roundrect` pad. A chamfered `rect`
+  is written as KiCad writes it: a `roundrect` without rounding.
+- `radius_ratio` (parts per million, a `roundrect` only) rounds the corners; without it KiCad's default
+  applies.
+- `shape="custom"` takes `anchor` (`circle` or `rect` of `size`) and `primitives`, a non-empty tuple made
+  by `poly(points, width=None, fill=True)`, `segment(start, end, width=)`, `circle(center, radius,
+  width=None, fill=True)` and `arc(start, mid, end, width=)` of `fenolite.dsl.footprint`, in the pad's frame.
+- A value outside these rules raises `DslError` naming the argument. The model holds
+  `Pad.trapezoid_delta`, `corner_ratio`, `chamfer_ratio`, `chamfer_corners`, `anchor_shape` and
+  `primitives` (`PadPrimitive`); a KiCad reader projects them from a read pad and keeps its children.
+  KiCad 10.0.6 keeps the written children on `fp upgrade` (`H-K-PAD-SHAPES`).
+
 A pad of an authored footprint takes a fabrication mark, the value KiCad calls the fabrication property of
 a pad:
 
@@ -228,7 +262,8 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   common patterns ("Connection helpers").
 - `Part.place(x, y, rot=0, side="top", locked=False)`, once per part; with references instead of `x, y`
   (`right_of=u1`, `left=board.left + mm(2)`, `by=c5.pad(1)`) the build resolves it ("Relative placement").
-- `Part.field(name, *, dx, dy, rot, layer, visible, size, thickness, justify, outside, gap, locked)`,
+- `Part.field(name, *, dx, dy, rot, layer, visible, size, thickness, justify, outside, gap, locked, bold,
+  italic, face)`,
   once per field name: where the `Reference` or the `Value` of the part's footprint goes ("Field
   placement"). `fields(design)` returns the requests.
 - `Design.sheet(paper, …, drawing_sheet=…)` and `Design.title_block(…)`: the paper, your drawing sheet and the title block ("Drawing sheet and title block").
@@ -837,6 +872,18 @@ r1.field("Reference", dx=mm(0), dy="-2.5mm", rot=0, justify="left", locked=True)
 - **`locked`.** On a first build every request applies. On a rebuild over an existing board, a field
   edited in KiCad wins over an unlocked request; `locked=True` makes the request win (`docs/lens.md`,
   "Footprint fields").
+- **3D models** (change c0277). `Part.model(name, *, offset=(0, 0, 0), rotation=(0, 0, 0), scale=("1", "1",
+  "1"), hidden=False)` adds one 3D model to the part's footprint instance; any call replaces the footprint's
+  own models for this part. `name` is a reference only (`"${KICAD10_3DMODEL_DIR}/Package_SO.3dshapes/
+  SOIC-8.step"`, `"3dmodels/cap.step"`): nothing is read, and `fenolite models --vendor` and the STEP export
+  resolve it as they resolve a library's. `offset` holds lengths in the footprint frame (Y down; `0` is no
+  offset), `rotation` angles in degrees counter-clockwise, `scale` positive decimal strings. The model holds
+  `FootprintInstance.models` (`ModelRef`).
+- **Font** (change c0277). `bold=True` or `False`, `italic=True` or `False` and `face="KiCad Font"` set the
+  field's font; `None` (the default) keeps the font the footprint gives. The build writes the flags into the
+  field's `effects` and leaves every other child as it is: `u1.field("Reference", dx=mm(0), dy=mm(-3),
+  bold=True, face="KiCad Font")`. `FootprintField.bold`, `italic` and `face` hold them; a KiCad reader does
+  not project them.
 - **Errors.** Another name, a second request for one field of one part, a request that sets nothing,
   `dx` without `dy`, a bare number for a length and any other value outside these rules raise `DslError`
   at the call. A footprint that has no such field is found by the build (`FEN-3004`).
@@ -1285,10 +1332,19 @@ design.via_table("GND/via/1", net=gnd, diameter=mm("0.6"), drill=mm("0.3"), rows
 - `teardrop=` on `Design.via` and `Design.via_table` takes that value or `None`; anything else raises
   `DslError` naming the copper key. The build writes the via's `teardrops` child with the stated values
   and `enabled`; a rebuild replaces the child of a script via with the script's settings.
-- The pads of a footprint keep the teardrop settings of the footprint's library file. Teardrop zones are
-  drawn by `fenolite fill` (KiCad), never by the build, and the copper guard does not judge them.
-- What is still to come in change c0277: `Design.teardrops(where=…)`, settings for every pad and via that
-  a selection matches.
+- `Design.teardrops(*, where=None, pads=True, vias=True, max_length=None, …, enabled=True)` takes the
+  arguments of `teardrop()` and a `select` expression: the build writes those settings on every pad and via
+  of the built board that `where` selects (`None`: all), a pad as the subject `pad` of its net, its net's
+  class (`Default` without one) and its part's reference, a via as the subject `via`. `pads=False` or
+  `vias=False` leaves that kind out. A pad or via that two calls select takes the later call
+  (`build.teardrops-overlap`, info, one per build); a via's own `teardrop=` wins over every call:
+
+  ```python
+  design.teardrops(where=select.netclass("PWR"), max_length=mm(1), length_ratio=500_000)
+  ```
+- The pads of a footprint no call selects keep the teardrop settings of the footprint's library file.
+  Teardrop zones are drawn by `fenolite fill` (KiCad), never by the build, and the copper guard does not
+  judge them.
 
 ## Design rules
 
@@ -1689,6 +1745,13 @@ design.dimension("width", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-5))
   else 2 mm past the knee on the side the arrow points to.
 - **`center_mark(key, center, edge, *, layer="Dwgs.User", width=None)`** (change c0277): the cross of a
   circle's centre, its arms reaching `edge`. It has no text.
+- **`image(key, file, at, *, layer="F.SilkS", scale="1")`** (change c0277): a picture on the board. `file` is
+  a PNG path relative to the script folder; the DSL does not read it, the build does, and the file is an
+  input of the build's plan (a changed picture changes the plan). `scale` is a positive decimal string
+  (`"0.5"` draws it at half its size). A file that is not there is `build.image-missing`, one that is not a
+  PNG `build.image-format` (errors, nothing is written). The model holds an `Image` (`img`) with the base64
+  text of the file in `Board.images`; `result.board_items.images` counts them. An Altium build reports each
+  image (`altium.image-skipped`, warning).
 - **In the model** a text is a `Text` (`txt`), a graphic a `Graphic` (`gfx`) and a dimension a `Dimension`
   (`dim`), each in key order; `design.drawings` holds the records by key.
 - **Errors at the call** (`DslError`, nothing recorded): no `board()` yet, a key used twice, a layer that

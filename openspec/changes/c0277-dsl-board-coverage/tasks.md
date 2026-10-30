@@ -33,16 +33,16 @@
 - [x] 2.2 Dimensions `radial`, `leader`, `center` (scenario "Three new kinds"). Proof: `uv run pytest tests/unit/dsl/test_dimensions.py -q`.
 - [x] 2.3 Zone arcs in the DSL, model, writer, copper check and Altium lowering, and in the import (scenario "Zone with an arc edge"; board-to-code, "Zone arcs in an import"); Fenolite has no fill engine of its own, KiCad fills the zone. Proof: `uv run pytest tests/unit/dsl/test_zones.py tests/unit/lens -k zone_arc -q`.
 - [x] 2.4 Groups (scenario "A labelled block"; members of copper intents, images and verbatim items join with their tasks). Proof: `uv run pytest tests/unit/dsl/test_groups.py -q`.
-- [ ] 2.5 Images, read by the build as declared inputs (scenario "Logo image"); the test PNG is authored for Fenolite. Proof: `uv run pytest tests/unit/dsl/test_images.py -q`.
+- [x] 2.5 Images, read by the build as declared inputs (scenario "Logo image"); the test PNG is authored for Fenolite. Proof: `uv run pytest tests/unit/dsl/test_images.py -q`.
 - [x] 2.6a Teardrop settings of vias: `teardrop()`, `teardrop=` of `via` and `via_table`, `Teardrop` on `Pad` and `Via`, the writer's `teardrops` child and its replacement on a read item (scenarios "Settings on a via and a table", "Refused settings"). Proof: `uv run pytest tests/unit/dsl/test_teardrops.py tests/unit/backends/kicad/test_teardrops.py tests/unit/lens/test_build_teardrops.py -q`.
-- [ ] 2.6b `Design.teardrops(where=…)` over pads and vias of the built board (scenario "Teardrops on a class"). Proof: `uv run pytest tests/unit/dsl/test_teardrops.py -k where -q`.
+- [x] 2.6b `Design.teardrops(where=…)` over pads and vias of the built board (scenario "Teardrops on a class"). Proof: `uv run pytest tests/unit/dsl/test_teardrops.py -k where -q`.
 
 ## 3. Footprints and instances
 
-- [ ] 3.1 Shaped pads in authored footprints (scenarios "Four shaped pads", "Refused shape values", "Footprints without the arguments"). Proof: `uv run pytest tests/unit/dsl/test_footprint_pads.py -q`.
+- [x] 3.1 Shaped pads in authored footprints (scenarios "Four shaped pads", "Refused shape values", "Footprints without the arguments"). Proof: `uv run pytest tests/unit/dsl/test_footprint_pads.py -q`.
 - [ ] 3.2 Instance overrides and pad edits (scenario "Override and an edited pad"). Proof: `uv run pytest tests/unit/dsl/test_overrides.py -q`.
-- [ ] 3.3 Field fonts (scenario "Bold reference"). Proof: `uv run pytest tests/unit/dsl/test_fields.py -k font -q`.
-- [ ] 3.4 Model references (scenario "Model by name"). Proof: `uv run pytest tests/unit/dsl/test_models.py -q`.
+- [x] 3.3 Field fonts (scenario "Bold reference"). Proof: `uv run pytest tests/unit/dsl/test_fields.py -k font -q`.
+- [x] 3.4 Model references (scenario "Model by name"). Proof: `uv run pytest tests/unit/dsl/test_models.py -q`.
 
 ## 4. Verbatim items and writers
 

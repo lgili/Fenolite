@@ -666,9 +666,10 @@ def test_layers_added_in_kicad_and_the_script_left_alone(
 
 
 def test_table_that_fenolite_does_not_create(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Scenario "Table that Fenolite does not create": ten layers have no ``copper=`` to name."""
+    """Scenario "Table that Fenolite does not create": ten layers whose inner names skip ``In8.Cu`` have no
+    ``copper=`` to name (a table of ten layers ``In1.Cu`` to ``In8.Cu`` is a created count since c0277)."""
     p = _layers_project(tmp_path, monkeypatch, 8)
-    _add_layers(p, '(14 "In6.Cu" signal)', '(16 "In7.Cu" signal)', '(18 "In8.Cu" signal)')
+    _add_layers(p, '(14 "In6.Cu" signal)', '(16 "In7.Cu" signal)', '(20 "In9.Cu" signal)')
     before = p.files()
     code, env, _ = p.build("--confirm")
     found = _mismatch(env)

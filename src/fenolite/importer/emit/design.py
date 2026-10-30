@@ -869,6 +869,50 @@ def _native(item: Entity) -> str:
     return item.native_ids.get("kicad", "")
 
 
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+def _images(
+    board: Board, ledger: Ledger, binary: dict[str, bytes], members: dict[str, Expr] | None = None
+) -> list[list[str]]:
+    """``design.image()`` of each board image whose data is a PNG (change c0277), the file written as
+    ``images/<layer>-<n>.png`` beside ``design.py``; another one is the kind ``image``."""
+    import base64
+    import binascii
+
+    from fenolite.dsl.items import BOARD_LAYER_KINDS, IMAGE_SCALE
+
+    count, _ = user_layers(board)
+    declared = {f"User.{k}" for k in range(1, count + 1)}
+    out: list[list[str]] = []
+    counters: dict[str, int] = {}
+    for image in sorted(board.images, key=lambda i: (i.layer, i.position.x, i.position.y, _native(i))):
+        where = f"image on {image.layer}"
+        try:
+            data = base64.b64decode(image.data, validate=True)
+        except (binascii.Error, ValueError):
+            data = b""
+        known = image.layer in BOARD_LAYER_KINDS or image.layer in declared
+        if not data.startswith(PNG_SIGNATURE) or not known or not IMAGE_SCALE.fullmatch(image.scale):
+            ledger.add("image", where)
+            continue
+        counters[image.layer] = counters.get(image.layer, 0) + 1
+        key = f"{segment(image.layer)}/image/{counters[image.layer]}"
+        file = f"images/{segment(image.layer)}-{counters[image.layer]}.png"
+        binary[file] = data
+        kwargs: list[tuple[str, Expr]] = []
+        if image.layer != "F.SilkS":
+            kwargs.append(("layer", text(image.layer)))
+        if image.scale != "1":
+            kwargs.append(("scale", text(image.scale)))
+        out.append(
+            statement(Call("design.image", (text(key), text(file), _xy(image.position)), tuple(kwargs)))
+        )
+        if members is not None:
+            members[_native(image)] = text(key)
+    return out
+
+
 def _drawings(
     board: Board,
     ledger: Ledger,
@@ -1392,6 +1436,8 @@ def emit(source: Source, options: Options) -> Emission:
     zone_lines = _zones(board, names, net_vars, layers, ledger, grouped, writer)
     area_lines = _areas(board, layers, ledger, grouped)
     drawing_lines = _drawings(board, ledger, grouped, net_vars, numbers)
+    binary: dict[str, bytes] = {}
+    drawing_lines += _images(board, ledger, binary, grouped)
     verbatim_lines = _verbatim(board, numbers, tables.built, grouped, ledger)
     group_lines = _groups(board, grouped, ledger)
     coverage.scan(design, ledger)
@@ -1454,7 +1500,9 @@ def emit(source: Source, options: Options) -> Emission:
             )
         )
     return Emission(
-        files={path: body.encode("utf-8") for path, body in sorted(files.items())},
+        files=dict(
+            sorted({**{path: body.encode("utf-8") for path, body in files.items()}, **binary}.items())
+        ),
         unexpressed=rows,
         counts=counts,
         modules=tuple("/".join(p) for p in sorted(module_vars)),

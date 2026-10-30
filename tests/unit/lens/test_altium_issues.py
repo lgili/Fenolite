@@ -298,6 +298,11 @@ PCB_CASES: dict[str, tuple[dict[str, object], set[str]]] = {
         },
         BLINK_CODES | {"altium.verbatim-skipped", "altium.experimental"},
     ),
+    "blink-image": (
+        # change c0277: the document writer has no picture record
+        {"image": True},
+        BLINK_CODES | {"altium.image-skipped", "altium.experimental"},
+    ),
     "blink-kept": (
         {"project_exists": True},
         BLINK_CODES | {"altium.project-kept", "altium.schlib-not-in-project", "altium.pcb-not-in-project"},
@@ -340,8 +345,17 @@ def run_pcb_case(name: str) -> tuple[Issue, ...]:
         script = edits.get("script", ("", ""))
         design = blink(*script)  # type: ignore[misc]
         kwargs = {k: v for k, v in edits.items() if k == "project_exists"}
+        model = to_model(design)
+        if edits.get("image") and model.board is not None:
+            from fenolite.core.coords import Point
+            from fenolite.model.board import Image
+
+            at = Point(110_000_000, 110_000_000)
+            image = Image(id="img_00000000-0000-4000-8000-0000000000e1", position=at, layer="F.SilkS",
+                          data="iVBORw0KGgo=")  # fmt: skip
+            model = dataclasses.replace(model, board=dataclasses.replace(model.board, images=(image,)))
         return build_altium(
-            to_model(design),
+            model,
             name=design.name,
             placed=tuple(placements(design)),
             placements=placements(design),
@@ -746,6 +760,7 @@ def test_the_table() -> None:
         "altium.schlib-not-in-project": "info",
         "altium.not-lowered": "info",
         "altium.verbatim-skipped": "warning",
+        "altium.image-skipped": "warning",
         "altium.project-kept": "info",
         "altium.footprint-extras-dropped": "info",
         "altium.pcbdoc-not-written": "info",

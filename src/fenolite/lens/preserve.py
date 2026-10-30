@@ -1386,6 +1386,7 @@ def merge_layout(
         texts=(*items.texts, *scripted["texts"]),
         graphics=(*items.graphics, *scripted["graphics"]),
         dimensions=(*items.dimensions, *scripted["dimensions"]),
+        images=(*items.images, *scripted["images"]),  # type: ignore[arg-type]
         groups=built.board.groups,
         verbatim=built.board.verbatim,
     )

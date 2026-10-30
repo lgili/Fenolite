@@ -88,13 +88,23 @@ from fenolite.lens.moved import identity_map
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
 from fenolite.lens.rolecopper import RoleCopperPlanner, apply_plan
 from fenolite.model import canonical, drawn_connect, pairs
-from fenolite.model.board import ComponentBody, FootprintInstance, Layer, Pad, Side, ViaProtection
+from fenolite.model.board import (
+    ComponentBody,
+    FootprintInstance,
+    Image,
+    Layer,
+    ModelRef,
+    Pad,
+    Side,
+    Via,
+    ViaProtection,
+)
 from fenolite.model.circuit import Component, Interface, Net, NetClass, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.drawn import DrawnSchematic
 from fenolite.model.library import DeviceDef, FootprintDef, SymbolDef, flatten_symbol
 from fenolite.model.presentation import DrawingSheet
-from fenolite.model.rules import ImpedanceTarget, Rule, RuleSubject, Selector, TraceGeometry
+from fenolite.model.rules import ImpedanceTarget, Rule, RuleSubject, Selector, TeardropRule, TraceGeometry
 from fenolite.model.schematic import SchematicSheet
 
 RECORD_FILE = ".fenolite/build.json"
@@ -146,6 +156,9 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.field-added": "info",
         "build.interface-not-lowered": "info",
         "build.plane-zone-missing": "warning",
+        "build.teardrops-overlap": "info",  # c0277
+        "build.image-missing": "error",  # c0277
+        "build.image-format": "error",
         "build.impedance-layer": "error",
         "build.impedance-shadowed": "warning",
         "build.impedance-class-width": "warning",
@@ -1177,6 +1190,110 @@ def height_body(path: str, height: Nm) -> ComponentBody:
     )
 
 
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+"""The first eight bytes of every PNG file (S-0001 names PNG as the format of a board image)."""
+
+
+@dataclass(frozen=True)
+class ImageSource:
+    """One image a script declares (change c0277): its key, the file the build reads, its place on the board
+    (the board frame), its layer and its scale."""
+
+    key: str
+    path: Path
+    position: Point
+    layer: str
+    scale: str
+
+
+def board_images(design: Design, sources: Sequence[ImageSource]) -> tuple[Design, list[Issue]]:
+    """``design`` with one ``Image`` per source whose file the build reads (change c0277): a file that is
+    not there gives ``build.image-missing`` and one that is not a PNG ``build.image-format`` (errors). The
+    id is ``derived_id("img", "dsl", "image:<key>")``; the data is the base64 text of the file."""
+    import base64
+
+    board = design.board
+    if board is None or not sources:
+        return design, []
+    issues: list[Issue] = []
+    images: list[Image] = []
+    for source in sources:
+        try:
+            data = source.path.read_bytes()
+        except OSError:
+            message = f"image {source.key!r}: the file {source.path.name} is not there"
+            issues.append(
+                issue("build.image-missing", message, source.key, "give a PNG file beside the script")
+            )
+            continue
+        if not data.startswith(PNG_SIGNATURE):
+            message = f"image {source.key!r}: {source.path.name} is not a PNG file"
+            issues.append(issue("build.image-format", message, source.key, "convert the picture to PNG"))
+            continue
+        images.append(
+            Image(
+                id=derived_id("img", "dsl", f"image:{source.key}"),
+                position=source.position,
+                layer=source.layer,
+                data=base64.b64encode(data).decode("ascii"),
+                scale=source.scale,
+            )
+        )
+    return dataclasses.replace(
+        design, board=dataclasses.replace(board, images=(*board.images, *images))
+    ), issues
+
+
+def apply_teardrops(design: Design, rules: Sequence[TeardropRule], issues: list[Issue]) -> Design:
+    """``design`` with the settings of ``rules`` on every pad and via each selects (change c0277): a pad is
+    the subject ``pad`` of its net, the net's class (``Default`` without one) and its part's reference, a via
+    the subject ``via`` of its net and class. The later rule wins, and the pads and vias two rules select
+    are counted in one ``build.teardrops-overlap`` (info). A via with settings of its own keeps them."""
+    board = design.board
+    if board is None or not rules:
+        return design
+    classes = {netclass.id: netclass.name for netclass in design.circuit.netclasses}
+    nets = {net.id: net for net in design.circuit.nets}
+    refs = {component.id: component.ref for component in design.circuit.components}
+
+    def subject(kind: str, net_id: str | None, ref: str | None = None) -> RuleSubject:
+        net = nets.get(net_id) if net_id is not None else None
+        if net is None:
+            return RuleSubject(kind, ref=ref)
+        cls = classes.get(net.netclass_id or "", "Default")
+        return RuleSubject(kind, net=net.name, netclass=cls, ref=ref)
+
+    overlap = 0
+
+    def chosen(kind: str, found: RuleSubject) -> TeardropRule | None:
+        nonlocal overlap
+        matched = [
+            rule
+            for rule in rules
+            if (rule.pads if kind == "pad" else rule.vias) and rule.selector.matches(found)
+        ]
+        overlap += len(matched) > 1
+        return matched[-1] if matched else None
+
+    footprints: list[FootprintInstance] = []
+    for footprint in board.footprints:
+        pads: list[Pad] = []
+        for pad in footprint.pads:
+            rule = chosen("pad", subject("pad", pad.net_id, refs.get(footprint.component_id)))
+            pads.append(dataclasses.replace(pad, teardrop=rule.settings) if rule is not None else pad)
+        footprints.append(dataclasses.replace(footprint, pads=tuple(pads)))
+    vias: list[Via] = []
+    for via in board.vias:
+        rule = chosen("via", subject("via", via.net_id)) if via.teardrop is None else None
+        vias.append(dataclasses.replace(via, teardrop=rule.settings) if rule is not None else via)
+    if overlap:
+        message = f"{overlap} pad(s) or via(s) match more than one teardrops() call; the later call applies"
+        issues.append(issue("build.teardrops-overlap", message, "teardrops"))
+    return dataclasses.replace(
+        design, board=dataclasses.replace(board, footprints=tuple(footprints), vias=tuple(vias))
+    )
+
+
 def build_design(
     design: Design,
     placements: Mapping[str, PlacementRequest],
@@ -1207,6 +1324,8 @@ def build_design(
     lock_stackup: bool = False,
     lock_via_protection: bool = False,
     planes: Mapping[str, str] | None = None,
+    teardrops: Sequence[TeardropRule] = (),
+    models: Mapping[str, Sequence[ModelRef]] = MappingProxyType({}),
     lock_outline: bool = False,
     heights: Mapping[str, Nm] | None = None,
     unused: Mapping[str, Sequence[str]] | None = None,
@@ -1365,6 +1484,7 @@ def build_design(
     )
     identities: dict[str, Mapping[str, str]] = {}
     lacking: set[str] = set()
+    models_by_id: dict[str, tuple[ModelRef, ...]] = {}
     for part in parts:
         missing = [name for name in MANDATORY_FIELDS if name not in part.footprint.properties]
         if missing and part.footprint.lib_id not in lacking:
@@ -1446,6 +1566,8 @@ def build_design(
                 placed.append(part.path)
             bottom = bottom or request.side == "bottom"
         instance = apply_requests(instance, fields.get(part.path, ()))
+        if part.path in models:
+            models_by_id[part.component.id] = tuple(models[part.path])  # the part's 3D models (c0277)
         stated = (heights or {}).get(part.path)
         if stated is not None:
             instance = dataclasses.replace(
@@ -1496,6 +1618,7 @@ def build_design(
         "texts": len(board.texts),
         "graphics": len(board.graphics),
         "dimensions": len(board.dimensions),
+        "images": len(board.images),
     }
     copper_counts = {"intents": len(copper_intents), "tracks": 0, "arcs": 0, "vias": 0}
     if copper_intents:
@@ -1606,6 +1729,18 @@ def build_design(
         preserved["fields"] = decided.summary
         target_design, preserved["pad_zones"] = _keep_pad_zones(
             decided.design, cast(Sequence[str], merged.summary.get("kept", ())), pad_zones, issues
+        )
+    if teardrops:
+        target_design = apply_teardrops(target_design, teardrops, issues)
+    if models_by_id and target_design.board is not None:
+        with_models = tuple(
+            dataclasses.replace(fp, models=models_by_id[fp.component_id])
+            if fp.component_id in models_by_id
+            else fp
+            for fp in target_design.board.footprints
+        )
+        target_design = dataclasses.replace(
+            target_design, board=dataclasses.replace(target_design.board, footprints=with_models)
         )
     stack_source: stacklib.StackupSource | None = None
     if target_design.board is not None:

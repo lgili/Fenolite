@@ -760,6 +760,56 @@
               "type": "null"
             }
           ]
+        },
+        "trapezoid_delta": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "chamfer_ratio": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "chamfer_corners": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "top_left",
+              "top_right",
+              "bottom_left",
+              "bottom_right"
+            ]
+          }
+        },
+        "anchor_shape": {
+          "anyOf": [
+            {
+              "enum": [
+                "circle",
+                "rect"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "primitives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PadPrimitive"
+          }
         }
       },
       "additionalProperties": false,
@@ -769,6 +819,36 @@
         "shape",
         "size",
         "position"
+      ]
+    },
+    "PadPrimitive": {
+      "description": "One shape of a custom pad, in the pad's own frame (change c0277): a ``poly`` (its corners), a",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "poly",
+            "segment",
+            "circle",
+            "arc"
+          ]
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "width": {
+          "type": "integer"
+        },
+        "filled": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
       ]
     },
     "Padstack": {

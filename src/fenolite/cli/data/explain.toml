@@ -1189,6 +1189,26 @@ meaning = "A pin that is connected to a net has no pad in the footprint."
 fix = "Choose a footprint with that pad, or map the pin to an existing pad."
 see = "build"
 
+["build.image-missing"]
+meaning = "A design.image() names a file that is not beside the script; nothing is written."
+fix = "Put the PNG file at the path the call names, relative to the script folder."
+see = "Build target"
+
+["build.image-format"]
+meaning = "A design.image() names a file that is not a PNG picture; nothing is written."
+fix = "Convert the picture to PNG, or name the PNG file."
+see = "Build target"
+
+["altium.image-skipped"]
+meaning = "A board image of the script is not written to the PCB document: the writer has no picture record."
+fix = "Nothing to do for KiCad; place the picture in Altium if the document needs it."
+see = "Build target"
+
+["build.teardrops-overlap"]
+meaning = "Pads or vias are selected by more than one design.teardrops() call; each takes the settings of the later call."
+fix = "Nothing to do when the later call is meant to win; otherwise narrow the where= of one call."
+see = "Build target"
+
 ["build.plane-zone-missing"]
 meaning = "A plane of the script has no copper on a KiCad board: no zone of its net lies on its layer. The layer is still written as a plane layer (type power); one issue per plane."
 fix = "Draw that copper in the script with design.zone(<net>, layers=(\"<layer>\",))."

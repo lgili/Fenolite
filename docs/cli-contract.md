@@ -631,8 +631,8 @@ evidence also combines the copper and board-frame evidence, which are `INFERRED`
 `--kicad-version 10`: for KiCad 9 the board writer refuses it and the build exits 7 (`FEN-7001`).
 
 A script may declare rule areas, keep-outs, texts, graphics and dimensions (`docs/dsl.md`, "Rule areas"
-and "Board drawings"). `result.board_items` reports the counts `rule_areas`, `texts`, `graphics` and
-`dimensions` of the script, and `result.preserved.board_items` the counts `regenerated` and `stale` of
+and "Board drawings"). `result.board_items` reports the counts `rule_areas`, `texts`, `graphics`,
+`dimensions` and `images` (change c0277) of the script, and `result.preserved.board_items` the counts `regenerated` and `stale` of
 the merge with an existing board (0 without one): script items are written again on every build, with
 `kicad.board-item.regenerated` (info) for one that was edited in KiCad and `kicad.board-item.stale`
 (warning) for one whose call is gone (`docs/lens.md`, "Board items declared in the script"). A rule that

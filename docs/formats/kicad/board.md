@@ -898,6 +898,7 @@ token inside opaque content.
 | A board outline may be closed by the `Edge.Cuts` of a footprint (`tinytapeout-demo`'s USB connector J15): the created outline leaves out an edge a footprint draws, in either direction | S-0058 | INFERRED | H-K-OUTLINE-FPEDGE |
 | A zone outline with an arc edge holds `(arc (start) (mid) (end))` items in its `pts`, beside `xy` items; a line joins an item's last point to the next one's first, and the last item to the first | S-0058 (`RoyalBlue54L-Feather`) | INFERRED | H-K-ZONE-ARC |
 | A radial dimension holds `type radial`, `layer`, `uuid`, `pts` (centre, then a point of the circle), `leader_length`, `format` with a prefix such as `"R "`, `style` (`thickness`, `arrow_length`, `text_position_mode`, `extension_offset`, `keep_text_aligned`) and a `gr_text`, and no `height`; a leader holds `type leader`, `pts` (arrow point, then knee), `format` with `(units_format 0)` and `override_value` (the note), `style` with `text_frame` after `text_position_mode`, and a `gr_text` whose `at` is where the note stands | S-0058 (`constraints`, `jetson-agx-thor-baseboard`, `RoyalBlue54L-NFC-Antenna`) | INFERRED | H-K-DIM-KINDS |
+| A board image is a root `(image (at X Y) (layer L) (scale S) (data "…" "…") (uuid U))`: the PNG bytes as base64 text split into strings of 76 characters; 10.0.6 keeps the bytes, the chunks and the children on re-save of an image written so. No demo board holds one (measured on 2026-10-30, the pinned image, local run) | S-0001 ("Images"), S-0020 | INFERRED | H-K-IMAGE |
 | No demo board holds a centre mark. One written as `type center`, `layer`, `uuid`, `pts` (centre, then the end of an arm) and a `style` (`thickness`, `arrow_length`, `text_position_mode`, `extension_offset`), without `format` and `gr_text`, loads on 9.0.9 and 10.0.6, and 10.0.6 keeps those children on re-save; it keeps the radial and leader forms above too, recomputing a radial text's angle; a leader with `(units_format 1)` shows its note with the units appended (measured on 2026-10-30, the pinned images, local run) | S-0020, S-0029 | INFERRED | H-K-DIM-KINDS |
 
 - **Free vias.** The reader keeps a read via's `free` in its slots; a created via of `Via.free` writes it,
@@ -912,6 +913,10 @@ token inside opaque content.
   forms of the fact rows above (`H-K-DIM-KINDS`): a radial dimension with the prefix `R ` and its text at the
   end of its leader, a leader with `(units 2) (units_format 0)` and its note 2 mm past the knee unless the
   model places it, a centre mark with its `style` alone.
+- **Images.** A board `image` is modelled (`Image`, `Board.images`: `at`, `layer`, `scale`, the joined
+  `data`); a created one is written in the form of the fact row above, after the dimensions, and a script
+  image is regenerated on a rebuild as the other board items are (`boarditems`); one in another form stays
+  an opaque root slot.
 - **User layers** of a script are the rows of "User layers for conversion" (`H-K-BOARD-USERLAYERS`), with the
   user name a script gives.
 

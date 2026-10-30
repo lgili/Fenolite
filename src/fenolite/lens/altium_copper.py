@@ -658,6 +658,9 @@ def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue])
         label = group.name or group.id
         message = f"the group {label!r} is not written: the document has no group record"
         issues.append(_kept("group", group.id, message))
+    for image in board.images:  # change c0277: the writer has no picture record
+        message = f"the image on {image.layer} is not written: the document writer has no picture record"
+        issues.append(Issue("altium.image-skipped", "warning", message, where=image.id))
     for item in board.verbatim:  # change c0277: KiCad text has no Altium record
         message = f"the verbatim item {item.key!r} is KiCad text and is not written"
         issues.append(Issue("altium.verbatim-skipped", "warning", message, where=f"verbatim/{item.key}"))

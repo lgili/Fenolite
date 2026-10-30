@@ -24,7 +24,7 @@ from fenolite.core.units import Nm
 from fenolite.dsl.block import Block, blocks
 from fenolite.dsl.design import MINIMUM_KINDS, Design, ImpedanceSpec
 from fenolite.dsl.errors import DslError
-from fenolite.dsl.items import DimensionSpec, GraphicSpec, TextSpec
+from fenolite.dsl.items import DimensionSpec, GraphicSpec, ImageSpec, TextSpec
 from fenolite.dsl.lock import assign_refs, make_lock
 from fenolite.dsl.module import Module as DslModule
 from fenolite.dsl.panel import Panel
@@ -42,6 +42,7 @@ from fenolite.model.board import (
     Group,
     Keepout,
     Layer,
+    ModelRef,
     Outline,
     OutlineArc,
     OutlineSlot,
@@ -82,6 +83,7 @@ from fenolite.model.rules import (
     Rule,
     RuleSet,
     Selector,
+    TeardropRule,
     TraceGeometry,
 )
 
@@ -842,6 +844,26 @@ def unused_marks(design: Design) -> Mapping[str, tuple[str, ...]]:
     )
 
 
+def model_refs(design: Design) -> Mapping[str, tuple[ModelRef, ...]]:
+    """The 3D models of each part that names some (``Part.model``; change c0277), by component path in
+    path order: the build gives them to the part's footprint instance."""
+    return MappingProxyType(
+        {path: tuple(part.model_refs) for path, part in sorted(design.parts.items()) if part.model_refs}
+    )
+
+
+def images(design: Design) -> tuple[ImageSpec, ...]:
+    """The ``image()`` calls of the script, in key order (change c0277): the build reads each file and puts
+    the image on the board."""
+    return tuple(spec for _, spec in sorted(design.images.items()))
+
+
+def teardrop_rules(design: Design) -> tuple[TeardropRule, ...]:
+    """The ``teardrops()`` calls of the script, in call order (change c0277): the build writes their settings
+    on the pads and vias they select."""
+    return tuple(design.teardrop_rules)
+
+
 def two_terminal(design: Design) -> tuple[str, ...]:
     """The paths of the parts used through their ends ``a`` and ``b`` or a connection helper, in path
     order: the build checks that each has a symbol of two pins (change c0247)."""
@@ -974,6 +996,9 @@ __all__ = [
     "planes",
     "range_to_model",
     "stackup_locked",
+    "teardrop_rules",
+    "model_refs",
+    "images",
     "to_model",
     "two_terminal",
     "unused_marks",

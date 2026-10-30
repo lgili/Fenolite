@@ -17,8 +17,11 @@ from fenolite.dsl.errors import DslError
 from fenolite.dsl.quantity import RATIO, SIGNED, Quantity, Range
 from fenolite.dsl.relative import Edges, LiveRequest, check_frame, parse_request
 from fenolite.dsl.units import as_nm, as_udeg
-from fenolite.model.board import MechanicalIntent
+from fenolite.model.board import MechanicalIntent, ModelRef
 from fenolite.model.library import DeviceDef
+
+_SCALE = re.compile(r"^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$")
+"""A scale of ``Part.model``: a decimal string, no exponent, no sign (change c0277)."""
 
 if TYPE_CHECKING:
     from fenolite.dsl.design import Design
@@ -182,6 +185,10 @@ class FieldRequest:
     outside: str | None = None
     gap: Nm | None = None
     locked: bool = False
+    bold: bool | None = None
+    italic: bool | None = None
+    face: str | None = None
+    """The field's font (change c0277): ``None`` keeps the footprint's."""
 
 
 @dataclass(frozen=True)
@@ -399,6 +406,7 @@ class Part(Edges):
         self.turn: tuple[Udeg, Side] | None = None
         """``place(rot=..., side=...)`` without a position: a layout strategy places the part, turned."""
         self.field_requests: dict[str, FieldRequest] = {}
+        self.model_refs: list[ModelRef] = []
         """The field placement requests of ``field()``, by field name."""
         self.pad_zone_requests: dict[tuple[str, int | None], PadZoneRequest] = {}
         """The requests of ``zone_connection()``, by pad number and index."""
@@ -632,6 +640,37 @@ class Part(Edges):
             as_nm(x, name="x"), as_nm(y, name="y"), as_udeg(rot, name="rot"), side, locked, anchor
         )
 
+    def model(
+        self,
+        name: str,
+        *,
+        offset: tuple[object, object, object] = (0, 0, 0),
+        rotation: tuple[object, object, object] = (0, 0, 0),
+        scale: tuple[str, str, str] = ("1", "1", "1"),
+        hidden: bool = False,
+    ) -> None:
+        """Add a 3D model to this part's footprint instance (change c0277); one call per model, and any call
+        replaces the footprint's own models for this part. ``name`` is a reference only (a path, or
+        ``${KICAD10_3DMODEL_DIR}/…``): nothing is read. ``offset`` holds lengths (0 is accepted as no
+        offset), ``rotation`` angles in degrees, ``scale`` positive decimal strings."""
+        what = f"part {self.label}: model"
+        if not isinstance(name, str) or not name.strip() or not name.isprintable():  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: name must be a model path, not {name!r}")
+        if not isinstance(hidden, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: hidden must be a bool, not {hidden!r}")
+        triples = {"offset": offset, "rotation": rotation, "scale": scale}
+        for label, value in triples.items():
+            if not isinstance(value, tuple) or len(value) != 3:  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"{what}: {label} must be an (x, y, z) triple, not {value!r}")
+        lengths = tuple(
+            0 if v == 0 and not isinstance(v, bool) else as_nm(v, name=f"{what}: offset") for v in offset
+        )
+        angles = tuple(as_udeg(v, name=f"{what}: rotation") for v in rotation)
+        for factor in scale:
+            if not isinstance(factor, str) or not _SCALE.fullmatch(factor) or float(factor) <= 0:  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"{what}: scale holds positive decimal strings such as '1', not {factor!r}")
+        self.model_refs.append(ModelRef(name, lengths, angles, scale, hidden))  # type: ignore[arg-type]
+
     def field(
         self,
         name: str,
@@ -647,8 +686,12 @@ class Part(Edges):
         outside: str | None = None,
         gap: object = None,
         locked: bool = False,
+        bold: bool | None = None,
+        italic: bool | None = None,
+        face: str | None = None,
     ) -> None:
         """Request a placement of the footprint field ``name`` (``Reference`` or ``Value``), once per name.
+        ``bold``, ``italic`` and ``face`` set the field's font (change c0277); ``None`` keeps the footprint's.
 
         ``dx`` and ``dy`` are lengths in the board frame from the part's placement point and ``rot`` is the
         field's angle on the board, so "2.5 mm above the part, horizontal" stays true when the part
@@ -660,6 +703,11 @@ class Part(Edges):
             raise DslError(f"{what}: only {' and '.join(FIELD_NAMES)} can be placed")
         if name in self.field_requests:
             raise DslError(f"part {self.label}: field {name} already has a placement request")
+        for label, flag in (("bold", bold), ("italic", italic)):
+            if flag is not None and not isinstance(flag, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"{what}: {label} must be a bool, not {flag!r}")
+        if face is not None and (not isinstance(face, str) or not face.strip() or not face.isprintable()):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: face must be a font name such as 'KiCad Font', not {face!r}")
         for label, flag in (("visible", visible), ("locked", locked)):
             if flag is not None and not isinstance(flag, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
                 raise DslError(f"{what}: {label} must be a bool, not {flag!r}")
@@ -706,6 +754,9 @@ class Part(Edges):
             outside,
             lengths["gap"],
             locked,
+            bold,
+            italic,
+            face,
         )
         if request == FieldRequest(name, locked=locked):
             raise DslError(f"{what}: the request sets nothing")

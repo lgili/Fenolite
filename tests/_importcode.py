@@ -191,6 +191,21 @@ def dimensioned(tmp: Path) -> Path:
     return _variant(tmp, "dimensioned", body[:-1] + SPECIAL_DIMENSIONS + ")\n")
 
 
+def imaged(tmp: Path, data: bytes) -> Path:
+    """The board with one image of the PNG ``data`` on ``F.SilkS`` at half size (change c0277)."""
+    import base64
+
+    text = base64.b64encode(data).decode("ascii")
+    chunks = " ".join(f'"{text[i : i + 76]}"' for i in range(0, len(text), 76))
+    item = (
+        f'\t(image (at 120 140) (layer "F.SilkS") (scale 0.5) (data {chunks})'
+        ' (uuid "0e0e0e0e-0000-4000-8000-000000000041"))\n'
+    )
+    body = BOARD.read_text(encoding="utf-8").rstrip()
+    assert body.endswith(")")
+    return _variant(tmp, "imaged", body[:-1] + item + ")\n")
+
+
 def unfitted(tmp: Path) -> Path:
     """The board with R101 not populated (``dnp``) and a net tie joining the two pads of R201 (c0277)."""
     text = BOARD.read_text(encoding="utf-8")

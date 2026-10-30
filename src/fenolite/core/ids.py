@@ -27,6 +27,7 @@ PREFIXES: frozenset[str] = frozenset(
         "zon", "kpo", "txt", "gfx", "hol", "out", "slt", "dim",  # board (slt: milled slots, change c0167)
         "grp",  # board groups (change c0277)
         "vbt",  # verbatim items (change c0277)
+        "img",  # board images (change c0277)
         "fld",  # footprint fields
         "bdy",  # component bodies
         "rst", "rul", "imp",  # rules (imp: impedance targets, change c0105)

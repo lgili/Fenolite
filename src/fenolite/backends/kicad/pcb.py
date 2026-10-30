@@ -43,6 +43,7 @@ from fenolite.backends.kicad._fpmap import (
     PAD_POSITIONAL,
     Ids,
     Items,
+    angle_atom,
     at_node,
     emit_graphic,
     emit_pad,
@@ -109,8 +110,10 @@ from fenolite.model.board import (
     FootprintField,
     FootprintInstance,
     Graphic,
+    Image,
     Keepout,
     Layer,
+    ModelRef,
     OutlineArc,
     Pad,
     Stackup,
@@ -167,8 +170,16 @@ ROOT_FIELDS: Mapping[str, str] = MappingProxyType(
         **{head: f"graphics.{head}" for head in GR_GRAPHIC_HEADS},
         "gr_text": "texts",
         "dimension": "dimensions",
+        "image": "images",
     }
 )
+IMAGE_FIELDS: Mapping[str, str] = MappingProxyType(
+    {"at": "position", "layer": "layer", "scale": "scale", "data": "data", "uuid": "native_ids"}
+)
+"""The modelled children of a board image (change c0277; ``board.md``, "Board images")."""
+IMAGE_CHUNK = 76
+"""The length of each string of an image's ``data``, as KiCad 10.0.6 writes it (``H-K-IMAGE``)."""
+_SCALE = re.compile(r"^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$")
 FOOTPRINT_FIELDS: Mapping[str, str] = MappingProxyType(
     {
         "layer": "side",
@@ -373,11 +384,26 @@ def _opt(child: Node | None) -> list[Node | Atom]:
     return [] if child is None else [child]
 
 
-def field_effects(size: Size, thickness: int | None, h_justify: str, v_justify: str, mirrored: bool) -> Node:
-    """``(effects (font (size H W) [(thickness T)]) [(justify [left|right] [top|bottom] [mirror])])``."""
-    font: list[Node | Atom] = [node("size", Atom.from_nm(size.h), Atom.from_nm(size.w))]
+def field_effects(
+    size: Size,
+    thickness: int | None,
+    h_justify: str,
+    v_justify: str,
+    mirrored: bool,
+    bold: bool | None = None,
+    italic: bool | None = None,
+    face: str | None = None,
+) -> Node:
+    """``(effects (font [(face F)] (size H W) [(thickness T)] [(bold yes)] [(italic yes)]) [(justify …)])``;
+    the font flags of change c0277 only when set."""
+    font: list[Node | Atom] = [node("face", Atom.string(face))] if face else []
+    font.append(node("size", Atom.from_nm(size.h), Atom.from_nm(size.w)))
     if thickness is not None:
         font.append(node("thickness", Atom.from_nm(thickness)))
+    if bold:
+        font.append(node("bold", Atom.symbol("yes")))
+    if italic:
+        font.append(node("italic", Atom.symbol("yes")))
     words = [w for w in (h_justify, v_justify) if w != "center"] + (["mirror"] if mirrored else [])
     children: list[Node | Atom] = [node("font", *font)]
     if words:
@@ -395,9 +421,71 @@ def _emit_field(field: FootprintField, rotation: Udeg) -> Items:
         "visible": [] if field.visible else [node("hide", Atom.symbol("yes"))],
         "native_ids": uuid_items(field.native_ids),
         "effects": [
-            field_effects(field.size, field.thickness, field.h_justify, field.v_justify, field.mirrored)
+            field_effects(
+                field.size,
+                field.thickness,
+                field.h_justify,
+                field.v_justify,
+                field.mirrored,
+                field.bold,
+                field.italic,
+                field.face,
+            )  # fmt: skip
         ],
     }
+
+
+def model_ref_node(model: ModelRef) -> Node:
+    """``(model "name" [(hide yes)] (offset (xyz …)) (scale (xyz …)) (rotate (xyz …)))`` of a script's
+    model, as the demo boards write it (S-0058); KiCad's offset has Y up and its turns are clockwise, so Y and
+    the angles are negated as for a library model (``H-K-MODEL-PLACE``; change c0277)."""
+    x, y, z = model.offset
+
+    def xyz(head: str, *values: Atom) -> Node:
+        return node(head, node("xyz", *values))
+
+    hide = [node("hide", Atom.symbol("yes"))] if model.hidden else []
+    return node(
+        "model",
+        Atom.string(model.name),
+        *hide,
+        xyz("offset", Atom.from_nm(x), Atom.from_nm(-y), Atom.from_nm(z)),
+        xyz("scale", *(Atom(factor, AtomKind.NUMBER) for factor in model.scale)),
+        xyz("rotate", *(angle_atom(-angle if angle else 0) for angle in model.rotation)),
+    )
+
+
+def with_models(footprint: Node, models: Sequence[ModelRef]) -> Node:
+    """``footprint`` with its ``model`` children replaced by ``models`` (change c0277), where the first stood,
+    else at the end."""
+    children = list(footprint.children)
+    at = next((i for i, c in enumerate(children) if isinstance(c, Node) and c.name == "model"), len(children))
+    kept = [c for c in children if not (isinstance(c, Node) and c.name == "model")]
+    at -= sum(1 for c in children[:at] if isinstance(c, Node) and c.name == "model")
+    return footprint.with_children([*kept[:at], *(model_ref_node(m) for m in models), *kept[at:]])
+
+
+def with_field_font(effects: Node, field: FootprintField) -> Node:
+    """``effects`` with the font flags ``field`` sets (change c0277): ``bold`` and ``italic`` written as
+    ``yes`` or removed, ``face`` put first in the font; every other child as it is."""
+    font = effects.find("font")
+    if font is None or (field.bold is None and field.italic is None and field.face is None):
+        return effects
+    kept: list[Node | Atom] = []
+    for child in font.children:
+        name = child.name if isinstance(child, Node) else ""
+        if (name == "bold" and field.bold is not None) or (name == "italic" and field.italic is not None):
+            continue
+        if name == "face" and field.face is not None:
+            continue
+        kept.append(child)
+    if field.face is not None:
+        kept.insert(0, node("face", Atom.string(field.face)))
+    for flag, value in (("bold", field.bold), ("italic", field.italic)):
+        if value:
+            kept.append(node(flag, Atom.symbol("yes")))
+    made = font.with_children(kept)
+    return effects.with_children([made if c is font else c for c in effects.children])
 
 
 def field_justify(effects: Node) -> tuple[FieldJustifyH, FieldJustifyV, bool]:
@@ -639,6 +727,22 @@ def _emit_dimension(dimension: Dimension) -> Items:
         "offset": offset,
         "leader_length": leader,
         "direction": direction,
+    }
+
+
+def _emit_image(image: Image, scaled: bool = True) -> Items:
+    """The modelled children of a board image (change c0277): ``data`` as strings of ``IMAGE_CHUNK``
+    characters; ``scale`` unless the image is read without one and its scale is 1."""
+    chunks = [image.data[i : i + IMAGE_CHUNK] for i in range(0, len(image.data), IMAGE_CHUNK)] or [""]
+    scale: list[Node | Atom] = []
+    if scaled or image.scale != "1":
+        scale = [node("scale", Atom(image.scale, AtomKind.NUMBER))]
+    return {
+        "position": [node("at", Atom.from_nm(image.position.x), Atom.from_nm(image.position.y))],
+        "layer": [node("layer", Atom.string(image.layer))],
+        "scale": scale,
+        "data": [node("data", *(Atom.string(chunk) for chunk in chunks))],
+        "native_ids": uuid_items(image.native_ids),
     }
 
 
@@ -1890,6 +1994,42 @@ class _Reader:
         self.check(item, loc, slots, _emit_dimension(dimension), chain)
         return dataclasses.replace(dimension, ext={"kicad": slotlib.to_ext(slots)})
 
+    def image(self, item: Node, loc: str) -> Image | None:
+        """A board image (change c0277), or ``None`` for a node that stays an opaque root slot: an ``at``
+        that is not two exact numbers, a ``layer``, ``scale`` or ``data`` of another form."""
+        ctx = self.ctx
+        chain = (*ROOT, "image")
+        at, layer_node = item.find("at"), item.find("layer")
+        scale_node, data = item.find("scale"), item.find("data")
+        if at is None or layer_node is None or data is None or len(at.atoms()) != 2 or at.nodes():
+            return None
+        layer = layer_node.atoms()
+        chunks = data.atoms()
+        if len(layer) != 1 or not chunks or any(a.kind != AtomKind.STRING for a in chunks) or data.nodes():
+            return None
+        scale = "1"
+        if scale_node is not None:
+            found = scale_node.atoms()
+            if len(found) != 1 or found[0].kind != AtomKind.NUMBER or not _SCALE.fullmatch(found[0].text):
+                return None
+            scale = found[0].text
+        x, y = _atom_nm(at.atoms()[0]), _atom_nm(at.atoms()[1])
+        if x is None or y is None:
+            return None
+        slots = ctx.split(item, dict(IMAGE_FIELDS), chain)
+        ident, native_ids = self.ids.of("img", "image", item)
+        image = Image(
+            id=ident,
+            native_ids=native_ids,
+            provenance=ctx.provenance(loc),
+            position=Point(x, y),
+            layer=layer[0].value,
+            data="".join(a.value for a in chunks),
+            scale=scale,
+        )
+        self.check(item, loc, slots, _emit_image(image, scale_node is not None), chain)
+        return dataclasses.replace(image, ext={"kicad": slotlib.to_ext(slots)})
+
     def graphic(self, item: Node, loc: str) -> Graphic:
         kind = GR_GRAPHIC_HEADS[item.name]
         reason = unrepresentable(item, kind)
@@ -1929,7 +2069,7 @@ class _Reader:
         board_pads: list[tuple[Component, Pad]] = []
         collections: dict[str, list[Entity]] = {
             "tracks": [], "arcs": [], "vias": [], "zones": [], "keepouts": [], "texts": [], "graphics": [],
-            "dimensions": [],
+            "dimensions": [], "images": [],
         }  # fmt: skip
         for index, (loc, child) in enumerate(children):
             if not isinstance(child, Node) or not isinstance(slots[index], Modeled):
@@ -1964,6 +2104,12 @@ class _Reader:
                         self.keep(slots, index, child, ROOT)
                     else:
                         collections["dimensions"].append(dimension)
+                elif head == "image":
+                    image = self.image(child, loc)
+                    if image is None:
+                        self.keep(slots, index, child, ROOT)
+                    else:
+                        collections["images"].append(image)
             except InexactValueError as error:
                 self.keep_inexact(error, slots, index, child, ROOT)
             except _Unmodelled as why:
@@ -1988,6 +2134,7 @@ class _Reader:
             texts=tuple(collections["texts"]),  # type: ignore[arg-type]
             graphics=tuple(collections["graphics"]),  # type: ignore[arg-type]
             dimensions=tuple(collections["dimensions"]),  # type: ignore[arg-type]
+            images=tuple(collections["images"]),  # type: ignore[arg-type]
             sheet=sheet,
             title_block=title_block,
             stackup=stackup,
@@ -2133,7 +2280,8 @@ FLOOR_HEADS: tuple[str, ...] = (
     "text_position_mode", "title", "title_block", "tracks", "units", "units_format", "vias", "zone_connect",
     "teardrops", "best_length_ratio", "max_length", "best_width_ratio", "max_width", "filter_ratio",
     "enabled", "allow_two_segments", "prefer_zone_connections", "face", "bold", "italic", "group",
-    "members", "free", "placement", "sheetname", "leader_length", "override_value", "text_frame",
+    "members", "free", "placement", "sheetname", "leader_length", "override_value", "text_frame", "image",
+    "scale", "data",
 )  # fmt: skip
 """Names the writer creates that the 8.0 format already has and that neither the token inventory nor
 the skeleton holds (``board.md``, S-0021 and S-0033 at tag 8.0.0). The names of a linear dimension
@@ -2146,12 +2294,13 @@ orthogonal dimension (S-0001). The ``teardrops`` child of a pad or via and its c
 (change c0277; S-0001 documents them in the text effects), and the root ``group`` with its ``members``
 (S-0001, "Group"; change c0277), and a via's ``free`` (the demo boards of 9.0.9 and 10.0.6, S-0058; change
 c0277), and the ``leader_length`` of a radial dimension and the ``override_value`` and ``text_frame`` of a
-leader (the demo boards of 9.0.9 and 10.0.6, S-0058; change c0277). The writer has no target below 9."""
+leader (the demo boards of 9.0.9 and 10.0.6, S-0058; change c0277), and a board ``image`` with its ``scale``
+and ``data`` (S-0001, "Images"; change c0277). The writer has no target below 9."""
 CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "kicad_pcb": (
             *CREATED_ROOT_HEADS[:5], "title_block", *CREATED_ROOT_HEADS[5:], "footprint", *GR_GRAPHIC_HEADS,
-            "gr_text", "dimension", "segment", "arc", "via", "zone", "group",
+            "gr_text", "dimension", "image", "segment", "arc", "via", "zone", "group",
         ),
         "group": ("name", "uuid", "locked", "members"),
         "title_block": ("title", "date", "rev", "company", "comment"),
@@ -2200,6 +2349,7 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
             "gr_text",
         ),
         "format": ("prefix", "suffix", "units", "units_format", "precision", "override_value"),
+        "image": ("at", "layer", "scale", "data", "uuid"),
         "style": (
             "thickness", "arrow_length", "text_position_mode", "text_frame", "arrow_direction",
             "extension_height", "extension_offset", "keep_text_aligned",
@@ -2257,6 +2407,7 @@ _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyT
         **dict.fromkeys(GR_GRAPHIC_HEADS, _GRAPHIC_WRITE_FIELDS),
         "gr_text": {**TEXT_FIELDS, "effects": "effects"},
         "dimension": DIMENSION_FIELDS,
+        "image": IMAGE_FIELDS,
     }
 )  # fmt: skip
 _READ_FIELDS: Mapping[str, Mapping[str, str]] = MappingProxyType(
@@ -2273,6 +2424,7 @@ _READ_FIELDS: Mapping[str, Mapping[str, str]] = MappingProxyType(
         **dict.fromkeys(GR_GRAPHIC_HEADS, GRAPHIC_FIELDS),
         "gr_text": TEXT_FIELDS,
         "dimension": DIMENSION_FIELDS,
+        "image": IMAGE_FIELDS,
     }
 )
 """The field maps of the reader: which opaque children stand for a model value."""
@@ -2798,6 +2950,8 @@ class _Writer:
             built = self.with_verbatim(
                 built, verbatimlib.of_target(self.board, "footprint", entity.component_id)
             )
+        if isinstance(entity, FootprintInstance) and entity.models:
+            built = with_models(built, entity.models)
         return built
 
     def absent(self, entity: Entity, created: bool) -> set[str]:
@@ -2870,6 +3024,8 @@ class _Writer:
                     face=entity.face,
                 )
             ]
+        elif isinstance(entity, Image):
+            items = _emit_image(entity)
         elif isinstance(entity, Dimension):
             items = _emit_dimension(entity)
             if created:
@@ -3015,6 +3171,7 @@ class _Writer:
         items["keepouts"] = [self.entity(k, "zone") for k in _write_order(board.keepouts)]
         items["texts"] = [self.entity(t, "gr_text") for t in _write_order(board.texts)]
         items["dimensions"] = [self.entity(d, "dimension") for d in _write_order(board.dimensions)]
+        items["images"] = [self.entity(i, "image") for i in _write_order(board.images)]
         for head in GR_GRAPHIC_HEADS:
             graphics = [g for g in _write_order(board.graphics) if _graphic_head(g) == head]
             items[f"graphics.{head}"] = [self.entity(g, head) for g in graphics]
@@ -3059,7 +3216,9 @@ class _Writer:
         if not board.groups:
             return []
         by_id: dict[str, str] = {}
-        for entity in (*board.texts, *board.graphics, *board.dimensions, *board.zones, *board.keepouts):
+        for entity in (
+            *board.texts, *board.graphics, *board.dimensions, *board.images, *board.zones, *board.keepouts
+        ):  # fmt: skip
             by_id[entity.id] = kicad_uuid(entity)
         for footprint in board.footprints:
             by_id[footprint.component_id] = kicad_uuid(footprint)
@@ -3305,6 +3464,9 @@ class _Writer:
                 if hidden:
                     covered.add("visible")
                 if old == now and not (hidden and field.visible):
+                    fonted = with_field_font(child, field)
+                    if fonted != child:  # the font a script asks for (change c0277)
+                        slots[i] = Opaque(dumps(fonted, style="compact"), None)
                     continue
                 respelled = old is not None and _key(child, self.copper) == _key(
                     field_effects(*old), self.copper

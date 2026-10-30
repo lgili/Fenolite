@@ -176,6 +176,22 @@ Drawing = TextSpec | GraphicSpec | DimensionSpec
 
 
 @dataclass(frozen=True)
+class ImageSpec:
+    """One ``image()`` call (change c0277): the PNG ``file`` relative to the script folder, read by the build,
+    at the board-relative point ``at`` on ``layer``, drawn ``scale`` times its size."""
+
+    key: str
+    file: str
+    at: Pair
+    layer: str
+    scale: str
+
+
+IMAGE_SCALE = re.compile(r"^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$")
+"""A scale of ``image()``: a decimal string, no exponent, no sign."""
+
+
+@dataclass(frozen=True)
 class GroupSpec:
     """One ``group()`` call (change c0277): its key, name, members and lock. A member is a ``Part`` or the
     key of a drawing, a zone, a rule area or an earlier group."""

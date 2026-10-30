@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Callable, Mapping, Sequence
+from decimal import Decimal
 from types import MappingProxyType
 from typing import Protocol
 
@@ -30,10 +31,12 @@ from fenolite.core.ids import content_hash, content_id, derived_id
 from fenolite.core.units import format_angle
 from fenolite.model.base import Modeled, Opaque, Slot
 from fenolite.model.board import (
+    CHAMFER_CORNERS,
     Graphic,
     GraphicKind,
     Pad,
     PadFabProperty,
+    PadPrimitive,
     Padstack,
     PadstackLayer,
     ZoneConnection,
@@ -59,8 +62,9 @@ PAD_FIELDS: Mapping[str, str] = MappingProxyType(
 )
 PAD_POSITIONAL = ("number", "kind", "shape")
 PAD_CANONICAL: tuple[str, ...] = (
-    *PAD_POSITIONAL, "position", "size", "drill", "fab_property", "layers", "mask_margin", "paste_margin",
-    "zone_connection", "native_ids",
+    *PAD_POSITIONAL, "position", "size", "trapezoid_delta", "drill", "fab_property", "layers", "corner_ratio",
+    "chamfer_ratio", "chamfer_corners", "mask_margin", "paste_margin", "zone_connection", "anchor_shape",
+    "primitives", "native_ids",
 )  # fmt: skip
 """Where a library pad gains a child it did not have: ``zone_connect`` goes before ``uuid``, the
 fabrication ``property`` after ``drill`` (or ``size``) and before ``layers``, and the two margins (change
@@ -303,11 +307,17 @@ def read_pad(
             hole_rotation=hole_turn,  # in the pad's own frame, for a footprint file and for a board
         )
     ident, native_ids = ids.of("pad", "pad", node)
+    shaped = project_shape(node)
     return Pad(
         id=ident,
         native_ids=native_ids,
         provenance=ctx.provenance(loc),
         ext={"kicad": slotlib.to_ext(slots)},
+        trapezoid_delta=shaped.get("trapezoid_delta"),  # type: ignore[arg-type]
+        chamfer_ratio=shaped.get("chamfer_ratio"),  # type: ignore[arg-type]
+        chamfer_corners=shaped.get("chamfer_corners", ()),  # type: ignore[arg-type]
+        anchor_shape=shaped.get("anchor_shape"),  # type: ignore[arg-type]
+        primitives=shaped.get("primitives", ()),  # type: ignore[arg-type]
         number=number,
         shape=shape,  # type: ignore[arg-type]
         size=size,
@@ -527,6 +537,143 @@ def aligned_slot_pad(pad: Pad) -> Pad:
     )
 
 
+SHAPE_HEADS: Mapping[str, str] = MappingProxyType(
+    {
+        "rect_delta": "trapezoid_delta",
+        "roundrect_rratio": "corner_ratio",
+        "chamfer_ratio": "chamfer_ratio",
+        "chamfer": "chamfer_corners",
+        "options": "anchor_shape",
+        "primitives": "primitives",
+    }
+)
+"""The shape children of a pad and the fields they hold (change c0277): a reader projects them and keeps the
+children as read; a created pad writes them from the fields, in the order of the demo boards (S-0058)."""
+PRIMITIVE_HEADS: Mapping[str, str] = MappingProxyType(
+    {"poly": "gr_poly", "segment": "gr_line", "circle": "gr_circle", "arc": "gr_arc"}
+)
+_PRIMITIVE_POINTS: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {"gr_line": ("start", "end"), "gr_circle": ("center", "end"), "gr_arc": ("start", "mid", "end")}
+)
+
+
+def ppm_text(ppm: int) -> Atom:
+    """A ratio in parts per million as the decimal KiCad writes (``250000`` → ``0.25``)."""
+    whole, frac = divmod(ppm, 1_000_000)
+    text = str(whole) + (f".{frac:06d}".rstrip("0") if frac else "")
+    return Atom(text, AtomKind.NUMBER)
+
+
+def _ppm_of(child: Node) -> int | None:
+    atoms = child.atoms()
+    if len(atoms) != 1 or atoms[0].kind != AtomKind.NUMBER or child.nodes():
+        return None
+    try:
+        scaled = Decimal(atoms[0].text).scaleb(6)
+    except ArithmeticError:
+        return None
+    return int(scaled) if scaled == scaled.to_integral_value() and 0 <= scaled <= 500_000 else None
+
+
+def _primitive_nodes(pad: Pad) -> list[Node | Atom]:
+    out: list[Node | Atom] = []
+    for shape in pad.primitives:
+        head = PRIMITIVE_HEADS[shape.kind]
+        if head == "gr_poly":
+            children: list[Node | Atom] = [node("pts", *(point_node("xy", p) for p in shape.points))]
+        else:
+            children = [
+                point_node(name, p) for name, p in zip(_PRIMITIVE_POINTS[head], shape.points, strict=True)
+            ]
+        children.append(node("width", Atom.from_nm(shape.width)))
+        if head != "gr_line":
+            children.append(node("fill", Atom.symbol("yes" if shape.filled else "no")))
+        out.append(node(head, *children))
+    return out
+
+
+def shape_items(pad: Pad) -> Items:
+    """The shape children of a created pad (change c0277): ``rect_delta``, ``roundrect_rratio``,
+    ``chamfer_ratio`` with ``chamfer``, and a custom pad's ``options`` and ``primitives``; nothing for a field
+    the pad does not set."""
+    items: Items = {name: [] for name in SHAPE_HEADS.values()}
+    if pad.trapezoid_delta is not None:
+        delta = pad.trapezoid_delta
+        items["trapezoid_delta"] = [node("rect_delta", Atom.from_nm(delta.x), Atom.from_nm(delta.y))]
+    if pad.corner_ratio is not None and pad.shape == "roundrect":
+        items["corner_ratio"] = [node("roundrect_rratio", ppm_text(pad.corner_ratio))]
+    if pad.chamfer_ratio is not None:
+        items["chamfer_ratio"] = [node("chamfer_ratio", ppm_text(pad.chamfer_ratio))]
+        items["chamfer_corners"] = [node("chamfer", *(Atom.symbol(c) for c in pad.chamfer_corners))]
+    if pad.shape == "custom" and pad.anchor_shape is not None:
+        options = (node("clearance", Atom.symbol("outline")), node("anchor", Atom.symbol(pad.anchor_shape)))
+        items["anchor_shape"] = [node("options", *options)]
+        items["primitives"] = [node("primitives", *_primitive_nodes(pad))]
+    return items
+
+
+def project_shape(node_: Node) -> dict[str, object]:
+    """The shape fields of a read pad from its children (change c0277); a child of another form gives no
+    field. The children stay in their slots."""
+    found: dict[str, object] = {}
+    for child in node_.nodes():
+        head = child.name
+        if head == "rect_delta" and len(child.atoms()) == 2 and not child.nodes():
+            try:
+                found["trapezoid_delta"] = Point(child.atoms()[0].to_nm(), child.atoms()[1].to_nm())
+            except ValueError:
+                continue
+        elif head == "chamfer_ratio":
+            ratio = _ppm_of(child)
+            if ratio is not None:
+                found["chamfer_ratio"] = ratio
+        elif head == "chamfer":
+            names = [a.value for a in child.atoms()]
+            if names and all(n in CHAMFER_CORNERS for n in names) and not child.nodes():
+                found["chamfer_corners"] = tuple(c for c in CHAMFER_CORNERS if c in names)
+        elif head == "options":
+            anchor = child.find("anchor")
+            shapes = [a.value for a in anchor.atoms()] if anchor is not None else []
+            if len(shapes) == 1 and shapes[0] in ("circle", "rect"):
+                found["anchor_shape"] = shapes[0]
+        elif head == "primitives":
+            shapes = _read_primitives(child)
+            if shapes is not None:
+                found["primitives"] = shapes
+    if "chamfer_ratio" not in found or "chamfer_corners" not in found:
+        found.pop("chamfer_ratio", None)
+        found.pop("chamfer_corners", None)
+    return found
+
+
+def _read_primitives(child: Node) -> tuple[PadPrimitive, ...] | None:
+    shapes: list[PadPrimitive] = []
+    kinds = {head: kind for kind, head in PRIMITIVE_HEADS.items()}
+    for item in child.nodes():
+        kind = kinds.get(item.name)
+        if kind is None:
+            return None
+        try:
+            if item.name == "gr_poly":
+                pts = item.find("pts")
+                if pts is None or any(p.name != "xy" for p in pts.nodes()):
+                    return None
+                points = tuple(Point(p.atoms()[0].to_nm(), p.atoms()[1].to_nm()) for p in pts.nodes())
+            else:
+                found = [item.find(name) for name in _PRIMITIVE_POINTS[item.name]]
+                if any(f is None or len(f.atoms()) != 2 for f in found):
+                    return None
+                points = tuple(Point(f.atoms()[0].to_nm(), f.atoms()[1].to_nm()) for f in found)  # type: ignore[union-attr]
+            width_node = item.find("width")
+            width = width_node.atoms()[0].to_nm() if width_node is not None and width_node.atoms() else 0
+        except (ValueError, IndexError):
+            return None
+        fill = item.find("fill")
+        filled = fill is not None and [a.value for a in fill.atoms()] == ["yes"]
+        shapes.append(PadPrimitive(kind, points, width, filled))  # type: ignore[arg-type]
+    return tuple(shapes)
+
+
 def emit_pad(pad: Pad, net: Node | None, *, angle: int | None = None) -> Items:
     """The modelled fields of a pad; ``angle`` replaces ``pad.rotation`` (a board stores it absolute)."""
     original_rotation = pad.rotation
@@ -570,6 +717,7 @@ def emit_pad(pad: Pad, net: Node | None, *, angle: int | None = None) -> Items:
             [] if pad.paste_margin is None else [node("solder_paste_margin", Atom.from_nm(pad.paste_margin))]
         ),
         "teardrop": [] if pad.teardrop is None else [tdlib.emit(pad.teardrop)],
+        **shape_items(pad),
     }
     if net is not None:
         items["net_id"] = [net]

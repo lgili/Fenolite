@@ -70,6 +70,15 @@ class FieldRequestLike(Protocol):
     def gap(self) -> Nm | None: ...
 
     @property
+    def bold(self) -> bool | None: ...
+
+    @property
+    def italic(self) -> bool | None: ...
+
+    @property
+    def face(self) -> str | None: ...
+
+    @property
     def locked(self) -> bool: ...
 
 
@@ -104,6 +113,9 @@ def apply_request(instance: FootprintInstance, request: FieldRequestLike) -> Foo
         size=Size(request.size, request.size) if request.size is not None else None,
         thickness=request.thickness,
         justify=_justify(request.justify) if request.justify is not None else None,
+        bold=request.bold,
+        italic=request.italic,
+        face=request.face,
     )
     if request.outside is not None:
         gap = DEFAULT_GAP if request.gap is None else request.gap
@@ -132,6 +144,9 @@ FIELD_VALUES: tuple[str, ...] = (
     "h_justify",
     "v_justify",
     "mirrored",
+    "bold",
+    "italic",
+    "face",
 )
 """What a field carries from the board to a re-placed footprint: placement and appearance, never the id,
 the uuid or the slot list."""

@@ -102,6 +102,7 @@ from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.cmd_export import preset_file
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
+from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.dsl import (
@@ -128,7 +129,7 @@ from fenolite.dsl import (
     via_protection_locked,
 )
 from fenolite.dsl import Design as DslDesign
-from fenolite.dsl.convert import two_terminal, unused_marks
+from fenolite.dsl.convert import images, model_refs, teardrop_rules, two_terminal, unused_marks
 from fenolite.dsl.relative import has_layout
 from fenolite.geometry.errors import BackendUnavailable
 from fenolite.lens import edits as edits_mod
@@ -149,7 +150,9 @@ from fenolite.lens.build import (
     SCHEMATIC_MODES,
     SHEET_SUFFIX,
     VENDOR_MODES,
+    ImageSource,
     PlacementRequest,
+    board_images,
     build_design,
     check_existing,
     plane_issues,
@@ -1168,6 +1171,20 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         model, authored_symbols=design.symbols, authored_footprints=design.footprints
     )
     default_issues = [*pad_map_issues(defaulted), *device_issues(design)]
+    # the images of the script: the build reads their files, which are inputs of the plan (change c0277)
+    image_sources = [
+        ImageSource(
+            spec.key,
+            script_path.resolve().parent / spec.file,
+            Point(BOARD_ORIGIN.x + spec.at[0], BOARD_ORIGIN.y + spec.at[1]),
+            spec.layer,
+            spec.scale,
+        )
+        for spec in images(design)
+    ]
+    model, image_issues = board_images(model, image_sources)
+    default_issues += image_issues
+    image_depends = depends_on(ctx.cwd, *(source.path for source in image_sources if source.path.is_file()))
     devices = design_devices(design)
     record_footprints, record_symbols, library_issues = project_definitions(run, model)
     default_issues += library_issues
@@ -1199,7 +1216,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
     frame_sheet, sheet_issues, sheet_result = read_drawing_sheet_source(design, script_path)
     takes = parse_take_option(getattr(args, "take", None))
     edits, edits_file, source_issues, source_sha = read_edit_source(script_path)
-    refused = any(found.severity == "error" for found in source_issues)
+    refused = any(found.severity == "error" for found in (*source_issues, *image_issues))
     if args.target == ALTIUM_TARGET:
         if (generated_records or role_record is not None) and board_path is not None:
             # with --copper-from the board wins: the records would be lost, so the build is refused (c0243)
@@ -1376,6 +1393,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         lock_stackup=stackup_locked(design),
         lock_via_protection=via_protection_locked(design),
         planes=plane_nets,
+        teardrops=teardrop_rules(design),
+        models=model_refs(design),
         lock_outline=outline_locked(design),
         heights=heights(design),
         unused=unused_marks(design),
@@ -1480,7 +1499,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             format_version=None,
         ),
         writes=writes,
-        depends=drawn_depends,
+        depends=(*drawn_depends, *image_depends),
     )
     return with_lock(built_result, lock)
 
