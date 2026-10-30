@@ -54,9 +54,9 @@
 
 ## 1. Protocol, codes and record
 
-- [ ] 1.1 Add `JobAttach`, `JobSubject`, `Candidate`, `RoutingJob.subjects` and `RoutingResult.candidates` to `routing/protocol.py`, the feature `propose` to `ROUTER_FEATURES` and to `OctilinearRouter.features` (scenarios "A job built as before" of "Proposal subjects in a routing job", "The octilinear router takes roles"). Proof: `uv run pytest tests/unit/routing/test_protocol.py -q`; `uv run pyright src/fenolite/routing`.
-- [ ] 1.2 Add the eight `route.proposal-*` codes to `routing/codes.py`, `cli/data/explain.toml` and `docs/cli-contract.md` (scenario "Codes explained" of "Proposal codes"). Proof: `uv run pytest tests/unit/cli/test_explain_cmd.py tests/unit/routing -k proposal -q`.
-- [ ] 1.3 Add `routing/decisions.py`: the `fenolite.route-decisions.v0` reader and canonical writer, sorted entries, no clock, refusal of an unknown key (scenario "A stable record"). Proof: `uv run pytest tests/unit/routing/test_decisions.py -q`.
+- [x] 1.1 Add `JobAttach`, `JobSubject`, `Candidate`, `RoutingJob.subjects` and `RoutingResult.candidates` to `routing/protocol.py`, the feature `propose` to `ROUTER_FEATURES` and to `OctilinearRouter.features` (scenarios "A job built as before" of "Proposal subjects in a routing job", "The octilinear router takes roles"). Proof: `uv run pytest tests/unit/routing/test_protocol.py -q`; `uv run pyright src/fenolite/routing`.
+- [x] 1.2 Add the eight `route.proposal-*` codes to `routing/codes.py`, `cli/data/explain.toml` and `docs/cli-contract.md` (scenario "Codes explained" of "Proposal codes"). Proof: `uv run pytest tests/unit/cli/test_explain_cmd.py tests/unit/routing -k proposal -q`.
+- [x] 1.3 Add `routing/decisions.py`: the `fenolite.route-decisions.v0` reader and canonical writer, sorted entries, no clock, refusal of an unknown key (scenario "A stable record"). Proof: `uv run pytest tests/unit/routing/test_decisions.py -q`.
 
 ## 2. Subjects and candidates
 

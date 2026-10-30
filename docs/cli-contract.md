@@ -973,6 +973,14 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `route.plane-net` | info | a plane net that `--nets` selects is not given to a router; its pads reach the plane through fan-out vias |
 | `route.project-unread` | warning | the project file or the rules file beside the board could not be read: without the project every net takes the default class values, without the rules file the rules are not given to the router |
 | `route.resumed` | info | the copper of router runs that finished in an earlier call of the same job was reused; the message gives the number of runs and of nets |
+| `route.proposal-conflict` | error | proposal mode: two accepted candidates answer one subject or clash; nothing is planned |
+| `route.proposal-findings` | warning | proposal mode: an accepted candidate brings a new copper-check or role finding, named; it is accepted |
+| `route.proposal-limit` | info | proposal mode: subjects not evaluated or candidates cut by `--candidates` or `--timeout`, counted |
+| `route.proposal-none` | info | proposal mode: no open connection or open critical group to propose for |
+| `route.proposal-open` | warning | proposal mode: a subject without a candidate; the message gives the reason, the proposal its alternatives |
+| `route.proposal-rejected` | info | proposal mode: rejected candidates or proposals left out, counted |
+| `route.proposal-stale` | warning | proposal mode: a locked decision that `--replay` cannot place (`moved`, `blocked`, `net-gone`) |
+| `route.proposal-unknown` | error | proposal mode: an id given to `--accept`, `--reject` or `--forget` that is not current; nothing is planned |
 | `route.role-kept` | info | role mode: a group that copper already joins still has role findings and was left as it is; the message names the findings, the hint `--rip` |
 | `route.role-none` | info | role mode: no confirmed or declared gate loop or Kelvin pair to route; nothing is planned |
 | `route.role-placement` | info | role mode: a gate loop's placement bound is above the user's `gate_max`; the message gives both |

@@ -3212,6 +3212,46 @@ meaning = "In role mode, the placement bound of a gate loop is above the gate_ma
 fix = "Place the driver closer to the switch with fenolite place --move, or raise the limit with fenolite roles."
 see = "roles"
 
+["route.proposal-none"]
+meaning = "In proposal mode (route --propose), the board has no open connection left to propose for, and no critical group that phase 2 left open; the locked decisions of the record are listed in result.locked."
+fix = "Nothing to do. Run fenolite check to judge the board, or route --replay after a rebuild into another folder."
+see = "route"
+
+["route.proposal-open"]
+meaning = "In proposal mode, a subject (an open connection, or a critical group that phase 2 left open) has no candidate. The message gives the reason (no-room, no-layer, too-long, near-switching, isolation, pads, all-rejected or budget); the proposal in result.proposals holds the alternatives, each with its command and a render --region command."
+fix = "Follow an alternative: free the corridor it names, move a part, allow a via, raise max-length, confirm the role, or route the net with another router; then run route --propose again."
+see = "route"
+
+["route.proposal-unknown"]
+meaning = "An id given to route --accept, --reject or --forget is not among the current candidates and proposals, or not in the decision record. Ids follow the candidate's geometry, so a board change near the subject gives new ids."
+fix = "Run fenolite route PATH --router octilinear --propose again and use the ids it lists; nothing was planned."
+see = "route"
+
+["route.proposal-conflict"]
+meaning = "Two candidates given to route --accept answer the same subject, or their copper clashes; nothing was planned."
+fix = "Accept one candidate per subject, and candidates whose facts do not name each other under conflicts."
+see = "route"
+
+["route.proposal-findings"]
+meaning = "An accepted candidate brings a new copper-check or role finding; it is accepted, since its facts showed the finding, and the message names them."
+fix = "Nothing to do if you meant it. Otherwise run route --forget ID to drop the decision and its copper, and accept another candidate."
+see = "route"
+
+["route.proposal-rejected"]
+meaning = "Candidates or proposals rejected in the decision record were left out of result.proposals; the message counts them."
+fix = "Pass --show-rejected to list them with rejected true, or route --forget ID to drop a rejection."
+see = "route"
+
+["route.proposal-stale"]
+meaning = "A locked decision of the record cannot be replayed on this board: an end moved, its copper would break the clearance, or its net is gone (moved, blocked or net-gone). The decision stays in the record."
+fix = "Run route --propose again for the subject and accept a current candidate, or route --forget ID to drop the decision."
+see = "route"
+
+["route.proposal-limit"]
+meaning = "In proposal mode, subjects were not evaluated or candidates were cut by --candidates or --timeout; the message counts them, and each fact not measured is named in not_evaluated."
+fix = "Run again with a longer --timeout, a larger --candidates (at most 8), or narrow the subjects with --kind, --nets or --group."
+see = "route"
+
 ["route.role-none"]
 meaning = "In role mode, the board holds no gate loop or Kelvin pair to route: no role is stored or declared, or the groups named by --group are not among them."
 fix = "Run fenolite roles PATH to see the inferred groups and confirm them with --accept-group or --accept-all; a hot loop is power copper and is not routed here."

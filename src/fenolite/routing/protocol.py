@@ -168,6 +168,65 @@ class RoleOutcome:
     detail: str = ""
 
 
+SubjectKind = Literal["fanout", "join", "role-net", "group", "connection"]
+"""The kind of a proposal subject (change c0280; ``docs/routing.md``, "Proposals"), in the order the command
+sorts its proposals."""
+SUBJECT_KINDS: tuple[str, ...] = ("fanout", "join", "role-net", "group", "connection")
+
+
+@dataclass(frozen=True, slots=True)
+class JobAttach:
+    """One end of a proposal subject (change c0280): what the copper must reach (``pad``, ``track-end`` or
+    ``zone``), its net, ``at`` (a pad centre, a track end, or a point inside the zone's copper), its copper
+    layers and its name (``REF-N``, ``trk@x,y`` in nanometres, or the zone's name)."""
+
+    kind: str
+    net: str
+    at: Point
+    layers: tuple[str, ...]
+    name: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class JobSubject:
+    """An open connection, or a critical group that phase 2 left open, that a router with the feature
+    ``propose`` answers with candidates (capability routing, "Proposal subjects in a routing job"; change
+    c0280). ``key`` names it (``fanout:GND:C3-2``); ``kind`` is one of ``SUBJECT_KINDS``; ``width`` the track
+    width, ``layers`` the allowed copper layers in preference order, ``via_diameter`` and ``via_drill`` the
+    net's via. A ``group`` subject names its c0244 group, whose role routes are in ``RoutingJob.roles``."""
+
+    key: str
+    kind: str
+    net: str
+    a: JobAttach
+    b: JobAttach
+    width: Nm
+    layers: tuple[str, ...]
+    via_diameter: Nm = 0
+    via_drill: Nm = 0
+    group: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class Candidate:
+    """One candidate shape of a subject (capability routing, "Candidates in a routing result"; change
+    c0280): ``id`` is ``c-`` and 16 hex digits of the SHA-256 of the subject key, the source, the relaxations
+    and the items' geometry, never of the rest of the board. ``source`` is the family (``shape``, ``z-shape``,
+    ``via-l``, ``fanout``, ``role`` or ``external:<router>``), ``relaxed`` the relaxations of a ``role``
+    candidate; ``length`` the length of its tracks in nanometres and ``layers`` its copper layers in stack
+    order. No score: candidates come in generation order."""
+
+    id: str
+    subject: str
+    source: str
+    relaxed: tuple[str, ...] = ()
+    tracks: tuple[Track, ...] = ()
+    arcs: tuple[Arc, ...] = ()
+    vias: tuple[Via, ...] = ()
+    length: Nm = 0
+    layers: tuple[str, ...] = ()
+
+
 @dataclass(frozen=True, slots=True)
 class FinishedRun:
     """The copper that one tool process of a router added, and the nets it routed. ``tier`` is the tier
@@ -206,6 +265,11 @@ class RoutingJob:
 
     ``roles`` (change c0244) are the role routes of the critical connections; a job holds them only for a
     router whose ``router_features`` name ``roles``, which then routes them and nothing else.
+
+    ``subjects`` (change c0280) are the subjects of a proposal run; a job holds them only for a router whose
+    ``router_features`` name ``propose``, which then answers them with candidates and merges nothing.
+    ``options["candidates"]`` is the number kept per subject. A ``group`` subject's role routes are in
+    ``roles``.
     """
 
     design: Design
@@ -223,6 +287,8 @@ class RoutingJob:
     escape: tuple[JobEscape, ...] = ()
     # ``roles`` (c0244) comes after the fields of c0110.
     roles: tuple[JobRoleRoute, ...] = ()
+    # ``subjects`` (c0280) comes after ``roles``.
+    subjects: tuple[JobSubject, ...] = ()
 
 
 RunOutcomeName = Literal["done", "failed", "cut"]
@@ -249,7 +315,9 @@ class RoutingResult:
     ``runs`` lists one ``RouterRun`` per process the plugin started, in the order it started them, and
     ``not_attempted`` the nets of the runs it never started because the budget was spent; those nets are
     in ``unrouted`` too. ``roles`` (change c0244) holds one ``RoleOutcome`` per role route of the job, in
-    its order.
+    its order. ``candidates`` (change c0280) holds the candidates of a proposal run, in generation order, and
+    ``refusals`` one ``(subject key, reason, blockers)`` per subject left without a candidate; a proposal run
+    returns no track, arc or via.
     """
 
     tracks: tuple[Track, ...] = ()
@@ -265,6 +333,8 @@ class RoutingResult:
     runs: tuple[RouterRun, ...] = ()
     not_attempted: tuple[str, ...] = ()
     roles: tuple[RoleOutcome, ...] = ()
+    candidates: tuple[Candidate, ...] = ()
+    refusals: tuple[tuple[str, str, tuple[str, ...]], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -293,10 +363,11 @@ class Router(Protocol):
         ...
 
 
-ROUTER_FEATURES: frozenset[str] = frozenset({"pairs", "escape", "short", "roles"})
+ROUTER_FEATURES: frozenset[str] = frozenset({"pairs", "escape", "short", "roles", "propose"})
 """What a router may take beyond single nets (change c0110), ``short``: the router routes short
-connections, not whole boards (change c0228), and ``roles``: it routes the role routes of
-``RoutingJob.roles`` (change c0244). A router lists those it has in an attribute ``features``,
+connections, not whole boards (change c0228), ``roles``: it routes the role routes of
+``RoutingJob.roles`` (change c0244), and ``propose``: it answers the subjects of ``RoutingJob.subjects``
+with candidates (change c0280). A router lists those it has in an attribute ``features``,
 which the ``Router`` protocol does not hold, so that a router written before stays valid."""
 
 
@@ -314,14 +385,18 @@ def router_features(router: object) -> frozenset[str]:
 
 __all__ = [
     "ROUTER_FEATURES",
+    "SUBJECT_KINDS",
+    "Candidate",
     "EscapeKind",
     "FinishedRun",
+    "JobAttach",
     "JobEscape",
     "JobNet",
     "JobPad",
     "JobPair",
     "JobRoleEnd",
     "JobRoleRoute",
+    "JobSubject",
     "RoleKind",
     "RoleOutcome",
     "RoleStatus",
@@ -330,5 +405,6 @@ __all__ = [
     "RouterStatus",
     "RoutingJob",
     "RoutingResult",
+    "SubjectKind",
     "router_features",
 ]
