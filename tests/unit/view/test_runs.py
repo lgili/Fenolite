@@ -67,6 +67,18 @@ def test_roles_runs_on_the_board_without_options(tree: ProjectTree) -> None:
     assert isinstance(found, RunRequest) and found.arguments == {"path": BOARD.name}
 
 
+def test_proposals_run_on_the_board_without_options(tree: ProjectTree) -> None:
+    """Change c0280: the run ``proposals`` is ``route --router octilinear --propose`` on the board's file, takes
+    no option, and writes nothing."""
+    found = request({"command": "proposals", "doc": _doc(tree, BOARD.name)}, tree, CHOICES)
+    assert isinstance(found, RunRequest) and found.arguments == {"path": BOARD.name}
+    assert found.command == "proposals"
+    refused = request(
+        {"command": "proposals", "doc": _doc(tree, BOARD.name), "options": {"accept": ["c-0"]}}, tree, CHOICES
+    )
+    assert isinstance(refused, RunRefused) and "no option 'accept'" in refused.reason
+
+
 @pytest.mark.parametrize(
     ("body", "reason"),
     [
@@ -115,6 +127,7 @@ def test_documents_missing_or_outside_are_refused(tmp_path: Path) -> None:
 
 def test_offered_lists_the_options() -> None:
     offer = offered(CHOICES)
-    assert sorted(offer) == ["analyze", "check", "equivalent", "ready", "roles"]
+    assert sorted(offer) == ["analyze", "check", "equivalent", "proposals", "ready", "roles"]
+    assert offer["proposals"] == {"options": {}}
     assert offer["roles"] == {"options": {}}
     assert offer["check"]["options"]["stages"]["choices"] == list(CHOICES.stages)

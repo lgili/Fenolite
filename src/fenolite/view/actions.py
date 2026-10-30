@@ -34,6 +34,9 @@ REF = re.compile(r"^[A-Za-z0-9_.+#\-/\[\]]{1,64}$")
 ROLE_NAME = re.compile(r"^[^\s,=:\\]{1,128}$")
 """A net or group name the Confirm roles action passes on: no space, comma, ``=``, ``:`` or backslash."""
 NO_ROLES = "the board has no role data in this session: run roles first"
+NO_PROPOSALS = "the board has no proposal data in this session: run proposals first"
+CANDIDATE_ID = re.compile(r"^[cp]-[0-9a-f]{16}$")
+"""A candidate (``c-``) or proposal (``p-``) id of ``route --propose`` (change c0280)."""
 REASON_CHARS = 300
 ALTIUM = "Altium documents are not written from the viewer"
 NOT_A_BOARD = "the actions write a KiCad board: open the board of the project"
@@ -143,6 +146,21 @@ ACTIONS: Mapping[str, Action] = {
         },
         note="stored in the role document of the board; a script's declared roles stay the script's",
     ),
+    "route-accept": Action(
+        "route",
+        "Accept route candidates",
+        {"candidates": Option("candidates", required=True, label="candidates to lock")},
+        note="locks each candidate's copper and records the decision (route --accept)",
+    ),
+    "route-reject": Action(
+        "route",
+        "Reject route candidates",
+        {
+            "candidates": Option("decisions", required=True, label="candidates or proposals to reject"),
+            "reason": Option("reason", None, label="why"),
+        },
+        note="records the decision; the board is not written (route --reject)",
+    ),
     "export": Action(
         "export",
         "Export fabrication files",
@@ -161,7 +179,8 @@ ACTIONS: Mapping[str, Action] = {
     ),
 }
 """The actions of the page; ``waive`` is ``check --exclude``, ``roles`` (change c0305) is ``roles --accept``
-and ``--accept-group`` on the board."""
+and ``--accept-group`` on the board, ``route-accept`` and ``route-reject`` (change c0280) are ``route --router
+octilinear --accept`` and ``--reject`` with ids of the session's proposal data."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,13 +205,16 @@ class ActionRefused:
 @dataclass(frozen=True, slots=True)
 class Context:
     """What the server knows of the document: its board's part references, its session's check findings (as
-    the page lists them, ``check_overlay`` order) and the nets and groups its role data shows as inferred
-    (change c0305; ``None`` without role data)."""
+    the page lists them, ``check_overlay`` order), the nets and groups its role data shows as inferred
+    (change c0305; ``None`` without role data), and the candidate and proposal ids of its proposal data
+    (change c0280; ``None`` without it)."""
 
     refs: frozenset[str] = frozenset()
     findings: tuple[Json, ...] = ()
     roles: frozenset[str] | None = None
     groups: frozenset[str] | None = None
+    candidates: frozenset[str] | None = None
+    proposals: frozenset[str] | None = None
 
 
 def availability(tree: ProjectTree, doc: Document | None) -> str | None:
@@ -312,7 +334,27 @@ def _typed(key: str, option: Option, value: Any, context: Context, root: Path) -
         return _finding(key, value, context)
     if kind in ("nets", "groups"):
         return _role_names(key, value, context.roles if kind == "nets" else context.groups)
+    if kind in ("candidates", "decisions"):
+        return _decision_ids(key, value, context, proposals=kind == "decisions")
     raise AssertionError(kind)
+
+
+def _decision_ids(key: str, value: Any, context: Context, *, proposals: bool) -> list[str] | ActionRefused:
+    """``value`` as candidate ids (and, for a reject, proposal ids) of the session's proposal data."""
+    if context.candidates is None:
+        return ActionRefused(NO_PROPOSALS)
+    known: set[str] = set(context.candidates)
+    if proposals and context.proposals is not None:
+        known |= context.proposals
+    if not isinstance(value, list) or not value or len(cast("list[Any]", value)) > 64:
+        return ActionRefused(f"{key}: a list of 1 to 64 ids")
+    found: list[str] = []
+    for item in cast("list[Any]", value):
+        if not isinstance(item, str) or not CANDIDATE_ID.fullmatch(item) or item not in known:
+            return ActionRefused(f"{key}: {item!r} is not an id of this board's proposals")
+        if item not in found:
+            found.append(item)
+    return found
 
 
 def _role_names(key: str, value: Any, known: frozenset[str] | None) -> str | ActionRefused:
@@ -387,7 +429,8 @@ def plan(body: Any, tree: ProjectTree, context: Context = Context()) -> ActionRe
     flags = _flags(name, values)
     if isinstance(flags, ActionRefused):
         return flags
-    path = doc.file if name == "roles" and doc.file is not None else target(tree, doc)
+    on_board = name in ("roles", "route-accept", "route-reject")
+    path = doc.file if on_board and doc.file is not None else target(tree, doc)
     rel = path.resolve().relative_to(tree.root.resolve()).as_posix()
     return ActionRequest(name, doc.id, action.command, (action.command, *flags, "--", rel), path)
 
@@ -430,6 +473,11 @@ def _flags(name: str, v: Json) -> list[str] | ActionRefused:  # noqa: PLR0911 - 
             return ActionRefused("roles: choose the nets or groups to confirm")
         return [*([f"--accept={v['nets']}"] if v.get("nets") else []),
                 *([f"--accept-group={v['groups']}"] if v.get("groups") else [])]  # fmt: skip
+    if name == "route-accept":
+        return ["--router", "octilinear", *(f"--accept={i}" for i in v["candidates"])]
+    if name == "route-reject":
+        reason = [f"--reason={v['reason']}"] if v.get("reason") else []
+        return ["--router", "octilinear", *(f"--reject={i}" for i in v["candidates"]), *reason]
     if name == "export":
         return [f"--out={v['out']}", *(f"--{kind}" for kind in v["kinds"])]
     if name == "bom":

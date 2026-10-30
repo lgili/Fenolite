@@ -35,11 +35,21 @@ class _Served:
     """``fenolite view BOARD --serve --allow-actions`` in a thread, stopped by the test's event, with its own
     state folder."""
 
-    def __init__(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def __init__(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        source: Path | None = None,
+        extra: tuple[str, ...] = (),
+    ) -> None:
         self.folder = tmp_path / "project"
-        self.folder.mkdir()
-        self.board = self.folder / BOARD.name
-        shutil.copy(BOARD, self.board)
+        if source is None:
+            self.folder.mkdir()
+            self.board = self.folder / BOARD.name
+            shutil.copy(BOARD, self.board)
+        else:  # a built project: its folder, its model and its project file (change c0280)
+            shutil.copytree(source.parent, self.folder)
+            self.board = self.folder / source.name
         monkeypatch.setenv("FENOLITE_STATE_DIR", str(tmp_path / "state"))
         self.stop = threading.Event()
         monkeypatch.setattr(cmd_view, "SERVE_STOP", self.stop)
@@ -57,7 +67,8 @@ class _Served:
         self.codes: list[int] = []
         argv = [
             "view",
-            BOARD.name,
+            self.board.name,
+            *extra,
             "--serve",
             "--allow-actions",
             "--no-browser",
@@ -254,3 +265,39 @@ def test_tidy_with_the_drc_gate(served: _Served) -> None:
         plan = served.plan("tidy", prune=True)
     assert plan["state"] == "done", plan
     assert "--gate" not in json.dumps(plan.get("error") or {})
+
+
+def test_route_accept_from_the_page(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Accept a candidate from the page" (c0280): over a copy of the buck role-copper variant and its
+    proposal data, ``route-accept`` with a candidate id of the data plans ``route --router octilinear
+    --accept=<id> -- <board>`` (the board and the decision record), and an id the data lacks is refused with
+    400 naming it."""
+    import _roles  # noqa: F401, PLC0415  (puts tests/unit/roles on the path)
+    from _proposals import phase2  # noqa: PLC0415  (builds a role-copper board through phase 2)
+
+    built = phase2("buck_shunt", "bad", tmp_path / "p2")
+    args = ["route", built.board.name, "--router", "octilinear", "--propose", "--candidates", "1", "--json"]
+    code, envelope, error = cli_main.invoke(args, cwd=built.out)
+    assert code == 0 and envelope is not None, error
+    saved = tmp_path / "proposals.json"
+    saved.write_text(json.dumps(envelope), encoding="utf-8")
+    chosen = next(
+        c["id"]
+        for p in envelope["result"]["proposals"]
+        if p["subject"] == "fanout:GND:C3-2"
+        for c in p["candidates"]
+    )
+    served = _Served(monkeypatch, tmp_path, built.board, ("--proposals", str(saved)))
+    before = _sha(served.board)
+    with served:
+        plan = served.plan("route-accept", candidates=[chosen])
+        refused = served.post(
+            "/action/plan",
+            {"action": "route-accept", "doc": "doc1", "options": {"candidates": ["c-0000000000000000"]}},
+        )
+    assert plan["state"] == "done", plan
+    assert sorted(Path(w["path"]).name for w in plan["plan"]["writes"]) == sorted(
+        [built.board.name, "route-decisions.json"]
+    )
+    assert refused[0] == 400 and "c-0000000000000000" in json.dumps(refused[1])
+    assert _sha(served.board) == before

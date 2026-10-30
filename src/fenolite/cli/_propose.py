@@ -1580,20 +1580,25 @@ def run_forget(args: argparse.Namespace, ctx: Context, board: Board, router: Rou
     after = board.design
     removed = 0
     if not unknown and after.board is not None:
-        drop_ids: set[str] = set()
+        # matched by geometry: a board read back gives its items the ids of their KiCad uuids
+        tracks: set[tuple[str, int, Point, Point]] = set()
+        vias: set[tuple[Point, int]] = set()
         names: set[str] = set()
         for i in ids:
             entry = locked.get(i)
             if entry is None:
                 continue
             items, areas = _entry_items(entry, after)
-            drop_ids |= {t.id for t in items.tracks} | {v.id for v in items.vias}
+            tracks |= {(t.layer, t.width, t.start, t.end) for t in items.tracks}
+            vias |= {(v.position, v.diameter) for v in items.vias}
             names |= {a.name for a in areas}
         held = after.board
         trimmed = dataclasses.replace(
             held,
-            tracks=tuple(t for t in held.tracks if t.id not in drop_ids),
-            vias=tuple(v for v in held.vias if v.id not in drop_ids),
+            tracks=tuple(
+                t for t in held.tracks if not (t.locked and (t.layer, t.width, t.start, t.end) in tracks)
+            ),
+            vias=tuple(v for v in held.vias if not (v.locked and (v.position, v.diameter) in vias)),
             keepouts=tuple(k for k in held.keepouts if k.name not in names),
         )
         removed = (len(held.tracks) + len(held.vias) + len(held.keepouts)) - (

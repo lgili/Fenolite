@@ -374,6 +374,45 @@ def test_roles_of_a_reference_board(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert code == 3 and err["code"] == "FEN-3004" and "check reply" in err["message"]
 
 
+def test_proposals_joined_to_a_view(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Proposals joined to a view" (c0280): `--proposals run` proposes read-only and embeds the
+    proposals with their counts; a `check` reply as `--proposals` is FEN-3004."""
+    import _roles  # noqa: F401, PLC0415  (puts tests/unit/roles on the path)
+    from _proposals import phase2  # noqa: PLC0415  (builds a role-copper board through phase 2)
+
+    built = phase2("buck_shunt", "bad", tmp_path / "p2")
+    board = built.board
+    before = {p.name: p.read_bytes() for p in board.parent.rglob("*") if p.is_file()}
+    page = tmp_path / "page.html"
+    code, envelope, err, _ = run(
+        monkeypatch,
+        tmp_path,
+        "view",
+        str(board),
+        "--proposals",
+        "run",
+        "--export",
+        str(page),
+        "--confirm",
+        "--json",
+    )
+    assert code == 0, err
+    told = envelope["result"]["proposals"]
+    assert told["proposals"] >= 2 and told["candidates"] >= 2 and told["evidence"] == "UNVERIFIED"
+    assert envelope["evidence"]["level"] == "UNVERIFIED"
+    assert {p.name: p.read_bytes() for p in board.parent.rglob("*") if p.is_file()} == before  # read-only
+    data = embedded(page.read_text(encoding="utf-8"))
+    assert data is not None
+    (scene,) = [s for s in data["scenes"].values() if s.get("proposals")]
+    assert scene["proposals"]["schema"] == "fenolite.view_proposals.v0"
+    check = tmp_path / "check.json"
+    check.write_text(
+        json.dumps({"command": "check", "result": {"stages": []}, "issues": []}), encoding="utf-8"
+    )
+    code, _, err, _ = run(monkeypatch, tmp_path, "view", str(board), "--proposals", str(check), "--json")
+    assert code == 3 and err["code"] == "FEN-3004" and "check reply" in err["message"]
+
+
 def test_marks(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Scenario "Marks for an agent" (c0189): `result.marks` lists the marks of an authored review file."""
     review = tmp_path / "review.json"

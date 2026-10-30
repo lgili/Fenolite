@@ -40,6 +40,7 @@ from urllib.parse import parse_qs, unquote
 
 from fenolite.core.errors import FormatError
 from fenolite.view import actions, review, runs
+from fenolite.view import proposals as proposals_view
 from fenolite.view.compact import compact
 from fenolite.view.export import page
 from fenolite.view.jobs import Busy, Job, Jobs
@@ -184,9 +185,15 @@ class Live:
         if placed is None:
             placed = cast("dict[str, Any] | None", scene.get("check"))
         findings = tuple(cast("list[dict[str, Any]]", (placed or {}).get("findings") or []))
+        held = scene.get("proposals")  # c0280: the candidate and proposal ids the route actions may name
+        candidates, proposal_ids = (
+            proposals_view.ids_of(cast("dict[str, Any]", held)) if isinstance(held, dict) else (None, None)
+        )
         data = scene.get("roles")
         if not isinstance(data, dict):  # c0305: the inferred roles and groups that Confirm roles may name
-            return actions.Context(refs=refs, findings=findings)
+            return actions.Context(
+                refs=refs, findings=findings, candidates=candidates, proposals=proposal_ids
+            )
         rows = [_object(r) for r in cast("list[Any]", cast("dict[str, Any]", data).get("roles") or [])]
         groups = [_object(g) for g in cast("list[Any]", cast("dict[str, Any]", data).get("groups") or [])]
         return actions.Context(
@@ -196,6 +203,8 @@ class Live:
             groups=frozenset(
                 str(g["name"]) for g in groups if g.get("origin") == "inferred" and g.get("name")
             ),
+            candidates=candidates,
+            proposals=proposal_ids,
         )
 
     def _tools(self) -> ActionTools:

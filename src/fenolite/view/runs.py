@@ -22,9 +22,11 @@ from typing import Any, Protocol, cast
 
 from fenolite.view.project import Document, ProjectTree
 
-ALLOWED = ("check", "analyze", "ready", "equivalent", "roles")
+ALLOWED = ("check", "analyze", "ready", "equivalent", "roles", "proposals")
 """The commands a page may run: each is read-only. ``roles`` (change c0305) runs as ``roles --check`` on the
-board, with no option: its writing options are the Confirm roles action of ``actions``."""
+board, with no option: its writing options are the Confirm roles action of ``actions``. ``proposals``
+(change c0280) runs as ``route --router octilinear --propose`` on a KiCad board, with no option: it writes
+nothing, and its candidates are locked through the ``route-accept`` action."""
 RUN_HEADER = "X-Fenolite-Run"
 """The header every run request carries (see ``server``: the guard)."""
 RUN_BYTES = 16 * 1024
@@ -185,6 +187,7 @@ def request(body: Any, tree: ProjectTree, choices: Choices = Choices()) -> RunRe
         "analyze": {"kinds"},
         "ready": {"no_kicad"},
         "roles": set[str](),
+        "proposals": set[str](),
     }.get(str(command), {"b", "level", "frame"})
     for key in options:
         if key in NEVER or key not in allowed_keys:
@@ -214,6 +217,10 @@ def request(body: Any, tree: ProjectTree, choices: Choices = Choices()) -> RunRe
         if doc.kind != "pcb":
             return RunRefused(f"roles reads a board, and {doc.name} is a {doc.kind}")
         return RunRequest("roles", doc.id, path, {"path": _relative(tree, path)})
+    if command == "proposals":
+        if doc.kind != "pcb" or path.suffix.lower() != KICAD_BOARD or is_altium(tree, path):
+            return RunRefused(f"proposals reads a KiCad board, and {doc.name} is not one")
+        return RunRequest("proposals", doc.id, path, {"path": _relative(tree, path)})
     if command == "ready":
         project = _project(tree)
         target = project if project is not None and project.suffix.lower() == KICAD_PROJECT else path
@@ -270,6 +277,7 @@ def offered(choices: Choices) -> dict[str, Json]:
         },
         "ready": {"options": {"no_kicad": {"type": "boolean", "default": False}}},
         "roles": {"options": {}},
+        "proposals": {"options": {}},
         "equivalent": {
             "options": {
                 "b": {"type": "document"},

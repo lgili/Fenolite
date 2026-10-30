@@ -15,15 +15,16 @@ from _proposals import subject_bench
 from _roleboards import Built, judge
 
 from fenolite.core.coords import Point
+from fenolite.roles.measure import RoleBoard, power_pads
 from fenolite.roles.proposals import Attach, OpenGroup, SubjectPlan, subjects
 
 
 def plan_of(built: Built, groups: tuple[OpenGroup, ...] = ()) -> SubjectPlan:
     design, pads = board(built)
-    roles = judge(built, check=False).resolved.roles
-    return subjects(
-        design, pads, roles=roles, groups=groups, widths={n.name: 250_000 for n in design.circuit.nets}
-    )
+    resolved = judge(built, check=False).resolved
+    power = power_pads(RoleBoard(design, pads, resolved.roles, resolved.classes))
+    widths = {n.name: 250_000 for n in design.circuit.nets}
+    return subjects(design, pads, roles=resolved.roles, groups=groups, widths=widths, power=power)
 
 
 @pytest.fixture(scope="module")
@@ -81,7 +82,7 @@ def test_group_subjects(bench_board: Built) -> None:
 LEFTOVERS = {
     ("buck_shunt", "bad"): ["fanout:GND:C3-2", "join:VOUT:C3-1~role.power.VOUT.F.Cu"],
     ("half_bridge", "good"): ["join:SRC:Q2-2~role.power.SRC.F.Cu", "join:SW:Q1-2~role.switch_node.SW.F.Cu"],
-    ("bms", "good"): ["role-net:FET_S:Q1-2~Q1-3", "role-net:FET_S:Q2-2~Q2-3"],
+    ("bms", "good"): ["role-net:FET_S:Q1-2~Q1-3", "role-net:FET_S:Q1-3~Q2-3"],
 }
 
 
@@ -90,6 +91,38 @@ def test_leftover_subjects_of_role_copper(
     role_copper: Callable[..., Built], name: str, variant: str, tmp_path: Path
 ) -> None:
     """The opens that phase 1 leaves (task 0.1), as subjects: the buck's ``C3-2`` a fan-out, the half-bridge's
-    Kelvin-source pads joins into their pours, the bms ``FET_S`` two role-net subjects."""
+    Kelvin-source pads joins into their pours, the bms ``FET_S`` two role-net subjects taken along its power
+    pads (the two sources joined, then one Kelvin-source pad), so that no gate return becomes the path of the
+    pack current."""
     plan = plan_of(role_copper(name, variant))
     assert [s.key for s in plan.subjects] == LEFTOVERS[name, variant]
+
+
+def test_role_net_candidates_are_labelled(role_copper: Callable[..., Built], tmp_path: Path) -> None:
+    """Scenario "An inferred net between two switches": on the bms role-copper variant with ``FET_S``
+    inferred and not confirmed, each open connection of ``FET_S`` is a ``role-net`` subject whose candidates
+    carry ``current: not-declared`` and whose ``confirm`` alternative names both commands."""
+    from _critical import cli
+    from _proposals import copy_of
+
+    built = copy_of(role_copper("bms", "good"), tmp_path)
+    code, env, err = cli(
+        "route",
+        str(built.board),
+        "--router",
+        "octilinear",
+        "--propose",
+        "--kind",
+        "role-net",
+        "--candidates",
+        "1",
+    )
+    assert code == 0, err
+    proposals = env["result"]["proposals"]
+    assert [p["subject"] for p in proposals] == ["role-net:FET_S:Q1-2~Q1-3", "role-net:FET_S:Q1-3~Q2-3"]
+    for proposal in proposals:
+        assert proposal["candidates"]
+        assert all(c["facts"]["current"] == "not-declared" for c in proposal["candidates"])
+        (confirm,) = [a for a in proposal["alternatives"] if a["kind"] == "confirm"]
+        assert confirm["command"] == f"fenolite roles {built.board.name} --accept FET_S --dry-run"
+        assert confirm["then"] == f"fenolite copper {built.board.name} --dry-run"

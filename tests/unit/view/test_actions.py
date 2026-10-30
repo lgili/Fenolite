@@ -163,6 +163,48 @@ def test_roles_names_checked_against_the_role_data(tree: ProjectTree) -> None:
 def test_offered_lists_every_action(tree: ProjectTree) -> None:
     offer = offered(tree, tree.document("doc1"))
     assert sorted(offer) == sorted(
-        ["bom", "export", "fill", "move", "roles", "shift", "silk", "testpoints", "tidy", "turn", "waive"]
+        [
+            "bom",
+            "export",
+            "fill",
+            "move",
+            "roles",
+            "route-accept",
+            "route-reject",
+            "shift",
+            "silk",
+            "testpoints",
+            "tidy",
+            "turn",
+            "waive",
+        ]  # fmt: skip
     )
     assert offer["tidy"]["options"]["gate_drc"]["default"] is True and offer["fill"]["available"] is True
+
+
+def test_route_accept_and_reject_name_the_session_ids(tree: ProjectTree) -> None:
+    """Scenario "Accept a candidate from the page" (c0280): ``route-accept`` is ``route --router octilinear
+    --accept`` on the board with candidate ids of the session's proposal data; ``route-reject`` takes candidate
+    or proposal ids and a reason; any other id is refused (400)."""
+    chosen, proposal = "c-0123456789abcdef", "p-fedcba9876543210"
+    context = Context(candidates=frozenset({chosen}), proposals=frozenset({proposal}))
+
+    def ask(action: str, **options: object) -> ActionRequest | ActionRefused:
+        return plan({"action": action, "doc": "doc1", "options": options}, tree, context)
+
+    found = ask("route-accept", candidates=[chosen])
+    assert isinstance(found, ActionRequest) and list(found.words) == [
+        "route", "--router", "octilinear", f"--accept={chosen}", "--", BOARD.name,
+    ]  # fmt: skip
+    assert found.target == tree.root / BOARD.name
+    with_flags(found.words, "--dry-run")
+    refused = ask("route-accept", candidates=["c-0000000000000000"])
+    assert isinstance(refused, ActionRefused) and "c-0000000000000000" in refused.reason
+    assert isinstance(ask("route-accept", candidates=[proposal]), ActionRefused)
+    rejected = ask("route-reject", candidates=[chosen, proposal], reason="crosses the gate loop")
+    assert isinstance(rejected, ActionRequest) and list(rejected.words) == [
+        "route", "--router", "octilinear", f"--reject={chosen}", f"--reject={proposal}",
+        "--reason=crosses the gate loop", "--", BOARD.name,
+    ]  # fmt: skip
+    bare = plan({"action": "route-accept", "doc": "doc1", "options": {"candidates": [chosen]}}, tree, CONTEXT)
+    assert isinstance(bare, ActionRefused) and "no proposal data" in bare.reason

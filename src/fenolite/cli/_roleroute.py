@@ -852,7 +852,11 @@ def _entry(
         "proposal": None,
         "copper": list(copper_of.get(plan.name, ())) if status == "routed" else [],
         "corridors": sorted(a.id for a in made.get(plan.name, ())) if status == "routed" else [],
+        "propose": None,
     }
+    if status in ("unrouted", "refused"):
+        # the proposal mode lists the group's candidates with their facts (change c0280)
+        entry["propose"] = f"fenolite route {board} --router octilinear --propose --group {plan.name}"
     if status in ("unrouted", "refused", "skipped", "kept"):
         proposal = _proposal(plan, reason if status != "kept" else "kept", detail, board, records, blockers)
         entry["proposal"] = proposal

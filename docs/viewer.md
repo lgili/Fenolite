@@ -366,6 +366,22 @@ fenolite view build/board.kicad_pcb --roles run --export roles.html --confirm   
 fenolite view build/ --serve --roles run --allow-actions                          # confirm roles from the page
 ```
 
+## Route proposals
+
+`fenolite view BOARD --proposals run` runs `fenolite route BOARD --router octilinear --propose` first, read-only,
+and joins its reply to the board's scene; `--proposals FILE` reads a saved `--json` reply (change c0280). The
+scene carries `proposals` (`fenolite.view_proposals.v0`): each proposal with its box, reason and
+alternatives, each candidate with its polylines, vias and facts as the reply gives them, and the locked
+decisions. No score is added: the facts are the reply's. A served page can run `proposals` and, with
+`--allow-actions`, plan **route-accept** and **route-reject** through the same plan, confirm and undo as the
+other actions. Drawing the candidates (dashed in their layer colour, locked ones solid, a comparison table
+of the facts without a default sort) is the work of the next viewer change; this change fixes the data and
+the actions.
+
+```sh
+fenolite view build/board.kicad_pcb --proposals run --export proposals.html --confirm   # a page with the data
+```
+
 ## Review tools
 
 Change c0189 adds what a review in Altium relies on:

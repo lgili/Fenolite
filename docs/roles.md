@@ -321,6 +321,30 @@ by corridors `role.corridor.<group>.<net>` that keep every pour off the branch. 
   without its critical copper. Routed, the buck and the bms keep only their power-copper faults; the
   half-bridge routes both gate loops and reports its sense pair blocked by the switch-node pour under it.
 
+## Proposals after the critical routes
+
+`fenolite route BOARD --router octilinear --propose` (change c0280, phase 4) lists every open connection that
+the power copper and the critical routes leave, with candidate shapes and the facts of each, and no score
+(`docs/routing.md`, "Proposals"). Nothing reaches the board without `--accept ID` and a confirmed plan.
+
+- **Run order.** Phase 1 (`design.role_copper()` in the script, or `fenolite copper`), phase 2
+  (`route --roles critical`), then phase 4 (`route --propose`, `--accept`), then `fenolite fill` and
+  `fenolite roles BOARD --check`. Phase 3, a search router for what is left, comes after.
+- **The leftovers.** On the role-copper reference variants after phase 2 (measured with KiCad 10.0.7):
+  the buck's ground pad `C3-2` on `F.Cu`, with the ground plane on `B.Cu` and no via, is a `fanout`
+  subject, and `bad_roles` adds `C3-1` outside the `VOUT` pour (a `join`); the half-bridge's Kelvin-source
+  pads, whose gate returns leave them, apart from their source pours (`join`: `Q2-2` on both variants,
+  `Q1-2` on `good_roles`); the bms `FET_S`, a confirmed power net without a current, so phase 1 made no
+  copper: two `role-net` subjects, the two sources joined and one Kelvin-source pad, each candidate at the
+  class width with `current: not-declared` and the alternative `confirm` (`fenolite roles BOARD --accept
+  FET_S`, then `fenolite copper`). The facts name the candidates that would make a gate return carry the
+  power current (`roles.gate-return-shared`); the others lock clean, and KiCad's DRC then finds no
+  unconnected item.
+- **Groups phase 2 left open.** Each is a `group` subject, its candidates from role mode with one relaxation
+  at a time; a relaxed candidate is labelled and its `roles` facts show what it breaks.
+- **Altium.** As for phase 2: the Altium deliverable is `fenolite convert BOARD --to altium`; the accepted
+  tracks and vias keep their lock, and a group candidate's corridors become keep-out regions.
+
 ## Limits
 
 - Loop areas are plan areas of the copper legs: a return under the forward path on the next layer counts

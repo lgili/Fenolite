@@ -125,6 +125,12 @@ def test_a_blocked_pair_is_reported(tmp_path: Path) -> None:
     assert "--region " in proposal["command"] and proposal["region"]
     assert codes(env, "route.role") == ["route.role-unrouted"]
     assert not env["result"].get("plan")
+    # change c0280, MODIFIED "Critical route failures": the entry names the proposal mode for its group
+    assert (
+        entry["propose"]
+        == f"fenolite route {built.board.name} --router octilinear --propose --group kelvin_R1"
+    )
+    assert {e["propose"] for name, e in entries(env).items() if name != "kelvin_R1"} == {None}
 
 
 def _fill(board: Path) -> None:

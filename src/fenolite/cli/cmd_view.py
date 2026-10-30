@@ -49,6 +49,7 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 from fenolite.placement import legality
 from fenolite.view import export, meshes, models, project_review, review, server, themes
+from fenolite.view import proposals as proposals_view
 from fenolite.view import roles as roles_view
 from fenolite.view.altium_layers import native_view
 from fenolite.view.bom import bom_scene
@@ -152,6 +153,11 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--check", metavar="FILE|run", help="draw a check reply's findings; run: check first")
     parser.add_argument(
         "--roles", metavar="FILE|run", help="draw a roles --check reply on its board; run: run it first"
+    )
+    parser.add_argument(
+        "--proposals",
+        metavar="FILE|run",
+        help="join a route --propose reply to its board; run: propose first (read-only)",
     )
     parser.add_argument(
         "--report",
@@ -797,6 +803,90 @@ class Roles:
         return None, None
 
 
+def proposals_run(board: Path, ctx: Context) -> dict[str, Any]:
+    """The envelope of ``fenolite route BOARD --router octilinear --propose`` run here; it writes nothing
+    (change c0280)."""
+    from fenolite.cli import cmd_route  # noqa: PLC0415  (only --proposals needs the router)
+
+    parser = argparse.ArgumentParser(add_help=False)
+    cmd_route.COMMAND.register(parser)
+    found = cmd_route.COMMAND.run(parser.parse_args([str(board), "--router", "octilinear", "--propose"]), ctx)
+    return {
+        "command": "route",
+        "result": found.result,
+        "issues": [dataclasses.asdict(issue) for issue in found.issues],
+        "evidence": {"level": found.evidence.level.value, "hypotheses": list(found.evidence.hypotheses)},
+        "input": dataclasses.asdict(found.input) if found.input is not None else None,
+    }
+
+
+class Proposals:
+    """The ``route --propose`` replies of the boards of a page (change c0280): ``--proposals run`` proposes
+    for each KiCad board when it is first shown and again when the board changed; ``--proposals FILE`` gives
+    one saved reply for the board it names; a run from a served page replaces a board's reply (``keep``)."""
+
+    def __init__(self, argument: str | None, ctx: Context) -> None:
+        self.ctx, self.run = ctx, argument == "run"
+        self.file: dict[str, Any] | None = None
+        self.session: dict[str, tuple[str, dict[str, Any]]] = {}
+        if argument is not None and argument != "run":
+            path = Path(argument) if Path(argument).is_absolute() else ctx.cwd / argument
+            if not path.is_file():
+                raise CliError("FEN-3001", f"--proposals: {argument} does not exist", where="--proposals")
+            try:
+                self.file = proposals_view.read_reply(
+                    json.loads(path.read_text(encoding="utf-8")), name=path.name
+                )
+            except (ValueError, FormatError) as exc:
+                raise CliError(
+                    "FEN-3004",
+                    f"--proposals: {exc}",
+                    where=argument,
+                    hint="pass the JSON reply of `fenolite route BOARD --router octilinear --propose "
+                    "--json`, or `--proposals run`",
+                ) from exc
+
+    def keep(self, board: Path, envelope: dict[str, Any]) -> None:
+        self.session[str(board)] = (hashlib.sha256(board.read_bytes()).hexdigest(), envelope)
+
+    def reply(self, board: Path) -> tuple[dict[str, Any] | None, str | None]:
+        """The reply for ``board``, and a note when it was made for another revision; ``(None, None)``."""
+        kept = self.session.get(str(board))
+        if kept is not None and kept[0] == hashlib.sha256(board.read_bytes()).hexdigest():
+            return kept[1], None
+        if kept is not None or self.run:
+            if board.suffix.lower() != ".kicad_pcb":
+                raise CliError(
+                    "FEN-2001",
+                    f"--proposals run proposes on KiCad boards, and {board.name} is not one",
+                    where="--proposals",
+                    hint="convert the board to KiCad, or pass a saved reply",
+                )
+            self.keep(board, proposals_run(board, self.ctx))
+            return self.session[str(board)][1], None
+        if self.file is not None:
+            source = cast("dict[str, Any]", self.file.get("input") or {})
+            if source.get("path") not in (None, board.name):
+                return None, None
+            if source.get("sha256") and source["sha256"] != hashlib.sha256(board.read_bytes()).hexdigest():
+                return self.file, "the proposals reply was made for another revision of this board"
+            return self.file, None
+        return None, None
+
+
+def _with_proposals(proposals: Proposals, path: Path, scene: dict[str, Any]) -> dict[str, Any]:
+    """``scene`` with ``proposals`` (``fenolite.view_proposals.v0``) when it is a board with a reply."""
+    if scene.get("kind") is not None:
+        return scene
+    envelope, note = proposals.reply(path)
+    if envelope is None:
+        return scene
+    data = proposals_view.overlay(envelope, scene)
+    if note:
+        data["notes"] = [note]
+    return scene | {"proposals": data}
+
+
 def _with_roles(roles: Roles, path: Path, scene: dict[str, Any]) -> dict[str, Any]:
     """``scene`` with ``roles`` (``fenolite.view_roles.v0``) when it is a board with a roles reply."""
     if scene.get("kind") is not None:
@@ -1043,6 +1133,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     reply = check_reply(args.check, ctx, tree, doc.file if doc is not None else None)
     reports = reports_of(args.report, ctx)
     roles = Roles(args.roles, ctx)
+    proposals = Proposals(args.proposals, ctx)
     marks_file, marks = marks_of(args.marks, ctx, serving=bool(args.serve))
 
     session: dict[str, dict[str, Any]] = {}
@@ -1051,6 +1142,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     def cached(path: Path) -> dict[str, Any]:
         found = session.get(_session_key(tree, path), reply)
         scene = _with_roles(roles, path, nets_of.annotate(path, plain(path)))
+        scene = _with_proposals(proposals, path, scene)
         scene = _with_check(found, tree, path, scene)
         review_status = project_review.status(scene, found, reports)
         if "check" in scene and review_status["binding"] and not review_status["binding"]["matched"]:
@@ -1079,6 +1171,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             result["check"] = check_summary(scene["check"])
         if "roles" in scene:
             result["roles"] = roles_view.summary(scene["roles"])
+        if "proposals" in scene:
+            result["proposals"] = proposals_view.summary(scene["proposals"])
         scenes[doc.id] = scene
         result["summary"] = _summary(scene)
         result["review"] = scene["project_review"]
@@ -1098,8 +1192,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             if scene["meta"]["evidence"] in Level._value2member_map_
             else evidence
         )
-        if "roles" in scene:  # the lowest level of what is shown (change c0305)
-            shown = scene["roles"]["evidence"]
+        for joined in ("roles", "proposals"):  # the lowest level of what is shown (changes c0305, c0280)
+            if joined not in scene:
+                continue
+            shown = scene[joined]["evidence"]
             level = Level(shown["level"]) if shown["level"] in Level._value2member_map_ else Level.INFERRED
             evidence = Evidence.combine(evidence, Evidence(level, hypotheses=tuple(shown["hypotheses"])))
         ref = InputRef(path=doc.file.name, sha256=scene["meta"]["sha256"], kind=doc.kind, format_version=None)
@@ -1164,6 +1260,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             if command == "roles":  # change c0305: the board's role data, kept for its later builds
                 roles.keep(path, envelope)
                 return {"roles": cached(path).get("roles")}
+            if command == "proposals":  # change c0280: the board's route proposals
+                proposals.keep(path, envelope)
+                return {"proposals": cached(path).get("proposals")}
             if command == "analyze":
                 items, groups = analyze_overlays(
                     envelope, "Paths of an analyze run from the page.", source="run:analyze"
@@ -1232,6 +1331,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         *args.report,
         *([args.check] if args.check and args.check != "run" else []),
         *([args.roles] if args.roles and args.roles != "run" else []),
+        *([args.proposals] if args.proposals and args.proposals != "run" else []),
     ]
     return Result(
         result=result,

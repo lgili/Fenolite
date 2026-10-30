@@ -931,7 +931,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 
 ## route
 
-`fenolite route PATH --router NAME [--nets GLOB]... [--order GLOBS]... [--rip] [--include-zone-nets] [--no-plane-fanout] [--require-complete] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [--escape REF[=grid|perimeter]]... [--pairs-as-nets] [--roles critical [--group NAME]... [--roles-file FILE]] [--gate drc [--kicad-cli PATH]] [-o FILE]` routes the nets that still have open connections. `PATH` accepts a board, matching project or folder. External tools receive a temporary model-authored project copy; only routed tracks, arcs and vias are merged back. `--out` is relative to the working directory. The normal dry-run/confirm receipt protocol applies.
+`fenolite route PATH --router NAME [--nets GLOB]... [--order GLOBS]... [--rip] [--include-zone-nets] [--no-plane-fanout] [--require-complete] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [--escape REF[=grid|perimeter]]... [--pairs-as-nets] [--roles critical [--group NAME]... [--roles-file FILE]] [--propose [--kind KIND]... [--candidates N] [--show-rejected] | --accept ID... | --reject ID... [--reason TEXT] | --replay | --forget ID...] [--gate drc [--kicad-cli PATH]] [-o FILE]` routes the nets that still have open connections. `PATH` accepts a board, matching project or folder. External tools receive a temporary model-authored project copy; only routed tracks, arcs and vias are merged back. `--out` is relative to the working directory. The normal dry-run/confirm receipt protocol applies.
 
 - **Selection.** A net is selected when it matches `--nets`, has two or more pads and has an open connection on the board, computed from the board after the rip (`docs/analyses.md`, "Open connections"). Copper of its own does not exclude a net; a closed net is never given to the router; a zone net needs `--include-zone-nets`.
 - **`--rip`** removes the tracks, arcs and vias of the matching nets first, but keeps locked copper and script copper (`result.rip_kept`).
@@ -1012,11 +1012,48 @@ group of the plan, sorted by tier and name: `group`, `kind` (`gate_loop`, `kelvi
 `status` (`routed`, `complete`, `kept`, `refused`, `unrouted`, `skipped`), `connections` (`key`, `net`, `a`,
 `b`, `layer`, `form`: `single`, `pair`, `side-by-side`, `stacked` or `plane-return`, `length`, `vias`),
 `findings_before` and `findings_after` (`code`, `severity`, `measure`), `reason` and `proposal` (`kind`,
-`text`, `command`, `region`) when not routed, `copper` and `corridors` (ids). `plane_fanout` is `null`. The
+`text`, `command`, `region`) when not routed, `copper` and `corridors` (ids), and `propose` (change c0280). `plane_fanout` is `null`. The
 role options of `octilinear` are `gate-vias`, `kelvin-vias`, `keep-away`, `z-shapes`, `rounds` and
 `max-length` (no default in role mode); see `docs/routing.md`, "Role mode".
 
-`fenolite route --router octilinear` (change c0228) is built in, runs no process and places no via: for each open connection it tries a straight segment, 45° then straight, straight then 45° and the two L shapes on each allowed layer, and keeps the first that keeps the clearance in force plus 2 µm from other nets' copper and holes, the edge clearance, and no acute angle at its ends. `--router-option max-length=LENGTH` (default 20 mm) bounds a shape: a connection longer by every shape stays open with `route.unrouted`; `--router-option rounds=N` (default 3) routes the failed connections first in the next round. A pair of two pads per net is routed as two tracks at the pair gap (`route.pair-not-routed` otherwise). The copper check judges the result, and a connection with a new finding is removed (`route.check-refused`). Its features are `pairs`, `short` (a router of short connections, not of whole boards) and `roles` (the role mode of `--roles critical`, change c0244). The job's `extra` gives every router `clearance` and `copper_check` (`docs/routing.md`, "octilinear").
+**Proposal mode** (change c0280). `--propose` lists every open connection after the power copper and the
+critical routes as a proposal with candidates and their facts, without a score, and writes nothing (no
+`plan_id`); `--accept ID` (repeatable) plans the board with each candidate's items locked and the decision
+record in one reviewed plan; `--reject ID [--reason TEXT]` plans the record only; `--replay` plans the
+locked decisions whose copper the board lacks; `--forget ID` plans dropping a decision and its copper. The
+modes exclude each other and `--roles` (`--accept` and `--reject` combine), and each excludes `--rip`,
+`--escape`, `--order`, `--pairs-as-nets`, `--require-complete` and `--out`; they need a router with the
+feature `propose` (`octilinear`); a misuse is `FEN-2001`. `--kind`, `--nets` and `--group` narrow the
+subjects; `--candidates N` (1 to 8, default 4) bounds the candidates per subject; `--timeout` bounds the
+facts (`route.proposal-limit`); `--reason` takes one line of 1 to 300 printable characters. In propose mode
+`result` holds `mode` (`propose`), `order` (`generation`), `open` (`before`), `proposals`, `rejected`
+(`id`, `subject`, `reason` of rejected proposals), `locked` (`candidate`, `subject`, `present` of each
+locked decision) and `next`, and with `--gate drc` `drc_unattributed`. Each proposal holds exactly `id`
+(`p-` and 16 hex digits of the SHA-256 of its subject key and ends), `subject`, `kind` (`fanout`, `join`,
+`role-net`, `group`, `connection`; the sort order, then the subject), `net`, `ends` (`kind`, `name`,
+`layers`, and `at` but for a zone), `region` (a `render --region` command), `candidates`, `reason` (`null`
+with candidates) and `alternatives` (`kind`: `free-corridor`, `move-part`, `allow-via`, `raise-limit`,
+`power-copper`, `confirm`, `external-router`, `edit-script`; `text`, `command`, `region`, and `then` for
+`confirm`). Each candidate holds exactly `id` (`c-` and 16 hex digits of the SHA-256 of its subject key,
+family, relaxations and geometry), `source`, `relaxed`, `items` (`tracks`, `vias`), `geometry` (the items as
+the record spells them), `facts` and `rejected`. `facts` holds `closes`, `open` (`before`, `after`),
+`copper_check` (`before`, `after`, `new`), `vias`, `length`, `layers`, `bends`, `conflicts`, `fill`
+(`saved`, `simulated`, `stale`) and `not_evaluated` (`fact`, `why`: `no-gate`, `no-role-loop`,
+`outside-role-reach`, `no-kicad-cli`, `budget`, `external-trial-failed`), and when measured `roles`
+(`before`, `after`, `new`, `cleared`), `loop` (`group`, `area`, `ratio_permille`, `bound`), `drc` (`new`:
+`type`, `items`; `evidence`), `relaxed` and, for a `role-net` subject, `current: not-declared`. No proposal
+or candidate holds `score`, `rank`, `best`, `recommended` or `cost`. The accept reply holds `mode`
+(`accept`), `board`, `accepted` (`candidate`, `subject`, `facts`), `rejected`, `record`, `decision` and
+`gate`; replay `replayed` and `stale` (`candidate`, `subject`, `why`); forget `forgotten` and `removed`. The
+decision record `fenolite.route-decisions.v0` is canonical JSON with no clock at `.fenolite/route-decisions.json`
+of a built project, else `<board stem>.route-decisions.json`: `board`, `locked` (`candidate`, `proposal`,
+`subject`, `net`, `ends`, `items`, `corridors`, `relaxed`, `plan`, the decision id: 16 hex digits of the
+SHA-256 of the board's SHA-256 and the accepted ids) and `rejected` (`id`, `subject`, `reason`), sorted by
+subject, then id; a malformed record is `FEN-3004`. An `unrouted` or `refused` entry of `result.roles` (role
+mode) holds `propose`, the command `route BOARD --router octilinear --propose --group NAME`; other entries
+hold `propose: null`. See `docs/routing.md`, "Proposals".
+
+`fenolite route --router octilinear` (change c0228) is built in, runs no process and places no via: for each open connection it tries a straight segment, 45° then straight, straight then 45° and the two L shapes on each allowed layer, and keeps the first that keeps the clearance in force plus 2 µm from other nets' copper and holes, the edge clearance, and no acute angle at its ends. `--router-option max-length=LENGTH` (default 20 mm) bounds a shape: a connection longer by every shape stays open with `route.unrouted`; `--router-option rounds=N` (default 3) routes the failed connections first in the next round. A pair of two pads per net is routed as two tracks at the pair gap (`route.pair-not-routed` otherwise). The copper check judges the result, and a connection with a new finding is removed (`route.check-refused`). Its features are `pairs`, `short` (a router of short connections, not of whole boards), `roles` (the role mode of `--roles critical`, change c0244) and `propose` (the proposal mode, change c0280). The job's `extra` gives every router `clearance` and `copper_check` (`docs/routing.md`, "octilinear").
 
 `fenolite route --router freerouting` runs Freerouting through a Specctra design file. `--router-path` names its jar (or `docker:<image>`), `--router-option max-passes=N` its passes, `--router-option optimize=on` adds a run with its optimizer on the time left (the optimizer is off otherwise), and `--router-option fanout=off` turns its fanout stage off (it is on by default); its automatic neck-down is always off; the board needs a closed outline. The design file declares only the nets of the job, and one run is made per tier. `--router kicadroutingtools` runs one process per group of nets of equal track width and via sizes; `--router-option group-nets=N` splits a group, and its options `nets`, `output` and `overwrite` are ignored. Its issues also carry the `specctra.*` codes: `specctra.unknown-padstack` and `specctra.session-moved` (error, no copper is taken), `specctra.pad-approximated` and `specctra.plane-skipped` (warning: a zone on a plane layer without an outline gives no plane), `specctra.rounded`, `specctra.renamed`, `specctra.unknown-list`, `specctra.rule-not-sent` (a rule the file cannot carry) and `specctra.rule-widened` (a layer clause dropped from a clearance rule) (info). The file declares the plane layers `(type power)` with one plane per zone, keeps nets to their layers with `use_layer`, and carries class clearances, class-to-class clearances, widths per layer and the edge clearance (`docs/routing.md`, "What each router is given"). While the router is listed with `sends_data_offsite: true`, the command exits 2 without `--allow-offsite`. See `docs/routing.md`. The jar is `--router-path`, else `FENOLITE_FREEROUTING_JAR`, else the file that `fenolite fetch freerouting --confirm` installed in the tools folder ([fetch](#fetch)); without a jar the command exits 6 with `FEN-6001` and the hint `run 'fenolite fetch freerouting --confirm'`. `route` itself opens no network connection.
 
@@ -3677,7 +3714,7 @@ commands as tools to a client of the Model Context Protocol on standard input an
 ## view
 
 `fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--cache user|project|off]
-[--compare OLD] [--variant NAME] [--check FILE|run] [--roles FILE|run] [--report FILE]... [--select REF] [--marks FILE] [--serve [--port N] [--no-browser] [--run-timeout SECONDS] [--no-run] [--allow-actions]] [--export FILE [--docs ID,...]] [--no-review] [--no-models]
+[--compare OLD] [--variant NAME] [--check FILE|run] [--roles FILE|run] [--proposals FILE|run] [--report FILE]... [--select REF] [--marks FILE] [--serve [--port N] [--no-browser] [--run-timeout SECONDS] [--no-run] [--allow-actions]] [--export FILE [--docs ID,...]] [--no-review] [--no-models]
 [--silk-gap MM] [--mask-expansion MM]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
 c0177, c0178 and c0193; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
 board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbLib`, `.kicad_sym`,
@@ -3757,6 +3794,19 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbL
   `roles` reply, the role document itself included, is `FEN-3004`; a missing one is `FEN-3001`. A reply made
   for another revision of the board is drawn with a note. A served page runs the reply again when the board or
   its role document changed.
+- **`--proposals FILE|run`** (change c0280) joins route proposals to each KiCad board shown: the reply of
+  `fenolite route BOARD --router octilinear --propose --json` (`FILE`, for the board it names), or with `run`
+  that command run first in the same process; it writes nothing. The scene gets `proposals`
+  (`fenolite.view_proposals.v0`: per proposal its `id`, `kind`, `net`, `subject`, `box`, `reason` and
+  `alternatives`; per candidate its `id`, `source`, `relaxed`, `polylines` and `vias` per layer in scene units
+  and its `facts` unchanged; the record's `locked` decisions; a value the reply lacks is left out and no score
+  is added). `result.proposals` gives `document`, `proposals`, `candidates` (counts) and `evidence`; the
+  reply's `evidence.level` is the lower of the board's and the reply's (`UNVERIFIED`). A file that is not a
+  `route --propose` reply is `FEN-3004`; `run` on an Altium document is `FEN-2001`. A served page may run
+  `proposals` (no option), and with `--allow-actions` plan `route-accept` (`candidates`: candidate ids of the
+  session's proposal data) and `route-reject` (`candidates`: candidate or proposal ids, `reason`) as
+  `route BOARD --router octilinear --accept ID...` and `--reject ID... --reason TEXT`; any other id is refused
+  with 400.
 - **`--select REF`** (change c0189) opens the page at the part or net `REF` (`net:NAME` for a net whose name
   is also a reference), and replies with `result.select`: `name` and `found` (whether the document shown holds
   it; when it does not, a note says so). An exported page carries it.

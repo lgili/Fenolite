@@ -19,9 +19,10 @@ that fits, in this order:
 - ``connection``: any other open connection (``connection:<net>:<a>~<b>``);
 
 and each critical group that phase 2 left ``unrouted`` or ``refused`` one ``group`` subject
-(``group:<name>``). The open connections and islands are those of ``analysis.connectivity`` on the pour of
-``analysis.pour`` (a saved fill, else the simulated pour), so the count is KiCad's (task 0.1). The subjects
-are this package's own types; ``fenolite route --propose`` turns them into routing-protocol subjects. Nothing
+(``group:<name>``), whose open role routes are not proposed again as plain connections. The open
+connections and islands are those of ``analysis.connectivity`` on the pour of ``analysis.pour`` (a saved
+fill, else the simulated pour), so the count is KiCad's (task 0.1). The subjects are this package's own
+types; ``fenolite route --propose`` turns them into routing-protocol subjects. Nothing
 here writes copper.
 """
 
@@ -549,6 +550,15 @@ def _join_ends(
     return moved, b
 
 
+def _in_group(first: NetIsland | None, second: NetIsland | None, routes: Sequence[tuple[str, str]]) -> bool:
+    """Whether the two islands hold the two ends of one of ``routes`` (pads ``REF-N``)."""
+    if first is None or second is None:
+        return False
+    return any(
+        (a in first.pads and b in second.pads) or (b in first.pads and a in second.pads) for a, b in routes
+    )
+
+
 def _owner(attach: Attach, island: NetIsland) -> bool:
     """Whether the anchor ``attach`` stands for is one of ``island``'s."""
     return any(end.position == attach.at for end in island.ends)
@@ -582,11 +592,18 @@ def subjects(
     islands = net_islands(design, pads=pads, nets=report.open_nets(), pour=pour)
     found: list[Subject] = []
     fanned: set[str] = set()
+    covered: dict[str, list[tuple[str, str]]] = {}
+    for group in groups:
+        if group.status in ("unrouted", "refused"):
+            for _key, net, a, b in group.routes:
+                covered.setdefault(net, []).append((a.name, b.name))
     for row in report.nets:
         net = row.name
         held = islands.get(net, ())
         for conn in _edges(row.open, held, (power or {}).get(net, ()) if net in ctx.kinds else ()):
             first, second = _island(held, conn.a), _island(held, conn.b)
+            if _in_group(first, second, covered.get(net, ())):
+                continue  # a role route of an open group: its group subject proposes it
             subject = _fanout(net, conn, first, second, ctx, fanned)
             if subject is None and first is not None and second is not None:
                 if net in ctx.blocked or _role_copper(first, net, ctx) or _role_copper(second, net, ctx):

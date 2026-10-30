@@ -124,8 +124,8 @@ lnk2 = Net("LNK2")
 connect(lnk2, r10[1], r11[1])
 design.rules.netclass("SIGNAL2", clearance=mm("0.2"), track_width=mm("0.25"), via_diameter=mm("0.6"),
                       via_drill=mm("0.3"), nets=(lnk2,))
-r10.place(mm(28), mm(6))
-r11.place(mm(34), mm(12), side="bottom")  # its pads on B.Cu only: a via-L or nothing
+r10.place(mm(28), mm(6), rot=90)
+r11.place(mm(35), mm(11), side="bottom")  # its pads on B.Cu only: a via-L or nothing
 {extra}
 """
 
@@ -193,3 +193,48 @@ def propose_job(
         "zone_copper": ZoneCopper(design, pour).covers,
     }
     return RoutingJob(design, tuple(nets.values()), layers, dict(options or {}), extra, subjects=tuple(found))
+
+
+_PHASE2: dict[tuple[str, str, str], Built] = {}
+
+
+def phase2(board: str, variant: str, base: Path) -> Built:
+    """The role-copper script ``<variant>_roles.py`` of a reference board built into ``base``, its inferred
+    roles and groups confirmed (``roles --accept-all``, as the reference tests confirm them) and its critical
+    routes written (``route --roles critical`` through the reviewed plan): the board after phases 1 and 2.
+    Made once per process and folder; callers copy it before they change it."""
+    import shutil
+
+    from _critical import cli, routed
+    from _roleboards import EXAMPLES, build_script
+
+    key = (board, variant, str(base))
+    if key in _PHASE2:
+        return _PHASE2[key]
+    source = EXAMPLES / board
+    folder = base / f"{board}_{variant}_src"
+    folder.mkdir(parents=True, exist_ok=True)
+    libs = (EXAMPLES.parents[1] / "tests" / "data" / "libs").as_posix()
+    for table in ("sym-lib-table", "fp-lib-table"):
+        text = (source / table).read_text(encoding="utf-8")
+        (folder / table).write_text(
+            text.replace("${KIPRJMOD}/../../../tests/data/libs", libs), encoding="utf-8"
+        )
+    for name in (f"{board}_board.py", "requirements.toml", f"{variant}_roles.py"):
+        if (source / name).is_file():
+            shutil.copy(source / name, folder / name)
+    built = build_script(folder / f"{variant}_roles.py", base / f"{board}_{variant}_out", fill=False)
+    code, _, err = cli("roles", str(built.board), "--accept-all", "--confirm")
+    assert code == 0, err
+    routed(built.board)
+    _PHASE2[key] = built
+    return built
+
+
+def copy_of(built: Built, into: Path) -> Built:
+    """A copy of a build in ``into``."""
+    import shutil
+
+    out = into / built.out.name
+    shutil.copytree(built.out, out)
+    return Built(out, out / built.board.name)
