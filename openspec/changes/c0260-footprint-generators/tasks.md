@@ -76,7 +76,8 @@
 
 ## 4. Catalog migration
 
-- [ ] 4.1 Capture `tests/data/catalog/footprints.sha256` on the base commit if c0259 did not, then draw the family-shaped catalog entries with the generators and delete the private helpers (scenarios "Catalog bytes unchanged", "No private land helper remains"). Proof: `uv run pytest tests/unit/catalog/test_catalog_generated.py tests/unit/catalog/test_catalog.py tests/unit/catalog/test_footprint_previews.py -q`.
+- [x] 4.1 Capture `tests/data/catalog/footprints.sha256` on the base commit if c0259 did not, then draw the family-shaped catalog entries with the generators and delete the private helpers (scenarios "Catalog bytes unchanged", "No private land helper remains"). Proof: `uv run pytest tests/unit/catalog/test_catalog_generated.py tests/unit/catalog/test_catalog.py tests/unit/catalog/test_footprint_previews.py -q`.
+  Done 2026-10-30 (amended, see design decision 16): c0259 had already moved all 100 footprints to explicit records with byte-identical output and deleted the helpers, so no helper is left to delete; the family keys the 0.6 tuples never held (span, lead) are not invented, so no record is re-expressed in its family here. `tests/data/catalog/footprints.sha256` was captured on `circuits-as-code` 52f32e8c (200 digests, targets 9 and 10) and equals the branch's output; `test_catalog_generated.py` (golden, helpers), `test_catalog.py` and `test_footprint_previews.py` pass; `drawing/0` equality on six representative entries is `test_drawing.py`. The spec delta says so.
 
 ## 5. Bodies and STEP
 

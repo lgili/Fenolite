@@ -2873,6 +2873,12 @@ corpus_id = ""
 notes = "golden digests of the shipped catalog (c0259), written by tools/catalog/golden.py from the Python catalog before its move to data files"
 
 [[file]]
+path = "tests/data/catalog/footprints.sha256"
+origin = "authored"
+corpus_id = ""
+notes = "SHA-256 of every catalog .kicad_mod written for KiCad 9 and 10 (c0260), captured on circuits-as-code 52f32e8c before the footprint generators were merged"
+
+[[file]]
 path = "examples/catalog/design.py"
 origin = "authored"
 corpus_id = ""
