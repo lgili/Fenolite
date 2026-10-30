@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living specs this change touches (`design-dsl`, `design-model`,
+- [x] 0.1 Read `openspec list`, the living specs this change touches (`design-dsl`, `design-model`,
   `cli-contract`) and the state of c0249, c0251, c0259 and c0266. Write under this task the date, the base
   commit, and:
   - whether c0251 is archived, and the names of `BlockDef`, the builder's `port` and the model fields
