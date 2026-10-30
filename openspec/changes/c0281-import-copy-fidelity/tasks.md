@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living specs `copper-check`, `design-equivalence`, `design-conversion`,
+- [x] 0.1 Read `openspec list`, the living specs `copper-check`, `design-equivalence`, `design-conversion`,
   `design-dsl`, and the changes c0275, c0276, c0278 and c0279. Write under this task the date, the base
   commit, which of c0275, c0278 and c0279 are archived (this change ADDs to their capabilities and archives
   after them), and the answers to the open questions of `design.md`. Proof:
