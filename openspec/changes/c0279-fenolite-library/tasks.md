@@ -1,13 +1,13 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living specs this change touches (`cli-contract`, `design-dsl`, `corpus-policy`, `ip-hygiene`, `public-presentation`) and the changes it builds on (c0249, c0259, c0262, c0266, c0268, c0273; c0275 to c0278 for phase B). Write under this task, with the date and the base commit:
+- [x] 0.1 Read `openspec list`, the living specs this change touches (`cli-contract`, `design-dsl`, `corpus-policy`, `ip-hygiene`, `public-presentation`) and the changes it builds on (c0249, c0259, c0262, c0266, c0268, c0273; c0275 to c0278 for phase B). Write under this task, with the date and the base commit:
   - c0249's `LockSection` protocol and the order of lock sections so far (`refs`, `picks`, `pins`, `blocks`, `library`);
   - the `FEN-` codes taken by then; confirm `FEN-6004`, `FEN-6006`, `FEN-4003` and `FEN-3021` are free or renumber them in every file of this change, c0266 and c0273 before task 2.4;
   - which `library` verbs other changes reserve (c0260 `generate`, c0261 `symbol`, c0262 `check`/`review`, c0264 `import`, c0265 `propose`, c0266 `seed`), so the dispatch table is final;
   - the host's per-release asset limit and the GitHub Pages rules, registered as sources;
   - the SPDX list entries of every allow-listed id and the normalised licence-text digests, registered as sources;
   - the next free `S-` numbers and hypothesis ids (`H-G-LIBRARY-GET`, `H-G-LIBRARY-REPLAY`).
-  Open 2026-10-30: the entry check above is written; its proof (`openspec validate --strict`) is left to the coordinator.
+  Done 2026-10-30: strict OpenSpec validation passed; integration `7a120e8d` passed `make check-fast` (17708 passed, 53 skipped).
 
   Proof: `openspec validate c0279-fenolite-library --strict`; `make check-fast`.
 
@@ -30,7 +30,7 @@
     (measured on the library's four boards: `CC-BY-SA-4.0` gives `17a696cf…`); the shipped table lists that
     digest only, so other ids need `licence_review` until the library records their digests.
   - Hypotheses `H-G-LIBRARY-GET` and `H-G-LIBRARY-REPLAY` are already proposed in `docs/hypotheses.md`.
-  Proof: `make check-fast` passed (see 5.6); `openspec validate` is left to the coordinator.
+  Integration 2026-10-30: base `7a120e8d`; sections are `refs`, `picks`, `pins`, `blocks`, `library`; `generate` is available. Source collisions were resolved as S-1000 to S-1002. Strict validation passed without warnings; `make check-fast` passed.
 - [x] 0.2 Write `docs/adr/0008-getting-library-items.md`, add a dated line under ADR-0007's decision 1 pointing to it, and add the dated `fenolite-library` line to ADR-0003. Proof: `uv run pytest tests/unit/test_adrs.py tests/unit/test_legal_docs.py -q`.
   Done 2026-10-30: ADR-0008 written and indexed (next free 0009), dated lines in ADR-0007 decision 1 and ADR-0003; `test_adr_0008_states_the_rules_and_is_linked`. Proof passed (33 passed).
 - [x] 0.3 Add the AGENTS.md sentence under "Hard rules" and its test (scenarios "Sentence present", "Sentence removed"). Proof: `uv run pytest tests/unit/test_legal_docs.py -k fenolite_library -q`.
@@ -96,3 +96,5 @@
   Done 2026-10-30: `dev` is at `0.7.0.dev0`; the entry is under `## [Unreleased]`. Proof passed (8 passed).
 - [ ] 5.6 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit, KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
   Open 2026-10-30: the first `make check-fast` (2 workers) was stopped at 98% by the session's time limit with 10 failures; a rerun of its test set listed them (`get` hid `--frozen` from help; the demo fixture under `tests/data/library/` was read by the catalog tests, so it moved to `tests/data/library_repo/demo/`; the lock section list and paged-command list gained `library` and `get`). All fixed: the ten tests and 1172 affected tests pass, ruff, format and pyright clean. The second `make check-fast` was at 77% with no failure when the session closed: not reported as passed. Next: run `make check-fast`, publish the batch, confirm CI.
+
+  Integration 2026-10-30 (task 5.6): `make check-fast` passed on `7a120e8d` (17708 passed, 53 skipped; lint, format, types and residue passed). Publication is blocked by GitHub HTTP 403 on git push; CI on this integration has not run. The task stays open.

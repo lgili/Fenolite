@@ -531,7 +531,7 @@ version = "1.2.0"
 
 ## Open questions
 
-1. *Repository name and owner.* Decided: `lgili/fenolite-library`.
+1. *Repository name and owner.* Decided 2026-10-30: `lgili/fenolite-library`.
 2. *Licence of the repository's own files.* Recommended: CC0-1.0, with the README stating that items keep
    their own licences.
    Decided 2026-10-29: CC0-1.0 for the repository's own files; the README states that items keep their own licences (`library audit` checks it).
