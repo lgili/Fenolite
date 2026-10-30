@@ -125,6 +125,7 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.harness-power-net": "error",
         "build.not-two-terminal": "error",
         "build.must-connect-unconnected": "error",
+        "build.block-sheet-name-clash": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.pin-lossy": "warning",
@@ -1497,6 +1498,16 @@ def _check(
         hint = "name its nets <stem><n> with consecutive integers to draw it as a bus"
         issues.append(issue("altium.bus-flattened", message, bus, hint))
     issues += _hierarchy_checks(design)
+    for module, clash in hierarchy.name_clashes(design) if sheets == "modules" else ():
+        issues.append(  # a port and a net that crosses without one would share an entry (change c0269)
+            issue(
+                "build.block-sheet-name-clash",
+                f"block {module}: the port {clash} and the net {clash}, which leaves the block's sheet "
+                "without a port, would give one sheet entry",
+                module,
+                "rename the net, or connect it through a port of the block",
+            )
+        )
     ids: dict[str, str] = {}
     keyed = [(c.id, c.ref, component_path(c)) for c in components]
     if not any(i.severity == "error" for i in issues):

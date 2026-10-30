@@ -109,6 +109,7 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.dsl import (
     BOARD_ORIGIN,
     DslError,
+    block_schematics,
     copper,
     drawing_sheet_source,
     drawn_schematic,
@@ -1386,6 +1387,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         drawing_sheet=frame_sheet,
         schematic=schematic,
         symbol_placements=symbol_placements,
+        schematic_groups={found.path: found.groups for found in block_schematics(design) if found.groups},
         schematic_layout=cast(Literal["readable", "grid"], args.schematic_layout or SCHEMATIC_LAYOUTS[0]),
         lock_stackup=stackup_locked(design),
         lock_via_protection=via_protection_locked(design),

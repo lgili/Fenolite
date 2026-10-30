@@ -89,6 +89,9 @@ def rc_filter(b, *, r=ohm("10k"), c=farad("100n")):
 
 ### 2. Sheet names of ports
 
+Implemented 2026-10-29: a "single-member port" is a port of kind `Net`, the one kind whose members the
+model always knows (the model drops unbound members, and a harness's declared members are not in it).
+
 A port member's **sheet name** is `<port>` for a single-member port and `<port>_<member>` otherwise
 (`I2C_sda`, `I2C_scl`). The same name is used for KiCad hierarchical labels and sheet pins and for Altium
 ports and sheet entries.
@@ -172,6 +175,9 @@ With `sheets="modules"`, the crossings of the sheet of block instance `B` are:
 
 - Crossings are ordered by kind (ports first, in port declaration order and then member order), then by
   name in code-point order.
+  Implemented 2026-10-29: the model keeps the ports of an instance ordered by name and their members by
+  member name (c0251's `to_model`), so "port declaration order" is the model's order: ports by name, then
+  members by name. Changing the model order would change c0251's canonical bytes.
 - Port and entry I/O types keep the table of "Port and sheet-entry directions", which `H-A-SCHX-DIR` has
   measured. Declared directions are recorded and checked by c0252, but they are not written to Altium yet
   (open question 4).
@@ -216,6 +222,9 @@ Block-local groups belong to the block, not to the design.
 ### 8. Model and writer
 
 - `SheetPin(Entity)`: `name`, `shape` (`input`, `output`, `bidirectional`), `position`, `rotation`.
+  Implemented 2026-10-29: c0276 had already added the stub (`SheetPin`, `SheetRef.pins`, the writer's
+  `pin`, `sch.opaque_sheet_pins`), and its drawn sheets may carry `tri_state` and `passive` pins, so
+  `SheetPin` refuses any shape outside those five; block pins use the first three.
 - `SheetRef.pins: tuple[SheetPin, ...] = ()` (ordered), omitted when empty. Only created sheets hold
   sheet pins, and read sheets keep them opaque, as wires.
 - `sch.write_schematic` writes each sheet pin as a `pin` child of its `sheet`, after the properties and
@@ -252,14 +261,20 @@ codes, each with an `explain.toml` entry. `DslError` cases are listed in decisio
 
 1. **Hierarchical labels in a block sheet for power ports too?** Recommended: yes in KiCad (uniform, and
    the global label on the parent keeps the name). Altium keeps its global power ports.
+   Decided 2026-10-29: yes in KiCad (a power port is a port like any other on the block's sheet; the root
+   keeps the global label), and Altium keeps its global power ports.
 2. **Group titles on KiCad sheets** as text items? Recommended: later. `text` is opaque in the model today,
    and adding a text entity is its own change.
+   Decided 2026-10-29: later; KiCad sheets draw no group title in this change.
 3. **Shared arrangement for Altium module sheets?** Recommended: later. The Altium layout has its own
    packer, and composition already gives equal groups.
+   Decided 2026-10-29: later.
 4. **Declared port directions as Altium I/O types?** Recommended: not now. The measured table stays.
    Revisit with c0252's direction checks and one kit run.
+   Decided 2026-10-29: not now; the measured table of `H-A-SCHX-DIR` stays.
 5. **Multi-instance KiCad sheets** (one file for all instances)? Recommended: no, for the naming reason of
    decision 3.
+   Decided 2026-10-29: no, for the naming reason of decision 3.
 
 ## Relation to the other changes of this batch
 
