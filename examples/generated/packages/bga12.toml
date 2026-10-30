@@ -1,0 +1,23 @@
+# Authored for Fenolite (CC0-1.0). Numbers from the Texas Instruments NMN0012A package outline and example
+# board layout (drawing 4225768/A) in the TXB0104 data sheet (S-0963): 3 rows of 4 balls.
+schema = "fenolite.package.v0"
+family = "grid"
+name = "BGA12_B2x2.5_P0.5"
+summary = "12-ball 0.5 mm pitch ball grid array, 2.5 x 2.0 mm body"
+evidence = "INFERRED"
+sources = ["S-0963"]
+
+rows = 3
+columns = 4
+pitch = "0.5mm"
+body = { length = "1.90mm..2.10mm", width = "2.40mm..2.60mm", height = "1mm max", standoff = "0.19mm..0.25mm" }
+ball = { diameter = "0.25mm..0.35mm" }
+pad = "nsmd"
+
+[generate]
+lands = 1
+drawing = 1
+
+[land]
+source = "S-0963 NMN0012A example board layout"
+pad_diameter = "0.25mm"

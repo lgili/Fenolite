@@ -404,6 +404,9 @@ version, made when its cited sources give the missing keys.
   `propose` and `review` c0265, `seed` c0266, `audit`, `replay`, `release` and `gallery` c0279). A board path literally named `generate` is written
   `./generate`. *Alternative:* a new top-level command `fenolite package`; rejected, the batch groups
   library work under one command.
+  *Amended 2026-10-30:* c0261 merged first and defined the action table of `fenolite library`
+  (`symbol`, `check`, `review`, `import`, `propose`, `fetch`); `generate` joins that table, and a board folder
+  named like any action is passed as `./<name>`.
 - Result (`result.packages[]`): `name`, `family`, `id`, `stamp`, `land` (`source`, `z`, `g`, `x`, pad
   sizes, `deltas`), `courtyard`, `bodies` (count, top), `files`; `issues` holds the `package.*` findings.
   Exit 5 when a package has an error finding (nothing written), 3 for an unreadable record.

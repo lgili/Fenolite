@@ -431,3 +431,56 @@ def test_picks_build_frozen(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, scr
     assert cli_main.main(args) == 0, err.getvalue()
     envelope = json.loads(out.getvalue())
     assert envelope["result"]["lock"]["changes"] == [] and envelope["result"]["generators"]
+
+
+# -- the generated footprints example (change c0260)
+
+GENERATED = ROOT / "examples" / "generated"
+FAMILIES = ("chip", "molded", "gullwing", "nolead", "grid", "to", "dip", "header", "connector")
+
+
+def test_generated_header_and_listing() -> None:
+    lines = (GENERATED / "design.py").read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith("# Authored for Fenolite")
+    for record in sorted((GENERATED / "packages").glob("*.toml")):
+        assert record.read_text(encoding="utf-8").startswith("# Authored for Fenolite"), record.name
+    assert "`generated/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+
+
+def test_generated_one_footprint_per_family(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Model written beside the library" on the example: one generated footprint of each family,
+    each in ``lib/Local.pretty`` with its STEP model in ``lib/Local.3dshapes`` when it has bodies."""
+    from fenolite.backends import step as step_mod
+    from fenolite.catalog.footprints import read_package
+
+    design = run_design_script(GENERATED / "design.py").design
+    families = {
+        read_package(path.read_text(encoding="utf-8")).family
+        for path in (GENERATED / "packages").glob("*.toml")
+    }
+    assert families == set(FAMILIES)
+    footprints = {key: fp.definition for key, fp in design.footprints.items()}
+    assert len(footprints) == len(FAMILIES) and all(key.startswith("Local:") for key in footprints)
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise AssertionError(f"a build started a subprocess: {args}")
+
+    monkeypatch.setattr(subprocess, "run", refuse)
+    monkeypatch.setattr(subprocess, "Popen", refuse)
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    folder = tmp_path / "g"
+    code = cli_main.main(["build", str(GENERATED / "design.py"), "--out", str(folder), "--confirm", "--json"])
+    assert code == 0, err.getvalue()
+    envelope = json.loads(out.getvalue())
+    assert not [i for i in envelope["issues"] if i["severity"] != "info"], envelope["issues"]
+    for key, definition in footprints.items():
+        name = key.split(":", 1)[1]
+        assert (folder / "lib" / "Local.pretty" / f"{name}.kicad_mod").is_file(), name
+        model = folder / "lib" / "Local.3dshapes" / f"{name}.step"
+        if definition.bodies:
+            assert model.read_bytes() == step_mod.write_bodies(name, definition.bodies), name
+        else:
+            assert not model.exists(), name
+    assert sum(1 for d in footprints.values() if d.bodies) == 8

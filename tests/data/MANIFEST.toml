@@ -2825,6 +2825,66 @@ corpus_id = ""
 notes = "illustrative device record of change c0248, authored for Fenolite; not a real product"
 
 [[file]]
+path = "examples/generated/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "generated footprints example of change c0260: one footprint of each package family from the records beside it"
+
+[[file]]
+path = "examples/generated/packages/bga12.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/bga12.toml; numbers from the public outline it cites"
+
+[[file]]
+path = "examples/generated/packages/chip0603.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/chip0603.toml; numbers from the public outline it cites"
+
+[[file]]
+path = "examples/generated/packages/connector_xh.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/connector_xh.toml; numbers from the public outline it cites"
+
+[[file]]
+path = "examples/generated/packages/dip8.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/dip8.toml; numbers from the public outline it cites"
+
+[[file]]
+path = "examples/generated/packages/header1x2.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/header1x2.toml; numbers from the public outline it cites"
+
+[[file]]
+path = "examples/generated/packages/qfn16.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/qfn16.toml; numbers from the public outline it cites"
+
+[[file]]
+path = "examples/generated/packages/sod123.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/sod123.toml; numbers from the public outline it cites"
+
+[[file]]
+path = "examples/generated/packages/soic8.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/soic8.toml; numbers from the public outline it cites"
+
+[[file]]
+path = "examples/generated/packages/to220.toml"
+origin = "authored"
+corpus_id = ""
+notes = "c0260 package record of the generated example, a copy of tests/data/packages/to220.toml; numbers from the public outline it cites"
+
+[[file]]
 path = "examples/devices/design.py"
 origin = "authored"
 corpus_id = ""

@@ -1233,10 +1233,11 @@ Evidence is `INFERRED` (`H-K-LIB-FROM-BOARD`). The exit code is 5 when a footpri
 ### Action words and `library symbol`
 
 Since change c0261 the first positional of `fenolite library` is an **action** when it is one of `symbol`,
-`check`, `review`, `import`, `propose` or `fetch`, and the board `PATH` of the form above otherwise (a board
-folder named like an action is passed as `./check`). Only `symbol` runs in this version; the others are
-reserved for later changes and exit 2 with `FEN-2001` ("not available in this version"), writing nothing.
-The board form takes exactly one `PATH` and no `--library`.
+`generate` (change c0260), `check`, `review`, `import`, `propose` or `fetch`, and the board `PATH` of the form
+above otherwise (a board folder named like an action is passed as `./check`). `symbol` and `generate` run in
+this version; the others are reserved for later changes and exit 2 with `FEN-2001` ("not available in this
+version"), writing nothing. The board form takes exactly one `PATH` and no `--library`; `--positions`,
+`--no-step` and `--no-pcblib` belong to `generate` only (`FEN-2001` elsewhere).
 
 `fenolite library symbol PINS... --out FILE [--library NAME]` generates the symbols of one or more pin
 tables (`fenolite.pins.v0`, [`docs/symbols.md`](symbols.md)) and plans one library file holding them:
@@ -1257,6 +1258,34 @@ generator's findings). `--limit` and `--cursor` page `symbols`. Evidence is `INF
 | `symbol.units-split` | info | the table has more visible rows than `split_above`; the message names the pins per unit |
 | `symbol.bus-split` | warning | a bus larger than `unit_pins` was cut across units |
 | `symbol.bus-gap` | info | a bus skips an index (`D0`, `D1`, `D3`) |
+
+### `library generate`
+
+`fenolite library generate PACKAGE... --out DIR [--library NICK] [--positions N] [--no-step] [--no-pcblib]`
+draws the footprints of package records (`fenolite.package.v0` with a `family`,
+[`docs/footprint-generators.md`](footprint-generators.md)) and plans, all files or none, under the usual
+`--dry-run` plan and `--confirm --plan <plan_id>` receipt protocol (change c0260):
+
+- `DIR/<NICK>.pretty/<name>.kicad_mod` per package, written for `--target`, and per position count of a
+  `connector` series (every count, or only `--positions N`, which another family refuses with `FEN-2001`);
+- `DIR/<NICK>.3dshapes/<name>.step` per footprint that has bodies (the record gives a body height), unless
+  `--no-step`. A `drawing >= 1` footprint names `${KIPRJMOD}/lib/<NICK>.3dshapes/<name>.step`, so `--out lib`
+  in a project folder is where KiCad finds the models; `--no-step` keeps the path in the footprint;
+- one Altium PCB library `DIR/<NICK>.PcbLib` holding every generated footprint, unless `--no-pcblib`. The
+  Altium writer leaves out an exposed pad's paste windows and its missing paste opening
+  (`altium.primitive-dropped`, warning) and writes no body.
+
+`NICK` defaults to `Local`. `--out` is a relative folder (not a `.pretty`, `.PcbLib` or `.kicad_sym` path:
+`FEN-2001`). A package with an error finding gives exit 5 and nothing is written; an unreadable record exits 3
+with `FEN-3004` (a missing file `FEN-3001`); two records that give one footprint name exit 3 with `FEN-3004`.
+
+`result` holds `library`, `out`, `pcblib` (its path or `null`) and `packages`, one row per footprint in record
+order then position order: `name`, `family`, `id` (`<NICK>:<name>`), `stamp`, `land` (`source`
+`manufacturer` or `calculated`, `evidence`, `table`, `z`, `g`, `x`, `pad` as `[length, width]`, `drill`,
+`pad_diameter`, `deltas`, all in nm), `courtyard` (`[x0, y0, x1, y1]`), `bodies` (`count`, `top` in nm),
+`files` (the planned paths) and `issues` (the codes of its findings). `--limit` and `--cursor` page
+`packages`. `issues` holds the `package.*` findings (`fenolite explain package.land-override`). Evidence is
+`INFERRED` (`H-G-LAND-CALC`; KiCad's reading of the models `H-K-STEP-MODELS`).
 
 ## import
 

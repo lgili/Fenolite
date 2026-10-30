@@ -6,10 +6,12 @@ H-K-STEP-MODELS).
 A board built by Fenolite whose three parts use ``drawing = 1`` generated footprints (a chip, a molded diode
 and a gull-wing SOIC) is exported with ``kicad-cli pcb export step``: each footprint's model, written by the
 build under ``lib/Local.3dshapes/``, is added as one ``NEXT_ASSEMBLY_USAGE_OCCURRENCE`` named after its
-reference, and no model is reported missing."""
+reference, and no model is reported missing. The example ``examples/generated`` (one footprint of each
+family) is exported the same way: its eight footprints with bodies add their models."""
 
 from __future__ import annotations
 
+import io
 import re
 from pathlib import Path
 
@@ -17,11 +19,14 @@ import pytest
 from _buildhelp import build
 from _kicad import major, run_raw
 
+import fenolite.cli.main as cli_main
+from fenolite.cli._script import run_design_script
 from fenolite.dsl import Design, Footprint, Net, Part, connect, mm
 
 pytestmark = pytest.mark.needs_kicad
 
 PACKAGES = Path(__file__).resolve().parents[2] / "data" / "packages"
+EXAMPLE = Path(__file__).resolve().parents[3] / "examples" / "generated" / "design.py"
 OCCURRENCE = re.compile(r"NEXT_ASSEMBLY_USAGE_OCCURRENCE\s*\(\s*'[^']*'\s*,\s*'([^']*)'")
 REFS = ("D1", "R1", "U1")
 
@@ -65,3 +70,28 @@ def test_kicad_reads_the_models(tmp_path: Path) -> None:
     assert "Could not add 3D model" not in result.stdout + result.stderr
     names = OCCURRENCE.findall(exported.read_text(encoding="utf-8", errors="replace"))
     assert sorted(name for name in names if name in REFS) == list(REFS)
+
+
+def test_kicad_reads_the_example_models(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    design = run_design_script(EXAMPLE).design
+    refs = sorted(
+        part.ref
+        for part in design.parts.values()
+        if part.ref is not None and design.footprints[part.footprint].definition.bodies  # type: ignore[index]
+    )
+    assert len(refs) == 8
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    folder = tmp_path / "g"
+    code = cli_main.main(
+        ["build", str(EXAMPLE), "--out", str(folder), "--kicad-version", str(major()), "--confirm", "--json"]
+    )
+    assert code == 0, err.getvalue()
+    exported = tmp_path / "board.step"
+    result = run_raw("pcb", "export", "step", "-o", exported, folder / "generated.kicad_pcb")
+    print(result.stdout)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Could not add 3D model" not in result.stdout + result.stderr
+    names = OCCURRENCE.findall(exported.read_text(encoding="utf-8", errors="replace"))
+    assert sorted(name for name in names if name in refs) == refs

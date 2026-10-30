@@ -1,0 +1,24 @@
+# Authored for Fenolite (CC0-1.0). Numbers from the Diodes Incorporated SOD123 package information (S-0442):
+# He (span), E (body length), D (body width), A, A1, b (lead width), L (lead length) with their typical values;
+# [land] from its suggested pad layout (X 0.900, X1 4.050, Y 0.950).
+schema = "fenolite.package.v0"
+family = "molded"
+name = "SOD2_B2.65x1.55"
+summary = "SOD-123 molded diode, cathode on pad 1"
+evidence = "INFERRED"
+sources = ["S-0442"]
+
+body = { length = { min = "2.55mm", nom = "2.65mm", max = "2.85mm" }, width = { min = "1.40mm", nom = "1.55mm", max = "1.70mm" }, height = { min = "1.00mm", nom = "1.05mm", max = "1.35mm" }, standoff = "0.00mm..0.10mm" }
+span = { min = "3.55mm", nom = "3.65mm", max = "3.85mm" }
+lead = { length = { min = "0.25mm", nom = "0.30mm", max = "0.40mm" }, width = { min = "0.52mm", nom = "0.57mm", max = "0.62mm" } }
+lead_style = "flat"
+polarity = "pad1"
+
+[generate]
+lands = 1
+drawing = 1
+
+[land]
+source = "S-0442 suggested pad layout"
+pad = { length = "0.90mm", width = "0.95mm" }
+row_spacing = "3.15mm"
