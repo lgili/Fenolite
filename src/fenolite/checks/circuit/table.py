@@ -19,6 +19,7 @@ from fractions import Fraction
 
 from fenolite.checks.circuit import corners as rig_corners
 from fenolite.checks.circuit.expect import Evaluator, judge_expectation
+from fenolite.checks.circuit.propagate import as_value, links, propagate
 from fenolite.checks.circuit.rails import EVIDENCE, View, circuit_evidence, level_of, rule_issues
 from fenolite.checks.circuit.ratings import DEVICE_PROPERTY, Judged, judge_parts
 from fenolite.checks.circuit.values import Values, ground_nets, part_classes, resolve
@@ -104,10 +105,22 @@ def _evaluate(
     classes: Mapping[str, str] | None,
     currents: Mapping[str, tuple[Fraction, str]] | None,
 ) -> _Pass:
-    view = View(design.circuit, contracts.rig if contracts is not None else ())
+    rig = contracts.rig if contracts is not None else ()
+    view = View(design.circuit, rig)
+    found_classes = part_classes(design, classes)
+    spread = None
+    if contracts is None or contracts.propagate:
+        stated_view = View(design.circuit, rig)
+        rule_issues(stated_view)  # sets the rails' own voltages: the stated ones
+        stated = resolve(design, stated_view, contracts, currents=currents)
+        spread = propagate(stated_view, stated.voltage, links(design, stated_view, found_classes))
+        view.propagated = dict(spread.values)
     rails = rule_issues(view)
     values = resolve(design, view, contracts, currents=currents)
-    found_classes = part_classes(design, classes)
+    if spread is not None:
+        for net, found in spread.values.items():
+            values.voltage.setdefault(net, as_value(found))
+        values.issues += spread.issues
     parts: list[tuple[object, DeviceDef, str | None]] = []
     missing: list[str] = []
     changed: list[Issue] = []

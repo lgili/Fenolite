@@ -29,6 +29,31 @@ An inferred role that is not confirmed gives nothing. When two sources of differ
 voltages that do not overlap, the first is used and `circuit.value-conflict` (warning) names both.
 `fenolite check` takes neither a requirements file nor `--current`, so only orders 1 to 3 and 6 reach it.
 
+## Propagation through links
+
+A net with no stated voltage takes the voltage of the stated nets it reaches through **links** (change
+c0274): two-net parts of class `ferrite`, `fuse` or `net_tie`, a `jumper` whose class you state
+(`design.part_class(jp, "jumper")`: a stated jumper is a closed one; an open jumper is simply not stated),
+and a `resistor` or `shunt` whose value range is exactly 0 Ω (`value=ohm(0).pct(1)`). Nothing else is
+crossed: no inductor, regulator, diode or resistor above 0 Ω. The search runs breadth first in net-name
+order and stops at a stated net; the net takes the hull of what it reaches. A stated net keeps its own
+value, and two stated nets joined by links whose ranges do not overlap give `circuit.value-conflict`
+naming the links. A c0252 rail with no voltage set is judged with a propagated voltage instead of
+`circuit.rail-unset`. The range is the source's: the DC drop of a ferrite or a fuse is not subtracted, so
+the lower bound is optimistic by that drop (`H-G-CIRCUIT-PROPAGATION`).
+`design.contracts(propagate=False)` turns propagation off for a design.
+
+`examples/circuit/ferrite/` holds a sensor whose `vdda` port sits on `3V3A`, fed from `3V3` (3.3 V ± 3 %)
+through `FB1`: `3V3A` is 3.201 V to 3.399 V, `propagated via FB1 from 3V3`, and the port passes. The bad
+variant puts a 10 Ω resistor in its place: nothing propagates and `circuit.rail-unset` names `3V3A`.
+
+## Origins
+
+Every voltage and current bound records where it comes from, in `value.origin` of each row: `declared`
+(a design rail, a ground or an `out` port's promise), `rig`, `role`, `requirements` (a `[[current]]` row),
+`option` (`--current`) or `propagated`, the last with `via` (the link references in order) and `from` (the
+stated net), and the basis text `propagated via FB1 from 3V3`.
+
 ## Part classes
 
 The derating keys, the series rule and the power rule need a part's class. There is one classifier,

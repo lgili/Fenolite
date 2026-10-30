@@ -39,21 +39,11 @@ subject and that does not fail."""
 Stage = Literal["build", "place", "route"]
 STAGES: tuple[Stage, ...] = ("build", "place", "route")
 """The stage at which a row can be decided (change c0274; ``docs/contracts.md``, "Decidable stages")."""
-OriginKind = Literal["declared", "rig", "role", "requirements", "option", "propagated", "ground", "device"]
-ORIGINS: tuple[OriginKind, ...] = (
-    "declared",
-    "rig",
-    "role",
-    "requirements",
-    "option",
-    "propagated",
-    "ground",
-    "device",
-)
-"""Where an applied value comes from (change c0274): a design rail or an ``out`` port's promise
-(``declared``), a rig element, a stated net role, a ``[[current]]`` row (``requirements``), ``--current``
-(``option``), links from a stated net (``propagated``), a ground, or a device record or measure (``device``,
-for the values of role rows and expectations)."""
+OriginKind = Literal["declared", "rig", "role", "requirements", "option", "propagated"]
+ORIGINS: tuple[OriginKind, ...] = ("declared", "rig", "role", "requirements", "option", "propagated")
+"""Where an applied voltage or current bound comes from (change c0274): a design rail, a ground or an
+``out`` port's promise (``declared``), a rig element, a stated net role, a ``[[current]]`` row
+(``requirements``), ``--current`` (``option``) or links from a stated net (``propagated``)."""
 DIGEST_DIGITS = 16
 """The hexadecimal digits of a row digest (the start of a SHA-256)."""
 TABLE_UNITS: tuple[str, ...] = (*UNITS, "metre", "square_metre", "ratio")

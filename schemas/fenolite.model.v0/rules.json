@@ -135,6 +135,9 @@
               }
             ]
           }
+        },
+        "propagate": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false

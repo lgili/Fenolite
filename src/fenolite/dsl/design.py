@@ -2244,12 +2244,14 @@ class Design(Container):
 
         contracts.operating(self, ambient)
 
-    def contracts(self, *, unknown: str = "info") -> None:
+    def contracts(self, *, unknown: str = "info", propagate: bool = True) -> None:
         """Make each contract row that cannot be judged a ``warning`` (``unknown="warning"``) instead of one
-        ``info`` count (``"info"``, the default)."""
+        ``info`` count (``"info"``, the default). ``propagate=False`` stops a net without a stated voltage
+        from taking the voltage of a stated net it reaches through a ferrite, a fuse, a net tie, a stated
+        jumper or a 0 Ω part (change c0274; ``docs/contracts.md``, "Propagation through links")."""
         from fenolite.dsl import contracts
 
-        contracts.contracts(self, unknown)
+        contracts.contracts(self, unknown, propagate)
 
     def expect(self, test: object, reason: str) -> None:
         """Record an expectation, ``within(a, b)``, ``at_least(a, b)`` or ``at_most(a, b)`` over handles and

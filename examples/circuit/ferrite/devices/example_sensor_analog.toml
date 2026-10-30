@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example; an illustrative device, not a real product. Its values are chosen
+# for the example and come from no datasheet.
+schema = "fenolite.device.v0"
+id = "Example:SENSOR_ANALOG"
+summary = "6-pin analog sensor with a separate analog supply (illustrative)"
+symbol = "Example:Sensor_6pin"
+footprint = "Fenolite:SOT23_6_TI_DBV0006A"
+ref_prefix = "U"
+evidence = "UNVERIFIED"
+ground = "GND"
+
+[pins]
+VDDA = "1"
+GND = "2"
+OUT = "3"
+REF = "4"
+EN = "5"
+NC = "6"
+
+[[interfaces]]
+name = "vdda"
+kind = "power"
+direction = "in"
+members = { hv = ["VDDA"], lv = ["GND"] }
+voltage = { min = "1.71V", max = "3.6V" }

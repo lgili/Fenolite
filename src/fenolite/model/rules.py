@@ -802,6 +802,9 @@ class ContractSet:
     unknown: Literal["info", "warning"] = "info"
     expects: tuple[Expectation, ...] = field(default=(), metadata={"ordered": True})
     rig: tuple[RigSupply | RigSink, ...] = field(default=(), metadata={"ordered": True})
+    propagate: bool = True
+    """Whether a net without a stated voltage takes the voltage of the stated nets it reaches through links
+    (change c0274; ``design.contracts(propagate=False)`` turns it off)."""
 
     def __post_init__(self) -> None:
         if self.unknown not in CONTRACT_STRICTNESS:
@@ -818,7 +821,12 @@ class ContractSet:
 
     def __bool__(self) -> bool:
         return bool(
-            self.derating or self.operating is not None or self.unknown != "info" or self.expects or self.rig
+            self.derating
+            or self.operating is not None
+            or self.unknown != "info"
+            or self.expects
+            or self.rig
+            or not self.propagate
         )
 
 

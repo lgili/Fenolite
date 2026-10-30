@@ -403,6 +403,7 @@ class ContractRecords:
     """``(key, permille, margin_mk, parts, source)``; ``parts`` is ``None``, a ``Part`` or a ref glob."""
     operating: Range | None = None
     unknown: str = "info"
+    propagate: bool = True
     expects: list[tuple[str, str, str, Test]] = field(default_factory=lambda: [])
     """``(instance, reason, origin, test)``."""
     rig: list[Supply | Sink] = field(default_factory=lambda: [])
@@ -477,10 +478,13 @@ def operating(design: Design, ambient: object) -> None:
     found.operating = ambient
 
 
-def contracts(design: Design, unknown: object) -> None:
+def contracts(design: Design, unknown: object, propagate: object = True) -> None:
     if unknown not in CONTRACT_STRICTNESS:
         raise DslError(f"contracts(): unknown is one of {', '.join(CONTRACT_STRICTNESS)}, not {unknown!r}")
+    if not isinstance(propagate, bool):
+        raise DslError(f"contracts(): propagate is True or False, not {propagate!r}")
     records(design).unknown = cast(str, unknown)
+    records(design).propagate = propagate
 
 
 def _origin() -> str:
@@ -677,6 +681,7 @@ def to_contracts(design: Design) -> ContractSet | None:
             unknown=cast(Literal["info", "warning"], found.unknown),
             expects=tuple(expects),
             rig=tuple(elements),
+            propagate=found.propagate,
         )
     except ValueError as error:
         raise DslError(f"contracts: {error}") from None

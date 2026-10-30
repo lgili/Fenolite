@@ -22,7 +22,7 @@ from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level, min_level
 from fenolite.core.quantities import PREFIXES, QuantityError, decimal_digits
 from fenolite.core.quantities import parse as parse_quantity
-from fenolite.core.requirement_table import Bound, RequirementRow, Side, Source
+from fenolite.core.requirement_table import Bound, Origin, RequirementRow, Side, Source
 from fenolite.model.circuit import Circuit, Component, Interface, Port, ValueRange
 from fenolite.model.design import Design
 from fenolite.model.rules import RigSink, RigSupply
@@ -140,6 +140,21 @@ class RailInfo:
     """The test-rig sinks on the rail (change c0253): loads."""
     load_high: Fraction | None = None
     """The upper sum of the rail's loads (change c0253), ``None`` when no load states a bounded draw."""
+    propagated: Propagated | None = None
+    """The voltage the rail takes through links when nothing on it sets one (change c0274)."""
+
+
+@dataclass(frozen=True)
+class Propagated:
+    """A voltage a net takes through links from stated nets (change c0274; ``checks.circuit.propagate``):
+    its bounds, the source and basis of the stated value, the rig supplies it reads and its origin."""
+
+    low: Fraction | None
+    high: Fraction | None
+    source: Source
+    basis: str
+    origin: Origin
+    rigs: frozenset[str] = frozenset()
 
 
 class View:
@@ -149,6 +164,9 @@ class View:
         self.circuit = circuit
         self.rows: list[RequirementRow] = []
         """The requirement rows of the rail and logic rules (change c0253)."""
+        self.propagated: dict[str, Propagated] = {}
+        """The voltages of nets without a stated one, taken through links (change c0274), by net id; the
+        stage fills it before the rules run."""
         self.links: dict[int, tuple[Issue, RequirementRow]] = {}
         """The row of each finding that a row gives, by the finding's ``id()`` (change c0274: a waiver names
         the row)."""
@@ -188,6 +206,15 @@ class View:
             return f"{module.path}/{port.name}"
         component = self.components.get(port.owner)
         return f"{component.ref}.{port.name}" if component is not None else port.name
+
+    def path(self, port: Port) -> str:
+        """``buck/VOUT`` for a block port, ``U3/vdd`` for a device port: the port path of a row id (change
+        c0274), made of the instance path or reference and the port name only."""
+        module = self.modules.get(port.owner)
+        if module is not None:
+            return f"{module.path}/{port.name}"
+        component = self.components.get(port.owner)
+        return f"{component.ref}/{port.name}" if component is not None else port.name
 
     def owner_path(self, port: Port) -> str:
         module = self.modules.get(port.owner)
@@ -311,20 +338,31 @@ def _rail_issues(view: View) -> list[Issue]:
             else:
                 rail.voltage = (low, high)
                 rail.nominal = _f(setters[0][1].nominal) if len(setters) == 1 else None
+        elif net_id in view.propagated:
+            rail.propagated = view.propagated[net_id]
+            rail.voltage = (rail.propagated.low, rail.propagated.high)
         bounded = [port for port in rail.ports if port.direction != "out" and "voltage" in port.params]
         if rail.voltage is not None:
             shown = span_text("volt", *rail.voltage, rail.nominal)
+            given = rail.propagated
+            rig_only = bool(setters) and all(who.startswith("rig ") for who, _value in setters)
+            applied = (
+                Side(Bound("volt", *rail.voltage), shown, "user", f"rail {name}",
+                     origin=Origin("rig" if rig_only else "declared"))
+                if given is None
+                else Side(Bound("volt", *rail.voltage), shown, given.source, given.basis, origin=given.origin)
+            )  # fmt: skip
             for port in bounded:
                 accepted = port.params["voltage"]
                 passed = within(rail.voltage, bounds(accepted))
                 view.rows.append(
                     _row(
-                        ":".join(("circuit.rail-voltage", view.label(port))),
+                        ":".join(("circuit.rail-voltage", name, view.path(port))),
                         "circuit.rail-voltage",
                         view.label(port),
                         "voltage",
                         "volt",
-                        Side(Bound("volt", *rail.voltage), shown, "user", f"rail {name}"),
+                        applied,
                         _limit(port, accepted, "operating"),
                         passed,
                         (net_id, port.owner),
@@ -401,6 +439,7 @@ def _rail_issues(view: View) -> list[Issue]:
                             f"..{amount('ampere', draw)}",
                             "user",
                             f"loads of {name}",
+                            origin=Origin("declared"),
                         ),
                         Side(
                             Bound("ampere", None, capacity),
@@ -719,7 +758,7 @@ def _requires_issues(view: View) -> list[Issue]:
                     missing = "no reference rail" if port.kind != "power" else ""
                 elif target is not None:
                     rail = view.rails.get(target)
-                    if rail is None or rail.voltage is None or not rail.sources:
+                    if rail is None or rail.voltage is None or not (rail.sources or rail.propagated):
                         missing = f"{view.net_name(target)} has no set voltage and source"
             elif entry == "chip_select":
                 lacking = [
