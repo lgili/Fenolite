@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": [],
+    "jsx": "react",
+    "jsxFactory": "preact.h",
+    "jsxFragmentFactory": "preact.Fragment",
+    "strict": false,
+    "noImplicitAny": false,
+    "noImplicitThis": true,
+    "noFallthroughCasesInSwitch": false,
+    "useDefineForClassFields": true,
+    "removeComments": false,
+    "newLine": "lf",
+    "noEmitOnError": true,
+    "skipLibCheck": true,
+    "isolatedModules": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

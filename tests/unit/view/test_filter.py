@@ -54,7 +54,9 @@ def _run(queries: list[str]) -> list[dict[str, Any]]:
         "out.push({ similar: [similarQuery(sc, null, 0), similarQuery(sc, sc.prims[7], -1)] });"
         "console.log(JSON.stringify(out));"
     )
-    done = subprocess.run([node, "-e", script], capture_output=True, text=True, check=True, timeout=60)
+    done = subprocess.run(
+        [node, "-e", script], capture_output=True, text=True, encoding="utf-8", check=True, timeout=60
+    )
     return json.loads(done.stdout)
 
 

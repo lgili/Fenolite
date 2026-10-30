@@ -6,6 +6,7 @@
 
 exclude = [
     "uv.lock",                  # hashes and versions of third-party packages only
+    "viewer/package-lock.json", # the same for the viewer's Node packages (change c0304)
     "tests/corpus/cache/**",    # fetched public corpus
     "tools/residue/patterns.regex",
 ]
