@@ -20,17 +20,17 @@ switching loop small. The first takes copper area; the second takes placement, w
    - the gate loop of each switch, from the driver output to the gate, then from the source (or the
      emitter) back to the driver.
 2. **Make the switching loop the smallest.** Its current changes fastest. Its area sets the voltage
-   overshoot on the switches and the noise that the rest of the board receives. Put the DC-link
+   overshoot on the switches and the noise the rest of the board receives. Put the DC-link
    capacitor at the supply pins of the switch or the module. Run the supply and the return on top of
    each other (two faces, or two adjacent layers), not side by side with a gap between them.
 3. **Close each gate loop at the driver.** The return of a gate loop runs from the switch's source (the
    Kelvin source, when the part has one) to the driver, beside the gate track. It does not run through
    the power ground.
 4. **Put the bootstrap and supply capacitors of a driver at its pins.** Their pins swing with the switch
-   node. Keep other signals and vias away from them, at the clearance that their voltage needs.
+   node. Keep other signals and vias away from them, at the clearance their voltage needs.
 
-Declare what you know; `fenolite roles PATH --check` infers the rest and measures it. Route gate loops
-and Kelvin pairs first, then power copper around them:
+Declare what you know; `fenolite roles PATH --check` infers and measures the rest. Order: critical
+routes, power copper, then proposals (`route --propose`, page `board-routing`):
 
 ```fenolite-cmd
 fenolite route board/board.kicad_pcb --router octilinear --roles critical --dry-run --json

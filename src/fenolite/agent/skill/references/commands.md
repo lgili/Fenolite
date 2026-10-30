@@ -611,6 +611,15 @@ another type; a flag without a value is a switch.
 - `--roles {critical}`: route the critical connections of the confirmed gate loops and Kelvin pairs (role mode)
 - `--group NAME` (repeatable): with --roles: route this role group only (repeatable)
 - `--roles-file FILE`: with --roles: the role document to read
+- `--propose`: list every open connection with candidate shapes and their facts, no score; writes nothing
+- `--accept ID` (repeatable): lock this candidate (repeatable; plan)
+- `--reject ID` (repeatable): remember a rejected candidate or proposal (repeatable; plan)
+- `--reason TEXT`: with --reject: why, one line
+- `--replay`: place again the locked decisions whose copper the board lacks
+- `--forget ID` (repeatable): drop a decision and its copper (repeatable)
+- `--kind {connection,fanout,group,join,role-net}` (repeatable): with --propose: subjects of this kind only (repeatable)
+- `--candidates N` (integer): with --propose: candidates per subject, 1 to 8 (default 4)
+- `--show-rejected`: with --propose: list rejected candidates too
 - `--gate {drc}`: drc: judge the edit with kicad-cli DRC and write it without the items that bring new findings
 - `--kicad-cli PATH`: kicad-cli binary or docker:<image> for --gate
 
@@ -730,6 +739,7 @@ another type; a flag without a value is a switch.
 - `--compare OLD`: draw what changed since the board or sheet OLD
 - `--check FILE|run`: draw a check reply's findings; run: check first
 - `--roles FILE|run`: draw a roles --check reply on its board; run: run it first
+- `--proposals FILE|run`: join a route --propose reply to its board; run: propose first (read-only)
 - `--report FILE` (repeatable): recorded convert/export JSON for project review; repeat for different commands
 - `--select REF`: open at this part or net
 - `--marks FILE`: review marks: list them; --serve saves new ones there

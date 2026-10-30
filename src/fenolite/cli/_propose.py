@@ -33,7 +33,7 @@ from typing import Any, cast
 
 from fenolite.analysis.boundary import board_boundary
 from fenolite.analysis.connectivity import connectivity
-from fenolite.analysis.pour import DEFAULT_GRID_NM, PourCopper, pour_copper, rejoin
+from fenolite.analysis.pour import DEFAULT_GRID_NM, PourCopper, covers, pour_copper, rejoin
 from fenolite.backends.base import BoardPad, DesignRules
 from fenolite.backends.kicad.frame import board_pads
 from fenolite.backends.kicad.layers import plane_layers as board_plane_layers
@@ -50,7 +50,7 @@ from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import content_hash, derived_id
 from fenolite.core.units import Nm, format_length
-from fenolite.geometry import Thick, thick_closer_than
+from fenolite.geometry import GeometryError, Thick, thick_closer_than
 from fenolite.model.board import Keepout, Track, Via
 from fenolite.model.design import Design
 from fenolite.model.rules import RoleSet
@@ -1487,6 +1487,19 @@ def _entry_items(entry: Locked, design: Design) -> tuple[RoutingResult, list[Kee
     return RoutingResult(tracks=tuple(tracks), vias=tuple(vias)), areas
 
 
+def _on_pad(pad: BoardPad, at: Point) -> bool:
+    """Whether ``at`` (a pad end, the centre or a point moved off a branch) lies on the pad's copper."""
+    if pad.position == at:
+        return True
+    for entry in pad.copper:
+        try:
+            if covers(Thick(tuple(entry.core), entry.width, entry.filled), at):
+                return True
+        except (GeometryError, ValueError):
+            continue
+    return False
+
+
 def _stale(board: Board, entry: Locked) -> str:
     """Why a locked entry cannot be replayed (``moved``, ``net-gone``), or ``""``."""
     design = board.design
@@ -1497,7 +1510,7 @@ def _stale(board: Board, entry: Locked) -> str:
     for end in entry.ends:
         if end.kind == "pad":
             pad = records.get(end.name)
-            if pad is None or pad.net != entry.net or pad.position != end.at:
+            if pad is None or pad.net != entry.net or end.at is None or not _on_pad(pad, end.at):
                 return "moved"
         elif end.kind == "zone":
             if not end.name.startswith("zone@") and end.name not in zones:

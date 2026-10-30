@@ -293,7 +293,8 @@ def test_altium_readback(
     chain: Callable[[str, str], Chain], tmp_path: Path, board: str, variant: str
 ) -> None:
     """Scenario "Same accepted copper in Altium", ``H-A-PROP-READBACK``: the convert of each accepted variant
-    reads back with every accepted track and via at its place (to 1 µm) and width, locked."""
+    reads back with every accepted track and via at its place and width (to 1 µm: the document holds
+    whole units of its own), locked."""
     done = chain(board, variant)
     out = tmp_path / "altium"
     code, _, err = cli("convert", str(done.built.board), "--to", "altium", "--out", str(out), "--confirm")
@@ -319,15 +320,23 @@ def test_altium_readback(
             if item["kind"] == "track":
                 points = [Point(*p) for p in item["points"]]
                 for p, q in zip(points, points[1:], strict=False):
-                    accepted[(item["layer"], *sorted((at(p, True), at(q, True))), item["width"])] += 1
+                    accepted[
+                        (item["layer"], *sorted((at(p, True), at(q, True))), round(item["width"] / 1000))
+                    ] += 1
             else:
-                accepted[("via", at(Point(*item["at"]), True), item["diameter"])] += 1
+                accepted[("via", at(Point(*item["at"]), True), round(item["diameter"] / 1000))] += 1
     held: Counter[tuple[object, ...]] = Counter()
     for track in altium.board.tracks:
         if track.locked:
-            held[(track.layer, *sorted((at(track.start, False), at(track.end, False))), track.width)] += 1
+            held[
+                (
+                    track.layer,
+                    *sorted((at(track.start, False), at(track.end, False))),
+                    round(track.width / 1000),
+                )
+            ] += 1
     for via in altium.board.vias:
         if via.locked:
-            held[("via", at(via.position, False), via.diameter)] += 1
+            held[("via", at(via.position, False), round(via.diameter / 1000))] += 1
     assert accepted and not accepted - held, (accepted, held)
     assert kicad.board is not None and EXAMPLES.is_dir()

@@ -51,6 +51,20 @@ a rule to make a route pass. A route that needs a smaller clearance needs a deci
 4. **Ground last.** Make the final fix-up of a ground domain (stitching, the single tie) after the
    signals are in. A ground pour placed early takes the ways that signals need.
 
+After the critical routes and the power copper, `route --router octilinear --propose` lists every open
+connection with candidate shapes and their facts (connections closed, open before and after, new copper and
+role findings, vias, length), and no score: you choose. It writes nothing. `--accept ID` locks a candidate
+through the plan (`--dry-run`, then `--confirm --plan ID`) and records the decision; `--reject ID --reason
+TEXT` remembers a refusal; `--replay` places the locked decisions again on a new build. A connection with no
+candidate gives its reason and the commands to free it (`route.proposal-open`).
+
+```fenolite-cmd
+fenolite route board.kicad_pcb --router octilinear --propose --candidates 2 --json
+fenolite route board.kicad_pcb --router octilinear --accept c-0123456789abcdef --dry-run --json
+fenolite route board.kicad_pcb --router octilinear --reject c-0123456789abcdef --reason "over the gate loop" --dry-run --json
+fenolite route board.kicad_pcb --router octilinear --replay --dry-run --json
+```
+
 Check each group with `fenolite check` before the next one, or let `--gate drc` drop each new track or
 via that brings a DRC finding. Treat a router's output as a draft that you
 review, straighten and accept, not as a result. Keep hand routes as data, each with its reason, so that a
