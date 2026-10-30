@@ -104,6 +104,10 @@
   footprint swapped in KiCad for another catalog footprint resolves. Proof passed.
 - [ ] 7.2 Add the oracle test on 9.0.9 and 10.0.6 (requirement "Merged files accepted by KiCad"). Proof: CI job `kicad` green on the pushed commit for `tests/kicad/lens/test_edit_merge_oracle.py`.
   2026-10-29: open: depends on 7.1; CI runs with the batch.
+  2026-10-30: `tests/kicad/lens/test_edit_merge_oracle.py` written; passed locally on `kicad/kicad:10.0.6`
+  (docker, targets 9 and 10). KiCad reports `lib_footprint_mismatch` for `R2`, whose id the token edit swaps
+  without new pads (KiCad's "Change Footprint" would replace them); the test leaves that one type out.
+  Open until the CI `kicad` job (9.0.9 and 10.0.6) is green: CI runs with the batch.
 - [x] 7.3 Register `H-K-EDIT-SCH-VALUE` in `docs/hypotheses.md` and set `lens.edits.EVIDENCE` (requirements "Edit merge evidence", "Schematic edit hypothesis"). Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/lens/test_edit_merge.py -k evidence -q`.
   2026-10-29: the proposed row of `H-K-EDIT-SCH-VALUE` now names its test and kit request, `INFERRED`; proof passed.
 - [x] 7.4 Update `docs/lens.md` (the five sections, the table, the removal of the two-way sentence and of the `placements.toml` section's write rule) and `docs/cli-contract.md` (`build --take`, `sync`) (requirement "Three-way merge is documented"). Proof: `uv run pytest tests/unit/lens/test_edit_merge.py -k docs -q`; `make check-fast`.

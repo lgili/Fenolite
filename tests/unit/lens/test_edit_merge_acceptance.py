@@ -9,20 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from _edit_help import issues
-from _layout_edit import edit_properties
+from _edit_help import FIXTURE, FIXTURE_EDITS, FIXTURE_NAME, edit_fixture, issues
 from _project import Project, footprint
-
-MM = 1_000_000
-FOLDER = "tests/data/lens/edit_merge"
-EDITED = [
-    "J1#reference",
-    "R1#value",
-    "R1#property:Part number",
-    "led/D1#position",
-    "led/R2#position",
-    "led/R2#footprint",
-]
 
 
 @pytest.fixture(autouse=True)
@@ -32,38 +20,16 @@ def isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         monkeypatch.delenv(name, raising=False)
 
 
-def _edit(p: Project) -> None:
-    """The edits of the loop, by token edit: the root sheet holds J1 and R1, the sheet of ``led`` R2."""
-    root, child = p.out / "edit_merge.kicad_sch", p.out / "sheets" / "led.kicad_sch"
-    board, root_text = edit_properties(
-        p.board.read_text(encoding="utf-8"),
-        root.read_text(encoding="utf-8"),
-        {
-            "J1": {"reference": "J9"},
-            "R1": {"value": "470", "properties": {"Part number": "FEN-R470"}},
-        },
-    )
-    board, child_text = edit_properties(
-        board,
-        child.read_text(encoding="utf-8"),
-        {"R2": {"footprint": "Fenolite:Chip_0805", "move": (0, 2 * MM)}},
-    )
-    board, _ = edit_properties(board, None, {"D1": {"move": (MM, 0)}})
-    p.board.write_text(board or "", encoding="utf-8")
-    root.write_text(root_text or "", encoding="utf-8")
-    child.write_text(child_text or "", encoding="utf-8")
-
-
 def _keys(env: dict[str, object], code: str) -> list[str]:
     return sorted(i["where"] for i in issues(env, code))
 
 
 def test_acceptance_loop(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    p = Project(tmp_path, monkeypatch, folder=FOLDER, name="edit_merge")
-    _edit(p)
+    p = Project(tmp_path, monkeypatch, folder=FIXTURE, name=FIXTURE_NAME)
+    edit_fixture(p)
     code, env, err = p.build("--confirm")
     assert code == 0, err
-    assert _keys(env, "edit.unrecorded") == sorted(EDITED)
+    assert _keys(env, "edit.unrecorded") == sorted(FIXTURE_EDITS)
     assert not issues(env, "sync.conflict")
     design = p.read()
     _, j9 = footprint(design, "J9")
