@@ -77,6 +77,12 @@ TEXT_THICKNESS: Nm = 150_000
 DIMENSION_UNITS: tuple[str, ...] = ("mm", "in", "mils", "auto")
 """The units of a dimension's text; ``mils`` and ``auto`` (the board editor's units) since change c0277."""
 DIMENSION_DIRECTIONS: tuple[str, ...] = ("horizontal", "vertical")
+DIMENSION_FRAMES: tuple[str, ...] = ("none", "rect", "circle")
+"""The frames of a leader's text (``leader(frame=)``; change c0277)."""
+SPECIAL_CALLS: Mapping[str, str] = MappingProxyType(
+    {"radial": "radial_dimension", "leader": "leader", "center": "center_mark"}
+)
+"""The ``Design`` call of each dimension kind of change c0277."""
 MAX_PRECISION = 4
 
 Pair = tuple[Nm, Nm]
@@ -158,6 +164,12 @@ class DimensionSpec:
     """The width of the text's font when ``size`` was a ``(width, height)`` pair that is not square."""
     text_at: Pair | None = None
     """Where the text stands when it is placed by hand (change c0277), board-relative."""
+    leader_length: Nm | None = None
+    """The leader of a radial dimension (change c0277)."""
+    text: str | None = None
+    """The text of a leader (change c0277)."""
+    frame: str | None = None
+    """The frame of a leader's text (change c0277)."""
 
 
 Drawing = TextSpec | GraphicSpec | DimensionSpec
@@ -514,6 +526,59 @@ def dimension(
         gap,
         text_width,
         None if text_at is None else point(text_at, f"{what}: text_at"),
+    )
+
+
+def special_dimension(
+    key: str, kind: str, start: object, end: object, layer: object, *, units: object = "mm",
+    precision: object = 4, size: object = None, thickness: object = None, width: object = None,
+    leader_length: object = None, text: object = None, frame: object = None, text_at: object = None,
+    user: Sequence[str] = (),
+) -> DimensionSpec:  # fmt: skip
+    """A ``radial``, ``leader`` or ``center`` dimension (change c0277), checked as ``dimension`` checks its
+    points, layer, units, precision and text sizes."""
+    what = f"{SPECIAL_CALLS[kind]} {key}"
+    first, second = ("start", "knee") if kind == "leader" else ("center", "edge")
+    a, b = point(start, f"{what}: {first}"), point(end, f"{what}: {second}")
+    if a == b:
+        raise DslError(f"{what}: the two points are the same point")
+    on = drawing_layer(layer, what, user=user)
+    if units not in DIMENSION_UNITS:
+        raise DslError(f"{what}: units must be one of {', '.join(DIMENSION_UNITS)}, not {units!r}")
+    if isinstance(precision, bool) or not isinstance(precision, int) or not 0 <= precision <= MAX_PRECISION:
+        raise DslError(f"{what}: precision must be an int from 0 to {MAX_PRECISION}, not {precision!r}")
+    length: Nm | None = None
+    if kind == "radial":
+        length = _positive(leader_length, f"{what}: leader_length", None)
+        if length is None:
+            raise DslError(f"{what}: leader_length must be a positive length")
+    note: str | None = None
+    if kind == "leader":
+        if not isinstance(text, str) or not text or not text.isprintable():
+            raise DslError(f"{what}: text must be a non-empty string of one line, not {text!r}")
+        if frame not in DIMENSION_FRAMES:
+            raise DslError(f"{what}: frame must be one of {', '.join(DIMENSION_FRAMES)}, not {frame!r}")
+        note = text
+    text_height, text_width = (None, None) if size is None else _text_size(size, f"{what}: size")
+    return DimensionSpec(
+        key,
+        cast("DimensionKind", kind),
+        a,
+        b,
+        0,
+        on,
+        None,
+        cast("DimensionUnits", units),
+        precision,
+        text_height,
+        _positive(thickness, f"{what}: thickness", None),
+        _positive(width, f"{what}: width", None),
+        None,
+        text_width,
+        None if text_at is None else point(text_at, f"{what}: text_at"),
+        length,
+        note,
+        frame if kind == "leader" else None,  # type: ignore[arg-type]
     )
 
 

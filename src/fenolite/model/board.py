@@ -63,7 +63,11 @@ ZoneSmoothing = Literal["none", "chamfer", "fillet"]
 HatchBorder = Literal["hatch_thickness", "min_thickness"]
 FieldJustifyH = Literal["left", "center", "right"]
 FieldJustifyV = Literal["top", "center", "bottom"]
-DimensionKind = Literal["aligned", "orthogonal"]
+DimensionKind = Literal["aligned", "orthogonal", "radial", "leader", "center"]
+"""``radial``, ``leader`` and ``center`` since change c0277: a radius with its leader, a note with an arrow,
+and the cross of a circle's centre."""
+DimensionFrame = Literal["none", "rect", "circle"]
+"""The frame drawn around a leader's text (change c0277)."""
 DimensionDirection = Literal["horizontal", "vertical"]
 DimensionUnits = Literal["mm", "in", "mils", "auto"]
 """The units of a dimension's text; ``auto`` follows the units the board editor shows (change c0277 adds
@@ -579,9 +583,12 @@ class Graphic(Entity):
 
 @dataclass(frozen=True, slots=True)
 class Dimension(Entity):
-    """A linear dimension between two points. The measured value is not a field: it follows from the
-    points. ``offset`` is the signed distance of the dimension line from the measured points; ``None``
-    for ``size``, ``thickness`` and ``width`` means the backend's default."""
+    """A dimension between two points. The measured value is not a field: it follows from the points.
+    ``offset`` is the signed distance of the dimension line from the measured points of a linear one
+    (``aligned``, ``orthogonal``), 0 for the other kinds; ``None`` for ``size``, ``thickness`` and
+    ``width`` means the backend's default. A ``radial`` one measures from its centre ``start`` to the edge
+    point ``end``; a ``leader`` points from ``start`` to its knee ``end`` and shows ``text``; a ``center``
+    mark draws a cross at ``start`` reaching ``end`` (change c0277)."""
 
     kind: DimensionKind
     layer: str
@@ -600,6 +607,12 @@ class Dimension(Entity):
     text_position: Point | None = None
     """Where the text of the dimension stands when it is placed by hand (KiCad's ``text_position_mode 2``;
     change c0277); ``None``: KiCad places it. Left out of the canonical JSON when ``None``."""
+    leader_length: Nm | None = None
+    """The length of a radial dimension's leader (change c0277); ``None`` for the other kinds."""
+    text: str | None = None
+    """The text a leader shows (change c0277); ``None`` for the other kinds."""
+    frame: DimensionFrame | None = None
+    """The frame around a leader's text (change c0277); ``None`` for the other kinds."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -687,6 +700,7 @@ __all__ = [
     "DielectricKind",
     "Dimension",
     "DimensionDirection",
+    "DimensionFrame",
     "DimensionKind",
     "DimensionUnits",
     "FieldJustifyH",

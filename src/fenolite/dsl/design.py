@@ -1803,6 +1803,72 @@ class Design(Container):
         )  # fmt: skip
         self.drawings[found.key] = found
 
+    def radial_dimension(
+        self,
+        key: str,
+        center: tuple[object, object],
+        edge: tuple[object, object],
+        *,
+        leader_length: object,
+        layer: str = "Dwgs.User",
+        units: str = "mm",
+        precision: int = 4,
+        size: object = None,
+        thickness: object = None,
+        width: object = None,
+    ) -> None:
+        """A radial dimension (change c0277): the radius from ``center`` to the point ``edge`` of the circle,
+        shown at the end of a leader ``leader_length`` long past ``edge``, prefixed ``R``."""
+        found = itemlib.special_dimension(
+            self._drawing("radial_dimension", key), "radial", center, edge, layer, units=units,
+            precision=precision, size=size, thickness=thickness, width=width, leader_length=leader_length,
+            user=self.user_layer_names,
+        )  # fmt: skip
+        self.drawings[found.key] = found
+
+    def leader(
+        self,
+        key: str,
+        start: tuple[object, object],
+        knee: tuple[object, object],
+        *,
+        text: str,
+        frame: str = "none",
+        layer: str = "Dwgs.User",
+        size: object = None,
+        thickness: object = None,
+        width: object = None,
+        text_at: tuple[object, object] | None = None,
+        units: str = "mm",
+        precision: int = 4,
+    ) -> None:
+        """A leader (change c0277): an arrow from ``start`` to ``knee`` and the note ``text``, framed by
+        ``frame`` (``none``, ``rect`` or ``circle``). The text stands at ``text_at``, else 2 mm past the
+        knee on the side the arrow points to."""
+        found = itemlib.special_dimension(
+            self._drawing("leader", key), "leader", start, knee, layer, units=units, precision=precision,
+            size=size, thickness=thickness, width=width, text=text, frame=frame, text_at=text_at,
+            user=self.user_layer_names,
+        )  # fmt: skip
+        self.drawings[found.key] = found
+
+    def center_mark(
+        self,
+        key: str,
+        center: tuple[object, object],
+        edge: tuple[object, object],
+        *,
+        layer: str = "Dwgs.User",
+        width: object = None,
+    ) -> None:
+        """A centre mark (change c0277): the cross of a circle's centre ``center``, its arms reaching the
+        point ``edge``."""
+        found = itemlib.special_dimension(
+            self._drawing("center_mark", key), "center", center, edge, layer, width=width,
+            user=self.user_layer_names,
+        )  # fmt: skip
+        self.drawings[found.key] = found
+
     def verbatim(self, key: str, text: str, *, target: str = "kicad_pcb") -> None:
         """One item kept as KiCad text (change c0277): a child of the board root (``target="kicad_pcb"``) or a
         rule of the rules file (``"kicad_dru"``). The DSL does not parse ``text``; the build checks it and

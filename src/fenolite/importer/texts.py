@@ -9,6 +9,7 @@ rest itself.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -206,6 +207,60 @@ def dimension_style(dimension: Dimension) -> DimensionStyle | None:
     return DimensionStyle(None if gap == 500_000 else gap, units, text_at if manual else None)
 
 
+def special_style(dimension: Dimension) -> tuple[str, Point | None] | None:
+    """The units and the hand-placed text position of a radial, leader or centre dimension whose ``format``
+    and ``style`` are those the build writes (``pcb.special_dimension_children``) and whose text has the
+    effects it writes; ``None`` for another one (change c0277). A leader's text position is its ``gr_text``
+    ``at``, given when it is not the build's default; a radial one's is KiCad's to draw."""
+    from fenolite.backends.kicad.pcb import leader_text_at, special_dimension_children
+
+    bag = dimension.ext.get("kicad")
+    read: dict[str, Node] = {}
+    for slot in slotlib.from_ext(bag) if bag is not None else ():
+        if not isinstance(slot, Opaque):
+            continue
+        child = slotlib.opaque_child(slot)
+        if (
+            not isinstance(child, Node)
+            or child.name not in ("format", "style", "gr_text")
+            or child.name in read
+        ):
+            return None
+        read[child.name] = child
+    units = dimension.units
+    held = read["format"].find("units") if "format" in read else None
+    if held is not None:
+        code = [a.text for a in held.atoms()]
+        if len(code) != 1 or code[0] not in UNITS_OF_CODE:
+            return None
+        units = UNITS_OF_CODE[code[0]]
+    text_at: Point | None = None
+    shown = read.get("gr_text")
+    if shown is not None:
+        at = shown.find("at")
+        if at is None or len(at.atoms()) < 2:
+            return None
+        try:
+            where = _point(at.with_children(at.children[:2]))
+        except ValueError:
+            return None
+        if dimension.kind == "leader" and where != leader_text_at(dimension):
+            text_at = where
+    model = dataclasses.replace(dimension, units=units, text_position=text_at)  # type: ignore[arg-type]
+    expected = special_dimension_children(model, "")
+    if sorted(read) != sorted(name for name, nodes in expected.items() if nodes):
+        return None
+    for name in ("format", "style"):
+        if name in read and read[name] != expected[name][0]:
+            return None
+    if shown is not None:
+        made = expected["gr_text"][0]
+        assert isinstance(made, Node)
+        if shown.find("effects") != made.find("effects") or shown.find("layer") != made.find("layer"):
+            return None
+    return units, text_at
+
+
 def _plain_stroke(stroke: Node) -> bool:
     """A ``stroke`` the DSL writes again: its width (the model's) and a ``solid`` or ``default`` type; a
     dashed or coloured stroke is not."""
@@ -339,5 +394,6 @@ __all__ = [
     "TextStyle",
     "dimension_style",
     "graphic_net",
+    "special_style",
     "text_style",
 ]

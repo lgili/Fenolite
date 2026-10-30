@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Builds of 4, 6 and 8 copper layers through fill, DRC and export (capability kicad-oracle, "Builds of
-four, six and eight copper layers pass the oracle"; hypothesis H-K-BUILD-LAYERS; change c0100).
+"""Builds of 4, 6, 8, 10, 16 and 32 copper layers through fill, DRC and export (capability kicad-oracle,
+"Builds of four, six and eight copper layers pass the oracle" and "Builds of ten, sixteen and thirty-two
+copper layers pass the oracle"; hypotheses H-K-BUILD-LAYERS and H-K-BUILD-LAYERS-32; changes c0100 and
+c0277).
 
 On 10.0 the variant of ``_layercases`` is built for targets 9 and 10, filled, checked, exported and built
 again. With ``FENOLITE_PROBES_WRITE=1`` that run writes the filled target-9 boards of 6 and 8 layers to

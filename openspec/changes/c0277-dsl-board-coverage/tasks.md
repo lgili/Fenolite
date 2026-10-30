@@ -25,12 +25,12 @@
 - [x] 1.2 Extend `COPPER_COUNTS` and `CREATED_COPPER_COUNTS` (with 1 only if 1.1 recorded `load` on both majors) and the refusal message (scenarios "Unsupported copper count", "Thirty-two copper layers", "Counts outside the table"). Proof: `uv run pytest tests/unit/dsl/test_board.py tests/unit/backends/kicad/test_layers.py -q`.
 - [x] 1.3 Consequences: zones, planes, script copper, copper guard, exports, Specctra hand-off and the viewer palette on 16 and 32 layers (scenario "Sixteen layers with planes"). Proof: `uv run pytest tests/unit/lens/test_build_layers.py tests/unit/routing -k layers -q`.
 - [x] 1.4 The Altium limit (scenarios "Twenty layers without planes", "Twenty layers with four planes"); register `H-A-STACK-32` with its kit step. Proof: `uv run pytest tests/unit/cli/test_build_altium.py -k stack -q`. (2026-10-30: the row is registered with its kit request; the twenty-layer sample joins the kit with its next version, so the row stays `INFERRED`.)
-- [ ] 1.5 The KiCad builds of 10, 16 and 32 layers; register `H-K-BUILD-LAYERS-32` (scenario "Thirty-two layers on KiCad 10"). Proof: `uv run pytest tests/kicad/build/test_layer_builds.py -rA` (in CI).
+- [x] 1.5 The KiCad builds of 10, 16 and 32 layers; register `H-K-BUILD-LAYERS-32` (scenario "Thirty-two layers on KiCad 10"). Proof: `uv run pytest tests/kicad/build/test_layer_builds.py -rA` (in CI). (2026-10-30: run in the pinned image of 10.0.6, local, and the stack-up defaults of 10, 16 and 32 on both majors.)
 
 ## 2. Board items
 
 - [x] 2.1 Copper text and graphics, the copper guard rule and `copper.text-unchecked` (scenarios "Copper text and a copper shape on a net", "A copper shape across a pad of another net"; graphics also take `width=None`). Proof: `uv run pytest tests/unit/dsl/test_drawings.py tests/unit/checks -k "copper_art or drawings" -q`.
-- [ ] 2.2 Dimensions `radial`, `leader`, `center` (scenario "Three new kinds"). Proof: `uv run pytest tests/unit/dsl/test_dimensions.py -q`.
+- [x] 2.2 Dimensions `radial`, `leader`, `center` (scenario "Three new kinds"). Proof: `uv run pytest tests/unit/dsl/test_dimensions.py -q`.
 - [x] 2.3 Zone arcs in the DSL, model, writer, copper check and Altium lowering, and in the import (scenario "Zone with an arc edge"; board-to-code, "Zone arcs in an import"); Fenolite has no fill engine of its own, KiCad fills the zone. Proof: `uv run pytest tests/unit/dsl/test_zones.py tests/unit/lens -k zone_arc -q`.
 - [x] 2.4 Groups (scenario "A labelled block"; members of copper intents, images and verbatim items join with their tasks). Proof: `uv run pytest tests/unit/dsl/test_groups.py -q`.
 - [ ] 2.5 Images, read by the build as declared inputs (scenario "Logo image"); the test PNG is authored for Fenolite. Proof: `uv run pytest tests/unit/dsl/test_images.py -q`.

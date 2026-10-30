@@ -1680,12 +1680,23 @@ design.dimension("width", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-5))
   0.5 mm), `size` may be a `(width, height)` pair, as a text's, and `text_at` places the text by hand
   (KiCad's `text_position_mode 2`; change c0277). KiCad computes the text, and without `text_at` its place
   and its angle, from the points when it loads the board.
+- **`radial_dimension(key, center, edge, *, leader_length, layer="Dwgs.User", units="mm", precision=4,
+  size=None, thickness=None, width=None)`** (change c0277): the radius from `center` to the point `edge` of
+  a circle, shown with the prefix `R ` at the end of a leader `leader_length` long past `edge`.
+- **`leader(key, start, knee, *, text, frame="none", layer="Dwgs.User", size=None, thickness=None,
+  width=None, text_at=None, units="mm", precision=4)`** (change c0277): an arrow from `start` to `knee` and
+  the note `text` (one line), framed by `frame` (`none`, `rect` or `circle`). The text stands at `text_at`,
+  else 2 mm past the knee on the side the arrow points to.
+- **`center_mark(key, center, edge, *, layer="Dwgs.User", width=None)`** (change c0277): the cross of a
+  circle's centre, its arms reaching `edge`. It has no text.
 - **In the model** a text is a `Text` (`txt`), a graphic a `Graphic` (`gfx`) and a dimension a `Dimension`
   (`dim`), each in key order; `design.drawings` holds the records by key.
 - **Errors at the call** (`DslError`, nothing recorded): no `board()` yet, a key used twice, a layer that
   takes no drawing, a text with a character that is not printable (a line break excepted), a knockout off
   copper and silkscreen, a bare number for a length, corners of a rectangle that
-  share a coordinate, a `direction` whose difference is 0, a `precision` outside 0 to 4.
+  share a coordinate, a `direction` whose difference is 0, a `precision` outside 0 to 4, a
+  `leader_length` that is not a positive length, a leader's `text` that is empty or of several lines, a
+  `frame` outside `none`, `rect` and `circle`.
 - **Rebuilds.** As for rule areas: script drawings are written again on every build, and what was drawn
   in KiCad stays.
 - **Altium.** Centred texts and graphics are written; a justified text, a text of several lines or in a

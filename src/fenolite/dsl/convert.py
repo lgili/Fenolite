@@ -719,6 +719,9 @@ def _dimensions(design: Design) -> tuple[Dimension, ...]:
             width=spec.width,
             extension_offset=spec.extension_offset,
             text_position=None if spec.text_at is None else _at(spec.text_at),
+            leader_length=spec.leader_length,
+            text=spec.text,
+            frame=spec.frame,  # type: ignore[arg-type]
         )
         for key, spec in sorted(design.drawings.items())
         if isinstance(spec, DimensionSpec)

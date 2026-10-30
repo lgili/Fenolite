@@ -259,20 +259,27 @@ DIMENSION_FIELDS: Mapping[str, str] = MappingProxyType(
         "uuid": "native_ids",
         "pts": "points",
         "height": "offset",
+        "leader_length": "leader_length",
         "orientation": "direction",
     }
 )
-"""The modelled children of a linear dimension. ``format``, ``style`` and the ``gr_text`` stay opaque
-slots, projected into ``units``, ``precision``, ``width``, ``size`` and ``thickness`` (``board.md``,
-"Dimensions")."""
-DIMENSION_KINDS = ("aligned", "orthogonal")
+"""The modelled children of a dimension. ``format``, ``style`` and the ``gr_text`` stay opaque slots,
+projected into ``units``, ``precision``, ``width``, ``size`` and ``thickness``, and a leader's ``text`` and
+``frame`` (``board.md``, "Dimensions"; change c0277)."""
+DIMENSION_KINDS = ("aligned", "orthogonal", "radial", "leader", "center")
+LINEAR_KINDS = ("aligned", "orthogonal")
+"""The kinds whose dimension line stands ``height`` away from the points."""
+FRAME_CODES: Mapping[str, str] = MappingProxyType({"0": "none", "1": "rect", "2": "circle"})
+"""A leader's ``text_frame`` codes (S-0058: ``0`` in the demo boards; S-0001) and the model's frames."""
+RADIAL_PREFIX = "R "
+"""The prefix of a created radial dimension's text, as KiCad's own radial dimensions hold it (S-0058)."""
 DIMENSION_UNITS: Mapping[str, DimensionUnits] = MappingProxyType({"2": "mm", "0": "in"})
 """The ``units`` codes a reader projects (S-0001, "Dimension": 0 inches, 1 mils, 2 millimetres, 3
 automatic): another code is read as ``mm`` and kept in the ``format`` slot, which the import reads (change
 c0277)."""
 DIMENSION_CODES: Mapping[DimensionUnits, int] = MappingProxyType({"in": 0, "mils": 1, "mm": 2, "auto": 3})
 DIMENSION_PROJECTED: Mapping[str, tuple[str, ...]] = MappingProxyType(
-    {"format": ("units", "precision"), "style": ("width",), "gr_text": ("size", "thickness")}
+    {"format": ("units", "precision", "text"), "style": ("width", "frame"), "gr_text": ("size", "thickness")}
 )
 """Per projected child of a dimension, the model fields it holds."""
 DIMENSION_WIDTH = 100_000
@@ -613,18 +620,39 @@ def _emit_text(text: Text) -> Items:
 
 
 def _emit_dimension(dimension: Dimension) -> Items:
-    """The modelled children of a linear dimension."""
+    """The modelled children of a dimension: ``height`` for a linear one, ``leader_length`` for a radial
+    one (change c0277)."""
     direction: list[Node | Atom] = []
     if dimension.direction is not None:
         direction = [node("orientation", Atom.integer(0 if dimension.direction == "horizontal" else 1))]
+    offset: list[Node | Atom] = []
+    if dimension.kind in LINEAR_KINDS:
+        offset = [node("height", Atom.from_nm(dimension.offset))]
+    leader: list[Node | Atom] = []
+    if dimension.leader_length is not None:
+        leader = [node("leader_length", Atom.from_nm(dimension.leader_length))]
     return {
         "kind": [node("type", Atom.symbol(dimension.kind))],
         "layer": [node("layer", Atom.string(dimension.layer))],
         "native_ids": uuid_items(dimension.native_ids),
         "points": [_pts((dimension.start, dimension.end))],
-        "offset": [node("height", Atom.from_nm(dimension.offset))],
+        "offset": offset,
+        "leader_length": leader,
         "direction": direction,
     }
+
+
+def project_leader(item: Node) -> tuple[str | None, str | None]:
+    """``(text, frame)`` of a dimension node: the single string of ``format/override_value`` and the frame
+    of ``style/text_frame`` (``FRAME_CODES``), each ``None`` when absent or another form (change c0277)."""
+    fmt, style = item.find("format"), item.find("style")
+    held = fmt.find("override_value") if fmt is not None else None
+    atoms = held.atoms() if held is not None and not held.nodes() else ()
+    text = atoms[0].value if len(atoms) == 1 and atoms[0].kind == AtomKind.STRING else None
+    framed = style.find("text_frame") if style is not None else None
+    codes = [a.text for a in framed.atoms()] if framed is not None and not framed.nodes() else []
+    frame = FRAME_CODES.get(codes[0]) if len(codes) == 1 else None
+    return text, frame
 
 
 def dimension_value(dimension: Dimension) -> str:
@@ -1802,8 +1830,10 @@ class _Reader:
         return dataclasses.replace(text, ext={"kicad": slotlib.to_ext(slots)})
 
     def dimension(self, item: Node, loc: str) -> Dimension | None:
-        """A linear dimension, or ``None`` for a node that stays an opaque root slot: another type, a
-        ``pts`` that does not hold exactly two points, or an orthogonal one without ``orientation``."""
+        """A dimension, or ``None`` for a node that stays an opaque root slot: another type, a ``pts`` that
+        does not hold exactly two points, an orthogonal one without ``orientation``, a linear one without
+        ``height`` or another one with it, a radial one without an exact ``leader_length``, or a leader
+        without a text and a frame of the model (change c0277)."""
         ctx = self.ctx
         chain = (*ROOT, "dimension")
         type_node, pts = item.find("type"), item.find("pts")
@@ -1811,7 +1841,17 @@ class _Reader:
         kind = symbols(type_node) if type_node is not None else []
         if len(kind) != 1 or kind[0] not in DIMENSION_KINDS:
             return None
-        if pts is None or layer_node is None or height is None or len(layer_node.atoms()) != 1:
+        if pts is None or layer_node is None or len(layer_node.atoms()) != 1:
+            return None
+        if (height is not None) != (kind[0] in LINEAR_KINDS):
+            return None
+        leader_length = _exact_nm(item, "leader_length") if kind[0] == "radial" else None
+        if (kind[0] == "radial") != (leader_length is not None) or (
+            kind[0] != "radial" and item.find("leader_length") is not None
+        ):
+            return None
+        note, frame = project_leader(item) if kind[0] == "leader" else (None, None)
+        if kind[0] == "leader" and (note is None or frame is None):
             return None
         orientation = item.find("orientation")
         direction: DimensionDirection | None = None
@@ -1836,13 +1876,16 @@ class _Reader:
             layer=layer_node.atoms()[0].value,
             start=points[0],
             end=points[1],
-            offset=self.nm_of(height, f"{loc}/height[0]"),
+            offset=self.nm_of(height, f"{loc}/height[0]") if height is not None else 0,
             direction=direction,
             units=units,
             precision=precision,
             size=size,
             thickness=thickness,
             width=width,
+            leader_length=leader_length,
+            text=note,
+            frame=frame,  # type: ignore[arg-type]
         )
         self.check(item, loc, slots, _emit_dimension(dimension), chain)
         return dataclasses.replace(dimension, ext={"kicad": slotlib.to_ext(slots)})
@@ -2090,7 +2133,7 @@ FLOOR_HEADS: tuple[str, ...] = (
     "text_position_mode", "title", "title_block", "tracks", "units", "units_format", "vias", "zone_connect",
     "teardrops", "best_length_ratio", "max_length", "best_width_ratio", "max_width", "filter_ratio",
     "enabled", "allow_two_segments", "prefer_zone_connections", "face", "bold", "italic", "group",
-    "members", "free", "placement", "sheetname",
+    "members", "free", "placement", "sheetname", "leader_length", "override_value", "text_frame",
 )  # fmt: skip
 """Names the writer creates that the 8.0 format already has and that neither the token inventory nor
 the skeleton holds (``board.md``, S-0021 and S-0033 at tag 8.0.0). The names of a linear dimension
@@ -2102,7 +2145,8 @@ orthogonal dimension (S-0001). The ``teardrops`` child of a pad or via and its c
 (S-0058; change c0277), and so are the font children ``face``, ``bold`` and ``italic`` of a board text
 (change c0277; S-0001 documents them in the text effects), and the root ``group`` with its ``members``
 (S-0001, "Group"; change c0277), and a via's ``free`` (the demo boards of 9.0.9 and 10.0.6, S-0058; change
-c0277). The writer has no target below 9."""
+c0277), and the ``leader_length`` of a radial dimension and the ``override_value`` and ``text_frame`` of a
+leader (the demo boards of 9.0.9 and 10.0.6, S-0058; change c0277). The writer has no target below 9."""
 CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "kicad_pcb": (
@@ -2152,12 +2196,13 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "stroke": ("width", "type"),
         "gr_text": (*TEXT_POSITIONAL, "at", "layer", "uuid", "effects"),
         "dimension": (
-            "type", "layer", "uuid", "pts", "height", "orientation", "format", "style", "gr_text",
+            "type", "layer", "uuid", "pts", "height", "leader_length", "orientation", "format", "style",
+            "gr_text",
         ),
-        "format": ("prefix", "suffix", "units", "units_format", "precision"),
+        "format": ("prefix", "suffix", "units", "units_format", "precision", "override_value"),
         "style": (
-            "thickness", "arrow_length", "text_position_mode", "arrow_direction", "extension_height",
-            "extension_offset", "keep_text_aligned",
+            "thickness", "arrow_length", "text_position_mode", "text_frame", "arrow_direction",
+            "extension_height", "extension_offset", "keep_text_aligned",
         ),
     }
 )  # fmt: skip
@@ -2348,8 +2393,78 @@ def _effects(
     return _ordered("effects", {"font": [font], "justify": justify})
 
 
+def leader_text_at(dimension: Dimension) -> Point:
+    """Where a created leader's text stands without ``text_position``: 2 mm past its knee, on the side the
+    leader points to (a Fenolite choice; change c0277)."""
+    step = 2_000_000 if dimension.end.x >= dimension.start.x else -2_000_000
+    return Point(dimension.end.x + step, dimension.end.y)
+
+
+def radial_text_at(dimension: Dimension) -> Point:
+    """Where a created radial dimension's text stands: the end of its leader, ``leader_length`` past the edge
+    point away from the centre (change c0277). KiCad draws its own text there."""
+    dx, dy = dimension.end.x - dimension.start.x, dimension.end.y - dimension.start.y
+    reach = math.isqrt(dx * dx + dy * dy) or 1
+    length = dimension.leader_length or 0
+    return Point(dimension.end.x + dx * length // reach, dimension.end.y + dy * length // reach)
+
+
+def special_dimension_children(dimension: Dimension, native: str) -> Items:
+    """The ``format``, ``style`` and ``gr_text`` of a created radial, leader or centre dimension, in the forms
+    of the demo boards' radial and leader dimensions (S-0058); a centre mark has a ``style`` only (written
+    on 9.0.9 and 10.0.6, ``H-K-DIM-KINDS``; change c0277)."""
+    width = dimension.width if dimension.width is not None else DIMENSION_WIDTH
+    style_items: dict[str, list[Node | Atom]] = {
+        "thickness": [node("thickness", Atom.from_nm(width))],
+        "arrow_length": [node("arrow_length", Atom.from_nm(1_270_000))],
+        "text_position_mode": [node("text_position_mode", Atom.integer(0))],
+        "extension_offset": [node("extension_offset", Atom.from_nm(500_000))],
+    }
+    if dimension.kind == "center":
+        return {"style": [_ordered("style", style_items)]}
+    leader = dimension.kind == "leader"
+    codes = {frame: int(code) for code, frame in FRAME_CODES.items()}
+    if leader:
+        style_items["text_frame"] = [node("text_frame", Atom.integer(codes[dimension.frame or "none"]))]
+    else:
+        style_items["keep_text_aligned"] = [node("keep_text_aligned", Atom.symbol("yes"))]
+    format_items: dict[str, list[Node | Atom]] = {
+        "prefix": [node("prefix", Atom.string("" if leader else RADIAL_PREFIX))],
+        "suffix": [node("suffix", Atom.string(""))],
+        "units": [node("units", Atom.integer(DIMENSION_CODES[dimension.units]))],
+        "units_format": [node("units_format", Atom.integer(0 if leader else 1))],
+        "precision": [node("precision", Atom.integer(dimension.precision))],
+    }
+    if leader:
+        format_items["override_value"] = [node("override_value", Atom.string(dimension.text or ""))]
+        shown = dimension.text or ""
+        at = dimension.text_position if dimension.text_position is not None else leader_text_at(dimension)
+    else:
+        shown = RADIAL_PREFIX + dimension_value(dimension)
+        at = dimension.text_position if dimension.text_position is not None else radial_text_at(dimension)
+    size = dimension.size if dimension.size is not None else TEXT_SIZE
+    thickness = dimension.thickness if dimension.thickness is not None else TEXT_THICKNESS
+    text = _ordered(
+        "gr_text",
+        {
+            "text": [Atom.string(shown)],
+            "at": [at_node(at, 0, always=True)],
+            "layer": [node("layer", Atom.string(dimension.layer))],
+            "uuid": [_uuid_node(native)],
+            "effects": [_effects(size, thickness, mirror=False)],
+        },
+    )
+    return {
+        "format": [_ordered("format", format_items)],
+        "style": [_ordered("style", style_items)],
+        "gr_text": [text],
+    }
+
+
 def _dimension_children(dimension: Dimension, native: str) -> Items:
     """The ``format``, ``style`` and ``gr_text`` of a created dimension (``board.md``, "Dimensions")."""
+    if dimension.kind not in LINEAR_KINDS:
+        return special_dimension_children(dimension, native)
     size = dimension.size if dimension.size is not None else TEXT_SIZE
     thickness = dimension.thickness if dimension.thickness is not None else TEXT_THICKNESS
     width = dimension.width if dimension.width is not None else DIMENSION_WIDTH
@@ -3384,10 +3499,14 @@ class _Writer:
             return "effects"
         if isinstance(entity, Dimension) and name in DIMENSION_PROJECTED:
             units, precision, width, size, thickness = project_dimension(node("dimension", child))
+            note, frame = project_leader(node("dimension", child))
             found_values = {
-                "units": units, "precision": precision, "width": width, "size": size, "thickness": thickness
+                "units": units, "precision": precision, "width": width, "size": size, "thickness": thickness,
+                "text": note, "frame": frame,
             }  # fmt: skip
             for field in DIMENSION_PROJECTED[name]:
+                if field in ("text", "frame") and entity.kind != "leader":
+                    continue  # only a leader's text and frame are the model's (change c0277)
                 if found_values[field] != getattr(entity, field):
                     self.read_only(field, _locator(entity), f"the {name} of a dimension is written as read")
             return name
@@ -3668,6 +3787,7 @@ def write_board(
 
 __all__ = [
     "BOARD_PAD_FIELDS",
+    "LINEAR_KINDS",
     "CANONICAL_ORDER",
     "COLLECTION_FIELDS",
     "DIMENSION_FIELDS",
@@ -3711,4 +3831,7 @@ __all__ = [
     "field_value",
     "field_value_slot",
     "write_board",
+    "leader_text_at",
+    "project_leader",
+    "special_dimension_children",
 ]

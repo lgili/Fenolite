@@ -253,7 +253,28 @@ def test_created_tokens() -> None:
         created_design,
         board=dataclasses.replace(
             board,
-            dimensions=two_dimensions(),
+            dimensions=(  # and a radial dimension and a leader of c0277
+                *two_dimensions(),
+                Dimension(
+                    id="dim_00000000-0000-4000-8000-0000000000ca",
+                    kind="radial",
+                    layer="Dwgs.User",
+                    start=mm(60, 60),
+                    end=mm(62, 60),
+                    offset=0,
+                    leader_length=2_000_000,
+                ),
+                Dimension(
+                    id="dim_00000000-0000-4000-8000-0000000000cb",
+                    kind="leader",
+                    layer="Dwgs.User",
+                    start=mm(70, 60),
+                    end=mm(72, 58),
+                    offset=0,
+                    text="N",
+                    frame="rect",
+                ),
+            ),  # fmt: skip
             vias=(via, *board.vias[1:]),
             texts=(*board.texts, styled),
             groups=(group,),  # a group of c0277

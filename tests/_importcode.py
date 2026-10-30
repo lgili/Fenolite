@@ -153,6 +153,44 @@ def drawn(tmp: Path) -> Path:
     return _variant(tmp, "drawn", body[:-1] + DRAWN_TEXTS + DIMENSIONS + ")\n")
 
 
+SPECIAL_DIMENSIONS = (
+    '\t(dimension (type radial) (layer "Dwgs.User") (uuid "0e0e0e0e-0000-4000-8000-000000000031")'
+    " (pts (xy 100 150) (xy 103 154)) (leader_length 2.5)"
+    ' (format (prefix "R ") (suffix "") (units 2) (units_format 1) (precision 4))'
+    " (style (thickness 0.1) (arrow_length 1.27) (text_position_mode 0) (extension_offset 0.5)"
+    " (keep_text_aligned yes))"
+    ' (gr_text "R 5.0000 mm" (at 104.5 156 306.87) (layer "Dwgs.User")'
+    ' (uuid "0e0e0e0e-0000-4000-8000-000000000031") (effects (font (size 1 1) (thickness 0.15)))))\n'
+    '\t(dimension (type leader) (layer "Cmts.User") (uuid "0e0e0e0e-0000-4000-8000-000000000032")'
+    " (pts (xy 110 150) (xy 113 147))"
+    ' (format (prefix "") (suffix "") (units 2) (units_format 0) (precision 4)'
+    ' (override_value "0.3mm Thickness"))'
+    " (style (thickness 0.1) (arrow_length 1.27) (text_position_mode 0) (text_frame 0)"
+    " (extension_offset 0.5))"
+    ' (gr_text "0.3mm Thickness" (at 125.7 147 0) (layer "Cmts.User")'
+    ' (uuid "0e0e0e0e-0000-4000-8000-000000000032") (effects (font (size 1 1) (thickness 0.15)))))\n'
+    '\t(dimension (type center) (layer "Dwgs.User") (uuid "0e0e0e0e-0000-4000-8000-000000000033")'
+    " (pts (xy 120 150) (xy 122 150))"
+    " (style (thickness 0.1) (arrow_length 1.27) (text_position_mode 0) (extension_offset 0.5)))\n"
+    '\t(dimension (type radial) (layer "Dwgs.User") (uuid "0e0e0e0e-0000-4000-8000-000000000034")'
+    " (pts (xy 130 150) (xy 132 150)) (leader_length 2)"
+    ' (format (prefix "4x R ") (suffix "") (units 3) (units_format 1) (precision 2))'
+    " (style (thickness 0.1) (arrow_length 1.27) (text_position_mode 0) (extension_offset 0.5)"
+    " (keep_text_aligned yes))"
+    ' (gr_text "4x R 2.00 mm" (at 134 150 0) (layer "Dwgs.User")'
+    ' (uuid "0e0e0e0e-0000-4000-8000-000000000034") (effects (font (size 1 1) (thickness 0.15)))))\n'
+)
+"""A radial dimension, a leader and a centre mark in the forms the build writes (the leader's text placed
+by hand), and a radial dimension with a prefix of its own, which the DSL cannot say (change c0277)."""
+
+
+def dimensioned(tmp: Path) -> Path:
+    """The board with ``SPECIAL_DIMENSIONS`` added (change c0277)."""
+    body = BOARD.read_text(encoding="utf-8").rstrip()
+    assert body.endswith(")")
+    return _variant(tmp, "dimensioned", body[:-1] + SPECIAL_DIMENSIONS + ")\n")
+
+
 def unfitted(tmp: Path) -> Path:
     """The board with R101 not populated (``dnp``) and a net tie joining the two pads of R201 (c0277)."""
     text = BOARD.read_text(encoding="utf-8")

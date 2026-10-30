@@ -55,7 +55,14 @@ from fenolite.importer.tables import (
     protect_arguments,
     teardrop_arguments,
 )
-from fenolite.importer.texts import area_placement, dimension_style, graphic_net, text_style, zone_arc_ring
+from fenolite.importer.texts import (
+    area_placement,
+    dimension_style,
+    graphic_net,
+    special_style,
+    text_style,
+    zone_arc_ring,
+)
 from fenolite.importer.vendor import natural, vendor
 from fenolite.model.base import Entity, Opaque
 from fenolite.model.board import (
@@ -814,6 +821,50 @@ def _dimension(item: Dimension, key: str) -> Call | None:
     return Call("design.dimension", (text(key), _xy(item.start), _xy(item.end)), tuple(kwargs))
 
 
+def _special(item: Dimension, key: str) -> Call | None:
+    """``design.radial_dimension()``, ``leader()`` or ``center_mark()`` of a dimension of those kinds whose
+    ``format``, ``style`` and text effects are those the build writes (change c0277); ``None`` for another
+    one."""
+    if item.start == item.end or not 0 <= item.precision <= 4:
+        return None
+    found = special_style(item)
+    if found is None:
+        return None
+    units, text_at = found
+    kwargs: list[tuple[str, Expr]] = []
+    if item.kind == "radial":
+        assert item.leader_length is not None
+        kwargs.append(("leader_length", length(item.leader_length)))
+    elif item.kind == "leader":
+        kwargs.append(("text", text(item.text or "")))
+        if item.frame not in (None, "none"):
+            kwargs.append(("frame", text(item.frame or "none")))
+    if item.layer != "Dwgs.User":
+        kwargs.append(("layer", text(item.layer)))
+    if item.kind != "center":
+        if units != "mm":
+            kwargs.append(("units", text(units)))
+        if item.precision != 4:
+            kwargs.append(("precision", number(item.precision)))
+        if item.size is not None:
+            if item.size.w <= 0 or item.size.h <= 0:
+                return None
+            pair = Tup((length(item.size.w), length(item.size.h)))
+            kwargs.append(("size", length(item.size.w) if item.size.w == item.size.h else pair))
+        if item.thickness is not None:
+            if item.thickness <= 0:
+                return None
+            kwargs.append(("thickness", length(item.thickness)))
+    if item.width is not None:
+        if item.width <= 0:
+            return None
+        kwargs.append(("width", length(item.width)))
+    if text_at is not None:
+        kwargs.append(("text_at", _xy(text_at)))
+    call = {"radial": "design.radial_dimension", "leader": "design.leader", "center": "design.center_mark"}
+    return Call(call[item.kind], (text(key), _xy(item.start), _xy(item.end)), tuple(kwargs))
+
+
 def _native(item: Entity) -> str:
     return item.native_ids.get("kicad", "")
 
@@ -893,7 +944,11 @@ def _drawings(
         slot = (dimension.layer, "dimension")
         counters[slot] = counters.get(slot, 0) + 1
         key = f"{segment(dimension.layer)}/dimension/{counters[slot]}"
-        made = _dimension(dimension, key)
+        made = (
+            _dimension(dimension, key)
+            if dimension.kind in ("aligned", "orthogonal")
+            else _special(dimension, key)
+        )
         if made is None:
             ledger.add("dimension-style", where)
             continue
