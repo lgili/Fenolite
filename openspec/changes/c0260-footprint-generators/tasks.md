@@ -113,4 +113,4 @@
 - [x] 7.4 Add the entry to `CHANGELOG.md` under `## [Unreleased]`, noting that `.fenolite/board.json` gains bodies for catalog footprints whose records give heights. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
   Done 2026-10-30: `pytest tests/unit -k changelog` 8 passed; the entry is under `## [Unreleased]` / Added (dev is `0.7.0.dev0`).
 - [ ] 7.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
-  Open 2026-10-30: CI runs with the batch (the coordinator pushes it).
+  Open 2026-10-30: `make check-fast PYTEST_WORKERS=2` passed on the branch head (17268 passed, 50 skipped); CI runs with the batch (the coordinator pushes it).
