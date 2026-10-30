@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, `AGENTS.md`, `docs/research/electrical-requirements.md` and the living specs this change touches (`fenolite-component-catalog`, `design-model`, `design-dsl`, `verification-loop`, `cli-contract`, `net-roles`). Write under this task, with the date and the base commit:
+- [x] 0.1 Read `openspec list`, `AGENTS.md`, `docs/research/electrical-requirements.md` and the living specs this change touches (`fenolite-component-catalog`, `design-model`, `design-dsl`, `verification-loop`, `cli-contract`, `net-roles`). Write under this task, with the date and the base commit:
   - what c0246 and c0248 landed: the unit table and `Decimal10`; `Rating`, `DevicePin`, `core/quantities` and the record keys. If either folder is archived, regenerate this change's requirements against the living text;
   - that no device record with c0248's single `{ min, max }` form has shipped (phase A refuses it);
   - before phase B: what c0252 and c0253 landed (the stage `circuit.rules`, `checks/circuit/`, the requirement table, the classes injected from `roles.classify`, `design.contracts`);
@@ -27,7 +27,7 @@
   - 2026-10-29: done (`[[limits]]`, the five thresholds, `class` in parser, canonical text and digest). "A ferrite says what it is" is tested with `class = "controller"` and `"bead"` refused: `ferrite` joins the vocabulary in phase B. Proof passed.
 - [x] 2.3 Add `Rating.limit`, `DevicePin.ratings` and `thresholds`, `PinPairLimit`, `DeviceDef.limits` and `cls` to `model/library.py`, regenerate the library schema, and update `docs/design-model.md` and `docs/catalog/README.md` (scenario "A split record round-trips"). Proof: `uv run pytest tests/unit/model/test_library.py -k limits -q`; `uv run python tools/gen_schemas.py --check`.
   - 2026-10-29: done. `Rating.limit`, `DevicePin.ratings`/`thresholds` with `rating()`/`threshold()`, `Threshold`, `PinPairLimit`, `DeviceDef.limits` and `cls`; `library.json` regenerated; `docs/design-model.md` and `docs/devices.md` (where device records are documented; `docs/catalog/README.md` covers the symbol and footprint catalog only) updated. Proof passed.
-- [ ] 2.4 Tell c0252 and c0253 that phase A has landed: run their entry checks' reading of `abs_max`, `operating`, `[[limits]]`, kelvin and the products. Proof: `openspec validate c0252-parametric-interfaces --strict`; `openspec validate c0253-electrical-contracts --strict`.
+- [x] 2.4 Tell c0252 and c0253 that phase A has landed: run their entry checks' reading of `abs_max`, `operating`, `[[limits]]`, kelvin and the products. Proof: `openspec validate c0252-parametric-interfaces --strict`; `openspec validate c0253-electrical-contracts --strict`.
   - 2026-10-29: phase A has landed on this branch; c0253's entry check (task 0.1) already lists what to read. The names as implemented: `Rating(key, unit, min, max, limit)`, `DevicePin.rating(key, limit)` and `threshold(key)`, `PinPairLimit(between, ratings)`, `DeviceDef.limits`, `DeviceDef.cls`, `RatingUnit` `mK`, `RangeUnit` `kelvin`, `dsl.quantity.SQUARED`. Left open: its proof (`openspec validate` of c0252 and c0253) cannot run in this container (no `openspec` CLI), and their folders are left untouched so parallel branches merge cleanly.
 
 ## 3. Phase B: the one classifier (after c0253)
@@ -79,5 +79,5 @@ Phases B to F (sections 3 to 6) waited for c0252 and c0253, which were not merge
 - [ ] 7.5 Push each phase to the working branch and confirm that the required unit and KiCad jobs pass on that exact commit; run only `make check-fast` and the focused tests locally (AGENTS.md, workflow 4). Proof: the CI run of the commit is green; `make check-fast` passes locally.
   - 2026-10-29: CI runs with the batch (not pushed: the coordinator batches the push). `make check-fast PYTEST_WORKERS=2` passed locally.
   - 2026-10-30: CI runs with the batch (not pushed). `make check-fast PYTEST_WORKERS=2`: lint, format, types and residue passed; the test step gave 16 964 passed and one failure (`test_import_graph`: `roles` imported `checks`), fixed by moving the rule to `core/decidable.py`; the import-graph, circuit, roles-stage, waiver and agent tests then passed, and lint, format, types and residue again.
-- [ ] 7.6 Validate the change. Proof: `openspec validate c0274-electrical-requirements --strict`.
+- [x] 7.6 Validate the change. Proof: `openspec validate c0274-electrical-requirements --strict`.
   - 2026-10-29: `openspec` CLI not available in this container; left for the coordinator.
