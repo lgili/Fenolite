@@ -18,6 +18,7 @@ another type; a flag without a value is a switch.
 | command | writes | summary |
 |---|---|---|
 | `analyze` | no | measure current capacity, clearance and creepage of a board (read-only) |
+| `blocks` | yes | list, show, document and find the uses of block records (list, show, doc, where) |
 | `bom` | yes | the bill of materials of a project, through a column template (writes FILE with --out) |
 | `build` | yes | build a design script into a KiCad project (runs DESIGN.py as your own code: never run it on an untrusted script) |
 | `capabilities` | no | list commands, backends, extras and external tools available here |
@@ -38,7 +39,7 @@ another type; a flag without a value is a switch.
 | `impedance` | yes | the impedance table of a project for the fabricator, with --estimate rough estimates (writes FILE with --out) |
 | `import` | yes | turn a KiCad or Altium board into a Fenolite project folder (design.py, copper tables, library) |
 | `init` | yes | write a starter project (a design script that builds with the built-in catalog) into a folder |
-| `inspect` | no | summarise a KiCad or an Altium file, or list a compound file's streams (runs no tool) |
+| `inspect` | no | summarise a KiCad or an Altium file, list a compound file's streams, or list the block versions of a design lock or a circuit.json (runs no tool) |
 | `kit` | yes | build the Altium verification kit, check the files a run left, record the run, list the runs |
 | `library` | yes | write a footprint library made from a KiCad board, or report how a library differs from it; 'library symbol PINS... --out FILE' writes symbols generated from pin tables |
 | `manifest` | yes | write the project manifest: every design file and artefact with its SHA-256 and a state |
@@ -106,6 +107,15 @@ another type; a flag without a value is a switch.
 - `--aggressor GLOB` (repeatable): with --kinds coupling: the aggressor nets (repeatable; required)
 - `--victim GLOB` (repeatable): with --kinds coupling: the victim nets (repeatable; required)
 - `--barrier REF[,REF...]` (repeatable): with --kinds domains: parts (isolators, transformers) that separate the islands of nets (repeatable)
+
+## blocks
+`fenolite blocks [OPTIONS] VERB [ID]`
+
+- `VERB` (one of `doc`, `list`, `show`, `where`): list, show, doc or where
+- `TARGET` (repeatable): the block id (show, doc, where); for where, then the folders to search (default .)
+- `--from FILE.py` (repeatable): also list the blocks of this Python file; importing it runs its code (repeatable)
+- `--category {analog,connector,indicator,interface,other,power,protection,timing}`: list: only the blocks of this category
+- `--out DIR`: doc: write the page under DIR/<namespace>/<name>.md
 
 ## bom
 `fenolite bom [OPTIONS] PATH`
@@ -352,6 +362,7 @@ another type; a flag without a value is a switch.
 - `FILE`: a KiCad board, footprint, symbol library, schematic or sheet; or an Altium document, library or project file
 - `--summary`: header and counts (the default view)
 - `--streams`: list storages and streams in an MS-CFB file
+- `--blocks`: the block ids, versions and instances of a design lock or a built .fenolite/circuit.json
 - `--limit-bytes N`: maximum compound-file size
 
 ## kit

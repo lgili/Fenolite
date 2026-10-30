@@ -104,6 +104,7 @@ from fenolite.dsl.quantity import (
     watt,
 )
 from fenolite.dsl.query import capacitor, inductor, resistor
+from fenolite.dsl.record import REQUIRED, describe, param
 from fenolite.dsl.relative import column, grid, pack, row
 from fenolite.dsl.rolecopper import RoleCopperIntent, role_copper
 from fenolite.dsl.symbol import Symbol
@@ -153,6 +154,9 @@ __all__ = [
     "arc_to",
     "block",
     "block_schematics",
+    "describe",
+    "param",
+    "REQUIRED",
     "column",
     "connect",
     "copper",

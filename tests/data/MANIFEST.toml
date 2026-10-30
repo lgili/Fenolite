@@ -2546,7 +2546,7 @@ notes = "symbol table of a net-role reference board (c0222) naming the authored 
 path = "tests/data/fidelity/sensor_code/design.py"
 origin = "authored"
 corpus_id = ""
-notes = "the converted script of the authored fidelity fixture (c0278): a four-layer board with net classes, a custom rule, a zone, an arc, through and blind vias and board text, authored for Fenolite (CC0)"
+notes = "the converted script of the authored fidelity fixture (c0278): a four-layer board with net classes, a custom rule, a zone, an arc, through and blind vias and board text, authored for Fenolite"
 
 [[file]]
 path = "tests/data/fidelity/sensor_code/fp-lib-table"
@@ -2624,7 +2624,7 @@ notes = "base record of the target-10 build of the packaged minimal script (c025
 path = "examples/lock/design.py"
 origin = "authored"
 corpus_id = ""
-notes = "design-lock example (c0249): two modules with parts without a ref, one named part and one explicit ref, authored for Fenolite (CC0)"
+notes = "design-lock example (c0249): two modules with parts without a ref, one named part and one explicit ref, authored for Fenolite"
 
 [[file]]
 path = "examples/lock/design.lock"
@@ -2636,7 +2636,7 @@ notes = "the committed design lock of examples/lock (c0249), written by fenolite
 path = "examples/blocks/design.py"
 origin = "authored"
 corpus_id = ""
-notes = "blocks example (c0251): one circuit written once and used twice, authored for Fenolite (CC0)"
+notes = "blocks example (c0251): one circuit written once and used twice, authored for Fenolite"
 
 [[file]]
 path = "examples/blocks/design.lock"
@@ -3056,7 +3056,7 @@ notes = "symbol table of the drawn fixture repeat naming the authored mini libra
 path = "examples/sensor_rails/good.py"
 origin = "authored"
 corpus_id = ""
-notes = "rails example of change c0252, the good variant: every rail, logic level and pull-up passes circuit.rules; authored for Fenolite (CC0)"
+notes = "rails example of change c0252, the good variant: every rail, logic level and pull-up passes circuit.rules; authored for Fenolite"
 
 [[file]]
 path = "examples/sensor_rails/good.lock"
@@ -3068,7 +3068,7 @@ notes = "the committed design lock of examples/sensor_rails/good.py (c0252, lock
 path = "examples/sensor_rails/bad.py"
 origin = "authored"
 corpus_id = ""
-notes = "rails example of change c0252, the bad variant: an overloaded rail and a pull-up to the wrong rail; authored for Fenolite (CC0)"
+notes = "rails example of change c0252, the bad variant: an overloaded rail and a pull-up to the wrong rail; authored for Fenolite"
 
 [[file]]
 path = "examples/sensor_rails/rails/__init__.py"
@@ -3080,7 +3080,7 @@ notes = "package marker of the board module of examples/sensor_rails (c0252)"
 path = "examples/sensor_rails/rails/board.py"
 origin = "authored"
 corpus_id = ""
-notes = "the sensor board shared by the two variants of examples/sensor_rails (c0252), authored for Fenolite (CC0)"
+notes = "the sensor board shared by the two variants of examples/sensor_rails (c0252), authored for Fenolite"
 
 [[file]]
 path = "examples/sensor_rails/devices/example_fan.toml"
@@ -3110,7 +3110,7 @@ notes = "illustrative device record with interface parameters of examples/sensor
 path = "examples/picks/design.py"
 origin = "authored"
 corpus_id = ""
-notes = "parametric-pick example of change c0254: passives by value and a generator, authored for Fenolite (CC0)"
+notes = "parametric-pick example of change c0254: passives by value and a generator, authored for Fenolite"
 
 [[file]]
 path = "examples/picks/design.lock"
@@ -3122,7 +3122,7 @@ notes = "the committed design lock of examples/picks/design.py with its [picks] 
 path = "examples/picks/divider.py"
 origin = "authored"
 corpus_id = ""
-notes = "parametric-pick example of change c0254: a voltage divider generator, authored for Fenolite (CC0)"
+notes = "parametric-pick example of change c0254: a voltage divider generator, authored for Fenolite"
 
 [[file]]
 path = "examples/picks/divider.lock"
@@ -3152,19 +3152,19 @@ notes = "illustrative proposal rows of fenolite pick --propose in examples/picks
 path = "examples/circuit/sensor/bad.py"
 origin = "authored"
 corpus_id = ""
-notes = "example file of change c0253, authored for Fenolite (CC0)"
+notes = "example file of change c0253, authored for Fenolite"
 
 [[file]]
 path = "examples/circuit/sensor/contract_board/__init__.py"
 origin = "authored"
 corpus_id = ""
-notes = "example file of change c0253, authored for Fenolite (CC0)"
+notes = "example file of change c0253, authored for Fenolite"
 
 [[file]]
 path = "examples/circuit/sensor/contract_board/board.py"
 origin = "authored"
 corpus_id = ""
-notes = "example file of change c0253, authored for Fenolite (CC0)"
+notes = "example file of change c0253, authored for Fenolite"
 
 [[file]]
 path = "examples/circuit/sensor/devices/example_buck_18v.toml"
@@ -3212,13 +3212,13 @@ notes = "illustrative library record of the example of change c0253, authored fo
 path = "examples/circuit/sensor/good.py"
 origin = "authored"
 corpus_id = ""
-notes = "example file of change c0253, authored for Fenolite (CC0)"
+notes = "example file of change c0253, authored for Fenolite"
 
 [[file]]
 path = "examples/circuit/sensor/requirements.toml"
 origin = "authored"
 corpus_id = ""
-notes = "example file of change c0253, authored for Fenolite (CC0)"
+notes = "example file of change c0253, authored for Fenolite"
 
 [[file]]
 path = "examples/pins/design.lock"
@@ -3230,7 +3230,7 @@ notes = "the committed design lock of examples/pins/design.py (c0257), written b
 path = "examples/pins/design.py"
 origin = "authored"
 corpus_id = ""
-notes = "example file of change c0257, authored for Fenolite (CC0)"
+notes = "example file of change c0257, authored for Fenolite"
 
 [[file]]
 path = "examples/pins/devices/example_debug_header.toml"
@@ -3249,3 +3249,39 @@ path = "examples/pins/devices/example_sensor.toml"
 origin = "authored"
 corpus_id = ""
 notes = "illustrative library record of the example of change c0257, authored for Fenolite; not a real product"
+
+[[file]]
+path = "tests/data/blocks/divider.py"
+origin = "authored"
+corpus_id = ""
+notes = "a block with a record (c0268): Acme:divider with documented ports and parameters, authored for Fenolite"
+
+[[file]]
+path = "tests/data/blocks/replace.py"
+origin = "authored"
+corpus_id = ""
+notes = "two block records (c0268): Acme:div2 replaces Acme:div, which does not name it as deprecated; authored for Fenolite"
+
+[[file]]
+path = "tests/data/blocks/versions/base.py"
+origin = "authored"
+corpus_id = ""
+notes = "the version rules of shipped blocks (c0268): the committed state of Acme:div; authored for Fenolite"
+
+[[file]]
+path = "tests/data/blocks/versions/renamed.py"
+origin = "authored"
+corpus_id = ""
+notes = "the version rules (c0268): Acme:div with a renamed port under the same id; authored for Fenolite"
+
+[[file]]
+path = "tests/data/blocks/versions/default.py"
+origin = "authored"
+corpus_id = ""
+notes = "the version rules (c0268): Acme:div with another default and a PATCH step only; authored for Fenolite"
+
+[[file]]
+path = "tests/data/blocks/versions/docs.py"
+origin = "authored"
+corpus_id = ""
+notes = "the version rules (c0268): Acme:div with another doc text and the same version; authored for Fenolite"

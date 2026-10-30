@@ -77,6 +77,8 @@ _RETURNED = "a record that a call of the script returns; a script never names it
 _ERROR = "the error a wrong call raises; the build reports it, a script does not catch it"
 _PANEL = "a panel script's name, not a design's: page fabrication shows it and a test runs that sample"
 _INTENT = "mechanical intent of a locked anchor (c0096); constrained placement is not taught by the guide yet"
+_CATALOG = "fenolite blocks show calls it to read a block's record; a design script never does"
+_DEFAULT = "the default that param() takes when none is given; a script leaves the default out"
 DSL_NOT_TAUGHT: Mapping[str, str] = MappingProxyType(
     {
         "to_model": _BUILD_CALLS,
@@ -123,6 +125,8 @@ DSL_NOT_TAUGHT: Mapping[str, str] = MappingProxyType(
         "RoleCopperIntent": _RETURNED,
         "Trace": _RETURNED,
         "DslError": _ERROR,
+        "describe": _CATALOG,
+        "REQUIRED": _DEFAULT,
         "MechanicalIntent": _INTENT,
     }
 )

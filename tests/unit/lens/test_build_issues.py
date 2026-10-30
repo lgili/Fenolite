@@ -66,6 +66,9 @@ def test_closed_set() -> None:
         "lock.ref-released": "warning", "lock.ref-taken": "warning", "lock.ref-moved": "info",
         "lock.ref-explicit": "info", "lock.ref-prefix-changed": "info", "lock.design-renamed": "info",
         "lock.changed": "error",
+        # c0268: the [blocks] section of the design lock
+        "lock.block-version": "error", "lock.block-replaced": "info", "lock.block-released": "info",
+        "block.deprecated": "warning",
         # c0248: devices
         "build.device-mismatch": "error", "device.edited": "info", "device.overrides-builtin": "info",
         # c0252: the circuit rules, which cmd_build runs on the model it builds

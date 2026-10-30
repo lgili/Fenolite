@@ -404,3 +404,58 @@ def test_altium_two_views(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> No
     assert code == 0 and env["result"]["kind"] == "compound_file"
     code, env, _, _ = run(monkeypatch, tmp_path, "inspect", board, "--summary")
     assert code == 0 and env["result"]["kind"] == "altium_pcbdoc"
+
+
+BLOCK_SCRIPT = """\
+from fenolite.dsl import Design, Net, block, connect, mm, param
+
+design = Design("sensor")
+design.board(mm(40), mm(20))
+GND = Net("GND")
+
+
+@block(id="Acme:divider", version="1.0.0", summary="A divider", licence="CC0-1.0")
+def divider(b, *, ratio=param(2, min=1, max=10)):
+    hi = b.port("HI", direction="in")
+    r = b.part("top", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="10k")
+    connect(hi, r[1])
+    connect(GND, r[2])
+
+
+vin = Net("VIN")
+for n, name in enumerate(("sense_a", "sense_b")):
+    d = design.use(divider, name, ratio=n + 2)
+    connect(vin, d.HI)
+    d.part("top").place(mm(10 + 10 * n), mm(6))
+"""
+
+
+def test_blocks_where_used_in_one_design(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Where-Used in one design" (change c0268), on the circuit file and on the lock."""
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kicad-config"))
+    (tmp_path / "design.py").write_text(BLOCK_SCRIPT, encoding="utf-8")
+    code, _, err, _ = run(monkeypatch, tmp_path, "build", "design.py", "--out", "B", "--confirm")
+    assert code == 0, err
+    code, env, err, _ = run(monkeypatch, tmp_path, "inspect", "B/.fenolite/circuit.json", "--blocks")
+    assert code == 0, err
+    (row,) = env["result"]["blocks"]
+    assert (row["id"], row["version"]) == ("Acme:divider", "1.0.0")
+    assert [(i["path"], i["params"]) for i in row["instances"]] == [
+        ("sense_a", [{"name": "ratio", "type": "int", "text": "2"}]),
+        ("sense_b", [{"name": "ratio", "type": "int", "text": "3"}]),
+    ]
+    code, env, _, _ = run(monkeypatch, tmp_path, "inspect", "design.lock", "--blocks")
+    assert code == 0 and env["result"]["kind"] == "design_lock"
+    assert env["result"]["blocks"] == [
+        {"id": "Acme:divider", "version": "1.0.0", "instances": [{"path": "sense_a"}, {"path": "sense_b"}]}
+    ]
+
+
+def test_blocks_view_is_alone(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    (tmp_path / "x.lock").write_text('schema = "fenolite.lock.v0"\ndesign = "x"\n', encoding="utf-8")
+    code, _, err, _ = run(monkeypatch, tmp_path, "inspect", "x.lock", "--blocks", "--summary")
+    assert code == 2 and err["code"] == "FEN-2001"
+    code, env, _, _ = run(monkeypatch, tmp_path, "inspect", "x.lock", "--blocks")
+    assert code == 0 and env["result"]["blocks"] == []
+    code, _, err, _ = run(monkeypatch, tmp_path, "inspect", str(TWO_LAYER), "--blocks")
+    assert code == 2 and err["code"] == "FEN-2001"

@@ -3032,6 +3032,36 @@ meaning = "An explicit ref of the script replaced the different ref the lock hel
 fix = "Nothing to do; commit the lock."
 see = "build"
 
+["lock.block-version"]
+meaning = "An instance of a block with a record uses another version of its block than the design lock pins for its path; a newer version is never taken silently, so the build wrote nothing."
+fix = "Review the new version with fenolite blocks show ID, then change the entry of the path in the [blocks] section of the lock and build again."
+see = "build"
+
+["lock.block-replaced"]
+meaning = "A locked instance path now uses another block id, so its [blocks] entry was replaced."
+fix = "Nothing to do if the new block is intended; commit the lock."
+see = "build"
+
+["lock.block-released"]
+meaning = "A locked instance path is no instance of a block with a record any more, so its [blocks] entry was dropped."
+fix = "Nothing to do if the instance was removed; if it was renamed, record it with design.moved(old, new)."
+see = "build"
+
+["block.deprecated"]
+meaning = "The design uses a block whose record is deprecated; the message names the block that replaces it."
+fix = "Replace the uses of the block with the one its record names, then review the lock."
+see = "build"
+
+["blocks.duplicate-id"]
+meaning = "Two catalog sources of fenolite blocks hold a block with one id."
+fix = "Give one of the blocks another id, or leave one of the --from files out."
+see = "blocks"
+
+["blocks.lock-unreadable"]
+meaning = "fenolite blocks where found a design lock it cannot read, and skipped it."
+fix = "Build the design again to rewrite its lock, or fix the file by hand."
+see = "blocks"
+
 ["lock.ref-moved"]
 meaning = "A design.moved() alias carried a lock entry from the old path to the new one, so the part keeps its ref."
 fix = "Nothing to do; commit the lock. The alias can be removed after one build."

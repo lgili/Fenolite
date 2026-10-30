@@ -260,3 +260,32 @@ def test_schematic_no_mode_no_implicit_intent() -> None:
     from fenolite.dsl import schematic_composition
 
     assert schematic_composition(example(), target="altium") is None
+
+
+@block(id="Acme:channel", version="1.0.0", summary="A recorded channel", licence="CC0-1.0")
+def recorded(b: Any) -> None:
+    vin = b.port("VIN", direction="in")
+    r = b.part("R", R, footprint=FP, value="1k")
+    connect(vin, r[1])
+
+
+def test_identity_version_in_the_model() -> None:
+    """Scenario "Version in the model" (change c0268): a recorded block is named by its id, and its
+    module holds the id and the version; a project block keeps an empty version."""
+    design = Design("ids")
+    design.use(recorded, "sense_a")
+    design.use(channel, "ch0")
+    model = to_model(design, refs={"sense_a/R": "R1", "ch0/R_EN": "R2"})
+    modules = {m.path: m for m in model.circuit.modules}
+    assert (modules["sense_a"].block, modules["sense_a"].block_version) == ("Acme:channel", "1.0.0")
+    assert (modules["ch0"].block, modules["ch0"].block_version) == ("channel", "")
+
+
+def test_identity_two_functions_with_one_id() -> None:
+    @block(id="Acme:channel", version="1.0.0", summary="Another", licence="CC0-1.0")
+    def other(b: Any) -> None: ...
+
+    design = Design("ids")
+    design.use(recorded, "a")
+    with pytest.raises(DslError, match="Acme:channel"):
+        design.use(other, "b")

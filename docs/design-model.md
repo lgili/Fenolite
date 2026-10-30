@@ -724,6 +724,12 @@ Change c0251 records the blocks of a design script (`docs/dsl.md`, "Blocks").
   blocks gives the bytes it gave before, and an older file loads with `block == ""`, no params and no
   ports. `SCHEMA_VERSION` stays `"0"`. No backend writes ports to a KiCad or Altium file.
 
+- Change c0268 adds `Module.block_version: str` (empty by default): the version of the block with a record
+  that made the module, `MAJOR.MINOR.PATCH`; `block` is then the record's id (`Acme:divider`). A version
+  without a block name, or of another form, raises `ValueError`. The field is omitted when empty, so a
+  c0251 circuit file loads and is written back with the same bytes. The block's record (docs, units,
+  limits) never reaches the model.
+
 ### Interface parameters
 
 Change c0252 gives interfaces and ports electrical parameters (`docs/dsl.md`, "Interface parameters").

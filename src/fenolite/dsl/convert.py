@@ -773,6 +773,7 @@ def _module(module: DslModule) -> Module:
         ),
         block=module.definition.name if isinstance(module, Block) else "",
         params=tuple(BlockParam(*entry) for entry in module.records) if isinstance(module, Block) else (),  # type: ignore[arg-type]
+        block_version=module.definition.version if isinstance(module, Block) else "",
     )
 
 

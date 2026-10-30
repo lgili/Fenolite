@@ -22,6 +22,16 @@ document, and reports its `kind`, its `format_version`, the KiCad `major` that w
 (`supported`, or why it is not) and `counts`: footprints, pads, nets, tracks, vias, zones. Start here
 with any file you are handed. `--streams` lists the streams of an Altium compound file.
 
+```fenolite-cmd
+fenolite inspect blink/design.lock --blocks --json
+fenolite blocks where Acme:divider . --json
+fenolite blocks list --from blocks.py --json
+fenolite blocks show Acme:divider --from blocks.py --json
+```
+
+`--blocks` lists the block versions a lock or a `circuit.json` pins; `blocks where` finds every lock that
+uses a block. `show` gives a block's record (`doc` its page); `--from` imports the file, running its code.
+
 For more than counts, `net`, `pads`, `region` and `neighbors` (pages `routing`, `placement`) read any
 KiCad board. To look at a board or an Altium sheet, or at every one of a project, without its tool:
 

@@ -26,11 +26,15 @@ from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli.api import Command, Context, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
+from fenolite.core.evidence import Evidence, Level
 from fenolite.model.board import Stackup
 from fenolite.model.design import Design
 from fenolite.model.library import Library
 
-HELP = "summarise a KiCad or an Altium file, or list a compound file's streams (runs no tool)"
+HELP = (
+    "summarise a KiCad or an Altium file, list a compound file's streams, or list the block versions of a "
+    "design lock or a circuit.json (runs no tool)"
+)
 HEADER_ONLY = frozenset({versions.FileKind.SCHEMATIC, versions.FileKind.WORKSHEET})
 HEADER_EVIDENCE = versions.EVIDENCE
 DEFERRED = (".kicad_pro", ".kicad_dru")
@@ -52,6 +56,11 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--summary", action="store_true", help="header and counts (the default view)")
     parser.add_argument("--streams", action="store_true", help="list storages and streams in an MS-CFB file")
+    parser.add_argument(
+        "--blocks",
+        action="store_true",
+        help="the block ids, versions and instances of a design lock or a built .fenolite/circuit.json",
+    )
     parser.add_argument("--limit-bytes", type=_positive_int, metavar="N", help="maximum compound-file size")
 
 
@@ -321,6 +330,57 @@ def _altium_via_protection(design: Design) -> dict[str, Any]:
     }
 
 
+def _blocks_view(path: Path) -> Result:
+    """``result.blocks`` of a design lock or a ``circuit.json`` (cli-contract, "Blocks view of inspect";
+    change c0268): per block id and version, the instance paths, and from a ``circuit.json`` each
+    instance's recorded parameters."""
+    from fenolite.core.errors import FormatError
+    from fenolite.dsl.lock import SUFFIX, read_lock
+    from fenolite.model import canonical
+    from fenolite.model.circuit import Circuit
+
+    data = path.read_bytes() if path.is_file() else b""
+    text = data.decode("utf-8", errors="replace")
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    if path.suffix == SUFFIX:
+        kind = "design_lock"
+        lock = read_lock(text, file=path.name)
+        for instance, value in lock.sections["blocks"].items():
+            block_id, _, version = str(value).rpartition("@")
+            grouped.setdefault((block_id, version), []).append({"path": instance})
+    elif path.name.endswith(".json"):
+        kind = "circuit"
+        try:
+            circuit: Circuit = canonical.loads(text, Circuit, file=path.name)
+        except FormatError:
+            raise
+        except ValueError as error:
+            raise FormatError(f"{path.name} is no circuit file: {error}", file=path.name) from error
+        for module in circuit.modules:
+            if module.block_version:
+                params = [{"name": p.name, "type": p.type, "text": p.text} for p in module.params]
+                grouped.setdefault((module.block, module.block_version), []).append(
+                    {"path": module.path, "params": params}
+                )
+    else:
+        raise CliError(
+            "FEN-2001",
+            f"--blocks reads a design lock (*.lock) or a circuit.json, not {path.name}",
+            where=path.name,
+        )
+    rows = [
+        {"id": block_id, "version": version, "instances": sorted(found, key=lambda item: str(item["path"]))}
+        for (block_id, version), found in sorted(grouped.items())
+    ]
+    return Result(
+        result={"kind": kind, "blocks": rows},
+        evidence=Evidence(Level.INFERRED, hypotheses=("H-G-BLOCK-RECORDS",)),
+        input=InputRef(
+            path=path.name, sha256=hashlib.sha256(data).hexdigest(), kind=kind, format_version="0"
+        ),
+    )
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     given = Path(args.file)
     path = given if given.is_absolute() else ctx.cwd / given
@@ -330,6 +390,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         raise CliError(
             "FEN-2001", "--summary and --streams are mutually exclusive", where="--summary,--streams"
         )
+    if getattr(args, "blocks", False):
+        if args.summary or getattr(args, "streams", False) or args.limit_bytes is not None:
+            raise CliError(
+                "FEN-2001", "--blocks is a view of its own; give no --summary or --streams", where="--blocks"
+            )
+        return _blocks_view(path)
     if getattr(args, "streams", False):
         return _stream_view(path, args.limit_bytes)
     if args.limit_bytes is not None:

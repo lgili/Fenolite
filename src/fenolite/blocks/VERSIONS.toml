@@ -1,0 +1,2 @@
+# The version and digests of every shipped block (docs/blocks.md, "Version rules").
+# Written by tools/blocks/versions.py --update; tests/unit/blocks/test_versions.py checks it.

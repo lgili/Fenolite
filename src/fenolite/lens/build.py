@@ -171,6 +171,10 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "lock.ref-prefix-changed": "info",
         "lock.design-renamed": "info",
         "lock.changed": "error",
+        "lock.block-version": "error",  # c0268: the [blocks] section
+        "lock.block-replaced": "info",
+        "lock.block-released": "info",
+        "block.deprecated": "warning",
         # the pin solve (c0257; the same table as fenolite.lens.pins.PIN_ISSUE_CODES)
         **PIN_ISSUE_CODES,
         **{code: severity for code, severity in schgen.ISSUE_CODES.items() if code.startswith("build.")},
