@@ -244,8 +244,10 @@ def _stackup(board_a: Board, board_b: Board, tolerances: Tolerances) -> tuple[li
 
 
 def _layers(board_a: Board, board_b: Board) -> tuple[list[Difference], int]:
-    held_a = {(layer.kind, layer.ordinal): layer.name for layer in board_a.layers}
-    held_b = {(layer.kind, layer.ordinal): layer.name for layer in board_b.layers}
+    # a layer is matched by its kind and name, not by its row: a table with one more row elsewhere (KiCad's
+    # Eco1.User and Eco2.User, which some boards leave out) holds the same layers
+    held_a = {(layer.kind, layer.name): layer.name for layer in board_a.layers}
+    held_b = {(layer.kind, layer.name): layer.name for layer in board_b.layers}
     found: list[Difference] = []
     for key in sorted(set(held_a) ^ set(held_b)):
         where = f"{key[0]}:{key[1]}"
