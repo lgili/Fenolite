@@ -77,3 +77,6 @@
   2026-10-30: added under `[Unreleased]` (which already holds the batch's entries on `circuits-as-code`); 8 passed.
 - [ ] 6.4 Run `make check-fast`, publish the batch to its working branch, and read the required CI jobs on the exact commit. Proof: `make check-fast`; the required jobs green on the pushed head.
   2026-10-30: CI runs with the batch (no push from this worktree).
+
+- [x] 6.5 Declare every authored example under `examples/families/` in `tests/data/MANIFEST.toml` (batch CI correction). Proof: `uv run pytest tests/corpus/test_manifest.py -q`.
+  2026-10-30: declared the authored example payloads; proof passed (48 passed, one corpus-dependent test skipped).

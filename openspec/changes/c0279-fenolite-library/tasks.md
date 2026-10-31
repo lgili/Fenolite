@@ -102,3 +102,5 @@
   Integration validation 2026-10-31: the complete check-fast finished with exit 2 (17712 passed, 49 skipped, 2 failed; 1382.87 s). No interruption occurred. Fixed duplicate proposed/measured hypothesis rows by retaining the measured rows, and updated the blocks-order guard to require blocks after pins and before library. Focused hypothesis/register and block-lock proof passed (53 tests, exit 0). The next full batch gate remains required before push; 0.1 and 5.6 stay open.
 
 Integration proof 2026-10-31: `make check-fast` completed with exit 0 (17724 passed, 49 skipped); strict c0279 validation passed. Task 0.1 is complete. Task 5.6 remains open pending exact-head CI; external and dependent tasks remain open.
+
+Integration history 2026-10-31: remote `135b4ab1` also records successful check-fast on `7a120e8d` (17708 passed, 53 skipped), with publication initially blocked by HTTP 403. Those historical results are retained here; the newer local proof above and renewed exact-head CI govern closure.

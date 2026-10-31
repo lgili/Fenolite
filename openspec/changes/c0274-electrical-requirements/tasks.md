@@ -84,3 +84,6 @@ Phases B to F (sections 3 to 6) waited for c0252 and c0253, which were not merge
   - 2026-10-30: CI runs with the batch (not pushed). `make check-fast PYTEST_WORKERS=2`: lint, format, types and residue passed; the test step gave 16 964 passed and one failure (`test_import_graph`: `roles` imported `checks`), fixed by moving the rule to `core/decidable.py`; the import-graph, circuit, roles-stage, waiver and agent tests then passed, and lint, format, types and residue again.
 - [x] 7.6 Validate the change. Proof: `openspec validate c0274-electrical-requirements --strict`.
   - 2026-10-29: `openspec` CLI not available in this container; left for the coordinator.
+
+- [x] 7.7 Declare every authored example under `examples/circuit/ferrite/` in `tests/data/MANIFEST.toml` (batch CI correction). Proof: `uv run pytest tests/corpus/test_manifest.py -q`.
+  2026-10-30: declared the authored example payloads; proof passed (48 passed, one corpus-dependent test skipped).

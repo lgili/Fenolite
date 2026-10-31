@@ -143,3 +143,5 @@
   `dev` (0.7.0.dev0) was merged into it; it names the changed meaning of an unlocked `place()` (`edit.code-wins`).
   2026-10-29: was open: waited for dev's 0.7.0.dev0 (the v0.6 guard needs `[Unreleased]` empty).
 - [ ] 8.4 Validate and archive once every task is closed and CI is green. Proof: `npx -y @fission-ai/openspec validate c0250-manual-edit-merge --strict`.
+
+  Integration 2026-10-30 (tasks 8.1 and 8.2): `make check-fast` passed on `7a120e8d` (17708 passed, 53 skipped). GitHub denied the git push with HTTP 403; CI on the integration has not run. Tasks 7.2, 8.1, 8.2 and 8.4 stay open for their CI or closure proofs; 6.2 still waits for the workbench.
