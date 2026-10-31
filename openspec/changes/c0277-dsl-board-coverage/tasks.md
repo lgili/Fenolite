@@ -71,8 +71,8 @@ Each task makes one kind that `fenolite import --to python` leaves out (c0275, `
 
 ## 5. Closing
 
-- [ ] 5.1 Docs: `docs/dsl.md` (copper counts and their consequences, copper art, pads, teardrops, groups, images, dimensions, zone arcs, overrides, fonts, models, verbatim items and when to use them), `docs/formats/kicad/board.md` facts with sources and labels, `docs/altium.md` (limits and reports). Proof: `uv run pytest tests/unit -k docs -q`.
-- [ ] 5.2 Agent guide: a tested line for each new public DSL name (`teardrops`, `group`, `image`, `radial_dimension`, `leader`, `center_mark`, `override`, `edit_pad`, `model`, `verbatim`) and for the new codes, then `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent/test_pages.py -q`.
-- [ ] 5.3 Residue and evidence: every fixture authored for Fenolite, the evidence matrix regenerated. Proof: `make residue`; `uv run python tools/gen_evidence_matrix.py --check`.
+- [x] 5.1 Docs: `docs/dsl.md` (copper counts and their consequences, copper art, pads, teardrops, groups, images, dimensions, zone arcs, overrides, fonts, models, verbatim items and when to use them), `docs/formats/kicad/board.md` facts with sources and labels, `docs/altium.md` (limits and reports). Proof: `uv run pytest tests/unit -k docs -q`.
+- [x] 5.2 Agent guide: a tested line for each new public DSL name (`teardrops`, `group`, `image`, `radial_dimension`, `leader`, `center_mark`, `override`, `edit_pad`, `model`, `verbatim`) and for the new codes, then `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent/test_pages.py -q`.
+- [x] 5.3 Residue and evidence: every fixture authored for Fenolite, the evidence matrix regenerated. Proof: `make residue`; `uv run python tools/gen_evidence_matrix.py --check`.
 - [ ] 5.4 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
 - [ ] 5.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
