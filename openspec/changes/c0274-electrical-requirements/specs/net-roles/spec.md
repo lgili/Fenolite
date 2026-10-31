@@ -12,3 +12,12 @@
 - **GIVEN** an authored circuit with `FB1` of value `600R`, `F1` of value `2A` and `JP1` with no value, none of them stated by the user
 - **WHEN** `uv run pytest tests/unit/roles/test_classify.py -k prefixes` classifies them
 - **THEN** `FB1` is `ferrite`, `F1` is `fuse` and `JP1` is `jumper`, each `medium`, and the inferred roles of the six variants of `examples/roles` are those that `H-G-ROLE-INFER` records
+
+## ADDED Requirements
+
+### Requirement: Safe resistance prefixes
+The role classifier MUST accept K as k and Greek micro as the micro sign in resistance values, preserve the distinct m and M scales, and return None for an unmapped matched prefix instead of raising an internal error. Parsing SHALL remain exact.
+
+#### Scenario: Prefix spelling cannot crash a build
+- **WHEN** authored resistor values are classified by `uv run pytest tests/unit/roles/test_classify.py -q`
+- **THEN** 10K equals 10k, 10m differs from 10M, Greek micro is read exactly, and unsupported matched prefixes yield None

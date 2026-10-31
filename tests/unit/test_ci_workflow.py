@@ -25,7 +25,9 @@ STEPS = [
     ),
     ("pytest", "run: uv run pytest tests/kicad tests/corpus -q"),
 ]
-KICAD10_PYTEST = f"run: uv run pytest tests/kicad tests/corpus -q {PARALLEL}"
+KICAD10_PYTEST = (
+    'run: uv run pytest tests/kicad tests/corpus -q --basetemp "${{ runner.temp }}/kicad-corpus" ' + PARALLEL
+)
 UNIT_PYTEST = f"run: uv run pytest -q {PARALLEL}"
 
 

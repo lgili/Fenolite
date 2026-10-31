@@ -12,8 +12,10 @@ so each is read alone.
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
+import time
 from pathlib import Path
 
 import pytest
@@ -54,11 +56,25 @@ def test_demo_board_imports_equivalent(item: object, tmp_path: Path) -> None:
     folder.mkdir()
     copy = folder / board.name.replace(" ", "_")
     shutil.copy(board, copy)
+    started = time.monotonic()
     reply = run(
         "import", str(copy), "--to", "python", "--out", "out", "--allow-lossy", "--dry-run",
         cwd=tmp_path, timestamp="2026-10-30T00:00:00Z",
     )  # fmt: skip
-    assert reply.exit_code == 0, (reply.error, (reply.envelope or {}).get("issues", [])[:5])
+    measurement = {
+        "row": item.id.removeprefix(PREFIX),  # type: ignore[attr-defined]
+        "board": board.name,
+        "left_out": shown(reply.result.get("unexpressed", [])),
+        "counts": reply.result.get("counts", {}),
+        "exit_code": reply.exit_code,
+        "equivalent": reply.result.get("equivalence", {}).get("equivalent"),
+        "seconds": round(time.monotonic() - started),
+    }
+    report = json.dumps(measurement, sort_keys=True)
+    (tmp_path / "import-census.json").write_text(report + "\n", encoding="utf-8")
+    print("IMPORT_CENSUS " + report)
+    errors = [issue for issue in (reply.envelope or {}).get("issues", []) if issue["severity"] == "error"]
+    assert reply.exit_code == 0, (reply.error, errors)
     assert reply.result["equivalence"]["equivalent"] is True
     row = item.id.removeprefix(PREFIX)  # type: ignore[attr-defined]
     assert recorded().get(row) == shown(reply.result["unexpressed"]), row

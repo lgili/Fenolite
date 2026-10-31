@@ -39,6 +39,9 @@ Phases B to F (sections 3 to 6) waited for c0252 and c0253, which were not merge
 - [x] 3.2 Add `ferrite` to c0253's series classes with the derating key `ferrite_current`, and update `docs/roles.md` and `docs/contracts.md`. Proof: `uv run pytest tests/unit/checks/circuit/test_ratings.py -k ferrite -q`.
   - 2026-10-30: done (`SERIES` holds `ferrite`, `DERATING_KEYS` `ferrite_current`; rules schema regenerated; `docs/roles.md` and `docs/contracts.md` updated). Proof passed.
 
+- [x] 3.3 Make resistance parsing safe for prefix spellings admitted by the classifier: K aliases k, Greek micro aliases the micro sign, m and M stay distinct, and unmapped prefixes return None. Cover authored values and resistor classification. Proof: `uv run pytest tests/unit/roles/test_classify.py -q`.
+  - 2026-10-31: strict validation passed before implementation. Authored regression cases first reproduced eight failures (36 passed); normalizing K/Greek micro and returning None for unmapped scales fixed them. Proof passed: 44 tests, exit 0; m/M distinctions remain exact and lint/format passed.
+
 ## 4. Phase C and D: waivers and propagation
 
 - [x] 4.1 Add `Waiver.digest`, the `circuit.*` codes and the digest rules to `Design.waive`, regenerate the findings schema (scenarios "A circuit waiver keeps its digest", "A circuit waiver with its digest"). Proof: `uv run pytest tests/unit/model -k waiver_digest tests/unit/dsl/test_waivers.py -q`; `uv run python tools/gen_schemas.py --check`.

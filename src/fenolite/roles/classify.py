@@ -159,7 +159,11 @@ def resistance_mohm(value: str) -> Fraction | None:
         number, prefix, unit = found.groups()
         if unit is not None and unit.upper() in ("F", "H"):
             return None
-        return Fraction(number) * Fraction(10) ** _EXPONENTS[prefix] * 1000
+        prefix = {"K": "k", "μ": "µ"}.get(prefix, prefix)
+        exponent = _EXPONENTS.get(prefix)
+        if exponent is None:
+            return None
+        return Fraction(number) * Fraction(10) ** exponent * 1000
     coded = _CODE.match(text.upper())
     if coded is not None:
         whole, mark, decimals = coded.groups()

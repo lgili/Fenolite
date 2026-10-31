@@ -426,3 +426,5 @@ Both are registered in `docs/hypotheses.md` by the tasks, as `INFERRED`. This ch
 - **Agent guide.** `design-script`, `checks` and `board-power` are at their 12 000-byte budget; the matrix,
   `deferred`, `waived`, `check.waiver-expired`, a circuit waiver with its digest, `abs_max`, `operating` and
   `[[limits]]` are taught in a section of `board-review` (reviewing is where the matrix is read).
+
+Decided 2026-10-31: normalize K to k and Greek micro to the micro sign before resistance lookup. Preserve m versus M; an unmatched scale is unknown, not guessed. This repairs the existing classifier grammar without adding units, codes or dependencies.

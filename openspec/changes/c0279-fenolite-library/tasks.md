@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living specs this change touches (`cli-contract`, `design-dsl`, `corpus-policy`, `ip-hygiene`, `public-presentation`) and the changes it builds on (c0249, c0259, c0262, c0266, c0268, c0273; c0275 to c0278 for phase B). Write under this task, with the date and the base commit:
+- [x] 0.1 Read `openspec list`, the living specs this change touches (`cli-contract`, `design-dsl`, `corpus-policy`, `ip-hygiene`, `public-presentation`) and the changes it builds on (c0249, c0259, c0262, c0266, c0268, c0273; c0275 to c0278 for phase B). Write under this task, with the date and the base commit:
   - c0249's `LockSection` protocol and the order of lock sections so far (`refs`, `picks`, `pins`, `blocks`, `library`);
   - the `FEN-` codes taken by then; confirm `FEN-6004`, `FEN-6006`, `FEN-4003` and `FEN-3021` are free or renumber them in every file of this change, c0266 and c0273 before task 2.4;
   - which `library` verbs other changes reserve (c0260 `generate`, c0261 `symbol`, c0262 `check`/`review`, c0264 `import`, c0265 `propose`, c0266 `seed`), so the dispatch table is final;
@@ -100,3 +100,5 @@
   Open 2026-10-30: the first `make check-fast` (2 workers) was stopped at 98% by the session's time limit with 10 failures; a rerun of its test set listed them (`get` hid `--frozen` from help; the demo fixture under `tests/data/library/` was read by the catalog tests, so it moved to `tests/data/library_repo/demo/`; the lock section list and paged-command list gained `library` and `get`). All fixed: the ten tests and 1172 affected tests pass, ruff, format and pyright clean. The second `make check-fast` was at 77% with no failure when the session closed: not reported as passed. Next: run `make check-fast`, publish the batch, confirm CI.
 
   Integration validation 2026-10-31: the complete check-fast finished with exit 2 (17712 passed, 49 skipped, 2 failed; 1382.87 s). No interruption occurred. Fixed duplicate proposed/measured hypothesis rows by retaining the measured rows, and updated the blocks-order guard to require blocks after pins and before library. Focused hypothesis/register and block-lock proof passed (53 tests, exit 0). The next full batch gate remains required before push; 0.1 and 5.6 stay open.
+
+Integration proof 2026-10-31: `make check-fast` completed with exit 0 (17724 passed, 49 skipped); strict c0279 validation passed. Task 0.1 is complete. Task 5.6 remains open pending exact-head CI; external and dependent tasks remain open.

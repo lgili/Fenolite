@@ -91,6 +91,15 @@ def test_shunt_limit_comes_from_the_profile() -> None:
         ("R005", Fraction(5)),
         ("4k7", Fraction(4_700_000)),
         ("10 kΩ", Fraction(10_000_000)),
+        ("10K", Fraction(10_000_000)),
+        ("10KΩ", Fraction(10_000_000)),
+        ("10m", Fraction(10)),
+        ("10M", Fraction(10_000_000_000)),
+        ("10μΩ", Fraction(1, 100)),
+        ("10P", None),
+        ("10N", None),
+        ("10U", None),
+        ("10g", None),
         ("10uF", None),
         ("4.7uH", None),
         ("IRF540", None),
@@ -139,3 +148,7 @@ def test_class_of_the_device_record() -> None:
     assert (found["Q2"].evidence, found["Q2"].terminals["gate"]) == ("device", ("1",))
     stated = classify(circuit, user=(PartClass("L4", "inductor"),), device_classes={"L4": "ferrite"})
     assert stated["L4"].evidence == "user"
+
+
+def test_uppercase_kilo_resistor_classification() -> None:
+    assert classify_part(part("R5", "", "", value="10K"), pads=2).cls == "resistor"

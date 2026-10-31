@@ -129,3 +129,5 @@ None.
   `docs/contracts.md`, `docs/roles.md`, `docs/cli-contract.md`, `docs/design-model.md`, the agent guide
   pages `design-script`, `checks` and `board-power`, and `CHANGELOG.md`.
 - Size: about 11 design-days (phase A 4, B 1, C 2, D 2, E 1, F 1).
+
+Integration correction (2026-10-31): the shared classifier also handles resistance-prefix aliases without an internal exception during imported-project builds. No component data from a third-party design enters the regression fixture.

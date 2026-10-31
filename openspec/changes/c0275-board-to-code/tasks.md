@@ -61,7 +61,7 @@
   Done 2026-10-29: `cli/cmd_import.py`, `schemas/fenolite.import.v0.json` (from `importer/schema.py`), ten codes in `explain.toml`; `tests/unit/cli/test_import.py` and `tests/consistency` pass. The agent guide's generated `commands` page needs 757 lines with the command, so the change raises its budget to 800 (MODIFIED "Page budgets and writing rules" in `specs/agent-guide`), as c0222 did.
 - [x] 4.2 Add the residue detector for converted code (scenarios "Converted corpus board planted", "Authored import example passes"). Proof: `uv run pytest tests/residue/test_converted_code.py -q`.
   Done 2026-10-29: `tests/residue/test_converted_code.py` (tracked `.py` files; pages of the documentation quote the header) passes.
-- [x] 4.3 Corpus measurement (not committed): import every readable KiCad demo row with an allow-listed licence into `tmp_path`, build and compare at levels 1 to 5, and record counts of unexpressed kinds in `docs/evidence/import-corpus.md`. Proof: `uv run pytest tests/corpus/test_import_corpus.py -rA` (in CI, `needs_corpus`).
+- [ ] 4.3 Corpus measurement (not committed): import every readable KiCad demo row with an allow-listed licence into `tmp_path`, build and compare at levels 1 to 5, and record counts of unexpressed kinds in `docs/evidence/import-corpus.md`. Proof: `uv run pytest tests/corpus/test_import_corpus.py -rA` (in CI, `needs_corpus`).
   Done 2026-10-29: `tests/corpus/test_import_corpus.py` (licence allow-list, temporary folders only) and
   `docs/evidence/import-corpus.md`: the 16 KiCad 10.0.6 demo boards that are not heavy import with
   `--allow-lossy` and come through equivalent at levels 1 to 5 and copper item by item, measured with the
@@ -70,6 +70,7 @@
   silkscreen material in a stack-up, and the self-check build now runs `--copper-check warn --schematic
   skip` (a demo board breaks the copper rules it ships with). The two heavy boards (06, 18) are not
   measured.
+  Reopened 2026-10-31: the batch-5 CI exposes stale omission counts and unmeasured heavy rows. The classifier prefix failure is repaired by c0274. CI must emit aggregate census JSON before assertions and retain it even on failure, so the table can be regenerated from measurements. Source payloads stay outside the tool repository; exit-code, equivalence and exact omission assertions remain mandatory. This task stays open until the renewed corpus proof passes in CI.
 - [x] 4.4 Author `examples/import_python/` (the imported code of an authored board, marked `Authored for Fenolite`) and its build test. Proof: `uv run pytest tests/unit/test_examples.py -k import_python -q`.
   Done 2026-10-29: `examples/import_python/`, written by `tests/_importexample.py`; `test_examples.py -k import_python` passes. `pyproject.toml` lets its imports keep the third-party grouping (`I001`).
 ## 5. Closing
@@ -84,3 +85,4 @@
   Done 2026-10-29: the entry under `## [Unreleased]` (dev is at 0.7.0.dev0); `tests/unit -k changelog` passes.
 - [ ] 5.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
   Open 2026-10-29: `make check-fast PYTEST_WORKERS=2` passes locally; CI runs with the batch (the coordinator pushes it).
+Integration proof 2026-10-31: the refreshed 16 non-heavy corpus rows passed the focused census (16 passed); every import returned exit 0 and equivalent=true. Aggregate records generated the table. Heavy rows and exact-head CI remain pending; 4.3 and 5.5 stay open. The batch check-fast completed with exit 0 (17724 passed, 49 skipped).

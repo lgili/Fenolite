@@ -190,7 +190,14 @@ jobs:
       - name: Oracle and corpus tests
         env:
           FENOLITE_REQUIRE: kicad,corpus
-        run: uv run pytest tests/kicad tests/corpus -q -n auto --dist loadfile
+        run: uv run pytest tests/kicad tests/corpus -q --basetemp "${{ runner.temp }}/kicad-corpus" -n auto --dist loadfile
+      - name: Keep aggregate import census measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: import-census
+          path: ${{ runner.temp }}/kicad-corpus/**/import-census.json
+          if-no-files-found: ignore
 
   kicad-9:
     name: kicad-9 (kicad-cli 9.0 oracle)
