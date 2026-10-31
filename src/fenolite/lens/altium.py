@@ -547,6 +547,13 @@ def pad_extras(defn: FootprintDef) -> dict[str, pcblib.PadExtras]:
                 if _decimal_atom(node) == 0:
                     continue
                 dropped.append(PAD_DROPPED[head])
+        # an authored pad holds its shape in the model (change c0277)
+        if ratio is None and pad.corner_ratio is not None and pad.shape == "roundrect":
+            ratio = Decimal(pad.corner_ratio).scaleb(-6)
+        if pad.chamfer_ratio:
+            refusal = refusal or PAD_REFUSED["chamfer_ratio"]
+        if pad.primitives:
+            refusal = refusal or PAD_REFUSED["primitives"]
         out[pad.id] = pcblib.PadExtras(ratio, refusal, tuple(dropped))
     return out
 

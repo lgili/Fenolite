@@ -627,6 +627,8 @@ def _groups(design: Design) -> tuple[Group, ...]:
             return key_id("area", member)
         if member in design.verbatim_items:
             return key_id("verbatim", member)
+        if member in design.images:
+            return derived_id("img", DSL_BACKEND, f"image:{member}")  # the id the build gives it (c0277)
         return key_id("group", member)
 
     return tuple(

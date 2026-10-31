@@ -438,6 +438,56 @@
       "fenolite-base.json": "985635c2b84436448953133b5aad9e554b7442abb05e52610e035b3667b7bb02"
     }
   },
+  "board_coverage@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "25a69984e9bd766285cb199403c967432db119931cab225ea74f9397893817a9",
+      ".fenolite/circuit.json": "0964a3214e2adc446594f30406bc345351a93c1011a4b1168ce207880973ba36",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "coverage.kicad_dru": "10a6e4a39fe5cca8af476d9c43712754d8e3cd9e8071757a4f40565b8cc2b621",
+      "coverage.kicad_pcb": "cc81aa012996fef9c89256c4de1e6dbe6dcf8da489447b8f4d4188a420df2d11",
+      "coverage.kicad_pro": "88f633d7ef865b4728257f3bca6c64b30b77c00c24a82593e594204e43ccfc6f",
+      "coverage.kicad_sch": "9ec8b1b15b09640d1d640ec7df595cee468b460affd843072e6e4d81235b497b",
+      "fenolite-base.json": "5ac1dfcec117037a07d59045870f3f1fe9107add0f17998fb372c20b1792282c",
+      "fp-lib-table": "a20da948e2593cc95d38b1f8ff6a54f938768a461cae26488f09a646722d7303",
+      "lib/Local.pretty/Shaped_Pads.kicad_mod": "456d0a42dda73ac2d068f0d12ef2c2cf6ed74db70b42a104bb24e12bad1be11c",
+      "lib/Mini.kicad_sym": "8e14639415bd075bb21ba9da28fee8817db1ce61b057b621328059ce980f335b",
+      "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "c7b983f563898280b4c7a3d2647653a90e8688505e988dc9d23666748e9a7ee9",
+      "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+      "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+      "lib/fenolite.kicad_sym": "bafa1b6ee0fa27ee4e6fdbf9d652c81454cc2115a489b5765db69d61563541a3",
+      "sym-lib-table": "2afe4f59fd648e9c32425bfe03b7be44eb266eee5b815e4527bd35bcdc980e12"
+    }
+  },
+  "board_coverage@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "972e73d18f0784cec50714a31916042f5ad71b5df6eb196c83121f634e5b563b",
+      ".fenolite/circuit.json": "0964a3214e2adc446594f30406bc345351a93c1011a4b1168ce207880973ba36",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "coverage.kicad_dru": "10a6e4a39fe5cca8af476d9c43712754d8e3cd9e8071757a4f40565b8cc2b621",
+      "coverage.kicad_pcb": "37906a8775d661cd40d2e45d08f97a1779d8ce12040c47b4518ce23b490ab34e",
+      "coverage.kicad_pro": "e71a7b5e3cbbbad844ac5a7d1a8ad8a6124593cd8432b0746b0572257a0d3038",
+      "coverage.kicad_sch": "46e196963e86555304a5f821d0da9f049b5ff177c8bb231acae0ba0465a39af5",
+      "fenolite-base.json": "5ac1dfcec117037a07d59045870f3f1fe9107add0f17998fb372c20b1792282c",
+      "fp-lib-table": "c93dccc542f7b643cd6fcb6ac2d3dbd1c1c230f83b42f7a780948e8176e39dea",
+      "lib/Local.pretty/Shaped_Pads.kicad_mod": "135f1d23287dd9506087785831d585a14a58e7b9aa7a501e83da2a983f601a09",
+      "lib/Mini.kicad_sym": "79138284b24670145d6eca2ad6863c5855de506ac405a5ba651130e8433b5f17",
+      "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "c7b983f563898280b4c7a3d2647653a90e8688505e988dc9d23666748e9a7ee9",
+      "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+      "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+      "lib/fenolite.kicad_sym": "1411ea9dbd4131ad86b5af2d9b3e165a68264cca8e5ab1889c28c384343c703c",
+      "sym-lib-table": "c2dc154da17cded945ae64a8745e52396faa7240ef905976564d7d296716d4e4"
+    }
+  },
+  "board_coverage@altium": {
+    "exit": 5,
+    "files": {}
+  },
   "catalog@10": {
     "exit": 0,
     "files": {

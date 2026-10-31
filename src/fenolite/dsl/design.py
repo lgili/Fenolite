@@ -2024,6 +2024,7 @@ class Design(Container):
                             self.rule_areas,
                             self.groups,
                             self.verbatim_items,
+                            self.images,
                         )
                         if member in held
                     ]

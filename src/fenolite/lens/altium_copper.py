@@ -592,6 +592,9 @@ BOARD_KINDS: tuple[tuple[str, str], ...] = (
     ("graphics", "graphics"),
     ("holes", "holes"),
     ("dimensions", "dimensions"),
+    ("images", "images"),  # change c0277
+    ("groups", "groups"),
+    ("verbatim", "verbatim items"),
 )
 """Board fields that only the PCB document holds, and what a message calls them."""
 BOARD_WHERES: tuple[str, ...] = tuple(name for name, _what in BOARD_KINDS)
@@ -658,6 +661,31 @@ def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue])
         label = group.name or group.id
         message = f"the group {label!r} is not written: the document has no group record"
         issues.append(_kept("group", group.id, message))
+    # change c0277: settings of the KiCad board that the document has no field for
+    held = {
+        "teardrops": sum(1 for via in board.vias if via.teardrop is not None)
+        + sum(1 for fp in board.footprints for pad in fp.pads if pad.teardrop is not None),
+        "overrides": sum(1 for fp in board.footprints if fp.overrides is not None),
+        "fonts": sum(
+            1
+            for fp in board.footprints
+            for found in fp.fields
+            if found.bold is not None or found.italic is not None or found.face is not None
+        ),
+        "models": sum(1 for fp in board.footprints if fp.models),
+    }
+    what = {
+        "teardrops": "pads and vias with teardrop settings",
+        "overrides": "footprints with footprint-level overrides",
+        "fonts": "footprint fields with a font of the script",
+        "models": "footprints with 3D models named by the script",
+    }
+    for kind, count in held.items():
+        if count:
+            message = (
+                f"{count} {what[kind]}: the document has no field for them, they are kept in the model only"
+            )
+            issues.append(Issue("altium.not-lowered", "info", message, where=kind))
     for image in board.images:  # change c0277: the writer has no picture record
         message = f"the image on {image.layer} is not written: the document writer has no picture record"
         issues.append(Issue("altium.image-skipped", "warning", message, where=image.id))

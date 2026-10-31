@@ -41,6 +41,7 @@ from fenolite.backends.kicad._fpmap import (
     NET_TIES,
     PAD_FIELDS,
     PAD_POSITIONAL,
+    SHAPE_HEADS,
     Ids,
     Items,
     angle_atom,
@@ -2316,7 +2317,7 @@ FLOOR_HEADS: tuple[str, ...] = (
     "teardrops", "best_length_ratio", "max_length", "best_width_ratio", "max_width", "filter_ratio",
     "enabled", "allow_two_segments", "prefer_zone_connections", "face", "bold", "italic", "group",
     "members", "free", "placement", "sheetname", "leader_length", "override_value", "text_frame", "image",
-    "scale", "data",
+    "scale", "data", "rect_delta", "roundrect_rratio", "chamfer_ratio", "chamfer", "options", "primitives",
 )  # fmt: skip
 """Names the writer creates that the 8.0 format already has and that neither the token inventory nor
 the skeleton holds (``board.md``, S-0021 and S-0033 at tag 8.0.0). The names of a linear dimension
@@ -2330,7 +2331,9 @@ orthogonal dimension (S-0001). The ``teardrops`` child of a pad or via and its c
 (S-0001, "Group"; change c0277), and a via's ``free`` (the demo boards of 9.0.9 and 10.0.6, S-0058; change
 c0277), and the ``leader_length`` of a radial dimension and the ``override_value`` and ``text_frame`` of a
 leader (the demo boards of 9.0.9 and 10.0.6, S-0058; change c0277), and a board ``image`` with its ``scale``
-and ``data`` (S-0001, "Images"; change c0277). The writer has no target below 9."""
+and ``data`` (S-0001, "Images"; change c0277), and the shape children of a pad, ``rect_delta``,
+``roundrect_rratio``, ``chamfer_ratio``, ``chamfer``, ``options`` and ``primitives`` (the pads of the demo boards
+of 9.0.9 and 10.0.6, S-0058, and S-0001; change c0277). The writer has no target below 9."""
 CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "kicad_pcb": (
@@ -2346,8 +2349,9 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "effects": ("font", "justify"),
         "font": ("face", "size", "thickness", "bold", "italic"),
         "pad": (
-            *PAD_POSITIONAL, "at", "size", "drill", "property", "layers", "net", *MARGIN_HEADS,
-            "zone_connect", "teardrops", "uuid",
+            *PAD_POSITIONAL, "at", "size", "rect_delta", "drill", "property", "layers", "roundrect_rratio",
+            "chamfer_ratio", "chamfer", "net", *MARGIN_HEADS, "zone_connect", "options", "primitives",
+            "teardrops", "uuid",
         ),
         "segment": ("start", "end", "width", "locked", "layer", "net", "uuid"),
         "arc": ("start", "mid", "end", "width", "locked", "layer", "net", "uuid"),
@@ -2433,7 +2437,7 @@ _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyT
         },
         "footprint": {**FOOTPRINT_FIELDS, "locked": "locked", "property": ("fields", "properties")},
         "property": {**FIELD_FIELDS},
-        "pad": {**BOARD_PAD_FIELDS, **MARGIN_HEADS, tdlib.HEAD: "teardrop"},
+        "pad": {**BOARD_PAD_FIELDS, **MARGIN_HEADS, tdlib.HEAD: "teardrop", **SHAPE_HEADS},
         "segment": TRACK_FIELDS,
         "arc": TRACK_FIELDS,
         "via": {**VIA_FIELDS, tdlib.HEAD: "teardrop", "free": "free"},
@@ -3034,6 +3038,11 @@ class _Writer:
             rotation = self.pad_rotation.get(entity.id, 0)
             net = self.nets.node(entity.net_id, pad=True)
             items = emit_pad(entity, net, angle=pad_angle_to_board(entity.rotation, rotation))
+            # a board pad read or embedded keeps its shape children in its slots, from the footprint's file;
+            # a created pad writes them, its corner ratio only beside a chamfer (change c0277)
+            for name in SHAPE_HEADS.values():
+                if not created or (name == "corner_ratio" and entity.chamfer_ratio is None):
+                    items.pop(name, None)
         elif isinstance(entity, (Track, Arc)):
             items = _emit_track(entity, self.nets)
         elif isinstance(entity, Via):
@@ -3254,7 +3263,7 @@ class _Writer:
             return []
         by_id: dict[str, str] = {}
         for entity in (
-            *board.texts, *board.graphics, *board.dimensions, *board.images, *board.zones, *board.keepouts
+            *board.texts, *board.graphics, *board.dimensions, *board.images, *board.zones, *board.keepouts,
         ):  # fmt: skip
             by_id[entity.id] = kicad_uuid(entity)
         for footprint in board.footprints:

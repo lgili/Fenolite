@@ -47,11 +47,11 @@
 ## 4. Verbatim items and writers
 
 - [x] 4.1 `Design.verbatim`, `Part.verbatim` and the build rules (`backends/kicad/verbatim.py`; scenarios "Recorded, not parsed", "Barcode kept", "Refused heads", "Too new for target 9"), the rules-file target, the Altium report, and the import of root items no call says (board-to-code, "Verbatim items in an import"). Proof: `uv run pytest tests/unit/dsl/test_verbatim.py tests/unit/lens/test_build_verbatim.py tests/unit/importer/test_verbatim.py -q`.
-- [ ] 4.2 KiCad writer and inventory rows for every item (scenarios "Read back what was written", "Created coverage tokens are known"). Proof: `uv run pytest tests/unit/backends/kicad/test_pcb_write.py -k coverage -q`.
-- [ ] 4.3 Altium reports (scenario "Every item accounted for"). Proof: `uv run pytest tests/unit/cli/test_build_altium.py -k coverage -q`.
+- [x] 4.2 KiCad writer and inventory rows for every item (scenarios "Read back what was written", "Created coverage tokens are known"). Proof: `uv run pytest tests/unit/backends/kicad/test_pcb_write.py -k coverage -q`.
+- [x] 4.3 Altium reports (scenario "Every item accounted for"). Proof: `uv run pytest tests/unit/cli/test_build_altium.py -k coverage -q`.
 - [ ] 4.4 The KiCad oracle for every item; register `H-K-COPPER-ART`, `H-K-PAD-SHAPES`, `H-K-TEARDROP`, `H-K-GROUP`, `H-K-IMAGE`, `H-K-DIM-KINDS`, `H-K-ZONE-ARC`, `H-K-FP-OVERRIDE`, `H-K-MODEL-REF` and `H-K-VERBATIM` (scenarios "Items on KiCad 10", "Items on KiCad 9"). Proof: `uv run pytest tests/kicad/board/test_coverage_items.py -rA` (in CI, both majors).
-- [ ] 4.5 Byte guard against the baseline of 0.1 (scenarios "Examples keep their bytes", "Designs without tables are unchanged" where c0275 is merged). Proof: `uv run pytest tests/unit/test_examples.py tests/unit/test_build_bytes.py -q`.
-- [ ] 4.6 Author `examples/board_coverage/design.py` using every call, with its build test. Proof: `uv run pytest tests/unit/test_examples.py -k board_coverage -q`.
+- [x] 4.5 Byte guard against the baseline of 0.1 (scenarios "Examples keep their bytes", "Designs without tables are unchanged" where c0275 is merged). Proof: `uv run pytest tests/unit/test_examples.py tests/unit/test_build_bytes.py -q`.
+- [x] 4.6 Author `examples/board_coverage/design.py` using every call, with its build test. Proof: `uv run pytest tests/unit/test_examples.py -k board_coverage -q`.
 
 ## 6. Import coverage (priority of the `fenolite-library` boards, 2026-10-30)
 

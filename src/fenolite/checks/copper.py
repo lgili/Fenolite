@@ -276,6 +276,12 @@ class _Items:
         self.copper = copper_layers(board)
         self._nets = {net.id: net.name for net in design.circuit.nets}
         self._ids = {net.name: net.id for net in design.circuit.nets}
+        self._numbers: dict[str, str] = {}
+        for net in design.circuit.nets:  # a KiCad 9 board names nets by number (change c0277)
+            bag = net.ext.get("kicad")
+            number = dict(bag.payload).get("number") if bag is not None else None
+            if number is not None:
+                self._numbers[number] = net.id
         self._band = arc_tol + 1
         self._ties: dict[str, dict[str, int]] = {}
         for footprint in board.footprints:
@@ -406,10 +412,24 @@ class _Items:
 
     def _bag_net(self, graphic: Graphic) -> str | None:
         """The net an Altium read keeps in a copper graphic's bag (a region or a fill of a net, which the
-        adapter reads as a graphic): its ``net`` pair names it."""
+        adapter reads as a graphic): its ``net`` pair names it; and the net a KiCad read keeps in the
+        graphic's slots, ``(net "GND")`` or the ``(net 1)`` of a KiCad 9 board (change c0277)."""
         bag = graphic.ext.get("altium")
         name = dict(bag.payload).get("net") if bag is not None else None
-        return self._ids.get(name) if name is not None else None
+        if name is not None:
+            return self._ids.get(name)
+        kicad = graphic.ext.get("kicad")
+        for text in (
+            (value for key, value in kicad.payload if key.startswith("slot")) if kicad is not None else ()
+        ):
+            stripped = text.strip()
+            if not stripped.startswith("(net "):
+                continue
+            atom = stripped[len("(net ") : -1].strip()
+            if atom.startswith('"') and atom.endswith('"'):
+                return self._ids.get(atom[1:-1].replace('\\"', '"'))
+            return self._numbers.get(atom)
+        return None
 
     def _fills(self, board: Board) -> None:
         for zone in board.zones:

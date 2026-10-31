@@ -397,3 +397,34 @@ def test_import_python_builds(tmp_path: Path) -> None:
     assert set(reply.result["libraries"].values()) == {"project"}
     lines = (folder / "design.py").read_text(encoding="utf-8").splitlines()
     assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[4].startswith("# Authored for Fenolite")
+
+
+# --- board_coverage (change c0277, task 4.6) ------------------------------------------------------------
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_board_coverage_builds(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, target: int) -> None:
+    """The coverage example builds for KiCad 9 and 10 with no warning and holds one of each item."""
+    from fenolite.api import run
+    from fenolite.backends.kicad.pcb import read_board
+    from fenolite.backends.kicad.sexpr import parse
+
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kicad-config"))
+    for name in ("KICAD10_FOOTPRINT_DIR", "KICAD10_SYMBOL_DIR", "KICAD9_FOOTPRINT_DIR", "KICAD9_SYMBOL_DIR"):
+        monkeypatch.delenv(name, raising=False)
+    script = ROOT / "examples" / "board_coverage" / "design.py"
+    out = tmp_path / "out"
+    reply = run(
+        "build", str(script), "--out", str(out), "--kicad-version", str(target), "--confirm",
+        cwd=tmp_path, timestamp="2026-10-30T00:00:00Z", seed=1,
+    )  # fmt: skip
+    assert reply.exit_code == 0, reply.error
+    assert not [i for i in reply.envelope["issues"] if i["severity"] != "info"]  # type: ignore[index]
+    board = read_board(out / "coverage.kicad_pcb")
+    assert board.board is not None
+    assert sorted(d.kind for d in board.board.dimensions) == ["center", "leader", "radial"]
+    assert len(board.board.images) == 1 and [g.layer for g in board.board.graphics if g.net_id] == []
+    root = parse((out / "coverage.kicad_pcb").read_text(encoding="utf-8"))
+    heads = {n.name for n in root.nodes()}
+    assert {"group", "image", "target", "dimension"} <= heads
+    assert '(rule "edge"' in (out / "coverage.kicad_dru").read_text(encoding="utf-8")

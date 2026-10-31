@@ -6,7 +6,8 @@ builds", scenario "Examples keep their bytes"; task 0.1 records the table, task 
 The table ``tests/data/build_bytes.json`` was measured by ``tests/_buildbytes.py`` on the base commit of
 change c0277 (8dab89d6, branch ``circuits-as-code``), before any product code of the change: one row per
 example and target with the exit code of the dry-run build and the SHA-256 of each planned file. A digest
-moves only with the change that changes the writer, never to make a test pass.
+moves only with the change that changes the writer, never to make a test pass. The rows of
+``board_coverage``, the example of change c0277 itself (task 4.6), were measured when it was added.
 """
 
 from __future__ import annotations

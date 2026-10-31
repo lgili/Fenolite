@@ -1649,6 +1649,42 @@ def _hand_over(model: ModelDesign, resolved: ModelDesign) -> tuple[ModelDesign, 
     return model, dataclasses.replace(resolved, board=dataclasses.replace(done, keepouts=()))
 
 
+def altium_coverage_issues(design: DslDesign) -> list[Issue]:
+    """One ``altium.not-lowered`` info per kind of instance setting of change c0277 that a script gives and
+    the Altium document has no field for: footprint-level overrides, pad edits, field fonts, 3D models
+    named by the script and teardrops by selection. Nothing of them is dropped silently."""
+    kinds = {
+        "overrides": sum(1 for part in design.parts.values() if part.overrides is not None),
+        "pad-edits": sum(len(part.pad_edits) for part in design.parts.values()),
+        "fonts": sum(
+            1
+            for part in design.parts.values()
+            for request in part.field_requests.values()
+            if request.bold is not None or request.italic is not None or request.face is not None
+        ),
+        "models": sum(1 for part in design.parts.values() if part.model_refs),
+        "teardrops": len(design.teardrop_rules)
+        + sum(1 for intent in copper(design) if getattr(intent, "teardrop", None) is not None),
+    }
+    what = {
+        "overrides": "parts with footprint-level overrides",
+        "pad-edits": "pad edits of a part's instance",
+        "fonts": "field requests with a font",
+        "models": "parts with 3D models named by the script",
+        "teardrops": "teardrops() calls and vias with teardrop settings",
+    }
+    return [
+        Issue(
+            "altium.not-lowered",
+            "info",
+            f"{count} {what[kind]}: the Altium build has no field for them; they are kept in the script only",
+            where=kind,
+        )
+        for kind, count in kinds.items()
+        if count
+    ]
+
+
 def altium_base(
     model: ModelDesign,
     placements: Mapping[str, PlacementRequest],
@@ -1998,7 +2034,14 @@ def _run_altium(
         evidence = Evidence.combine(evidence, native_evidence)
     return Result(
         result=result,
-        issues=(*reader_issues, *script_issues, *built.issues, *copper_issues, *layout_issues),
+        issues=(
+            *reader_issues,
+            *script_issues,
+            *built.issues,
+            *copper_issues,
+            *layout_issues,
+            *altium_coverage_issues(run.design),
+        ),  # fmt: skip
         evidence=evidence,
         input=InputRef(
             path=str(args.design),
