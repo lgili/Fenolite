@@ -130,7 +130,11 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--docs", metavar="ID,...", help="--export only these")
     parser.add_argument("--variant", metavar="NAME", help="show an Altium project's variant")
     parser.add_argument("--compare", metavar="OLD", help="draw what changed since the board or sheet OLD")
-    parser.add_argument("--check", metavar="FILE|run", help="draw a check reply's findings; run: check first")
+    parser.add_argument(
+        "--check",
+        metavar="FILE|run",
+        help="draw the findings of a check, build or sync reply; run: check first",
+    )
     parser.add_argument(
         "--report",
         metavar="FILE",
@@ -677,7 +681,7 @@ def check_reply(
             "FEN-3004",
             f"--check: {exc}",
             where=argument,
-            hint="pass the JSON reply of `fenolite check ... --json`, or `--check run`",
+            hint="pass the --json reply of `fenolite check`, `build` or `sync --to-source`, or `--check run`",
         ) from exc
 
 

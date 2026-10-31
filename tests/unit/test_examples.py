@@ -500,7 +500,7 @@ def test_families_build_frozen(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
 # -- the generated footprints example (change c0260)
 
 GENERATED = ROOT / "examples" / "generated"
-FAMILIES = ("chip", "molded", "gullwing", "nolead", "grid", "to", "dip", "header", "connector")
+GENERATED_FAMILIES = ("chip", "molded", "gullwing", "nolead", "grid", "to", "dip", "header", "connector")
 
 
 def test_generated_header_and_listing() -> None:
@@ -522,9 +522,9 @@ def test_generated_one_footprint_per_family(monkeypatch: pytest.MonkeyPatch, tmp
         read_package(path.read_text(encoding="utf-8")).family
         for path in (GENERATED / "packages").glob("*.toml")
     }
-    assert families == set(FAMILIES)
+    assert families == set(GENERATED_FAMILIES)
     footprints = {key: fp.definition for key, fp in design.footprints.items()}
-    assert len(footprints) == len(FAMILIES) and all(key.startswith("Local:") for key in footprints)
+    assert len(footprints) == len(GENERATED_FAMILIES) and all(key.startswith("Local:") for key in footprints)
 
     def refuse(*args: object, **kwargs: object) -> None:
         raise AssertionError(f"a build started a subprocess: {args}")
@@ -548,3 +548,42 @@ def test_generated_one_footprint_per_family(monkeypatch: pytest.MonkeyPatch, tmp
         else:
             assert not model.exists(), name
     assert sum(1 for d in footprints.values() if d.bodies) == 8
+
+
+# -- the edit loop of the blink example (change c0250)
+
+BLINK = ROOT / "examples" / "blink_2layer"
+
+
+def test_blink_readme_edit_loop(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The commands of ``examples/blink_2layer/README.md``, run in order; the KiCad steps are token edits."""
+    from _edit_help import edit, issues, value  # noqa: PLC0415
+    from _project import Project  # noqa: PLC0415
+
+    readme = (BLINK / "README.md").read_text(encoding="utf-8")
+    block = readme.split("```sh\n", 1)[1].split("```", 1)[0]
+    commands = [line.split() for line in block.splitlines() if line.startswith("fenolite ")]
+    assert [c[1] for c in commands] == ["build", "build", "build", "build", "sync", "build"]
+    p = Project(tmp_path, monkeypatch)  # the first command
+
+    def run(words: list[str]) -> tuple[int, dict[str, object], str]:
+        assert words[2:5] == ["examples/blink_2layer/design.py", "--out", "build/blink"]
+        return p.run(words[1], *words[5:])
+
+    edit(p, {"R1": {"value": "4k7"}})
+    code, env, err = run(commands[1])
+    assert code == 0, err
+    assert [i["where"] for i in issues(env, "edit.unrecorded")] == ["R1#value"]
+    p.edit_script('value="330"', 'value="470"')
+    code, env, _ = run(commands[2])
+    (conflict,) = issues(env, "sync.conflict")
+    assert code == 5 and conflict["where"] == "R1#value" and "both-changed" in conflict["message"]
+    for words in commands[3:5]:
+        code, env, err = run(words)
+        assert code == 0, err
+    edits = (p.script.parent / "edits.toml").read_text(encoding="utf-8")
+    assert '[part."R1"]\nvalue = "4k7"\n' in edits and '[part."R1".over]\nvalue = "470"\n' in edits
+    code, env, err = run(commands[5])
+    assert code == 0, err
+    assert not issues(env, "edit.unrecorded") and not issues(env, "edit.code-wins")
+    assert value(p, "R1") == ("4k7", "4k7")

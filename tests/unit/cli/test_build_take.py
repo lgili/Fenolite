@@ -80,3 +80,26 @@ def test_build_malformed_take(
     assert code == 2 and error["code"] == "FEN-2001"
     if takes == ("mine:R1",):
         assert "mine:R1" in error["message"]
+
+
+def test_frozen_build_refuses_an_unrecorded_edit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    p = Project(tmp_path, monkeypatch)
+    _edit(p, {"R1": {"value": "4k7"}})
+    before = p.files()
+    code, env, err = p.build("--frozen", "--dry-run")
+    error = json.loads(err)
+    assert code == 7 and error["code"] == "FEN-7004" and "edits.toml" in error["hint"]
+    (refused,) = [i for i in _issues(env, "lock.changed") if i["where"] == "R1#value"]
+    assert refused["severity"] == "error" and "4k7" in refused["message"]
+    code, _, _ = p.build("--frozen", "--confirm")
+    assert code == 7 and p.files() == before
+
+
+def test_frozen_build_refuses_a_take(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    p = Project(tmp_path, monkeypatch)
+    code, env, err = p.build("--take", "cad:R1#value", "--frozen", "--dry-run")
+    assert code == 7 and json.loads(err)["code"] == "FEN-7004"
+    (refused,) = _issues(env, "lock.changed")
+    assert refused["where"] == "--take" and "cad:R1#value" in refused["message"]
+    code, _, err = p.build("--frozen", "--dry-run")
+    assert code == 0, err

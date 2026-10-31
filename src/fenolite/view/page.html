@@ -584,7 +584,8 @@ function selectFinding(i) {
   if (x.at) { const b = x.box || [x.at[0], x.at[1], x.at[0], x.at[1]], m = Math.max(b[2] - b[0], b[3] - b[1], isSch() ? 10 : 6) * 0.8; fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m]); }
   showInfo(`<b>${esc(x.code)}</b> · ${esc(x.severity)}<br>${esc(x.message)}` + (x.where ? `<br>Where: ${esc(x.where)}` : "") +
     (x.layer && !isSch() ? `<br>Layer: ${esc(layerName(x.layer))}` : "") + (x.at ? "" : "<br><i>No position on this document.</i>") +
-    `<br>Stage: ${esc(x.stage || "?")} · evidence ${esc(x.evidence || "?")}`);
+    `<br>Stage: ${esc(x.stage || "?")} · evidence ${esc(x.evidence || "?")}` +
+    (x.commands ? "<br>Resolve with one of (copy; the viewer runs nothing):" + x.commands.map(c => `<br><code>${esc(c)}</code>`).join("") : ""));
   if (S.project_review?.binding && !S.project_review.binding.matched) $("info").innerHTML += `<br><b>Historical report:</b> ${esc(S.project_review.binding.note)}`;
   buildMessages(); draw();
 }

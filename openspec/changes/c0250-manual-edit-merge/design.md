@@ -449,17 +449,24 @@ malformed `--take` is `FEN-2001`. A refusal under `--frozen` uses c0249's code.
 1. **Base location.** The research named `.fenolite/`; this design uses `<out>/fenolite-base.json`
    (decision 2). *Recommended:* the output-folder file, to keep the clone-independence principle of
    `docs/lens.md`.
+   Decided 2026-10-30: the output-folder file `<out>/fenolite-base.json` (implemented so).
 2. **Units in `edits.toml`.** Bare millimetres and degrees (as `placements.toml`) or unit strings
    (`"12.7mm"`, `"90deg"`, as the research sketch)? *Recommended:* bare numbers on write. Reading unit
    strings can come once c0246's parser exists, as a compatible addition.
+   Decided 2026-10-30: bare numbers; unit strings may be read later as a compatible addition.
 3. **Altium CAD side.** Read values and footprints from saved `.SchDoc` parameters and positions from
    `.PcbDoc` (c0041 reader), with the generated baselines as base? *Recommended:* a follow-up change,
    after this one and after c0241's Part J facts. The snapshot replay rules need their own design.
+   Decided 2026-10-30: a follow-up change; an Altium build has no CAD side here.
 4. **Footprint edit on a `device=` part (c0248).** *Recommended:* allowed when the device lists the
    footprint. Otherwise keep it with a warning from c0248's checks; never a silent revert.
+   Decided 2026-10-30: as recommended; the merge keeps the edited footprint, c0248's checks judge it.
 5. **Value edit on a picked part (c0254).** *Recommended:* the edit wins over the pick and marks the
    part as fixed in the lock, and c0253 judges it. c0254 states it.
+   Decided 2026-10-30: as recommended; the edit wins over the pick (the pick side is c0254's to state).
 6. **Relative placement (c0255).** *Recommended:* resolve relative requests against the merged positions
    of their anchors, in path order, so a hand-moved anchor carries its followers.
+   Decided 2026-10-30: as recommended (`lens.preserve.resolving` resolves against the decided positions).
 7. **A script-side lock for values** (`part.lock("value")`)? *Recommended:* no. `--take code` once is
    enough, because the base then records the choice.
+   Decided 2026-10-30: no script-side value lock; `--take code` once records the choice in the base.

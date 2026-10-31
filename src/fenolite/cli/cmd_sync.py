@@ -172,8 +172,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         from fenolite.cli._pins import apply_script_pins
 
         apply_script_pins(design, script_path)  # the takes of change c0257, as the build chose them
+        from fenolite.cli._lock import locked_refs
+
         model, _defaulted = apply_default_pad_maps(
-            to_model(design), authored_symbols=design.symbols, authored_footprints=design.footprints
+            to_model(design, refs=locked_refs(design, script_path)),
+            authored_symbols=design.symbols,
+            authored_footprints=design.footprints,
         )
         aliases = Aliases(moves(design), module_moves(design), net_moves(design))
         # relative requests, block poses and strategies are the code side too (change c0255)

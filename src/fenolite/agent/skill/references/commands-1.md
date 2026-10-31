@@ -78,7 +78,7 @@ Back to [the command index](commands.md).
 - `--altium-template FILE.SchDot`: apply a native binary sheet template to every Altium schematic, preserving page settings, fonts and embedded images; requires binary Altium output and no drawing_sheet in the script
 - `--discard-layout`: replace outputs changed since the last build (backups kept)
 - `--lock FILE`: the design lock to read and write, in place of <script stem>.lock beside the script
-- `--frozen`: refuse with exit 7 (FEN-7004) when the design lock would change; never write it
+- `--frozen`: refuse with exit 7 (FEN-7004) when the design lock would change, or a --take or a CAD edit not in edits.toml would be kept; never write the lock
 - `--take SIDE[:TARGET]` (repeatable): resolve a sync.conflict: SIDE is code, cad, board or schematic, TARGET a component path or PATH#PROPERTY (every conflict without one); repeatable
 - `--target {altium,kicad}` (default `kicad`): kicad (default), or altium: an experimental Altium project file and schematic instead
 - `--altium-format {ascii,binary}`: the form of the Altium schematic with --target altium: binary (default, Altium's own) or ascii; a usage error with --target kicad (default form: binary)

@@ -220,12 +220,38 @@ def natural_key(path: str) -> tuple[tuple[int, int, int, str], ...]:
 
 # -- the refs section
 
+_HAND: ContextVar[Mapping[str, tuple[str, str | None]]] = ContextVar(
+    "fenolite_hand_refs", default=MappingProxyType({})
+)
+
+
+@contextlib.contextmanager
+def hand_refs(edits: Mapping[str, tuple[str, str | None]]) -> Generator[None]:
+    """Count the ``reference`` edits of ``edits.toml`` (path → (ref, the ref it was recorded over)) as
+    explicit refs while the block runs (change c0250, "Reference edits"): ``fenolite build`` installs them,
+    so the lock records a part re-annotated in KiCad."""
+    token = _HAND.set(MappingProxyType(dict(edits)))
+    try:
+        yield
+    finally:
+        _HAND.reset(token)
+
 
 def _resolve_refs(design: Design, entries: Mapping[str, LockValue]) -> SectionResult:
     """The refs of every part: explicit refs, then kept lock entries, then new refs per prefix in natural
-    path order with the lowest free number. ``entries`` are the lock's refs after carry and release."""
+    path order with the lowest free number. ``entries`` are the lock's refs after carry and release.
+
+    A reference edit (``hand_refs``) is an explicit ref when it was recorded over the part's explicit or
+    locked ref, or the part has neither; an edit made over another ref is stale and left to the build's
+    merge, which reports it."""
     parts: dict[str, Part] = dict(design.parts)
     explicit = {path: part.explicit_ref for path, part in parts.items() if part.explicit_ref is not None}
+    for path, (ref, over) in sorted(_HAND.get().items()):
+        if path not in parts:
+            continue
+        code = explicit.get(path, cast("str | None", entries.get(path)))
+        if code is None or over is None or over == code or ref == code:
+            explicit[path] = ref
     owners = {ref: path for path, ref in explicit.items()}
     refs: dict[str, str] = dict(explicit)
     changes: list[LockChange] = []
@@ -807,6 +833,7 @@ __all__ = [
     "SectionResult",
     "assign_refs",
     "frozen_issues",
+    "hand_refs",
     "lock_text",
     "make_lock",
     "natural_key",

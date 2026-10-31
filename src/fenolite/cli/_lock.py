@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,7 @@ from fenolite.dsl.lock import (
     LockFrozenError,
     assign_refs,
     frozen_issues,
+    issue,
     lock_text,
     make_lock,
     needs_lock,
@@ -107,6 +109,17 @@ def plan_lock(design: Design, *, script: Path, given: str, path: Path, frozen: b
     return LockPlan(dict(found.refs), write, summary, found.issues, tuple(pins.rows), pins.evidence)
 
 
+def locked_refs(design: Design, script: Path) -> dict[str, str] | None:
+    """The refs the next build gives the parts without an explicit ref, read from the lock beside
+    ``script`` without writing it (``fenolite sync``: the code side of ``reference``, change c0250);
+    ``None`` without a lock file."""
+    path = script.with_suffix(SUFFIX)
+    if not path.is_file():
+        return None
+    old = read_lock(path.read_bytes().decode("utf-8"), file=path.name)
+    return dict(assign_refs(design, old, moves=moves(design)).refs)
+
+
 def with_lock(result: Result, plan: LockPlan) -> Result:
     """``result`` with ``result.lock``, the lock's issues and, unless an error finding refuses the build,
     its planned write."""
@@ -122,4 +135,62 @@ def with_lock(result: Result, plan: LockPlan) -> Result:
     return dataclasses.replace(result, result=body, issues=issues, writes=writes, evidence=evidence)
 
 
-__all__ = ["KIND", "LockPlan", "lock_location", "plan_lock", "with_lock"]
+EDITS_FROZEN_HINT = (
+    "build without --frozen, run fenolite sync --to-source --confirm to record the edits in edits.toml, "
+    "commit it, then build frozen"
+)
+
+
+class EditsFrozenError(LockFrozenError):
+    """``build --frozen`` with a ``--take`` or a CAD edit that ``edits.toml`` does not record (change c0250,
+    "Frozen builds refuse unrecorded edits"): refused as a change of the lock is (``FEN-7004``)."""
+
+    def __init__(self, issues: Sequence[Issue]) -> None:
+        self.issues = tuple(issues)
+        self.hint = EDITS_FROZEN_HINT
+        count = len(self.issues)
+        Exception.__init__(
+            self,
+            f"under --frozen the build would keep {count} edit{'' if count == 1 else 's'} the source tree "
+            "does not record; nothing was written",
+        )
+
+
+def refuse_frozen_edits(*, frozen: bool, takes: Sequence[object], issues: Sequence[Issue]) -> None:
+    """Raise ``EditsFrozenError`` under ``frozen`` for each ``--take`` and each ``edit.unrecorded`` of
+    ``issues``; each becomes one ``lock.changed`` error naming the take or the property key."""
+    if not frozen:
+        return
+    found = [
+        issue(
+            "lock.changed",
+            f"under --frozen the build would take a side: --take {take}",
+            "--take",
+            EDITS_FROZEN_HINT,
+        )
+        for take in takes
+    ]
+    found += [
+        issue(
+            "lock.changed",
+            f"under --frozen a CAD edit not recorded in edits.toml would be kept: {unrecorded.message}",
+            unrecorded.where,
+            EDITS_FROZEN_HINT,
+        )
+        for unrecorded in issues
+        if unrecorded.code == "edit.unrecorded"
+    ]
+    if found:
+        raise EditsFrozenError(found)
+
+
+__all__ = [
+    "KIND",
+    "EditsFrozenError",
+    "LockPlan",
+    "lock_location",
+    "locked_refs",
+    "plan_lock",
+    "refuse_frozen_edits",
+    "with_lock",
+]

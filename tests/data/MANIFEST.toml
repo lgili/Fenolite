@@ -1367,6 +1367,12 @@ corpus_id = ""
 notes = "symbol library table of the lens acceptance fixture (c0069): the authored Mini library"
 
 [[file]]
+path = "tests/data/lens/edit_merge/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design script of the edit merge acceptance fixture (c0250): a connector, a resistor with a user property and a module, from Fenolite's catalog"
+
+[[file]]
 path = "tests/data/exports/manifest_v01.json"
 origin = "authored"
 corpus_id = ""
