@@ -83,6 +83,8 @@
   2026-10-30: proof passed; `docs/blocks/index.md` generated (no shipped block yet).
   2026-10-30: proof passed.
 
+- [x] 3.5 Keep authored block fixture imports read-only, including subprocess determinism checks, so bytecode caches do not invalidate the corpus manifest in parallel CI. Proof: `uv run pytest tests/unit/dsl/test_block_param_meta.py tests/unit/dsl/test_describe.py tests/unit/blocks/test_versions.py tests/corpus/test_manifest.py -q`.
+
 ## 4. Documentation and guide
 
 - [x] 4.1 `docs/dsl.md`, section "Blocks": records, `param`, port docs, versions and the lock section.
@@ -109,3 +111,5 @@
   Proof: the run of the commit on GitHub CI is green; `make check-fast` passes locally.
 
   2026-10-30: open. CI runs with the batch; `make check-fast` passed locally.
+
+2026-10-31: task 3.5 focused proof passed (block metadata, describe, versions and corpus manifest). The redundant integration quick gate was stopped before pytest to correct this CI failure, exit 143; it is not counted as passed. A fresh complete quick gate follows.

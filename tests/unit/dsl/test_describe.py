@@ -32,7 +32,7 @@ def load(name: str) -> ModuleType:
     spec = importlib.util.spec_from_file_location(f"_c0268_describe_{name}", DATA / f"{name}.py")
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    exec(compile(Path(spec.origin).read_bytes(), spec.origin, "exec"), module.__dict__)
     return module
 
 
@@ -152,7 +152,7 @@ def test_record_json_shape() -> None:
 def test_stable_bytes(tmp_path: Path) -> None:
     """Scenario "Stable bytes": two processes with different hash seeds give the same text."""
     code = (
-        "import importlib.util, sys\n"
+        "import importlib.util, sys\nsys.dont_write_bytecode = True\n"
         f"spec = importlib.util.spec_from_file_location('d', {str(DATA / 'divider.py')!r})\n"
         "m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)\n"
         "from fenolite.dsl.record import describe, record_json\n"

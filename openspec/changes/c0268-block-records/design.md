@@ -423,3 +423,5 @@ unit, outside its range or not a choice. No new `FEN-` code.
 - **c0272 starter-blocks:** the first records, sources, pages and `VERSIONS.toml` rows.
 - **c0273 block-packages:** the `library` source for blocks vendored from `fenolite-library` (c0279), their record files (from
   `describe`) and `fenolite blocks upgrade`.
+
+Decided 2026-10-31: test loaders execute freshly compiled fixture source without producing bytecode beside authored inputs. The strict manifest continues to reject undeclared payloads.

@@ -33,7 +33,7 @@ def record(name: str, folder: Path = DATA / "versions", attribute: str = "div") 
     )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    exec(compile(Path(spec.origin).read_bytes(), spec.origin, "exec"), module.__dict__)
     found = getattr(module, attribute)
     assert isinstance(found, BlockDef)
     return describe(found)

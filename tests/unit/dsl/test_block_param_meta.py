@@ -24,7 +24,7 @@ def load(name: str) -> ModuleType:
     spec = importlib.util.spec_from_file_location(f"_c0268_{name}", DATA / f"{name}.py")
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    exec(compile(Path(spec.origin).read_bytes(), spec.origin, "exec"), module.__dict__)
     return module
 
 
