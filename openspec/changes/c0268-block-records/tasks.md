@@ -113,3 +113,5 @@
   2026-10-30: open. CI runs with the batch; `make check-fast` passed locally.
 
 2026-10-31: task 3.5 focused proof passed (block metadata, describe, versions and corpus manifest). The redundant integration quick gate was stopped before pytest to correct this CI failure, exit 143; it is not counted as passed. A fresh complete quick gate follows.
+
+Integration gate 2026-10-31: the complete `make check-fast` on the reconciled integration (runtime and tests of `59aeafb7`) finished with exit 0. Ruff, generated-file checks, formatting, pyright, residue and all selected unit/consistency tests passed. Exact pushed-head CI remains required before closure.
