@@ -43,13 +43,14 @@ TOOLS = (
     "fabrication",
     "files",
     "footprints",
+    "library-items",
     "parts",
     "placement",
     "recovery",
     "routing",
     "rules",
 )
-"""The eleven tool pages written by hand."""
+"""The twelve tool pages written by hand."""
 PRACTICE = (
     "board-assembly",
     "board-emc",
@@ -65,7 +66,7 @@ PRACTICE = (
 )
 """The eleven practice pages written by hand: design practice, not features."""
 WRITTEN = (*TOOLS, *PRACTICE)
-"""The twenty-two pages written by hand."""
+"""The twenty-three pages written by hand."""
 GENERATED = guide.GENERATED_TOPICS
 RUN_TAGS = ("fenolite-loop", "fenolite-cmd", "fenolite-recipe")
 """The tags whose lines are commands: a public command needs a line in one of them."""
@@ -79,6 +80,7 @@ HOME: Mapping[str, tuple[str, ...]] = {
     "design-script": ("init", "build", "sync", "template"),
     "parts": ("catalog",),
     "footprints": ("library",),
+    "library-items": ("get",),
     "placement": ("place", "pads", "neighbors", "region"),
     "routing": ("route", "tidy", "fill", "net", "fetch"),
     "rules": ("analyze",),
@@ -102,6 +104,7 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
         "`ohm`", "`farad`", "`henry`", "`volt`", "`amp`", "`watt`", "`hertz`", "`second`", "properties",
         "Interface(", "I2C(", "SPI(", "UART(", "USB2(", "Harness(", "DiffPair(",
     ),
+    "library-items": ("--locked", "--accept-licence", "PROVENANCE.json"),
     "footprints": ("Footprint(", "Symbol(", "`INFERRED`", "datasheet"),
     "placement": (
         "place(", "side=", "rot=", "locked=True", "place --strategy grid", "place --move", "fenolite pads",
@@ -453,11 +456,11 @@ DESIGNS = [
 
 
 def test_topics_load() -> None:
-    """Scenario "The twenty-two pages load"."""
+    """Scenario "The twenty-three pages load"."""
     pages = guide.pages()
     topics = [page.topic for page in pages]
     assert topics == [guide.START, *sorted((*WRITTEN, *GENERATED))]
-    assert len(TOOLS) == 11 and len(PRACTICE) == 11 and len(GENERATED) == 7
+    assert len(TOOLS) == 12 and len(PRACTICE) == 11 and len(GENERATED) == 7
     for page in pages:
         assert page.title and page.summary and "\n" not in page.summary, page.topic
         assert page.text.startswith(f"# {page.title}\n"), page.topic

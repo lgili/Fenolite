@@ -28,6 +28,11 @@ into an Apache-2.0 package.
    files may be committed.
 5. No list of private identifiers is ever committed, in clear or hashed form.
 
+- *2026-10-29:* third-party material lives only in `fenolite-library` (github.com/lgili/fenolite-library):
+  symbols, footprints, devices, blocks and boards derived from third-party sources go there, each item with
+  its upstream licence, NOTICE and `PROVENANCE.json`, never into this repository (ADR-0008). Private and
+  employer material stays forbidden in both repositories.
+
 ## Alternatives
 - **Use non-public boards as committed test fixtures**: realistic coverage, but the files, and any
   value measured on them, would become public through the repository, its history and the built

@@ -1,0 +1,6 @@
+schema = "fenolite.package.v0"
+id = "Demo:SA_PAD"
+version = "1.0.0"
+summary = "Demo share-alike pad"
+licence = "CC-BY-SA-4.0"
+evidence = "UNVERIFIED"

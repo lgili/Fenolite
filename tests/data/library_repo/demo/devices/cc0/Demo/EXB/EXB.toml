@@ -1,0 +1,8 @@
+schema = "fenolite.device.v1"
+id = "Demo:EXB"
+version = "1.2.0"
+summary = "Demo step-down converter"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"
+pins = "Demo:EXB"
+package = "Demo:SOT"

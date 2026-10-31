@@ -1,0 +1,29 @@
+{
+  "depends": [
+    {
+      "id": "Demo:EXB",
+      "kind": "symbol",
+      "version": "1.0.0"
+    },
+    {
+      "id": "Demo:SOT",
+      "kind": "footprint",
+      "version": "1.0.0"
+    }
+  ],
+  "executes": false,
+  "files": [
+    "EXB.toml"
+  ],
+  "id": "Demo:EXB",
+  "kind": "device",
+  "schema": "fenolite.library-item.v0",
+  "spdx": "CC0-1.0",
+  "summary": "Device record with pins and package",
+  "tags": [
+    "buck",
+    "power"
+  ],
+  "title": "Demo step-down converter",
+  "version": "1.2.0"
+}

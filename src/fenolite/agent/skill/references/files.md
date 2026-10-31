@@ -188,9 +188,9 @@ fenolite build reg/design.py --out reg/build --lock reg/release.lock --dry-run -
 
 ## Parts chosen by parameters
 
-A query names a passive by what it must be; `build` picks a row of the local catalog (shipped families,
+`build` picks a passive from the local catalog (shipped families,
 `fenolite catalog list --kind family`, and `devices/` beside the script), records it in the lock's
-`[picks]` and never swaps it by itself. A generator picks values and reports `gen.achieved`.
+`[picks]`. Generators report `gen.achieved`.
 
 ```fenolite-design
 from fenolite.dsl import I2C, Design, Net, amp, between, capacitor, connect, farad, henry, hertz, inductor

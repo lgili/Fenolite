@@ -134,7 +134,8 @@ limits; their example numbers are not universal requirements.
 - `dsl-reference`: The complete list: each name a design script imports from fenolite.dsl, with its signature.
 - `fabrication`: export, the bill of materials, the position table, the manifest and its states, render, and what is not produced.
 - `files`: Read a file Fenolite did not write, tell whether editing it is safe, compare two files or two designs, and undo a confirmed write.
-- `footprints`: Footprint and Symbol from dimensions or pin tables, library records and orderable parts, and what a person must still check against the datasheet.
+- `footprints`: Footprint and Symbol from dimensions or pin tables, library records, items from fenolite-library, and what a person must check against the datasheet.
+- `library-items`: Review licences, fetch pinned library items, restore offline copies and audit library releases.
 - `parts`: Where symbols and footprints come from, how a pin is named, pad_map, values with units, user properties, typed interfaces and blocks.
 - `placement`: place() by coordinates or by reference, staged parts and the grid strategy, moving parts on the board, copying a block by its pads, pads and text fields.
 - `recovery`: One tested recipe per exit code from 2 to 7 and for shorted copper, the table of every error code, and reading the guide itself.

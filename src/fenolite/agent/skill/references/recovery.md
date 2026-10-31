@@ -135,13 +135,12 @@ fenolite build blink/design.py --out blink/k10 --kicad-version 10 --confirm --js
 
 ## Exit 7 in general
 
-Pass `--allow-lossy` only when the user accepts the loss, and report it. `FEN-7001` is also the
-answer of a build over a library table or file that someone edited: `--discard-layout`
-replaces those files and keeps backups.
+Pass `--allow-lossy` only when the user accepts the loss, and report it. `FEN-7001` also answers a
+build over an edited library table or file: `--discard-layout` replaces them, keeping backups.
 
 ## Findings of KiCad's own checks
 
-Codes that start with `kicad.drc.` or `kicad.erc.` come from KiCad's DRC and ERC, with KiCad's message. `fenolite check blink/build --json` lists them; with
+`kicad.drc.` and `kicad.erc.` codes carry KiCad's DRC and ERC messages. `fenolite check blink/build --json` lists them; with
 `--format concise` there is one per code, with its count. The commonest:
 
 - `kicad.drc.unconnected-items`: copper is missing between the two items of `where`. Route again.
@@ -150,23 +149,21 @@ Codes that start with `kicad.drc.` or `kicad.erc.` come from KiCad's DRC and ERC
 
 ## Incomplete write recovery
 
-`FEN-1004` has `retryable: false`: a write failed or was interrupted, and rollback also failed.
-Keep every file named in `result.recovery.preserved` and inspect the paths in `result.recovery.failed`.
-Resolve those paths from the command's working directory (`../` or an absolute path when Windows
-volumes differ). Copy the files to a safe place first. A `.keep` holds an original target or
-an earlier backup, a `.tmp` new bytes; a `.bak` may have moved during the failed write.
-Compare contents and earlier receipts before restoring; the partial write has no receipt. Do not retry
-automatically or delete these files. Then run a fresh dry run and review its plan.
+`FEN-1004` has `retryable: false`: a write failed and its rollback failed too. Keep every file of
+`result.recovery.preserved`, inspect `result.recovery.failed` (paths from the working directory) and copy
+them to a safe place first. A `.keep` holds an original target or an earlier backup, a `.tmp` new bytes; a
+`.bak` may have moved. Compare contents and earlier receipts before restoring; do not retry or delete
+these files. Then review a fresh dry run.
 
 ## Every error code
 
 | code | exit | what happened | what to do |
 |---|---|---|---|
 | `FEN-1001` | 1 | a bug in Fenolite | stop and report the error object with the command line; do not retry |
-| `FEN-1002` | 1 | a write failed; every file of the command was put back | fix the cause the message names, run the same command again |
+| `FEN-1002` | 1 | a write failed; every file of the command was put back | fix the cause named, run it again |
 | `FEN-1003` | 1 | the command was stopped by a signal; nothing was written | run the same command again: `route` goes on with the router runs that finished |
-| `FEN-1004` | 1 | rollback was incomplete; some files may have changed | preserve the listed recovery files, recover the intended state manually, then review a new plan; do not retry automatically |
-| `FEN-2001` | 2 | an invalid command line | recipe above |
+| `FEN-1004` | 1 | rollback was incomplete; some files may have changed | the section above; do not retry |
+| `FEN-2001` | 2 | invalid arguments | recipe above |
 | `FEN-2002` | 2 | `--fields` names a key the result does not have | run with `--json` alone and read the keys |
 | `FEN-2003` | 2 | `--dry-run` and `--confirm` together | use one |
 | `FEN-2004` | 2 | `--timestamp` is not ISO 8601 | write it as `2026-01-01T00:00:00Z` |
@@ -177,12 +174,16 @@ automatically or delete these files. Then run a fresh dry run and review its pla
 | `FEN-3005` | 3 | geometry of the input cannot be represented | the message names the geometry and the points |
 | `FEN-3006` | 3 | a fetched file does not match its pinned size or SHA-256 | fetch again, or name a good copy with `--from` |
 | `FEN-3007` | 3 | a file to read is kept only online by a sync client | make the folder available offline, then run again |
+| `FEN-3021` | 3 | `get`: the item's licence is not allowed, or its licence files are missing | choose another |
 | `FEN-4001` | 4 | a write without `--dry-run` or `--confirm` | recipe above |
-| `FEN-4002` | 4 | the plan named by `--plan` cannot be written as reviewed: a target, an input or the command line changed, or no plan has that id | `--dry-run` again, review the new plan, confirm its `plan_id` |
+| `FEN-4002` | 4 | the plan of `--plan` cannot be written as reviewed: a target, an input or the line changed | run `--dry-run` again, read the plan, confirm its `plan_id` |
+| `FEN-4003` | 4 | `get --confirm`: a licence was not accepted by name | read `result.licences`, add `--accept-licence ID` |
 | `FEN-5001` | 5 | findings of severity `error` | read `issues`; recipe above |
-| `FEN-6001` | 6 | an external tool is not found | recipe above |
-| `FEN-6002` | 6 | the tool's version is not supported | `fenolite doctor --json` names the versions that are |
+| `FEN-6001` | 6 | tool not found | recipe above |
+| `FEN-6002` | 6 | unsupported tool version | `fenolite doctor --json` names the versions that are |
 | `FEN-6003` | 6 | a download failed | retry later, or install a copy with `fetch --from` |
+| `FEN-6004` | 6 | a library item pinned by the lock is missing | `fenolite get --locked <script> --dry-run` |
+| `FEN-6006` | 6 | a library index or asset is not in the cache | drop `--offline`, or pass `--from DIR` |
 | `FEN-7001` | 7 | the write would lose information | recipe above |
 | `FEN-7002` | 7 | the target version is older than the input | choose a target at least as new as the input |
 | `FEN-7003` | 7 | the input is a KiCad 8 file, which is read and never written | re-save it in KiCad 9 or newer first |

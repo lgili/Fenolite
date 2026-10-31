@@ -18,6 +18,7 @@ Create PCB projects from Python, inspect KiCad and Altium files, and review desi
 | Generate a footprint, its 3D body and STEP model from package dimensions | [Footprints from package records](footprint-generators.md) |
 | Convert KiCad and Altium projects; downgrade KiCad | [Conversion](conversion.md) |
 | Turn a KiCad board into Fenolite code | [Import](import.md) |
+| Get third-party symbols, footprints, devices, blocks and boards from fenolite-library, with their licences | [The library repository](library-repo.md) |
 | Compare designs and check what changed | [Equivalence](equivalence.md) |
 | Test a Python design and compare reviewed SVGs | [Design testing](testing.md) |
 | Run electrical and physical checks | [CLI contract](cli-contract.md), [analyses](analyses.md), [net roles](roles.md), [electrical contracts](contracts.md) |

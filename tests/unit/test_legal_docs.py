@@ -58,3 +58,35 @@ def test_legal_allows_facts_with_source_only() -> None:
 
 def test_contributing_explains_allowed_vs_forbidden() -> None:
     assert "## Allowed vs forbidden derivation" in _read("CONTRIBUTING.md")
+
+
+# --- fenolite-library (capability ip-hygiene, "Third-party material only in fenolite-library"; c0279) ---
+
+LIBRARY_RULE = "**Third-party material lives only in `fenolite-library`**"
+
+
+def library_rule_problems(agents: str) -> list[str]:
+    """What the "Hard rules" of ``agents`` lack of the fenolite-library rule; empty when it is complete."""
+    rules = agents.split("## Hard rules", 1)[-1].split("\n## ", 1)[0]
+    found = [block for block in rules.split("\n- ") if LIBRARY_RULE in block]
+    if not found:
+        return ["AGENTS.md: the hard rule 'Third-party material lives only in fenolite-library' is missing"]
+    text = " ".join(found[0].split())
+    words = ("github.com/lgili/fenolite-library", "licence", "NOTICE", "`PROVENANCE.json`")
+    return [
+        f"AGENTS.md: the fenolite-library rule does not name {word}" for word in words if word not in text
+    ]
+
+
+def test_fenolite_library_sentence_present() -> None:
+    assert library_rule_problems(_read("AGENTS.md")) == []
+    adr = _read("docs/adr/0003-clean-room-and-provenance.md")
+    assert [line for line in adr.splitlines() if "fenolite-library" in line and "2026-10-29" in line]
+
+
+def test_fenolite_library_sentence_removed() -> None:
+    text = _read("AGENTS.md")
+    start = text.index("- " + LIBRARY_RULE)
+    end = text.index("\n- ", start + 2)
+    problems = library_rule_problems(text[:start] + text[end + 1 :])
+    assert problems and "missing" in problems[0]

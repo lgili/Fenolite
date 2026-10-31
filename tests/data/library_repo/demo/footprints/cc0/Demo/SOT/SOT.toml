@@ -1,0 +1,6 @@
+schema = "fenolite.package.v0"
+id = "Demo:SOT"
+version = "1.0.0"
+summary = "Demo three-lead package"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"

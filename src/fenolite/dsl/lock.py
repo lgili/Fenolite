@@ -15,6 +15,7 @@ the build's pick resolver, installed with ``picks_resolver``) and ``pins`` (chan
 the takes, kept here as read and replaced by the pin solve of ``fenolite build``, ``fenolite.lens.pins``)
 and ``blocks`` (change c0268: ``<id>@<version>`` of every instance of a block with a record, so that a
 new block version is never taken silently) have content.
+``library`` (c0279) holds vendored item pins and is kept unchanged by a build.
 """
 
 from __future__ import annotations
@@ -201,6 +202,9 @@ class LockSection:
     releases: bool = True
     """Whether the common release step drops an entry whose key is no part path; ``blocks`` (change c0268)
     keys instance paths and releases its own entries."""
+    paths: bool = True
+    """Whether the keys name component paths. A section of other keys (``library``: ``<kind>/<id>``, change
+    c0279) is neither carried by an alias nor released: the build keeps it as it was read."""
 
 
 def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
@@ -443,6 +447,7 @@ SECTIONS: tuple[LockSection, ...] = (
     LockSection("picks", _resolve_picks, exact=True),  # c0254
     LockSection("pins", _keep),  # c0257: replaced by the pin solve of fenolite build
     LockSection("blocks", _resolve_blocks, releases=False),  # c0268
+    LockSection("library", _keep, paths=False),  # c0279: only fenolite get changes it
 )
 """The sections of the lock, in the order the file writes them."""
 
@@ -502,6 +507,9 @@ def assign_refs(design: Design, lock: Lock, *, moves: Mapping[str, str]) -> RefA
         by_old = by_part if section.releases else by_module
         roots = sorted(by_old)
         entries = lock.sections.get(section.name, {})
+        if not section.paths:
+            new_sections[section.name] = MappingProxyType(dict(sorted(entries.items())))
+            continue
         carried: dict[str, LockValue] = {}
         moved: dict[str, tuple[str, LockValue]] = {}
         for key, value in entries.items():
@@ -636,6 +644,8 @@ def read_lock(text: str, *, file: str) -> Lock:
             sections[section.name] = _read_blocks(table, file)
         elif section.name == "picks":
             sections[section.name] = _read_picks(table, file)
+        elif section.name == "library":
+            sections[section.name] = _read_library(table, file)
         else:
             sections[section.name] = _read_pins(table, file)
     return make_lock(design, sections)
@@ -678,6 +688,42 @@ def _read_pins(table: Mapping[str, object], file: str) -> dict[str, LockValue]:
                 "pins": MappingProxyType(dict(sorted(cast(dict[str, str], roles).items()))),
             }
         )
+    return out
+
+
+LIBRARY_FIELDS: tuple[str, ...] = ("index", "path", "release", "spdx", "tree", "version")
+"""The keys of a ``[library.items."<kind>/<id>"]`` entry (change c0279), in the order the file writes them."""
+LIBRARY_TABLE = "items"
+LIBRARY_KEY = re.compile(r"(symbol|footprint|device|block|board)/[A-Za-z0-9][A-Za-z0-9_.+:/-]*")
+
+
+def _read_library(table: Mapping[str, object], file: str) -> dict[str, LockValue]:
+    """The ``[library.items]`` entries (change c0279): per ``<kind>/<id>`` the pin of a vendored item,
+    every key of ``LIBRARY_FIELDS`` a non-empty string. ``path`` is relative to the script folder."""
+    unknown = sorted(set(table) - {LIBRARY_TABLE})
+    if unknown:
+        raise _refuse(f"unknown key {unknown[0]!r} in the section library; it holds items", file, "library")
+    items = table.get(LIBRARY_TABLE, {})
+    if not isinstance(items, dict):
+        raise _refuse("library.items must be a table", file, "library.items")
+    out: dict[str, LockValue] = {}
+    for key, raw in cast(dict[str, object], items).items():
+        where = f"library.items.{key}"
+        if not LIBRARY_KEY.fullmatch(key) or ".." in key:
+            raise _refuse(f"{key!r} is not a library item key <kind>/<id>", file, where)
+        if not isinstance(raw, dict):
+            raise _refuse(f"the library entry {key} must be a table", file, where)
+        entry = cast(dict[str, object], raw)
+        unknown = sorted(set(entry) - set(LIBRARY_FIELDS))
+        if unknown:
+            raise _refuse(f"unknown key {unknown[0]!r} in the library entry {key}", file, where)
+        for name in LIBRARY_FIELDS:
+            if not isinstance(entry.get(name), str) or not entry[name]:
+                raise _refuse(f"the library entry {key} needs {name}, a non-empty string", file, where)
+        path = cast(str, entry["path"])
+        if path.startswith("/") or "\\" in path or any(part == ".." for part in path.split("/")):
+            raise _refuse(f"the path of {key} stays inside the script folder", file, where)
+        out[key] = MappingProxyType({name: entry[name] for name in LIBRARY_FIELDS})
     return out
 
 
@@ -792,6 +838,10 @@ def lock_text(lock: Lock) -> str:
         for key, value in sorted(entries.items()):
             if isinstance(value, str):
                 continue
+            if section.name == "library":
+                lines += ["", f"[library.{LIBRARY_TABLE}.{_string(key)}]"]
+                lines += [f"{name} = {_scalar(value[name])}" for name in LIBRARY_FIELDS if name in value]
+                continue
             lines += ["", f"[{section.name}.{_string(key)}]"]
             if section.name == "pins":
                 shown = {**value, "choice": pin_choice_text(value)}
@@ -818,6 +868,7 @@ def needs_lock(design: Design) -> bool:
 __all__ = [
     "BLOCK_PIN",
     "HEADER",
+    "LIBRARY_FIELDS",
     "LOCK_CODES",
     "PIN_FIELDS",
     "REASONS",

@@ -1,0 +1,17 @@
+{
+  "depends": [],
+  "executes": false,
+  "files": [
+    "SA_PAD.toml"
+  ],
+  "id": "Demo:SA_PAD",
+  "kind": "footprint",
+  "schema": "fenolite.library-item.v0",
+  "spdx": "CC-BY-SA-4.0",
+  "summary": "A single pad under a share-alike licence",
+  "tags": [
+    "pad"
+  ],
+  "title": "Demo share-alike pad",
+  "version": "1.0.0"
+}

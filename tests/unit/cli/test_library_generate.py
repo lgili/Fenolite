@@ -152,7 +152,11 @@ def test_usage(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, extra: tuple[str
 
 
 def test_generate_flags_belong_to_generate(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    for args in (("x.kicad_pcb", "--out", "x.pretty", "--no-step"), ("symbol", "p.toml", "--no-pcblib")):
+    for args in (
+        ("x.kicad_pcb", "--out", "x.pretty", "--no-step"),
+        ("symbol", "p.toml", "--no-pcblib"),
+        ("audit", ".", "--no-step"),
+    ):
         code, _, error, _ = run(monkeypatch, tmp_path, "library", *args)
         assert code == 2 and error["code"] == "FEN-2001" and "library generate" in error["message"]
 

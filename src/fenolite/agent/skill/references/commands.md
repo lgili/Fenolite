@@ -36,6 +36,7 @@ another type; a flag without a value is a switch.
 | `fetch` | yes | download an external tool (freerouting) after --confirm, checked against its pinned SHA-256 |
 | `fill` | yes | fill a KiCad board through kicad-cli 10 on a copy, preserving its format major |
 | `fmt` | yes | give a KiCad S-expression file Fenolite's canonical print, or check it with --check |
+| `get` | yes | copy a fenolite-library item and its dependencies into the project with their licence files, and pin them in the design lock |
 | `guide` | no | print the agent guide of the installed version: the list of its pages, or one page |
 | `impedance` | yes | the impedance table of a project for the fabricator, with --estimate rough estimates (writes FILE with --out) |
 | `import` | yes | turn a KiCad or Altium board into a Fenolite project folder (design.py, copper tables, library) |
@@ -95,8 +96,9 @@ another type; a flag without a value is a switch.
 | `fetch` | [Arguments](commands-2.md#fetch) |
 | `fill` | [Arguments](commands-2.md#fill) |
 | `fmt` | [Arguments](commands-2.md#fmt) |
-| `guide` | [Arguments](commands-2.md#guide) |
-| `impedance` | [Arguments](commands-2.md#impedance) |
+| `get` | [Arguments](commands-3.md#get) |
+| `guide` | [Arguments](commands-3.md#guide) |
+| `impedance` | [Arguments](commands-3.md#impedance) |
 | `import` | [Arguments](commands-3.md#import) |
 | `init` | [Arguments](commands-3.md#init) |
 | `inspect` | [Arguments](commands-3.md#inspect) |
@@ -112,9 +114,9 @@ another type; a flag without a value is a switch.
 | `panel` | [Arguments](commands-3.md#panel) |
 | `parity` | [Arguments](commands-3.md#parity) |
 | `pick` | [Arguments](commands-3.md#pick) |
-| `place` | [Arguments](commands-3.md#place) |
-| `pnp` | [Arguments](commands-3.md#pnp) |
-| `publish` | [Arguments](commands-3.md#publish) |
+| `place` | [Arguments](commands-4.md#place) |
+| `pnp` | [Arguments](commands-4.md#pnp) |
+| `publish` | [Arguments](commands-4.md#publish) |
 | `ready` | [Arguments](commands-4.md#ready) |
 | `refs` | [Arguments](commands-4.md#refs) |
 | `region` | [Arguments](commands-4.md#region) |
@@ -123,12 +125,12 @@ another type; a flag without a value is a switch.
 | `roles` | [Arguments](commands-4.md#roles) |
 | `roundtrip` | [Arguments](commands-4.md#roundtrip) |
 | `route` | [Arguments](commands-4.md#route) |
-| `silk` | [Arguments](commands-4.md#silk) |
-| `skill` | [Arguments](commands-4.md#skill) |
-| `snapshot` | [Arguments](commands-4.md#snapshot) |
-| `sync` | [Arguments](commands-4.md#sync) |
-| `template` | [Arguments](commands-4.md#template) |
-| `testpoints` | [Arguments](commands-4.md#testpoints) |
+| `silk` | [Arguments](commands-5.md#silk) |
+| `skill` | [Arguments](commands-5.md#skill) |
+| `snapshot` | [Arguments](commands-5.md#snapshot) |
+| `sync` | [Arguments](commands-5.md#sync) |
+| `template` | [Arguments](commands-5.md#template) |
+| `testpoints` | [Arguments](commands-5.md#testpoints) |
 | `tidy` | [Arguments](commands-5.md#tidy) |
 | `verify-source` | [Arguments](commands-5.md#verify-source) |
 | `view` | [Arguments](commands-5.md#view) |

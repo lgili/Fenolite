@@ -36,9 +36,10 @@ Public sources (ids from `docs/evidence/sources.md`), tests or hypotheses that b
 | [0005](0005-sheet-templates.md) | Sheet templates: a neutral drawing sheet built from closed, sourced specifications | Accepted |
 | [0006](0006-specctra-and-freerouting.md) | Specctra files from a restricted reference, and Freerouting behind a process boundary | Proposed |
 | [0007](0007-fetching-external-tools.md) | Fetching external tools on request: only inside `fenolite fetch`, only with `--confirm`, only bytes of the pinned size and SHA-256 | Accepted |
+| [0008](0008-getting-library-items.md) | Getting library items: `fenolite get` downloads only released `fenolite-library` assets of pinned digests, only with `--confirm`, licences accepted by name, never executed | Accepted |
 
 **Numbering.**
 
 - ADR-0002 was allocated by change c0001 before 0003 and 0004 existed; change c0009 writes it, so it is the only number written out of order.
 - The next free number is one above the highest number written or allocated; a new ADR takes it when its change is proposed, and numbers are never reserved.
-- ADR numbers are not tied to planning decision numbers. With 0001 to 0007 written (0006 by change c0023, 0007 by change c0078), the next free number is 0008.
+- ADR numbers are not tied to planning decision numbers. With 0001 to 0008 written (0006 by change c0023, 0007 by change c0078, 0008 by change c0279), the next free number is 0009.

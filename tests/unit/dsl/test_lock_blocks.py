@@ -43,7 +43,9 @@ def blocks_of(design: Design, lock: Any = None) -> Any:
 
 
 def test_section_order() -> None:
-    assert [section.name for section in SECTIONS][-1] == "blocks"
+    names = [section.name for section in SECTIONS]
+    assert names.index("blocks") == names.index("pins") + 1
+    assert names.index("library") > names.index("blocks")
 
 
 def test_first_build_pins_the_versions() -> None:

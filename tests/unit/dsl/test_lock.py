@@ -73,7 +73,7 @@ def test_read_canonical_bytes() -> None:
 
 def test_text_of_an_empty_lock_and_escapes() -> None:
     assert lock_text(make_lock("x")) == f'{HEADER}\nschema = "{SCHEMA}"\ndesign = "x"\n'
-    assert [section.name for section in SECTIONS] == ["refs", "picks", "pins", "blocks"]  # c0268: blocks
+    assert [section.name for section in SECTIONS] == ["refs", "picks", "pins", "blocks", "library"]
 
 
 def test_read_two_paths_with_one_ref() -> None:
@@ -142,6 +142,7 @@ def test_every_section_has_a_resolver() -> None:
         "picks": False,
         "pins": False,
         "blocks": False,  # c0268
+        "library": False,  # c0279: kept as read; only fenolite get changes it
     }
 
 

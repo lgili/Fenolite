@@ -1,7 +1,7 @@
 ---
 topic: footprints
 title: Footprints and symbols written in the script
-summary: Footprint and Symbol from dimensions or pin tables, library records and orderable parts, and what a person must still check against the datasheet.
+summary: Footprint and Symbol from dimensions or pin tables, library records, items from fenolite-library, and what a person must check against the datasheet.
 ---
 
 # Footprints and symbols written in the script
@@ -231,4 +231,6 @@ design.part("U1", device="Proj:REG@REG100DR").place(mm(10), mm(5))  # MPN REG100
 
 Nothing is connected, so `fenolite check` reports `kicad.erc.pin-not-connected` for both pins of `U1`.
 
-Read next: `parts`, `placement`, `checks`.
+See `library-items` for licensed items from fenolite-library.
+
+Read next: `parts`, `library-items`, `placement`.

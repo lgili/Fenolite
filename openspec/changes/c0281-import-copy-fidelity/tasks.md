@@ -82,15 +82,17 @@
 - [x] 7.1 `--record` writes `fidelity.proof.skipped` (scenario "Level S recorded with its reason").
   Proof: `uv run pytest tests/unit/cli/test_verify_source_copy.py -k skipped -q`.
   Done 2026-10-30: `fidelity.proof.skipped`; proof passed.
-- [ ] 7.2 The library proof gate accepts a skipped level with a recorded reason (scenario "Level S skipped
+- [x] 7.2 The library proof gate accepts a skipped level with a recorded reason (scenario "Level S skipped
   with a reason"). Proof: `uv run pytest tests/unit/library/test_proof_gate.py -k skipped -q`.
   Open 2026-10-30: waits for c0279 task 4.2 (the proof gate is not implemented on `circuits-as-code`); the requirement is written for it.
+  Done 2026-10-30 in c0279 (task 4.2): `fenolite.library.proof.derive`/`gate` accept `skipped` only with its reason from `fidelity.proof.skipped` (or the report row), never `build-failed`, and list the skipped levels; `test_level_skipped_with_a_reason`. Proof passed.
 
 ## 8. Replayable steps (issue 12)
 
-- [ ] 8.1 `library audit` refuses a step holding `--plan`; `replay` runs steps as recorded (scenario "Step
+- [x] 8.1 `library audit` refuses a step holding `--plan`; `replay` runs steps as recorded (scenario "Step
   with a plan id"). Proof: `uv run pytest tests/unit/library/test_audit.py -k plan_step -q`.
   Open 2026-10-30: waits for c0279 tasks 1.3 and 4.1 (`library audit` and `replay` are not implemented); the step form is specified for them. The library's current records already use `--confirm` alone.
+  Done 2026-10-30 in c0279 (tasks 1.3, 4.1): `library audit` gives `library.provenance-invalid` naming a step with `--plan` (`test_plan_step_refused`); `library replay` refuses it before any step and runs the recorded `--dry-run` and `--confirm` steps in a fresh folder, giving the recorded `outputs_tree` (tests/unit/library/test_replay.py). Proof passed.
 
 ## 9. Issue 11
 

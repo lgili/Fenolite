@@ -13,6 +13,7 @@ generated from pin tables (``fenolite.catalog.pins``, ``fenolite.catalog.generat
 adds ``fenolite library generate PACKAGE... --out DIR``: the footprints of package records drawn by
 ``fenolite.catalog.footprints``, with their STEP models and one Altium PCB library. The other actions are
 reserved for later changes.
+Change c0279 adds the repository verbs audit, replay, release and gallery.
 """
 
 from __future__ import annotations
@@ -37,6 +38,8 @@ from fenolite.catalog.footprints import DEFAULT_LIBRARY, Generated, generate, po
 from fenolite.catalog.generate.symbol import generate_symbol, sides
 from fenolite.catalog.pins import read_pins
 from fenolite.cli._examples import EXAMPLE_BOARD
+from fenolite.cli._library_repo import VERBS, run_verb
+from fenolite.cli._library_repo import register as register_verbs
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
@@ -52,12 +55,11 @@ HELP = (
 )
 PRETTY = ".pretty"
 WRITE_KIND = "kicad_mod"
-ACTIONS = ("symbol", "generate", "check", "review", "import", "propose", "fetch")
-"""The action words of ``fenolite library`` (change c0261; ``generate`` change c0260); a first positional of
-another text is a board."""
-AVAILABLE = frozenset({"symbol", "generate"})
+ACTIONS = ("symbol", "generate", "check", "review", "import", "propose", "fetch", *VERBS)
+AVAILABLE = frozenset({"symbol", "generate", *VERBS})
 """The actions this version runs; the others are reserved (``FEN-2001``) until their changes land: ``check``
-and ``review`` (c0262), ``import`` (c0264), ``propose`` (c0265) and ``fetch`` (c0266)."""
+and ``review`` (c0262), ``import`` (c0264), ``propose`` (c0265) and ``fetch`` (c0266). The verbs ``audit``,
+``replay``, ``release`` and ``gallery`` of the library repository come from change c0279."""
 SYMBOL_SUFFIXES = {".kicad_sym": "kicad_sym", ".SchLib": SCHLIB_KIND}
 _LIBRARY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+-]*$")
 SYMBOL_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-SYMBOL-LAYOUT", "H-K-SYM-UNITS-WRITE"))
@@ -106,6 +108,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help="'generate' only: plan no .step model (the footprint keeps its path)",
     )
     parser.add_argument("--no-pcblib", action="store_true", help="'generate' only: plan no Altium .PcbLib")
+    register_verbs(parser)
 
 
 def _relative(path: Path, cwd: Path) -> str:
@@ -368,6 +371,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 where=action,
                 hint="pass ./" + action + " for a board folder of that name",
             )
+        if action in VERBS:
+            _only_generate(args, f"library {action}")
+            return run_verb(action, args, ctx)
         if action == "generate":
             return _generate(args, ctx)
         _only_generate(args, "library symbol")

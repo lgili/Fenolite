@@ -3597,3 +3597,279 @@ path = "tests/data/blocks/versions/docs.py"
 origin = "authored"
 corpus_id = ""
 notes = "the version rules (c0268): Acme:div with another doc text and the same version; authored for Fenolite"
+
+[[file]]
+path = "tests/data/library_repo/demo/LICENSE"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/blocks/apache/Demo/buck/LICENSE"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/blocks/apache/Demo/buck/NOTICE"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/blocks/apache/Demo/buck/PROVENANCE.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/blocks/apache/Demo/buck/buck.py"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/blocks/apache/Demo/buck/item.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/boards/cern-ohl-s/demo-src/blink/LICENSE"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/boards/cern-ohl-s/demo-src/blink/NOTICE"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/boards/cern-ohl-s/demo-src/blink/PROVENANCE.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/boards/cern-ohl-s/demo-src/blink/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/boards/cern-ohl-s/demo-src/blink/item.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/devices/cc0/Demo/EXB/EXB.toml"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/devices/cc0/Demo/EXB/LICENSE"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/devices/cc0/Demo/EXB/NOTICE"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/devices/cc0/Demo/EXB/PROVENANCE.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/devices/cc0/Demo/EXB/item.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/footprints/cc-by-sa/Demo/SA_PAD/LICENSE"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/footprints/cc-by-sa/Demo/SA_PAD/NOTICE"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/footprints/cc-by-sa/Demo/SA_PAD/PROVENANCE.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/footprints/cc-by-sa/Demo/SA_PAD/SA_PAD.toml"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/footprints/cc-by-sa/Demo/SA_PAD/item.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/footprints/cc0/Demo/SOT/LICENSE"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/footprints/cc0/Demo/SOT/NOTICE"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/footprints/cc0/Demo/SOT/PROVENANCE.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/footprints/cc0/Demo/SOT/SOT.toml"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/footprints/cc0/Demo/SOT/item.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/library.toml"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/licences.toml"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/sources.toml"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/symbols/cc0/Demo/EXB/EXB.toml"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/symbols/cc0/Demo/EXB/LICENSE"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/symbols/cc0/Demo/EXB/NOTICE"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/symbols/cc0/Demo/EXB/PROVENANCE.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "tests/data/library_repo/demo/symbols/cc0/Demo/EXB/item.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored for Fenolite: the demo library fixture of change c0279 (fenolite-library layout, placeholder licence texts)"
+
+[[file]]
+path = "examples/circuit/ferrite/bad.py"
+origin = "authored"
+corpus_id = ""
+notes = "Authored example of c0274; illustrative circuit or device record, not sourced from a product."
+
+[[file]]
+path = "examples/circuit/ferrite/devices/example_cap_10v.toml"
+origin = "authored"
+corpus_id = ""
+notes = "Authored example of c0274; illustrative circuit or device record, not sourced from a product."
+
+[[file]]
+path = "examples/circuit/ferrite/devices/example_fb_600r.toml"
+origin = "authored"
+corpus_id = ""
+notes = "Authored example of c0274; illustrative circuit or device record, not sourced from a product."
+
+[[file]]
+path = "examples/circuit/ferrite/devices/example_sensor_analog.toml"
+origin = "authored"
+corpus_id = ""
+notes = "Authored example of c0274; illustrative circuit or device record, not sourced from a product."
+
+[[file]]
+path = "examples/circuit/ferrite/ferrite_board/__init__.py"
+origin = "authored"
+corpus_id = ""
+notes = "Authored example of c0274; illustrative circuit or device record, not sourced from a product."
+
+[[file]]
+path = "examples/circuit/ferrite/ferrite_board/board.py"
+origin = "authored"
+corpus_id = ""
+notes = "Authored example of c0274; illustrative circuit or device record, not sourced from a product."
+
+[[file]]
+path = "examples/circuit/ferrite/good.py"
+origin = "authored"
+corpus_id = ""
+notes = "Authored example of c0274; illustrative circuit or device record, not sourced from a product."
+
+[[file]]
+path = "examples/families/design.lock"
+origin = "authored"
+corpus_id = ""
+notes = "Authored example of c0263; generated design lock of the authored example."
+
+[[file]]
+path = "examples/families/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "Authored example of c0263; illustrative circuit or device record, not sourced from a product."
+
+[[file]]
+path = "examples/families/devices/example_chip_r.toml"
+origin = "authored"
+corpus_id = ""
+notes = "Authored example of c0263; illustrative circuit or device record, not sourced from a product."
+
+[[file]]
+path = "examples/families/devices/example_film_r.toml"
+origin = "authored"
+corpus_id = ""
+notes = "Authored example of c0263; illustrative circuit or device record, not sourced from a product."
+
+[[file]]
+path = "examples/families/devices/example_mlcc.toml"
+origin = "authored"
+corpus_id = ""
+notes = "Authored example of c0263; illustrative circuit or device record, not sourced from a product."

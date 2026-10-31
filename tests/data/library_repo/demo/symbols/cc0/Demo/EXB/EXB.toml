@@ -1,0 +1,6 @@
+schema = "fenolite.pins.v0"
+id = "Demo:EXB"
+version = "1.0.0"
+summary = "Pins of the demo converter"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"
