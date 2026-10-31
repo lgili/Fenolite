@@ -237,7 +237,9 @@ def _build(script: Path, out: Path, ctx: Context, major: int) -> tuple[Result, i
     temporary folder (a design lock beside the script) is left out."""
     parser = argparse.ArgumentParser(add_help=False)
     cmd_build.COMMAND.register(parser)
-    namespace = parser.parse_args([os.fspath(script), "--out", os.fspath(out)])
+    # the copper guard warns instead of refusing: the proof compares a board that breaks Fenolite's copper rules
+    # (an upstream board built with other rules) and lists the findings, as the import's self-check does
+    namespace = parser.parse_args([os.fspath(script), "--out", os.fspath(out), "--copper-check", "warn"])
     try:
         built = cmd_build.COMMAND.run(namespace, dataclasses.replace(ctx, cwd=out.parent, kicad_target=major))
     except FenoliteError as error:
