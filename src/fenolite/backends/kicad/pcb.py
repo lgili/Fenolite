@@ -2332,8 +2332,8 @@ orthogonal dimension (S-0001). The ``teardrops`` child of a pad or via and its c
 c0277), and the ``leader_length`` of a radial dimension and the ``override_value`` and ``text_frame`` of a
 leader (the demo boards of 9.0.9 and 10.0.6, S-0058; change c0277), and a board ``image`` with its ``scale``
 and ``data`` (S-0001, "Images"; change c0277), and the shape children of a pad, ``rect_delta``,
-``roundrect_rratio``, ``chamfer_ratio``, ``chamfer``, ``options`` and ``primitives`` (the pads of the demo boards
-of 9.0.9 and 10.0.6, S-0058, and S-0001; change c0277). The writer has no target below 9."""
+``roundrect_rratio``, ``chamfer_ratio``, ``chamfer``, ``options`` and ``primitives`` (the pads of the demo
+boards of 9.0.9 and 10.0.6, S-0058, and S-0001; change c0277). The writer has no target below 9."""
 CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "kicad_pcb": (
