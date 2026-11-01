@@ -31,7 +31,7 @@ When two rules of one kind match an item and the governing rule has a strictly l
 - **THEN** the `net("CLK")` rule governs, and no `rules.shadowed` is reported
 
 ### Requirement: Topology constraints lowered as lengths
-A topology `delay` or `skew` whose path lies on one net, crosses no bridge and uses layers of one propagation value SHALL lower to a `length` rule (`max` = floor of `max_fs * 10^6 / per_mm_fs` nm, `min` = ceil) or a `skew` rule named `topology:<name>:<constraint>`; any other topology constraint MUST stay in the model with `rules.topology-not-lowered` (info).
+A topology delay SHALL lower to `length` only for a proven complete two-terminal, unbranched track chain with one propagation, exact integer-fs segment products, no pad shortcut and no via/zone/arc/die offset. Minimum nm MUST round up and maximum nm down. Protocol pair skew SHALL lower only when both member paths qualify. Other constraints, including endpoint skew within one net, MUST stay in the model with `rules.topology-not-lowered` info.
 
 #### Scenario: One-net delay lowered
 - **GIVEN** a topology on one net routed on `F.Cu` at 5 900 fs/mm with `delay(max=ps(295))`

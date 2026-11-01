@@ -287,9 +287,37 @@ explained by `fenolite explain`. No new `FEN-` code: argument errors are `DslErr
 1. **Mirrored block pose** (`inst.place(..., side="bottom")`, flipping every child to the other side).
    Recommended: a later change, after a reference board needs it; it touches layer mapping of reused
    copper.
+   Decided 2026-10-29: a later change; `inst.place` takes no `side`.
 2. **Creation order or path order for strategies.** Recommended: creation order (what the author reads),
    with path order only as the order of staging, as today.
+   Decided 2026-10-29: creation order for the strategies; staging keeps path order.
 3. **Should `near=` of c0247's helpers place?** Recommended: no in this change; a helper that both checks
    and places hides which one failed. Keep `near()` a rule and write the relation explicitly.
+   Decided 2026-10-29: `near=` does not place; `near()` stays a checked rule.
 4. **Relations to parts on the other side.** `right_of` measures in the top view whatever the sides.
    Recommended: keep the top view, as the board frame already is.
+   Decided 2026-10-29: the top view, whatever the sides.
+
+## Implementation notes (2026-10-29)
+
+- **Code side first, then the merge.** `fenolite.placement.relative.resolve(scene, fixed)` resolves every
+  frame innermost first; `lens.preserve.resolving` runs it with no fixed placement, decides with c0250's
+  merge, and runs it again with the decided placements that differ from their code placement until those
+  stop changing (at most `RESOLVE_ROUNDS`). Block poses are resolved from the code alone, so a part moved
+  in KiCad never moves its block.
+- **Slots.** A part kept from the board keeps its slot in a strategy (deviation from "no placement from
+  levels 1 to 3"): otherwise moving one part of a row in KiCad would make the base-record merge move every
+  other part of the row (`edit.code-wins`).
+- **Rigid moves and the base record.** When a block's pose changes, `cli._layout` moves the kept parts and
+  the copper joined only to their pads on the board read (the `adjust` hook of `prepare`), and moves the
+  base entries of those parts alike, so the three-way merge sees no change of its own.
+- **Reuse.** The reference board's positions are taken in its frame of `place()` (the outline box's corner)
+  and composed with the pose. Parts are found by block-local path; a board built from one instance `ch` of
+  the block (paths `ch/C`) maps after stripping that one leading segment, its nets too. The pad check
+  compares each part's definition placed where the reference part lies with the reference pads (numbers
+  found once, within 50 µm); c0210's `fit_block` needs a target board, which the build does not have yet,
+  so it gains `transform=` for later callers and the build uses the direct check. Copied copper is locked
+  and marked with copper uuids (`copper_uuid("reuse:<block>", item)`), so every build regenerates it as
+  script copper; zones are merged by those uuids.
+- **Group staging.** A staged group's parts reach the build as `CodePlacement(staged=True, after=x)`:
+  `build_design` and the Altium lens report each as staged and start their staging row at `x`.

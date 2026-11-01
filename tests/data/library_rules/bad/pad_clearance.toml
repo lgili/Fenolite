@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as synthetic test data (change c0262); no real product.
+schema = "fenolite.package.v0"
+id = "Bad:PadClearance"
+version = "1.0.0"
+summary = "Synthetic bad land"
+licence = "CC0-1.0"
+evidence = "INFERRED"
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["0.6mm", "0.6mm"]
+at = ["-1mm", "-1mm"]
+layers = ["F.Cu"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["0.6mm", "0.6mm"]
+at = ["-0.4mm", "-1mm"]
+layers = ["F.Cu"]
+
+[[pad]]
+number = "3"
+shape = "rect"
+size = ["0.6mm", "0.6mm"]
+at = ["1mm", "1mm"]
+layers = ["F.Cu"]
+
+[[pad]]
+number = "4"
+shape = "rect"
+size = ["0.6mm", "0.6mm"]
+at = ["1mm", "-1mm"]
+layers = ["F.Cu"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-2mm", "-2mm"], ["2mm", "2mm"]]
+width = "0.05mm"
+
+[[graphic]]
+kind = "line"
+layer = "F.Fab"
+points = [["-1.5mm", "-1mm"], ["-1.5mm", "-0.5mm"]]
+width = "0.05mm"

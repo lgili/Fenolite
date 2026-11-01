@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as test data (change c0259); an illustrative device, not a real product.
+schema = "fenolite.device.v1"
+id = "Demo:EXB"
+version = "1.2.0"
+summary = "Two-pin regulator stand-in (illustrative)"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"
+sources = ["D-0001"]
+manufacturer = "Example Semi"
+mpn = "EXR100"
+symbol = "Demo:EXB"
+footprint = "Demo:SOT"
+ref_prefix = "R"
+kind = "resistor"
+value = "900ohm"
+
+[pins]
+IN = "1"
+OUT = "2"
+
+[ratings]
+temperature = { operating = { min = "-40degC", max = "85degC" } }
+
+[[part]]
+mpn = "EXR100DR"
+packing = "reel 2500"
+lifecycle = "active"

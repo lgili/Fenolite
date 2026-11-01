@@ -9,24 +9,27 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import hashlib
+import tempfile
 from pathlib import Path, PurePosixPath
 from typing import Any
+from urllib.parse import quote
 
 from fenolite.analysis.boundary import board_boundary
 from fenolite.analysis.connectivity import connectivity
+from fenolite.analysis.copper import copper_layers
 from fenolite.analysis.crossings import Cut, analyze_crossings
 from fenolite.analysis.pour import DEFAULT_GRID_NM, pour_copper
-from fenolite.analysis.region import EVIDENCE, Region, check_grid, draw_region, mm
+from fenolite.analysis.region import EVIDENCE, Region, check_grid, draw_region, mm, whole_region
 from fenolite.backends import registry
 from fenolite.backends.base import BoardFrame, BoardPad
 from fenolite.backends.kicad.projectset import project_set, resolve_board
+from fenolite.cli._boardview import closest
 from fenolite.cli._kicadtool import board_format
 from fenolite.cli._manifest import FENOLITE, FENOLITE_TOOL, with_manifest
 from fenolite.cli.api import Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.coords import Point
-from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
 from fenolite.core.units import Nm, parse_length
 from fenolite.exports import manifest
@@ -45,6 +48,14 @@ def register_region(parser: argparse.ArgumentParser) -> None:
         metavar="X1,Y1,X2,Y2",
         help=f"draw this rectangle of the board into DIR/{REGION_FILE}, lengths with units: 0mm,0mm,9mm,9mm",
     )
+    group.add_argument(
+        "--net",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="highlight this net (repeatable), without kicad-cli",
+    )
+    group.add_argument("--layers", metavar="L1,L2", help="with --region or --net: keep these copper layers")
     group.add_argument("--nets", action="store_true", help="with --region: label each pad with its net")
     group.add_argument("--open", action="store_true", help="with --region: draw the open connections")
     group.add_argument("--grid", metavar="LENGTH", help="with --region: the grid step (default: automatic)")
@@ -124,14 +135,6 @@ def run_region(args: argparse.Namespace, ctx: Context) -> Result:
         raise CliError(
             "FEN-2001", f"--width {args.width} is outside {MIN_WIDTH}..{MAX_WIDTH}", where="--width"
         )
-    region = parse_region(args.region)
-    grid: int | None = None
-    if args.grid is not None:
-        try:
-            grid = parse_length(args.grid.strip())
-            check_grid(region, grid)
-        except ValueError as error:
-            raise CliError("FEN-2001", f"--grid: {error}", where="--grid", hint="--grid 1mm") from None
     cuts = _cuts(args.cut)
     track = {
         name: _positive(getattr(args, f"cut_{name}"), f"--cut-{name}") for name in ("width", "clearance")
@@ -140,24 +143,81 @@ def run_region(args: argparse.Namespace, ctx: Context) -> Result:
         if value is not None and not cuts:
             raise CliError("FEN-2001", f"--cut-{name} needs --cut", where=f"--cut-{name}")
     given = Path(args.path)
-    board = resolve_board(given if given.is_absolute() else ctx.cwd / given)
-    project = project_set(board)
-    backend = registry.for_path(board)
-    if backend is None:
-        raise CliError("FEN-2001", f"no backend reads {board.name}", hint="pass a board file")
-    read = backend.read(board)
-    design = read.content
-    if not isinstance(design, Design) or design.board is None:
-        raise CliError("FEN-2001", f"{board.name} is not a board", hint="pass a board file")
-    issues: list[Issue] = [found for found in read.issues if found.severity == "error"]
+    path = given if given.is_absolute() else ctx.cwd / given
+    prepared: Result | None = None
+    if path.suffix == ".py":
+        from fenolite.backends.kicad.backend import KicadBackend
+        from fenolite.backends.kicad.pcb import read_board
+        from fenolite.cli.cmd_build import COMMAND as BUILD
+
+        with tempfile.TemporaryDirectory(prefix="fenolite-render-") as folder:
+            parser = argparse.ArgumentParser()
+            BUILD.register(parser)
+            options = parser.parse_args([str(path), "--out", str(Path(folder) / "build")])
+            prepared = BUILD.run(options, ctx)
+        if any(i.severity == "error" for i in prepared.issues):
+            return dataclasses.replace(prepared, writes=())
+        pcb = next((w for w in prepared.writes if w.path.endswith(".kicad_pcb")), None)
+        if pcb is None:
+            raise CliError("FEN-3004", "the script build produced no board", where=str(given))
+        source = pcb.data
+        board_name = Path(pcb.path).name
+        number = ctx.kicad_target
+        backend = KicadBackend()
+        design = read_board(source.decode("utf-8"), file=board_name)
+        issues = list(prepared.issues)
+        dependencies = prepared.depends
+    else:
+        board = resolve_board(path)
+        project = project_set(board)
+        backend = registry.for_path(board)
+        if backend is None:
+            raise CliError("FEN-2001", f"no backend reads {board.name}", hint="pass a board file")
+        read = backend.read(board)
+        design = read.content
+        if not isinstance(design, Design) or design.board is None:
+            raise CliError("FEN-2001", f"{board.name} is not a board", hint="pass a board file")
+        issues = [found for found in read.issues if found.severity == "error"]
+        source = board.read_bytes()
+        board_name = project.board
+        number = board_format(board)
+        dependencies = depends_on(ctx.cwd, board, *project.files.values())
+    assert design.board is not None
     pads: tuple[BoardPad, ...] | None = None
     if isinstance(backend, BoardFrame):
         pads = backend.board_pads(design, issues=[])
     boundary = board_boundary(design.board)
+    region = parse_region(args.region) if args.region is not None else whole_region(boundary)
+    names = {net.name for net in design.circuit.nets}
+    highlighted = tuple(sorted(set(args.net)))
+    for name in highlighted:
+        if name not in names:
+            raise CliError("FEN-2001", f"unknown net {name!r}", where="--net", hint=closest(name, names))
+    layers = None if args.layers is None else tuple(value.strip() for value in args.layers.split(","))
+    if layers is not None:
+        known_layers = copper_layers(design.board)
+        for layer in layers:
+            if layer not in known_layers:
+                raise CliError(
+                    "FEN-2001",
+                    f"unknown copper layer {layer!r}",
+                    where="--layers",
+                    hint=closest(layer, known_layers),
+                )
+    grid: int | None = None
+    if args.grid is not None:
+        try:
+            grid = parse_length(args.grid.strip())
+            check_grid(region, grid)
+        except ValueError as error:
+            raise CliError("FEN-2001", f"--grid: {error}", where="--grid", hint="--grid 1mm") from None
+
     ctx.progress.step("pour")
     pour = pour_copper(design, pads=pads, boundary=boundary, grid=DEFAULT_GRID_NM)
     ctx.progress.done("pour")
     evidences: list[Evidence] = [EVIDENCE]
+    if prepared is not None:
+        evidences.append(prepared.evidence)
     opened = None
     if args.open:
         opened = connectivity(design, pads=pads, pour=pour)
@@ -191,6 +251,8 @@ def run_region(args: argparse.Namespace, ctx: Context) -> Result:
         opened=opened,
         crossings=crossings,
         width_px=args.width,
+        highlight=highlighted,
+        layers=layers,
     )
     box = f"{mm(region.x0)},{mm(region.y0)},{mm(region.x1)},{mm(region.y1)} mm"
     if not any(count for name, count in drawing.counts.items() if name not in ("grid", "edge")):
@@ -213,16 +275,21 @@ def run_region(args: argparse.Namespace, ctx: Context) -> Result:
                     hint="run fenolite fill to store the fill KiCad computes",
                 )
             )
+    filename = (
+        "net-" + quote(highlighted[0], safe="") + ".svg"
+        if len(highlighted) == 1
+        else "nets.svg"
+        if highlighted
+        else REGION_FILE
+    )
     out = PurePosixPath(Path(args.out).as_posix())
     data = drawing.svg
-    writes: list[PlannedWrite] = [PlannedWrite((out / REGION_FILE).as_posix(), data, "svg")]
-    source = board.read_bytes()
+    writes: list[PlannedWrite] = [PlannedWrite((out / filename).as_posix(), data, "svg")]
     sha = hashlib.sha256(source).hexdigest()
-    number = board_format(board)
     evidence = Evidence.combine(*evidences)
     if args.manifest:
         entry = manifest.file_entry(
-            REGION_FILE,
+            filename,
             MANIFEST_KIND,
             data,
             evidence=evidence.level.value,
@@ -234,19 +301,19 @@ def run_region(args: argparse.Namespace, ctx: Context) -> Result:
             args.out,
             ctx,
             [entry],
-            board=manifest.BoardRef(project.board, sha, number),
+            board=manifest.BoardRef(board_name, sha, number),
             tool=FENOLITE_TOOL,
         )
         writes = list(merged)
         issues += refused
     view = {
-        "path": REGION_FILE,
+        "path": filename,
         "kind": "svg",
         "bytes": len(data),
         "sha256": hashlib.sha256(data).hexdigest(),
     }
     result: dict[str, Any] = {
-        "board": project.board,
+        "board": board_name,
         "out": str(args.out),
         "views": [view],
         "tool_version": None,
@@ -257,6 +324,8 @@ def run_region(args: argparse.Namespace, ctx: Context) -> Result:
             "y1": region.y1,
             "grid": drawing.grid,
             "counts": dict(drawing.counts),
+            "nets": list(highlighted),
+            "highlighted": dict(drawing.highlighted),
             "copper": sorted({zone.state for zone in drawing.zones}),
             "zones": [
                 {"zone": z.where, "net": z.net, "layer": z.layer, "state": z.state, "reason": z.reason}
@@ -282,14 +351,16 @@ def run_region(args: argparse.Namespace, ctx: Context) -> Result:
         result=result,
         issues=tuple(issues),
         evidence=evidence,
-        input=InputRef(
-            path=board.name,
+        input=prepared.input
+        if prepared is not None
+        else InputRef(
+            path=board_name,
             sha256=sha,
             kind="kicad_pcb",
             format_version=None if number is None else str(number),
         ),
         writes=tuple(writes),
-        depends=depends_on(ctx.cwd, board, *project.files.values()),
+        depends=dependencies,
     )
 
 

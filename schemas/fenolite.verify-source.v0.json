@@ -1,0 +1,536 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.verify-source.v0",
+  "title": "VerifySourceReply",
+  "description": "The result of fenolite verify-source.",
+  "type": "object",
+  "properties": {
+    "script": {
+      "$ref": "#/$defs/VerifyScript"
+    },
+    "against": {
+      "$ref": "#/$defs/VerifyAgainst"
+    },
+    "build": {
+      "$ref": "#/$defs/VerifyBuild"
+    },
+    "tolerances": {
+      "$ref": "#/$defs/VerifyTolerances"
+    },
+    "provenance": {
+      "$ref": "#/$defs/VerifyProvenance"
+    },
+    "levels": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VerifyLevel"
+      }
+    },
+    "equivalent": {
+      "type": "boolean"
+    },
+    "differences": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VerifyDifference"
+      }
+    },
+    "accepted": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VerifyAccepted"
+      }
+    },
+    "notices": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VerifyDifference"
+      }
+    },
+    "new_accepted": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "the entries --accept adds"
+    },
+    "plan": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "the planned writes"
+    },
+    "plan_id": {
+      "type": "string",
+      "description": "the id of the staged plan"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "script",
+    "against",
+    "build",
+    "tolerances",
+    "provenance",
+    "levels",
+    "equivalent",
+    "differences",
+    "accepted",
+    "notices"
+  ],
+  "$defs": {
+    "VerifyAccepted": {
+      "description": "A difference that an accepted entry of the provenance file matched.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "component-missing",
+            "ref-ambiguous",
+            "value",
+            "dnp",
+            "pin-missing",
+            "net",
+            "footprint-missing",
+            "footprint-name",
+            "pad-missing",
+            "pad-kind",
+            "pad-shape",
+            "pad-size",
+            "pad-drill",
+            "pad-position",
+            "pad-rotation",
+            "pad-copper",
+            "side",
+            "position",
+            "rotation",
+            "route-missing",
+            "route-connectivity",
+            "route-vias",
+            "route-length",
+            "route-stub",
+            "route-unjudged",
+            "track-missing",
+            "track-width",
+            "track-net",
+            "arc-missing",
+            "arc-width",
+            "arc-net",
+            "via-missing",
+            "via-size",
+            "via-drill",
+            "via-span",
+            "via-net",
+            "copper-locked",
+            "netclass-missing",
+            "netclass-field",
+            "netclass-members",
+            "rule-missing",
+            "rule-field",
+            "ruleset-field",
+            "stackup-missing",
+            "stackup-field",
+            "layer-missing",
+            "layer-field",
+            "outline-missing",
+            "zone-missing",
+            "zone-field",
+            "keepout-missing",
+            "keepout-field",
+            "graphic-missing",
+            "graphic-field",
+            "text-missing",
+            "text-field",
+            "field-pose",
+            "hole-missing",
+            "dimension-missing",
+            "opaque-count",
+            "render-missing",
+            "render-pixels",
+            "sheet-missing",
+            "symbol-missing",
+            "symbol-pose",
+            "symbol-field",
+            "item-missing",
+            "item-field",
+            "drawn-net"
+          ]
+        },
+        "where": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "rule": {
+          "type": "string",
+          "description": "the id of the accepted entry"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "kind",
+        "where",
+        "field",
+        "a",
+        "b",
+        "rule"
+      ]
+    },
+    "VerifyAgainst": {
+      "description": "The original: its name, backend and the SHA-256 of each file read, by path relative to it.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "backend": {
+          "enum": [
+            "kicad",
+            "altium"
+          ]
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "backend",
+        "files"
+      ]
+    },
+    "VerifyBuild": {
+      "description": "The build of the script in the temporary folder: its target, the count of files written, the mode of",
+      "type": "object",
+      "properties": {
+        "target": {
+          "type": "string"
+        },
+        "files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "copper_check": {
+          "enum": [
+            "refuse",
+            "warn"
+          ]
+        },
+        "copy": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "files",
+        "copper_check",
+        "copy"
+      ]
+    },
+    "VerifyDifference": {
+      "description": "A difference or a notice of a level.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "component-missing",
+            "ref-ambiguous",
+            "value",
+            "dnp",
+            "pin-missing",
+            "net",
+            "footprint-missing",
+            "footprint-name",
+            "pad-missing",
+            "pad-kind",
+            "pad-shape",
+            "pad-size",
+            "pad-drill",
+            "pad-position",
+            "pad-rotation",
+            "pad-copper",
+            "side",
+            "position",
+            "rotation",
+            "route-missing",
+            "route-connectivity",
+            "route-vias",
+            "route-length",
+            "route-stub",
+            "route-unjudged",
+            "track-missing",
+            "track-width",
+            "track-net",
+            "arc-missing",
+            "arc-width",
+            "arc-net",
+            "via-missing",
+            "via-size",
+            "via-drill",
+            "via-span",
+            "via-net",
+            "copper-locked",
+            "netclass-missing",
+            "netclass-field",
+            "netclass-members",
+            "rule-missing",
+            "rule-field",
+            "ruleset-field",
+            "stackup-missing",
+            "stackup-field",
+            "layer-missing",
+            "layer-field",
+            "outline-missing",
+            "zone-missing",
+            "zone-field",
+            "keepout-missing",
+            "keepout-field",
+            "graphic-missing",
+            "graphic-field",
+            "text-missing",
+            "text-field",
+            "field-pose",
+            "hole-missing",
+            "dimension-missing",
+            "opaque-count",
+            "render-missing",
+            "render-pixels",
+            "sheet-missing",
+            "symbol-missing",
+            "symbol-pose",
+            "symbol-field",
+            "item-missing",
+            "item-field",
+            "drawn-net"
+          ]
+        },
+        "where": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "kind",
+        "where",
+        "field",
+        "a",
+        "b"
+      ]
+    },
+    "VerifyLevel": {
+      "description": "One level of the proof: its status, counts, the reason it was skipped and its summary.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
+        },
+        "name": {
+          "type": "string",
+          "enum": [
+            "components",
+            "netlist",
+            "footprints",
+            "placement",
+            "routing",
+            "rules",
+            "geometry",
+            "presentation",
+            "schematic"
+          ]
+        },
+        "status": {
+          "enum": [
+            "equal",
+            "accepted",
+            "differs",
+            "skipped"
+          ]
+        },
+        "compared": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "differences": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "notices": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reason": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "name",
+        "status",
+        "compared",
+        "differences",
+        "excluded",
+        "notices",
+        "reason",
+        "summary"
+      ]
+    },
+    "VerifyProvenance": {
+      "description": "The provenance file: its path (null when there is none), its count of accepted entries, and",
+      "type": "object",
+      "properties": {
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "accepted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "record": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "accepted",
+        "record"
+      ]
+    },
+    "VerifyScript": {
+      "description": "The design script: its name and SHA-256.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "sha256"
+      ]
+    },
+    "VerifyTolerances": {
+      "description": "The tolerances of the proof.",
+      "type": "object",
+      "properties": {
+        "length_nm": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "angle_udeg": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "length_ppm": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pixel_ppm": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "render_pitch_um": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "frame": {
+          "enum": [
+            "absolute",
+            "relative"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length_nm",
+        "angle_udeg",
+        "length_ppm",
+        "pixel_ppm",
+        "render_pitch_um",
+        "frame"
+      ]
+    }
+  }
+}

@@ -118,15 +118,16 @@ devices/Proj/EXB6202/
 
 ```toml
 # device.toml (illustrative; authored for Fenolite)
-schema = "fenolite.device.v0"
+schema = "fenolite.device.v1"
 id = "Proj:EXB6202"
+version = "0.1.0"
 summary = "imported from EXB6202.zip"
 manufacturer = "Example Semi"
 mpn = "EXB6202"
 symbol = "Proj:EXB6202"
 footprint = "Proj:EXB6202"
-pins = "pins.toml"
-package = "package.toml"
+# pins.toml and package.toml carry this same id; symbol/footprint resolve them.
+ref_prefix = "U"
 evidence = "UNVERIFIED"
 licence = "see source terms"
 
@@ -152,17 +153,18 @@ sha256 = "<64 hex>"
 - `licence = "see source terms"` is a fixed text: Fenolite cannot know the terms of a download, and the
   user accepted them. `library.import-terms` (info, once per import) says that sharing the project may be
   limited by those terms.
-- `package.toml` has `family = "imported"` and `footprint = "<name>.kicad_mod"` when no family matched.
+- `package.toml` keeps `generator = "explicit"` and has `family = "imported"` and `footprint = "<name>.kicad_mod"` when no family matched.
   When the classifier matched a family (decision 7), it also holds the derived nominal parameters with
   `derived = "imported footprint"`; the footprint used by builds is still the imported file, never the
-  generated one.
+  generated one. Optional `[[component_body]]` rows retain Altium physical volumes independently of
+  the native 2D file; the build restores those volumes.
 - The symbol and footprint files are written by Fenolite's KiCad writers at the build target. They
   resolve as `<namespace>:<name>` through c0259's project device loading, so no lib table is needed.
   An Altium build writes them into `.SchLib`/`.PcbLib` through the existing writers, like any other
   definition.
 - **Stable ids.** The record ids follow c0259: derived from `(kind, canonical name)`, so the same import
   gives the same ids.
-- **Byte identity.** Same sources and flags and the same `--timestamp` give the same plan and bytes.
+- **Byte identity.** Same sources and flags and the same `--timestamp` give the same bytes. Plan ids also bind the working directory and source paths under the existing staged-plan contract; they repeat within the same unchanged project, and deliberately differ between projects.
 
 ### 4. Pins and pads
 
@@ -248,7 +250,7 @@ imported footprint ─▶ classify ─▶ family + nominal parameters ─▶ c02
 
 - A device folder that exists and whose `[origin]` sources have the same SHA-256 values: nothing is
   planned, and `result.unchanged` is true (exit 0).
-- An unedited record (c0248's `edited` is false) with other sources: the folder is replaced as one plan.
+- An unedited record with other sources: its files are replaced as one plan. The shared mutation protocol supports writes, not deletion. A re-import that would remove a prior output (for example omitting its STEP) is refused with `FEN-7001`, even with `--allow-lossy`; the hint directs the user to another `--id`. File deletion remains outside this change.
 - An edited record: exit 7 with `FEN-7001`, hint "keep the folder, import under another --id, or pass
   `--allow-lossy`". A hand review that raised the evidence is such an edit, so a reviewed device is
   never overwritten silently.
@@ -273,7 +275,7 @@ imported footprint ─▶ classify ─▶ family + nominal parameters ─▶ c02
 `result` (schema `fenolite.library-import.v0`): `device` (id), `folder`, `sources` (one row per read
 source: `file`, `member`, `kind`, `sha256`), `skipped` (`file`, `member`, `reason`), `symbol`,
 `footprint`, `step`, `family` (or `null`), `crosscheck` (`reference`, `tolerances`, `rows`), `unchanged`,
-and the usual `plan`. The envelope evidence is `INFERRED` (`H-L-IMPORT`); the device's own label,
+and the usual `plan`. The envelope evidence is `INFERRED` (`H-G-LIBRARY-IMPORT`); the device's own label,
 `UNVERIFIED`, is a field of the result.
 
 ## Codes introduced
@@ -312,6 +314,10 @@ No new `FEN-` code. Each `library.*` code joins `fenolite.library.codes` and `ex
 
 ## Open questions
 
+Decided 2026-11-01 under the maintainer's implementation authority: accept all four recommendations.
+`.IntLib` needs a separately evidenced reader; archive names and digests suffice without retaining a
+second copy; `Imported:` makes the source visible; the compatibility alias lasts one minor release.
+
 1. *Read `.IntLib`?* Recommended: yes, in its own change, after its layout is recorded with public
    sources in `docs/formats/altium/` and its streams are shown to be the `.SchLib`/`.PcbLib` streams
    the existing readers read.
@@ -336,3 +342,5 @@ No new `FEN-` code. Each `library.*` code joins `fenolite.library.codes` and `ex
   instead of a download.
 - **c0266 / c0279**: `fenolite-library` refuses records that are not shippable.
 - **c0267** may fill identity fields later; it never feeds an import.
+
+Implementation alignment (2026-11-01): dry runs use the existing exit 0; requesting an unstaged write without confirmation exits 4. `library` remains the registered command, with `import` in action discovery and `result.schema = "fenolite.library-import.v0"`. The envelope keeps `fenolite.library.v0`. Lib-id origins digest the resolved canonical source bytes, named by their definition, rather than claiming a downloaded archive.

@@ -3,6 +3,8 @@
 * text=auto eol=lf
 # Test data is compared byte for byte, its own line ends included.
 tests/data/** -text
+# The authored PDF's fixed-width xref padding is part of its binary structure.
+tests/data/proposals/*.pdf binary
 *.Harness -text
 
 # Altium files keep their exact bytes: CR LF line ends are part of what is checked (change c0032).

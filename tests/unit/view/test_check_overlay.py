@@ -5,6 +5,7 @@ change c0188). The replies are authored here."""
 
 from __future__ import annotations
 
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -112,3 +113,133 @@ def test_sheet_findings() -> None:
 def test_not_a_check_reply() -> None:
     with pytest.raises(FormatError, match="analyze"):
         read_reply({"command": "analyze", "issues": []}, name="a.json")
+
+
+def test_subjects_resolve_id_before_name_with_empty_where():
+    scene = {
+        "comps": [{"id": "cmp_target", "ref": "C1", "bbox": [1, 2, 3, 4]}],
+        "pads": [],
+        "prims": [],
+        "nets": [],
+    }
+    reply = _reply({"code": "circuit.rating-voltage", "severity": "error", "message": "rating"})
+    reply["result"]["subjects"] = [
+        {
+            "issue": 0,
+            "items": [
+                {"kind": "component", "id": "cmp_target", "name": "OLD"},
+                {"kind": "net", "id": "net_test", "name": "V12"},
+            ],
+        }
+    ]
+    finding = overlay(reply, scene)["findings"][0]
+    assert finding["box"] == [1, 2, 3, 4]
+    assert finding["stage"] == "circuit.rules"
+    assert [s["name"] for s in finding["subjects"]] == ["OLD", "V12"]
+    reply["result"]["subjects"][0]["items"][0] = {"kind": "component", "id": "stale", "name": "C1"}
+    assert overlay(reply, scene)["placed"] == 1
+    reply["result"]["subjects"] = []
+    assert overlay(reply, scene)["placed"] == 0
+
+
+def test_conflict_marked_on_its_footprint(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenarios "Conflict marked on its footprint" and "Command lines offered" (change c0250)."""
+    import io  # noqa: PLC0415
+    import json  # noqa: PLC0415
+
+    from _edit_help import edit as edit_parts  # noqa: PLC0415
+    from _project import Project, footprint  # noqa: PLC0415
+
+    import fenolite.cli.main as cli_main  # noqa: PLC0415
+    from fenolite.view.export import embedded  # noqa: PLC0415
+
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kicad-config"))
+    p = Project(tmp_path, monkeypatch)
+    edit_parts(p, {"R1": {"value": "4k7"}})
+    p.edit_script('value="330"', 'value="470"')
+    code, env, _ = p.build("--dry-run")
+    assert code == 5
+    reply = tmp_path / "reply.json"
+    reply.write_text(json.dumps(env), encoding="utf-8")
+    page = tmp_path / "page.html"
+    out = io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    args = ["view", str(p.board), "--check", str(reply), "--export", str(page), "--confirm", "--json"]
+    assert cli_main.main(args) == 0
+    data = embedded(page.read_text(encoding="utf-8"))
+    assert data is not None
+    (scene,) = data["scenes"].values()
+    (conflict,) = [f for f in scene["check"]["findings"] if f["code"] == "sync.conflict"]
+    assert conflict["severity"] == "error" and conflict["where"] == "R1#value"
+    for text in ("both-changed", "'330'", "'470'", "'4k7'"):
+        assert text in conflict["message"]
+    fp, _ = footprint(p.read(), "R1")
+    x, y = fp.position.x / 1000, fp.position.y / 1000  # type: ignore[attr-defined]
+    box = conflict["box"]
+    assert box[0] <= x <= box[2] and box[1] <= y <= box[3]
+    code_line, cad_line = conflict["commands"]
+    assert "--take code:R1#value --dry-run" in code_line and "--take cad:R1#value --dry-run" in cad_line
+    words = shlex.split(code_line)
+    assert words[:2] == ["fenolite", "build"]
+    assert words[words.index("--out") + 1] == str(p.out)
+
+
+def test_build_and_sync_replies_are_read() -> None:
+    for command in ("build", "sync"):
+        assert read_reply({"command": command, "issues": []})["command"] == command
+    placed = overlay(
+        {
+            "command": "sync",
+            "issues": [
+                {
+                    "code": "sync.conflict",
+                    "severity": "error",
+                    "message": "U9#value: base 'a', script 'b', board 'c', schematic 'd' (sides-disagree)",
+                    "where": "U9#value",
+                    "hint": "",
+                }
+            ],
+            "evidence": {"level": "INFERRED"},
+        },
+        {"prims": [], "pads": [], "comps": [], "nets": [], "meta": {}},
+    )
+    (conflict,) = placed["findings"]
+    assert conflict["at"] is None  # no footprint of that path on the board: listed only
+    assert [c.split("--take ")[1] for c in conflict["commands"]] == [
+        "board:U9#value --dry-run",
+        "schematic:U9#value --dry-run",
+    ]
+
+
+def test_roles_findings_through_group_aliases() -> None:
+    """Scenario "A Kelvin finding located" (c0305): ``roles.*`` codes belong to the stage ``roles.rules``, and
+    a ``where`` that names a role group, or one pad of it, is placed through the groups given as aliases."""
+    pads = [
+        {"label": label, "x": x, "y": y}
+        for label, x, y in (
+            ("R12-1", 1000, 2000),
+            ("R12-2", 3000, 2000),
+            ("C1-1", 0, 0),
+            ("Q1-3", 4000, 5000),
+        )
+    ]
+    scene = {"prims": [], "pads": pads, "comps": [], "nets": [], "meta": {}}
+    reply = _reply(
+        {
+            "code": "roles.kelvin-outer",
+            "severity": "warning",
+            "message": "outer half",
+            "where": "kelvin_R12:R12-1",
+        },
+        {"code": "roles.loop-area", "severity": "warning", "message": "too large", "where": "hot_SW"},
+        {"code": "roles.unconfirmed", "severity": "info", "message": "not confirmed", "where": "roles"},
+    )
+    groups = {"kelvin_R12": ["R12-1", "R12-2"], "hot_SW": ["C1-1", "Q1-3"]}
+    placed = {f["code"]: f for f in overlay(reply, scene, aliases=groups)["findings"]}
+    kelvin, loop = placed["roles.kelvin-outer"], placed["roles.loop-area"]
+    assert {f["stage"] for f in placed.values()} == {"roles.rules"}
+    assert kelvin["at"] == [1000, 2000] and kelvin["where"] == "kelvin_R12:R12-1"
+    assert loop["box"] == [0, 0, 4000, 5000] and loop["at"] == [2000.0, 2500.0]
+    assert placed["roles.unconfirmed"]["at"] is None
+    bare = {f["code"]: f for f in overlay(reply, scene)["findings"]}
+    assert bare["roles.kelvin-outer"]["at"] is None and bare["roles.loop-area"]["stage"] == "roles.rules"

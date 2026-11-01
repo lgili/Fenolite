@@ -5,9 +5,10 @@ shapes").
 
 The shapes are those that the capability copper-check defines in "Copper items and their shapes": a track
 is its segment, an arc the polyline of its polygonisation with a band, a via a disc on every layer of its
-span, a pad the entries of its board-frame record, and a zone fill a filled ring. ``checks.copper`` builds
-the same shapes for ``fenolite check``; this package may not import ``checks``, so they are built here and
-a test keeps the two builders equal.
+span, a pad the entries of its board-frame record, and a zone fill a filled ring. ``checks.copper`` uses
+exact circular cores for arcs; these analyses retain bounded polylines for their surface and raster
+algorithms. A test keeps the non-arc shapes and the underlying arc geometry equal without importing
+``checks`` in this package.
 """
 
 from __future__ import annotations

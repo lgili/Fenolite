@@ -209,6 +209,7 @@ repository. Check the SHA-256 values first and work on copies.
 | L4 | Open `altium_kicad.PrjPcb` with its schematic and library beside it, check that the library is listed under the project, and compile ("Project » Validate PCB Project"). Do the same with `binary/altium_sample.PrjPcb` and `FenoliteSample.SchLib`. | Whether each library is listed as a project document; every message of level error or fatal; the nets in the Navigator panel, compared with this table and Part A's; whether `U1` compiles as one component of two parts. | `H-A-SCHLIB-PRJ`, `H-A-SCHLIB-SCHDOC`, `H-A-SCHLIB-MULTIPART` |
 | L5 | On a copy of each project, run "Tools » Update From Libraries" with full replacement. | Components listed as not found; whether any pin moved off its stub; the nets after the update, compared with the tables. | `H-A-SCHLIB-UPDATE`, `H-A-SCHLIB-PRJ` |
 | L6 | Save a copy of each library under a new name in Altium. | Only the names of the keys Altium added or removed in `FileHeader` and in a component's records (no values). | data for `H-A-SCHLIB-OPEN` |
+| L7 | (Change c0261.) Write `Example.SchLib` from the pin tables of `examples/symbols/pins/` with `fenolite library symbol examples/symbols/pins/EXB6202.toml examples/symbols/pins/EXM120.toml --out Example.SchLib --dry-run`, then `--confirm --plan <plan_id>`, and open it. | Any prompt or error; for `EXM120` and `EXM120-T`: the parts listed (expected three), the pins of each part, whether each part draws one rectangle of its own and no other, and the pin names on every side; for `EXB6202`: one part with the hidden pad `7` on pin `2`'s place. | `H-A-SCHLIB-GEN-PARTS` |
 
 ## Part N: no-connect directives in Altium Designer
 
@@ -980,6 +981,30 @@ semantics remain unmeasured. The launcher timed out while later cases were
 still running; the native log subsequently completed every case and `DONE`,
 and separate verification checks the completed results rather than assuming
 launch success. Original failures and the completed retry remain ignored.
+
+## Part K: sheet entries from block ports (change c0269)
+
+A block instance's sheet (`sheets="modules"`) names its ports and the sheet entries of its symbol after
+the block's declared ports, while the wire stubs keep the labels of the circuit nets. **Nothing of this
+part has been opened in Altium.** It settles `H-A-BLOCK-ENTRIES`; until the maintainer reports, the row
+stays `INFERRED`.
+
+**Files.** Build the authored sample `tests/data/altium/blocks/design.py` (CC0) with
+`fenolite build tests/data/altium/blocks/design.py --target altium --altium-sheets modules --out blocks
+--confirm`, and copy the folder to the maintainer's machine.
+
+1. **K1**: open `blocks.PrjPcb`. Expected: no repair prompt; `blocks.SchDoc` and `blocks_f1.SchDoc` in the
+   Projects panel. The symbol of `f1` holds the entries `IN`, `OUT` and `TEST`, and `blocks_f1.SchDoc`
+   the ports of those names, with the labels `SRC` and `DST` on the stubs of `IN` and `OUT`.
+2. **K2**: "Project » Validate PCB Project", then the Messages panel. Expected: no message about a port,
+   a sheet entry or a net with two names. Record every message.
+3. **K3**: in the Navigator, list the nets with their pins. Expected: `SRC` (`J1` pin 1, `f1/R` pin 1),
+   `DST` (`J1` pin 2 and the pins of `f1` on the filter node) and `TEST`; record the name Altium gives
+   each net, in particular whether the nets of the ports `IN` and `OUT` are named `SRC` and `DST`.
+
+The maintainer reports one outcome per step, the tool as `AD <major>.<minor>` and the date; no file that
+Altium wrote is committed. A failure of K2 or K3 refutes `H-A-BLOCK-ENTRIES`, and the fallback is to name
+the crossings of a block's sheet after the nets again.
 
 ## Recording a report
 

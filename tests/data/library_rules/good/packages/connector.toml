@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as synthetic test data (change c0262); no real product.
+schema="fenolite.package.v0"
+id="Rules:RuleConnector3"
+version="1.0.0"
+summary="Synthetic connector review fixture"
+licence="CC0-1.0"
+evidence="INFERRED"
+family="connector"
+series="DEMO"
+positions="3..3"
+pitch="2.54mm"
+name_pattern="RuleConnector{n}"
+body={length={per_position="2.54mm",extra="2mm"},width="4mm",height="3mm"}
+pin={width="0.6mm",length_below="3mm"}
+mount="tht"
+orientation="vertical"
+[land]
+source="Fenolite authored dimensions"
+drill="1mm"
+pad_diameter="1.8mm"
+[generate]
+lands=1
+drawing=1

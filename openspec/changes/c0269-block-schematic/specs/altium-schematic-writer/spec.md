@@ -26,7 +26,7 @@ With `sheets="modules"`, the writer SHALL write one schematic document per modul
 ## ADDED Requirements
 
 ### Requirement: Sheet entries from block ports
-With `sheets="modules"`, the sheet of a block instance SHALL cross first one port per port member that has a pin on that sheet or below it, is not merged and whose net is in no `power` interface, named by its sheet name, in port and member order; then the inferred crossings of its other crossing nets, named by the net, in code-point order. This replaces the net-named crossings of "Sheets of a hierarchical project" there.
+With `sheets="modules"`, the sheet of a block instance SHALL cross first one port per port member that has a pin on that sheet or below it, is not merged and whose net is in no `power` interface, named by its sheet name, in the order of the model's ports (by port name) and of their members (by member name); then the inferred crossings of its other crossing nets, named by the net, in code-point order. This replaces the net-named crossings of "Sheets of a hierarchical project" there.
 
 #### Scenario: Escaping net still crosses
 - **GIVEN** the authored block design of "Block instance crossings", with a net `TEST` that joins a pin inside `f1` and a pin on the top sheet without a port

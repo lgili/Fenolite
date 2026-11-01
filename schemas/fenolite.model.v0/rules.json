@@ -65,10 +65,44 @@
         "$ref": "#/$defs/ImpedanceTarget"
       }
     },
+    "propagation": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Propagation"
+      }
+    },
+    "losses": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LayerLoss"
+      }
+    },
+    "topologies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Topology"
+      }
+    },
+    "protocol_skews": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolSkew"
+      }
+    },
     "roles": {
       "anyOf": [
         {
           "$ref": "#/$defs/RoleSet"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "contracts": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ContractSet"
         },
         {
           "type": "null"
@@ -81,6 +115,99 @@
     "id"
   ],
   "$defs": {
+    "ContractSet": {
+      "description": "The electrical contracts of a design (change c0253; ``docs/contracts.md``): the derating rules in call",
+      "type": "object",
+      "properties": {
+        "derating": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeratingRule"
+          }
+        },
+        "operating": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OperatingRange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unknown": {
+          "enum": [
+            "info",
+            "warning"
+          ]
+        },
+        "expects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Expectation"
+          }
+        },
+        "rig": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RigSupply"
+              },
+              {
+                "$ref": "#/$defs/RigSink"
+              }
+            ]
+          }
+        },
+        "propagate": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Decimal10": {
+      "description": "The exact decimal m · 10^e in its one canonical form (change c0246).",
+      "type": "object",
+      "properties": {
+        "m": {
+          "type": "integer"
+        },
+        "e": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "m",
+        "e"
+      ]
+    },
+    "DeratingRule": {
+      "description": "A derating rule of the user (change c0253): its key (``DERATING_KEYS``), its ratio in per-mille",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "permille": {
+          "type": "integer"
+        },
+        "margin_mk": {
+          "type": "integer"
+        },
+        "parts": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key"
+      ]
+    },
     "Evidence": {
       "description": "A level plus the oracle that produced it and the hypotheses it depends on.",
       "type": "object",
@@ -115,6 +242,99 @@
         }
       },
       "additionalProperties": false
+    },
+    "ExpectNode": {
+      "description": "One node of an expectation's tree (change c0253): an operation ``op`` with operands ``a`` and ``b``",
+      "type": "object",
+      "properties": {
+        "op": {
+          "type": "string"
+        },
+        "a": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpectNode"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "b": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpectNode"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ValueRange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "num": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "ref": {
+          "type": "string"
+        },
+        "component": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "pin": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Expectation": {
+      "description": "An expectation (change c0253): ``id`` (``<instance path>/expect#<n>``), the block instance path (or",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "instance": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "test": {
+          "$ref": "#/$defs/ExpectNode"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "instance",
+        "reason",
+        "origin",
+        "test"
+      ]
     },
     "ExtBag": {
       "description": "What a backend knows about an object and the model does not: verbatim fragments.",
@@ -380,6 +600,39 @@
         "receiver"
       ]
     },
+    "LayerLoss": {
+      "description": "User-supplied loss per millimetre or via, optionally at a stated frequency in Hz.",
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string"
+        },
+        "per_mm_mdb": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "via_mdb": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "at_hz": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
     "NetRole": {
       "description": "The role of one net (change c0222): its kind, where it comes from, the inference rule and its",
       "type": "object",
@@ -447,6 +700,19 @@
         "source"
       ]
     },
+    "OperatingRange": {
+      "description": "The design's operating conditions (change c0253): the ambient temperature range, in kelvin.",
+      "type": "object",
+      "properties": {
+        "ambient": {
+          "$ref": "#/$defs/ValueRange"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ambient"
+      ]
+    },
     "PadSelection": {
       "description": "Pads of one part, named by its component path.",
       "type": "object",
@@ -488,6 +754,9 @@
             "capacitor",
             "resistor",
             "shunt",
+            "ferrite",
+            "fuse",
+            "jumper",
             "driver",
             "amplifier",
             "controller",
@@ -507,6 +776,72 @@
       "required": [
         "ref",
         "cls"
+      ]
+    },
+    "Propagation": {
+      "description": "User-supplied delay: one layer per millimetre, or one via traversal.",
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string"
+        },
+        "per_mm_fs": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "via_fs": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProtocolSkew": {
+      "description": "Compare two independently measured member paths of a differential interface.",
+      "type": "object",
+      "properties": {
+        "interface": {
+          "type": "string"
+        },
+        "topologies": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false
+        },
+        "max_fs": {
+          "type": "integer"
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "warning"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "interface",
+        "topologies",
+        "max_fs"
       ]
     },
     "Provenance": {
@@ -573,6 +908,78 @@
         "parts",
         "anchor",
         "within"
+      ]
+    },
+    "RigSink": {
+      "description": "A test-rig sink (change c0253): the outside world draws ``current`` from ``net`` to ``ret``.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "sink"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "ret": {
+          "type": "string"
+        },
+        "current": {
+          "$ref": "#/$defs/ValueRange"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "name",
+        "net",
+        "ret",
+        "current"
+      ]
+    },
+    "RigSupply": {
+      "description": "A test-rig supply (change c0253): the outside world holds the net ``pos`` at ``voltage`` against",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "supply"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "pos": {
+          "type": "string"
+        },
+        "neg": {
+          "type": "string"
+        },
+        "voltage": {
+          "$ref": "#/$defs/ValueRange"
+        },
+        "current": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ValueRange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "name",
+        "pos",
+        "neg",
+        "voltage"
       ]
     },
     "RoleLimit": {
@@ -846,6 +1253,175 @@
         "pins"
       ]
     },
+    "Topology": {
+      "description": "An ordered, connected pad tree. The first node is its root; edges retain chain order.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TopologyEdge"
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TopologyConstraint"
+          }
+        },
+        "missing_bridges": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "nodes",
+        "edges"
+      ]
+    },
+    "TopologyConstraint": {
+      "description": "One named path limit, using integer femtoseconds, milli-decibels or nanometres.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "delay",
+            "skew",
+            "loss",
+            "stub",
+            "order"
+          ]
+        },
+        "ends": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "min_fs": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_fs": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_mdb": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_nm": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "warning"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ]
+    },
+    "TopologyEdge": {
+      "description": "A directed tree edge on a net or through a declared series bridge.",
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "net",
+            "bridge"
+          ]
+        },
+        "net": {
+          "type": "string"
+        },
+        "delay_fs": {
+          "type": "integer"
+        },
+        "loss_mdb": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
     "TraceGeometry": {
       "description": "One layer of an impedance target: the signal layer, its one or two reference layers in stack",
       "type": "object",
@@ -878,6 +1454,59 @@
         "layer",
         "references",
         "width"
+      ]
+    },
+    "ValueRange": {
+      "description": "An exact range of an electrical value: unit, low, nominal and high, at least one bound given.",
+      "type": "object",
+      "properties": {
+        "unit": {
+          "enum": [
+            "ohm",
+            "farad",
+            "henry",
+            "volt",
+            "ampere",
+            "hertz",
+            "watt",
+            "second",
+            "kelvin"
+          ]
+        },
+        "low": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nominal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "high": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "unit"
       ]
     }
   }

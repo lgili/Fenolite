@@ -31,7 +31,9 @@ def _measure(pairs: list[tuple[list[Any], list[Any]]]) -> list[dict[str, Any]]:
         f"const out = {json.dumps(pairs)}.map(([a, b]) => edgeBetween(a, b));"
         "console.log(JSON.stringify(out));"
     )
-    done = subprocess.run([node, "-e", script], capture_output=True, text=True, check=True, timeout=60)
+    done = subprocess.run(
+        [node, "-e", script], capture_output=True, text=True, encoding="utf-8", check=True, timeout=60
+    )
     return json.loads(done.stdout)
 
 

@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as synthetic test data (change c0262); no real product.
+schema = "fenolite.pins.v0"
+id = "Rules:RuleGridPins"
+version = "1.0.0"
+summary = "Synthetic pin table"
+licence = "CC0-1.0"
+evidence = "INFERRED"
+
+[[pin]]
+number = "A1"
+name = "PA1"
+type = "passive"
+
+[[pin]]
+number = "A2"
+name = "PA2"
+type = "passive"
+
+[[pin]]
+number = "A3"
+name = "PA3"
+type = "passive"
+
+[[pin]]
+number = "B1"
+name = "PB1"
+type = "passive"
+
+[[pin]]
+number = "B3"
+name = "PB3"
+type = "passive"
+
+[[pin]]
+number = "C1"
+name = "PC1"
+type = "passive"
+
+[[pin]]
+number = "C2"
+name = "PC2"
+type = "passive"
+
+[[pin]]
+number = "C3"
+name = "PC3"
+type = "passive"
+
+[symbol]
+reference = "U"
+value = ""
+pins = [
+  { number = "A1", at = ["-5.08mm", "0mm"], length = "2.54mm" },
+  { number = "A2", at = ["-5.08mm", "2.54mm"], length = "2.54mm" },
+  { number = "A3", at = ["-5.08mm", "5.08mm"], length = "2.54mm" },
+  { number = "B1", at = ["-5.08mm", "7.62mm"], length = "2.54mm" },
+  { number = "B3", at = ["-5.08mm", "10.16mm"], length = "2.54mm" },
+  { number = "C1", at = ["-5.08mm", "12.7mm"], length = "2.54mm" },
+  { number = "C2", at = ["-5.08mm", "15.24mm"], length = "2.54mm" },
+  { number = "C3", at = ["-5.08mm", "17.78mm"], length = "2.54mm" },
+]

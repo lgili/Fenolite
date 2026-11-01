@@ -15,10 +15,12 @@ never appear: ``analysis.path-exceeded``, ``analysis.neck-narrow``, ``analysis.r
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from fractions import Fraction
 from typing import Any
 
 from fenolite.core.errors import Issue
+from fenolite.core.requirement_table import Bound, RequirementRow, Side, Source
 from fenolite.model.rules import RoleSet
 from fenolite.roles import profile
 from fenolite.roles.codes import issue, severity
@@ -457,4 +459,202 @@ def summary(issues: Sequence[Issue], done: Measured, roles: RoleSet) -> Mapping[
     }
 
 
-__all__ = ["HYPOTHESES", "hypotheses", "judge", "mm", "mm2", "summary"]
+# ----------------------------------------------------------------- requirement rows (change c0253)
+
+NM2_TO_M2 = Fraction(1, 10**18)
+NM_TO_M = Fraction(1, 10**9)
+
+
+def _limit_side(limit: profile.Limit, unit: str, value: Fraction, text: str) -> Side:
+    """The limit side of a role row: a profile default is ``policy`` with its key and source id, an override
+    is the user's (basis ``role_limits``), and a requirements limit the user's (basis
+    ``requirements.toml``)."""
+    source: Source = "policy" if limit.origin == "profile" else "user"
+    basis = {
+        "profile": f"{limit.key} (profile, {limit.source})",
+        "override": "role_limits",
+        "requirements": "requirements.toml",
+    }.get(limit.origin, limit.origin)
+    label = profile.DEFAULTS[limit.key].label if limit.origin == "profile" else "INFERRED"
+    return Side(Bound(unit, None, value), text, source, basis, label or "INFERRED", "requirement")
+
+
+def _loop_rows(board: RoleBoard, measure: Measure) -> list[RequirementRow]:
+    values = measure.values
+    kind, name, roles = values["group"], measure.subject, board.roles
+    area, bound, ratio = values["area_nm2"], values["bound_nm2"], values["ratio_permille"]
+    if values["open"] or area is None:
+        return []
+    net = values["net"]
+    group_kind = {"hot": "switch_node", "gate": "gate", "kelvin": "kelvin"}[kind]
+    code = {"hot": "roles.loop-area", "gate": "roles.gate-loop", "kelvin": "roles.kelvin-apart"}[kind]
+    what = {"hot": "loop", "gate": "gate loop", "kelvin": "Kelvin pair"}[kind]
+    entities = tuple(values["pads"])
+    rows: list[RequirementRow] = []
+    origin = _origin(roles, kind, name)
+    if kind in ("hot", "gate"):
+        key = "loop_max" if kind == "hot" else "gate_max"
+        largest = profile.resolve(key, roles.limits, net=net, kind=group_kind)
+        if largest.value is not None:
+            failed = area > largest.value
+            rows.append(
+                RequirementRow(
+                    f"{code}:{name}:{key}",
+                    code,
+                    f"{what} {name}",
+                    "area",
+                    "square_metre",
+                    Side(
+                        Bound("square_metre", None, area * NM2_TO_M2),
+                        f"{mm2(area)} mm²",
+                        "role",
+                        f"{origin} {what} {name}",
+                    ),
+                    _limit_side(
+                        largest, "square_metre", largest.value * NM2_TO_M2, f"{mm2(largest.value)} mm²"
+                    ),
+                    "fail" if failed else "pass",
+                    severity(code, source=origin, limit_source=largest.origin) if failed else None,
+                    entities,
+                )
+            )
+    key = {"hot": "loop_ratio_max", "gate": "gate_ratio_max", "kelvin": "pair_ratio_max"}[kind]
+    most = profile.resolve(key, roles.limits, net=net, kind=group_kind)
+    floor = profile.resolve("loop_bound_floor_nm2", roles.limits, net=net, kind=group_kind)
+    judged = bound is not None and floor.value is not None and bound >= floor.value and ratio is not None
+    if judged and most.value is not None and ratio is not None:
+        failed = ratio > most.value
+        rows.append(
+            RequirementRow(
+                f"{code}:{name}:{key}",
+                code,
+                f"{what} {name}",
+                "area ratio",
+                "ratio",
+                Side(
+                    Bound("ratio", None, Fraction(ratio, 1000)),
+                    f"{ratio}‰ of {mm2(bound or 0)} mm²",
+                    "role",
+                    f"{origin} {what} {name}",
+                ),
+                _limit_side(most, "ratio", Fraction(most.value, 1000), f"{most.value}‰"),
+                "fail" if failed else "pass",
+                severity(code, source=origin, limit_source=most.origin) if failed else None,
+                entities,
+            )
+        )
+    return rows
+
+
+def _path_rows(board: RoleBoard, measure: Measure) -> list[RequirementRow]:
+    """The width a power path's track or fill needs by the rule of thumb, against what it has."""
+    values = measure.values
+    element = values["element"]
+    if values["method"] != "rule-of-thumb" or element not in ("track", "arc", "fill"):
+        return []
+    width = values["width"] if element != "fill" else values["section"]
+    required = values["required_width"]
+    if width is None or required is None:
+        return []
+    net = measure.subject
+    code = "roles.width-current" if element != "fill" else "roles.section-current"
+    limit = profile.resolve("width_per_amp_nm", board.roles.limits, net=net, kind=None)
+    failed = width < required
+    source = _net_source(board.roles, net)
+    side = _limit_side(limit, "metre", required * NM_TO_M, f"{mm(required)} mm for {values['milliamps']} mA")
+    side = Side(
+        Bound("metre", required * NM_TO_M, None), side.text, side.source, side.basis, side.evidence, side.kind
+    )
+    return [
+        RequirementRow(
+            f"{code}:{net}",
+            code,
+            f"{element} {values['where']} of {net}",
+            "width",
+            "metre",
+            Side(
+                Bound("metre", width * NM_TO_M, width * NM_TO_M),
+                f"{mm(width)} mm",
+                "role",
+                f"{source} role of {net}",
+            ),
+            side,
+            "fail" if failed else "pass",
+            severity(code, source=source, limit_source=limit.origin) if failed else None,
+            (net, values["where"]),
+        )
+    ]
+
+
+def _margin(row: RequirementRow) -> tuple[int, Fraction]:
+    """How close a path row is to its limit: a fail first, then the smallest width above the needed one."""
+    width = row.value.range.low if row.value is not None and row.value.range is not None else None
+    needed = row.limit.range.low if row.limit.range is not None else None
+    gap = Fraction(0) if width is None or needed is None else width - needed
+    return (0 if row.status == "fail" else 1, gap)
+
+
+def pending_rows(board: RoleBoard, have: Sequence[RequirementRow]) -> list[RequirementRow]:
+    """A ``roles.width-current`` row for each role with a current whose copper gave no width row (change
+    c0274): its path is open or not measured yet. Its value is unknown; ``checks.circuit.decidable`` makes it
+    ``deferred`` while the net has an open connection, so the requirement is listed and never passes."""
+    ids = {row.id for row in have}
+    found: list[RequirementRow] = []
+    for role in board.roles.nets:
+        row_id = f"roles.width-current:{role.net}"
+        if role.kind not in CURRENT_KINDS or role.milliamps is None or row_id in ids:
+            continue
+        if f"roles.section-current:{role.net}" in ids:
+            continue
+        limit = profile.resolve("width_per_amp_nm", board.roles.limits, net=role.net, kind=role.kind)
+        if not limit.value:
+            continue
+        required = limit.value * role.milliamps // 1000
+        side = _limit_side(limit, "metre", required * NM_TO_M, f"{mm(required)} mm for {role.milliamps} mA")
+        side = Side(
+            Bound("metre", required * NM_TO_M, None),
+            side.text,
+            side.source,
+            side.basis,
+            side.evidence,
+            side.kind,
+        )
+        found.append(
+            RequirementRow(
+                row_id,
+                "roles.width-current",
+                f"copper of {role.net}",
+                "width",
+                "metre",
+                None,
+                side,
+                "unknown",
+                None,
+                (role.net,),
+                missing="no measured copper: the power path is open or not routed",
+            )  # fmt: skip
+        )
+    return found
+
+
+def rows(board: RoleBoard, done: Measured) -> list[RequirementRow]:
+    """The requirement rows of the measures of ``board`` judged against a limit (change c0253): each loop's
+    area against ``loop_max``/``gate_max`` and its ratio against its ratio limit, and each power path's width
+    by the rule of thumb, one row per code and net (``roles.width-current:VBUS``, its narrowest element;
+    change c0274, a stable id). The findings and their messages are ``judge``'s, unchanged."""
+    found: list[RequirementRow] = []
+    paths: dict[str, list[RequirementRow]] = {}
+    for measure in done.measures:
+        if measure.kind == "loop":
+            found += _loop_rows(board, measure)
+        elif measure.kind == "path":
+            for row in _path_rows(board, measure):
+                paths.setdefault(row.id, []).append(row)
+    for same in paths.values():  # change c0274: one row per code and net, its narrowest element
+        worst = min(same, key=_margin)
+        entities = tuple(dict.fromkeys(e for r in same for e in r.entities))
+        found.append(replace(worst, entities=entities))
+    return found
+
+
+__all__ = ["HYPOTHESES", "hypotheses", "judge", "mm", "mm2", "rows", "summary"]

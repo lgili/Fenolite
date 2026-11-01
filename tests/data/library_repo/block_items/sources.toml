@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite: fixture sources, not an upstream circuit.
+schema = "fenolite.library-sources.v0"
+
+[sources.D-0001]
+id = "D-0001"
+title = "Authored for the Fenolite tests"
+url = "https://github.com/lgili/Fenolite"
+licence = "CC0-1.0"
+retrieved = "2026-11-01"
+used = "Original illustrative block and test behavior authored for Fenolite"

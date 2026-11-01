@@ -1,0 +1,522 @@
+{
+  "block": "Fenolite:i2c_pullups",
+  "circuit": {
+    "components": [
+      {
+        "id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+        "lib_footprint_ref": "Fenolite:Header_1x4_P2.54",
+        "lib_symbol_ref": "Fenolite:Connector_4",
+        "pins": [
+          {
+            "id": "pin_0896bc0e-8dc6-5f47-85ad-0f1a6fcbd408",
+            "name": "Passive",
+            "number": "1"
+          },
+          {
+            "id": "pin_81bc8905-1251-5c29-90c3-a384127a5fc7",
+            "name": "Passive",
+            "number": "3"
+          },
+          {
+            "id": "pin_b1c4d44c-aa96-528e-90f8-57264044338f",
+            "name": "Passive",
+            "number": "2"
+          },
+          {
+            "id": "pin_cf7eada8-3710-52c7-ba60-ca4faaa8483d",
+            "name": "Passive",
+            "number": "4"
+          }
+        ],
+        "properties": {
+          "Reference": "J1",
+          "Value": "Connector_4",
+          "fenolite.path": "J1"
+        },
+        "ref": "J1",
+        "value": "Connector_4"
+      },
+      {
+        "id": "cmp_bb1d0494-d085-57c2-af55-b80681075bc0",
+        "lib_footprint_ref": "Fenolite:Header_1x2_P2.54",
+        "lib_symbol_ref": "Fenolite:Connector_2",
+        "pins": [
+          {
+            "id": "pin_21758859-b6a5-55af-aff0-6aa7f80b439a",
+            "name": "Passive",
+            "number": "2"
+          },
+          {
+            "id": "pin_c3d59c4d-0307-5dd2-88d9-916fc9630ebb",
+            "name": "Passive",
+            "number": "1"
+          }
+        ],
+        "properties": {
+          "Reference": "J2",
+          "Value": "Connector_2",
+          "fenolite.path": "J2"
+        },
+        "ref": "J2",
+        "value": "Connector_2"
+      },
+      {
+        "id": "cmp_612b0548-857c-5ee4-8e22-210a6015b413",
+        "lib_footprint_ref": "Fenolite:Chip_0603",
+        "lib_symbol_ref": "Fenolite:Resistor",
+        "pin_pad_map": [
+          [
+            "1",
+            "1"
+          ],
+          [
+            "2",
+            "2"
+          ]
+        ],
+        "pins": [
+          {
+            "id": "pin_b56f9092-4c6a-5ffa-ad46-f2bb72c342da",
+            "name": "A",
+            "number": "1"
+          },
+          {
+            "id": "pin_97b2d156-cd88-59ff-be42-a05d01a94daa",
+            "name": "B",
+            "number": "2"
+          }
+        ],
+        "properties": {
+          "Reference": "R1",
+          "Value": "5k6",
+          "fenolite.device": "Fenolite:R_0603_E24_5pct@5k6",
+          "fenolite.device.sha256": "5f6f38de540951aa59a398384e381797255f6c4c2066acae53d266970fed456f",
+          "fenolite.path": "dut/r_scl"
+        },
+        "ref": "R1",
+        "value": "5k6",
+        "value_range": {
+          "high": {
+            "e": 1,
+            "m": 588
+          },
+          "low": {
+            "e": 1,
+            "m": 532
+          },
+          "nominal": {
+            "e": 2,
+            "m": 56
+          },
+          "unit": "ohm"
+        }
+      },
+      {
+        "id": "cmp_fae66e79-0324-5ac9-8734-1383d7611217",
+        "lib_footprint_ref": "Fenolite:Chip_0603",
+        "lib_symbol_ref": "Fenolite:Resistor",
+        "pin_pad_map": [
+          [
+            "1",
+            "1"
+          ],
+          [
+            "2",
+            "2"
+          ]
+        ],
+        "pins": [
+          {
+            "id": "pin_fbfde2f6-0a4d-56a8-b4a5-78b5aae29d7a",
+            "name": "A",
+            "number": "1"
+          },
+          {
+            "id": "pin_040f5513-80a3-5bf3-a2ea-a35e4163826b",
+            "name": "B",
+            "number": "2"
+          }
+        ],
+        "properties": {
+          "Reference": "R2",
+          "Value": "5k6",
+          "fenolite.device": "Fenolite:R_0603_E24_5pct@5k6",
+          "fenolite.device.sha256": "5f6f38de540951aa59a398384e381797255f6c4c2066acae53d266970fed456f",
+          "fenolite.path": "dut/r_sda"
+        },
+        "ref": "R2",
+        "value": "5k6",
+        "value_range": {
+          "high": {
+            "e": 1,
+            "m": 588
+          },
+          "low": {
+            "e": 1,
+            "m": 532
+          },
+          "nominal": {
+            "e": 2,
+            "m": 56
+          },
+          "unit": "ohm"
+        }
+      }
+    ],
+    "modules": [
+      {
+        "block": "Fenolite:i2c_pullups",
+        "block_version": "1.0.0",
+        "component_ids": [
+          "cmp_612b0548-857c-5ee4-8e22-210a6015b413",
+          "cmp_fae66e79-0324-5ac9-8734-1383d7611217"
+        ],
+        "id": "mod_3d99db9e-935d-58fc-b9f2-d51e263fb9f1",
+        "params": [
+          {
+            "name": "bus_capacitance",
+            "text": "10pF..200pF",
+            "type": "range"
+          },
+          {
+            "name": "mode",
+            "text": "standard",
+            "type": "str"
+          },
+          {
+            "name": "series",
+            "text": "E24",
+            "type": "str"
+          },
+          {
+            "name": "vdd",
+            "text": "3.3V (3.135V..3.465V)",
+            "type": "range"
+          }
+        ],
+        "path": "dut"
+      }
+    ],
+    "nets": [
+      {
+        "id": "net_5121e1ea-fa68-5607-952a-ca9b0ca8a6ae",
+        "members": [
+          {
+            "component_id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+            "pin": "4"
+          },
+          {
+            "component_id": "cmp_612b0548-857c-5ee4-8e22-210a6015b413",
+            "pin": "2"
+          }
+        ],
+        "name": "dut/BUS.scl"
+      },
+      {
+        "id": "net_a71d8e3e-3dad-5086-a53c-543223e0a81d",
+        "members": [
+          {
+            "component_id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+            "pin": "3"
+          },
+          {
+            "component_id": "cmp_fae66e79-0324-5ac9-8734-1383d7611217",
+            "pin": "2"
+          }
+        ],
+        "name": "dut/BUS.sda"
+      },
+      {
+        "id": "net_4f1685c4-ea6a-5d66-9c1c-fc4ead9afa32",
+        "members": [
+          {
+            "component_id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+            "pin": "1"
+          },
+          {
+            "component_id": "cmp_612b0548-857c-5ee4-8e22-210a6015b413",
+            "pin": "1"
+          },
+          {
+            "component_id": "cmp_fae66e79-0324-5ac9-8734-1383d7611217",
+            "pin": "1"
+          }
+        ],
+        "name": "dut/RAIL.hv"
+      },
+      {
+        "id": "net_624f1b23-e0e5-536e-81e5-7b26b0183625",
+        "members": [
+          {
+            "component_id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+            "pin": "2"
+          },
+          {
+            "component_id": "cmp_bb1d0494-d085-57c2-af55-b80681075bc0",
+            "pin": "1"
+          },
+          {
+            "component_id": "cmp_bb1d0494-d085-57c2-af55-b80681075bc0",
+            "pin": "2"
+          }
+        ],
+        "name": "dut/RAIL.lv"
+      }
+    ],
+    "ports": [
+      {
+        "id": "prt_eb79f745-4f25-534d-ad2c-8762847ce1b1",
+        "kind": "i2c",
+        "members": {
+          "scl": "net_5121e1ea-fa68-5607-952a-ca9b0ca8a6ae",
+          "sda": "net_a71d8e3e-3dad-5086-a53c-543223e0a81d"
+        },
+        "name": "BUS",
+        "owner": "mod_3d99db9e-935d-58fc-b9f2-d51e263fb9f1",
+        "reference": "prt_f3ac6315-1dff-538c-b430-96f2a40f1cef"
+      },
+      {
+        "direction": "in",
+        "id": "prt_f3ac6315-1dff-538c-b430-96f2a40f1cef",
+        "kind": "power",
+        "members": {
+          "hv": "net_4f1685c4-ea6a-5d66-9c1c-fc4ead9afa32",
+          "lv": "net_624f1b23-e0e5-536e-81e5-7b26b0183625"
+        },
+        "name": "RAIL",
+        "owner": "mod_3d99db9e-935d-58fc-b9f2-d51e263fb9f1"
+      }
+    ]
+  },
+  "rules": {
+    "contracts": {
+      "expects": [
+        {
+          "id": "dut/expect#1",
+          "instance": "dut",
+          "origin": "fenolite.blocks.i2c:54",
+          "reason": "r_sda: pull-up not below the bus minimum",
+          "test": {
+            "a": {
+              "component": "cmp_fae66e79-0324-5ac9-8734-1383d7611217",
+              "ref": "value"
+            },
+            "b": {
+              "a": {
+                "a": {
+                  "net": "net_4f1685c4-ea6a-5d66-9c1c-fc4ead9afa32",
+                  "ref": "voltage"
+                },
+                "b": {
+                  "lit": {
+                    "high": {
+                      "e": -1,
+                      "m": 4
+                    },
+                    "low": {
+                      "e": -1,
+                      "m": 4
+                    },
+                    "nominal": {
+                      "e": -1,
+                      "m": 4
+                    },
+                    "unit": "volt"
+                  }
+                },
+                "op": "sub"
+              },
+              "b": {
+                "lit": {
+                  "high": {
+                    "e": -3,
+                    "m": 3
+                  },
+                  "low": {
+                    "e": -3,
+                    "m": 3
+                  },
+                  "nominal": {
+                    "e": -3,
+                    "m": 3
+                  },
+                  "unit": "ampere"
+                }
+              },
+              "op": "div"
+            },
+            "op": "at_least"
+          }
+        },
+        {
+          "id": "dut/expect#2",
+          "instance": "dut",
+          "origin": "fenolite.blocks.i2c:58",
+          "reason": "r_sda: pull-up not above the rise-time maximum",
+          "test": {
+            "a": {
+              "component": "cmp_fae66e79-0324-5ac9-8734-1383d7611217",
+              "ref": "value"
+            },
+            "b": {
+              "lit": {
+                "high": {
+                  "e": -10,
+                  "m": 59011125057136
+                },
+                "low": {
+                  "e": -11,
+                  "m": 590111250571359
+                },
+                "unit": "ohm"
+              }
+            },
+            "op": "at_most"
+          }
+        },
+        {
+          "id": "dut/expect#3",
+          "instance": "dut",
+          "origin": "fenolite.blocks.i2c:54",
+          "reason": "r_scl: pull-up not below the bus minimum",
+          "test": {
+            "a": {
+              "component": "cmp_612b0548-857c-5ee4-8e22-210a6015b413",
+              "ref": "value"
+            },
+            "b": {
+              "a": {
+                "a": {
+                  "net": "net_4f1685c4-ea6a-5d66-9c1c-fc4ead9afa32",
+                  "ref": "voltage"
+                },
+                "b": {
+                  "lit": {
+                    "high": {
+                      "e": -1,
+                      "m": 4
+                    },
+                    "low": {
+                      "e": -1,
+                      "m": 4
+                    },
+                    "nominal": {
+                      "e": -1,
+                      "m": 4
+                    },
+                    "unit": "volt"
+                  }
+                },
+                "op": "sub"
+              },
+              "b": {
+                "lit": {
+                  "high": {
+                    "e": -3,
+                    "m": 3
+                  },
+                  "low": {
+                    "e": -3,
+                    "m": 3
+                  },
+                  "nominal": {
+                    "e": -3,
+                    "m": 3
+                  },
+                  "unit": "ampere"
+                }
+              },
+              "op": "div"
+            },
+            "op": "at_least"
+          }
+        },
+        {
+          "id": "dut/expect#4",
+          "instance": "dut",
+          "origin": "fenolite.blocks.i2c:58",
+          "reason": "r_scl: pull-up not above the rise-time maximum",
+          "test": {
+            "a": {
+              "component": "cmp_612b0548-857c-5ee4-8e22-210a6015b413",
+              "ref": "value"
+            },
+            "b": {
+              "lit": {
+                "high": {
+                  "e": -10,
+                  "m": 59011125057136
+                },
+                "low": {
+                  "e": -11,
+                  "m": 590111250571359
+                },
+                "unit": "ohm"
+              }
+            },
+            "op": "at_most"
+          }
+        },
+        {
+          "id": "dut/expect#5",
+          "instance": "dut",
+          "origin": "fenolite.blocks.i2c:61",
+          "reason": "supply within selection range",
+          "test": {
+            "a": {
+              "net": "net_4f1685c4-ea6a-5d66-9c1c-fc4ead9afa32",
+              "ref": "voltage"
+            },
+            "b": {
+              "lit": {
+                "high": {
+                  "e": -3,
+                  "m": 3465
+                },
+                "low": {
+                  "e": -3,
+                  "m": 3135
+                },
+                "nominal": {
+                  "e": -1,
+                  "m": 33
+                },
+                "unit": "volt"
+              }
+            },
+            "op": "within"
+          }
+        }
+      ],
+      "rig": [
+        {
+          "kind": "supply",
+          "name": "bench",
+          "neg": "net_624f1b23-e0e5-536e-81e5-7b26b0183625",
+          "pos": "net_4f1685c4-ea6a-5d66-9c1c-fc4ead9afa32",
+          "voltage": {
+            "high": {
+              "e": -3,
+              "m": 3465
+            },
+            "low": {
+              "e": -3,
+              "m": 3135
+            },
+            "nominal": {
+              "e": -1,
+              "m": 33
+            },
+            "unit": "volt"
+          }
+        }
+      ]
+    },
+    "id": "rst_79ddd1f3-309e-5f3a-b8e0-d09f3a2dcd3d"
+  },
+  "schema": "fenolite.block-golden.v0",
+  "seed": 0,
+  "timestamp": "2026-01-01T00:00:00Z",
+  "usage": "usage/i2c_pullups.py",
+  "version": "1.0.0"
+}

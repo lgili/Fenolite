@@ -1,0 +1,10 @@
+(librepcb_symbol 26600000-0000-4000-8000-000000000001
+ (name "Demo Link")
+ (author "Authored for Fenolite; SPDX-License-Identifier: CC0-1.0")
+ (pin 26600000-0000-4000-8000-000000000011 (name "1") (position -4.2 0) (rotation 0) (length 2.1))
+ (pin 26600000-0000-4000-8000-000000000012 (name "2") (position 4.2 0) (rotation 180) (length 2.1))
+ (polygon 26600000-0000-4000-8000-000000000013 (layer sym_outlines) (width 0.2) (fill false)
+  (vertex (position -2.1 -0.7) (angle 0)) (vertex (position 2.1 -0.7) (angle 0))
+  (vertex (position 2.1 0.7) (angle 0)) (vertex (position -2.1 0.7) (angle 0))
+  (vertex (position -2.1 -0.7) (angle 0)))
+)

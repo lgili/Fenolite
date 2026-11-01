@@ -255,3 +255,52 @@ def test_too_large_names_the_sheet() -> None:
     found = layout_units([box(f"U{n}", "Mini:Mini_QFP32_IC") for n in range(1, 400)], sheet="power")
     (issue,) = [i for i in found.issues if i.code == "build.schematic-too-large"]
     assert issue.severity == "error" and "sheet power" in issue.message and "399 units" in issue.message
+
+
+def test_groups_start_rows() -> None:
+    """Scenario "Groups start rows" of "Deterministic sheet layout" (change c0269)."""
+    units = [box("d/top"), box("d/bot"), box("d/C1"), box("d/R9")]
+    groups = [(("d/top", "d/bot"), "top-to-bottom"), (("d/C1",), "left-to-right")]
+    layout = layout_units(units, groups=groups)
+    cells, origins = layout.cells, layout.origins
+    assert list(origins)[:3] == ["d/top", "d/bot", "d/C1"], "group order, then member order"
+    assert origins["d/top"].x == origins["d/bot"].x and cells["d/top"][3] <= cells["d/bot"][1]
+    assert cells["d/bot"][3] <= cells["d/C1"][1] and cells["d/C1"][0] == PAGE_MARGIN
+    assert cells["d/C1"][3] <= cells["d/R9"][1], "a unit in no group comes last, on a row of its own"
+    assert all(o.x % ORIGIN_STEP == 0 and o.y % ORIGIN_STEP == 0 for o in origins.values())
+    check(layout)
+
+
+def test_no_groups_is_the_module_flow() -> None:
+    units = [box("d/top"), box("d/bot"), box("d/C1")]
+    assert layout_units(units, groups=()) == layout_units(units)
+
+
+def test_widths_widen_the_cells() -> None:
+    plain = layout_units([box("a/R1", p1="IN"), box("a/R2")])
+    wide = layout_units([box("a/R1", p1="IN"), box("a/R2")], widths={("a/R1", "1"): 20})
+    assert wide.cells["a/R1"] != plain.cells["a/R1"]
+    padded = layout_units([box("a/R1", p1="X" * 20), box("a/R2")])
+    assert wide.origins == padded.origins
+
+
+def test_sheet_reference_with_pins() -> None:
+    pins = (
+        schlayout.RefPin("VIN", "left", 5),
+        schlayout.RefPin("GND", "left", 3),
+        schlayout.RefPin("EN", "right", 4),
+    )
+    ref = RefBox("ch0", "ch0 (channel)", "sheets/ch0.kicad_sch", pins)
+    points = schlayout.ref_pin_points(ref)
+    assert points["GND"] == (Point(0, ORIGIN_STEP), "left") and points["VIN"] == (
+        Point(0, 2 * ORIGIN_STEP),
+        "left",
+    )
+    assert points["EN"] == (Point(schlayout.sheet_ref_size(ref.name), ORIGIN_STEP), "right")
+    assert schlayout.ref_height(pins) == schlayout.REF_HEIGHT
+    many = tuple(schlayout.RefPin(f"P{i}", "left") for i in range(7))
+    assert schlayout.ref_height(many) == 8 * ORIGIN_STEP
+    plain = RefBox("ch0", "ch0 (channel)", "sheets/ch0.kicad_sch")
+    x0, _, x1, _ = schlayout.ref_extent(ref)
+    p0, _, p1, _ = schlayout.ref_extent(plain)
+    assert x0 < p0 and x1 > p1, "the labels at the pins get room on both sides"

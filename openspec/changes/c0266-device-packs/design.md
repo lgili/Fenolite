@@ -195,15 +195,15 @@ fenolite library seed --from-librepcb ../librepcb-base --commit 1a2b…40hex \
   library is useful without it.
 - **Verb words in `library`.** A path literally named `seed` changes meaning; documented.
 
-## Open questions
+## Decisions (2026-11-01)
 
-1. *Namespace of authored items.* Recommended: one namespace, `FenoliteDevices`; converted items keep a
+1. *Namespace of authored items.* Decided (2026-11-01): one namespace, `FenoliteDevices`; converted items keep a
    namespace naming their source library.
-2. *Keep seeded items marked after review?* Recommended: the `origin` stays `seeded`. Only the record's
+2. *Keep seeded items marked after review?* Decided (2026-11-01): the `origin` stays `seeded`. Only the record's
    evidence label rises after review, and the item gets a new version.
-3. *LibrePCB attribution.* CC0 needs none. Recommended anyway: name the library and commit in the item's
+3. *LibrePCB attribution.* CC0 needs none. Decided (2026-11-01): name the library and commit in the item's
    `NOTICE`, in `PROVENANCE.json` and in `sources.toml`.
-4. *Vendor whole families?* Recommended: a c0263 family is one `device` item whose payload is the family
+4. *Vendor whole families?* Decided (2026-11-01): a c0263 family is one `device` item whose payload is the family
    file; `get` copies it like any device.
 
 ## Relation to the batch
@@ -220,3 +220,31 @@ fenolite library seed --from-librepcb ../librepcb-base --commit 1a2b…40hex \
 - **c0265**: datasheet proposals reach the library only through a reviewed pull request.
 - **c0267**: supplier answers never enter the library.
 - **c0273**: the same project-side pattern for blocks.
+
+
+## Implemented boundary (2026-11-01)
+
+Public sources do not specify the full element field grammar, escapes, axes or rotation direction.
+`docs/formats/librepcb/library.md` distinguishes documented relationships from UNKNOWN facts and the
+explicitly INFERRED, bounded 0.1 subset. All conversion outputs and the command reply remain UNVERIFIED.
+Live-library compatibility is not a local proof; external seed review and release tasks remain open.
+The source `url` metadata interpretation is inferred; only the documented LibrePCB Base URL has a default.
+The shared transaction preserves cwd/input/target binding of plan ids and performs no implicit cleanup.
+The selected lock's existing missing-folder check now runs before executing a design, so a pinned missing
+device returns FEN-6004 before DSL resolution. New guide topic `device-packs` is used because existing
+parts/recovery pages were full; existing byte/line limits are unchanged.
+
+Item-id safety follows c0279 too: reserved dot path segments and `..` runs are sanitized in names and refused in namespaces. Sub-element UUIDs are validated before they can supply a filename suffix.
+
+Combined block/device integration (2026-11-01): missing-item preflight still precedes script execution,
+including `blocks upgrade`; its optional `ScriptRun` is reused, and confirmation replays without a
+second execution. Lock updates retain all symbol, footprint and device pins. Private vendored usage
+builds and `instantiate` copy data-only item roots and authored overrides, including native references,
+without changing the source namespace. Copies preserve symlinks so the existing vendored reader still
+refuses them. Circuit checks reuse `load_vendored`/`overlay`, retain authored precedence and surface
+conflicts rather than selecting ambiguous device facts. Golden plans bind these device inputs too.
+Checks retain the closest authored folder's precedence across v0/v1 records and exclude
+`devices/proposed/`, matching the active-record loader used by builds.
+External `library check` dispatches `fenolite.library-sources.v0` to the device register's validated
+`source_ids` reader. It accepts registered D ids, rejects ids mentioned only in comments and refuses
+malformed source rows as bad input; existing S-id project and core registers keep their checks.

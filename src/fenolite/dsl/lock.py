@@ -10,20 +10,27 @@ the refs, the new lock, the changes and the issues. Reading and writing the file
 under ``--frozen`` are steps of ``fenolite build``.
 
 The lock has sections. Every step (read, carry by alias, release, compare, write) works on every section
-through ``LockSection``; ``refs`` is the only section with content, and ``picks`` (c0254) and ``pins``
-(c0257) are reserved: a lock that gives them content is refused until their change registers a resolver.
+through ``LockSection``. ``refs`` holds the refs; ``picks`` (c0254: one table per query part, filled by
+the build's pick resolver, installed with ``picks_resolver``) and ``pins`` (change c0257: the pin choices of
+the takes, kept here as read and replaced by the pin solve of ``fenolite build``, ``fenolite.lens.pins``)
+and ``blocks`` (change c0268: ``<id>@<version>`` of every instance of a block with a record, so that a
+new block version is never taken silently) have content.
+``library`` (c0279) holds vendored item pins and is kept unchanged by a build.
 """
 
 from __future__ import annotations
 
+import contextlib
 import re
 import tomllib
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Generator, Mapping, Sequence
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING, cast
 
 from fenolite.core.errors import FenoliteError, FormatError, Issue, Severity
+from fenolite.core.partquery import LOCK_KEYS, LOCK_REQUIRED
 from fenolite.dsl.part import NAME, Part
 
 if TYPE_CHECKING:
@@ -43,8 +50,20 @@ REASONS: tuple[str, ...] = (
     "taken",
     "prefix-changed",
     "design-renamed",
+    "picked",
+    "query-changed",
+    "row-changed",
+    "updated",
+    "solved",
+    "stale",
+    "dropped",
+    "block-locked",
+    "block-replaced",
+    "block-released",
 )
-"""The reasons of a change of the lock."""
+"""The reasons of a change of the lock (``picked`` to ``updated``: changes of ``picks``, change c0254;
+``solved``, ``stale`` and ``dropped``: changes of ``pins``, change c0257; ``block-locked`` to
+``block-released``: changes of ``blocks``, change c0268)."""
 LOCK_CODES: Mapping[str, Severity] = MappingProxyType(
     {
         "lock.ref-released": "warning",
@@ -54,13 +73,26 @@ LOCK_CODES: Mapping[str, Severity] = MappingProxyType(
         "lock.ref-prefix-changed": "info",
         "lock.design-renamed": "info",
         "lock.changed": "error",
+        # the [blocks] section (change c0268)
+        "lock.block-version": "error",
+        "lock.block-replaced": "info",
+        "lock.block-released": "info",
+        "block.deprecated": "warning",
     }
 )
-"""The issue codes of the lock; they are also build issue codes (``lens.build.BUILD_ISSUE_CODES``)."""
+"""The issue codes of the lock; they are also build issue codes (``lens.build.BUILD_ISSUE_CODES``).
+``block.deprecated`` is reported by the resolver of ``blocks``, which sees every recorded instance."""
 FROZEN_HINT = "build without --frozen, review result.lock.changes, commit the lock, then build frozen"
 
 LockValue = str | Mapping[str, object]
-"""One entry of a section: a ref (``refs``), or a table of scalars (the reserved sections)."""
+"""One entry of a section: a ref (``refs``), or a table (``pins``: scalars and the ``pins`` table)."""
+BLOCK_PIN = re.compile(r"[A-Za-z0-9_.+-]+:[A-Za-z0-9_.+-]+@(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
+"""A ``[blocks]`` entry: ``<id>@<version>`` (change c0268)."""
+PIN_FIELDS: tuple[str, ...] = ("kind", "option", "alternative", "pins", "choice")
+"""The keys of a ``[pins."<key>"]`` entry, in the order the file writes them; ``choice`` is human text,
+ignored when read and written again from the others."""
+TAKE_KEY = re.compile(r"[A-Za-z0-9_.+-]+(#[0-9]+)?")
+"""The last segment of a ``[pins]`` key: a take name, or ``<kind>#<n>``."""
 
 
 class LockVersionError(FormatError):
@@ -167,6 +199,12 @@ class LockSection:
     resolve: Resolver | None
     exact: bool = False
     """Whether a key is exactly a component path (``refs``); otherwise it starts with one."""
+    releases: bool = True
+    """Whether the common release step drops an entry whose key is no part path; ``blocks`` (change c0268)
+    keys instance paths and releases its own entries."""
+    paths: bool = True
+    """Whether the keys name component paths. A section of other keys (``library``: ``<kind>/<id>``, change
+    c0279) is neither carried by an alias nor released: the build keeps it as it was read."""
 
 
 def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
@@ -186,12 +224,38 @@ def natural_key(path: str) -> tuple[tuple[int, int, int, str], ...]:
 
 # -- the refs section
 
+_HAND: ContextVar[Mapping[str, tuple[str, str | None]]] = ContextVar(
+    "fenolite_hand_refs", default=MappingProxyType({})
+)
+
+
+@contextlib.contextmanager
+def hand_refs(edits: Mapping[str, tuple[str, str | None]]) -> Generator[None]:
+    """Count the ``reference`` edits of ``edits.toml`` (path → (ref, the ref it was recorded over)) as
+    explicit refs while the block runs (change c0250, "Reference edits"): ``fenolite build`` installs them,
+    so the lock records a part re-annotated in KiCad."""
+    token = _HAND.set(MappingProxyType(dict(edits)))
+    try:
+        yield
+    finally:
+        _HAND.reset(token)
+
 
 def _resolve_refs(design: Design, entries: Mapping[str, LockValue]) -> SectionResult:
     """The refs of every part: explicit refs, then kept lock entries, then new refs per prefix in natural
-    path order with the lowest free number. ``entries`` are the lock's refs after carry and release."""
+    path order with the lowest free number. ``entries`` are the lock's refs after carry and release.
+
+    A reference edit (``hand_refs``) is an explicit ref when it was recorded over the part's explicit or
+    locked ref, or the part has neither; an edit made over another ref is stale and left to the build's
+    merge, which reports it."""
     parts: dict[str, Part] = dict(design.parts)
     explicit = {path: part.explicit_ref for path, part in parts.items() if part.explicit_ref is not None}
+    for path, (ref, over) in sorted(_HAND.get().items()):
+        if path not in parts:
+            continue
+        code = explicit.get(path, cast("str | None", entries.get(path)))
+        if code is None or over is None or over == code or ref == code:
+            explicit[path] = ref
     owners = {ref: path for path, ref in explicit.items()}
     refs: dict[str, str] = dict(explicit)
     changes: list[LockChange] = []
@@ -262,10 +326,127 @@ def _resolve_refs(design: Design, entries: Mapping[str, LockValue]) -> SectionRe
     )
 
 
+# -- the picks section (change c0254)
+
+_PICKS: ContextVar[Resolver | None] = ContextVar("fenolite_picks_resolver", default=None)
+
+
+@contextlib.contextmanager
+def picks_resolver(resolve: Resolver) -> Generator[None]:
+    """Resolve the ``picks`` section with ``resolve`` while the block runs (``fenolite build`` and
+    ``fenolite pick`` install the resolver of ``fenolite.pick``, which needs the catalog in hand)."""
+    token = _PICKS.set(resolve)
+    try:
+        yield
+    finally:
+        _PICKS.reset(token)
+
+
+def _resolve_picks(design: Design, entries: Mapping[str, LockValue]) -> SectionResult:
+    """The installed pick resolver's result; without one, the kept entries as they are."""
+    resolve = _PICKS.get()
+    if resolve is None:
+        return SectionResult(entries=MappingProxyType(dict(sorted(entries.items()))))
+    return resolve(design, entries)
+
+
+def _keep(design: Design, entries: Mapping[str, LockValue]) -> SectionResult:
+    """The ``pins`` entries kept after carry and release, unchanged: ``fenolite build`` replaces them with
+    the pin solve (change c0257)."""
+    del design
+    return SectionResult(entries=MappingProxyType(dict(sorted(entries.items()))))
+
+
+# -- the blocks section (change c0268)
+
+
+def block_issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
+    return Issue(code, LOCK_CODES[code], message, where=where, hint=hint)
+
+
+def _resolve_blocks(design: Design, entries: Mapping[str, LockValue]) -> SectionResult:
+    """``<id>@<version>`` of every instance of a block with a record, keyed by its path, against the
+    entries kept after the carry step: a first pin is planned, another version of a locked id is refused
+    (``lock.block-version``, the entry kept), another id replaces the entry, and an entry whose path is
+    no recorded instance is released. ``block.deprecated`` is reported once per id."""
+    from fenolite.dsl.block import blocks
+
+    used: dict[str, tuple[str, str]] = {}
+    deprecated: dict[str, str] = {}
+    for found in blocks(design):
+        header = found.definition.header
+        if header is None:
+            continue
+        used[found.path] = (header.id, header.pin)
+        if header.deprecated is not None:
+            gone = header.deprecated
+            deprecated[header.id] = f"{gone.by} (since {gone.since}: {gone.reason})"
+    out: dict[str, LockValue] = {}
+    changes: list[LockChange] = []
+    issues: list[Issue] = []
+    for path, value in sorted(entries.items()):
+        locked = cast(str, value)
+        if path not in used:
+            changes.append(LockChange("blocks", path, locked, None, "block-released"))
+            issues.append(
+                block_issue(
+                    "lock.block-released",
+                    f"{path} is no instance of a block with a record any more, so its entry {locked} is "
+                    "released",
+                    path,
+                )
+            )
+            continue
+        block_id, pin = used[path]
+        if locked == pin:
+            out[path] = locked
+            continue
+        locked_id, _, locked_version = locked.rpartition("@")
+        if locked_id == block_id:
+            out[path] = locked  # never taken silently: the build stops for a review
+            issues.append(
+                block_issue(
+                    "lock.block-version",
+                    f"{path} is locked to {block_id} {locked_version}, and the script uses version "
+                    f"{pin.rpartition('@')[2]}; nothing is written",
+                    path,
+                    "review `fenolite blocks upgrade <script> --dry-run`, then confirm its lock plan",
+                )
+            )
+            continue
+        out[path] = pin
+        changes.append(LockChange("blocks", path, locked, pin, "block-replaced"))
+        issues.append(
+            block_issue(
+                "lock.block-replaced",
+                f"{path} now uses {pin} in place of {locked}; the entry is replaced",
+                path,
+            )
+        )
+    for path, (_, pin) in sorted(used.items()):
+        if path not in entries:
+            out[path] = pin
+            changes.append(LockChange("blocks", path, None, pin, "block-locked"))
+    for block_id, by in sorted(deprecated.items()):
+        issues.append(
+            block_issue(
+                "block.deprecated",
+                f"the block {block_id} is deprecated; use {by}",
+                block_id,
+                f"replace the uses of {block_id} with {by.split(' ', 1)[0]}",
+            )
+        )
+    return SectionResult(
+        entries=MappingProxyType(dict(sorted(out.items()))), changes=tuple(changes), issues=tuple(issues)
+    )
+
+
 SECTIONS: tuple[LockSection, ...] = (
     LockSection("refs", _resolve_refs, exact=True),
-    LockSection("picks", None),  # c0254 registers its resolver
-    LockSection("pins", None),  # c0257 registers its resolver
+    LockSection("picks", _resolve_picks, exact=True),  # c0254
+    LockSection("pins", _keep),  # c0257: replaced by the pin solve of fenolite build
+    LockSection("blocks", _resolve_blocks, releases=False),  # c0268
+    LockSection("library", _keep, paths=False),  # c0279: only fenolite get changes it
 )
 """The sections of the lock, in the order the file writes them."""
 
@@ -295,7 +476,8 @@ def assign_refs(design: Design, lock: Lock, *, moves: Mapping[str, str]) -> RefA
     designators and the design lock").
 
     1. Each alias new → old of ``moves`` (``dsl.moves``) carries the entries of every section whose key is
-       ``old`` or starts with ``old/`` to ``new`` (``lock.ref-moved``).
+       ``old`` or starts with ``old/`` to ``new`` (``lock.ref-moved``); the ``blocks`` section, keyed by
+       instance paths, also follows the module aliases (``dsl.module_moves``).
     2. An entry whose key is no part path, and does not start with one, is released
        (``lock.ref-released``).
     3. Each section's ``resolve`` gives its new entries: for ``refs``, explicit refs first, then kept
@@ -312,13 +494,21 @@ def assign_refs(design: Design, lock: Lock, *, moves: Mapping[str, str]) -> RefA
                 "design",
             )
         )
-    by_old = {old: new for new, old in moves.items()}
-    roots = sorted(by_old)
+    from fenolite.dsl.convert import module_moves
+
+    by_part = {old: new for new, old in moves.items()}
+    by_module = {**by_part, **{old: new for new, old in module_moves(design).items()}}
     parts = sorted(design.parts)
     new_sections: dict[str, Mapping[str, LockValue]] = {}
     refs: Mapping[str, str] = MappingProxyType({})
     for section in SECTIONS:
+        # a section keyed by instance paths (blocks, change c0268) follows the module aliases too
+        by_old = by_part if section.releases else by_module
+        roots = sorted(by_old)
         entries = lock.sections.get(section.name, {})
+        if not section.paths:
+            new_sections[section.name] = MappingProxyType(dict(sorted(entries.items())))
+            continue
         carried: dict[str, LockValue] = {}
         moved: dict[str, tuple[str, LockValue]] = {}
         for key, value in entries.items():
@@ -341,6 +531,9 @@ def assign_refs(design: Design, lock: Lock, *, moves: Mapping[str, str]) -> RefA
             )
         kept: dict[str, LockValue] = {}
         for key, value in sorted(carried.items()):
+            if not section.releases:
+                kept[key] = value
+                continue
             owner = _owner(key, parts)
             if owner is not None and (owner == key or not section.exact):
                 kept[key] = value
@@ -444,8 +637,99 @@ def read_lock(text: str, *, file: str) -> Lock:
                 )
             sections[section.name] = {}
             continue
-        sections[section.name] = _read_refs(table, file) if section.name == "refs" else {}
+        if section.name == "refs":
+            sections[section.name] = _read_refs(table, file)
+        elif section.name == "blocks":
+            sections[section.name] = _read_blocks(table, file)
+        elif section.name == "picks":
+            sections[section.name] = _read_picks(table, file)
+        elif section.name == "library":
+            sections[section.name] = _read_library(table, file)
+        else:
+            sections[section.name] = _read_pins(table, file)
     return make_lock(design, sections)
+
+
+def _read_pins(table: Mapping[str, object], file: str) -> dict[str, LockValue]:
+    """The ``[pins]`` entries (change c0257): ``kind``, ``option``, ``alternative`` (an index), ``pins``
+    (role → pin) and the ignored ``choice`` text."""
+    out: dict[str, LockValue] = {}
+    for key, raw in table.items():
+        where = f"pins.{key}"
+        path, _, last = key.rpartition("/")
+        if not path or not all(NAME.fullmatch(s) for s in path.split("/")) or not TAKE_KEY.fullmatch(last):
+            raise _refuse(f"{key!r} is not a take key <part path>/<take>", file, where)
+        if not isinstance(raw, dict):
+            raise _refuse(f"the pins entry {key} must be a table", file, where)
+        entry = cast(dict[str, object], raw)
+        unknown = sorted(set(entry) - set(PIN_FIELDS))
+        if unknown:
+            raise _refuse(f"unknown key {unknown[0]!r} in the pins entry {key}", file, where)
+        for name in ("kind", "option"):
+            if not isinstance(entry.get(name), str) or not entry[name]:
+                raise _refuse(f"the pins entry {key} needs {name}, a non-empty string", file, where)
+        alternative = entry.get("alternative")
+        if isinstance(alternative, bool) or not isinstance(alternative, int) or alternative < 0:
+            raise _refuse(f"the pins entry {key} needs alternative, an index from 0", file, where)
+        pins = entry.get("pins")
+        if not isinstance(pins, dict) or not pins:
+            raise _refuse(f"the pins entry {key} needs pins, a table of role = pin", file, where)
+        roles = cast(dict[str, object], pins)
+        if not all(isinstance(pin, str) and pin for pin in roles.values()):
+            raise _refuse(f"the pins of {key} map each role to a pin name", file, where)
+        if "choice" in entry and not isinstance(entry["choice"], str):
+            raise _refuse(f"the choice of {key} is text", file, where)
+        out[key] = MappingProxyType(
+            {
+                "kind": entry["kind"],
+                "option": entry["option"],
+                "alternative": alternative,
+                "pins": MappingProxyType(dict(sorted(cast(dict[str, str], roles).items()))),
+            }
+        )
+    return out
+
+
+LIBRARY_FIELDS: tuple[str, ...] = ("index", "path", "release", "spdx", "tree", "version")
+"""The keys of a ``[library.items."<kind>/<id>"]`` entry (change c0279), in the order the file writes them."""
+LIBRARY_TABLE = "items"
+LIBRARY_KEY = re.compile(r"(symbol|footprint|device|block|board)/[A-Za-z0-9][A-Za-z0-9_.+:/-]*")
+
+
+def _read_library(table: Mapping[str, object], file: str) -> dict[str, LockValue]:
+    """The ``[library.items]`` entries (change c0279): per ``<kind>/<id>`` the pin of a vendored item,
+    every key of ``LIBRARY_FIELDS`` a non-empty string. ``path`` is relative to the script folder."""
+    unknown = sorted(set(table) - {LIBRARY_TABLE})
+    if unknown:
+        raise _refuse(f"unknown key {unknown[0]!r} in the section library; it holds items", file, "library")
+    items = table.get(LIBRARY_TABLE, {})
+    if not isinstance(items, dict):
+        raise _refuse("library.items must be a table", file, "library.items")
+    out: dict[str, LockValue] = {}
+    for key, raw in cast(dict[str, object], items).items():
+        where = f"library.items.{key}"
+        if not LIBRARY_KEY.fullmatch(key) or ".." in key:
+            raise _refuse(f"{key!r} is not a library item key <kind>/<id>", file, where)
+        if not isinstance(raw, dict):
+            raise _refuse(f"the library entry {key} must be a table", file, where)
+        entry = cast(dict[str, object], raw)
+        unknown = sorted(set(entry) - set(LIBRARY_FIELDS))
+        if unknown:
+            raise _refuse(f"unknown key {unknown[0]!r} in the library entry {key}", file, where)
+        for name in LIBRARY_FIELDS:
+            if not isinstance(entry.get(name), str) or not entry[name]:
+                raise _refuse(f"the library entry {key} needs {name}, a non-empty string", file, where)
+        path = cast(str, entry["path"])
+        if path.startswith("/") or "\\" in path or any(part == ".." for part in path.split("/")):
+            raise _refuse(f"the path of {key} stays inside the script folder", file, where)
+        out[key] = MappingProxyType({name: entry[name] for name in LIBRARY_FIELDS})
+    return out
+
+
+def pin_choice_text(entry: Mapping[str, object]) -> str:
+    """The ``choice`` text of a ``[pins]`` entry: ``I2C1 on PB8/PB9`` (pins in code-point order of roles)."""
+    pins = cast(Mapping[str, str], entry.get("pins", {}))
+    return f"{entry.get('option', '')} on {'/'.join(pin for _, pin in sorted(pins.items()))}"
 
 
 def _read_refs(table: Mapping[str, object], file: str) -> dict[str, LockValue]:
@@ -463,6 +747,47 @@ def _read_refs(table: Mapping[str, object], file: str) -> dict[str, LockValue]:
             raise _refuse(f"two paths have the ref {ref}: {owners[ref]} and {path}", file, where)
         owners[ref] = path
         out[path] = ref
+    return out
+
+
+def _read_blocks(table: Mapping[str, object], file: str) -> dict[str, LockValue]:
+    """The ``[blocks]`` entries (change c0268): instance path → ``<id>@<version>``."""
+    out: dict[str, LockValue] = {}
+    for path, value in table.items():
+        where = f"blocks.{path}"
+        if not all(NAME.fullmatch(segment) for segment in path.split("/")):
+            raise _refuse(f"{path!r} is not an instance path", file, where)
+        if not isinstance(value, str) or not BLOCK_PIN.fullmatch(value):
+            raise _refuse(f"the block of {path} must be <id>@<MAJOR.MINOR.PATCH>, not {value!r}", file, where)
+        out[path] = value
+    return out
+
+
+def _read_picks(table: Mapping[str, object], file: str) -> dict[str, LockValue]:
+    """The ``picks`` tables: one table of strings per component path, keys of ``LOCK_KEYS`` in that order."""
+    out: dict[str, LockValue] = {}
+    for path, entry in table.items():
+        where = f"picks.{path}"
+        if not all(NAME.fullmatch(segment) for segment in path.split("/")):
+            raise _refuse(f"{path!r} is not a component path", file, where)
+        if not isinstance(entry, dict):
+            raise _refuse(f"the pick of {path} must be a table", file, where)
+        values = cast(dict[str, object], entry)
+        for key, value in values.items():
+            if key not in LOCK_KEYS:
+                raise _refuse(
+                    f"unknown key {key!r} in the pick of {path}; the keys are {', '.join(LOCK_KEYS)}",
+                    file,
+                    f"{where}.{key}",
+                )
+            if not isinstance(value, str):
+                raise _refuse(
+                    f"{key} of the pick of {path} must be a string, not {value!r}", file, f"{where}.{key}"
+                )
+        for key in LOCK_REQUIRED:
+            if key not in values:
+                raise _refuse(f"the pick of {path} has no {key}", file, f"{where}.{key}")
+        out[path] = MappingProxyType({key: values[key] for key in LOCK_KEYS if key in values})
     return out
 
 
@@ -484,6 +809,10 @@ def _string(text: str) -> str:
 
 
 def _scalar(value: object) -> str:
+    if isinstance(value, Mapping):
+        table = cast(Mapping[str, object], value)
+        keys = {k: k if re.fullmatch(r"[A-Za-z0-9_-]+", k) else _string(k) for k in table}
+        return "{ " + ", ".join(f"{keys[k]} = {_scalar(v)}" for k, v in sorted(table.items())) + " }"
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, int):
@@ -493,7 +822,8 @@ def _scalar(value: object) -> str:
 
 def lock_text(lock: Lock) -> str:
     """The canonical text of ``lock``: the header comment, ``schema`` and ``design``, then the non-empty
-    sections in the order of ``SECTIONS`` with keys in code-point order; LF line ends, one final newline,
+    sections in the order of ``SECTIONS`` with keys in code-point order (the keys inside a table, such as a
+    pick, in the order of the table); LF line ends, one final newline,
     no date and no absolute path."""
     lines = [HEADER, f"schema = {_string(SCHEMA)}", f"design = {_string(lock.design)}"]
     for section in SECTIONS:
@@ -507,19 +837,39 @@ def lock_text(lock: Lock) -> str:
         for key, value in sorted(entries.items()):
             if isinstance(value, str):
                 continue
+            if section.name == "library":
+                lines += ["", f"[library.{LIBRARY_TABLE}.{_string(key)}]"]
+                lines += [f"{name} = {_scalar(value[name])}" for name in LIBRARY_FIELDS if name in value]
+                continue
             lines += ["", f"[{section.name}.{_string(key)}]"]
-            lines += [f"{_string(name)} = {_scalar(item)}" for name, item in sorted(value.items())]
+            if section.name == "pins":
+                shown = {**value, "choice": pin_choice_text(value)}
+                lines += [f"{name} = {_scalar(shown[name])}" for name in PIN_FIELDS if name in shown]
+                continue
+            lines += [f"{_string(name)} = {_scalar(item)}" for name, item in value.items()]  # fixed key order
     return "\n".join(lines) + "\n"
 
 
 def needs_lock(design: Design) -> bool:
-    """Whether ``design`` has a part without an explicit ref (a design with a lock file needs it too)."""
-    return any(part.explicit_ref is None for part in design.parts.values())
+    """Whether ``design`` has a part without an explicit ref, a query part (change c0254), a take (change
+    c0257) or an instance of a block with a record (change c0268), whose ref, pick, pin choice or block
+    version the lock keeps (a design with a lock file needs it too)."""
+    from fenolite.dsl.block import blocks
+    from fenolite.dsl.take import design_takes
+
+    return (
+        any(part.explicit_ref is None or part.call_query is not None for part in design.parts.values())
+        or bool(design_takes(design))
+        or any(found.definition.header is not None for found in blocks(design))
+    )
 
 
 __all__ = [
+    "BLOCK_PIN",
     "HEADER",
+    "LIBRARY_FIELDS",
     "LOCK_CODES",
+    "PIN_FIELDS",
     "REASONS",
     "SCHEMA",
     "SECTIONS",
@@ -533,9 +883,12 @@ __all__ = [
     "SectionResult",
     "assign_refs",
     "frozen_issues",
+    "hand_refs",
     "lock_text",
     "make_lock",
     "natural_key",
     "needs_lock",
+    "picks_resolver",
+    "pin_choice_text",
     "read_lock",
 ]

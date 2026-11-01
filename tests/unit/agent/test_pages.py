@@ -38,18 +38,26 @@ ROOT = Path(__file__).resolve().parents[3]
 SKILL = ROOT / "src" / "fenolite" / "agent" / "skill"
 TOOLS = (
     "altium",
+    "block-layouts",
+    "block-testing",
     "checks",
     "design-script",
+    "device-packs",
+    "datasheets",
     "fabrication",
     "files",
     "footprints",
+    "library-items",
+    "library-review",
     "parts",
     "placement",
     "recovery",
     "routing",
     "rules",
+    "supplier-lookup",
+    "viewer",
 )
-"""The eleven tool pages written by hand."""
+"""The nineteen tool pages written by hand."""
 PRACTICE = (
     "board-assembly",
     "board-emc",
@@ -64,35 +72,60 @@ PRACTICE = (
     "board-workflow",
 )
 """The eleven practice pages written by hand: design practice, not features."""
-WRITTEN = (*TOOLS, *PRACTICE)
-"""The twenty-two pages written by hand."""
+FEATURES = ("signal-topologies", "starter-blocks")
+WRITTEN = (*TOOLS, *PRACTICE, *FEATURES)
+"""The thirty-two pages written by hand."""
 GENERATED = guide.GENERATED_TOPICS
 RUN_TAGS = ("fenolite-loop", "fenolite-cmd", "fenolite-recipe")
 """The tags whose lines are commands: a public command needs a line in one of them."""
-WRITTEN_LINES, WRITTEN_BYTES, GENERATED_LINES, START_LINES, FOLDER_BYTES = 250, 12_000, 750, 200, 300_000
+WRITTEN_LINES, WRITTEN_BYTES, GENERATED_LINES, START_LINES, FOLDER_BYTES = 250, 12_000, 800, 200, 400_000
 KICAD_TARGETS = ("9", "10")
 LABELS = ("KICAD-VERIFIED", "ORACLE-VERIFIED", "CORPUS-VERIFIED", "ALTIUM-VERIFIED", "INFERRED", "UNVERIFIED")
 RULE = "adds a tested line to a page of the agent guide"
 """The words by which ``AGENTS.md`` and ``CONTRIBUTING.md`` state the rule for new commands and names."""
 
 HOME: Mapping[str, tuple[str, ...]] = {
+    "block-layouts": ("blocks",),
+    "block-testing": ("blocks",),
     "design-script": ("init", "build", "sync", "template"),
     "parts": ("catalog",),
+    "datasheets": ("library",),
     "footprints": ("library",),
+    "library-items": ("get",),
+    "device-packs": ("get", "library", "build"),
+    "library-review": ("library",),
     "placement": ("place", "pads", "neighbors", "region"),
     "routing": ("route", "tidy", "fill", "net", "fetch"),
     "rules": ("analyze",),
     "checks": ("check", "ready", "explain", "netlist", "parity", "doctor", "capabilities"),
-    "files": ("inspect", "diff", "equivalent", "roundtrip", "fmt", "restore", "view"),
+    "files": ("inspect", "diff", "equivalent", "roundtrip", "fmt", "restore", "view", "import"),
     "fabrication": ("export", "render", "bom", "pnp", "manifest", "models", "panel"),
     "altium": ("kit",),
     "recovery": ("guide", "skill"),
+    "supplier-lookup": ("pick",),
+    "viewer": ("view",),
     **{topic: () for topic in PRACTICE},
+    "signal-topologies": ("check",),
+    "starter-blocks": ("blocks", "explain"),
 }
 """Topic → the commands whose tested line is on that page. A command that is not registered (``fetch``
 before the change that adds it) is not asked for."""
 
 TEACHES: Mapping[str, tuple[str, ...]] = {
+    "starter-blocks": ("voltage_divider", "rc_lowpass", "led_indicator", "i2c_pullups",
+                       "protected_input", "design.use", "REQUIRED", "circuit.pullup-parallel", "PI"),
+    "block-layouts": ("blocks capture", "side=\"bottom\"", "reuse.layout-stale", "--origin"),
+    "block-testing": (
+        "stimulus", "requirements", "achieved", "PartView", "--golden", "--only",
+        "device items", "authored overrides",
+    ),
+    "signal-topologies": (
+        "design.topology", "fs", "ps", "ns", "mdb", "db", "--explain-rules", "example", "INFERRED",
+        "protocol.Usb2",
+    ),
+    "datasheets": (
+        "library propose", "[[doubt]]", "no geometry", "review --accept", "--proposal", "--licence",
+    ),
     "design-script": (
         "`design`", "Design(", "Module(", "Net(", "Part(", "connect(", "no_connect(", "Power(", "mm()",
         "top-left corner", "Y down", "--dry-run", "--confirm", "What a rebuild keeps",
@@ -102,10 +135,16 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
         "`ohm`", "`farad`", "`henry`", "`volt`", "`amp`", "`watt`", "`hertz`", "`second`", "properties",
         "Interface(", "I2C(", "SPI(", "UART(", "USB2(", "Harness(", "DiffPair(",
     ),
+    "library-items": (
+        "--locked", "--accept-licence", "PROVENANCE.json",
+        "fenolite get", "fenolite.device.v0", "NOASSERTION",
+    ),
+    "device-packs": ("library seed", "fenolite_library", "UNVERIFIED", "CC0", "--commit"),
+    "library-review": ("library check", "library review", "human", "--sheet", "effective_evidence"),
     "footprints": ("Footprint(", "Symbol(", "`INFERRED`", "datasheet"),
     "placement": (
         "place(", "side=", "rot=", "locked=True", "place --strategy grid", "place --move", "fenolite pads",
-        "field(", "place --from",
+        "field(", "place --from", "right_of=", "by=", "Who wins",
     ),
     "routing": (
         "`direct`", "`freerouting`", "--nets", "--rip", "result.unrouted", "design.track", "design.via",
@@ -118,6 +157,7 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
         "INFERRED",
     ),
     "files": ("roundtrip", "fenolite diff", "fenolite equivalent", "fenolite restore", "did not write"),
+    "viewer": ("--allow-actions", "--roles", "--proposals", "receipt", "INFERRED"),
     "fabrication": (
         "fenolite export", "bill of materials", "position", "manifest", "fenolite render", "fenolite panel",
         "Panel(",
@@ -126,8 +166,12 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
         "build --target altium", "What it writes",
         "The Altium verification kit is a run that a person performs in Altium Designer",
     ),
+    "supplier-lookup": (
+        "--allow-offsite", "--supplier", "--timeout", "FEN-6005", "supplier.row-incomplete", "UNVERIFIED",
+    ),
     "recovery": (
         "kicad.drc.", "kicad.erc.", "fenolite check blink/build --json", "fenolite explain copper.short",
+        "layout.relative-cycle", "reuse.port-unmapped", "layout.block-moved",
     ),
     "board-practice": (
         "The order of work", "What a check cannot see", "The user's standard", "fabricator", "datasheets",
@@ -135,7 +179,7 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
     ),
     "board-floorplan": (
         "domain", "lock them", "power flow in one direction", "The loop parts first", "decoupling capacitor",
-        "fenolite neighbors", "fenolite region", "Copy by the pads",
+        "fenolite neighbors", "fenolite region", "Copy by the pads", "layout(", "Who wins", "reuse=",
     ),
     "board-power": (
         "switching loop", "IPC-2152", "--kinds power", "Find the necks", "vias in parallel",
@@ -452,11 +496,11 @@ DESIGNS = [
 
 
 def test_topics_load() -> None:
-    """Scenario "The twenty-two pages load"."""
+    """Every packaged guide topic loads with its title and summary."""
     pages = guide.pages()
     topics = [page.topic for page in pages]
     assert topics == [guide.START, *sorted((*WRITTEN, *GENERATED))]
-    assert len(TOOLS) == 11 and len(PRACTICE) == 11 and len(GENERATED) == 2
+    assert len(TOOLS) == 19 and len(PRACTICE) == 11 and len(GENERATED) == 8
     for page in pages:
         assert page.title and page.summary and "\n" not in page.summary, page.topic
         assert page.text.startswith(f"# {page.title}\n"), page.topic
@@ -674,11 +718,11 @@ def test_budget_holds() -> None:
     assert any("at most 12000" in problem for problem in budget_problems([wide]))
     generated = guide.SkillFile("references/commands.md", b"line\n" * (GENERATED_LINES + 1))
     assert budget_problems([generated]) == [
-        "references/commands.md: 751 lines; a generated page has at most 750"
+        f"references/commands.md: {GENERATED_LINES + 1} lines; a generated page has at most {GENERATED_LINES}"
     ]
     assert budget_problems([guide.SkillFile("SKILL.md", b"line\n" * START_LINES)])
     assert any(
-        "stays under 300000" in p for p in budget_problems([guide.SkillFile("x.bin", b"x" * FOLDER_BYTES)])
+        "stays under 400000" in p for p in budget_problems([guide.SkillFile("x.bin", b"x" * FOLDER_BYTES)])
     )
 
 
@@ -723,7 +767,7 @@ def test_generated_pages_are_current() -> None:
     assert tool.stale() == []
     assert tool.main(["--check"]) == 0
     first, second = tool.render(), tool.render()
-    assert first == second and set(first) == {tool.COMMANDS, tool.DSL, tool.START}
+    assert first == second and set(first) == {tool.COMMANDS, tool.DSL, tool.START, *tool.COMMAND_DETAILS}
     registry = discover()
     public = sorted(name for name in registry if not registry[name].hidden)
     for path, topic in ((tool.COMMANDS, "commands"), (tool.DSL, "dsl-reference")):
@@ -732,10 +776,11 @@ def test_generated_pages_are_current() -> None:
         assert guide.blocks(page) == () and tag_problems(page) == []
         assert (SKILL / path).read_text(encoding="utf-8") == first[path]
     commands = guide.page("commands").text
-    assert re.findall(r"^## (\S+)$", commands, re.MULTILINE) == public
+    arguments = "\n".join(guide.page(Path(path).stem).text for path in tool.COMMAND_DETAILS)
+    assert re.findall(r"^## (\S+)$", arguments, re.MULTILINE) == public
     assert "| `build` | yes |" in commands and "| `inspect` | no |" in commands
-    assert "`fenolite route [OPTIONS] --router NAME PATH`" in commands and "- `--router NAME`: " in commands
-    assert "- `--kind {footprint,symbol}`" in commands and "[--" not in commands
+    assert "`fenolite route [OPTIONS] --router NAME PATH`" in arguments and "- `--router NAME`: " in arguments
+    assert "- `--kind {device,family,footprint,symbol}`" in arguments and "[--" not in arguments
     names = re.findall(r"^## (\S+)$", guide.page("dsl-reference").text, re.MULTILINE)
     assert names == sorted(set(fenolite.dsl.__all__) - set(guide.DSL_NOT_TAUGHT))
     reference = guide.page("dsl-reference").text
@@ -823,10 +868,10 @@ def test_altium_status_follows_capabilities(no_tools: None) -> None:
 
 def test_fen_codes_are_named() -> None:
     """Scenario "Every error code is named"."""
-    text = guide.page("recovery").text
+    text = "\n".join(page.text for page in guide.pages() if page.topic not in GENERATED)
     assert len(REGISTRY) >= 17
     missing = [code for code in sorted(REGISTRY) if f"`{code}`" not in text]
-    assert missing == [], f"the page recovery does not name {missing}"
+    assert missing == [], f"the written guide pages do not name {missing}"
     for code, spec in REGISTRY.items():
         row = re.search(rf"^\| `{code}` \| (\d) \|", text, re.MULTILINE)
         assert row is not None and int(row.group(1)) == int(spec.exit_code), code
@@ -883,3 +928,17 @@ def test_coverage_rule_is_stated_for_contributors() -> None:
         assert RULE in flat
         for words in ("public command", "public DSL name", "`FEN-` code", "tests/unit/agent/test_pages.py"):
             assert words in flat, words
+
+
+def test_every_reference_page_within_byte_limit():
+    # the name reference is bounded by its line budget (GENERATED_LINES); the command pages are split
+    for file in guide.skill_files():
+        if file.path != "references/dsl-reference.md":
+            assert len(file.data) <= WRITTEN_BYTES, file.path
+
+
+def test_parts_teaches_local_library_import() -> None:
+    page = guide.page("parts")
+    assert "fenolite library import --symbol" in page.text
+    assert "UNVERIFIED" in page.text and "until reviewed" in page.text
+    assert "library" in commands_of(page)

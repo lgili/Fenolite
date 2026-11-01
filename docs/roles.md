@@ -50,13 +50,17 @@ The **groups** name pads as `REF-PIN`:
 ## Part classes
 
 The inference first gives each part a class: `transistor`, `diode`, `inductor`, `capacitor`, `resistor`,
-`shunt`, `driver`, `amplifier`, `controller`, `connector`, `net_tie` or `other`, with its terminals
-(`gate`, `drain`, `source`, `kelvin_source` of a transistor, `force` and `sense` of a shunt, `in_p`,
-`in_n`, `out` of an amplifier, `drive`, `ret`, `sw` of a driver or controller). The evidence is weighed in
-this order: the class you state (`design.part_class`, `--class REF=CLASS`), the pin names, the pin types,
-the value or the pad count (a resistor of at most `shunt_max_mohm` is a shunt; four pads make a four-pad
-shunt), and last the reference prefix. A class from the prefix alone is `low` confidence, and a rule that
-reads it gives no role.
+`shunt`, `ferrite`, `fuse`, `jumper`, `driver`, `amplifier`, `controller`, `connector`, `net_tie` or
+`other`, with its terminals (`gate`, `drain`, `source`, `kelvin_source` of a transistor, `force` and `sense`
+of a shunt, `in_p`, `in_n`, `out` of an amplifier, `drive`, `ret`, `sw` of a driver or controller). The
+evidence is weighed in this order: the class you state (`design.part_class`, `--class REF=CLASS`), the
+`class` of the part's device record (`high`, evidence `device`; `docs/devices.md`), the pin names, the pin
+types, the prefixes `FB`, `F` and `JP` (`ferrite`, `fuse` and `jumper`, `medium`: read before the value,
+since a ferrite's `600R` reads like a resistance), the value or the pad count (a resistor of at most
+`shunt_max_mohm` is a shunt; four pads make a four-pad shunt), and last the reference prefix. A class from
+the prefix alone is `low` confidence, and a rule that reads it gives no role. No inference rule reads
+`ferrite`, `fuse` or `jumper`: they serve the electrical contracts (`docs/contracts.md`), where a ferrite's
+current is judged like an inductor's and links carry a stated voltage.
 
 The pin names come from the circuit: the `.fenolite/` model of a project that Fenolite built, or the pads'
 pin functions of a board that holds them (KiCad writes them from a schematic). A board read alone without
@@ -161,6 +165,20 @@ Two measures have no analysis; `fenolite.roles.kelvin` walks the copper of `anal
 
 Each finding names its limit as `key=value (origin)`: `profile` with the source of the default,
 `override` or `requirements`.
+
+## The requirement table
+
+Change c0253 gives the role checks rows in the one requirement table of [contracts.md](contracts.md):
+`summary.requirements` of the stage `roles.rules` and `result.requirements` of `fenolite roles --check`.
+Each loop measured against a limit is a row (`roles.loop-area:<loop>:loop_ratio_max`, and
+`...:loop_max` when you set one; the same for gate loops and Kelvin pairs), and each power path's width
+by the rule of thumb is a row (`roles.width-current:<where>`). A limit of the profile has the source
+`policy`, with a basis naming its key and its `S-` or `H-G-ROLE-` id; an override has the source `user`
+and the basis `role_limits`; a requirements limit has the source `user` and the basis `requirements.toml`.
+A measure of a role is a value of source `role`. For a project that Fenolite built, `fenolite roles
+--check` joins the rows of the stage `circuit.rules` on its model (part ratings, expectations), and a
+`[[current]]` row or `--current` bounds the circuit rows too. The findings, their messages and their
+severities do not change.
 
 ## Codes
 
@@ -320,6 +338,30 @@ by corridors `role.corridor.<group>.<net>` that keep every pour off the branch. 
 - **Reference boards.** Each board has an `open.py` variant: its `bad` placement and power-copper faults,
   without its critical copper. Routed, the buck and the bms keep only their power-copper faults; the
   half-bridge routes both gate loops and reports its sense pair blocked by the switch-node pour under it.
+
+## Proposals after the critical routes
+
+`fenolite route BOARD --router octilinear --propose` (change c0280, phase 4) lists every open connection that
+the power copper and the critical routes leave, with candidate shapes and the facts of each, and no score
+(`docs/routing.md`, "Proposals"). Nothing reaches the board without `--accept ID` and a confirmed plan.
+
+- **Run order.** Phase 1 (`design.role_copper()` in the script, or `fenolite copper`), phase 2
+  (`route --roles critical`), then phase 4 (`route --propose`, `--accept`), then `fenolite fill` and
+  `fenolite roles BOARD --check`. Phase 3, a search router for what is left, comes after.
+- **The leftovers.** On the role-copper reference variants after phase 2 (measured with KiCad 10.0.7):
+  the buck's ground pad `C3-2` on `F.Cu`, with the ground plane on `B.Cu` and no via, is a `fanout`
+  subject, and `bad_roles` adds `C3-1` outside the `VOUT` pour (a `join`); the half-bridge's Kelvin-source
+  pads, whose gate returns leave them, apart from their source pours (`join`: `Q2-2` on both variants,
+  `Q1-2` on `good_roles`); the bms `FET_S`, a confirmed power net without a current, so phase 1 made no
+  copper: two `role-net` subjects, the two sources joined and one Kelvin-source pad, each candidate at the
+  class width with `current: not-declared` and the alternative `confirm` (`fenolite roles BOARD --accept
+  FET_S`, then `fenolite copper`). The facts name the candidates that would make a gate return carry the
+  power current (`roles.gate-return-shared`); the others lock clean, and KiCad's DRC then finds no
+  unconnected item.
+- **Groups phase 2 left open.** Each is a `group` subject, its candidates from role mode with one relaxation
+  at a time; a relaxed candidate is labelled and its `roles` facts show what it breaks.
+- **Altium.** As for phase 2: the Altium deliverable is `fenolite convert BOARD --to altium`; the accepted
+  tracks and vias keep their lock, and a group candidate's corridors become keep-out regions.
 
 ## Limits
 

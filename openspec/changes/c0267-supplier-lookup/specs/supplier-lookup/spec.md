@@ -6,7 +6,7 @@ The extra `suppliers` SHALL add only `keyring`, and `fenolite.suppliers` SHALL r
 #### Scenario: Plugins without the extra
 - **GIVEN** an environment where `keyring` cannot be imported
 - **WHEN** `uv run pytest tests/unit/suppliers/test_registry.py` loads the entry points
-- **THEN** the four plugins load, and each reads credentials from environment variables only
+- **THEN** the four plugins load, and none reads credentials or creates transport until explicitly named and ready; environment lookup works without keyring
 
 ### Requirement: The user's own credentials
 A plugin SHALL read credentials only from the variables `FENOLITE_<SOURCE>_<NAME>` and then the keyring service `fenolite.suppliers.<source>`, never from a project file, an argument or a default. Secrets MUST never appear in a reply, error, plan, receipt, log or written file; missing ones MUST exit 6 with `FEN-6001` naming the variables, never their values.
@@ -17,7 +17,7 @@ A plugin SHALL read credentials only from the variables `FENOLITE_<SOURCE>_<NAME
 - **THEN** the exit code is 6 with `FEN-6005`, and the canary appears in none of stdout, stderr, the plan or any file under the project
 
 ### Requirement: Source policy as data
-Each plugin SHALL declare one `SourcePolicy` with `terms`, `attribution`, `cache`, `terms_max_age_s`, `rate`, `sends`, `persist` and `evidence`, equal to the values recorded with their sources in `docs/formats/suppliers/<name>.md`. A cache age MUST NOT exceed `terms_max_age_s`, and Farnell's cache MUST be `none`.
+Each plugin SHALL declare one `SourcePolicy` with `terms`, `attribution`, `cache`, `terms_max_age_s`, `rate`, `sends`, `persist` and `evidence`, equal to the values recorded with their sources in `docs/formats/suppliers/<name>.md`. Unknown permissions MUST keep `ready=false`, `persist=[]` and cache disabled before credentials or transport. A cache age MUST NOT exceed known `terms_max_age_s`.
 
 #### Scenario: Policies agree with their pages
 - **WHEN** `uv run pytest tests/unit/suppliers/test_policy.py` runs
@@ -28,7 +28,7 @@ Supplier answers SHALL be cached at most for one process and only when the polic
 
 #### Scenario: Nothing outlives the run
 - **GIVEN** a fake transport and a temporary home and cache folder
-- **WHEN** two proposals for one query run in one process, then a third in a new process
+- **WHEN** two lookups reuse one explicitly permitted cache object, then a third uses a new lookup object
 - **THEN** the second sends no request, the third sends one, and no file was created outside the planned rows
 
 ### Requirement: What is sent offsite
@@ -40,15 +40,15 @@ A plugin SHALL build its request only from the canonical query text and its cred
 - **THEN** every recorded request holds only terms of the query and the credentials, and none holds `secret-board`
 
 ### Requirement: Proposal rows
-A confirmed proposal SHALL write `devices/proposed/<MPN>.toml` with only the policy's `persist` fields, `evidence = "UNVERIFIED"`, `licence = "see source terms"` and `[provenance]` (`source`, `query`, `retrieved`, `attribution`). Price, stock, lifecycle and reported parameters MUST appear only in `result.proposals`.
+An explicitly permitted confirmed identity draft SHALL use schema `fenolite.supplier-proposal.v0` under `devices/proposed/`, with only the policy's `persist` fields, `evidence = "UNVERIFIED"`, `licence = "see source terms"` and `[provenance]` (`source`, `query`, `retrieved`, `attribution`). Price, stock, lifecycle and reported parameters MUST appear only in `result.proposals`.
 
 #### Scenario: Offers are shown, not written
-- **GIVEN** the fake DigiKey response `tests/fixtures/suppliers/digikey/keyword_mlcc.json`
+- **GIVEN** the authored Mouser response and an explicitly fictional test permission policy
 - **WHEN** the proposal is confirmed with `--confirm --plan <plan_id>`
 - **THEN** `result.proposals` held stock and price, and the written row holds neither, nor the reported capacitance
 
 ### Requirement: Parameters from a grammar
-When a c0263 family decodes a proposed MPN inside its validity matrix, the row SHALL take that candidate's symbol, footprint, pins, kind, value and ratings and `decoded_by`; otherwise it MUST hold the identity only and give `supplier.row-incomplete` naming the keys to fill.
+A unique valid c0263 decode SHALL add a grammar-owned review suggestion and `decoded_by`; otherwise the draft MUST hold identity only and give `supplier.row-incomplete`. Picks MUST skip identity drafts pending human review and conversion to complete device records. Supplier attributes MUST NOT supply device parameters.
 
 #### Scenario: A decoded and an unknown MPN
 - **GIVEN** `examples/families/` and a fake answer holding `EX03R104KAT` and an MPN no family decodes
@@ -71,7 +71,7 @@ Every proposal in `result.proposals`, in the text view and in a written row's pr
 - **THEN** each reply entry and each written row holds its source's attribution text
 
 ### Requirement: Rate limits and failures
-A plugin SHALL enforce its policy's rate per process, honour one `Retry-After` within `--timeout` with `supplier.rate-limited`, and map failures: 401/403 to `FEN-6005`, network errors, timeouts, 5xx and a repeated 429 to `FEN-6003` (retryable), an undocumented response shape to `FEN-3004`.
+A plugin SHALL enforce its policy's rate for each lookup run, honour one `Retry-After` within `--timeout` with `supplier.rate-limited`, and map failures: 401/403 to `FEN-6005`, network errors, timeouts, 5xx and a repeated 429 to `FEN-6003` (retryable), an undocumented response shape to `FEN-3004`.
 
 #### Scenario: A repeated 429
 - **GIVEN** a fake transport answering 429 with `Retry-After: 1` twice and a fake clock
@@ -94,8 +94,17 @@ Every supplier test SHALL run with `socket.socket` patched to raise, through a f
 - **THEN** it passes with the socket patched, and every fixture has a sidecar whose source id is registered
 
 ### Requirement: Supplier codes
-`supplier.rate-limited` (warning), `supplier.proposed`, `supplier.row-incomplete`, `supplier.no-results` and `supplier.unmapped` (info) SHALL be `fenolite.suppliers.codes.ISSUE_CODES`, each explained by `fenolite explain`.
+`supplier.rate-limited` (warning), `supplier.proposed`, `supplier.row-incomplete`, `supplier.no-results` and `supplier.unmapped` (info) SHALL be statically declared outside the provider runtime and re-exported as `fenolite.suppliers.codes.ISSUE_CODES`, each explained by `fenolite explain`.
 
 #### Scenario: Every supplier code is explained
 - **WHEN** `uv run pytest tests/unit/cli/test_explain_cmd.py` runs
 - **THEN** every `supplier.*` code has an entry whose `see` is the heading `suppliers`
+
+
+### Requirement: Source readiness is evidence-gated
+Production providers SHALL remain unavailable when current terms, persistence rights or response mapping are unverified. Credentials MUST NOT override this gate. JLC MUST remain unregistered until approved maintainer documentation and terms are recorded. Authored fixtures MUST NOT establish production permission.
+
+#### Scenario: A key cannot enable an unverified source
+- **GIVEN** credentials exist for a registered provider whose policy is unavailable
+- **WHEN** a proposal explicitly names it
+- **THEN** FEN-6001 names the source-review gap before credentials or transport are accessed

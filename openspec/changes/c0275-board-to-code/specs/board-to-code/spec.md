@@ -151,3 +151,11 @@ The `result` of `fenolite import` (schema `fenolite.import.v0`) SHALL hold `sour
 #### Scenario: Schema and explain
 - **WHEN** `uv run pytest tests/consistency -q` runs and `fenolite explain import.unequal` is called
 - **THEN** the import's result validates against `fenolite.import.v0.json` and the explanation names the self-check
+
+
+### Requirement: Corpus measurement records
+The corpus proof SHALL write an aggregate JSON measurement per temporary test case before asserting success. CI MUST retain these records on failure. Records MUST contain counts and verdicts only, without source payloads. Exit-code, equivalence and omission-count assertions MUST remain enforced.
+
+#### Scenario: A stale census remains diagnosable
+- **WHEN** the corpus job finds an omission count unlike its recorded row
+- **THEN** the job fails and retains its measured counts for reviewed table regeneration

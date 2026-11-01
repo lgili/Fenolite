@@ -31,6 +31,7 @@ by `docs/roadmap.md`, Open decisions, row 36.
 1. **One command downloads.** Fenolite downloads an external tool only inside `fenolite fetch NAME`. No
    other command opens a network connection for a tool: not `route`, not `doctor`, not `capabilities`,
    not `build`.
+   *2026-10-29:* `fenolite get` is a second downloading command, for library items only; see ADR-0008.
 2. **Only with `--confirm`.** `--dry-run`, and a run with neither flag, show the plan (the file, its size,
    its SHA-256, its address and its licence) and make no request.
 3. **Only a table row.** The address is that of a row of `src/fenolite/cli/data/fetch.toml`. A public row

@@ -71,6 +71,19 @@ fenolite diff base/board.kicad_pcb mine/board.kicad_pcb --three-way theirs/board
   file, bisect with variants that each hold a single change.
 - **Pin the version of Fenolite** that a chain uses, and record it with the outputs.
 
+## Edits made in KiCad
+
+- **Edits in KiCad survive a build.** Values, footprints and positions are merged three ways against
+  `fenolite-base.json`, and `edit.unrecorded` names each kept edit. Record them with `sync --to-source`
+  in `edits.toml`, and commit it.
+- **A change on both sides is a `sync.conflict`.** Nothing is written. Choose a side with `--take`,
+  build, then sync.
+
+```fenolite-cmd
+fenolite build design.py --out build --take cad:R1#value --dry-run --json
+fenolite sync design.py --out build --to-source --dry-run --json
+```
+
 ## Files that a person has open
 
 - **The open copy wins.** A CAD tool holds the file it opened in memory. When it saves, it writes that
@@ -79,6 +92,32 @@ fenolite diff base/board.kicad_pcb mine/board.kicad_pcb --three-way theirs/board
 - **Write a new version folder** rather than replace a file that may be open. The owner opens the new
   folder when ready.
 - **A window you cannot see is still open.** Do not assume that a GUI session is closed.
+
+## Working on the owner's project
+
+```fenolite-cmd
+fenolite doctor --sessions project --json
+fenolite snapshot project/board.kicad_pcb --out work --confirm --json
+fenolite publish work --to project --receipt work/snapshot.json --dry-run --json
+fenolite refs work --json
+fenolite refs work --repoint C:/old/libs=C:/new/libs --dry-run --json
+```
+
+Do not edit the owner's files in place while they may be open:
+
+1. `doctor --sessions` lists the files open in KiCad (`safety.open-session`) and the files a sync client
+   keeps only online. Ask the owner to close them; every writing command repeats that warning for a file
+   of its plan.
+2. `snapshot` copies the board with its companions only when no save fell inside the copy, and writes
+   `snapshot.json`. Work on the copy.
+3. `publish` puts the copy back. It replaces a file only when its hash is still the one of
+   `snapshot.json`. A file the owner saved since is `safety.changed-since-receipt`, and nothing is written:
+   tell the owner, take a new snapshot, and do the edit again. Keep the envelope of the publish: it is the
+   receipt of the next one.
+4. `refs` lists the paths the documents hold. `refs.outside` means the copy still depends on another folder;
+   `--repoint OLD=NEW` rewrites a prefix in the KiCad documents.
+
+Exit 3 with `FEN-3007` means a file is kept only online: ask the owner to make the folder available offline.
 
 ## Files that point at each other
 

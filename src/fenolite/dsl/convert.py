@@ -17,16 +17,23 @@ from types import MappingProxyType
 from typing import cast, overload
 
 from fenolite import __version__
+from fenolite.catalog.devices import device_digest
 from fenolite.core.coords import Point, Size
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm
+from fenolite.dsl.block import Block, blocks
+from fenolite.dsl.contracts import to_contracts
 from fenolite.dsl.design import MINIMUM_KINDS, Design, ImpedanceSpec
+from fenolite.dsl.devices import port_params
 from fenolite.dsl.errors import DslError
+from fenolite.dsl.interfaces import Interface as DslInterface
 from fenolite.dsl.items import DimensionSpec, GraphicSpec, TextSpec
 from fenolite.dsl.lock import assign_refs, make_lock
 from fenolite.dsl.module import Module as DslModule
 from fenolite.dsl.panel import Panel
 from fenolite.dsl.part import FieldRequest, PadZoneRequest, Part, Placement, check_name, pad_pairs
+from fenolite.dsl.portnets import PortHandle
+from fenolite.dsl.portnets import resolve as resolve_port_nets
 from fenolite.dsl.quantity import UNITS, Range
 from fenolite.dsl.roles import to_roles
 from fenolite.dsl.schematic import extract as schematic_composition
@@ -47,6 +54,7 @@ from fenolite.model.board import (
 from fenolite.model.circuit import (
     DECIMAL10_DIGITS,
     DECIMAL10_EXPONENTS,
+    BlockParam,
     Circuit,
     Component,
     Decimal10,
@@ -55,6 +63,7 @@ from fenolite.model.circuit import (
     Net,
     NetClass,
     PinRef,
+    Port,
     RangeUnit,
     ValueRange,
 )
@@ -93,10 +102,11 @@ KEYS: Mapping[str, tuple[str, str]] = MappingProxyType(
         "net": ("net", "net:<name>"),
         "netclass": ("cls", "netclass:<name>"),
         "interface": ("itf", "interface:<kind>:<name>"),
+        "port": ("prt", "port:<owner path>:<port name>"),
         "layer": ("lay", "layer:<KiCad name>"),
-        "zone": ("zon", "zone:<name>"),
+        "zone": ("zon", "zone:<key>"),
         "rule": ("rul", "rule:<kind>[:<net class>] or rule:named:<rule name>"),
-        "area": ("kpo", "area:<area name>"),
+        "area": ("kpo", "area:<key>"),
         "text": ("txt", "text:<drawing key>"),
         "graphic": ("gfx", "graphic:<drawing key>"),
         "dimension": ("dim", "dimension:<drawing key>"),
@@ -115,14 +125,24 @@ def key_id(kind: str, *parts: str) -> str:
     return derived_id(prefix, DSL_BACKEND, key if parts else form)
 
 
+DEVICE_PROPERTY = "fenolite.device"
+"""The reserved property that names the device of a built component (change c0248)."""
+DEVICE_SHA256_PROPERTY = "fenolite.device.sha256"
+"""The reserved property that holds ``device_digest`` of the device of a built component."""
+
+
 def _component(part: Part) -> Component:
+    properties = {**part.properties, PATH_PROPERTY: part.path}
+    if part.device is not None:
+        properties[DEVICE_PROPERTY] = part.device.id
+        properties[DEVICE_SHA256_PROPERTY] = device_digest(part.device)
     return Component(
         id=key_id("component", part.path),
         ref=part.label,
         value=part.value,
         lib_symbol_ref=part.lib_id,
         lib_footprint_ref=part.footprint or "",
-        properties=dict(sorted({**part.properties, PATH_PROPERTY: part.path}.items())),
+        properties=dict(sorted(properties.items())),
         pin_pad_map=pad_pairs(part.pad_map),
         value_range=None if part.value_range is None else range_to_model(part.value_range),
     )
@@ -382,7 +402,93 @@ def _apply_refs(design: Design, refs: Mapping[str, str] | None) -> None:
         part.assigned = check_name(ref, f"ref of {path}")
 
 
+def _reference_id(reference: object) -> str | None:
+    """The model id of a reference rail (change c0252): a ``power`` interface or a port handle."""
+    if isinstance(reference, DslInterface):
+        return key_id("interface", reference.kind, reference.name)
+    if isinstance(reference, PortHandle):
+        return key_id("port", reference.owner_path, reference.name)
+    return None
+
+
+def _params(params: Mapping[str, Range]) -> dict[str, ValueRange]:
+    return {name: range_to_model(value) for name, value in sorted(params.items())}
+
+
+def _ports(design: Design) -> tuple[Port, ...]:
+    """One model port per port of a block instance, keyed by the block path and the port name; a member
+    whose group became no net (nothing on it) is left out (change c0251). Then one per declared interface
+    port of each device part (change c0252), owned by the component."""
+    found: list[Port] = []
+    for block in blocks(design):
+        for name, port in sorted(block.ports.items()):
+            found.append(
+                Port(
+                    id=key_id("port", block.path, name),
+                    name=name,
+                    owner=key_id("module", block.path),
+                    kind=port.kind,
+                    direction=port.direction,  # type: ignore[arg-type]
+                    members={
+                        member: key_id("net", net.name)
+                        for member, net in sorted(port.members.items())
+                        if net.name in design.nets
+                    },
+                    optional=port.optional,
+                    params=_params(port.params),
+                    reference=_reference_id(port.reference),
+                    share=port.share,
+                    requires=port.requires,
+                )
+            )
+    for part in sorted(design.parts.values(), key=lambda p: p.path):
+        found += _device_ports(design, part)
+    return tuple(found)
+
+
+def _device_ports(design: Design, part: Part) -> list[Port]:
+    """The model ports of the interfaces of ``part``'s device: each member holds the one net of the pins of
+    its functions; a member whose pins are on two nets goes to ``split`` (change c0252)."""
+    device = part.device
+    if device is None or not device.interfaces:
+        return []
+    found: list[Port] = []
+    for spec in device.interfaces:
+        members: dict[str, str] = {}
+        split: dict[str, tuple[str, ...]] = {}
+        for member, functions in sorted(spec.members.items()):
+            names: set[str] = set()
+            for function in functions:
+                designators = (function, *device.pin(function).pins)
+                names |= {part.connections[d].name for d in designators if d in part.connections}
+            names &= set(design.nets)
+            if len(names) == 1:
+                members[member] = key_id("net", next(iter(names)))
+            elif len(names) > 1:
+                split[member] = tuple(sorted(key_id("net", name) for name in names))
+        found.append(
+            Port(
+                id=key_id("port", part.path, spec.name),
+                name=spec.name,
+                owner=key_id("component", part.path),
+                kind=spec.kind,
+                direction=spec.direction,
+                members=members,
+                params=port_params(device, spec),
+                reference=key_id("port", part.path, spec.reference) if spec.reference else None,
+                requires=spec.requires,
+                split=split,
+                evidence=spec.evidence,
+            )
+        )
+    return found
+
+
 def _design_model(design: Design) -> ModelDesign:
+    from fenolite.dsl.take import apply_pending
+
+    apply_pending(design)  # takes never applied: solved against an empty lock (change c0257)
+    resolve_port_nets(design)
     parts = sorted(design.parts.values(), key=lambda p: p.path)
     components = tuple(_component(p) for p in parts)
     classes = {
@@ -421,6 +527,9 @@ def _design_model(design: Design) -> ModelDesign:
             name=name,
             kind=itf.kind,
             members={role: key_id("net", net.name) for role, net in itf.members.items()},
+            params=_params(itf.params),
+            reference=_reference_id(itf.reference),
+            shared=itf.shared,
         )
         for name, itf in sorted(design.interfaces.items())
     )
@@ -458,7 +567,7 @@ def _design_model(design: Design) -> ModelDesign:
                 outline=(
                     box if spec.outline is None else tuple(Point(x0 + x, y0 + y) for x, y in spec.outline)
                 ),
-                name=name,
+                name=spec.name,
                 layers=spec.layers,
                 net_id=key_id("net", spec.net) if spec.net is not None else None,
                 priority=spec.priority,
@@ -468,7 +577,39 @@ def _design_model(design: Design) -> ModelDesign:
             for name, spec in sorted(design.zones.items())
         )
     plain_rules = _rules(design)
+    from fenolite.dsl.protocol import expand
+
+    protocol_topologies, protocol_skews = expand(design)
     targets, derived = _impedance(design, {rule.name for rule in plain_rules})
+    if design.rules.specificity:
+        from fenolite.model.rules import selector_rank
+
+        all_rules = plain_rules + derived
+        ranks = {
+            rule.id: selector_rank(rule.selector_a)
+            + (selector_rank(rule.selector_b) if rule.selector_b is not None else 0)
+            for rule in all_rules
+        }
+        maximum = max(ranks.values(), default=0)
+        explicit_derived = {
+            f"{kind}_{spec.name}_{trace.layer}"
+            for spec in design.rules.impedance_targets.values()
+            if spec.priority_explicit
+            for trace in spec.traces
+            for kind in ("track_width", "diff_pair_gap")
+        }
+        plain_rules = tuple(
+            dataclasses.replace(rule, priority=maximum + 1 - ranks[rule.id])
+            if rule.name not in design.rules.explicit_priorities
+            else rule
+            for rule in plain_rules
+        )
+        derived = tuple(
+            dataclasses.replace(rule, priority=maximum + 1 - ranks[rule.id])
+            if rule.name not in explicit_derived
+            else rule
+            for rule in derived
+        )
     return ModelDesign(
         header=DesignHeader(
             id=key_id("design"), name=design.name, schema_version=SCHEMA_VERSION, fenolite_version=__version__
@@ -479,6 +620,7 @@ def _design_model(design: Design) -> ModelDesign:
             netclasses=tuple(classes.values()),
             interfaces=interfaces,
             modules=modules,
+            ports=_ports(design),
             no_connects=marks,
         ),
         board=Board(
@@ -501,7 +643,13 @@ def _design_model(design: Design) -> ModelDesign:
             proximity=_proximity(design),
             heights=tuple(limit for _, limit in sorted(design.height_limits.items())),
             impedance=targets,
+            propagation=tuple(row for _, row in sorted(design.propagation_inputs.items())),
+            losses=tuple(row for _, row in sorted(design.loss_inputs.items())),
+            topologies=tuple(topology.to_model() for _, topology in sorted(design.topologies.items()))
+            + protocol_topologies,
+            protocol_skews=protocol_skews,
             roles=to_roles(design),
+            contracts=to_contracts(design),
         ),
         findings=Findings(waivers=tuple(waiver for _, waiver in sorted(design.waivers.items()))),
         manufacturing=Manifest(id=key_id("manifest")),
@@ -522,7 +670,7 @@ def _keepouts(design: Design) -> tuple[Keepout, ...]:
             id=key_id("area", name),
             outline=tuple(_at(p) for p in area.outline),
             layers=area.layers,
-            name=name,
+            name=area.name,
             no_tracks="tracks" in area.forbid,
             no_vias="vias" in area.forbid,
             no_pads="pads" in area.forbid,
@@ -640,6 +788,12 @@ def _sheet(design: Design) -> SheetFrameRef | None:
     return dataclasses.replace(frame, drawing_sheet=f"{design.name}{SHEET_SUFFIX}")
 
 
+def drawn_schematic(design: Design) -> str | None:
+    """The drawn schematic that ``load_schematic()`` names, as written in the script (a path relative to
+    the script's folder), or ``None`` for a generated schematic (change c0276)."""
+    return design.drawn_source
+
+
 def drawing_sheet_source(design: Design) -> str | None:
     """The drawing sheet that ``sheet()`` names, as written in the script (a path relative to the script's
     folder), or ``None``."""
@@ -655,6 +809,9 @@ def _module(module: DslModule) -> Module:
         component_ids=tuple(
             key_id("component", c.path) for c in sorted(module.children, key=_path) if isinstance(c, Part)
         ),
+        block=module.definition.name if isinstance(module, Block) else "",
+        params=tuple(BlockParam(*entry) for entry in module.records) if isinstance(module, Block) else (),  # type: ignore[arg-type]
+        block_version=module.definition.version if isinstance(module, Block) else "",
     )
 
 
@@ -742,6 +899,7 @@ def planes(design: Design) -> Mapping[str, str]:
     A plane on a net that the design does not hold raises ``DslError`` naming it. The model gets no plane
     entity: a plane is a build parameter, as the copper count is.
     """
+    resolve_port_nets(design)
     for layer, net in design.planes.items():
         if net not in design.nets:
             raise DslError(f"the plane on {layer} names the net {net!r}, which the design does not hold")
@@ -815,6 +973,7 @@ __all__ = [
     "KEYS",
     "PATH_PROPERTY",
     "drawing_sheet_source",
+    "drawn_schematic",
     "schematic_composition",
     "fields",
     "pad_zones",

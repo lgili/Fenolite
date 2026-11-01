@@ -78,7 +78,7 @@ Each pick SHALL be the entry `[picks."<component path>"]` of the design lock wit
 - **THEN** every printed table reads back to its entries and prints again to the same bytes
 
 ### Requirement: Pick entry values
-`catalog` SHALL be `fenolite-catalog <CATALOG_VERSION>` for a shipped row and `project:<path relative to the script>` for a project row; `sha256` the SHA-256 of the row's canonical text; `achieved` the generator's range in integer micro-units, the minimum rounded down and the maximum rounded up.
+`catalog` SHALL be `fenolite-catalog <FAMILIES_VERSION>` for a shipped row and `project:<path relative to the script>` for a project row; `sha256` the SHA-256 of the row's canonical text; `achieved` the generator's range in integer micro-units, the minimum rounded down and the maximum rounded up.
 
 #### Scenario: A project row in the lock
 - **GIVEN** a query resolved to a row of `devices/caps.toml` beside the script

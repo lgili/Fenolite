@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite; captured block-local placement and copper.
+schema = "fenolite.block-layout.v0"
+block = "Fenolite:led_indicator"
+block_version = "1.0.0"
+parts_digest = "sha256:fca54c48516eb04374201a601e6b6b8dec6e60626b4caf7ecd11d55add2f3167"
+nets_digest = "sha256:61027e1ec5133298aa4713630e4b645425e51a7eaf1e8a30b99d7f43006e2043"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+
+[parts."led"]
+at = ["4mm", "0mm"]
+rotation = "180deg"
+side = "top"
+footprint = "Fenolite:LED0603_Kingbright_APT1608SURCK"
+
+[parts."r"]
+at = ["0mm", "0mm"]
+rotation = "0deg"
+side = "top"
+footprint = "Fenolite:Chip_0603"
+
+[[tracks]]
+net = "net:anode"
+layer = "F.Cu"
+width = "0.25mm"
+start = ["0.8mm", "0mm"]
+end = ["3.175mm", "0mm"]
+pads = ["led.2", "r.2"]

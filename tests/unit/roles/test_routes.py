@@ -112,7 +112,7 @@ def test_corridor_names() -> None:
 def test_phase_1_and_phase_2_corridors_share_names() -> None:
     """Phase 1's provisional corridor (c0243) and phase 2's corridor (c0244) of a branch carry one name, so
     phase 2 replaces every piece of the provisional one (``<name>.<n>`` included) and leaves the others."""
-    from fenolite.cli._roleroute import _with_corridors  # pyright: ignore[reportPrivateUsage]
+    from fenolite.cli._roleroute import with_corridors
     from fenolite.roles.copper import Corridor
 
     assert Corridor("kelvin_R1", "V+.a", "kelvin", "F.Cu", (), 1, "provisional").key == corridor_name(
@@ -129,7 +129,7 @@ def test_phase_1_and_phase_2_corridors_share_names() -> None:
     old = (area("rul_0", name), area("rul_1", f"{name}.1"), area("rul_x", f"{name}.x"),
            area("rul_o", corridor_name("k", "VB")))  # fmt: skip
     design = replace(design, board=replace(design.board, keepouts=old))
-    merged = _with_corridors(design, {"k": [area("rul_new", name)]})
+    merged = with_corridors(design, {"k": [area("rul_new", name)]})
     assert merged.board is not None
     assert [k.id for k in merged.board.keepouts] == ["rul_x", "rul_o", "rul_new"]
 

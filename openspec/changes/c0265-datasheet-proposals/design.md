@@ -330,3 +330,20 @@ No new `FEN-` code. Each `proposal.*` code joins `fenolite.library.codes` and `e
   target rule and the re-import rule.
 - **c0266** accepts only reviewed devices; a proposed device enters `fenolite-library` only after review.
 - **c0267** may propose identity and ordering data from suppliers; it never fills a pin table.
+
+Decided 2026-11-01 (user-authorized recommendations): review acceptance stays excluded from MCP;
+proposal input stays file-based; CC0 facts may be proposed; cited manufacturer lands remain allowed.
+Use H-G-PROPOSAL, replacing the draft H-L namespace with the established general/model namespace.
+Use distinct ProposalOrigin metadata with source digests and proposer identities, preserving importer
+provenance semantics; a reviewed proposal with an explicit compatible licence can be considered for
+the data repository. The default see-source-terms label grants no publication permission.
+
+Decided 2026-11-01: retain declared c0260 parameters such as grid `pad` and TO tab `y`; they describe
+physical package facts or land dimensions, not free drawing primitives. Centre exclusions use the
+existing `{center = "RxC"}` spelling. Geometry keys outside those declared parameter locations remain
+refused. This keeps all installed families usable without accepting authored geometry.
+
+Decided 2026-11-01: follow the existing CLI contract: a clean --dry-run exits 0; requesting a write
+without --dry-run/--confirm exits 4. Authored grid tests use a 3-by-3 grid and swap C2/C3. The input
+resource bound is 10,000 terminals (INFERRED), independently of the 100-terminal agreement threshold.
+Accept proposed records individually with their exact sheet digest, as the c0262 review contract does.

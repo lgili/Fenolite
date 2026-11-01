@@ -101,3 +101,21 @@ A built board whose block instances use block layouts, on the top and on the bot
 #### Scenario: Both sides in KiCad
 - **WHEN** `uv run pytest tests/kicad/blocks/test_block_layouts.py` builds `examples/blocks/layouts.py` with one instance on each side for targets 9 and 10
 - **THEN** each footprint lies at its recorded placement, and `kicad-cli pcb drc` reports neither a violation nor an unconnected item inside either instance
+
+### Requirement: Saved layout copper merge
+Owned layout tracks, arcs, vias and zones MUST retain code/output snapshots in a protected output file independent of caches. Unchanged CAD MUST follow an asset change; a CAD-only edit or deletion MUST survive repeated builds. Inconsistent changes on both sides, a corrupt snapshot, or ambiguous missing snapshots MUST refuse writes as `reuse.layout-conflict`. Explicit discard or recapture MAY resolve a conflict; generic part `--take` MUST NOT choose copper.
+
+#### Scenario: A saved copy edited in CAD
+- **GIVEN** a saved layout whose copied track, arc, via and zone are edited or deleted in CAD
+- **WHEN** the asset is unchanged and the board is rebuilt twice, including with its cache removed
+- **THEN** those edits and deletions survive and the protected snapshots describe the written output
+
+#### Scenario: The asset and CAD both changed
+- **GIVEN** an owned copy changed differently in the asset and in CAD
+- **WHEN** the build is reviewed
+- **THEN** it refuses writes with `reuse.layout-conflict` until explicit discard or a recaptured matching asset resolves it
+
+#### Scenario: A mirrored edited copy
+- **GIVEN** an owned copy edited in CAD and a block whose pose flips to the bottom
+- **WHEN** it is rebuilt with or without the cache
+- **THEN** the kept edit follows the block transform and mirrored layers, with no false conflict

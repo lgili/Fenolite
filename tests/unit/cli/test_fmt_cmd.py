@@ -118,3 +118,115 @@ def test_comments_below_the_root_are_refused(monkeypatch: pytest.MonkeyPatch, tm
     code, _, err, _ = run(monkeypatch, tmp_path, "fmt", str(target), "--confirm")
     assert code == 7 and err["code"] == "FEN-7001" and folder_snapshot(tmp_path) == before
     assert sexpr.first_line_difference("a", "a") is None
+
+
+# --- device records: v0 rewritten as v1 (change c0259, open question 3 decided on 2026-10-29) -------------
+
+DEVICES = DATA / "devices"
+V0_FILES = sorted(DEVICES.glob("*.toml"))
+
+
+@pytest.mark.parametrize("path", V0_FILES, ids=lambda p: p.stem)
+def test_device_v0_rewritten_as_v1(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, path: Path) -> None:
+    """Scenario "A v0 device file is rewritten as v1": the dry run plans one write, --confirm --plan writes
+    the reviewed bytes, the v1 record gives the same device, and a second run plans nothing."""
+    from fenolite.catalog.records import DeviceRecord, parse_record
+
+    text = path.read_text(encoding="utf-8")
+    target = tmp_path / path.name
+    target.write_bytes(text.encode("utf-8"))
+    before = folder_snapshot(tmp_path)
+
+    code, env, err, _ = run(monkeypatch, tmp_path, "fmt", path.name, "--check")
+    assert code == 5 and err["code"] == "FEN-5001" and folder_snapshot(tmp_path) == before
+    assert [(i["code"], i["where"]) for i in env["issues"]] == [("fmt.would-change", f"{path.name}:3")]
+
+    code, env, _, _ = run(monkeypatch, tmp_path, "fmt", path.name, "--dry-run")
+    assert code == 0 and folder_snapshot(tmp_path) == before
+    assert env["result"]["kind"] == "device" and env["result"]["schema"] == "fenolite.device.v0"
+    assert env["evidence"]["hypotheses"] == ["H-G-LIBRARY-RECORDS"]
+    assert [(p["path"], p["kind"]) for p in env["result"]["plan"]] == [(path.name, "device")]
+    plan = env["result"]["plan_id"]
+
+    code, env, _, _ = run(monkeypatch, tmp_path, "fmt", path.name, "--confirm", "--plan", plan)
+    assert code == 0 and env["receipt"]["backup"] == [f"{path.name}.bak"]
+    written = target.read_text(encoding="utf-8")
+    assert written.splitlines()[:2] == text.splitlines()[:2]  # the authored-for-Fenolite comment lines stay
+    old, new = parse_record(text), parse_record(written)
+    assert isinstance(old, DeviceRecord) and isinstance(new, DeviceRecord)
+    assert new.header.schema == "fenolite.device.v1" and new.device == old.device
+    assert (new.header.version, new.header.licence) == ("1.0.0", "CC0-1.0")
+
+    code, env, _, _ = run(monkeypatch, tmp_path, "fmt", path.name, "--check")
+    assert (
+        code == 0 and env["result"]["formatted"] is True and env["result"]["schema"] == "fenolite.device.v1"
+    )
+
+
+def test_device_rewrite_is_deterministic(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    source = DEVICES / "example_buck.toml"
+    outputs = []
+    for name in ("a", "b"):
+        folder = tmp_path / name
+        folder.mkdir()
+        (folder / "dev.toml").write_bytes(source.read_bytes())
+        assert run(monkeypatch, folder, "fmt", "dev.toml", "--confirm")[0] == 0
+        outputs.append((folder / "dev.toml").read_bytes())
+    assert outputs[0] == outputs[1]
+
+
+def test_device_v1_left_unchanged(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "A v1 device file is left unchanged": no plan, exit 0, the bytes stay, even when its layout is
+    not the canonical text."""
+    source = DATA / "library" / "devices" / "example_reg.toml"
+    target = tmp_path / "reg.toml"
+    loose = source.read_text(encoding="utf-8").replace(" = ", "  =  ")
+    target.write_bytes(loose.encode("utf-8"))
+    before = folder_snapshot(tmp_path)
+    for flags in (("--check",), ("--dry-run",), ("--confirm",)):
+        code, env, _, _ = run(monkeypatch, tmp_path, "fmt", "reg.toml", *flags)
+        assert code == 0 and env["result"]["formatted"] is True and "plan" not in env["result"], flags
+        assert env["issues"] == [] and folder_snapshot(tmp_path) == before
+
+
+def test_device_rewrite_licence(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Without a leading SPDX line the record says NOASSERTION; a Fenolite: id needs CC0-1.0 (FEN-3004)."""
+    text = (DEVICES / "example_buck.toml").read_text(encoding="utf-8")
+    body = "\n".join(line for line in text.splitlines() if not line.startswith("#")) + "\n"
+    (tmp_path / "bare.toml").write_text(body, encoding="utf-8")
+    assert run(monkeypatch, tmp_path, "fmt", "bare.toml", "--confirm")[0] == 0
+    assert 'licence = "NOASSERTION"' in (tmp_path / "bare.toml").read_text(encoding="utf-8")
+
+    own = body.replace("Example:BUCK", "Fenolite:BUCK").replace(
+        'ground = "GND"', 'ground = "GND"\nsources = ["S-0314"]'
+    )
+    (tmp_path / "own.toml").write_text(own, encoding="utf-8")
+    before = folder_snapshot(tmp_path)
+    code, _, err, _ = run(monkeypatch, tmp_path, "fmt", "own.toml", "--dry-run")
+    assert code == 3 and err["code"] == "FEN-3004" and "SPDX" in err["hint"]
+    assert folder_snapshot(tmp_path) == before
+
+
+def test_device_comments_in_the_body_are_refused(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    text = (DEVICES / "example_buck.toml").read_text(encoding="utf-8")
+    hashed = text.replace('summary = "', 'summary = "# not a comment ', 1)
+    (tmp_path / "hash.toml").write_text(hashed, encoding="utf-8")
+    assert run(monkeypatch, tmp_path, "fmt", "hash.toml", "--dry-run")[0] == 0
+    commented = text.replace('ref_prefix = "U"', 'ref_prefix = "U"  # the regulator', 1)
+    (tmp_path / "dev.toml").write_text(commented, encoding="utf-8")
+    before = folder_snapshot(tmp_path)
+    code, _, err, _ = run(monkeypatch, tmp_path, "fmt", "dev.toml", "--confirm")
+    assert code == 7 and err["code"] == "FEN-7001" and folder_snapshot(tmp_path) == before
+    assert err["where"].startswith("dev.toml:")
+
+
+def test_other_toml_files_are_refused(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    pins = DATA / "library" / "pins" / "two_pin.toml"
+    code, _, err, _ = run(monkeypatch, tmp_path, "fmt", str(pins), "--check")
+    assert code == 2 and err["code"] == "FEN-2001" and "fenolite.pins.v0" in err["message"]
+    (tmp_path / "other.toml").write_text('name = "x"\n', encoding="utf-8")
+    code, _, err, _ = run(monkeypatch, tmp_path, "fmt", "other.toml", "--check")
+    assert code == 2 and err["code"] == "FEN-2001"
+    (tmp_path / "broken.toml").write_text('schema = "fenolite.device.v0"\nid = \n', encoding="utf-8")
+    code, _, err, _ = run(monkeypatch, tmp_path, "fmt", "broken.toml", "--check")
+    assert code == 3 and err["code"] == "FEN-3004"

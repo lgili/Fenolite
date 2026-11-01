@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example; an illustrative device, not a real product. Its values are chosen
+# for the example and come from no datasheet.
+schema = "fenolite.device.v0"
+id = "Example:RES_100MW"
+summary = "0603 chip resistor rated 0.1 W (illustrative)"
+symbol = "Fenolite:Resistor"
+footprint = "Fenolite:Chip_0603"
+ref_prefix = "R"
+evidence = "UNVERIFIED"
+class = "resistor"
+ends = ["P1", "P2"]
+
+[pins]
+P1 = "1"
+P2 = "2"
+
+[ratings]
+power = { abs_max = "0.1W" }

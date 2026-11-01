@@ -212,13 +212,43 @@ Added to c0279's `check.yml` for changed block items, with the pinned `fenolite`
 
 ## Open Questions
 
-1. **Namespace of authored library blocks.** Recommended: `FenoliteBlocks`, Apache-2.0.
-2. **Should the starter library ever move out of the core?** Recommended: no. It stays small, and
+1. **Namespace of authored library blocks.** Decided 2026-11-01: `FenoliteBlocks`, Apache-2.0,
+   keeping authored library items distinct from core blocks.
+2. **Should the starter library ever move out of the core?** Decided 2026-11-01: no. It stays small, and
    everything else goes to the library (research question 1).
-3. **Company-private block libraries.** Recommended: later, through c0279's open question 7 (private
+3. **Private block libraries.** Decided 2026-11-01: later, through c0279's open question 7 (private
    libraries in the same format), not through entry points.
-4. **Should `fenolite get block --version` also plan the `[blocks]` rewrite?** Recommended: no. Keep the
+4. **Should `fenolite get block --version` also plan the `[blocks]` rewrite?** Decided 2026-11-01: no. Keep the
    two reviews separate: the files and licence in `get`, the circuit effect in `blocks upgrade`.
+
+## Implementation decisions — 2026-11-01
+
+- The authored release fixture lives in `tests/data/library_repo/block_items/`, outside the older
+  catalog fixture scans. Its package uses CC0-1.0 and placeholder authored licence/provenance files.
+- Static records preserve canonical parameter text, including outward-rounded range text, without
+  reconstructing or executing Python values. Catalog definitions load lazily only for explicit execution;
+  listing, showing and documenting read the stored record, never the definition property.
+- Integrated with c0270, `blocks test --script FILE` shares static catalog selection and then explicitly
+  executes the selected block tests; catalog errors and convention paths survive the shared dispatch.
+  Vendored tests keep their owning project's namespace import context. Usage builds copy
+  `fenolite_library/` into the private run folder, preserving dependencies and leaving source locks
+  untouched; golden plans bind the vendored namespace's file bytes, including imported dependencies.
+- Index defaults `--out` to `ITEM_DIR/block.json`; an explicit output path stays relative to the working
+  directory. Its reviewed plan binds all item source files. A fresh private import is cleaned after each
+  index run, so an edit in the same process cannot reuse a stale module.
+- Script-local imports temporarily set aside all `fenolite_library` modules and restore them afterwards,
+  including namespace packages with no `__file__`. Vendored module hints are derived from the full import
+  statement when Python reports only a missing ancestor package.
+- Upgrade uses one script run and the same build validation in memory with an explicit old-lock override.
+  It exposes only the lock write, preserves refs/picks/pins/library literally, and binds script-local
+  Python, record, item and baseline-circuit inputs to the review. A major step remains an explicit guard
+  for a historically pinned major even though the current decorator fixes MAJOR at 1.
+  Its records are captured inside that script import scope, so block-body relative imports keep the
+  same namespace during review instead of being re-executed after module cleanup.
+- An explicit `index --check` uses error severity for `blocks.index-stale` so the existing findings
+  protocol produces exit 5; ordinary builds retain warning severity for local edits.
+- Id replacements retain c0268's normal build transition. Upgrade selects version changes under the
+  same literal id; it does not infer renames. First-use pins remain the normal build's responsibility.
 
 ## Relation to the other changes of this batch
 

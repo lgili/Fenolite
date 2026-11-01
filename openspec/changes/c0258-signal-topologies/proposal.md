@@ -34,9 +34,10 @@ time and dB, protocol constraint objects, and a documented rule specificity.
 - **Rule specificity.** A documented rank of every selector; `rules.shadowed` (info) when a more specific
   rule loses; an opt-in `design.rules.precedence("specificity")`; and `fenolite check --explain-rules`,
   which prints the governing rule per item and kind with the rules it overrode.
-- **Lowering.** A single-net delay or skew with one propagation value on its layers lowers to KiCad's
-  `length`/`skew` rules; everything else is judged by Fenolite only, with `rules.topology-not-lowered`
-  (info). Native time-domain lowering waits for a KiCad probe.
+- **Lowering.** Proven whole-net delays and differential protocol skew lower to existing KiCad
+  `length`/`skew` kinds only when integer segment sums and pad paths establish equivalence. Endpoint
+  skew within one net and other constraints stay in Fenolite with `rules.topology-not-lowered` info.
+  Native time-domain lowering waits for a KiCad units/DRC probe.
 
 Depends on: c0256 (subjects, `findings()`), c0252 (interface kinds), c0248 (bridges in device records),
 c0246 (ranges, for protocol limits given as ranges), and the existing `rules.pair`, `rules.impedance`,

@@ -194,6 +194,10 @@ def _moved_item(item: Copper, move: Transform) -> Copper:
     )
 
 
+moved_item = _moved_item
+"""The image of a track, arc, via or zone under a move (change c0255: a block moved in a build)."""
+
+
 def moving_copper(design: Design, pads: Sequence[BoardPad], members: Collection[str]) -> frozenset[str]:
     """The ids of the tracks, arcs, vias and zones that move with the footprints ``members``: each joined
     group of a net, without fills, that holds a pad of them and no other pad, and each zone whose stored

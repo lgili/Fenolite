@@ -92,7 +92,7 @@ Codes, severities and what each needs. Constants are Fenolite-authored, recorded
 | `library.courtyard-containment` | error | footprint | the courtyard does not contain every copper pad shape and the body outline (from `bodies`, else the `F.Fab` outline), by `geometry` containment |
 | `library.pad-clearance` | error | footprint | two pads of different numbers touch or overlap (copper clearance 0 or less) |
 | `library.body-span` | error | package | for a family with leads beyond the body (gull-wing, TO, DIP, as c0260 names families): `body.width.max < span.min`; for a no-lead family: `span`, when given, overlaps `body.width`; for all: `2 × lead.length.min < span.max − body.width.min + 2 × T` with `T = 0.05 mm`, and every range has `min ≤ max` |
-| `library.depopulated` | error | grid-array package | `rows × columns − len(depopulated) == pins`; each depopulated position is inside the grid; the footprint has no pad at a depopulated position; ball names use row letters `A`…`Z` without `I`, `O`, `Q`, `S`, `X`, `Z`, then `AA`, `AB`… (the public JEDEC outline convention, source registered) |
+| `library.depopulated` | error | grid-array package | `rows × columns − len(depopulated) == pins`; each depopulated position is inside the grid; the footprint has no pad at a depopulated position; ball names use row letters `A`…`Z` without `I`, `O`, `Q`, `S`, `X`, `Z`, then `AA`, `AB`… (Fenolite convention, INFERRED; S-0988 supports the skipped I) |
 | `library.land-mismatch` | error / warning | package with `[land]` | the footprint's pads differ from the manufacturer pattern: any difference is an **error** for a generated footprint (the generator must apply the pattern exactly), and a difference over `T = 0.05 mm` in size or position is a **warning** for an imported or hand-authored one |
 | `library.land-calculator-delta` | info | package with `[land]` | the largest difference between the pattern and what the calculator would give, so a reviewer sees how unusual the pattern is |
 | `library.pin-grid` | error / warning | symbol | a pin connection point or length off 0.254 mm (10 mil, the Altium writer's unit) is an **error**; off 2.54 mm (100 mil) is a **warning** |
@@ -102,7 +102,7 @@ Codes, severities and what each needs. Constants are Fenolite-authored, recorded
 | `library.hidden-power` | error | symbol | a hidden `power_in` pin that is not stacked on a visible pin |
 | `library.duplicate-pin` | error | symbol | two pins of one unit and body style share a number, except stacked pins |
 | `library.source-unknown` | error | record | a source id that the tree's source register (c0259) does not hold; without a register, `library.sources-unchecked` (info) |
-| `library.evidence-claim` | error | record | `evidence` above `CORPUS-VERIFIED`, or `CORPUS-VERIFIED` without a `[review]` |
+| `library.evidence-claim` | error | record | `evidence` above `CORPUS-VERIFIED`, or `CORPUS-VERIFIED` without a `[[reviewed_by]]` |
 | `library.review-stale` | error | reviewed record | the record digest or sheet digest of the review differs from the current one (decision 7) |
 | `library.interface-changed` | error | `--compare` | a record keeps its id while its pin numbers, pad numbers or pin-to-pad map changed (c0259: an interface change takes a new id) |
 | `library.removed` | warning | `--compare` | an id of OLD is missing from NEW and was not deprecated in OLD |
@@ -218,7 +218,7 @@ fenolite library review devices/EXB6202 --json                     # read-only: 
 - **Date.** From `--timestamp` when given (the contract's deterministic flag), else today's UTC date.
 - **Per record.** A target folder reviews each record in it. A device review does not review its pins and
   package records; its `effective_evidence` stays the lowest of the three.
-- **`--revoke`** removes `[review]` and restores `previous_evidence`.
+- **`--revoke`** removes `[[reviewed_by]]` and restores `previous_evidence`.
 - **Stale review.** `library check` reports `library.review-stale` (error), and the item's
   `effective_evidence` is `previous_evidence` until a new review. Builds that read the record (c0248)
   use the same effective label.
@@ -231,7 +231,7 @@ fenolite library review devices/EXB6202 --json                     # read-only: 
   kept in step.
 - *Alternative considered:* a new evidence level `REVIEW-VERIFIED`. Rejected for now: it changes the
   evidence vocabulary of every package. The research and the batch use `CORPUS-VERIFIED`; the scope of
-  the label and the `[review]` table say that it came from a review (open question 1).
+  the label and the `[[reviewed_by]]` table say that it came from a review (open question 1).
 
 ### 8. CI usage
 
@@ -287,7 +287,7 @@ No new `FEN-` code.
 ## Risks / Trade-offs
 
 - **`CORPUS-VERIFIED` stretches the word "corpus".** A review compares against a datasheet, not a corpus of
-  files. Mitigation: the scope says `review`, the `[review]` table says who and when, and open question 1
+  files. Mitigation: the scope says `review`, the `[[reviewed_by]]` table says who and when, and open question 1
   offers a dedicated level.
 - **The centroid rule for pin 1** can be wrong for unusual connectors. Mitigation: a waiver with a reason,
   visible on the sheet and accepted by the reviewer.
@@ -299,6 +299,17 @@ No new `FEN-` code.
   reason, before the CI step is required.
 
 ## Open questions
+
+Decided 2026-11-01 (user-authorized recommended decisions): use scoped CORPUS-VERIFIED for a human
+review; retain HTML as the evidence and defer PNG; a device need not require reviewed dependencies
+because effective evidence reports the weakest label; use T=0.05 mm; the sheet digest is the available
+proof of the accepted content. Preserve c0259's `[[reviewed_by]]`, extending its existing fields rather
+than introducing an incompatible `[[reviewed_by]]`. `sheet` remains a relative path; `sheet_sha256` stores the
+accepted bytes, `previous_evidence` the restore label, `accepted_codes` warning codes and
+`fenolite_version` the tool version. Exclude review/evidence metadata from both content and sheet
+digests so acceptance cannot invalidate itself. Row omissions beyond I are documented as INFERRED,
+consistent with the existing naming facts page and S-0988, rather than asserting an unregistered
+JEDEC source. Runtime MCP rejection supplements schema exclusion because actions share one command.
 
 1. *Raise to `CORPUS-VERIFIED`, or add a level such as `REVIEW-VERIFIED`?* Recommended: `CORPUS-VERIFIED`
    with the scope `(review <date>)` now, as the research proposes, and revisit when the evidence
@@ -326,3 +337,7 @@ No new `FEN-` code.
 - **c0266** (device kinds of `fenolite-library`, c0279): its CI is decision 8; its releases contain records with their reviews.
 - **c0248** (devices): `check_device` and `device_digest` are reused. **c0249** (lock): unchanged; the lock
   pins a data release, and a release holds the reviewed records.
+
+Fixture placement, Decided 2026-11-01: use `tests/data/library_rules/` for the new good/bad records. The existing `tests/data/library/` is a recursive four-record c0259 fixture; adding intentionally invalid records there breaks its existing contract.
+
+Sheet paths, Decided 2026-11-01: a sanitized stable id plus a 12-hex id hash names each HTML file under its kind. This avoids namespace-to-underscore collisions and bounds filenames while preserving stable, portable paths.

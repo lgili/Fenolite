@@ -63,6 +63,7 @@ from fenolite.backends.kicad import copperrules, wks
 from fenolite.backends.kicad import frame as kicad_frame
 from fenolite.backends.kicad import generate as kicad_generate
 from fenolite.backends.kicad import pcb as kicad_pcb
+from fenolite.backends.kicad import sch as kicad_sch
 from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.copper import CopperIntentLike
 from fenolite.backends.kicad.embed import PATH_PROPERTY
@@ -81,7 +82,9 @@ from fenolite.catalog import (
 from fenolite.catalog import (
     get_symbol as catalog_symbol,
 )
+from fenolite.catalog.devices import check_device, device_digest, edited_issue, is_edited
 from fenolite.checks import placement as placement_rules
+from fenolite.checks.circuit import circuit_issues
 from fenolite.checks.copper import (
     LOWERING_CODES,
     CopperReport,
@@ -91,9 +94,14 @@ from fenolite.checks.copper import (
     rules_summary,
     waived_issues,
 )
+from fenolite.checks.specificity import shadowed_rules
+from fenolite.checks.topology import build_issues as topology_build_issues
 from fenolite.checks.waivers import copper_waivers
-from fenolite.cli._lock import lock_location, plan_lock, with_lock
+from fenolite.cli import _layout, blockvendored
+from fenolite.cli._contracts import classes_of
+from fenolite.cli._lock import check_library, lock_location, plan_lock, refuse_frozen_edits, with_lock
 from fenolite.cli._padmap import DefaultPadMap, apply_default_pad_maps
+from fenolite.cli._picks import picking, proposed_files
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.cmd_export import preset_file
@@ -104,8 +112,10 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.dsl import (
     BOARD_ORIGIN,
     DslError,
+    block_schematics,
     copper,
     drawing_sheet_source,
+    drawn_schematic,
     fields,
     generated,
     heights,
@@ -125,7 +135,10 @@ from fenolite.dsl import (
 )
 from fenolite.dsl import Design as DslDesign
 from fenolite.dsl.convert import two_terminal, unused_marks
+from fenolite.dsl.lock import Lock, hand_refs, read_lock
+from fenolite.dsl.relative import has_layout
 from fenolite.geometry.errors import BackendUnavailable
+from fenolite.lens import edits as edits_mod
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
 from fenolite.lens.altium import (
     CopperSource,
@@ -138,6 +151,7 @@ from fenolite.lens.altium import (
 )
 from fenolite.lens.altium import issue as altium_issue
 from fenolite.lens.build import (
+    BUILD_EVIDENCE,
     RECORD_FILE,
     SCHEMATIC_MODES,
     SHEET_SUFFIX,
@@ -147,18 +161,34 @@ from fenolite.lens.build import (
     check_existing,
     plane_issues,
     read_record,
+    script_codes,
 )
 from fenolite.lens.build import issue as build_issue
+from fenolite.lens.drawn import read_drawn
 from fenolite.lens.placements import FILE_NAME as PLACEMENTS_FILE
 from fenolite.lens.placements import SourcePlacement, read_placements
-from fenolite.lens.preserve import ExistingProject, FilePlacement, Prepared, prepare, read_existing
+from fenolite.lens.preserve import (
+    ExistingProject,
+    FilePlacement,
+    Prepared,
+    legacy_edits,
+    prepare,
+    read_existing,
+)
 from fenolite.lens.rolecopper import RoleCopperPlanner
 from fenolite.lens.schplacements import FILE_NAME as SYMBOL_PLACEMENTS_FILE
 from fenolite.lens.schplacements import read_placements as read_symbol_placements
+from fenolite.model.circuit import PinRef
 from fenolite.model.design import Design as ModelDesign
+from fenolite.model.drawn import DrawnSchematic
+from fenolite.model.drawn_connect import issue as drawn_issue
 from fenolite.model.findings import Waiver
+from fenolite.model.library import DeviceDef, flatten_symbol
 from fenolite.model.presentation import DrawingSheet
+from fenolite.model.schematic import SchematicSheet
 from fenolite.placement import legality
+from fenolite.placement.codes import RELATIVE_EVIDENCE
+from fenolite.reuse.codes import LAYOUT_EVIDENCE as BLOCK_LAYOUT_EVIDENCE
 from fenolite.templates import build_sheet, load_spec
 
 MINIMAL = Path(fenolite.dsl.__file__).parent / "_minimal.py"
@@ -188,6 +218,23 @@ of 2026-10-26; experimental until a round of kit group K6 passes)."""
 COPPER_CHECK_MODES = ("refuse", "warn")
 """``refuse`` (the default): a copper error stops the build before anything is written. ``warn``: copper
 errors are reported as warnings and the build writes. There is no ``off``."""
+PROVENANCE_FILE = "PROVENANCE.json"
+"""The provenance file beside a script; an import record in it marks the design as a copy (change c0281)."""
+
+
+def copper_mode(given: str | None, script_path: Path) -> tuple[str, str]:
+    """The copper guard's mode and where it comes from (change c0281, "Copy mode in build"): the
+    ``--copper-check`` given (``option``), else ``warn`` for a copy of someone else's board, which the
+    ``PROVENANCE.json`` beside the script marks (``copy``), else ``refuse`` (``default``)."""
+    from fenolite.importer.provenance import copy_file
+
+    if given is not None:
+        return given, "option"
+    if copy_file(script_path.resolve().parent / PROVENANCE_FILE):
+        return "warn", "copy"
+    return COPPER_CHECK_MODES[0], "default"
+
+
 WARN_NOTE = " (copper guard in warn mode)"
 SCRIPT_COPPER_CODES: tuple[str, ...] = (
     "kicad.copper.",
@@ -247,7 +294,16 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--frozen",
         action="store_true",
-        help="refuse with exit 7 (FEN-7004) when the design lock would change; never write it",
+        help="refuse with exit 7 (FEN-7004) when the design lock would change, or a --take or a CAD edit "
+        "not in edits.toml would be kept; never write the lock",
+    )
+    parser.add_argument(
+        "--take",
+        action="append",
+        default=None,
+        metavar="SIDE[:TARGET]",
+        help="resolve a sync.conflict: SIDE is code, cad, board or schematic, TARGET a component path or "
+        "PATH#PROPERTY (every conflict without one); repeatable",
     )
     parser.add_argument(
         "--target",
@@ -476,6 +532,7 @@ def copper_guard(
         edges=edges,
         min_edge_clearance=rules.min_edge_clearance,
         edge_floor_over_rules=rules.edge_floor_over_rules,
+        tolerance=rules.clearance_tolerance,
     )
     judged, waived = guard_waivers(report, waivers)
     found = [*judged, *rules_issues(rules), *edge_issues]
@@ -589,11 +646,180 @@ def _catalog_definitions(
             symbols[symbol_id] = catalog_symbol(symbol_id)
             used_builtin.add(symbol_id)
         symbol = authored_symbols.get(symbol_id) or symbols.get(symbol_id)
+        if symbol is not None and getattr(symbol, "extends", ""):
+            # a derived authored symbol names the footprint of its base unless it names one (change c0261)
+            symbol = flatten_symbol(
+                symbol, [s for s in authored_symbols.values() if s.library == symbol.library]
+            )
         fp_id = component.lib_footprint_ref or (symbol.properties.get("Footprint", "") if symbol else "")
         if fp_id in footprint_ids and fp_id not in authored_footprints:
             footprints[fp_id] = catalog_footprint(fp_id)
             used_builtin.add(fp_id)
     return {**footprints, **authored_footprints}, {**symbols, **authored_symbols}, frozenset(used_builtin)
+
+
+def contract_devices(design: DslDesign) -> dict[str, DeviceDef]:
+    """The device records of the parts by device id, as the stage ``circuit.rules`` takes them (c0253)."""
+    return {
+        part.device.id: part.device for _, part in sorted(design.parts.items()) if part.device is not None
+    }
+
+
+def design_devices(design: DslDesign) -> dict[str, DeviceDef]:
+    """The device of each part placed from one, by component path (change c0248)."""
+    return {path: part.device for path, part in sorted(design.parts.items()) if part.device is not None}
+
+
+def device_rows(
+    design: DslDesign, items: Mapping[str, Mapping[str, str]] | None = None
+) -> list[dict[str, object]]:
+    """``result.devices``: each device the design uses, in id order, with its origin, evidence label,
+    whether it was edited after its stamp, its digest and the paths of its parts."""
+    rows: dict[str, dict[str, Any]] = {}
+    for path, part in sorted(design.parts.items()):
+        device = part.device
+        if device is None:
+            continue
+        row = rows.setdefault(
+            device.id,
+            {
+                "id": device.id,
+                "origin": part.device_origin,
+                "evidence": device.evidence,
+                "edited": is_edited(device),
+                "sha256": device_digest(device),
+                "parts": [],
+            },
+        )
+        row["parts"].append(path)
+        if part.device_origin == "library" and items is not None:
+            row["item"] = dict(items[device.id.split("@", 1)[0]])
+    return [rows[key] for key in sorted(rows)]
+
+
+def device_issues(design: DslDesign) -> list[Issue]:
+    """``device.overrides-builtin`` and ``device.edited`` (info), once per device the design uses."""
+    found: list[Issue] = []
+    seen: set[str] = set()
+    for _path, part in sorted(design.parts.items()):
+        device = part.device
+        if device is None or device.id in seen:
+            continue
+        seen.add(device.id)
+        if part.device_overrides:
+            found.append(
+                build_issue(
+                    "device.overrides-builtin",
+                    f"the project device {device.id} is used in place of the shipped device of that id",
+                    device.id,
+                    "give the project device an id of its own namespace if the override is not meant",
+                )
+            )
+        if is_edited(device):
+            found.append(edited_issue(device))
+    return found
+
+
+def project_definitions(
+    run: ScriptRun, model: ModelDesign
+) -> tuple[dict[str, Any], dict[str, Any], list[Issue]]:
+    """The footprints and symbols of the project's package and pins records (``devices/`` beside the
+    script, change c0259), which override catalog definitions of the same id, and the issues of the records
+    the design uses: ``library.generator-missing`` (error) for a record without geometry whose generator
+    is not installed, ``library.deprecated`` and ``library.review-stale``."""
+    from fenolite.catalog import records as rec
+
+    tree, shipped = run.library, rec.shipped_tree()
+    used_definitions = {
+        (kind, record_id)
+        for component in model.circuit.components
+        for kind, record_id in (("pins", component.lib_symbol_ref), ("package", component.lib_footprint_ref))
+        if record_id
+    }
+    footprints: dict[str, Any] = {}
+    symbols: dict[str, Any] = {}
+    for record in tree.records:
+        key = (rec.kind_of(record), record.header.id)
+        if tree.files.get(key, "").startswith("fenolite_library/") and key not in used_definitions:
+            continue
+        if isinstance(record, rec.PinsRecord) and record.symbol is not None:
+            symbols[record.header.id] = rec.symbol_def(record)
+        elif isinstance(record, rec.PackageRecord) and record.generator in rec.GENERATORS:
+            footprints[record.header.id] = rec.footprint_def(record)
+    footprints.update(
+        {
+            key: value
+            for key, value in run.imported.footprints.items()
+            if not tree.files.get(("package", key), "").startswith("fenolite_library/")
+            or ("package", key) in used_definitions
+        }
+    )
+    symbols.update(
+        {
+            key: value
+            for key, value in run.imported.symbols.items()
+            if not tree.files.get(("pins", key), "").startswith("fenolite_library/")
+            or ("pins", key) in used_definitions
+        }
+    )
+    used: list[rec.Record] = []
+    issues: list[Issue] = []
+
+    def find(kind: rec.Kind, record_id: str) -> rec.Record | None:
+        return tree.get(kind, record_id) or shipped.get(kind, record_id)
+
+    for component in sorted(model.circuit.components, key=lambda found: found.ref):
+        for kind, record_id in (("pins", component.lib_symbol_ref), ("package", component.lib_footprint_ref)):
+            record = find(cast(rec.Kind, kind), record_id) if record_id else None
+            if record is None:
+                continue
+            used.append(record)
+            missing = (isinstance(record, rec.PinsRecord) and record.symbol is None) or (
+                isinstance(record, rec.PackageRecord) and record.generator not in rec.GENERATORS
+            )
+            if missing and record not in used[:-1]:
+                what = "symbol generator" if kind == "pins" else f"package generator {record.generator!r}"  # type: ignore[union-attr]
+                issues.append(
+                    rec.library_issue(
+                        "library.generator-missing",
+                        f"{kind} record {record_id} has no explicit geometry and the {what} is not installed",
+                        record_id,
+                        "write the geometry into the record, or wait for the generator of its family",
+                    )
+                )
+    for part in run.design.parts.values():
+        if part.device is not None:
+            record = find("device", part.device.id.split("@", 1)[0])
+            if record is not None:
+                used.append(record)
+    return footprints, symbols, [*issues, *rec.used_record_issues(used)]
+
+
+def lower_device_functions(model: ModelDesign, devices: Mapping[str, DeviceDef]) -> ModelDesign:
+    """``model`` with each net member and no-connect mark of a device part that names a function replaced
+    by the function's symbol pins, for targets whose writer resolves pin numbers only (the Altium build;
+    the KiCad build resolves functions itself, ``lens.build``)."""
+    functions: dict[str, dict[str, tuple[str, ...]]] = {}
+    for component in model.circuit.components:
+        device = devices.get(component.properties.get(PATH_PROPERTY, component.ref))
+        if device is not None:
+            functions[component.id] = {pin.function: pin.pins for pin in device.pins}
+    if not functions:
+        return model
+
+    def lowered(refs: Sequence[PinRef]) -> tuple[PinRef, ...]:
+        out: list[PinRef] = []
+        for ref in refs:
+            names = functions.get(ref.component_id, {})
+            out += [PinRef(ref.component_id, pin) for pin in names.get(ref.pin, (ref.pin,))]
+        return tuple(sorted(set(out)))
+
+    circuit = model.circuit
+    nets = tuple(dataclasses.replace(net, members=lowered(net.members)) for net in circuit.nets)
+    return dataclasses.replace(
+        model,
+        circuit=dataclasses.replace(circuit, nets=nets, no_connects=lowered(circuit.no_connects)),
+    )
 
 
 def pad_map_issues(applied: Sequence[DefaultPadMap]) -> list[Issue]:
@@ -698,6 +924,84 @@ def read_source(
     return found.entries, found.issues, hashlib.sha256(data).hexdigest()
 
 
+def read_edit_source(
+    script_path: Path,
+) -> tuple[Mapping[str, edits_mod.PartEdits] | None, str | None, tuple[Issue, ...], str | None]:
+    """The edits beside the script (``design-dsl``, "Placements file in a build"): those of ``edits.toml``
+    when it exists, otherwise the entries of ``placements.toml`` as legacy position edits. Returns the
+    edits (``None`` without a file), the name of the file read, its issues and its SHA-256."""
+    folder = script_path.resolve().parent
+    path = folder / edits_mod.EDITS_FILE
+    legacy = folder / PLACEMENTS_FILE
+    if not path.is_file():
+        entries, issues, sha = read_source(script_path)
+        if sha is None:
+            return None, None, (), None
+        return legacy_edits(entries), PLACEMENTS_FILE, issues, sha
+    data = path.read_bytes()
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise FormatError(f"not UTF-8 text: {error}", file=edits_mod.EDITS_FILE) from error
+    found = edits_mod.read_edits(text, origin=BOARD_ORIGIN, file=edits_mod.EDITS_FILE)
+    issues = list(found.issues)
+    if legacy.is_file():
+        issues.append(
+            edits_mod.issue(
+                "edit.legacy-file",
+                f"{PLACEMENTS_FILE} is not read: {edits_mod.EDITS_FILE} is beside it",
+                PLACEMENTS_FILE,
+                f"delete {PLACEMENTS_FILE}; {edits_mod.EDITS_FILE} replaces it",
+            )
+        )
+    return found.parts, edits_mod.EDITS_FILE, tuple(issues), hashlib.sha256(data).hexdigest()
+
+
+def reference_edits(edits: Mapping[str, edits_mod.PartEdits] | None) -> dict[str, tuple[str, str | None]]:
+    """The ``reference`` edits of ``edits.toml``: path → (ref, the ref it was recorded over), which the
+    design lock counts as hand refs (``dsl.lock.hand_refs``; change c0250, "Reference edits")."""
+    found: dict[str, tuple[str, str | None]] = {}
+    for path, part in (edits or {}).items():
+        edit = part.edit("reference")
+        if edit is not None and isinstance(edit.value, str):
+            found[path] = (edit.value, edit.over if isinstance(edit.over, str) else None)
+    return found
+
+
+def read_base_record(out_dir: Path) -> edits_mod.BaseRecord:
+    """The base record of the output folder, or ``BaseRecord.absent`` when it holds none."""
+    path = out_dir / edits_mod.BASE_FILE
+    if not path.is_file():
+        return edits_mod.BaseRecord.absent("kicad")
+    try:
+        text = path.read_bytes().decode("utf-8")
+    except UnicodeDecodeError as error:
+        return edits_mod.read_base(f"\0{error}", target="kicad", file=edits_mod.BASE_FILE)
+    return edits_mod.read_base(text, target="kicad", file=edits_mod.BASE_FILE)
+
+
+def schematic_sheets(root: Path) -> list[SchematicSheet] | None:
+    """The sheets of the schematic ``root``: the root file and every sheet file it names, each read once.
+    ``None`` when the project has no schematic."""
+    if not root.is_file():
+        return None
+    tree = kicad_sch.sheet_files(root)
+    return [kicad_sch.read_schematic(root.parent / name, file=name) for name in tree.files]
+
+
+def parse_take_option(values: Sequence[str] | None) -> tuple[edits_mod.Take, ...]:
+    """The takes of ``--take``; a malformed or contradictory value is a usage error."""
+    try:
+        return edits_mod.parse_takes(values or ())
+    except ValueError as error:
+        raise CliError(
+            "FEN-2001",
+            str(error),
+            where="--take",
+            hint="give --take code|cad|board|schematic[:PATH[#PROPERTY]], one side per target",
+        ) from None
+
+
 def read_drawing_sheet_source(
     design: DslDesign, script_path: Path
 ) -> tuple[DrawingSheet | None, tuple[Issue, ...], dict[str, object] | None]:
@@ -737,12 +1041,31 @@ def read_drawing_sheet_source(
     return sheet, tuple(found), result
 
 
-def source_summary(prepared: Prepared | None, issues: Sequence[Issue], *, read: bool) -> dict[str, object]:
+def read_drawn_source(path: Path, named: str) -> DrawnSchematic:
+    """The drawn schematic that ``design.load_schematic()`` names, read from the script's folder (change
+    c0276); a missing or unreadable file is ``FormatError`` (``FEN-3004``, exit 3) naming the file."""
+    try:
+        data = path.read_bytes()
+    except OSError as error:
+        raise FormatError(
+            f"the drawn schematic {named} of load_schematic() cannot be read: {error.strerror or error}",
+            file=named,
+        ) from None
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise FormatError(f"not UTF-8 text: {error}", file=named) from error
+    return read_drawn(text, file=named)
+
+
+def source_summary(
+    prepared: Prepared | None, issues: Sequence[Issue], *, read: bool, file: str | None = None
+) -> dict[str, object]:
     """``result.preserved.source``: the file read, the parts placed from it, and its stale and unknown
     tables."""
     placed: Mapping[str, object] = prepared.placements if prepared is not None else {}
     return {
-        "file": PLACEMENTS_FILE if read else None,
+        "file": (file or PLACEMENTS_FILE) if read else None,
         "used": sorted(path for path, found in placed.items() if isinstance(found, FilePlacement)),
         "stale": sorted(i.where for i in issues if i.code == "layout.source-stale"),
         "unknown": sorted(i.where for i in issues if i.code == "layout.source-unknown"),
@@ -757,9 +1080,36 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         getattr(args, "copper_from", None),
         getattr(args, "altium_template", None),
         _existing(lock_location(args.design, getattr(args, "lock", None), ctx.cwd)[1]),
+        _existing(_script_folder(args.design, ctx) / PROVENANCE_FILE),  # its copy mode (c0281)
     )
-    built = _built(args, ctx)
-    return dataclasses.replace(built, depends=tuple(sorted(set((*read, *built.depends)))))
+    local_inputs: list[Path] = []
+    built = _built(args, ctx, source_inputs=local_inputs)
+    block_inputs = blockvendored.input_files(_script_folder(args.design, ctx))
+    read = (
+        *read,
+        *depends_on(
+            ctx.cwd,
+            *proposed_files(Path(args.design) if Path(args.design).is_absolute() else ctx.cwd / args.design),
+        ),
+    )
+    files = cast(Sequence[Mapping[str, str]], built.result.get("device_files", []))
+    if files:
+        # the project devices beside the script are inputs too: a changed file changes the plan (c0248)
+        script = Path(args.design)
+        folder = (script if script.is_absolute() else ctx.cwd / script).parent
+        read = (*read, *depends_on(ctx.cwd, *(folder / row["path"] for row in files)))
+    return dataclasses.replace(
+        built,
+        depends=tuple(
+            sorted(set((*read, *built.depends, *depends_on(ctx.cwd, *local_inputs, *block_inputs))))
+        ),
+        evidence=Evidence.combine(built.evidence, blockvendored.EVIDENCE) if block_inputs else built.evidence,
+    )
+
+
+def _script_folder(given: str, ctx: Context) -> Path:
+    script = Path(given)
+    return (script if script.is_absolute() else ctx.cwd / script).parent
 
 
 def _existing(path: Path) -> Path | None:
@@ -768,7 +1118,14 @@ def _existing(path: Path) -> Path | None:
     return path if path.is_file() else None
 
 
-def _built(args: argparse.Namespace, ctx: Context) -> Result:
+def _built(
+    args: argparse.Namespace,
+    ctx: Context,
+    *,
+    source_inputs: list[Path] | None = None,
+    script_run: ScriptRun | None = None,
+    previous_lock: Lock | None = None,
+) -> Result:
     script = Path(args.design)
     script_path = script if script.is_absolute() else ctx.cwd / script
     out = Path(args.out)
@@ -876,7 +1233,17 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
                 where="--copper-from",
                 hint="pass the routed .kicad_pcb of the same design",
             )
-    run = run_design_script(script_path)
+    lock_given, lock_path = lock_location(args.design, getattr(args, "lock", None), ctx.cwd)
+    if lock_path.is_file():
+        pinned = read_lock(lock_path.read_text(encoding="utf-8"), file=lock_given)
+        check_library(pinned, script_path, args.design)
+    block_issues: list[Issue] = []
+    blockvendored.find_vendored(script_path.parent, issues=block_issues)
+    if any(issue.severity == "error" for issue in block_issues):
+        return Result(issues=tuple(block_issues), evidence=blockvendored.EVIDENCE)
+    run = script_run if script_run is not None else run_design_script(script_path)
+    if source_inputs is not None:
+        source_inputs.extend(run.source_files)
     design = run.design
     if args.altium_layout == "grid" and (design.schematic_flow is not None or design.schematic_blocks):
         raise CliError(
@@ -885,16 +1252,26 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             where="--altium-layout",
             hint="select blocks or remove the script's layout declarations",
         )
-    lock_given, lock_path = lock_location(args.design, getattr(args, "lock", None), ctx.cwd)
+    edits, edits_file, source_issues, source_sha = read_edit_source(script_path)
     try:
         schematic_composition(design, target=args.target, enabled=args.altium_layout == "blocks")
-        lock = plan_lock(
-            design,
-            script=script_path,
-            given=lock_given,
-            path=lock_path,
-            frozen=bool(getattr(args, "frozen", False)),
-        )
+        # the query parts get their devices here (change c0254); a reference edit is a hand ref (c0250)
+        with picking(script_path) as picks, hand_refs(reference_edits(edits)):
+            lock = plan_lock(
+                design,
+                script=script_path,
+                given=lock_given,
+                path=lock_path,
+                frozen=bool(getattr(args, "frozen", False)),
+                named=args.design,
+                previous=previous_lock,
+            )
+        if picks.resolution is not None and picks.resolution.refused:
+            # a stale, missing or unmatched pick, or an unachievable generator: nothing is built
+            return with_lock(Result(result={**picks.summary(), "devices": []}), lock)
+        if any(found.code == "lock.block-version" for found in lock.issues):
+            # a locked block version differs from the script's (change c0268): nothing is built
+            return with_lock(Result(result={**picks.summary(), "devices": []}, issues=run.block_issues), lock)
         model = to_model(design, refs=lock.refs)
         requested = placements(design)
         aliases = moves(design)
@@ -912,13 +1289,55 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
     model, defaulted = apply_default_pad_maps(
         model, authored_symbols=design.symbols, authored_footprints=design.footprints
     )
-    default_issues = pad_map_issues(defaulted)
+    default_issues = [
+        Issue(
+            "build.unattached",
+            "warning",
+            f"{site.kind} {site.name} never reached the design",
+            where=site.where,
+            hint="add it with design.add(...) or connect it, or delete it",
+        )
+        for site in run.unattached
+    ]
+    default_issues += [
+        # Used devices are reported once by id below; retain other record/overlay findings.
+        *(issue for issue in run.device_issues if issue.code != "device.edited"),
+        *pad_map_issues(defaulted),
+        *device_issues(design),
+        *run.block_issues,
+    ]
+    devices = design_devices(design)
+    record_footprints, record_symbols, library_issues = project_definitions(run, model)
+    default_issues += library_issues
+    if any(found.severity == "error" for found in default_issues):
+        # a record without geometry: nothing can be resolved for it, so nothing is built (c0259)
+        return Result(
+            result={
+                "design": design.name,
+                "target": ctx.kicad_target,
+                "out": str(out),
+                "files": [],
+                "devices": device_rows(design, run.devices.libraries),
+                "device_files": [{"path": file.path, "sha256": file.sha256} for file in run.device_files],
+            },
+            issues=tuple(default_issues),
+            evidence=BUILD_EVIDENCE,
+            input=InputRef(
+                path=str(args.design),
+                sha256=hashlib.sha256(script_path.read_bytes()).hexdigest(),
+                kind="fenolite-dsl",
+                format_version=None,
+            ),
+        )
+    plan, layout_issues, model = _plan_layout(design, model, requested, script_path, ctx, args.design)
     if native_path is not None and drawing_sheet_source(design) is not None:
         raise CliError(
             "FEN-2001", "--altium-template conflicts with sheet(drawing_sheet=...)", where="--altium-template"
         )
     frame_sheet, sheet_issues, sheet_result = read_drawing_sheet_source(design, script_path)
-    source, source_issues, source_sha = read_source(script_path)
+    takes = parse_take_option(getattr(args, "take", None))
+    frozen = bool(getattr(args, "frozen", False))
+    refuse_frozen_edits(frozen=frozen, takes=takes, issues=())
     refused = any(found.severity == "error" for found in source_issues)
     if args.target == ALTIUM_TARGET:
         if (generated_records or role_record is not None) and board_path is not None:
@@ -938,13 +1357,30 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
                 ),
             ]
             refused = True
-        # both targets place a part from the file: the lens runs without an existing project (c0069)
-        from_file = prepare(model, requested, ExistingProject(), name=design.name, source=source)
+        # both targets place a part from the file, and apply its value and footprint edits: the lens runs
+        # without an existing project (c0069, c0250); device functions are lowered to pin numbers (c0248)
+        model = lower_device_functions(model, devices)
+        from_file = prepare(
+            model,
+            requested,
+            ExistingProject(),
+            name=design.name,
+            edits=edits or {},
+            edits_file=edits_file,
+            takes=takes,
+            resolver=plan.resolver if plan is not None else None,
+        )
+        if plan is not None:
+            changed, findings, _count = _layout.layout_file_copper(
+                plan, design, from_file.design or model, from_file.placements
+            )
+            layout_issues.extend(findings)
+            from_file = dataclasses.replace(from_file, design=changed)
         made = _run_altium(
             args,
             ctx,
             run,
-            model,
+            from_file.design or model,
             cast(Mapping[str, PlacementRequest], from_file.placements),
             plane_nets,
             script_path,
@@ -957,11 +1393,31 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             meanders=meander_intents,
             generated_records=generated_records,
             role_record=role_record,
+            codes=from_file.codes,
         )
+        if edits is not None:
+            made = dataclasses.replace(made, evidence=Evidence.combine(made.evidence, edits_mod.EVIDENCE))
+        refused = refused or any(found.severity == "error" for found in from_file.issues)
+        if plan is not None:
+            layout_issues = [*layout_issues, *_resolution_issues(plan)]
+            refused = refused or any(found.severity == "error" for found in layout_issues)
+            made = dataclasses.replace(
+                made,
+                result={**made.result, "placement": {**plan.summary()}},
+                evidence=Evidence.combine(made.evidence, RELATIVE_EVIDENCE),
+            )
         return with_lock(
             dataclasses.replace(
                 made,
-                issues=(*source_issues, *sheet_issues, *default_issues, *from_file.issues, *made.issues),
+                result={**made.result, **picks.summary()},
+                issues=(
+                    *source_issues,
+                    *sheet_issues,
+                    *default_issues,
+                    *from_file.issues,
+                    *layout_issues,
+                    *made.issues,
+                ),  # fmt: skip
                 writes=() if refused else made.writes,
             ),
             lock,
@@ -970,36 +1426,113 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
     )
     record = read_record(out_dir)
+    schematic = cast(Literal["write", "skip"], args.schematic or SCHEMATIC_MODES[0])
     prepared = None
+    base: edits_mod.BaseRecord | None = None
     if not args.discard_layout:
+        existing = read_existing(out_dir, design.name)
+        base = read_base_record(out_dir) if existing.board is not None else None
+        old_poses = (
+            _layout.read_layout_record(
+                out_dir, owned=tuple(path for path, file in plan.files.items() if file.copper)
+            )
+            if plan is not None
+            else _layout.NO_POSES
+        )
+        if plan is not None and base is not None:
+            base = plan.adjust_base(base, old_poses)
+        sheets = (
+            schematic_sheets(out_dir / f"{design.name}.kicad_sch")
+            if existing.board is not None and schematic == "write"
+            else None
+        )
         prepared = prepare(
             model,
             requested,
-            read_existing(out_dir, design.name),
+            existing,
             name=design.name,
             moves=aliases,
             module_moves=module_aliases,
             net_moves=net_aliases,
-            source=source,
+            edits=edits or {},
+            edits_file=edits_file,
+            base=base,
+            takes=takes,
+            sheets=sheets,
+            resolver=plan.resolver if plan is not None else None,
+            adjust=plan.adjust(old_poses) if plan is not None else None,
         )
-    elif source:
+        refuse_frozen_edits(frozen=frozen, takes=(), issues=prepared.issues)
+    elif edits or takes:
         # the file is source, like the script: it applies to a discarded layout too, and no output is read
-        prepared = prepare(model, requested, ExistingProject(), name=design.name, source=source)
+        prepared = prepare(
+            model, requested, ExistingProject(), name=design.name, edits=edits or {}, edits_file=edits_file,
+            takes=takes, resolver=plan.resolver if plan is not None else None,
+        )  # fmt: skip
     authored_footprints, authored_symbols, builtin_ids = _catalog_definitions(
-        model,
-        {key: fp.definition for key, fp in design.footprints.items()},
-        {key: symbol.definition for key, symbol in design.symbols.items()},  # type: ignore[attr-defined]
+        # the merged design: a footprint swapped in KiCad for another of the catalog resolves too (c0250)
+        prepared.design if prepared is not None and prepared.design is not None else model,
+        {**record_footprints, **{key: fp.definition for key, fp in design.footprints.items()}},
+        {**record_symbols, **{key: symbol.definition for key, symbol in design.symbols.items()}},  # type: ignore[attr-defined]
     )
-    schematic = cast(Literal["write", "skip"], args.schematic or SCHEMATIC_MODES[0])
     symbol_issues: list[Issue] = []
     symbol_placements = None
+    drawn_name = drawn_schematic(design)
+    drawn_value = None
+    drawn_depends: tuple[str, ...] = ()
+    if schematic == "write" and drawn_name is not None:
+        drawn_path = script_path.resolve().parent / drawn_name
+        drawn_value = read_drawn_source(drawn_path, drawn_name)
+        drawn_depends = depends_on(ctx.cwd, drawn_path)
     placements_path = script_path.resolve().parent / SYMBOL_PLACEMENTS_FILE
-    if schematic == "write" and placements_path.is_file():
+    if schematic == "write" and placements_path.is_file() and drawn_value is not None:
+        symbol_issues.append(
+            drawn_issue(
+                "drawn.placements-ignored",
+                f"{SYMBOL_PLACEMENTS_FILE} is not read: the design loads the drawn schematic {drawn_name}, "
+                "which owns the symbol positions",
+                SYMBOL_PLACEMENTS_FILE,
+                f"delete {SYMBOL_PLACEMENTS_FILE}; move symbols in {drawn_name} or in KiCad and run sync",
+            )
+        )
+    elif schematic == "write" and placements_path.is_file():
         symbol_placements = read_symbol_placements(
             placements_path.read_text(encoding="utf-8"), file=SYMBOL_PLACEMENTS_FILE, issues=symbol_issues
         )
+    if plan is not None and prepared is None:
+        requested = plan.placements()
+    copper_base = _layout.copy_merge(
+        out_dir,
+        plan,
+        design,
+        prepared.design if prepared is not None and prepared.design is not None else model,
+        prepared.board if prepared is not None else None,
+        discard=bool(args.discard_layout),
+    )
+    if plan is not None or copper_base is not None:
+        changed, findings, _count = _layout.layout_file_copper(
+            plan,
+            design,
+            prepared.design if prepared is not None and prepared.design is not None else model,
+            prepared.placements if prepared is not None else requested,
+            copper_base,
+            authored_footprints,
+        )
+        layout_issues.extend(findings)
+        if prepared is not None:
+            prepared = dataclasses.replace(
+                prepared,
+                design=changed,
+                board=copper_base.strip(prepared.board) if copper_base is not None else prepared.board,
+                copper_observation=prepared.board if copper_base is not None else prepared.copper_observation,
+                protected_copper=frozenset(copper_base.owned)
+                if copper_base is not None
+                else prepared.protected_copper,
+            )
+        else:
+            model = changed
     built = build_design(
-        model,
+        prepared.design if prepared is not None and prepared.design is not None else model,
         prepared.placements if prepared is not None else requested,
         name=design.name,
         copper=design.copper,
@@ -1010,6 +1543,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         record=record,
         prepared=prepared,
         copper_intents=intents,
+        protected_copper=frozenset(copper_base.owned) if copper_base is not None else frozenset(),
         meanders=meander_intents,
         generated_copper=generated_records,
         role_copper=role_record,
@@ -1019,9 +1553,11 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         authored_footprints=authored_footprints,
         authored_symbols=authored_symbols,
         source_sha256=source_sha,
+        source_file=edits_file or PLACEMENTS_FILE,
         drawing_sheet=frame_sheet,
         schematic=schematic,
         symbol_placements=symbol_placements,
+        schematic_groups={found.path: found.groups for found in block_schematics(design) if found.groups},
         schematic_layout=cast(Literal["readable", "grid"], args.schematic_layout or SCHEMATIC_LAYOUTS[0]),
         lock_stackup=stackup_locked(design),
         lock_via_protection=via_protection_locked(design),
@@ -1030,12 +1566,50 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         heights=heights(design),
         unused=unused_marks(design),
         two_terminal=two_terminal(design),
+        write_base=True,
+        devices=devices,
+        device_check=check_device,
+        layout_record=plan.record() if plan is not None else None,
+        drawn=drawn_value,
+        drawn_file=drawn_name or "schematic.toml",
     )
+    if plan is not None:
+        layout_issues = [
+            *layout_issues,
+            *_resolution_issues(plan),
+            *plan.layout_notices(out_dir, prepared.placements if prepared is not None else plan.placements()),
+        ]
+        refused = refused or any(found.severity == "error" for found in layout_issues)
     files = {} if refused else dict(built.files)
+    if files and copper_base is not None and copper_base.needed:
+        data = copper_base.output(built.layout or built.design)
+        files[_layout.COPPER_BASE_FILE] = data
+        build_record = json.loads(files[RECORD_FILE])
+        build_record["files"][_layout.COPPER_BASE_FILE] = hashlib.sha256(data).hexdigest()
+        files[RECORD_FILE] = (json.dumps(build_record, sort_keys=True, indent=2) + "\n").encode()
+    if not refused:
+        for lib_id, model_files in run.imported.models.items():
+            if lib_id in cast(Mapping[str, object], built.summary.get("libraries", {})):
+                files.update(model_files)
+    # the contracts of change c0253 judge the model with the records this build placed
+    placed = contract_devices(design)
+    circuit_found = circuit_issues(
+        built.design,
+        devices=placed,
+        classes=classes_of(built.design, placed),
+        waivers=built.design.findings.waivers,  # change c0274: an accepted risk does not stop the build
+    )
+    circuit_found = (
+        *circuit_found,
+        *topology_build_issues(built.design),
+        *shadowed_rules(built.design, pads=kicad_frame.board_pads(built.design)),
+    )
+    if any(found.severity == "error" for found in circuit_found):
+        files = {}  # a circuit error stops the write, as every build error does (change c0252)
     _keep_confirmed_roles(out_dir, files)
     if any(found.severity == "error" for found in symbol_issues):
         files = {}  # a placements file with an error plans no write
-    mode = args.copper_check or COPPER_CHECK_MODES[0]
+    mode, mode_source = copper_mode(args.copper_check, script_path)
     copper_issues: tuple[Issue, ...] = ()
     copper_check: dict[str, object] = {"mode": mode, "ran": False}
     placement_issues, placement = placement_guard(
@@ -1056,11 +1630,20 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         )
         if any(issue.severity == "error" for issue in copper_issues):
             files = {}  # refused: a build with an error issue plans no write
+    copper_check = {**copper_check, "mode_source": mode_source}
     if files:
         # the root sheet and the child sheets under sheets/: views of the script, replaced when edited
         sheets = [f"{design.name}.kicad_sch", *sorted(rel for rel in files if _child_sheet(rel))]
+        if built.schematic is not None:  # a drawn sheet may lie outside sheets/ (c0276)
+            sheets += sorted(rel for rel in built.schematic.children if rel in files and rel not in sheets)
         merged = {f"{design.name}{suffix}" for suffix in (".kicad_pcb", ".kicad_pro", ".kicad_dru")}
         guarded = {rel: data for rel, data in files.items() if rel not in merged and rel not in sheets}
+        if record is None:
+            # without the cache the base record cannot be told from a hand edit; the merge never needs the
+            # cache, so a clone without .fenolite/ builds as the original does (change c0250)
+            guarded.pop(edits_mod.BASE_FILE, None)
+            if copper_base is not None and not copper_base.broken:
+                guarded.pop(_layout.COPPER_BASE_FILE, None)
         check_existing(out_dir, guarded, record=record, discard_layout=bool(args.discard_layout))
         for sheet in sheets:
             symbol_issues += _replaced_sheet(out_dir, out, sheet, files.get(sheet), record)
@@ -1078,13 +1661,32 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             for key, origin in cast(Mapping[str, str], built.summary["libraries"]).items()
         },
         "copper_check": copper_check,
-        "placement": placement,
+        "placement": placement if plan is None else {**placement, **plan.summary()},
         "drawing_sheet": sheet_result,
         "script_output": run.output,
+        "devices": device_rows(design, run.devices.libraries),
+        "device_files": [{"path": file.path, "sha256": file.sha256} for file in run.device_files],
+        **picks.summary(),
     }
+    from fenolite.cli._vendored import used_items
+
+    item_rows = used_items(
+        run.vendored,
+        run.library.files,
+        cast(Mapping[str, object], built.summary["libraries"]),
+        authored=(
+            *(("pins", key) for key in design.symbols),
+            *(("package", key) for key in design.footprints),
+        ),
+    )
+    if item_rows:
+        result["library_items"] = item_rows
+        for ref in item_rows.values():
+            cast(dict[str, object], result["libraries"])[ref["id"]] = "library"
+    library_used = bool(item_rows) or any(part.device_origin == "library" for part in design.parts.values())
     result["preserved"] = {
         **cast(Mapping[str, object], built.summary["preserved"]),
-        "source": source_summary(prepared, built.issues, read=source_sha is not None),
+        "source": source_summary(prepared, built.issues, read=source_sha is not None, file=edits_file),
     }
     data = script_path.read_bytes()
     built_result = Result(
@@ -1094,12 +1696,24 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             *source_issues,
             *default_issues,
             *built.issues,
+            *circuit_found,
             *symbol_issues,
             *plane_issues(plane_nets, built.layout or built.design),
             *copper_issues,
             *placement_issues,
+            *layout_issues,
         ),
-        evidence=built.evidence,
+        evidence=Evidence.combine(
+            Evidence(Level.INFERRED, hypotheses=("H-G-DEVICE-PACKS",)) if library_used else built.evidence,
+            Evidence.combine(built.evidence, edits_mod.EVIDENCE)
+            if edits is not None or (base is not None and base.present)
+            else built.evidence,
+            Evidence.combine(RELATIVE_EVIDENCE, BLOCK_LAYOUT_EVIDENCE)
+            if plan is not None and (plan.files or any(world.mirror for world in plan.code.worlds.values()))
+            else RELATIVE_EVIDENCE
+            if plan is not None
+            else built.evidence,
+        ),
         input=InputRef(
             path=str(args.design),
             sha256=hashlib.sha256(data).hexdigest(),
@@ -1107,8 +1721,66 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             format_version=None,
         ),
         writes=writes,
+        depends=(*drawn_depends, *depends_on(ctx.cwd, *(file.full for file in plan.files.values())))
+        if plan is not None
+        else drawn_depends,
     )
     return with_lock(built_result, lock)
+
+
+def _plan_layout(
+    design: DslDesign,
+    model: ModelDesign,
+    requested: Mapping[str, PlacementRequest],
+    script_path: Path,
+    ctx: Context,
+    given: str,
+) -> tuple[_layout.LayoutPlan | None, list[Issue], ModelDesign]:
+    """The placement in code of the script (change c0255; ``cli._layout``): ``None`` for a design that
+    asks for none, which then builds as before. With a block reuse of ``copper=True`` the model gains the
+    copied copper."""
+    try:
+        if not has_layout(design):
+            return None, [], model
+        authored, _symbols, _builtin = _catalog_definitions(
+            model,
+            {key: fp.definition for key, fp in design.footprints.items()},
+            {key: symbol.definition for key, symbol in design.symbols.items()},  # type: ignore[attr-defined]
+        )
+        plan = _layout.plan_layout(
+            design,
+            model,
+            requested=cast(Mapping[str, Any], requested),
+            authored=authored,
+            script_path=script_path,
+            ctx=ctx,
+        )
+    except DslError as error:
+        raise DesignScriptError(str(error), file=given) from error
+    if plan is None:
+        return None, [], model
+    model, copper_issues, _count = _layout.reuse_copper(plan, design, model)
+    return plan, [*plan.issues, *copper_issues], model
+
+
+def code_placements(
+    design: DslDesign,
+    model: ModelDesign,
+    requested: Mapping[str, PlacementRequest],
+    script_path: Path,
+    ctx: Context,
+    given: str,
+) -> Mapping[str, PlacementRequest]:
+    """The code placements of the script, its relative requests, poses and strategies resolved without a
+    board (change c0255): what ``sync`` compares the board with. ``requested`` when it asks for none."""
+    plan, _issues, _model = _plan_layout(design, model, requested, script_path, ctx, given)
+    return requested if plan is None else cast(Mapping[str, PlacementRequest], plan.placements())
+
+
+def _resolution_issues(plan: _layout.LayoutPlan) -> tuple[Issue, ...]:
+    """The issues of the last resolution the lens asked for (cycles, unresolved references, overflow)."""
+    resolution = plan.last or plan.code
+    return resolution.issues
 
 
 def _child_sheet(rel: str) -> bool:
@@ -1191,6 +1863,21 @@ def _hand_over(model: ModelDesign, resolved: ModelDesign) -> tuple[ModelDesign, 
     return model, dataclasses.replace(resolved, board=dataclasses.replace(done, keepouts=()))
 
 
+def altium_base(
+    model: ModelDesign,
+    placements: Mapping[str, PlacementRequest],
+    codes: Mapping[str, Mapping[str, edits_mod.Value | None]] | None,
+) -> str:
+    """The base record of an Altium build: the code values and the values written, which are the code
+    values there, since an Altium build has no CAD side (change c0250)."""
+    script = script_codes(model, placements)
+    written: dict[str, dict[str, edits_mod.Value]] = {}
+    for path, values in script.items():
+        written[path] = {prop: value for prop, value in values.items() if value is not None}
+    held = {path: {**values, **(codes or {}).get(path, {})} for path, values in script.items()}
+    return edits_mod.write_base(edits_mod.base_record(held, written, target="altium"))
+
+
 def _run_altium(
     args: argparse.Namespace,
     ctx: Context,
@@ -1209,6 +1896,7 @@ def _run_altium(
     meanders: Sequence[MeanderIntentLike] = (),
     generated_records: Sequence[kicad_generate.GeneratedLike] = (),
     role_record: object | None = None,
+    codes: Mapping[str, Mapping[str, edits_mod.Value | None]] | None = None,
 ) -> Result:
     """The ``--target altium`` branch (capability altium-build, "Altium build target"): only the symbol
     libraries of KiCad lib ids and the footprint libraries of KiCad footprint links are read, through a
@@ -1239,10 +1927,11 @@ def _run_altium(
     sheets = cast(SheetMode, args.altium_sheets or DEFAULT_SHEETS)
     # change c0086: the symbols and footprints the script authored or took from the catalog are written
     # like resolved ones, as in a KiCad build, so their graphics reach the libraries
+    record_footprints, record_symbols, _ = project_definitions(run, model)
     authored_footprints, authored_symbols, _builtin = _catalog_definitions(
         model,
-        {key: fp.definition for key, fp in run.design.footprints.items()},
-        {key: symbol.definition for key, symbol in run.design.symbols.items()},  # type: ignore[attr-defined]
+        {**record_footprints, **{key: fp.definition for key, fp in run.design.footprints.items()}},
+        {**record_symbols, **{key: symbol.definition for key, symbol in run.design.symbols.items()}},  # type: ignore[attr-defined]
     )
     resolver = None
     scripted = bool(intents or generated_records or role_record is not None)
@@ -1385,7 +2074,22 @@ def _run_altium(
                 hint="pip install 'fenolite[geo]', or use --altium-pour outline",
             ) from error
     files = dict(built.files)
+    placed = contract_devices(run.design)
+    circuit_found = circuit_issues(
+        model, devices=placed, classes=classes_of(model, placed), waivers=model.findings.waivers
+    )
+    circuit_found = (*circuit_found, *topology_build_issues(model), *shadowed_rules(model))
+    if any(found.severity == "error" for found in circuit_found):
+        files = {}  # a circuit error stops the write (change c0252)
     _keep_confirmed_roles(out_dir, files)
+    if files and RECORD_FILE in files:
+        # the base record of the Altium folder: what the build was given and wrote (change c0250)
+        files[edits_mod.BASE_FILE] = altium_base(model, requested, codes).encode("utf-8")
+        record = json.loads(files[RECORD_FILE])
+        record["files"][edits_mod.BASE_FILE] = hashlib.sha256(files[edits_mod.BASE_FILE]).hexdigest()
+        files[RECORD_FILE] = (json.dumps(record, sort_keys=True, indent=2, ensure_ascii=False) + "\n").encode(
+            "utf-8"
+        )
     native_info: dict[str, object] | None = None
     native_path = getattr(args, "altium_template", None)
     if native_path is not None:
@@ -1450,7 +2154,7 @@ def _run_altium(
         except LayoutConflict as error:
             layout_issues = error.issues
             files = {}
-    mode = args.copper_check or COPPER_CHECK_MODES[0]
+    mode, mode_source = copper_mode(args.copper_check, script_path)
     copper_issues: tuple[Issue, ...] = ()
     copper_check: dict[str, object] = {"mode": mode, "ran": False}
     if files:
@@ -1459,6 +2163,7 @@ def _run_altium(
         )
         if any(found.severity == "error" for found in copper_issues):
             files = {}  # refused: a build with an error issue plans no write
+    copper_check = {**copper_check, "mode_source": mode_source}
     if files:
         check_existing(out_dir, files, record=read_record(out_dir), discard_layout=bool(args.discard_layout))
     writes = tuple(
@@ -1515,7 +2220,14 @@ def _run_altium(
         evidence = Evidence.combine(evidence, native_evidence)
     return Result(
         result=result,
-        issues=(*reader_issues, *script_issues, *built.issues, *copper_issues, *layout_issues),
+        issues=(
+            *reader_issues,
+            *script_issues,
+            *built.issues,
+            *circuit_found,
+            *copper_issues,
+            *layout_issues,
+        ),
         evidence=evidence,
         input=InputRef(
             path=str(args.design),

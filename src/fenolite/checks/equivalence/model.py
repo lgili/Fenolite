@@ -16,13 +16,33 @@ from typing import Literal
 
 from fenolite.core.coords import Point
 
-LEVELS: tuple[int, ...] = (1, 2, 3, 4, 5)
+LEVELS: tuple[int, ...] = (1, 2, 3, 4, 5, 6, 7)
 LEVEL_NAMES: Mapping[int, str] = MappingProxyType(
-    {1: "components", 2: "netlist", 3: "footprints", 4: "placement", 5: "routing"}
+    {
+        1: "components",
+        2: "netlist",
+        3: "footprints",
+        4: "placement",
+        5: "routing",
+        6: "rules",
+        7: "geometry",
+    }
 )
+"""The levels ``compare_designs`` runs, with their names."""
+PRESENTATION_LEVEL = 8
+"""The level that renders both sides and compares the pictures (``view.fidelity``); ``compare_designs`` never
+runs it."""
+SCHEMATIC_LEVEL = "S"
+"""The level that compares two drawn schematics; ``compare_designs`` never runs it."""
+LevelId = int | str
+"""A level: an integer of 1 to 8, or ``SCHEMATIC_LEVEL``."""
+ALL_LEVEL_NAMES: Mapping[LevelId, str] = MappingProxyType(
+    {**LEVEL_NAMES, PRESENTATION_LEVEL: "presentation", SCHEMATIC_LEVEL: "schematic"}
+)
+"""Every level a difference may name, with its name."""
 Frame = Literal["absolute", "relative"]
 FRAMES: tuple[Frame, ...] = ("absolute", "relative")
-KINDS: tuple[tuple[int, str, str], ...] = (
+KINDS: tuple[tuple[LevelId, str, str], ...] = (
     (1, "component-missing", "ref"),
     (1, "ref-ambiguous", "ref"),
     (1, "value", "value"),
@@ -48,9 +68,57 @@ KINDS: tuple[tuple[int, str, str], ...] = (
     (5, "route-length", "length"),
     (5, "route-stub", "stubs"),
     (5, "route-unjudged", "zones"),
+    (5, "track-missing", "track"),
+    (5, "track-width", "width"),
+    (5, "track-net", "net"),
+    (5, "arc-missing", "arc"),
+    (5, "arc-width", "width"),
+    (5, "arc-net", "net"),
+    (5, "via-missing", "via"),
+    (5, "via-size", "diameter"),
+    (5, "via-drill", "drill"),
+    (5, "via-span", "layers"),
+    (5, "via-net", "net"),
+    (5, "copper-locked", "locked"),
+    (6, "netclass-missing", "name"),
+    (6, "netclass-field", "field"),
+    (6, "netclass-members", "nets"),
+    (6, "rule-missing", "name"),
+    (6, "rule-field", "field"),
+    (6, "ruleset-field", "field"),
+    (6, "stackup-missing", "layer"),
+    (6, "stackup-field", "field"),
+    (6, "layer-missing", "layer"),
+    (6, "layer-field", "field"),
+    (7, "outline-missing", "ring"),
+    (7, "zone-missing", "zone"),
+    (7, "zone-field", "field"),
+    (7, "keepout-missing", "keepout"),
+    (7, "keepout-field", "field"),
+    (7, "graphic-missing", "graphic"),
+    (7, "graphic-field", "field"),
+    (7, "text-missing", "text"),
+    (7, "text-field", "field"),
+    (7, "field-pose", "field"),
+    (7, "hole-missing", "hole"),
+    (7, "dimension-missing", "dimension"),
+    (7, "opaque-count", "item"),
+    (8, "render-missing", "layer"),
+    (8, "render-pixels", "pixels"),
+    ("S", "sheet-missing", "sheet"),
+    ("S", "symbol-missing", "symbol"),
+    ("S", "symbol-pose", "field"),
+    ("S", "symbol-field", "field"),
+    ("S", "item-missing", "item"),
+    ("S", "item-field", "field"),
+    ("S", "drawn-net", "net"),
 )
-"""Every kind of difference as ``(level, kind, field)``; the table is closed."""
-KIND_LEVELS: Mapping[str, tuple[int, ...]] = MappingProxyType(
+"""Every kind of difference as ``(level, kind, field)``; the table is closed. A ``field`` of ``field`` or
+``item`` is a placeholder: the difference names the dotted path of the field (``settings.clearance``) or the
+item kind (``junction``) that differs, so the table stays closed while the model grows."""
+FREE_FIELDS = frozenset({"field", "item"})
+"""The placeholders of the field column: a difference of such a kind carries its own field."""
+KIND_LEVELS: Mapping[str, tuple[LevelId, ...]] = MappingProxyType(
     {
         kind: tuple(level for level, name, _ in KINDS if name == kind)
         for kind in dict.fromkeys(name for _, name, _ in KINDS)
@@ -58,7 +126,7 @@ KIND_LEVELS: Mapping[str, tuple[int, ...]] = MappingProxyType(
 )
 """The levels of each kind name (``rotation`` is a kind of level 4 only; a pad's is ``pad-rotation``)."""
 NOTICE_SEVERITY: Mapping[str, Literal["warning", "info"]] = MappingProxyType(
-    {"route-stub": "warning", "route-unjudged": "info"}
+    {"route-stub": "warning", "route-unjudged": "info", "copper-locked": "warning"}
 )
 """The kinds that are notices, with their severity: they are reported and located as differences are,
 and they never make two designs unequal. Every other kind is an error."""
@@ -94,7 +162,7 @@ class Difference:
     ``a``, followed by ``:`` and the first pads of a pad set; ``a`` and ``b`` are the two values as exact
     strings, ``""`` for a missing object."""
 
-    level: int
+    level: LevelId
     kind: str
     where: str
     field: str
@@ -117,7 +185,7 @@ class LevelResult:
     a rule excluded, the level's counts, and its notices (the kinds of ``NOTICE_SEVERITY``), which fail
     nothing."""
 
-    level: int
+    level: LevelId
     compared: int
     differences: tuple[Difference, ...] = ()
     excluded: tuple[Excluded, ...] = ()
@@ -126,7 +194,7 @@ class LevelResult:
 
     @property
     def name(self) -> str:
-        return LEVEL_NAMES[self.level]
+        return ALL_LEVEL_NAMES[self.level]
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,7 +226,12 @@ class EquivalenceReport:
 
 
 __all__ = [
+    "ALL_LEVEL_NAMES",
     "EXACT",
+    "FREE_FIELDS",
+    "PRESENTATION_LEVEL",
+    "SCHEMATIC_LEVEL",
+    "LevelId",
     "FRAMES",
     "KINDS",
     "KIND_LEVELS",

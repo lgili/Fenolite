@@ -20,7 +20,7 @@ A `block` item of `fenolite-library` SHALL be one Python package folder holding 
 A block item SHALL hold `block.json` of schema `fenolite.block-item.v0` with `id`, `version`, `namespace`, `fenolite` and the c0268 record of its block, as canonical JSON. The record's namespace, id and version MUST equal the file's and the item's, else `FEN-3004`.
 
 #### Scenario: Record file of a test item
-- **WHEN** `fenolite blocks index tests/data/library/demo/blocks/apache/Demo/led --out O/block.json --confirm --json` runs
+- **WHEN** `fenolite blocks index tests/data/library_repo/block_items/blocks/cc0/Demo/led --out O/block.json --confirm --json` runs
 - **THEN** the file holds the id `Demo:led`, the namespace `Demo` and its record, and a second run plans nothing
 
 ### Requirement: Discovery without import

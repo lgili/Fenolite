@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
+# Authored for Fenolite: the SHA-256 of each shipped family's canonical text per catalog data version (change c0254).
+# A changed family needs a new CATALOG_VERSION and a new table here.
+
+[versions."2026.10"]
+"Fenolite:C_0402_C0G_50V" = "da816e22f79a0a0b47d03c521288cf82d469a5121ac44e7db27e671268323ac8"
+"Fenolite:C_0402_X7R_50V" = "cef7284b580117d6ed05887109ef587a723d75d02932a15512793141bdf34562"
+"Fenolite:C_0603_C0G_50V" = "cb8fdf9428d09c01f0fff569cc17265299b814c9d021a454a0f95e99b2e68ce5"
+"Fenolite:C_0603_X7R_50V" = "6475354a8b882807080afacf82071544828e688046b1c7227d4e260ec531ba92"
+"Fenolite:C_0805_C0G_50V" = "616d5c5633e58172ce7de6aac0c54f3a40fc018b992d744609fb30a55d2c774f"
+"Fenolite:C_0805_X7R_50V" = "076985a5d267e76a111d19e445b772b45f78ec67f7e11bb4307c4644a32acbef"
+"Fenolite:C_1206_C0G_50V" = "1986d75bc474da6ad22dd175c9bcf7e7c4c11512e75ca978596d1c49cf8ee5fc"
+"Fenolite:C_1206_X7R_50V" = "043635a7a63c532b49f300afd879e577ba2b4c92a4f81a44a72d92fc82ca2df5"
+"Fenolite:R_0402_E24_5pct" = "b522fd30e31fb3b85a15ac52de0bafc5a76623df1fdf0755c6f2bbcf67b532d6"
+"Fenolite:R_0402_E96_1pct" = "d004880c3d14ce93bbbba6c1a496f25c8433ac56ff37d3d3808def176bc6e23d"
+"Fenolite:R_0603_E24_5pct" = "e9ccc1d9b080cda691deaa85fab8b429e70cbe59d943d9c89a129f1db8d8f977"
+"Fenolite:R_0603_E96_1pct" = "81a35d339c7d4692476c67a93895579372e7942c002600032b4046a3cec46ee9"
+"Fenolite:R_0805_E24_5pct" = "f3f0ea34765f2e0505dd53fc5bca12e2763e9f3c534d60eb11c8afed9577e0bd"
+"Fenolite:R_0805_E96_1pct" = "416d73d0847ec1c8490fe60d47930770ff620e65fd3df4792a127a5d5e6dc4bb"
+"Fenolite:R_1206_E24_5pct" = "8475a5a88d81c0169eb1baa09eeef5263539c8e8c6a47084f97a5f8fc375b886"
+"Fenolite:R_1206_E96_1pct" = "d005de44102d812caade5f8839ade4ef0c76a6f7d7c0f18c66df3fd9c62a9701"

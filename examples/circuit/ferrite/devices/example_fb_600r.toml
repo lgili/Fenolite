@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example; an illustrative device, not a real product. Its values are chosen
+# for the example and come from no datasheet.
+schema = "fenolite.device.v0"
+id = "Example:FB_600R"
+summary = "0603 ferrite bead, 600 ohm at 100 MHz (illustrative)"
+symbol = "Fenolite:Ferrite_Bead"
+footprint = "Fenolite:Chip_0603"
+ref_prefix = "FB"
+evidence = "UNVERIFIED"
+class = "ferrite"
+ends = ["P1", "P2"]
+
+[pins]
+P1 = "1"
+P2 = "2"

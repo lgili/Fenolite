@@ -1,0 +1,24 @@
+{
+  "authors": [
+    "Fenolite contributors"
+  ],
+  "copyright": [],
+  "evidence": "UNVERIFIED",
+  "id": "FenoliteDevices:DemoTwoPad",
+  "kind": "footprint",
+  "licence_review": {
+    "by": "Fenolite fixture author",
+    "date": "2026-11-01",
+    "note": "Original authored fixture declaration only; not a copy or approval of upstream legal text."
+  },
+  "licence_text_sha256": "b721af679c076eb10fc2feecebb24f7d41cabe7c769f9271f272e2b9dc05d4f5",
+  "modification_notice": "2026-11-01: authored for Fenolite as illustrative data; no upstream CAD payload",
+  "origin": "authored",
+  "schema": "fenolite.provenance.v0",
+  "sources": [
+    "D-0001"
+  ],
+  "spdx": "CC0-1.0",
+  "upstream": null,
+  "version": "1.0.0"
+}

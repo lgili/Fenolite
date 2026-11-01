@@ -13,8 +13,8 @@ needs ``kicad-cli``.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -29,8 +29,9 @@ from fenolite.api.sides import (
 )
 from fenolite.backends.kicad import altium_import
 from fenolite.checks.equivalence import (
-    LEVEL_NAMES,
+    ALL_LEVEL_NAMES,
     LEVELS,
+    PRESENTATION_LEVEL,
     EquivalenceReport,
     Profile,
     Tolerances,
@@ -41,7 +42,8 @@ from fenolite.checks.equivalence import (
     select_profile,
 )
 from fenolite.checks.equivalence import codes as equivalence_codes
-from fenolite.checks.equivalence.model import FRAMES, Difference, Frame
+from fenolite.checks.equivalence.exclusions import apply_rules
+from fenolite.checks.equivalence.model import FRAMES, Difference, Frame, LevelResult
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
 from fenolite.model.design import Design
@@ -52,6 +54,10 @@ PCB_DOCUMENT = ".pcbdoc"
 TOLERANCE_FIELDS = ("length_nm", "angle_udeg", "length_ppm")
 SideInput = str | Path | Design
 """A side: a path of any side the command reads, or a design."""
+Presentation = Callable[[ReadSide, ReadSide], LevelResult]
+"""What runs level 8 on two sides as read: the renderer lives in ``fenolite.view``, which ``api`` does not
+import, so the caller passes it (``fenolite equivalent`` does)."""
+API_LEVELS: tuple[int, ...] = (*LEVELS, PRESENTATION_LEVEL)
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,7 +145,7 @@ class EquivalenceResult:
             "levels": [
                 {
                     "level": level.level,
-                    "name": LEVEL_NAMES[level.level],
+                    "name": ALL_LEVEL_NAMES[level.level],
                     "compared": level.compared,
                     "differences": len(level.differences),
                     "excluded": len(level.excluded),
@@ -223,6 +229,8 @@ def equivalent(
     against: str | None = None,
     kicad_cli: str | None = None,
     timeout: float = DEFAULT_TIMEOUT,
+    strict: bool = False,
+    presentation: Presentation | None = None,
 ) -> EquivalenceResult:
     """Compare ``a`` with ``b`` (capability design-equivalence, "Public equivalence API").
 
@@ -231,7 +239,9 @@ def equivalent(
     converts the Altium PCB document ``a`` to, compared under the importer's exclusion profile. ``level``
     ``None`` runs the highest level both sides hold. ``tolerances`` is a ``Tolerances``, or a mapping of
     the fields to set over the profile's values (else 0); ``frame`` ``None`` is the profile's frame, else
-    ``absolute`` (``relative`` for the triangle).
+    ``absolute`` (``relative`` for the triangle). ``strict`` runs the item rule of level 5 too (the level run
+    must be 5 or more). ``level`` 8 runs the levels 1 to 7 (to the highest both sides hold when a side has no
+    footprint) and then ``presentation`` on the two sides; a side without a board is a usage fault.
 
     A usage fault raises ``SideUsageError``, a ``ValueError``; a missing path ``SideMissingError``; a
     reader's error keeps its type and code; a missing or wrong ``kicad-cli`` raises ``ToolMissingError`` or
@@ -241,8 +251,12 @@ def equivalent(
         raise SideUsageError(f"against is one of {', '.join(AGAINST)}, got {against!r}", where="against")
     if (b is None) == (against is None):
         raise SideUsageError("give b or against='kicad-import', not both and not neither", where="b")
-    if level is not None and (type(level) is not int or level not in LEVELS):
-        raise SideUsageError(f"level is one of {', '.join(map(str, LEVELS))}, got {level!r}", where="level")
+    if level is not None and (type(level) is not int or level not in API_LEVELS):
+        raise SideUsageError(
+            f"level is one of {', '.join(map(str, API_LEVELS))}, got {level!r}", where="level"
+        )
+    if level == PRESENTATION_LEVEL and presentation is None:
+        raise SideUsageError("level 8 renders the sides: pass presentation", where="level")
     if frame is not None and frame not in FRAMES:
         raise SideUsageError(f"frame is one of {', '.join(FRAMES)}, got {frame!r}", where="frame")
     notices: list[Issue] = []
@@ -291,18 +305,35 @@ def equivalent(
             )
         chosen_frame = frame or (applied.frame if applied else "relative")
     chosen = _tolerances(tolerances, applied)
+    highest = max_level(side_a.design, side_b.design)
+    run = highest if level is None else level
+    if run == PRESENTATION_LEVEL:
+        bare = " and ".join(n for n, side in (("a", side_a), ("b", side_b)) if side.design.board is None)
+        if bare:
+            raise SideUsageError(
+                f"level 8 renders a board on both sides, and side {bare} holds none", where="level"
+            )
+        run = 7 if highest >= 4 else highest
+    if strict and run < 5:
+        raise SideUsageError(
+            f"strict compares the copper of level 5, and the level run is {run}", where="strict"
+        )
     try:
         report = compare_designs(
             side_a.design,
             side_b.design,
-            level=max_level(side_a.design, side_b.design) if level is None else level,
+            level=run,
             tolerances=chosen,
             frame=chosen_frame,
             ignore_refs=tuple(ignore_refs),
             rules=applied.rules if applied else (),
+            strict=strict,
         )
     except ValueError as error:
         raise SideUsageError(str(error), where="level") from None
+    if level == PRESENTATION_LEVEL and presentation is not None:
+        rendered = apply_rules(presentation(side_a, side_b), applied.rules if applied else ())
+        report = replace(report, levels=(*report.levels, rendered))
     notices += _import_messages(side_b.messages)
     evidence = Evidence.combine(side_a.evidence, side_b.evidence)
     if against is not None:
@@ -317,4 +348,13 @@ def equivalent(
     )
 
 
-__all__ = ["AGAINST", "EquivalenceResult", "Side", "SideInput", "equivalent", "public_side"]
+__all__ = [
+    "AGAINST",
+    "API_LEVELS",
+    "EquivalenceResult",
+    "Presentation",
+    "Side",
+    "SideInput",
+    "equivalent",
+    "public_side",
+]

@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite; all electrical numbers are illustrative, not a real device.
+schema = "fenolite.device.v1"
+id = "Example:IllustrativeTVS"
+version = "1.0.0"
+summary = "Illustrative protection diode; not a purchasing recommendation"
+category = "Device"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"
+sources = []
+symbol = "Fenolite:Diode"
+footprint = "Fenolite:SOD323_Diodes"
+ref_prefix = "D"
+value = "ILLUSTRATIVE"
+ends = ["K", "A"]
+
+[pins.K]
+map = { "1" = "1" }
+[pins.A]
+map = { "2" = "2" }
+
+[ratings]
+voltage = { operating = "5V", abs_max = "12V" }
+
+[properties]
+Illustrative = "All numbers are authored examples; no real device is represented"

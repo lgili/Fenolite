@@ -5,7 +5,7 @@
 
 #### Scenario: Index check fails on a stale file
 - **GIVEN** the test block item with a committed `block.json` older than its code
-- **WHEN** `fenolite blocks index tests/data/library/demo/blocks/apache/Demo/led --out tests/data/library/demo/blocks/apache/Demo/led/block.json --check --json` runs
+- **WHEN** `fenolite blocks index tests/data/library_repo/block_items/blocks/cc0/Demo/led --check --json` runs
 - **THEN** it exits 5 with `blocks.index-stale` and nothing is written
 
 ### Requirement: Blocks upgrade command

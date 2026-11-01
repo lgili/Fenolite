@@ -1,0 +1,59 @@
+---
+topic: viewer
+title: Viewing boards and reviewing findings
+summary: Drawings, findings and reviewed actions.
+---
+
+# Viewing boards and reviewing findings
+
+A person uses the viewer to inspect a drawing and its findings. The CLI reply gives an agent the same
+counts and evidence without opening a browser.
+
+For more than counts, `net`, `pads`, `region` and `neighbors` (pages `routing`, `placement`) read any
+KiCad board. To look at a board or an Altium sheet, or at every one of a project, without its tool:
+
+```fenolite-cmd
+fenolite view blink/altium/blink.PrjPcb --json
+fenolite view blink/altium/blink.PrjPcb --doc blink.SchDoc --json
+fenolite view blink/build/blink.kicad_pcb --export blink/views/board.html --dry-run --json
+fenolite view blink/build/blink.kicad_pcb --check checks.json --report conversion.json --report fabrication.json --json
+fenolite view blink/build/blink.kicad_pcb --serve --run-timeout 900 --no-browser --port 0
+fenolite view blink/build/blink.kicad_pcb --serve --no-run --no-browser
+fenolite view blink/build/blink.kicad_pcb --serve --allow-actions --no-browser
+fenolite view blink/build/blink.kicad_pcb --roles run --export blink/views/roles.html --dry-run --json
+```
+
+`view` replies with the project's documents and a summary of one board, or of the one `--doc` names;
+`--compare OLD` draws what changed since OLD (a board or sheet) and counts it in `result.compare`; `--variant NAME` shows an Altium variant; `--check FILE|run` draws `check` findings and counts them in `result.check`; `--select REF` opens at a part or net; `--marks FILE` lists a person's review marks (`fenolite.review.v0`) in `result.marks`; `--theme` takes a KiCad colour theme; `--export` plans one HTML page that a person opens, and `--serve`
+(for a person, not an agent) serves it live. A served page can run `check`, `analyze`, `ready` and
+`equivalent` itself, read-only, one at a time, stopped after `--run-timeout SECONDS` (600); `--no-run`
+serves recorded results only, and `result.serve.runs` counts the runs by final state.
+`--allow-actions` lets the person write through the page: fill, tidy, silk, test points, DRC waivers,
+moves, exports and BOM, each a reviewed plan confirmed with `--confirm --plan`; `result.serve.writes`
+lists the receipts, and `fenolite restore` undoes one. `--roles FILE|run` draws the net roles of `fenolite
+roles BOARD --check` on each board (role colours, loops, Kelvin pairs, role findings) and counts them in
+`result.roles`; a served page with `--allow-actions` can confirm inferred roles as a reviewed plan.
+
+`result.review` and the page's Review panel distinguish not-run, passed, failed and limited stages.
+`--report FILE` loads a recorded convert/export reply, once per command; use `--check` for checks.
+Loading does not run the operation. Missing/mismatched input hashes remain historical and limited;
+a matching hash binds only the named document. Original hints and Locate support reviewing findings,
+not marking them fixed. Export generation alone does not attest successful readback or fabrication readiness.
+
+## Route proposals
+
+After the critical routes and power copper, inspect the remaining connections with `--proposals run`
+or load a saved proposal reply with `--proposals FILE`. Candidate facts stay `INFERRED` unless a named
+check supplies stronger evidence. There is no score or automatic selection. With `--allow-actions`,
+the person can accept or reject a candidate through a reviewed plan; page `board-routing` covers the
+CLI decision and replay commands.
+
+```fenolite-cmd
+fenolite view blink/build/blink.kicad_pcb --proposals run --export blink/views/proposals.html --dry-run --json
+```
+
+An edit-conflict finding keeps its two copyable `build --take ... --dry-run` command lines in the
+inspector. Copy one to the terminal to review its plan; selecting the finding runs neither command.
+Finding subjects remain listed, and a role finding can locate the pads of its named group.
+
+Read next: `files`, `checks`, `board-routing`.

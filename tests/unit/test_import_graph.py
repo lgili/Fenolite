@@ -27,12 +27,15 @@ ANY = "*"
 ALLOWED: dict[str, set[str]] = {
     "root": {ANY},
     "cli": {ANY},
+    "testing": {ANY},
     "core": set(),
     "model": set(),
     "geometry": set(),
-    "dsl": {"model", "schematic", "catalog"},  # catalog: the reference prefix of a symbol (c0249)
+    "dsl": {"model", "schematic", "catalog"},  # catalog: symbol prefixes (c0249) and devices (c0248)
     "schematic": set(),
     "catalog": {"model"},
+    "suppliers": {"pick", "catalog", "model"},
+    "pick": {"model", "catalog"},  # c0254: queries, rows, the lock's picks, generators
     "lens": {"model", "backends*", "schematic"},
     "backends": {"model", "geometry", "backends*"},
     "backends.<x>": {"model", "geometry", "backends.base", "schematic"},
@@ -44,6 +47,13 @@ ALLOWED: dict[str, set[str]] = {
     "routing": {"model", "geometry"},
     "routing.plugins.<x>": {"routing", "model", "geometry", "backends.<same>"},
     "templates": {"model"},
+    "blocks": {"dsl", "model"},
+    "blocks.tests": {
+        "dsl",
+        "testing",
+        "blocks",
+        "blocks.tests",
+    },  # c0268: shipped blocks build on the DSL only
     "render": {"model", "geometry", "backends*"},
     "exports": {"model", "geometry", "backends*"},
     "convert": {"model", "geometry", "backends*"},
@@ -57,14 +67,27 @@ ALLOWED: dict[str, set[str]] = {
     "tidy": {"model", "geometry", "backends.base"},
     "reuse": {"model", "geometry", "backends.base"},
     "silk": {"model", "geometry", "backends*"},
-    "library": {"model", "geometry", "backends*"},
+    "library": {"model", "geometry", "backends*", "dsl", "catalog"},  # c0279: the lock section, record ids
+    "importer": {"model", "geometry", "backends*", "checks", "library", "dsl"},  # board to code (c0275)
 }
 LAZY: dict[str, set[str]] = {"api": {"cli"}}
 """Edges allowed only inside a function body, so that importing the source does not import the target:
 ``fenolite.api.run`` imports the dispatcher of ``cli`` when it is called (capability package-layering,
 "Public API runs the commands lazily"; change c0206). ``cli`` imports ``api`` at the top, so a top-level
 edge back would be a cycle."""
-STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog", "schematic", "mcp"}
+STDLIB_ONLY = {
+    "core",
+    "model",
+    "geometry",
+    "dsl",
+    "catalog",
+    "schematic",
+    "mcp",
+    "pick",
+    "testing",
+    "blocks",
+    "blocks.tests",
+}
 EXTRA_LOADER = "geometry/boolean/_extra.py"
 PYPROJECT = SRC.parents[1] / "pyproject.toml"
 
@@ -76,6 +99,8 @@ def _key(parts: list[str]) -> str:
     head = parts[0]
     if (SRC / head).is_file() or (SRC / f"{head}.py").is_file() or head in ("__init__", "__main__"):
         return "root"
+    if head == "blocks" and len(parts) > 1 and parts[1] == "tests":
+        return "blocks.tests"
     if head == "backends" and len(parts) > 1:
         return f"backends.{parts[1]}" if (SRC / "backends" / parts[1]).is_dir() else f"backends.{parts[1]}"
     if head == "routing" and len(parts) > 2 and parts[1] == "plugins":
@@ -101,6 +126,8 @@ def _pattern(key: str) -> str:
 
 
 def _allowed(source: str, target: str) -> bool:
+    if target == "suppliers" and source != "suppliers":
+        return False
     if target in (source, "core", "root"):
         return True
     rules = ALLOWED[_pattern(source)]
@@ -217,7 +244,15 @@ def _violations() -> list[str]:
             top = edge.target.split(".")[0]
             if top == "fenolite":
                 target = _key(edge.target.split(".")[1:])
-                if not _allowed(source, target) and not (edge.lazy and _lazy(source, target)):
+                starter = path.relative_to(SRC).as_posix() in {
+                    "blocks/divider.py",
+                    "blocks/rc.py",
+                    "blocks/led.py",
+                    "blocks/i2c.py",
+                    "blocks/protect.py",
+                }
+                allowed = target in {"dsl", "core", "root"} if starter else _allowed(source, target)
+                if not allowed and not (edge.lazy and _lazy(source, target)):
                     lazily = " (only inside a function)" if _lazy(source, target) else ""
                     problems.append(f"{rel}:{edge.line}: {source} → {target} is not allowed{lazily}")
             elif top not in sys.stdlib_module_names:
@@ -253,6 +288,8 @@ def test_layering() -> None:
         ("agent", "model", False),
         ("dsl", "model", True),
         ("catalog", "model", True),
+        ("dsl", "catalog", True),
+        ("catalog", "dsl", False),
         ("lens", "backends.kicad", True),
         ("checks", "backends.kicad", False),
         ("analysis", "backends.kicad", False),
@@ -276,6 +313,22 @@ def test_layering() -> None:
 )
 def test_rule_table(source: str, target: str, ok: bool) -> None:
     assert _allowed(source, target) is ok
+
+
+def test_shipped_blocks_build_on_the_dsl_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Capability package-layering, "Allowed import edges", scenario "Shipped blocks build on the DSL only"
+    (change c0268)."""
+    fake = _fake_tree(tmp_path, "blocks/divider.py", "import fenolite.dsl\nimport fenolite.core.units\n")
+    (fake / "dsl").mkdir()
+    (fake / "dsl" / "block.py").write_text("import fenolite.model.circuit\n")
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    assert _violations() == []
+    for target in ("catalog", "backends"):
+        (fake / "blocks" / "divider.py").write_text(f"import fenolite.dsl\nimport fenolite.{target}.x\n")
+        assert any(f"blocks → {target}" in p for p in _violations()), target
+    (fake / "blocks" / "divider.py").write_text("import fenolite.dsl\n")
+    (fake / "dsl" / "block.py").write_text("import fenolite.blocks\n")
+    assert any("dsl → blocks" in p for p in _violations())
 
 
 def test_detects_forbidden_edge(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -355,6 +408,19 @@ def test_roles_read_the_analyses_checks_do_not(tmp_path: Path, monkeypatch: pyte
     assert any("checks → roles is not allowed" in p for p in problems), problems
     assert any("checks → analysis is not allowed" in p for p in problems), problems
     assert any("roles → backends.kicad is not allowed" in p for p in problems), problems
+
+
+def test_dsl_reads_the_catalog_not_the_reverse(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Capability package-layering, "Allowed import edges", scenario "The DSL reads the catalog, not the
+    reverse" (change c0248): a device part is checked at the call that creates it."""
+    fake = _fake_tree(tmp_path, "dsl/devices.py", "import fenolite.catalog.devices\n")
+    (fake / "catalog").mkdir()
+    (fake / "catalog" / "devices.py").write_text("import fenolite.model.library\n", encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    assert _violations() == []
+    (fake / "catalog" / "devices.py").write_text("import fenolite.dsl\n", encoding="utf-8")
+    problems = _violations()
+    assert any("catalog → dsl is not allowed" in p for p in problems), problems
 
 
 def test_api_runs_the_commands_lazily(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -468,3 +534,37 @@ def test_geometry_imports_without_extras() -> None:
     )
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stderr
+
+
+def test_picks_read_the_catalog_not_the_dsl(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Capability package-layering, "Allowed import edges", scenario "Picks read the catalog, not the DSL"
+    (change c0254): ``pick`` imports ``catalog`` and ``model``, never ``dsl`` or a backend, and ``dsl``
+    never imports ``pick``."""
+    fake = _fake_tree(tmp_path, "pick/match.py", "import fenolite.catalog\nimport fenolite.model.library\n")
+    (fake / "dsl").mkdir()
+    (fake / "dsl" / "query.py").write_text("import fenolite.core.partquery\n", encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    assert _violations() == []
+    (fake / "pick" / "match.py").write_text(
+        "import fenolite.dsl\nimport fenolite.backends.kicad\n", encoding="utf-8"
+    )
+    (fake / "dsl" / "query.py").write_text("import fenolite.pick\n", encoding="utf-8")
+    problems = _violations()
+    assert any("pick → dsl is not allowed" in p for p in problems), problems
+    assert any("pick → backends.kicad is not allowed" in p for p in problems), problems
+    assert any("dsl → pick is not allowed" in p for p in problems), problems
+
+
+@pytest.mark.parametrize(
+    "source,target,allowed",
+    [
+        ("suppliers", "pick", True),
+        ("suppliers", "catalog", True),
+        ("suppliers", "dsl", False),
+        ("cli", "suppliers", False),
+        ("pick", "suppliers", False),
+        ("dsl", "suppliers", False),
+    ],
+)
+def test_entry_point_boundary(source: str, target: str, allowed: bool) -> None:
+    assert _allowed(source, target) is allowed

@@ -57,7 +57,7 @@ from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm
-from fenolite.lens import altium_copper
+from fenolite.lens import altium_copper, preserve
 from fenolite.lens.altium_copper import CopperSource, match_source
 from fenolite.lens.build import (
     CACHE_DIR,
@@ -87,7 +87,7 @@ from fenolite.model.board import (
 )
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
-from fenolite.model.library import FootprintDef, SymbolDef
+from fenolite.model.library import FootprintDef, SymbolDef, flatten_symbol
 from fenolite.model.presentation import PAPER_SIZES, DrawingSheet, SheetBitmap, SheetFrameRef, TitleBlock
 from fenolite.schematic.composition import CompositionError, fail
 from fenolite.schematic.intent import CompositionIntent
@@ -125,6 +125,7 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.harness-power-net": "error",
         "build.not-two-terminal": "error",
         "build.must-connect-unconnected": "error",
+        "build.block-sheet-name-clash": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.pin-lossy": "warning",
@@ -288,7 +289,14 @@ def resolve_symbols(
     with one ``kicad.lib.*`` issue per lib id that does not resolve. A lib id of ``authored`` (a symbol
     the script authored or took from the catalog, change c0086) is that symbol and is not resolved."""
     wanted = kicad_lib_ids(design)
-    found: dict[str, SymbolDef] = {lib_id: authored[lib_id] for lib_id in wanted if lib_id in authored}
+    # a derived symbol the script authored is flattened onto its base of the same library (change c0261)
+    found: dict[str, SymbolDef] = {
+        lib_id: flatten_symbol(
+            authored[lib_id], [s for s in authored.values() if s.library == authored[lib_id].library]
+        )
+        for lib_id in wanted
+        if lib_id in authored
+    }
     wanted = tuple(lib_id for lib_id in wanted if lib_id not in found)
     if not wanted:
         return found
@@ -518,7 +526,8 @@ def pad_extras(defn: FootprintDef) -> dict[str, pcblib.PadExtras]:
     (margins, zone connection, thermal settings). Only this lens reads KiCad fragments (layering)."""
     out: dict[str, pcblib.PadExtras] = {}
     for pad in defn.pads:
-        ratio: Decimal | None = None
+        # A generated or authored rounded rectangle carries its ratio in the model (change c0260).
+        ratio: Decimal | None = None if pad.corner_ratio is None else Decimal(pad.corner_ratio) / 1_000_000
         refusal: str | None = None
         dropped: list[str] = []
         if pad.padstack is not None and pad.padstack.hole_shape == "slot" and pad.padstack.layers:
@@ -946,6 +955,9 @@ def place_footprints(
     net_ids = {net.name: net.id for net in design.circuit.nets}
     outline = board.outline.points
     cursor = max(p.x for p in outline) + STAGING_OFFSET
+    after = preserve.staging_after(placements)
+    if after is not None:
+        cursor = max(cursor, after)  # the strategy groups staged as one box come first (change c0255)
     top = min(p.y for p in outline)
     staged: list[str] = []
     wide: list[str] = []
@@ -963,6 +975,8 @@ def place_footprints(
             staged.append(component.ref)
         else:
             at, rotation, side, locked = request.at, request.rotation, request.side, request.locked
+            if preserve.is_staged(request):
+                staged.append(component.ref)
         if lower.written_comment(component)[1]:
             # the PCB document's texts are 7-bit; the schematic holds the comment (change c0086)
             wide.append(component.ref)
@@ -1485,6 +1499,16 @@ def _check(
         hint = "name its nets <stem><n> with consecutive integers to draw it as a bus"
         issues.append(issue("altium.bus-flattened", message, bus, hint))
     issues += _hierarchy_checks(design)
+    for module, clash in hierarchy.name_clashes(design) if sheets == "modules" else ():
+        issues.append(  # a port and a net that crosses without one would share an entry (change c0269)
+            issue(
+                "build.block-sheet-name-clash",
+                f"block {module}: the port {clash} and the net {clash}, which leaves the block's sheet "
+                "without a port, would give one sheet entry",
+                module,
+                "rename the net, or connect it through a port of the block",
+            )
+        )
     ids: dict[str, str] = {}
     keyed = [(c.id, c.ref, component_path(c)) for c in components]
     if not any(i.severity == "error" for i in issues):

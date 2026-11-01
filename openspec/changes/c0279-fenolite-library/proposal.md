@@ -32,7 +32,7 @@ users pull items with one command.
 - **Verbs** `fenolite library audit|replay|release|gallery` are the library's CI tooling, so the library
   holds no tooling code.
 - **Codes** `FEN-6004` (pinned item missing), `FEN-6006` (not in the offline cache), `FEN-4003` (licence
-  not accepted), `FEN-3008` (licence not allowed). **ADR-0008**: `get` is the second downloading command.
+  not accepted), `FEN-3021` (licence not allowed). **ADR-0008**: `get` is the second downloading command.
 - **AGENTS.md** gains the sentence: third-party material lives only in `fenolite-library`, with a licence
   and provenance per item. `corpus-policy`, `ip-hygiene` and `public-presentation` are aligned.
 - c0266 (devices) and c0273 (blocks) become kinds of this repository pulled by `fenolite get`, replacing

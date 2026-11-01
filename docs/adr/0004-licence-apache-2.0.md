@@ -14,7 +14,8 @@ footprint generators and library checkers (GPL-3.0), and KiCad's official symbol
 
 ## Decision
 1. Fenolite is licensed under the **Apache License, Version 2.0**. Documentation is CC-BY-4.0;
-   fixtures and templates authored for Fenolite are CC0-1.0.
+   fixtures and templates authored for Fenolite are CC0-1.0. So are the shipped library records under
+   `src/fenolite/catalog/data/` (change c0259, the maintainer's decision of 2026-10-29).
 2. **Copyleft software is used only behind a process boundary or a published plugin API, never
    imported or vendored.** Concretely: `kicad-cli` and the Freerouting JAR run as subprocesses
    exchanging files; KiCad's IPC API is reached only through its official MIT client in the

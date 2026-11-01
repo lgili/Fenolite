@@ -19,7 +19,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from fenolite.cli.output import Evidence, InputRef, Issue, OutputMode
 from fenolite.core.progress import NULL_PROGRESS, Progress
@@ -85,6 +85,9 @@ class Result:
     text: str | None = None
     """A text the command wants printed as it is in text mode, after the status line (a page of the
     guide). JSON mode ignores it: the envelope holds no key for it."""
+    text_on_failure: bool = False
+    """Print ``text`` in text mode also when the command failed (``check --matrix``: a matrix is read most
+    when rows fail; change c0274)."""
     depends: tuple[str, ...] = ()
     """The inputs of the command that are not its targets, as :func:`depends_on` spells them: a plan id
     binds their digests, and ``--confirm --plan`` refuses when one changed (cli-contract, "Staged plans")."""
@@ -93,6 +96,29 @@ class Result:
     findings plan no write")."""
     written: Callable[[], None] | None = None
     """Called by the dispatcher once, after the writes of this result were all written."""
+    fail_on_warning: bool = False
+    """The block-test convention treats warnings as incomplete tests (exit 5); other commands keep exit 0."""
+    staged_result: dict[str, Any] | None = None
+    """A filtered result for plan storage: transient supplier offers must not outlive their reply.
+    Writes, inputs, issues and receipts are always controlled by the dispatcher."""
+
+    def __post_init__(self) -> None:
+        if self.staged_result is not None:
+            if set(self.staged_result) & {"plan", "plan_id", "receipt", "written"}:
+                raise ValueError("staged_result cannot override framework plan or write metadata")
+            if not _filtered(self.staged_result, self.result):
+                raise ValueError("staged_result may remove data only, never add or change it")
+
+
+def _filtered(saved: Any, original: Any) -> bool:
+    unchanged_type = type(saved) is type(original)
+    if isinstance(saved, dict) and isinstance(original, dict):
+        left, right = cast(dict[str, Any], saved), cast(dict[str, Any], original)
+        return all(key in right and _filtered(value, right[key]) for key, value in left.items())
+    if isinstance(saved, list) and isinstance(original, list):
+        items, before = cast(list[Any], saved), cast(list[Any], original)
+        return len(items) == len(before) and all(_filtered(a, b) for a, b in zip(items, before, strict=True))
+    return bool(unchanged_type and saved == original)
 
 
 def depends_on(cwd: Path, *paths: str | Path | None) -> tuple[str, ...]:

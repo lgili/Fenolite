@@ -309,15 +309,17 @@ No new `FEN-` code.
 
 ## Open questions
 
-1. *Should a project device be allowed to use the `Fenolite:` namespace?* Recommended: yes, as an override
+Decided by the maintainer on 2026-10-29; each answer is the recommended one.
+
+1. *Should a project device be allowed to use the `Fenolite:` namespace?* Decided: yes, as an override
    with `device.overrides-builtin`, mirroring authored symbols.
-2. *Should the build envelope's level drop to the lowest device label?* Recommended: no. Keep
-   `result.devices[].evidence`, and let c0253's checks cap their own evidence by the labels of the devices
-   they read.
-3. *Should the catalog browser emit a device TOML from a reviewed pair?* Recommended: yes, in a follow-up
+2. *Should the build envelope's level drop to the lowest device label?* Decided: no. Keep
+   `result.devices[].evidence` per device, and let c0253's checks cap their own evidence by the labels of the
+   devices they read.
+3. *Should the catalog browser emit a device TOML from a reviewed pair?* Decided: yes, in a follow-up
    change. This change only defines the format the browser would emit.
-4. *Should attribute access fold case (`u1.vin` → `VIN`)?* Recommended: no. Suggest the exact case in the
-   error, so that scripts spell functions one way.
+4. *Should attribute access fold case (`u1.vin` → `VIN`)?* Decided: no. The error suggests the exact
+   spelling, so that scripts spell functions one way.
 
 ## Relation to the batch
 

@@ -76,8 +76,9 @@ Point(x=2, y=0)
 `Arc(start, mid, end)` keeps its three points exactly as given.
 
 - `centre` and `radius2` are derived exactly from the circumcircle, with `D = 2·orient2d`.
-  - No rule decision should depend on them: the stored points condition the centre badly for
-    shallow arcs. Moving `mid` by 1 nm moves the centre of an r = 10 mm, 0.1° arc by more than 0.1 mm.
+  - Keep these derived quantities exact in rule decisions: the stored points condition the centre
+    badly for shallow arcs. Moving `mid` by 1 nm moves the centre of an r = 10 mm, 0.1° arc by more
+    than 0.1 mm; rounding a derived centre would therefore distort distance comparisons.
 - `orientation` is the sign of `orient2d(start, mid, end)`.
   - **KiCad does not preserve it.** A re-save swaps `start` and `end` of negatively oriented
     graphic arcs (`H-G-ARC-DIR`).
@@ -320,13 +321,14 @@ Point(x=1100, y=2000)
 
 ## Thick shapes
 
-A `Thick(core, width, filled=False)` is the set of points within `width / 2` of its core, boundary
+A `Thick(core, width, filled=False, arc=None)` is the set of points within `width / 2` of its core, boundary
 included. It describes copper without approximating a curve by a polygon.
 
 | core | `filled` | shape |
 |---|---|---|
 | one point | false | a disc of diameter `width` (a via, a round pad) |
-| two or more points | false | an open polyline swept by a disc (a track, an oval pad, a polygonised arc) |
+| two or more points | false | an open polyline swept by a disc (a track, an oval pad) |
+| the three stored points of `arc=Arc(start, mid, end)` | false | the true circular arc swept by a disc; a straight arc becomes its polyline |
 | three or more points | true | the closed region of the ring under the non-zero rule, grown by `width / 2` (a zone fill, a rectangular or rounded pad) |
 
 - A negative width raises `ValueError`. An empty core, a single point with width 0, and a filled core
@@ -345,8 +347,13 @@ included. It describes copper without approximating a curve by a polygon.
 | `thick_witness(a, b)` | the rounded midpoint of the first closest pair of core points; a common point when the cores meet |
 | `touch_groups(items)` | for items that each hold `(key, shape)` pairs, the group of every item as the smallest index of its group: two items join when a shape of each has the same key and `thick_touch` is true, directly or through other items. Pairs come from `SpatialIndex`; the result is that of testing every pair, whatever the order |
 
-- Every answer is exact. With doubled lengths the half-widths are integers, so each test compares
-  `4·dist²`, an exact rational, with the square of an integer. No function forms a float.
+- Every answer is exact. Straight cores compare doubled squared distances as Fractions.
+  Circular cores enumerate endpoints, circle/line and circle/circle intersections, and stationary
+  pairs along normals or the line of centres. Derived radical sums use guarded squaring for their
+  signs, including exact equality and dependent roots. Positive gaps are floored exactly; witness
+  coordinates are rounded half to even. No function forms a float.
+- These are Fenolite's inferred mathematical conventions, not a claim about KiCad's internal
+  distance algorithm. Stored points and widths stay integer nanometres; no runtime dependency is added.
 - Every function gives the same answer for `(a, b)` and `(b, a)`.
 - A core with 16 pieces or more gets a spatial index of its pieces on first use, so a track is tested
   only against the edges of a large fill that lie near it.
@@ -362,6 +369,11 @@ True
 (False, 200000)
 >>> thick_closer_than(via, clear, 200_000), thick_closer_than(via, clear, 200_001)
 (False, True)
+>>> arc = Arc(Point(-1000, 0), Point(0, 1000), Point(1000, 0))
+>>> curved = Thick((arc.start, arc.mid, arc.end), 100, arc=arc)
+>>> tangent = Thick((Point(-2000, 1200), Point(2000, 1200)), 100)
+>>> thick_gap_floor(curved, tangent), thick_closer_than(curved, tangent, 100)
+(100, False)
 
 ```
 

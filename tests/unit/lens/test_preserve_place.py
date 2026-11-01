@@ -69,3 +69,76 @@ def test_outline_edited_turns_the_rule_off() -> None:
     text = move_footprint(board_text(), "R1", 40 * MM, 0).replace("(end 150 130)", "(end 151 130)", 1)
     ready = prepared(d, text)
     assert isinstance(ready.placements["R1"], KeptPlacement)
+
+
+# --- the three-way rule (change c0250, "Placement precedence") -------------------------------------
+
+
+def _base_of_fresh() -> tuple[str, object]:
+    from _buildhelp import build
+
+    from fenolite.lens.edits import read_base
+
+    out = build(blink(), 10, write_base=True)
+    return out.files["blink.kicad_pcb"].decode("utf-8"), read_base(
+        out.files["fenolite-base.json"].decode("utf-8"), target="kicad"
+    )
+
+
+def _prepared_with_base(d: object, text: str, base: object) -> object:
+    from fenolite.dsl import module_moves, moves, net_moves
+
+    return prepare(
+        to_model(d),  # type: ignore[arg-type]
+        placements(d),  # type: ignore[arg-type]
+        ExistingProject(board=text),
+        name="blink",
+        moves=moves(d),  # type: ignore[arg-type]
+        module_moves=module_moves(d),  # type: ignore[arg-type]
+        net_moves=net_moves(d),  # type: ignore[arg-type]
+        edits={},
+        base=base,  # type: ignore[arg-type]
+    )
+
+
+def test_with_a_base_a_changed_place_moves_an_unedited_part() -> None:
+    text, base = _base_of_fresh()
+    d = blink()
+    d.parts["R1"].request = None
+    d.parts["R1"].place("35mm", "9mm")
+    ready = _prepared_with_base(d, text, base)
+    r1 = ready.placements["R1"]  # type: ignore[attr-defined]
+    assert r1.at == placements(d)["R1"].at
+    assert [(i.code, i.where) for i in ready.issues] == [("edit.code-wins", "R1#position")]  # type: ignore[attr-defined]
+
+
+def test_with_a_base_the_board_still_wins_over_an_unchanged_place() -> None:
+    text, base = _base_of_fresh()
+    d = blink()
+    ready = _prepared_with_base(d, edit_blink(text), base)
+    d1 = ready.placements["D1"]  # type: ignore[attr-defined]
+    assert isinstance(d1, KeptPlacement) and d1.at.x == placements(d)["D1"].at.x + D1_SHIFT
+    found = sorted((i.code, i.where) for i in ready.issues)  # type: ignore[attr-defined]
+    assert found == [("edit.unrecorded", "D1#position"), ("layout.place-overridden", "D1")]
+
+
+def test_with_a_base_a_hand_move_and_a_script_move_conflict() -> None:
+    text, base = _base_of_fresh()
+    d = blink()
+    d.parts["R1"].request = None
+    d.parts["R1"].place("35mm", "9mm")
+    ready = _prepared_with_base(d, move_footprint(text, "R1", 0, 2 * MM), base)
+    (conflict,) = [i for i in ready.issues if i.code == "sync.conflict"]  # type: ignore[attr-defined]
+    assert conflict.where == "R1#position" and conflict.severity == "error"
+    r1 = ready.placements["R1"]  # type: ignore[attr-defined]
+    assert isinstance(r1, KeptPlacement) and r1.at.y == 111 * MM
+
+
+def test_without_a_base_entry_one_base_missing() -> None:
+    from fenolite.lens.edits import BaseRecord
+
+    text, _ = _base_of_fresh()
+    ready = _prepared_with_base(blink(), edit_blink(text), BaseRecord.absent("kicad"))
+    missing = [i for i in ready.issues if i.code == "edit.base-missing"]  # type: ignore[attr-defined]
+    assert len(missing) == 1 and missing[0].message.startswith("3 part(s)")
+    assert "edit.unrecorded" not in [i.code for i in ready.issues]  # type: ignore[attr-defined]

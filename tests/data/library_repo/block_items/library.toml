@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite: isolated c0273 release fixture.
+schema = "fenolite.library.v0"
+name = "fenolite-block-items-fixture"
+version = "1.0.0"
+
+[requires]
+fenolite = ">=0.7"

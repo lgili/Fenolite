@@ -20,6 +20,7 @@ REQUIRED = [
     "0005-sheet-templates.md",
     "0006-specctra-and-freerouting.md",
     "0007-fetching-external-tools.md",
+    "0008-getting-library-items.md",
 ]
 
 
@@ -132,3 +133,26 @@ def test_adr_0007_is_listed_and_logged() -> None:
     annex = (ROOT / "LEGAL-ANNEX.md").read_text(encoding="utf-8")
     rows = [line for line in annex.splitlines() if "0007-fetching-external-tools.md" in line]
     assert len(rows) == 1 and "`fenolite fetch`" in rows[0] and "fetch.toml" in rows[0]
+
+
+# --- ADR-0008: getting library items (change c0279) ---------------------------------------------------
+
+
+def test_adr_0008_states_the_rules_and_is_linked() -> None:
+    text = (ADR_DIR / "0008-getting-library-items.md").read_text(encoding="utf-8")
+    decision = " ".join(text.split("## Decision\n", 1)[1].split("## Alternatives\n", 1)[0].split())
+    words_needed = (
+        "`fenolite get`",
+        "lgili/fenolite-library",
+        "`--confirm`",
+        "`--accept-licence`",
+        "never imports, runs",
+    )
+    for words in words_needed:
+        assert words in decision, words
+    index = (ADR_DIR / "README.md").read_text(encoding="utf-8")
+    assert "| [0008](0008-getting-library-items.md) |" in index
+    fetching = (ADR_DIR / "0007-fetching-external-tools.md").read_text(encoding="utf-8")
+    assert [line for line in fetching.splitlines() if "ADR-0008" in line and "2026-10-29" in line]
+    clean = (ADR_DIR / "0003-clean-room-and-provenance.md").read_text(encoding="utf-8")
+    assert [line for line in clean.splitlines() if "fenolite-library" in line and "2026-10-29" in line]

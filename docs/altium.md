@@ -1025,7 +1025,7 @@ An author report never raises the build's evidence level.
 | `altium.sheet-custom` | warning | the layout does not fit A0, so a custom sheet is written |
 | `altium.pin-lossy` | warning | a pin's electrical type or shape has no Altium equivalent and is mapped |
 | `altium.generic-symbols` | info | components of Altium links got generic bodies |
-| `altium.symbol-simplified` | info | a resolved symbol is drawn as rectangles (`--altium-symbols generic`, no graphics, a graphic without a record, several units or body styles), or other body styles or alternates were dropped |
+| `altium.symbol-simplified` | info | a resolved symbol is drawn as rectangles (`--altium-symbols generic`, no graphics, a graphic without a record, a part that draws no graphic of its own), or other body styles or alternates were dropped |
 | `altium.bus-flattened` | info | a bus of the design is drawn as its nets; the message says why |
 | `altium.section-key` | info | a lib ref longer than 31 characters is stored under a section key |
 | `altium.schlib-generic` | info | a library is written with generic symbols |

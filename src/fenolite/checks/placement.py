@@ -19,12 +19,14 @@ inputs give equal outputs.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from fenolite.backends.base import BoardFrame, BoardPad, DesignRulesSource, PlacedExtent, ProjectSet
 from fenolite.checks.codes import issue
 from fenolite.checks.stages import StageResult, ran, skipped
+from fenolite.checks.subjects import for_issues
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
@@ -698,7 +700,8 @@ def placement_stage(
     measures = measure(design, pads=pads, pitch=pitch)
     level = Evidence.combine(EVIDENCE, evidence) if judged else evidence
     summary = {"rules": families, "measures": measures.to_json()}
-    return ran(STAGE, tuple(issues), level, summary)
+    result = ran(STAGE, tuple(issues), level, summary)
+    return dataclasses.replace(result, subjects=for_issues(design, result.issues))
 
 
 __all__ = [

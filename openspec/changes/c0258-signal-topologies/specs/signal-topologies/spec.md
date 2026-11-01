@@ -19,9 +19,9 @@
 `design.topology(name, *chains)` SHALL record an ordered tree of pins, where `a >> b` chains two pins and `a >> (b, c)` fans out. Consecutive pins MUST share a net unless a bridge joins them. A cycle, a pin on two branches, a disconnected tree or consecutive pins on two nets without a bridge MUST raise `DslError` located by line. The tree MUST be stored in `RuleSet.topologies` with nodes as `REF-PIN`.
 
 #### Scenario: A daisy chain through a terminator
-- **GIVEN** `examples/topologies/design.py`, whose `clk` chains `U1-CLK >> R1-1` and `R1-2 >> U2-CLK >> U3-CLK >> U4-CLK`, with `R1` bridging pins 1 and 2
+- **GIVEN** `examples/topologies/design.py`, whose `clk` chains `U1-1 >> R1-1` and `R1-2 >> U2-1 >> U3-1 >> U4-1`, with `R1` bridging pins 1 and 2
 - **WHEN** `uv run pytest tests/unit/dsl/test_topology.py -k daisy` builds it
-- **THEN** the topology holds five net edges and one bridge edge, across the nets `CLK_A` and `CLK_B`
+- **THEN** the topology holds four net edges and one bridge edge, across the nets `CLK_A` and `CLK_B`
 
 #### Scenario: A cycle refused
 - **WHEN** a script chains `U1-1 >> U2-1 >> U3-1 >> U1-1`
@@ -36,7 +36,7 @@ A bridge SHALL join two pins of one part in a topology, declared by `design.brid
 - **THEN** the exit code is 5 and one `topology.bridge-missing` names `R1`
 
 ### Requirement: Delay and loss along a path
-The stage `topology.rules` SHALL compute a path's delay as the sum, along the shortest copper path between the two pads and through the bridges, of each segment's `length_nm * per_mm_fs / 10^6`, each via's and bridge's delay and each pad's die delay, rounding each segment up for a `max` and down for a `min`; and a path's loss likewise from the loss inputs, rounding up.
+The stage `topology.rules` SHALL compute a path's delay as the sum, along the shortest copper path between the two pads and through the bridges, of each segment's `length_nm * per_mm_fs / 10^6`, each via's and bridge's delay and each pad's die delay, rounding each segment up for a `max` and down for a `min`; and a path's loss likewise from the loss inputs, rounding up. Unprobed native die-delay units MUST give input-missing and leave the path unjudged.
 
 #### Scenario: Hand-computed delay
 - **GIVEN** an authored bench with a 30 mm `F.Cu` track, one via and a 20 mm `In1.Cu` track from `U1-1` to `U2-1`, `F.Cu` at 5 900 fs/mm, `In1.Cu` at 6 900 fs/mm and vias at 10 000 fs

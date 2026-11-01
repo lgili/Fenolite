@@ -19,7 +19,7 @@ are written from are in ``docs/formats/kicad/schematic.md``.
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Protocol
@@ -30,6 +30,7 @@ from fenolite.backends.kicad.pcb import kicad_uuid
 from fenolite.backends.kicad.schlayout import (
     Cluster,
     RefBox,
+    RefPin,
     SheetLayout,
     SymbolPlacement,
     UnitBox,
@@ -49,12 +50,14 @@ from fenolite.model.schematic import (
     NoConnectFlag,
     SchematicSheet,
     SheetPage,
+    SheetPin,
     SheetRef,
     SheetUse,
     SymbolInstance,
     SymbolUse,
     Wire,
 )
+from fenolite.schematic.block_sheets import PortPin, SheetGroup, port_pins, split_merged
 
 EVIDENCE = Evidence(
     Level.KICAD_VERIFIED,
@@ -85,6 +88,7 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.schematic-replaced": "warning",
         "build.sheet-file-collision": "error",
         "build.sheet-stale": "warning",
+        "build.block-port-merged": "info",
     }
 )
 """Every code of the generator, the layout, the embedding and the placements file, with its severity."""
@@ -280,7 +284,7 @@ class _Tree:
     pages: Mapping[str, str]
 
 
-def _tree(name: str, modules: Sequence[str]) -> _Tree:
+def _tree(name: str, modules: Sequence[str], blocks: Mapping[str, str] | None = None) -> _Tree:
     root_id = derived_id("sch", ID_BACKEND, name)
     root_uuid = kicad_uuid(SchematicSheet(id=root_id, name=name))
     ids = {"": root_id}
@@ -291,6 +295,9 @@ def _tree(name: str, modules: Sequence[str]) -> _Tree:
     for number, module in enumerate(modules, start=2):  # depth first: a parent comes before its children
         parent = module_of(module)
         label = module.rpartition("/")[2]
+        made_by = (blocks or {}).get(module, "")
+        if made_by:
+            label = f"{label} ({made_by})"  # a block instance shows its block (change c0251)
         file = sheet_file(module)
         ref = SheetRef(
             id=derived_id("shr", ID_BACKEND, f"{name}:sheet:{module}"),
@@ -320,6 +327,7 @@ def generate_schematic(
     allow_lossy: bool = False,
     layout: str = "readable",
     other_libraries: Iterable[str] = (),
+    groups: Mapping[str, Sequence[SheetGroup]] | None = None,
 ) -> GeneratedSchematic:
     """The sheets of ``design``, whose components ``parts`` resolve to symbols.
 
@@ -329,7 +337,9 @@ def generate_schematic(
     embedded and gets no project library. ``layout`` is ``"readable"`` (a sheet per module) or
     ``"grid"`` (one flat sheet, the form of c0061). ``other_libraries`` names the symbol libraries of the
     design that no part may use (the ones it authors): with the libraries of ``parts`` they decide which
-    library holds the power flag (``symembed.flag_library``).
+    library holds the power flag (``symembed.flag_library``). ``groups`` maps a block instance path to
+    its block-local schematic groups (``fenolite.dsl.block_schematics``, change c0269), which order the
+    units of its sheet.
     """
     if layout not in LAYOUTS:
         raise ValueError(f"unknown schematic layout {layout!r}; use one of: {', '.join(LAYOUTS)}")
@@ -385,7 +395,7 @@ def generate_schematic(
     if collisions:
         issues += collisions
         modules = []  # no child sheet: the error refuses the build, and one sheet stays readable
-    tree = _tree(name, modules)
+    tree = _tree(name, modules, {m.path: m.block for m in design.circuit.modules if m.block})
     flat = not modules
     by_sheet: dict[str, list[_Unit]] = {module: [] for module in ("", *modules)}
     for item in placed:
@@ -396,6 +406,14 @@ def generate_schematic(
     fixed = dict(placements or {})
     known = {item.box.key for item in placed}
     state = _State(design, name, net_of, {(m.component_id, m.pin) for m in design.circuit.no_connects})
+    blocks = _block_sheets(design, modules, by_sheet, net_of, issues)
+    for module in blocks.hier:  # the label texts of a block's sheet: its port nets take hierarchical names
+        by_sheet[module] = [
+            dataclasses.replace(item, box=_relabelled(item, blocks.texts(module, item, net_of)))
+            for item in by_sheet[module]
+        ]
+    block_groups = {path: tuple(found) for path, found in (groups or {}).items() if path in blocks.hier}
+    shared = _shared_widths(blocks, by_sheet, block_groups, fixed, net_of, modules)
     sheets: dict[str, SchematicSheet] = {}
     board = design.board
     for module in ("", *modules):
@@ -404,36 +422,57 @@ def generate_schematic(
         # a placement belongs to the sheet of its unit; the root also reports the names of no unit
         here = {k: v for k, v in fixed.items() if k in keys or (not module and k not in known)}
         children = [m for m in modules if module_of(m) == module]
-        refs = [RefBox(m, tree.refs[m].name, tree.refs[m].file) for m in children]
+        widths, ref_widths = shared.get(module, ({}, {}))
+        refs = [
+            RefBox(m, tree.refs[m].name, tree.refs[m].file, blocks.ref_pins(m, module, ref_widths))
+            for m in children
+        ]
         flags = [_flag_box(net, flag) for net in flag_nets] if not module and flag is not None else []
         boxes = [item.box for item in items]
         clusters: tuple[Cluster, ...] = ()
+        local = block_groups.get(module, ())
         if layout == "readable":
             texts = {
-                (item.box.key, pin.number): netnames.stored_name(net_of[(item.component.id, pin.number)].name)
+                (item.box.key, number): _padded(text, widths.get((item.box.key, number), 0))
                 for item in items
-                for pin in item.part.symbol.pins_of(item.unit, 1)
-                if (item.component.id, pin.number) in net_of
+                for number, text in blocks.texts(module, item, net_of).items()
             }
-            clusters = schlayout.snap_satellites(
-                boxes, texts, placements={k: v for k, v in here.items() if k in keys}
-            )
+            snapped: list[Cluster] = []
+            for part_keys in _partition(boxes, local):  # a satellite snaps to an anchor of its own group
+                snapped += schlayout.snap_satellites(
+                    [box for box in boxes if box.key in part_keys],
+                    texts,
+                    placements={k: v for k, v in here.items() if k in part_keys},
+                )
+            clusters = tuple(snapped)
         found = schlayout.layout_units(
-            boxes, placements=here, flags=flags, clusters=clusters, refs=refs, sheet=module or name
+            boxes,
+            placements=here,
+            flags=flags,
+            clusters=clusters,
+            refs=refs,
+            sheet=module or name,
+            groups=[(group.members, group.flow) for group in local],
+            widths=widths or None,
         )
         issues += [found_issue for found_issue in found.issues if found_issue not in issues]
-        content = _content(state, items, found, tree.use_paths[module], tree.board_paths[module], clusters)
+        content = _content(
+            state,
+            items,
+            found,
+            tree.use_paths[module],
+            tree.board_paths[module],
+            clusters,
+            lambda net, module=module: blocks.label(module, net),
+        )
         definitions = sorted({id(i.definition): i.definition for i in items}.values(), key=lambda e: e.lib_id)
         embedded_here = [d.definition for d in definitions]
         if not module and flag is not None:
             _flags(state, content, flag, flag_nets, found, tree.use_paths[""])
             embedded_here.append(flag.definition)
         placed_refs = tuple(
-            dataclasses.replace(
-                tree.refs[m],
-                position=Point(found.origins[schlayout.ref_key(m)].x, found.origins[schlayout.ref_key(m)].y),
-            )
-            for m in children
+            _placed_ref(state, content, blocks, tree.refs[m], box, found, module)
+            for m, box in zip(children, refs, strict=True)
         )
         sheets[module] = SchematicSheet(
             id=tree.ids[module],
@@ -471,6 +510,235 @@ def generate_schematic(
         len(flag_nets),
         MappingProxyType({sheet_file(module): sheets[module] for module in modules}),
         state.satellites,
+    )
+
+
+# --- block sheets (change c0269) ------------------------------------------------------------------
+
+PAD = "\x00"
+"""Pads a label text to the shared width of its pin; no net name holds it."""
+
+
+@dataclass(frozen=True)
+class _Blocks:
+    """The block sheets of a design: per block instance on a sheet of its own, the nets that one port
+    member binds (net id → member), and the sheet pins of its reference, in written order."""
+
+    hier: Mapping[str, Mapping[str, PortPin]]
+    pins: Mapping[str, tuple[PortPin, ...]]
+    nets: Mapping[str, Net]
+
+    def label(self, module: str, net: Net) -> tuple[str, str, str]:
+        """(kind, text, shape) of a label of ``net`` on the sheet of ``module``: hierarchical with the
+        member's sheet name for a net that one port member of a block binds, else global."""
+        found = self.hier.get(module, {}).get(net.id)
+        if found is None:
+            return ("global", netnames.stored_name(net.name), "passive")
+        return ("hierarchical", found.name, found.shape)
+
+    def texts(self, module: str, item: _Unit, net_of: Mapping[tuple[str, str], Net]) -> dict[str, str]:
+        """Pin number → the label text at that pin of ``item`` on the sheet of ``module``."""
+        return {
+            pin.number: self.label(module, net_of[(item.component.id, pin.number)])[1]
+            for pin in item.part.symbol.pins_of(item.unit, 1)
+            if (item.component.id, pin.number) in net_of
+        }
+
+    def ref_pins(self, module: str, parent: str, widths: Mapping[tuple[str, str], int]) -> tuple[RefPin, ...]:
+        """The pins of the reference of ``module`` on the sheet of ``parent``, with the length of the label
+        the parent writes at each (or the shared width of ``widths``, keyed by module and pin name)."""
+        return tuple(
+            RefPin(
+                pin.name,
+                "left" if pin.direction == "in" else "right",
+                widths.get((module, pin.name), len(self.label(parent, self.nets[pin.net])[1])),
+            )
+            for pin in self.pins.get(module, ())
+        )
+
+
+def _block_sheets(
+    design: Design,
+    modules: Sequence[str],
+    by_sheet: Mapping[str, Sequence[_Unit]],
+    net_of: Mapping[tuple[str, str], Net],
+    issues: list[Issue],
+) -> _Blocks:
+    """The hierarchical nets and sheet pins of the block instances among ``modules`` ("Block sheet pins").
+    A net that two members of one block bind keeps its global labels: ``build.block-port-merged``."""
+    nets = {net.id: net for net in design.circuit.nets}
+    made_by = {m.path for m in design.circuit.modules if m.block}
+    ports = port_pins(design.circuit)
+    hier: dict[str, Mapping[str, PortPin]] = {}
+    for module in modules:
+        if module not in made_by:
+            continue
+        single, merged = split_merged([p for p in ports.get(module, ()) if p.net in nets])
+        hier[module] = single
+        for net_id, found in sorted(merged.items()):
+            names = ", ".join(sorted(pin.name for pin in found))
+            issues.append(
+                issue(
+                    "build.block-port-merged",
+                    f"block {module}: the port members {names} bind one net {nets[net_id].name}; it keeps "
+                    "global labels on the block's sheet, and those members get no sheet pin",
+                    module,
+                )
+            )
+    pins: dict[str, tuple[PortPin, ...]] = {}
+    points: dict[str, set[str]] = {}
+    for module in reversed(modules):  # depth first reversed: a module after every module below it
+        own = {
+            net_of[(item.component.id, pin.number)].id
+            for item in by_sheet.get(module, ())
+            for pin in item.part.symbol.pins_of(item.unit, 1)
+            if (item.component.id, pin.number) in net_of
+        }
+        for child in (m for m in modules if module_of(m) == module):
+            own |= {pin.net for pin in pins.get(child, ())}
+        points[module] = own
+        found = [pin for pin in hier.get(module, {}).values() if pin.net in own]
+        left = sorted((p for p in found if p.direction == "in"), key=lambda p: p.name)
+        right = sorted((p for p in found if p.direction != "in"), key=lambda p: p.name)
+        if left or right:
+            pins[module] = (*left, *right)
+    return _Blocks(MappingProxyType(hier), MappingProxyType(pins), MappingProxyType(nets))
+
+
+def _relabelled(item: _Unit, texts: Mapping[str, str]) -> UnitBox:
+    """The box of ``item`` with the label lengths of ``texts``."""
+    return unit_box(
+        item.part.path,
+        item.part.symbol,
+        item.unit,
+        texts,
+        max(len(item.component.ref), len(item.component.value)),
+    )
+
+
+def _padded(text: str, width: int) -> str:
+    return text + PAD * (width - len(text))
+
+
+def _partition(boxes: Sequence[UnitBox], groups: Sequence[SheetGroup]) -> list[set[str]]:
+    """The unit keys of each group, then of the units in no group; one set of all keys without groups."""
+    if not groups:
+        return [{box.key for box in boxes}]
+    found: list[set[str]] = []
+    left = {box.key for box in boxes}
+    for group in groups:
+        members = set(group.members)
+        keys = {key for key in left if schlayout_path(key) in members}
+        found.append(keys)
+        left -= keys
+    found.append(left)
+    return found
+
+
+def schlayout_path(key: str) -> str:
+    """The component path of a unit key (``U1#2`` → ``U1``)."""
+    path, sep, unit = key.rpartition("#")
+    return path if sep and unit.isdigit() else key
+
+
+Widths = tuple[dict[tuple[str, str], int], dict[tuple[str, str], int]]
+
+
+def _shared_widths(
+    blocks: _Blocks,
+    by_sheet: Mapping[str, Sequence[_Unit]],
+    groups: Mapping[str, Sequence[SheetGroup]],
+    fixed: Mapping[str, SymbolPlacement],
+    net_of: Mapping[tuple[str, str], Net],
+    modules: Sequence[str],
+) -> dict[str, Widths]:
+    """Per block sheet, the label widths it shares with the other instances of its block that hold the
+    same units, groups and sheet pins ("Shared arrangement of block sheets"): per (unit key, pin) the
+    longest text at that relative pin over those instances, and per (nested module, pin name) the longest
+    label at that relative sheet pin. A sheet with a placed unit shares nothing."""
+    classes: dict[tuple[object, ...], list[str]] = {}
+    for module in blocks.hier:
+        items = by_sheet.get(module, ())
+        if any(item.box.key in fixed for item in items):
+            continue
+        cut = len(module) + 1
+        children = [m for m in modules if module_of(m) == module]
+        signature = (
+            tuple(sorted(item.box.key[cut:] for item in items)),
+            tuple((g.key, tuple(m[cut:] for m in g.members), g.flow) for g in groups.get(module, ())),
+            tuple(pin.name for pin in blocks.pins.get(module, ())),
+            tuple((child[cut:], tuple(p.name for p in blocks.pins.get(child, ()))) for child in children),
+        )
+        classes.setdefault(signature, []).append(module)
+    found: dict[str, Widths] = {}
+    for members in classes.values():
+        if len(members) < 2:
+            continue
+        units: dict[tuple[str, str], int] = {}
+        refs: dict[tuple[str, str], int] = {}
+        for module in members:
+            cut = len(module) + 1
+            for item in by_sheet[module]:
+                for number, text in blocks.texts(module, item, net_of).items():
+                    key = (item.box.key[cut:], number)
+                    units[key] = max(units.get(key, 0), len(text))
+            for child in (m for m in modules if module_of(m) == module):
+                for pin in blocks.ref_pins(child, module, {}):
+                    key = (child[cut:], pin.name)
+                    refs[key] = max(refs.get(key, 0), pin.label)
+        for module in members:
+            found[module] = (
+                {(f"{module}/{key}", number): width for (key, number), width in units.items()},
+                {(f"{module}/{key}", name): width for (key, name), width in refs.items()},
+            )
+    return found
+
+
+def _placed_ref(
+    state: _State,
+    content: _Content,
+    blocks: _Blocks,
+    ref: SheetRef,
+    box: RefBox,
+    layout: SheetLayout,
+    parent: str,
+) -> SheetRef:
+    """The reference ``ref`` at its place in ``layout``, with its sheet pins; the label the sheet of
+    ``parent`` writes at each pin is added to ``content``, turned away from the box."""
+    origin = layout.origins[schlayout.ref_key(box.path)]
+    at = Point(origin.x, origin.y)
+    if not box.pins:
+        return dataclasses.replace(ref, position=at)
+    name = state.name
+    points = schlayout.ref_pin_points(box)
+    pins: list[SheetPin] = []
+    for pin in blocks.pins[box.path]:
+        offset, side = points[pin.name]
+        point = Point(at.x + offset.x, at.y + offset.y)
+        angle = 180 if side == "left" else 0
+        pins.append(
+            SheetPin(
+                id=derived_id("shr", ID_BACKEND, f"{name}:sheetpin:{box.path}:{pin.name}"),
+                name=pin.name,
+                shape=pin.shape,  # type: ignore[arg-type]
+                position=point,
+                rotation=angle * 1_000_000,
+            )
+        )
+        kind, text, shape = blocks.label(parent, blocks.nets[pin.net])
+        tag = "hlabel" if kind == "hierarchical" else "label"
+        content.labels.append(
+            NetLabel(
+                id=derived_id("lbl", ID_BACKEND, f"{name}:{tag}:sheet:{box.path}:{pin.name}"),
+                kind=kind,  # type: ignore[arg-type]
+                name=text,
+                position=point,
+                rotation=angle * 1_000_000,
+                shape=shape,  # type: ignore[arg-type]
+            )
+        )
+    return dataclasses.replace(
+        ref, position=at, size=Size(ref.size.w, schlayout.ref_height(box.pins)), pins=tuple(pins)
     )
 
 
@@ -543,11 +811,13 @@ def _content(
     use_path: str,
     board_path: str,
     clusters: Sequence[Cluster] = (),
+    labeller: Callable[[Net], tuple[str, str, str]] | None = None,
 ) -> _Content:
     """The symbols, labels, no-connect flags and snap wires of the units ``items`` of one sheet, whose
     symbols are used at ``use_path``; ``board_path`` is the prefix of the footprint paths of that sheet.
     A pin that a snap wire of ``clusters`` joins gets no label of its own: the pair has one, at the
-    satellite's near pin."""
+    satellite's near pin. ``labeller`` gives the (kind, text, shape) of the label of a net on that sheet;
+    without it every label is the net's global label."""
     name = state.name
     content = _Content()
     paths = {item.box.key: item.part.path for item in items}
@@ -611,14 +881,20 @@ def _content(
                 if (item.box.key, pin.number) in pair:
                     at, angle = pair[(item.box.key, pin.number)]
                     assert at == point, "the label of a pair lies on the satellite's near pin"
+                kind, text, shape = (
+                    labeller(net)
+                    if labeller is not None
+                    else ("global", netnames.stored_name(net.name), "passive")
+                )
+                head = "hlabel" if kind == "hierarchical" else "label"
                 content.labels.append(
                     NetLabel(
-                        id=derived_id("lbl", ID_BACKEND, f"{name}:label:{part.path}:{tag}"),
-                        kind="global",
-                        name=netnames.stored_name(net.name),
+                        id=derived_id("lbl", ID_BACKEND, f"{name}:{head}:{part.path}:{tag}"),
+                        kind=kind,  # type: ignore[arg-type]
+                        name=text,
                         position=point,
                         rotation=angle * 1_000_000,
-                        shape="passive",
+                        shape=shape,  # type: ignore[arg-type]
                     )
                 )
                 continue

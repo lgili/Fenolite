@@ -59,7 +59,7 @@ Only concepts are taken from atopile (versioned packages) and Altium (push-or-st
 ## Impact
 
 - New: `src/fenolite/cli/blockvendored.py`, `src/fenolite/dsl/blockitem.py`, the verbs `blocks index` and
-  `blocks upgrade`, `tests/data/library/demo/blocks/` (authored, CC0), tests, `docs/blocks.md` sections
+  `blocks upgrade`, `tests/data/library_repo/block_items/` (authored, CC0), tests, `docs/blocks.md` sections
   "Library blocks" and "Upgrading". Outside: the blocks jobs of `lgili/fenolite-library`'s CI.
 - Changed: `cli/blocksrc.py` (source `library`), `cli/cmd_build.py` and `cli/_script.py` (record-file
   check, `get` hint), `cli/cmd_blocks.py`, `docs/cli-contract.md`, the guide page `commands.md`,

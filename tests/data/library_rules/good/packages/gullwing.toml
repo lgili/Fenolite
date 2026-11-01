@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as synthetic test data (change c0262); no real product.
+schema="fenolite.package.v0"
+id="Rules:RuleGullwing"
+version="1.0.0"
+summary="Synthetic gullwing review fixture"
+licence="CC0-1.0"
+evidence="INFERRED"
+family="gullwing"
+pins=4
+pitch="2mm"
+arrangement="dual"
+body={length="4mm",width="2mm",height="1.2mm"}
+span="4mm"
+lead={length="0.5mm",width="0.5mm"}
+[land]
+source="Fenolite authored dimensions"
+pad={length="1mm",width="0.8mm"}
+row_spacing="3.5mm"
+[generate]
+lands=1
+drawing=1

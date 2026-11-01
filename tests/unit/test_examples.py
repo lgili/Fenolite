@@ -287,3 +287,424 @@ def test_lock_example_builds_frozen(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     args = ["build", str(LOCK_EXAMPLE / "design.py"), "--out", str(tmp_path / "B"), "--frozen", "--dry-run"]
     assert cli_main.main([*args, "--json"]) == 0, err.getvalue()
     assert json.loads(out.getvalue())["result"]["lock"]["changes"] == []
+
+
+# -- the device example (change c0248)
+
+DEVICES = ROOT / "examples" / "devices"
+
+
+def test_devices_header_and_listing() -> None:
+    for path in (DEVICES / "design.py", DEVICES / "devices" / "example_buck.toml"):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith(
+            "# Authored for Fenolite"
+        )
+    assert "`devices/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+
+
+def test_devices_parts_come_from_devices() -> None:
+    design = run_design_script(DEVICES / "design.py").design
+    placed = {path: part.device.id for path, part in design.parts.items() if part.device is not None}
+    assert placed["U1"] == "Example:BUCK_6V_2A" and design.parts["U1"].device_origin == "authored"
+    assert {placed[ref] for ref in ("R1", "R2", "R3")} == {"Fenolite:R_0603"}
+    assert placed["D1"] == "Fenolite:LED_0603" and design.parts["L1"].device is None
+    model = to_model(design)
+    u1 = next(c for c in model.circuit.components if c.ref == "U1")
+    assert u1.properties["MPN"] == "EXB6202" and u1.lib_footprint_ref == "Fenolite:SOT23_6_TI_DBV0006A"
+
+
+def test_devices_builds_without_a_subprocess(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise AssertionError(f"a build started a subprocess: {args}")
+
+    monkeypatch.setattr(subprocess, "run", refuse)
+    monkeypatch.setattr(subprocess, "Popen", refuse)
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    code = cli_main.main(
+        ["build", str(DEVICES / "design.py"), "--out", str(tmp_path / "d"), "--confirm", "--json"]
+    )
+    assert code == 0, err.getvalue()
+    envelope = json.loads(out.getvalue())
+    assert not [issue for issue in envelope["issues"] if issue["severity"] != "info"], envelope["issues"]
+    assert [row["id"] for row in envelope["result"]["devices"]][0] == "Example:BUCK_6V_2A"
+
+
+SYMBOLS = ROOT / "examples" / "symbols"
+
+
+def test_symbols_example_builds_both_tables(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Change c0261: the script generates both symbols and their variants, and the build writes them into
+    one library, base before variant, as ``write_symbol_library`` gives them."""
+    from fenolite.backends.kicad.sym import read_symbol_library, write_symbol_library
+    from fenolite.catalog.generate.symbol import generate_symbol
+    from fenolite.catalog.pins import read_pins
+
+    lines = (SYMBOLS / "design.py").read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith("# Authored for Fenolite")
+    assert "`symbols/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+    design = run_design_script(SYMBOLS / "design.py").design
+    assert sorted(design.symbols) == [
+        "Example:EXB6202",
+        "Example:EXB6202DR",
+        "Example:EXM120",
+        "Example:EXM120-T",
+    ]
+    expected: list[object] = []
+    for name, footprint in (("EXB6202", "Fenolite:SOIC_8"), ("EXM120", "")):
+        table = read_pins(SYMBOLS / "pins" / f"{name}.toml")
+        base, derived, _ = generate_symbol(table, library="Example", footprint=footprint)
+        expected += [base, *derived]
+        assert design.symbols[f"Example:{name}"].definition == base  # type: ignore[attr-defined]
+    monkeypatch.chdir(tmp_path)
+    code = cli_main.main([
+        "build", str(SYMBOLS / "design.py"), "--out", "out", "--kicad-version", "10", "--confirm", "--json"
+    ])  # fmt: skip
+    assert code == 0
+    text = (tmp_path / "out" / "lib" / "Example.kicad_sym").read_text(encoding="utf-8")
+    assert text == write_symbol_library(expected, target=10)  # type: ignore[arg-type]
+    units = {s.name: s.unit_count for s in read_symbol_library(text, library="Example") if not s.extends}
+    assert units == {"EXB6202": 1, "EXM120": 3}
+
+
+def test_import_python_is_a_fresh_import(tmp_path: Path) -> None:
+    """The authored import example is the code a fresh import writes (change c0275)."""
+    from _importexample import EXAMPLE, KEPT, fresh, unversioned
+
+    files = fresh(tmp_path)
+    committed = {
+        p.relative_to(EXAMPLE).as_posix(): p.read_bytes()
+        for p in EXAMPLE.rglob("*")
+        if p.is_file() and p.name not in KEPT
+    }
+    assert sorted(committed) == sorted(files)
+    for name, data in files.items():
+        assert unversioned(committed[name]) == unversioned(data), name
+    assert "`import_python/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+
+
+def test_import_python_builds(tmp_path: Path) -> None:
+    """The authored import example builds on its vendored library alone."""
+    from fenolite.api import run
+
+    folder = ROOT / "examples" / "import_python"
+    reply = run(
+        "build", str(folder / "design.py"), "--out", str(tmp_path / "built"), "--dry-run", cwd=tmp_path
+    )
+    assert reply.exit_code == 0, reply.error
+    assert set(reply.result["libraries"].values()) == {"project"}
+    lines = (folder / "design.py").read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[4].startswith("# Authored for Fenolite")
+
+
+# -- the parametric-pick example (change c0254)
+
+PICKS = ROOT / "examples" / "picks"
+
+
+def test_picks_header_and_listing() -> None:
+    for path in sorted(PICKS.rglob("*.py")) + sorted((PICKS / "devices").glob("*.toml")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith(
+            "# Authored for Fenolite"
+        ), path
+    assert "`picks/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+
+
+def test_picks_locks_round_trip() -> None:
+    from fenolite.dsl.lock import lock_text, read_lock
+
+    for name in ("design", "divider"):
+        text = (PICKS / f"{name}.lock").read_text(encoding="utf-8")
+        lock = read_lock(text, file=f"{name}.lock")
+        assert lock_text(lock) == text and lock.sections["picks"]
+
+
+@pytest.mark.parametrize("script", ["design.py", "divider.py"])
+def test_picks_build_frozen(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, script: str) -> None:
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    args = ["build", str(PICKS / script), "--out", str(tmp_path / "B"), "--frozen", "--dry-run", "--json"]
+    assert cli_main.main(args) == 0, err.getvalue()
+    envelope = json.loads(out.getvalue())
+    assert envelope["result"]["lock"]["changes"] == [] and envelope["result"]["generators"]
+
+
+# -- the grammar-family example (change c0263)
+
+FAMILIES = ROOT / "examples" / "families"
+
+
+def test_families_header_and_listing() -> None:
+    for path in [FAMILIES / "design.py", *sorted((FAMILIES / "devices").glob("*.toml"))]:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith(
+            "# Authored for Fenolite"
+        ), path
+    assert "`families/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+
+
+def test_families_pick_of_an_exact_mpn(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "A pick of an exact MPN": with an empty lock the build picks EX03R104KAT for C_in, gives
+    pick.new, and the planned parts name the manufacturer and the MPN."""
+    import shutil
+
+    work = tmp_path / "families"
+    shutil.copytree(FAMILIES, work)
+    (work / "design.lock").unlink()
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    args = ["build", str(work / "design.py"), "--out", str(tmp_path / "B"), "--dry-run", "--json"]
+    assert cli_main.main(args) == 0, err.getvalue()
+    envelope = json.loads(out.getvalue())
+    picks = {pick["path"]: pick for pick in envelope["result"]["picks"]}
+    assert picks["C_in"]["device"] == "Example:EX_MLCC@EX03R104KAT" and picks["C_in"]["state"] == "new"
+    assert "pick.new" in {issue["code"] for issue in envelope["issues"]}
+    design = run_design_script(work / "design.py").design
+    from fenolite.cli._lock import plan_lock
+    from fenolite.cli._picks import picking
+
+    with picking(work / "design.py"):
+        plan_lock(
+            design, script=work / "design.py", given="design.lock", path=work / "design.lock", frozen=False
+        )
+    properties = design.parts["C_in"].properties
+    assert properties["MPN"] == "EX03R104KAT" and properties["Manufacturer"] == "Example Passive"
+
+
+def test_families_build_frozen(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    args = [
+        "build",
+        str(FAMILIES / "design.py"),
+        "--out",
+        str(tmp_path / "B"),
+        "--frozen",
+        "--dry-run",
+        "--json",
+    ]
+    assert cli_main.main(args) == 0, err.getvalue()
+    envelope = json.loads(out.getvalue())
+    assert envelope["result"]["lock"]["changes"] == []
+    assert {pick["device"] for pick in envelope["result"]["picks"]} == {
+        "Example:EX_MLCC@EX03R104KAT", "Example:EX_CHIP_R@EXR06F1002T", "Example:EX_MF_R@EXM-4K7J"
+    }  # fmt: skip
+
+
+# -- the generated footprints example (change c0260)
+
+GENERATED = ROOT / "examples" / "generated"
+GENERATED_FAMILIES = ("chip", "molded", "gullwing", "nolead", "grid", "to", "dip", "header", "connector")
+
+
+def test_generated_header_and_listing() -> None:
+    lines = (GENERATED / "design.py").read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith("# Authored for Fenolite")
+    for record in sorted((GENERATED / "packages").glob("*.toml")):
+        assert record.read_text(encoding="utf-8").startswith("# Authored for Fenolite"), record.name
+    assert "`generated/`" in (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+
+
+def test_generated_one_footprint_per_family(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Model written beside the library" on the example: one generated footprint of each family,
+    each in ``lib/Local.pretty`` with its STEP model in ``lib/Local.3dshapes`` when it has bodies."""
+    from fenolite.backends import step as step_mod
+    from fenolite.catalog.footprints import read_package
+
+    design = run_design_script(GENERATED / "design.py").design
+    families = {
+        read_package(path.read_text(encoding="utf-8")).family
+        for path in (GENERATED / "packages").glob("*.toml")
+    }
+    assert families == set(GENERATED_FAMILIES)
+    footprints = {key: fp.definition for key, fp in design.footprints.items()}
+    assert len(footprints) == len(GENERATED_FAMILIES) and all(key.startswith("Local:") for key in footprints)
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise AssertionError(f"a build started a subprocess: {args}")
+
+    monkeypatch.setattr(subprocess, "run", refuse)
+    monkeypatch.setattr(subprocess, "Popen", refuse)
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    folder = tmp_path / "g"
+    code = cli_main.main(["build", str(GENERATED / "design.py"), "--out", str(folder), "--confirm", "--json"])
+    assert code == 0, err.getvalue()
+    envelope = json.loads(out.getvalue())
+    assert not [i for i in envelope["issues"] if i["severity"] != "info"], envelope["issues"]
+    for key, definition in footprints.items():
+        name = key.split(":", 1)[1]
+        assert (folder / "lib" / "Local.pretty" / f"{name}.kicad_mod").is_file(), name
+        model = folder / "lib" / "Local.3dshapes" / f"{name}.step"
+        if definition.bodies:
+            assert model.read_bytes() == step_mod.write_bodies(name, definition.bodies), name
+        else:
+            assert not model.exists(), name
+    assert sum(1 for d in footprints.values() if d.bodies) == 8
+
+
+# -- the edit loop of the blink example (change c0250)
+
+BLINK = ROOT / "examples" / "blink_2layer"
+
+
+def test_blink_readme_edit_loop(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The commands of ``examples/blink_2layer/README.md``, run in order; the KiCad steps are token edits."""
+    from _edit_help import edit, issues, value  # noqa: PLC0415
+    from _project import Project  # noqa: PLC0415
+
+    readme = (BLINK / "README.md").read_text(encoding="utf-8")
+    block = readme.split("```sh\n", 1)[1].split("```", 1)[0]
+    commands = [line.split() for line in block.splitlines() if line.startswith("fenolite ")]
+    assert [c[1] for c in commands] == ["build", "build", "build", "build", "sync", "build"]
+    p = Project(tmp_path, monkeypatch)  # the first command
+
+    def run(words: list[str]) -> tuple[int, dict[str, object], str]:
+        assert words[2:5] == ["examples/blink_2layer/design.py", "--out", "build/blink"]
+        return p.run(words[1], *words[5:])
+
+    edit(p, {"R1": {"value": "4k7"}})
+    code, env, err = run(commands[1])
+    assert code == 0, err
+    assert [i["where"] for i in issues(env, "edit.unrecorded")] == ["R1#value"]
+    p.edit_script('value="330"', 'value="470"')
+    code, env, _ = run(commands[2])
+    (conflict,) = issues(env, "sync.conflict")
+    assert code == 5 and conflict["where"] == "R1#value" and "both-changed" in conflict["message"]
+    for words in commands[3:5]:
+        code, env, err = run(words)
+        assert code == 0, err
+    edits = (p.script.parent / "edits.toml").read_text(encoding="utf-8")
+    assert '[part."R1"]\nvalue = "4k7"\n' in edits and '[part."R1".over]\nvalue = "470"\n' in edits
+    code, env, err = run(commands[5])
+    assert code == 0, err
+    assert not issues(env, "edit.unrecorded") and not issues(env, "edit.code-wins")
+    assert value(p, "R1") == ("4k7", "4k7")
+
+
+def test_library_import_builds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """c0264: a project device imported from authored bytes builds offline with UNVERIFIED evidence."""
+    from fenolite.api import run
+
+    example = Path(__file__).resolve().parents[2] / "examples/library_import"
+    reply = run("build", str(example / "design.py"), "--out", "built", "--confirm", cwd=tmp_path)
+    assert reply.exit_code == 0, reply.error
+    assert reply.result["devices"][0]["id"] == "Imported:EXB6202"
+    assert reply.result["devices"][0]["evidence"] == "UNVERIFIED"
+    assert (tmp_path / "built/lib/Imported.3dshapes/EXB6202.step").read_bytes() == (
+        example / "devices/Imported/EXB6202/EXB6202.step"
+    ).read_bytes()
+
+
+def test_library_import_plain_control_builds(tmp_path: Path) -> None:
+    """Check the plain-definition control used by the pending KiCad ERC/DRC comparison."""
+    import shutil
+
+    from fenolite.api import run
+
+    example = Path(__file__).resolve().parents[2] / "examples/library_import"
+    plain = tmp_path / "plain"
+    shutil.copytree(example, plain)
+    (plain / "devices/Imported/EXB6202/device.toml").unlink()
+    script = plain / "design.py"
+    script.write_text(
+        script.read_text().replace(
+            'device="Imported:EXB6202"', 'lib_id="Imported:EXB6202", footprint="Imported:EXB6202"'
+        )
+    )
+    reply = run("build", str(script), "--out", "built", "--dry-run", cwd=tmp_path)
+    assert reply.exit_code == 0, reply.error
+
+
+def test_library_import_records_are_fresh() -> None:
+    from fenolite.library.importer import crosscheck
+    from fenolite.library.importer.records import make_records
+    from fenolite.library.importer.sources import read_sources
+
+    root = Path(__file__).resolve().parents[2]
+    source = read_sources([root / "tests/data/library_import/exb6202.zip"])
+    compared = crosscheck(source.footprint)
+    imported = make_records(
+        source,
+        device_id=None,
+        date="2026-11-01",
+        family=compared.family or "imported",
+        nominal=compared.match.nominal if compared.match else None,
+    )
+    folder = root / "examples/library_import/devices/Imported/EXB6202"
+    assert {name: (folder / name).read_bytes() for name in imported.files} == imported.files
+
+
+def test_library_devices_release_is_authored_and_reproducible() -> None:
+    from fenolite.library.audit import audit
+    from fenolite.library.licences import shipped
+    from fenolite.library.release import build_release
+
+    example = ROOT / "examples/library-devices"
+    report = audit(example / "source")
+    assert not report.issues, [(i.code, i.message) for i in report.issues]
+    release = build_release(example / "source", report.items, "1.0.0", shipped(), commit="0" * 40)
+    assert {name: (example / "release" / name).read_bytes() for name in release.assets} == release.assets
+    for path in (example / "source").rglob("LICENSE"):
+        assert "Authored for Fenolite" in path.read_text()
+        assert "not the CC0 legal code" in path.read_text()
+        provenance = json.loads((path.parent / "PROVENANCE.json").read_text())
+        assert "fixture" in provenance["licence_review"]["note"]
+    assert "`library-devices/`" in (ROOT / "examples/README.md").read_text()
+
+
+def test_library_devices_offline_get_and_authored_tree_bytes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import shutil
+    import socket
+
+    from fenolite.api import run
+
+    work = tmp_path / "project"
+    shutil.copytree(ROOT / "examples/library-devices", work)
+    shutil.rmtree(work / "fenolite_library")
+    monkeypatch.setenv("FENOLITE_LIBRARY_DIR", str(tmp_path / "empty-cache"))
+
+    def no_external(*args: object, **kwargs: object) -> None:
+        raise AssertionError("offline device example attempted a connection or subprocess")
+
+    monkeypatch.setattr(socket.socket, "connect", no_external)
+    monkeypatch.setattr(subprocess, "run", no_external)
+    monkeypatch.setattr(subprocess, "Popen", no_external)
+    fetched = run(
+        "get", "device", "FenoliteDevices:Demo900", "--from", "release", "--offline", "--confirm", cwd=work
+    )
+    assert fetched.exit_code == 0, fetched.error
+    reply = run("build", "design.py", "--out", "out", "--frozen", "--confirm", cwd=work)
+    assert reply.exit_code == 0, reply.error
+    assert reply.result["devices"][0]["origin"] == "library"
+    before = {p.relative_to(work / "out"): p.read_bytes() for p in (work / "out").rglob("*") if p.is_file()}
+    shutil.rmtree(work / "out")
+    (work / "devices").mkdir()
+    for record in (work / "fenolite_library").rglob("record.toml"):
+        shutil.copy(record, work / "devices" / f"{record.parent.name}.toml")
+    reply = run("build", "design.py", "--out", "out", "--frozen", "--confirm", cwd=work)
+    assert reply.exit_code == 0, reply.error
+    after = {p.relative_to(work / "out"): p.read_bytes() for p in (work / "out").rglob("*") if p.is_file()}
+    assert before == after
+
+
+def test_library_devices_missing_pin_folder_is_fen6004(tmp_path: Path) -> None:
+    import shutil
+
+    from fenolite.api import run
+
+    work = tmp_path / "project"
+    shutil.copytree(ROOT / "examples/library-devices", work)
+    shutil.rmtree(work / "fenolite_library/devices/FenoliteDevices/Demo900")
+    reply = run("build", "design.py", "--out", "out", "--frozen", "--dry-run", cwd=work)
+    assert reply.exit_code == 6 and reply.error is not None and reply.error["code"] == "FEN-6004"
+    assert not (work / "out").exists()

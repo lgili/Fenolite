@@ -95,3 +95,39 @@ def test_package_describes_shipped_workflows() -> None:
     assert "browser viewer" in project["description"]
     assert project["dependencies"] == []
     assert project["urls"]["Documentation"].endswith("/blob/main/docs/index.md")
+
+
+# --- third-party material in public assets (capability public-presentation; change c0279) -------------
+
+GALLERY = re.compile(
+    r"!\[[^\]]*\]\((https?://(?:lgili\.github\.io/fenolite-library|github\.com/lgili/fenolite-library)[^)]*)\)"
+)
+ATTRIBUTION = ("licence", "Not endorsed by the authors")
+
+
+def library_image_problems(text: str, page: str) -> list[str]:
+    """Each image of the fenolite-library gallery on a public page needs its attribution line (title,
+    authors, link, licence and "Not endorsed by the authors") in the same paragraph."""
+    problems: list[str] = []
+    for paragraph in re.split(r"\n\s*\n", text):
+        for url in GALLERY.findall(paragraph):
+            if not all(word in paragraph for word in ATTRIBUTION):
+                problems.append(f"{page}: the gallery image {url} has no attribution line")
+    return problems
+
+
+def test_library_images_carry_their_attribution() -> None:
+    for relative in PAGES:
+        assert library_image_problems((ROOT / relative).read_text(encoding="utf-8"), relative) == []
+
+
+def test_library_image_without_attribution() -> None:
+    """Scenario "Image without attribution"."""
+    image = (
+        "![Top view of a converted demo board](https://lgili.github.io/fenolite-library/boards/x/y/top.svg)"
+    )
+    problems = library_image_problems(f"# Launch\n\n{image}\n", "docs/launch/x.md")
+    assert problems and "top.svg" in problems[0]
+    line = ("Converted from the open-source design Y by Z (https://example.org/y), licence CERN-OHL-S-2.0. "
+            "Rendered by Fenolite 0.7.0. Not endorsed by the authors.")  # fmt: skip
+    assert library_image_problems(f"{image}\n{line}\n", "docs/launch/x.md") == []

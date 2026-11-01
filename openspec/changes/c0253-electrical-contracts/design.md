@@ -751,25 +751,62 @@ for Fenolite with the illustrative devices of c0248 and the buck block of c0251,
 1. **Should contract errors stop `build --confirm`, as c0252 recommends for its circuit errors?**
    **Recommended:** yes, under the same rule for every `circuit.*` code (c0274's waivers accept a finding). If the
    maintainer answers c0252's question 1 with "warnings at build", the contract codes follow.
+   Decided 2026-10-29: yes, under c0252's one build rule for every `circuit.*` code; c0274's waivers will accept a finding.
 2. **Should a sourced derating preset ship?** A public-domain handbook, such as a U.S. Government
    parts-derating instruction (`UNVERIFIED`: its licence and figures are not checked), could give
    `design.derating(preset=...)`. **Recommended:** not in this change. A later change may register the
    source (`S-` row, label) and add the preset with every value cited. Until then, every derating number
    is the user's.
+   Decided 2026-10-29: no; every derating number is the user's until a later change registers a source.
 3. **Should c0248's device record gain an optional `class` key** with c0222's class names? **Recommended:**
    yes; c0274 phase A adds it, and `roles.classify` reads it right after the user's `PartClass`, so the
    one classifier stays one.
+   Decided 2026-10-29: yes; c0274 phase A added `DeviceDef.cls` (TOML `class`). Reading it in `roles.classify` is left to c0274 (the classifier is unchanged here, so the one table stays one).
 4. **Should an `UNVERIFIED` device's rating fail as an `error`?** **Recommended:** yes. The rating is the
    best fact available, and the row and the evidence show its label. Lowering the severity would hide
    real overloads on most catalog devices, which start `UNVERIFIED`.
+   Decided 2026-10-29: yes; the row and the stage evidence show the label.
 5. **Should `fenolite check` take `--requirements`, so the stage sees `[[current]]` rows?**
    **Recommended:** not here. Keep c0222's behaviour (the stages judge with no option) and revisit both
    stages together.
+   Decided 2026-10-29: not here; `fenolite check` judges with orders 1 to 3 and 6 only.
 6. **Should a role's `working_mv` read as `[-v, +v]`?** **Recommended:** yes, since it is unsigned. A
    c0252 rail, which is signed, is preferred when both exist.
+   Decided 2026-10-29: yes; a rail is preferred when both exist.
 7. **Should `design.contracts(unknown=...)` also take `error`?** **Recommended:** not now. A CI that wants
    to gate on unknowns can read the counts of the reply; `error` can be added once the default is
    `warning`.
+   Decided 2026-10-29: not now; `info` and `warning` only.
 8. **Should the corners loosen an `unsure` expectation when every corner passes and every rig handle
    occurs once in the expression** (where interval arithmetic is exact anyway)? **Recommended:** no; the
    rule "corners never loosen" is simpler to trust, and the corners list already shows the case.
+   Decided 2026-10-29: no; corners never change a verdict.
+
+## Implementation notes (2026-10-30)
+
+Recorded while implementing on `cac/c0253-electrical-contracts` (base `b7dce51c`, c0252):
+
+- **Device records at check time.** `fenolite build` injects the records it placed. `fenolite check` and
+  `fenolite roles` read `devices/` of the project folder, then of its parent (a build folder beside the
+  script: `--out` may not be the script's folder), then the shipped devices (`cli/_contracts.py`).
+- **The bad sensor cannot be written.** Its four errors stop `build --confirm` (c0252's build rule), so the
+  tests that check a built bad variant write its model over a build of the good one; the stage reads only
+  the `.fenolite/` model.
+- **Rig exclusion.** The test compares every file of a build with and without the rig (all equal but
+  `.fenolite/rules.json`); the BOM and pick-and-place exports need `kicad-cli`, which the unit test does not
+  run, and they are made from those same files.
+- **Currents in the order of roles.** The circuit rows of `fenolite roles --check` take the role's own
+  current, then the `[[current]]` row, then `--current` (basis `--current`). c0222's `--current` also
+  confirms the role with that current in memory, so the role checks may show the `--current` value where a
+  `[[current]]` row exists; the role checks are not changed here (a non-goal).
+- **Role rows** are given for loops (area against `loop_max`/`gate_max`, ratio against the ratio limits)
+  and for power-path widths by the rule of thumb; c0252's rail-voltage and rail-current checks give rows,
+  its logic comparisons do not yet.
+- **Texts** of values that do not terminate are rounded outward to five significant digits after `~`
+  (`~3.4067V` for the divider's upper bound); the ranges themselves are exact.
+- **Row ids** of an `operating` pin or pin-pair limit add the rating key
+  (`circuit.operating-range:U1:VIN:voltage`), so a pin's voltage and current rows stay apart.
+- **Rows with no rating** (a check that applies, an applied value known, no limit in the record) are
+  `unknown` with `missing = "no rating"` and counted by `circuit.rating-missing`; a two-pin part's device
+  voltage, a series part's or regulator's current, a resistor's power and a temperature apply. Existing
+  builds of device parts on stated rails therefore show one `circuit.rating-missing` info.

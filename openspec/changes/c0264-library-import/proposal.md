@@ -59,7 +59,7 @@ generator draws for the same package.
 ## Evidence level required
 
 - Zip limits, record writing and cross-check: `INFERRED`, unit-tested on archives and files authored for
-  Fenolite (hypothesis `H-L-IMPORT`).
+  Fenolite (hypothesis `H-G-LIBRARY-IMPORT`).
 - Imported devices: `UNVERIFIED` always. The KiCad job builds the example that uses an imported device
   and runs ERC and DRC with no new finding.
 

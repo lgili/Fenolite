@@ -34,7 +34,7 @@ release workflow scans the history before it builds.
   scope the maintainer decides, v1.0 held by his decision of 2026-10-29 with its table kept), and Open
   decisions row 50.
 - `docs/evidence/residue-history.md`: the row `v0.6.0` of the public history scan.
-- `openspec/README.md`: the row of c0242; new changes start at c0243.
+- `openspec/README.md`: the row of c0242; new changes start at c0250.
 
 Size: 1 design-day.
 

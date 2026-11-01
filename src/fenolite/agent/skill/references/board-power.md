@@ -20,17 +20,17 @@ switching loop small. The first takes copper area; the second takes placement, w
    - the gate loop of each switch, from the driver output to the gate, then from the source (or the
      emitter) back to the driver.
 2. **Make the switching loop the smallest.** Its current changes fastest. Its area sets the voltage
-   overshoot on the switches and the noise that the rest of the board receives. Put the DC-link
+   overshoot on the switches and the noise the rest of the board receives. Put the DC-link
    capacitor at the supply pins of the switch or the module. Run the supply and the return on top of
    each other (two faces, or two adjacent layers), not side by side with a gap between them.
 3. **Close each gate loop at the driver.** The return of a gate loop runs from the switch's source (the
    Kelvin source, when the part has one) to the driver, beside the gate track. It does not run through
    the power ground.
 4. **Put the bootstrap and supply capacitors of a driver at its pins.** Their pins swing with the switch
-   node. Keep other signals and vias away from them, at the clearance that their voltage needs.
+   node. Keep other signals and vias away from them, at the clearance their voltage needs.
 
-Declare what you know; `fenolite roles PATH --check` infers the rest and measures it. Route gate loops
-and Kelvin pairs first, then power copper around them:
+Declare what you know; `fenolite roles PATH --check` infers and measures the rest. Order: critical
+routes, power copper, then proposals (`route --propose`, page `board-routing`):
 
 ```fenolite-cmd
 fenolite route board/board.kicad_pcb --router octilinear --roles critical --dry-run --json
@@ -74,12 +74,13 @@ fenolite copper board/board.kicad_pcb --dry-run --json
   conductor's current, its cross-section and its temperature rise. Its inputs are the current, the
   temperature rise that the user accepts, the copper thickness, and whether the layer is outer or
   inner. Ask for the current and the accepted rise; do not assume them.
-- **Use the right current.** Size the copper for the RMS value of the real, pulsed current at the
-  highest operating point, not for power divided by voltage. Measure it at the narrowest section and at
-  the pad entries. Compute again whenever the pours, the copper thickness or the stack-up change.
-- **Never narrow a power path silently.** Compare the old and the new section of a
-  narrowed path, and have the narrower one accepted.
-- **Size a via group by the barrels' cross-section**, and check how the current shares between the vias.
+- **Use the right current:** the RMS of the real, pulsed current at the highest operating point,
+  not power divided by voltage, at the narrowest section and the pad entries.
+- **Budget each rail:** a source port states `current` with `direction="out"`, a load with `"in"`;
+  `circuit.rail-current` compares them (page `board-schematic`).
+- **Never narrow a power path silently:** compare the old and the new section, and have the narrower
+  one accepted.
+- **Size a via group by the barrels' cross-section** and by how the current shares between them.
 - **Measure what you drew.** `analyze` reports the capacity of each track and via for your inputs.
   `--kinds power` measures the resistance and the voltage drop of the copper between two sets of pads,
   pours included. An ampacity is never claimed from a geometry check alone.
@@ -174,7 +175,7 @@ fenolite analyze board.kicad_pcb --kinds loops --requirements req.toml --loop-ba
 ## After pours and cut-outs
 
 Pour cut-outs, keep-outs and slots remove copper. After every change to them, check that every pad of a
-poured net is still connected, and that each band is still continuous. A check of the drawn copper
+poured net is connected and each band continuous. A check of the drawn copper
 alone misses this. `fenolite net` lists the open connections of a
 net; `analyze --kinds connectivity,dead` pours the zones again and lists cut-off pads and dead copper.
 - **Refill and check before any output or measurement.** The saved fill is what gets fabricated. An

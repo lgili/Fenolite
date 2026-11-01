@@ -1,0 +1,86 @@
+# Authored for Fenolite (CC0-1.0): an illustrative dual buffer with explicit units, not a real product.
+schema = "fenolite.pins.v0"
+id = "Example:EXD2"
+version = "1.2.0"
+summary = "Dual buffer with a shared supply (illustrative)"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"
+category = "Logic"
+
+[symbol]
+reference = "U"
+description = "Two buffers, one enable each"
+
+[[symbol.unit]]
+number = 1
+name = "A"
+
+[[symbol.unit]]
+number = 2
+name = "B"
+
+[[pin]]
+number = "1"
+name = "A1"
+type = "input"
+unit = 1
+
+[[pin]]
+number = "2"
+name = "~{OE1}"
+type = "input"
+shape = "inverted"
+unit = 1
+
+[[pin]]
+number = "3"
+name = "Y1"
+type = "tri_state"
+unit = 1
+alternates = [{ name = "PWM1", type = "output" }, { name = "CLK1", type = "output", shape = "clock" }]
+
+[[pin]]
+number = "5"
+name = "A2"
+type = "input"
+unit = 2
+
+[[pin]]
+number = "6"
+name = "~{OE2}"
+type = "input"
+shape = "inverted"
+unit = 2
+
+[[pin]]
+number = "7"
+name = "Y2"
+type = "tri_state"
+unit = 2
+
+[[pin]]
+number = "8"
+name = "VCC"
+type = "power_in"
+unit = 0
+
+[[pin]]
+number = "4"
+name = "GND"
+type = "power_in"
+unit = 0
+
+[[pin]]
+number = "9"
+name = "NC"
+type = "no_connect"
+hidden = true
+unit = 0
+
+[[variant]]
+name = "EXD2-Q1"
+value = "EXD2-Q1"
+description = "Dual buffer, automotive grade (illustrative)"
+datasheet = "https://example.com/exd2.pdf"
+keywords = ["buffer"]
+fp_filters = ["SOIC*", "TSSOP*"]

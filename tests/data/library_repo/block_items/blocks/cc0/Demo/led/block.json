@@ -1,0 +1,75 @@
+{
+  "fenolite": ">=0.7.0",
+  "id": "Demo:led",
+  "namespace": "Demo",
+  "record": {
+    "blocks": [],
+    "category": "indicator",
+    "deprecated": null,
+    "digests": {
+      "definition": "sha256:bf4cc92da7e43955651ef41c0542d021bf30f8c4ad0807b7073272c4e7691974",
+      "interface": "sha256:734c30323ab0fe6e9919077b4ccfc055700bf3939fc52b4749318da818124b0f",
+      "record": "sha256:b3359b8416c9917bd6c45c21bb6a007eb6cfdbddb4aa38255f62261eb655c6f1"
+    },
+    "elaboration": null,
+    "evidence": "INFERRED",
+    "id": "Demo:led",
+    "licence": "CC0-1.0",
+    "name": "Demo:led",
+    "nets": [],
+    "params": [
+      {
+        "choices": null,
+        "default": "1k",
+        "doc": "synthetic resistor value",
+        "max": null,
+        "min": null,
+        "name": "resistance",
+        "required": false,
+        "type": "str",
+        "unit": null
+      }
+    ],
+    "parts": [
+      "R"
+    ],
+    "ports": [
+      {
+        "direction": "in",
+        "doc": "negative terminal",
+        "kind": "net",
+        "members": [
+          "net"
+        ],
+        "name": "NEG",
+        "optional": false
+      },
+      {
+        "direction": "in",
+        "doc": "positive terminal",
+        "kind": "net",
+        "members": [
+          "net"
+        ],
+        "name": "POS",
+        "optional": false
+      }
+    ],
+    "replaces": null,
+    "requires": {
+      "devices": [],
+      "lib_ids": [
+        "Mini:Mini_R"
+      ],
+      "queries": []
+    },
+    "schema": "fenolite.block.v0",
+    "sources": [
+      "authored for Fenolite"
+    ],
+    "summary": "Authored two-terminal test block",
+    "version": "1.0.0"
+  },
+  "schema": "fenolite.block-item.v0",
+  "version": "1.0.0"
+}

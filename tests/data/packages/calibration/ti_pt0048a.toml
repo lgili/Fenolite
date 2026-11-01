@@ -1,0 +1,24 @@
+# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI PT0048A outline and example board layout, drawing 4215159/B (S-0402).
+schema = "fenolite.package.v0"
+family = "gullwing"
+name = "LQFP48_TI_PT0048A"
+evidence = "INFERRED"
+sources = ["S-0402"]
+
+pins = 48
+pitch = "0.5mm"
+arrangement = "quad"
+body = { length = "6.8mm..7.2mm", width = "6.8mm..7.2mm" }
+span_x = "8.8mm..9.2mm"
+span_y = "8.8mm..9.2mm"
+lead = { length = "0.45mm..0.75mm", width = "0.17mm..0.27mm" }
+
+[generate]
+lands = 1
+drawing = 1
+
+[land]
+source = "S-0402 TI PT0048A outline and example board layout"
+pad = { length = "1.6mm", width = "0.3mm" }
+row_spacing_x = "8.2mm"
+row_spacing_y = "8.2mm"

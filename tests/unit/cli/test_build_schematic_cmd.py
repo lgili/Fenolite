@@ -55,7 +55,7 @@ def test_the_blink_gets_a_schematic(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     out = tmp_path / "B"
     code, env, _ = run(monkeypatch, str(BLINK), "--out", str(out), "--confirm")
     assert code == 0 and set(SCHEMATIC) <= set(written(env, out))
-    assert len(written(env, out)) == 18
+    assert len(written(env, out)) == 19  # c0250: fenolite-base.json
     assert env["result"]["schematic"] == {  # type: ignore[index]
         "file": "blink.kicad_sch",
         "paper": "A4",
@@ -69,6 +69,8 @@ def test_the_blink_gets_a_schematic(monkeypatch: pytest.MonkeyPatch, tmp_path: P
         "power_flags": 2,
         "libraries": ["lib/Mini.kicad_sym", "lib/fenolite.kicad_sym"],
         "unconnected_pads": 29,
+        "source": "generated",  # c0276: a generated schematic, not a drawn one
+        "drawn": None,
     }
     _, dry, _ = run(monkeypatch, str(BLINK), "--out", str(tmp_path / "C"), "--dry-run")
     kinds = {Path(w["path"]).name: w["kind"] for w in dry["result"]["plan"]}  # type: ignore[index]
@@ -79,7 +81,7 @@ def test_the_blink_gets_a_schematic(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     )
     assert "H-K-SCH-MINIMAL" in env["evidence"]["hypotheses"]  # type: ignore[index]
     record = json.loads((out / ".fenolite" / "build.json").read_text(encoding="utf-8"))["files"]
-    assert set(SCHEMATIC) <= set(record) and len(record) == 11
+    assert set(SCHEMATIC) <= set(record) and len(record) == 12  # c0250: fenolite-base.json
 
 
 def test_skipping_the_schematic(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

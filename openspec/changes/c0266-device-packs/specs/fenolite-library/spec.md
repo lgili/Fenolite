@@ -20,6 +20,29 @@ An authored device-kind item SHALL use `spdx = "CC0-1.0"`, the family `cc0`, and
 - **WHEN** a fixture authored record names `D-0099` and `sources.toml` lacks it
 - **THEN** the audit fails with `FEN-3004` naming the record and `D-0099`
 
+### Requirement: Device source registers in library checks
+`library check` SHALL read an external `fenolite.library-sources.v0` D-id register through the validated device-register loader. Registered D ids MUST pass the source check; unregistered ids MUST produce `library.source-unknown` even when mentioned in comments or the register is missing. Malformed register rows MUST fail with `FEN-3004`. Existing shipped S-id checks SHALL remain available.
+
+#### Scenario: Registered external device sources
+- **GIVEN** authored external symbol, footprint and device items citing registered `D-0003`
+- **WHEN** `library check` checks their records
+- **THEN** source validation passes for all three kinds
+
+#### Scenario: Unregistered external source in a comment
+- **GIVEN** the records cite `D-0099`, mentioned only in a source-register comment
+- **WHEN** `library check` checks them
+- **THEN** it exits 5 with `library.source-unknown` naming `D-0099`
+
+#### Scenario: Missing external source register
+- **GIVEN** authored item records cite D ids but have no source register
+- **WHEN** `library check` checks them
+- **THEN** it exits 5 with `library.source-unknown` rather than accepting unchecked D ids
+
+#### Scenario: Malformed external source row
+- **GIVEN** `D-0003` lacks its required `used` field
+- **WHEN** `library check` checks a record citing it
+- **THEN** it exits 3 with `FEN-3004` and plans no write
+
 ### Requirement: Device kinds in the library CI
 The library's CI SHALL run, for changed device-kind items: `fenolite library check` (c0262), regeneration of generated footprints and symbols compared with committed outputs, c0259's version rules against the base branch, the rule that seeded records are `UNVERIFIED` or reviewed, and c0262 sheets with an old/new visual diff as a pull-request artefact.
 

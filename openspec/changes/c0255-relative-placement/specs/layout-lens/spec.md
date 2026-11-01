@@ -1,18 +1,25 @@
 ## MODIFIED Requirements
 
 ### Requirement: Placement precedence
-`lens.preserve.effective_placements(placements, match, *, design, board, source={}, resolver=None)` SHALL decide each part's placement with the fixed precedence, written in `docs/lens.md`, "Placement precedence": (1) a locked `place()`, absolute or relative; (2) the existing board; (3) the part's entry in the placements file (`source`, "Placements file"); (4) an unlocked `place()`, absolute or relative; (5) the strategy of the innermost enclosing frame that has one, a layout strategy or a block layout reuse (`placement-in-code`, `layout-reuse`); (6) the build's staging. `prepare` SHALL call it, and `cmd_build` SHALL pass the result to `build_design` as its `placements`.
+`lens.preserve.effective_placements(placements, match, *, design, board, source={}, base=None, takes=(), resolver=None)` SHALL decide each part's placement by the fixed precedence written in `docs/lens.md`, "Placement precedence": (1) a locked `place()`, absolute or relative, composed with its block poses; (2) the existing board, merged per property with the part's *request* by the three-way rule of `edit-merge` ("Three-way property merge") against the base record `base` of the output folder, and without a base for the part winning as before; (3) the part's `source` entry (the edits file, or a legacy placements file); (4) an unlocked `place()`, absolute or relative, composed with its block poses; (5) the strategy of the innermost enclosing frame that has one, a layout strategy or a block layout reuse (`placement-in-code`, `layout-reuse`); (6) the build's staging. Levels 3 to 5 are the part's request, the *code* side of the merge. `prepare` SHALL call it, and `cmd_build` SHALL pass the result to `build_design` as its `placements`.
 - `placements` MUST be `dsl.placements(design)` (c0011): component path → an object with `at`, `rotation`, `side` and `locked`. "Locked" means `place(…, locked=True)` in the script.
-- Relative requests (`dsl.relative_requests(design)`), block poses and strategies MUST be resolved by `resolver`, which `cmd_build` injects from `placement.relative` and `placement.strategies` (`lens` imports neither), in the order of `placement-in-code`, "Resolution order". Every placement made in a block frame MUST be composed with the poses of its blocks before it is compared or written. Without `resolver`, a design with a relative request, a pose or a strategy MUST raise `ValueError`.
-- A relative request decides at the level of its lock (1 or 4); a part with an unlocked request MUST NOT be placed by a strategy. A part that no level 1 to 5 places is left unplaced and staged.
-- `source` MUST map component paths to `SourcePlacement` entries. An entry that wins MUST be given as a `KeptPlacement` with the entry's position, rotation, side and lock, so the build writes the entry's lock; that lock gives the entry no precedence.
-- For a matched part: a locked `place()` MUST win. Otherwise, when its footprint is off the board, the part's `source` entry MUST win, then its `place()`, then its frame's strategy, and without any of them the part MUST be left unplaced, so the build stages it again (`layout.unplaced`). Otherwise the footprint's own position, rotation, side and lock MUST be used, as a `KeptPlacement`, moved rigidly when its block's pose changed (`placement-in-code`, "Rigid block moves").
+- `source` MUST map component paths to `SourcePlacement` entries: the position keys of the edits file (`edit-merge`, "Edits file schema"), or the entries of a legacy placements file ("Placements file"). An entry that wins MUST be given as a `KeptPlacement` with the entry's position, rotation, side and lock, so the build writes the entry's lock; that lock gives the entry no precedence.
+- `base` MUST be the `BaseRecord` read from the output folder (`edit-merge`, "Base record file"), or `None`. `takes` MUST be the parsed `--take` resolutions (`edit-merge`, "Take option of build").
+- **Two properties.** The placement is merged as two properties: `position` (x and y) and `rotation` (rotation and side together, because a side change mirrors the footprint and its rotation then reads differently). The footprint's lock in KiCad is no merged property: a kept placement keeps the board's lock.
+- For a matched part: a locked `place()` MUST win. Otherwise, when its footprint is off the board, the part's request MUST win, and without one the part MUST be left unplaced, so the build stages it again (`layout.unplaced`). Otherwise, when `base` holds the part, each property MUST take the result of the three-way rule, where *code* is the request (none when the part has none), *CAD* is the footprint's value and *base* is the part's base entry; a request that was removed from the script (code none, base set) MUST keep the board's value, so removing a request never moves a part. Otherwise (no base for the part) the footprint's own position, rotation, side and lock MUST be used, as a `KeptPlacement`, and `edit.base-missing` (info) MUST be given once per build naming the count of such parts.
+- **A footprint locked in KiCad** whose property the code changed while the board kept its base value MUST NOT be moved silently: the property is a conflict with the reason `cad-locked` (`edit-merge`, "Conflict record").
+- A property that the code changed over an unchanged board value MUST take the code's value, re-placing the footprint ("Kept and re-placed footprints"), and MUST give `edit.code-wins` (info) naming the part, the property and both values.
 - A footprint is off the board when its position lies outside the closed box `outline.outline_box(design)` (`kicad-file-backend`, "Board outline as rings"), which holds the arcs of the outline as well as its points, and only when the board's edge content is absent or is exactly that outline ("Board content outside the design is kept"). Otherwise no footprint counts as off the board.
-- For an unmatched part: a locked `place()`, then its `source` entry, then its `place()`, then its frame's strategy; otherwise it is left unplaced and staged by the build.
-- Without an existing board, `prepare` MUST return what `effective_placements` gives with an empty match and `board=None`, which is `placements` unchanged when `source` is empty, and no match. With `board=None` no footprint is off the board, and a design without an outline has none either.
-- An unlocked `place()`, absolute or relative, whose resolved position, rotation or side differs from a kept board placement MUST give `layout.place-overridden` (info), naming the part and both placements (and the request text of a relative one), with the hint "lock the placement in the script, move the footprint in KiCad, or re-run with --discard-layout". When it differs from a `source` entry that wins, the same code MUST be given with the hint "lock the placement in the script, or edit placements.toml".
+- For an unmatched part: a locked `place()`, then its `source` entry, then its `place()`; otherwise it is left unplaced and staged by the build.
+- Without an existing board, `prepare` MUST return what `effective_placements` gives with an empty match and `board=None`, which is `placements` unchanged when `source` is empty, and no match. With `board=None` no footprint is off the board, a design without an outline has none either, and `base` is not read.
+- An unlocked `place()` whose position, rotation or side differs from a kept board placement MUST give `layout.place-overridden` (info), naming the part and both placements, with the hint "lock the placement in the script, move the footprint in KiCad, or re-run with --discard-layout". When it differs from a `source` entry that wins, the same code MUST be given with the hint "lock the placement in the script, or edit edits.toml".
 - A `source` entry of a part that keeps a board placement different from the entry MUST give `layout.source-stale` (info) naming the part and both placements, with the hint "run fenolite sync --to-source". An entry that names no part of the design MUST give `layout.source-unknown` (warning).
 - A locked `place()` that differs from the board's position, rotation, side or lock MUST give `layout.place-forced` (warning), because the footprint is then re-placed from its definition ("Kept and re-placed footprints").
+- Relative requests (`dsl.relative_requests(design)`), block poses and strategies MUST be resolved by `resolver`, which `cmd_build` injects from `placement.relative` and `placement.strategies` (`lens` imports neither), in the order of `placement-in-code`, "Resolution order". `resolver(fixed)` gives the code placement of every part it places, composed with its block poses, given the placements `fixed` that the board or the `source` decided; `lens.preserve.resolving` calls it with no fixed placement, decides, and calls it again with the decided placements that differ from their code placement until those stop changing, so a relative request follows the merged position of its reference. Without `resolver`, `placements` is the code side unchanged.
+- A relative request decides at the level of its lock (1 or 4); a part with an unlocked request MUST NOT be placed by a strategy. A part kept from the board keeps its slot in its frame's strategy. A part that no level 1 to 5 places is left unplaced and staged; a part of a strategy group staged as one box is staged at its strategy position (`placement-in-code`, "Strategy groups without a pose").
+- A part kept from the board MUST be moved rigidly with its block when the block's resolved pose differs from the pose of the last build (`placement-in-code`, "Rigid block moves"); the base entries of the block's parts move with it, so the rigid move is no change of either side.
+- A relative request that `layout.place-overridden` names MUST be given with its request text (`right_of=U1 gap=1mm`).
+- A conflict that no `--take` resolves MUST give `sync.conflict` (error), so the build plans no write; the footprint's placement in the returned mapping is then the board's.
 
 #### Scenario: The board wins over place()
 - **GIVEN** a confirmed target-10 blink build in `B` whose board was edited by `edit_blink`
@@ -40,7 +47,7 @@
 - **THEN** `R1` takes the entry's placement as a `KeptPlacement`, and the issues hold one `layout.place-overridden` with the hint that names `placements.toml`
 
 #### Scenario: The board wins over a stale file
-- **GIVEN** the board edited by `edit_blink` and a `source` entry for `D1` at its `place()` position
+- **GIVEN** the board edited by `edit_blink`, a `source` entry for `D1` at its `place()` position and `base=None`
 - **WHEN** `effective_placements` runs
 - **THEN** `D1` keeps its board placement, and the issues hold one `layout.source-stale` naming `D1`
 
@@ -54,6 +61,31 @@
 - **WHEN** the build runs again with `--confirm`
 - **THEN** `R1` keeps its board position, which lies inside `outline_box` though outside the box of the outline's two vertices, and `issues` holds no `layout.unplaced`
 
+#### Scenario: A changed place() moves an unedited part
+- **GIVEN** a confirmed target-10 blink build in `B`, with its base record, after which `design.py` moves `R1`'s unlocked `place()` 3 mm to the right
+- **WHEN** the build runs again with `--confirm --json`
+- **THEN** `R1` is 3 mm right of its former position, `issues` hold one `edit.code-wins` naming `R1` and `position` and no `layout.place-overridden`, and the tracks of other parts keep their uuids
+
+#### Scenario: A hand move and a script move conflict
+- **GIVEN** the same build whose board gets `R1` moved 2 mm down by token edit, after which `design.py` moves `R1`'s `place()` 3 mm to the right
+- **WHEN** the build runs again with `--confirm --json`
+- **THEN** the exit code is 5, `issues` hold one `sync.conflict` naming `R1#position` with its base, code and CAD positions, and no file changes
+
+#### Scenario: A rotation in the script merges with a hand move
+- **GIVEN** the same build whose board gets `R1` moved 2 mm down by token edit, after which `design.py` gives `R1`'s `place()` the rotation 90
+- **WHEN** the build runs again with `--confirm`
+- **THEN** `R1` is at its board position with the rotation 90, and `issues` hold no `sync.conflict`
+
+#### Scenario: A footprint locked in KiCad is not moved silently
+- **GIVEN** the same build whose board gets `(locked yes)` on `R1` by token edit, after which `design.py` moves `R1`'s `place()` 3 mm to the right
+- **WHEN** the build runs again with `--dry-run --json`
+- **THEN** the exit code is 5 and `issues` hold one `sync.conflict` naming `R1#position` with the reason `cad-locked`
+
+#### Scenario: A board without a base record
+- **GIVEN** a confirmed target-10 blink build in `B` whose base record was deleted, as on a board built before this change, edited by `edit_blink`
+- **WHEN** the build runs again with `--confirm --json`
+- **THEN** `D1` keeps its board placement as before, `issues` hold one `edit.base-missing`, and the written folder holds a base record, so the next build merges three ways
+
 #### Scenario: A relative request on a fresh build
 - **GIVEN** no existing board, `u1.place(mm(14), mm(15))` and `c5.place(right_of=u1, gap=mm(1))` with an injected resolver
 - **WHEN** `effective_placements` runs
@@ -63,6 +95,11 @@
 - **GIVEN** a confirmed build of that design whose `C5` was moved in KiCad
 - **WHEN** the build runs again with `--confirm`
 - **THEN** `C5` keeps its board placement, and `issues` hold one `layout.place-overridden` naming `C5` and the request `right_of=U1 gap=1mm`
+
+#### Scenario: A follower follows its moved reference
+- **GIVEN** a confirmed build of that design whose `U1` was moved 4 mm down in KiCad and whose `C5` was not
+- **WHEN** the build runs again with `--confirm`
+- **THEN** `U1` keeps its board placement and `C5` is 4 mm lower, still 1 mm right of `U1`
 
 #### Scenario: A request wins over the strategy
 - **GIVEN** a block with `b.layout(row())`, an unplaced part `R1` and a part `C1` with `c1.place(below=r1)`, and no existing board

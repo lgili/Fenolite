@@ -197,6 +197,7 @@ RULE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         KIND_UNCHECKED_CODE: "error",
         "rules.dropped-for-target": "warning",
         "rules.kept-opaque": "info",
+        "rules.topology-not-lowered": "info",
     }
 )
 VALUE_UNITS = ("mm", "mil", "in")

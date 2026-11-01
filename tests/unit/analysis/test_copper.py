@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The copper of a net as thick shapes, equal to the copper check's (capability board-analyses, "Copper of
-a net as thick shapes"; change c0047). The test imports both builders; the package imports only one."""
+"""Corresponding copper shapes, with bounded analysis arcs and exact check arcs (capability
+board-analyses, "Copper of a net as thick shapes"). Only the test imports both builders."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ from fenolite.analysis.copper import ARC_TOL_NM, net_copper
 from fenolite.backends.base import PadCopper
 from fenolite.checks import copper as check_copper
 from fenolite.core.coords import Point
+from fenolite.geometry import Arc as GeoArc
 
 ROOT = Path(__file__).resolve().parents[3]
 Key = tuple[str, str, tuple[Point, ...], int, bool]
@@ -64,21 +65,27 @@ def from_analysis(made: Copper) -> tuple[Counter[Key], dict[str, int]]:
     keys: Counter[Key] = Counter()
     for net, shapes in found.by_net.items():
         for shape in shapes:
+            assert shape.band == (ARC_TOL_NM + 1 if shape.kind == "arc" else 0)
             keys[(shape.layer, net, shape.shape.core, shape.shape.width, shape.shape.filled)] += 1
     return keys, dict(found.unsupported)
 
 
 def from_check(made: Copper) -> tuple[Counter[Key], dict[str, int]]:
     items = check_copper._Items(made.build(), made.pads, ARC_TOL_NM)  # pyright: ignore[reportPrivateUsage]
-    band = ARC_TOL_NM + 1
     keys: Counter[Key] = Counter()
     for item in items.items:
         if item.net_id is None:
             continue
         for layer, shapes in item.shapes.items():
             for shape in shapes:
-                width = shape.wide.width - (2 * band if item.ref.kind == "arc" else 0)
-                keys[(layer, item.ref.net, shape.wide.core, width, shape.wide.filled)] += 1
+                core = shape.wide.core
+                if item.ref.kind == "arc":
+                    start, mid, end = core
+                    arc = GeoArc(start, mid, end)
+                    assert shape.wide.arc == (None if arc.is_straight else arc)
+                    assert shape.narrow == shape.wide and shape.exact
+                    core = arc.polygonize(ARC_TOL_NM)
+                keys[(layer, item.ref.net, core, shape.wide.width, shape.wide.filled)] += 1
     return keys, dict(items.unsupported)
 
 

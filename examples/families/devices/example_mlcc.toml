@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example: an illustrative grammar family, not a real product line.
+schema = "fenolite.family.v1"
+id = "Example:EX_MLCC"
+kind = "capacitor"
+summary = "Multilayer ceramic chip capacitors, EX series (illustrative)"
+manufacturer = "Example Passive"
+version = "1.0.0"
+licence = "CC0-1.0"
+evidence = "INFERRED"
+sources = ["EX series datasheet rev A, ordering code table (illustrative)"]
+datasheet = "https://example.invalid/ex-mlcc.pdf"
+symbol = "Fenolite:Capacitor"
+pattern = "EX{size}{dielectric}{value}{tolerance}{voltage}{packing}"
+tail = "none"
+
+[fields.size]
+codes."03" = { case = "0603", footprint = "Fenolite:Chip_0603" }
+codes."05" = { case = "0805", footprint = "Fenolite:Chip_0805" }
+
+[fields.dielectric]
+codes.R = { dielectric = "X7R" }
+codes.C = { dielectric = "C0G" }
+
+[fields.value]
+scheme = "eia3"
+unit = "pF"
+series = "E12"
+
+[fields.tolerance]
+codes.K = { tolerance = "10%" }
+codes.J = { tolerance = "5%" }
+
+[fields.voltage]
+codes.A = { rating = "25V" }
+codes.B = { rating = "50V" }
+
+[fields.packing]
+role = "ordering"
+prefer = "T"
+codes.T = { packing = "reel" }
+codes.B = { packing = "bulk" }
+
+[[valid]]
+size = "03"
+dielectric = "R"
+tolerance = ["K", "J"]
+voltage = ["A", "B"]
+value = { min = "100pF", max = "100nF" }
+
+[[valid]]
+size = "05"
+dielectric = "C"
+tolerance = "J"
+voltage = "B"
+value = { min = "10pF", max = "1nF" }
+
+[[exclude]]
+size = "03"
+voltage = "B"
+value = { min = "47nF", max = "100nF" }

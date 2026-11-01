@@ -15,6 +15,8 @@ so in its own notes; the second assertion (no document holds one of the three ke
 
 Change c0102 signs the edge uuids of the outline, so the board file, and with its hash ``board.json`` and
 ``build.json``, were recorded again on 2026-10-08; the fifteen other digests of each build are unchanged.
+Change c0250 adds the base record ``fenolite-base.json`` to every build, so it and ``build.json``, which
+holds its hash, were recorded on 2026-10-29; every other digest is unchanged.
 """
 
 from __future__ import annotations
@@ -37,7 +39,7 @@ PRINT_VARIABLE = "FENOLITE_UNUSED_KEYS_PRINT"
 RECORDED: dict[str, dict[str, str]] = {
     "blink_2layer-9": {
         ".fenolite/board.json": "2dc46f96901d3bfd791cd08d8a71bac4eedcc1d05dbee9158ebccc289191ed0e",
-        ".fenolite/build.json": "7ab9a6db6e85294a0c6b59abc523688a62ad1ce6187b4885e9982e7ed79f320f",
+        ".fenolite/build.json": "4f9373af61af4fa04241a0f15f790ced083b7be326fea7aec56db04a8d214ef7",
         ".fenolite/circuit.json": "705da4a0b455069c68bf620b8079af5b8becda9800ae71c1fe3633a77f2696a3",
         ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
         ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
@@ -47,6 +49,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "blink.kicad_pcb": "a6a99c747690b2620a47c3efe3edfc416492206daccbdde4a66217be273a6851",
         "blink.kicad_pro": "826f307baffa180c68a76ab55d84daf64f4d1ce764128338c8614d18ead41057",
         "blink.kicad_sch": "57a34cc31eb2a70833f61c1fd7d14525d98896bc432405c69a5b234147887fb9",
+        "fenolite-base.json": "9b9e954be113f09d52c87c6839295bb7eaf8f6d17159eaa20a484cc00bf74b83",
         "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
         "lib/Mini.kicad_sym": "79138284b24670145d6eca2ad6863c5855de506ac405a5ba651130e8433b5f17",
         "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": (
@@ -63,7 +66,7 @@ RECORDED: dict[str, dict[str, str]] = {
     },
     "blink_2layer-10": {
         ".fenolite/board.json": "03c5e887a4c54cd5186aa4676fb554280a8167a5c2f90a2c7a32242e403ce4c6",
-        ".fenolite/build.json": "108924a4d33c7d9ed23df5da4cde1dc69aed3d0504ba2b7de1581b3f75f0d82a",
+        ".fenolite/build.json": "a0d92015229433d8338d3c1c67e345d3ce3e84763c98a3e9f28fa529c79b67d1",
         ".fenolite/circuit.json": "705da4a0b455069c68bf620b8079af5b8becda9800ae71c1fe3633a77f2696a3",
         ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
         ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
@@ -73,6 +76,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "blink.kicad_pcb": "4a0471f6a5ef386fa4ddc671ce8fe6697ccd794ded23ca29c420f4994ed1d275",
         "blink.kicad_pro": "77f6a58edf1defbbfb779e406ca6a957724ec8db4b9f877e70dafbbc57777e85",
         "blink.kicad_sch": "ef23e4cc87c4b38a285da43980ba646aa8a496c5e3eabe77127bdbaaaa43a5e7",
+        "fenolite-base.json": "9b9e954be113f09d52c87c6839295bb7eaf8f6d17159eaa20a484cc00bf74b83",
         "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
         "lib/Mini.kicad_sym": "8e14639415bd075bb21ba9da28fee8817db1ce61b057b621328059ce980f335b",
         "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": (
@@ -89,7 +93,7 @@ RECORDED: dict[str, dict[str, str]] = {
     },
     "blink_routed-9": {
         ".fenolite/board.json": "a60130debc5afd3c178a83ed5b941e300ea15a8d2d707f9dbf0e1cdc9625b547",
-        ".fenolite/build.json": "01dd6092d6f467bea156da61ad5ed57ebbd954c138169661a64b5a4aa3f2ec40",
+        ".fenolite/build.json": "b1542cae6a6cde77db8f4d89f49d6cecd1a09351cfd509b27c11fcb44b64eb78",
         ".fenolite/circuit.json": "705da4a0b455069c68bf620b8079af5b8becda9800ae71c1fe3633a77f2696a3",
         ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
         ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
@@ -99,6 +103,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "blink_routed.kicad_pcb": "e2de906207dcb0c083531cec53f02fc16077988a2051af5c25f98f9badc8ad06",
         "blink_routed.kicad_pro": "c2a078c5bf8b4193fea929bb1193a741fae887276b0232c47a6e15bc2d9990bb",
         "blink_routed.kicad_sch": "0be2684b76bfcf88d70ac24b61d0d8d758a1787c32088abf8a4b7f8e6ff9c460",
+        "fenolite-base.json": "9b9e954be113f09d52c87c6839295bb7eaf8f6d17159eaa20a484cc00bf74b83",
         "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
         "lib/Mini.kicad_sym": "79138284b24670145d6eca2ad6863c5855de506ac405a5ba651130e8433b5f17",
         "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": (
@@ -115,7 +120,7 @@ RECORDED: dict[str, dict[str, str]] = {
     },
     "blink_routed-10": {
         ".fenolite/board.json": "c7f00ebcba76d3ec5e349955fd611555f29bdb7a908c55c94753e2e3dfce770a",
-        ".fenolite/build.json": "5cea994f985eea101b3b038f42ddf8d923d4e09663692bb9a661423185b00f6e",
+        ".fenolite/build.json": "1ab97e586f99a9960a3ad8c006a43fc6ebc0a858b1e100f70616502b934ce6a1",
         ".fenolite/circuit.json": "705da4a0b455069c68bf620b8079af5b8becda9800ae71c1fe3633a77f2696a3",
         ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
         ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
@@ -125,6 +130,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "blink_routed.kicad_pcb": "db659fcc223d5ec56f7650dbdacfde1889bd6a6d16f94ccd78d6d31fd820a9a7",
         "blink_routed.kicad_pro": "54cf3550b2eedf65891f47f809504e6d9e1cb9fabc25ea34a316b56edd6c6d96",
         "blink_routed.kicad_sch": "9c40acdf6a2253c3701466b5af672758858e067a53a482e15fae53033c8ddf76",
+        "fenolite-base.json": "9b9e954be113f09d52c87c6839295bb7eaf8f6d17159eaa20a484cc00bf74b83",
         "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
         "lib/Mini.kicad_sym": "8e14639415bd075bb21ba9da28fee8817db1ce61b057b621328059ce980f335b",
         "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": (

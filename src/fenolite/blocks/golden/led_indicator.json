@@ -1,0 +1,433 @@
+{
+  "block": "Fenolite:led_indicator",
+  "circuit": {
+    "components": [
+      {
+        "id": "cmp_2355b70a-6eb9-58c4-9fce-501fa341aa3f",
+        "lib_footprint_ref": "Fenolite:LED0603_Kingbright_APT1608SURCK",
+        "lib_symbol_ref": "Fenolite:LED",
+        "pin_pad_map": [
+          [
+            "1",
+            "2"
+          ],
+          [
+            "2",
+            "1"
+          ]
+        ],
+        "pins": [
+          {
+            "id": "pin_19708ffb-3047-5a29-9bda-52de8345df4d",
+            "name": "A",
+            "number": "1"
+          },
+          {
+            "id": "pin_d5c30608-12fe-5e87-9181-38fc15dc242d",
+            "name": "K",
+            "number": "2"
+          }
+        ],
+        "properties": {
+          "Reference": "D1",
+          "Value": "red",
+          "fenolite.path": "dut/led"
+        },
+        "ref": "D1",
+        "value": "red"
+      },
+      {
+        "id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+        "lib_footprint_ref": "Fenolite:Header_1x2_P2.54",
+        "lib_symbol_ref": "Fenolite:Connector_2",
+        "pins": [
+          {
+            "id": "pin_0896bc0e-8dc6-5f47-85ad-0f1a6fcbd408",
+            "name": "Passive",
+            "number": "1"
+          },
+          {
+            "id": "pin_b1c4d44c-aa96-528e-90f8-57264044338f",
+            "name": "Passive",
+            "number": "2"
+          }
+        ],
+        "properties": {
+          "Reference": "J1",
+          "Value": "Connector_2",
+          "fenolite.path": "J1"
+        },
+        "ref": "J1",
+        "value": "Connector_2"
+      },
+      {
+        "id": "cmp_d16f29bd-39aa-59df-bbd3-6baa0424e9b2",
+        "lib_footprint_ref": "Fenolite:Chip_0603",
+        "lib_symbol_ref": "Fenolite:Resistor",
+        "pin_pad_map": [
+          [
+            "1",
+            "1"
+          ],
+          [
+            "2",
+            "2"
+          ]
+        ],
+        "pins": [
+          {
+            "id": "pin_fafb0eb4-5103-5f6d-aa02-b8d6a6de843d",
+            "name": "A",
+            "number": "1"
+          },
+          {
+            "id": "pin_c6a1ae9d-6a44-5419-b9a7-1096f8e9c331",
+            "name": "B",
+            "number": "2"
+          }
+        ],
+        "properties": {
+          "Reference": "R1",
+          "Value": "649R",
+          "fenolite.device": "Fenolite:R_0603_E96_1pct@649R",
+          "fenolite.device.sha256": "9d3900cbb41db5baa795f9189d3cd41f64306b1d871bce8f5c2c1ff6d90ec5ac",
+          "fenolite.path": "dut/r"
+        },
+        "ref": "R1",
+        "value": "649R",
+        "value_range": {
+          "high": {
+            "e": -2,
+            "m": 65549
+          },
+          "low": {
+            "e": -2,
+            "m": 64251
+          },
+          "nominal": {
+            "e": 0,
+            "m": 649
+          },
+          "unit": "ohm"
+        }
+      }
+    ],
+    "modules": [
+      {
+        "block": "Fenolite:led_indicator",
+        "block_version": "1.0.0",
+        "component_ids": [
+          "cmp_2355b70a-6eb9-58c4-9fce-501fa341aa3f",
+          "cmp_d16f29bd-39aa-59df-bbd3-6baa0424e9b2"
+        ],
+        "id": "mod_3d99db9e-935d-58fc-b9f2-d51e263fb9f1",
+        "params": [
+          {
+            "name": "colour",
+            "text": "red",
+            "type": "str"
+          },
+          {
+            "name": "current",
+            "text": "2mA (1mA..3mA)",
+            "type": "range"
+          },
+          {
+            "name": "drive",
+            "text": "3.3V (3.135V..3.465V)",
+            "type": "range"
+          },
+          {
+            "name": "led",
+            "type": "none"
+          },
+          {
+            "name": "led_current_max",
+            "text": "20mA",
+            "type": "quantity"
+          },
+          {
+            "name": "led_footprint",
+            "text": "Fenolite:LED0603_Kingbright_APT1608SURCK",
+            "type": "str"
+          },
+          {
+            "name": "series",
+            "text": "E96",
+            "type": "str"
+          },
+          {
+            "name": "source_limit",
+            "type": "none"
+          },
+          {
+            "name": "vf",
+            "text": "2V (1.8V..2.2V)",
+            "type": "range"
+          }
+        ],
+        "path": "dut"
+      }
+    ],
+    "nets": [
+      {
+        "id": "net_26ddb5d6-77ea-5282-9bff-62873c0ae9e1",
+        "members": [
+          {
+            "component_id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+            "pin": "1"
+          },
+          {
+            "component_id": "cmp_d16f29bd-39aa-59df-bbd3-6baa0424e9b2",
+            "pin": "1"
+          }
+        ],
+        "name": "dut/HI"
+      },
+      {
+        "id": "net_edae21d1-44cd-5196-8519-cd4fcc2c417f",
+        "members": [
+          {
+            "component_id": "cmp_2355b70a-6eb9-58c4-9fce-501fa341aa3f",
+            "pin": "2"
+          },
+          {
+            "component_id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+            "pin": "2"
+          }
+        ],
+        "name": "dut/LO"
+      },
+      {
+        "id": "net_4a3b1b1b-a1be-53e4-b270-880e8c0b9d85",
+        "members": [
+          {
+            "component_id": "cmp_2355b70a-6eb9-58c4-9fce-501fa341aa3f",
+            "pin": "1"
+          },
+          {
+            "component_id": "cmp_d16f29bd-39aa-59df-bbd3-6baa0424e9b2",
+            "pin": "2"
+          }
+        ],
+        "name": "dut/anode"
+      }
+    ],
+    "ports": [
+      {
+        "direction": "in",
+        "id": "prt_61136a83-cab4-53b2-8527-13279a421fd8",
+        "kind": "net",
+        "members": {
+          "net": "net_26ddb5d6-77ea-5282-9bff-62873c0ae9e1"
+        },
+        "name": "HI",
+        "owner": "mod_3d99db9e-935d-58fc-b9f2-d51e263fb9f1"
+      },
+      {
+        "direction": "in",
+        "id": "prt_f56b5d87-c860-5e0a-b002-a3c68f88513d",
+        "kind": "net",
+        "members": {
+          "net": "net_edae21d1-44cd-5196-8519-cd4fcc2c417f"
+        },
+        "name": "LO",
+        "owner": "mod_3d99db9e-935d-58fc-b9f2-d51e263fb9f1"
+      }
+    ]
+  },
+  "rules": {
+    "contracts": {
+      "expects": [
+        {
+          "id": "dut/expect#1",
+          "instance": "dut",
+          "origin": "fenolite.blocks.led:94",
+          "reason": "LED current in window",
+          "test": {
+            "a": {
+              "a": {
+                "lit": {
+                  "high": {
+                    "e": -3,
+                    "m": 1665
+                  },
+                  "low": {
+                    "e": -3,
+                    "m": 935
+                  },
+                  "nominal": {
+                    "e": -1,
+                    "m": 13
+                  },
+                  "unit": "volt"
+                }
+              },
+              "b": {
+                "component": "cmp_d16f29bd-39aa-59df-bbd3-6baa0424e9b2",
+                "ref": "value"
+              },
+              "op": "div"
+            },
+            "b": {
+              "lit": {
+                "high": {
+                  "e": -3,
+                  "m": 3
+                },
+                "low": {
+                  "e": -3,
+                  "m": 1
+                },
+                "nominal": {
+                  "e": -3,
+                  "m": 2
+                },
+                "unit": "ampere"
+              }
+            },
+            "op": "within"
+          }
+        },
+        {
+          "id": "dut/expect#2",
+          "instance": "dut",
+          "origin": "fenolite.blocks.led:95",
+          "reason": "LED current rating",
+          "test": {
+            "a": {
+              "lit": {
+                "high": {
+                  "e": -2,
+                  "m": 2
+                },
+                "low": {
+                  "e": -2,
+                  "m": 2
+                },
+                "nominal": {
+                  "e": -2,
+                  "m": 2
+                },
+                "unit": "ampere"
+              }
+            },
+            "b": {
+              "a": {
+                "lit": {
+                  "high": {
+                    "e": -3,
+                    "m": 1665
+                  },
+                  "low": {
+                    "e": -3,
+                    "m": 935
+                  },
+                  "nominal": {
+                    "e": -1,
+                    "m": 13
+                  },
+                  "unit": "volt"
+                }
+              },
+              "b": {
+                "component": "cmp_d16f29bd-39aa-59df-bbd3-6baa0424e9b2",
+                "ref": "value"
+              },
+              "op": "div"
+            },
+            "op": "at_least"
+          }
+        },
+        {
+          "id": "dut/expect#3",
+          "instance": "dut",
+          "origin": "fenolite.blocks.led:98",
+          "reason": "resistor power upper bound",
+          "test": {
+            "a": {
+              "component": "cmp_d16f29bd-39aa-59df-bbd3-6baa0424e9b2",
+              "key": "power",
+              "limit": "abs_max",
+              "ref": "rating"
+            },
+            "b": {
+              "a": {
+                "a": {
+                  "lit": {
+                    "high": {
+                      "e": -3,
+                      "m": 1665
+                    },
+                    "low": {
+                      "e": -3,
+                      "m": 935
+                    },
+                    "nominal": {
+                      "e": -1,
+                      "m": 13
+                    },
+                    "unit": "volt"
+                  }
+                },
+                "b": {
+                  "component": "cmp_d16f29bd-39aa-59df-bbd3-6baa0424e9b2",
+                  "ref": "value"
+                },
+                "op": "div"
+              },
+              "b": {
+                "lit": {
+                  "high": {
+                    "e": -3,
+                    "m": 1665
+                  },
+                  "low": {
+                    "e": -3,
+                    "m": 935
+                  },
+                  "nominal": {
+                    "e": -1,
+                    "m": 13
+                  },
+                  "unit": "volt"
+                }
+              },
+              "op": "mul"
+            },
+            "op": "at_least"
+          }
+        }
+      ],
+      "rig": [
+        {
+          "kind": "supply",
+          "name": "bench",
+          "neg": "net_edae21d1-44cd-5196-8519-cd4fcc2c417f",
+          "pos": "net_26ddb5d6-77ea-5282-9bff-62873c0ae9e1",
+          "voltage": {
+            "high": {
+              "e": -3,
+              "m": 3465
+            },
+            "low": {
+              "e": -3,
+              "m": 3135
+            },
+            "nominal": {
+              "e": -1,
+              "m": 33
+            },
+            "unit": "volt"
+          }
+        }
+      ]
+    },
+    "id": "rst_79ddd1f3-309e-5f3a-b8e0-d09f3a2dcd3d"
+  },
+  "schema": "fenolite.block-golden.v0",
+  "seed": 0,
+  "timestamp": "2026-01-01T00:00:00Z",
+  "usage": "usage/led_indicator.py",
+  "version": "1.0.0"
+}

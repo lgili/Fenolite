@@ -29,6 +29,7 @@ from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm, format_length
 from fenolite.model.circuit import NetClass
+from fenolite.model.design import Design
 from fenolite.model.rules import Rule, RuleKind, RuleSet, Selector
 
 EVIDENCE = Evidence(
@@ -116,7 +117,9 @@ def lowered_names(rules: Sequence[Rule]) -> tuple[str, ...]:
     return tuple(names)
 
 
-def lower_rules(ruleset: RuleSet, *, target: int = DEFAULT_TARGET, allow_lossy: bool = False) -> LoweredRules:
+def lower_rules(
+    ruleset: RuleSet, *, target: int = DEFAULT_TARGET, allow_lossy: bool = False, design: Design | None = None
+) -> LoweredRules:
     """The rules file text of ``ruleset`` for KiCad ``target``.0, in priority order (priority 1 last).
 
     Errors raise ``dru.RulesLossError`` (FEN-7001) with every issue; warnings and infos are returned.
@@ -127,12 +130,15 @@ def lower_rules(ruleset: RuleSet, *, target: int = DEFAULT_TARGET, allow_lossy: 
             "this rule set was read from a rules file; "
             "write it with write_rules, which keeps its order and names"
         )
-    ordered = rulemap.rule_order(ruleset.rules)
+    from fenolite.backends.kicad.topology import lower_topologies
+
+    topology_rules, topology_issues = lower_topologies(ruleset, design=design)
+    ordered = rulemap.rule_order((*ruleset.rules, *topology_rules))
     renamed = tuple(
         dataclasses.replace(rule, name=name, ext={})
         for rule, name in zip(ordered, lowered_names(ordered), strict=True)
     )
-    issues: list[Issue] = []
+    issues: list[Issue] = list(topology_issues)
     text = write_rules(
         dataclasses.replace(ruleset, ext={}, rules=renamed),
         target=target,

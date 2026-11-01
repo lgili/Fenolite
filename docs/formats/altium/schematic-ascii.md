@@ -196,6 +196,7 @@ committed. No oracle reads a schematic document, so every row waits for Part H o
 | A sheet symbol has a `UNIQUEID` of eight letters, as a component. Ports carry one in every saved file; sheet entries carry none in the older files | S-0130, S-0139, S-0187, S-0188 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HIER-OPEN |
 | Saved files hold `INDEXINSHEET` on many records; Fenolite's verified sheets hold none | S-0187, S-0188 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HIER-OPEN |
 | The place of harness records (215 to 218) in the ASCII form is not documented, and no ASCII file with a harness was found | S-0131 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HARN-OPEN |
+| A port and the sheet entry of the same name on the symbol of its sheet join, whatever net labels lie on their stubs; a net label names the net on its own sheet. So the sheet of a block instance can name its ports and entries after the block's ports (`IN`) while each stub keeps the circuit net's label (`SRC`); which name Altium gives the compiled net then is not measured (change c0269) | S-0185 | INFERRED | H-A-BLOCK-ENTRIES |
 
 ## Fenolite's choices
 

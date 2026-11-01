@@ -1,0 +1,26 @@
+{
+  "authors": [
+    "Demo Pad Authors"
+  ],
+  "copyright": [],
+  "evidence": "UNVERIFIED",
+  "featured": null,
+  "id": "Demo:SA_PAD",
+  "kind": "footprint",
+  "licence_text_sha256": "a0cacb0cacf6ee4c85125829c301e2c0795e4719987e5d5b7d8910776c91866b",
+  "modification_notice": "2026-10-30: authored for the Fenolite tests in the Fenolite formats; no upstream material",
+  "origin": "seeded",
+  "schema": "fenolite.provenance.v0",
+  "sources": null,
+  "spdx": "CC-BY-SA-4.0",
+  "trademarks": {
+    "marks": [],
+    "note": "",
+    "restricted": false
+  },
+  "upstream": {
+    "commit": "0000000000000000000000000000000000000000",
+    "url": "https://example.org/demo-pads"
+  },
+  "version": "1.0.0"
+}

@@ -24,7 +24,12 @@ from fenolite.backends.matrix import ModuleClaim, module_claims, packages, probl
 from fenolite.core.evidence import Evidence, Level
 
 ROOT = Path(__file__).resolve().parents[3]
-LIVE = ("fenolite.backends.altium", "fenolite.backends.kicad", "fenolite.backends.specctra")
+LIVE = (
+    "fenolite.backends.altium",
+    "fenolite.backends.kicad",
+    "fenolite.backends.librepcb",
+    "fenolite.backends.specctra",
+)
 HEAD = "from fenolite.core.evidence import Evidence, Level\n"
 GOOD = HEAD + 'EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-PCB-READ",))\n'
 EMPTY_CLAIMS = "from fenolite.backends.base import MatrixRow\nMATRIX: tuple[MatrixRow, ...] = ()\n"

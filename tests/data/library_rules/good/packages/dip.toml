@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as synthetic test data (change c0262); no real product.
+schema="fenolite.package.v0"
+id="Rules:RuleDip"
+version="1.0.0"
+summary="Synthetic dip review fixture"
+licence="CC0-1.0"
+evidence="INFERRED"
+family="dip"
+pins=4
+pitch="2.54mm"
+row_spacing="6mm"
+body={length="5mm",width="4mm",height="3mm",standoff="0.5mm"}
+lead={length="3mm",width="0.5mm",thickness="0.3mm"}
+[land]
+source="Fenolite authored dimensions"
+drill="1mm"
+pad_diameter="1.8mm"
+[generate]
+lands=1
+drawing=1

@@ -418,6 +418,7 @@
     },
     "altium_schlib": {
       "hypotheses": [
+        "H-A-SCHLIB-GEN-PARTS",
         "H-A-SCHLIB-IMPLIDX",
         "H-A-SCHLIB-KICAD",
         "H-A-SCHLIB-KICAD9",
@@ -436,6 +437,7 @@
       "write_level": "INFERRED",
       "own_readback": "tests/unit/backends/altium/test_schlib.py::test_round_trip_of_a_mapped_symbol",
       "missing": [
+        "H-A-SCHLIB-GEN-PARTS is not release-verified",
         "H-A-SCHLIB-IMPLIDX is not release-verified",
         "H-A-SCHLIB-MULTIPART is not release-verified",
         "H-A-SCHLIB-OPEN is not release-verified",

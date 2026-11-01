@@ -102,6 +102,32 @@ Each of these is cheap to avoid before routing and expensive to argue about afte
   second face.
 - **A board that cannot be tested,** and a design that hides its open items.
 
+## Test the design
+
+Keep tests beside the script and run them with pytest before every review. `fenolite.testing` builds
+the script privately through the reviewed plan protocol; this sample is exercised by the testing suite:
+
+```text
+from fenolite.testing import load
+with load("design.py") as d:
+    assert d.connected("R1-1", "R2-1")
+    assert not d.findings("build.unattached")
+```
+
+`instantiate(block, **params)` builds one block alone as `dut`: its parts read as `dut/U1`, its ports as
+the nets `dut/<port>`. `connected(..., copper=True)` tests real copper, through the pin-to-pad map.
+`assert_render` compares an SVG golden byte for byte; a mismatch prints a diff and the commands that
+regenerate it, and never updates the reference. `findings("circuit.*")` runs the circuit rules on the
+private build. `check.result.subjects` names the part and net ids of each issue: read those before
+parsing `where`.
+
+```fenolite-cmd
+fenolite explain build.unattached --json
+```
+
+`build.unattached` warns at `file:line:N` about a Part, Net or Interface that was never added or
+connected: add it, connect it, or delete it.
+
 ## Answering findings
 
 - **Answer each finding on its own line,** with a stable id: what you changed, where (file, version,
@@ -130,6 +156,34 @@ Each of these is cheap to avoid before routing and expensive to argue about afte
 - **Make no approval yourself.** Gate approval, safety approval and compliance belong to the people who
   sign for them. Report the measurements and the open items, and never write that the board passed a
   gate.
+
+## The requirement matrix
+
+Attach the matrix to a review: every electrical limit with a stable id, its status and the digest of
+what it judged, and a receipt of the model and device records it read. It writes nothing.
+
+```fenolite-cmd
+fenolite check blink/build --matrix --json
+fenolite check blink/build --matrix --text
+```
+
+- `deferred` (with `decidable` `place` or `route`): the board has not reached the stage that decides the
+  row, such as a track width on a net with an open connection. It is not a pass.
+- `waived`: a waiver accepted the row's finding at its `digest`. A changed rating, pick or kept value
+  changes the digest: the finding is back and `check.waiver-expired` names both digests.
+- Device records split each limit into `abs_max` (damage) and `operating` (the range the part needs);
+  `[[limits]]` states a voltage between two pins, such as `between = ["BST", "SW"]`.
+
+Accept a known risk by its row id without the code and the digest that the finding's hint ends with:
+
+```fenolite-design
+from fenolite.dsl import Design, Part, mm
+
+design = Design("accepted_risk")
+design.board(mm(20), mm(10))
+design.add(Part("C1", "Fenolite:Capacitor", footprint="Fenolite:Chip_0603", value="1uF"))
+design.waive("circuit.rating-voltage", "C1:voltage", reason="bench is current-limited", digest="9f2c4a1b0d3e5f67")
+```
 
 ## Typical failures
 

@@ -18,18 +18,27 @@ from typing import Any, Literal, cast
 
 from fenolite.checks.equivalence.model import (
     FRAMES,
+    FREE_FIELDS,
     KIND_LEVELS,
     KINDS,
+    SCHEMATIC_LEVEL,
     Difference,
     Excluded,
     Frame,
+    LevelId,
     LevelResult,
 )
 from fenolite.core.errors import FormatError
 
 SCHEMA = 1
-Attribution = Literal["importer", "undecided"]
+Attribution = Literal["importer", "undecided", "fenolite", "upstream", "tool"]
 ATTRIBUTIONS: tuple[Attribution, ...] = ("importer", "undecided")
+"""The attributions of a rule of an exclusion file."""
+ACCEPTED_ATTRIBUTIONS: tuple[Attribution, ...] = ("fenolite", "upstream", "tool", "undecided")
+"""The attributions of an accepted difference of a provenance file: a limit of Fenolite, something odd in
+the original, a behaviour of the original's tool, or not decided yet."""
+ACCEPTED_REQUIRED = ("id", "level", "kind", "where", "reason", "attribution", "decided")
+ACCEPTED_OPTIONAL = ("field",)
 ROOT_KEYS = frozenset({"schema", "profile"})
 PROFILE_KEYS = frozenset({"name", "tool", "tool_version", "frame", "tolerance_nm", "tolerance_udeg", "rule"})
 RULE_REQUIRED = ("id", "level", "kind", "where", "attribution", "reason", "hypothesis")
@@ -44,7 +53,7 @@ class Rule:
     source or the tool's report shows it, ``undecided`` when no source says which side is right."""
 
     id: str
-    level: int
+    level: LevelId
     kind: str
     where: str
     attribution: Attribution
@@ -101,6 +110,18 @@ def _keys(
         raise FormatError(f"{where}: unknown key {', '.join(unknown)}", file=file)
 
 
+def check_kind(level: LevelId, kind: str, field: str, where: str, file: str) -> None:
+    """``FormatError`` when ``kind`` is no kind of ``level``, or names no ``field`` of that name (a kind whose
+    field column is a placeholder takes any dotted field)."""
+    if level not in KIND_LEVELS.get(kind, ()):
+        raise FormatError(f"{where}: {kind!r} is not a kind of level {level}", file=file)
+    if not field:
+        return
+    fields = {name for found, other, name in KINDS if found == level and other == kind}
+    if field not in fields and not fields & FREE_FIELDS:
+        raise FormatError(f"{where}: {kind!r} has no field {field!r}", file=file)
+
+
 def _rule(table: Mapping[str, Any], seen: set[str], profile: str, file: str) -> Rule:
     ident = table.get("id")
     where = f"rule {ident!r} of profile {profile!r}" if isinstance(ident, str) else f"a rule of {profile!r}"
@@ -109,15 +130,12 @@ def _rule(table: Mapping[str, Any], seen: set[str], profile: str, file: str) -> 
     if ident in seen:
         raise FormatError(f"{where}: the id is used twice", file=file)
     seen.add(ident)
-    level = _count(table, "level", where, file)
+    level = table["level"] if table["level"] == SCHEMATIC_LEVEL else _count(table, "level", where, file)
     kind = _text(table, "kind", where, file)
-    if level not in KIND_LEVELS.get(kind, ()):
-        raise FormatError(f"{where}: {kind!r} is not a kind of level {level}", file=file)
     field = table.get("field", "")
     if not isinstance(field, str):
         raise FormatError(f"{where}: field is a string", file=file)
-    if field and (level, kind, field) not in KINDS:
-        raise FormatError(f"{where}: {kind!r} has no field {field!r}", file=file)
+    check_kind(level, kind, field, where, file)
     attribution = _text(table, "attribution", where, file)
     if attribution not in ATTRIBUTIONS:
         raise FormatError(f"{where}: attribution is one of {', '.join(ATTRIBUTIONS)}", file=file)
@@ -182,6 +200,54 @@ def load_profiles(text: str, *, file: str = "") -> tuple[Profile, ...]:
     return tuple(profiles)
 
 
+def accepted_rules(entries: object, *, file: str = "") -> tuple[Rule, ...]:
+    """The exclusion rules of the accepted differences of a provenance file (the list
+    ``fidelity.accepted``): each entry of ``id``, ``level``, ``kind``, ``where`` (a glob), optional ``field``,
+    ``reason``, ``attribution`` (one of ``ACCEPTED_ATTRIBUTIONS``) and ``decided`` becomes a ``Rule`` that
+    keeps its reason and attribution. ``FormatError`` names the entry for a missing or unknown key, a kind of
+    another level, a repeated id or a value of the wrong type."""
+    if not isinstance(entries, list):
+        raise FormatError("fidelity.accepted is a list of entries", file=file)
+    rules: list[Rule] = []
+    seen: set[str] = set()
+    for index, raw in enumerate(cast(list[object], entries)):
+        if not isinstance(raw, dict):
+            raise FormatError(f"fidelity.accepted[{index}] is an object", file=file)
+        table = cast(dict[str, Any], raw)
+        ident = table.get("id")
+        where = f"accepted entry {ident!r}" if isinstance(ident, str) else f"fidelity.accepted[{index}]"
+        _keys(table, ACCEPTED_REQUIRED, ACCEPTED_OPTIONAL, where, file)
+        ident = _text(table, "id", where, file)
+        if ident in seen:
+            raise FormatError(f"{where}: the id is used twice", file=file)
+        seen.add(ident)
+        level = table["level"]
+        if level != SCHEMATIC_LEVEL and (type(level) is not int or level < 1):
+            raise FormatError(f"{where}: level is an integer of 1 to 8 or {SCHEMATIC_LEVEL!r}", file=file)
+        kind = _text(table, "kind", where, file)
+        field = table.get("field", "")
+        if not isinstance(field, str):
+            raise FormatError(f"{where}: field is a string", file=file)
+        check_kind(level, kind, field, where, file)
+        attribution = _text(table, "attribution", where, file)
+        if attribution not in ACCEPTED_ATTRIBUTIONS:
+            raise FormatError(f"{where}: attribution is one of {', '.join(ACCEPTED_ATTRIBUTIONS)}", file=file)
+        _text(table, "decided", where, file)
+        rules.append(
+            Rule(
+                id=ident,
+                level=level,
+                kind=kind,
+                where=_text(table, "where", where, file),
+                attribution=attribution,
+                reason=_text(table, "reason", where, file),
+                hypothesis="",
+                field=field,
+            )
+        )
+    return tuple(rules)
+
+
 def _is_prefix(prefix: str, version: str) -> bool:
     """Whether ``prefix`` starts ``version`` at a dot boundary: ``10.0`` matches ``10.0.6``, not ``10.01``."""
     return version == prefix or version.startswith(prefix + ".")
@@ -214,12 +280,15 @@ def apply_rules(result: LevelResult, rules: Sequence[Rule]) -> LevelResult:
 
 
 __all__ = [
+    "ACCEPTED_ATTRIBUTIONS",
     "ATTRIBUTIONS",
     "SCHEMA",
     "Attribution",
     "Profile",
     "Rule",
+    "accepted_rules",
     "apply_rules",
+    "check_kind",
     "load_profiles",
     "select_profile",
 ]

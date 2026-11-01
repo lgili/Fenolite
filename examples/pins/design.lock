@@ -1,0 +1,26 @@
+# Design lock written by fenolite build. Review changes in git; hand edits are honoured.
+schema = "fenolite.lock.v0"
+design = "pins"
+
+[refs]
+"c1" = "C1"
+"header" = "J1"
+"mcu" = "U1"
+"power" = "J2"
+"r_scl" = "R1"
+"r_sda" = "R2"
+"sen" = "U2"
+
+[pins."mcu/debug"]
+kind = "uart"
+option = "UART2"
+alternative = 0
+pins = { rx = "PA3", tx = "PA2" }
+choice = "UART2 on PA3/PA2"
+
+[pins."mcu/i2c#0"]
+kind = "i2c"
+option = "I2C1"
+alternative = 0
+pins = { scl = "PB6", sda = "PB7" }
+choice = "I2C1 on PB6/PB7"

@@ -112,7 +112,7 @@ def test_router_features_of_routers_without_a_valid_set() -> None:
     assert router_features(DirectRouter()) == frozenset()
     assert router_features(Unknown()) == frozenset()
     assert router_features(Both()) == frozenset({"pairs", "escape"})
-    assert ROUTER_FEATURES == frozenset({"pairs", "escape", "short", "roles"})
+    assert ROUTER_FEATURES == frozenset({"pairs", "escape", "short", "roles", "propose"})
 
 
 # --- role routes (change c0244) ---------------------------------------------------------------------------
@@ -136,3 +136,31 @@ def test_roles_default_to_empty() -> None:
     assert outcome.runs == () and outcome.form == ""
     with pytest.raises(FrozenInstanceError):
         route.width = 1  # type: ignore[misc]
+
+
+# --- proposal subjects and candidates (change c0280) ----------------------------------------------------
+
+
+def test_propose_subjects_and_candidates_default_to_empty() -> None:
+    """Scenarios "A job built as before" of "Proposal subjects in a routing job" and "The octilinear router
+    takes roles"."""
+    from fenolite.routing.octilinear import OctilinearRouter
+    from fenolite.routing.protocol import SUBJECT_KINDS, Candidate, JobAttach, JobSubject
+
+    design = Design.new("routing-test", seed=1)
+    job = RoutingJob(design, (), ("F.Cu",))
+    assert job.subjects == ()
+    assert job == RoutingJob(design, (), ("F.Cu",), subjects=())
+    assert RoutingResult().candidates == () and RoutingResult().refusals == ()
+    assert RoutingResult() == RoutingResult(candidates=(), refusals=())
+    a = JobAttach("pad", "GND", Point(1, 2), ("F.Cu",), "C3-2")
+    b = JobAttach("zone", "GND", Point(1, 9), ("B.Cu",), "role.ground.GND.B.Cu")
+    subject = JobSubject("fanout:GND:C3-2", "fanout", "GND", a, b, 250_000, ("F.Cu", "B.Cu"))
+    held = RoutingJob(design, (), ("F.Cu", "B.Cu"), subjects=(subject,))
+    assert held.subjects[0].via_diameter == 0 and held.subjects[0].group == ""
+    candidate = Candidate("c-0000000000000000", subject.key, "fanout")
+    assert candidate.relaxed == () and candidate.tracks == candidate.vias == ()
+    assert SUBJECT_KINDS == ("fanout", "join", "role-net", "group", "connection")
+    with pytest.raises(FrozenInstanceError):
+        subject.width = 1  # type: ignore[misc]
+    assert router_features(OctilinearRouter()) == frozenset({"pairs", "short", "roles", "propose"})

@@ -2,8 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """Closed integer boxes, segments, three-point arcs and circles, and their polygonisation.
 
-An ``Arc`` is its three stored points; the centre and squared radius are exact derived values that
-no rule decision should rely on (they are badly conditioned for shallow arcs). Polygonisation never
+An ``Arc`` is its three stored points; the centre and squared radius are exact derived Fractions.
+Rule decisions involving them must remain exact, particularly for shallow arcs. Polygonisation never
 uses floating-point trigonometry: parts of the curve are bisected uniformly, each new vertex is the
 projection of a chord midpoint on the circle computed with ``math.isqrt`` on numbers scaled by 2**64
 and rounded half to even, until the exact sagitta of every chord is at most ``tol``.

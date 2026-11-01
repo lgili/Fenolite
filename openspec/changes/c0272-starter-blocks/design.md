@@ -68,7 +68,7 @@ src/fenolite/blocks/
 ```python
 import fenolite.dsl.generators as gen
 from fenolite.dsl import Ground, Net, Rail, amp, at_least, between, block, param, value_of, volt
-from fenolite.dsl import rating_of, voltage_of, within
+from fenolite.dsl import rating_of, schematic_group, voltage_of, within
 
 
 @block(
@@ -76,7 +76,7 @@ from fenolite.dsl import rating_of, voltage_of, within
     version="1.0.0",
     summary="Resistive divider with a worst-case output range",
     category="analog",
-    sources=["S-DIV", "S-JOULE", "S-INTERVAL"],
+    sources=["S-1120", "S-1121", "S-1124"],
 )
 def voltage_divider(
     b,
@@ -90,19 +90,19 @@ def voltage_divider(
     out = b.port("OUT", Net, direction="out", doc="divided output, unloaded")
     lo = b.port("LO", Ground, direction="in", doc="reference")
     top, bot = gen.voltage_divider(b, hi, out, lo, target=vout, vin=vin, current=current, series=series)
-    b.schematic(column=[top, bot], title="Divider")
+    b.schematic(schematic_group("divider", top, bot, title="Divider", flow="top-to-bottom"))
     b.expect(within(voltage_of(hi) / (1 + value_of(top) / value_of(bot)), vout), "output in range")
     b.expect(at_least(rating_of(top, "power"), voltage_of(hi) * voltage_of(hi) / value_of(top)), "top power")
     b.expect(at_least(rating_of(bot, "power"), voltage_of(hi) * voltage_of(hi) / value_of(bot)), "bot power")
     b.layout(reuse="layouts/voltage_divider.toml", copper=True)
 ```
 
-(`S-DIV` and the other `S-` names here are placeholders for the ids task 0.2 registers.)
+(Sources S-1120..1125 were fetched from the public pages and read for facts on 2026-11-01; no text, table, figure or code was copied.)
 
 - **Output.** `VOUT = VHI / (1 + Rtop / Rbot)` for an unloaded divider. Each resistor appears once, so
-  c0253's interval arithmetic gives the exact worst case (`S-INTERVAL`: an expression in which every
+  c0253's interval arithmetic gives the exact worst case (`S-1124`: an expression in which every
   variable occurs once and that is monotone in each is bounded exactly by its corners).
-- **Power.** The whole input across one resistor bounds its power from above (`P = V² / R`, `S-JOULE`); it
+- **Power.** The whole input across one resistor bounds its power from above (`P = V² / R`, `S-1121`); it
   is conservative and never needs `voltage_of(OUT)`, which nothing states.
 - **Why `vin` and `voltage_of(HI)`.** The generator runs in the block body, before the outside connects HI,
   so it cannot read the rail; `vin` chooses the resistors. The expectation reads the real rail, so a block
@@ -123,9 +123,9 @@ def voltage_divider(
 - Expectations: `within(1 / (2 * gen.PI * value_of(r) * value_of(c)), corner)` ("cut-off in range"), where
   `gen.PI` is c0254's enclosure of π as a ratio range `[3.14159265358, 3.14159265359]`; and
   `at_least(rating_of(c, "voltage"), voltage)` ("capacitor voltage rating").
-- Relation: `f = 1 / (2πRC)` for a first-order RC low-pass (`S-RC`). With π enclosed, the judged range
+- Relation: `f = 1 / (2πRC)` for a first-order RC low-pass (`S-1122`). With π enclosed, the judged range
   contains the exact one; the enclosure widens it by less than one part in 10¹¹.
-- **Worked numbers:** defaults → `r` 1.58 kΩ (E96 1 %), cut-off 906.669 Hz to 1130.538 Hz (outward to
+- **Worked numbers:** defaults → `r` 1.58 kΩ (E96 1 %), cut-off 906.669 Hz to 1130.539 Hz (outward to
   1 mHz). With `corner=hertz("1k").pct(10)` the capacitor's ± 10 % alone exceeds the window:
   `gen.unachievable`.
 
@@ -145,13 +145,13 @@ def voltage_divider(
 - Body: `gen.led_resistor(b, hi, led, current=current, vf=vf)` with the LED part between the resistor and
   `LO`; the generator's choice rule (c0254) picks `r`.
 - Expectations, with `i = (drive − vf) / value_of(r)` where `drive − vf` is computed exactly as a literal
-  range (`S-LED`):
+  range (`S-1123`):
   - `within(i, current)` ("LED current in window");
   - `at_least(rating_of(led, "current"), i)` with a device, or `at_least(led_current_max, i)` ("LED current
     rating");
   - `at_least(source_limit, i)` when `source_limit` is given ("driving pin current");
   - `at_least(rating_of(r, "power"), (drive − vf) * (drive − vf) / value_of(r))` ("resistor power",
-    `S-JOULE`).
+    `S-1121`).
 - **Worked numbers:** defaults with `vf=volt("2").pct(10)` → `r` 649 Ω (E96 1 %), current 1.426413 mA to
   2.591400 mA, resistor power at most 4.314680 mW.
 - Layout property: pad 1 of the LED land (its cathode, c0144's cathode-first lands) is on `LO`, and the
@@ -187,7 +187,7 @@ def voltage_divider(
   designs for, required), `r_series` (default `ohm("1k")`), `abs_max` (the downstream input's absolute
   maximum voltage, required), `inject_max` and `hold` (default `None`: the current the downstream's internal
   clamps accept, and the voltage they hold `INT` at).
-- Expectations (`S-TVS` for the terms, `S-DIV` for Ohm's law):
+- Expectations (`S-1125` for the terms, `S-1120` for Ohm's law):
   - `at_least(rating_of(tvs, "voltage"), signal)` ("protection working voltage covers the signal");
   - without `inject_max`: `at_most(clamp, abs_max)` ("clamp below the downstream maximum");
   - with `inject_max` and `hold`: `at_least(inject_max, (clamp − hold) / value_of(r))` ("current into the
@@ -223,12 +223,12 @@ def voltage_divider(
 
 | placeholder | what is used | source |
 |---|---|---|
-| `S-DIV` | output of an unloaded two-resistor divider; Ohm's law | a public textbook page on the voltage divider (for example the encyclopedia article "Voltage divider") |
-| `S-JOULE` | power in a resistor, `V² / R` and `I² R` | a public page on Joule heating |
-| `S-RC` | cut-off of a first-order RC low-pass, `1 / (2πRC)` | a public page on the RC circuit |
-| `S-LED` | series resistor of an LED, `(V − VF) / R` | a public page on LED circuits |
-| `S-INTERVAL` | exact bounds of an expression where each variable occurs once | a public page on interval arithmetic |
-| `S-TVS` | stand-off (working) and clamping voltage of a protection diode | a public page on transient-voltage-suppression diodes |
+| `S-1120` | output of an unloaded two-resistor divider; Ohm's law | a public textbook page on the voltage divider (for example the encyclopedia article "Voltage divider") |
+| `S-1121` | power in a resistor, `V² / R` and `I² R` | a public page on Joule heating |
+| `S-1122` | cut-off of a first-order RC low-pass, `1 / (2πRC)` | a public page on the RC circuit |
+| `S-1123` | series resistor of an LED, `(V − VF) / R` | a public page on LED circuits |
+| `S-1124` | exact bounds of an expression where each variable occurs once | a public page on interval arithmetic |
+| `S-1125` | stand-off (working) and clamping voltage of a protection diode | a public page on transient-voltage-suppression diodes |
 | `UM10204` | the bus limits by mode, through c0254's registered constants | NXP "I2C-bus specification and user manual", document UM10204, cited by id only (c0254 registers it) |
 
 Each row records its licence and "read for facts, nothing copied"; every relation above is written in
@@ -276,21 +276,86 @@ It joins `checks.codes.ISSUE_CODES`, explained by `fenolite explain`, listed in 
 ## Open Questions
 
 1. Should c0253 offer a derated rating handle (`rating_of(part, key, derated=True)`) so that block
-   expectations apply the user's policy? **Recommended:** yes, as a small follow-up of c0253; until then
+   expectations apply the user's policy? **Decided 2026-11-01:** yes, as a small follow-up of c0253; until then
    blocks judge at 100 %.
-2. Should `led_indicator` ship a generic LED forward-voltage default by colour? **Recommended:** no; it needs
+2. Should `led_indicator` ship a generic LED forward-voltage default by colour? **Decided 2026-11-01:** no; it needs
    a source per colour, and a wrong default hides an unstated number.
-3. Should `circuit.pullup-parallel` be part of c0252 instead? **Recommended:** keep it here, where the first
+3. Should `circuit.pullup-parallel` be part of c0252 instead? **Decided 2026-11-01:** keep it here, where the first
    block that can cause it ships; c0252's stage owns the code table either way.
-4. Should the starter blocks live in a separate package from the start? **Recommended:** no (research
+4. Should the starter blocks live in a separate package from the start? **Decided 2026-11-01:** no (research
    question 1): in the core, versioned with Fenolite; c0273 serves further blocks from `fenolite-library` (c0279).
 
 ## Relation to the other changes of this batch
 
 - **c0268**: records and parameter metadata of the five blocks; `blocks doc` renders their pages.
-- **c0269**: `b.schematic(column=[top, bot])` and the other groups; KiCad hierarchical pins from the ports.
+- **c0269**: `b.schematic(schematic_group("divider", top, bot))` and the other groups; KiCad hierarchical pins from the ports.
 - **c0270**: the usage examples, tests and golden files follow its convention and run in its CI.
 - **c0271**: one layout per block, captured from the usage board; the LED polarity and the protection
   layout properties are tests on it.
 - **c0273**: further blocks in `fenolite-library`; the starter blocks are the model for its CI.
 - **c0254**: the generators and constants; **c0253**: the expectations; **c0252**: rails, buses and the stage.
+
+## Implementation decisions — 2026-11-01
+
+- Use the final `b.schematic(schematic_group(...))` API and generator names
+  `divider_top`/`divider_bot`, `filter_R`/`filter_C`, `r_sda`/`r_scl`.
+  Renaming already registered parts is invalid; local names are stable identities.
+- `c_tolerance` is an integer percentage (default 10), converted to `pct` in the body:
+  c0251 records integers but does not record a `Tolerance` object.
+- Deferred query parts need typed value/rating handles, their chosen value ranges persisted
+  and family devices reconstructed for later checks. These are bridges over existing picking,
+  not new selection rules. Ordered comparisons use fixed one-sided rating thresholds; containment and bounded
+  operating ranges keep their interval meaning.
+- `ExpectNode.num` also permits two reduced numerator/denominator pairs for a bounded
+  dimensionless literal. This preserves the existing integer-only field and represents π
+  without inventing a physical unit or losing its enclosure. The judge evaluates both bounds.
+- The I2C generator accepts an I2C block port and requires VDD > 2 V, the premise of the
+  existing S-0941 sink-current facts. The shared core helper supplies one formula to both
+  selection and expectations. I2C usage has a separate connector return so the rig names
+  a real board net; a bare return with no physical pin is refused by the existing rig contract.
+- TVS stand-off is an `operating` voltage limit, distinct from an absolute or surge clamp
+  value. The authored `Example:IllustrativeTVS` record is UNVERIFIED and every number is
+  illustrative. With injection, also judge `hold <= abs_max`; current and hold are paired.
+- Preserve c0253's three-valued interval judgement: a one-sided clamp overlapping a limit,
+  including the 1 kΩ injection example, is `unsure`/`circuit.expect-unsure`, not a fabricated
+  disjoint-range failure. It does not pass and the runner refuses that usage as a clean golden.
+- Plain shipped tests may import `fenolite.testing`; body modules retain the narrower DSL
+  layer. No pytest or third-party runtime import is shipped. Package re-exports of the same
+  definition are deduplicated by identity, preserving distinct definitions with duplicate ids.
+- Benches and copper are authored with exact DSL coordinates and captured through the
+  normal CLI writer. No KiCad GUI operation or human layout review is claimed. Reproduction
+  lives in `tools/blocks/starter_layouts.py`. Literal GUI review and exact-version CI remain open.
+
+- Catalog-only `describe(..., partial=True)` retains port/layout declarations before missing
+  electrical data and marks the record incomplete. Default `describe` preserves the prior
+  no-elaboration contract for required inputs. A primitive annotation on a REQUIRED parameter
+  supplies its recorded type and is checked before executing the body.
+- Block layout settling recognizes declared port nets as boundaries: a group on a port may
+  attach to one block pad, because its host completes the connection. Free ends, vias with
+  insufficient layer connections and new copper clashes are still rejected. The protection
+  bench's ground via enters a small authored bottom return area; derived fill is stripped
+  during capture, and the host must fill that outline. Ordinary reuse keeps its two-pad guard.
+
+- Host bench routes are authored DSL copper on both layers, with connector poses based on
+  the actual centered catalog lands. Reference fields sit on fabrication layers to avoid
+  clipping small solder-mask openings. Local KiCad 9.0.2 readback and DRC is supplementary;
+  the required 9.0.9/10.0.6 CI remains pending.
+- Copied layout UUIDs and manual DSL copper share the historical copper marker. Pass the
+  persistent `CopyMerge.owned` set through `Prepared.protected_copper` to manual intent
+  resolution so host intents cannot delete layout copies as stale. The existing owned-copy
+  base and CAD edit/deletion decisions remain authoritative; ordinary stale script copper
+  still drops. Cacheless edited/deleted-copy rebuilds alongside host intents prove this flow.
+
+- Judge the actual I2C rail within the caller's selection range as well as both resistor
+  windows. Since the generator validates that range above 2 V, this makes its stated
+  standards premise a checked assumption rather than accepting a differently wired low rail.
+
+- The filter's `c: Quantity | None` annotation permits the documented None sentinel
+  before quantity-unit checking; the generator then selects capacitance. Required inputs
+  remain required, and no default electrical value is inferred from an absent argument.
+
+- Independent exact recomputation rounds the default RC cut-off upper bound outward to
+  1130.539 Hz at 1 mHz resolution; the draft's 1130.538 Hz was inward rounding.
+- Post-build family facts come from reviewed flat project folders, nearest then parent,
+  before shipped fallback. Proposed candidates are excluded; two lookup tests prove that
+  precedence without changing any public electrical value.

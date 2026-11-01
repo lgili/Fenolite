@@ -17,6 +17,7 @@ counts it, via heights and die lengths included. Without one the routed length a
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 
@@ -25,6 +26,7 @@ from fenolite.checks.clearance import DEFAULT_CLASS, rule_precedence, selector_m
 from fenolite.checks.codes import issue
 from fenolite.checks.copper import copper_layers
 from fenolite.checks.stages import StageResult, ran, skipped
+from fenolite.checks.subjects import for_issues
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import format_length
@@ -276,7 +278,8 @@ def length_stage(
     level = Evidence.combine(EVIDENCE, *inputs)
     if any(found.code == "length.input-missing" for found in issues):
         level = Evidence(Level.UNVERIFIED, hypotheses=level.hypotheses)
-    return ran(STAGE, issues, level, summary)
+    result = ran(STAGE, issues, level, summary)
+    return dataclasses.replace(result, subjects=for_issues(checked, result.issues))
 
 
 __all__ = [

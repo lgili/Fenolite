@@ -1296,6 +1296,9 @@
               "type": "null"
             }
           ]
+        },
+        "die_delay_fs": {
+          "type": "integer"
         }
       },
       "additionalProperties": false,

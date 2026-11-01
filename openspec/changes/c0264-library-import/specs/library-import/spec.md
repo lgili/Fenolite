@@ -6,7 +6,7 @@
 #### Scenario: Import an authored archive
 - **GIVEN** the authored archive `tests/data/library_import/exb6202.zip` holding one `.kicad_sym`, one `.kicad_mod` and one `.step`
 - **WHEN** `fenolite library import <archive> --into devices --dry-run --json` runs
-- **THEN** the exit code is 4, the plan writes `device.toml`, `pins.toml`, `package.toml`, one `.kicad_sym`, one `.kicad_mod` and one `.step` under `devices/Imported/EXB6202/`, and no other path
+- **THEN** the exit code is 0, the plan writes `device.toml`, `pins.toml`, `package.toml`, one `.kicad_sym`, one `.kicad_mod` and one `.step` under `devices/Imported/EXB6202/`, and no other path
 
 #### Scenario: Confirmed import builds
 - **GIVEN** the reviewed plan of the previous scenario
@@ -14,7 +14,7 @@
 - **THEN** `fenolite build` of that design exits 0 and its result lists the device with `evidence` `UNVERIFIED`
 
 ### Requirement: Import origin and licence
-Every record written by an import SHALL hold `evidence = "UNVERIFIED"`, `licence = "see source terms"` and an `[origin]` table with `tool`, `date` (from `--timestamp`, else today in UTC), `shippable = false` and one `source` row per file read: its base name, the member path inside an archive, and the SHA-256 of its bytes. No absolute path MUST be written.
+Every record written by an import SHALL hold `evidence = "UNVERIFIED"`, `licence = "see source terms"` and an `[origin]` table with `tool`, `date` (from `--timestamp`, else today in UTC), `shippable = false` and one `source` row per file read: its base name, the member path inside an archive, and the SHA-256 of its bytes. Absolute source paths MUST NOT be written in origin or provenance.
 
 #### Scenario: Origin rows
 - **WHEN** the authored archive is imported with `--timestamp 2026-10-29T00:00:00Z`
@@ -25,7 +25,7 @@ Two imports of the same sources with the same arguments and `--timestamp` SHALL 
 
 #### Scenario: Same bytes twice
 - **WHEN** the authored archive is imported twice in two empty folders with the same `--timestamp`
-- **THEN** the two plans have the same id and every planned file has the same SHA-256
+- **THEN** every planned file has the same SHA-256; repeating in one unchanged project gives the same plan id, which remains bound to its working directory
 
 ### Requirement: Import sources
 A KiCad symbol and footprint SHALL be kept as read and written by Fenolite's KiCad writers. An Altium `.PcbLib` footprint SHALL be imported through `import_footprints`. An Altium `.SchLib` SHALL give only its pins, and the symbol MUST be drawn from the pin table with `library.import-symbol-regenerated` (info). A STEP file MUST be copied byte for byte.
@@ -127,12 +127,18 @@ When the sources hold a KiCad and an Altium footprint for one part, `--prefer` (
 - **THEN** the `.kicad_mod` is imported and one `library.import-sources-disagree` warning names the pad
 
 ### Requirement: Re-import rules
-An import whose device folder exists SHALL plan nothing and set `result.unchanged` when every source SHA-256 equals the recorded one. It MUST replace an unedited record, and MUST exit 7 with `FEN-7001` when the record is edited, unless `--allow-lossy` is given.
+An import whose device folder exists SHALL plan nothing and set `result.unchanged` when every source SHA-256 equals the recorded one. It MUST replace an unedited record when no prior output would be removed; a shrinking file set MUST exit 7 with a new-id hint. It MUST exit 7 with `FEN-7001` when the record is edited, unless `--allow-lossy` is given.
 
 #### Scenario: Re-import over a reviewed device
 - **GIVEN** an imported device whose `device.toml` was edited by hand after the import
 - **WHEN** the import runs again with another source
 - **THEN** the exit code is 7, stderr carries `FEN-7001`, and nothing is written
+
+
+#### Scenario: A previous output would be removed
+- **GIVEN** an imported device folder that includes its STEP body
+- **WHEN** a re-import omits the STEP source, including with `--allow-lossy`
+- **THEN** it exits 7 with `FEN-7001`, preserves the existing folder and hints to use another `--id`
 
 ### Requirement: Catalog import alias
 `fenolite catalog import` SHALL run the importer of this capability with lib-id sources, write the same record bytes as before this change, and add `catalog.import-deprecated` (info) naming `fenolite library import`.
@@ -143,7 +149,7 @@ An import whose device folder exists SHALL plan nothing and set `result.unchange
 - **THEN** the planned record has the bytes c0248 specified, and the issues hold `catalog.import-deprecated`
 
 ### Requirement: Import result
-The result of `library import` (schema `fenolite.library-import.v0`) SHALL hold `device`, `folder`, `sources` (`file`, `member`, `kind`, `sha256`), `skipped` (`file`, `member`, `reason`), `symbol`, `footprint`, `step`, `family`, `crosscheck` and `unchanged`. The envelope evidence MUST be `INFERRED` with `H-L-IMPORT`.
+The result of `library import` (schema `fenolite.library-import.v0`) SHALL hold `device`, `folder`, `sources` (`file`, `member`, `kind`, `sha256`), `skipped` (`file`, `member`, `reason`), `symbol`, `footprint`, `step`, `family`, `crosscheck` and `unchanged`. The envelope evidence MUST be `INFERRED` with `H-G-LIBRARY-IMPORT`.
 
 #### Scenario: Result fields
 - **WHEN** the authored archive is imported with `--dry-run --json`

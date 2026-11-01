@@ -543,6 +543,17 @@ above.
   opaque child holding the token is removed, with the warning `kicad.footprint.dropped-too-new`. Any
   other error aborts. A definition read from a 10.0 file may be written for target 9 when every
   fragment passes.
+- **Rounded pads of an authored definition (c0260).** A definition without a slot list (the DSL, the
+  catalog, the footprint generators) gets the authored child order of `prepare_authored_definition`; a
+  `roundrect` pad with `Pad.corner_ratio` then gets `(roundrect_rratio R)` after `layers`, `R` the ratio
+  in parts per million written as an exact decimal (S-0001: a scaling factor between 0 and 1). A pad
+  without the field gets no child, so earlier authored definitions keep their bytes. Each path of `models`
+  of an authored definition is written as a `model` child with the identity placement (offset and rotation
+  0, scale 1; "Model placement" above), kept as an opaque child as a read `model` is; no authored
+  definition named a model before, so none changes. The footprints of
+  every generator record load in `fp export svg` and read back with equal pads after `fp upgrade
+  --force` on 10.0.6 for targets 9 and 10 (`tests/kicad/libs/test_generated_footprints.py`, 2026-10-30;
+  KiCad 9 in CI).
 - **Board footprints as definitions.** `mod.board_footprints(source)` reads every footprint of a board
   as a definition, with the board's version policy and locators `/kicad_pcb/footprint[i]/…`. The
   library is the lib_id text before its first colon (`""` without a colon). Board-only children (`at`,

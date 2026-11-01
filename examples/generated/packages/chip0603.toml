@@ -1,0 +1,16 @@
+# Authored for Fenolite (CC0-1.0). Numbers from the YAGEO RC_L data sheet (S-0315), table 1, row RC0603:
+# L, W, H and the bottom terminal I2. No manufacturer land: the calculator draws it.
+schema = "fenolite.package.v0"
+family = "chip"
+name = "CHIP0603_B1.6x0.8"
+summary = "0603 chip two-terminal, 1.6 x 0.8 mm body"
+evidence = "INFERRED"
+sources = ["S-0315"]
+
+body = { length = "1.50mm..1.70mm", width = "0.70mm..0.90mm", height = "0.35mm..0.55mm" }
+terminal = { length = "0.10mm..0.40mm" }
+polarity = "none"
+
+[generate]
+lands = 1
+drawing = 1

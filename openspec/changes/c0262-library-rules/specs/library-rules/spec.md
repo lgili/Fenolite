@@ -4,12 +4,12 @@
 `fenolite library check TARGET...` SHALL check c0259 records, folders of records walked in code-point order, and plain libraries (`.kicad_sym`, `.kicad_mod`, `.pretty`, `.SchLib`, `.PcbLib`), and report `library.*` findings. On a plain library item only rules that need no record MUST run, and each item MUST list its `rules_run`. An unreadable record MUST give `library.record-invalid` and the walk MUST continue.
 
 #### Scenario: Mixed folder
-- **GIVEN** the authored folder `tests/data/library/mixed/` with a good device, a record with a TOML syntax error and a `.pretty` folder
-- **WHEN** `fenolite library check tests/data/library/mixed --json` runs
+- **GIVEN** the authored folder `tests/data/library_rules/mixed/` with a good device, a record with a TOML syntax error and a `.pretty` folder
+- **WHEN** `fenolite library check tests/data/library_rules/mixed --json` runs
 - **THEN** it exits 5, reports one `library.record-invalid` naming the broken file, and lists the `.pretty` footprints with `rules_run` that exclude `library.body-span`
 
 #### Scenario: Clean records
-- **WHEN** the check runs on `tests/data/library/good/`
+- **WHEN** the check runs on `tests/data/library_rules/good/`
 - **THEN** it exits 0 with no error or warning finding
 
 ### Requirement: Pad count rule
@@ -85,10 +85,10 @@ For a package with a manufacturer `[land]`, `library.land-mismatch` SHALL be an 
 - **THEN** one `library.footprint-filter-miss` names the filter and the footprint
 
 ### Requirement: Record envelope rules
-`library.source-unknown` (error) SHALL fire for a source id missing from the tree's source register, with `library.sources-unchecked` (info) when there is none. `library.evidence-claim` (error) SHALL fire for `evidence` above `CORPUS-VERIFIED`, or `CORPUS-VERIFIED` without a `[review]`.
+`library.source-unknown` (error) SHALL fire for a source id missing from the tree's source register, with `library.sources-unchecked` (info) when there is none. `library.evidence-claim` (error) SHALL fire for `evidence` above `CORPUS-VERIFIED`, or `CORPUS-VERIFIED` without a `[[reviewed_by]]`.
 
 #### Scenario: Self-promoted record
-- **WHEN** a record with `evidence = "CORPUS-VERIFIED"` and no `[review]` is checked
+- **WHEN** a record with `evidence = "CORPUS-VERIFIED"` and no `[[reviewed_by]]` is checked
 - **THEN** one `library.evidence-claim` is reported and the item's `effective_evidence` is `UNVERIFIED`
 
 ### Requirement: Waivers
@@ -111,8 +111,8 @@ Each checked item SHALL report `evidence` as written and `effective_evidence`: t
 `library check --sheets DIR` SHALL plan one standalone HTML sheet per item, `DIR/index.html` and `DIR/sheets.json` (`fenolite.library_sheets.v0`, each sheet's SHA-256), using dry-run, confirmation, staged plans and receipts. A sheet MUST show the symbol units, footprint layers, body outline, pin table, dimensions with sources, pin-to-pad map, findings and review state. Equal inputs MUST give equal bytes.
 
 #### Scenario: Sheet of a device
-- **WHEN** `fenolite library check tests/data/library/good/example_buck --sheets review --confirm --json` runs twice
-- **THEN** both runs write `review/device/EXB6202.html`, `review/index.html` and `review/sheets.json` with equal bytes, and the sheet holds the six pin rows and every dimension's source id
+- **WHEN** `fenolite library check tests/data/library_rules/good/example_buck --sheets review --confirm --json` runs twice
+- **THEN** both runs write `review/device/<safe-id-and-hash>.html`, `review/index.html` and `review/sheets.json` with equal bytes, and the sheet holds the six pin rows and every dimension's source id
 
 #### Scenario: Dry run writes nothing
 - **WHEN** the same command runs with `--dry-run`
@@ -131,12 +131,12 @@ Each checked item SHALL report `evidence` as written and `effective_evidence`: t
 - **THEN** one `library.interface-changed` error names the device and the pin
 
 ### Requirement: Review record
-`fenolite library review TARGET --accept --reviewer NAME --sheet HEX` SHALL write, through plan and confirm, a `[review]` table (reviewer, date, digest, sheet, Fenolite version, previous evidence, accepted codes) into each target record and set `evidence` to `CORPUS-VERIFIED`. `--revoke` MUST remove the table and restore `previous_evidence`. Without either flag the command MUST only report the review state.
+`fenolite library review TARGET --accept --reviewer NAME --sheet HEX` SHALL write, through plan and confirm, a `[[reviewed_by]]` table (who, date, digest, sheet_sha256, fenolite_version, previous_evidence, accepted_codes) into each target record and set `evidence` to `CORPUS-VERIFIED`. `--revoke` MUST remove the table and restore `previous_evidence`. Without either flag the command MUST only report the review state.
 
 #### Scenario: Accept a clean device
 - **GIVEN** a device with no error finding and evidence `UNVERIFIED`
 - **WHEN** `library review` runs with `--accept --reviewer jdoe --sheet <12 hex of its sheet> --timestamp 2026-11-02T00:00:00Z --confirm`
-- **THEN** the record holds `evidence = "CORPUS-VERIFIED"` and a `[review]` with `reviewer = "jdoe"`, `date = "2026-11-02"` and `previous_evidence = "UNVERIFIED"`, and the receipt lists the file
+- **THEN** the record holds `evidence = "CORPUS-VERIFIED"` and a `[[reviewed_by]]` with `who = "jdoe"`, `date = "2026-11-02"` and `previous_evidence = "UNVERIFIED"`, and the receipt lists the file
 
 #### Scenario: Revoke
 - **WHEN** `--revoke --confirm` runs on that record
@@ -155,7 +155,7 @@ Each checked item SHALL report `evidence` as written and `effective_evidence`: t
 - **THEN** it exits 5 with `library.pad-count` and writes nothing
 
 ### Requirement: Stale reviews
-The review digest SHALL be the SHA-256 of the canonical JSON of the record without `evidence` and `review`, of its generated definitions and, for a device, of its pin table and package digests. `library.review-stale` (error) MUST fire when it or the sheet digest differs; reformatting MUST NOT change it.
+The review digest SHALL be the SHA-256 of the canonical JSON of the record without `evidence` and `reviewed_by`, of its generated definitions and, for a device, of its pin table and package digests. `library.review-stale` (error) MUST fire when it or the sheet digest differs; reformatting MUST NOT change it.
 
 #### Scenario: Edit after review
 - **GIVEN** a reviewed pin table

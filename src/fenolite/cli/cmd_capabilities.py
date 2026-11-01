@@ -21,6 +21,8 @@ from fenolite.cli import describe
 from fenolite.cli.api import Command, Context, Result, discover
 from fenolite.cli.errors import CliError
 from fenolite.core.evidence import Evidence, Level
+from fenolite.pick.propose import suppliers
+from fenolite.pick.supplier_policy import capabilities as supplier_capabilities
 from fenolite.routing.protocol import router_features
 from fenolite.routing.registry import routers as routing_routers
 from fenolite.view.meshes import find_gmsh
@@ -172,6 +174,7 @@ def _brief(commands: Mapping[str, Command], *, no_tools: bool) -> dict[str, Any]
         "routers": sorted(routers, key=lambda r: str(r["name"])),
         "guide": [{"topic": p.topic, "title": p.title, "summary": p.summary} for p in guide.pages()],
         "starters": [{"name": s.name, "summary": s.summary} for s in guide.starters()],
+        "suppliers": supplier_capabilities(suppliers(), brief=True),
         "sends_data_offsite": False,
     }
 
@@ -220,7 +223,24 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "write_kinds": [row.kind for row in support],
     }
 
-    commands = [_entry(c) for c in sorted(discover().values(), key=lambda c: c.name)]
+    from fenolite.cli._library_check import capability_entries as check_entries
+    from fenolite.cli._library_repo import capability_entries
+
+    # the verbs of the library repository are listed as ``library <verb>`` with their usage (change c0279)
+    entries = [_entry(c) for c in discover().values()] + capability_entries() + check_entries()
+    entries.append(
+        {
+            "name": "library seed",
+            "mutates": True,
+            "schema": "fenolite.library.v0",
+            "hidden": False,
+            "usage": (
+                "fenolite library seed --from-librepcb DIR --commit SHA "
+                "--library NAME --into DIR [--namespace NS]"
+            ),
+        }
+    )
+    commands = sorted(entries, key=lambda e: str(e["name"]))
     from fenolite.cli.main import MUTATION_FLAGS, global_flags
 
     result: dict[str, Any] = {
@@ -256,6 +276,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             }
             for router in routing_routers().values()
         ],
+        "suppliers": supplier_capabilities(suppliers()),
         "sends_data_offsite": False,
     }
     return Result(result=result)

@@ -166,8 +166,8 @@ Rules, each recorded in `docs/formats/kicad/schematic.md` with S-0046 or S-0367 
 
 | item | joins | label |
 |---|---|---|
-| wire segment | the points at its two ends; a point of another segment's end, a pin point or a label anchor lying on its inside (a T) | `INFERRED` until `H-K-DRAWN-CONNECT` |
-| crossing segments | nothing, unless a junction lies on the crossing point | `INFERRED` until `H-K-DRAWN-CONNECT` |
+| wire segment | the points at its two ends, and a label anchor or a junction lying on its inside; segments join where their ends meet | `INFERRED` until `H-K-DRAWN-CONNECT` |
+| T and crossing | a segment end lying on another segment's inside (a T), and crossing segments, join only through a junction on that point; a pin joins a wire at the wire's end only (`H-K-SCH-WIRE-END`) | measured locally with `kicad-cli` 9.0.9 and 10.0.6 on 2026-10-29; `INFERRED` until `H-K-DRAWN-CONNECT` passes in CI |
 | junction | every segment end, segment inside and pin point at its position | `INFERRED` until `H-K-DRAWN-CONNECT` |
 | local label | groups of one sheet instance with labels of the same text | `INFERRED` until `H-K-DRAWN-CONNECT` |
 | global label, power symbol | groups of every sheet with the same text (power: its net) | KiCad manual (S-0046); measured by `H-K-DRAWN-CONNECT` |
@@ -275,6 +275,14 @@ reference to component path:
   `rule_area`, and unknown heads) becomes an `opaque` item with its fragment verbatim and its minimum
   version.
 - Sheets referenced several times become one drawn sheet with several `sheet_ref`s.
+- **Frozen bytes.** Decided 2026-10-29: a frozen generated schematic, lowered again, gives the generated
+  texts with the same symbols, fields, references, positions, sheets and board; labels, wires, junctions,
+  no-connect flags and power flags get new uuids, because the file holds no uuid and drawn items take their
+  ids from their sheet and index (decision 12). The value is a fixed point: extracting the lowered texts
+  gives the frozen value again.
+- **Sheet pins.** c0269 is not merged: this change adds the minimal stub it specifies (`SheetPin` with
+  `name`, `shape`, `position`, `rotation`; `SheetRef.pins`; the writer's `pin` child; `sch.opaque_sheet_pins`),
+  to be reconciled with c0269 when it lands.
 - **Users.** c0275's importer writes the result as `schematic.toml`. `fenolite sync --to-source` writes it
   for a design that loads a drawn schematic (decision 9). Freezing a generated schematic is the same call
   on the sheets the generator wrote.
@@ -318,6 +326,15 @@ reference to component path:
 - So a person can draw the top sheet and leave blocks to the generator, and a block sheet can be frozen
   later (decision 9).
 
+**Decided 2026-10-30 (implementation):** the generator runs once on the whole design, as a generated build
+runs it, and each instance of a `generated` sheet takes the generator's sheet of its module and of its
+sub-modules unchanged, so those files are byte-equal to a generated build's. Their symbols' paths are the
+generator's, so the instance must stand where the generator puts the module (its reference in the sheet of
+the parent module, with the generator's uuid, which the drawn reference already takes when it is the only one
+of its module); else `drawn.sheet-unknown`. The block sheets put labels on the sheet pins of their
+sub-blocks without a wire; the resolver joins a label to a sheet pin at its point, as to a symbol pin
+(measured equal to `kicad-cli` 10.0.6 on the block example).
+
 ### 12. Writer additions for KiCad
 
 `sch.write_schematic` writes the new entities of created sheets in the form of S-0367 for both targets:
@@ -327,6 +344,16 @@ their embedded power definitions, and opaque items verbatim through `versions.ch
 no-connect flags, junctions, bus entries, wires, buses, labels, symbols, sheet references, opaque items
 (in their drawn order), then `sheet_instances`. Ids derive from the design name, the sheet key, the item
 kind and its index in the drawn sheet, so a rebuild gives the same uuids (`pcb.kicad_uuid`).
+
+**Decided 2026-10-29 (implementation):** the writer cuts each wire at the junctions on it and each bus at
+its junctions and bus entry ends, the form KiCad's editor keeps. `kicad-cli` 9.0.9 loses the corner of a
+wire whose inside holds a junction, and leaves bus entries on an uncut bus unjoined; the cut form is joined
+by 9.0.9 and 10.0.6 alike and joins nothing the junction did not join. A slanted wire segment is written as
+an opaque `wire` item, since the model's `Wire` stays horizontal or vertical. A drawn symbol with field
+poses shows its posed fields only and hides the others at its origin. Ids of drawn symbols are the
+generator's (`<name>:<component path>#<unit>`), and a sheet reference keeps the generator's id
+(`<name>:sheet:<module>`) when its instance is the only one of its module, so a frozen schematic keeps the
+board's footprint paths; labels, wires, junctions and flags take their ids from the sheet key and index.
 
 ### Data flow
 
@@ -387,14 +414,23 @@ The `drawn.*` codes of decision 6, plus `drawn.frozen` (info, decision 9) and
 
 1. **May a drawing introduce a net name the code lacks** (a label naming an unnamed code net)? Recommended:
    yes, as `drawn.net-name-differs` warning; the board keeps code names.
+   Decided 2026-10-29: yes, as the warning `drawn.net-name-differs`; the board keeps the code's names. A
+   drawn net whose labels include the code net's name gives no warning.
 2. **Should text and graphics become model entities** instead of opaque items? Recommended: later, with
    c0269's open question 2; opaque items already round-trip for KiCad.
+   Decided 2026-10-29: later; they stay verbatim opaque items in v0.
 3. **Altium repeated sheets**: write multi-channel sheet symbols and an annotation file, or one sheet per
    instance? Recommended: one sheet per instance now, multi-channel after a kit case.
+   Decided 2026-10-29: one sheet per instance when the Altium phase is written; multi-channel after a kit
+   case.
 4. **Cut the Altium phase into its own change?** Recommended: keep it as phase 6, cut it if the kit is not
    available within the release.
+   Decided 2026-10-29: keep it as phase 6 of this change, left open in this batch (tasks 6.1 and 6.2); cut it
+   to a follow-up if the kit is not available within the release.
 5. **Freeze by default for imported boards only?** Recommended: yes; designs written as code keep the
    generator unless the user freezes.
+   Decided 2026-10-29: yes; designs written as code keep the generator unless the user runs `sync
+   --to-source --freeze-schematic`.
 
 ## Relation to the other changes of this batch
 

@@ -141,14 +141,16 @@ def test_unchanged_rebuild_and_lost_record(monkeypatch: pytest.MonkeyPatch, buil
     record = ".fenolite/build.json"
     assert {k: v for k, v in after.items() if k != record} == {k: v for k, v in before.items() if k != record}
     baseline = f".fenolite/altium-generated/{SCHDOC}"
-    assert list(json.loads(before[record])["files"]) == [baseline, "FenoliteSample.SchLib", PRJPCB, SCHDOC]
+    assert list(json.loads(before[record])["files"]) == [
+        baseline, "FenoliteSample.SchLib", PRJPCB, SCHDOC, "fenolite-base.json"
+    ]  # fmt: skip
     assert json.loads(after[record])["files"] == json.loads(before[record])["files"]
     shutil.rmtree(built / ".fenolite")
     code, env, _ = run(monkeypatch, built, "--confirm")
     assert code == 0, "identical bytes pass without a record"
     assert str(built / PRJPCB) not in env["result"]["files"]  # type: ignore[index]
     lost = json.loads((built / ".fenolite" / "build.json").read_text(encoding="utf-8"))["files"]
-    assert list(lost) == [baseline, "FenoliteSample.SchLib", SCHDOC], (
+    assert list(lost) == [baseline, "FenoliteSample.SchLib", SCHDOC, "fenolite-base.json"], (
         "a project file without a record is not recorded"
     )
     shutil.rmtree(built / ".fenolite")

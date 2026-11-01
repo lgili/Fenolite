@@ -133,9 +133,14 @@ def test_output_in_range():
 
 | name | returns | from |
 |---|---|---|
-| `requirements(pattern="*")` | `tuple[RequirementRow, ...]`, rows whose id matches the glob, each `id`, `entities`, `quantity`, `value`, `limit` (c0246 ranges), `status` (`pass`, `unsure`, `fail`, `unknown`), `evidence` | `summary.requirements` of `circuit.rules`, run as `findings` runs it |
+| `requirements(pattern="*")` | `tuple[RequirementRow, ...]`, rows whose id matches the glob, each `id`, `entities`, `quantity`, `value`, `limit` (c0246 ranges), `status` (`pass`, `unsure`, `fail`, `unknown`, `deferred`), `evidence` | `summary.requirements` of `circuit.rules`, run as `findings` runs it |
 | `achieved(path)` | the c0246 `Range` that the generator which made the part at `path` achieved, or `TestingError` | `result.generators` of the build (c0254) |
 | `PartView.at`, `rotation`, `side` | the placement on the built board: a pair of integer nanometres, integer microdegrees, `top` or `bottom` | the board read by `load` |
+
+**Decided 2026-11-01:** `at` uses the script's board frame, subtracting the existing DSL export origin
+from the built model's footprint position. This makes the stated 10 mm, 5 mm placement read back as
+`(10000000, 5000000)`. Existing generator part paths use suffixes, for example `dut/ratio_top`;
+`achieved` decodes the recorded micro-unit interval without narrowing its outward-rounded bounds.
 
 - `requirements` runs the tool-free stages once per `TestDesign` and caches the reply with `findings`.
 - Without c0253, `requirements` raises `TestingError` ("needs the circuit stage"); without c0254,
@@ -167,6 +172,9 @@ def test_output_in_range():
 
 - Selects the blocks that `fenolite blocks list` lists with the same options (c0268, c0273), or the given
   ids; an unknown id is `FEN-2001` with the three closest ids in the hint.
+- **Decided 2026-11-01:** without `--from`, also discover local `*.py` modules having a matching usage
+  or tests file. This makes the convention's project example runnable from its folder without importing
+  unrelated design scripts. Explicit ids and category filters still apply.
 - For each block, in id order: the convention check, the usage build, the golden comparison, then each
   test function. `--only usage|golden|tests` runs one kind.
 - **Test functions.** The module is loaded with `importlib` from its path; every module-level function
@@ -233,12 +241,12 @@ Each code is explained by `fenolite explain` and listed in `docs/cli-contract.md
 
 ## Open Questions
 
-1. Should a project block without tests be a warning or silent? **Recommended:** a warning from
+1. **Decided 2026-11-01:** a project block without the convention files gets a warning from
    `fenolite blocks test` only, never from `build`: a project block is often a one-off.
-2. Should goldens include the board? **Recommended:** no; layouts have their own tests (c0271), and the
+2. **Decided 2026-11-01:** goldens exclude the board; layouts have their own tests (c0271), and the
    circuit is what a block release promises.
-3. Should `blocks test` run tests in a subprocess to isolate state? **Recommended:** no for now, in process
-   like `fenolite.api.run`; revisit if a package of c0273 needs it.
+3. **Decided 2026-11-01:** tests run in process like `fenolite.api.run`, with private build folders and
+   restored import state; revisit subprocess isolation if a package of c0273 needs it.
 
 ## Relation to the other changes of this batch
 

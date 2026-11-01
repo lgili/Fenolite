@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: CC-BY-SA-4.0
+# Authored for Fenolite as illustrative test data; the licence is exercised by the test.
+schema = "fenolite.package.v0"
+id = "Demo:SA_PAD"
+version = "1.0.0"
+summary = "Demo share-alike pad"
+licence = "CC-BY-SA-4.0"
+evidence = "UNVERIFIED"
+generator = "explicit"
+kind = "smd"
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["1mm", "1mm"]
+at = ["0mm", "0mm"]

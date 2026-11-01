@@ -1,0 +1,20 @@
+# Authored for Fenolite (CC0-1.0). Numbers from the Würth Elektronik WR-PHD 61300211121 data sheet (S-0408):
+# square pin 0.64 mm ±0.15, pitch 2.54 mm, pin 6.0 mm above and 3.0 mm below, insulator 2.54 mm ±0.15 high.
+schema = "fenolite.package.v0"
+family = "header"
+name = "HDR1x2_P2.54"
+summary = "1 x 2 pin header, 2.54 mm pitch, vertical"
+evidence = "INFERRED"
+sources = ["S-0408"]
+
+rows = 1
+columns = 2
+pitch = "2.54mm"
+mount = "tht"
+orientation = "vertical"
+pin = { width = "0.49mm..0.79mm", length_above = "5.80mm..6.20mm", length_below = "2.80mm..3.20mm" }
+body = { height = "2.39mm..2.69mm" }
+
+[generate]
+lands = 1
+drawing = 1

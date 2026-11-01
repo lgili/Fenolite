@@ -45,7 +45,7 @@ Every connection point, pin length and body corner of a generated symbol SHALL b
 #### Scenario: A one-pin edit stays local
 - **GIVEN** a table and a copy with one `output` row appended
 - **WHEN** both are generated
-- **THEN** no pin of the left, top or bottom side moves, unless the body height grew, in which case every pin moves by the same offset
+- **THEN** no pin of the left, top or bottom side moves, unless the body grew, in which case the pins of each side move together by one offset (half the growth, the body staying centred on the origin)
 
 ### Requirement: Automatic unit split
 When no row has `unit` and the visible rows exceed `split_above` (default 100), the generator SHALL make signal units first, by packing group runs and buses in table order into units of at most `unit_pins` (default 48) rows, then power units of the `supply` and `ground` rows. It MUST report `symbol.units-split` (info), and `symbol.bus-split` (warning) for a bus cut across units.

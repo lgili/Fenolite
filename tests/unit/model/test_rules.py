@@ -13,14 +13,21 @@ import pytest
 from fenolite.core.errors import FormatError
 from fenolite.core.ids import new_id
 from fenolite.model import Design, Rule, RuleSubject, Selector, canonical
+from fenolite.model.circuit import Decimal10, ValueRange
 from fenolite.model.rules import (
+    ContractSet,
+    DeratingRule,
+    Expectation,
+    ExpectNode,
     GateLoop,
     HeightLimit,
     HotLoop,
     KelvinPair,
     NetRole,
+    OperatingRange,
     PadSelection,
     ProximityRule,
+    RigSupply,
     RoleLimit,
     RoleSet,
     RuleSet,
@@ -50,6 +57,37 @@ U1_PAD = RuleSubject(item_kind="pad", net="GND", netclass="default", ref="U1", l
 )
 def test_selector_truth_table(selector: Selector, expected: tuple[bool, bool, bool]) -> None:
     assert tuple(selector.matches(s) for s in (PWR_TRACK, SIG_VIA, U1_PAD)) == expected
+
+
+def test_propagation_round_trip(tmp_path: Path) -> None:
+    from fenolite.dsl import Design as DslDesign
+    from fenolite.dsl import fs, hertz, mdb, to_model
+    from fenolite.model.rules import LayerLoss, Propagation
+
+    script = DslDesign("timed")
+    script.propagation("F.Cu", per_mm=fs(5_900))
+    script.propagation(via=fs(10_000))
+    script.loss("F.Cu", per_mm=mdb(4), at=hertz("1G"))
+    script.loss(via=mdb(2))
+    design = to_model(script)
+    canonical.dump_dir(design, tmp_path)
+    loaded = canonical.load_dir(tmp_path)
+    assert loaded.rules == design.rules
+    assert loaded.rules is not None
+    assert loaded.rules.propagation == (Propagation(via_fs=10_000), Propagation("F.Cu", 5_900))
+    assert loaded.rules.losses == (LayerLoss(via_mdb=2), LayerLoss("F.Cu", 4, at_hz="1000000000"))
+    data = json.loads((tmp_path / "rules.json").read_text())
+    assert _schema.validate(data, _schema.load("fenolite.model.v0/rules.json")) == []
+    assert "propagation" not in canonical.dumps(RuleSet(id=RST))
+    assert "losses" not in canonical.dumps(RuleSet(id=RST))
+
+
+@pytest.mark.parametrize("bad", [0, -1, True, 1.5])
+def test_propagation_model_refuses_bad_inputs(bad: object) -> None:
+    from fenolite.model.rules import Propagation
+
+    with pytest.raises(ValueError):
+        Propagation("F.Cu", bad)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
@@ -316,3 +354,90 @@ def test_roles_compatibility_is_documented() -> None:
     ):
         assert name in flat
     assert "0.5.0 cannot read a `rules.json` that carries `roles`" in flat
+
+
+# ------------------------------------------------------------------------------- contracts (c0253)
+
+
+def _range(unit: str, low: tuple[int, int] | None, high: tuple[int, int] | None) -> ValueRange:
+    return ValueRange(
+        unit,  # type: ignore[arg-type]
+        None if low is None else Decimal10(*low),
+        None,
+        None if high is None else Decimal10(*high),
+    )
+
+
+ONE = ExpectNode(num=(1, 1))
+
+
+def _contracts() -> ContractSet:
+    test = ExpectNode(
+        "within",
+        ExpectNode("mul", ExpectNode(ref="value", component="cmp-R1"), ExpectNode(num=(2, 1))),
+        ExpectNode(lit=_range("volt", (3, 0), (4, 0))),
+    )
+    return ContractSet(
+        derating=(
+            DeratingRule("capacitor_voltage", 500),
+            DeratingRule("capacitor_voltage", 800, parts="C1*"),
+        ),
+        operating=OperatingRange(_range("kelvin", (25315, -2), (34315, -2))),
+        unknown="warning",
+        expects=(Expectation("design/expect#1", "design", "twice R1", "design:3", test),),
+        rig=(RigSupply("supply", "bench", "net-V12", "net-GND", _range("volt", (108, -1), (132, -1))),),
+    )
+
+
+def test_contracts_round_trip(tmp_path: Path) -> None:
+    """Scenario "Contracts round trip" (change c0253)."""
+    design = Design.new("contracts", seed=7)
+    assert design.rules is not None
+    design = dataclasses.replace(design, rules=dataclasses.replace(design.rules, contracts=_contracts()))
+    canonical.dump_dir(design, tmp_path)
+    loaded = canonical.load_dir(tmp_path)
+    assert loaded.rules is not None and loaded.rules.contracts == _contracts()
+    data = json.loads((tmp_path / "rules.json").read_text(encoding="utf-8"))
+    contracts = data["contracts"]
+    assert contracts["rig"][0]["kind"] == "supply"
+    assert contracts["rig"][0]["voltage"] == {
+        "unit": "volt",
+        "low": {"m": 108, "e": -1},
+        "high": {"m": 132, "e": -1},
+    }
+    assert contracts["operating"]["ambient"]["unit"] == "kelvin"
+    assert contracts["expects"][0]["test"]["a"]["b"] == {"num": [2, 1]}
+    text = json.dumps(contracts)
+    assert '"min"' not in text and '"max"' not in text
+    assert _schema.validate(data, _schema.load("fenolite.model.v0/rules.json")) == []
+
+
+def test_contracts_of_an_older_build() -> None:
+    """Scenario "Files of an older build": no ``contracts`` key gives ``None`` and the same bytes."""
+    older = '{\n  "id": "' + RST + '"\n}\n'
+    loaded = canonical.loads(older, RuleSet)
+    assert loaded.contracts is None
+    assert canonical.dumps(loaded) == older
+    assert RuleSet(id=RST, contracts=ContractSet()).contracts is None
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda: DeratingRule("capacitor_voltage", 0),
+        lambda: DeratingRule("capacitor_voltage", 1001),
+        lambda: DeratingRule("gate_charge", 500),
+        lambda: DeratingRule("temperature_margin", 500),
+        lambda: Expectation("design/expect#1", "design", "r", "m:1", ExpectNode("add", ONE, ONE)),
+        lambda: Expectation("design/expect#1", "design", "r", "C:/x/d.py:3", _contracts().expects[0].test),
+        lambda: Expectation("buck1/expect#1", "design", "r", "m:1", _contracts().expects[0].test),
+        lambda: ExpectNode(num=(2, 4)),
+        lambda: ExpectNode(ref="rating", component="c", key="current"),
+        lambda: ContractSet(rig=(_contracts().rig[0], _contracts().rig[0])),
+        lambda: ContractSet(unknown="error"),  # type: ignore[arg-type]
+    ],
+)  # fmt: skip
+def test_contracts_refused_values(build: object) -> None:
+    """Scenario "Refused values" (change c0253)."""
+    with pytest.raises(ValueError):
+        build()  # type: ignore[operator]

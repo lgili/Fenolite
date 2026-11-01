@@ -50,7 +50,7 @@ def write_triad(
     board = write_board(design, target=target, allow_lossy=allow_lossy, downgrade=downgrade, edits=edits)
     found += board.issues
     rules = design.rules if design.rules is not None else RuleSet(id=derived_id("rst", "fenolite", "empty"))
-    lowered = lower_rules(rules, target=target, allow_lossy=allow_lossy)
+    lowered = lower_rules(rules, target=target, allow_lossy=allow_lossy, design=design)
     found += lowered.issues
     if existing_project is None:
         project = synthesize_project(

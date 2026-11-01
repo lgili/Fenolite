@@ -21,7 +21,7 @@ The circuit model SHALL know the interface kinds `ground` (member `gnd`) and `lo
 - **THEN** `ValueError` is raised naming `ground` and `voltage`
 
 ### Requirement: Device ports in the model
-`to_model` SHALL give one `Port` per declared port of each part placed from a device record, owned by the component's id, with the id `derived_id("prt", "dsl", "port:<component path>:<port name>")`, the params of the record and the net of each member. A member whose pins are on two nets MUST be left out of `members`.
+`to_model` SHALL give one `Port` per declared port of each part placed from a device record, owned by the component's id, with the id `derived_id("prt", "dsl", "port:<component path>:<port name>")`, the params of the record, its evidence label (`evidence`) and the net of each member. A member whose pins are on two nets MUST be left out of `members` and recorded in `split` (member name to the sorted net ids), so that the model alone can name the split.
 
 #### Scenario: Device port recorded
 - **GIVEN** a sensor part `U3` whose device declares the `power` port `vdd` (pin `VDD`, `voltage` 1.71 V to 3.6 V), with `VDD` on the net `3V3`

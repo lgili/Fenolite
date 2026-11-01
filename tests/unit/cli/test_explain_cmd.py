@@ -56,6 +56,7 @@ def test_tables_give_every_code_with_its_severities() -> None:
     assert codes["kicad.drc.*"] == ("error", "warning", "info")
     assert not [code for code in codes if "<" in code]
     assert codes["zone.fill-stale"] == ("warning",)  # named by three tables
+    assert codes["blocks.index-stale"] == ("error", "warning")  # check versus ordinary build (c0273)
 
 
 def test_table_is_complete() -> None:
@@ -114,3 +115,28 @@ def test_every_code_is_explained_by_the_command(monkeypatch: pytest.MonkeyPatch,
     for name in ("fmt.would-change", "roundtrip.failed", "FEN-1001", "place.locked"):
         code, env, _, _ = run(monkeypatch, tmp_path, "explain", name)
         assert code == 0 and env["result"]["code"] == name and env["result"]["meaning"]
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "layout.relative-cycle",
+        "layout.relative-unresolved",
+        "layout.strategy-overflow",
+        "layout.block-moved",
+        "reuse.port-unmapped",
+    ],
+)
+def test_placement_in_code_is_explained(code: str) -> None:
+    """Change c0255: every code of placement in code is explained under ``build``."""
+    found = explain.explain(code)
+    assert found is not None and found.see == "build"
+
+
+def test_every_family_code_is_explained() -> None:
+    """Change c0263, scenario "Every family code is explained": every ``family.*`` code points to the
+    heading ``family`` of the CLI contract."""
+    from fenolite.pick.grammar.codes import ISSUE_CODES as FAMILY_CODES
+
+    entries = explain.entries()
+    assert {code: entries[code]["see"] for code in FAMILY_CODES} == dict.fromkeys(FAMILY_CODES, "family")

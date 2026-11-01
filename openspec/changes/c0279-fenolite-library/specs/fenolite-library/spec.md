@@ -4,8 +4,8 @@
 The repository `lgili/fenolite-library` SHALL hold every third-party-derived item in `<kind>/<family>/<id path>/`, with the kinds `symbols`, `footprints`, `devices`, `blocks` and `boards`, the family given by the item's SPDX id, and the id path the id with `:` replaced by `/`. An id MUST be unique within its kind. `fenolite library audit` SHALL report `library.family-mismatch` and `library.duplicate-id` as errors.
 
 #### Scenario: Item in the wrong family
-- **GIVEN** the authored library fixture `tests/data/library/demo/` with a `CC-BY-SA-4.0` footprint moved under `footprints/cc0/`
-- **WHEN** `fenolite library audit tests/data/library/demo --json` runs
+- **GIVEN** the authored library fixture `tests/data/library_repo/demo/` with a `CC-BY-SA-4.0` footprint moved under `footprints/cc0/`
+- **WHEN** `fenolite library audit tests/data/library_repo/demo --json` runs
 - **THEN** it exits 5 and `issues` holds `library.family-mismatch` naming the item and the family `cc-by-sa`
 
 #### Scenario: One id in two families
@@ -107,7 +107,7 @@ A tag `v<version>` of the library SHALL publish `index.json` (`fenolite.library-
 
 #### Scenario: Release is reproducible
 - **GIVEN** the authored library fixture
-- **WHEN** `fenolite library release tests/data/library/demo --version 1.0.0 --out` is confirmed into two empty folders
+- **WHEN** `fenolite library release tests/data/library_repo/demo --version 1.0.0 --out` is confirmed into two empty folders
 - **THEN** both folders hold identical bytes, and each index row's `tree` equals the tree digest of its item folder
 
 ### Requirement: Gallery with attribution
@@ -130,3 +130,11 @@ The library's README SHALL state that each directory keeps its upstream licence,
 - **GIVEN** the library fixture whose README lacks the training sentence
 - **WHEN** the audit runs at the root
 - **THEN** it exits 5 with `library.provenance-invalid` naming `README.md`
+
+### Requirement: Checkout newline independence
+Git checkouts used by local-file `get` and by `library replay` SHALL disable ambient automatic newline conversion and select LF, without changing global Git configuration. A host configured for CRLF MUST NOT rewrite pinned payload bytes through automatic checkout conversion.
+
+#### Scenario: Host configured for CRLF
+- **GIVEN** an authored LF source committed to Git and a host configured with automatic CRLF conversion
+- **WHEN** the item is fetched or its pinned conversion is replayed
+- **THEN** the payload bytes and their digests remain equal to the committed LF bytes

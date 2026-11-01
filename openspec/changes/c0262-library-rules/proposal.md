@@ -40,7 +40,7 @@ body against span).
   records and what changed (record fields, generated symbol, generated footprint), and puts the
   existing visual-diff overlay (`view --compare`, c0184) on the sheet of each changed item.
 - **Review record** (`fenolite library review TARGET --accept --reviewer NAME --sheet SHA256`):
-  - It writes a `[review]` table into the record (reviewer, date, record digest, sheet digest, Fenolite
+  - It writes a `[[reviewed_by]]` table into the record (reviewer, date, record digest, sheet digest, Fenolite
     version, previous evidence, accepted warnings) and raises `evidence` from `UNVERIFIED` or `INFERRED`
     to `CORPUS-VERIFIED`.
   - It is refused while an error finding remains, or when the sheet digest is not the current one.

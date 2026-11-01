@@ -48,7 +48,7 @@ Lengths and angles in records SHALL be text with a unit (`mm`, `um`, `nm`, `mil`
 - **THEN** `FEN-3004` is raised naming both files
 
 ### Requirement: Canonical record text and digests
-`record_text(record)` SHALL write canonical TOML: a fixed key order per kind, arrays in id or number order, LF and one final newline, so that `parse_record(record_text(r)) == r`. `record_digest` SHALL be the SHA-256 of the record's canonical JSON without `reviewed_by`; `output_digest` that of the definition it gives; `interface_digest` that of its interface.
+`record_text(record)` SHALL write canonical TOML: a fixed key order per kind, arrays in the order of the record (the order of a symbol's pins and of a footprint's pads is part of its definition), LF and one final newline, so that `parse_record(record_text(r)) == r`. `record_digest` SHALL be the SHA-256 of the record's canonical JSON without `reviewed_by`; `output_digest` that of the definition it gives; `interface_digest` that of its interface.
 
 #### Scenario: Round trip
 - **WHEN** every shipped record is written with `record_text` and parsed again
@@ -97,10 +97,10 @@ A build that uses a deprecated record SHALL still build and SHALL report `librar
 - **THEN** the build succeeds and `issues` holds one `library.deprecated` naming `Proj:B`
 
 ### Requirement: Record licences
-`licence` SHALL be an SPDX expression. A `Fenolite:` record MUST be `Apache-2.0` or `CC0-1.0`; a record whose `origin` is set MUST be `CC0-1.0`. Any other value in a shipped record MUST raise `FEN-3004`. Project records MAY hold any text.
+`licence` SHALL be an SPDX expression. A `Fenolite:` record MUST be `CC0-1.0` (the maintainer's decision of 2026-10-29); a record whose `origin` is set MUST be `CC0-1.0`. Any other value in a shipped record MUST raise `FEN-3004`. Project records MAY hold any text.
 
 #### Scenario: Shipped record with another licence
-- **WHEN** a `Fenolite:` package with `licence = "CC-BY-SA-4.0"` is read
+- **WHEN** a `Fenolite:` package with `licence = "CC-BY-SA-4.0"` or `licence = "Apache-2.0"` is read
 - **THEN** `FEN-3004` is raised naming `licence`
 
 ### Requirement: Origin of records from CC0 libraries
@@ -190,5 +190,32 @@ A part MUST NOT hold `symbol`, `footprint`, `pins`, `ground`, `unused_pads`, `en
 - **THEN** the project footprint is used and its origin is `authored`
 
 #### Scenario: Load time
-- **WHEN** `shipped_tree()` is first called in a fresh process on CI
-- **THEN** it returns within 150 ms
+- **WHEN** `shipped_tree()` is first called in a fresh process
+- **THEN** it returns within 2.5 times the time `tomllib` alone takes to read the same files, plus 50 ms (a budget that holds on any runner; about 150 ms on CI)
+
+### Requirement: Device records rewritten as v1
+`fenolite fmt PATH` on a `fenolite.device.v0` file SHALL plan one write of the same device as a `fenolite.device.v1` record (version `1.0.0`, the licence of a leading `# SPDX-License-Identifier:` line or `NOASSERTION`, the leading comment lines kept) under the mutation protocol of `fmt`. Loading the written record MUST give a device equal to the one of the `v0` file, and the output MUST be byte-identical on every run. A `fenolite.device.v1` file MUST be left unchanged.
+
+#### Scenario: A v0 device file is rewritten as v1
+- **GIVEN** `devices/example_buck.toml` with `schema = "fenolite.device.v0"` and a leading `# SPDX-License-Identifier: CC0-1.0` line
+- **WHEN** `fenolite fmt devices/example_buck.toml --dry-run` runs and then `--confirm --plan <plan_id>`
+- **THEN** the dry run plans one write of kind `device` and writes nothing, and the file then holds `schema = "fenolite.device.v1"`, `version = "1.0.0"`, `licence = "CC0-1.0"` and a device equal to the one of the `v0` file
+
+#### Scenario: A v1 device file is left unchanged
+- **WHEN** `fenolite fmt` runs on a `fenolite.device.v1` file, with `--check`, `--dry-run` or `--confirm`
+- **THEN** it exits 0 with `result.formatted` true, no plan and the file's bytes unchanged
+
+#### Scenario: Checking a v0 device file
+- **WHEN** `fenolite fmt devices/example_buck.toml --check` runs on a `v0` file
+- **THEN** it writes nothing, reports `fmt.would-change` and exits 5
+
+### Requirement: Device rewrites that would lose data are refused
+`fenolite fmt` MUST refuse a `v0` device file with a comment after its first key with `FEN-7001`, a rewrite that would not load (a `Fenolite:` id without `CC0-1.0`) with `FEN-3004`, and a TOML file that is not a device record with `FEN-2001`, writing nothing.
+
+#### Scenario: A comment in the body
+- **WHEN** `fenolite fmt` runs with `--confirm` on a `v0` device file holding `ref_prefix = "U"  # the regulator`
+- **THEN** it exits 7 with `FEN-7001` naming the line, and the file is unchanged
+
+#### Scenario: Not a device record
+- **WHEN** `fenolite fmt` runs on a `fenolite.pins.v0` file
+- **THEN** it exits 2 with `FEN-2001`

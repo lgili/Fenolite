@@ -25,6 +25,7 @@ PLANNED = {
     "altium_sample.PrjPcb",
     "altium_sample.SchDoc",
     "FenoliteSample.SchLib",
+    "fenolite-base.json",  # c0250
     *(f".fenolite/{n}.json" for n in LAYERS),
 }
 
@@ -108,6 +109,7 @@ EXAMPLE_PLANNED = {
     "altium_kicad.SchDoc",
     "altium_kicad.SchLib",
     *(f".fenolite/{n}.json" for n in LAYERS),
+    "fenolite-base.json",  # c0250
 }
 
 
@@ -161,6 +163,7 @@ BLINK_PLANNED = {
     "blink.PcbDoc",
     "blink.OutJob",
     *(f".fenolite/{n}.json" for n in LAYERS),
+    "fenolite-base.json",  # c0250
 }
 
 
@@ -216,6 +219,7 @@ HIER_PLANNED = {
     "altium_hier_mcu.Harness",
     "FenoliteHier.SchLib",
     *(f".fenolite/{n}.json" for n in LAYERS),
+    "fenolite-base.json",  # c0250
 }
 
 

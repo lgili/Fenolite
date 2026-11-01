@@ -1,5 +1,7 @@
 # Impedance targets
 
+For ordered paths, series bridges and delay/loss budgets, see [Signal topologies](topologies.md).
+
 An impedance target says that the tracks of a net class, or of a differential pair, must have a given
 characteristic impedance, and gives the geometry that makes it on each layer (change c0105). Fenolite
 never computes that geometry into a design: you give every width and gap, from your fabricator's stack-up

@@ -38,6 +38,24 @@ The runner SHALL read `fenolite_library/symbols`, `fenolite_library/footprints` 
 - **WHEN** both output trees are compared
 - **THEN** they are byte-identical
 
+### Requirement: Vendored records in checks and private tests
+Circuit checks and private block tests SHALL use the owning project's authored records before vendored records, with native reference files preserved. Private tests MUST leave source files and locks unchanged. Conflicting vendored identities MUST remain error findings in circuit checks. A golden plan MUST bind the device inputs used by its private build.
+
+#### Scenario: Vendored block uses a vendored device
+- **GIVEN** a block and its device items fetched from authored local releases, with an optional authored device override
+- **WHEN** its usage example and a plain test calling `instantiate` run
+- **THEN** both private builds resolve the device and the original project bytes are unchanged
+
+#### Scenario: Circuit check finds conflicting vendored data
+- **GIVEN** a built design whose device id now occurs in two vendored folders, with or without an authored override
+- **WHEN** `check --stages circuit.rules` runs
+- **THEN** it reports `library.item-conflict` and does not select a conflicting vendored device
+
+#### Scenario: Device edit after golden review
+- **GIVEN** a dry-run golden plan for a vendored block using an authored device override
+- **WHEN** the device record changes before confirmation
+- **THEN** confirmation gives `FEN-4002` and writes no golden
+
 ### Requirement: Device builds stay offline
 No build, check, `capabilities` or `doctor` run SHALL open a network connection or read device data outside the project, the shipped catalog and, for hints only, the cached library index. An unknown id whose namespace is in the newest cached index SHALL get the hint `fenolite get device <id> --dry-run`.
 

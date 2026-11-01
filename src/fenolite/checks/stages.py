@@ -16,18 +16,23 @@ from typing import TYPE_CHECKING, Literal
 
 from fenolite.backends.base import (
     BoardFrame,
+    BoardPad,
+    DesignRules,
     DesignRulesSource,
+    EdgeRing,
     ExclusionSource,
     FillOracle,
     LengthSource,
     Oracle,
     ParityInputs,
+    PlacedExtent,
     Plotter,
     ProjectSet,
     Validation,
     Validator,
 )
 from fenolite.checks.codes import issue
+from fenolite.checks.subjects import Subject
 from fenolite.core.errors import FenoliteError, FormatError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.core.progress import NULL_PROGRESS, Progress
@@ -35,18 +40,61 @@ from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
 
 if TYPE_CHECKING:
+    from fenolite.checks.drawn import DrawnInput
     from fenolite.checks.roles import RolesJudge
+    from fenolite.model.library import DeviceDef
+
+CircuitInputs = Callable[[Design], "tuple[Mapping[str, DeviceDef], Mapping[str, str]]"]
+"""What the command injects into the stage ``circuit.rules`` (change c0253): for a model, its device records
+by device id and the class of each component id by ``fenolite.roles.classify``."""
+
+
+@dataclass
+class _ObservedInputs:
+    """Retain selected stages' inputs for rule explanations, preserving their query order."""
+
+    backend: Validator
+    rules: DesignRules | None = None
+    pads: tuple[BoardPad, ...] | None = None
+
+    def design_rules(
+        self, design: Design, project: ProjectSet, *, issues: list[Issue] | None = None
+    ) -> DesignRules:
+        assert isinstance(self.backend, DesignRulesSource)
+        self.rules = self.backend.design_rules(design, project, issues=issues)
+        return self.rules
+
+    def board_pads(self, design: Design, *, issues: list[Issue] | None = None) -> tuple[BoardPad, ...]:
+        assert isinstance(self.backend, BoardFrame)
+        self.pads = self.backend.board_pads(design, issues=issues)
+        return self.pads
+
+    def placed_extents(
+        self, design: Design, *, issues: list[Issue] | None = None
+    ) -> tuple[PlacedExtent, ...]:
+        assert isinstance(self.backend, BoardFrame)
+        return self.backend.placed_extents(design, issues=issues)
+
+    def board_edges(
+        self, design: Design, *, issues: list[Issue] | None = None
+    ) -> tuple[EdgeRing, ...] | None:
+        assert isinstance(self.backend, BoardFrame)
+        return self.backend.board_edges(design, issues=issues)
+
 
 STAGE_ORDER: tuple[str, ...] = (
     "model.validate",
+    "circuit.rules",
     "erc.kicad",
     "copper.clearance",
     "length.rules",
+    "topology.rules",
     "placement.rules",
     "roles.rules",
     "zone.fill",
     "drc.kicad",
     "parity",
+    "schematic.drawn",
     "netlist.assignment_compare",
     "roundtrip",
     "roundtrip.rt2",
@@ -62,7 +110,11 @@ length and the congestion of every board; it needs no tool either and follows ``
 ``length.rules`` (change c0106) judges the length and skew rules on the net lengths a ``LengthSource``
 gives; it needs no tool, stands right after ``copper.clearance`` and so before ``drc.kicad``.
 ``roles.rules`` (change c0222) judges the net roles of a board with the judge that ``fenolite check`` passes;
-it needs no tool and follows ``placement.rules``."""
+it needs no tool and follows ``placement.rules``. ``circuit.rules`` (change c0252) judges the interface
+parameters of the ``.fenolite/`` model (``checks.circuit``); it runs no tool and reads no board, and stands
+right after ``model.validate``. ``schematic.drawn`` (change c0276) compares the drawn schematic of a built
+project with its circuit; it needs no tool, follows ``parity``, and ``fenolite check`` lists it only for
+input whose build recorded a drawn schematic."""
 OPT_IN_STAGES: tuple[str, ...] = ("roundtrip.rt2", "render")
 """Stages that run only when ``--stages`` names them: RT2 costs two re-saves and three DRC runs."""
 DEFAULT_STAGES: tuple[str, ...] = tuple(name for name in STAGE_ORDER if name not in OPT_IN_STAGES)
@@ -80,6 +132,7 @@ _READING_STAGES = frozenset(
         "roundtrip",
         "copper.clearance",
         "length.rules",
+        "topology.rules",
         "placement.rules",
         "roles.rules",
         "parity",
@@ -105,6 +158,10 @@ StageSkip = Literal[
     "model-predates-graphics",
     "no-frame",
     "no-roles",
+    "no-drawing",
+    "no-model",
+    "no-parameters",
+    "no-topology",
 ]
 _COUNTED_SKIPS = frozenset({"read-refused", "cache-unreadable"})
 
@@ -123,6 +180,11 @@ class StageResult:
     issues: tuple[Issue, ...] = ()
     summary: Mapping[str, object] = field(default_factory=lambda: {})
     reason: str = ""
+    subjects: tuple[tuple[Subject, ...], ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.subjects and len(self.subjects) != len(self.issues):
+            raise ValueError("subjects must be empty or aligned with issues")
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -200,14 +262,21 @@ def run_checks(
     waivers: Sequence[Waiver] = (),
     progress: Progress = NULL_PROGRESS,
     roles_judge: RolesJudge | None = None,
+    drawn: DrawnInput | None = None,
+    circuit_inputs: CircuitInputs | None = None,
 ) -> CheckReport:
     """Run the selected stages in ``STAGE_ORDER`` on ``project`` (``model`` is the ``.fenolite/`` model of a
     built project); ``validator.validate`` runs at most once. ``waivers`` are the design's waivers
-    (``checks.waivers``): they reach the copper stage and the DRC stage, and no other stage. Each stage
+    (``checks.waivers``): they reach the copper stage, the DRC stage and, for ``circuit.*`` codes, the stage
+    ``circuit.rules`` (change c0274), and no other stage. Each stage
     that runs is one unit of ``progress``, named by the stage. ``roles_judge`` judges the stage
-    ``roles.rules`` (``checks.roles``)."""
+    ``roles.rules`` (``checks.roles``). ``drawn`` is the drawn netlist of a built project with a drawn
+    schematic, which the stage ``schematic.drawn`` judges (``checks.drawn``); without it the stage is
+    skipped with ``no-drawing``. ``circuit_inputs`` gives the stage ``circuit.rules`` its device records and
+    part classes (change c0253)."""
     from fenolite.checks.assignment_compare import assignment_stage
     from fenolite.checks.copper import copper_stage
+    from fenolite.checks.drawn import drawn_stage
     from fenolite.checks.drc import drc_stage
     from fenolite.checks.erc import erc_stage
     from fenolite.checks.fill import fill_stage
@@ -218,6 +287,8 @@ def run_checks(
     from fenolite.checks.roles import roles_stage
     from fenolite.checks.roundtrip import roundtrip_stage
     from fenolite.checks.rt2 import rt2_stage
+    from fenolite.checks.specificity import shadowed_rules
+    from fenolite.checks.topology import topology_stage
     from fenolite.checks.validate import BUILT_EVIDENCE, validate_stage
     from fenolite.checks.waivers import combine
 
@@ -235,6 +306,7 @@ def run_checks(
             input_issues.append(read_refused(error, project.root))
     if cache_error:
         input_issues.append(issue("check.cache-unreadable", f".fenolite/ cannot be loaded: {cache_error}"))
+    observed = _ObservedInputs(validator) if validator is not None else None
 
     def model_stage() -> StageResult:
         if built:
@@ -244,6 +316,16 @@ def run_checks(
         if validation is None:
             return skipped("model.validate", "read-refused")
         return validate_stage(validation.read.design, built=False, evidence=validation.read.evidence)
+
+    def circuit() -> StageResult:
+        from fenolite.checks.circuit import circuit_stage
+
+        devices, classes = (None, None)
+        if circuit_inputs is not None and model is not None and not cache_error:
+            devices, classes = circuit_inputs(model)
+        return circuit_stage(
+            model, built=built, cache_error=cache_error, devices=devices, classes=classes, waivers=waivers
+        )
 
     def erc() -> StageResult:
         if oracle is None:
@@ -256,8 +338,8 @@ def run_checks(
         return copper_stage(
             validation.read.design,
             project=project,
-            rules_source=validator if isinstance(validator, DesignRulesSource) else None,
-            frame=validator if isinstance(validator, BoardFrame) else None,
+            rules_source=observed if isinstance(validator, DesignRulesSource) else None,
+            frame=observed if isinstance(validator, BoardFrame) else None,
             evidence=validation.read.evidence,
             waivers=waivers,
         )
@@ -268,7 +350,7 @@ def run_checks(
         return length_stage(
             validation.read.design,
             project=project,
-            rules_source=validator if isinstance(validator, DesignRulesSource) else None,
+            rules_source=observed if isinstance(validator, DesignRulesSource) else None,
             facts_source=validator if isinstance(validator, LengthSource) else None,
             evidence=validation.read.evidence,
         )
@@ -282,9 +364,21 @@ def run_checks(
             validation.read.design,
             model=model,
             built=built,
-            frame=validator if isinstance(validator, BoardFrame) else None,
-            rules_source=validator if isinstance(validator, DesignRulesSource) else None,
+            frame=observed if isinstance(validator, BoardFrame) else None,
+            rules_source=observed if isinstance(validator, DesignRulesSource) else None,
             project=project,
+            evidence=validation.read.evidence,
+        )
+
+    def topology() -> StageResult:
+        if validation is None:
+            return skipped("topology.rules", "read-refused")
+        if built and (cache_error or model is None):
+            return skipped("topology.rules", "cache-unreadable")
+        return topology_stage(
+            validation.read.design,
+            model=model,
+            frame=observed if isinstance(validator, BoardFrame) else None,
             evidence=validation.read.evidence,
         )
 
@@ -297,7 +391,7 @@ def run_checks(
             validation.read.design,
             model=model,
             project=project,
-            frame=validator if isinstance(validator, BoardFrame) else None,
+            frame=observed if isinstance(validator, BoardFrame) else None,
             judge=roles_judge,
         )
 
@@ -320,6 +414,11 @@ def run_checks(
             validation.read.design,
             drc=done.get("drc.kicad"),
         )
+
+    def drawn_check() -> StageResult:
+        if drawn is None:
+            return skipped("schematic.drawn", "no-drawing")
+        return drawn_stage(drawn.netlist, drawn.circuit, issues=drawn.issues)
 
     def fill() -> StageResult:
         if validation is None:
@@ -345,14 +444,17 @@ def run_checks(
 
     runners: dict[str, Callable[[], StageResult]] = {
         "model.validate": model_stage,
+        "circuit.rules": circuit,
         "erc.kicad": erc,
         "copper.clearance": copper,
         "length.rules": length,
+        "topology.rules": topology,
         "placement.rules": placement,
         "roles.rules": roles,
         "zone.fill": fill,
         "drc.kicad": drc,
         "parity": parity,
+        "schematic.drawn": drawn_check,
         "netlist.assignment_compare": assignment,
         "roundtrip": roundtrip,
         "roundtrip.rt2": rt2,
@@ -362,6 +464,23 @@ def run_checks(
         progress.step(name, index=index + 1, total=len(selected))
         done[name] = runners[name]()
         progress.done(name, detail=done[name].status)
+    specificity_design = (
+        model if model is not None else validation.read.design if validation is not None else None
+    )
+    if specificity_design is not None:
+        if validation is not None and observed is not None and isinstance(validator, DesignRulesSource):
+            rule_inputs = observed.rules or observed.design_rules(validation.read.design, project)
+            specificity_design = rule_inputs.design
+        specificity_pads = observed.pads if observed is not None else None
+        rules = specificity_design.rules.rules if specificity_design.rules is not None else ()
+        if (
+            specificity_pads is None
+            and len({rule.kind for rule in rules}) < len(rules)
+            and observed is not None
+            and isinstance(validator, BoardFrame)
+        ):
+            specificity_pads = observed.board_pads(specificity_design)
+        input_issues.extend(shadowed_rules(specificity_design, pads=specificity_pads))
     results = tuple(done[name] for name in selected)
     counted = [r.evidence for r in results if r.status != "skipped" or r.reason in _COUNTED_SKIPS]
     evidence = Evidence.combine(*counted) if counted else Evidence()
@@ -379,6 +498,7 @@ __all__ = [
     "ORACLE_STAGES",
     "STAGE_ORDER",
     "CheckReport",
+    "CircuitInputs",
     "StageResult",
     "StageSkip",
     "StageStatus",

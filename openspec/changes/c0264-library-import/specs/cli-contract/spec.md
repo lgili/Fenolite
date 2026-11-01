@@ -17,4 +17,4 @@ The first positional argument of `fenolite library` SHALL select a subcommand wh
 
 #### Scenario: Consistency suite covers the import
 - **WHEN** `uv run pytest tests/consistency -q` runs
-- **THEN** `library import` is planned with its example arguments, its dry run exits 4, and the confirmed plan writes only under the temporary project
+- **THEN** `library import` is planned with its example arguments, its dry run exits 0, and the confirmed plan writes only under the temporary project

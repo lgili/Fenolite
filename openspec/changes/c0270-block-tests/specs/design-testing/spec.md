@@ -30,7 +30,7 @@ The reference of a stimulus SHALL be `ref` when given, else the one port given e
 `TestDesign.achieved(path)` SHALL return the c0246 range that the c0254 generator which made the part at `path` achieved, as recorded in `result.generators`, and MUST raise `TestingError` for a part that no generator made.
 
 #### Scenario: Achieved output range
-- **WHEN** `uv run pytest tests/unit/testing/test_queries.py -k achieved` reads `achieved("dut/top")` of the instantiated divider and `achieved("dut/J1")`
+- **WHEN** `uv run pytest tests/unit/testing/test_queries.py -k achieved` reads `achieved("dut/ratio_top")` of the instantiated generator block and `achieved("dut/J1")`
 - **THEN** the first is the output range of the generator's `gen.achieved` finding, and the second raises `TestingError`
 
 ### Requirement: Placement in part views

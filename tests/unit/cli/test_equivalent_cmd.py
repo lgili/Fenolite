@@ -163,8 +163,15 @@ def test_built_design_against_its_board(monkeypatch: pytest.MonkeyPatch, tmp_pat
     [
         ((str(TWO_LAYER),), "give B or --against kicad-import"),
         ((str(TWO_LAYER), str(TWO_LAYER), "--against", "kicad-import"), "give B or --against kicad-import"),
-        ((str(TWO_LAYER), str(TWO_LAYER), "--level", "6"), "--level is one of 1, 2, 3, 4, 5"),
-        ((str(TWO_LAYER), str(TWO_LAYER), "--level", "0"), "--level is one of 1, 2, 3, 4, 5"),
+        ((str(TWO_LAYER), str(TWO_LAYER), "--level", "9"), "--level is one of 1, 2, 3, 4, 5, 6, 7, 8, S"),
+        ((str(TWO_LAYER), str(TWO_LAYER), "--level", "0"), "--level is one of 1, 2, 3, 4, 5, 6, 7, 8, S"),
+        ((str(TWO_LAYER), str(TWO_LAYER), "--level", "S"), "side a has no drawn schematic"),
+        ((str(TWO_LAYER), str(TWO_LAYER), "--level", "4", "--strict"), "the level run is 4"),
+        (
+            (str(TWO_LAYER), str(TWO_LAYER), "--level", "8", "--render-pitch-um", "0"),
+            "--render-pitch-um is a",
+        ),
+        ((str(TWO_LAYER), str(TWO_LAYER), "--level", "8", "--pixel-ppm", "-1"), "--pixel-ppm is a"),
         ((str(TWO_LAYER), str(TWO_LAYER), "--tolerance-ppm", "-1"), "--tolerance-ppm is a non-negative"),
         (
             (str(TWO_LAYER), str(PCBDOC), "--level", "5"),
@@ -703,3 +710,43 @@ def test_two_backends_design_type() -> None:
     for path in (TWO_LAYER, PCBDOC):
         backend = registry.for_path(path)
         assert backend is not None and isinstance(backend.read(path).content, Design)
+
+
+# --- levels 6 to 8, S and strict (change c0278) ----------------------------------------------------
+
+
+def test_geometry_level_on_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    hide_kicad(monkeypatch, tmp_path)
+    code, env, _, _ = run(monkeypatch, tmp_path, "equivalent", str(TWO_LAYER), str(TWO_LAYER), "--level", "7")
+    assert code == 0 and env["result"]["level"] == 7
+    assert [level["name"] for level in env["result"]["levels"]][-2:] == ["rules", "geometry"]
+    assert len(env["result"]["levels"]) == 7
+
+
+def test_strict_copy(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    hide_kicad(monkeypatch, tmp_path)
+    code, env, _, _ = run(
+        monkeypatch, tmp_path, "equivalent", str(TWO_LAYER), str(TWO_LAYER), "--level", "5", "--strict"
+    )
+    routing = env["result"]["levels"][-1]
+    assert code == 0 and routing["differences"] == 0
+    assert routing["summary"]["strict"]["tracks"] == {"matched": 3, "a": 0, "b": 0}
+
+
+def test_presentation_level(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Level 8 renders both boards; a footprint moved by 1 mm shows on its layers."""
+    hide_kicad(monkeypatch, tmp_path)
+    code, env, _, _ = run(monkeypatch, tmp_path, "equivalent", str(TWO_LAYER), str(TWO_LAYER), "--level", "8")
+    last = env["result"]["levels"][-1]
+    assert code == 0 and (last["level"], last["name"], last["differences"]) == (8, "presentation", 0)
+    copy = _changed(tmp_path, net=False)
+    code, env, _, _ = run(monkeypatch, tmp_path, "equivalent", str(TWO_LAYER), str(copy), "--level", "8")
+    rendered = [d for d in env["result"]["differences"] if d["level"] == 8]
+    assert code == 5 and rendered and {d["kind"] for d in rendered} == {"render-pixels"}
+    assert "F.Cu" in {d["where"].split(":")[0] for d in rendered}
+
+
+def test_schematic_level_on_a_board(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    hide_kicad(monkeypatch, tmp_path)
+    code, _, err, _ = run(monkeypatch, tmp_path, "equivalent", str(TWO_LAYER), str(TWO_LAYER), "--level", "S")
+    assert code == 2 and err["code"] == "FEN-2001" and "side a" in err["message"]

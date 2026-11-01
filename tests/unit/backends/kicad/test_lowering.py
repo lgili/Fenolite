@@ -5,6 +5,7 @@ test; the KiCad scenarios are in ``tests/kicad/rules/``."""
 
 from __future__ import annotations
 
+import dataclasses
 import itertools
 import re
 from collections.abc import Iterator
@@ -76,6 +77,97 @@ def names(text: str) -> list[str]:
 def test_empty_rule_set() -> None:
     assert lowered() == WriteResult("(version 1)\n", ())
     assert LoweredRules is WriteResult
+
+
+def test_specificity_neutral_default_bytes() -> None:
+    from fenolite.dsl import Design, Net, mm, select, to_model
+
+    default = Design("neutral")
+    default.add(Net("CLK"))
+    default.rules.rule("stable", "track_width", where=select.net("CLK"), min=mm("0.25"))
+    explicit = Design("neutral")
+    explicit.add(Net("CLK"))
+    explicit.rules.rule("stable", "track_width", where=select.net("CLK"), min=mm("0.25"), priority=0)
+    a, b = to_model(default), to_model(explicit)
+    assert a.rules is not None and b.rules is not None
+    assert lower_rules(a.rules).text == lower_rules(b.rules).text
+    assert names(lower_rules(a.rules).text) == ["fenolite_0_stable"]
+
+
+def topology_bench():
+    from _topologybench import MM, bench
+
+    from fenolite.core.coords import Point
+
+    design = bench(max_fs=295_000)
+    assert design.board is not None
+    front = dataclasses.replace(design.board.tracks[0], end=Point(50 * MM, 0))
+    fp = design.board.footprints[1]
+    fp = dataclasses.replace(fp, pads=(dataclasses.replace(fp.pads[0], layers=("F.Cu",)),))
+    return dataclasses.replace(
+        design,
+        board=dataclasses.replace(
+            design.board, footprints=(design.board.footprints[0], fp), tracks=(front,), vias=()
+        ),
+    )
+
+
+def test_topology_one_net_delay_lowered_as_length() -> None:
+    design = topology_bench()
+    assert design.rules is not None
+    result = lower_rules(design.rules, target=10, design=design)
+    assert "(constraint length (max 50mm))" in result.text
+    assert names(result.text) == ["fenolite_0_topology_clk_delay"]
+    assert not result.issues
+
+
+def test_topology_quantization_strict_and_unsupported_retained() -> None:
+    from fenolite.model.rules import TopologyConstraint, TopologyEdge
+
+    design = topology_bench()
+    assert design.rules is not None
+    topology = design.rules.topologies[0]
+    constraint = TopologyConstraint("delay", topology.nodes, min_fs=5_901, max_fs=5_902)
+    ruleset = dataclasses.replace(
+        design.rules, topologies=(dataclasses.replace(topology, constraints=(constraint,)),)
+    )
+    text = lower_rules(ruleset, design=design).text
+    assert "(min 1.00017mm)" in text and "(max 1.000338mm)" in text
+    bridged = dataclasses.replace(
+        topology,
+        nodes=("R1-1", "R1-2"),
+        edges=(TopologyEdge("R1-1", "R1-2", "bridge"),),
+        constraints=(TopologyConstraint("delay", ("R1-1", "R1-2"), max_fs=295_000),),
+    )
+    result = lower_rules(dataclasses.replace(design.rules, topologies=(bridged,)), design=design)
+    assert result.text == "(version 1)\n"
+    assert [issue.code for issue in result.issues] == ["rules.topology-not-lowered"]
+    skew = dataclasses.replace(
+        topology, constraints=(TopologyConstraint("skew", topology.nodes, max_fs=100),)
+    )
+    result = lower_rules(dataclasses.replace(design.rules, topologies=(skew,)), design=design)
+    assert result.text == "(version 1)\n" and len(result.issues) == 1
+
+
+@pytest.mark.parametrize("junction_nm", [100_000, 30_000_001])
+def test_topology_pad_shortcuts_and_segment_rounding_stay_in_model(junction_nm: int) -> None:
+    from _topologybench import ident
+
+    from fenolite.core.coords import Point
+
+    design = topology_bench()
+    assert design.board is not None and design.rules is not None
+    original = design.board.tracks[0]
+    joint = Point(junction_nm, 0)
+    tracks = (
+        dataclasses.replace(original, end=joint),
+        dataclasses.replace(original, id=ident("trk", "split"), start=joint),
+    )
+    design = dataclasses.replace(design, board=dataclasses.replace(design.board, tracks=tracks))
+    result = lower_rules(design.rules, design=design)
+    assert result.text == "(version 1)\n"
+    assert [row.code for row in result.issues] == ["rules.topology-not-lowered"]
+    assert ("pad copper" if junction_nm == 100_000 else "per-segment rounding") in result.issues[0].message
 
 
 def test_one_rule_gives_one_rule_list() -> None:

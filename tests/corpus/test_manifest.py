@@ -134,7 +134,33 @@ def manifest_problems(entries: list[dict[str, Any]]) -> list[str]:
                     problems.append(f"{ident}: project rows never carry {use}")
             if "origin:kicad-demos" not in uses:
                 problems.append(f"{ident}: project rows need origin:kicad-demos in uses")
+        problems += library_row_problems(ident, entry)
     return problems + altium_tag_problems(entries)
+
+
+LIBRARY_USE = re.compile(
+    r"library:(symbol|footprint|device|block|board)/[A-Za-z0-9][A-Za-z0-9_.+:/-]*@\d+\.\d+\.\d+"
+)
+
+
+def library_row_problems(ident: str, entry: dict[str, Any]) -> list[str]:
+    """The rule of "Library items in the corpus" (change c0279): a row of a fenolite-library item names it
+    in ``uses`` as ``library:<kind>/<id>@<version>``, carries ``origin:third-party``, and is embeddable only
+    under ``CC0-1.0``."""
+    uses = [str(use) for use in entry["uses"]]
+    marked = [use for use in uses if use.startswith("library:")]
+    if not marked:
+        return []
+    problems = [
+        f"{ident}: {use} is not library:<kind>/<id>@<version>"
+        for use in marked
+        if not LIBRARY_USE.fullmatch(use)
+    ]
+    if "origin:third-party" not in uses:
+        problems.append(f"{ident}: a library row needs origin:third-party in uses")
+    if entry["embeddable"] and entry["license"] != "CC0-1.0":
+        problems.append(f"{ident}: a library row under {entry['license']} cannot be embeddable")
+    return problems
 
 
 ALTIUM_SET = re.compile(r"^altium-set:(\d{2})$")
@@ -922,3 +948,17 @@ def test_fetch_asks_again_after_a_rate_limit() -> None:
     with pytest.raises(Exception, match="429"):
         tool.download_with_retry("u", download=always_limited, sleep=pauses.append, attempts=3)
     assert pauses == [tool.RETRY_MAX_PAUSE_S, tool.RETRY_MAX_PAUSE_S]
+
+
+def test_share_alike_library_row_marked_embeddable() -> None:
+    """Scenario "Share-alike library row marked embeddable" (change c0279)."""
+    row = {
+        "id": "library-demo-sa-pad", "url": "https://github.com/lgili/fenolite-library/releases/download/v1.0.0/footprints-cc-by-sa.tar.gz",
+        "ref": "v1.0.0", "sha256": "0" * 64, "license": "CC-BY-SA-4.0", "license_variant": "",
+        "embeddable": True,
+        "uses": ["origin:third-party", "library:footprint/Demo:SA_PAD@1.0.0"], "notes": "",
+    }  # fmt: skip
+    problems = manifest_problems([row])
+    assert any(p.startswith("library-demo-sa-pad:") and "embeddable" in p for p in problems)
+    assert library_row_problems("x", {**row, "embeddable": False}) == []
+    assert library_row_problems("x", {**row, "embeddable": False, "uses": ["library:footprint/Demo:SA_PAD"]})

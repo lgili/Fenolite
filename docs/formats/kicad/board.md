@@ -721,8 +721,15 @@ the missing-table control firing on both majors (`H-K-LIB-DRC`). `embed.EVIDENCE
   `mid`, `end`, `center`, `xy`, and `offset` under `drill`) has its Y negated, which mirrors it about
   local X; the 3D `model` stays as it is. The angle of every child `at` becomes (−φ) mod 360°. Every
   text (`property`, `fp_text`) whose layer was flipped gains or loses `mirror` in its `justify`.
+  Pad `chamfer` corners swap `top_left` with `bottom_left` and `top_right` with `bottom_right`;
+  `chamfer_ratio` stays unchanged. This new mapping is **INFERRED** (`H-G-CHAMFER-FLIP`, c0282),
+  the geometric consequence of the existing local-Y mirror applied to the corner tokens (S-0001).
+  Bottom derivation applies the same involution. `embed.flip_evidence` adds the inferred hypothesis
+  only for a bottom definition containing chamfers; previous bottom shapes retain `embed.EVIDENCE`.
+  Local `kicad-cli` 9.0.2 measured zero library mismatches for the four authored rotations and four
+  mismatches for the wrong-corner control on 2026-11-01 (S-1010); evidence stays inferred pending CI.
 - **Unsupported geometry.** On the bottom side, `embed.FLIP_UNSUPPORTED` heads (`rect_delta`,
-  `chamfer`, `dimension`, `image`, `fp_text_box`, `table`, `barcode`) give one
+  `dimension`, `image`, `fp_text_box`, `table`, `barcode`) give one
   `kicad.board.flip-unsupported` issue each, and `place_footprint` raises `LossyWriteError`. The list
   grows when a fixture shows another head whose geometry the mirror table does not cover.
 - **Both sides.** Child angles are stored absolute: (angle + θ) mod 360° (`pad_angle_to_board`).

@@ -272,3 +272,77 @@ def test_evidence_of_a_check(
     assert {"H-G-ROLE-LOOP-RATIO", "H-G-SHAPE-LOOP"} <= set(env["evidence"]["hypotheses"])
     (width,) = [i for i in env["issues"] if i["code"] == "roles.width-current"]
     assert "S-0851" in width["message"]
+
+
+# ------------------------------------------------------------------------- requirement table (c0253)
+
+
+def test_requirements_one_table_for_roles_and_circuit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Change c0253, "One table for roles and circuit"."""
+    from _contracts import built_sensor, cli
+
+    out = built_sensor(monkeypatch, tmp_path, "bad")
+    before = tree_snapshot(out)
+    code, env = cli(monkeypatch, "roles", str(out), "--check")
+    assert code in (0, 5), env
+    rows = env["result"]["requirements"]
+    (inductor,) = [r for r in rows if r["id"] == "circuit.rating-current:L1:current"]
+    assert (inductor["value"]["source"], inductor["value"]["basis"]) == ("user", "rail 3V3")
+    assert inductor["limit"]["source"] == "device"
+    assert [r["id"] for r in rows] == sorted(r["id"] for r in rows)
+    assert all(r["limit"]["source"] in ("device", "role", "policy", "user") for r in rows)
+    assert tree_snapshot(out) == before
+    code, env = cli(monkeypatch, "roles", str(out))
+    assert "requirements" not in env["result"]
+
+
+def test_requirements_of_a_board_fenolite_did_not_build(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Change c0253, "A board that Fenolite did not build"."""
+    from _contracts import ROOT, cli
+
+    board = ROOT / "tests" / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
+    copy = tmp_path / board.name
+    shutil.copyfile(board, copy)
+    code, env = cli(monkeypatch, "roles", str(copy), "--check")
+    assert code == 0, env
+    assert all(not r["id"].startswith("circuit.") for r in env["result"]["requirements"])
+
+
+def test_requirements_a_stated_current_reaches_the_circuit_rows(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Change c0253, "A stated current reaches the circuit rows"."""
+    from _contracts import built_sensor, cli, sensor_model
+
+    from fenolite.model import canonical
+
+    out = built_sensor(monkeypatch, tmp_path, "good")
+    folder = out.parent
+    board = folder / "contract_board" / "board.py"
+    board.write_text(
+        board.read_text(encoding="utf-8").replace(
+            '    b.design.net_role(sw, "switch_node", current=SW_CURRENT)\n', ""
+        ),
+        encoding="utf-8",
+    )
+    model, _devices = sensor_model(folder, "bad")
+    canonical.dump_dir(model, out / ".fenolite")
+    requirements = tmp_path / "requirements.toml"
+    requirements.write_text(
+        'schema = "fenolite.requirements.v0"\n[[current]]\nselect = { net = "buck1/SW" }\ncurrent = "0.8A"\n'
+        'temp_rise = "10K"\nsource = "bench note"\n',
+        encoding="utf-8",
+    )
+    code, env = cli(monkeypatch, "roles", str(out), "--check", "--requirements", str(requirements))
+    assert code in (0, 5), env
+    (inductor,) = [r for r in env["result"]["requirements"] if r["id"] == "circuit.rating-current:L1:current"]
+    assert inductor["value"]["range"]["high"] == {"m": 8, "e": -1}
+    assert (inductor["value"]["source"], inductor["value"]["basis"], inductor["status"]) == (
+        "user",
+        "bench note",
+        "pass",
+    )

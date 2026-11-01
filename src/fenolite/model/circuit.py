@@ -5,8 +5,11 @@
 from __future__ import annotations
 
 import dataclasses
+import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from fractions import Fraction
+from types import MappingProxyType
 from typing import Literal, get_args
 
 from fenolite.core.units import Nm
@@ -69,8 +72,8 @@ class Decimal10:
         return Fraction(self.m) * (Fraction(10) ** self.e)
 
 
-RangeUnit = Literal["ohm", "farad", "henry", "volt", "ampere", "hertz", "watt", "second"]
-"""The units of a ``ValueRange``: the units of the DSL's ``Quantity``."""
+RangeUnit = Literal["ohm", "farad", "henry", "volt", "ampere", "hertz", "watt", "second", "kelvin"]
+"""The units of a ``ValueRange``: the units of the DSL's ``Quantity`` (``kelvin``: change c0274)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -220,22 +223,211 @@ class Net(Entity):
     members: tuple[PinRef, ...] = ()
 
 
+LOGIC_PARAMS: Mapping[str, RangeUnit] = MappingProxyType(
+    {
+        "abs_max": "volt",
+        "input_high_min": "volt",
+        "input_low_max": "volt",
+        "output_high_min": "volt",
+        "output_low_max": "volt",
+        "output_current_max": "ampere",
+    }
+)
+"""The parameters of a logic line and of a bus port (change c0252): its withstand range and its thresholds."""
+INTERFACE_PARAMS: Mapping[str, Mapping[str, RangeUnit]] = MappingProxyType(
+    {
+        "power": MappingProxyType({"voltage": "volt", "current": "ampere"}),
+        "ground": MappingProxyType({}),
+        "logic": LOGIC_PARAMS,
+        "i2c": MappingProxyType({**LOGIC_PARAMS, "pullup": "ohm"}),
+        "spi": LOGIC_PARAMS,
+        "uart": LOGIC_PARAMS,
+        "usb2": LOGIC_PARAMS,
+    }
+)
+"""Kind → the parameters an interface or a port of that kind may hold, and the unit of each (change c0252).
+A kind outside the table holds none. ``fenolite.dsl.interfaces.PARAMETERS`` says where each may be set."""
+INTERFACE_MEMBERS: Mapping[str, tuple[str, ...]] = MappingProxyType({"ground": ("gnd",), "logic": ("io",)})
+"""The members of the kinds ``ground`` and ``logic`` (change c0252)."""
+KIND_MEMBERS: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {
+        "power": ("hv", "lv"),
+        "ground": ("gnd",),
+        "logic": ("io",),
+        "i2c": ("sda", "scl"),
+        "spi": ("sck", "mosi", "miso"),
+        "uart": ("tx", "rx"),
+        "usb2": ("dp", "dn", "vbus", "gnd"),
+        "diff_pair": ("p", "n"),
+    }
+)
+"""The members of the interface kinds a device may declare (change c0252); an ``spi`` interface also takes
+``cs0``, ``cs1``… Optional members are in ``OPTIONAL_MEMBERS``."""
+OPTIONAL_MEMBERS: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {"power": ("lv",), "usb2": ("vbus", "gnd")}
+)
+"""The members a kind may leave out."""
+PARAM_WHERE: Mapping[str, frozenset[str]] = MappingProxyType(
+    {
+        "voltage": frozenset({"out", "in", "inout", "design"}),
+        "current": frozenset({"out", "in"}),
+        "abs_max": frozenset({"out", "in", "inout"}),
+        "input_high_min": frozenset({"in", "inout"}),
+        "input_low_max": frozenset({"in", "inout"}),
+        "output_high_min": frozenset({"out", "inout"}),
+        "output_low_max": frozenset({"out", "inout"}),
+        "output_current_max": frozenset({"out", "inout"}),
+        "pullup": frozenset({"in", "inout", "design"}),
+    }
+)
+"""Param → where it may be set: on a port of each direction, or on the design interface (``design``); the
+model side of ``fenolite.dsl.interfaces.PARAMETERS``."""
+REQUIRES: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {
+        "chip_select": ("spi",),
+        "pullup": ("i2c", "logic"),
+        "supply": ("i2c", "logic", "power", "spi", "uart", "usb2"),
+    }
+)
+"""The closed vocabulary of a port's companions (``Port.requires``, change c0252) → the kinds that take
+each entry."""
+
+
+def check_params(owner: str, kind: str, params: Mapping[str, ValueRange]) -> None:
+    """``ValueError`` naming ``owner``, ``kind`` and the param for a param outside ``INTERFACE_PARAMS`` or of
+    another unit."""
+    table = INTERFACE_PARAMS.get(kind, {})
+    for name, value in params.items():
+        unit = table.get(name)
+        if unit is None:
+            allowed = ", ".join(table) or "none"
+            raise ValueError(f"{owner}: a {kind} interface has no param {name!r} (it takes {allowed})")
+        if not isinstance(value, ValueRange):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise ValueError(f"{owner}: param {name} must be a ValueRange, not {value!r}")
+        if value.unit != unit:
+            raise ValueError(f"{owner}: param {name} of a {kind} interface is in {unit}, not {value.unit}")
+
+
 @dataclass(frozen=True, slots=True)
 class Interface(Entity):
-    """A typed bundle of nets (power, I2C, SPI…): role name → net id."""
+    """A typed bundle of nets (power, I2C, SPI…): role name → net id. ``params`` (change c0252) are exact
+    c0246 ranges by name (``INTERFACE_PARAMS``), ``reference`` the id of the rail (a ``power`` interface or
+    port) that a logic level or a bus refers to, and ``shared`` says that several sources may drive a rail."""
 
     name: str
     kind: str
     members: dict[str, str] = field(default_factory=lambda: {})
+    params: dict[str, ValueRange] = field(default_factory=lambda: {})
+    reference: str | None = None
+    shared: bool = False
+
+    def __post_init__(self) -> None:
+        check_params(f"interface {self.name}", self.kind, self.params)
+
+
+BLOCK_VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
+"""The form of ``Module.block_version`` (change c0268)."""
+BlockParamType = Literal["bool", "int", "str", "length", "quantity", "range", "none"]
+BLOCK_PARAM_TYPES: tuple[str, ...] = ("bool", "int", "str", "length", "quantity", "range", "none")
+"""The closed set of ``BlockParam.type`` (change c0251)."""
+
+
+@dataclass(frozen=True, slots=True)
+class BlockParam:
+    """One parameter of a block instance as recorded: its name, its type and its canonical text
+    (``true``, ``3``, ``1000000`` nm, ``3.3V``; empty for ``none``)."""
+
+    name: str
+    type: BlockParamType
+    text: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("a block parameter needs a name")
+        if self.type not in BLOCK_PARAM_TYPES:
+            raise ValueError(
+                f"block parameter {self.name}: type {self.type!r} is not one of "
+                f"{', '.join(BLOCK_PARAM_TYPES)}"
+            )
 
 
 @dataclass(frozen=True, slots=True)
 class Module(Entity):
-    """A node of the design hierarchy (``power/ldo``) and the components it owns."""
+    """A node of the design hierarchy (``power/ldo``) and the components it owns. A module made by a
+    block (change c0251) names it in ``block`` and records its parameters in ``params``, ordered by name; a
+    block with a record (change c0268) also records its version in ``block_version``."""
 
     path: str
     parent: str | None = None
     component_ids: tuple[str, ...] = ()
+    block: str = ""
+    params: tuple[BlockParam, ...] = field(default=(), metadata={"ordered": True})
+    block_version: str = ""
+
+    def __post_init__(self) -> None:
+        names = [param.name for param in self.params]
+        if len(set(names)) != len(names):
+            raise ValueError(f"module {self.path}: two block parameters have one name")
+        if names != sorted(names):
+            raise ValueError(f"module {self.path}: block parameters must be ordered by name")
+        if self.params and not self.block:
+            raise ValueError(f"module {self.path}: block parameters need a block name")
+        if self.block_version and not self.block:
+            raise ValueError(f"module {self.path}: block_version needs a block name")
+        if self.block_version and not BLOCK_VERSION.fullmatch(self.block_version):
+            raise ValueError(
+                f"module {self.path}: block_version {self.block_version!r} is not MAJOR.MINOR.PATCH"
+            )
+
+
+PortDirection = Literal["in", "out", "inout"]
+PORT_DIRECTIONS: tuple[str, ...] = ("in", "out", "inout")
+
+
+@dataclass(frozen=True, slots=True)
+class Port(Entity):
+    """A port of a block instance (change c0251): its name, its owner (the id of a module, or of a
+    component for a device port), its interface kind (``net``, ``power``, ``i2c``…), its direction, and
+    member name → net id; a member without a net is left out."""
+
+    name: str
+    owner: str
+    kind: str
+    direction: PortDirection = "inout"
+    members: dict[str, str] = field(default_factory=lambda: {})
+    optional: bool = False
+    #: Change c0252: the exact ranges of the port (``INTERFACE_PARAMS``), the id of its reference rail (a
+    #: ``power`` port or interface), whether it may share its rail with other sources, and its companions.
+    params: dict[str, ValueRange] = field(default_factory=lambda: {})
+    reference: str | None = None
+    share: bool = False
+    requires: tuple[str, ...] = field(default=(), metadata={"ordered": True})
+    #: A member of a device port whose pins are on two nets → those net ids, sorted; it is not in
+    #: ``members``, and its parameters are not judged.
+    split: dict[str, tuple[str, ...]] = field(default_factory=lambda: {})
+    #: The evidence label of the device record a device port comes from; ``""`` for a block port.
+    evidence: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.name or not self.kind:
+            raise ValueError("a port needs a name and a kind")
+        if self.direction not in PORT_DIRECTIONS:
+            raise ValueError(
+                f"port {self.name}: direction {self.direction!r} is not one of {', '.join(PORT_DIRECTIONS)}"
+            )
+        check_params(f"port {self.name}", self.kind, self.params)
+        if "current" in self.params and self.direction == "inout":
+            raise ValueError(f"port {self.name}: current is stated by an in or an out port, not an inout one")
+        if list(self.requires) != sorted(set(self.requires)):
+            raise ValueError(f"port {self.name}: requires is sorted and lists each entry once")
+        for entry in self.requires:
+            kinds = REQUIRES.get(entry)
+            if kinds is None:
+                raise ValueError(
+                    f"port {self.name}: requires entry {entry!r} is not one of {', '.join(REQUIRES)}"
+                )
+            if self.kind not in kinds:
+                raise ValueError(f"port {self.name}: a {self.kind} port does not take requires {entry!r}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -265,11 +457,38 @@ class Circuit:
     netclasses: tuple[NetClass, ...] = ()
     interfaces: tuple[Interface, ...] = ()
     modules: tuple[Module, ...] = ()
+    #: The ports of block instances (change c0251).
+    ports: tuple[Port, ...] = ()
     #: Buses, indexed vectors of nets; a bus gives no net and no net member.
     buses: tuple[Bus, ...] = ()
     #: Pins the design leaves unconnected on purpose, in the form of net members: ``pin`` holds a
     #: designator as written until a build resolves it, and a pin number afterwards.
     no_connects: tuple[PinRef, ...] = ()
+
+
+def exact_decimal10(value: Fraction) -> Decimal10:
+    """``value`` as a ``Decimal10``; ``ValueError`` when it is no terminating decimal of at most 15
+    significant digits within the exponents of ``Decimal10``."""
+    if value == 0:
+        return Decimal10(0, 0)
+    rest, places = value.denominator, 0
+    for factor in (2, 5):
+        while rest % factor == 0:
+            rest //= factor
+    if rest != 1:
+        raise ValueError(f"{value} is not a terminating decimal")
+    while (value * 10**places).denominator != 1:
+        places += 1
+    mantissa, exponent = int(value * 10**places), -places
+    while mantissa % 10 == 0:
+        mantissa //= 10
+        exponent += 1
+    return Decimal10(mantissa, exponent)
+
+
+def range_fraction(value: Decimal10 | None) -> Fraction | None:
+    """The exact value of a bound of a ``ValueRange``, or ``None``."""
+    return None if value is None else value.fraction()
 
 
 def power_interface_nets(circuit: Circuit) -> frozenset[str]:
@@ -284,6 +503,18 @@ def power_interface_nets(circuit: Circuit) -> frozenset[str]:
 
 
 __all__ = [
+    "BLOCK_PARAM_TYPES",
+    "INTERFACE_MEMBERS",
+    "INTERFACE_PARAMS",
+    "KIND_MEMBERS",
+    "LOGIC_PARAMS",
+    "OPTIONAL_MEMBERS",
+    "PARAM_WHERE",
+    "PORT_DIRECTIONS",
+    "REQUIRES",
+    "BLOCK_VERSION",
+    "BlockParam",
+    "BlockParamType",
     "Bus",
     "BusMember",
     "Circuit",
@@ -296,10 +527,15 @@ __all__ = [
     "Pin",
     "PinRef",
     "PinType",
+    "Port",
+    "PortDirection",
     "RangeUnit",
     "ValueRange",
+    "check_params",
+    "exact_decimal10",
     "normal_pin_pad_map",
     "pin_pad_map_problems",
     "power_interface_nets",
+    "range_fraction",
     "with_normal_pin_maps",
 ]

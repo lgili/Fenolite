@@ -1,0 +1,24 @@
+# Authored for Fenolite (CC0-1.0). Calibration record of lands/1 (change c0260): TI PN0080A outline and example board layout, MSP430F5529 data sheet (S-0988).
+schema = "fenolite.package.v0"
+family = "gullwing"
+name = "LQFP80_TI_PN0080A"
+evidence = "INFERRED"
+sources = ["S-0988"]
+
+pins = 80
+pitch = "0.5mm"
+arrangement = "quad"
+body = { length = "11.8mm..12.2mm", width = "11.8mm..12.2mm" }
+span_x = "13.8mm..14.2mm"
+span_y = "13.8mm..14.2mm"
+lead = { length = "0.45mm..0.75mm", width = "0.17mm..0.27mm" }
+
+[generate]
+lands = 1
+drawing = 1
+
+[land]
+source = "S-0988 TI PN0080A outline and example board layout"
+pad = { length = "1.5mm", width = "0.3mm" }
+row_spacing_x = "13.4mm"
+row_spacing_y = "13.4mm"

@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite; captured block-local placement and copper.
+schema = "fenolite.block-layout.v0"
+block = "Fenolite:rc_lowpass"
+block_version = "1.0.0"
+parts_digest = "sha256:168b327e580daf179047cd9c09ddd3b08d26e78cc45dadd5be1ee80a295d99e1"
+nets_digest = "sha256:7ece35436f2561ccbaaa3f516b6462cd3c2bf4483c95a5f95262d7d4f301d089"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+
+[parts."filter_C"]
+at = ["4mm", "0mm"]
+rotation = "0deg"
+side = "top"
+footprint = "Fenolite:Chip_0603"
+
+[parts."filter_R"]
+at = ["0mm", "0mm"]
+rotation = "0deg"
+side = "top"
+footprint = "Fenolite:Chip_0603"
+
+[[tracks]]
+net = "port:OUT"
+layer = "F.Cu"
+width = "0.25mm"
+start = ["0.8mm", "0mm"]
+end = ["3.2mm", "0mm"]
+pads = ["filter_C.1", "filter_R.2"]

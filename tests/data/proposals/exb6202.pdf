@@ -1,0 +1,34 @@
+%PDF-1.4
+% SPDX-License-Identifier: CC0-1.0
+% Authored for Fenolite; fictional example datasheet.
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 557 >>
+stream
+BT /F1 10 Tf 40 750 Td (Authored for Fenolite \(CC0-1.0\). Fictional example; no real product.) Tj 0 -18 Td (EXB6202: pins 1 through 8 named P1 through P8; all passive.) Tj 0 -18 Td (SOIC variant: body 5 x 3 x 1 mm; span 6 mm; pitch 1.27 mm.) Tj 0 -18 Td (Leads 0.6 x 0.45 mm; land 1.1 x 0.7 mm on 5.5 mm rows.) Tj 0 -18 Td (Grid variant EXGRID8: 3 by 3 at 1 mm pitch, rows A B C; B2 absent.) Tj 0 -18 Td (Grid body 4 x 4 x 1 mm; balls and round lands 0.5 mm diameter.) Tj 0 -18 Td (Both variants: maximum input voltage 6 V; ordering EXB6202DR, reel.) Tj ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000098 00000 n 
+0000000147 00000 n 
+0000000204 00000 n 
+0000000330 00000 n 
+0000000400 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1008
+%%EOF

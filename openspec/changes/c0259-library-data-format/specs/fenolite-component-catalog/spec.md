@@ -20,14 +20,14 @@ Every shipped catalog symbol and footprint SHALL be given by a record file under
 
 #### Scenario: Built files are byte-identical
 - **WHEN** the KiCad job builds `examples/catalog*` with `--seed 1` and a fixed `--timestamp`
-- **THEN** every written file has the SHA-256 recorded in `golden.json`
+- **THEN** every written file but `.fenolite/meta.json` (which names the version of Fenolite) has the SHA-256 recorded in `golden.json`
 
 ### Requirement: Catalog entries show version and licence
 `CatalogEntry` SHALL gain `version`, `licence` and `uid` with defaults. `fenolite catalog list` and `fenolite catalog show` SHALL add the keys `version`, `licence` and `uid` to each entry; every existing key and value MUST stay as before.
 
 #### Scenario: Show a moved entry
 - **WHEN** `fenolite catalog show Fenolite:Resistor --json` runs
-- **THEN** the entry holds `version` `1.0.0`, its `licence`, its `uid`, and the same kind, category, summary, evidence and sources as on 0.6.0
+- **THEN** the entry holds `version` `1.0.1` (written `1.0.0` by the move, raised by the change of licence to `CC0-1.0`), `licence` `CC0-1.0`, its `uid`, and the same kind, category, summary, evidence and sources as on 0.6.0
 
 ## MODIFIED Requirements
 

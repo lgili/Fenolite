@@ -149,11 +149,23 @@ Inserted right after `length.rules` in `STAGE_ORDER` (a later change may insert 
 
 ### 6. Lowering
 
-A `delay` or `skew` whose path lies on one net, crosses no bridge and uses layers of one propagation value
-lowers to a `length` rule (`max_nm = floor(max_fs * 10⁶ / per_mm_fs)`, `min_nm = ceil(...)`) or a `skew`
-rule on that net, named `topology:<name>:<constraint>`, so KiCad's DRC and length tuner see it. Everything
-else stays in the model with `rules.topology-not-lowered` (info). Native lowering to the KiCad 10 tuning
-profile's time-domain keys waits for a probe (`H-K-PRO-TIME-DOMAIN`, `UNKNOWN` today): open question 2.
+A delay lowers to the existing `length` kind only after the routed board proves whole-net,
+two-terminal, unbranched track coverage with one propagation on all used layers and no via, zone,
+arc or die offset, integer-fs segment products and no endpoint-pad shortcut. Minimum nm rounds up; maximum nm rounds down. Pair skew lowers to the existing
+pair `skew` kind only when both member paths meet those conditions and share one propagation.
+All other constraints remain in the model with `rules.topology-not-lowered` info.
+
+**Decided 2026-11-01:** endpoint skew inside one net is not lowered: KiCad skew compares net totals,
+so a one-net skew rule would not express load-to-load delay skew. Likewise, a subset path cannot
+be lowered as the total length of a branched net. This refines the original proposed conversion to
+preserve its meaning. Conversion is INFERRED; existing rule kinds retain their own evidence.
+Native time-domain profile keys remain absent pending `H-K-PRO-TIME-DOMAIN`; raw native `die_delay`
+units are unprobed and cause input-missing rather than an assumed unit conversion.
+
+**Decided 2026-11-01:** protocol members are independent topologies, with `RuleSet.protocol_skews`
+recording their delay comparison. Connecting differential nets by a fictional tree edge would imply
+connectivity that does not exist. Device bridges are added here as an optional `DeviceBridge` field:
+the usable c0248 implementation has no bridge field despite this proposal's dependency assumption.
 
 ### 7. Rule specificity
 
@@ -228,7 +240,25 @@ topology names them: a topology on a `TakenInterface` resolves after the solve. 
 - Size: 12 design-days; split into two implementation PRs (topologies and stage; specificity and
   `--explain-rules`), each green on its own.
 
-## Open Questions
+## Decisions recorded 2026-11-01
+
+1. **Decided 2026-11-01:** protocol objects have no numeric defaults. All limits come from the user;
+   adding a protocol value later requires a registered public source and evidence.
+2. **Decided 2026-11-01:** native time-domain lowering stays deferred. The existing
+   `H-K-PRO-TIME-DOMAIN` row has no completed probe; only conservative length/skew conversion ships.
+3. **Decided 2026-11-01:** specificity remains opt-in, preserving existing KiCad rule order and bytes.
+4. **Decided 2026-11-01:** topology judgement is KiCad-only until the Altium reader supplies pad paths.
+5. **Decided 2026-11-01:** the recommended I2C electrical pull-up formula belongs to a later focused
+   circuit-contract change. This change implements the tasked `Usb2` and `Clock` bundles only; it neither
+   invents an I2C limit nor adds unproven formula facts to the topology model.
+
+Integration 2026-11-01: specificity reporting observes rule/pad inputs already requested by selected
+check stages, retaining their query order and avoiding duplicate backend reads. When no selected stage
+provides those inputs, reporting queries them directly; it needs pads only for potentially overlapping
+rule kinds. Stage-order assertions include topology between length and placement. Device bridges also
+round-trip through the current v1 catalog record adapter.
+
+## Original questions and rationale
 
 1. Do protocol objects ship defaults? **Recommended:** no, until each value has a public source recorded in
    `docs/formats` with an evidence label; the maintainer decides per protocol.

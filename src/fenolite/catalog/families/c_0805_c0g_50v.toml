@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# Authored for Fenolite: a generic family of chip capacitors (change c0254); every number names its source.
+schema = "fenolite.family.v0"
+id = "Fenolite:C_0805_C0G_50V"
+kind = "capacitor"
+summary = "Generic multilayer ceramic chip capacitor, 0805, C0G, 50 V, 5 %, E12"
+symbol = "Fenolite:Capacitor"
+footprint = "Fenolite:Chip_0805"
+case = "0805"
+series = "E12"
+values = { min = "10p", max = "22n" }
+tolerance = "5%"
+rating = "50V"
+dielectric = "C0G"
+evidence = "INFERRED"
+sources = { case = ["S-0944"], dielectric = ["S-0944"], rating = ["S-0944"], series = ["S-0940"], tolerance = ["S-0944"], values = ["S-0944"] }

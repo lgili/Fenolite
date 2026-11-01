@@ -1,0 +1,94 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example; an illustrative device, not a real product. Its pins and options are
+# chosen for the example and come from no datasheet. It sits on the catalog's 0.8 mm LQFP32 land, whose pads
+# keep the default 0.2 mm clearance.
+schema = "fenolite.device.v0"
+id = "Example:MCU_QFN32"
+summary = "32-pin microcontroller whose I2C, UART, SPI and ADC sit on several pin sets (illustrative)"
+manufacturer = "Example Semi"
+mpn = "EXM0032"
+symbol = "Example:MCU_32pin"
+footprint = "Fenolite:LQFP32_P0.8"
+ref_prefix = "U"
+evidence = "UNVERIFIED"
+ground = "VSS"
+
+[pins]
+VDD = "1"
+PA0 = "2"
+PA1 = "3"
+PA2 = "4"
+PA3 = "5"
+PA4 = "6"
+PA5 = "7"
+PA6 = "8"
+PA7 = "9"
+PB0 = "10"
+PB1 = "11"
+PB2 = "12"
+PB3 = "13"
+PB4 = "14"
+PB5 = "15"
+VSS = ["16", "32"]
+VDDA = "17"
+PB6 = "18"
+PB7 = "19"
+PB8 = "20"
+PB9 = "21"
+PB10 = "22"
+PB11 = "23"
+PC0 = "24"
+PC1 = "25"
+PC2 = "26"
+PC3 = "27"
+PC4 = "28"
+PC5 = "29"
+NRST = "30"
+BOOT0 = "31"
+
+[[options]]
+kind = "i2c"
+name = "I2C1"
+alternatives = [
+  { scl = "PB6", sda = "PB7" },
+  { scl = "PB8", sda = "PB9" },
+]
+
+[[options]]
+kind = "i2c"
+name = "I2C2"
+alternatives = [
+  { scl = "PB10", sda = "PB11" },
+]
+
+[[options]]
+kind = "pin"
+name = "ADC"
+alternatives = [
+  { io = "PA0" },
+  { io = "PA1" },
+  { io = "PC0" },
+]
+
+[[options]]
+kind = "spi"
+name = "SPI1"
+alternatives = [
+  { miso = "PA6", mosi = "PA7", sck = "PA5" },
+  { miso = "PB4", mosi = "PB5", sck = "PB3" },
+]
+
+[[options]]
+kind = "uart"
+name = "UART1"
+alternatives = [
+  { rx = "PB7", tx = "PB6" },
+]
+
+[[options]]
+kind = "uart"
+name = "UART2"
+alternatives = [
+  { rx = "PA3", tx = "PA2" },
+  { rx = "PB4", tx = "PB3" },
+]

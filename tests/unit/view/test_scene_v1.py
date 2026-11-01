@@ -58,6 +58,12 @@ def test_page_decoder_matches() -> None:
         + ("console.log(JSON.stringify(decodeV1(sc).prims));")
     )
     done = subprocess.run(
-        [node, "-e", script], input=json.dumps(small), capture_output=True, text=True, check=True, timeout=60
+        [node, "-e", script],
+        input=json.dumps(small),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+        timeout=60,
     )
     assert json.loads(done.stdout) == scene["prims"]

@@ -68,7 +68,15 @@ from fenolite.routing.octilinear import (
     simplify,
     thick,
 )
-from fenolite.routing.protocol import JobNet, JobPair, JobRoleRoute, RoleOutcome, RoutingJob, RoutingResult
+from fenolite.routing.protocol import (
+    JobNet,
+    JobPair,
+    JobRoleEnd,
+    JobRoleRoute,
+    RoleOutcome,
+    RoutingJob,
+    RoutingResult,
+)
 
 OPTIONS = ("max-length", "rounds", "gate-vias", "kelvin-vias", "keep-away", "z-shapes")
 """The router options of the role mode."""
@@ -311,30 +319,7 @@ class _Router:
 
     def clear(self, net: str, layer: str, points: Polyline, width: Nm, pair: str | None) -> str | None:
         """``None`` when ``points`` passes c0228's acceptance on ``layer``, else what refused it."""
-        world = self.world
-        mine = world.subject(net, layer, pair)
-        items = world.by_layer.get(layer, [])
-        tree = world.index.get(layer)
-        for p, q in zip(points, points[1:], strict=False):
-            shape = thick((p, q), width)
-            if shape is None:
-                return "geometry"
-            box = thick_bbox(shape).inflate(world.reach)
-            for i in tree.query(box) if tree is not None else ():
-                item = items[i]
-                if item.net == net:
-                    continue
-                if thick_closer_than(shape, item.shape, world.clearance(mine, item.subject) + MARGIN):
-                    return _subject_text(item.subject)
-            for other, on, placed, subject in world.placed:
-                if other == net or on != layer:
-                    continue
-                if thick_closer_than(shape, placed, world.clearance(mine, subject) + MARGIN):
-                    return f"routed copper of net {other}"
-            for ring in world.edges:
-                if thick_closer_than(shape, ring, max(world.edge, 1)):
-                    return "the board edge"
-        return None
+        return refusal(self.world, net, layer, points, width, pair)
 
     def isolated(self, route: JobRoleRoute, layer: str, points: Polyline, width: Nm) -> str | None:
         if not route.isolated:
@@ -760,6 +745,51 @@ class _Router:
                             ),
                         )
         return best[1] if best is not None else None
+
+
+def refusal(
+    world: World, net: str, layer: str, points: Polyline, width: Nm, pair: str | None = None
+) -> str | None:
+    """``None`` when ``points`` passes c0228's clearance and edge tests on ``layer`` in ``world``, else what
+    refused it (``pad of R9 of net FENCE``, ``track of net SW``, ``the board edge``); shared with the
+    proposal mode (change c0280)."""
+    mine = world.subject(net, layer, pair)
+    items = world.by_layer.get(layer, [])
+    tree = world.index.get(layer)
+    for p, q in zip(points, points[1:], strict=False):
+        shape = thick((p, q), width)
+        if shape is None:
+            return "geometry"
+        box = thick_bbox(shape).inflate(world.reach)
+        for i in tree.query(box) if tree is not None else ():
+            item = items[i]
+            if item.net == net:
+                continue
+            if thick_closer_than(shape, item.shape, world.clearance(mine, item.subject) + MARGIN):
+                return _subject_text(item.subject)
+        for other, on, placed, subject in world.placed:
+            if other == net or on != layer:
+                continue
+            if thick_closer_than(shape, placed, world.clearance(mine, subject) + MARGIN):
+                return f"routed copper of net {other}"
+        for ring in world.edges:
+            if thick_closer_than(shape, ring, max(world.edge, 1)):
+                return "the board edge"
+    return None
+
+
+def z_shapes(
+    job: RoutingJob, world: World, pads: Sequence[object], net: str, a: Point, b: Point, width: Nm
+) -> list[Polyline]:
+    """c0244's Z shapes between ``a`` and ``b`` for a plain connection of ``net``: their middle lines come
+    from the bounding boxes of the other nets' copper near the straight line (design decision 12 of c0244),
+    at most ``Z_PER_AXIS`` per axis; the five shapes of c0228 left out (change c0280, family ``z-shape``)."""
+    end_a = JobRoleEnd("", "", net, a, job.layers)
+    end_b = JobRoleEnd("", "", net, b, job.layers)
+    route = JobRoleRoute("", "connection", 0, net, end_a, end_b, width, job.layers)
+    router = _Router(job, world, RoleWorld(job, world, pads), Options())
+    plain = set(shapes(a, b))
+    return [shape for shape in router.candidates(route, a, b, width, (), False) if shape not in plain]
 
 
 def _pad_reach(pad: object, at: Point, dx: int, dy: int) -> int:
@@ -1194,7 +1224,9 @@ __all__ = [
     "RoleFinding",
     "RoleWorld",
     "corridor_rings",
+    "refusal",
     "role_options",
     "route_roles",
     "via_ring",
+    "z_shapes",
 ]

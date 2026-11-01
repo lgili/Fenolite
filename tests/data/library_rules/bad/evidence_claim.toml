@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as synthetic test data (change c0262); no real product.
+schema = "fenolite.pins.v0"
+id = "Bad:Evidence"
+version = "1.0.0"
+summary = "Synthetic pin table"
+licence = "CC0-1.0"
+evidence = "CORPUS-VERIFIED"
+
+[[pin]]
+number = "1"
+name = "P1"
+type = "passive"
+
+[[pin]]
+number = "2"
+name = "P2"
+type = "passive"
+
+[symbol]
+reference = "U"
+value = ""
+pins = [
+  { number = "1", at = ["-5.08mm", "0mm"], length = "2.54mm" },
+  { number = "2", at = ["-5.08mm", "2.54mm"], length = "2.54mm" },
+]

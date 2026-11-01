@@ -1,0 +1,26 @@
+# Design lock written by fenolite build. Review changes in git; hand edits are honoured.
+schema = "fenolite.lock.v0"
+design = "divider_demo"
+
+[refs]
+"J1" = "J1"
+"buck1/FB_bot" = "R1"
+"buck1/FB_top" = "R2"
+
+[picks."buck1/FB_bot"]
+"query" = "voltage_divider(target=3.3V (3.135V..3.465V), ref=600mV (594mV..606mV), current=40uA..100uA, tolerance<=1%, case=0603, series=E96, role=bot)"
+"device" = "Fenolite:R_0603_E96_1pct@13k7"
+"row" = "Fenolite:R_0603_E96_1pct"
+"catalog" = "fenolite-catalog 2026.10"
+"sha256" = "81a35d339c7d4692476c67a93895579372e7942c002600032b4046a3cec46ee9"
+"by" = "voltage_divider"
+"achieved" = "VOUT 3224694uV..3399373uV"
+
+[picks."buck1/FB_top"]
+"query" = "voltage_divider(target=3.3V (3.135V..3.465V), ref=600mV (594mV..606mV), current=40uA..100uA, tolerance<=1%, case=0603, series=E96, role=top)"
+"device" = "Fenolite:R_0603_E96_1pct@61k9"
+"row" = "Fenolite:R_0603_E96_1pct"
+"catalog" = "fenolite-catalog 2026.10"
+"sha256" = "81a35d339c7d4692476c67a93895579372e7942c002600032b4046a3cec46ee9"
+"by" = "voltage_divider"
+"achieved" = "VOUT 3224694uV..3399373uV"

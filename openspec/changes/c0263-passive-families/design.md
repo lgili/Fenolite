@@ -309,8 +309,14 @@ scheme, decode ∘ encode is the identity (property tests). A reply combines it 
 1. **Real series in the data repository.** Is an authored description of a manufacturer's public
    ordering-code table acceptable as CC0 data in c0266? Recommended: yes, one series per file, authored
    from the datasheet and cited, never from a distributor's data; the maintainer confirms once.
+   Decided 2026-10-30: yes, as recommended; c0266 ships them, one series per file, cited and reviewed (the
+   maintainer's single confirmation stays with c0266).
 2. **Ordering fields in queries.** Should a query or `design.defaults` choose packing (`packing="bulk"`)?
    Recommended: not now; `prefer` decides, and a pinned MPN covers the rest.
+   Decided 2026-10-30: not now; encode fixes every ordering field to `prefer`, and `row=<family>@<MPN>`
+   pins another code.
 3. **Metric case codes** (c0254 question 5). Recommended: follow c0254 (inch codes only); a grammar maps its
    own size codes to inch cases.
+   Decided 2026-10-30: inch codes only; a code's `case` is a four-digit EIA inch code (`FEN-3004` otherwise).
 4. **Expansion limit.** Recommended: 100 000, revisited with the first real packs.
+   Decided 2026-10-30: `grammar.EXPANSION_LIMIT = 100_000`.

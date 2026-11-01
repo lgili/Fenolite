@@ -1,0 +1,8 @@
+ISO-10303-21;
+/* SPDX-License-Identifier: CC0-1.0; Authored for Fenolite; https://example.invalid/exb6202 */
+HEADER;
+FILE_SCHEMA(('AUTOMOTIVE_DESIGN'));
+ENDSEC;
+DATA;
+ENDSEC;
+END-ISO-10303-21;

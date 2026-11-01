@@ -14,13 +14,19 @@ from fenolite.core.ids import derived_id, new_id
 from fenolite.model import Graphic, Pad
 from fenolite.model.canonical import dumps, loads
 from fenolite.model.library import (
+    DeviceDef,
+    DevicePin,
+    DeviceProvenance,
     FootprintDef,
     Library,
     PinAlternate,
+    PinPairLimit,
+    Rating,
     SymbolDef,
     SymbolGraphic,
     SymbolPin,
     SymbolUnit,
+    Threshold,
 )
 
 
@@ -170,3 +176,184 @@ def test_float_rejected_by_the_library_schema() -> None:
     data["footprints"][0]["pads"][0]["size"]["w"] = 1.5
     errors = _schema.validate(data, schema)
     assert errors and all(e.startswith("/footprints/0/pads/0/size/w") for e in errors), errors
+
+
+# -- devices (change c0248, capability design-model, "Device definitions in the library layer")
+
+
+def _buck_device() -> DeviceDef:
+    """The illustrative device of ``tests/data/devices/example_buck.toml``, built by hand (authored for
+    Fenolite; not a real product)."""
+    return DeviceDef(
+        id="Example:BUCK_6V_2A",
+        summary="6 V 2 A step-down regulator (illustrative)",
+        symbol="Example:Buck_6pin",
+        footprint="Fenolite:SOT23_6_TI_DBV0006A",
+        manufacturer="Example Semi",
+        mpn="EXB6202",
+        datasheet="https://example.invalid/exb6202.pdf",
+        ref_prefix="U",
+        evidence="UNVERIFIED",
+        ground="GND",
+        cls="controller",
+        pins=(
+            DevicePin("BST", (("1", "1"),)),
+            DevicePin(
+                "EN",
+                (("4", "4"),),
+                ratings=(Rating("voltage", "uV", -300_000, 6_500_000),),
+                thresholds=(
+                    Threshold("input_high_min", "uV", 1_200_000),
+                    Threshold("input_low_max", "uV", 400_000),
+                ),
+                must_connect=True,
+            ),
+            DevicePin("FB", (("3", "3"),), ratings=(Rating("voltage", "uV", max=6_500_000),)),
+            DevicePin("GND", (("2", "2"), ("2", "EP"))),
+            DevicePin("SW", (("6", "6"),)),
+            DevicePin(
+                "VIN",
+                (("5", "5"),),
+                ratings=(
+                    Rating("voltage", "uV", max=6_500_000),
+                    Rating("voltage", "uV", 2_700_000, 6_000_000, "operating"),
+                ),
+            ),
+        ),
+        ratings=(
+            Rating("current", "uA", max=2_500_000),
+            Rating("current", "uA", max=2_000_000, limit="operating"),
+            Rating("temperature", "mK", 218_150, 423_150),
+            Rating("temperature", "mK", 233_150, 398_150, "operating"),
+        ),
+        limits=(PinPairLimit(("BST", "SW"), (Rating("voltage", "uV", max=6_000_000),)),),
+        provenance=DeviceProvenance(
+            "fenolite catalog import", "Example:Buck_6pin Fenolite:X", "2026-10-29", "0" * 64
+        ),
+    )
+
+
+def test_device_round_trip() -> None:
+    device = _buck_device()
+    text = dumps(device)
+    loaded = loads(text, DeviceDef)
+    assert loaded == device
+    assert [pin.function for pin in loaded.pins] == ["BST", "EN", "FB", "GND", "SW", "VIN"]
+    assert loaded.pad_map == (
+        ("1", "1"), ("2", "2"), ("2", "EP"), ("3", "3"), ("4", "4"), ("5", "5"), ("6", "6"),
+    )  # fmt: skip
+    assert loaded.pin("GND").pads == ("2", "EP") and loaded.pin("GND").pins == ("2",)
+    assert loaded.rating("temperature", "operating") == Rating(
+        "temperature", "mK", 233_150, 398_150, "operating"
+    )
+    assert loaded.rating("power") is None
+
+
+def test_device_limits_round_trip() -> None:
+    """c0274: the split record of design.md, decision 1, round-trips with every limit, threshold and class."""
+    device = _buck_device()
+    loaded = loads(dumps(device), DeviceDef)
+    assert loaded == device
+    assert [(r.key, r.limit) for r in loaded.pin("VIN").ratings] == [
+        ("voltage", "abs_max"),
+        ("voltage", "operating"),
+    ]
+    assert len(loaded.pin("EN").thresholds) == 2 and loaded.pin("EN").threshold("input_low_max") is not None
+    assert [limit.between for limit in loaded.limits] == [("BST", "SW")] and loaded.cls == "controller"
+    assert loaded.pin("VIN").rating("voltage", "operating") == Rating(
+        "voltage", "uV", 2_700_000, 6_000_000, "operating"
+    )
+
+    def no_float(value: object) -> bool:
+        if isinstance(value, dict):
+            return all(no_float(item) for item in value.values())  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+        if isinstance(value, list):
+            return all(no_float(item) for item in value)  # pyright: ignore[reportUnknownVariableType]
+        return not isinstance(value, float)
+
+    import json
+
+    assert no_float(json.loads(dumps(device)))
+    assert "limit" not in dumps(Rating("voltage", "uV", max=1))
+    from pathlib import Path
+
+    from fenolite.catalog.devices import parse_device
+
+    record = Path(__file__).resolve().parents[2] / "data" / "devices" / "example_buck.toml"
+    assert parse_device(record.read_text(encoding="utf-8")) == dataclasses.replace(
+        device, provenance=None, value="EXB6202"
+    )
+
+
+def test_device_library_round_trip() -> None:
+    library = Library(name="devices", devices=(_buck_device(),))
+    assert loads(dumps(library), Library) == library
+
+
+def test_no_float_in_a_device() -> None:
+    import re
+
+    text = dumps(_buck_device())
+    assert not re.search(r"\d[.eE]\d|\d[eE][+-]?\d", text.replace("example.invalid/exb6202.pdf", ""))
+    with pytest.raises(TypeError):
+        dumps(dataclasses.replace(_buck_device().ratings[0], max=2.5))  # type: ignore[arg-type]
+
+
+def test_devices_stay_out_of_the_layer_files() -> None:
+    import typing
+
+    from fenolite.model import canonical
+
+    def holds_device(tp: object, seen: set[object]) -> bool:
+        if tp in seen:
+            return False
+        seen.add(tp)
+        if tp in (DeviceDef, DevicePin, Rating, DeviceProvenance, PinPairLimit, Threshold):
+            return True
+        if isinstance(tp, type) and dataclasses.is_dataclass(tp):
+            hints = typing.get_type_hints(tp)
+            return any(holds_device(hint, seen) for hint in hints.values())
+        return any(holds_device(arg, seen) for arg in typing.get_args(tp))
+
+    for _file, _key, cls in canonical.LAYER_FILES:
+        assert not holds_device(cls, set()), cls
+
+
+# --- change c0261: graphics per unit and pin tables ------------------------------------------------
+
+CATALOG_SYMBOLS_SHA256 = "f7d914d11baf2565822ceaf0b03c2934af579376010445c1a388440eb6bcb537"
+"""The canonical JSON of the 49 catalog symbols before change c0261 added ``SymbolGraphic.unit``."""
+
+
+def test_old_canonical_json_unchanged() -> None:
+    import hashlib
+
+    from fenolite.catalog import ENTRIES, get_symbol
+
+    symbols = tuple(get_symbol(e.lib_id) for e in ENTRIES if e.kind == "symbol")
+    text = dumps(Library(name="Fenolite", symbols=symbols))
+    assert len(symbols) == 49
+    assert hashlib.sha256(text.encode()).hexdigest() == CATALOG_SYMBOLS_SHA256
+    assert all(g.unit == 0 and g.body_style == 0 for s in symbols for g in s.graphics)
+
+
+def test_two_bodies_keep_their_units() -> None:
+    bodies = tuple(SymbolGraphic("rect", (Point(-1, -1), Point(1, 1)), unit=u, body_style=1) for u in (1, 2))
+    sym = SymbolDef(id=derived_id("sym", "dsl", "L:Two"), name="Two", library="L", graphics=bodies)
+    back = loads(dumps(Library(symbols=(sym,))), Library)
+    assert [(g.unit, g.body_style) for g in back.symbols[0].graphics] == [(1, 1), (2, 1)]
+    common = SymbolGraphic("line", (Point(0, 0), Point(1, 0)))
+    assert (common.unit, common.body_style) == (0, 0)
+    assert "unit" not in dumps(common)
+
+
+def test_pin_table_value_objects() -> None:
+    from fenolite.model.library import PinRow, PinTable, PinVariant
+
+    row = PinRow("2", "GND", "power_in", group="ground", stacked=("7",))
+    table = PinTable("EXB6202", (row,), variants=(PinVariant("EXB6202DR", value="EXB6202DR"),))
+    assert row.unit is None and row.shape == "line" and not row.hidden
+    assert (table.reference, table.split_above, table.unit_pins, table.auto_bus) == ("U", 100, 48, True)
+    assert table.rows[0].stacked == ("7",)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        row.name = "X"  # type: ignore[misc]

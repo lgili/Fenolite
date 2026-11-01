@@ -4,7 +4,7 @@
 `fenolite get KIND ID [--version V] [--release R] [--script FILE] [--into DIR]` SHALL be mutating. It SHALL plan the item and its `depends` closure, copied with `item.json`, `LICENSE`, `NOTICE` and `PROVENANCE.json` into `fenolite_library/<kind folder>/<id path>/` beside the script (a board into `--into`), plus `fenolite_library/ATTRIBUTION.md` and the lock. All of it is written or none. KIND MUST be `symbol`, `footprint`, `device`, `block` or `board`.
 
 #### Scenario: Plan a device with its closure
-- **GIVEN** a local release built from `tests/data/library/demo/`, given with `--from`, and a project with `design.py`
+- **GIVEN** a local release built from `tests/data/library_repo/demo/`, given with `--from`, and a project with `design.py`
 - **WHEN** `fenolite get device Demo:EXB --from <release> --dry-run --json` runs
 - **THEN** the plan lists the device, symbol and footprint folders, `fenolite_library/ATTRIBUTION.md` and `design.lock`, and nothing is written
 
@@ -25,12 +25,12 @@ Every `get` result SHALL list, per item, `spdx`, `family`, `reciprocal`, `obliga
 - **THEN** it writes the item and the receipt echoes `CC-BY-SA-4.0` as accepted
 
 ### Requirement: Client licence check
-`get` SHALL refuse with exit 3 and `FEN-3008` an item whose SPDX id is not in the shipped `library-licences.toml`, whose index row and `PROVENANCE.json` disagree on the id, or that lacks `LICENSE` or `NOTICE`. Nothing MUST be written.
+`get` SHALL refuse with exit 3 and `FEN-3021` an item whose SPDX id is not in the shipped `library-licences.toml`, whose index row and `PROVENANCE.json` disagree on the id, or that lacks `LICENSE` or `NOTICE`. Nothing MUST be written.
 
 #### Scenario: Release with a denied item
 - **GIVEN** a test release whose index row says `CC-BY-NC-4.0` for `Demo:NC`
 - **WHEN** `fenolite get device Demo:NC --from <release> --dry-run --json` runs
-- **THEN** it exits 3 with `FEN-3008` naming the item and the id
+- **THEN** it exits 3 with `FEN-3021` naming the item and the id
 
 ### Requirement: Get updates and removals
 A `get` of a vendored item at another version SHALL replace its folder and report `before` and `after`. `--remove KIND ID` SHALL plan the folder's deletion, the lock entry's removal and the attribution file. A folder whose tree differs from its pin MUST be refused with `FEN-7001` (`library.item-modified`) unless `--allow-lossy`; removing an item another depends on MUST exit 2.
@@ -90,7 +90,7 @@ When the closure of a requested item needs a version of an item that the project
 - **THEN** its commands hold `get`, `library audit`, `library replay`, `library release` and `library gallery` with their arguments
 
 ### Requirement: Library error codes
-The registry of `fenolite.cli.errors` SHALL hold `FEN-6004` (exit 6, not retryable, a pinned library item is missing, hint naming `fenolite get --locked`), `FEN-6006` (exit 6, not retryable, not in the offline cache), `FEN-4003` (exit 4, licences must be accepted by name) and `FEN-3008` (exit 3, licence not allowed or licence files missing). `docs/cli-contract.md` and `explain.toml` MUST list them.
+The registry of `fenolite.cli.errors` SHALL hold `FEN-6004` (exit 6, not retryable, a pinned library item is missing, hint naming `fenolite get --locked`), `FEN-6006` (exit 6, not retryable, not in the offline cache), `FEN-4003` (exit 4, licences must be accepted by name) and `FEN-3021` (exit 3, licence not allowed or licence files missing). `docs/cli-contract.md` and `explain.toml` MUST list them.
 
 #### Scenario: Codes explained
 - **WHEN** `uv run pytest tests/unit/cli/test_exitcodes.py tests/unit/cli/test_explain_cmd.py` runs

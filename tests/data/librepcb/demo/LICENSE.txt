@@ -1,0 +1,5 @@
+SPDX-License-Identifier: CC0-1.0
+Authored for Fenolite as a licence-gate test placeholder.
+This original test text is not the CC0 legal code.
+Positive unit tests inject its hash; the production seed gate rejects it.
+No upstream licence text is included in this fixture.

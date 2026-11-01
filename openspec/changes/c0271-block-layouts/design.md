@@ -297,13 +297,13 @@ code.
 
 ## Open Questions
 
-1. Should `reuse.layout-stale` be an error? **Recommended:** a warning; an error would stop every build that
+1. Should `reuse.layout-stale` be an error? **Decided 2026-11-01:** a warning; an error would stop every build that
    explores parameters. A release gate reads the warning in `issues`, and c0270's usage builds refuse it.
-2. Several layouts per block, chosen by parameters (`layouts/voltage_divider.0402.toml`)? **Recommended:**
+2. Several layouts per block, chosen by parameters (`layouts/voltage_divider.0402.toml`)? **Decided 2026-11-01:**
    later; the digest names the part set, so a lookup by digest among several files is a small extension.
-3. Should a layout file live in the design lock? **Recommended:** no; the lock pins the block version
+3. Should a layout file live in the design lock? **Decided 2026-11-01:** no; the lock pins the block version
    (c0268), and the file ships with that version. `build.json` records the SHA-256 for review.
-4. Should `capture` also edit the block's Python? **Recommended:** no; Fenolite does not rewrite scripts.
+4. Should `capture` also edit the block's Python? **Decided 2026-11-01:** no; Fenolite does not rewrite scripts.
 
 ## Relation to the other changes of this batch
 
@@ -317,3 +317,17 @@ code.
 - **c0272** ships one layout per starter block, captured from its usage example.
 - **c0273**: a library block item ships its layouts in its item folder; capturing into a vendored copy edits it.
 - **c0250**: decision 7.
+
+
+### 11. Saved copied copper (Decided 2026-11-01)
+
+c0250's implemented property set covers parts only; c0028 regenerates script copper. Block layout
+copies therefore use a small separate adapter, not an expansion of the generic edit/take grammar.
+`fenolite-layout-base.json` in the output root stores each owned UUID's local-frame code/output
+geometry, local net and pad contacts, and the resolved frame poses. It has a schema and body SHA-256,
+is a protected planned output and is listed in the build record. No asset means no new base file.
+Caches never decide the merge. Unchanged CAD follows code; CAD-only edits/deletions stay; two different
+changes refuse writes as `reuse.layout-conflict`. Restore the chosen geometry by recapturing or use
+explicit `--discard-layout`; part `--take` does not resolve these conflicts. A missing base can only
+bootstrap an already matching owned copy or a fresh board; ambiguity refuses. The geometry stays
+subject to pad contacts, settling and the final copper guard. Zone fills remain derived.

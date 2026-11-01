@@ -1,0 +1,92 @@
+schema = "fenolite.pins.v0"
+id = "Imported:EXB6202"
+version = "0.1.0"
+summary = "imported from exb6202.zip"
+licence = "see source terms"
+evidence = "UNVERIFIED"
+symbol_file = "EXB6202.kicad_sym"
+
+[[pin]]
+number = "1"
+name = "IO1"
+type = "passive"
+
+[[pin]]
+number = "2"
+name = "IO2"
+type = "passive"
+
+[[pin]]
+number = "3"
+name = "IO3"
+type = "passive"
+
+[[pin]]
+number = "4"
+name = "IO4"
+type = "passive"
+
+[[pin]]
+number = "5"
+name = "IO5"
+type = "passive"
+
+[[pin]]
+number = "6"
+name = "IO6"
+type = "passive"
+
+[[pin]]
+number = "7"
+name = "IO7"
+type = "passive"
+
+[[pin]]
+number = "8"
+name = "IO8"
+type = "passive"
+
+[symbol]
+reference = "U"
+pin_name_offset = "0.508mm"
+units = [{ unit = 0, body_style = 1 }, { unit = 1, body_style = 1 }]
+pins = [
+  { number = "1", at = ["-7.62mm", "10.16mm"], length = "2.54mm" },
+  { number = "2", at = ["-7.62mm", "7.62mm"], length = "2.54mm" },
+  { number = "3", at = ["-7.62mm", "5.08mm"], length = "2.54mm" },
+  { number = "4", at = ["-7.62mm", "2.54mm"], length = "2.54mm" },
+  { number = "5", at = ["-7.62mm", "0mm"], length = "2.54mm" },
+  { number = "6", at = ["-7.62mm", "-2.54mm"], length = "2.54mm" },
+  { number = "7", at = ["-7.62mm", "-5.08mm"], length = "2.54mm" },
+  { number = "8", at = ["-7.62mm", "-7.62mm"], length = "2.54mm" },
+]
+
+[[symbol.graphic]]
+kind = "rect"
+points = [["-5.08mm", "-12.7mm"], ["5.08mm", "12.7mm"]]
+filled = true
+
+[origin]
+tool = "fenolite library import"
+date = "2026-11-01"
+shippable = false
+content_sha256 = "5c1d8ce1fe7cceadfb475fcd03d323438f639d042977313d099213cfb63f2f8f"
+
+[[origin.source]]
+file = "exb6202.zip"
+sha256 = "25176f644e0f85392aa8d4801ff61dd99dc4a9f85f4be11074598ad77620d867"
+
+[[origin.source]]
+file = "exb6202.zip"
+member = "KiCad/exb6202.kicad_mod"
+sha256 = "8371340d7552da242ce572ddb849a9ba1c206a4a3a752f7f04f66ea30ea0d913"
+
+[[origin.source]]
+file = "exb6202.zip"
+member = "KiCad/exb6202.kicad_sym"
+sha256 = "a45395ad3e95805fddef8bc8d02db0d544d0df8704102f6ba8801a8421d78084"
+
+[[origin.source]]
+file = "exb6202.zip"
+member = "KiCad/exb6202.step"
+sha256 = "fc986125b480ae9dd5195f737199d56c01b142c833e113dcf5b42706a5935652"

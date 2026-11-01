@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example; an illustrative device, not a real product. Its pins are chosen for
+# the example and come from no datasheet.
+schema = "fenolite.device.v0"
+id = "Example:SENSOR_I2C"
+summary = "6-pin I2C sensor (illustrative)"
+manufacturer = "Example Semi"
+mpn = "EXS0006"
+symbol = "Example:Sensor_6pin"
+footprint = "Fenolite:SOT23_6_TI_DBV0006A"
+ref_prefix = "U"
+evidence = "UNVERIFIED"
+ground = "GND"
+
+[pins]
+VDD = "1"
+GND = "2"
+SDA = "3"
+SCL = "4"
+INT = "5"
+ADDR = "6"
+
+[[interfaces]]
+name = "i2c"
+kind = "i2c"
+direction = "inout"
+members = { sda = ["SDA"], scl = ["SCL"] }

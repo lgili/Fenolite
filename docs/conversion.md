@@ -200,14 +200,15 @@ it was.
 
 ### Profiles
 
-`src/fenolite/convert/data/profiles.toml` holds one profile per direction, and `kicad-downgrade` for the
-downgrade, in the exclusion format of `docs/equivalence.md`; none holds a rule today.
+`src/fenolite/convert/data/profiles.toml` holds one profile per direction, `kicad-downgrade` for the
+downgrade and `import` for the self-check of `fenolite import` (`docs/import.md`), in the exclusion format of `docs/equivalence.md`; none holds a rule today.
 
 | profile | frame | tolerances | why |
 |---|---|---|---|
 | `kicad-to-altium` | relative | 3 nm, 20 ppm | the writer moves the board's corner to the document's origin; a length is written in 1/10 000 mil (2.54 nm), and the 16 demo boards read back within 2 nm per coordinate; a routed length as in the triangle |
 | `kicad-to-kicad` | absolute | none | the board is written with its own coordinates |
 | `kicad-downgrade` | absolute | none | the same model in another header: a construct the resolver drops is no item that levels 1 to 5 compare |
+| `import` | absolute | none | `fenolite import` builds the emitted code and compares it with the source board; the build writes the source coordinates exactly (change c0275) |
 
 ## Evidence
 

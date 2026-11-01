@@ -17,7 +17,7 @@
 #### Scenario: Default divider
 - **GIVEN** `instantiate(voltage_divider, stimulus=stimulus(HI=volt("12").pct(2), LO=volt(0)))`
 - **WHEN** `uv run pytest src/fenolite/blocks/tests/test_voltage_divider.py -k default` runs
-- **THEN** the resistors are 137 kΩ and 52.3 kΩ, the output row's value is 3.202246 V to 3.430848 V (outward to 1 µV) and passes, and the top power value is at most 1.104606 mW
+- **THEN** the resistors are 137 kΩ and 52.3 kΩ, the output row's value is 3.202246 V to 3.430848 V (outward to 1 µV) and passes, and the computed top power bound is at most 1.104606 mW
 
 #### Scenario: Unreachable output
 - **WHEN** the block is instantiated with `vin=volt("12").pct(10)`
@@ -32,7 +32,7 @@
 
 #### Scenario: Default filter
 - **WHEN** `uv run pytest src/fenolite/blocks/tests/test_rc_lowpass.py -k default` instantiates the block with its defaults
-- **THEN** `r` is 1.58 kΩ and the cut-off row's value is 906.669 Hz to 1130.538 Hz (outward to 1 mHz) and passes
+- **THEN** `r` is 1.58 kΩ and the cut-off row's value is 906.669 Hz to 1130.539 Hz (outward to 1 mHz) and passes
 
 #### Scenario: A window narrower than the capacitor
 - **WHEN** the block is instantiated with `corner=hertz("1k").pct(10)`
@@ -80,11 +80,11 @@ The stage `circuit.rules` SHALL give `circuit.pullup-parallel` (warning) for eac
 #### Scenario: Injected current limited by the series resistor
 - **GIVEN** `clamp=volt("9.2").max()`, `hold=volt("3.6")` and `inject_max=amp("5m")`
 - **WHEN** `uv run pytest src/fenolite/blocks/tests/test_protected_input.py -k inject` instantiates it with `r_series=ohm("1k")` and with `ohm("1.5k")`
-- **THEN** the first row's value reaches 5.656566 mA and fails, the second reaches 3.771044 mA and passes
+- **THEN** the first row's required-current upper bound reaches 5.656566 mA and is unsure, the second reaches 3.771044 mA and passes
 
 #### Scenario: Clamp above the downstream maximum
 - **WHEN** the block is instantiated with `abs_max=volt("3.6")` and no `inject_max`
-- **THEN** the clamp row fails and `findings("circuit.expect-failed")` holds one finding
+- **THEN** the one-sided clamp overlaps the limit, so the row is unsure and `findings("circuit.expect-unsure")` holds one finding
 
 ### Requirement: Starter block layouts
 Each starter block SHALL ship `layouts/<name>.toml` captured by `fenolite blocks capture` from its usage board, used by its body with `copper=True`. The LED layout MUST put the LED's cathode pad on `LO` with its polarity mark on that side; the protection layout MUST put `tvs` nearest the `EXT` edge with at most 1.5 mm of copper from its ground pad to the ground via.
@@ -106,3 +106,17 @@ Every relation of a starter block SHALL cite a source registered in `docs/eviden
 #### Scenario: Pages up to date
 - **WHEN** `uv run pytest tests/unit/blocks/test_block_docs.py` runs
 - **THEN** the generated pages equal the committed ones, and a changed parameter `doc` makes the check fail
+
+### Requirement: Generator expectations preserve exact inputs
+Chosen query parts SHALL retain their tolerance range and resolve their device limits in later checks. Contract numeric literals MUST preserve bounded rational enclosures, including π, using integers only. Ordered comparisons SHALL use a one-sided rating's stated threshold, while containment and bounded operating ranges retain their bounds.
+
+#### Scenario: Picked values and enclosed pi survive a build
+- **WHEN** the starter divider and filter are built and their cached models are checked again
+- **THEN** their expectations pass using the chosen value ranges, device limits and both bounds of π
+
+### Requirement: Explicit partial starter records
+The shipped catalog SHALL retain port and layout metadata declared before missing electrical inputs, mark the record's elaboration incomplete, and preserve REQUIRED parameters without defaults. Primitive REQUIRED annotations MUST be recorded and checked before the block body. Direct describe without partial mode MUST preserve its existing required-input behavior.
+
+#### Scenario: Required protection metadata is visible
+- **WHEN** the protected-input starter is shown without electrical input values
+- **THEN** its ports and layout are visible, its protection type is str and voltage inputs are required, and elaboration names the missing input

@@ -47,7 +47,12 @@ def test_no_mark_by_default() -> None:
     """Scenario "No mark by default"; the field comes after the other fields of ``Pad`` of its time."""
     assert PAD.fab_property is None
     # the margins of change c0223 follow it
-    assert [f.name for f in dataclasses.fields(Pad)][-3:] == ["fab_property", "mask_margin", "paste_margin"]
+    names = [f.name for f in dataclasses.fields(Pad)]
+    assert names[names.index("fab_property") : names.index("fab_property") + 3] == [
+        "fab_property",
+        "mask_margin",
+        "paste_margin",
+    ]
     assert all("fab_property" not in text for text in canonical.dump_texts(design_with(PAD)).values())
 
 

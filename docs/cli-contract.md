@@ -92,8 +92,12 @@ and that the same command can be run again.
 | `FEN-3005` | geometry in the input cannot be represented | `GeometryError` (the message names the geometry code and the points) |
 | `FEN-3006` | fetched file does not match the pinned size or SHA-256 | the dispatcher, for a deferred write whose bytes differ from what the plan declared (see [fetch](#fetch)); the message holds the digest that was expected and the one that was found, and nothing is written |
 | `FEN-3007` | input file is kept only online by a sync client | `snapshot`, `publish` and `refs`, before any read: the message names the files that a sync client keeps online only (see [snapshot](#snapshot)); retryable once they are available offline |
+| `FEN-3021` | the item's licence is not allowed or its licence files are missing; nothing was written | `fenolite get` (see [get](#get)): an SPDX id outside the shipped allow-list, an index row and `PROVENANCE.json` that disagree, or no `LICENSE`/`NOTICE`; `issues` holds `library.licence-denied` |
 | `FEN-4002` | the plan named by `--plan` cannot be written as reviewed | the dispatcher, for `--confirm --plan ID`: the message names the first reason (see "Staged plans"); nothing is written |
+| `FEN-4003` | the item licences must be accepted by name; nothing was written | `fenolite get --confirm` of a plan holding a licence other than `CC0-1.0` without `--accept-licence` naming it; the message lists the missing ids |
 | `FEN-6003` | download failed | `fenolite fetch NAME --confirm` without `--from` (retryable; the hint names `--from FILE`) |
+| `FEN-6004` | a library item pinned by the design lock is missing | `fenolite build` when a `[library.items]` entry has no folder (not retryable; hint `fenolite get --locked <script> --dry-run`); `issues` holds `library.item-missing` |
+| `FEN-6006` | the library index or asset is not in the offline cache | `fenolite get` with `--offline`, and `--list`/`--search` without a cached index (not retryable; hint `fenolite get --refresh --dry-run` or `--from DIR`) |
 | `FEN-7001` | operation would lose information | `LossyWriteError` (a KiCad write meets content the target cannot hold; the hint names `--allow-lossy` only when every loss is droppable) |
 | `FEN-7002` | target format version older than the input; no downgrade was asked (hint: convert the project with `fenolite convert <project> --to kicad --kicad-version <target>`) | `DowngradeRefusedError` |
 | `FEN-7003` | input from KiCad 8.0 is read-only; writing needs a KiCad 9.0 or newer source | `LegacyEditRefusedError` (hint names `kicad-cli pcb upgrade`) |
@@ -236,9 +240,15 @@ such a command, so its outputs are byte-identical whatever both flags say.
 
 ## `catalog`
 
-`fenolite catalog list [--kind symbol|footprint] [--query TEXT]` returns stable, offline catalog
-entries with `lib_id`, kind, category, summary, evidence level and registered source ids.
-`fenolite catalog show LIB_ID` returns the same metadata and a compact definition summary. Neither
+`fenolite catalog list [--kind symbol|footprint|device] [--query TEXT]` returns stable, offline catalog
+entries with `lib_id`, kind, category, summary, evidence level and registered source ids; without `--kind`
+the list holds symbols, footprints and the shipped devices (change c0248, `docs/devices.md`), and a device
+entry also holds `id`. `fenolite catalog show LIB_ID [--kind ...]` returns the same metadata and a compact
+definition summary; for a device (`--kind device`, or an id that no symbol or footprint has) it returns
+the `record`, its `digest`, `edited` and `shadowed` (functions hidden by attributes of `Part`), and the
+`check_device` issues against the catalog symbol and footprint. Every entry also holds `version`, `licence` and `uid`, the record's
+version, licence and stable uid (change c0259, `docs/library-records.md`): the catalog is read from record
+files, and every other key keeps its value. Neither
 command reads library tables or runs external tools. The initial generic catalog is documented in
 `docs/catalog/README.md`; every non-`KICAD-VERIFIED` land dimension remains explicitly marked.
 
@@ -259,6 +269,17 @@ courtyard layers are initially visible. Exact pad information remains available 
 `view` with no `--out`, a positional ID on `view`, or `--out` on list/show gives `FEN-2001` (exit 2).
 Empty view filters give `FEN-3001` (exit 3), a hint to change the filters and no write; empty list filters
 keep returning a successful empty list.
+
+`fenolite catalog import --symbol LIB:SYM --footprint LIB:FP --id NS:NAME --out FILE [--pin
+FUNCTION=PIN[:PAD[+PAD]]]... [--manufacturer T] [--mpn T] [--datasheet URL] [--ref-prefix P]` plans one
+write of kind `device`: a device template (`docs/devices.md`) with `evidence = "UNVERIFIED"` and a
+`[provenance]` stamp (`tool`, the two lib ids, the date of `--timestamp` or today in UTC, and the record's
+SHA-256). Its result holds `device`, `out`, `functions`, `digest`, `replaces` and `evidence`. Catalog ids
+resolve offline; other lib ids through the library tables of the folder of `--out`. A symbol pin without a
+pad of its number and no `--pin` is `catalog.pin-without-pad` (error, exit 5, no write); a pad no pin names
+is `catalog.pad-unmapped` (warning). Onto an existing file that was edited after its stamp (or is not a
+device record) the import exits 7 with `FEN-7001` unless `--allow-lossy` is given; onto an unedited file it
+plans the replacement. The import options on `list`, `show` or `view` give `FEN-2001`.
 
 ## KiCad output
 
@@ -465,13 +486,27 @@ A build for the KiCad target also checks the interfaces of the design (`docs/dsl
 |---|---|---|
 | `build.diff-pair-name` | warning | the two nets of a `diff_pair` or `usb2` interface are not a differential pair for KiCad by name; the hint proposes a name |
 | `build.diff-pair-gap-shadowed` | warning | the two nets of a pair interface are in a net class with a pair gap, and KiCad would report two tracks laid at that gap: a clearance rule above the gap governs between them, or the board minimum clearance is above the gap and no `diff_pair_gap` rule selects the pair; the hint names `design.rules.pair(…, clearance=…, gap_min=…)` |
-| `build.i2c-pullup-missing` | warning | a line of an `i2c` interface has no two-pin part to the `hv` net of a `power` interface |
+| `build.i2c-pullup-missing` | warning | a line of an `i2c` interface has no two-pin part to the `hv` net of a `power` interface or of a `power` port (change c0252) |
+
+A build for either target also runs the circuit rules on the model it builds (change c0252; "Circuit
+stage" under `check`): the nine `circuit.*` codes join the envelope with their severities, and an error
+(`circuit.rail-voltage`, `circuit.rail-current`, `circuit.rail-sources`, `circuit.logic-level`) stops the
+write, so the build exits 5 and writes nothing.
+
+A build for the KiCad target also checks the blocks of the design (`docs/dsl.md`, "Blocks"; change c0251):
+
+| code | severity | meaning |
+|---|---|---|
+| `build.port-unused` | warning | a port of a block instance that is not `optional` has nothing outside the block on its members; `where` is `<block path>/<port>` |
+| `build.block-net-escape` | warning | a script-named net joins pins inside and outside a block instance without a port of that block; `where` is `<block path>:<net>`, the hint "declare a port" |
+| `build.block-sheet-name-clash` | error | Altium, `sheets="modules"`: a port of a block instance and a net that crosses its sheet without a port have one name (change c0269); `where` is the block path, and nothing is written |
 
 A build for either target applies the catalog's default pin-to-pad map (change c0147,
 `docs/catalog/sources.md`) and reports each part it applies it to:
 
 | code | severity | meaning |
 |---|---|---|
+| `build.unattached` | warning | a live Part, Net or Interface created in the script folder never reached the design; where is its relative file and line |
 | `build.pad-map-default` | warning | a part of an anode-first catalog symbol (`Fenolite:LED`, `Diode`, `Zener_Diode`, `Schottky_Diode`, `Photodiode`) on a catalog land whose pad 1 is the cathode gives no `pad_map`, and the build applied `{"1": "2", "2": "1"}`; the issue names the part (`where`), the land and the map, and the hint the `pad_map=` to write |
 
 ## `build`
@@ -482,7 +517,7 @@ A build for either target applies the catalog's default pin-to-pad map (change c
 [--altium-format binary|ascii] [--altium-sheets flat|modules] [--altium-layout grid|blocks] [--altium-outjob on|off]
 [--altium-outjob-preset FILE] [--altium-symbols graphics|generic] [--altium-directions on|off]
 [--altium-bodies off|extruded] [--altium-pour computed|outline]
-[--copper-check refuse|warn] [--lock FILE] [--frozen]` runs the design script
+[--copper-check refuse|warn] [--lock FILE] [--frozen] [--take SIDE[:TARGET]]...` runs the design script
 (your own code: never run it on an untrusted script) and plans the files of a KiCad project under `DIR`
 (`docs/dsl.md`). It is mutating. `--discard-layout` replaces outputs edited since the last build.
 `--vendor all` (the default) copies the placed footprints of every library into `DIR/lib/`; the copies
@@ -497,13 +532,63 @@ canonical bytes change, also for `--target altium`. A design whose parts all hav
 has no lock file gets none, and `result.lock` is `null`. Otherwise `result.lock` holds `file` (relative to
 the script folder when the lock is inside it, else its file name), `exists`, `written`, `frozen` and
 `changes`: one `{"section", "key", "before", "after", "reason"}` per change, sorted by section and key, the
-reason one of `assigned`, `released`, `moved`, `explicit`, `taken`, `prefix-changed` and `design-renamed`.
+reason one of `assigned`, `released`, `moved`, `explicit`, `taken`, `prefix-changed` and `design-renamed`
+(and `solved`, `stale` and `dropped` for the `pins` section, below).
 New refs are listed there only; the issues are `lock.ref-released` and `lock.ref-taken` (warnings),
 `lock.ref-moved`, `lock.ref-explicit`, `lock.ref-prefix-changed` and `lock.design-renamed` (infos).
 `--frozen` refuses any change of the lock with exit 7 and `FEN-7004`, one `lock.changed` (error) per change
 in `issues`, and nothing written, also under `--dry-run`; a frozen build never writes the lock, and a lock
 that differs in formatting only is no change. A malformed lock is `FEN-3004`; a newer schema, or content in
-the reserved sections `picks` and `pins`, is `FEN-3002`.
+the reserved section `picks`, is `FEN-3002`.
+
+Block versions (change c0268; `docs/dsl.md`, "Block records, parameter metadata and versions"): each
+instance of a block with a record is pinned in the lock section `[blocks]` as `<id>@<version>`, so such a
+design always has a lock. The reasons of its changes are `block-locked` (a first pin; no issue),
+`block-replaced` (another id at the path; `lock.block-replaced`, info) and `block-released` (the path is no
+recorded instance; `lock.block-released`, info). A locked path whose block now has another version gives
+`lock.block-version` (error), naming the path and both versions: the build stops before lowering the
+design, exits 5 and writes nothing, the lock included. A deprecated block gives `block.deprecated`
+(warning) once per id. Under `--frozen` a change of the section is a lock change (`FEN-7004`).
+
+Pin assignment (change c0257; `docs/pins.md`): every `part.take(...)` of the script is given one alternative
+of the device's `[[options]]` before the design is lowered, valid choices of the lock's `[pins]` section kept
+first, the others searched in the canonical order (part path, take key, option name, alternative index), so
+the result does not depend on `--seed`. `result.pins` lists one `{"key", "kind", "option", "alternative",
+"pins", "source"}` per take, sorted by key (`<part path>/<take key>`), `source` one of `solved`, `locked` and
+`pinned`; it is `[]` for a design without takes, and the same on a dry run and a confirmed run. The choices
+are recorded in `[pins."<key>"]` of the lock through the plan, and their changes appear in
+`result.lock.changes` with the reasons `solved`, `stale` and `dropped`, so `--frozen` refuses a new, changed
+or dropped choice (`FEN-7004`). A design with a take gets a lock even when every part has an explicit ref.
+The build's evidence joins `INFERRED` (`H-G-PIN-SOLVE-DETERMINISTIC`), and `UNVERIFIED` when a chosen option
+carries that label. The codes (`lens.pins.PIN_ISSUE_CODES`):
+
+| code | severity | when |
+|---|---|---|
+| `pins.unsatisfiable` | error | no assignment exists; the message names the smallest conflicting takes and their pins |
+| `pins.option-unknown` | error | `option=` names no option of that kind on the device |
+| `pins.pinned-conflict` | error | `pins=` matches no alternative, or names a pin fixed by hand |
+| `pins.search-limit` | error | the search tried more than 100 000 candidates |
+| `pins.lock-stale` | warning | a locked choice is no longer valid and was solved again |
+| `pins.unused-take` | warning | a take whose nets reach no other pin |
+| `pins.lock-dropped` | info | a lock entry whose take no longer exists is removed |
+
+**Placement in code** (change c0255; `docs/dsl.md`, "Relative placement" and "Block layout"). A script
+with a relative `place()`, a block pose, a layout strategy or a block reuse gets `result.placement.relative`
+(one record per resolved request: `path`, the canonical `request` text such as `right_of=U1.pad(1) gap=0.5mm
+by=pad(2)`, `frame`, `refs` with each reference's `box` and `center` in the frame of the request, and `at`
+in the frame of `place()`, `rotation` and `side`), `result.placement.blocks` (per block instance: `path`,
+the pose `at` and `rotation`, `layout` text, `source` `body` or `instance`, and `staged`),
+`result.placement.top` (the text of `design.layout(...)` or `null`) and `result.placement.digest` (SHA-256 of
+the resolved records and poses); `.fenolite/build.json` keeps the poses and the digest under `layout`.
+Equal inputs give equal records and equal bytes. The codes: `layout.relative-cycle` (error: relative
+requests reference each other in a cycle; nothing is written), `layout.relative-unresolved` (warning: a
+reference has no placement and the part is staged), `layout.strategy-overflow` (warning: a box wider than a
+`pack` width, or a strategy that puts a part beyond the outline), `layout.block-moved` (info: a block's pose changed and its kept parts moved with it, with
+the copper joined only to their pads; other copper stays with `place.copper-left`), and for a block reuse
+`reuse.port-unmapped` (error: a net of the reference board that is neither a port nor a local net, with
+`copper=True`), `reuse.unknown-part` (warning here: a part the reference board lacks is staged) and
+`reuse.no-fit` (error: a part whose pads differ from its reference part's). A design without any of these
+builds as before, byte for byte.
 
 Every placed footprint holds a `Reference` and a `Value` field. A footprint of the built-in catalog or
 of `dsl.Footprint` carries both in the project library and on the board (`docs/dsl.md`, "Authored
@@ -540,6 +625,24 @@ the setting of a board pad, which wins) and `forced` (a locked request replaced 
 pad); both are empty without an existing board (`docs/lens.md`, "Pad zone connections"). Their issues
 are `kicad.pad.zone-overridden` (info), `kicad.pad.zone-forced` (warning) and
 `kicad.pad.zone-unknown-pad` (error: exit 5, nothing written).
+
+**Edits made in KiCad** (change c0250, `docs/lens.md`, "Three-way merge"). Positions, rotations, values,
+footprints, references and the user properties the script names are merged three ways between the script with `edits.toml` (beside the script; a legacy
+`placements.toml` when there is none, `edit.legacy-file` when both are there), the board and schematic
+in `DIR`, and the base record `DIR/fenolite-base.json` that every build writes (a planned write, in the
+receipt and in `.fenolite/build.json`). `result.preserved.edits` holds `kept`, `code`, `taken` and
+`unrecorded` (sorted `"<path>#<property>"` keys) and `conflicts` (records: `key`, `reason`, `base`, `code`,
+`cad`); `result.preserved.source.file` names the file read. A property changed on both sides to
+different values, or an edit of `edits.toml` made over a script value that changed since, is a
+`sync.conflict` (error): exit 5 and nothing written. `--take SIDE[:TARGET]`, repeatable, resolves it:
+`SIDE` is `code`, `cad`, `board` or `schematic`, `TARGET` a component path or a key `PATH#PROPERTY`, none
+for every conflict; the most specific take wins. A malformed value or two sides for one target is a usage
+error (exit 2, `FEN-2001`); a take that matches no conflict gives `edit.take-unused` (warning). The info
+codes `edit.unrecorded`, `edit.code-wins` and `edit.base-missing` never fail a build, and
+`edit.base-invalid` (warning) reads a broken base record as none. A base record changed by hand is
+refused as `build.layout-exists` (exit 7). Under `--frozen` (c0249) any `--take` and any CAD edit that
+would give `edit.unrecorded` are refused as a change of the lock is: exit 7, `FEN-7004`, one
+`lock.changed` (error) per take (`where` `--take`) or per property key, and nothing written.
 
 The outline of the script is judged before anything is placed (`docs/dsl.md`, "Board"):
 `kicad.outline.invalid` (error: exit 5, nothing written) for rings that cross or touch, a cut-out or slot
@@ -597,7 +700,11 @@ the planned project and rules files give the clearance in force, and copper kept
 is judged with the rest. `--copper-check refuse` (the default) adds the `copper.*` issues as they are,
 so a `copper.short` or a `copper.clearance` error exits 5 and writes nothing. `--copper-check warn`
 reports those errors as warnings, with ` (copper guard in warn mode)` at the end of the message, and
-writes. There is no way to switch the guard off. `result.copper_check` holds `mode`, `ran` (false when
+writes. There is no way to switch the guard off. Without `--copper-check`, a script whose
+`PROVENANCE.json` holds an import record whose `copy` is not `false` (a copy of someone else's board,
+`docs/import.md`, "Copy mode"; change c0281) builds in `warn`, any other in `refuse`; the guard judges a
+gap down to 500 nm below the clearance as clean, as KiCad's DRC does (`H-K-COPPER-EPSILON`).
+`result.copper_check` holds `mode`, `mode_source` (`option`, `copy` or `default`), `ran` (false when
 the build was already refused), `shorts`, `clearance`, `edge_clearance`, `rules` (`min_clearance`,
 `opaque_clearance_rules`, `unread`), `evidence` and `waivers`. The design's `copper.*` waivers
 (`design.waive()`) are applied before the mode: a waived finding is `info` in `refuse` and in `warn`
@@ -655,26 +762,43 @@ inputs give `sync.altium-unverified`. Both exit 5. The mutation protocol and inp
 native sheet and baseline. Scope, evidence and recovery: `docs/altium-schematic-layout.md`.
 
 `fenolite sync DESIGN.py --out DIR --to-source [--check]` copies the layout of a built project into the
-source tree (`docs/lens.md`, "sync" and "placements.toml"). It is a mutating command: the writes follow
+source tree (`docs/lens.md`, "sync" and "edits.toml"). It is a mutating command: the writes follow
 "Writing files", `.bak` files included. It runs `DESIGN.py` as `build` does and starts no external tool.
+It reads the base record `DIR/fenolite-base.json`, `edits.toml` beside the script (otherwise a legacy
+`placements.toml`, whose entries it carries into `edits.toml`: `sync.placements-migrated`) and the
+schematic; a broken file exits 3 (`FEN-3004`). `--take` is a `build` option: here it is a usage error
+(exit 2, `FEN-2001`, hint "resolve the conflict with fenolite build --take, then sync"). `sync` records;
+it never resolves.
 
 - `--to-source` is required (exit 2, `FEN-2001` without it), so a later direction cannot change what a
   bare `sync` does.
 - The board `DIR/<design name>.kicad_pcb` must exist: otherwise exit 3, `FEN-3001`, with the hint to run
   `fenolite build` first. The refusals of a build over an existing board apply unchanged.
-- **Writes** go beside the design script, not under `DIR`: `placements.toml`, and
-  `schematic-placements.toml` when `DIR` holds the schematic of the design; each only when its text
-  would change. A run that changes nothing plans nothing and asks for no confirmation.
+- **Writes** go beside the design script, not under `DIR`: `edits.toml` (the values the next build would
+  write that differ from the script's, each over the script value), and `schematic-placements.toml` when
+  `DIR` holds the schematic of the design; each only when its text would change. A run that changes
+  nothing plans nothing and asks for no confirmation. A `sync.conflict` plans nothing.
+- **Drawn schematic** (change c0276, `docs/drawn-schematic.md`): for a design that calls
+  `design.load_schematic(FILE)`, the sheets in `DIR` are extracted and `FILE` is planned instead of
+  `schematic-placements.toml` when its canonical text differs. The sheets are first compared with the
+  circuit of `DIR/.fenolite/`: a connectivity difference plans no drawn file and gives
+  `drawn.netlist-differs` (error, exit 5). `--freeze-schematic` plans `schematic.toml` from a generated
+  schematic, with `drawn.frozen` (info) and the hint to call `design.load_schematic`; the script is never
+  rewritten. A project without a schematic gives `FEN-3001`.
 - **`--check`** plans nothing and reports one `sync.would-change` (error) per file that would change,
-  naming its first differing table: exit 5 when a committed file is stale, 0 otherwise. `--check` with
-  `--confirm` is a usage error (exit 2).
-- **`result`**: `design`, `out`, `board` (the file name), `placements` (the number of entries),
+  naming its first differing table: exit 5 when a committed file is stale or a property is in conflict
+  (`sync.conflict`), 0 otherwise. `--check` with `--confirm` is a usage error (exit 2).
+- **`result`**: `design`, `out`, `board` (the file name), `placements` (the number of parts whose position
+  or rotation `edits.toml` holds), `edits` (the keys captured), `pending` (code changes the next build
+  writes over an unchanged CAD value), `conflicts` (records),
   `unplaced` (matched parts that lie off the board and stay out of the file), `orphans` and `board_only`
   (references), `symbols` (the number of tables of `schematic-placements.toml`, or `null` when `DIR`
-  holds no schematic), `files` (the names that change) and `script_output`.
-- **Issues**: those of the board read, and the `sync.*` codes of `docs/lens.md`: `sync.would-change`
-  (error), `sync.orphan`, `sync.net-dropped`, `sync.value-differs` and `sync.symbol-off-grid`
-  (warnings).
+  holds no schematic), `files` (the names that change), `drawn` (`null`, or the drawn file, whether it is
+  `planned`, and the counts of `wires`, `junctions`, `labels`, `buses` and `opaque` items) and
+  `script_output`.
+- **Issues**: those of the board read, and the `sync.*` codes of `docs/lens.md`: `sync.would-change` and
+  `sync.conflict` (errors), `sync.orphan`, `sync.net-dropped`, `sync.value-differs` (now only for parts
+  without a base entry) and `sync.symbol-off-grid` (warnings), and `sync.placements-migrated` (info).
 - Two runs on equal inputs plan equal bytes.
 
 `build` writes the drawing sheet that `design.sheet(drawing_sheet=…)` names as `<name>.kicad_wks`
@@ -699,7 +823,14 @@ follows the sheet: the pad of each unconnected pin is on a net named as KiCad na
 path of its symbol; the `.fenolite/` model holds none of this. `result.schematic` holds `file`, `paper`
 (the root's), `sheets` (their number, the root included), `files` (the child sheet files), `symbols`,
 `labels`, `no_connects` and `wires` (counted over every sheet), `satellites`, `power_flags`, `libraries`
-(the symbol library files) and `unconnected_pads`, and is `null` with `skip`.
+(the symbol library files), `unconnected_pads`, `source` (`generated`, or `drawn` for a design that loads a
+drawn schematic, change c0276) and `drawn` (`null`, or `file` and the counts `wires`, `junctions`, `labels`,
+`buses` and `opaque` of the drawn file), and is `null` with `skip`. A drawn schematic is read from the
+script's folder (a missing or bad file: exit 3, `FEN-3004`), lowered instead of generated, read back and
+compared with the script's nets before any file is planned (`build.schematic-netlist-differs`, exit 5); its
+coverage errors (`drawn.symbol-missing`, `drawn.part-unknown`) plan nothing, and
+`schematic-placements.toml` beside it is not read (`drawn.placements-ignored`); see
+`docs/drawn-schematic.md`.
 
 `--schematic-layout readable` (the default) gives each module that holds a part a sheet of its own,
 `DIR/sheets/<module path with "." for "/">.kicad_sch`, named by a box on the sheet above it, and puts a
@@ -731,6 +862,7 @@ a difference is a defect of the generator and stops the build (`build.schematic-
 | `kicad.sch.unconnected-name-unproven` | warning | the net name of an unconnected pin is not written, so its pad stays on no net |
 | `kicad.sch.dropped-too-new` | warning | `--allow-lossy` removed a token of an embedded symbol that the target does not read |
 | `kicad.sch.pin-off-grid` | info | a library pin is not on the 1.27 mm grid |
+| `build.block-port-merged` | info | two port members or more of one block instance bind one net: that net keeps global labels on the block's sheet and those members get no sheet pin (change c0269); `where` is the block path |
 | `kicad.sch.power-pin-shown` | info | a hidden power-input pin is embedded visible |
 
 The board reader gives a net stored with `{slash}` the name with the slash; when another net of the board
@@ -955,7 +1087,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 
 ## route
 
-`fenolite route PATH --router NAME [--nets GLOB]... [--order GLOBS]... [--rip] [--include-zone-nets] [--no-plane-fanout] [--require-complete] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [--escape REF[=grid|perimeter]]... [--pairs-as-nets] [--roles critical [--group NAME]... [--roles-file FILE]] [--gate drc [--kicad-cli PATH]] [-o FILE]` routes the nets that still have open connections. `PATH` accepts a board, matching project or folder. External tools receive a temporary model-authored project copy; only routed tracks, arcs and vias are merged back. `--out` is relative to the working directory. The normal dry-run/confirm receipt protocol applies.
+`fenolite route PATH --router NAME [--nets GLOB]... [--order GLOBS]... [--rip] [--include-zone-nets] [--no-plane-fanout] [--require-complete] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [--escape REF[=grid|perimeter]]... [--pairs-as-nets] [--roles critical [--group NAME]... [--roles-file FILE]] [--propose [--kind KIND]... [--candidates N] [--show-rejected] | --accept ID... | --reject ID... [--reason TEXT] | --replay | --forget ID...] [--gate drc [--kicad-cli PATH]] [-o FILE]` routes the nets that still have open connections. `PATH` accepts a board, matching project or folder. External tools receive a temporary model-authored project copy; only routed tracks, arcs and vias are merged back. `--out` is relative to the working directory. The normal dry-run/confirm receipt protocol applies.
 
 - **Selection.** A net is selected when it matches `--nets`, has two or more pads and has an open connection on the board, computed from the board after the rip (`docs/analyses.md`, "Open connections"). Copper of its own does not exclude a net; a closed net is never given to the router; a zone net needs `--include-zone-nets`.
 - **`--rip`** removes the tracks, arcs and vias of the matching nets first, but keeps locked copper and script copper (`result.rip_kept`).
@@ -997,6 +1129,14 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `route.plane-net` | info | a plane net that `--nets` selects is not given to a router; its pads reach the plane through fan-out vias |
 | `route.project-unread` | warning | the project file or the rules file beside the board could not be read: without the project every net takes the default class values, without the rules file the rules are not given to the router |
 | `route.resumed` | info | the copper of router runs that finished in an earlier call of the same job was reused; the message gives the number of runs and of nets |
+| `route.proposal-conflict` | error | proposal mode: two accepted candidates answer one subject or clash; nothing is planned |
+| `route.proposal-findings` | warning | proposal mode: an accepted candidate brings a new copper-check or role finding, named; it is accepted |
+| `route.proposal-limit` | info | proposal mode: subjects not evaluated or candidates cut by `--candidates` or `--timeout`, counted |
+| `route.proposal-none` | info | proposal mode: no open connection or open critical group to propose for |
+| `route.proposal-open` | warning | proposal mode: a subject without a candidate; the message gives the reason, the proposal its alternatives |
+| `route.proposal-rejected` | info | proposal mode: rejected candidates or proposals left out, counted |
+| `route.proposal-stale` | warning | proposal mode: a locked decision that `--replay` cannot place (`moved`, `blocked`, `net-gone`) |
+| `route.proposal-unknown` | error | proposal mode: an id given to `--accept`, `--reject` or `--forget` that is not current; nothing is planned |
 | `route.role-kept` | info | role mode: a group that copper already joins still has role findings and was left as it is; the message names the findings, the hint `--rip` |
 | `route.role-none` | info | role mode: no confirmed or declared gate loop or Kelvin pair to route; nothing is planned |
 | `route.role-placement` | info | role mode: a gate loop's placement bound is above the user's `gate_max`; the message gives both |
@@ -1028,11 +1168,48 @@ group of the plan, sorted by tier and name: `group`, `kind` (`gate_loop`, `kelvi
 `status` (`routed`, `complete`, `kept`, `refused`, `unrouted`, `skipped`), `connections` (`key`, `net`, `a`,
 `b`, `layer`, `form`: `single`, `pair`, `side-by-side`, `stacked` or `plane-return`, `length`, `vias`),
 `findings_before` and `findings_after` (`code`, `severity`, `measure`), `reason` and `proposal` (`kind`,
-`text`, `command`, `region`) when not routed, `copper` and `corridors` (ids). `plane_fanout` is `null`. The
+`text`, `command`, `region`) when not routed, `copper` and `corridors` (ids), and `propose` (change c0280). `plane_fanout` is `null`. The
 role options of `octilinear` are `gate-vias`, `kelvin-vias`, `keep-away`, `z-shapes`, `rounds` and
 `max-length` (no default in role mode); see `docs/routing.md`, "Role mode".
 
-`fenolite route --router octilinear` (change c0228) is built in, runs no process and places no via: for each open connection it tries a straight segment, 45° then straight, straight then 45° and the two L shapes on each allowed layer, and keeps the first that keeps the clearance in force plus 2 µm from other nets' copper and holes, the edge clearance, and no acute angle at its ends. `--router-option max-length=LENGTH` (default 20 mm) bounds a shape: a connection longer by every shape stays open with `route.unrouted`; `--router-option rounds=N` (default 3) routes the failed connections first in the next round. A pair of two pads per net is routed as two tracks at the pair gap (`route.pair-not-routed` otherwise). The copper check judges the result, and a connection with a new finding is removed (`route.check-refused`). Its features are `pairs`, `short` (a router of short connections, not of whole boards) and `roles` (the role mode of `--roles critical`, change c0244). The job's `extra` gives every router `clearance` and `copper_check` (`docs/routing.md`, "octilinear").
+**Proposal mode** (change c0280). `--propose` lists every open connection after the power copper and the
+critical routes as a proposal with candidates and their facts, without a score, and writes nothing (no
+`plan_id`); `--accept ID` (repeatable) plans the board with each candidate's items locked and the decision
+record in one reviewed plan; `--reject ID [--reason TEXT]` plans the record only; `--replay` plans the
+locked decisions whose copper the board lacks; `--forget ID` plans dropping a decision and its copper. The
+modes exclude each other and `--roles` (`--accept` and `--reject` combine), and each excludes `--rip`,
+`--escape`, `--order`, `--pairs-as-nets`, `--require-complete` and `--out`; they need a router with the
+feature `propose` (`octilinear`); a misuse is `FEN-2001`. `--kind`, `--nets` and `--group` narrow the
+subjects; `--candidates N` (1 to 8, default 4) bounds the candidates per subject; `--timeout` bounds the
+facts (`route.proposal-limit`); `--reason` takes one line of 1 to 300 printable characters. In propose mode
+`result` holds `mode` (`propose`), `order` (`generation`), `open` (`before`), `proposals`, `rejected`
+(`id`, `subject`, `reason` of rejected proposals), `locked` (`candidate`, `subject`, `present` of each
+locked decision) and `next`, and with `--gate drc` `drc_unattributed`. Each proposal holds exactly `id`
+(`p-` and 16 hex digits of the SHA-256 of its subject key and ends), `subject`, `kind` (`fanout`, `join`,
+`role-net`, `group`, `connection`; the sort order, then the subject), `net`, `ends` (`kind`, `name`,
+`layers`, and `at` but for a zone), `region` (a `render --region` command), `candidates`, `reason` (`null`
+with candidates) and `alternatives` (`kind`: `free-corridor`, `move-part`, `allow-via`, `raise-limit`,
+`power-copper`, `confirm`, `external-router`, `edit-script`; `text`, `command`, `region`, and `then` for
+`confirm`). Each candidate holds exactly `id` (`c-` and 16 hex digits of the SHA-256 of its subject key,
+family, relaxations and geometry), `source`, `relaxed`, `items` (`tracks`, `vias`), `geometry` (the items as
+the record spells them), `facts` and `rejected`. `facts` holds `closes`, `open` (`before`, `after`),
+`copper_check` (`before`, `after`, `new`), `vias`, `length`, `layers`, `bends`, `conflicts`, `fill`
+(`saved`, `simulated`, `stale`) and `not_evaluated` (`fact`, `why`: `no-gate`, `no-role-loop`,
+`outside-role-reach`, `no-kicad-cli`, `budget`, `external-trial-failed`), and when measured `roles`
+(`before`, `after`, `new`, `cleared`), `loop` (`group`, `area`, `ratio_permille`, `bound`), `drc` (`new`:
+`type`, `items`; `evidence`), `relaxed` and, for a `role-net` subject, `current: not-declared`. No proposal
+or candidate holds `score`, `rank`, `best`, `recommended` or `cost`. The accept reply holds `mode`
+(`accept`), `board`, `accepted` (`candidate`, `subject`, `facts`), `rejected`, `record`, `decision` and
+`gate`; replay `replayed` and `stale` (`candidate`, `subject`, `why`); forget `forgotten` and `removed`. The
+decision record `fenolite.route-decisions.v0` is canonical JSON with no clock at `.fenolite/route-decisions.json`
+of a built project, else `<board stem>.route-decisions.json`: `board`, `locked` (`candidate`, `proposal`,
+`subject`, `net`, `ends`, `items`, `corridors`, `relaxed`, `plan`, the decision id: 16 hex digits of the
+SHA-256 of the board's SHA-256 and the accepted ids) and `rejected` (`id`, `subject`, `reason`), sorted by
+subject, then id; a malformed record is `FEN-3004`. An `unrouted` or `refused` entry of `result.roles` (role
+mode) holds `propose`, the command `route BOARD --router octilinear --propose --group NAME`; other entries
+hold `propose: null`. See `docs/routing.md`, "Proposals".
+
+`fenolite route --router octilinear` (change c0228) is built in, runs no process and places no via: for each open connection it tries a straight segment, 45° then straight, straight then 45° and the two L shapes on each allowed layer, and keeps the first that keeps the clearance in force plus 2 µm from other nets' copper and holes, the edge clearance, and no acute angle at its ends. `--router-option max-length=LENGTH` (default 20 mm) bounds a shape: a connection longer by every shape stays open with `route.unrouted`; `--router-option rounds=N` (default 3) routes the failed connections first in the next round. A pair of two pads per net is routed as two tracks at the pair gap (`route.pair-not-routed` otherwise). The copper check judges the result, and a connection with a new finding is removed (`route.check-refused`). Its features are `pairs`, `short` (a router of short connections, not of whole boards), `roles` (the role mode of `--roles critical`, change c0244) and `propose` (the proposal mode, change c0280). The job's `extra` gives every router `clearance` and `copper_check` (`docs/routing.md`, "octilinear").
 
 `fenolite route --router freerouting` runs Freerouting through a Specctra design file. `--router-path` names its jar (or `docker:<image>`), `--router-option max-passes=N` its passes, `--router-option optimize=on` adds a run with its optimizer on the time left (the optimizer is off otherwise), and `--router-option fanout=off` turns its fanout stage off (it is on by default); its automatic neck-down is always off; the board needs a closed outline. The design file declares only the nets of the job, and one run is made per tier. `--router kicadroutingtools` runs one process per group of nets of equal track width and via sizes; `--router-option group-nets=N` splits a group, and its options `nets`, `output` and `overwrite` are ignored. Its issues also carry the `specctra.*` codes: `specctra.unknown-padstack` and `specctra.session-moved` (error, no copper is taken), `specctra.pad-approximated` and `specctra.plane-skipped` (warning: a zone on a plane layer without an outline gives no plane), `specctra.rounded`, `specctra.renamed`, `specctra.unknown-list`, `specctra.rule-not-sent` (a rule the file cannot carry) and `specctra.rule-widened` (a layer clause dropped from a clearance rule) (info). The file declares the plane layers `(type power)` with one plane per zone, keeps nets to their layers with `use_layer`, and carries class clearances, class-to-class clearances, widths per layer and the edge clearance (`docs/routing.md`, "What each router is given"). While the router is listed with `sends_data_offsite: true`, the command exits 2 without `--allow-offsite`. See `docs/routing.md`. The jar is `--router-path`, else `FENOLITE_FREEROUTING_JAR`, else the file that `fenolite fetch freerouting --confirm` installed in the tools folder ([fetch](#fetch)); without a jar the command exits 6 with `FEN-6001` and the hint `run 'fenolite fetch freerouting --confirm'`. `route` itself opens no network connection.
 
@@ -1114,9 +1291,206 @@ Evidence is `INFERRED` (`H-K-LIB-FROM-BOARD`). The exit code is 5 when a footpri
 | `library.instances-differ` | warning | two instances of one name differ; the second is written as `<name>_2` |
 | `library.not-local` | warning | a bottom-side footprint could not be flipped back; it is left out |
 
+### Action words and `library symbol`
+
+Since change c0261 the first positional of `fenolite library` is an **action** when it is one of `symbol`,
+`generate` (change c0260), `audit`, `replay`, `release`, `gallery`, `check`, `review`, `import`, `propose` or `seed`, and the board `PATH` of the form
+above otherwise (a board folder named like an action is passed as `./check`). `symbol`, `generate`, `import` and the four repository verbs run in
+this version; the others are reserved for later changes and exit 2 with `FEN-2001` ("not available in this
+version"), writing nothing. The board form takes exactly one `PATH` and no `--library`; `--positions`,
+`--no-step` and `--no-pcblib` belong to `generate` only (`FEN-2001` elsewhere).
+
+`fenolite library symbol PINS... --out FILE [--library NAME]` generates the symbols of one or more pin
+tables (`fenolite.pins.v0`, [`docs/symbols.md`](symbols.md)) and plans one library file holding them:
+`--out` is a relative `.kicad_sym` (written for `--target`) or `.SchLib` path (`FEN-2001` otherwise).
+`--library` names the library (default: the stem of `--out`). The usual `--dry-run` plan and
+`--confirm --plan <plan_id>` receipt protocol applies. A malformed table exits 3 with `FEN-3004` (a newer
+schema with `FEN-3002`); two tables that give one symbol name exit 3 with `FEN-3004`. In a `.SchLib`
+every derived symbol is written flat and alternates are dropped (`altium.symbol-simplified`).
+
+`result` holds `library`, `out`, `format` (`kicad_sym` or `altium_schlib`) and `symbols`, one row per
+generated symbol in table order: `name`, `extends` for a variant, `units` (`unit`, `name`, and `pins` with
+the visible pin names of the `left`, `right`, `top` and `bottom` sides) and `issues` (the codes of the
+generator's findings). `--limit` and `--cursor` page `symbols`. Evidence is `INFERRED`
+(`H-G-SYMBOL-LAYOUT`; KiCad's reading `H-K-SYM-UNITS-WRITE`, Altium's `H-A-SCHLIB-GEN-PARTS`).
+
+| code | severity | when |
+|---|---|---|
+| `symbol.units-split` | info | the table has more visible rows than `split_above`; the message names the pins per unit |
+| `symbol.bus-split` | warning | a bus larger than `unit_pins` was cut across units |
+| `symbol.bus-gap` | info | a bus skips an index (`D0`, `D1`, `D3`) |
+
+### `library generate`
+
+`fenolite library generate PACKAGE... --out DIR [--library NICK] [--positions N] [--no-step] [--no-pcblib]`
+draws the footprints of package records (`fenolite.package.v0` with a `family`,
+[`docs/footprint-generators.md`](footprint-generators.md)) and plans, all files or none, under the usual
+`--dry-run` plan and `--confirm --plan <plan_id>` receipt protocol (change c0260):
+
+- `DIR/<NICK>.pretty/<name>.kicad_mod` per package, written for `--target`, and per position count of a
+  `connector` series (every count, or only `--positions N`, which another family refuses with `FEN-2001`);
+- `DIR/<NICK>.3dshapes/<name>.step` per footprint that has bodies (the record gives a body height), unless
+  `--no-step`. A `drawing >= 1` footprint names `${KIPRJMOD}/lib/<NICK>.3dshapes/<name>.step`, so `--out lib`
+  in a project folder is where KiCad finds the models; `--no-step` keeps the path in the footprint;
+- one Altium PCB library `DIR/<NICK>.PcbLib` holding every generated footprint, unless `--no-pcblib`. The
+  Altium writer leaves out an exposed pad's paste windows and its missing paste opening
+  (`altium.primitive-dropped`, warning) and writes no body.
+
+`NICK` defaults to `Local`. `--out` is a relative folder (not a `.pretty`, `.PcbLib` or `.kicad_sym` path:
+`FEN-2001`). A package with an error finding gives exit 5 and nothing is written; an unreadable record exits 3
+with `FEN-3004` (a missing file `FEN-3001`); two records that give one footprint name exit 3 with `FEN-3004`.
+
+`result` holds `library`, `out`, `pcblib` (its path or `null`) and `packages`, one row per footprint in record
+order then position order: `name`, `family`, `id` (`<NICK>:<name>`), `stamp`, `land` (`source`
+`manufacturer` or `calculated`, `evidence`, `table`, `z`, `g`, `x`, `pad` as `[length, width]`, `drill`,
+`pad_diameter`, `deltas`, all in nm), `courtyard` (`[x0, y0, x1, y1]`), `bodies` (`count`, `top` in nm),
+`files` (the planned paths) and `issues` (the codes of its findings). `--limit` and `--cursor` page
+`packages`. `issues` holds the `package.*` findings (`fenolite explain package.land-override`). Evidence is
+`INFERRED` (`H-G-LAND-CALC`; KiCad's reading of the models `H-K-STEP-MODELS`).
+
+### `library seed`
+
+`fenolite library seed --from-librepcb DIR --commit SHA --library NAME --into DIR [--namespace NS]`
+plans CC0 data-only symbol, footprint and device items into an external library repository. The default
+namespace is `FenoliteDevices`; the shared `--dry-run`, `--confirm --plan`, `--timestamp` and receipt
+contract applies. The source/full legal text and, when present, `.git` HEAD are checked. Licence or commit
+mismatch is `FEN-3004`; an existing reviewed seed is `FEN-7001` even with `--allow-lossy`. Unsupported
+elements and dependants report `library.seed-skipped`; sanitized/colliding names report
+`library.seed-renamed`. A changed input or target invalidates its plan (`FEN-4002`).
+
+`result.schema` is `fenolite.library-seed.v0`, `items` lists kind/id/version/original UUID, `source` is its
+registered D-id and `unchanged` says whether bytes already match. Every record and the reply remain
+`UNVERIFIED`. Only the bounded, inferred LibrePCB0.1 subset is supported; no upstream compatibility or
+release is asserted. See [device items](library-devices.md) and [format facts](formats/librepcb/library.md).
+Use `library ./seed --out DIR` for a board folder named `seed`.
+
+### `library import`
+
+`fenolite library import SOURCE... --into DIR` plans one local device under `DIR/<namespace>/<name>/`.
+Sources are `.kicad_sym`, `.kicad_mod`, `.SchLib`, `.PcbLib`, `.step`/`.stp` and bounded in-memory `.zip`
+archives. No subprocess or network request runs. Without sources, `--symbol LIB:SYM --footprint LIB:FP`
+resolves library IDs. The registered `library` command is mutating and advertises `import` in its action
+list; its offline example uses `tests/data/library_import/exb6202.zip`.
+
+Options: `--id NS:NAME` (default `Imported:<symbol>`), `--symbol NAME`, `--footprint NAME`,
+`--prefer kicad|altium` (default KiCad), `--package FILE|ID`, repeatable `--pin FUNCTION=PIN[:PAD[+PAD]]`,
+`--manufacturer`, `--mpn`, `--datasheet`, `--ref-prefix` and `--no-crosscheck`. `--into` must be a relative
+project folder; installed, cache, vendored and shipped CC0 library destinations are refused.
+
+The envelope keeps `fenolite.library.v0`; `result.schema` is `fenolite.library-import.v0`. The result
+holds `device`, `folder`, `sources` (`file`, `member`, `kind`, `sha256`), `skipped` (`file`, `member`,
+`reason`), `symbol`, `footprint`, `step`, `family`, `crosscheck` (`reference`, `tolerances`, `rows`),
+`unchanged`, device `evidence` and the usual plan. `--limit` pages source rows. Envelope evidence is
+`INFERRED` (`H-G-LIBRARY-IMPORT`); imported records stay `UNVERIFIED`, subject to source terms, and not
+shippable. The source names and digests identify the archive and each read member; no absolute source
+path enters the record. The native definitions are written by Fenolite's KiCad writers; STEP is copied.
+
+Dry runs exit 0; requesting a write without flags exits 4. Error findings exit 5 and plan nothing;
+`.IntLib`, ambiguous selection and invalid targets exit 2 (`FEN-2001`); malformed sources and unsafe
+archives exit 3 (`FEN-3004`); edited records exit 7 (`FEN-7001`) unless replacement is explicitly allowed.
+A shrinking re-import is refused even with `--allow-lossy`; use a new `--id`. Plan IDs bind the project
+and source paths; identical bytes across projects do not imply identical plan IDs.
+
+`library.import-*` reports skipped or regenerated sources, unchecked STEP geometry and placement,
+source terms, unknown/skipped classification, package mismatch, pad count, numbering, pin 1, pitch,
+land and source disagreements. `library.not-shippable` is an error in a library item. The existing
+`catalog.pin-without-pad` and `catalog.pad-unmapped` pin-map codes keep their meanings. `catalog import`
+retains its single-file `--out` form and bytes for one minor release, with `catalog.import-deprecated`.
+See [local library import](library-import.md) for the fixed zip limits and comparison tolerances.
+
+### Library repository verbs
+
+Change c0279 adds four action words used by the CI of the library repository `fenolite-library`
+([`docs/library-repo.md`](library-repo.md)); the library holds no tooling code of its own. A board folder
+named like a verb is passed as `./audit`.
+
+- **`library audit ROOT [--item PATH] [--base REF]`** (read-only) checks the layout, `item.json`,
+  `PROVENANCE.json`, the licence lists, `LICENSE` and `NOTICE`, ids, files, dependencies and the README's
+  statements; `--item` limits the item rules to one folder, `--base` (a folder or a git ref) adds the version
+  rules. `result` holds `root`, `items` (`path`, `kind`, `family`, `id`, `version`, `spdx`, `tree`, `errors`)
+  and `counts` per kind. Exit 5 on any error finding.
+- **`library replay ITEM [--upstream DIR] [--keep DIR] [--with-current]`** (writes nothing into the tree)
+  fetches the upstream at the recorded commit (a shallow git fetch; `--upstream` copies a given checkout),
+  runs the recorded steps (`fenolite` and `kicad-cli` only, `FEN-3004` for another tool or a step holding
+  `--plan`, before any step runs) and compares the tree of `out/` with `conversion.outputs_tree` and the
+  payload (`library.replay-differs`). `result` holds `outputs_tree`, `expected`, `payload_tree`, `equal`,
+  `steps` and `differs` (the files that differ).
+- **`library release ROOT --version V --out DIR`** (mutating) audits the checkout, then plans the release
+  assets: `index.json` (`fenolite.library-index.v0`), the shard archives `<kind folder>-<family>.tar.gz`, one
+  archive per board and `SHA256SUMS`, byte-reproducible. `result` holds `version`, `items`, `archives`,
+  `index_sha256` and `index_bytes`.
+- **`library gallery ROOT --release DIR --out DIR`** (mutating) plans the static gallery: one card page per
+  item with its attribution line, proof result and `fenolite get` command, an index page and the benchmark
+  page; items with `trademarks.restricted` are left out.
+
+| code | severity | when |
+|---|---|---|
+| `library.duplicate-id` | error | one id in two folders of a kind |
+| `library.family-mismatch` | error | an item in a family folder its SPDX id does not map to |
+| `library.item-extra-file` | error | a file not listed in `files` |
+| `library.licence-denied` | error | an id outside the allow-list (with the reason), a platform-restricted origin, a vendor-bundled example |
+| `library.licence-text` | error | `LICENSE` missing or not a listed text, and no `licence_review` |
+| `library.notice-missing` | error | `NOTICE` missing or not headed by the dated modification notice |
+| `library.provenance-invalid` | error | a schema rule, a disagreement of `item.json` and `PROVENANCE.json`, a depends error, a step with `--plan`, a README statement missing |
+| `library.version-rule` | error | with `--base`, a changed item whose version did not rise |
+| `library.replay-differs` | error | the replay's outputs differ from the payload |
+| `library.proof-failed` | error | the proof gate of a board failed |
+
+## import
+
+`fenolite import PATH --to python --out DIR` turns a KiCad or Altium board into a Fenolite project folder (change
+c0275; the user guide is `docs/import.md`). `PATH` is a `.kicad_pro`, a `.kicad_pcb` or a `.kicad_sch` (the
+board of its project is read beside it), a `.PrjPcb` or a `.PcbDoc` (read by Fenolite's Altium reader and
+converted in memory as `fenolite convert --to kicad` does, verified, then emitted alike; the conversion's
+own issues and refusals apply). Any other kind exits 2 with `FEN-2001` naming the kind, and so
+does an `--out` that is the source's folder or holds it. The command writes, under the usual `--dry-run`
+plan and `--confirm` receipt protocol, all files or none:
+
+- `design.py` (the design, board, nets, classes, minimums, parts in their modules, connections,
+  placements, zones, rule areas, drawings), `copper.py` (the copper as `track_table`, `arc_table` and
+  `via_table` calls), `design.lock` (every part key and ref, c0249), `fp-lib-table`, `sym-lib-table`, the
+  vendored `lib/<nickname>.pretty` and `lib/<nickname>.kicad_sym`, `PROVENANCE.json`
+  (`fenolite.import-provenance.v0`) and a copy of each `--licence-file`.
+- Options: `--name NAME` (default the project stem), `--licence SPDX`, `--copyright TEXT` (repeatable),
+  `--source URL`, `--revision REV`, `--licence-file FILE` (repeatable, copied unchanged), `--adopt` (also
+  write `adopted/<name>.kicad_pcb`: the source board with the identities a build derives; refused with
+  `--no-verify`, `FEN-2001`), `--no-upgrade`
+  (refuse a file below the read floor: exit 3, `FEN-3003`) and `--no-verify` (skip the self-check); the
+  global `--allow-lossy`, `--timestamp` and `--kicad-version` apply.
+- A board below the read floor is upgraded by `kicad-cli pcb upgrade` on a private copy: exit 6 with
+  `FEN-6001` (the hint names `--no-upgrade`) without `kicad-cli`, `FEN-6002` with a 9.0 one.
+- An item no DSL call expresses refuses the import: exit 7, `FEN-7001`, one `import.item-unexpressed` per
+  kind in `issues`, nothing planned. With `--allow-lossy` each kind is left out with that warning.
+- Unless `--no-verify`, the emitted files are built in a private temporary folder and the board compared
+  with the source at equivalence levels 1 to 5 (profile `import`) and copper item by item: an unexplained
+  difference is `import.unequal`, exit 5, and nothing is planned.
+
+`result` (`schemas/fenolite.import.v0.json`) holds `source` (`file`, `backend`, `versions`), `out`,
+`design`, `files` (`path`, `bytes`), `modules`, `counts` (`parts`, `nets`, `tracks`, `arcs`, `vias`,
+`zones`, `rule_areas`, `drawings`, `tables`), `unexpressed` (`kind`, `count`, `examples`), `upgrade`,
+`equivalence` (`levels`, `equivalent`; `null` with `--no-verify`), `provenance` (`licence`, `source`,
+`revision`) and `adopted` (`null` without `--adopt`, else `board`, `rewritten` by kind, `paths`,
+`unmatched`); `--limit` and `--cursor` page `files`. Evidence is `INFERRED`
+(`H-G-IMPORT-CODE`). The declared inputs are the board, the project file, the rules file and every
+schematic sheet, by their original bytes: a sheet edited after the dry run makes `--confirm --plan` exit 4
+with `FEN-4002`.
+
+| code | severity | when |
+|---|---|---|
+| `import.item-unexpressed` | warning | items of one kind no DSL call expresses (with `--allow-lossy`) |
+| `import.unequal` | error | the self-check found a difference no unexpressed kind explains |
+| `import.unverified` | warning | `--no-verify` |
+| `import.schematic-generated` | info | the build generates its schematic until c0276 imports the drawn one |
+| `import.footprint-variant` | info | an instance written as `<name>_2` |
+| `import.symbol-regenerated` | info | symbols drawn by Fenolite from the pad numbers of their footprints |
+| `import.sheet-renamed` | info | a KiCad sheet name changed to a module name |
+| `import.upgraded` | info | a file upgraded through `kicad-cli` on a private copy |
+| `import.provenance-missing` | warning | no `--licence`, `--copyright` or `--source` |
+| `import.timestamp-missing` | info | no `--timestamp`: the output is not reproducible |
+
 ## check
 
-`fenolite check PATH [--stages A,B] [--kicad-cli PATH] [--timeout SECONDS]` checks a KiCad project
+`fenolite check PATH [--stages A,B] [--kicad-cli PATH] [--timeout SECONDS] [--matrix]` checks a KiCad project
 read-only (`--exclude` alone writes: "Writing a DRC exclusion" below). `PATH` is a `.kicad_pcb`, a `.kicad_pro` (the board of its stem) or a folder holding one
 `.kicad_pro` (else one `.kicad_pcb`). `kicad-cli` only ever sees a copy of the files a DRC run reads
 (board, `<stem>.kicad_pro`, `<stem>.kicad_dru`, `fp-lib-table` and its `${KIPRJMOD}` libraries, the
@@ -1136,20 +1510,25 @@ out. Without `--stages`, every stage runs except `roundtrip.rt2` (`DEFAULT_STAGE
 re-saves and three DRC runs and is selected by name. `erc.kicad`, `drc.kicad`, `netlist.assignment_compare` and
 `roundtrip.rt2` and `zone.fill` need `kicad-cli` (`ORACLE_STAGES`): selecting any of them runs the tool pre-flight.
 `copper.clearance` needs no tool: `--stages copper.clearance` runs on a machine without KiCad.
-`length.rules`, `placement.rules` and `roles.rules` need none either, and are default stages.
-`parity` needs none either for a project that `build` wrote.
+`circuit.rules`, `length.rules`, `topology.rules`, `placement.rules` and `roles.rules` need none either, and are default
+stages. `parity` needs none either for a project that `build` wrote. `schematic.drawn` (change c0276) needs no
+tool; without `--stages` it is listed only for built input whose `.fenolite/build.json` records a drawn
+schematic.
 
 | stage | runs on | evidence |
 |---|---|---|
 | `model.validate` | the board model (native) or the `.fenolite/` model (built) | the reader's level (native), `INFERRED` (built) |
+| `circuit.rules` | Fenolite's own judge of the interface parameters of the `.fenolite/` model (change c0252, "Circuit stage" below): rails, logic levels, bus pull-ups, companions and split device ports; no tool runs and no board is read. Skipped with `no-model` without a model (a native board) and with `no-parameters` when the model holds nothing to judge | `INFERRED`, lowered to the lowest evidence label of the device records whose ports it judged |
 | `erc.kicad` | `kicad-cli sch erc` on the copy set, built and native input alike; every violation becomes a located issue. Skipped with `no-schematic` when the project has no `<stem>.kicad_sch` | ERC report reader and oracle combined, `kicad-cli <version>`; `UNVERIFIED` without a report |
 | `copper.clearance` | Fenolite's own exact check of shorts and clearance on the board model, native and built alike, with the rules of `<stem>.kicad_pro` and `<stem>.kicad_dru`; no tool runs | the lowest of the copper check (`INFERRED`), the board reader and the project and rules readers; `UNVERIFIED` when part of the copper or of the rules went unjudged |
 | `length.rules` | Fenolite's own verdict on the `length`, `skew` and `diff_pair_skew` rules of `<stem>.kicad_dru` (`docs/analyses.md`, "Length rules in check"), on the net lengths as the target KiCad major counts them; no tool runs | the lowest of the stage (`INFERRED`, `H-K-NETLEN-RULES`), the board reader, the rules readers and the length facts; `UNVERIFIED` with `length.input-missing` |
+| `topology.rules` | ordered pad paths, explicit series bridges and user-supplied delay/loss budgets; no tool runs; KiCad input only | lowest of read evidence and `INFERRED` (`H-G-TOPO-DELAY`); `UNVERIFIED` with `topology.input-missing` |
 | `placement.rules` | Fenolite's own placement rules and measures on the board model, without a tool: on a project that `build` wrote, the `near` rules of `.fenolite/rules.json` judged on the pad positions; on every board, the wire length and the congestion of the placement (`docs/placement.md`) | the board reader's level when no rule was judged; the lowest of it and `INFERRED` when one was |
 | `roles.rules` | the net roles of the board judged against its copper, as `fenolite roles --check` judges them (`roles` below, `docs/roles.md`): the roles of `.fenolite/rules.json` of a built project or of the role document beside the board, with the inferred ones; no tool runs. Skipped with `no-roles` when the board has no stored or declared role | `INFERRED`, with the role hypotheses and the analyses' evidence |
 | `zone.fill` | KiCad 10 refills a private copy of the project board; compares saved copper polygons per zone | refill evidence; `UNVERIFIED` when any zone is unfilled or stale |
 | `drc.kicad` | `kicad-cli pcb drc` on the copy set, with the rules canary; every violation becomes a located issue | DRC report reader and oracle combined, `kicad-cli <version>`; `UNVERIFIED` without a report or with a rules issue |
 | `parity` | Fenolite's own comparison of the board with `<stem>.kicad_sch`, and of symbol pins with footprint pads (`parity` below); no tool for a schematic that `build` wrote, else the schematic netlist of `kicad-cli` when another stage built the oracle | the lowest of the comparison (`INFERRED`, `H-K-PARITY-OWN`) and of the netlist it used |
+| `schematic.drawn` | the drawn schematic of a built project (`docs/drawn-schematic.md`): the sheets as they are on disk, extracted and resolved without a tool, compared with the circuit of `.fenolite/` as partitions of pins; summary `nets`, `pins`, `open`. Skipped with `no-drawing` when `--stages` names it for any other input | `INFERRED` (`H-K-DRAWN-CONNECT`, `H-K-DRAWN-NAMES`) |
 | `netlist.assignment_compare` | the pad nets of the model (built input), of the re-read board, of `kicad-cli pcb export ipcd356` and, when the project has a schematic, of `kicad-cli sch export netlist`, compared as partitions | the lowest of the reader, the exports that were read and, on built input, `INFERRED`; `UNVERIFIED` without the board's export |
 | `roundtrip` | RT1 of the board, native and built alike | the reader's level |
 | `roundtrip.rt2` | opt-in: KiCad's DRC on the board and on Fenolite's re-dump of it gives the same violations | the DRC report reader, the oracle and the RT2 runs combined; `UNVERIFIED` when a report is missing |
@@ -1160,7 +1539,9 @@ error issue), `errors` (ran, at least one) or `skipped`, with `reason` `native-i
 `cache-unreadable`, `no-schematic` (`erc.kicad` on a project without a schematic of the board's stem),
 `unsupported-oracle`, `oracle-unsupported`, `netlist-unavailable` (`parity` on a schematic that Fenolite
 does not read itself, in a run without `kicad-cli`), `no-frame` (`placement.rules` when the reader gives
-no pad positions), `no-roles` (`roles.rules` on a board without a stored or declared role) or `oracle-unstable` (two refill runs differ; never counted in the
+no pad positions), `no-roles` (`roles.rules` on a board without a stored or declared role), `no-drawing`
+(`schematic.drawn` on input without a drawn schematic), `no-model` and `no-parameters` (`circuit.rules`) or
+`oracle-unstable` (two refill runs differ; never counted in the
 envelope). A skipped stage carries `UNVERIFIED`. The envelope evidence is the lowest level of
 the stages that ran and of those skipped for `read-refused` or `cache-unreadable`; `UNVERIFIED` when
 none counts. `result.project` holds `board`, `built`, `files` and `skipped`, names relative to the
@@ -1174,6 +1555,77 @@ emitted `kicad.drc.<type>` code to KiCad's raw type. The `erc.kicad` summary hol
 `types` and `tool_writes`. The `zone.fill` summary holds `tool_version`, `zones`, `current`, `unfilled` and `stale`. An unrouted board therefore exits 5: its unconnected items are errors. The `render` summary holds
 `tool_version` and `views` (`name`, `bytes`, `sha256`; sorted by name); the hash of an SVG leaves out its
 `<title>` line, where `kicad-cli` 9.0 writes the date, so two checks give the same output.
+
+**Circuit stage.** `circuit.rules` (change c0252) stands right after `model.validate`, in the KiCad and
+the document pipeline alike, and reads only the `.fenolite/` model of a built project; `fenolite build` runs
+the same judge on the model it builds and adds its issues to the envelope, an error stopping the write. A
+rail is the `hv` net of a `power` interface or port: its voltage is the intersection of the values that the
+design rail and the `out` power ports set, its sources are the `out` power ports and its loads the `in`
+ones; a block's `out` port hides the `out` ports inside it on the same rail (its promise replaces them), and
+a block's `in` port that states `current` hides the `in` ports inside it. Two logic ports with the same
+reference rail always pass; otherwise three worst-case comparisons are made (high, low and withstand), and a
+threshold that is not stated is reported, never assumed. On an I2C line the pull-up rail drives the high
+level. The codes:
+
+| code | severity | when |
+|---|---|---|
+| `circuit.rail-voltage` | error | the set voltages of a rail do not meet, or the rail is not within the range an `in` power port accepts |
+| `circuit.rail-current` | error | the sum of the loads' upper draws exceeds the sum of the sources' lower capacities |
+| `circuit.rail-sources` | error | two or more sources drive a rail that is not `shared`, unless every source port has `share` |
+| `circuit.rail-unset` | warning | ports state limits and no voltage is set, or loads state a draw and no source states a capacity |
+| `circuit.logic-level` | error | across reference rails: output high below input high, output low above input low, or the driver's rail above the reader's `abs_max` |
+| `circuit.logic-unknown` | warning | across reference rails, a value one of those comparisons needs is not stated |
+| `circuit.bus-pullup` | warning | an I2C pull-up goes to a rail other than the bus reference, lies outside the accepted `pullup` range, or gives more current than a bus port's `output_current_max` |
+| `circuit.pullup-parallel` | warning | an I2C line has multiple resistors to the same rail; names the resistors and their parallel resistance range |
+| `circuit.requires-missing` | warning | a declared companion (`pullup`, `supply`, `chip_select`) is absent |
+| `circuit.port-split` | warning | the pins of one member of a device port are on two nets; that member is not judged |
+
+The summary holds `rails`, `judged` (the rails with a voltage to judge against), `halves` and, since
+change c0253, `requirements` and `corners`. Waivers of `circuit.*` findings come with change c0274.
+
+**Contracts in the circuit stage** (change c0253; `docs/contracts.md`). The same stage judges the electrical
+contracts: each device part's `abs_max` ratings (derated by the script's `design.derating` policy; Fenolite
+ships no derating value) and `operating` ranges (exact) against the voltages and currents its nets carry,
+the expectations of `design.expect` and `b.expect`, and the test rig of `design.rig`. Applied values come
+only from what the user stated: a rig element, a rail, a declared or confirmed net role, a ground. The
+command resolves each component's `fenolite.device` record (the design's own records at build; at check,
+`devices/` of the project folder or of its parent, then the shipped devices) and classifies the parts with
+`fenolite.roles.classify`, and passes both to the stage (`checks` imports neither the catalog nor the
+roles). `summary.halves` is `{"rails": "ran" | "no-parameters", "contracts": "ran" | "no-contracts"}`;
+the stage is skipped with `no-parameters` only when both halves have nothing (`no-contracts`: no device part,
+no expectation and no rig element). The thirteen contract codes:
+
+| code | severity | when |
+|---|---|---|
+| `circuit.rating-voltage` | error | a voltage across a two-pin part, of a pin from its device's ground function, or between two functions (`[[limits]]`) exceeds the `abs_max` rating or the derated limit |
+| `circuit.rating-current` | error | a regulator's output (the loads of its `out` power port's rail), an inductor's or a shunt's series current, or a single pin's net current exceeds the rating |
+| `circuit.rating-power` | error | a resistor's or shunt's worst-case power (V²/R, or I²R of a shunt) exceeds the rating |
+| `circuit.rating-temperature` | error | the ambient range (`design.operating`) is not within the `abs_max` temperature range less the margin |
+| `circuit.operating-range` | error | an applied range is not within an `operating` range |
+| `circuit.expect-failed` | error | an expectation holds for none of the ranges |
+| `circuit.expect-unsure` | warning | an expectation holds for part of the ranges |
+| `circuit.expect-unknown` | warning | an expectation reads a handle that cannot be resolved or bounded |
+| `circuit.value-conflict` | warning | stated sources of different kinds give one net voltages that do not overlap |
+| `circuit.device-changed` | warning | the record resolved now differs from the digest the build recorded |
+| `circuit.value-unknown` | info, warning | rows not judged for a missing input: one count, or one warning per row under `design.contracts(unknown="warning")` |
+| `circuit.rating-missing` | info, warning | parts without a record or without a rating for a check that applies |
+| `circuit.policy-missing` | info | ratings judged at 100 % because no derating rule covers them |
+
+Every row and expectation whose value reads a rig supply is also evaluated at each corner (each supply at
+its minimum and at its maximum, `bench=max,aux=min`); a failing row's issue names its failing corners, and
+the corners never change a verdict. `summary.corners` is the number of corners, or `too-many-supplies`
+above six supplies. The stage evidence is `INFERRED` with `H-G-CIRCUIT-EXAMPLE`, lowered to the lowest label
+of the device records whose limits it judged.
+
+**The requirement table** (change c0253). `summary.requirements` of `circuit.rules` and of `roles.rules`,
+and `result.requirements` of `fenolite roles --check`, are lists of rows sorted by `id`: `id`
+(`<code>:<subject>[:<key>]`, such as `circuit.rating-voltage:C1:voltage` or `circuit.expect:buck1/expect#1`),
+`check` (the code the row reports), `entities` (entity ids), `subject`, `quantity`, `unit`, `value` (or
+`null`) and `limit`, each `{range, text, source, basis}` where `range` is c0246's encoding (`unit`, and `low`
+and `high` as `{m, e}`) and `source` is `device`, `role`, `policy` or `user`, the limit also with `evidence`
+and `kind` (`abs_max`, `operating`, `requirement`); `corners` (`{corner, status, text}`), `status` (`pass`,
+`fail`, `unsure`, `unknown`), `severity` and `missing` (what is not stated, for an `unknown` row). No number
+of the table is a JSON float.
 
 **Length rules.** `length.rules` (KiCad input only; the Altium pipeline neither runs nor names it)
 judges the rules of the kinds `length`, `skew` and `diff_pair_skew` of the project's rules file on the
@@ -1380,6 +1832,10 @@ repeat.
 | `check.read-refused` | error | Fenolite cannot read the board; the message starts with the FEN code, `where` is `file:locator:@offset` |
 | `check.cache-unreadable` | warning | `.fenolite/` cannot be loaded; `model.validate` is skipped |
 | `check.roles-unreadable` | error | `roles.rules`: the role document beside the board (or the roles of `.fenolite/rules.json`) cannot be read |
+| `drawn.netlist-differs` | error | `schematic.drawn`: a pin is in another group in the drawing than in the circuit, or open on one side only; `where` is the first `REF-PIN` (change c0276) |
+| `drawn.symbol-missing`, `drawn.part-unknown`, `drawn.sheet-pin-unmatched`, `drawn.sheet-unknown`, `drawn.repeated-value-differs` | error | `schematic.drawn` and `build`: the coverage, sheet and repeated-value errors of `docs/drawn-schematic.md`, "Codes" |
+| `drawn.net-name-differs`, `drawn.unit-missing`, `drawn.dangling`, `drawn.label-unconnected`, `drawn.bus-member-unknown`, `drawn.placements-ignored` | warning | the drawn schematic warnings of `docs/drawn-schematic.md`, "Codes" |
+| `drawn.opaque-dropped`, `drawn.frozen`, `drawn.altium-repeat-flattened` | info | an opaque item dropped for a target, a schematic frozen by `sync --freeze-schematic`, a repeated sheet written per instance |
 | `check.footprint-unresolved` | error | a non-DNP component has no footprint reference or instance |
 | `check.symbol-unresolved` | error | a built component that carries `fenolite.path` has no symbol reference; a board-only footprint added in KiCad, without that key, is not asked for one (`docs/lens.md`) |
 | `check.rt1-failed` | error | RT1 failed; `where` is the first difference |
@@ -1415,6 +1871,7 @@ repeat.
 | `copper.hole-in-cutout` | error | a drilled hole breaks into a cut-out or a slot, or crosses the board edge; `where` names the hole's item and the ring |
 | `copper.hole-overlap` | warning | two drilled holes overlap; `where` names both items |
 | `check.waiver-unmatched` | warning | a waiver of the design script that was judged matched no finding; `where` is the waiver's name |
+| `check.waiver-expired` | warning | a `circuit.*` waiver whose code and item match a finding under another digest: the value or the limit judged changed since the waiver; `where` is the waiver's name, the message names both digests |
 | `check.exclusion-stale` | warning | a DRC exclusion stored in the KiCad project no longer applies: `moved` or `gone` |
 | `copper.rules-incomplete` | warning | a clearance rule stayed opaque, a project file was not read, or no rules source was given |
 | `copper.item-unsupported` | warning | copper items left out of the check, one issue per kind; `where` is the kind |
@@ -1461,13 +1918,25 @@ either target, applies them. A native project has no waiver.
   finding is at least that. The items of a copper finding are the two parts of its `where`; those of a
   DRC finding are the locations of its items.
 - **Stages.** `copper.*` waivers are applied by `copper.clearance`, on both pipelines; `kicad.drc.*`
-  waivers by `drc.kicad`. No other stage takes a waiver: ERC and parity findings are never waived.
+  waivers by `drc.kicad`; `circuit.*` waivers (change c0274) by `circuit.rules`, on both pipelines, and
+  by the circuit hook of `fenolite build`, so an accepted risk does not stop `build --confirm`. No other
+  stage takes a waiver: ERC and parity findings are never waived.
+- **Circuit waivers.** A `circuit.*` waiver names one item, the finding's requirement row id without the
+  code (`C3:voltage`; a finding no row gives is named by its `where`), and the digest of what was judged:
+  the first 16 hexadecimal digits of the SHA-256 of the canonical JSON of the row's id, the ranges of its
+  value and limit, the limit's kind and both sources (of a finding without a row: its code, `where` and
+  message). Each `circuit.*` error or warning's `hint` ends with `digest <16 hex>`, which the author
+  copies into `design.waive(..., digest=...)`. When the code and item match but the digest differs (a
+  rating, a pick or a kept CAD value changed), the finding is not waived and one `check.waiver-expired`
+  (warning) names the waiver, both digests and the row.
 - **Stale waivers.** A waiver is judged when the stage of its code ran with a verdict. A judged waiver
-  that matched nothing gives `check.waiver-unmatched` (warning), `where` its name. A waiver of
+  that matched nothing, and that no finding matches under another digest, gives `check.waiver-unmatched`
+  (warning), `where` its name. A waiver of
   `kicad.drc.clearance`, `hole-clearance`, `unconnected-items` or `shorting-items` is applied when it
   matches and never judged, because KiCad does not repeat those entries from run to run.
 - **`result.waivers`** holds `declared` (the count), `matched` (name → findings, for judged waivers),
-  `unmatched` (names) and `unjudged` (name → `stage-not-run` or `not-repeatable`). On Altium input every
+  `unmatched` (names), `expired` (names of circuit waivers whose digest changed) and `unjudged` (name →
+  `stage-not-run` or `not-repeatable`). On Altium input every
   `kicad.drc.*` waiver is `stage-not-run`: that pipeline has no DRC stage.
 
 **KiCad's own exclusions.** A KiCad project stores the entries its user excluded in the DRC dialog, each
@@ -1482,6 +1951,33 @@ judged. Two keys of one type, position and item pair in both orders are one acce
 either order, as excluded, else both unjudged (one of the four types) or both stale with one warning.
 `summary.accepted` of `drc.kicad` lists each such exception: `type`, `items` (the two uuids), `comment`,
 `state` (`live`, `stale` or `unjudged`) and `reported` (an entry of that type names the two items).
+
+### Verification matrix
+
+`fenolite check PATH --matrix` (change c0274) adds `result.matrix`, on KiCad and Altium input alike, and
+stays read-only (redirect the JSON reply to keep it). Without `--stages` only `circuit.rules` and
+`roles.rules` run, the two stages that give requirement rows; with `--stages` the named ones run and the
+matrix lists the rows of those two among them. Without `--matrix` the result holds no `matrix`.
+
+- **`rows`**: the requirement rows of the stages that ran, sorted by id (a repeated id keeps its first row),
+  each with `id`, `check`, `value` and `limit` (their texts), `source` (of the limit), `origin` (of the
+  value: `declared`, `rig`, `role`, `requirements`, `option` or `propagated via <refs> from <net>`, `null`
+  when none), `status` (`pass`, `fail`, `unsure`, `unknown`, `deferred`, or `waived` when a waiver
+  accepted the row's finding), `evidence` (the label of what states the limit), `decidable` (`build`,
+  `place` or `route`), `digest` (what a circuit waiver copies) and `waiver` (its name, else `null`).
+- **`receipt`**: `fenolite` (the version), `model_sha256` (the SHA-256 of the canonical `.fenolite/` texts,
+  each as `<file name>\n<text>` in layer order; `null` for a native project), `devices_sha256` (the
+  SHA-256 of the sorted digests of the device records judged, one per line) and `stages` (those whose rows
+  are listed).
+- **Ids.** Row ids are built from references, port paths, net and interface names and expectation ids only
+  (`circuit.rating-voltage:C3:voltage`, `circuit.rail-voltage:3V3:U3/vdd`, `circuit.rail-current:3V3`,
+  `circuit.expect:buck1/expect#1`, `roles.loop-area:buck:loop_ratio_max`, `roles.width-current:VBUS`),
+  never from entity ids, positions or seeds (`H-G-CIRCUIT-ROW-IDS`).
+- **Deferred rows.** A row whose decidable stage is not reached for its subject and that does not fail is
+  `deferred` and gives no issue; `summary.deferred` of each stage counts them by stage
+  (`docs/contracts.md`, "Decidable stages").
+- **Text.** With `--text` the matrix prints as a table with the columns `id`, `check`, `value`, `limit`,
+  `source` and `status`, one line per row, also when the check fails, followed by the issues.
 
 ### Writing a DRC exclusion
 
@@ -1564,6 +2060,7 @@ it, because it writes a whole project into a temporary folder and reads it again
 | stage | what it does | evidence |
 |---|---|---|
 | `model.validate` | the `model.*` findings of the schematic reading and of the PCB reading (`where` starts with `schematic:` or `pcb:`), with the readers' own issues; on built input, those of the stored model | the readings; `INFERRED` on built input |
+| `circuit.rules` | the circuit rules of `check` ("Circuit stage") on the stored model of a built project; skipped with `no-model` on native documents and with `no-parameters` when the model holds nothing to judge | `INFERRED`, lowered by the device records it judged |
 | `erc.lite` | the three ERC lite rules on the schematic reading (pin types and No ERC marks come from the sheets), or on the stored model of built input | `INFERRED` (`H-K-CHECK-ERC`, `H-A-VER-ERC`) |
 | `copper.clearance` | the copper check of `check` on the PCB reading, built and native input alike: shorts, clearance and zone overlaps, with the pads of the Altium board frame and the Clearance rules the document holds (below) | the reading and the check (`H-A-DRC-SAME`); `UNVERIFIED` when part of the copper or of the rules was not judged |
 | `placement.rules` | the placement rules and measures of `check` on the PCB reading: on built input the `near` rules of the stored model judged on the pad positions of the Altium board frame; on every PCB document the wire length and the congestion. No stage judges a part in a keep-out on Altium input | the reading when no rule was judged; the lowest of it and `INFERRED` when one was |
@@ -1585,7 +2082,7 @@ gives no document of the kind that was read: the schematic writer refuses the ci
 `single-source` (`netlist.assignment_compare` without two sources; `copper.clearance`,
 `placement.rules`, `roles.rules` and `parity` without a PCB document), `no-frame` (`placement.rules` when
 the backend gives no pad positions), `no-roles` (`roles.rules` without a stored or declared role),
-`not-judged` (no document of the set can be judged
+`no-model` and `no-parameters` (`circuit.rules`), `not-judged` (no document of the set can be judged
 by the stage: a project file alone for `roundtrip.rta0`, a library alone for `model.validate`),
 `read-refused` and `cache-unreadable`. Only the last two count in the envelope evidence. No stage
 carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite reads the files.
@@ -1929,7 +2426,7 @@ needs no tool.
 
 ## inspect
 
-`fenolite inspect FILE [--summary | --streams] [--limit-bytes N]` runs no tool. `--summary` is the
+`fenolite inspect FILE [--summary | --streams | --blocks] [--limit-bytes N]` runs no tool. `--summary` is the
 default view: boards, footprint files and symbol libraries (file or `.kicad_symdir`) use their reader;
 `.kicad_sch` and `.kicad_wks` are read header-only, with counts of root children by head. `result` holds
 `kind`, `format_version`, `major`, `status`, `generator`, `generator_version`, `counts`, `opaque_count`
@@ -1989,6 +2486,126 @@ and the IPC-2581 export hold only the vias that carry the value themselves. For 
 the vias whose top and bottom tenting flag is set, under `tenting_front` and `tenting_back`, and 0 for
 the six other fields; `by_default` is 0 everywhere. The two flags are `INFERRED` (`H-A-PCB-CU-VIATENT`).
 Footprint files, symbol libraries, Altium libraries and schematic documents do not carry the key.
+
+`--blocks` (change c0268) is a third view, for a design lock (`*.lock`) or a built `.fenolite/circuit.json`:
+`result.kind` is `design_lock` or `circuit` and `result.blocks` holds one row per block id and version,
+sorted, with `instances`: the instance paths, and for a `circuit.json` each instance's recorded `params`
+(`name`, `type`, `text`). Only instances of blocks with a record appear. `--blocks` with `--summary` or
+`--streams`, or on any other file, exits 2 (`FEN-2001`). The evidence is `INFERRED`
+(`H-G-BLOCK-RECORDS`).
+
+## blocks
+
+### Block tests
+
+`fenolite blocks test [ID...] [--from FILE.py]... [--category C] [--only usage|golden|tests]`
+runs selected blocks in id order: convention, usage build, golden comparison, then plain `test_*`
+functions in name order. Without `--from`, local modules with a matching `usage/` or `tests/` file are
+also discovered. `blocks show` includes `tests`, `usage` and `golden` paths relative to the defining
+module's folder, or null when missing. See [Testing blocks](testing.md#testing-blocks).
+
+`result.blocks` gives each block's `id`, `version`, `usage` (`passed`, `failed`, `missing`), `golden`
+(`equal`, `differs`, `missing`, `written`) and `tests` (`name`, `status`, `message`). An unrun kind
+keeps its default missing/empty result. No timings are reported. Exit 0 means no finding above info;
+this verb also exits 5 for warnings, which indicate incomplete testing. Unknown ids exit 2 with
+`FEN-2001` and at most three closest ids in the hint. It runs in process, without a tool or network.
+
+`--golden` plans canonical circuit/rules JSON with seed 0 and timestamp `2026-01-01T00:00:00Z`.
+Run `--golden --dry-run`, review `result.plan` and the old/new SHA-256 in `result.golden_plan`, then use
+`--golden --confirm --plan PLAN_ID`. Confirmation replays those bytes, without running tests again.
+`written` means the requested golden bytes in a plan; the receipt proves that confirmation wrote them.
+`--confirm` without a reviewed plan is refused for goldens. A failed usage build plans no golden write.
+
+| Code | Severity | Meaning |
+|---|---|---|
+| `blocks.convention-missing` | error for `Fenolite:`, warning otherwise | A usage, tests or golden file is absent. |
+| `blocks.usage-failed` | error | Build failed or a build/tool-free finding was above info. |
+| `blocks.golden-differs` | error | Reviewed bytes differ; `golden_paths` lists at most twenty sorted changed JSON paths. |
+| `blocks.golden-missing` | error | No golden under `--only golden` or for a shipped block. |
+| `blocks.test-failed` | error | A test or import raised; the message is limited to 500 characters. |
+| `blocks.test-unsupported` | warning | A test needs parameters or is async and was skipped. |
+
+### Catalog
+
+`fenolite blocks VERB` reads the catalog of block records (`docs/blocks.md`; change c0268). The verbs are
+`list`, `show`, `doc`, `where`, `test`, `capture`, `index` and `upgrade`; `capabilities` lists each
+under `blocks.verbs`. No verb opens a network connection. `doc --out`, `test --golden`, `capture`,
+`index` and `upgrade` write under the mutation protocol. Vendored discovery reads static records;
+indexing, tests and upgrades explicitly run package or design code. Catalog evidence is `INFERRED`
+(`H-G-BLOCK-RECORDS`, `H-G-BLOCK-PACKAGES`); a block's own
+`evidence` is its author's statement and the catalog never raises it.
+
+- `fenolite blocks list [--from FILE.py]... [--category C]`: `result.blocks`, one row per catalog entry
+  sorted by id and then by source, each with `id`, `version`, `summary`, `category`, `licence`,
+  `evidence`, `source` (`builtin` for `fenolite.blocks`, `library` for vendored records, `file` for a `--from` file), `where` (a module
+  name or the file as given, never an absolute path), `deprecated` (a bool) and `digest` (the record
+  digest). A project block of a `--from` file is listed under its block name with `version: null`. Two
+  entries with one id give `blocks.duplicate-id` (error, exit 5) naming both sources. `--from` imports the
+  file, which runs its code: keep block modules apart from design scripts.
+- `fenolite blocks show ID [--from FILE.py]...`: `result.block`, the `fenolite.block.v0` record with
+  `source` and `where`. An unknown id exits 2 (`FEN-2001`) with up to five closest ids in the hint. A
+  duplicate id, a block that cannot be elaborated, or a `replaces` whose block does not name the record in
+  `deprecated.by` exits 3 (`FEN-3004`).
+- `fenolite blocks doc ID [--from FILE.py]... [--out DIR]`: the generated Markdown page. Without `--out`
+  it is `result.text`, printed as it is under `--text`; with `--out DIR` it is planned as one write
+  `DIR/<namespace>/<name>.md` of kind `block-doc` and written under `--confirm`, through the mutation
+  protocol.
+- `fenolite blocks where ID [PATH]...`: reads every `*.lock` file below each path (default `.`; hidden
+  folders skipped) as a design lock, imports nothing and runs no script, and gives `result.uses`, sorted by
+  lock and instance, each with `lock` (relative to the working directory), `design`, `instance` and
+  `version`. A lock that does not parse gives `blocks.lock-unreadable` (warning) and is skipped; a path
+  that does not exist exits 3 (`FEN-3001`).
+- `list`, `show`, `doc` and `test` accept `--script FILE` to locate static records under
+  `fenolite_library/blocks/<Namespace>/<name>/`; default `design.py` when present. Discovery imports no
+  item code. Broken items give `blocks.item-broken`; `Fenolite:` items give `blocks.namespace-reserved`
+  (error, exit 5) and are excluded. A build that uses a locally edited definition warns with
+  `blocks.index-stale` and uses its code.
+- `fenolite blocks index ITEM_DIR [--out FILE] [--check]`: explicitly imports the one exported block,
+  validates its identity against `item.json`, and plans canonical `fenolite.block-item.v0` bytes of
+  kind `block-index`, default `ITEM_DIR/block.json`. It writes only on confirmation. `--check` writes
+  nothing and returns exit 5 with `blocks.index-stale` (error in this check) on differing bytes.
+- `fenolite blocks upgrade SCRIPT [--block ID]... [--out DIR] [--allow-major]`: executes the script once
+  and validates the new versions as a build does. It plans only the lock's changed instance versions;
+  refs, picks, pins and library item pins retain their values. `result.upgrades` contains path, id,
+  before/after version, step, new record, deprecation metadata and instance build issues. `--out` adds
+  part differences against `DIR/.fenolite/circuit.json`; a missing baseline is `FEN-3001`. Major steps
+  require `--allow-major` or give `blocks.upgrade-major` (exit 5); `--frozen` is invalid (exit 2).
+  Build errors plan nothing. Confirmation with `--plan` replays only reviewed lock bytes and rejects
+  changed sources, records, lock or baseline inputs. No changed locked version is a no-op.
+
+### Block layouts
+
+`fenolite blocks capture BOARD --instance PATH [-o FILE] [--origin pose|anchor] [--anchor LOCAL]
+[--copper|--no-copper]` captures a built output folder's recorded block instance under the usual dry-run,
+confirm, plan and receipt protocol. `--origin` defaults to the recorded nonidentity pose, otherwise an
+anchor (smallest local part path). Without `-o`, the block's source folder must be under the working
+directory; the target is `layouts/<function-name>.toml` there. An unknown instance or a block outside
+the working directory without `-o` is `FEN-2001` with a closest-path or output hint.
+
+Owned copies use the protected output `fenolite-layout-base.json`, independent of `.fenolite/`.
+Unchanged CAD follows a changed asset; CAD-only edits and deletions stay. Inconsistent changes refuse
+writes with `reuse.layout-conflict`; recapture or explicit discard resolves the choice. Part `--take`
+does not resolve this adapter's copper conflicts. A missing/corrupt base never silently selects a side.
+
+`result.capture` holds `instance`, `block`, `version`, `file`, counts `parts`, `tracks`, `arcs`, `vias`,
+`zones`, `left` (net names whose copper stayed out), and the `b.layout(reuse=...)` hint. Every part must
+be present. The captured asset must fit every pad within 1 µm and keep every copied item after settling.
+The command never changes the block's Python. `blocks show` also returns `layout`, the body's default
+reuse path or null.
+
+| Code | Severity | Meaning |
+|---|---|---|
+| `reuse.layout-block` | error | block id or major version differs; no write |
+| `reuse.layout-conflict` | error | owned copper differs on both sides, or its persistent observation is ambiguous/corrupt |
+| `reuse.layout-stale` | warning | part set, footprint or pad numbers differ; stage children |
+| `reuse.layout-nets` | warning | local net mapping differs; place parts and omit copper |
+| `reuse.layout-older` | info | older minor/patch layout applies with equal digests |
+| `reuse.layout-changed` | info | a changed layout is overridden by kept placements |
+| `blocks.capture-unplaced` | error | a part is absent from the board |
+| `blocks.capture-check-failed` | error | round trip or copied copper failed; no write |
+| `blocks.capture-escape` | warning | a script net reaches a pad without a port binding |
+| `blocks.capture-copper-left` | info | copper reaches an outside pad and stays out |
+
 
 ## doctor
 
@@ -2528,8 +3145,13 @@ infers, shows, confirms and checks the net roles of a board (schema `fenolite.ro
   `<board stem>.roles.json` beside the board or `--roles FILE`), relative to the board's folder.
 - `--class REF=CLASS` states a part's class for the inference (one of the classes of `docs/roles.md`).
 - `--check` measures the board against its roles through the analyses of `docs/analyses.md` and adds
-  `result.measures` (each with `kind`, `subject`, `analysis`, `copper` and `values`) and `result.summary`.
-  It runs no tool. The measuring options are those of `analyze`, parsed by the same code with the same
+  `result.measures` (each with `kind`, `subject`, `analysis`, `copper` and `values`), `result.summary` and
+  `result.requirements` (change c0253): the requirement table ("Circuit stage") of the role checks and, for
+  a project that Fenolite built, of the stage `circuit.rules` on its `.fenolite/` model, sorted by `id`. A
+  `[[current]]` row of `--requirements`, and after it `--current NET=AMPS`, bound the current of their nets
+  for the circuit rows too, with source `user` and the row's `source` text, `requirements.toml` or
+  `--current` as basis; neither bounds a net that a rig or a rail bounds. Without `--check` the result holds
+  no `requirements`. It runs no tool. The measuring options are those of `analyze`, parsed by the same code with the same
   errors; without `--check` each of them is `FEN-2001`, exit 2.
 - `--accept`, `--accept-all` (`--min-confidence` keeps roles and groups of at least that confidence),
   `--set NET=KIND[:milliamps=N][:working_mv=N][:sensitive=0|1]`, `--reject NET` (stored as a confirmed
@@ -3069,7 +3691,8 @@ without an error. No ERC report at all gives `check.oracle-failed`.
 `fenolite fmt PATH [--check]` gives a KiCad S-expression file (`.kicad_pcb`, `.kicad_mod`, `.kicad_sch`,
 `.kicad_sym`, `.kicad_wks`) Fenolite's canonical print: the file is parsed and printed again, so its tree
 does not change, only its layout. Use it for small diffs under version control. It is not KiCad's own
-formatter: KiCad may lay the file out again when it saves it, and the tree is still the same.
+formatter: KiCad may lay the file out again when it saves it, and the tree is still the same. It also
+rewrites a `fenolite.device.v0` record as `v1` (below).
 
 - `--check` writes nothing: `result.formatted` says whether the file already is its canonical print, and
   a file that is not gives the error `fmt.would-change` and exit 5.
@@ -3081,6 +3704,16 @@ formatter: KiCad may lay the file out again when it saves it, and the tree is st
 first line that differs, or `null`). Formatting a formatted file changes nothing: this fixed point is
 tested on the whole corpus (`H-K-FMT-IDEMPOTENT`, `docs/evidence/kicad-fmt-identity.md`).
 
+**Device records** (change c0259). On a `.toml` file whose `schema` is `fenolite.device.v0`, `fmt` plans
+the rewrite of the file as a `fenolite.device.v1` record (`docs/library-records.md`) under the same protocol:
+`--dry-run` shows the plan (kind `device`), `--confirm --plan <plan_id>` writes it and keeps a `.bak`,
+`--check` reports `fmt.would-change`. The record holds the same device, `version = "1.0.0"`, and the licence
+of a leading `# SPDX-License-Identifier:` line or `NOASSERTION`; the leading comment lines are kept, and the
+written text is loaded again before it is planned, which must give the same device. The output is the same
+bytes on every run. A `fenolite.device.v1` file is left unchanged (no plan, exit 0). `result.kind` is
+`device` and `result.schema` is the schema of the file as read; the evidence is `INFERRED`
+(`H-G-LIBRARY-RECORDS`).
+
 | code | severity | when |
 |---|---|---|
 | `fmt.would-change` | error | `--check` on a file that is not canonical; `where` is `<file>:<line>` |
@@ -3088,11 +3721,11 @@ tested on the whole corpus (`H-K-FMT-IDEMPOTENT`, `docs/evidence/kicad-fmt-ident
 | exit | error | when |
 |---|---|---|
 | 0 | none | the file is canonical, a dry run, or a confirmed write |
-| 2 | `FEN-2001` | a `.kicad_pro` (JSON, kept byte for byte), a `.kicad_dru`, or any other file |
-| 3 | `FEN-3001`, `FEN-3004` | the file is missing or does not parse |
+| 2 | `FEN-2001` | a `.kicad_pro` (JSON, kept byte for byte), a `.kicad_dru`, a `.toml` file that is not a device record, or any other file |
+| 3 | `FEN-3001`, `FEN-3002`, `FEN-3004` | the file is missing or does not parse; a newer device schema; a rewritten device record that would not load (a `Fenolite:` id needs `CC0-1.0`) |
 | 4 | `FEN-4001` | the file would change and neither `--dry-run` nor `--confirm` was given |
 | 5 | `FEN-5001` | `--check` on a file that would change |
-| 7 | `FEN-7001` | the tree holds comments below the root, which the printer would lose |
+| 7 | `FEN-7001` | the tree holds comments below the root, or a device record a comment after its first key, which the printer would lose |
 
 ## explain
 
@@ -3172,6 +3805,89 @@ of an Altium project. `PATH` is taken as `snapshot` takes it.
 | `refs.missing` | warning | a document names a path that resolves to nothing |
 | `refs.not-writable` | warning | a document of a format Fenolite does not rewrite holds a path to repoint |
 | `refs.unresolved` | info | a path goes through a variable other than `${KIPRJMOD}` |
+
+## pick
+
+`fenolite pick PATH [--candidates COMPONENT] [--update COMPONENT]... [--update-all] [--propose QUERY
+(--from FILE | --supplier NAME [--allow-offsite])]` reads and updates the picks of a design's query parts
+(change c0254, `docs/picking.md`). `PATH` is a design script or its folder (`design.py` in it). No
+subprocess runs, and without `--supplier` no network connection is opened.
+
+- **Listing** (no option): read-only. `result.picks` holds per query part `path`, `query` (the canonical
+  text), `device`, `row`, `catalog`, `state` (`ok`, `new`, `stale`, `row-changed`, `row-missing`,
+  `no-match`) and `evidence`; `result.generators` what each generator achieved. An error state exits 5.
+- **`--candidates COMPONENT`**: read-only. `result.candidates` ranks the rows that meet the part's query
+  (distance to the nominal, the larger tolerance, the smaller case, project before shipped, the device id);
+  `result.excluded` gives, per row, the first failed constraint. The list is paged: `--limit` (default 20).
+- **`--update COMPONENT...` / `--update-all`**: re-resolve those entries against the current catalog and
+  plan one write of the design lock (`kind` `lock`); `result.updates` shows `before` and `after` per path.
+  An unknown component path is `FEN-2001`.
+- **`--propose QUERY`**: write `UNVERIFIED` device records that meet `QUERY` under `devices/proposed/`
+  beside the script (`kind` `device`), from `--from FILE` (CSV with a header line, or JSON: a list of objects;
+  columns `id`, `kind`, `value`, `footprint` required, `summary`, `symbol`, `case`, `tolerance`,
+  `dielectric`, `voltage`, `power`, `current`, `manufacturer`, `mpn`, `datasheet`) or from a plugin of the
+  entry-point group `fenolite.suppliers`. A plugin that sends data offsite needs `--allow-offsite` (exit 2
+  without). A proposal never writes the lock.
+- The envelope's evidence is `INFERRED` (`H-G-PICK-DETERMINISTIC`) combined with the label of each picked row.
+
+The build reports the same codes (`fenolite build`, result keys `picks` and `generators`).
+
+| code | severity | when |
+|---|---|---|
+| `pick.no-match` | error | no row meets a query |
+| `pick.stale` | error | a changed query, or a generator's new inputs, no longer met by the locked part |
+| `pick.row-missing` | error | the locked row is not in the catalog |
+| `gen.unachievable` | error | a generator found no accepted combination |
+| `pick.row-changed` | warning | the locked row's text changed but still meets the query |
+| `pick.query-changed` | info | the query text changed and the locked part still meets it |
+| `pick.new` | info | a pick the lock did not hold |
+| `pick.attribute-unknown` | info | a row left out only because it lacks a constrained attribute |
+| `pick.row-unverified` | info | an `UNVERIFIED` proposed row ranked out |
+| `gen.achieved` | info | what a generator achieved |
+
+## family
+
+`fenolite family {list|show ID|lint PATH...|decode MPN...|encode QUERY|expand ID} [--project PATH]
+[--families DIR]...` reads grammar families, `fenolite.family.v1` records that describe a whole series by
+its ordering code (change c0263, `docs/picking.md`, "Families with ordering codes"). Families come from the
+project (`devices/` and `devices/proposed/` beside the script that `--project` names, or in that folder; the
+working directory by default) and from every `--families DIR`; two files of one id are `FEN-3004`. The
+command is read-only (`mutates=False`): it writes no file, runs no subprocess and opens no network
+connection.
+
+- **`list`**: `result.families`, per family `id`, `kind`, `manufacturer`, `summary`, `version`, `evidence`,
+  `file`, `uid` (c0259's stable id, computed) and the counts of lint `errors` and `warnings`.
+- **`show ID`**: `result.family` with the pattern, the tail, the fields and their codes, the `valid` and
+  `exclude` rows, the sources and `combinations` (the size of the full product). An unknown id is `FEN-2001`.
+- **`lint PATH...`**: the lint of each file (`result.files`); an error finding exits 5. A malformed file is
+  `FEN-3004`, a newer schema `FEN-3002`.
+- **`decode MPN...`**: `result.decoded`, per full parse `mpn`, `family`, `device`, `manufacturer`, `value`,
+  every attribute as written, `codes`, `suffix`, `in_matrix` and `evidence`; `result.failures` the position
+  and field where each family failed. An MPN that no family parses exits 5.
+- **`encode QUERY`**: `result.candidates`, the MPNs of every family of the query's kind that meet `QUERY`
+  (c0254's query text), ranked by c0254's rules, with `mpn`, `family`, `device` and the attributes; exit 5
+  with `pick.no-match` when none matches.
+- **`expand ID`**: `result.candidates` in canonical order (fields in pattern order, codes in code-point order,
+  values rising), every ordering code, at most `EXPANSION_LIMIT` (100 000) listed, `combinations` the size of
+  the product.
+- The lists are paged: `--limit` (default 20) and `--cursor`. The envelope's evidence is `INFERRED`
+  (`H-G-FAMILY-ROUNDTRIP`) combined with each family's label; a decode with an opaque tail is `UNVERIFIED`.
+  A family with a lint error is not used to decode, encode or expand (`FEN-3004`).
+
+| code | severity | when |
+|---|---|---|
+| `family.ambiguous-code` | error | a code is a proper prefix of another code of the same field |
+| `family.pattern-field` | error | a placeholder without a field, a field without a placeholder, or not one value field |
+| `family.matrix-unknown-code` | error | a `[[valid]]` or `[[exclude]]` row names a code its field lacks |
+| `family.value-unencodable` | error | a value of a row's domain the scheme cannot spell |
+| `family.prefer-missing` | error | an ordering field without `prefer`, or `prefer` not among its codes |
+| `family.source-missing` | error | a numeric attribute without a source |
+| `family.decode-no-match` | error | an MPN that no family parses |
+| `family.decode-ambiguous` | error | an MPN that two families parse |
+| `family.expansion-limit` | error | a cut product above `EXPANSION_LIMIT` |
+| `family.matrix-empty-row` | warning | a `[[valid]]` row that admits no combination |
+| `family.decode-outside-matrix` | warning | an MPN that parses outside the validity matrix |
+| `family.suffix-opaque` | info | an MPN decoded with an opaque tail |
 
 ## restore
 
@@ -3456,8 +4172,8 @@ read's combined with the board frame's (`frame.EVIDENCE`).
 
 ## equivalent
 
-`fenolite equivalent A [B] [--level N] [--tolerance-nm N] [--tolerance-udeg N] [--tolerance-ppm N]
-[--frame absolute|relative] [--ignore-ref GLOB]… [--exclusions FILE --profile NAME] [--against kicad-import]
+`fenolite equivalent A [B] [--level N|S] [--strict] [--tolerance-nm N] [--tolerance-udeg N] [--tolerance-ppm N]
+[--pixel-ppm N] [--render-pitch-um N] [--frame absolute|relative] [--ignore-ref GLOB]… [--exclusions FILE --profile NAME] [--against kicad-import]
 [--kicad-cli PATH] [--timeout SECONDS]` says whether two designs are equivalent, level by level, and locates
 every difference at `REF` or `REF-PIN`, and at the net for routing. It is read-only. With two paths it runs no tool, unless a
 KiCad schematic outside the grammar of Fenolite's own netlist needs `kicad-cli`. `docs/equivalence.md`
@@ -3465,7 +4181,7 @@ defines the levels, the kinds of difference, the tolerance rules, the exclusion 
 side. The command parses its options and calls `fenolite.api.equivalent`, the same comparison as a library
 call; its `result` is `EquivalenceResult.to_json()` and follows the schema
 `schemas/fenolite.equivalent.v0.json`. The entry `equivalent` of `capabilities` lists `levels`
-(`[1, 2, 3, 4, 5]`) and `sides`, the side kinds it reads.
+(`[1, 2, 3, 4, 5, 6, 7, 8, "S"]`) and `sides`, the side kinds it reads.
 
 Each of `A` and `B` is one of:
 
@@ -3479,7 +4195,9 @@ Each of `A` and `B` is one of:
 
 | option | meaning |
 |---|---|
-| `--level N` | run the levels 1 to `N` (1 components, 2 netlist, 3 footprints, 4 placement, 5 routing). The default is the highest level both sides hold: 5 when both have footprints and copper (a track, an arc or a via), 4 when both have footprints, else 2. Pass `--level 4` to compare two routed boards without their routing |
+| `--level N` | run the levels 1 to `N` (1 components, 2 netlist, 3 footprints, 4 placement, 5 routing, 6 rules, 7 geometry, 8 presentation). The default is the highest of 1 to 5 both sides hold: 5 when both have footprints and copper (a track, an arc or a via), 4 when both have footprints, else 2. Pass `--level 4` to compare two routed boards without their routing. Levels 6 and 7 need a footprint on both sides (they run level 5 when both sides hold copper); level 8 runs the levels 1 to 7 and then renders both boards; `--level S` (drawn schematics) needs the extraction of change c0276 and exits 2 naming side `a` in this version |
+| `--strict` | level 5 also matches every track, arc and via item by item (change c0278); exit 2 below level 5 |
+| `--pixel-ppm N`, `--render-pitch-um N` | level 8: the differing pixels a layer may hold in parts per million of its inked pixels (default 1000), and the pixel pitch of a board layer (default 50 µm) |
 | `--tolerance-nm N`, `--tolerance-udeg N` | how far two lengths (per coordinate) and two angles may differ; non-negative integers, default 0 |
 | `--tolerance-ppm N` | level 5 only: two routed lengths are equal within the larger of `--tolerance-nm` and `N` parts per million of the longer one; a non-negative integer, default 0 |
 | `--frame absolute\|relative` | `relative` removes one translation, the per-axis lower median of the footprint positions of `B` minus `A`; default `absolute` |
@@ -3499,7 +4217,7 @@ Each of `A` and `B` is one of:
 | `frame`, `translation` | the frame, and `[x, y]`, the translation removed from side `b` |
 | `levels` | one object per level run: `level`, `name`, `compared`, `differences`, `excluded` and `notices` (counts) and `summary`. The summary of level 5 holds `nets` (compared), `pieces`, `vias` and `length` (totals of side `a` and `b` over those nets), `unjudged`, `nets_unpaired`, `zones_unfilled`, `copper_no_net` and `unshaped` |
 | `differences`, `excluded` | objects `{level, kind, where, field, a, b}`, in level order and then by `where`; an excluded one also has `rule` |
-| `notices` | objects of the same form for what level 5 reports without failing: `route-stub` and `route-unjudged` |
+| `notices` | objects of the same form for what level 5 reports without failing: `route-stub`, `route-unjudged` and, with `--strict`, `copper-locked` |
 | `profile` | `null`, or `name`, `tool_version` and `rules` (the count of rules) |
 
 `issues` holds one error per difference that no rule excludes, then one warning or info per notice, then
@@ -3525,6 +4243,13 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 | `equiv.route-length` | error | for the same joined pads, the routed length on a copper layer differs beyond the tolerance |
 | `equiv.route-stub` | warning | the copper that reaches no pad (stubs, lone vias) differs in number of pieces or in length; it does not fail the comparison |
 | `equiv.route-unjudged` | info | a net whose connectivity depends on a zone without a fill was not judged |
+| `equiv.track-missing`, `equiv.arc-missing`, `equiv.via-missing` | error | `--strict`: a track, an arc or a via that only one side holds (matched by copper span and geometry) |
+| `equiv.track-width`, `equiv.track-net`, `equiv.arc-width`, `equiv.arc-net`, `equiv.via-size`, `equiv.via-drill`, `equiv.via-span`, `equiv.via-net` | error | `--strict`: a field of two matched copper items differs |
+| `equiv.copper-locked` | warning | `--strict`: two matched items differ only in their lock; it does not fail the comparison |
+| `equiv.netclass-missing`, `equiv.netclass-field`, `equiv.netclass-members`, `equiv.rule-missing`, `equiv.rule-field`, `equiv.ruleset-field`, `equiv.stackup-missing`, `equiv.stackup-field`, `equiv.layer-field`, `equiv.layer-missing` | error | level 6: a net class, a custom rule, the rule set, the stack-up or the layer table differs |
+| `equiv.outline-missing`, `equiv.zone-missing`, `equiv.zone-field`, `equiv.keepout-missing`, `equiv.keepout-field`, `equiv.graphic-missing`, `equiv.graphic-field`, `equiv.opaque-count`, `equiv.text-missing`, `equiv.text-field`, `equiv.field-pose`, `equiv.hole-missing`, `equiv.dimension-missing` | error | level 7: the exact geometry differs (zone fills are never compared) |
+| `equiv.render-missing`, `equiv.render-pixels` | error | level 8: a layer drawn on one side only, or rendered masks that differ beyond `--pixel-ppm` |
+| `equiv.sheet-missing`, `equiv.symbol-missing`, `equiv.symbol-pose`, `equiv.symbol-field`, `equiv.item-missing`, `equiv.item-field`, `equiv.drawn-net` | error | level S: the drawn schematics differ (`verify-source`) |
 | `equiv.excluded` | info | a rule of the profile matched differences (count and reason) |
 | `equiv.import-message` | info | a warning or error of `kicad-cli`'s import report, counted by text |
 | `equiv.no-exclusion-profile` | warning | no profile for the running `kicad-cli` version line: no rule, the relative frame, tolerance 0 |
@@ -3534,11 +4259,63 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 |---|---|---|
 | 0 | none | equivalent up to the level, outside the rules |
 | 5 | none | a difference remains, or `equiv.oracle-failed` |
-| 2 | `FEN-2001` | neither `B` nor `--against`, or both; a level above what both sides hold (the message names the side without footprints, or without copper for level 5) or above 5; a bad value; `--exclusions` without `--profile` or the reverse; a profile the file lacks; an input no backend reads, or a library; `--against` on anything but an Altium PCB document |
+| 2 | `FEN-2001` | neither `B` nor `--against`, or both; a level above what both sides hold (the message names the side without footprints, or without copper for level 5) or outside 1 to 8 and S; `--level S` in this version; `--strict` below level 5; level 8 on a side without a board; a bad value; `--exclusions` without `--profile` or the reverse; a profile the file lacks; an input no backend reads, or a library; `--against` on anything but an Altium PCB document |
 | 3 | `FEN-3001` | an input does not exist |
 | 3 | the reader's code | an input or the exclusion file cannot be read |
 | 6 | `FEN-6001`, `FEN-6002` | `--against` without `kicad-cli`, or with a major other than 10; `FEN-6001` also for a schematic side outside the own netlist's grammar without `kicad-cli` |
 | 3 | `FEN-3004` | `kicad-cli` exported no netlist of a schematic side |
+
+## verify-source
+
+`fenolite verify-source SCRIPT --against ORIGINAL [--levels SPEC] [--tolerance-nm N] [--tolerance-udeg N]
+[--tolerance-ppm N] [--frame absolute|relative] [--pixel-ppm N] [--render-pitch-um N] [--provenance FILE]
+[--record] [--accept KEY --reason TEXT]… [--target 9|10] [--upgrade] [--copper-check refuse|warn] [--kicad-cli PATH]
+[--timeout SECONDS]` proves that a design script rebuilds an original project (change c0278; `docs/fidelity.md`). It builds
+`SCRIPT` as `build` does, for the KiCad major of the original or `--target`, into a temporary folder that it
+removes on every exit, reads the build and the original as `equivalent` reads its sides, and compares them
+at levels 1 to 7 (level 5 strict), S and 8. It writes nothing unless `--record` is given, and runs no tool
+unless `--upgrade` is given. Its `result` follows `schemas/fenolite.verify-source.v0.json`.
+
+| option | meaning |
+|---|---|
+| `--against ORIGINAL` | a KiCad project folder or `.kicad_pro`, or an Altium `.PrjPcb` |
+| `--levels SPEC` | the levels to run, comma-separated ranges and `S` (`1-7,S,8`, the default) |
+| `--tolerance-nm N`, `--tolerance-udeg N`, `--tolerance-ppm N`, `--frame` | as `equivalent`; default 0 and `absolute`, or the values of `fidelity.tolerances` of the provenance file; an option overrides the file |
+| `--pixel-ppm N`, `--render-pitch-um N` | level 8: default 1000 ppm (or `fidelity.tolerances.pixel_ppm`) and 50 µm |
+| `--provenance FILE` | the provenance file; default `PROVENANCE.json` beside `SCRIPT` |
+| `--record` | plan one write of the provenance file whose `fidelity.proof` holds the Fenolite version, the date (`--timestamp`), the SHA-256 of the script and of the original's files, the tolerances and each level's status; every other member is kept |
+| `--accept KEY --reason TEXT` | accept the difference `<level>:<kind>:<where>` of this run with a reason (one reason for all, or one per key): the entry is listed under `result.new_accepted` and written by `--record` |
+| `--target 9\|10` | the KiCad major of the build (default: the original's) |
+| `--upgrade` | upgrade a copy of an original older than KiCad 9.0 with `kicad-cli pcb upgrade` |
+| `--copper-check refuse\|warn` | the copper guard of the build; default `warn` for a copy (the provenance file holds an import record whose `copy` is not `false`; change c0281), else `refuse` |
+
+`result` holds `script` (`name`, `sha256`), `against` (`name`, `backend`, `files`: the SHA-256 of each file
+read; for a `.kicad_pro`, only that project's board, rules and sheet tree), `build` (`target`, `files`,
+`copper_check`, `copy`), `tolerances`, `provenance` (`path`, `accepted`, `record`), `levels` (one
+object per level: `level`, `name`, `status` of `equal`, `accepted`, `differs` or `skipped`, the counts
+`compared`, `differences`, `excluded` and `notices`, `reason` for a skipped level, and `summary`),
+`equivalent`, `differences`, `accepted` (the differences an accepted entry matched, with its id as `rule`)
+and `notices`. `issues` holds the equivalence issues of every level ("equivalent"), then the `fidelity.*`
+issues, then the readers' and the build's warnings. The evidence combines the reads, the build and
+`INFERRED` for level 8 (one renderer draws both sides).
+
+| code | severity | meaning |
+|---|---|---|
+| `fidelity.build-failed` | error | the build of the script wrote no file; no level ran |
+| `fidelity.accepted-unused` | warning | an accepted entry matched no difference in a level that ran |
+| `fidelity.level-skipped` | info | a level a side cannot reach, with its reason (`no-footprints`, `no-copper`, `no-board`, `no-schematic`, `drawn-unavailable`, `altium-drawing-unread`, `build-failed`) |
+| `fidelity.input-upgraded` | info | `--upgrade` upgraded a copy of the original |
+
+| exit | error | when |
+|---|---|---|
+| 0 | none | every level run is `equal` or `accepted` |
+| 5 | none | a difference is neither excluded nor accepted, or `fidelity.build-failed` |
+| 2 | `FEN-2001` | a script that is not a `.py` file; an original no backend reads; a bad `--levels`, tolerance or pitch; `--accept` without `--reason` |
+| 3 | `FEN-3001` | an input does not exist |
+| 3 | `FEN-3003` | an original older than KiCad 9.0 without `--upgrade` (the hint names `--upgrade` and `kicad-cli pcb upgrade`) |
+| 3 | `FEN-3004` | a malformed provenance file, or an accepted entry of a kind of another level (the message names its id) |
+| 4 | `FEN-4001`, `FEN-4002` | `--record` without `--confirm`, or a stale plan |
+| 6 | `FEN-6001` | `--upgrade` without `kicad-cli` |
 
 ## convert
 
@@ -3693,7 +4470,7 @@ commands as tools to a client of the Model Context Protocol on standard input an
 ## view
 
 `fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--cache user|project|off]
-[--compare OLD] [--variant NAME] [--check FILE|run] [--report FILE]... [--select REF] [--marks FILE] [--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]] [--no-review] [--no-models]
+[--compare OLD] [--variant NAME] [--check FILE|run] [--roles FILE|run] [--proposals FILE|run] [--report FILE]... [--select REF] [--marks FILE] [--serve [--port N] [--no-browser] [--run-timeout SECONDS] [--no-run] [--allow-actions]] [--export FILE [--docs ID,...]] [--no-review] [--no-models]
 [--silk-gap MM] [--mask-expansion MM]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
 c0177, c0178 and c0193; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
 board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbLib`, `.kicad_sym`,
@@ -3760,7 +4537,32 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbL
   first, with its stage and that stage's evidence. `result.check` gives `error`, `warning`, `info`, `total`
   and `placed` (the findings with a position on the document shown). A file that is not a `check` reply is
   `FEN-3004`; a missing one is `FEN-3001`. ERC findings are placed on sheets only, and the findings of the board
-  stages on boards only.
+  stages on boards only. A finding of the stage `roles.rules` that names a role group, or `group:pad`, is placed
+  on that group's pads when the board has role data (`--roles`).
+- **`--roles FILE|run`** (change c0305) joins the net roles to each board shown: the reply of `fenolite roles
+  BOARD --check --json` (`FILE`, for the board it names), or with `run` that command run first in the same
+  process, read-only, for every board of the page. The scene gets `roles` (`fenolite.view_roles.v0`: the
+  reply's role rows with their state and net, the hot loops, gate loops and Kelvin pairs with their pad points
+  and loop measures, the role findings placed), drawn as a Net roles panel, role colours, loop and Kelvin
+  overlays and role markers (`docs/viewer.md`, "Net roles"). `result.roles` gives `document`, `roles` (counts
+  by state: `confirmed`, `declared`, `inferred`), `findings` (by severity), `groups` and `evidence`; the
+  reply's `evidence.level` is the lower of the board's and the roles' (`INFERRED`). A file that is not a
+  `roles` reply, the role document itself included, is `FEN-3004`; a missing one is `FEN-3001`. A reply made
+  for another revision of the board is drawn with a note. A served page runs the reply again when the board or
+  its role document changed.
+- **`--proposals FILE|run`** (change c0280) joins route proposals to each KiCad board shown: the reply of
+  `fenolite route BOARD --router octilinear --propose --json` (`FILE`, for the board it names), or with `run`
+  that command run first in the same process; it writes nothing. The scene gets `proposals`
+  (`fenolite.view_proposals.v0`: per proposal its `id`, `kind`, `net`, `subject`, `box`, `reason` and
+  `alternatives`; per candidate its `id`, `source`, `relaxed`, `polylines` and `vias` per layer in scene units
+  and its `facts` unchanged; the record's `locked` decisions; a value the reply lacks is left out and no score
+  is added). `result.proposals` gives `document`, `proposals`, `candidates` (counts) and `evidence`; the
+  reply's `evidence.level` is the lower of the board's and the reply's (`UNVERIFIED`). A file that is not a
+  `route --propose` reply is `FEN-3004`; `run` on an Altium document is `FEN-2001`. A served page may run
+  `proposals` (no option), and with `--allow-actions` plan `route-accept` (`candidates`: candidate ids of the
+  session's proposal data) and `route-reject` (`candidates`: candidate or proposal ids, `reason`) as
+  `route BOARD --router octilinear --accept ID...` and `--reject ID... --reason TEXT`; any other id is refused
+  with 400.
 - **`--select REF`** (change c0189) opens the page at the part or net `REF` (`net:NAME` for a net whose name
   is also a reference), and replies with `result.select`: `name` and `found` (whether the document shown holds
   it; when it does not, a note says so). An exported page carries it.
@@ -3784,6 +4586,36 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbL
   8765, or any free port with `--port 0`) until it is interrupted, reloading a document when its file is
   saved, and then replies with `result.serve` (`url`, `seconds`). It opens a browser unless
   `--no-browser`.
+- **Runs** (change c0302). A served page may run `check`, `analyze`, `ready`, `equivalent` and `roles` (change
+  c0305: `roles --check` on a board, with no option) on a document of the tree, read-only, one job at a time: `GET /runs` says what it may run, `POST /run` takes a command name, a
+  document id and typed options (never a command line or a path; `check --exclude` and `--reason` are refused),
+  `GET /run/<job>` reports the job's state, progress records and results, and `POST /run/<job>/cancel` stops
+  it. Each run is `python -m fenolite <command> --json --progress` in a child process in the project folder,
+  stopped after `--run-timeout SECONDS` (default 600, above 0). Every `POST` needs this server's `Host`, a
+  same-server `Origin` when one is sent, the header `X-Fenolite-Run: 1`, a JSON type and at most 16 KiB.
+  A `check` run replaces, stage by stage, the stages of the same name of the document's session reply, each
+  stage keeping its own input hash and evidence; the results stay in the server's memory. `--no-run` serves
+  recorded results only. `result.serve.runs` counts the runs by final state (`done`, `failed`, `cancelled`,
+  `timeout`). `--run-timeout` or `--no-run` without `--serve` is `FEN-2001`.
+- **Actions** (change c0303). With `--allow-actions` a served page may write the project's files through
+  reviewed plans; without it every action route answers 403. `GET /actions?doc=ID` lists the actions of a
+  document (`fill`, `tidy` with `--gate drc` by default, `silk`, `testpoints --place`, `waive` as `check
+  --exclude CODE:A:B --reason TEXT` of a `drc.kicad` finding of the session, `move` as `place --move`,
+  `shift` and `turn` as `place --shift` and `--turn`, `export` and `bom` into a folder under the project,
+  `roles` as `roles --accept NETS --accept-group NAMES` on the board, naming only roles and groups the
+  session's role data shows as inferred, change c0305) with
+  their typed options and, for an Altium document, `available: false` with the reason; to a request with the
+  header `X-Fenolite-Action: 1` it also gives the session token. `POST /action/plan` runs the action's fixed
+  template with `--dry-run`; the job reports the plan (files with sizes and digests, issues, evidence,
+  `confirmable`) and, when it replaces the open board, `preview`, the revision compare of the staged bytes
+  with the board. `POST /action/confirm` with that job writes the plan by `--confirm --plan ID`, only a plan
+  of this session, of the same command, whose every write lies under the project root, and only once;
+  `FEN-4002` asks for a new review. `POST /action/undo` with a receipt id of the session plans `restore` on
+  it. Every action request needs the run guard with `X-Fenolite-Action: 1` and `X-Fenolite-Token`; no
+  command line, path outside the project, external tool, `--no-backup` or global flag comes from the page.
+  The receipt of each write is kept as `view-receipts/<id>.json` of the state folder, and
+  `result.serve.writes` lists the session's receipts (`id`, `action`, `files`). `--allow-actions` without
+  `--serve` is `FEN-2001`.
 - **Review** (change c0193). Unless `--no-review`, a board's review findings are drawn by group (45° corners,
   silkscreen near a mask opening, near other silkscreen or the edge, copper outside the board) with the open
   connections of `analysis.connectivity`, ground nets apart. `--silk-gap MM` is the silkscreen gap (default: the
@@ -3951,6 +4783,61 @@ otherwise). The evidence is `UNVERIFIED`: installing a tool proves nothing about
 | 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |
 | 6 | `FEN-6003` | the download failed (retryable); the hint names `--from FILE` |
 
+## get
+
+`fenolite get KIND ID [--version V] [--release R] [--script FILE] [--into DIR] [--from SRC] [--offline]
+[--index-sha256 HEX] [--accept-licence SPDX[,SPDX...]]` copies an item of `fenolite-library` and the closure
+of its `depends` into the project (change c0279; ADR-0008; [`docs/library-repo.md`](library-repo.md)). KIND is
+`symbol`, `footprint`, `device`, `block` or `board`. Symbols, footprints, devices and blocks go into
+`<script folder>/fenolite_library/<kind folder>/<id path>/` (`--script`, default `design.py`; `FEN-2001`
+without one); a board goes into `--into DIR` (default `./<name>`), which must be missing or empty, and its
+own `design.lock` gets the pin. Every folder keeps `item.json`, `LICENSE`, `NOTICE` and `PROVENANCE.json`
+byte for byte. The plan also holds `fenolite_library/ATTRIBUTION.md` (kind `attribution`, regenerated from
+every vendored item) and the lock (kind `lock`), and the cache writes (kind `library-cache`). All of it is
+written or none. `get` never imports, runs or builds a payload.
+
+- **Release.** `--from SRC` reads a release folder (`index.json` and its assets), a library checkout (the
+  release is built in memory) or a `file://` git URL (`#ref` optional); otherwise `--release R`, else the
+  newest release this version lists or the cache holds. An index is checked against the table
+  `cli/data/library.toml`, `--index-sha256`, or a lock entry's `index` (`FEN-3006`); each archive against its
+  index row and each item against its tree.
+- **Network.** Only under `--confirm`, never with `--offline`: one `https` request per missing asset, with
+  only `User-Agent: fenolite/<version>`, 60 s, `https`-only redirects, at most the expected bytes plus one,
+  no retry (`FEN-6003`). A dry run plans the downloads with their sizes and digests and opens no connection;
+  with no cached index it plans the index only (`result.stage` `index`). `--offline` exits 6 with `FEN-6006`
+  when something is not cached.
+- **Licences.** `result.items[]` gives `kind`, `id`, `version`, `release`, `spdx`, `family`, `reciprocal`,
+  `obligations`, `authors`, `upstream`, `path`, `tree`, `bytes`, `executes`, `required_by`, `proof`,
+  `evidence`, `action` (`added`, `kept`, `restored`, `updated`), `before` and `after`; `result.licences[]`
+  each distinct id with `accept_required` and `accepted`. A confirm of a plan holding an id other than
+  `CC0-1.0` not named by `--accept-licence` exits 4 with `FEN-4003`; `result.accepted` echoes the accepted
+  ids. An id outside the shipped allow-list, an index row and `PROVENANCE.json` that disagree, or a missing
+  `LICENSE`/`NOTICE` exit 3 with `FEN-3021`.
+- **Updates and conflicts.** A vendored item at another version is replaced (`action` `updated`, with
+  `before`); a folder whose tree differs from its pin exits 7 with `FEN-7001` (`library.item-modified`)
+  unless `--allow-lossy`. A dependency needed at another version than vendored gives
+  `library.depends-conflict` (exit 5) and plans nothing.
+- **Other forms** (exclusive with `KIND ID`): `--remove KIND ID` plans the folder's removal (listed in
+  `result.removes`, done after the writes), the lock entry's removal and the attribution file (exit 2 when
+  another vendored item depends on it); `--locked SCRIPT` restores every pinned item whose folder is missing,
+  from its pinned release and tree, and changes nothing else; `--status [--script FILE]` (read-only) gives
+  `rows` with `present`, `modified` and `newer` and exits 5 with `library.item-missing`; `--list` and
+  `--search TEXT [--kind K] [--licence ID|FAMILY]` read a cached index (or `--from`) only and give `rows`
+  (kind, id, version, title, SPDX, family, authors, gallery page), paged by `--limit`; `--refresh` caches one
+  release index. `get` refuses `--frozen` (exit 2).
+
+The design lock gains `[library.items."<kind>/<id>"]` with `index`, `path`, `release`, `spdx`, `tree` and
+`version`; only `get` changes it, and `fenolite build` reads it: an entry whose folder is missing exits 6
+with `FEN-6004` (`library.item-missing`, hint `fenolite get --locked <script> --dry-run`) and writes nothing.
+Evidence is `INFERRED` (`H-G-LIBRARY-GET`).
+
+| code | severity | when |
+|---|---|---|
+| `library.depends-conflict` | error | the closure needs another version of a vendored item |
+| `library.item-missing` | error | a pinned item has no folder (`build`: exit 6 `FEN-6004`; `--status`: exit 5) |
+| `library.item-modified` | error | an update or removal meets a locally edited folder (`FEN-7001`) |
+| `library.licence-denied` | error | the item's licence is refused (`FEN-3021`) |
+
 ## guide
 
 `fenolite guide [TOPIC]` prints the agent guide that ships in the package (`src/fenolite/agent/`): the
@@ -4030,3 +4917,100 @@ every part placed so that `fenolite route --router direct` closes its three nets
 | 0 | none | a dry run or a confirmed write |
 | 2 | `FEN-2001` | an unknown starter (the hint names them); a name that is not a design name (the hint names `--name`); `DIR/design.py` exists and `--force` is not given |
 | 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |
+
+### Design-testing additions (c0256, experimental)
+
+`render --net NAME` is repeatable; `--layers L1,L2` filters the tool-free model render. With `--region`
+or `--net`, PATH can be a design script. Model renders write one canonical SVG under the normal
+plan/confirm protocol. Unknown nets/layers, scripts without either model form, or combining highlights
+or layer filters with KiCad plots give `FEN-2001`, exit 2. `--nets` still enables labels.
+`result.region` adds sorted `nets` and unique-entity `highlighted` counts for pads/tracks/arcs/vias/zones.
+
+`check.result.subjects` is a list of `{issue, items}`: the zero-based index into envelope `issues` and
+`items` with `{kind, id, name}`. With concise output the grouped subjects are retained; with pagination indices are local to the visible issues.
+Issues themselves retain their exact existing keys. Available producers
+are the copper, length, placement, roles and circuit stages; a `circuit.rules` finding of a
+requirement row names its part and nets (a ground net only when the row names no other).
+
+`build.unattached` is a warning for a live script-created Part, Net or Interface that never reached the
+design. Its `where` is script-relative `file:line:N`; add, connect or delete that object. Creation tracking
+is build-scoped and weak: objects already collected are not reported, and ordinary Python use is untracked.
+
+### Topology and rule-explanation findings
+
+`topology.rules` is a default KiCad-only stage immediately after `length.rules`. It runs no tool,
+skips with `no-topology` or `read-refused`, and counts `topologies`, `constraints` by kind, `judged`
+and `not_judged`. Evidence combines the read with `INFERRED` (`H-G-TOPO-DELAY`); missing inputs make
+it `UNVERIFIED`. Each finding has topology, pin/pad and net subjects. Altium document stages do not
+include it. `check --explain-rules` adds sorted `result.rules` rows using `rule_precedence`: `subject`,
+`kind`, `governing`, `rank` and `overrides`, with each rule's name, id, priority and rank. No extra tool
+runs. Default specificity leaves precedence unchanged; `design.rules.precedence("specificity")` is
+explicit opt-in, preserving explicit priorities.
+
+| code | severity | meaning |
+|---|---|---|
+| `topology.delay-out-of-range` | error or warning | The strict-side path delay is outside the user-supplied minimum or maximum in femtoseconds. |
+| `topology.skew-out-of-range` | error or warning | A root-to-end or differential member delay differs from the longest by more than the user-supplied maximum. |
+| `topology.loss-over-budget` | error or warning | Path loss from user-supplied layer, via and bridge figures exceeds the milli-decibel budget. |
+| `topology.stub-too-long` | error or warning | An unlisted copper branch from a measured tree path exceeds its length budget. |
+| `topology.order` | error or warning | Copper reaches a later descendant before an earlier load, or the constrained net has a copper loop. |
+| `topology.bridge-missing` | error | Two chains pass through different pins of one series part without a declared bridge. Build plans no write. |
+| `topology.input-missing` | warning | A required layer or via input, one common loss frequency or a known native pad-delay unit is unavailable. The constraint is not judged and evidence is UNVERIFIED. |
+| `topology.path-through-zone` | warning | The pads connect through filled zone copper and have no measurable continuous routed path. The constraint is not judged. |
+| `topology.unrouted` | info | No continuous copper path connects the constrained pads yet. The constraint is not judged. |
+| `rules.shadowed` | info | KiCad precedence makes a less specific rule govern over a matching rule with a higher selector rank. |
+| `rules.topology-not-lowered` | info | A topology constraint has no proven equivalent existing KiCad length or pair-skew rule. It remains in the canonical model and is checked by Fenolite. |
+
+### Library record checks and human review
+
+`fenolite library check TARGET... [--sheets DIR] [--compare OLD] [--fail-on error|warning]
+[--rules CODE,...] [--skip CODE,...]` reports deterministic items, rules run, findings, effective evidence
+and comparisons. It accepts record files/folders and plain KiCad/Altium libraries. Error findings exit 5;
+warning threshold also fails on warnings. Missing targets are FEN-3001. Sheets are writes through the
+standard plan, confirmation and receipt protocol; errors plan no writes. The manifest gives exact
+artefact hashes and the base review hash for comparison sheets.
+
+`fenolite library review TARGET...` reports acceptance and freshness without writes. `--accept` requires
+`--reviewer NAME` (nonempty, no email) and `--sheet HEX` (at least 12 matching hex digits). `--revoke`
+restores previous evidence. Both writes use plans and receipts. Errors block acceptance (exit 5), a stale
+sheet is FEN-4002 (exit 4), and a higher evidence label cannot be lowered (FEN-7001, exit 7). Reviews use
+c0259's `[[reviewed_by]]`; trust metadata is excluded from accepted content. MCP excludes the review
+action in its schema and rejects it at runtime. See [Library rules](library-rules.md) and
+[Library CI](library-ci.md).
+
+### library propose
+
+`fenolite library propose --datasheet FILE` returns a parseable proposal skeleton and `guide = datasheets`
+without writing. With one or two `--proposal FILE` arguments and `--out DIR`, it validates the closed
+`fenolite.proposal.v0` schema, binds the PDF hash, checks independent agreement, generates unverified
+records and native definitions, and uses plans, confirmation and receipts. `--licence` defaults to
+`see source terms`. The result schema is `fenolite.library-propose.v0`: device, folder, datasheet,
+proposals with hashes/proposers, package family/count, doubts, uncited rows, evidence and plan.
+Errors exit 5 and plan no writes; malformed input uses FEN-3004, newer schema FEN-3002, and replacement
+of reviewed/edited folders FEN-7001. Library review of proposed records additionally needs
+`--datasheet FILE`, current generated content, no doubts and complete citations. See
+[datasheet proposals](datasheet-proposals.md).
+
+## suppliers
+
+`capabilities` and `capabilities --brief` list `result.suppliers` from entry-point metadata and static
+policies. Each names its availability, readiness reason, `credential_env_present` (names present, no
+values read), optional keyring installation, cache, rate and fields it could send. Discovery opens no
+connection and keeps `result.sends_data_offsite=false`. A credential's presence does not establish
+permission to enable a source. Current built-in providers are unavailable pending source review.
+
+`pick PATH --propose QUERY --supplier NAME --allow-offsite --limit 5 --timeout 30 --dry-run` allows an
+explicit lookup only. Timeout bounds the whole lookup including rate waits and its one numeric
+`Retry-After` retry. No script, board, netlist or project name is sent. See [suppliers.md](suppliers.md).
+
+Missing credentials or unavailable policy: `FEN-6001`, exit 6. Refused credentials (401/403):
+`FEN-6005`, exit 6, not retryable; the hint names environment variables and the keyring service.
+Network, timeout, 5xx or repeated 429: `FEN-6003`, exit 6, retryable. Malformed response: `FEN-3004`.
+The `supplier.*` findings describe proposals, incomplete identities, no results, rate waits and
+unmapped display attributes; `fenolite explain CODE` gives each remedy.
+
+Rich supplier proposals use `fenolite.supplier-proposal.v0`, an identity draft requiring human review
+and conversion into a complete device record. Existing legacy `Supplier.propose` rows retain their
+contract. Display-only offers and reported attributes are filtered out of stored plan results. This
+filter can only remove result data; the framework still binds inputs, issues, write bytes and receipts.
+Confirmation with the plan id writes those exact bytes without loading a plugin or another request.

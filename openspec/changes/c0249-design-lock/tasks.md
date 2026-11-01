@@ -13,6 +13,9 @@
 
 - [x] 1.1 Make `ref` optional on `Part`, `Design.part` and `Module.part`. Add `name=` and `prefix=`, the key rule, and the prefix sources (scenarios "Key from the prefix", "A second unnamed part", "Name and explicit ref", "Prefix from the catalog symbol", "No prefix known", "Path from a name"). Proof: `uv run pytest tests/unit/dsl/test_part_keys.py tests/unit/dsl/test_ids.py -q`.
   - 2026-10-29: done, proof passed (24 tests). `device=` waits for c0248: the scenarios with a device use `prefix=` or a catalog symbol, and `Design.part`/`Module.part` are a minimal `Container.part` taking the arguments of `Part` (c0248 widens it). The DSL now imports `fenolite.catalog` for the symbol prefix (allowed in `tests/unit/dsl/test_fields.py`).
+  - 2026-10-29: merged with c0248 on `circuits-as-code`: `Container.part` (and `b.part` of c0251) takes
+    `device=`, and the device's `ref_prefix` is the prefix of a part without a ref when `prefix=` is not
+    given. Proof: `uv run pytest tests/unit/dsl/test_device_hooks.py tests/unit/dsl/test_part_keys.py -q`.
 
 ## 2. Assignment and the lock
 
@@ -47,7 +50,8 @@
   - 2026-10-29: done, proof passed; generated pages regenerated.
 - [x] 5.3 Residue and evidence: the example is authored for Fenolite, the hypothesis is registered, and the evidence matrix is regenerated. Proof: `make residue`; `uv run python tools/gen_evidence_matrix.py --check`.
   - 2026-10-29: done: `make residue` 0 hits, `gen_evidence_matrix.py --check` exit 0.
-- [ ] 5.4 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
+- [x] 5.4 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
+  - 2026-10-29: entry under `## [Unreleased]` › `### Added` on `circuits-as-code`, after `dev` (0.7.0.dev0) was merged into it.
   - 2026-10-29: open: `dev` is at the unpublished 0.6.0, whose guard needs `[Unreleased]` empty; waits for 0.7.0.dev0.
 - [ ] 5.5 Run `make check-fast`, publish the batch (with c0248) to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
   - 2026-10-29: open: `make check-fast` passes locally (15360 passed, 46 skipped). Under the maintainer's rule of 2026-10-29 the branch is not pushed; CI runs with the batch. c0248 is not in it yet.

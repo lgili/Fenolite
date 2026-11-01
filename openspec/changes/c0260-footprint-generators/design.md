@@ -270,8 +270,11 @@ nominal by authored deltas; rejected for now, there is no data to calibrate them
 
 ### 9. Pin numbering and orientation
 
-- Dual rows: pin 1 at the top of the left row, counter-clockwise in the top view, exactly as the 0.6
-  helper `_row_pads`; quad: as `_quad_pads`; `sides`: the `numbers` of each `[[side]]` at its `positions`
+- Dual rows: pin 1 at the top of the left row (the most negative y of the Y-down library frame),
+  counter-clockwise in the top view; quad likewise from the upper left. *Correction (2026-10-30):* the 0.6
+  helpers `_row_pads` and `_quad_pads` put pin 1 at the most positive y, the bottom of the Y-down frame
+  (`docs/formats/kicad/frame.md`), which is the mirror image of the top view; `drawing/0` keeps that
+  placement for the catalog's bytes and `drawing >= 1` numbers correctly; `sides`: the `numbers` of each `[[side]]` at its `positions`
   on the pitch grid (SOT-23: left `[1, 2]` at positions `[0, 2]`, right `[3]` at `[1]`).
 - Grid arrays: rows lettered `A`, `B`, ... skipping `I`, `O`, `Q`, `S`, `X`, `Z`, then `AA`, `AB`, ...;
   columns numbered from 1; `A1` at the top left in the top view. The skipped letters are a public
@@ -381,17 +384,29 @@ change (SHA-256 of each written `.kicad_mod`, both KiCad writer targets): all 10
 irregular footprints (switches, LED module, electrolytics, mounting holes, test point, terminal blocks,
 USB connector) stay explicit pad lists of c0259 and are not generated.
 
+*Amended 2026-10-30, after c0259 merged:* c0259 moved all 100 footprints to explicit pad lists
+(`generator = "explicit"`) with byte-identical output and deleted the private helpers itself, so nothing is
+left to delete here. Re-expressing the family-shaped entries as family records needs keys the 0.6 tuples never
+held (span, lead length and width, required by decision 2); they are not invented. This change proves instead
+that `drawing/0` reproduces six representative entries equal to their records (`test_drawing.py`) and that
+every catalog `.kicad_mod` keeps the bytes captured on `circuits-as-code` 52f32e8c
+(`tests/data/catalog/footprints.sha256`, both targets). Moving a record to its family is a later record
+version, made when its cited sources give the missing keys.
+
 ### 17. Command: `fenolite library generate`
 
-- `fenolite library generate PACKAGE... --out DIR [--library NICK] [--positions N] [--no-step]
+- `fenolite library generate PACKAGE... --out DIR [--library NICK] [--positions N] [--no-step] [--no-pcblib]
   [--dry-run | --confirm --plan ID] [--timestamp T]` plans `DIR/<NICK>.pretty/<name>.kicad_mod` and
-  `DIR/<NICK>.3dshapes/<name>.step` per package (and per position of a connector series); `NICK`
-  defaults to `Local`. It writes all files or none, through plan and confirm, with a receipt.
+  `DIR/<NICK>.3dshapes/<name>.step` per package (and per position of a connector series), and one
+  `DIR/<NICK>.PcbLib` holding them all (open question 3); `NICK` defaults to `Local`. It writes all files or none, through plan and confirm, with a receipt.
 - **Verb dispatch.** `fenolite library` keeps its c0223 form: a first argument that is not a verb is a
   board path. The verbs are `generate` here and those later changes add (`check` c0262, `import` c0264,
   `propose` and `review` c0265, `seed` c0266, `audit`, `replay`, `release` and `gallery` c0279). A board path literally named `generate` is written
   `./generate`. *Alternative:* a new top-level command `fenolite package`; rejected, the batch groups
   library work under one command.
+  *Amended 2026-10-30:* c0261 merged first and defined the action table of `fenolite library`
+  (`symbol`, `check`, `review`, `import`, `propose`, `fetch`); `generate` joins that table, and a board folder
+  named like any action is passed as `./<name>`.
 - Result (`result.packages[]`): `name`, `family`, `id`, `stamp`, `land` (`source`, `z`, `g`, `x`, pad
   sizes, `deltas`), `courtyard`, `bodies` (count, top), `files`; `issues` holds the `package.*` findings.
   Exit 5 when a package has an error finding (nothing written), 3 for an unreadable record.
@@ -454,12 +469,18 @@ No new `FEN-` code: unreadable records are c0259's `FEN-3004`/`FEN-3002`.
 
 1. Ship `compact` and `robust` densities? *Recommended:* not yet; nominal only until a calibration set
    exists for each.
+   Decided 2026-10-30: the recommended answer, nominal only.
 2. May constants be calibrated from manufacturer patterns that cite IPC-7351 as their method?
    *Recommended:* yes, the numbers are the manufacturer's published facts for its package, cited one by
    one; never the standard's tables.
+   Decided 2026-10-30: the recommended answer, yes, per package and cited, never the tables.
 3. Should `fenolite library generate` also write the Altium `.PcbLib`? *Recommended:* later; the Altium
-   build already lowers any `FootprintDef`, bodies included.
+   build already lowers any `FootprintDef`, bodies included. **Answered (maintainer, 2026-10-30): yes.** `library generate` also
+   plans `DIR/<NICK>.PcbLib` through `fenolite.backends.altium.pcblib.write_pcblib` (`--no-pcblib` leaves it
+   out); tasks 3.7 and 6.2b.
 4. One body per lead, or one merged lead body per side? *Recommended:* one per lead (exact volumes),
    revisit if files grow beyond 1 MB for a 208-pin QFP.
+   Decided 2026-10-30: the recommended answer, one body per lead.
 5. Is `Local` the right default library nickname for generated files outside the catalog?
    *Recommended:* yes, as `docs/dsl.md` already uses it for authored footprints.
+   Decided 2026-10-30: the recommended answer, `Local`.

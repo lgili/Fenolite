@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example; an illustrative part, not a real product.
+schema = "fenolite.part.v0"
+id = "Example:BUCK_6V_2A@EXB6202QDR"
+version = "1.0.0"
+summary = "Automotive grade of the illustrative regulator"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"
+device = "Example:BUCK_6V_2A"
+mpn = "EXB6202QDR"
+extends = "EXB6202DR"
+grade = "automotive"

@@ -19,19 +19,15 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import os
-import signal
-import subprocess
 import sys
-import threading
-import time
 from collections.abc import Callable, Mapping
 from functools import partial
 from pathlib import Path
-from typing import IO, Any, cast
+from typing import Any, cast
 
 from fenolite.cli import plans
 from fenolite.cli.api import Command
+from fenolite.cli.childrun import run_child
 from fenolite.cli.errors import CliError, ErrorInfo
 from fenolite.cli.output import canonical_json, to_jsonable
 from fenolite.core.state import state_dir
@@ -44,8 +40,6 @@ EXIT_KEY = "fenolite/exit"
 IMAGES = 4
 IMAGE_BYTES = 6_000_000
 """The images of one reply: at most this many, and this many bytes before base64 (change c0196)."""
-GRACE = 5.0
-"""Seconds between the terminate and the kill of a stopped call."""
 Json = dict[str, Any]
 
 
@@ -280,97 +274,27 @@ class FenoliteBackend:
     # ------------------------------------------------------------------ the child
 
     def _run(self, name: str, words: list[str], call: Call) -> Json:
-        argv = [
-            *self.executable,
-            *words[:1],
-            "--json",
-            *(["--progress"] if call.progress else []),
-            *words[1:],
-        ]
-        env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
-        group = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
-        child = subprocess.Popen(
-            argv, cwd=self.root, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, creationflags=group, start_new_session=os.name != "nt",
-        )  # fmt: skip
-        out: list[bytes] = []
-        errors: list[str] = []
-        readers = [
-            threading.Thread(target=lambda: out.append(cast("IO[bytes]", child.stdout).read()), daemon=True),
-            threading.Thread(target=self._stderr, args=(child, errors, call), daemon=True),
-        ]
-        for reader in readers:
-            reader.start()
-        stopped = self._wait(child, call)
-        for reader in readers:
-            reader.join(GRACE)
-        if stopped is not None:
-            return _refusal("FEN-1003", stopped, where=name, hint="the call can be run again")
-        code = int(child.returncode)
-        if code in (0, 5):
-            try:
-                return _result(cast("Json", json.loads(b"".join(out).decode("utf-8"))), code)
-            except ValueError as exc:
-                return _refusal("FEN-1001", f"the command's output is not its envelope: {exc}", where=name)
-        for line in reversed(errors):
-            try:
-                value = json.loads(line)
-            except ValueError:
-                continue
-            if isinstance(value, dict) and "code" in value:
-                return _result(cast("Json", value), code)
-        return _refusal("FEN-1001", f"the command exited {code} without its error object", where=name)
-
-    def _wait(self, child: subprocess.Popen[bytes], call: Call) -> str | None:
-        """Wait for ``child``; stop it on cancellation or after the timeout and say why, else ``None``."""
-        deadline = time.monotonic() + self.timeout
-        while child.poll() is None:
-            if call.cancelled.wait(0.05):
-                self._stop(child)
-                return "the client cancelled the call"
-            if time.monotonic() > deadline:
-                self._stop(child)
-                return f"the call ran longer than {self.timeout:g} s and was stopped"
-        return None
-
-    @staticmethod
-    def _stop(child: subprocess.Popen[bytes]) -> None:
-        if os.name == "nt":
-            child.terminate()
-        else:
-            os.killpg(child.pid, signal.SIGTERM)
-        try:
-            child.wait(GRACE)
-        except subprocess.TimeoutExpired:
-            if os.name == "nt":
-                child.kill()
-            else:
-                os.killpg(child.pid, signal.SIGKILL)
-            child.wait()
-
-    @staticmethod
-    def _stderr(child: subprocess.Popen[bytes], errors: list[str], call: Call) -> None:
-        """Read the child's stderr: progress records become notifications, other lines are kept."""
+        """Run ``words`` through the shared runner core (:mod:`fenolite.cli.childrun`): progress records
+        become notifications, a stop is ``FEN-1003``."""
         count = 0
-        for raw in cast("IO[bytes]", child.stderr):
-            line = raw.decode("utf-8", "replace").strip()
-            try:
-                value = json.loads(line)
-            except ValueError:
-                errors.append(line)
-                continue
-            record = cast("Json", value).get("progress") if isinstance(value, dict) else None
-            if isinstance(record, dict):
-                fields = cast("Json", record)
-                count += 1
-                report = call.progress
-                if report is not None:
-                    step = fields.get("step") or ""
-                    report(
-                        count, None, f"{fields.get('command', '')}: {fields.get('event', '')} {step}".strip()
-                    )
-            else:
-                errors.append(line)
+        report = call.progress
+
+        def progress(fields: Json) -> None:
+            nonlocal count
+            count += 1
+            if report is not None:
+                step = fields.get("step") or ""
+                report(count, None, f"{fields.get('command', '')}: {fields.get('event', '')} {step}".strip())
+
+        done = run_child(
+            words, root=self.root, timeout=self.timeout, cancelled=call.cancelled,
+            progress=progress if report is not None else None, executable=self.executable, where=name,
+        )  # fmt: skip
+        if done.stopped == "cancelled":
+            return _refusal(
+                "FEN-1003", "the client cancelled the call", where=name, hint="the call can be run again"
+            )
+        return _result(done.value, done.exit)
 
 
 __all__ = ["EXIT_KEY", "FenoliteBackend"]

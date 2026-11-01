@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example; an illustrative symbol, not a real product's.
+schema = "fenolite.pins.v0"
+id = "Example:Buck_6pin"
+version = "1.0.0"
+summary = "Six-pin step-down regulator symbol (illustrative)"
+category = "Power"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"
+
+[[pin]]
+number = "1"
+name = "BST"
+type = "passive"
+
+[[pin]]
+number = "2"
+name = "GND"
+type = "passive"
+
+[[pin]]
+number = "3"
+name = "FB"
+type = "passive"
+
+[[pin]]
+number = "4"
+name = "EN"
+type = "passive"
+
+[[pin]]
+number = "5"
+name = "VIN"
+type = "passive"
+
+[[pin]]
+number = "6"
+name = "SW"
+type = "passive"
+
+[symbol]
+reference = "U"
+value = "EXB6202"
+pins = [
+  { number = "1", at = ["-7.62mm", "-2.54mm"], length = "2.54mm" },
+  { number = "2", at = ["-7.62mm", "0mm"], length = "2.54mm" },
+  { number = "3", at = ["-7.62mm", "2.54mm"], length = "2.54mm" },
+  { number = "4", at = ["7.62mm", "2.54mm"], rotation = "180deg", length = "2.54mm" },
+  { number = "5", at = ["7.62mm", "0mm"], rotation = "180deg", length = "2.54mm" },
+  { number = "6", at = ["7.62mm", "-2.54mm"], rotation = "180deg", length = "2.54mm" },
+]
+
+[[symbol.graphic]]
+kind = "rect"
+points = [["-5.08mm", "-5.08mm"], ["5.08mm", "5.08mm"]]

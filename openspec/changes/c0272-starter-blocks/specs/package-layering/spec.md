@@ -6,3 +6,10 @@ The starter block modules of `fenolite.blocks` (`divider`, `rc`, `led`, `i2c`, `
 #### Scenario: Blocks stay above the DSL
 - **WHEN** `uv run pytest tests/unit/test_import_graph.py` runs
 - **THEN** no starter block module imports `fenolite.model`, `fenolite.backends`, `fenolite.cli` or `fenolite.testing`
+
+### Requirement: Shipped self tests remain tool free
+The shipped `fenolite.blocks.tests` modules MAY import `fenolite.testing` and the standard library to run plain zero-argument test functions. They MUST NOT import a test framework or add a runtime dependency. This exception MUST NOT widen the permitted imports of starter block bodies.
+
+#### Scenario: Installed self tests run without pytest
+- **WHEN** `fenolite blocks test --json` runs with external tool calls refused
+- **THEN** every shipped plain test runs through `fenolite.testing` without importing pytest

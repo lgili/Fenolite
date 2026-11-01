@@ -208,18 +208,23 @@ class _Reply:
     envelope: Envelope | None = None
     error: ErrorInfo | None = None
     text: str | None = None
+    always: bool = False
+    """``Result.text_on_failure``."""
 
 
-def _emit(envelope: Envelope, ctx: Context, out: TextIO, text: str | None = None) -> None:
+def _emit(
+    envelope: Envelope, ctx: Context, out: TextIO, text: str | None = None, always: bool = False
+) -> None:
     """Print the envelope. ``text`` (``Result.text``) is used by text mode only."""
     _quiet(ctx)
-    out.write((render_json(envelope) if ctx.mode == "json" else render_text(envelope, text)) + "\n")
+    rendered = render_json(envelope) if ctx.mode == "json" else render_text(envelope, text, always=always)
+    out.write(rendered + "\n")
 
 
 def _print(reply: _Reply, ctx: Context, out: TextIO, err: TextIO) -> None:
     """Print a reply: the envelope on ``out``, then the error object on ``err``."""
     if reply.envelope is not None:
-        _emit(reply.envelope, ctx, out, reply.text)
+        _emit(reply.envelope, ctx, out, reply.text, reply.always)
     if reply.error is not None:
         write_error(reply.error, ctx.mode, err)
 
@@ -278,6 +283,24 @@ def _holder(result: dict[str, Any], path: str) -> tuple[dict[str, Any], str] | N
             return None
         node = cast(dict[str, Any], inner)
     return (node, parts[-1]) if isinstance(node.get(parts[-1]), list) else None
+
+
+def _shown_subjects(
+    rows: list[dict[str, Any]], original: tuple[Issue, ...], shown: tuple[Issue, ...], *, concise: bool
+) -> list[dict[str, Any]]:
+    """Keep subject indices relative to the actual visible issue list, including concise pages."""
+    grouped: dict[object, list[dict[str, Any]]] = {}
+    for row in rows:
+        source = original[cast(int, row["issue"])]
+        key = source.code if concise else id(source)
+        grouped.setdefault(key, []).extend(row["items"])
+    result: list[dict[str, Any]] = []
+    for k, issue in enumerate(shown):
+        items = grouped.get(issue.code if concise else id(issue), [])
+        distinct = {(item["kind"], item["id"], item["name"]): item for item in items}
+        if distinct:
+            result.append({"issue": k, "items": list(distinct.values())})
+    return result
 
 
 def _concise(issues: tuple[Issue, ...]) -> tuple[tuple[Issue, ...], list[dict[str, object]]]:
@@ -426,7 +449,15 @@ def _replay(command: Command, staged: plans.StagedPlan, args: Mapping[str, Any],
     except (plans.DamagedPlan, KeyError, TypeError, ValueError) as exc:
         plans.remove(ctx.state, staged.id)
         raise _stale(f"the staged plan {staged.id} is damaged and was removed ({exc})", "--plan") from exc
-    return Result(result, issues, evidence, given, writes, write_on_error=write_on_error)
+    return Result(
+        result,
+        issues,
+        evidence,
+        given,
+        writes,
+        write_on_error=write_on_error,
+        fail_on_warning=bool(reply.get("fail_on_warning", False)),
+    )
 
 
 def _load(ctx: Context, plan: str) -> plans.StagedPlan | None:
@@ -461,11 +492,12 @@ def _stage(
             writes=[{k: v for k, v in row.items() if k != "overwrite"} for row in rows],
             payloads=[w.data for w in outcome.writes],
             reply={
-                "result": outcome.result,
+                "result": outcome.result if outcome.staged_result is None else outcome.staged_result,
                 "issues": outcome.issues,
                 "evidence": outcome.evidence,
                 "input": outcome.input,
                 "write_on_error": outcome.write_on_error,
+                "fail_on_warning": outcome.fail_on_warning,
             },
         )
     except plans.StageError as exc:
@@ -568,6 +600,10 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
         shown, result["issues_summary"] = _concise(shown)
     if limit is not None:
         result, shown = _paged(command, result, shown, limit, args.cursor)
+    if command.name == "check" and "subjects" in result and (args.format == "concise" or limit is not None):
+        result["subjects"] = _shown_subjects(
+            result["subjects"], outcome.issues, shown, concise=args.format == "concise"
+        )
     written = dict(result)  # what a confirmed write replies: no plan
     if writes:
         result["plan"] = _shown(rows)
@@ -629,13 +665,28 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
         if outcome.written is not None:
             outcome.written()
 
-    if code is ExitCode.OK and n_errors:
+    n_failures = n_errors
+    if command.name == "library" and getattr(args, "fail_on", "error") == "warning":
+        n_failures += sum(1 for issue in outcome.issues if issue.severity == "warning")
+    if code is ExitCode.OK and n_failures:
         code = ExitCode.FINDINGS
-        error = CliError("FEN-5001", f"{n_errors} finding(s) of severity error", where=command.name).info()
+        detail = (
+            f"{n_errors} finding(s) of severity error"
+            if n_failures == n_errors
+            else f"{n_failures} finding(s) at the failure threshold"
+        )
+        error = CliError("FEN-5001", detail, where=command.name).info()
+    elif code is ExitCode.OK and outcome.fail_on_warning:
+        n_warnings = sum(1 for issue in outcome.issues if issue.severity == "warning")
+        if n_warnings:
+            code = ExitCode.FINDINGS
+            error = CliError(
+                "FEN-5001", f"{n_warnings} finding(s) of severity warning", where=command.name
+            ).info()
 
     ok = code is ExitCode.OK
     envelope = _envelope(command, shown_outcome, result, ok=ok, receipt=receipt, started=started)
-    return _Reply(int(code), envelope, error, outcome.text)
+    return _Reply(int(code), envelope, error, outcome.text, outcome.text_on_failure)
 
 
 def _recovery_path(path: Path, cwd: Path) -> str:

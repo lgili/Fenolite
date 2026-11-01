@@ -13,6 +13,7 @@ from fenolite.core.units import (
     format_length,
     nm_to_u,
     parse_angle,
+    parse_area,
     parse_length,
     round_half_even_div,
     u_to_nm,
@@ -102,3 +103,19 @@ def test_u_to_nm_is_symmetric_and_nearest(u: int) -> None:
 def test_nm_to_u_is_symmetric_and_nearest(nm: int) -> None:
     assert nm_to_u(-nm) == -nm_to_u(nm)
     assert abs(Fraction(nm_to_u(nm)) - Fraction(nm * 50, 127)) < Fraction(1, 2)
+
+
+@pytest.mark.parametrize(
+    ("text", "nm2"),
+    [("60mm2", 60_000_000_000_000), ("60 mm²", 60_000_000_000_000), ("1um2", 1_000_000), ("3nm2", 3),
+     ("0.5mm2", 500_000_000_000)],
+)  # fmt: skip
+def test_parse_area(text: str, nm2: int) -> None:
+    """Change c0253: an area beside a length, whole square nanometres, exactly."""
+    assert parse_area(text) == nm2
+
+
+@pytest.mark.parametrize("text", ["60", "60mm", "0.0000001nm2", "1A2"])
+def test_parse_area_refused(text: str) -> None:
+    with pytest.raises(ValueError):
+        parse_area(text)

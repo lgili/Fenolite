@@ -256,6 +256,12 @@ class Pad(Entity):
     child as read, so a write keeps it unless the field disagrees (refused) or is ``None`` (kept)."""
     paste_margin: Nm | None = None
     """The growth of the pad's paste opening beyond its copper, as ``mask_margin``."""
+    die_delay_fs: int = 0
+    """A known pad die delay in femtoseconds. Unprobed native time tokens are not converted into it."""
+
+    def __post_init__(self) -> None:
+        if type(self.die_delay_fs) is not int or self.die_delay_fs < 0:
+            raise ValueError("pad die_delay_fs must be a non-negative integer")
 
 
 @dataclass(frozen=True, slots=True)

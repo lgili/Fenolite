@@ -42,6 +42,7 @@ fenolite route blink/build --router direct --rip --confirm --json
 fenolite route blink/build --router direct --gate drc --confirm --json
 fenolite route blink/build --router octilinear --nets VIN --router-option max-length=30mm --confirm --json
 fenolite route blink/build --router octilinear --roles critical --dry-run --json
+fenolite route blink/build --router octilinear --propose --json
 fenolite route blink/build --router freerouting --require-complete --timeout 600 --confirm --json
 fenolite route board4/build --router freerouting --confirm --json --fields result.plane_fanout
 fenolite net blink/build --json
@@ -61,19 +62,19 @@ fenolite net blink/build GND --json
   script.
 - **`--gate drc`** checks the new copper with KiCad's DRC and writes it without each track or via
   that brings a new finding (`gate.dropped`, `result.gate`); needs `kicad-cli` (exit 6).
-- **`--require-complete`** makes an open net an error: exit 5, `route.incomplete`, nothing written.
+- **`--require-complete`** makes an open net an error: exit 5, `route.incomplete`, no write.
 - **`--timeout SECONDS`** bounds the whole step. When it ends, the copper of the finished runs is
   written with `route.budget-exhausted` (warning); run `route` again to go on.
 - **Planes.** On a board whose script says `design.board(..., copper=4, planes={"In1.Cu": gnd})`,
   `route` first joins each SMD pad of a plane net to its plane with one short track and one via, and
   never routes a plane net. `result.plane_fanout.failed` names each pad left open (`REF-NUMBER`, with
   `kicad.fanout.failed`): give that pad room with `fenolite place --move`, or join it in the script.
-- **`fenolite net BOARD`** lists the nets; with a name it gives one net's pads, copper, vias, zones and
-  its open connections. It runs no tool.
+- **`fenolite net BOARD`** lists the nets; with a name, one net's pads, copper, vias, zones and open
+  connections.
 - **`octilinear`** leaves open what its shapes cannot reach (`route.unrouted`), a pair it cannot
   couple (`route.pair-not-routed`) and copper the copper check refuses (`route.check-refused`).
 - **`--roles critical`** routes only the confirmed gate loops and Kelvin pairs, locked and fenced from
-  pours. `result.roles` gives each group's status, and the fix for one left open.
+  pours; `result.roles` gives each group's status and fix. **`--propose`**: page `board-routing`.
 - A router that is not installed exits 6 (page `recovery`).
 
 ## Copper in the script

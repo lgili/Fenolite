@@ -141,8 +141,7 @@ merged; until then the parser keeps their exact text and bounds as integers.
 
 ### 5. Licence, sources and origin
 
-- `licence` is an SPDX expression. **Shipped records** (`Fenolite:`) MUST be `Apache-2.0` (the licence of
-  the package that ships them today) or `CC0-1.0`. **Library records** (c0266, items of `fenolite-library`, c0279) carry their item's SPDX id from c0279's allow-list; authored ones are `CC0-1.0`. **Project
+- `licence` is an SPDX expression. **Shipped records** (`Fenolite:`) MUST be `CC0-1.0` (decided 2026-10-29); the Python package remains `Apache-2.0`. **Library records** (c0266, items of `fenolite-library`, c0279) carry their item's SPDX id from c0279's allow-list; authored ones are `CC0-1.0`. **Project
   records** may hold any text; c0264 writes `LicenseRef-see-source-terms` for imports.
 - `sources` hold ids registered in `docs/evidence/sources.md` for shipped records, and ids of the library's own
   `sources.toml` for authored library records (c0266, c0279). An unregistered id gives `FEN-3004`.
@@ -177,13 +176,13 @@ sheet = "reviews/Fenolite/Chip_0603/1.0.0.svg"   # optional, relative to the tre
 ### 7. Pins records and the explicit symbol drawing
 
 ```toml
-# src/fenolite/catalog/data/pins/Resistor.toml   (as the migration writes it)
+# src/fenolite/catalog/data/pins/Resistor.toml   (after the change of licence, task 6.1)
 schema = "fenolite.pins.v0"
 id = "Fenolite:Resistor"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Generic two-terminal resistor"
 category = "Passive"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0314", "S-0343"]
 
@@ -225,13 +224,13 @@ width = "0.254mm"
 ### 8. Package records
 
 ```toml
-# src/fenolite/catalog/data/packages/Chip_0603.toml   (as the migration writes it)
+# src/fenolite/catalog/data/packages/Chip_0603.toml   (after the change of licence, task 6.1)
 schema = "fenolite.package.v0"
 id = "Fenolite:Chip_0603"
-version = "1.0.0"
+version = "1.0.1"
 summary = "Chip 0603 two-terminal land"
 category = "Chip passive"
-licence = "Apache-2.0"
+licence = "CC0-1.0"
 evidence = "INFERRED"
 sources = ["S-0314"]
 generator = "explicit"
@@ -286,7 +285,8 @@ width = "0.05mm"
 `reviewed_by`, `origin`, `replaces`, `deprecated`) and `[[part]]`. `symbol` names a pins record's id (or any
 lib id), `footprint` a package record's id (or any lib id), as in `v0`. `v0` files are still read: they
 have version `0.0.0` and licence unset, which is refused for `Fenolite:` records and shown as `unknown` for
-project records; `fenolite fmt`-style rewriting is not added (open question 3).
+project records. `fenolite fmt DEVICE.toml` rewrites a `v0` file as a `v1` record (open question 3, decided
+on 2026-10-29; decision 13).
 
 ```toml
 schema = "fenolite.device.v1"
@@ -359,7 +359,8 @@ ratings = { temperature = { min = "-40degC", max = "125degC" } }
    and committed on its own.
 2. **Write the data.** `tools/catalog/to_data.py` calls today's `get_symbol` / `get_footprint` and writes one
    pins or package record per entry with `record_text`, lengths in mm with the fewest digits that are
-   exact, keys only where the default key differs, `version = "1.0.0"`, `licence = "Apache-2.0"`.
+   exact, keys only where the default key differs, `version = "1.0.0"`, and the provisional
+   `licence = "Apache-2.0"`; task 6.1 then sets every shipped record to `CC0-1.0` with a PATCH version.
 3. **Switch.** `get_symbol` and `get_footprint` read the records. `tests/unit/catalog/test_golden.py`
    compares every definition with `golden.json`; the KiCad job rebuilds the examples and compares bytes.
 4. **Delete.** The geometry functions, tables and `_symbol_expansion.py` are removed; `to_data.py` is
@@ -381,6 +382,29 @@ The render tools and the catalog browser use `get_*` and need no change; their o
 The `library.*` prefix is shared with c0223 (`library.drift`, …) and c0262 (rule codes). c0262 must not
 reuse these three names.
 
+### 13. `fenolite fmt` rewrites `v0` device files
+
+The maintainer decided on 2026-10-29 that this change, not a follow-up, lets `fenolite fmt` rewrite a
+`fenolite.device.v0` file as `fenolite.device.v1` (open question 3).
+
+- `fmt PATH` on a `.toml` file reads its `schema`. A `v0` device gives one planned write of
+  `records.upgraded_device(record, licence=...)`: the same `DeviceDef` under the common header, with
+  `version = "1.0.0"` (the version the migration gave the shipped devices) and no parts. The write follows
+  the mutation protocol of `fmt` (`--dry-run`, `--confirm --plan`, a `.bak`; `--check` reports
+  `fmt.would-change`, exit 5).
+- **Licence.** A `v0` file has no `licence` key; c0248's records name theirs in a leading
+  `# SPDX-License-Identifier:` line, which gives the value. Without one the record says `NOASSERTION`, the
+  SPDX value for "not stated", rather than a licence Fenolite would invent for the author. A `Fenolite:` id
+  must then be `CC0-1.0`, so such a file is refused with `FEN-3004` and a hint naming the line to add.
+- **Comments.** The leading comment lines (the authored-for-Fenolite line) are kept above the record. A
+  comment after the first key would be lost by the canonical text, so the file is refused with `FEN-7001`,
+  as `fmt` refuses a KiCad file with comments below its root.
+- The written text is checked before it is planned: loading it must give the device of the `v0` file. A
+  `v1` file is left unchanged (no plan, exit 0): its layout is the author's, and `record_text` is the
+  canonical text only of what Fenolite writes. Any other TOML file gives `FEN-2001`.
+- `result` gains `schema` (the schema of the file as read) for a device file; the evidence is `INFERRED`
+  with `H-G-LIBRARY-RECORDS`, since the rewrite is Fenolite's own format and its round trip is tested.
+
 ## Risks / Trade-offs
 
 - **150 small files instead of two modules.** More files to review, but each diff is one record, which is
@@ -388,22 +412,24 @@ reuse these three names.
 - **Explicit geometry is verbose.** It is the honest form of what the code computes today. c0260 replaces
   it by family generators where the generator reproduces the bytes, or with a MINOR version bump and a
   reviewed visual diff (c0262).
-- **Licence of the shipped records.** Writing `Apache-2.0` keeps today's terms; moving them to CC0 needs the
-  maintainer's decision as copyright holder (open question 1).
+- **Licence of the shipped records.** Moving them to CC0 needed the maintainer's decision as copyright
+  holder; he decided `CC0-1.0` on 2026-10-29 (open question 1).
 - **`v0` device files.** Reading them as `0.0.0` avoids breaking c0248 projects; shipped devices are
   rewritten as `v1` in this change.
 
 ## Open questions
 
-1. *Licence of the shipped catalog records: keep `Apache-2.0` or dedicate them to CC0?* Recommended: CC0-1.0,
-   so records move freely between the core and the `cc0` family of `fenolite-library` (c0266, c0279); until decided the
-   migration writes `Apache-2.0`.
-2. *May a project record use the `Fenolite:` namespace?* Recommended: yes, as an override, as c0248 decided
-   for devices.
-3. *Should `fenolite fmt` rewrite `v0` device files as `v1`?* Recommended: yes, in a follow-up; not needed
-   for this change.
-4. *Should the review `who` be checked against a list (CODEOWNERS)?* Recommended: in the data repository
-   only (c0266); the core cannot know reviewers.
+Decided by the maintainer on 2026-10-29:
+
+1. *Licence of the shipped catalog records: keep `Apache-2.0` or dedicate them to CC0?* Decided: **CC0-1.0**,
+   so records move freely between the core and the `cc0` family of `fenolite-library` (c0266). Every shipped record
+   is `CC0-1.0` (task 6.1); the migration first wrote the provisional `Apache-2.0`.
+2. *May a project record use the `Fenolite:` namespace?* Decided: yes, as an override, as c0248 decided
+   for devices (the recommended answer).
+3. *Should `fenolite fmt` rewrite `v0` device files as `v1`?* Decided: **yes, in this change** (task 6.2),
+   not in a follow-up.
+4. *Should the review `who` be checked against a list (CODEOWNERS)?* Decided: in the data repository
+   only (c0266); the core cannot know reviewers (the recommended answer).
 
 ## Relation to the batch
 

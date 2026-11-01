@@ -49,7 +49,7 @@ the MCP server or the shell with its own tools, and the core reads only a **stru
 ## Evidence level required
 
 - Proposal parsing, self-checks and conversion: `INFERRED`, unit-tested on proposals and a datasheet
-  authored for Fenolite (hypothesis `H-L-PROPOSAL`).
+  authored for Fenolite (hypothesis `H-G-PROPOSAL`).
 - Proposed devices: `UNVERIFIED` until a recorded review (c0262).
 
 ## Impact

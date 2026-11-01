@@ -334,3 +334,14 @@ minimums `min_<kind>_<class>` and govern on their layers.
 |---|---|---|---|
 | A per-layer custom `track_width` rule with `(min 0.35mm) (opt 0.35mm) (max 0.35mm)` reports a track of its class 1 µm wider ("max width") and one narrower ("min width") on its layer, and nothing on a layer without a rule, on 9.0.9 and 10.0.6 (probe `dru-impedance-width`, CI run 37772583226) | S-0010, S-0038, S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-IMPEDANCE |
 | A custom `track_width` rule on a class replaces the width check of the class's tuning profile: one finding per item, named by the rule | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PRO-TUNING-DRC |
+
+## Topology budgets lowered to existing kinds
+
+| fact | sources | evidence | hypothesis |
+|---|---|---|---|
+| A user delay converts to an existing `length` rule only after proving whole-net two-terminal track-chain coverage, one propagation, integer-fs segment products, no pad shortcut and no via/zone/arc/die offset; minimum nm rounds up and maximum nm down | S-0010, S-0038; Fenolite authored integer benches | INFERRED conversion; KICAD-VERIFIED length kind on 9.0.x and 10.0.x | H-G-TOPO-DELAY; H-K-NETLEN-RULES |
+| An eligible differential protocol skew converts to existing `skew` with `within_diff_pairs`; endpoint skew inside one net stays in Fenolite because KiCad compares whole nets | S-0010, S-0038 | INFERRED conversion; KICAD-VERIFIED skew kind on 9.0.x and 10.0.x | H-G-TOPO-DELAY; H-K-NETLEN-RULES |
+| Native profile time-domain lowering is absent pending a units/DRC probe; unsupported topology constraints produce `rules.topology-not-lowered` info | S-0010, S-0038; Fenolite implementation decision | UNKNOWN | H-K-PRO-TIME-DOMAIN |
+
+The dedicated topology conversion oracle on both KiCad majors remains owed; the conversion itself
+makes no KICAD-VERIFIED claim. See [Signal topologies](../../topologies.md).

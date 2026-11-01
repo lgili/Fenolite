@@ -49,6 +49,20 @@ jobs:
         run: uv run pyright src
       - name: Residue scan
         run: uv run python tools/residue/scan.py
+      - name: Shipped block tests
+        run: uv run fenolite blocks test --json
+
+      - name: Check shipped library records and prepare review sheets
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
+        run: uv run fenolite library check src/fenolite/catalog/data --sheets library-review --confirm --json > library-check.json
+      - name: Keep library review sheets
+        if: always() && matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-review
+          path: |
+            library-review/
+            library-check.json
       - name: Tests
         run: uv run pytest -q -n auto --dist loadfile
 
@@ -68,6 +82,8 @@ jobs:
           enable-cache: true
       - name: Sync (locked)
         run: uv sync --locked --extra dev
+      - name: The viewer bundle is a fresh build of viewer/src (c0304)
+        run: uv run python tools/build_viewer.py --check
       - name: Playwright and its Chromium
         run: |
           mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
@@ -130,6 +146,7 @@ jobs:
         run: |
           cd /tmp
           /tmp/wheel-venv/bin/fenolite capabilities --json > /tmp/capabilities.json
+          /tmp/wheel-venv/bin/fenolite blocks test --json > /tmp/block-tests.json
           /tmp/wheel-venv/bin/python -c "import json; assert json.load(open('/tmp/capabilities.json'))['ok']"
           /tmp/wheel-venv/bin/python -c "import importlib.metadata as m; r = m.requires('fenolite') or []; assert all('extra ==' in x for x in r), r"
       - name: The wheel carries the agent guide and a starter project
@@ -149,6 +166,10 @@ jobs:
           (wheel,) = glob.glob("dist/fenolite-*.whl")
           bad = [n for n in zipfile.ZipFile(wheel).namelist() if n.startswith(("tests/", "private/", "examples/"))]
           assert not bad, bad
+          names = set(zipfile.ZipFile(wheel).namelist())
+          assert not [n for n in names if n.startswith("viewer/")], "the viewer's sources ship in the wheel"
+          static = {f"fenolite/view/static/{n}" for n in ("page.html", "viewer.js", "viewer.css", "manifest.json")}
+          assert static <= names, static - names  # the bundle of the viewer page (c0304)
           PY
 
   dco:
@@ -190,7 +211,14 @@ jobs:
       - name: Oracle and corpus tests
         env:
           FENOLITE_REQUIRE: kicad,corpus
-        run: uv run pytest tests/kicad tests/corpus -q -n auto --dist loadfile
+        run: uv run pytest tests/kicad tests/corpus -q --basetemp /tmp/fenolite-kicad-corpus -n auto --dist loadfile
+      - name: Keep aggregate import census measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: import-census
+          path: /tmp/fenolite-kicad-corpus/**/import-census.json
+          if-no-files-found: ignore
 
   kicad-9:
     name: kicad-9 (kicad-cli 9.0 oracle)
@@ -208,8 +236,8 @@ jobs:
           python-version: "3.12"
       - name: kicad-cli version
         run: kicad-cli version
-      - name: Sync (locked)
-        run: uv sync --locked --extra dev
+      - name: Sync (locked, with geo for the role-copper planner, change c0280)
+        run: uv sync --locked --extra dev --extra geo
       - name: Corpus cache (rt2-9 and sch-9 rows)
         uses: actions/cache@v4
         with:

@@ -7,6 +7,7 @@ the definition as a board footprint, gives every uuid a value derived from the c
 the children for the bottom side, stores child angles absolute, and maps the node with the board
 reader, so the instance equals what ``read_board`` gives for the written board. The bottom-side rules
 are ``KICAD-VERIFIED`` on 9.0.9 and 10.0.6 (``H-G-BOTTOM-STORE``, ``H-G-FLIP``, ``H-G-PAD-ANGLE-ABS``).
+The added chamfer mirror stays ``INFERRED`` (``H-G-CHAMFER-FLIP``) until its oracle is confirmed.
 
 Every placed footprint holds a ``Reference`` and a ``Value`` field: a definition that lacks one gets it
 from ``default_fields`` (``H-K-FP-FIELDS``; the placement is a Fenolite choice).
@@ -40,13 +41,21 @@ from fenolite.model.library import FootprintDef
 
 EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-G-BOTTOM-STORE", "H-G-FLIP", "H-G-PAD-ANGLE-ABS"))
 """Settled on 9.0.9 and 10.0.6 by DRC library parity (``tests/kicad/board/test_flip_oracle.py``)."""
+CHAMFER_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-CHAMFER-FLIP",))
 PLACE_PREFIX = "kicad-place"
 MIRROR_HEADS: frozenset[str] = frozenset({"at", "start", "mid", "end", "center", "xy", "offset"})
 """Heads whose Y is negated on the bottom side; ``offset`` only under ``drill``."""
 FLIP_UNSUPPORTED: frozenset[str] = frozenset(
-    {"rect_delta", "chamfer", "dimension", "image", "fp_text_box", "table", "barcode"}
+    {"rect_delta", "dimension", "image", "fp_text_box", "table", "barcode"}
 )
 """Heads with geometry the mirror table does not cover; refused on the bottom side."""
+_CHAMFER_MIRROR = {
+    "top_left": "bottom_left",
+    "top_right": "bottom_right",
+    "bottom_left": "top_left",
+    "bottom_right": "top_right",
+}
+"""INFERRED consequence of the local-Y mirror; ratios are unchanged (c0282)."""
 HEADER = frozenset({"version", "generator", "generator_version"})
 TEXT_HEADS = frozenset({"property", "fp_text"})
 FLIP_CODE = "kicad.board.flip-unsupported"
@@ -94,6 +103,13 @@ def _source_info(defn: FootprintDef) -> versions.FormatInfo | None:
                 kind, number, versions.major_for(kind, number), versions.classify(kind, number)
             )
     return None
+
+
+def flip_evidence(defn: FootprintDef) -> Evidence:
+    """Evidence of flipping this definition: added chamfer geometry remains inferred (c0282)."""
+    if any(pad.find("chamfer") is not None for pad in emit_footprint(defn).nodes("pad")):
+        return Evidence.combine(EVIDENCE, CHAMFER_EVIDENCE)
+    return EVIDENCE
 
 
 def _negate(atom: Atom) -> Atom:
@@ -154,6 +170,15 @@ def _flip(tree: Node, issues: list[Issue]) -> Node:
             else:
                 children.append(child)
         result = current.with_children(children)
+        if current.name == "chamfer" and parent == "pad":
+            result = result.with_children(
+                [
+                    Atom(_CHAMFER_MIRROR[part.value], part.kind)
+                    if isinstance(part, Atom) and part.value in _CHAMFER_MIRROR
+                    else part
+                    for part in result.children
+                ]
+            )
         if current.name in TEXT_HEADS and result.find("layer") != current.find("layer"):
             result = _toggle_mirror(result)
         return result
@@ -480,6 +505,30 @@ def with_property(defn: FootprintDef, *, name: str, value: str) -> FootprintDef:
     )
 
 
+def with_property_value(defn: FootprintDef, *, name: str, value: str) -> FootprintDef:
+    """A copy of ``defn`` whose property ``name`` holds ``value``: the value of an existing ``property``
+    child is replaced in place (its position, layer and effects stay), and a missing one is appended by
+    ``with_property`` (change c0248: a device's ``Datasheet``). ``defn`` is unchanged."""
+    if name not in defn.properties:
+        return with_property(defn, name=name, value=value)
+    bag = defn.ext.get("kicad")
+    slots = list(slotlib.from_ext(bag)) if bag is not None else []
+    head = f"(property {Atom.string(name).text} "
+    for index, slot in enumerate(slots):
+        if isinstance(slot, Opaque) and slot.fragment.startswith(head):
+            tree = parse_fragment(slot.fragment)
+            assert isinstance(tree, Node)
+            children = (tree.children[0], Atom.string(value), *tree.children[2:])
+            fragment = dumps(dataclasses.replace(tree, children=children), style="compact")
+            slots[index] = dataclasses.replace(slot, fragment=fragment)
+            return dataclasses.replace(
+                defn,
+                ext={**defn.ext, "kicad": slotlib.to_ext(slots, base=bag)},
+                properties={**defn.properties, name: value},
+            )
+    raise ValueError(f"{defn.lib_id!r} names the property {name!r} in no property child")
+
+
 def footprint_extent(defn: FootprintDef) -> BBox:
     """The courtyard box of ``defn`` in its own frame, else the union of its pad boxes, else empty."""
     boxes = [_graphic_box(g) for g in defn.graphics_on("F.CrtYd")]
@@ -530,6 +579,7 @@ __all__ = [
     "placed_tree",
     "placement_uuid",
     "with_property",
+    "with_property_value",
 ]
 
 
@@ -549,7 +599,8 @@ BOARD_PAD_HEADS: frozenset[str] = frozenset({"net", "pinfunction", "pintype"})
 def local_footprint(root: Node, rotation: Udeg, side: Side, issues: list[Issue]) -> Node:
     """A board footprint node brought back to its own origin, rotation 0 and the top side: the placement
     children and the pads' nets dropped, the angles of pads, properties and texts turned back by
-    ``rotation``, and a bottom footprint flipped (c0161 derived libraries; ``fenolite library``, c0223)."""
+    ``rotation`` (``θ − stored`` on the bottom, the inverse of ``_angles``), and a bottom footprint
+    flipped (c0161 derived libraries; ``fenolite library``, c0223)."""
     from fenolite.core.units import parse_angle
 
     children: list[Node | Atom] = []
@@ -562,9 +613,13 @@ def local_footprint(root: Node, rotation: Udeg, side: Side, issues: list[Issue])
             )
         if isinstance(child, Node) and child.name in {"pad", "property", "fp_text"}:
             at = child.find("at")
-            if at is not None and len(at.atoms()) >= 3:
+            # a zero board angle is not written (docs/formats/kicad/board.md): it is turned back too
+            if at is not None and (len(at.atoms()) >= 3 or (len(at.atoms()) == 2 and rotation)):
                 atoms = at.atoms()
-                angle = parse_angle(atoms[2].value + "deg") - rotation
+                stored = parse_angle(atoms[2].value + "deg") if len(atoms) >= 3 else 0
+                # the inverse of the placement: ``(φ + θ)`` on the top, ``(−φ + θ)`` on the bottom
+                # (``_angles``), so a bottom angle turns back to ``θ − stored`` (change c0281)
+                angle = (rotation - stored) % 360_000_000 if side == "bottom" else stored - rotation
                 replacement = at.with_children((*at.children[:2], angle_atom(angle)))
                 child = child.with_children(tuple(replacement if c is at else c for c in child.children))
         children.append(child)

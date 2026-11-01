@@ -334,15 +334,43 @@ Both are registered in `docs/hypotheses.md` by the tasks, as `INFERRED`. This ch
 
 1. **Refuse c0248's single `{ min, max }` form, or read it as `abs_max`?** Recommended: refuse with a
    hint; no record has shipped, and either reading is a guess.
+   Decided 2026-10-29: refuse with `FEN-3004` and the hint "say abs_max ... or operating ..."
+   (`DeviceLimitFormError`); implemented in phase A.
 2. **Should the digest cover the device record's digest too,** so that a record edit expires a waiver even
    when the judged numbers are equal? Recommended: no; the waiver accepts numbers, and an unchanged
    number is the same risk.
+   Decided 2026-10-29: no; the digest covers the judged numbers only (phase C).
 3. **Should propagation subtract a stated drop** (a ferrite's DC resistance times the current bound)?
    Recommended: not now; a later change can add it once records state DC resistance, with c0246 ranges.
+   Decided 2026-10-29: not now (phase D copies the source range unchanged).
 4. **Should the matrix also be written as a file** (CSV or JSON) for a requirements portal?
    Recommended: later, as `fenolite export matrix` under the plan and confirm protocol, if users ask.
+   Decided 2026-10-29: later; `--matrix` stays a read-only reply of `check` (phase F).
 5. **Should an open jumper be stated** (`design.part_class(jp, "jumper", closed=False)`)? Recommended: no;
    an undeclared jumper is not crossed, which is the safe reading.
+   Decided 2026-10-29: no; an undeclared jumper is not crossed (phase D).
+
+### Decisions taken while implementing phase A (2026-10-29)
+
+- **Products of two quantities.** c0246's scenario "Two quantities of different units still refused"
+  (`volt("1") * amp("1")` raises `TypeError`) is kept: the one product of two quantities is a square,
+  `volt(a) * volt(b)` or `amp(a) * amp(b)`, which gives a degenerate range of `volt_squared` or
+  `ampere_squared` (scenario "The power of a bleeder"). Every other product needs a range operand, as in
+  c0246.
+- **One-sided quotients.** Decision 2's "the high bound that of the high bounds" is read as worst-case
+  interval division, which is what c0246 does for bounded ranges: `a / b` is `[a0/b1, a1/b0]`, `a0/b1`
+  taken as 0 when `b1` is unbounded and `a1/b0` unbounded when `a1` is. A one-sided result carries no
+  nominal.
+- **A repeated pair** of `[[limits]]` is the same two functions in either order: `["BST", "SW"]` and
+  `["SW", "BST"]` in one record are refused, since one is the negated other.
+- **Temperatures.** A device text in `degC` takes no SI prefix and cannot lie below absolute zero; a value
+  in kelvin is signed in the DSL (a difference) and unsigned in a device record (an absolute
+  temperature). The canonical device text prints temperatures in `degC`.
+- **Where records are documented.** Device records are documented in `docs/devices.md` (c0248), not in
+  `docs/catalog/README.md`, which covers the symbol and footprint catalog; phase A's record changes are
+  written there.
+- **The ferrite scenario in phase A.** `class = "ferrite"` needs phase B's vocabulary; phase A tests the
+  `class` key with `controller` and refuses `bead`.
 
 ## Relation to the other changes of this batch
 
@@ -358,3 +386,45 @@ Both are registered in `docs/hypotheses.md` by the tasks, as `INFERRED`. This ch
 - **c0256 (K):** test helpers can assert on matrix rows by id.
 - **c0222 (roles, on `dev`):** the vocabulary and prefix table gain three classes; role rows gain
   `decidable` and appear in the matrix.
+
+### Decisions taken while implementing phases B to F (2026-10-30)
+
+- **Device class evidence.** `roles.classify(..., device_classes=)` takes the records' `class` by reference;
+  `cli._contracts.classes_of(model, devices)` fills it, so build, check and roles inject it alike. With a
+  device class, the terminal map comes from the pin names when they give the same class.
+- **Thresholds from pins** are added where the model port is made (`dsl.devices.port_params`, called by
+  `dsl.convert`), only for a threshold the port's kind and direction take; the record's canonical text is
+  unchanged.
+- **Findings without a row.** c0252's logic, bus, companion and split-port rules and the value conflicts give
+  findings, not rows. They are waived the same way, named by their `where` and the digest of their code,
+  `where` and message (which name every number judged), so every circuit error can be accepted. Logic and
+  bus rows (`circuit.logic-level:...`, `circuit.bus-pullup:...` of decision 7) are not added by this
+  change: those rules still give findings only.
+- **Waiver outcome keys.** `result.waivers` always holds `expired`; the copper and DRC stage summaries keep
+  their bytes (no `expired` key there), and `circuit.rules` lists its circuit waivers in `summary.waivers`
+  only when the design has some. The build applies circuit waivers and adds `check.waiver-expired` to its
+  issues; it does not report unmatched waivers (`fenolite check` does).
+- **Origins.** The closed set is `declared`, `rig`, `role`, `requirements`, `option`, `propagated`; a ground
+  is `declared` (c0252 ground) or `role`. A two-net value takes the origin of its non-ground net, a
+  propagated one first. The precedence of currents is not changed: both the role checks
+  (`roles.infer.with_currents`) and the circuit rows read a role's own current, then `[[current]]`, then
+  `--current`; the circuit rows read a rig and a rail's loads before them, as c0253 states. The origin
+  (`requirements` or `option`) now says which one was used, so no reconciliation was needed.
+- **Propagation** stops at a stated net (it never crosses one to reach another) and takes the hull of the
+  stated nets reached; `from` and `via` name the first one reached (breadth first, net-name order).
+- **Role rows.** A width or section row is one row per code and net (`roles.width-current:VBUS`, its
+  narrowest element), so its id is stable; a role net with a current whose power path gives no measured
+  copper (open or unrouted) lists `roles.width-current:<net>` with no value, `unknown` and so `deferred`
+  while the net has an open connection. The reach reads the board boundary (`analysis.boundary`) and the
+  open connections (`analysis.connectivity`) in `roles.judge.board_reach`; `core.decidable` holds the
+  closed table and the rule (in `core`, since `roles` imports no module of `checks`;
+  `checks.circuit.decidable` re-exports it).
+- **`--matrix` stages.** Without `--stages`, `--matrix` runs only `circuit.rules` and `roles.rules` (the
+  stages that give rows) instead of the default stages, so it needs no `kicad-cli`. Its text table is
+  printed in text mode also when the check fails (`Result.text_on_failure`).
+- **Row id forms.** `circuit.rail-voltage:<rail>:<port path>` (port path `U3/vdd` or `buck/VOUT`).
+- **Agent guide.** `design-script`, `checks` and `board-power` are at their 12 000-byte budget; the matrix,
+  `deferred`, `waived`, `check.waiver-expired`, a circuit waiver with its digest, `abs_max`, `operating` and
+  `[[limits]]` are taught in a section of `board-review` (reviewing is where the matrix is read).
+
+Decided 2026-10-31: normalize K to k and Greek micro to the micro sign before resistance lookup. Preserve m versus M; an unmatched scale is unknown, not guessed. This repairs the existing classifier grammar without adding units, codes or dependencies.

@@ -133,7 +133,7 @@ With `layout="readable"` (the default), `generate_schematic` SHALL give each mod
 #### Scenario: Block sheets
 - **GIVEN** the sheets that `generate_schematic` builds for `examples/blocks/design.py` of c0251
 - **WHEN** `own_netlist(root, project=<name>, children=<children>)` is called on the created sheets and on the sheets read back from the written files
-- **THEN** both give every net of the circuit with its pins under its circuit name, and the net `VIN48` holds the pin 2 of `ch0/R_EN` and of `ch1/R_EN`
+- **THEN** both give every net of the circuit with its pins under its circuit name, and the net `VIN` holds the pin 1 of `ch0/R_EN` and of `ch1/R_EN`
 
 #### Scenario: Snap wire
 - **GIVEN** the sheet of "Resistor on an IC pin"
@@ -272,9 +272,9 @@ With `layout="readable"` (the default), `generate_schematic` SHALL give each mod
 On the sheet of a block instance, each connection point (a unit pin, or a sheet pin of a nested block) of a net that exactly one port member of that block binds SHALL carry a hierarchical label named by the member's sheet name ("Sheet names of block ports" of `design-dsl`), with the shape `input`, `output` or `bidirectional` for the port direction `in`, `out` or `inout`. The block's reference SHALL hold one sheet pin of that name and shape.
 
 #### Scenario: Port net labelled by the port
-- **GIVEN** `examples/blocks/design.py` of c0251, with the outside net `VIN48` joined to `ch0.VIN`
+- **GIVEN** `examples/blocks/design.py` of c0251, with the outside net `VIN` joined to `ch0.VIN`
 - **WHEN** `generate_schematic` runs
-- **THEN** pin 2 of `ch0/R_EN` on `sheets/ch0.kicad_sch` carries a hierarchical label `VIN` of shape `input`, the reference `ch0 (channel)` holds a sheet pin `VIN` of shape `input`, and the root holds a global label `VIN48` at that sheet pin
+- **THEN** pin 1 of `ch0/R_EN` on `sheets/ch0.kicad_sch` carries a hierarchical label `VIN` of shape `input`, the reference `ch0 (channel)` holds a sheet pin `VIN` of shape `input`, and the root holds a global label `VIN` at that sheet pin
 
 #### Scenario: Interface port members
 - **GIVEN** a block with `b.port("I2C", I2C)` whose members reach two sensor pins, used as `sen`

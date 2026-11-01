@@ -1,0 +1,32 @@
+# The version and digests of every shipped block (docs/blocks.md, "Version rules").
+# Written by tools/blocks/versions.py --update; tests/unit/blocks/test_versions.py checks it.
+
+["Fenolite:i2c_pullups"]
+version = "1.0.0"
+record = "sha256:d8d9bf747b495b142e41f840544d21a1bef421138aa04009d187409866f66386"
+definition = "sha256:6c189ae9e2f55a34f3bd16f53fe09afafcfaa65f015f7d89c90b56f764170ed9"
+interface = "sha256:14ed6823ff30a2a1a54eba959a2add24ac155d7eb816a8681bf94c03d327d5e9"
+
+["Fenolite:led_indicator"]
+version = "1.0.0"
+record = "sha256:342f3d8989c4eb961d72cdc531633c3384abe7da1a0b8fb641c91f23aae5429b"
+definition = "sha256:03d3fa4b38d7b873c977ea3e817ff8e0776a9851d6c8689f0eb52bdda23b5879"
+interface = "sha256:d1cd6ac2c516db57497919da0b4bcc203141f37bc25bf89f0f6f9a853f0306c5"
+
+["Fenolite:protected_input"]
+version = "1.0.0"
+record = "sha256:40980fb1ece16ff3a88b6a2ba0ba99ffcefff9875b4150e2b8127a1c02234405"
+definition = "sha256:e97d077ca01379c94558b2ed2ef19cefa876ad1e45edc29c7ccf453d15aba3b9"
+interface = "sha256:6d2a95c1a8ed0599fd18b3a6790d6c8467cd7dbf065411fff98efaf5ecd95ed4"
+
+["Fenolite:rc_lowpass"]
+version = "1.0.0"
+record = "sha256:4edf6b1cf519b00f70a7f5a1856871e965297ea45e8567baaddcae28bee73e0b"
+definition = "sha256:f13dd32e41828852a54bda5bb7fac255d7ecbd9a37cc79b8b637271cb4bf5da8"
+interface = "sha256:e8bc29c816ab93aeb831eef98c43aa2d7883837d8d36c3a72b02854b3c0bca54"
+
+["Fenolite:voltage_divider"]
+version = "1.0.0"
+record = "sha256:59c7ad89dc599930de982ca8a51970547afe7b9917ea48a65cb2fe2a57b167b6"
+definition = "sha256:5e25533090cc8ce3d9473139804ef9e25915e6fe07f88d7383a4869cda43b920"
+interface = "sha256:30fde9f9e0d3aa2526fc374024467efc1fc00224f5c979d67c32f6bf0a0ed74c"

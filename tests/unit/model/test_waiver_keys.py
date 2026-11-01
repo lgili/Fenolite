@@ -114,3 +114,28 @@ def test_severities_round_trip() -> None:
     assert schema["properties"]["severities"]["additionalProperties"] == {
         "enum": ["error", "warning", "ignore"]
     }
+
+
+def test_waiver_digest_round_trips(tmp_path: Path) -> None:
+    """Scenario "A circuit waiver keeps its digest" (change c0274)."""
+    import pytest
+
+    waivers = (
+        Waiver(
+            "circuit.rating-voltage:C3:voltage",
+            "circuit.rating-voltage",
+            ("C3:voltage",),
+            "bench",
+            digest="9f2c4a1b0d3e5f67",
+        ),  # fmt: skip
+        Waiver("pitch", "copper.clearance", ("J1-3", "J1-4"), "fixed by the mating connector"),
+    )
+    design = dataclasses.replace(Design.new("t", seed=1), findings=Findings(waivers=waivers))
+    dump_dir(design, tmp_path)
+    written = json.loads((tmp_path / "findings.json").read_text(encoding="utf-8"))["waivers"]
+    assert written[0]["digest"] == "9f2c4a1b0d3e5f67" and "digest" not in written[1]
+    assert load_dir(tmp_path).findings.waivers == waivers
+    with pytest.raises(ValueError, match="only a circuit"):
+        Waiver("s", "copper.short", ("A", "B"), "r", digest="9f2c4a1b0d3e5f67")
+    with pytest.raises(ValueError, match="needs the digest"):
+        Waiver("c", "circuit.rating-voltage", ("C3:voltage",), "r")

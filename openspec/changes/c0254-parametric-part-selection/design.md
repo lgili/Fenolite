@@ -225,7 +225,7 @@ achieved = "VOUT 3224694uV..3399373uV"
 ```
 
 - Keys and their order are fixed; values are strings; entries in path order (c0249's canonical form).
-- `catalog` is `fenolite-catalog <CATALOG_VERSION>` for shipped rows (a version of the catalog data,
+- `catalog` is `fenolite-catalog <FAMILIES_VERSION>` for shipped rows (a version of the catalog data,
   independent of the package version) or `project:<path relative to the script>` for project rows.
 - `achieved` is the generator's enclosure in integer micro-units, rounded outward (minimum down, maximum
   up), so the lock never claims more than the arithmetic proved.
@@ -396,13 +396,20 @@ No new `FEN-` code: a malformed family or proposal file is `FEN-3004`, an unknow
 1. **Ranking: larger tolerance first?** Rule (2) prefers the least demanding part that meets the query.
    Recommended: yes, it is the cheaper and more available part in practice and the query already states
    what is required.
+   Decided 2026-10-29: yes, as recommended (`pick.match.rank_key`).
 2. **A picked part edited in KiCad** (value or footprint, c0250). Recommended, as c0250's open question 5
    proposes: the edit wins over the pick, the lock entry keeps its query and gets `by = "edit"` with the
    edited device or value, this change reports `pick.overridden` (info), and c0253 judges the edited
    part. `fenolite pick --update` returns the part to a query pick.
+   Decided 2026-10-29: the recommended answer is taken. Its implementation (`by = "edit"`, `pick.overridden`)
+   needs c0250's merged values in the pick resolver and is left to a follow-up change; this change adds no
+   `pick.overridden` code and its spec is unchanged.
 3. **Per-instance defaults** (`design.use(buck, "b1", defaults=...)`). Recommended: not now; a block
    parameter does the same explicitly.
+   Decided 2026-10-29: not now, as recommended.
 4. **A named `suppliers` extra.** Recommended: no extra until a shipped plugin needs a package; the entry
    point group is enough.
+   Decided 2026-10-29: no extra, as recommended; the entry-point group `fenolite.suppliers` is the protocol.
 5. **Case codes.** Inch codes only (`0603`), or also metric (`1608M`)? Recommended: inch only, metric
    accepted later as an alias with a distinct suffix, so `0603` never means two things.
+   Decided 2026-10-29: inch codes only, as recommended; a metric code is refused at the call.

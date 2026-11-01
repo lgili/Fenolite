@@ -391,8 +391,8 @@ and BGA benches it left fewer connections open with the stage than without, `H-G
 ## octilinear
 
 `fenolite route BOARD --router octilinear --nets GATE --confirm` (change c0228) is built in and meant for
-the few connections a person routes first, not for a whole board (its features are `pairs`, `short` and
-`roles`, the role mode of "Role mode" below).
+the few connections a person routes first, not for a whole board (its features are `pairs`, `short`,
+`roles`, the role mode of "Role mode" below, and `propose`, the proposal mode of "Proposals").
 
 - **Connections.** The pads of a net, the pads already joined by its copper counting as one group, are
   joined by the edges of a minimum spanning tree, shortest first, each on a copper layer that both pads
@@ -452,6 +452,60 @@ command plans them (`fenolite.roles.routes.plan_critical`) and gives them to a r
 - **Run order.** Critical routes first, then the power copper around them; the other order works too: the
   outlines of the pours already on the board are obstacles of isolated and keep-away routes, and a
   provisional corridor of the same name is replaced along the route.
+
+## Proposals
+
+`fenolite route BOARD --router octilinear --propose` (change c0280) lists every open connection left after
+the power copper and the critical routes, with candidate shapes and their facts, and writes nothing. It is
+phase 4 of the router that works from net roles (`docs/roles.md`, "Proposals after the critical routes"):
+critical routes and power copper are made automatically, everything else is proposed and only the user
+locks it.
+
+- **Subjects.** One per open connection of the board, as `analysis.connectivity` counts them on the pour
+  (the saved fill, else the simulated pour of `analysis.pour`, which gives KiCad's count), of the first kind
+  that fits: `fanout` (an SMD pad whose island holds no via and no through-hole pad, with a zone of its net
+  on another layer within 2 mm), `join` (one of the two islands holds role copper: a zone named `role.*`,
+  locked copper, or a zone of a stated role net), `role-net` (a power, switch-node, ground or high-voltage
+  net that phase 1 sized no copper for: inferred, or without a stated current), else `connection`; and one
+  `group` subject per critical group that phase 2 leaves `unrouted` or `refused` (c0244's planner and
+  router run in memory), whose role routes are not proposed again as connections. The open connections of
+  a role net are taken along its power pads, so that a Kelvin-source branch never becomes the path of the
+  power current, and a pad end that a branch leaves is moved to the nearest point of the pad clear of that
+  branch.
+- **Families.** Per subject, in this order: `shape` (the five shapes of `octilinear` on each layer both ends
+  reach), `z-shape` (the Z shapes of role mode), `via-l` (a shape of one bend whose bend is a through via of
+  the net's class), `fanout` (for a `fanout` subject: a neck and a via found as the plane fan-out finds them,
+  the via inside the zone outline by half its diameter and inside the zone's copper) and `role` (for a
+  `group` subject: role mode with its defaults, then once per relaxation `kelvin-vias=2`, `gate-vias=2`,
+  `keep-away=clearance`; isolation is never relaxed). The first `--candidates N` (default 4, at most 8)
+  that pass the acceptance of `octilinear` and differ by layer set, via count or a centre line farther apart
+  than the clearance are kept.
+- **Facts, no score.** Each candidate is judged alone, its items added locked: `closes`, `open` (`before`,
+  `after`, the open connections of the board), `copper_check` (findings near it before and after, and the
+  new ones), `roles` (the role findings before and after, `new` and `cleared`, within role reach: on a role
+  net, near switch-node copper or inside a group's pad box grown by 2 mm), `vias`, `length`, `layers`,
+  `bends`, `loop` (a role loop's area and ratio), `conflicts` (candidates of other subjects whose copper
+  clashes), `fill` and `not_evaluated` with the reason of each fact not measured. With `--gate drc` the
+  candidates are packed into batches without two of one subject or two that clash, each batch judged once
+  by `kicad-cli` DRC, and each candidate gets the violations naming its items (`drc.new`). No candidate or
+  proposal holds a score, a rank or a recommendation; `"order": "generation"` says the order is the order
+  of the families.
+- **Without a candidate.** A subject keeps its place with `candidates: []`, a reason (`no-room`, `no-layer`,
+  `too-long`, `near-switching`, `isolation`, `pads`, `all-rejected`, `budget`) and alternatives, each with a
+  command and a `render --region` command, and one `route.proposal-open`.
+- **Accept and reject.** `--accept ID` (repeatable) computes the proposals again and plans in one reviewed
+  plan the board with each candidate's items `locked` (a group candidate with its corridors
+  `role.corridor.<group>.<net>`) and the decision record; `--confirm --plan ID` writes both. Two candidates
+  of one subject, or whose copper clashes, are `route.proposal-conflict`; an id that is not current is
+  `route.proposal-unknown`; a candidate with a new finding is accepted with `route.proposal-findings`.
+  `--reject ID [--reason TEXT]` plans the record only: a rejected candidate is left out of later proposals
+  (`--show-rejected` lists it), a rejected proposal is listed apart in `result.rejected`.
+- **The record.** `fenolite.route-decisions.v0`, canonical JSON with no clock: `.fenolite/route-decisions.json`
+  of a built project, else `<board stem>.route-decisions.json` beside the board.
+- **Replay and forget.** `--replay` plans the items of each locked decision missing from the board (a build
+  in a new folder, copper deleted in KiCad) when its ends still lie where they were and its copper passes
+  the copper check, else `route.proposal-stale` (`moved`, `blocked`, `net-gone`). `--forget ID` plans
+  dropping a decision and, for a locked one, its copper and corridors.
 
 ## Loop order
 

@@ -9,7 +9,7 @@
 - **THEN** it returns a proposal with 8 pin rows, the family `gullwing`, a pitch of 1 270 000 nm, and no field holds a float
 
 ### Requirement: Proposal keys are closed
-An unknown key SHALL raise `FormatError` (`FEN-3004`) naming the file and the key, and a newer schema SHALL raise `FEN-3002`. A geometry key (`pads`, `pad`, `x`, `y`, `at`, `position`, `outline`, `polygon`, `courtyard`, `silkscreen`, `graphics`, `vertices`, `points`) outside the parameters of `package.land` MUST raise `FEN-3004` with a message saying that a proposal carries no geometry.
+An unknown key SHALL raise `FormatError` (`FEN-3004`) naming the file and the key, and a newer schema SHALL raise `FEN-3002`. A geometry key (`pads`, `pad`, `x`, `y`, `at`, `position`, `outline`, `polygon`, `courtyard`, `silkscreen`, `graphics`, `vertices`, `points`) outside declared family parameters and `package.land` MUST raise `FEN-3004` with a message saying that a proposal carries no geometry.
 
 #### Scenario: Coordinates refused
 - **WHEN** a proposal whose pin row holds `x = "1.2mm"`, and one with a `[[package.pads]]` table, are parsed
@@ -70,16 +70,16 @@ A proposal of the family `grid`, or with more than 100 pins, SHALL be refused wi
 With two proposals, every pin row and every package parameter SHALL be equal after rows are sorted by number and units parsed; citations and doubts MUST be ignored. Each difference MUST be one `proposal.disagree` (error) naming the field, both values and the cited pages.
 
 #### Scenario: Shifted rows caught
-- **GIVEN** two authored grid proposals that differ only by the names of balls `C3` and `C4` swapped
+- **GIVEN** two authored grid proposals that differ only by the names of balls `C2` and `C3` swapped
 - **WHEN** they are proposed together with `--dry-run`
-- **THEN** the exit code is 5 and two `proposal.disagree` errors name `C3` and `C4`
+- **THEN** the exit code is 5 and two `proposal.disagree` errors name `C2` and `C3`
 
 ### Requirement: Generators draw proposed devices
 A proposal that passes its checks SHALL be converted into package, pins and device records with `evidence = "UNVERIFIED"` and an `[origin]` naming the tool, the datasheet and its SHA-256, the proposer and each proposal's SHA-256. The footprint and body MUST be drawn by the footprint generators and the symbol by the symbol generator; no geometry MUST come from the proposal.
 
 #### Scenario: The device folder
 - **WHEN** the authored proposal is proposed with `--out devices/proposed --dry-run --json`
-- **THEN** the exit code is 4 and the plan writes the three records, the drawn symbol, footprint and body, and `proposal.toml` under `devices/proposed/EXB6202/`
+- **THEN** the exit code is 0 and the plan writes the three records, the drawn symbol, footprint and body, and `proposal.toml` under `devices/proposed/EXB6202/`
 
 #### Scenario: Same proposal, same bytes
 - **WHEN** the authored proposal is proposed twice with the same `--timestamp`

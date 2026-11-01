@@ -1,0 +1,149 @@
+# Drawn schematic of a Fenolite design (docs/drawn-schematic.md). Code owns the nets.
+schema = "fenolite.drawn-schematic.v0"
+root = "root"
+
+[[sheet]]
+key = "root"
+paper = "A4"
+
+[sheet.title_block]
+title = "Full drawn fixture"
+revision = "A"
+
+[[sheet.symbol]]
+part = "U1"
+unit = 1
+at = [101.6, 88.9]
+rotation = 0
+fields.Reference = { at = [99.06, 67.31], rotation = 0, justify = "left" }
+fields.Value = { at = [99.06, 110.49], rotation = 0, justify = "left" }
+
+[[sheet.symbol]]
+part = "R1"
+unit = 1
+at = [127, 63.5]
+rotation = 0
+
+[[sheet.power]]
+symbol = "Mini:Mini_GND"
+net = "GND"
+at = [88.9, 92.71]
+rotation = 0
+
+[[sheet.wire]]
+pts = [[114.3, 69.85], [120.65, 69.85], [120.65, 67.31], [127, 67.31]]
+
+[[sheet.wire]]
+pts = [[120.65, 69.85], [120.65, 73.66]]
+
+[[sheet.wire]]
+pts = [[76.2, 69.85], [88.9, 69.85]]
+
+[[sheet.wire]]
+pts = [[114.3, 72.39], [124.46, 72.39]]
+
+[[sheet.wire]]
+pts = [[114.3, 74.93], [124.46, 74.93]]
+
+[[sheet.bus]]
+pts = [[127, 73.66], [127, 82.55]]
+
+[[sheet.bus_entry]]
+at = [124.46, 72.39]
+size = [2.54, 2.54]
+
+[[sheet.bus_entry]]
+at = [124.46, 74.93]
+size = [2.54, 2.54]
+
+[[sheet.junction]]
+at = [120.65, 69.85]
+
+[[sheet.no_connect]]
+at = [88.9, 95.25]
+
+[[sheet.label]]
+kind = "local"
+text = "SDA"
+at = [120.65, 73.66]
+rotation = 270
+
+[[sheet.label]]
+kind = "global"
+text = "VCC"
+at = [127, 59.69]
+rotation = 90
+shape = "input"
+
+[[sheet.label]]
+kind = "global"
+text = "VCC"
+at = [88.9, 90.17]
+rotation = 180
+shape = "input"
+
+[[sheet.label]]
+kind = "local"
+text = "B0"
+at = [121.92, 72.39]
+rotation = 0
+
+[[sheet.label]]
+kind = "local"
+text = "B1"
+at = [121.92, 74.93]
+rotation = 0
+
+[[sheet.label]]
+kind = "local"
+text = "{BUSA}"
+at = [127, 80.01]
+rotation = 90
+
+[[sheet.bus_alias]]
+name = "BUSA"
+members = ["B0", "B1"]
+
+[[sheet.sheet_ref]]
+key = "sub"
+sheet = "sub"
+module = "sub"
+name = "sub"
+at = [50.8, 63.5]
+size = [25.4, 12.7]
+page = "2"
+
+[[sheet.sheet_ref.pin]]
+name = "IN"
+shape = "input"
+at = [76.2, 69.85]
+rotation = 0
+
+[[sheet.opaque]]
+kicad = "(text \"Drawn by hand for Fenolite\" (exclude_from_sim no) (at 50.8 30.48 0) (effects (font (size 1.27 1.27)) (justify left)) (uuid \"0b6c1f2e-1d1a-4c6e-9d2b-1f0d2c3b4a51\"))"
+
+[[sheet.opaque]]
+kicad = "(rectangle (start 45.72 25.4) (end 152.4 106.68) (stroke (width 0) (type default)) (fill (type none)) (uuid \"5d0a3c2b-7e4f-4b1a-8c9d-2e3f4a5b6c7d\"))"
+
+[[sheet]]
+key = "sub"
+paper = "A4"
+
+[[sheet.symbol]]
+part = "R2"
+unit = 1
+at = [101.6, 76.2]
+rotation = 0
+
+[[sheet.power]]
+symbol = "Mini:Mini_GND"
+net = "GND"
+at = [101.6, 80.01]
+rotation = 0
+
+[[sheet.label]]
+kind = "hierarchical"
+text = "IN"
+at = [101.6, 72.39]
+rotation = 90
+shape = "input"

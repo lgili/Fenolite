@@ -34,6 +34,10 @@ DRC findings; the verdict is taken from that board (capability kicad-oracle, "DR
 Change c0244: ``--roles critical`` is the role mode (``cli._roleroute``): the open connections of the
 confirmed gate loops and Kelvin pairs go to a router with the feature ``roles``, locked and fenced by
 corridors (capability cli-contract, "Route command role mode").
+
+Change c0280: ``--propose``, ``--accept``/``--reject``, ``--replay`` and ``--forget`` are the proposal mode
+(``cli._propose``): candidates with facts and no score for every open connection, locked only through a
+reviewed plan (capability cli-contract, "Route proposal mode").
 """
 
 from __future__ import annotations
@@ -63,7 +67,7 @@ from fenolite.backends.kicad.pcb import read_board, source_info, write_board
 from fenolite.backends.kicad.projectset import resolve_board
 from fenolite.checks.clearance import ClearanceResolver
 from fenolite.checks.copper import check_copper, frame_edges
-from fenolite.cli import _gate, _roleroute, plans
+from fenolite.cli import _gate, _propose, _roleroute, plans
 from fenolite.cli._boardview import to_json
 from fenolite.cli._examples import EXAMPLE_UNROUTED
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT
@@ -185,6 +189,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("-o", "--out", metavar="FILE", help="write the routed board to this file")
     _roleroute.register(parser)
+    _propose.register(parser)
     _gate.register(parser, kicad_cli=True)
 
 
@@ -380,6 +385,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 "FEN-2001", str(error), hint="--escape takes REF, REF=grid or REF=perimeter"
             ) from None
     router = _router(args.router, args)
+    _propose.check(args, router)
     _roleroute.check(args, router)
     features = router_features(router)
     if router.sends_data_offsite and not args.allow_offsite:
@@ -411,6 +417,26 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "kicad_pcb",
         str(source.version) if source is not None else None,
     )
+    if _propose.mode(args) is not None:
+        found = source_info(design)
+        return _propose.run(
+            args,
+            ctx,
+            router=router,
+            board_path=board_path,
+            text=text,
+            design=design,
+            as_read=as_read,
+            rules=project_rules,
+            input_ref=input_ref,
+            checks=_job_checks(design, project_rules),
+            options=options,
+            major=found.major if found is not None and found.major is not None else ctx.kicad_target,
+            output=_relative(board_path, ctx.cwd),
+            read_issues=read_issues,
+            net_values=_net_values,
+            defaults=DEFAULTS,
+        )
     if args.roles is not None:
         found = source_info(design)
         return _roleroute.run_roles(

@@ -40,7 +40,7 @@ objects change; the diff matches such objects by content.
 | File | Class | Contents |
 |---|---|---|
 | `meta.json` | `DesignHeader` | id, name, `schema_version` (`"0"`), `fenolite_version` |
-| `circuit.json` | `Circuit` | components (pins), nets (pin members), net classes, interfaces, modules, no-connect marks |
+| `circuit.json` | `Circuit` | components (pins), nets (pin members), net classes, interfaces, modules, block ports, no-connect marks |
 | `board.json` | `Board` | outline, layers, stack-up, footprints (pads), tracks, arcs, vias, zones, keep-outs, texts, graphics, holes |
 | `rules.json` | `RuleSet` | rules: kind, selectors, layers, min/opt/max, severity, priority (1 = highest); check severities |
 | `manufacturing.json` | `Manifest` | generated artefacts with tool, version, revision, variant, evidence, state |
@@ -95,8 +95,11 @@ c0246) holds the exact range of a part value given as a DSL `Range` (`docs/dsl.m
 
 - `ValueRange(unit, low=None, nominal=None, high=None)` and `Decimal10(m, e)` are value objects without id
   or entity header, like `PinRef`. `unit` is one of `ohm`, `farad`, `henry`, `volt`, `ampere`, `hertz`,
-  `watt` and `second` (`RangeUnit`); at least one bound is given, `low <= high`, and a nominal lies
-  within the bounds, else `ValueError`.
+  `watt`, `second` and `kelvin` (`RangeUnit`; `kelvin`, change c0274, holds an absolute temperature or a
+  temperature difference: -20 °C is `Decimal10(25315, -2)` K); at least one bound is given,
+  `low <= high`, and a nominal lies within the bounds, else `ValueError`. The DSL-only units
+  `volt_squared` and `ampere_squared` of the products V·V and A·A are no `RangeUnit`: lowering such a
+  range raises `DslError`.
 - `Decimal10(m, e)` is the exact value m · 10^e in one canonical form: `|m| <= 10^15 − 1` (15 significant
   digits), `−30 <= e <= 30`, no trailing zero digit in `m`, and zero as `Decimal10(0, 0)`. Every integer
   stays below 2^53, so a JSON reader that uses doubles reads it exactly. `10kΩ ±1%` is
@@ -135,8 +138,15 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
 |---|---|
 | `FootprintDef` | entity: `name`, `library`, `description`, `keywords`, `kind`, `flags`, `properties`, `pads` (board `Pad`, `net_id = None`, positions relative to the definition), `graphics` (board `Graphic`), `models` |
 | `SymbolDef` | entity: `name`, `library`, `extends`, `power`, `properties`, `in_bom`, `on_board`, `exclude_from_sim`, pin-name settings, `units`, `pins`, ordered symbol-local vector `graphics` |
-| `SymbolPin`, `SymbolUnit`, `SymbolGraphic`, `PinAlternate` | value objects without the entity header; a pin is identified by `(unit, body_style, number)` and graphic points use integer nanometres |
-| `Library` | `name`, `footprints`, `symbols`; schema `fenolite.library.v0` (`schemas/fenolite.model.v0/library.json`) |
+| `SymbolPin`, `SymbolUnit`, `SymbolGraphic`, `PinAlternate` | value objects without the entity header; a pin is identified by `(unit, body_style, number)` and graphic points use integer nanometres; a `SymbolGraphic` names its `unit` and `body_style` (0, the default, is common to all; change c0261) |
+| `PinTable`, `PinRow`, `PinVariant` | value objects of a pin table (`fenolite.pins.v0`, change c0261): the rows of pin facts in table order, the `[symbol]` settings, unit names and variants; `fenolite.catalog.pins` reads and writes them and `fenolite.catalog.generate.symbol` draws a `SymbolDef` from them |
+| `DeviceDef` | value object (change c0248): `id` (`<namespace>:<name>`), `summary`, `symbol`, `footprint`, `manufacturer`, `mpn`, `datasheet`, `ref_prefix`, `value`, `evidence`, `sources`, `ground`, `unused_pads`, `ends`, `properties`, `pins` (ordered by function code point), `ratings` (ordered by key, then kind), `limits` (`PinPairLimit`, ordered by `between`; change c0274), `cls` (the TOML key `class`; change c0274), `provenance` |
+| `DevicePin` | `function`, `pin_pads` (ordered `(pin, pad)` pairs, the form of `Component.pin_pad_map`), `ratings` (ordered by key, then kind), `thresholds` (ordered by key), `must_connect` (c0274 replaces c0248's `voltage` and `current` with `ratings`) |
+| `Rating` | `key` (`voltage`, `current`, `power`, `temperature`), `unit` (`uV`, `uA`, `uW`, `mK`), `min`, `max`: integers or `null`; `limit`: `abs_max` (default, omitted) or `operating` (change c0274) |
+| `Threshold` | `key` (`input_high_min`, `input_low_max`, `output_high_min`, `output_low_max`, `output_current_max`), `unit` (`uV`, `uA`), `value`: an integer (change c0274) |
+| `PinPairLimit` | `between` (two function names; the voltage is the first's minus the second's), `ratings` (`voltage` limits) (change c0274) |
+| `DeviceProvenance` | `tool`, `source` (lib ids, never a path), `date` (ISO 8601), `sha256` |
+| `Library` | `name`, `footprints`, `symbols`, `devices` (sorted by id); schema `fenolite.library.v0` (`schemas/fenolite.model.v0/library.json`) |
 
 - Every field other than `name` has a default. `keywords`, `flags`, `pads`, `graphics`, `models`,
   `units`, `pins` and `alternates` are ordered; `properties` is sorted by key.
@@ -151,6 +161,13 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
 
   Ids are therefore unique within a `Library`. A consumer that places a definition twice derives new
   ids for the placed copies.
+- **Devices** (change c0248; `docs/devices.md`). A `DeviceDef` joins a symbol and a footprint by their lib
+  ids, the map from pin function to pins and pads, an identity and ratings. Every field but `id` has a
+  default. Ratings are integers in µV, µA, µW and mK, so no field of a device holds a float, and the
+  canonical JSON of a device has no number with a fraction or an exponent. A device is never part of a
+  `Design` or of a `.fenolite/` layer file: a built component names its device only through the reserved
+  properties `fenolite.device` (the id) and `fenolite.device.sha256` (its digest). The device's derived pad
+  map (`DeviceDef.pad_map`) lowers to `Component.pin_pad_map` exactly as a `pad_map` of the DSL does.
 
 ## Presentation
 
@@ -588,6 +605,31 @@ an integer (nm, nm², mA, mV, mK, per mille).
   with `roles` `None`, and `schema_version` stays `"0"`. The other direction does not hold. Fenolite
   0.5.0 cannot read a `rules.json` that carries `roles`: its reader of the canonical form is strict.
 
+## Electrical contracts
+
+`RuleSet.contracts` holds the electrical contracts of a design (change c0253; guide `docs/contracts.md`),
+records of the rules layer that no circuit reader sees. `ContractSet(derating=(), operating=None,
+unknown="info", expects=(), rig=())`, every range in c0246's encoding (a unit name and `Decimal10` bounds):
+
+- `DeratingRule(key, permille=0, margin_mk=0, parts="", source="")`: a key of the closed table
+  `DERATING_KEYS` (scope, rating and class of each key), a ratio of 1 to 1000 per mille (`ratio(50)` is
+  500) or, for `temperature_margin`, a margin in millikelvin; `parts` is a glob of references. Fenolite
+  ships no rule and no value.
+- `OperatingRange(ambient)`: the ambient temperature range, a kelvin range with both bounds.
+- `Expectation(id, instance, reason, origin, test)`: `id` is `<instance path>/expect#<n>` (the top level is
+  `design`), `origin` is `module:line`, never a path, and `test` is a tree of `ExpectNode` whose top
+  operation is one of `EXPECT_OPS` (`within`, `at_least`, `at_most`), whose inner operations are
+  `add`, `sub`, `mul`, `div` and `neg`, and whose leaves are a literal range (`lit`), an exact number
+  (`num`, `[numerator, denominator]` in lowest terms) or a ref of `EXPECT_REFS` (`value` and `rating`
+  name a component id, `voltage` and `current` a net id; a `rating` names its `key`, its `limit` and an
+  optional `pin`).
+- `RigSupply(kind="supply", name, pos, neg, voltage, current=None)` and `RigSink(kind="sink", name, net,
+  ret, current)`: the test rig, by net id, sorted by name; a name is unique.
+- `unknown` is `info` or `warning`, the severity of the rows that cannot be judged.
+- The field is additive: an empty `ContractSet` is stored as `None` and `canonical` omits `contracts`, so a
+  `rules.json` written before the field loads and is written back to the same bytes. No backend lowers
+  contracts.
+
 ## Impedance targets
 
 `RuleSet.impedance` holds the impedance targets of a design (change c0105; guide `docs/impedance.md`).
@@ -661,6 +703,54 @@ Placing again with the same key gives the same ids; two keys share none; adding 
 placement changes no id of a copy. The copy records the definition in `FootprintInstance.lib_ref`,
 belongs to the caller's component, and its pads have no net until the caller assigns one. The
 definition stays unchanged.
+
+### Block instances and ports
+
+Change c0251 records the blocks of a design script (`docs/dsl.md`, "Blocks").
+
+- `Module.block: str` names the block that made the module (empty for a plain module), and
+  `Module.params: tuple[BlockParam, ...]` records its parameters, ordered by name. Two params with one
+  name, params out of name order, or params without a block name raise `ValueError`.
+- `BlockParam(name, type, text)` is a frozen value object. `type` is one of `bool`, `int`, `str`, `length`,
+  `quantity`, `range` and `none`; any other raises `ValueError`. `text` is the canonical text: `true` or
+  `false`, a decimal integer, the string, integer nanometres, `Quantity.text()`, the range text of c0246,
+  or empty for `none`.
+- `Circuit.ports: tuple[Port, ...]` (empty by default). `Port` carries the entity header (prefix `prt`),
+  `name`, `owner` (the id of a module, or of a component for a device port), `kind` (`net` or an
+  interface kind such as `power` or `i2c`), `direction` (`in`, `out` or `inout`; any other raises
+  `ValueError`), `members` (member name to net id, a member without a net left out) and `optional`. An
+  empty `name` or `kind` raises `ValueError`.
+- The fields are additive: each is omitted from `circuit.json` when empty or default, so a design without
+  blocks gives the bytes it gave before, and an older file loads with `block == ""`, no params and no
+  ports. `SCHEMA_VERSION` stays `"0"`. No backend writes ports to a KiCad or Altium file.
+
+- Change c0268 adds `Module.block_version: str` (empty by default): the version of the block with a record
+  that made the module, `MAJOR.MINOR.PATCH`; `block` is then the record's id (`Acme:divider`). A version
+  without a block name, or of another form, raises `ValueError`. The field is omitted when empty, so a
+  c0251 circuit file loads and is written back with the same bytes. The block's record (docs, units,
+  limits) never reaches the model.
+
+### Interface parameters
+
+Change c0252 gives interfaces and ports electrical parameters (`docs/dsl.md`, "Interface parameters").
+
+- `Interface` gains `params: dict[str, ValueRange]`, `reference: str | None` (the id of the `power`
+  interface or port a logic level or a bus refers to) and `shared: bool` (several sources may drive the
+  rail). `Port` gains `params`, `reference`, `share: bool`, `requires: tuple[str, ...]` (sorted, from the
+  closed vocabulary `REQUIRES`: `chip_select`, `pullup`, `supply`), `split` (a member of a device port
+  whose pins are on two nets → those net ids; such a member is not in `members`) and `evidence` (the label
+  of the device record a device port comes from).
+- `INTERFACE_PARAMS` is the model-side parameter table: `power` takes `voltage` (volt) and `current`
+  (ampere); `logic` and the buses take `abs_max`, `input_high_min`, `input_low_max`, `output_high_min`,
+  `output_low_max` (volt) and `output_current_max` (ampere); `i2c` also takes `pullup` (ohm). `ground`
+  and any other kind take none. A param outside the table, or of another unit, raises `ValueError`
+  naming the kind and the param, and so does `current` on an `inout` port.
+- Each param is a c0246 `ValueRange`: the unit name and `Decimal10` bounds, never `min`/`max` text.
+- The kinds `ground` (member `gnd`) and `logic` (member `io`) are new. `power_interface_nets` still
+  reads the kind `power` only.
+- A device port is a `Port` owned by its component, with the id
+  `derived_id("prt", "dsl", "port:<component path>:<port name>")`.
+- Every new field is omitted when empty or default, so older files keep their bytes.
 
 ## Ids of design scripts
 
@@ -737,13 +827,16 @@ documents it wrote before, byte for byte.
   group, and `Design.validate()` does not check the numbers against the pads. A backend that reads no
   groups leaves the field empty: the Altium import does. 0.2.x and 0.3.0 cannot read a document that
   carries `net_ties`.
-- **`waivers`** (`findings.json`). `Findings.waivers` holds `Waiver(name, code, items, reason, min_gap)`
-  values, sorted by name: the acceptance of one finding with a reason. `code` is a finding code
-  (`copper.short`, `copper.clearance`, `copper.zone-overlap` or `<oracle>.drc.<suffix>`), `items` are
-  the names of the finding's items as `where` prints them, or patterns of them, and `min_gap` is in
-  integer nm. What a waiver may say is checked where it is declared (`design.waive()`, `docs/dsl.md`);
-  how it matches is `fenolite.checks.waivers`. 0.2.x and 0.3.0 cannot read a `findings.json` that carries
-  `waivers`.
+- **`waivers`** (`findings.json`). `Findings.waivers` holds `Waiver(name, code, items, reason, min_gap,
+  digest)` values, sorted by name: the acceptance of one finding with a reason. `code` is a finding code
+  (`copper.short`, `copper.clearance`, `copper.zone-overlap`, `<oracle>.drc.<suffix>` or, since change
+  c0274, a `circuit.*` code), `items` are the names of the finding's items as `where` prints them, or
+  patterns of them (for a `circuit.*` code the one row id of the finding without its code), and `min_gap`
+  is in integer nm. `digest` is the 16 lowercase hexadecimal digits of the requirement row's digest at
+  waiver time, set for a `circuit.*` code and for no other (`ValueError` otherwise), and left out of
+  `findings.json` when absent. What a waiver may say is checked where it is declared (`design.waive()`,
+  `docs/dsl.md`); how it matches is `fenolite.checks.waivers`. 0.2.x and 0.3.0 cannot read a
+  `findings.json` that carries `waivers`, and 0.6.x cannot read one whose waiver carries `digest`.
 - **`severities`** (`rules.json`). `RuleSet.severities` maps the finding code of a check of a
   design-rule tool (`<oracle>.drc.<suffix>`) to `error`, `warning` or `ignore`, written with its keys
   sorted. A severity is not a rule: it has no `RuleKind` and no row in a backend's rule table. 0.2.x and
@@ -761,3 +854,16 @@ Planner reservations reference existing physical drill pads and never add a hole
 The DSL's intent metadata is conversion-only: `Placement.anchor` in `placements`. Builds and rebuilds do not persist these fields in a native
 project or its `.fenolite/` cache. `FootprintInstance.anchor` is available to callers that explicitly
 construct a neutral model; the build does not synthesize it from a placement request.
+
+## Signal topology inputs
+
+`RuleSet.propagation`, `losses`, `topologies` and `protocol_skews` are optional tuples, absent when
+empty. `Propagation` records a layer's positive `per_mm_fs` or non-negative `via_fs`; `LayerLoss`
+records `per_mm_mdb` or `via_mdb`, optionally exact decimal `at_hz`. `Topology` is an entity with
+`derived_id("top", "dsl", "topology:<name>")`, ordered `nodes` (`REF-PIN`), directed net/bridge `edges`,
+and ordered `constraints`. Limits use integer `min_fs`, `max_fs`, `max_mdb` or `max_nm`, with error or
+warning severity. `missing_bridges` retains failed declarations for build diagnostics. `ProtocolSkew`
+names two independent member topology paths and a maximum in fs; no cross-net edge is invented.
+`Pad.die_delay_fs` is a known integer die-delay input; unprobed native units are not projected into it.
+Older readers that reject unknown keys cannot load these optional fields; files without them keep
+their prior bytes. The core still stores lengths in nm and angles in microdegrees.

@@ -20,7 +20,7 @@ from fenolite.cli.api import discover
 from fenolite.cli.describe import describe
 from fenolite.mcp.backend import FenoliteBackend
 from fenolite.mcp.protocol import Call, UnknownTool
-from fenolite.mcp.tools import NOT_TOOLS, READ_TOOLS, Catalog, InputRefused, tool_name
+from fenolite.mcp.tools import LEFT_OUT, NOT_TOOLS, READ_TOOLS, Catalog, InputRefused, tool_name
 
 COMMANDS = discover()
 CATALOG = Catalog(COMMANDS)
@@ -36,7 +36,7 @@ def test_tools_listed() -> None:
         command = COMMANDS[definition["title"]]
         own = {a.name for a in describe(command).arguments} - {"dry_run", "confirm", "plan"}
         properties = set(definition["inputSchema"]["properties"])
-        left_out = {"serve", "port", "no_browser"} | READ_TOOLS.get(command.name, frozenset())
+        left_out = LEFT_OUT.get(command.name, frozenset()) | READ_TOOLS.get(command.name, frozenset())
         assert own - left_out <= properties, definition["name"]
         assert {"fields", "limit", "cursor", "seed", "timestamp"} <= properties
         assert ({"confirm", "plan"} <= properties) == (command.mutates and command.name not in READ_TOOLS)
@@ -48,6 +48,21 @@ def test_tools_excluded() -> None:
     names = {d["name"] for d in CATALOG.definitions()}
     assert not {"fenolite_mcp", "fenolite_skill", "fenolite__echo"} & names
     assert "serve" not in CATALOG.tools["fenolite_view"].definition["inputSchema"]["properties"]
+
+
+def test_library_review_schema_and_runtime_are_human_only() -> None:
+    schema = CATALOG.tools["fenolite_library"].definition["inputSchema"]
+    assert not {"accept", "revoke", "reviewer", "sheet"} & schema["properties"].keys()
+    assert schema["properties"]["path"]["prefixItems"] == [{"not": {"enum": ["review"]}}]
+    assert CATALOG.command_line("fenolite_library", {"path": ["check", "data"]}, dry_run=True)
+    for args in (
+        {"path": ["review", "data"]},
+        {"path": ["review", "data", "--accept"]},
+        {"path": ["check", "data"], "revoke": True},
+        {"path": ["check", "--accept=true"]},
+    ):
+        with pytest.raises(InputRefused):
+            CATALOG.command_line("fenolite_library", args, dry_run=True)
 
 
 def test_tools_excluded_edit_by_default() -> None:

@@ -30,3 +30,8 @@ The stages `circuit.rules` (c0253), `copper.clearance`, `length.rules`, `placeme
 - **GIVEN** the pair-skew project of `tests/_lengthbench.py`
 - **WHEN** `uv run pytest tests/unit/checks/test_subjects.py -k length` runs the stage `length.rules`
 - **THEN** the `length.skew-out-of-range` issue has the subjects `SK_P` and `SK_N` of kind `net`
+
+#### Scenario: Visible indices after concise output and pagination
+- **GIVEN** findings with subjects, including multiple findings of one code
+- **WHEN** check uses --format concise or --limit and --cursor
+- **THEN** subject indices refer to the visible issues and a concise finding retains the subjects of all grouped findings

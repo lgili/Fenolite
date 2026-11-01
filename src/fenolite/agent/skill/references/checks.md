@@ -25,6 +25,7 @@ Without `--stages`, every stage of this table runs. `--stages A,B` selects some;
 | stage | what it judges | needs `kicad-cli` |
 |---|---|---|
 | `model.validate` | the design as data: references, nets, pins | no |
+| `circuit.rules` | rails, logic levels, pull-ups, ratings and expectations of the script and devices | no |
 | `erc.kicad` | KiCad's electrical rules check on the schematic | yes |
 | `copper.clearance` | Fenolite's own check of shorts and clearances on the copper | no |
 | `length.rules` | the length and skew rules (`length`, `skew`, `diff_pair_skew`) on the net lengths as KiCad counts them | no |
@@ -32,15 +33,24 @@ Without `--stages`, every stage of this table runs. `--stages A,B` selects some;
 | `zone.fill` | whether every zone is filled and its fill is current | yes |
 | `drc.kicad` | KiCad's design-rule check on the board, unconnected items included | yes |
 | `parity` | the board against the schematic, and symbol pins against footprint pads | no, for a project that `build` wrote |
+| `schematic.drawn` | a drawn schematic against the script's nets (`drawn.netlist-differs`); only for such a build | no |
 | `netlist.assignment_compare` | the net of every pad, as the script, the board and KiCad see it | yes |
 | `roundtrip` | whether the board survives being read and written back | no |
 
 - `--stages model.validate,copper.clearance` is the fast check that runs anywhere: use it after each
   edit, and the whole check before you report.
-- Selecting a stage that needs `kicad-cli` on a machine without it exits 6.
+- `circuit.rules` is skipped with `no-model` (no `.fenolite/`), `no-parameters`. Its errors
+  (`circuit.rail-voltage`, `logic-level`, `rating-voltage`, `expect-failed`, ...) also stop a build;
+  `summary.requirements` lists each limit, its value, source and status:
+
+```fenolite-cmd
+fenolite check blink/build --stages circuit.rules --json
+```
+
+- A selected stage that needs a missing `kicad-cli` exits 6.
 - An unrouted board exits 5: each open connection is a `kicad.drc.unconnected-items` error.
-- `result.stages` holds one entry per stage with `status` (`ok`, `errors` or `skipped`), the `reason`
-  of a skip, its own `evidence` and a `summary` of counts.
+- `result.stages` has per stage a `status` (`ok`, `errors`, `skipped`), the skip `reason`, its
+  `evidence`, a `summary`.
 
 ## Reading an issue
 
@@ -50,13 +60,13 @@ Without `--stages`, every stage of this table runs. `--stages A,B` selects some;
 ```
 
 - **`code`** names the kind of finding and is stable: decide by the code, never by the message.
-- **`severity`** is `error`, `warning` or `info`. Only an `error` makes the exit code 5.
-- **`where`** names a reference (`R1`), a pad (`R1-2`), a net, or a place in a file, as above. The
-  message of a copper finding gives the layer and the point, in file coordinates in millimetres;
+- **`severity`** is `error`, `warning` or `info`. Only an `error` makes exit code 5.
+- **`where`** names a reference (`R1`), a pad (`R1-2`), a net, or a place in a file, as above. A copper
+  finding's message gives the layer and the point (file coordinates, mm);
   `fenolite region` with a small box around that point lists the items there (page `placement`).
-- Findings of KiCad's own checks have codes that start with `kicad.drc.` and `kicad.erc.`, and carry
+- Findings of KiCad's own checks have codes starting with `kicad.drc.` and `kicad.erc.`, and carry
   KiCad's message.
-- An issue also has a `hint`, which is often empty: the fix of a code is what `explain` says.
+- An issue also has a `hint`, often empty: `explain` gives the fix of a code.
 - **Accepting one finding.** `design.waive(code, *items, reason=)` in the script (page `rules`) lists
   a `copper.*` or `kicad.drc.*` finding as `info` with its reason, so the exit code no longer counts it.
   A waiver that matches nothing gives `check.waiver-unmatched`. Fix the copper first; waive only what is
@@ -136,6 +146,9 @@ fenolite parity blink/build --json
   a pin without a pad. `result.summary` counts each kind (`parity.*`), and each difference is an issue.
 - `netlist.assignment-differs`, from the stage `netlist.assignment_compare`, means a pad is on another
   net than the script says: build again, and look for copper drawn on the wrong pad.
+- A block's sheet pins: `build.block-port-merged` (info) means two port members of one instance share a
+  net, which keeps global labels; `build.block-sheet-name-clash` (Altium, error): a net leaves a block's
+  sheet under a port's name without the port; rename the net or use the port.
 
 ## Net roles of a power board
 
@@ -147,12 +160,11 @@ fenolite roles blink/build --set VIN=power:milliamps=500 --current VOUT=1 --dry-
 ```
 
 - `roles` infers what each net does (`power`, `switch_node`, `ground`, `kelvin`, `gate`, `signal`,
-  `high_voltage`) and the hot loops, gate loops and Kelvin pairs, and shows each with its rule and
-  confidence. Read-only until you accept, set or reject; then it writes the role document beside the
-  board, or `.fenolite/rules.json` of a built project, through a plan.
-- `--check` measures the copper against the roles with the analyses and adds `result.measures`; it runs
-  no tool. Findings of inferred roles stay warnings: confirm the roles before you trust them. A role
-  without a current is not judged for current (`roles.current-missing`): give it with `--current`.
+  `high_voltage`), the hot loops, gate loops and Kelvin pairs, with rule and confidence.
+  Accepting, setting or rejecting writes the role document through a plan.
+- `--check` measures the copper against the roles and adds `result.measures` and `result.requirements`;
+  it runs no tool. Findings of inferred roles stay warnings: confirm the roles first. A role without a
+  current is not judged for current (`roles.current-missing`): give it with `--current`.
 - The same check runs as the stage `roles.rules` of `check` on a board with stored or declared roles.
 
 ## Two designs compared
@@ -167,8 +179,21 @@ fenolite equivalent blink/build blink/altium/blink.PrjPcb --frame relative --tol
 - A side is a board, a project folder, an Altium document or project, a `.fenolite/` folder, or a root
   `.kicad_sch`, which is compared at levels 1 and 2 only. A schematic that `build` did not write needs
   `kicad-cli` (exit 6 without one).
-- `capabilities --command equivalent` lists the `levels` and the `sides` it reads; the reply follows the
-  schema `fenolite.equivalent.v0`. In Python, `fenolite.api.equivalent(a, b)` gives the same result.
+- `capabilities --command equivalent` lists the `levels` and `sides`; the reply follows
+  `fenolite.equivalent.v0`, as does `fenolite.api.equivalent(a, b)` in Python.
+
+```fenolite-cmd
+fenolite equivalent a.kicad_pcb b.kicad_pcb --level 7 --strict --json
+fenolite verify-source boards/sensor/design.py --against upstream/sensor --copper-check warn --json
+```
+
+- `--level 6` compares rules, `7` exact geometry (zones by outline), `8` the rendered layers;
+  `--strict` matches every track, arc and via.
+- `verify-source` builds the script in a temporary folder and proves it at every level; exit 5 lists the
+  differences. Accept one with a reason in `fidelity.accepted` of `PROVENANCE.json`; `--record` writes
+  `fidelity.proof` through a plan. Codes: `fidelity.build-failed`, `fidelity.accepted-unused`,
+  `fidelity.level-skipped` (read its reason), `fidelity.input-upgraded`. An imported folder is a copy:
+  copper findings warn instead of refusing (`--copper-check refuse|warn` overrides).
 
 ## What is installed
 
@@ -180,8 +205,7 @@ fenolite capabilities --command check --json
 fenolite capabilities --json --fields matrix
 ```
 
-- `doctor` reports each `kicad-cli` it finds with its version, and Java. `--no-run` lists the candidates
-  and starts nothing. An exit 6 from any command is answered here.
+- `doctor` reports each `kicad-cli` with its version, and Java; `--no-run` starts nothing. Answer exit 6 here.
 - `capabilities --brief` is the small first reply; `--command NAME` gives one command's arguments as
   data; the long reply holds `matrix`, which says for each file kind what Fenolite can do with it and at
   which evidence level.
