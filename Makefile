@@ -13,7 +13,7 @@ PYTEST_WORKERS ?= auto
 PYTEST_MAX_WORKERS ?= 8
 PYTEST_PARALLEL ?= -n $(PYTEST_WORKERS) --maxprocesses $(PYTEST_MAX_WORKERS) --dist loadfile
 
-.PHONY: check check-fast lint format types test test-fast residue residue-history hooks agent-eval visual viewer viewer-check
+.PHONY: check check-fast lint format types test test-fast fidelity fidelity-corpus residue residue-history hooks agent-eval visual viewer viewer-check
 
 # The gate before a merge: every check and every test.
 check: lint format types residue test
@@ -37,7 +37,14 @@ test:
 	uv run pytest -q $(PYTEST_PARALLEL)
 
 test-fast:
-	uv run pytest tests/unit tests/residue tests/consistency -q $(PYTEST_PARALLEL) -m "not needs_kicad and not needs_corpus and not needs_libs"
+	uv run pytest tests/unit tests/residue tests/consistency tests/fidelity -q $(PYTEST_PARALLEL) -m "not needs_kicad and not needs_corpus and not needs_libs"
+
+# Hermetic fidelity infrastructure; real boards remain fetched-only inputs.
+fidelity:
+	uv run pytest tests/fidelity -q $(PYTEST_PARALLEL)
+
+fidelity-corpus:
+	uv run pytest tests/kicad/fidelity -rA $(PYTEST_PARALLEL)
 
 residue:
 	uv run python tools/residue/scan.py

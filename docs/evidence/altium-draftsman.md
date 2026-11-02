@@ -178,7 +178,60 @@ Send the whole folder (with the files Altium saved and the project as Altium lef
 version (`AD <major>.<minor>`, from **Help » About**), the date, and one outcome per step. The files are
 read only after `fenolite kit verify`'s path scan has run on the folder (task 1.4).
 
+### Round FP: candidate probes
+
+Prepare with `FENOLITE_ALTIUM_PART_FP=<outside folder> uv run pytest
+tests/unit/backends/altium/test_part_f.py -k fp_candidates`. FP3 to FP5 can be prepared from the public
+fact rows. FP1 and FP2 are absent until the real F0.3 control is supplied through `FENOLITE_DWF_F0` and
+passes the kit privacy scan, including its decoded chunks. `status.json` names missing probes and keeps
+the native verdict `unjudged`; `SHA256SUMS` binds the exact handover bytes. Work on a copy.
+
+1. **FP1** Open the F0.3 control re-encoded into stored chunks. Expected: no message, the original Text.
+2. **FP2** Open that control with only the Text changed to `FENOLITE-22`. Expected: no message, the changed Text.
+3. **FP3** Open the document written from scratch with one sheet and one Text. Expected: no message, `FENOLITE-1`.
+4. **FP4** Open the minimal document with a top assembly shell; Import Changes from `blink_routed.PcbDoc`.
+   Expected: the board outline and top components fill the view. This settles `H-A-DWF-IMPORT` only when run.
+5. **FP5** Use `FP5.DwfDot` in File » New » Draftsman Document. Expected: a document with the current board.
+
+Report the date, exact version, file hashes, whether each opens without a message and what it shows.
+These probes settle `H-A-DWF-MINIMAL`, `H-A-DWF-IMPORT` and `H-A-DWF-TEMPLATE`; no probe has run here.
+
+### Round F1 to F8: candidate acceptance
+
+Prepare with `FENOLITE_ALTIUM_PART_F=<outside folder> uv run pytest
+tests/unit/backends/altium/test_part_f.py -k accept_candidate_kit`. The routed blink gains an authored
+two-layer stack-up, title block and two notes per applicable page. The native gate is overridden only
+inside the kit test. `expected.md` lists exact model drill counts, stack rows and parts; `SHA256SUMS`
+binds the handover. This remains a candidate: generic native board Table/dimensions, exact table filters,
+table sizes and source refresh await F0/FP4. Board rows are currently Texts. Work on a copy.
+
+1. **F1** Open the project and its listed `blink_routed.PCBDwf`. Expected: no message.
+2. **F2** Inspect the three sheets, paper, title-block parameters and estimated layout. Expected: correct
+   titles/values and no overlapping objects. Settles `H-A-DWF-PARAMS` only after an actual report.
+3. **F3** Import Changes from `blink_routed.PcbDoc`. Expected: every shell view fills from the board.
+4. **F4** Inspect assembly views. Expected: designators and the bottom side viewed from below.
+5. **F5** Compare the drill symbols and table with `expected.md`. Expected: exact counts per diameter.
+6. **F6** Compare the legend and BOM with `expected.md`. Expected: the layer rows and parts agree.
+7. **F7** Inspect the notes. Expected: the two authored notes on each applicable page, numbered in order.
+8. **F8** Export all sheets to PDF, run the `PCBDrawing` output and save `saved.PCBDwf`. Expected: three
+   PDF pages and the written scope retained by `FENOLITE_ALTIUM_F8=<file> uv run pytest
+   tests/unit/backends/altium/test_part_f.py -k f8`. Settles `H-A-DWF-OUTJOB` only after the native output.
+
+Send the date, exact version, original/saved hashes and one expected/observed outcome per step.
+`H-A-DWF-KIT` stays unconfirmed until those actual outcomes exist. A missing save is a skipped proof.
+
+### Observation intake
+
+`uv run python tools/altium_observations.py F0 <folder>` runs the kit privacy scan before reading
+members and reports hashes, element/item counts and changed member paths against each F0 control.
+It writes nothing, prints no document values and never sets a native verdict. A scan refusal needs
+local review; matched personal strings are not printed. Native files remain outside version control.
+
 ## Reports
 
 No report of Part F has been received. Nothing on this page or in `docs/formats/altium/draftsman.md` is
 `ALTIUM-VERIFIED`.
+
+2026-11-01 availability update: the maintainer reports that Altium Designer is unavailable now.
+F0 saves, FP outcomes, F1-F8 and the native gates remain open. Public corpus read-back and authored
+candidate kits are mechanical preparation only; they are not author reports or application saves.

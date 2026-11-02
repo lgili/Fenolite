@@ -132,7 +132,7 @@ def test_a_rename_that_moves_a_pin_drops_the_fills(tmp_path: Path, monkeypatch: 
     p.edit_board(lambda t: add_filled_zone(t, net="GND", layer="B.Cu"))
     assert p.build(*COPPER_WARN, "--confirm")[0] == 0
     rename_net(p, "GND", "GND0")
-    p.edit_script("connect(gnd, u1[10], d1[1])", "connect(gnd, u1[10], u1[11], d1[1])")
+    p.edit_script("connect(gnd, u1[10])", "connect(gnd, u1[10], u1[11])")
     code, env, err = p.build(*COPPER_WARN, "--confirm")
     assert code == 0, err
     assert "zone.fill-stale" in codes(env)

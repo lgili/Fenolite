@@ -1,0 +1,23 @@
+{
+  "_fixture": {
+    "SPDX-License-Identifier": "CC0-1.0",
+    "authored": "Authored for Fenolite; fictional names, values, tokens and links; no supplier response."
+  },
+  "Products": [
+    {
+      "ManufacturerProductNumber": "EX03R104KAT",
+      "Manufacturer": {
+        "Name": "Example Passive"
+      },
+      "DatasheetUrl": "https://example.invalid/ex-mlcc.pdf",
+      "Parameters": [],
+      "UnitPrice": 0.25,
+      "QuantityAvailable": 12345,
+      "ProductStatus": {
+        "Status": "Authored lifecycle"
+      },
+      "ProductVariations": []
+    }
+  ],
+  "ProductsCount": 1
+}

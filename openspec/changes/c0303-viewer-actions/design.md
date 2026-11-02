@@ -158,3 +158,5 @@ regenerates the command guide.
 - Should `--allow-actions` also require `--marks` or another file to log every write, or is the receipt
   list in the reply enough?
 - Should the move form snap to a placement grid (which pitch?), or take exact values only (as designed)?
+
+Integration decision 2026-11-01: c0250 uses the existing plan-review/confirm/receipt API for finite conflict takes. Its validated authoring-root exception and original-receipt-preserving restore projection do not change ordinary action scope. The Allowed actions requirement lists the registered role/proposal actions and take together, so the combined open deltas retain one finite action set.

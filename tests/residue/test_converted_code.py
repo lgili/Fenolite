@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import tomllib
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -29,6 +30,8 @@ def converted_reports(paths: Iterable[Path], root: Path) -> list[str]:
     """``<path>: <conversion line>`` for each file of ``paths`` that holds a conversion line and not the
     authored marker."""
     reports: list[str] = []
+    manifest = tomllib.loads((ROOT / "tests/corpus/manifest.toml").read_text(encoding="utf-8"))
+    rtf_sources = {row["url"]: row["id"] for row in manifest["file"] if "rtf" in row["uses"]}
     for path in paths:
         try:
             text = path.read_text(encoding="utf-8")
@@ -36,7 +39,10 @@ def converted_reports(paths: Iterable[Path], root: Path) -> list[str]:
             continue
         found = CONVERTED.search(text)
         if found is not None and AUTHORED not in text:
-            reports.append(f"{path.relative_to(root).as_posix()}: {found.group(0)}")
+            source = found.group(0).removeprefix("Converted from ")
+            ident = rtf_sources.get(source)
+            row = f"{ident}: " if ident is not None else ""
+            reports.append(f"{path.relative_to(root).as_posix()}: {row}{found.group(0)}")
     return reports
 
 
@@ -73,3 +79,21 @@ def test_authored_import_example_passes() -> None:
     scripts = sorted(folder.rglob("*.py"))
     assert scripts
     assert converted_reports(scripts, ROOT) == []
+
+
+@pytest.mark.needs_corpus
+def test_rtf_emitted_code_planted_in_a_temporary_tool_tree_is_reported(tmp_path: Path) -> None:
+    """Use one cached source only as a temporary derivative; identify it by manifest row, never its name."""
+    from _corpus import manifest_items, require
+
+    (item,) = [row for row in manifest_items("rtf") if row.id == "kicad-demo-10-0-6-pcb-04"]
+    source = require(item)
+    manifest = tomllib.loads((ROOT / "tests/corpus/manifest.toml").read_text(encoding="utf-8"))
+    (row,) = [row for row in manifest["file"] if row["id"] == item.id]
+    reply = imported(tmp_path, source, "--source", row["url"], "--confirm", out="tests/data/converted")
+    assert reply.exit_code == 0, reply.error
+    scripts = sorted((tmp_path / "tests/data/converted").rglob("*.py"))
+    assert scripts
+    reports = converted_reports(scripts, tmp_path)
+    assert len(reports) == len(scripts)
+    assert all(report.startswith("tests/data/converted/") and item.id in report for report in reports)

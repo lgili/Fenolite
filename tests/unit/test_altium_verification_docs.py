@@ -172,6 +172,20 @@ def test_part_f_reports_hold_no_altium_verified_row_without_a_report() -> None:
     assert rows and not [line for line in rows if "| ALTIUM-VERIFIED" in line]
 
 
+def test_part_f_fp_and_acceptance_cases_are_ready_and_gate_is_closed() -> None:
+    from fenolite.backends.altium import draftsman
+
+    part = _part_f()
+    assert [int(n) for n in re.findall(r"\*\*FP(\d)\*\*", part)] == list(range(1, 6))
+    assert [int(n) for n in re.findall(r"\*\*F(\d)\*\*", part)] == list(range(1, 9))
+    assert "status.json" in part and "unjudged" in part and "SHA256SUMS" in part
+    assert "FENOLITE_ALTIUM_F8" in part and "kit privacy scan" in part
+    reports = _section(_page("evidence/altium-draftsman.md"), "## Reports")
+    if draftsman.NATIVE_WRITE:
+        for case in ("FP1", "FP2", "FP3", "FP4"):
+            assert re.search(rf"\|\s*{case}\s*\|[^\n]*\|\s*as expected\s*\|", reports), case
+
+
 def _part_q() -> str:
     return _section(_page("evidence/altium-pcb.md"), "## Part Q: panels and the Embedded Board Array")
 
@@ -249,3 +263,23 @@ def test_part_j_reports_hold_no_altium_verified_row_without_a_report() -> None:
         if line.startswith(("| H-A-EDIT-", "| H-A-INTEG-"))
     ]
     assert rows and not [line for line in rows if "| ALTIUM-VERIFIED" in line]
+
+
+def test_drawn_kit_is_concrete_but_native_acceptance_remains_pending() -> None:
+    section = _section(
+        _page("evidence/altium-schematic.md"), "## Drawn-sheet kit request (c0276, 2026-11-01)"
+    )
+    for words in (
+        "H-A-DRAWN-WRITE",
+        "INFERRED",
+        "pending",
+        "Altium is unavailable",
+        "--altium-format binary",
+        "--altium-format ascii",
+        ".fenolite/circuit.json",
+        "repeated instances",
+        "new copy",
+    ):
+        assert words in section
+    row = next(line for line in _page("hypotheses.md").splitlines() if line.startswith("| H-A-DRAWN-WRITE |"))
+    assert "INFERRED" in row and "acceptance pending" in row and "Altium unavailable" in row

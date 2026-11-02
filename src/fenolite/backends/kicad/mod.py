@@ -277,17 +277,6 @@ def _slots(entity: FootprintDef | Pad | Graphic) -> list[Slot]:
     return list(slotlib.from_ext(bag)) if bag is not None else []
 
 
-def _corner_ratio_slot(pad: Pad) -> list[Slot]:
-    """The ``roundrect_rratio`` child of an authored rounded-rectangle pad that gives ``Pad.corner_ratio``
-    (change c0260: the generated footprints round their pads), after ``layers`` where KiCad writes it; none
-    for another pad, so every definition authored before keeps its bytes."""
-    if pad.shape != "roundrect" or pad.corner_ratio is None:
-        return []
-    whole, part = divmod(pad.corner_ratio, 1_000_000)
-    text = f"{whole}.{part:06d}".rstrip("0").rstrip(".")
-    return [Opaque(f"(roundrect_rratio {text})", None)]
-
-
 def prepare_authored_definition(defn: FootprintDef) -> FootprintDef:
     """Give a slotless definition (authored with the DSL, or of the built-in catalog) the deterministic
     child order of a newly-authored file, with the ``Reference`` and ``Value`` properties of a conventional
@@ -330,12 +319,28 @@ def prepare_authored_definition(defn: FootprintDef) -> FootprintDef:
                         Modeled("shape"),
                         Modeled("position"),
                         Modeled("size"),
+                        *([] if pad.trapezoid_delta is None else [Modeled("trapezoid_delta")]),
                         Modeled("drill"),
                         *([] if pad.fab_property is None else [Modeled("fab_property")]),
                         Modeled("layers"),
-                        *_corner_ratio_slot(pad),
+                        # the shape children of change c0277, in the order of the demo boards (S-0058)
+                        *(
+                            []
+                            if pad.corner_ratio is None or pad.shape != "roundrect"
+                            else [Modeled("corner_ratio")]
+                        ),
+                        *(
+                            []
+                            if pad.chamfer_ratio is None
+                            else [Modeled("chamfer_ratio"), Modeled("chamfer_corners")]
+                        ),
                         *([] if pad.mask_margin is None else [Modeled("mask_margin")]),
                         *([] if pad.paste_margin is None else [Modeled("paste_margin")]),
+                        *(
+                            []
+                            if pad.anchor_shape is None
+                            else [Modeled("anchor_shape"), Modeled("primitives")]
+                        ),
                         Modeled("native_ids"),
                     ]
                 ),

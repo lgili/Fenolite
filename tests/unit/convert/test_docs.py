@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
+import json
 import re
+import tomllib
 from pathlib import Path
 
 from fenolite.api.conversion import profiles
@@ -56,3 +58,29 @@ def test_contract_section() -> None:
 
 def test_altium_page_links_the_conversion() -> None:
     assert "docs/conversion.md" in (ROOT / "docs" / "altium.md").read_text(encoding="utf-8")
+
+
+def test_current_pairing_measurements_bind_declared_inputs() -> None:
+    """Current backend comparisons supplement dated tables; they make no native-application claim."""
+    path = ROOT / "docs/evidence/conversion-comparison-c0319.json"
+    record = json.loads(path.read_text(encoding="utf-8"))
+    manifest = tomllib.loads((ROOT / "tests/corpus/manifest.toml").read_text(encoding="utf-8"))
+    declared = {row["id"]: row for row in manifest["file"]}
+    assert record["schema"] == "fenolite.conversion-comparison.v0"
+    assert record["source_commit"] == "46d788ee0e10516838a4b0a63b254eab2a475fd1"
+    assert record["native_tool"] is None
+    assert set(record["rows"]) == {"08", "16"}
+    for key, row in record["rows"].items():
+        assert row["input_id"] == f"kicad-demo-10-0-6-pcb-{key}"
+        assert (row["input_ref"], row["input_sha256"]) == (
+            declared[row["input_id"]]["ref"],
+            declared[row["input_id"]]["sha256"],
+        )
+    assert record["rows"]["08"]["differences"] == {}
+    assert record["rows"]["16"]["differences"] == {
+        "dnp": 11,
+        "pad-missing": 20,
+        "route-connectivity": 1,
+    }
+    page = (ROOT / "docs/evidence/conversion.md").read_text(encoding="utf-8")
+    assert path.name in page and "historical" in page

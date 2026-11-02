@@ -70,6 +70,7 @@ def test_valid_ports_load() -> None:
         (I2C.replace('scl = ["SCL"]', 'scl = ["SCK"]'), "names no function"),
         (I2C.replace('name = "i2c1"', 'name = "INT"'), "is a function of the device"),
         (I2C.replace('name = "i2c1"', 'name = "place"'), "attribute of Part"),
+        (I2C.replace('name = "i2c1"', 'name = "footprint_definition"'), "attribute of Part"),
         (I2C.replace('reference = "vdd"', 'reference = "i2c1"'), "no other power interface"),
         (
             '\n[[interfaces]]\nname = "irq"\nkind = "logic"\ndirection = "out"\nmembers = { io = ["INT"] }\n'

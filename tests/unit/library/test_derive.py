@@ -5,7 +5,12 @@ change c0223). The boards are the authored two-layer board of the test data and 
 
 from __future__ import annotations
 
+import hashlib
+import importlib
+import json
 from pathlib import Path
+
+import pytest
 
 from fenolite.backends.kicad.mod import read_footprint
 from fenolite.library import derive_library, drift
@@ -31,6 +36,54 @@ def with_second_resistor(text: str, *, moved: bool) -> str:
     if moved:
         copy = copy.replace("(at 0.8 0 90)", "(at 0.9 0 90)")
     return text[:end] + copy + text[end:]
+
+
+def variant_stress_board() -> str:
+    """Authored stress data: twelve distinct pad positions and one duplicate."""
+    text = board_text()
+    start = text.index('\t(footprint "Fenolite_Test:R_0603"')
+    end = text.index('\t(footprint "Fenolite_Test:LED_THT_3mm"')
+    template = text[start:end]
+    copies = []
+    for index in range(13):
+        variant = index if index < 12 else 0
+        tenth = 8 + variant
+        instance = template.replace('"R1"', f'"R{index + 1}"')
+        instance = instance.replace("(at 20 15 90)", f"(at {40 + index * 2} 15 90)")
+        instance = instance.replace("(at 0.8 0 90)", f"(at {tenth // 10}.{tenth % 10} 0 90)")
+        instance = instance.replace(
+            "d75df7ee-5c1f-4a9f-9213-5cb13ccc38b7",
+            f"d75df7ee-5c1f-4a9f-9213-{index + 1:012d}",
+        )
+        copies.append(instance)
+    return text[:start] + "".join(copies) + text[end:]
+
+
+STRESS_BYTES = {
+    9: "1e5d91a092ab75f0cd4db48a33c8cf7ecb0d720117945d865f15a89b4377ce7c",
+    10: "e23be78c97ccb30b5478cd638fbcd0c46181dcbe366d2d6bbb7780edfbd3e916",
+}
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_many_variants_have_bounded_signature_work(target: int, monkeypatch: pytest.MonkeyPatch) -> None:
+    module = importlib.import_module("fenolite.library.derive")
+    original = module._signature
+    calls = 0
+
+    def signature(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(module, "_signature", signature)
+    derived = derive_library(variant_stress_board(), library="authored", target=target)
+    assert len(derived.footprints) == 13
+    assert next(fp.refs for fp in derived.footprints if fp.name == "R_0603") == ("R1", "R13")
+    assert [item.code for item in derived.issues] == ["library.instances-differ"] * 11
+    digest = hashlib.sha256(json.dumps(derived.files(), sort_keys=True).encode()).hexdigest()
+    assert digest == STRESS_BYTES[target]
+    assert calls <= 14, "comparison work must be bounded by the fourteen source instances"
 
 
 def test_footprints_in_their_own_frame() -> None:

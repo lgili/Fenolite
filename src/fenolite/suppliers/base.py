@@ -15,7 +15,7 @@ from fenolite.pick.propose import RICH_SUPPLIER_API, SupplierDraft, SupplierLook
 from fenolite.suppliers import credentials
 from fenolite.suppliers.cache import ProcessCache
 from fenolite.suppliers.credentials import Secret
-from fenolite.suppliers.errors import CredentialsMissing, ResponseShapeError
+from fenolite.suppliers.errors import CredentialsMissing, ResponseShapeError, SupplierError
 from fenolite.suppliers.http import Client, Transport
 from fenolite.suppliers.policy import policy_for
 from fenolite.suppliers.rows import Candidate, proposal_row
@@ -61,7 +61,15 @@ class SupplierPlugin:
         cache_key = f"{query.text()}:{limit}"
         candidates = self.cache.get(cache_key)
         if candidates is None:
-            candidates = self.search(query, limit, client, keys)
+            try:
+                candidates = self.search(query, limit, client, keys)
+            except SupplierError as error:
+                # Mapping errors follow successful HTTP replies too (for example GraphQL errors).
+                # Retain any earlier pacing warning just as the HTTP error paths do.
+                error.issues = tuple(client.issues) + tuple(
+                    issue for issue in error.issues if issue not in client.issues
+                )
+                raise
         drafts: list[SupplierDraft] = []
         issues = list(client.issues)
         clean_candidates: list[Candidate] = []

@@ -1128,6 +1128,8 @@ def merge_layout(
         board = adapted_layers.board
         issues += adapted_layers.issues
         assert board.board is not None
+    board = layers.merge_user_layers(board, built.board.layers)
+    assert board.board is not None
     copper = [layer.name for layer in board.board.layers if layer.kind == "copper"]
     if copper != wanted_copper:
         issues.append(
@@ -1388,6 +1390,9 @@ def merge_layout(
         texts=(*items.texts, *scripted["texts"]),
         graphics=(*items.graphics, *scripted["graphics"]),
         dimensions=(*items.dimensions, *scripted["dimensions"]),
+        images=(*items.images, *scripted["images"]),  # type: ignore[arg-type]
+        groups=built.board.groups,
+        verbatim=built.board.verbatim,
     )
     nets = tuple(
         dataclasses.replace(net, members=tuple(sorted({*net.members, *extra_members.get(net.id, [])})))

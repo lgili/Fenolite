@@ -23,17 +23,19 @@ Allowed import edges deltas.
 
 ### 2. Evidence gates precede credentials and transport
 
-The primary source review is recorded under `docs/formats/suppliers/`, S-1100..S-1110. DigiKey's current
-terms were inaccessible; Mouser terms returned 403; Nexar's API-terms accordion body was unavailable;
-readable Farnell partner terms prohibit recording/storing API content and establish no durable identity
-exception. No session/24-hour content-cache licence is inferred from old research, snippets, token
+The primary review is recorded under `docs/formats/suppliers/`, S-1100..S-1110 and S-1220..S-1227.
+DigiKey's now-readable API agreement restricts creating/updating an information database. Mouser's
+primary API terms were later read through a plain public fetch and prohibit storing API content;
+Nexar's API accordion body remains unavailable. Readable Farnell terms
+prohibit recording/storing API content and establish no durable identity exception. No session/24-hour content-cache licence is inferred from old research, snippets, token
 expiry or regional terms. Prescribed attribution wording remains unverified.
 
 All four production policies therefore have `ready=false`, `persist=[]`, `cache=none`, age zero and
 `UNVERIFIED` evidence. Lookup fails before credentials or transport, with FEN-6001 and a source-review
-hint. A key's presence and broad task authorization do not clear a source-rights gate. Mouser/Farnell
-have source-shaped request/mapping code proved under explicitly fictional test permissions; this does
-not enable production. DigiKey/Nexar response mapping remains unavailable rather than invented.
+hint. A key's presence and broad task authorization do not clear a source-rights gate. All four sources
+have documented request/mapping code proved under explicitly fictional test permissions; this does
+not enable production. DigiKey/Nexar tokens remain per-lookup; Nexar requests basic fields without
+assuming paid add-on access. A response mapping is not a source-data licence.
 JLC task 5.1 stays open and its plugin unregistered until approved maintainer documentation exists.
 
 ### 3. Per-user secrets and bounded HTTP
@@ -110,3 +112,39 @@ focused consistency, type, lint, residue and strict OpenSpec checks.
 Rich plugin integration explicitly opts in with `proposal_api="fenolite.supplier-lookup.v0"` and
 `lookup(...)->SupplierLookup`. A legacy plugin's unrelated `lookup` method does not change its
 `Supplier.propose` behavior.
+
+## Public adapter continuation — Decided 2026-11-01
+
+The clean continuation starts at 17706a46; supplier paths match the current combined candidate.
+Primary protocol facts are available for all four adapters. Complete their authored-only request and
+mapping proofs independently of production permission. A checked 2.x implementation task records its
+specific offline proof, not a ready policy, live access or granted identity rights. Task 0.2 stays open
+while a required primary terms body/permission fact is missing; JLC 5.1 and exact-CI 6.4 stay open.
+
+DigiKey's linked Swagger and readable API User Agreement are registered as S-1220/S-1221 after a
+collision search. Its database restriction does not establish durable identity permission. Mouser's
+exact primary terms URL still returns403. Nexar's API accordion body remains unavailable, and its
+current add-on field table distinguishes paid specs/lifecycle/datasheets/ECAD; request only documented
+basic identity and seller offers. Farnell's primary storage restriction is unchanged. All production
+policies remain ready=false, persist=[] and cache=none. No key or paid entitlement is assumed.
+
+Use the existing bounded stdlib client for token and search calls under one deadline; tokens join the
+credential redaction set immediately and remain per-lookup. Authored fixtures use fictional tokens,
+identities, prices and example.invalid links, with CC0 sidecars. Unknown token/container/error shapes
+refuse without echoing remote messages; GraphQL partial data never overrides errors. A mapping failure
+retains prior rate-limit warnings, including when a successful HTTP reply carries GraphQL errors. These implementation
+choices do not copy any public SDK, parser or documentation schema into core and add no public fields.
+
+## Cached public terms follow-up — Decided 2026-11-01
+
+The initial Mouser web 403 gap is partly resolved by an approved plain public HTTP 200 fetch of the
+same S-1222 URL. The body is actual Search API Terms of Service, last modified 2013-03-11, with all
+sections 1–20 present; its SHA-256 matches the fetch receipt. Sections 2/4/5/6/7 require application
+approval, prohibit content storage, require source/link attribution, refer to account-assigned call
+limits and require removing content on termination. No new numeric quota or durable identity exception
+is inferred. Register S-1222 as reviewed terms and correct only the existing policy metadata/reason;
+ready=false, persist=[], cache=none and the absence of an affirmative positive cache age remain.
+
+The Nexar raw fetch returned 403; its body is error evidence, not API terms. Task 0.2 remains open for
+the missing primary Nexar terms body and unresolved permitted identity scope. JLC and full/CI tasks
+remain open. No network permission, auth, API key, bypass, readiness or evidence-level promotion is used.

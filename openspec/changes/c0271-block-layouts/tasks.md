@@ -23,6 +23,28 @@
   that transform with a further half turn. The four recommended decisions are recorded as
   Decided 2026-11-01 in design.md. This task stays open because root schedules its full gate.
 
+  Entry refresh 2026-11-02, integration base `697cdf02b39c570b7827bd2b7b5419dfcf6bdea6`:
+  c0251/c0255/c0268/c0250 and the block-test/package additions remain active and
+  implemented; no living placement-in-code spec exists yet. The public names stay inst.place,
+  b.layout and inst.layout. `cli._layout.plan_layout`/`LayoutPlan.resolver` feed the level-5
+  relative resolver and lens hooks; the build record keeps layout.poses/digest, source hashes
+  and layout-file summaries. Top poses stay [x,y,rotation], with a fourth "bottom" value
+  only for bottom poses. c0255 deferred mirrors; c0271 supplies them. c0268 retains id/version,
+  block codes live in `cli.cmd_blocks`, and verbs are list/show/doc/where/test/capture/index/upgrade.
+  c0250's implemented three-way merge branch applies despite its unarchived status.
+  `geometry.Transform.placement(...,mirror=True)` mirrors about local X (y -> -y);
+  a vertical-axis mirror adds a half turn. Native lowering uses
+  `backends.kicad.embed.flip_footprint_tree`, with the existing H-G-FLIP evidence unchanged.
+  The four accepted recommendations remain a stale-layout warning, multiple layouts later,
+  no layout payload in the lock, and capture without rewriting Python.
+
+  Available proof: `openspec validate c0271-block-layouts --strict` passes without warnings
+  (OpenSpec 1.16.0).
+  The literal `make check-fast` is not run by this worker and has no applicable passing
+  serialized receipt yet. Task 0.1 remains unchecked for that actual proof; independent
+  CI, native/manual and release criteria are unchanged.
+
+
 - [x] 0.2 Write `docs/formats/fenolite/block-layout.md`: the format of design decision 1 and the digests of decision 2, Fenolite's own format, evidence `INFERRED`. Proof: `uv run pytest tests/consistency -q`.
 
   2026-11-01: `uv run pytest tests/consistency -q`: 662 passed, 41 skipped.

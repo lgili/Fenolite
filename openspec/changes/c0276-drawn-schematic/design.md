@@ -39,6 +39,95 @@
 
 ## Decisions
 
+### Demo drawn census follow-up — Decided 2026-11-02
+
+Task 7.2 measures all 130 manifest demo schematic rows, including child sheets. Each row is treated
+as the root of its reachable source graph at the running major's manifest tag; shared `sch-9` rows
+remain eligible on major 9. An incompatible tag is recorded separately, never as an equality result.
+All cached input hashes must match the manifest before parsing or native execution. Reuse the source
+symbol/hierarchy adapters, drawn extraction/lowering/resolver and existing native netlist export.
+Copy only required cached schematic/project inputs into temporary folders; retain no derived CAD file.
+
+Compare complete pin partitions, including singleton open pins and native-only nodes; never hide a
+missing node by intersecting the two pin universes. Compare source resolver, lowered readback and
+lowered native export against the original native export. Record naming equality separately under
+the existing name-warning rule. Record counts, hashes, format/tool versions, timings and closed refusal
+stages/codes only; component names, values, labels and CAD fragments must not enter committed reports.
+An extraction/lowering/native refusal or unequal connectivity fails its strict corpus assertion after
+the row report is written. There is no accepted-difference list, loss flag or changed threshold.
+
+Add authored regression controls for missing native nodes, naming differences, real lowering, refusal
+reporting, hash gates and report privacy. Persist one `drawn-census.json` per pytest temporary case,
+before assertions, so parallel CI workers never race on a shared JSON file. Preserve reports with an
+always-upload step in both KiCad jobs. An actual local 9.0.2 census is version-scoped measurement;
+it cannot close the native 9.0.9/10.0.6 CI proof, change evidence labels or claim all corpus rows equal.
+The independent Altium phase remains open and does not block this KiCad measurement work.
+The authored load/write oracle scenarios already live in `test_drawn_oracle.py`; the older proof
+path `test_drawn_write_oracle.py` names no file. Align that proof path with the existing scenarios
+and the new census driver, retaining both required native versions and every oracle assertion.
+
+### Public-project source representation follow-up (2026-11-01)
+
+The strict full-project corpus found mirrored power symbols that the original drawn value could not
+represent. Preserve their native `x`/`y` mirror as an optional drawn power pose, using the existing
+symbol-point transform. The default is empty, keeping existing canonical files unchanged. Level S
+compares this pose too. Other observed source aliases and pinless graphics remain explicit refusals
+until their own representation and focused proofs are supplied; no acceptance baseline is relaxed.
+
+Legacy power instances may have no native power flag. A `#PWR` reference is insufficient evidence:
+recognize only a definition with exactly one hidden `power_in` pin at the origin, whose name equals
+the instance value. The existing hidden-power-input rule (S-0046) supplies the global connection;
+preserve the source flag's absence rather than inventing one. Other unknown electrical symbols refuse.
+
+Pinless graphic symbols are native opaque drawing items, not circuit parts. Recognize them only when
+the embedded definition has no pins and the instance excludes board and BOM. Preserve library defaults
+even when they differ from the explicit instance exclusions. Resolve
+their library definitions with the existing project resolver and embed their native slots beside the
+opaque instance. Refuse missing definitions and electrical lookalikes rather than letting opaque
+symbols introduce connectivity that the circuit does not own.
+
+Source-local embedded aliases (`lib_name`) may be bare names even though the instance's `lib_id`
+names a library. Vendoring qualifies that alias with the original `lib_id` namespace; if both are
+bare, use Fenolite's private `_Source` namespace. The source stays unchanged. Extraction uses that same
+identity for power poses, so source and written drawings compare the same native body rather than
+mistaking a local alias for a library-table nickname. Preserve collision refusal for distinct bodies.
+
+Per-unit source aliases retain their own native bodies rather than being merged into a manufactured
+symbol. A drawn symbol pose may name an optional `symbol` library id. Its selected unit must have the
+same logical pin multiset (number, name, electrical type, hidden state) as the code's primary symbol;
+coordinates and graphics may differ because the drawing owns the pose. The importer selects the
+lowest unit's id as the component's primary binding and refuses conflicting bindings for one unit.
+Extraction records non-primary bindings. Build/check/sync pass circuit bindings so a single-unit
+override cannot disappear during sync; known pin-pad variant suffixes are mapped back to the source
+library id. Level S compares per-unit override identities, while the written-byte guard still proves
+the actual pin partition. Missing or electrically incompatible aliases refuse before staging.
+
+The root drawing always has an empty instance module, as the drawn value's instance walker specifies.
+Its component paths therefore retain any code-module prefix inferred from PCB metadata. Infer common
+module prefixes only for child sheet instances; stripping a root prefix would name different parts.
+
+A native PCB `board_only` attribute does not erase an actual matching source schematic symbol.
+For unique physical references with active source instances, emit a normal part and keep the native
+attribute in its derived footprint definition. Unmatched and ambiguously named physical parts retain
+their current code board-only behavior. The native embedding already preserves the attribute
+independently; no new model field or public flag is required.
+
+KiCad gives `/` and `{slash}` in a label the same native net identity (S-0020,
+`H-K-SCH-SLASH`). Resolve read KiCad drawings with a private copy of their connection names in
+the model spelling, including sheet pins, power names and bus members. Keep the extracted drawing
+and its visible text unchanged, so level S still detects text changes. The generic drawn resolver
+and other backends retain their own name semantics. Distinct code nets joined by this native rule
+must still fail the written-byte connectivity guard.
+
+The remaining CM5 source refusal is a resistor instance explicitly excluded from board and BOM,
+with no physical footprint. S-0020/`H-K-EQ-SCHSIDE` already records that `on_board no` omits the
+component and its nodes from the native export. Preserve an excluded instance as opaque only when
+its definition is non-power and all pins are visible and passive (or it is an existing pinless
+graphic). This bounded form cannot supply hidden global connections. Keep the native definition,
+instance flags and drawing; active pins, hidden pins, power definitions, missing exclusions and
+missing definitions remain refusals. Prove the native common-pin partition and absence of the
+excluded reference in the export before claiming the form is supported. No circuit/model flag is added.
+
 ### 1. Today vs proposed
 
 ```python
@@ -111,8 +200,8 @@ at = [127.0, 55.88]
 | table | keys | meaning |
 |---|---|---|
 | sheet | `key`, `paper`, `title_block` (optional), `generated` (optional, default false) | one drawn sheet |
-| `symbol` | `part`, `unit`, `at`, `rotation`, `mirror`, `fields.<name>` (`at`, `rotation`, `justify`, `hide`) | a unit of a code component, keyed by its path relative to the instance's module |
-| `power` | `symbol`, `net`, `at`, `rotation`, `fields.<name>` | a power symbol: a global connection named `net`; its `#PWR` reference is assigned by the writer |
+| `symbol` | `part`, `unit`, `at`, `rotation`, `mirror`, optional library `symbol`, `fields.<name>` (`at`, `rotation`, `justify`, `hide`) | a unit of a code component, keyed by its path relative to the instance's module |
+| `power` | `symbol`, `net`, `at`, `rotation`, `mirror`, `fields.<name>` | a power symbol: a global connection named `net`; its `#PWR` reference is assigned by the writer |
 | `wire`, `bus` | `pts` (two or more points) | a polyline; each pair of points is one segment |
 | `bus_entry` | `at`, `size` | a bus entry from `at` to `at + size` |
 | `junction` | `at`, `diameter` (optional) | a junction |
@@ -258,6 +347,21 @@ symbol:
 
 ### 8. Reading a KiCad schematic into the file
 
+**Decided 2026-11-01 (import prerequisite):** retaining parsed sheets alone does not implement the
+import path. A KiCad project import uses `Source.hierarchy` and its final reference-to-component-path
+map to extract the drawing, writes `schematic.toml`, and emits `design.load_schematic(...)`. Source
+embedded symbols and power symbols retain their native slots, units, pin geometry and hidden power
+pins; they are not replaced by the footprint-derived passive symbols used for board-only input. A
+project native library row takes precedence over a built-in definition of the same id. Per-instance
+references prefer the project named after the source root. Conflicting embedded definitions of one
+library id, missing source definitions, or unsupported symbol poses refuse explicitly before staging.
+Fallback symbols remain available for genuine board-only components. The import's private self-check
+build writes the drawn schematic and executes the existing read-back connectivity guard. Inputs without
+schematics keep their existing emission bytes. Full 1–8+S fidelity and planted-junction tests remain
+independent; this prerequisite does not add acceptances or claim a GUI save or native Altium acceptance.
+The canonical text writer is shared through a pure private model serializer; `lens.drawn.write_drawn`
+keeps its public interface. The importer does not gain a dependency on the lens orchestration package.
+
 `fenolite.backends.kicad.drawn.extract(root, children, *, components) -> tuple[DrawnSchematic,
 tuple[Issue, ...]]` takes read sheets (`read_schematic` and `sheet_files`) and the map from instance path and
 reference to component path:
@@ -303,13 +407,40 @@ reference to component path:
 
 ### 10. Altium (later phase of this change)
 
+Integration decision 2026-11-01: implement the source writer and hermetic native-record readback now.
+The maintainer reports that Altium is unavailable, so the actual application/kit gate remains open and
+the behavior stays `INFERRED`. Reuse the existing component writer and record forms, keep generated
+builds byte-identical, and compare the bytes through the Altium reader before returning a write. Native
+scope behavior follows the existing Automatic project default (the verified numeric mode 0). If no top
+sheet entry or port selects Hierarchical or Flat, local names occurring in several native sheet
+instances receive a deterministic private prefix, with `altium.not-lowered` info findings naming each
+text change. Local names unique to one native sheet keep their text. This
+preserves the partition when Automatic selects Global, including flattened repeated sheets; it does
+not claim drawn text/structure identity. Hierarchical and Flat labels keep their text. Any remaining
+connectivity difference is refused rather than assigned an undocumented numeric hierarchy mode.
+
+The native guard seals the intended document names, component units, shown logical pin tables and
+physical pin maps before the producer runs, including wholly unconnected units. It reads the actual
+native bytes and compares those tables, then compares actual logical-pin partitions with code in
+the same logical domain. Physical maps are checked separately, rather than confusing native pin
+designators with PCB pads. The CLI repeats this check after templates using the already verified
+builder bytes as its reference; missing or unreadable content cannot create synthetic open pins.
+Compatible per-unit source aliases resolve through the existing library resolver and logical-unit
+signature check, then use their own native body and generated library entry. Missing or incompatible
+aliases refuse before staging. None of these checks establish native application acceptance.
+Native parameter anchors, rotation, visibility and the documented mirror flag are emitted. Field
+justification has no established form in this parameter writer and is reported as unrepresented.
+Component mirror geometry is absolute, with native mirror metadata still unverified; power ports
+use native glyph/text placement and report source mirror/field-pose limitations. These are explicit
+`altium.not-lowered` findings, not a claim of drawn identity.
+
 - `fenolite.backends.altium.drawn.lower_drawn(...)` writes one sheet per drawn sheet instance: wires and
   buses as polylines, junctions, local labels as net labels, hierarchical labels as ports, sheet references
   as sheet symbols with sheet entries, power symbols as power ports, global labels as power ports of the
   label's text (power ports are global in every scope, S-0185), bus entries, and no-connect directives.
 - Coordinates map through the writer's existing unit conversion. A coordinate that has no exact Altium form
   is a lossy write: refused with `FEN-7001` (exit 7) unless `--allow-lossy`, which rounds and reports each
-  rounding.
+  rounding as `drawn.coordinate-rounded` (warning).
 - Repeated sheets are written once per instance in this change (`drawn.altium-repeat-flattened`, info).
   Multi-channel sheet symbols with an annotation file are a follow-up (open question 3).
 - Opaque items are dropped with `drawn.opaque-dropped` (info) unless they hold an `altium` record text.
@@ -433,6 +564,20 @@ The `drawn.*` codes of decision 6, plus `drawn.frozen` (info, decision 9) and
    --to-source --freeze-schematic`.
 
 ## Relation to the other changes of this batch
+
+Decided 2026-11-02 for task 7.4: retain the immutable `9c44f7a2` and cache-complete `695dee0f`
+measurements. The latter reports 59 failed, 33 passed and 38 other-tag skips on actual KiCad 9.0.2.
+Its per-file-as-root harness creates unmatched hierarchical ports and collapses repeated instance
+annotations when a child sheet is exported as an artificial standalone root. This is a test-context
+defect, not grounds to weaken the reader floor, duplicate-definition guard or production resolver.
+
+Discover all registered native project roots that reach each declared schematic row and measure the
+entire original owner hierarchy, using its real root UUID and annotation paths. Retain every child row
+and all of its owner contexts; record opaque instance-path hashes, owner input hashes and native export
+root IDs. An unowned row stays a measured standalone case, and missing or unreadable inputs remain
+explicit failures. No common-pin intersection, acceptance, lenient flag or model/S field is introduced.
+Authored child-port and repeated-root controls must demonstrate context and native partition equality.
+Task 7.2 stays open until its literal strict proof passes in both required versioned CI jobs.
 
 - **c0275 board-to-code:** calls `extract` and writes `schematic.toml` and `design.load_schematic(...)`.
 - **c0277 dsl-board-coverage:** board items only; its opaque-item rule for boards matches decision 2.

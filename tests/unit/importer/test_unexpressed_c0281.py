@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The outline width and the layer table are reported (capability board-to-code, "Outline width and layer
-table reported"; change c0281, issues 4 and 5 of the board library's conversion report). The authored
-two-sheet board with its outline drawn 0.2 mm wide and without ``Eco1.User`` and ``Eco2.User``."""
+"""Mixed outline widths remain reported while supported short tables are explicit (c0281/c0324).
+
+The authored CC0 two-sheet board is varied in tmp_path; no corpus data is used.
+"""
 
 from __future__ import annotations
 
@@ -21,6 +22,11 @@ def variant(tmp: Path) -> Path:
         r'\(width 0\.1\)(\s*\(type \w+\)\s*\)\s*\(layer "Edge\.Cuts"\))', r"(width 0.2)\1", text
     )
     assert count == 4
+    text = text.replace(
+        '(width 0.2)\n\t\t\t(type solid)\n\t\t)\n\t\t(layer "Edge.Cuts")',
+        '(width 0.3)\n\t\t\t(type solid)\n\t\t)\n\t\t(layer "Edge.Cuts")',
+        1,
+    )
     folder = tmp / "wide"
     folder.mkdir()
     target = folder / "wide.kicad_pcb"
@@ -28,15 +34,18 @@ def variant(tmp: Path) -> Path:
     return target
 
 
-def test_wide_outline_and_short_layer_table(tmp_path: Path) -> None:
-    """Scenario "Wide outline and short layer table"."""
+def test_mixed_outline_widths_and_short_layer_table(tmp_path: Path) -> None:
+    """Scenario "Mixed outline widths and short layer table"."""
     source = variant(tmp_path)
-    reply = imported(tmp_path, source, "--allow-lossy")
+    reply = imported(tmp_path, source, "--allow-lossy", "--confirm", out="lossy")
     assert reply.exit_code == 0, reply.error
     rows = {row["kind"]: row for row in (reply.envelope or {})["result"]["unexpressed"]}
     assert rows["outline-width"]["count"] == 4
-    assert rows["outline-width"]["examples"] == ["200000 nm instead of 100000 nm"]
-    assert rows["layer-table"]["count"] == 2
-    assert rows["layer-table"]["examples"] == ["the source lacks Eco1.User, Eco2.User"]
+    assert rows["outline-width"]["examples"] == [
+        "200000 nm instead of 100000 nm",
+        "300000 nm instead of 100000 nm",
+    ]
+    assert set(rows) == {"outline-width"}
+    assert "technical_layers=" in (tmp_path / "lossy/design.py").read_text(encoding="utf-8")
     refused = imported(tmp_path, source)
     assert refused.exit_code == 7

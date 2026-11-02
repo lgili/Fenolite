@@ -16,10 +16,7 @@
     ]
   },
   "fenolite": "0.7.0.dev0",
-  "findings": {
-    "import.schematic-generated": 1,
-    "import.symbol-regenerated": 1
-  },
+  "findings": {},
   "inputs": [
     {
       "file": "sheets/ch1.kicad_sch",

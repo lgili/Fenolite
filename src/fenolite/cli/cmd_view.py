@@ -136,6 +136,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--allow-actions",
+        "--edit",
         action="store_true",
         help="with --serve: the page can write the project's files through reviewed plans (fill, tidy, "
         "silk, test points, waivers, moves, exports, BOM); each write keeps a backup and can be undone",
@@ -1148,6 +1149,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         scene = _with_roles(roles, path, nets_of.annotate(path, plain(path)))
         scene = _with_proposals(proposals, path, scene)
         scene = _with_check(found, tree, path, scene)
+        if found is not None and scene.get("kind") is None and isinstance(scene.get("check"), dict):
+            from fenolite.view.conflicts import (
+                bind,  # noqa: PLC0415 - only conflict replies need source binding
+            )
+
+            binding = bind(found, board=path, cwd=ctx.cwd, board_sha256=str(scene["meta"].get("sha256", "")))
+            if binding is not None:
+                scene["check"]["resolve"] = binding
         review_status = project_review.status(scene, found, reports)
         if "check" in scene and review_status["binding"] and not review_status["binding"]["matched"]:
             scene["check"]["notes"].append(review_status["binding"]["note"])
@@ -1256,6 +1265,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
 
         def derive(path: Path, command: str, envelope: dict[str, Any]) -> dict[str, Any]:
             """What the page shows of a finished run (change c0302)."""
+            if command == "build":  # c0250: replace the failed reply after its reviewed take
+                session[_session_key(tree, path)] = envelope
+                scene = cached(path)
+                return {"check": scene.get("check"), "review": scene["project_review"]}
             if command == "check":
                 key = _session_key(tree, path)
                 session[key] = project_review.merge(session.get(key, reply), envelope)

@@ -48,6 +48,7 @@ from fenolite.backends.kicad import generate as generate_mod
 from fenolite.backends.kicad import lengths as lengths_mod
 from fenolite.backends.kicad import meander as meander_mod
 from fenolite.backends.kicad import stackup as stacklib
+from fenolite.backends.kicad import verbatim as verbatimlib
 from fenolite.backends.kicad import via_protection as vialib
 from fenolite.backends.kicad.copper import CopperIntentLike, is_copper_uuid, resolve_copper
 from fenolite.backends.kicad.embed import (
@@ -76,7 +77,7 @@ from fenolite.backends.kicad.schlayout import SymbolPlacement
 from fenolite.backends.kicad.sexpr import parse_bytes
 from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.kicad.zones import PadZoneRequestLike, apply_pad_connections, keep_pad_connections
-from fenolite.core.coords import Point
+from fenolite.core.coords import Point, Size
 from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
@@ -89,13 +90,24 @@ from fenolite.lens.pins import PIN_ISSUE_CODES
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
 from fenolite.lens.rolecopper import RoleCopperPlanner, apply_plan
 from fenolite.model import canonical, drawn_connect, pairs
-from fenolite.model.board import ComponentBody, FootprintInstance, Pad, Side, ViaProtection
+from fenolite.model.board import (
+    ComponentBody,
+    FootprintInstance,
+    FootprintOverrides,
+    Image,
+    Layer,
+    ModelRef,
+    Pad,
+    Side,
+    Via,
+    ViaProtection,
+)
 from fenolite.model.circuit import Component, Interface, Net, NetClass, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.drawn import DrawnSchematic
 from fenolite.model.library import DeviceDef, FootprintDef, SymbolDef, flatten_symbol
 from fenolite.model.presentation import DrawingSheet
-from fenolite.model.rules import ImpedanceTarget, Rule, RuleSubject, Selector, TraceGeometry
+from fenolite.model.rules import ImpedanceTarget, Rule, RuleSubject, Selector, TeardropRule, TraceGeometry
 from fenolite.model.schematic import SchematicSheet
 from fenolite.schematic.block_sheets import SheetGroup
 
@@ -159,6 +171,10 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.field-added": "info",
         "build.interface-not-lowered": "info",
         "build.plane-zone-missing": "warning",
+        "build.teardrops-overlap": "info",  # c0277
+        "build.image-missing": "error",  # c0277
+        "build.pad-unknown": "error",
+        "build.image-format": "error",
         "build.impedance-layer": "error",
         "build.impedance-shadowed": "warning",
         "build.impedance-class-width": "warning",
@@ -184,6 +200,8 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         **edits_mod.EDIT_ISSUE_CODES,
         # the drawn schematic (c0276; the table of fenolite.model.drawn_connect.ISSUE_CODES)
         **drawn_connect.ISSUE_CODES,
+        # verbatim items (c0277; the table of fenolite.backends.kicad.verbatim.ISSUE_CODES)
+        **verbatimlib.ISSUE_CODES,
     }
 )
 BUILD_EVIDENCE = Evidence(
@@ -315,6 +333,12 @@ class _Part:
     """The origin of the row that resolved the symbol, or ``authored``."""
 
 
+def _user_name(layer: Layer) -> str:
+    """The user name a script gives a user layer: the ``user_name`` pair of its ``kicad`` bag."""
+    bag = layer.ext.get("kicad")
+    return dict(bag.payload).get("user_name", "") if bag is not None else ""
+
+
 def _path(component: Component) -> str:
     return component.properties.get(PATH_PROPERTY, component.ref)
 
@@ -351,7 +375,10 @@ def _resolve(
         except LibraryError as error:
             errors.append(error)
             continue
-        fp_ref = component.lib_footprint_ref or symbol.properties.get("Footprint", "")
+        native_ref = component.lib_footprint_ref
+        if not component.footprint_definition_ref:
+            native_ref = native_ref or symbol.properties.get("Footprint", "")
+        fp_ref = component.footprint_definition_ref or native_ref
         if not fp_ref:
             issues.append(
                 issue(
@@ -373,8 +400,11 @@ def _resolve(
                 errors.append(error)
                 continue
             libraries[fp_ref] = location.origin
-        value = component.value or symbol.properties.get("Value", "")
-        component = dataclasses.replace(component, lib_footprint_ref=fp_ref, value=value)
+        # a board-only part has no symbol on the sheet: its value is its own, empty included (change c0277)
+        value = (
+            component.value if component.board_only else component.value or symbol.properties.get("Value", "")
+        )
+        component = dataclasses.replace(component, lib_footprint_ref=native_ref, value=value)
         origin = libraries[component.lib_symbol_ref]
         found.append(_Part(component, _path(component), symbol, footprint, location, parents, origin))
     if errors:
@@ -1284,6 +1314,136 @@ def placed_bodies(path: str, definition: FootprintDef) -> tuple[ComponentBody, .
     )
 
 
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+"""The first eight bytes of every PNG file (S-0001 names PNG as the format of a board image)."""
+
+
+@dataclass(frozen=True)
+class ImageSource:
+    """One image a script declares (change c0277): its key, the file the build reads, its place on the board
+    (the board frame), its layer and its scale."""
+
+    key: str
+    path: Path
+    position: Point
+    layer: str
+    scale: str
+
+
+def board_images(design: Design, sources: Sequence[ImageSource]) -> tuple[Design, list[Issue]]:
+    """``design`` with one ``Image`` per source whose file the build reads (change c0277): a file that is
+    not there gives ``build.image-missing`` and one that is not a PNG ``build.image-format`` (errors). The
+    id is ``derived_id("img", "dsl", "image:<key>")``; the data is the base64 text of the file."""
+    import base64
+
+    board = design.board
+    if board is None or not sources:
+        return design, []
+    issues: list[Issue] = []
+    images: list[Image] = []
+    for source in sources:
+        try:
+            data = source.path.read_bytes()
+        except OSError:
+            message = f"image {source.key!r}: the file {source.path.name} is not there"
+            issues.append(
+                issue("build.image-missing", message, source.key, "give a PNG file beside the script")
+            )
+            continue
+        if not data.startswith(PNG_SIGNATURE):
+            message = f"image {source.key!r}: {source.path.name} is not a PNG file"
+            issues.append(issue("build.image-format", message, source.key, "convert the picture to PNG"))
+            continue
+        images.append(
+            Image(
+                id=derived_id("img", "dsl", f"image:{source.key}"),
+                position=source.position,
+                layer=source.layer,
+                data=base64.b64encode(data).decode("ascii"),
+                scale=source.scale,
+            )
+        )
+    return dataclasses.replace(
+        design, board=dataclasses.replace(board, images=(*board.images, *images))
+    ), issues
+
+
+def edit_pads(
+    footprint: FootprintInstance,
+    edits: Sequence[tuple[str, Mapping[str, object]]],
+    where: str,
+    issues: list[Issue],
+) -> FootprintInstance:
+    """``footprint`` with each edit applied to every pad of its number (``Part.edit_pad``; change c0277): a
+    number the footprint does not hold is ``build.pad-unknown`` (error)."""
+    pads = list(footprint.pads)
+    for number, values in edits:
+        if not any(pad.number == number for pad in pads):
+            message = f"{where}: the footprint {footprint.lib_ref} has no pad {number!r} to edit"
+            issues.append(issue("build.pad-unknown", message, where, "name a pad number of the footprint"))
+            continue
+        change: dict[str, object] = {}
+        for key, value in values.items():
+            if key == "at":
+                change["position"] = Point(*value)  # type: ignore[misc]
+            elif key == "size":
+                change["size"] = Size(*value)  # type: ignore[misc]
+            else:
+                change[key] = value
+        pads = [dataclasses.replace(pad, **change) if pad.number == number else pad for pad in pads]  # type: ignore[arg-type]
+    return dataclasses.replace(footprint, pads=tuple(pads))
+
+
+def apply_teardrops(design: Design, rules: Sequence[TeardropRule], issues: list[Issue]) -> Design:
+    """``design`` with the settings of ``rules`` on every pad and via each selects (change c0277): a pad is
+    the subject ``pad`` of its net, the net's class (``Default`` without one) and its part's reference, a via
+    the subject ``via`` of its net and class. The later rule wins, and the pads and vias two rules select
+    are counted in one ``build.teardrops-overlap`` (info). A via with settings of its own keeps them."""
+    board = design.board
+    if board is None or not rules:
+        return design
+    classes = {netclass.id: netclass.name for netclass in design.circuit.netclasses}
+    nets = {net.id: net for net in design.circuit.nets}
+    refs = {component.id: component.ref for component in design.circuit.components}
+
+    def subject(kind: str, net_id: str | None, ref: str | None = None) -> RuleSubject:
+        net = nets.get(net_id) if net_id is not None else None
+        if net is None:
+            return RuleSubject(kind, ref=ref)
+        cls = classes.get(net.netclass_id or "", "Default")
+        return RuleSubject(kind, net=net.name, netclass=cls, ref=ref)
+
+    overlap = 0
+
+    def chosen(kind: str, found: RuleSubject) -> TeardropRule | None:
+        nonlocal overlap
+        matched = [
+            rule
+            for rule in rules
+            if (rule.pads if kind == "pad" else rule.vias) and rule.selector.matches(found)
+        ]
+        overlap += len(matched) > 1
+        return matched[-1] if matched else None
+
+    footprints: list[FootprintInstance] = []
+    for footprint in board.footprints:
+        pads: list[Pad] = []
+        for pad in footprint.pads:
+            rule = chosen("pad", subject("pad", pad.net_id, refs.get(footprint.component_id)))
+            pads.append(dataclasses.replace(pad, teardrop=rule.settings) if rule is not None else pad)
+        footprints.append(dataclasses.replace(footprint, pads=tuple(pads)))
+    vias: list[Via] = []
+    for via in board.vias:
+        rule = chosen("via", subject("via", via.net_id)) if via.teardrop is None else None
+        vias.append(dataclasses.replace(via, teardrop=rule.settings) if rule is not None else via)
+    if overlap:
+        message = f"{overlap} pad(s) or via(s) match more than one teardrops() call; the later call applies"
+        issues.append(issue("build.teardrops-overlap", message, "teardrops"))
+    return dataclasses.replace(
+        design, board=dataclasses.replace(board, footprints=tuple(footprints), vias=tuple(vias))
+    )
+
+
 def build_design(
     design: Design,
     placements: Mapping[str, PlacementRequest],
@@ -1315,6 +1475,10 @@ def build_design(
     lock_stackup: bool = False,
     lock_via_protection: bool = False,
     planes: Mapping[str, str] | None = None,
+    teardrops: Sequence[TeardropRule] = (),
+    models: Mapping[str, Sequence[ModelRef]] = MappingProxyType({}),
+    overrides: Mapping[str, FootprintOverrides] = MappingProxyType({}),
+    pad_edits: Mapping[str, Sequence[tuple[str, Mapping[str, object]]]] = MappingProxyType({}),
     lock_outline: bool = False,
     heights: Mapping[str, Nm] | None = None,
     unused: Mapping[str, Sequence[str]] | None = None,
@@ -1449,10 +1613,26 @@ def build_design(
     issues += check_outline(design)
     if any(found.code == "kicad.outline.invalid" for found in issues):
         return _refused(design, issues, libraries, prepared)
+    # the user layers a script declares (design.user_layers, change c0277) follow the created table
+    declared = [layer for layer in board.layers if layer.name.startswith("User.")]
+    user_names = {layer.name: _user_name(layer) for layer in declared if _user_name(layer)}
     layers = tuple(
         dataclasses.replace(layer, id=derived_id("lay", DSL_BACKEND, f"layer:{layer.name}"))
-        for layer in created_layers(copper)
+        for layer in created_layers(copper, len(declared), user_names)
     )
+    # Explicit DSL technical rows use the existing model table; default/user-only tables stay unchanged.
+    technical = {
+        layer.name for layer in board.layers if layer.kind != "copper" and not layer.name.startswith("User.")
+    }
+    if technical:
+        layers = tuple(
+            dataclasses.replace(layer, ordinal=ordinal)
+            for ordinal, layer in enumerate(
+                layer
+                for layer in layers
+                if layer.kind == "copper" or layer.name.startswith("User.") or layer.name in technical
+            )
+        )
     copper_names = tuple(layer.name for layer in layers if layer.kind == "copper")
     cursor, top = _staging(design)
     after = preserve.staging_after(placements)
@@ -1472,6 +1652,9 @@ def build_design(
     )
     identities: dict[str, Mapping[str, str]] = {}
     lacking: set[str] = set()
+    models_by_id: dict[str, tuple[ModelRef, ...]] = {}
+    overrides_by_id: dict[str, FootprintOverrides] = {}
+    edits_by_id: dict[str, tuple[str, tuple[tuple[str, Mapping[str, object]], ...]]] = {}
     for part in parts:
         missing = [name for name in MANDATORY_FIELDS if name not in part.footprint.properties]
         if missing and part.footprint.lib_id not in lacking:
@@ -1559,6 +1742,12 @@ def build_design(
             instance = dataclasses.replace(
                 instance, bodies=(*instance.bodies, *placed_bodies(part.path, part.footprint))
             )
+        if part.path in models:
+            models_by_id[part.component.id] = tuple(models[part.path])  # the part's 3D models (c0277)
+        if part.path in overrides:
+            overrides_by_id[part.component.id] = overrides[part.path]
+        if part.path in pad_edits:
+            edits_by_id[part.component.id] = (part.path, tuple(pad_edits[part.path]))
         stated = (heights or {}).get(part.path)
         if stated is not None:
             instance = dataclasses.replace(
@@ -1610,6 +1799,7 @@ def build_design(
         "texts": len(board.texts),
         "graphics": len(board.graphics),
         "dimensions": len(board.dimensions),
+        "images": len(board.images),
     }
     copper_counts = {"intents": len(copper_intents), "tracks": 0, "arcs": 0, "vias": 0}
     if copper_intents:
@@ -1723,6 +1913,30 @@ def build_design(
         target_design, preserved["pad_zones"] = _keep_pad_zones(
             decided.design, cast(Sequence[str], merged.summary.get("kept", ())), pad_zones, issues
         )
+    if teardrops:
+        target_design = apply_teardrops(target_design, teardrops, issues)
+    if (overrides_by_id or edits_by_id) and target_design.board is not None:
+        edited: list[FootprintInstance] = []
+        for fp in target_design.board.footprints:
+            if fp.component_id in overrides_by_id:
+                fp = dataclasses.replace(fp, overrides=overrides_by_id[fp.component_id])
+            if fp.component_id in edits_by_id:
+                path, edits = edits_by_id[fp.component_id]
+                fp = edit_pads(fp, edits, path, issues)
+            edited.append(fp)
+        target_design = dataclasses.replace(
+            target_design, board=dataclasses.replace(target_design.board, footprints=tuple(edited))
+        )
+    if models_by_id and target_design.board is not None:
+        with_models = tuple(
+            dataclasses.replace(fp, models=models_by_id[fp.component_id])
+            if fp.component_id in models_by_id
+            else fp
+            for fp in target_design.board.footprints
+        )
+        target_design = dataclasses.replace(
+            target_design, board=dataclasses.replace(target_design.board, footprints=with_models)
+        )
     stack_source: stacklib.StackupSource | None = None
     if target_design.board is not None:
         scripted = built.board.stackup if built.board is not None else None
@@ -1775,22 +1989,29 @@ def build_design(
             )
         )
     issues += impedance_checks(target_design, target=target)
+    if target_design.board is not None and target_design.board.verbatim:
+        issues += verbatimlib.check(target_design.board, {net.name for net in target_design.circuit.nets})
     issues += list(target_design.validate())
     if any(i.severity == "error" for i in issues):
         return _refused(built, issues, libraries, prepared)
     generated: GeneratedSchematic | None = None
     symbol_files: dict[str, list[symembed.EmbeddedSymbol]] = {}
     drawn_texts: dict[str, str] | None = None
+    # a board-only part has no symbol on the sheet, as KiCad's board_only footprints (change c0277)
+    sheet_parts = [part for part in parts if not part.component.board_only]
     if schematic == "write" and drawn is not None:
+        drawing_symbols = _drawing_symbols(drawn, resolver, authored_symbols)
         generated = drawn_mod.lower_drawn(
             drawn,
             target_design,
-            parts,
+            sheet_parts,
             name=name,
             target=target,
             vendor=vendor,
             allow_lossy=allow_lossy,
-            power_symbols=_power_symbols(drawn, resolver, authored_symbols),
+            power_symbols=drawing_symbols,
+            opaque_symbols=drawing_symbols,
+            symbol_overrides=drawing_symbols,
             groups=schematic_groups,
         )
         issues += generated.issues
@@ -1805,7 +2026,7 @@ def build_design(
     elif schematic == "write":
         generated = schgen.generate_schematic(
             target_design,
-            parts,
+            sheet_parts,
             name=name,
             target=target,
             placements=symbol_placements,
@@ -2404,15 +2625,20 @@ def schematic_netlist_issue(design: Design, generated: GeneratedSchematic, name:
     )
 
 
-def _power_symbols(
+def _drawing_symbols(
     drawn: DrawnSchematic, resolver: LibraryResolver, authored: Mapping[str, SymbolDef]
 ) -> dict[str, drawn_mod.PowerSymbol]:
-    """The power symbols that ``drawn`` names, resolved like part symbols: the design's own first, then the
-    symbol libraries. A symbol that no library holds is left out; ``lower_drawn`` reports it."""
+    """Power, unit overrides and opaque symbols, resolved like parts; lowering reports missing ones."""
     found: dict[str, drawn_mod.PowerSymbol] = {}
     for sheet in drawn.sheets:
-        for power in sheet.powers:
-            lib_id = power.symbol
+        ids = [power.symbol for power in sheet.powers]
+        ids += [symbol.symbol for symbol in sheet.symbols if symbol.symbol]
+        ids += [
+            native.lib_name or native.lib_ref
+            for item in sheet.opaques
+            if (native := drawn_mod.opaque_symbol(item)) is not None
+        ]
+        for lib_id in ids:
             if lib_id in found:
                 continue
             library, _, symbol_name = lib_id.partition(":")

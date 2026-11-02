@@ -15,15 +15,18 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
+from fenolite.backends.kicad import symembed
 from fenolite.backends.kicad.libs import LibRow, LibTable, write_lib_table
 from fenolite.backends.kicad.sexpr import Atom, Node
-from fenolite.backends.kicad.sym import write_symbol_library
+from fenolite.backends.kicad.sym import read_symbol_library, write_symbol_library
 from fenolite.core.coords import Point
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FormatError, Issue
 from fenolite.core.ids import derived_id
 from fenolite.importer.codes import issue
+from fenolite.importer.schematic import symbols as source_symbols
+from fenolite.importer.source import Source
 from fenolite.library import derive_from_model, nickname_of
 from fenolite.model.design import Design
 from fenolite.model.library import SymbolDef, SymbolGraphic, SymbolPin, SymbolUnit
@@ -53,7 +56,7 @@ def library_footprint(node: Node) -> Node:
 
 @dataclass(frozen=True, slots=True)
 class Vendored:
-    """The library files of an import by path, each footprint lib id by ref, each symbol lib id by ref,
+    """The library files by path, each physical definition lookup by ref, each symbol lib id by ref,
     the refs whose footprint is written as a variant ``<name>_2`` and the issues."""
 
     files: Mapping[str, str] = field(default_factory=lambda: {})
@@ -61,6 +64,7 @@ class Vendored:
     symbols: Mapping[str, str] = field(default_factory=lambda: {})
     variants: tuple[str, ...] = ()
     issues: tuple[Issue, ...] = ()
+    native_refs: frozenset[str] = frozenset()
 
 
 def natural(text: str) -> tuple[tuple[int, int, str], ...]:
@@ -97,7 +101,7 @@ def _row(nickname: str, kind: str) -> LibRow:
     return LibRow(nickname, "KiCad", f"${{KIPRJMOD}}/lib/{nickname}{suffix}")
 
 
-def vendor(design: Design, text: str, *, target: int) -> Vendored:
+def vendor(design: Design, text: str, *, target: int, source: Source | None = None) -> Vendored:
     """The vendored library of the board ``design`` read from the KiCad text ``text``."""
     board = design.board
     if board is None:
@@ -157,7 +161,62 @@ def vendor(design: Design, text: str, *, target: int) -> Vendored:
                                             target=target)  # fmt: skip
     files["sym-lib-table"] = write_lib_table(LibTable("symbol", tuple(_row(n, "symbol") for n in used)),
                                              target=target)  # fmt: skip
-    return Vendored(files, by_ref, symbols_by_ref, tuple(sorted(variants)), tuple(issues))
+    found = Vendored(files, by_ref, symbols_by_ref, tuple(sorted(variants)), tuple(issues))
+    return _with_source(found, source, target) if source is not None else found
+
+
+def _with_source(found: Vendored, source: Source, target: int) -> Vendored:
+    native = source_symbols(source, target=target)
+    if not native.definitions:
+        return found
+    fallback: dict[str, SymbolDef] = {}
+    files = dict(found.files)
+    for file in tuple(files):
+        if file.startswith("lib/") and file.endswith(".kicad_sym"):
+            nickname = file.removeprefix("lib/").removesuffix(".kicad_sym")
+            fallback.update({s.lib_id: s for s in read_symbol_library(files.pop(file), library=nickname)})
+    refs = {ref: native.refs.get(ref, lib_id) for ref, lib_id in found.symbols.items()}
+    definitions = dict(native.definitions)
+    renamed_ids: dict[str, str] = {}
+    for ref, old_id in found.symbols.items():
+        if ref in native.refs:
+            continue
+        if old_id not in native.definitions:
+            if old_id not in definitions:
+                definitions[old_id] = symembed.embed_symbol(fallback[old_id], target=target)
+            continue
+        if old_id in renamed_ids:
+            refs[ref] = renamed_ids[old_id]
+            continue
+        # A source may own the id the board-only fallback generator would otherwise take.
+        base = fallback[old_id]
+        number, name = 1, f"{base.name}_imported"
+        while f"{base.library}:{name}" in definitions:
+            number += 1
+            name = f"{base.name}_imported_{number}"
+        renamed = replace(base, name=name, ext={})
+        embedded = symembed.embed_symbol(renamed, target=target)
+        definitions[embedded.lib_id] = embedded
+        renamed_ids[old_id] = embedded.lib_id
+        refs[ref] = embedded.lib_id
+    libraries: dict[str, list[symembed.EmbeddedSymbol]] = {}
+    for definition in definitions.values():
+        nickname = definition.nickname
+        if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.+-]*", nickname) or nickname in (".", ".."):
+            raise FormatError(f"source symbol library {nickname!r} cannot name a vendored file")
+        libraries.setdefault(nickname, []).append(definition)
+    for nickname, definitions_of in sorted(libraries.items()):
+        files[f"lib/{nickname}.kicad_sym"] = symembed.write_symbol_library(definitions_of, target=target)
+    files["sym-lib-table"] = write_lib_table(
+        LibTable("symbol", tuple(_row(nickname, "symbol") for nickname in sorted(libraries))), target=target
+    )
+    return replace(
+        found,
+        files=files,
+        symbols=refs,
+        native_refs=frozenset(native.refs),
+        issues=(*found.issues, *native.issues),
+    )
 
 
 __all__ = ["DEFAULT_NICKNAME", "Vendored", "natural", "symbol_for", "vendor"]

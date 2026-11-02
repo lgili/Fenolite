@@ -9,7 +9,6 @@ import importlib.util
 import inspect
 import io
 import json
-import os
 import random
 import re
 import shlex
@@ -108,7 +107,7 @@ def _message(error: BaseException) -> str:
 @contextlib.contextmanager
 def _isolated(root: Path) -> Generator[Path]:
     """Restore the runner's import, working-folder and random state after authored Python runs."""
-    saved_path, saved_argv, saved_cwd = list(sys.path), list(sys.argv), Path.cwd()
+    saved_path, saved_argv = list(sys.path), list(sys.argv)
     bytecode, rng = sys.dont_write_bytecode, random.getstate()
     siblings = {p.stem for p in root.iterdir() if p.suffix == ".py" or p.is_dir()}
     saved_modules = {
@@ -129,12 +128,10 @@ def _isolated(root: Path) -> Generator[Path]:
     sys.dont_write_bytecode = True
     random.seed(0)
     try:
-        with tempfile.TemporaryDirectory(prefix="fenolite-block-") as folder:
-            os.chdir(folder)
+        with tempfile.TemporaryDirectory(prefix="fenolite-block-") as folder, contextlib.chdir(folder):
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 yield Path(folder)
     finally:
-        os.chdir(saved_cwd)
         sys.path[:], sys.argv[:] = saved_path, saved_argv
         sys.dont_write_bytecode = bytecode
         random.setstate(rng)

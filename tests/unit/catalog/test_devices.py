@@ -490,3 +490,152 @@ def test_value_and_reference_defaults() -> None:
     resistor = shipped_device("Fenolite:R_0603")
     assert (resistor.ref_prefix, resistor.value) == ("R", "R_0603")
     assert replace(resistor, value="x") != resistor
+
+
+# Authored for Fenolite: integration of c0259 records and the c0261 pin-table generator.
+def test_device_pins_tables_keep_package_properties_and_source_records(tmp_path: Path) -> None:
+    from fenolite.catalog.records import DeviceRecord, LibraryTree, PinsRecord, parse_record, record_text
+    from fenolite.cli._script import run_design_script
+    from fenolite.cli.cmd_build import project_definitions
+    from fenolite.dsl import to_model
+
+    data = ROOT / "tests" / "data" / "library"
+    pins_text = (ROOT / "tests" / "data" / "pins" / "example_buck.toml").read_text(encoding="utf-8")
+    pins = parse_record(pins_text)
+    assert isinstance(pins, PinsRecord) and pins.table is not None
+    assert parse_record(record_text(pins)) == pins
+    device_text = (data / "devices" / "example_reg.toml").read_text(encoding="utf-8")
+    device_text = device_text.replace("Proj:Two_Pin", pins.header.id)
+    first = parse_record(device_text)
+    second = parse_record(
+        device_text.replace("Example:REG_TWO", "Example:OTHER").replace("Proj:Two_Pad", "Other:Land")
+    )
+    assert isinstance(first, DeviceRecord) and isinstance(second, DeviceRecord)
+    first = replace(
+        first, device=stamped(first.device, tool="authored-test", source="pins.toml", date="2026-11-01")
+    )
+    before = (record_text(pins), record_text(first), record_text(second))
+    tree = LibraryTree((pins, first, second))
+    definitions, issues = tree.device_symbols()
+    assert set(definitions) == {"Example:REG_TWO", "Example:OTHER"} and not issues
+    for key, footprint in (("Example:REG_TWO", "Proj:Two_Pad"), ("Example:OTHER", "Other:Land")):
+        drawing = definitions[key]
+        assert drawing.properties["Footprint"] == footprint
+        assert drawing.properties["ki_fp_filters"] == footprint.split(":")[1]
+        assert {pin.number for pin in drawing.pins} == {"1", "2", "3", "4", "5", "6", "7"}
+        assert next(pin for pin in drawing.pins if pin.number == "7").hidden
+    assert (record_text(pins), record_text(first), record_text(second)) == before
+    assert not is_edited(first.device) and tree.devices()[0] == first.device
+
+    for name, text in (
+        ("pins/buck.toml", pins_text),
+        ("devices/a.toml", record_text(first)),
+        ("devices/b.toml", record_text(second)),
+    ):
+        path = tmp_path / "devices" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    script = tmp_path / "design.py"
+    script.write_text(
+        'from fenolite.dsl import Design\ndesign = Design("generated")\n'
+        'design.part("U1", device="Example:REG_TWO@EXR100DR")\n'
+        'design.part("U2", device="Example:OTHER")\n',
+        encoding="utf-8",
+    )
+    run = run_design_script(script)
+    model = to_model(run.design)
+    assert {part.lib_symbol_ref for part in model.circuit.components} == set(definitions)
+    assert run.design.parts["U1"].device is not None
+    assert not is_edited(run.devices.devices[0])
+    assert run.design.parts["U1"].device.symbol == first.device.symbol
+    _, drawings, findings = project_definitions(run, model)
+    assert not [issue for issue in findings if issue.severity == "error"]
+    for key, expected in definitions.items():
+        assert drawings[key] == expected
+    assert run.library.get("pins", pins.header.id).header.evidence == "UNVERIFIED"  # type: ignore[union-attr]
+
+
+def test_device_pins_explicit_and_imported_drawing_precedence() -> None:
+    from fenolite.catalog.records import DeviceRecord, LibraryTree, PinsRecord, parse_record
+
+    data = ROOT / "tests" / "data" / "library"
+    pins = parse_record((data / "pins" / "two_pin.toml").read_text(encoding="utf-8"))
+    device = parse_record((data / "devices" / "example_reg.toml").read_text(encoding="utf-8"))
+    assert isinstance(pins, PinsRecord) and isinstance(device, DeviceRecord)
+    for source in (pins, replace(pins, symbol=None, symbol_file="two_pin.kicad_sym")):
+        tree = LibraryTree((source, device))
+        assert tree.device_symbols() == ({}, ())
+        assert tree.devices()[0] == device.device
+
+
+def test_pins_generator_record_preserves_header_and_rich_rows() -> None:
+    from fenolite.catalog.records import PinsRecord, parse_record, record_text
+
+    text = (ROOT / "tests" / "data" / "pins" / "example_buck.toml").read_text(encoding="utf-8")
+    # Attribute-specific source maps belong to the record envelope, not the drawing generator.
+    text = (
+        text.replace("sources = []", 'sources = { pins = ["S-0339"] }')
+        if "sources = []" in text
+        else text.replace(
+            'evidence = "UNVERIFIED"', 'evidence = "UNVERIFIED"\nsources = { pins = ["S-0339"] }'
+        )
+    )
+    record = parse_record(text)
+    assert isinstance(record, PinsRecord) and record.table is not None
+    assert record.header.sources_by == {"pins": ("S-0339",)}
+    assert parse_record(record_text(record)) == record
+    assert record.table.rows[1].stacked == ("7",)
+    revised = replace(record, header=replace(record.header, summary="Revised description", version="1.0.1"))
+    assert parse_record(record_text(revised)) == revised
+
+
+@pytest.mark.parametrize("target", ["9", "10", "altium"])
+def test_device_pins_generated_symbols_build(
+    target: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import io
+
+    import fenolite.cli.main as cli_main
+    from fenolite.backends.kicad.sym import read_symbol_library
+
+    data = ROOT / "tests" / "data" / "library"
+    for name in ("pins/two_pin.toml", "packages/two_pad.toml", "devices/example_reg.toml"):
+        text = (data / name).read_text(encoding="utf-8")
+        if name.startswith("pins/"):
+            text = text[: text.index("[symbol]")]
+        path = tmp_path / "project" / "devices" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    script = tmp_path / "project" / "design.py"
+    script.write_text(
+        "from fenolite.dsl import Design, Net, connect, mm\n"
+        'design = Design("pins")\ndesign.board(mm(20), mm(10))\n'
+        'u = design.part("U1", device="Example:REG_TWO")\n'
+        'connect(Net("A"), u.IN)\nconnect(Net("B"), u.OUT)\n'
+        "u.place(mm(10), mm(5))\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "config"))
+    for key in ("KICAD9_SYMBOL_DIR", "KICAD10_SYMBOL_DIR", "KICAD9_FOOTPRINT_DIR", "KICAD10_FOOTPRINT_DIR"):
+        monkeypatch.delenv(key, raising=False)
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    destination = tmp_path / "build"
+    target_args = ["--target", "altium"] if target == "altium" else ["--kicad-version", target]
+    code = cli_main.main(
+        ["build", str(script), "--out", str(destination), *target_args, "--confirm", "--json"]
+    )
+    assert code == 0, err.getvalue() or out.getvalue()
+    result = json.loads(out.getvalue())
+    assert not [issue for issue in result["issues"] if issue["severity"] == "error"]
+    if target != "altium":
+        symbols = read_symbol_library(
+            (destination / "lib" / "Example.kicad_sym").read_text(encoding="utf-8"), library="Example"
+        )
+        symbol = next(item for item in symbols if item.name == "REG_TWO")
+        assert symbol.properties["Footprint"] == "Proj:Two_Pad"
+        assert symbol.properties["ki_fp_filters"] == "Two_Pad"
+        assert {pin.number for pin in symbol.pins} == {"1", "2"}
+    else:
+        assert list(destination.rglob("*.SchLib")) and list(destination.rglob("*.SchDoc"))

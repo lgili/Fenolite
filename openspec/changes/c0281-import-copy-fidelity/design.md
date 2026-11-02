@@ -100,6 +100,11 @@ in the local image `kicad/kicad:10.0.6` (2026-10-30):
 - Both are explained at level 6 or 7 only; the self-check compares levels 1 to 5, so the import still
   passes, and the proof shows the loss as one difference per item until c0277 expresses them.
 
+Follow-up c0317, Decided 2026-11-01 under delegated recommended decisions: the original accounting
+remains for unsupported mixed/negative widths. One uniform nonnegative root width is represented by
+`board(outline_width=...)` and the model/writer, so it no longer counts as lost. Layer-table accounting
+and strict refusal remain unchanged. The authored loss control now uses mixed widths and missing layers.
+
 ### 5. Proof fixes (issues 4, 5, 7, 8, 9)
 
 - **Level 7 graphics** match by layer, kind, normalised geometry and fill; a matched pair compares `width`

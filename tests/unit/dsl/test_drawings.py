@@ -118,7 +118,8 @@ def test_refused_drawing_calls() -> None:
     d.text("rev", "REV A", (mm(2), mm(2)))
     origin, right = (mm(0), mm(0)), (mm(1), mm(0))
     calls: tuple[tuple[Callable[[], None], str], ...] = (
-        (lambda: d.text("t1", "CU", (mm(1), mm(1)), layer="F.Cu"), "F.Cu"),
+        # a text may be on a copper layer of the board (change c0277), not on one the board lacks
+        (lambda: d.text("t1", "CU", (mm(1), mm(1)), layer="In1.Cu"), "In1.Cu"),
         (lambda: d.line("l1", origin, right, layer="Edge.Cuts", width=mm(0.1)), "Edge.Cuts"),
         (lambda: d.line("rev", origin, right, layer="F.Fab", width=mm(0.1)), "rev"),
         (lambda: d.arc("a1", origin, (mm(1), mm(1)), (mm(2), mm(2)), layer="F.Fab", width=mm(0.1)), "points"),
@@ -127,8 +128,9 @@ def test_refused_drawing_calls() -> None:
             "direction",
         ),
         (lambda: d.dimension("d2", origin, right, offset=mm(2), precision=5), "precision"),
-        (lambda: d.text("t2", "A\nB", (mm(1), mm(1))), "text"),
-        (lambda: d.text("t3", "", (mm(1), mm(1))), "text"),
+        # several lines and an empty text are texts (change c0277); a tab and a number are not
+        (lambda: d.text("t2", "A\tB", (mm(1), mm(1))), "text"),
+        (lambda: d.text("t3", 3, (mm(1), mm(1))), "text"),  # type: ignore[arg-type]
         (lambda: d.text("t4", "A", (mm(1), mm(1)), size=mm(0)), "size"),
         (lambda: d.text("t5", "A", (mm(1), mm(1)), justify="middle"), "justify"),
         (lambda: d.text("bad key", "A", (mm(1), mm(1))), "key"),

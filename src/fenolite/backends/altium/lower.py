@@ -43,6 +43,7 @@ from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
+from fenolite.geometry.rings import zone_ring
 from fenolite.geometry.transform import FULL_TURN, Transform
 from fenolite.model.board import (
     PPM_PER_PERCENT,
@@ -1197,7 +1198,11 @@ def _copper(
                 )
     zones: list[Zone] = []
     for zone in board.zones:
-        outline = _open(zone.outline)
+        bends = [(arc.edge, arc.mid) for arc in zone.arcs if arc.ring == 0]
+        outline = _open(zone_ring(zone.outline, bends))
+        if bends:
+            # a region holds no arc: an arc edge is written as segments (change c0277)
+            account.change("zone", zone.id, "an arc edge of its outline is written as segments")
         kept = tuple(layer for layer in zone.layers if layer in signal)
         problem = None
         if len(outline) < 3:

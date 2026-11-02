@@ -43,6 +43,7 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm, format_length
 from fenolite.geometry import Arc as GeoArc
 from fenolite.geometry import (
+    Circle,
     GeometryError,
     Location,
     Polygon,
@@ -56,8 +57,9 @@ from fenolite.geometry import (
     thick_touch,
     thick_witness,
 )
+from fenolite.geometry.rings import zone_ring
 from fenolite.model.base import Entity
-from fenolite.model.board import Board, Keepout, Zone
+from fenolite.model.board import Board, Graphic, Keepout, Zone
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
 from fenolite.model.rules import RuleSubject
@@ -236,6 +238,28 @@ def _clean_ring(points: Sequence[Point]) -> tuple[Point, ...]:
     return tuple(out)
 
 
+def _graphic_shape(graphic: Graphic, arc_tol: int) -> Thick:
+    """The copper of a graphic: its stroke around its outline, and its inside when it is filled (a width
+    below 0, KiCad's "no stroke", draws no stroke)."""
+    width = max(graphic.width, 0)
+    points = graphic.points
+    if graphic.kind == "line":
+        return Thick(points, width)
+    if graphic.kind == "arc":
+        arc = GeoArc(*points)
+        return Thick((arc.start, arc.mid, arc.end), width, arc=arc)
+    if graphic.kind == "circle":
+        ring = Circle.from_kicad(points[0], points[1]).polygonize(arc_tol)
+    elif graphic.kind == "rect":
+        a, b = points
+        ring = (a, Point(b.x, a.y), b, Point(a.x, b.y))
+    else:
+        ring = points
+    if graphic.filled:
+        return Thick(ring, width, filled=True)
+    return Thick((*ring, ring[0]), width)
+
+
 class _Items:
     """The copper items of a board and what was left out."""
 
@@ -248,6 +272,13 @@ class _Items:
         self.kinds: Counter[str] = Counter()
         self.copper = copper_layers(board)
         self._nets = {net.id: net.name for net in design.circuit.nets}
+        self._ids = {net.name: net.id for net in design.circuit.nets}
+        self._numbers: dict[str, str] = {}
+        for net in design.circuit.nets:  # a KiCad 9 board names nets by number (change c0277)
+            bag = net.ext.get("kicad")
+            number = dict(bag.payload).get("number") if bag is not None else None
+            if number is not None:
+                self._numbers[number] = net.id
         self._ties: dict[str, dict[str, int]] = {}
         for footprint in board.footprints:
             groups: dict[str, int] = {}
@@ -261,6 +292,7 @@ class _Items:
         self._vias(board)
         self._pads(board, pads)
         self._fills(board)
+        self._graphics(board, arc_tol)
 
     def net_name(self, net_id: str | None) -> str:
         return NO_NET if net_id is None else self._nets.get(net_id, net_id)
@@ -350,6 +382,49 @@ class _Items:
             tie = None if group is None else (record.footprint_id, group)
             item = _Item(ref, record.net_id, record.ref or None, tie=tie)
             self._add(item, [(layer, shape, shape, exact) for layer, shape, exact in shapes])
+
+    def _graphics(self, board: Board, arc_tol: int) -> None:
+        """The graphics on a copper layer (change c0277): copper of their net, or of no net."""
+        for graphic in board.graphics:
+            if graphic.layer not in self.copper:
+                continue
+            try:
+                shape = _graphic_shape(graphic, arc_tol)
+            except (GeometryError, ValueError):
+                self.unsupported["graphic"] += 1
+                continue
+            net_id = graphic.net_id if graphic.net_id is not None else self._bag_net(graphic)
+            altium = "altium" in graphic.ext or (
+                graphic.provenance is not None and graphic.provenance.backend == "altium"
+            )
+            if net_id is None and altium:
+                # a region an Altium document holds without a net (the copper of a part or a pour the writer
+                # lowered) is not tied to a net here: it is left out, as a pad of no copper is
+                self.unsupported["graphic"] += 1
+                continue
+            item = _Item(self._ref("graphic", graphic, net_id), net_id)
+            self._add(item, [(graphic.layer, shape, shape, True)])
+
+    def _bag_net(self, graphic: Graphic) -> str | None:
+        """The net an Altium read keeps in a copper graphic's bag (a region or a fill of a net, which the
+        adapter reads as a graphic): its ``net`` pair names it; and the net a KiCad read keeps in the
+        graphic's slots, ``(net "GND")`` or the ``(net 1)`` of a KiCad 9 board (change c0277)."""
+        bag = graphic.ext.get("altium")
+        name = dict(bag.payload).get("net") if bag is not None else None
+        if name is not None:
+            return self._ids.get(name)
+        kicad = graphic.ext.get("kicad")
+        for text in (
+            (value for key, value in kicad.payload if key.startswith("slot")) if kicad is not None else ()
+        ):
+            stripped = text.strip()
+            if not stripped.startswith("(net "):
+                continue
+            atom = stripped[len("(net ") : -1].strip()
+            if atom.startswith('"') and atom.endswith('"'):
+                return self._ids.get(atom[1:-1].replace('\\"', '"'))
+            return self._numbers.get(atom)
+        return None
 
     def _fills(self, board: Board) -> None:
         for zone in board.zones:
@@ -497,7 +572,8 @@ def _zone_overlaps(board: Board, items: _Items) -> list[CopperFinding]:
     usable: list[tuple[Zone, Polygon]] = []
     for zone in board.zones:
         try:
-            usable.append((zone, Polygon(_clean_ring(zone.outline))))
+            ring = zone_ring(zone.outline, [(a.edge, a.mid) for a in zone.arcs if a.ring == 0])
+            usable.append((zone, Polygon(_clean_ring(ring))))
         except GeometryError:
             items.unsupported["zone-outline"] += 1
     found: list[CopperFinding] = []
@@ -1030,6 +1106,18 @@ def _run(
                 where=kind,
             )
         )
+    if board is not None:
+        names = {layer.name for layer in board.layers if layer.kind == "copper"}
+        texts = sum(1 for text in board.texts if text.layer in names)
+        if texts:
+            others.append(
+                issue(
+                    "copper.text-unchecked",
+                    f"{texts} text(s) on copper layers left out of the copper check: Fenolite draws no "
+                    "glyphs, and KiCad's DRC judges them",
+                    where="text",
+                )
+            )
     if counts["unset_pairs"]:
         others.append(
             issue(

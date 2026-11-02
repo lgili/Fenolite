@@ -2,8 +2,11 @@
 # Copyright (c) 2026 Fenolite contributors
 """Runner proofs use an authored block library (change c0270)."""
 
+import contextlib
 import json
+import os
 import shutil
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -25,6 +28,69 @@ def library(tmp_path):
 
 def records(library):
     return tuple(entry for entry in find_blocks(files=("divider.py",), cwd=library) if entry.source == "file")
+
+
+@pytest.fixture(params=(False, True), ids=("native-path", "parent-alias"))
+def windows_temp_cleanup(monkeypatch, request):
+    original = tempfile.TemporaryDirectory
+    removed = []
+
+    class GuardedTemporaryDirectory(original):
+        def __enter__(self):
+            folder = super().__enter__()
+            if request.param:
+                child = Path(folder) / "alias-child"
+                child.mkdir()
+                return str(child / "..")
+            return folder
+
+        def cleanup(self):
+            folder = Path(self.name).resolve()
+            if Path.cwd().resolve().is_relative_to(folder):
+                raise PermissionError("active temporary directory cannot be removed")
+            super().cleanup()
+            removed.append(folder)
+
+    monkeypatch.setattr(tempfile, "TemporaryDirectory", GuardedTemporaryDirectory)
+    return removed
+
+
+@pytest.mark.parametrize("fail", [False, True])
+@pytest.mark.parametrize("nested", [False, True])
+def test_private_directory_exits_before_windows_cleanup(library, windows_temp_cleanup, fail, nested):
+    import random
+    import sys
+
+    from fenolite.testing.blocks import _isolated
+
+    before = (Path.cwd(), list(sys.path), list(sys.argv), random.getstate(), sys.dont_write_bytecode)
+    expected = pytest.raises(ValueError, match="authored failure") if fail else contextlib.nullcontext()
+    with expected, _isolated(library) as private:
+        (private / "authored.txt").write_text("temporary authored data")
+        if nested:
+            (private / "nested").mkdir()
+            os.chdir(private / "nested")
+        sys.path.append("authored temporary path")
+        sys.argv.append("authored temporary argument")
+        random.seed(99)
+        sys.dont_write_bytecode = False
+        if fail:
+            raise ValueError("authored failure")
+
+    assert (Path.cwd(), sys.path, sys.argv, random.getstate(), sys.dont_write_bytecode) == before
+    assert private.resolve() in windows_temp_cleanup
+    assert not private.exists()
+
+
+def test_public_runner_cleans_outside_windows_directory(library, windows_temp_cleanup):
+    before = Path.cwd()
+    result = run_block_tests(records(library))
+    assert result.exit_code == 0, result.issues
+    assert result.blocks[0]["usage"] == "passed"
+    assert result.blocks[0]["golden"] == "equal"
+    assert all(test["status"] == "passed" for test in result.blocks[0]["tests"])
+    assert windows_temp_cleanup and all(not folder.exists() for folder in windows_temp_cleanup)
+    assert Path.cwd() == before
 
 
 def test_paths_in_show(library):

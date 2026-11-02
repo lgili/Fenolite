@@ -29,6 +29,10 @@ KICAD10_PYTEST = (
     "run: uv run pytest tests/kicad tests/corpus -q --basetemp /tmp/fenolite-kicad-corpus " + PARALLEL
 )
 UNIT_PYTEST = f"run: uv run pytest -q {PARALLEL}"
+MAC_BYTE_PROBE = (
+    "run: uv run pytest 'tests/unit/test_build_bytes.py::test_example_keeps_its_bytes[board_40parts@altium]' "
+    '-q --basetemp "${{ runner.temp }}/fenolite-byte-probe"'
+)
 
 
 def test_block_test_workflow() -> None:
@@ -155,10 +159,15 @@ def test_serial_kicad_10_step_rejected() -> None:
 
 
 def test_unit_job_runs_in_parallel() -> None:
-    assert pytest_steps(job_text(WORKFLOW.read_text(encoding="utf-8"), "unit")) == [UNIT_PYTEST]
+    assert pytest_steps(job_text(WORKFLOW.read_text(encoding="utf-8"), "unit")) == [
+        MAC_BYTE_PROBE,
+        UNIT_PYTEST,
+    ]
 
 
-KICAD9_FETCH = "run: uv run python tools/corpus_fetch.py --uses rt2-9 --uses sch-9 --uses downgrade-demo"
+KICAD9_FETCH = (
+    "run: uv run python tools/corpus_fetch.py --uses rt2-9 --uses sch-9 --uses project --uses downgrade-demo"
+)
 KICAD9_KEY = "key: corpus-rt2-9-sch-9-downgrade-demo-${{ hashFiles('tests/corpus/manifest.toml') }}"
 KICAD9_STEPS = [
     ("kicad-cli version", "run: kicad-cli version"),
@@ -199,7 +208,8 @@ def kicad9_problems(workflow: str) -> list[str]:
     fetches = re.findall(r"run: uv run python tools/corpus_fetch\.py.*", job)
     if fetches != [KICAD9_FETCH]:
         problems.append(
-            "kicad-9: its only corpus fetch must be --uses rt2-9 --uses sch-9 --uses downgrade-demo"
+            "kicad-9: its only corpus fetch must be --uses rt2-9 --uses sch-9 "
+            "--uses project --uses downgrade-demo"
         )
     return problems
 
@@ -431,8 +441,14 @@ def test_unit_matrix() -> None:
     assert unit_combinations(text) == UNIT_COMBINATIONS
     job = job_text(text, "unit")
     assert "runs-on: ${{ matrix.os }}" in job
-    # Windows is a merge gate like the others (the maintainer's decision of 2026-10-05: no cut)
-    assert "continue-on-error" not in job
+    # Every full unit run is a merge gate; only the explicitly Mac-only evidence preprobe may fail early.
+    probe = re.search(
+        r"^      - name: Probe authored Mac byte guard\n.*?(?=^      - |\Z)",
+        job,
+        re.MULTILINE | re.DOTALL,
+    )
+    assert probe and "if: matrix.os == 'macos-latest'" in probe.group(0)
+    assert "continue-on-error" not in job.replace(probe.group(0), "")
     reduced = text.replace('          - os: windows-latest\n            python: "3.12"\n', "")
     assert unit_combinations(reduced) != UNIT_COMBINATIONS
 

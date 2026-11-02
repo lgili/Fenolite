@@ -17,6 +17,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
 from fenolite.backends.kicad import slots as slotlib
+from fenolite.backends.kicad import verbatim as verbatimlib
 from fenolite.backends.kicad.sexpr import Node
 from fenolite.checks.equivalence.model import LevelId
 from fenolite.core.errors import Issue
@@ -31,7 +32,6 @@ INFRASTRUCTURE = frozenset(
 a KiCad 9 board is one (the nets come from the pads), and the title block, which the model holds and the
 emitter writes as ``design.title_block()``."""
 EXPLAINS: Mapping[str, tuple[tuple[int, str], ...]] = {
-    "dnp": ((1, "dnp"),),
     "copper-without-net": ((5, "*"),),
     "zero-length-track": ((5, "*"),),
     "degenerate-arc": ((5, "*"),),
@@ -59,10 +59,14 @@ class Unexpressed:
 
 @dataclass
 class Ledger:
-    """What the emitter leaves out, by kind, as it writes."""
+    """What the emitter leaves out, by kind, as it writes, and the board items it does not write because
+    the tool that fills the board draws them again (``regenerated``, by kind; change c0277)."""
 
     counts: Counter[str] = field(default_factory=lambda: Counter[str]())
     examples: dict[str, list[str]] = field(default_factory=lambda: {})
+    regenerated: Counter[str] = field(default_factory=lambda: Counter[str]())
+    teardrops_lost: int = 0
+    """Vias and footprints left out that hold teardrop settings (their teardrops would not come back)."""
 
     def add(self, kind: str, example: str = "", count: int = 1) -> None:
         self.counts[kind] += count
@@ -78,41 +82,76 @@ class Ledger:
         )
 
 
+VERBATIM_REFUSED = verbatimlib.ROOT_REFUSED
+"""The root heads no verbatim item may take: an opaque root item of another head is written as one."""
+TEARDROP_REGENERATED = "padvia"
+"""The type of a teardrop zone that the filling tool draws again from the teardrop settings of the pad or via
+it joins, which the code keeps: the pads' in their vendored footprints, the vias' in their tables."""
+
+
 def _root_heads(design: Design) -> Iterable[str]:
+    """The head of each opaque root item of the board; a teardrop zone is ``teardrop`` with its type
+    (``teardrop:padvia``), or ``teardrop`` when it states none."""
     board = design.board
     if board is None or "kicad" not in board.ext:
         return
     for slot in slotlib.from_ext(board.ext["kicad"]):
         if isinstance(slot, Opaque):
             child = slotlib.opaque_child(slot)
-            if isinstance(child, Node) and child.name not in INFRASTRUCTURE:
+            if (
+                isinstance(child, Node)
+                and child.name not in INFRASTRUCTURE
+                and child.name in VERBATIM_REFUSED
+            ):
+                # a group, and an item the emitter writes as a verbatim item, are counted by the emitter when
+                # it cannot write them (change c0277)
+                if child.name == "group":
+                    continue
                 attr = child.find("attr") if child.name == "zone" else None
-                yield "teardrop" if attr is not None and attr.find("teardrop") is not None else child.name
+                drop = attr.find("teardrop") if attr is not None else None
+                if drop is None:
+                    yield child.name
+                    continue
+                kind = drop.find("type")
+                atoms = kind.atoms() if kind is not None else ()
+                yield f"teardrop:{atoms[0].value}" if len(atoms) == 1 else "teardrop"
 
 
 def root_kinds(design: Design) -> Counter[str]:
     """The opaque root items of a board by kind (``teardrop``, ``group``, ``generated``…), as the
     coverage scan names them: what ``verify-source`` counts on both sides (change c0281)."""
-    return Counter(_root_heads(design))
+    found: Counter[str] = Counter()
+    board = design.board
+    if board is None or "kicad" not in board.ext:
+        return found
+    for slot in slotlib.from_ext(board.ext["kicad"]):
+        if isinstance(slot, Opaque):
+            child = slotlib.opaque_child(slot)
+            if isinstance(child, Node) and child.name not in INFRASTRUCTURE:
+                attr = child.find("attr") if child.name == "zone" else None
+                kind = "teardrop" if attr is not None and attr.find("teardrop") is not None else child.name
+                found[kind] += 1
+    return found
 
 
 def scan(design: Design, ledger: Ledger) -> None:
-    """Add the board's opaque root items and the model items no emitter writes to ``ledger``."""
+    """Add the board's opaque root items and the model items no emitter writes to ``ledger``. A teardrop
+    zone of the type ``TEARDROP_REGENERATED`` is counted as regenerated, unless teardrop settings were lost: a
+    via's that could not be read (``teardrop-setting``), or a left-out via's or footprint's
+    (``ledger.teardrops_lost``); then every teardrop zone is unexpressed."""
+    settings_lost = ledger.counts["teardrop-setting"] > 0 or ledger.teardrops_lost > 0
     for head in _root_heads(design):
-        ledger.add(head, head)
+        if head == f"teardrop:{TEARDROP_REGENERATED}" and not settings_lost:
+            ledger.regenerated["teardrop"] += 1
+        elif head.startswith("teardrop"):
+            ledger.add("teardrop", head)
+        else:
+            ledger.add(head, head)
     board = design.board
     if board is None:
         return
     for hole in board.holes:
         ledger.add("hole", hole.id)
-    for dimension in board.dimensions:
-        ledger.add("dimension", f"{dimension.kind} on {dimension.layer}")
-    for component in design.circuit.components:
-        if component.dnp:
-            ledger.add("dnp", component.ref)
-    for footprint in board.footprints:
-        if footprint.net_ties:
-            ledger.add("net-tie", footprint.lib_ref)
 
 
 def lossy_issues(rows: Iterable[Unexpressed]) -> tuple[Issue, ...]:
@@ -138,13 +177,31 @@ def explained(level: LevelId, kind: str, rows: Iterable[Unexpressed]) -> bool:
     return False
 
 
+def regenerated_issues(ledger: Ledger) -> tuple[Issue, ...]:
+    """One ``import.teardrops-regenerated`` (info) when teardrop zones were left to the filling tool."""
+    count = ledger.regenerated["teardrop"]
+    if not count:
+        return ()
+    return (
+        issue(
+            "import.teardrops-regenerated",
+            f"{count} teardrop zone(s) are not written: KiCad draws them again from the teardrop settings "
+            "of the pads and vias, which the code keeps, when it fills the board",
+            where="teardrop",
+            hint="run fenolite fill on the built board to draw them",
+        ),
+    )
+
+
 __all__ = [
     "EXPLAINS",
     "INFRASTRUCTURE",
+    "TEARDROP_REGENERATED",
     "Ledger",
     "Unexpressed",
     "explained",
     "lossy_issues",
     "root_kinds",
+    "regenerated_issues",
     "scan",
 ]

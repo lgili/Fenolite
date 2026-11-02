@@ -44,6 +44,14 @@ fetched into the cache and never committed.
 
 ## Committed document, kicad-cli 10.0
 
+Current placement pairing (c0277, recorded in c0319 on 2026-11-02) distinguishes
+raw duplicate counts from unresolved comparison keys. Exact `697cdf02` CI run
+`41362730027`, job `125016358377`, observed no `ref-ambiguous` finding on public
+rows 03, 04 or 07: their equal counts pair as three, two and two placed items.
+The historical counts below remain intact, and the tests now assert both raw
+counts and numbered pairs. Unequal counts on rows 01/05 remain ambiguous. This
+does not add an exclusion or establish a passing rerun of that CI job.
+
 `uv run pytest tests/kicad/equivalence/test_triangle_blink.py -s` with `kicad-cli` 10.0.6 (macOS, local,
 2026-10-05): 3 passed. `tests/data/altium/blink/blink.PcbDoc` holds three components (`U1`, `R1` on the
 top side, `D1` on the bottom side) and 36 pads.

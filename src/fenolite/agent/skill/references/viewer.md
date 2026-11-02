@@ -20,6 +20,7 @@ fenolite view blink/build/blink.kicad_pcb --check checks.json --report conversio
 fenolite view blink/build/blink.kicad_pcb --serve --run-timeout 900 --no-browser --port 0
 fenolite view blink/build/blink.kicad_pcb --serve --no-run --no-browser
 fenolite view blink/build/blink.kicad_pcb --serve --allow-actions --no-browser
+fenolite view blink/build/blink.kicad_pcb --serve --edit --no-browser
 fenolite view blink/build/blink.kicad_pcb --roles run --export blink/views/roles.html --dry-run --json
 ```
 
@@ -33,6 +34,11 @@ moves, exports and BOM, each a reviewed plan confirmed with `--confirm --plan`; 
 lists the receipts, and `fenolite restore` undoes one. `--roles FILE|run` draws the net roles of `fenolite
 roles BOARD --check` on each board (role colours, loops, Kelvin pairs, role findings) and counts them in
 `result.roles`; a served page with `--allow-actions` can confirm inferred roles as a reviewed plan.
+
+`--edit` aliases `--allow-actions`. A loaded build/sync conflict shows base, code and CAD values in
+Properties. **Take code** or **Take CAD** plans a build from its bound source; review the source execution
+context, all inputs and writes in the plan dialog, then confirm or cancel. A changed source needs a new
+build reply. Static pages retain the copyable take commands.
 
 `result.review` and the page's Review panel distinguish not-run, passed, failed and limited stages.
 `--report FILE` loads a recorded convert/export reply, once per command; use `--check` for checks.

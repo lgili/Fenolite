@@ -107,6 +107,7 @@ from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.cmd_export import preset_file
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
+from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.dsl import (
@@ -134,7 +135,15 @@ from fenolite.dsl import (
     via_protection_locked,
 )
 from fenolite.dsl import Design as DslDesign
-from fenolite.dsl.convert import two_terminal, unused_marks
+from fenolite.dsl.convert import (
+    footprint_overrides,
+    images,
+    model_refs,
+    pad_edits,
+    teardrop_rules,
+    two_terminal,
+    unused_marks,
+)
 from fenolite.dsl.lock import Lock, hand_refs, read_lock
 from fenolite.dsl.relative import has_layout
 from fenolite.geometry.errors import BackendUnavailable
@@ -156,7 +165,9 @@ from fenolite.lens.build import (
     SCHEMATIC_MODES,
     SHEET_SUFFIX,
     VENDOR_MODES,
+    ImageSource,
     PlacementRequest,
+    board_images,
     build_design,
     check_existing,
     plane_issues,
@@ -262,6 +273,7 @@ _KINDS = {
     ".PcbDoc": PCBDOC_KIND,
     ".Harness": HARNESS_KIND,
     ".OutJob": OUTJOB_KIND,
+    ".PCBDwf": "altium_draftsman",
 }
 OUTJOB_MODES = ("on", "off")
 """``--altium-outjob``: write ``<name>.OutJob`` beside a PCB document (the default), or not."""
@@ -342,6 +354,20 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "gerbers.precision is the decimals of the job's Gerber settings (result.outjob.gerber), and its "
         "other options are listed in result.outjob.defaults, to be set in Altium; a usage error with "
         "--target kicad or with --altium-outjob off",
+    )
+    parser.add_argument(
+        "--altium-draftsman",
+        choices=("off", "on"),
+        default=None,
+        help="with --target altium: on requests a native Draftsman document; off (default) keeps "
+        "legacy files. "
+        "The native gate remains closed until Part F passes in Altium",
+    )
+    parser.add_argument(
+        "--drawing-spec",
+        metavar="FILE",
+        default=None,
+        help="fenolite.drawing-spec.v0 TOML for --target altium --altium-draftsman on",
     )
     parser.add_argument(
         "--altium-symbols",
@@ -633,6 +659,8 @@ def _catalog_definitions(
     design: ModelDesign,
     authored_footprints: Mapping[str, Any],
     authored_symbols: Mapping[str, Any],
+    *,
+    drawn_resolver: LibraryResolver | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], frozenset[str]]:
     """Select only built-ins used by this design; project definitions override exact lib ids."""
     symbol_ids = {entry.lib_id for entry in CATALOG_ENTRIES if entry.kind == "symbol"}
@@ -640,9 +668,23 @@ def _catalog_definitions(
     symbols: dict[str, Any] = {}
     footprints: dict[str, Any] = {}
     used_builtin: set[str] = set()
+    project_symbols: set[str] = (
+        {row.nickname for row, origin, _ in drawn_resolver.rows("symbol") if origin == "project"}
+        if drawn_resolver is not None
+        else set()
+    )
+    project_footprints: set[str] = (
+        {row.nickname for row, origin, _ in drawn_resolver.rows("footprint") if origin == "project"}
+        if drawn_resolver is not None
+        else set()
+    )
     for component in design.circuit.components:
         symbol_id = component.lib_symbol_ref
-        if symbol_id in symbol_ids and symbol_id not in authored_symbols:
+        if (
+            symbol_id in symbol_ids
+            and symbol_id not in authored_symbols
+            and symbol_id.partition(":")[0] not in project_symbols
+        ):
             symbols[symbol_id] = catalog_symbol(symbol_id)
             used_builtin.add(symbol_id)
         symbol = authored_symbols.get(symbol_id) or symbols.get(symbol_id)
@@ -651,8 +693,16 @@ def _catalog_definitions(
             symbol = flatten_symbol(
                 symbol, [s for s in authored_symbols.values() if s.library == symbol.library]
             )
-        fp_id = component.lib_footprint_ref or (symbol.properties.get("Footprint", "") if symbol else "")
-        if fp_id in footprint_ids and fp_id not in authored_footprints:
+        fp_id = (
+            component.footprint_definition_ref
+            or component.lib_footprint_ref
+            or (symbol.properties.get("Footprint", "") if symbol else "")
+        )
+        if (
+            fp_id in footprint_ids
+            and fp_id not in authored_footprints
+            and fp_id.partition(":")[0] not in project_footprints
+        ):
             footprints[fp_id] = catalog_footprint(fp_id)
             used_builtin.add(fp_id)
     return {**footprints, **authored_footprints}, {**symbols, **authored_symbols}, frozenset(used_builtin)
@@ -733,7 +783,10 @@ def project_definitions(
     used_definitions = {
         (kind, record_id)
         for component in model.circuit.components
-        for kind, record_id in (("pins", component.lib_symbol_ref), ("package", component.lib_footprint_ref))
+        for kind, record_id in (
+            ("pins", component.lib_symbol_ref),
+            ("package", component.footprint_definition_ref or component.lib_footprint_ref),
+        )
         if record_id
     }
     footprints: dict[str, Any] = {}
@@ -742,7 +795,7 @@ def project_definitions(
         key = (rec.kind_of(record), record.header.id)
         if tree.files.get(key, "").startswith("fenolite_library/") and key not in used_definitions:
             continue
-        if isinstance(record, rec.PinsRecord) and record.symbol is not None:
+        if isinstance(record, rec.PinsRecord) and (record.symbol is not None or record.table is not None):
             symbols[record.header.id] = rec.symbol_def(record)
         elif isinstance(record, rec.PackageRecord) and record.generator in rec.GENERATORS:
             footprints[record.header.id] = rec.footprint_def(record)
@@ -762,21 +815,31 @@ def project_definitions(
             or ("pins", key) in used_definitions
         }
     )
+    device_symbols, generated_issues = tree.device_symbols(
+        used={record_id for kind, record_id in used_definitions if kind == "pins"}
+    )
+    symbols.update(device_symbols)
     used: list[rec.Record] = []
-    issues: list[Issue] = []
+    issues: list[Issue] = list(generated_issues)
 
     def find(kind: rec.Kind, record_id: str) -> rec.Record | None:
         return tree.get(kind, record_id) or shipped.get(kind, record_id)
 
     for component in sorted(model.circuit.components, key=lambda found: found.ref):
-        for kind, record_id in (("pins", component.lib_symbol_ref), ("package", component.lib_footprint_ref)):
+        for kind, record_id in (
+            ("pins", component.lib_symbol_ref),
+            ("package", component.footprint_definition_ref or component.lib_footprint_ref),
+        ):
             record = find(cast(rec.Kind, kind), record_id) if record_id else None
             if record is None:
                 continue
             used.append(record)
-            missing = (isinstance(record, rec.PinsRecord) and record.symbol is None) or (
-                isinstance(record, rec.PackageRecord) and record.generator not in rec.GENERATORS
-            )
+            missing = (
+                isinstance(record, rec.PinsRecord)
+                and record.symbol is None
+                and record.table is None
+                and record_id not in run.imported.symbols
+            ) or (isinstance(record, rec.PackageRecord) and record.generator not in rec.GENERATORS)
             if missing and record not in used[:-1]:
                 what = "symbol generator" if kind == "pins" else f"package generator {record.generator!r}"  # type: ignore[union-attr]
                 issues.append(
@@ -792,6 +855,10 @@ def project_definitions(
             record = find("device", part.device.id.split("@", 1)[0])
             if record is not None:
                 used.append(record)
+                if isinstance(record, rec.DeviceRecord) and record.header.id in device_symbols:
+                    pins = find("pins", record.device.symbol)
+                    if pins is not None:
+                        used.append(pins)
     return footprints, symbols, [*issues, *rec.used_record_issues(used)]
 
 
@@ -1158,6 +1225,8 @@ def _built(
     for option, value in (
         ("--altium-outjob", args.altium_outjob),
         ("--altium-outjob-preset", args.altium_outjob_preset),
+        ("--altium-draftsman", getattr(args, "altium_draftsman", None)),
+        ("--drawing-spec", getattr(args, "drawing_spec", None)),
     ):
         if value is not None and args.target != ALTIUM_TARGET:
             raise CliError(
@@ -1166,6 +1235,8 @@ def _built(
                 where=option,
                 hint=f"add --target {ALTIUM_TARGET}, or drop {option}",
             )
+    if getattr(args, "drawing_spec", None) is not None and getattr(args, "altium_draftsman", None) != "on":
+        raise CliError("FEN-2001", "--drawing-spec needs --altium-draftsman on", where="--drawing-spec")
     if args.altium_outjob_preset is not None and args.altium_outjob == "off":
         raise CliError(
             "FEN-2001",
@@ -1286,6 +1357,13 @@ def _built(
         pad_zone_requests = pad_zones(design)
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
+    if args.target == ALTIUM_TARGET and any(c.footprint_definition_ref for c in model.circuit.components):
+        raise CliError(
+            "FEN-3004",
+            "footprint_definition selects a KiCad definition; Altium builds do not support this override",
+            where=str(args.design),
+            hint="build this imported design with --target kicad",
+        )
     model, defaulted = apply_default_pad_maps(
         model, authored_symbols=design.symbols, authored_footprints=design.footprints
     )
@@ -1306,6 +1384,20 @@ def _built(
         *device_issues(design),
         *run.block_issues,
     ]
+    # the images of the script: the build reads their files, which are inputs of the plan (change c0277)
+    image_sources = [
+        ImageSource(
+            spec.key,
+            script_path.resolve().parent / spec.file,
+            Point(BOARD_ORIGIN.x + spec.at[0], BOARD_ORIGIN.y + spec.at[1]),
+            spec.layer,
+            spec.scale,
+        )
+        for spec in images(design)
+    ]
+    model, image_issues = board_images(model, image_sources)
+    default_issues += image_issues
+    image_depends = depends_on(ctx.cwd, *(source.path for source in image_sources if source.path.is_file()))
     devices = design_devices(design)
     record_footprints, record_symbols, library_issues = project_definitions(run, model)
     default_issues += library_issues
@@ -1338,7 +1430,7 @@ def _built(
     takes = parse_take_option(getattr(args, "take", None))
     frozen = bool(getattr(args, "frozen", False))
     refuse_frozen_edits(frozen=frozen, takes=takes, issues=())
-    refused = any(found.severity == "error" for found in source_issues)
+    refused = any(found.severity == "error" for found in (*source_issues, *image_issues))
     if args.target == ALTIUM_TARGET:
         if (generated_records or role_record is not None) and board_path is not None:
             # with --copper-from the board wins: the records would be lost, so the build is refused (c0243)
@@ -1474,6 +1566,7 @@ def _built(
         prepared.design if prepared is not None and prepared.design is not None else model,
         {**record_footprints, **{key: fp.definition for key, fp in design.footprints.items()}},
         {**record_symbols, **{key: symbol.definition for key, symbol in design.symbols.items()}},  # type: ignore[attr-defined]
+        drawn_resolver=resolver if drawn_schematic(design) is not None else None,
     )
     symbol_issues: list[Issue] = []
     symbol_placements = None
@@ -1562,6 +1655,10 @@ def _built(
         lock_stackup=stackup_locked(design),
         lock_via_protection=via_protection_locked(design),
         planes=plane_nets,
+        teardrops=teardrop_rules(design),
+        models=model_refs(design),
+        overrides=footprint_overrides(design),
+        pad_edits=pad_edits(design),
         lock_outline=outline_locked(design),
         heights=heights(design),
         unused=unused_marks(design),
@@ -1721,9 +1818,13 @@ def _built(
             format_version=None,
         ),
         writes=writes,
-        depends=(*drawn_depends, *depends_on(ctx.cwd, *(file.full for file in plan.files.values())))
+        depends=(
+            *drawn_depends,
+            *image_depends,
+            *depends_on(ctx.cwd, *(file.full for file in plan.files.values())),
+        )
         if plan is not None
-        else drawn_depends,
+        else (*drawn_depends, *image_depends),
     )
     return with_lock(built_result, lock)
 
@@ -1863,6 +1964,42 @@ def _hand_over(model: ModelDesign, resolved: ModelDesign) -> tuple[ModelDesign, 
     return model, dataclasses.replace(resolved, board=dataclasses.replace(done, keepouts=()))
 
 
+def altium_coverage_issues(design: DslDesign) -> list[Issue]:
+    """One ``altium.not-lowered`` info per kind of instance setting of change c0277 that a script gives and
+    the Altium document has no field for: footprint-level overrides, pad edits, field fonts, 3D models
+    named by the script and teardrops by selection. Nothing of them is dropped silently."""
+    kinds = {
+        "overrides": sum(1 for part in design.parts.values() if part.overrides is not None),
+        "pad-edits": sum(len(part.pad_edits) for part in design.parts.values()),
+        "fonts": sum(
+            1
+            for part in design.parts.values()
+            for request in part.field_requests.values()
+            if request.bold is not None or request.italic is not None or request.face is not None
+        ),
+        "models": sum(1 for part in design.parts.values() if part.model_refs),
+        "teardrops": len(design.teardrop_rules)
+        + sum(1 for intent in copper(design) if getattr(intent, "teardrop", None) is not None),
+    }
+    what = {
+        "overrides": "parts with footprint-level overrides",
+        "pad-edits": "pad edits of a part's instance",
+        "fonts": "field requests with a font",
+        "models": "parts with 3D models named by the script",
+        "teardrops": "teardrops() calls and vias with teardrop settings",
+    }
+    return [
+        Issue(
+            "altium.not-lowered",
+            "info",
+            f"{count} {what[kind]}: the Altium build has no field for them; they are kept in the script only",
+            where=kind,
+        )
+        for kind, count in kinds.items()
+        if count
+    ]
+
+
 def altium_base(
     model: ModelDesign,
     placements: Mapping[str, PlacementRequest],
@@ -1925,6 +2062,13 @@ def _run_altium(
     name = run.design.name
     form = cast(SchematicForm, args.altium_format or DEFAULT_FORM)
     sheets = cast(SheetMode, args.altium_sheets or DEFAULT_SHEETS)
+    drawn_name = drawn_schematic(run.design)
+    drawn_path = script_path.resolve().parent / drawn_name if drawn_name is not None else None
+    drawn_value = (
+        read_drawn_source(drawn_path, drawn_name)
+        if drawn_path is not None and drawn_name is not None
+        else None
+    )
     # change c0086: the symbols and footprints the script authored or took from the catalog are written
     # like resolved ones, as in a KiCad build, so their graphics reach the libraries
     record_footprints, record_symbols, _ = project_definitions(run, model)
@@ -1935,10 +2079,39 @@ def _run_altium(
     )
     resolver = None
     scripted = bool(intents or generated_records or role_record is not None)
-    if kicad_lib_ids(model) or kicad_footprint_ids(model) or scripted:
+    drawn_aliases = (
+        tuple(
+            sorted(
+                {symbol.symbol for sheet in drawn_value.sheets for symbol in sheet.symbols if symbol.symbol}
+            )
+        )
+        if drawn_value is not None
+        else ()
+    )
+    if kicad_lib_ids(model) or kicad_footprint_ids(model) or scripted or drawn_aliases:
         resolver = LibraryResolver(
             LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
         )
+    drawn_library_inputs: list[Path] = []
+    if resolver is not None:
+        for lib_id in drawn_aliases:
+            if lib_id in authored_symbols:
+                continue
+            location = resolver.locate(lib_id, "symbol")
+            drawn_library_inputs.append(location.item_path)
+            table = Path(location.table)
+            if table.is_file():
+                drawn_library_inputs.append(table)
+    resolved_symbol_inputs: list[Path] = []
+    if resolver is not None:
+        for lib_id in kicad_lib_ids(model):
+            if lib_id in authored_symbols:
+                continue
+            location = resolver.locate(lib_id, "symbol")
+            resolved_symbol_inputs.append(location.item_path)
+            table = Path(location.table)
+            if table.is_file():
+                resolved_symbol_inputs.append(table)
     source: CopperSource | None = None
     reader_issues: list[Issue] = []
     copper_input: dict[str, object] | None = None
@@ -1971,6 +2144,9 @@ def _run_altium(
     refused = False
     project_exists = (out_dir / f"{name}.PrjPcb").is_file()
     with_job = args.altium_outjob != "off"
+    from fenolite.cli._draftsman import drawing_input
+
+    drawing_spec, drawing_source, drawing_path = drawing_input(getattr(args, "drawing_spec", None), ctx.cwd)
     preset, preset_result = preset_file(args.altium_outjob_preset, ctx.cwd)
     job_listed = False
     project_digest: str | None = None
@@ -2046,6 +2222,8 @@ def _run_altium(
                 planes=plane_nets,
                 copper_source=source,
                 outjob=with_job,
+                draftsman=getattr(args, "altium_draftsman", None) == "on",
+                drawing_spec=drawing_spec,
                 outjob_preset=preset,
                 outjob_listed=job_listed,
                 project_digest=project_digest,
@@ -2062,7 +2240,10 @@ def _run_altium(
                 heights=heights(run.design),
                 unused=unused_marks(run.design),
                 two_terminal=two_terminal(run.design),
-                composition=schematic_composition(
+                drawn=drawn_value,
+                composition=None
+                if drawn_value is not None
+                else schematic_composition(
                     run.design, target="altium", enabled=args.altium_layout == "blocks"
                 ),
             )
@@ -2137,7 +2318,15 @@ def _run_altium(
     layout_path = script_path.resolve().parent / ALTIUM_LAYOUT_FILE
     layout_issues: tuple[Issue, ...] = ()
     native_forms: dict[str, SchematicForm] = {}
-    if files:
+    if files and drawn_value is not None and layout_path.is_file():
+        layout_issues = (
+            drawn_issue(
+                "drawn.placements-ignored",
+                f"{ALTIUM_LAYOUT_FILE} is not read: {drawn_name} owns the drawing",
+                ALTIUM_LAYOUT_FILE,
+            ),
+        )
+    if files and drawn_value is None:
         snapshot = layout_path.read_text(encoding="utf-8") if layout_path.is_file() else None
         try:
             files = prepare_files(files, snapshot)
@@ -2153,6 +2342,14 @@ def _run_altium(
                     native_forms[relative] = actual
         except LayoutConflict as error:
             layout_issues = error.issues
+            files = {}
+    final_drawn_issues: tuple[Issue, ...] = ()
+    if files and drawn_value is not None:
+        from fenolite.backends.altium.drawn import native_coverage, readback_issues
+
+        checked = readback_issues(files, built.design, expected=native_coverage(built.files))
+        final_drawn_issues = tuple(finding for finding in checked if finding not in built.issues)
+        if any(finding.severity == "error" for finding in checked):
             files = {}
     mode, mode_source = copper_mode(args.copper_check, script_path)
     copper_issues: tuple[Issue, ...] = ()
@@ -2193,11 +2390,33 @@ def _run_altium(
         "pcb": summary["pcb"],
         "copper_check": copper_check,
         "outjob": _outjob_result(summary["outjob"], out, preset_result),
+        "draftsman": (
+            {
+                **cast(dict[str, object], summary["draftsman"]),
+                "file": str(out / str(cast(dict[str, object], summary["draftsman"])["file"])),
+                "spec": drawing_source,
+            }
+            if summary["draftsman"] is not None
+            else None
+        ),
         "drawing_sheet": _sheet_result(summary["drawing_sheet"], out, sheet_result),
         "rules": summary["rules"],
         "experimental": summary["experimental"],
         "script_output": run.output,
     }
+    if drawn_value is not None and isinstance(result.get("schematic"), dict):
+        result["schematic"] = {
+            **result["schematic"],
+            "source": "drawn",
+            "drawn": {
+                "file": drawn_name,
+                "wires": sum(len(wire) - 1 for s in drawn_value.sheets for wire in s.wires),
+                "junctions": sum(len(s.junctions) for s in drawn_value.sheets),
+                "labels": sum(len(s.labels) for s in drawn_value.sheets),
+                "buses": sum(len(bus) - 1 for s in drawn_value.sheets for bus in s.buses),
+                "opaque": sum(len(s.opaques) for s in drawn_value.sheets),
+            },
+        }
     if copper_input is not None:
         result["copper_input"] = copper_input
     if native_info is not None:
@@ -2227,6 +2446,8 @@ def _run_altium(
             *circuit_found,
             *copper_issues,
             *layout_issues,
+            *final_drawn_issues,
+            *altium_coverage_issues(run.design),
         ),
         evidence=evidence,
         input=InputRef(
@@ -2236,7 +2457,9 @@ def _run_altium(
             format_version=None,
         ),
         writes=writes,
-        depends=depends_on(ctx.cwd, layout_path),
+        depends=depends_on(
+            ctx.cwd, layout_path, drawing_path, drawn_path, *drawn_library_inputs, *resolved_symbol_inputs
+        ),
     )
 
 

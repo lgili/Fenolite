@@ -118,9 +118,14 @@ def _entry(
     )
 
 
-def silkscreen(*, color: str = "") -> StackEntry:
-    """A silkscreen, above the top mask or below the bottom one; it has no thickness."""
-    return StackEntry("silkscreen", color=_text(color, "stack.silkscreen(): color"))
+def silkscreen(*, color: str = "", material: str = "") -> StackEntry:
+    """A silkscreen, above the top mask or below the bottom one; it has no thickness. ``material`` names
+    its ink (``Liquid Photo``, ``Direct Printing``), as KiCad's stack-up editor does (change c0277)."""
+    return StackEntry(
+        "silkscreen",
+        material=_text(material, "stack.silkscreen(): material"),
+        color=_text(color, "stack.silkscreen(): color"),
+    )
 
 
 def mask(

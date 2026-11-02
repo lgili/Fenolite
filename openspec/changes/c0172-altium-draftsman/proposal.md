@@ -33,6 +33,7 @@ Size: 10 design-days; cut order and stop rules in the design.
 ### Modified Capabilities
 - `altium-build`: ADDED "Draftsman document in an Altium build", "Draftsman output in the output job", "Title-block parameters in the project file".
 - `cli-contract`: ADDED "Draftsman options of the build command".
+- `package-layering`: the lens may use the three pure drawing-preparation modules through an exact import exception; backend and plotting/export boundaries stay intact.
 - `altium-verification`: ADDED "Kit cases for Draftsman documents", "Draftsman scope round trip".
 
 ## Non-goals

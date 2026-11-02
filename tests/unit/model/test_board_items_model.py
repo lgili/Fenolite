@@ -124,7 +124,7 @@ def test_unknown_dimension_kind_rejected_by_the_schema() -> None:
                           start=Point(0, 0), end=Point(5, 0), offset=1)  # fmt: skip
     data = json.loads(canonical.dumps(dataclasses.replace(board(), dimensions=(dimension,))))
     assert _schema.validate(data, schema) == []
-    data["dimensions"][0]["kind"] = "radial"
+    data["dimensions"][0]["kind"] = "spiral"  # radial, leader and center are kinds since change c0277
     (error,) = _schema.validate(data, schema)
     assert error.startswith("/dimensions/0/kind")
 

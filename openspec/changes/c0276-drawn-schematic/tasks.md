@@ -100,6 +100,161 @@
   `uv run pytest tests/unit/backends/kicad/test_drawn_extract.py tests/unit/backends/kicad/test_drawn_freeze.py -q`.
   2026-10-29: `extract`/`extract_with_pins`, opaque items, freezing as extraction of the generated sheets. "Frozen blink" equals the generated texts except label, wire and flag uuids (decided in design.md, spec amended); the board is byte-equal. Proof passed.
 
+- [x] 4.5 Complete the KiCad project import prerequisite: retain the parsed hierarchy, vendor its real
+  embedded source symbol definitions and power definitions with native slots and hidden power pins,
+  select project instance references, extract using the final component paths, and emit
+  `schematic.toml`/`load_schematic`. Refuse conflicting definitions or unsupported source poses before
+  staging. Build the imported drawing in the self-check so the actual written-byte connectivity guard
+  runs; preserve board-only bytes and source files. Keep all c0278 levels and planted-junction assertions.
+  Proof: `uv run pytest tests/unit/importer/test_drawn_import.py -q`;
+  `uv run pytest tests/unit/importer/test_vendor.py tests/unit/importer/test_sheets.py tests/unit/lens/test_build_drawn.py tests/unit/lens/test_build_drawn_guard.py tests/unit/backends/kicad/test_symembed.py -q`.
+  2026-11-01: `Source.hierarchy` already retained the parsed sheets; the emitter now preserves native
+  definitions, extracts using final component paths, and self-checks a written drawing. The focused
+  importer/CLI/drawn/serializer/layering selection passed 199 tests; its one skipped deterministic
+  formatting case then passed with the installed venv's `ruff` on PATH. The 19 new cases cover strict
+  all-nine-level equality on sensor/flat/full/hier/bus/repeat with copper actually compared, native
+  graphics and hidden power pins, source collisions/unsupported poses, foreign project references,
+  built-in-id precedence, reviewed input changes, written-wire faults, and four complete emission byte
+  maps independently measured from clean `3da72066` for board-only input on targets 9/10. Three older
+  hierarchy fixtures now keep their native drawing and consistent local/global labels instead of
+  dropping geometry or orphaning board parts. Only `drawn@9` and `drawn@10` changed their schematic and
+  symbol-library byte pins to retain hidden power pins; every other byte pin remained unchanged.
+  Guide/byte selection: 77 passed; current census regression: 7 passed. Types, lint, format, generated
+  guide/schema checks, residue and strict validation passed. Native Altium and exact-commit KiCad CI
+  gates remain open under 6.2, 7.1 and 9.2.
+
+- [x] 4.6 Refresh the authored `examples/import_python` snapshot through its existing exact import
+  recipe after source drawing preservation, including canonical drawing, native symbols, provenance
+  and manifest declarations. Keep the literal freshness assertion and build checks, and remeasure only
+  that example's affected byte rows with their reason recorded.
+  Proof: `uv run pytest tests/unit/test_examples.py -k import_python -q`;
+  `uv run pytest tests/corpus/test_manifest.py tests/residue -q`;
+  `uv run pytest tests/unit/test_build_bytes.py -k import_python -q`.
+  2026-11-01: regenerated with unchanged `tests/_importexample.py` and its original stamped recipe.
+  Exactly one produced file is added (`schematic.toml`), five change, and none is removed. Provenance
+  keeps the same input hashes and drops the obsolete generated-drawing/symbol findings. The manifest
+  declares the authored drawing and correctly describes the native symbol copy. Literal freshness and
+  build: 2 passed; manifest/residue: 127 passed, 7 corpus-dependent checks not enabled in this focused
+  run; the three explicitly remeasured `import_python` byte rows: 3 passed. No assertion was relaxed.
+  Lint, formatting, residue scan and strict OpenSpec validation passed; runtime source is unchanged.
+
+- [x] 4.7 Preserve mirrored source power symbols through extraction, canonical TOML, both KiCad
+  lowerings and level S. Keep default canonical bytes and strict written connectivity checks.
+  Proof: `uv run pytest tests/unit/backends/kicad/test_drawn_extract.py tests/unit/lens/test_drawn_file.py tests/unit/checks/equivalence/test_level_s.py tests/consistency/test_drawn_schema.py -q`;
+  `uv run pytest tests/unit/importer/test_drawn_import.py -k mirrored -q`.
+  2026-11-01: optional `DrawnPower.mirror` is preserved by canonical TOML, schema, extraction, native
+  lowerings and pin transforms; level S compares it. The combined focused selection passed 169 cases,
+  including four strict authored import/confirm/build/all-nine comparisons and an asymmetric rotated
+  power-pin transform. Six drawn/import_python default byte guards remain unchanged. Lint, format,
+  source types (zero diagnostics), schemas/guide generation, residue and strict validation passed.
+  The historical public refusal census is unchanged; a new source snapshot needs a fresh strict run.
+
+- [x] 4.8 Preserve legacy source power instances without a power flag only when the one hidden
+  power-input pin at the origin supplies the same global name. Keep malformed lookalikes refused and
+  prove actual strict import/confirm/build/all-nine equality without adding a native flag.
+  Proof: `uv run pytest tests/unit/importer/test_drawn_import.py -k legacy_power tests/unit/backends/kicad/test_drawn_extract.py -q`.
+  2026-11-01: the narrow form uses the existing hidden-input global-net rule and keeps the source
+  definition without a power flag. Eight focused cases passed: strict import/confirm/build/all-nine
+  comparisons for both source majors, the positive extracted form and five malformed lookalikes
+  (visible/signal/differently named/off-origin/extra pins). No unknown electrical symbol is accepted
+  merely because its reference starts with `#PWR`. The complete two-file selection passed 54 tests;
+  source types, lint/format, residue and strict validation passed.
+
+- [x] 4.9 Preserve pinless excluded native graphic symbols as opaque drawing instances together with
+  their resolved embedded definitions; keep unknown/electrical symbols refused. Prove strict
+  import/replay/build/all-nine equality and refusal after a graphic definition gains an electrical pin.
+  Proof: `uv run pytest tests/unit/importer/test_drawn_import.py -k graphic_symbol tests/unit/backends/kicad/test_drawn_extract.py -q`.
+  2026-11-01: opaque native instances use the existing schematic reader and project library resolver;
+  lowering embeds their same slot-preserving definition. Six new cases passed: two strict all-nine
+  round trips, refusal after a graphic gains an electrical pin, either excluded-instance flag removed,
+  and malformed native pose reported as bad input. The importer/extractor/build/guard selection passed
+  70 tests; the tested guide line, types (zero diagnostics), lint/format, generator check, residue and
+  strict validation passed. No public census baseline or native acceptance was added.
+
+- [x] 4.10 Vendor unqualified embedded aliases under their source instance's library namespace (or
+  private `_Source` fallback), retaining native slots, power identity, poses and collision refusal.
+  Prove strict ordinary/power alias round trips for both source majors without changing board-only or
+  existing example bytes.
+  Proof: `uv run pytest tests/unit/importer/test_drawn_import.py -k embedded_alias -q`;
+  `uv run pytest tests/unit/importer/test_drawn_import.py tests/unit/importer/test_vendor.py tests/unit/backends/kicad/test_drawn_extract.py -q`.
+  2026-11-01: the shared source-identity helper qualifies bare aliases and preserves native slots.
+  Eight strict all-nine round trips passed (ordinary/power/graphic aliases for both majors plus private
+  fallback cases), and a bare/qualified canonical-id collision cannot bypass the definition cache.
+  The importer/vendor/extractor selection passed 71 tests, including all four board-only byte maps;
+  the unchanged literal example, three byte rows and guide line passed six tests. Source types (zero
+  diagnostics), lint/format, generated guide, residue and strict validation passed. The original signed
+  corpus snapshot is retained until an actual refreshed run; per-unit aliases remain separate work.
+
+- [x] 4.11 Preserve native per-unit source aliases through an optional drawn-symbol library binding,
+  with exact logical-unit pin compatibility, deterministic primary selection and same-unit conflict
+  refusal. Bind extraction to code during build/check/sync, retaining single-unit overrides and
+  pin-pad variants. Keep default canonical bytes and all strict fidelity levels.
+  Proof: `uv run pytest tests/unit/importer/test_drawn_import.py tests/unit/backends/kicad/test_drawn_extract.py tests/unit/lens/test_drawn_file.py tests/unit/checks/equivalence/test_level_s.py tests/unit/lens/test_sync_drawn.py tests/unit/lens/test_build_drawn_guard.py tests/consistency/test_drawn_schema.py -q`.
+  2026-11-01: the exact combined proof passed 122 tests. Twelve new cases cover strict all-nine
+  per-unit alias round trips and sync with both source majors/native output targets, same-unit and
+  logical-pin conflicts, canonical/schema/type checks, level S identity, single-unit overrides with
+  and without swapped pad mappings, missing/incompatible build bindings, and a moved native pin caught
+  by the actual written-net guard. Sync/rebuild keeps the same native sheet bytes in the mapping
+  controls. Nine default literal/example/byte/guide cases passed; all board-only maps are unchanged.
+  Source types (zero diagnostics), lint/format, generated guide/schemas, residue and strict validation
+  passed. No public corpus observation or native acceptance baseline was changed.
+
+- [x] 4.12 Honor explicit board/BOM exclusions on pinless source instances even when their library
+  defaults include them. Preserve the default flags and native body, with electrical lookalikes still
+  refused. Prove strict all-nine round trips for each differing default combination on both source majors.
+  Proof: `uv run pytest tests/unit/importer/test_drawn_import.py -k 'graphic_symbol or graphic_instance' -q`.
+  2026-11-01: 12 cases passed, including six new strict all-nine round trips for differing library
+  defaults on both source majors. Native default flags and explicit instance exclusions remain intact;
+  electrical/board/BOM/malformed lookalikes still refuse. Types (zero diagnostics), lint/format,
+  residue and strict validation passed. This follows the actual 13-row probe on signed `abf0cf0e`,
+  which failed 13 cases in 234.84s (two validation, six unexpressed-content and five build-guard
+  refusals); no baseline or comparison acceptance was inferred from that failed source snapshot.
+
+- [x] 4.13 Preserve a common code-module prefix on root-sheet parts instead of treating the root as
+  a child module. Keep child relative paths unchanged and prove strict root-module import/build/all-nine
+  equality for both source majors.
+  Proof: `uv run pytest tests/unit/importer/test_drawn_import.py -k root_module -q`;
+  `uv run pytest tests/unit/backends/kicad/test_drawn_extract.py tests/unit/model/test_drawn_instances.py -q`.
+  2026-11-01: two strict all-nine source-major round trips passed with every root-sheet part in one
+  named code module. The existing extractor/instance group passed 32 cases; child relative paths are
+  unchanged. Source types (zero diagnostics), lint/format, residue and strict validation passed.
+
+- [x] 4.14 Keep a uniquely matched active source symbol despite native PCB board-only metadata,
+  preserving the attribute independently. Retain duplicate/invalid/unmatched keyed behavior and strict
+  electrical checks. Coordinate the tiny emitter hunk after the c0318 identity checkpoint.
+  Proof: `uv run pytest tests/unit/importer/test_drawn_import.py -k 'native_board_only or keyed_board_only' -q`;
+  `uv run pytest tests/unit/importer/test_board_items.py tests/unit/importer/test_drawn_import.py -q`.
+  2026-11-01: three focused guards passed, including strict import/build/all-nine equality on both
+  source majors and duplicate/unmatched refusal semantics. The combined source/board group passed
+  62 cases; native attributes survived and source typing reported zero diagnostics.
+
+- [x] 4.15 Resolve KiCad's native slash spellings in connection keys while preserving actual drawn text,
+  generic/other-backend semantics, and strict code partition checks. Add authored positive and distinct-net
+  collision proofs; rerun the original public PIC case without allowances.
+  Proof: `uv run pytest tests/unit/backends/kicad/test_drawn_native_names.py tests/unit/importer/test_drawn_import.py -k 'native_name or slash' -q`;
+  `uv run pytest tests/kicad/schematic/test_drawn_oracle.py -k slash -q`.
+  2026-11-01: authored local/global alias and distinct-code-net guards passed, as did actual native
+  alias exports on the installed KiCad 9.0.2 (two cases, no 9.0.9/10.0.6 claim). Sheet-pin and bus-member
+  controls passed too (12 focused; 131 combined), source types reported zero diagnostics, and lint,
+  format, generated-guide, residue and strict checks passed. The actual strict public rerun on signed
+  `8b8b86f2661b280451d5903783ab9e08bb11ff06` failed two cases in 51.35s: both now pass import/build
+  and level S; 10-pcb-12 is equal at 1–7, with two render differences, while 9-pcb-03 is equal at 1–6,
+  with two field-pose and two render differences. All nine positive assertions remain; no acceptance
+  or whole-fidelity/native-9.0.9/10.0.6 passing claim follows from those observations.
+
+- [x] 4.16 Preserve explicitly board/BOM-excluded native visible passive instances without adding
+  circuit nodes. Keep hidden/active/power definitions and missing exclusions strict. Prove authored
+  all-nine round trips, the native common-pin partition and native absence of the excluded reference.
+  Proof: `uv run pytest tests/unit/importer/test_drawn_import.py -k excluded_passive -q`;
+  `uv run pytest tests/kicad/schematic/test_drawn_oracle.py -k excluded_passive -q`.
+  2026-11-01: seven authored proofs passed, including strict all-nine round trips on both source
+  majors and five malformed/active-form refusals. The native export control passed on installed
+  KiCad 9.0.2: the excluded reference had no exported node and the common-pin partition was equal.
+  Native 9.0.9/10.0.6 and whole-fidelity acceptance remain unproved here.
+  The actual strict public 10-pcb-01 rerun on signed `6a6026051bae3902d881fababc36af91b785f5a9`
+  failed in 11.96s: the R601 refusal was removed, and the next unmapped native instance M705 remains
+  an explicit `FEN-3004` import refusal. No passing corpus row or accepted baseline was added.
+
 ## 5. DSL, build, check and sync
 
 - [x] 5.1 Add `Design.load_schematic` and `dsl.drawn_schematic` (scenarios of "Drawn schematic in the
@@ -138,19 +293,29 @@
 
 ## 6. Altium (phase that may be cut, open question 4)
 
-- [ ] 6.1 Add `backends/altium/drawn.py` and the lossy rules (scenarios "Drawn example in Altium",
+- [x] 6.1 Add `backends/altium/drawn.py` and the lossy rules (scenarios "Drawn example in Altium",
   "Off-grid point", "Text dropped"). Record the record forms used in `docs/formats/altium/` with S-0185
   and their labels. Proof: `uv run pytest tests/unit/backends/altium/test_drawn_altium.py -q`.
   2026-10-29: open: the Altium writer phase is not implemented in this batch (open question 4).
   2026-10-30: still open: the Altium sheet writer (`schdoc.py`) writes from a composition `SheetPlan`, not
   from drawn geometry; drawn polylines, junctions, ports, sheet entries and power ports need a writer of
   their own and record forms from S-0185, a phase of its own that can follow this change.
+  2026-11-01: implemented the native ASCII/binary drawn writer and final-byte guards. The authored
+  proof passed 36 cases: all six fixtures in both forms, native component/unit/pin/document defects,
+  physical maps, post-template wire faults, compatible/missing/incompatible unit aliases, alias-input
+  review invalidation, exact pose geometry and explicit unsupported-pose findings. Source types
+  reported zero diagnostics. Only `drawn@altium` and `import_python@altium` byte rows were refreshed;
+  both retain their PCB, PCB library and symbol library hashes. The focused byte selection passed
+  21 cases. Documentation/guide proofs passed 106 cases. Native Altium acceptance is not implied.
 
 - [ ] 6.2 Add a kit step that compiles the drawn example and records the nets and messages
   (`H-A-DRAWN-WRITE`); the row stays `INFERRED` until the maintainer reports. Proof:
   `uv run pytest tests/unit/test_altium_verification_docs.py -q`.
   2026-10-29: open: depends on 6.1 and the maintainer's kit.
   2026-10-30: still open (6.1, then the maintainer's Altium).
+  2026-11-01: the concrete compile/export/save kit is documented and its metadata proof passed.
+  The maintainer reports Altium unavailable, so actual application acceptance and this gate remain
+  open; `H-A-DRAWN-WRITE` stays `INFERRED`. No old author report is reused as a drawn-sheet result.
 
 ## 7. Evidence
 
@@ -158,17 +323,70 @@
   fixtures and the demo schematic rows, and load and ERC the written drawn fixtures (scenarios "Oracle on
   9.0 and 10.0", "KiCad loads the drawn sheets"). Raise each hypothesis to `KICAD-VERIFIED (9.0.x,
   10.0.x)` only after the job passes. Proof: the KiCad job of the commit on GitHub CI is green;
-  `uv run pytest tests/kicad/schematic/test_drawn_oracle.py tests/kicad/schematic/test_drawn_write_oracle.py -rA` there.
+  `uv run pytest tests/kicad/schematic/test_drawn_oracle.py tests/kicad/schematic/test_drawn_corpus.py -rA` there.
   2026-10-29: `tests/kicad/schematic/test_drawn_oracle.py` (resolver against `sch export netlist`, and ERC of the written sheets; one file for both scenarios) passed locally on `docker:kicad/kicad:9.0.9` and `:10.0.6`: connectivity and names equal on all six fixtures. Open: CI runs with the batch; the probes are not registered and no level is raised before the CI job passes.
   2026-10-30: `test_generated_blocks_inside_a_drawing` added to the same file; the file passed locally on
   `docker:kicad/kicad:10.0.6` (13 tests). Still open: CI runs with the batch; no 9.0.9 image here today.
 
 - [ ] 7.2 Extract each demo schematic row of the corpus into a temporary folder, lower it, resolve it and
   record counts and timings in `docs/evidence/drawn-schematic.md` (row ids, kinds and counts only; no
-  derived file is kept). Proof: `uv run pytest tests/kicad/schematic/test_drawn_corpus.py -rA` in the
-  KiCad job.
+  derived file is kept). Verify cached manifest hashes, compare full original/lowered/native pin
+  partitions and record naming outcomes/refusals separately. Preserve per-row census JSON even on
+  failure; no accepted differences or loss flag. Proof: `uv run pytest tests/kicad/schematic/test_drawn_corpus.py -rA` in both required
+  KiCad jobs, with actual per-row reports and version-bound evidence.
   2026-10-29: open: the corpus is not fetched in this environment; `test_drawn_corpus.py` is not written.
   2026-10-30: still open for the same reason (no corpus here); it belongs to the KiCad job.
+  2026-11-01: the declared cache is now available. Strict source-followup runs are recorded above,
+  with source refusals and presentation/render differences still visible. The separate all-demo
+  extract/lower/native-oracle harness and its exact-job proof remain unfinished; no passing corpus
+  result or accepted baseline is inferred from the source followups.
+  2026-11-02 continuation: the external cache is available. The new driver and local measurement
+  follow the dated design decision. Local 9.0.2 results, explicit refusals or a completed census
+  do not establish native 10.0.6 equality or close this literal CI proof.
+  The actual failed `9c44f7a2` measurement and its limits are recorded under 7.3 below.
+
+- [x] 7.3 Implement and prove the census driver/comparison/privacy controls with authored CC0 inputs,
+  preserving every production drawn/model field and strict native contract; retain the actual measured
+  result and any remaining refusal/mismatch instead of marking 7.2 from code completion.
+  Proof: `uv run pytest tests/unit/test_drawn_census.py -q`;
+  `uv run ruff check .`; `uv run ruff format --check .`;
+  `npx -y @fission-ai/openspec validate c0276-drawn-schematic --strict`.
+  Local driver proof 2026-11-02: 61 authored/workflow cases passed in 6.32 s, including real
+  lowering of flat, hierarchical, full, bus and repeated authored fixtures with stubbed native
+  boundaries, strict native-only-node/singleton controls, hash-before-parser checks and refusal
+  privacy. A separate real KiCad 9.0.2 flat prototype matched all three partition comparisons.
+  Whole-tree lint/format, source types (0 errors/warnings), guide, public residue (0 hits; 16
+  existing waivers) and strict validation pass. Production/model/schema/S fields are unchanged.
+  This local proof does not close 7.2; the source-bound actual corpus measurement follows the
+  clean harness commit; the actual source-bound result follows below.
+  Source-bound measurement 2026-11-02 on signed `9c44f7a224790b31ccbe017a0cce4c059b8c9b25`,
+  native KiCad 9.0.2: the literal 130-row driver completed with 76 failed, 16 passed and 38
+  incompatible-tag skips in 158.13 s (exit 1). All reports are recorded in
+  `docs/evidence/drawn-schematic.json` and summarized in the evidence page: 16 connectivity-equal,
+  six different, 50 explicit refusals, 20 missing compatible cache entries, 38 incompatible tags;
+  zero internal errors and zero retained CAD files. Original-native comparisons exist for 69 rows,
+  lowered-native comparisons for 22. The normal-sandbox fetcher could not fill the missing cache
+  (EPERM; no new permission request). This records actual limits, not accepted loss or a CI pass.
+  The driver/comparison/reporting work of 7.3 is complete; 7.2 remains open for the failing cases,
+  complete inputs and actual required 9.0.9/10.0.6 jobs. Altium 6.1/6.2 remains independent.
+
+- [x] 7.4 Preserve each corpus row's real owning-project and repeated-instance context. Discover every
+  registered root that reaches a child, hash all declared inputs before discovery, measure the full
+  owner hierarchy and record per-row owner/export-root/instance bindings. Keep standalone/orphan,
+  missing, unsupported and ambiguous contexts explicit; do not remove a row, pin or finding.
+  Fetch the declared owner project inputs in both KiCad jobs and require their exact hashes.
+  Proof: `uv run pytest tests/unit/test_drawn_census.py tests/unit/test_drawn_context.py -q`;
+  `uv run pytest tests/kicad/schematic/test_drawn_context.py -q` on the actual installed CLI.
+  Record the cache-complete `695dee0f` leaf-root run separately before a fresh context-correct rerun.
+  This driver proof does not close task 7.2's strict corpus equality in both required CI jobs.
+  Passed locally 2026-11-02: the literal authored/hash/context proof passes 26 cases in 4.21 s;
+  both native child-port/repeated-root controls pass on actual KiCad 9.0.2 (2 cases in 4.94 s).
+  The workflow/context group passed 72 cases before the two additional dispatch regressions;
+  those new controls prove the actual corpus dispatcher exports its owner root and refuses a
+  missing project before native execution, retaining the row and cleaning copied CAD. All 49
+  post-lowering guards in the earlier `695dee0f` run were artificial child-as-root contexts;
+  native owner selection does not weaken any production resolver, reader-floor or definition guard.
+  The 130-row source-bound rerun and its exact required CI proof remain task 7.2, unchecked.
 
 ## 8. Documentation and guide
 

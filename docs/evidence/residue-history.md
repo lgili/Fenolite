@@ -19,3 +19,14 @@ GitHub repository on the public patterns.
 | 2026-10-08 | v0.4.0 | root .. 367cdf8 | 8053 blobs reachable from any ref | 5 structural + blob list | not run | 0 |
 | 2026-10-15 | v0.5.0 | root .. 9946628 | 9814 blobs reachable from any ref | 5 structural + blob list | not run | 0 |
 | 2026-10-29 | v0.6.0 | root .. ab73da4 | 6991 blobs reachable from any ref of the local clone | 5 structural + blob list | not run | 0 |
+
+Public development proof, 2026-11-01 (c0316, no tag or release):
+`make residue-history` passed on `8536797276b61e0ef02ee07dc1d7811b026f34ac`.
+The isolated checkout contained all fetched origin refs and tags plus that
+candidate, 45 refs; unpublished local work branches were excluded. The sorted
+ref manifest SHA-256 was
+`1e137a92c1aea206c179f14960d1befc7e4e2364ce6c3f4ea1dfec5dfa33591b`.
+Result: 16839 distinct blobs scanned, zero findings, fourteen unchanged waivers,
+private gate skipped because no private list was configured. The earlier public
+HTTPS-path false positive is corrected; no original historical blob was changed.
+This does not close the private scan required on the eventual release commit.

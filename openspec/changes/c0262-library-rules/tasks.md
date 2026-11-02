@@ -18,6 +18,30 @@
   exclusions; action words additionally need runtime rejection. Full gate is root-owned, so 0.1
   stays open until its complete proof runs.
 
+  Entry refresh 2026-11-02, integration base `697cdf02b39c570b7827bd2b7b5419dfcf6bdea6`:
+  c0259/c0260/c0261 remain active and implemented. `catalog.records.Review` retains
+  `who,date,version,digest,evidence,sheet` and adds `sheet_sha256,previous_evidence,accepted_codes,
+  fenolite_version,record_sha256` under `[[reviewed_by]]`; deprecation is `[deprecated]`.
+  Core S ids refer to `docs/evidence/sources.md`; library D ids use the separate `sources.toml`
+  register. c0260 supports chip, molded, gullwing, nolead, grid, to, dip, header, connector;
+  terminal checks use distinct numbered electrical pads, excluding unnumbered/NPTH pads,
+  with each family's exposed-pad policy preserved. c0261 action dispatch shares the first
+  `path` word with all current library verbs. c0184 is archived (2026-10-25); c0179 remains
+  active. Cached `origin/dev` at `b2b0b06347adf77c477b27e5da1768ddb2a2791c` contains
+  `view.compare` sheet comparison and `view.library` symbol/footprint scenes; this is a local
+  ref observation, not a fresh remote fetch. MCP has argument exclusions plus schema/runtime
+  rejection of the review action. All five accepted recommendations remain: scoped human
+  CORPUS-VERIFIED review, HTML evidence, weakest effective evidence without mandatory reviewed
+  dependencies, INFERRED 0.05 mm tolerance, and digest-bound sheet acceptance; no native
+  application approval follows from a human record review.
+
+  Available proof: `openspec validate c0262-library-rules --strict` passes without warnings
+  (OpenSpec 1.16.0).
+  The literal `make check-fast` is not run by this worker and has no applicable passing
+  serialized receipt yet. Task 0.1 remains unchecked for that actual proof; independent
+  CI, native/manual and release criteria are unchanged.
+
+
 ## 1. Facts and test records
 
 - [x] 1.1 Write `docs/formats/library/rules.md`: the constant `T`, the pin-1 centroid convention, the grid tiers, the ball row-letter rule with its public source registered in `docs/evidence/sources.md`, each `INFERRED` and Fenolite-authored. Proof: `make residue`; `uv run pytest tests/unit -k "sources or facts_page" -q`.

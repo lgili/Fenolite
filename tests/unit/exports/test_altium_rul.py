@@ -27,8 +27,8 @@ from fenolite.lens.altium import build_altium
 from fenolite.model.rules import Rule, Selector
 
 EXAMPLES = Path(__file__).resolve().parents[3] / "examples"
-MODULES = {"import_python/copper.py"}
-"""Files of an example that its design script imports: modules, not scripts (change c0275)."""
+MODULES = {"blocks/divider.py", "import_python/copper.py"}
+"""Import-only block and copper helpers, not module-level designs (changes c0270 and c0275)."""
 SCRIPTS = sorted(
     name
     for path in EXAMPLES.glob("*/*.py")
@@ -107,6 +107,8 @@ def test_readback_of_every_example_script(script: str) -> None:
 
 def test_some_example_holds_rules() -> None:
     """The readback above is not empty: at least one example lowers a rule."""
+    # The block's design and the unrelated divider design still take part in the readback census.
+    assert {"blocks/design.py", "picks/divider.py"} <= set(SCRIPTS)
     found = []
     for script in SCRIPTS:
         design = _design(script)

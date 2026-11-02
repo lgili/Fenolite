@@ -1,6 +1,12 @@
 ## ADDED Requirements
 
 ### Requirement: DIFAT sectors in a written compound file
+`cfb.write_compound` SHALL write a file whose FAT needs more than 109 sectors: the FAT sector numbers past the 109th go into DIFAT sectors of 127 numbers each plus the number of the next DIFAT sector (ENDOFCHAIN in the last), the header names the first DIFAT sector and their count, and the FAT marks each DIFAT sector `DIFSECT` (`docs/formats/altium/compound-file.md`, S-0145).
+
+#### Scenario: Detailed contract for difat sectors in a written compound file
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 `cfb.write_compound` SHALL write a file whose FAT needs more than 109 sectors: the FAT sector numbers past the 109th go into DIFAT sectors of 127 numbers each plus the number of the next DIFAT sector (ENDOFCHAIN in the last), the header names the first DIFAT sector and their count, and the FAT marks each DIFAT sector `DIFSECT` (`docs/formats/altium/compound-file.md`, S-0145). `CompoundTooLarge` MUST be raised only for a file that a version-3 compound file cannot hold. The compound reader MUST follow the DIFAT chain.
 
 #### Scenario: Large file written and read

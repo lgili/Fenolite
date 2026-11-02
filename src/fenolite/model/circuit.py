@@ -125,6 +125,13 @@ class Component(Entity):
     )
     #: The exact range of ``value`` when the design gave one (a DSL part value with a tolerance).
     value_range: ValueRange | None = None
+    board_only: bool = False
+    """The part is on the board only (change c0277): its footprint carries KiCad's ``board_only``
+    attribute, the schematic holds no symbol for it, and its ``ref`` may repeat. Left out of the canonical
+    JSON when false; a KiCad reader does not set it."""
+    footprint_definition_ref: str = ""
+    """An explicit KiCad definition lookup, separate from the original/native ``lib_footprint_ref``
+    (change c0318). Empty uses ordinary footprint resolution and is omitted from canonical JSON."""
 
     def pads_of(self, pin: str) -> tuple[str, ...]:
         """The pads that ``pin`` is bonded to: the pads of its pairs in ``pin_pad_map``, in map order, the

@@ -56,3 +56,8 @@
 - [x] 4.3 Add an entry under `## [Unreleased]` in `CHANGELOG.md` once the version after 0.5.0 is open. Proof: `uv run pytest tests/unit/test_release_record_v05.py -q`.
   - 2026-10-25: the entry is under `## [0.5.0]` of `CHANGELOG.md`, not `[Unreleased]`: by the maintainer's decision of 2026-10-25 the change ships in 0.5.0 (c0171 task 1.15). Proof passed (`tests/unit/test_release_record_v05.py`).
   - 2026-10-25: WAITS on the maintainer: the release guard keeps `[Unreleased]` empty while the version is `0.5.0`. The text is ready: `- **Schematic viewer** (c0177): `fenolite view` draws the Altium sheets of a project as Altium Designer does — the file's colours and fonts on its paper, grid, border and title block, parts, pins, power ports, ports, sheet symbols and harnesses — with net highlight, a Properties and a Navigator panel, search, sheet tabs, a double click into a child sheet, and cross-probing between the sheet and the board; `--doc` replies with a sheet's counts of parts, pins, wires and nets.`
+
+## Continuation review — 2026-11-01
+
+Altium Designer is unavailable per the maintainer; no personal schematic/native comparison was supplied. Automated viewer tests do not replace task 2.4.
+See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.

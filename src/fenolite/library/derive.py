@@ -128,8 +128,9 @@ def derive_from_model(
             local = prepare(local)
         definition = read_footprint(dumps(local))
         rows = variants.setdefault(source, [])
+        comparison = _signature(definition, source, library, target)
         for _, signature, _, _, members in rows:
-            if signature == _signature(definition, source, library, target):
+            if signature == comparison:
                 members.append(ref)
                 break
         else:
@@ -145,7 +146,7 @@ def derive_from_model(
                         hint="make the instances equal on the board, or keep both footprints",
                     )
                 )
-            rows.append((name, _signature(definition, source, library, target), definition, written, [ref]))
+            rows.append((name, comparison, definition, written, [ref]))
     footprints = [
         Footprint(name, source, tuple(members), definition, written)
         for source, rows in variants.items()

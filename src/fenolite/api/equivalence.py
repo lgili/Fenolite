@@ -16,8 +16,9 @@ from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
+from fenolite.api._drawn import DRAWN_EVIDENCE, read_drawn_side, root_schematic, schematic_level
 from fenolite.api.sides import (
     DEFAULT_TIMEOUT,
     ReadSide,
@@ -32,6 +33,7 @@ from fenolite.checks.equivalence import (
     ALL_LEVEL_NAMES,
     LEVELS,
     PRESENTATION_LEVEL,
+    SCHEMATIC_LEVEL,
     EquivalenceReport,
     Profile,
     Tolerances,
@@ -57,7 +59,7 @@ SideInput = str | Path | Design
 Presentation = Callable[[ReadSide, ReadSide], LevelResult]
 """What runs level 8 on two sides as read: the renderer lives in ``fenolite.view``, which ``api`` does not
 import, so the caller passes it (``fenolite equivalent`` does)."""
-API_LEVELS: tuple[int, ...] = (*LEVELS, PRESENTATION_LEVEL)
+API_LEVELS: tuple[int | Literal["S"], ...] = (*LEVELS, PRESENTATION_LEVEL, "S")
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,11 +219,45 @@ def _path(given: str | Path) -> Path:
     return existing(Path(given))
 
 
+def _read_side(given: SideInput, *, schematic: bool, kicad_cli: str | None, timeout: float) -> ReadSide:
+    if schematic and not isinstance(given, Design):
+        root = root_schematic(existing(Path(given)))
+        if root is not None:
+            # S reads the actual sheet even when a project has no board, a cached model differs, or a
+            # symbol has no footprint. Its side metadata therefore identifies the native root sheet.
+            return read_drawn_side(root)
+    return read_side(given, kicad_cli=kicad_cli, timeout=timeout)
+
+
+def _schematic_report(
+    a: SideInput,
+    b: SideInput,
+    side_a: ReadSide,
+    side_b: ReadSide,
+    *,
+    tolerances: Tolerances,
+    frame: Frame,
+    profile: Profile | None,
+) -> EquivalenceReport:
+    roots: list[Path] = []
+    for name, given in (("a", a), ("b", b)):
+        root = None if isinstance(given, Design) else root_schematic(Path(given))
+        if root is None:
+            raise SideUsageError(f"side {name} has no drawn schematic it reads", where="level")
+        roots.append(root)
+    level = schematic_level(
+        roots[0], roots[1], side_a.design.circuit, side_b.design.circuit, tolerances=tolerances
+    )
+    if level is None:
+        raise SideUsageError("side a or b has no readable drawn schematic", where="level")
+    return EquivalenceReport((apply_rules(level, profile.rules if profile else ()),), tolerances, frame)
+
+
 def equivalent(
     a: SideInput,
     b: SideInput | None,
     *,
-    level: int | None = None,
+    level: int | Literal["S"] | None = None,
     tolerances: Tolerances | Mapping[str, int] | None = None,
     frame: Frame | None = None,
     ignore_refs: Sequence[str] = (),
@@ -241,7 +277,10 @@ def equivalent(
     the fields to set over the profile's values (else 0); ``frame`` ``None`` is the profile's frame, else
     ``absolute`` (``relative`` for the triangle). ``strict`` runs the item rule of level 5 too (the level run
     must be 5 or more). ``level`` 8 runs the levels 1 to 7 (to the highest both sides hold when a side has no
-    footprint) and then ``presentation`` on the two sides; a side without a board is a usage fault.
+    footprint) and then ``presentation`` on the two sides; a side without a board is a usage fault. Explicit
+    ``level="S"`` compares only actual schematic sheets, including resolved pin connectivity, without a
+    netlist export. It refuses ``strict``, ``ignore_refs`` and the PCB import triangle; scoped S profile
+    rules and the existing geometry tolerances apply. Integer/default output bytes stay unchanged.
 
     A usage fault raises ``SideUsageError``, a ``ValueError``; a missing path ``SideMissingError``; a
     reader's error keeps its type and code; a missing or wrong ``kicad-cli`` raises ``ToolMissingError`` or
@@ -251,19 +290,31 @@ def equivalent(
         raise SideUsageError(f"against is one of {', '.join(AGAINST)}, got {against!r}", where="against")
     if (b is None) == (against is None):
         raise SideUsageError("give b or against='kicad-import', not both and not neither", where="b")
-    if level is not None and (type(level) is not int or level not in API_LEVELS):
+    is_schematic = type(level) is str and level == SCHEMATIC_LEVEL
+    if level is not None and not (is_schematic or type(level) is int and level in API_LEVELS):
         raise SideUsageError(
             f"level is one of {', '.join(map(str, API_LEVELS))}, got {level!r}", where="level"
         )
     if level == PRESENTATION_LEVEL and presentation is None:
         raise SideUsageError("level 8 renders the sides: pass presentation", where="level")
+    if is_schematic:
+        if against is not None:
+            raise SideUsageError(
+                "level S reads actual sheets; the PCB import triangle has none", where="level"
+            )
+        if strict:
+            raise SideUsageError("strict requires a numeric level of 5 or higher", where="strict")
+        if ignore_refs:
+            raise SideUsageError(
+                "level S compares complete sheets; ignore_refs does not filter drawings", where="ignore_refs"
+            )
     if frame is not None and frame not in FRAMES:
         raise SideUsageError(f"frame is one of {', '.join(FRAMES)}, got {frame!r}", where="frame")
     notices: list[Issue] = []
     if against is None:
         assert b is not None
-        side_a = read_side(a, kicad_cli=kicad_cli, timeout=timeout)
-        side_b = read_side(b, kicad_cli=kicad_cli, timeout=timeout)
+        side_a = _read_side(a, schematic=is_schematic, kicad_cli=kicad_cli, timeout=timeout)
+        side_b = _read_side(b, schematic=is_schematic, kicad_cli=kicad_cli, timeout=timeout)
         applied = profile
         chosen_frame: Frame = frame or (profile.frame if profile else "absolute")
     else:
@@ -305,8 +356,22 @@ def equivalent(
             )
         chosen_frame = frame or (applied.frame if applied else "relative")
     chosen = _tolerances(tolerances, applied)
+    if is_schematic:
+        assert b is not None
+        report = _schematic_report(
+            a, b, side_a, side_b, tolerances=chosen, frame=chosen_frame, profile=applied
+        )
+        return EquivalenceResult(
+            report,
+            public_side(side_a),
+            public_side(side_b),
+            applied,
+            (*difference_issues(report), *side_a.issues, *side_b.issues),
+            Evidence.combine(side_a.evidence, side_b.evidence, DRAWN_EVIDENCE),
+        )
     highest = max_level(side_a.design, side_b.design)
     run = highest if level is None else level
+    assert isinstance(run, int)
     if run == PRESENTATION_LEVEL:
         bare = " and ".join(n for n, side in (("a", side_a), ("b", side_b)) if side.design.board is None)
         if bare:

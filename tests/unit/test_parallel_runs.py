@@ -51,7 +51,8 @@ def test_check_fast_needs_no_external_resource() -> None:
     assert needs.split() == ["lint", "format", "types", "residue", "test-fast"]
     _, recipe = _target("test-fast")
     assert recipe.strip() == (
-        f"uv run pytest tests/unit tests/residue tests/consistency -q $(PYTEST_PARALLEL) {FAST_MARKERS}"
+        "uv run pytest tests/unit tests/residue tests/consistency tests/fidelity "
+        f"-q $(PYTEST_PARALLEL) {FAST_MARKERS}"
     )
 
 

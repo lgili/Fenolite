@@ -21,14 +21,23 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
+import ntpath
 import os
+import posixpath
 import re
-from pathlib import Path
+import shutil
+from pathlib import Path, PurePath, PureWindowsPath
 
 import pytest
 
 import fenolite.cli.main as cli_main
+from fenolite.backends.altium import draftsman
+from fenolite.backends.altium.read.draftsman import decode, read_draftsman
 from fenolite.backends.altium.read.pcb import read_pcbdoc
+from fenolite.cli.altium_observations import checked_files
+from fenolite.exports.drawing_tables import drill_rows, stackup_block
+from fenolite.model.canonical import load_dir
 
 ROOT = Path(__file__).resolve().parents[4]
 HANDOVER_F0 = os.environ.get("FENOLITE_ALTIUM_PART_F0")
@@ -106,12 +115,25 @@ O Fenolite só lê os arquivos depois de rodar a verificação de caminhos do `f
 Portuguese."""
 
 
-def build_project(out: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, bytes]:
+def build_project(
+    out: Path, monkeypatch: pytest.MonkeyPatch, *, script: Path = SCRIPT, flags: tuple[str, ...] = ()
+) -> dict[str, bytes]:
     """Build the routed blink for Altium through the command line; the files without the build's cache."""
     monkeypatch.setenv("KICAD_CONFIG_HOME", str(out.parent / "kicad-config"))
     monkeypatch.setattr("sys.stdout", io.StringIO())
     monkeypatch.setattr("sys.stderr", io.StringIO())
-    argv = ["build", str(SCRIPT), "--out", str(out), "--target", "altium", "--confirm", "--json", *FLAGS]
+    argv = [
+        "build",
+        str(script),
+        "--out",
+        str(out),
+        "--target",
+        "altium",
+        "--confirm",
+        "--json",
+        *FLAGS,
+        *flags,
+    ]
     assert cli_main.main(argv) == 0
     return {
         path.relative_to(out).as_posix(): path.read_bytes()
@@ -172,3 +194,235 @@ def test_f0_readme_follows_the_evidence_page() -> None:
     kinds = r"(?: View| Table| Legend| Materials| Note| Dimension)"
     objects = set(re.findall(rf"\*\*([A-Z][A-Za-z ]+?{kinds})\*\*", english))
     assert objects and all(name in F0_README for name in objects), objects
+
+
+def _write_bundle(folder: Path, files: dict[str, bytes]) -> None:
+    folder.mkdir(parents=True, exist_ok=True)
+    for name, data in files.items():
+        target = folder / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    sums = {name: hashlib.sha256(data).hexdigest() for name, data in sorted(files.items())}
+    (folder / "SHA256SUMS").write_text("".join(f"{digest}  {name}\n" for name, digest in sums.items()))
+
+
+def part_fp(folder: Path, monkeypatch: pytest.MonkeyPatch, scratch: Path, f0: Path | None = None) -> None:
+    """Prepare independent FP3-5 now; FP1-2 require the real, privacy-reviewed F0.3 control."""
+    files = build_project(scratch / "build", monkeypatch)
+    text = draftsman.DraftsmanItem(
+        "text", "Text", (10_000_000, 10_000_000), (80_000_000, 5_000_000), texts=("FENOLITE-1",)
+    )
+    view = draftsman.DraftsmanItem(
+        "view",
+        "BoardAssemblyViewData",
+        (20_000_000, 40_000_000),
+        (50_000_000, 30_000_000),
+        title="Authored shell",
+    )
+    sheet = draftsman.DraftsmanSheet("probe", "Probe", "A4", (297_000_000, 210_000_000), (text,))
+    spec = draftsman.DraftsmanSpec(PROJECT, (sheet,))
+    files["FP3.PCBDwf"] = draftsman.write_draftsman(spec)
+    from dataclasses import replace
+
+    spec = replace(spec, sheets=(replace(sheet, items=(text, view)),))
+    files["FP4.PCBDwf"] = draftsman.write_draftsman(spec)
+    files["FP5.DwfDot"] = files["FP4.PCBDwf"]
+    missing = ["FP1", "FP2"]
+    if f0 is not None:
+        controls = checked_files(f0)
+        values = [data for name, data in controls.items() if Path(name).name.casefold() == "f0-03.pcbdwf"]
+        assert len(values) == 1, "exactly one real F0.3 control is required"
+        xml = decode(values[0])[1]
+        assert xml.count(b">FENOLITE-1<") == 1, "F0.3 must hold exactly the authored control text"
+        files["FP1.PCBDwf"] = draftsman.encode(xml)
+        files["FP2.PCBDwf"] = draftsman.encode(xml.replace(b">FENOLITE-1<", b">FENOLITE-22<"))
+        missing = []
+    page = (ROOT / "docs/evidence/altium-draftsman.md").read_text()
+    steps = page[page.index("### Round FP") : page.index("### Round F1")]
+    files["README.md"] = (
+        "# Part F candidate probes\n\nNative acceptance is unjudged. Work on a copy.\n\n"
+        + "Missing real-control probes: "
+        + (", ".join(missing) or "none")
+        + ".\n\n"
+        + steps
+    ).encode()
+    files["status.json"] = (
+        json.dumps({"native_verdict": "unjudged", "missing": missing}, sort_keys=True) + "\n"
+    ).encode()
+    _write_bundle(folder, files)
+
+
+def test_fp_candidates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    given = os.environ.get("FENOLITE_ALTIUM_PART_FP")
+    folder = Path(given).expanduser() if given else tmp_path / "FP-draftsman"
+    assert ROOT not in folder.resolve().parents
+    source = os.environ.get("FENOLITE_DWF_F0")
+    part_fp(folder, monkeypatch, tmp_path, None if source is None else Path(source).expanduser())
+    for name in ("FP3.PCBDwf", "FP4.PCBDwf", "FP5.DwfDot"):
+        assert read_draftsman((folder / name).read_bytes()).root is not None
+    assert json.loads((folder / "status.json").read_text())["native_verdict"] == "unjudged"
+
+
+def _library_prefix(library: PurePath, source: PurePath) -> str:
+    """Keep the same library source when a candidate kit is authored on another drive."""
+    if library.drive.casefold() != source.drive.casefold():
+        return library.as_posix()
+    path_module = ntpath if isinstance(library, PureWindowsPath) else posixpath
+    relative = path_module.relpath(str(library), str(source)).replace("\\", "/")
+    return "${KIPRJMOD}/" + relative
+
+
+@pytest.mark.parametrize(
+    "library,source,expected",
+    [
+        ("D:/checkout/libs", "C:/scratch/source", "D:/checkout/libs"),
+        ("C:/checkout/libs", "C:/scratch/source", "${KIPRJMOD}/../../checkout/libs"),
+    ],
+)
+def test_candidate_library_reference_across_drives(library: str, source: str, expected: str) -> None:
+    assert _library_prefix(PureWindowsPath(library), PureWindowsPath(source)) == expected
+
+
+@pytest.mark.parametrize("changed", ["unchanged", "symbol", "table"])
+def test_rooted_candidate_library_input_invalidates_review(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, changed: str
+) -> None:
+    libraries = tmp_path / "libraries"
+    libraries.mkdir()
+    for name in ("Mini_v9.pretty", "Mini_v9.kicad_sym"):
+        original = ROOT / "tests/data/libs" / name
+        if original.is_dir():
+            shutil.copytree(original, libraries / name)
+        else:
+            shutil.copyfile(original, libraries / name)
+    source = tmp_path / "source"
+    source.mkdir()
+    for name in ("fp-lib-table", "sym-lib-table"):
+        text = (SCRIPT.parent / name).read_text(encoding="utf-8")
+        text = text.replace("${KIPRJMOD}/../../tests/data/libs", libraries.as_posix())
+        (source / name).write_text(text, encoding="utf-8")
+    script = source / "design.py"
+    script.write_bytes(SCRIPT.read_bytes())
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "config"))
+
+    def invoke(*args: str):
+        out, error = io.StringIO(), io.StringIO()
+        monkeypatch.setattr("sys.stdout", out)
+        monkeypatch.setattr("sys.stderr", error)
+        code = cli_main.main(
+            [
+                "build",
+                str(script),
+                "--out",
+                str(tmp_path / "build"),
+                "--target",
+                "altium",
+                "--json",
+                *FLAGS,
+                *args,
+            ]
+        )
+        return code, json.loads(out.getvalue()), json.loads(error.getvalue() or "{}")
+
+    code, reply, error = invoke("--dry-run")
+    assert code == 0, (reply, error)
+    if changed != "unchanged":
+        library = libraries / "Mini_v9.kicad_sym" if changed == "symbol" else source / "sym-lib-table"
+        library.write_bytes(library.read_bytes() + b"\n")
+    code, _reply, error = invoke("--confirm", "--plan", reply["result"]["plan_id"])
+    if changed == "unchanged":
+        assert code == 0, error
+        assert (tmp_path / "build" / f"{PROJECT}.SchDoc").is_file()
+    else:
+        assert code == 4 and error["code"] == "FEN-4002"
+        assert not (tmp_path / "build").exists()
+
+
+def part_accept(folder: Path, monkeypatch: pytest.MonkeyPatch, scratch: Path) -> None:
+    """A native-gate override exists only in this candidate kit, never as a command option."""
+    source = scratch / "source"
+    source.mkdir(parents=True)
+    for name in ("fp-lib-table", "sym-lib-table"):
+        text = (SCRIPT.parent / name).read_text()
+        text = text.replace(
+            "${KIPRJMOD}/../../tests/data/libs", _library_prefix(ROOT / "tests/data/libs", source)
+        )
+        (source / name).write_text(text)
+    script = source / "design.py"
+    script.write_text(
+        SCRIPT.read_text() + "\nfrom fenolite.dsl import stack\n"
+        'design.stackup(*stack.preset("two-layer-1.6mm"))\n'
+        'design.title_block(title="Fenolite Draftsman bench", revision="F", date="2026-11-01")\n'
+    )
+    spec = scratch / "drawing.toml"
+    spec.write_text(
+        'schema = "fenolite.drawing-spec.v0"\n[fab]\nnotes = ["Authored fab one", "Authored fab two"]\n'
+        '[assembly]\nnotes = ["Authored assembly one", "Authored assembly two"]\n'
+    )
+    monkeypatch.setattr(draftsman, "NATIVE_WRITE", True)
+    files = build_project(
+        scratch / "build",
+        monkeypatch,
+        script=script,
+        flags=("--altium-draftsman", "on", "--drawing-spec", str(spec)),
+    )
+    model = load_dir(scratch / "build/.fenolite")
+    expected = [
+        "# Candidate acceptance: expected model values",
+        "",
+        "Native outcomes are unjudged.",
+        "",
+        "## Drill counts",
+        "",
+    ]
+    expected += [f"- {row.drill} nm: {row.count} hole(s), plated={row.plated}" for row in drill_rows(model)]
+    stack = stackup_block(model, 1_500_000)
+    expected += ["", "## Stack-up", ""]
+    expected += [] if stack is None else [" | ".join(row) for row in stack.rows]
+    expected += [
+        "",
+        "## Parts",
+        "",
+        ", ".join(sorted(c.ref for c in model.circuit.components)),
+        "",
+        "Native generic Table, dimensions and exact table filters are pending F0; board rows use Texts.",
+    ]
+    files["expected.md"] = ("\n".join(expected) + "\n").encode()
+    page = (ROOT / "docs/evidence/altium-draftsman.md").read_text()
+    start = page.index("### Round F1")
+    files["README.md"] = page[start : page.index("\n## ", start)].encode()
+    files["drawing.toml"] = spec.read_bytes()
+    _write_bundle(folder, files)
+
+
+def test_accept_candidate_kit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    given = os.environ.get("FENOLITE_ALTIUM_PART_F")
+    folder = Path(given).expanduser() if given else tmp_path / "F-draftsman-accept"
+    assert ROOT not in folder.resolve().parents
+    part_accept(folder, monkeypatch, tmp_path)
+    scope = draftsman.written_scope(read_draftsman((folder / f"{PROJECT}.PCBDwf").read_bytes()).root)
+    assert len(scope.sheets) == 3 and any(i.name == "layer-stack-legend" for i in scope.items("view"))
+    assert len(scope.items("note")) == 2
+    assert all(len(i.texts) == 2 for i in scope.items("note"))
+    assert (folder / "SHA256SUMS").is_file() and "U1" in (folder / "expected.md").read_text()
+
+
+@pytest.mark.skipif(
+    not os.environ.get("FENOLITE_ALTIUM_F8"), reason="a real native F8 save has not been supplied"
+)
+def test_f8_saved_scope(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    given = Path(os.environ["FENOLITE_ALTIUM_F8"]).expanduser()
+    checked = checked_files(given.parent)
+    saved = draftsman.written_scope(read_draftsman(checked[given.name]).root)
+    part_accept(tmp_path / "accept", monkeypatch, tmp_path)
+    candidate = draftsman.written_scope(
+        read_draftsman((tmp_path / "accept" / f"{PROJECT}.PCBDwf").read_bytes()).root
+    )
+    assert len(saved.sheets) == len(candidate.sheets)
+    for expected, observed in zip(candidate.sheets, saved.sheets, strict=True):
+        assert expected.paper == observed.paper
+        for item in expected.items:
+            assert any(
+                (item.kind, item.side, item.title, item.texts) == (i.kind, i.side, i.title, i.texts)
+                for i in observed.items
+            )

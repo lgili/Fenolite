@@ -133,8 +133,7 @@ def test_converted_board_rows(count: int) -> None:
     rows = board_rows(count)
     assert len([r for r in rows if r.kind == "copper"]) == count
     assert len({dict(r.ext["kicad"].payload)["number"] for r in rows}) == len(rows)
-    if count in (2, 4, 6, 8):
-        assert rows == created_layers(count)
+    assert rows == created_layers(count)  # every count to 32 is a created count (change c0277)
 
 
 @pytest.mark.parametrize("count", (True, 0, 1, 3, 31, 34))

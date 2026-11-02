@@ -42,7 +42,9 @@ change keeps the code as the only source of connectivity and proves, at every bu
   drawing cannot drift unnoticed.
 - **Reading a KiCad schematic into the file.** `fenolite.backends.kicad.drawn.extract` turns read sheets,
   their opaque wire, junction, bus and text slots included, into a `DrawnSchematic`. c0275's importer and
-  `fenolite sync --to-source` use it. A generated schematic can be frozen into a drawn one.
+  `fenolite sync --to-source` use it. The importer preserves the source's embedded symbol definitions
+  and instance references, writes `schematic.toml` and `load_schematic`, and self-checks the actual drawn
+  build before staging files. A generated schematic can be frozen into a drawn one.
 - **Altium.** A later phase of this change writes drawn sheets as SchDoc records (wires, junctions, net
   labels, ports, power ports, sheet symbols and entries, buses). It stays `INFERRED` until the
   maintainer's kit compiles a drawn example.

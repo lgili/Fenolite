@@ -117,6 +117,7 @@ def items(sheet: DrawnSheet) -> list[Item]:
                     ("symbol", power.symbol),
                     ("net", power.net),
                     ("rotation", str(power.rotation)),
+                    ("mirror", power.mirror),
                     *_field_attributes(power.fields),
                 ),
             )  # fmt: skip
@@ -234,6 +235,8 @@ def compare_symbols(
             found.append(_difference("symbol-pose", where, str(x.rotation), str(y.rotation), "rotation"))
         if x.mirror != y.mirror:
             found.append(_difference("symbol-pose", where, x.mirror, y.mirror, "mirror"))
+        if x.symbol != y.symbol:
+            found.append(_difference("symbol-field", where, x.symbol, y.symbol, "symbol"))
         fields_a = {f.name: f for f in x.fields}
         fields_b = {f.name: f for f in y.fields}
         for name in sorted(fields_a.keys() | fields_b.keys()):

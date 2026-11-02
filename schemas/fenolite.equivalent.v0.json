@@ -6,9 +6,18 @@
   "type": "object",
   "properties": {
     "level": {
-      "type": "integer",
-      "minimum": 0,
-      "description": "the highest level run; 0 when none ran"
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "description": "the highest level run; 0 when none ran"
+        },
+        {
+          "enum": [
+            "S"
+          ]
+        }
+      ]
     },
     "equivalent": {
       "type": "boolean"
@@ -96,8 +105,17 @@
       "type": "object",
       "properties": {
         "level": {
-          "type": "integer",
-          "minimum": 1
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
         },
         "kind": {
           "type": "string",
@@ -201,8 +219,17 @@
       "type": "object",
       "properties": {
         "level": {
-          "type": "integer",
-          "minimum": 1
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
         },
         "kind": {
           "type": "string",
@@ -310,8 +337,17 @@
       "type": "object",
       "properties": {
         "level": {
-          "type": "integer",
-          "minimum": 1
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
         },
         "name": {
           "type": "string",

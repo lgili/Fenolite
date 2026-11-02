@@ -1,6 +1,12 @@
 ## ADDED Requirements
 
 ### Requirement: Tuning profiles for impedance targets
+`fenolite.backends.kicad.tuning.apply_profile_keys(text, design, *, target, issues=None) -> str` SHALL write the impedance targets of the design ("Impedance targets in the rules model") into a project text as KiCad 10 tuning profiles, and `write_triad` SHALL call it after `pro.apply_sheet_keys`, with the same `issues` (an addition to "Generated projects are coherent").
+
+#### Scenario: Detailed contract for tuning profiles for impedance targets
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 `fenolite.backends.kicad.tuning.apply_profile_keys(text, design, *, target, issues=None) -> str` SHALL write the impedance targets of the design ("Impedance targets in the rules model") into a project text as KiCad 10 tuning profiles, and `write_triad` SHALL call it after `pro.apply_sheet_keys`, with the same `issues` (an addition to "Generated projects are coherent"). For target 10, this requirement takes the key path `/tuning_profiles/tuning_profiles_impedance_geometric` with every path below it, and `/net_settings/classes/*/tuning_profile`, out of the template-value, added-path and keep rules of "Project files are synthesised and preserved".
 - For target 9, and for a design without targets, the text MUST be returned unchanged; the keys stay in `pro.TEN_ONLY_PATHS` ("Project files are gated by target").
 - `tuning.lower_profile(target)` MUST give the entry: `profile_name` the target's name; `type` `0` for `single` and `1` for `differential`; `target_impedance` a `JsonNumber` holding the exact text of `ohms`, or `0` when it is empty; `enable_time_domain_tuning` false; `layer_entries`, one object per layer in stack order with `signal_layer`, `top_reference_layer` (the upper of two references, else `""`), `bottom_reference_layer` (the only or the lower reference), `width` and `diff_pair_gap` as integers of nanometres (`0` for a `single` target) and `delay` `0`; `via_prop_delay` `0`; `via_overrides` empty. No other key MUST be written, and no number MUST come from a `float`.
@@ -28,6 +34,12 @@
 - **THEN** the class `SE50` names `SE50` and `issues` hold one `kicad.project.profile-reassigned` warning naming `SE50` and `GUI_50`
 
 ### Requirement: Tuning profiles are read into impedance targets
+`read_project` SHALL also return the tuning profiles of the project in `ProjectInfo.profiles`, and `apply_project` SHALL set `RuleSet.impedance` from them (an addition to "Project files are read into the model").
+
+#### Scenario: Detailed contract for tuning profiles are read into impedance targets
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 `read_project` SHALL also return the tuning profiles of the project in `ProjectInfo.profiles`, and `apply_project` SHALL set `RuleSet.impedance` from them (an addition to "Project files are read into the model").
 - Each profile named by the class key of at least one class MUST become one `ImpedanceTarget` of those classes, in `classes` order, with an id derived from the profile name: `kind` from `type` (`0` single, `1` differential); `ohms` the exact decimal text of `target_impedance`, `""` for 0; `tolerance_percent` `""`; one `TraceGeometry` per entry, with the non-empty references in stack order, `width` and, for a differential profile, `gap`.
 - An entry that is not an object, lacks a key of the written form, has a width or gap that is not a whole number of nanometres, or names a layer that is not a copper layer of the board MUST be skipped with the info `kicad.project.unread-entry`; a profile left without an entry gives no target.

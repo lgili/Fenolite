@@ -115,6 +115,11 @@ gives `ALTIUM-VERIFIED(kit)` per operation.
 
 ## Open questions
 
+Continuation — 2026-11-01: the maintainer reports that Altium Designer is unavailable. Phase A saves
+and a report have not been received. Decision 1 still applies: no edit session or index-maintenance
+implementation precedes those observations. The reproducible phase A kit and its intake/comparison
+tools can be prepared now; they make no native-acceptance or integrity-rule claim.
+
 1. Should phase B fault probes include a body with a model, which needs a model file authored for Fenolite?
    The recommendation is yes, with the smallest valid model, in task 4.1.
 2. Should a session refuse a document saved by an Altium version older than the kit's? The recommendation

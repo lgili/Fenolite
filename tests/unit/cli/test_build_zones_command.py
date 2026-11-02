@@ -36,8 +36,7 @@ FILLS = (
 REMOVE_R1 = (
     ('r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330")\n', ""),
     ("design.add(u1, r1, d1)", "design.add(u1, d1)"),
-    ("connect(led_drv, u1[1], r1[1])", "connect(led_drv, u1[1])"),
-    ("connect(led_a, r1[2], d1[2])", "connect(led_a, d1[2])"),
+    ("series(led_drv, r1, led_a, (d1.b, d1.a), gnd)", "series(led_a, (d1.b, d1.a), gnd)"),
     ("r1.place(mm(32), mm(9))\n", ""),
 )
 

@@ -4,13 +4,15 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 from _coppercheck import Copper
 
 from fenolite.backends.base import EdgeRing, PadCopper
 from fenolite.checks.copper import check_copper
 from fenolite.core.coords import Point
-from fenolite.model.board import Keepout
+from fenolite.model.board import Graphic, Keepout
 
 RADIUS = 1_000_000
 WIDTH = 100_000
@@ -110,3 +112,38 @@ def test_arc_touching_rule_area_is_not_lost_to_narrow_band() -> None:
     made.keepouts.append(area)
     (found,) = check_copper(made.build(), pads=made.pads).findings
     assert found.code == "copper.keepout"
+
+
+@pytest.mark.parametrize(
+    ("outer_radius", "x_delta", "expected"),
+    [(1_300_000, 0, False), (1_299_500, 0, False), (1_299_500, -1, True)],
+)
+def test_copper_graphic_arc_keeps_the_exact_off_axis_boundary(
+    outer_radius: int, x_delta: int, expected: bool
+) -> None:
+    """The authored 3:4 radial point lies between polygon samples, at and below the 500 nm boundary."""
+    made = Copper()
+    made.netclass("Default", CLEARANCE)
+    made.arc("A", Point(-RADIUS, 0), Point(0, RADIUS), Point(RADIUS, 0), width=WIDTH)
+    made.via("B", Point(outer_radius * 3 // 5 + x_delta, outer_radius * 4 // 5), diameter=WIDTH)
+    routed = made.build()
+    assert routed.board is not None
+    (arc,) = routed.board.arcs
+    graphic = Graphic(
+        id="grf_authored_exact_arc",
+        kind="arc",
+        layer=arc.layer,
+        points=(arc.start, arc.mid, arc.end),
+        width=arc.width,
+        net_id=arc.net_id,
+    )
+    drawn = replace(routed, board=replace(routed.board, arcs=(), graphics=(graphic,)))
+    for arc_tol in (1, 1_000, 50_000):
+        original = check_copper(routed, pads=(), tolerance=500, arc_tol=arc_tol)
+        result = check_copper(drawn, pads=(), tolerance=500, arc_tol=arc_tol)
+        assert bool(original.findings) is expected
+        assert bool(result.findings) is expected
+        if expected:
+            assert result.findings[0].gap == original.findings[0].gap
+            assert result.findings[0].clearance == CLEARANCE
+            assert result.findings[0].source == "class:Default"

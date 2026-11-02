@@ -85,7 +85,8 @@ def placed_model(
     footprints: list[FootprintInstance] = []
     for component in model.circuit.components:
         path = component_path(component)
-        definition, placed = definitions.get(component.lib_footprint_ref), placements.get(path)
+        lib_ref = component.footprint_definition_ref or component.lib_footprint_ref
+        definition, placed = definitions.get(lib_ref), placements.get(path)
         if definition is None or placed is None:
             continue
         fp = place_footprint(

@@ -2,6 +2,12 @@
 
 ### Requirement: Evaluation tasks
 `tools/agent_eval/tasks/` SHALL hold tasks that state a board as a requirement and say what a correct result holds, authored for Fenolite.
+
+#### Scenario: Detailed contract for evaluation tasks
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`tools/agent_eval/tasks/` SHALL hold tasks that state a board as a requirement and say what a correct result holds, authored for Fenolite.
 - A task MUST be a folder `<name>/` with `task.toml`, an optional `files/` and a `solution/` that holds `commands.txt` (one `fenolite` line each) and an optional `files/`. `tools/agent_eval/tasks.py::load(name) -> Task` MUST read it and `names()` MUST list the tasks sorted.
 - `task.toml` MUST hold `title`, `prompt`, `[budget] minutes` (1 to 60) and `[expect]` with `project` (a folder relative to the work folder), `copper_layers`, `max_size` (two lengths with units), `outputs` (file patterns relative to the work folder, `**` for any depth) and `[expect.nets]`, a table from a label to a list of `REF-PIN`; it MAY hold `prepare`, a list of `fenolite` command lines. `REF-PIN` is a part's reference and a pin number of its symbol, as the nets of the design model name it, not a pad number; a pin that takes several pads of the footprint is listed once. A missing key, an unknown key, a length without a unit and a `REF-PIN` listed in two nets MUST raise `ValueError` naming the task and the key.
 - A prompt MUST be at most 300 words, MUST name every reference of `expect.nets` and the folders of `expect.project` and `expect.outputs`, and MUST NOT hold the word `fenolite`, a command line or the name of a guide page.
@@ -23,6 +29,12 @@
 - **THEN** each line exits 0, the folder holds a board, `fenolite check --stages model.validate,copper.clearance` on it exits 5 with `copper.short`, and `git ls-files` lists no `.kicad_pcb` under `tools/agent_eval/tasks`
 
 ### Requirement: Judge
+`tools/agent_eval/judge.py::judge(workdir, task, fenolite) -> Verdict` SHALL decide a run from the files in the work folder, with Fenolite's own commands and model, and SHALL be deterministic.
+
+#### Scenario: Detailed contract for judge
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 `tools/agent_eval/judge.py::judge(workdir, task, fenolite) -> Verdict` SHALL decide a run from the files in the work folder, with Fenolite's own commands and model, and SHALL be deterministic.
 - It MUST run every check and return `Verdict(status, checks, evidence_level)`, `checks` being `Check(name, passed, detail)` in this order:
   - `project`: `expect.project` exists and holds exactly one `.kicad_pcb` and a `.fenolite/` folder;
@@ -66,6 +78,12 @@
 
 ### Requirement: Call log
 `tools/agent_eval/shim.py` SHALL record every `fenolite` call of a run without changing what the caller sees.
+
+#### Scenario: Detailed contract for call log
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`tools/agent_eval/shim.py` SHALL record every `fenolite` call of a run without changing what the caller sees.
 - Installed as an executable named `fenolite`, it MUST start the program named by `FENOLITE_EVAL_REAL` with the same arguments, standard input, standard output and standard error, and MUST exit with its exit code.
 - It MUST append one line of JSON to the file named by `FENOLITE_EVAL_LOG` with exactly `n` (the call's number, from 1), `argv`, `exit`, `elapsed_ms` and `error_code`: the `code` of the JSON object on the last line of standard error when the exit code is not 0 and that line is such an object, else `null`.
 - The bytes that the caller receives on standard output and standard error MUST equal those of the real program.
@@ -78,6 +96,12 @@
 - **THEN** the first call's standard output equals the real command's apart from `elapsed_ms`, and the log holds two lines: `exit` 0 with `error_code` `null`, and `exit` 3 with `error_code` `FEN-3004`
 
 ### Requirement: Runner
+`tools/agent_eval/run.py --task NAME --runner NAME [--repeat N] [--keep] [--record] [--yes]` SHALL run one task with one runner in a clean place and SHALL write the result.
+
+#### Scenario: Detailed contract for runner
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 `tools/agent_eval/run.py --task NAME --runner NAME [--repeat N] [--keep] [--record] [--yes]` SHALL run one task with one runner in a clean place and SHALL write the result.
 - **Place.** It MUST build the wheel of the checkout, install it with no extra in a new virtual environment under a new temporary folder outside the repository, and create there an empty work folder into which it copies the task's `files/`. It MUST then run the task's `prepare` lines there, in order, with the installed `fenolite` and not through the call log, and MUST stop with exit 1 before any agent starts when one of them fails. The solution folder MUST NOT be copied.
 - **Skill.** It MUST install the guide as the runner's row says: `agent:<name>` runs `fenolite skill install --agent <name> --confirm` in the work folder; `agents-md` runs `fenolite skill install --agents-md --confirm`; `none` installs nothing.
@@ -125,6 +149,12 @@
 - **THEN** `calls` is 5, `calls_by_exit` maps 0 to 4 and 3 to 1, and `first_failure` names call 3 and `FEN-3004`
 
 ### Requirement: Evaluation record
+`docs/evidence/agent-eval.md` SHALL hold the dated results of runs with real agents, and SHALL claim no more than they show.
+
+#### Scenario: Detailed contract for evaluation record
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 `docs/evidence/agent-eval.md` SHALL hold the dated results of runs with real agents, and SHALL claim no more than they show.
 - The page MUST have the sections `How to read this page`, `Runs`, `Findings` and `Not measured`, in this order.
 - `Runs` MUST be a table with the columns `date`, `commit`, `runner`, `model`, `task`, `verdict`, `calls`, `failed calls`, `minutes` and `first failure`. `run.py --record` MUST append one row per run and change nothing else. A row from a runner without isolation MUST carry the mark `not isolated` in its `runner` cell.

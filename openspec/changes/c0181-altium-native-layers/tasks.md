@@ -36,3 +36,8 @@
 - [x] 3.2 Docs (`docs/viewer.md`, `pcb-records.md` rows), `LEGAL-ANNEX.md` row and the fast gate. Proof: `make check-fast`.
   - 2026-10-25: proof passed (13 898 passed, 34 skipped).
 - [ ] 3.3 The maintainer compares a board of their own with Altium: the layer tabs and the mask openings. Proof: the record under this task.
+
+## Continuation review — 2026-11-01
+
+Altium Designer is unavailable per the maintainer; no personal layer-tab/mask comparison was supplied. Task 3.3 remains open.
+See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.

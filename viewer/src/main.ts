@@ -66,6 +66,7 @@ import "./sch/load";
 import "./library/library";
 import "./inspect/model";
 import "./panels/inspector";
+import "./panels/conflicts";
 import "./panels/layers";
 import "./panels/view3d-panel";
 import "./three/view-cube";

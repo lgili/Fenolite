@@ -214,6 +214,23 @@ Never cut: facts before writer code, the stop rules, the gate, the read-back, th
 
 ## Open questions
 
+### Continuation decided 2026-11-01
+
+The maintainer has no Altium Designer available now. No native save or application result is inferred
+from that statement. Work independent of F0 continues: a candidate writer uses only the already
+registered public fact rows, with format version 22 from those samples and data-contract defaults.
+It is exercised through own read-back and test-only gate overrides. `NATIVE_WRITE` remains false;
+G1, FP and F8 remain undecided until actual files and reports arrive. The build reports every deferred
+member instead of inventing a serialization: board snapshots, PCB/source bindings, table data-source
+filters, dimensions and a native generic board table. The candidate renders the board rows as Texts.
+This is preparation for the existing acceptance rounds, not a decision that any round passed or failed.
+
+The existing layering guard has no general lens-to-exports edge, although the original design calls for
+the lens to compose c0117's pure helpers. A narrow exception admits only `drawing_spec`, `drawing_layout`
+and `drawing_tables` from `lens.altium_draftsman`, plus the specification value/default from `lens.altium`.
+The general row stays unchanged; backends still import no exports and plotting/export runners remain
+forbidden. The guard and a no-subprocess packing proof cover this minimum bridge.
+
 1. **Views as shells filled by Import Changes, or Fenolite writing the board copy?** Recommended: shells (Decision 4). The copy is most of a document's bytes and would need its own measurement and kit. FP4 decides. **Decided 2026-10-16 (maintainer): shells, no board copy.**
 2. **Default of `--altium-draftsman`?** Recommended: `off` in 0.5.0, so builds keep their bytes and the document stays opt-in while experimental. Turn it on by default after a second kit run on another board. **Decided 2026-10-16 (maintainer): `off`.**
 3. **Gate as a constant rather than a build option?** Recommended: a constant flipped once by the kit, as c0168 decided for cut-out regions. An option would let a user write an unconfirmed form. **Decided 2026-10-16 (maintainer): a constant flipped by his kit run.**

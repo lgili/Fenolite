@@ -132,10 +132,10 @@ def test_capabilities_list_the_paged_commands(monkeypatch: pytest.MonkeyPatch, t
         "silk": ("placements", None),  # c0212
         "testpoints": ("test_points", None),  # c0118
         "tidy": ("edits", None),  # c0208
-        "library": ("drift|footprints|symbols|packages", None),  # c0223, c0261, c0260
+        "library": ("drift|footprints|symbols|packages|items|sources|proposals", None),  # c0265/c0266
         "roles": ("roles", None),  # c0222
         "import": ("files|unexpressed", None),  # c0275
-        "pick": ("candidates|picks", 20),  # c0254
+        "pick": ("candidates|picks|proposals", 20),  # c0254/c0267
         "family": ("candidates|decoded|families", 20),  # c0263
         "blocks": ("blocks|uses", None),  # c0268
         "get": ("rows", None),  # c0279

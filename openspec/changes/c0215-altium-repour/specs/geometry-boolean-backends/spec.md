@@ -8,6 +8,12 @@
 
 ### Requirement: Clipper backend
 `fenolite.geometry.boolean.clipper.ClipperBackend` SHALL satisfy `BooleanBackend` with `name == "clipper"` and `operations == frozenset({"union", "intersection", "difference", "xor", "offset"})`, load `pyclipper` only through `load_extra`, and compute every operation on integer rings with the non-zero rule. Every result MUST be in normal form with integer vertices; the union MUST keep every input vertex that lies on its boundary.
+
+#### Scenario: Detailed contract for clipper backend
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`fenolite.geometry.boolean.clipper.ClipperBackend` SHALL satisfy `BooleanBackend` with `name == "clipper"` and `operations == frozenset({"union", "intersection", "difference", "xor", "offset"})`, load `pyclipper` only through `load_extra`, and compute every operation on integer rings with the non-zero rule. Every result MUST be in normal form with integer vertices; the union MUST keep every input vertex that lies on its boundary.
 - `offset(polys, delta, *, join, tol, miter_limit)` MUST grow (shrink, for a negative `delta`) every ring with Clipper's offset of closed polygons; with round joins the vertices of each arc lie on the arc and its chords at most `tol` inside it.
 - `stroke(paths, delta, *, tol)` MUST give the points within `delta` of the open polylines `paths` with round ends and joins, a path of one point being a disc, under the same `tol`; a `delta` below 1 or a `tol` below 1 MUST raise `ValueError`.
 - A coordinate that, grown by the offset, would leave the domain MUST raise `GeometryError` with code `geometry.out-of-range` before Clipper is called.

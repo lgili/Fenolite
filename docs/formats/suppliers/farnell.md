@@ -9,9 +9,11 @@ The partner REST description documents `GET https://api.element14.com/catalog/pr
 `resultsSettings.offset`, `resultsSettings.numberOfResults` and `resultsSettings.responseGroup=medium`
 (S-1108). The adapter's store choice is `uk.farnell.com`. Mapped keys are `keywordSearchReturn.products`,
 `translatedManufacturerPartNumber`, `brandName`, `datasheets[].url`, `attributes`, `stock`, `prices`
-and `productStatus`. Attributes and offers remain display-only.
+and `productStatus`. Attributes and offers remain display-only. Present datasheet/attribute/price arrays must contain objects;
+a malformed container is not treated as an absent optional field. The selected response is limited
+locally even if a source returns too many rows (S-1108).
 
-Partner terms section 4(A) prohibits recording/storing API content; section 5 requires source attribution
+Primary partner terms were reread on 2026-11-01. Section 4(A) prohibits recording/storing API content; section 5 requires source attribution
 and preserved links (S-1109). This review establishes no exception permitting durable identity proposals.
 No regional terms are substituted for those partner terms. Therefore production lookup is unavailable,
 cache is disabled, and persistence is empty. The one request/minute rate is a conservative client choice,

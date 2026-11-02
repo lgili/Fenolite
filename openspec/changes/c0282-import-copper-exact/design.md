@@ -55,6 +55,15 @@ from ideal geometry: add oracle rows and leave 9/10 CI proof open until actually
 Exact radical calculations cost more per candidate than segment tests; preserve indexed
 line/ring candidate queries and avoid polygonising arc cores during checking.
 
+### Integration with copper graphics (2026-11-01)
+
+c0277 adds copper graphics. Its arc graphics must use the same exact circular core as routed arcs;
+polygonising the graphic can miss a violation just below the tolerance at a point between samples.
+An authored 3:4 radial bench compares the two item forms at equality, the 500 nm boundary and below it,
+over three polygonisation settings. Keep one chamfer mirror, preserving source atom order and opaque
+namesakes outside pads; applying both branches' mirrors would undo the transformation. These are
+integration proofs, with no additional oracle or evidence promotion.
+
 ## Local measurements — 2026-11-01
 
 The available local oracle is `kicad-cli` 9.0.2 (S-1010). The focused tolerance and

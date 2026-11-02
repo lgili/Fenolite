@@ -100,8 +100,12 @@ than a short signature holds: call `run("analyze", ...)`.
 
 | Name | Returns | Page |
 | --- | --- | --- |
-| `equivalent(a, b, *, level=None, tolerances=None, frame=None, ignore_refs=(), profile=None, against=None, kicad_cli=None, timeout=300.0)` | `EquivalenceResult` (`report`, `a`, `b` as `Side`, `profile`, `issues`, `evidence`, `to_json()`) | `docs/equivalence.md`, "The public API and the reply" |
+| `equivalent(a, b, *, level=None, tolerances=None, frame=None, ignore_refs=(), profile=None, against=None, kicad_cli=None, timeout=300.0, strict=False, presentation=None)` | `EquivalenceResult` (`report`, `a`, `b` as `Side`, `profile`, `issues`, `evidence`, `to_json()`) | `docs/equivalence.md`, "The public API and the reply" |
 | `convert(source, *, to, kicad_version=10, allow_lossy=False, bodies="extruded", name=None, verify=True)` | `ConversionResult` (`conversion`, `equivalence`, `explained`, ...) | `docs/conversion.md` |
+
+Explicit `equivalent(..., level="S")` compares actual drawn schematics and resolved connectivity, with
+one schematic level in the existing result shape. Integer/default requests retain their exact result
+bytes. See `docs/equivalence.md` for input and option constraints.
 
 ## Trial edits
 

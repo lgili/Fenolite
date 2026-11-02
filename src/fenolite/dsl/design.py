@@ -4,9 +4,11 @@
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, cast, get_args
 
 from fenolite.core.coords import Point
@@ -26,13 +28,20 @@ from fenolite.dsl.select import pair as select_pair
 from fenolite.dsl.shape import RingSpec, closed_ring, slot_size
 from fenolite.dsl.stack import DIELECTRICS, StackEntry
 from fenolite.dsl.units import Length, as_nm, as_nm2, as_udeg
-from fenolite.model.board import IslandRemoval, ViaProtection, ZoneConnection, ZoneSettings
+from fenolite.model.board import IslandRemoval, ViaProtection, ZoneConnection, ZoneSettings, ZoneSmoothing
 from fenolite.model.design import presentation_issues
 from fenolite.model.findings import Waiver
 from fenolite.model.library import DeviceDef
 from fenolite.model.pairs import PAIR_ROLES
 from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, TitleBlock
-from fenolite.model.rules import HeightLimit, PlacementSeverity, RuleKind, RuleSeverity, Selector
+from fenolite.model.rules import (
+    HeightLimit,
+    PlacementSeverity,
+    RuleKind,
+    RuleSeverity,
+    Selector,
+    TeardropRule,
+)
 
 if TYPE_CHECKING:
     from fenolite.dsl.block import BlockDef, BlockInstance
@@ -52,14 +61,19 @@ PAPERS: tuple[str, ...] = get_args(PaperSize)
 """The paper names of ``sheet()``; ``custom`` takes ``width`` and ``height``."""
 SHEET_SUFFIXES: tuple[str, ...] = (".kicad_wks", ".sheet.toml")
 """What a drawing sheet named by ``sheet()`` ends in."""
-COPPER_COUNTS: tuple[int, ...] = (2, 4, 6, 8)
-"""The copper layer counts of ``board()`` (change c0100). The KiCad backend holds the same counts in
-``layers.CREATED_COPPER_COUNTS``; the DSL imports only the model, so a unit test keeps the two equal."""
+COPPER_COUNTS: tuple[int, ...] = tuple(range(2, 33, 2))
+"""The copper layer counts of ``board()``: every even count from 2 to 32 (change c0100; 10 to 32 since
+change c0277). The KiCad backend holds the same counts in ``layers.CREATED_COPPER_COUNTS``; the DSL imports
+only the model, so a unit test keeps the two equal. One copper layer is not a count: KiCad 9.0.9 and
+10.0.6 refuse a table without ``B.Cu`` (``H-K-PCB-ONE-COPPER``)."""
+SINGLE_SIDED_HINT = "a single-sided board is copper=2 with nothing on B.Cu"
+"""What ``board(copper=1)`` says (change c0277)."""
+USER_LAYERS = 45
+"""The user layers a design may declare, ``User.1`` to ``User.45`` (``user_layers``; change c0277)."""
 
 
 def _counts_text() -> str:
-    counts = [str(count) for count in COPPER_COUNTS]
-    return f"{', '.join(counts[:-1])} or {counts[-1]}"
+    return f"an even count from {COPPER_COUNTS[0]} to {COPPER_COUNTS[-1]}"
 
 
 def inner_layers(copper: int) -> tuple[str, ...]:
@@ -94,10 +108,13 @@ class ZoneSpec:
     priority: int
     settings: ZoneSettings
     locked: bool
+    arcs: tuple[tuple[int, tuple[Nm, Nm]], ...] = ()
+    """Each edge of ``outline`` that is an arc, with its mid point, board-relative (change c0277)."""
 
 
 ZONE_CONNECTIONS: tuple[str, ...] = get_args(ZoneConnection)
 ZONE_ISLANDS: tuple[str, ...] = get_args(IslandRemoval)
+ZONE_SMOOTHINGS: tuple[str, ...] = tuple(s for s in get_args(ZoneSmoothing) if s != "none")
 
 
 MINIMUM_KINDS: tuple[RuleKind, ...] = (
@@ -143,6 +160,7 @@ WAIVED_CIRCUIT: tuple[str, ...] = (
     "circuit.logic-unknown",
     "circuit.operating-range",
     "circuit.port-split",
+    "circuit.pullup-parallel",
     "circuit.rail-current",
     "circuit.rail-sources",
     "circuit.rail-unset",
@@ -680,6 +698,10 @@ class Design(Container):
         """The milled slots of ``slot()`` by name, in call order."""
         self.outline_locked = False
         """``board(locked=True)``: the script's outline replaces one edited in KiCad on a rebuild."""
+        self.outline_width: Nm | None = None
+        """Optional uniform stroke of generated root edges; footprint edges keep their own widths."""
+        self.technical_layer_names: tuple[str, ...] | None = None
+        """Explicit standard non-copper rows of board(); None retains the full default table."""
         self.parts: dict[str, Part] = {}
         self.device_records: dict[str, DeviceDef] = {}
         """The devices of ``devices()`` by id: they win over project and shipped devices (change c0248)."""
@@ -740,6 +762,16 @@ class Design(Container):
         self.drawings: dict[str, itemlib.Drawing] = {}
         """Board drawings by key, as declared by ``text()``, ``line()``, ``rect()``, ``circle()``, ``arc()``,
         ``polygon()`` and ``dimension()``, in call order."""
+        self.groups: dict[str, itemlib.GroupSpec] = {}
+        """The groups of ``group()`` by key, in call order (change c0277)."""
+        self.verbatim_items: dict[str, tuple[str, str]] = {}
+        self.teardrop_rules: list[TeardropRule] = []
+        self.images: dict[str, itemlib.ImageSpec] = {}
+        """The text and target of each ``verbatim()`` call by key, in call order (change c0277)."""
+        self.user_layer_count = 0
+        """The user layers ``user_layers()`` declares, ``User.1`` … ``User.<count>`` (change c0277)."""
+        self.user_layer_aliases: dict[str, str] = {}
+        """The user name of each user layer that has one (``user_layers(names=…)``)."""
         self.near_rules: dict[str, NearSpec] = {}
         """Proximity rules by key, as declared by ``near()``."""
         self.height_limits: dict[str, HeightLimit] = {}
@@ -1056,22 +1088,45 @@ class Design(Container):
         *,
         outline: object = None,
         locked: bool = False,
+        outline_width: object = None,
+        technical_layers: Sequence[str] | None = None,
     ) -> BoardRef:
         """The board: a rectangle of ``width`` × ``height``, or the closed path ``outline`` (pairs of
         lengths and ``arc_to`` steps in the frame of ``place()``; ``fenolite.dsl.shape`` gives ``rect``,
-        ``circle`` and ``slot``), with 2, 4, 6 or 8 copper layers. Exactly one form is given. An inner
-        layer is a signal layer unless ``planes`` names it: ``planes={"In1.Cu": gnd}`` makes that layer an
-        internal plane on that net (a ``Net`` or a net name). A plane holds one net; it is a build
+        ``circle`` and ``slot``), with an even count of 2 to 32 copper layers. Exactly one form is given.
+        An inner layer is a signal layer unless ``planes`` names it: ``planes={"In1.Cu": gnd}`` makes that
+        layer an internal plane on that net (a ``Net`` or a net name). A plane holds one net; it is a build
         parameter, as ``copper`` is, and what a target does with it is its build's rule (``docs/dsl.md``).
         ``locked=True`` makes the script's outline replace an outline edited in KiCad when the board is
         rebuilt (``docs/lens.md``, "Outline changes"). It returns the board as a placement reference
-        (``BoardRef``, change c0255): ``j1.place(left=board.left + mm(2), ...)``."""
+        (``BoardRef``, change c0255): ``j1.place(left=board.left + mm(2), ...)``. ``outline_width`` is an
+        optional nonnegative length for generated root edge strokes; footprint edges keep theirs.
+        ``technical_layers`` selects standard non-copper rows, including ``Edge.Cuts``; ``None`` keeps
+        the full default table. Declared ``User.n`` layers remain independent."""
         if self.outline_path is not None:
             raise DslError("board() is called once")
         if isinstance(copper, bool) or not isinstance(copper, int) or copper not in COPPER_COUNTS:  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise DslError(f"copper must be {_counts_text()}, not {copper!r}")
+            extra = f"; {SINGLE_SIDED_HINT}" if copper == 1 and not isinstance(copper, bool) else ""
+            raise DslError(f"copper must be {_counts_text()}, not {copper!r}{extra}")
         if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"board(): locked must be a bool, not {locked!r}")
+        stroke = None if outline_width is None else as_nm(outline_width, name="outline_width")
+        if stroke is not None and stroke < 0:
+            raise DslError("board(): outline_width must be nonnegative")
+        technical: tuple[str, ...] | None = None
+        if technical_layers is not None:
+            if isinstance(technical_layers, (str, bytes)) or not isinstance(technical_layers, Sequence):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError("board(): technical_layers must be a sequence of standard layer names")
+            seen: set[str] = set()
+            for name in technical_layers:
+                if not isinstance(name, str) or name not in itemlib.BOARD_LAYER_KINDS:  # pyright: ignore[reportUnnecessaryIsInstance]
+                    raise DslError(f"board(): technical_layers has unknown standard layer {name!r}")
+                if name in seen:
+                    raise DslError(f"board(): technical_layers repeats {name!r}")
+                seen.add(name)
+            if "Edge.Cuts" not in seen:
+                raise DslError("board(): technical_layers must include Edge.Cuts for the board outline")
+            technical = tuple(name for name in itemlib.BOARD_LAYER_KINDS if name in seen)
         size: tuple[Nm, Nm] | None = None
         if outline is not None:
             if width is not None or height is not None:
@@ -1097,6 +1152,8 @@ class Design(Container):
         self.size = size
         self.outline_path = ring
         self.outline_locked = locked
+        self.outline_width = stroke
+        self.technical_layer_names = technical
         self.copper = copper
         self.planes = declared
         return self.board_ref
@@ -1569,7 +1626,7 @@ class Design(Container):
         for layer, net in planes.items():  # pyright: ignore[reportUnknownVariableType]
             if not inner:
                 raise DslError(
-                    f"planes need copper={_counts_text().removeprefix('2, ')}: "
+                    f"planes need copper of 4 to {COPPER_COUNTS[-1]}: "
                     f"a board of {copper} copper layers has no inner layer"
                 )
             if layer not in inner:
@@ -1599,6 +1656,8 @@ class Design(Container):
         min_island_area: str | None = None,
         locked: bool = False,
         key: str | None = None,
+        smoothing: str | None = None,
+        smoothing_radius: object = None,
     ) -> None:
         """One copper zone (pour) on ``layers`` for ``net`` (``None`` for a zone without a net).
 
@@ -1607,7 +1666,8 @@ class Design(Container):
         setting left at ``None`` takes KiCad's new-zone value (``docs/dsl.md``, "Zones"). ``locked=True``
         makes the script win over an edit of the zone in KiCad, and locks the zone there. ``key`` (change
         c0275) is the zone's identity across builds, written nowhere in the board; with a key and no name
-        the zone has no name.
+        the zone has no name. ``smoothing`` (``chamfer`` or ``fillet``) rounds or cuts the corners of the
+        fill by ``smoothing_radius`` (change c0277).
         """
         if self.outline_path is None:
             raise DslError("zone(): call board() first")
@@ -1631,7 +1691,7 @@ class Design(Container):
         name = name if name is not None else ""
         what = f"zone {identity}"
         found_layers = self._zone_layers(layers, what)
-        points = self._zone_outline(outline, what)
+        points, arcs = self._zone_outline(outline, what)
         if isinstance(priority, bool) or not isinstance(priority, int) or priority < 0:  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"{what}: priority must be an int of at least 0, not {priority!r}")
         if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -1666,6 +1726,17 @@ class Design(Container):
             if islands != "below_area":
                 raise DslError(f'{what}: min_island_area is accepted only with islands="below_area"')
             changes["min_island_area"] = as_nm2(min_island_area, name=f"{what}: min_island_area")
+        if smoothing is not None:
+            if smoothing not in ZONE_SMOOTHINGS:
+                raise DslError(f"{what}: smoothing must be None, 'chamfer' or 'fillet', not {smoothing!r}")
+            changes["smoothing"] = smoothing
+        if smoothing_radius is not None:
+            if smoothing is None:
+                raise DslError(f"{what}: smoothing_radius is accepted only with a smoothing")
+            radius = as_nm(smoothing_radius, name=f"{what}: smoothing_radius")
+            if radius < 0:
+                raise DslError(f"{what}: smoothing_radius must be at least 0")
+            changes["smoothing_radius"] = radius
         if net is not None:
             self.register_net(net)
         self.zones[identity] = ZoneSpec(
@@ -1676,6 +1747,7 @@ class Design(Container):
             priority,
             ZoneSettings(**changes),  # type: ignore[arg-type]
             locked,
+            arcs,
         )
 
     def _zone_layers(self, layers: object, what: str) -> tuple[str, ...]:
@@ -1696,9 +1768,32 @@ class Design(Container):
         return tuple(found)
 
     @staticmethod
-    def _zone_outline(outline: object, what: str) -> tuple[tuple[Nm, Nm], ...] | None:
+    def _zone_outline(
+        outline: object, what: str
+    ) -> tuple[tuple[tuple[Nm, Nm], ...] | None, tuple[tuple[int, tuple[Nm, Nm]], ...]]:
+        """The board-relative points of ``outline`` and, for a path with ``arc_to`` steps (change c0277), each
+        arc edge with its mid point."""
         if outline is None:
-            return None
+            return None, ()
+        steps: Sequence[object] = (
+            cast("Sequence[object]", outline)
+            if isinstance(outline, Sequence) and not isinstance(outline, str)
+            else ()
+        )
+        if steps:
+            from fenolite.dsl.convert import BOARD_ORIGIN
+            from fenolite.dsl.intents import ArcStep
+            from fenolite.dsl.shape import closed_ring
+
+            if any(isinstance(step, ArcStep) for step in steps):
+                ring = closed_ring(steps, f"{what}: outline")
+                ox, oy = BOARD_ORIGIN.x, BOARD_ORIGIN.y
+                points = tuple((p.x - ox, p.y - oy) for p in ring.points)
+                return points, tuple((edge, (mid.x - ox, mid.y - oy)) for edge, mid in ring.arcs)
+        return Design._zone_points(cast(object, outline), what), ()
+
+    @staticmethod
+    def _zone_points(outline: object, what: str) -> tuple[tuple[Nm, Nm], ...]:
         if isinstance(outline, str) or not isinstance(outline, Sequence):
             raise DslError(f"{what}: outline must hold at least three (x, y) points")
         pairs = cast("Sequence[object]", outline)
@@ -1729,6 +1824,7 @@ class Design(Container):
         layers: Sequence[str] | None = None,
         forbid: Sequence[str] = (),
         key: str | None = None,
+        placement: str | None = None,
     ) -> itemlib.RuleArea:
         """One rule area named ``name``: a polygon of at least three ``(x, y)`` points in the frame of
         ``place()``, on ``layers`` (every copper layer of the board when ``None``).
@@ -1738,7 +1834,8 @@ class Design(Container):
         With an empty ``forbid`` it is a named area that only rules select (``select.area``). This is the
         one call for rule areas and keep-outs. Names differ in more than letter case. ``key`` (change
         c0275) is the area's identity across builds, written nowhere in the board; with a key the name may
-        be ``""``, an area that no ``select.area`` matches.
+        be ``""``, an area that no ``select.area`` matches. ``placement`` (change c0277) makes it a placement
+        rule area of KiCad's multichannel tool for the sheet it names, as KiCad names it (``"/CH1/"``).
         """
         if self.outline_path is None:
             raise DslError("rule_area(): call board() first")
@@ -1746,6 +1843,12 @@ class Design(Container):
             name, outline, layers, forbid, copper=self.copper_layers, key=key, keys=tuple(self.rule_areas),
             taken=tuple(a.name for a in self.rule_areas.values() if a.name),
         )  # fmt: skip
+        if placement is not None:
+            if not isinstance(placement, str) or not placement or not placement.isprintable():  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(
+                    f"rule_area(): placement must be a sheet name such as '/CH1/', not {placement!r}"
+                )
+            area = dataclasses.replace(area, placement=placement)
         self.rule_areas[area.key] = area
         return area
 
@@ -1765,18 +1868,45 @@ class Design(Container):
         thickness: object = None,
         rot: object = 0,
         justify: str | None = None,
+        knockout: bool = False,
+        bold: bool = False,
+        italic: bool = False,
+        face: str | None = None,
     ) -> None:
-        """One line of board text at ``at``, 1 mm high with a 0.15 mm stroke unless ``size`` and
-        ``thickness`` say otherwise; ``justify`` is ``left`` or ``right``, then ``top`` or ``bottom``."""
-        found = itemlib.text(self._drawing("text", key), text, at, layer, size, thickness, rot, justify)
+        """Board text at ``at``, 1 mm high with a 0.15 mm stroke unless ``size`` and ``thickness`` say
+        otherwise; ``size`` is a length or a ``(width, height)`` pair, and ``\\n`` starts a new line.
+        ``justify`` is ``left`` or ``right``, then ``top`` or ``bottom``. ``layer`` may be a copper layer of
+        the board, ``knockout=True`` (a copper or silkscreen layer) cuts the text out of a filled box, and
+        ``bold``, ``italic`` and ``face`` (a font name) style it (change c0277)."""
+        found = itemlib.text(
+            self._drawing("text", key), text, at, layer, size, thickness, rot, justify,
+            copper=self.copper_layers, user=self.user_layer_names, knockout=knockout, bold=bold,
+            italic=italic, face=face,
+        )  # fmt: skip
         self.drawings[found.key] = found
 
     def line(
-        self, key: str, start: tuple[object, object], end: tuple[object, object], *, layer: str, width: object
+        self,
+        key: str,
+        start: tuple[object, object],
+        end: tuple[object, object],
+        *,
+        layer: str,
+        width: object,
+        net: Net | None = None,
     ) -> None:
-        """A line from ``start`` to ``end``."""
-        found = itemlib.line(self._drawing("line", key), start, end, layer, width)
-        self.drawings[found.key] = found
+        """A line from ``start`` to ``end``. A graphic may be on a copper layer of the board and take a
+        ``net`` there (change c0277)."""
+        found = itemlib.line(
+            self._drawing("line", key),
+            start,
+            end,
+            layer,
+            width,
+            user=self.user_layer_names,
+            copper=self.copper_layers,
+        )
+        self.drawings[found.key] = self._netted(found, net)
 
     def rect(
         self,
@@ -1787,10 +1917,20 @@ class Design(Container):
         layer: str,
         width: object,
         fill: bool = False,
+        net: Net | None = None,
     ) -> None:
         """A rectangle with the opposite corners ``start`` and ``end``."""
-        found = itemlib.rect(self._drawing("rect", key), start, end, layer, width, fill)
-        self.drawings[found.key] = found
+        found = itemlib.rect(
+            self._drawing("rect", key),
+            start,
+            end,
+            layer,
+            width,
+            fill,
+            user=self.user_layer_names,
+            copper=self.copper_layers,
+        )
+        self.drawings[found.key] = self._netted(found, net)
 
     def circle(
         self,
@@ -1801,10 +1941,20 @@ class Design(Container):
         layer: str,
         width: object,
         fill: bool = False,
+        net: Net | None = None,
     ) -> None:
         """A circle around ``center`` through ``edge``."""
-        found = itemlib.circle(self._drawing("circle", key), center, edge, layer, width, fill)
-        self.drawings[found.key] = found
+        found = itemlib.circle(
+            self._drawing("circle", key),
+            center,
+            edge,
+            layer,
+            width,
+            fill,
+            user=self.user_layer_names,
+            copper=self.copper_layers,
+        )
+        self.drawings[found.key] = self._netted(found, net)
 
     def arc(
         self,
@@ -1815,10 +1965,20 @@ class Design(Container):
         *,
         layer: str,
         width: object,
+        net: Net | None = None,
     ) -> None:
         """An arc from ``start`` through ``mid`` to ``end``."""
-        found = itemlib.arc(self._drawing("arc", key), start, mid, end, layer, width)
-        self.drawings[found.key] = found
+        found = itemlib.arc(
+            self._drawing("arc", key),
+            start,
+            mid,
+            end,
+            layer,
+            width,
+            user=self.user_layer_names,
+            copper=self.copper_layers,
+        )
+        self.drawings[found.key] = self._netted(found, net)
 
     def polygon(
         self,
@@ -1828,10 +1988,32 @@ class Design(Container):
         layer: str,
         width: object,
         fill: bool = False,
+        net: Net | None = None,
     ) -> None:
         """A closed polygon of at least three points."""
-        found = itemlib.polygon(self._drawing("polygon", key), points, layer, width, fill)
-        self.drawings[found.key] = found
+        found = itemlib.polygon(
+            self._drawing("polygon", key),
+            points,
+            layer,
+            width,
+            fill,
+            user=self.user_layer_names,
+            copper=self.copper_layers,
+        )
+        self.drawings[found.key] = self._netted(found, net)
+
+    def _netted(self, found: itemlib.GraphicSpec, net: Net | None) -> itemlib.GraphicSpec:
+        """``found`` with the name of ``net``: a net is for a graphic on a copper layer, and joins the design
+        (change c0277)."""
+        if net is None:
+            return found
+        what = f"{found.kind} {found.key}"
+        if not isinstance(net, Net):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: net must be a Net or None, not {net!r}")
+        if found.layer not in self.copper_layers:
+            raise DslError(f"{what}: a net is for a graphic on a copper layer, not on {found.layer}")
+        self.register_net(net)
+        return dataclasses.replace(found, net=net.name)
 
     def dimension(
         self,
@@ -1847,15 +2029,255 @@ class Design(Container):
         size: object = None,
         thickness: object = None,
         width: object = None,
+        extension_offset: object = None,
+        text_at: tuple[object, object] | None = None,
     ) -> None:
         """A linear dimension between ``start`` and ``end``, its line ``offset`` away from them: aligned
         with the two points, or, with ``direction``, ``horizontal`` or ``vertical``. KiCad computes the
-        text from the points (``docs/dsl.md``, "Board drawings")."""
+        text from the points (``docs/dsl.md``, "Board drawings"). ``size`` is a length or a ``(width,
+        height)`` pair; ``extension_offset`` is the gap between a measured point and its extension line
+        (change c0277; ``None``: 0.5 mm)."""
         found = itemlib.dimension(
             self._drawing("dimension", key), start, end, offset, layer, direction, units, precision, size,
-            thickness, width,
+            thickness, width, extension_offset, user=self.user_layer_names, text_at=text_at,
         )  # fmt: skip
         self.drawings[found.key] = found
+
+    def radial_dimension(
+        self,
+        key: str,
+        center: tuple[object, object],
+        edge: tuple[object, object],
+        *,
+        leader_length: object,
+        layer: str = "Dwgs.User",
+        units: str = "mm",
+        precision: int = 4,
+        size: object = None,
+        thickness: object = None,
+        width: object = None,
+    ) -> None:
+        """A radial dimension (change c0277): the radius from ``center`` to the point ``edge`` of the circle,
+        shown at the end of a leader ``leader_length`` long past ``edge``, prefixed ``R``."""
+        found = itemlib.special_dimension(
+            self._drawing("radial_dimension", key), "radial", center, edge, layer, units=units,
+            precision=precision, size=size, thickness=thickness, width=width, leader_length=leader_length,
+            user=self.user_layer_names,
+        )  # fmt: skip
+        self.drawings[found.key] = found
+
+    def leader(
+        self,
+        key: str,
+        start: tuple[object, object],
+        knee: tuple[object, object],
+        *,
+        text: str,
+        frame: str = "none",
+        layer: str = "Dwgs.User",
+        size: object = None,
+        thickness: object = None,
+        width: object = None,
+        text_at: tuple[object, object] | None = None,
+        units: str = "mm",
+        precision: int = 4,
+    ) -> None:
+        """A leader (change c0277): an arrow from ``start`` to ``knee`` and the note ``text``, framed by
+        ``frame`` (``none``, ``rect`` or ``circle``). The text stands at ``text_at``, else 2 mm past the
+        knee on the side the arrow points to."""
+        found = itemlib.special_dimension(
+            self._drawing("leader", key), "leader", start, knee, layer, units=units, precision=precision,
+            size=size, thickness=thickness, width=width, text=text, frame=frame, text_at=text_at,
+            user=self.user_layer_names,
+        )  # fmt: skip
+        self.drawings[found.key] = found
+
+    def center_mark(
+        self,
+        key: str,
+        center: tuple[object, object],
+        edge: tuple[object, object],
+        *,
+        layer: str = "Dwgs.User",
+        width: object = None,
+    ) -> None:
+        """A centre mark (change c0277): the cross of a circle's centre ``center``, its arms reaching the
+        point ``edge``."""
+        found = itemlib.special_dimension(
+            self._drawing("center_mark", key), "center", center, edge, layer, width=width,
+            user=self.user_layer_names,
+        )  # fmt: skip
+        self.drawings[found.key] = found
+
+    def image(
+        self,
+        key: str,
+        file: str,
+        at: tuple[object, object],
+        *,
+        layer: str = "F.SilkS",
+        scale: str = "1",
+    ) -> None:
+        """A picture on the board (change c0277): the PNG ``file``, a path relative to the script folder that
+        the build reads (a declared input of the build), at ``at`` on ``layer``, drawn ``scale`` times its
+        own size (a positive decimal string such as ``"0.5"``)."""
+        what = f"image {key!r}"
+        if self.outline_path is None:
+            raise DslError("image(): call board() first")
+        if not isinstance(key, str) or not itemlib.DRAWING_KEY.fullmatch(key):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: the key must match {itemlib.DRAWING_KEY.pattern}")
+        if key in self.images or key in self.drawings:
+            raise DslError(f"{what}: the key is already used")
+        path = PurePosixPath(file.replace("\\", "/")) if isinstance(file, str) else None  # pyright: ignore[reportUnnecessaryIsInstance]
+        if path is None or not file or path.is_absolute() or ".." in path.parts or ":" in file:
+            raise DslError(f"{what}: file must be a path relative to the script folder, not {file!r}")
+        if not isinstance(scale, str) or not itemlib.IMAGE_SCALE.fullmatch(scale) or float(scale) <= 0:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: scale must be a positive decimal string such as '0.5', not {scale!r}")
+        point = itemlib.point(at, f"{what}: at")
+        on = itemlib.drawing_layer(layer, what, user=self.user_layer_names)
+        self.images[key] = itemlib.ImageSpec(key, path.as_posix(), point, on, scale)
+
+    def teardrops(
+        self,
+        *,
+        where: object = None,
+        pads: bool = True,
+        vias: bool = True,
+        max_length: object = None,
+        max_width: object = None,
+        length_ratio: object = None,
+        width_ratio: object = None,
+        curved: object = None,
+        filter_ratio: object = None,
+        two_segments: object = None,
+        prefer_zones: object = None,
+        enabled: bool = True,
+    ) -> None:
+        """Teardrop settings for every pad and via of the built board that ``where`` selects (a ``select``
+        expression; ``None``: all of them), as ``teardrop()`` takes them (change c0277). ``pads=False`` or
+        ``vias=False`` leaves that kind out. A pad or via that two calls select takes the later call
+        (``build.teardrops-overlap``, info); a via's own ``teardrop=`` wins over every call."""
+        from fenolite.dsl.intents import teardrop
+        from fenolite.dsl.select import Select
+
+        for name, flag in (("pads", pads), ("vias", vias)):
+            if not isinstance(flag, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"teardrops(): {name} must be a bool, not {flag!r}")
+        if not pads and not vias:
+            raise DslError("teardrops(): pads and vias are both False, so the call selects nothing")
+        if where is not None and not isinstance(where, Select):
+            hint = "a select expression such as select.netclass('Default')"
+            raise DslError(f"teardrops(): where must be {hint}, not {where!r}")
+        try:
+            settings = teardrop(
+                max_length=max_length, max_width=max_width, length_ratio=length_ratio,
+                width_ratio=width_ratio, curved=curved, filter_ratio=filter_ratio, two_segments=two_segments,
+                prefer_zones=prefer_zones, enabled=enabled,
+            )  # fmt: skip
+        except DslError as error:
+            raise DslError(str(error).replace("teardrop():", "teardrops():")) from None
+        selector = Selector("all") if where is None else where.to_model()
+        self.teardrop_rules.append(TeardropRule(settings, selector, pads, vias))
+
+    def verbatim(self, key: str, text: str, *, target: str = "kicad_pcb") -> None:
+        """One item kept as KiCad text (change c0277): a child of the board root (``target="kicad_pcb"``) or a
+        rule of the rules file (``"kicad_dru"``). The DSL does not parse ``text``; the build checks it and
+        gives its uuids of its own (``docs/dsl.md``, "Verbatim items"). It is the last resort for what no
+        call says."""
+        what = f"verbatim {key!r}"
+        if not isinstance(key, str) or not itemlib.DRAWING_KEY.fullmatch(key):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: the key must match {itemlib.DRAWING_KEY.pattern}")
+        if key in self.verbatim_items:
+            raise DslError(f"{what}: the key is already used")
+        if not isinstance(text, str) or not text.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: text must be a non-empty string, not {text!r}")
+        if target not in ("kicad_pcb", "kicad_dru"):
+            raise DslError(f"{what}: target must be 'kicad_pcb' or 'kicad_dru', not {target!r}")
+        self.verbatim_items[key] = (text, target)
+
+    @property
+    def user_layer_names(self) -> tuple[str, ...]:
+        """The names of the declared user layers, ``User.1`` first (change c0277)."""
+        return tuple(f"User.{k}" for k in range(1, self.user_layer_count + 1))
+
+    def user_layers(self, count: int, *, names: Mapping[str, str] | None = None) -> None:
+        """Declare the user layers ``User.1`` … ``User.<count>`` (1 to 45), once per design: the board's layer
+        table holds them after ``B.Fab``, as KiCad writes them, and drawings may go on them (change c0277).
+        ``names`` gives a user layer the name KiCad shows (``{"User.9": "plugins.config"}``)."""
+        if self.user_layer_count:
+            raise DslError("user_layers(): the user layers are already declared")
+        if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= USER_LAYERS:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"user_layers(): count must be an int from 1 to {USER_LAYERS}, not {count!r}")
+        declared = {f"User.{k}" for k in range(1, count + 1)}
+        aliases: dict[str, str] = {}
+        for layer, alias in (names or {}).items():
+            if layer not in declared:
+                raise DslError(f"user_layers(): {layer!r} is not one of User.1 to User.{count}")
+            if not isinstance(alias, str) or not alias or not alias.isprintable() or alias != alias.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"user_layers(): the name of {layer} must be printable text, not {alias!r}")
+            aliases[layer] = alias
+        self.user_layer_count = count
+        self.user_layer_aliases = dict(sorted(aliases.items(), key=lambda item: int(item[0][5:])))
+
+    def group(self, name: str, *members: object, locked: bool = False, key: str | None = None) -> None:
+        """A group of board items (change c0277): ``members`` are parts and keys of drawings, zones, rule
+        areas and earlier groups. ``name`` may be ``""`` with a ``key``; the key, else the name, names the
+        group across builds. A member belongs to one group."""
+        identity = key if key is not None else name
+        what = f"group {identity!r}"
+        if not isinstance(name, str) or (name and not name.isprintable()):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: name must be a printable string, not {name!r}")
+        if not isinstance(identity, str) or not itemlib.DRAWING_KEY.fullmatch(identity):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(
+                f"{what}: the key (or the name, without a key) must match {itemlib.DRAWING_KEY.pattern}"
+            )
+        if identity in self.groups:
+            raise DslError(f"{what}: the key is already used")
+        if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: locked must be a bool, not {locked!r}")
+        if not members:
+            raise DslError(f"{what}: a group holds at least one member")
+        taken = {self._member_name(m) for spec in self.groups.values() for m in spec.members}
+        seen: set[str] = set()
+        for member in members:
+            label = self._member_name(member)
+            if isinstance(member, Part):
+                if not any(part is member for part in self.parts.values()):
+                    raise DslError(f"{what}: part {label} is not added to this design")
+            else:
+                kinds = (
+                    [
+                        held
+                        for held in (
+                            self.drawings,
+                            self.zones,
+                            self.rule_areas,
+                            self.groups,
+                            self.verbatim_items,
+                            self.images,
+                        )
+                        if member in held
+                    ]
+                    if isinstance(member, str)
+                    else []
+                )
+                if not kinds:
+                    raise DslError(
+                        f"{what}: {member!r} is neither a part nor the key of a drawing, a zone, a rule area "
+                        "or an earlier group"
+                    )
+                if len(kinds) > 1:
+                    raise DslError(
+                        f"{what}: {member!r} is the key of more than one item; give them other keys"
+                    )
+            if label in taken or label in seen:
+                raise DslError(f"{what}: {label} is already a member of a group")
+            seen.add(label)
+        self.groups[identity] = itemlib.GroupSpec(identity, name, tuple(members), locked)
+
+    @staticmethod
+    def _member_name(member: object) -> str:
+        return f"part {member.label}" if isinstance(member, Part) else repr(member)
 
     def moved(self, old: str, new: str) -> None:
         """Record that the part or the module at path ``new`` was at ``old`` in an earlier build, so a
@@ -1918,16 +2340,22 @@ class Design(Container):
         layers: object = None,
         locked: bool = False,
         protection: object = None,
+        teardrop: object = None,
+        free: bool = False,
     ) -> None:
         """One via on ``net`` at ``(x, y)``, or at the one point given after the key: an ``(x, y)`` pair
         or an anchor in a part's frame (``part.at(…)``, ``part.pad(…).at(…)``), which follows its part.
         Sizes come from the arguments or the net's class. ``kind`` is ``through``, ``blind``, ``buried``
         or ``micro``; a via that is not a through via names its two copper layers in ``layers``.
         ``locked=True`` writes the via locked. ``protection`` is the value of ``protect()``: how the via is
-        tented, covered, plugged, capped or filled (``None``: it follows the board default)."""
+        tented, covered, plugged, capped or filled (``None``: it follows the board default). ``teardrop``
+        is the value of ``teardrop()``: the via's teardrop settings, and ``free=True`` writes KiCad's
+        ``(free yes)``, a via that keeps its net when no track joins it (change c0277)."""
         from fenolite.dsl import intents
 
-        intents.record_via(self, key, x, y, net, diameter, drill, kind, layers, locked, protection)
+        intents.record_via(
+            self, key, x, y, net, diameter, drill, kind, layers, locked, protection, teardrop, free
+        )
 
     def track_table(
         self, key: str, *, net: Net, layer: str, width: object, rows_nm: object, locked: bool = False
@@ -1962,14 +2390,16 @@ class Design(Container):
         layers: object = None,
         locked: bool = False,
         protection: object = None,
+        teardrop: object = None,
+        free: bool = False,
     ) -> None:
-        """Many vias of ``net`` with one size, kind, span and protection: each row is ``(x, y)`` in integer
-        nanometres in the frame of ``place()``."""
+        """Many vias of ``net`` with one size, kind, span, protection, teardrop settings and ``free`` flag:
+        each row is ``(x, y)`` in integer nanometres in the frame of ``place()``."""
         from fenolite.dsl import intents
 
         intents.record_table(
             self, "via", key, net=net, rows=rows_nm, diameter=diameter, drill=drill, kind=kind, layers=layers,
-            locked=locked, protection=protection,
+            locked=locked, protection=protection, teardrop=teardrop, free=free,
         )  # fmt: skip
 
     def meander(

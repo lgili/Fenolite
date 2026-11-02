@@ -26,6 +26,9 @@ NOTHING = {
     "justify": None,
     "outside": None,
     "gap": None,
+    "bold": None,
+    "italic": None,
+    "face": None,
 }
 
 
@@ -82,6 +85,9 @@ def test_every_value() -> None:
         "outside": None,
         "gap": None,
         "locked": False,
+        "bold": None,
+        "italic": None,
+        "face": None,
     }
     with pytest.raises(dataclasses.FrozenInstanceError):
         request.visible = False  # type: ignore[misc]
@@ -180,3 +186,52 @@ def test_re_exports_and_import_edges() -> None:
                     path.name,
                     node.module,
                 )
+
+
+# --- the font of a field (scenario "Bold reference"; change c0277) ------------------------------------
+
+
+@pytest.fixture
+def fonts_isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kicad-config"))
+    for name in ("KICAD10_FOOTPRINT_DIR", "KICAD10_SYMBOL_DIR", "KICAD9_FOOTPRINT_DIR", "KICAD9_SYMBOL_DIR"):
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_font_refused_values() -> None:
+    _, parts = design_with("U1")
+    with pytest.raises(DslError, match="bold"):
+        parts["U1"].field("Reference", bold="yes")  # type: ignore[arg-type]
+    with pytest.raises(DslError, match="face"):
+        parts["U1"].field("Reference", face="")
+    parts["U1"].field("Reference", italic=True)
+    assert parts["U1"].field_requests["Reference"].italic is True
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_font_bold_reference(tmp_path: Path, fonts_isolated: None, target: int) -> None:
+    """Scenario "Bold reference": the field takes the font, and a rebuild writes the same bytes."""
+    from _buildhelp import blink_variant
+
+    from fenolite.api import run
+    from fenolite.backends.kicad.sexpr import dumps, parse
+
+    line = 'u1.field("Reference", dx=mm(0), dy=mm(-3), bold=True, face="KiCad Font")\n'
+    script = blink_variant(tmp_path / "src", append=line)
+    out = tmp_path / "out"
+    args = ("build", str(script), "--out", str(out), "--kicad-version", str(target), "--confirm")
+    reply = run(*args, cwd=script.parent, timestamp="2026-10-30T00:00:00Z")
+    assert reply.exit_code == 0, reply.error
+    first = (out / "blink.kicad_pcb").read_bytes()
+    root = parse(first.decode("utf-8"))
+
+    def reference(fp):  # noqa: ANN001, ANN202
+        return next(p for p in fp.nodes("property") if p.atoms()[0].value == "Reference")
+
+    fields = {reference(fp).atoms()[1].value: reference(fp) for fp in root.nodes("footprint")}
+    font = fields["U1"].find("effects").find("font")  # type: ignore[union-attr]
+    assert font.find("bold") == parse("(bold yes)") and font.find("face") == parse('(face "KiCad Font")')  # type: ignore[union-attr]
+    assert fields["R1"].find("effects").find("font").find("bold") is None  # type: ignore[union-attr]
+    assert run(*args, cwd=script.parent, timestamp="2026-10-30T00:00:00Z").exit_code == 0
+    assert (out / "blink.kicad_pcb").read_bytes() == first
+    assert dumps(font, style="compact").startswith('(font (face "KiCad Font")')

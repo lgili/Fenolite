@@ -5,16 +5,25 @@
 # Authored for Fenolite: imported from tests/data/import_python/two_sheet, authored for Fenolite.
 
 import copper
-from fenolite.dsl import Design, Module, Net, Part, connect, mm
+from sheets import ch1 as _sheet_ch1
+from sheets import ch2 as _sheet_ch2
+from fenolite.dsl import Design, Net, Part, connect, mm
 
 design = Design("two_sheet")
 
 design.board(mm("60"), mm("40"))
 
-ch1_a = Net("CH1_A")
-ch2_a = Net("CH2_A")
 gnd = Net("GND")
 vin = Net("VIN")
+
+j1 = Part("J1", "Mini:Mini_LED", footprint="Mini:Mini_LED_THT_3mm", value="CONN")
+
+design.add(j1)
+_sheet_ch1.sheet(design, path="ch1", refs={"D101": "D101", "R101": "R101"}, gnd=gnd, vin=vin)
+_sheet_ch2.sheet(design, path="ch2", refs={"D101": "D201", "R101": "R201"}, gnd=gnd, vin=vin)
+
+ch1_a = design.nets["CH1_A"]
+ch2_a = design.nets["CH2_A"]
 
 design.rules.netclass(
     "Power",
@@ -28,29 +37,10 @@ design.rules.netclass(
     nets=(gnd, vin),
 )
 
-j1 = Part("J1", "Mini:Mini_LED_THT_3mm", footprint="Mini:Mini_LED_THT_3mm", value="CONN")
-d101 = Part("D101", "Mini:Mini_LED_THT_3mm", footprint="Mini:Mini_LED_THT_3mm", value="LED")
-r101 = Part("R101", "Mini:Mini_R_0603", footprint="Mini:Mini_R_0603", value="1k")
-d201 = Part("D201", "Mini:Mini_LED_THT_3mm", footprint="Mini:Mini_LED_THT_3mm", value="LED", name="D101")
-r201 = Part("R201", "Mini:Mini_R_0603", footprint="Mini:Mini_R_0603", value="1k", name="R101")
-
-ch1 = Module("ch1")
-ch2 = Module("ch2")
-
-ch1.add(d101, r101)
-ch2.add(d201, r201)
-design.add(j1, ch1, ch2)
-
-connect(ch1_a, d101["2"], r101["2"])
-connect(ch2_a, d201["2"], r201["2"])
-connect(gnd, d101["1"], d201["1"], j1["2"])
-connect(vin, j1["1"], r101["1"], r201["1"])
+connect(gnd, j1["2"])
+connect(vin, j1["1"])
 
 j1.place(mm("2.54"), mm("10"), rot=90, locked=True)
-d101.place(mm("28"), mm("15"))
-r101.place(mm("20"), mm("15"))
-d201.place(mm("28"), mm("25"), side="bottom")
-r201.place(mm("20"), mm("25"), rot=180)
 
 design.zone(
     gnd,
@@ -75,3 +65,5 @@ design.text(
 )
 
 copper.apply(design, {"CH1_A": ch1_a, "CH2_A": ch2_a, "GND": gnd, "VIN": vin})
+
+design.load_schematic("schematic.toml")

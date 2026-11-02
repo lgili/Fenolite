@@ -154,6 +154,11 @@ meaning = "fenolite build --frozen found that the design lock would change: a ne
 fix = "Build without --frozen, review result.lock.changes and the planned lock, commit the lock, then build frozen again."
 see = "build"
 
+["altium.verbatim-skipped"]
+meaning = "The script keeps an item as KiCad text (a verbatim item), which the PCB document has no record for; the Altium build does not write it."
+fix = "Nothing to fix for a KiCad item. Build for KiCad to keep it, or say it with a DSL call the Altium writer lowers."
+see = "Build target"
+
 ["altium.bus-flattened"]
 meaning = "A bus of the design is drawn as its nets: its nets are not one stem followed by consecutive integers, or one of them is a power net, a harness net or a net of another bus."
 fix = "Nothing to do; name the nets <stem><n> with consecutive integers to have the bus drawn as a bus."
@@ -182,6 +187,11 @@ see = "Build target"
 ["altium.copper-no-document"]
 meaning = "A copper source was given, but the PCB document is not written in this build."
 fix = "Meet the conditions of the PCB document (see altium.pcbdoc-not-written) or drop the copper source."
+see = "Build target"
+
+["altium.stack-signal-limit"]
+meaning = "The script's copper layers less its planes exceed the 16 signal layers of an Altium document, or its planes exceed 16."
+fix = "Declare planes= for the layers beyond 16 signal layers, or build the board for KiCad."
 see = "Build target"
 
 ["altium.copper-stack"]
@@ -447,6 +457,16 @@ see = "Build target"
 ["altium.not-lowered"]
 meaning = "Part of the design stays in the model only and is not written to the Altium files; the message says which part. where names one item as <kind>/<id>, the stack-up, design-rules/<kind> (a warning: a rule of the script that the PCB document does not hold), body/<id> (a component body), via-protection (covering, plugging, capping, filling or an unstated tenting side of vias) or impedance (targets)."
 fix = "Nothing to do if you do not need it in Altium; otherwise enter it there by hand. A rule: give every limit Altium's rule holds and select all objects, a net or a net class. A component body: build with --altium-bodies extruded, or set the height in Altium. Via protection: state the tenting with design.via_protection(protect(tenting=...)) or protection=."
+see = "Build target"
+
+["altium.draftsman-not-written"]
+meaning = "No native Draftsman document was planned: the option is off, the native acceptance gate is closed, or no PCB document is written."
+fix = "Read the reason. The closed gate needs actual Part F reports; a build option cannot bypass it."
+see = "Build target"
+
+["altium.draftsman-not-listed"]
+meaning = "The existing project file was kept and does not list the candidate Draftsman document."
+fix = "Add the .PCBDwf file through Project » Add Existing to Project in Altium. A project still identical to the previous build is relisted automatically."
 see = "Build target"
 
 ["altium.outjob-not-listed"]
@@ -1019,6 +1039,31 @@ meaning = "A column of the BOM template names a property that no part of the des
 fix = "Check the spelling of the property in the template, or add the property to the parts in the design script."
 see = "bom"
 
+["build.verbatim-item"]
+meaning = "The script keeps an item as KiCad text (design.verbatim or part.verbatim). The build writes it as given, with uuids of its own derived from its key, and its nets in the form of the target."
+fix = "Nothing to fix. Prefer the DSL call that says the item when there is one: a verbatim item is the last resort."
+see = "build"
+
+["build.verbatim-invalid"]
+meaning = "A verbatim item's text is not one KiCad list, so the build cannot write it."
+fix = "Write one list, such as (barcode (at 10 10) (layer \"F.SilkS\") ...), with balanced parentheses."
+see = "build"
+
+["build.verbatim-head"]
+meaning = "A verbatim item's head is one Fenolite writes itself (the file's header, a footprint, a track, a zone, a drawing, a group), or a rules-file item is not a (rule ...)."
+fix = "Use the DSL call that says the item, or keep another head in the verbatim item."
+see = "build"
+
+["build.verbatim-layer"]
+meaning = "A verbatim item names a layer the board's layer table does not hold."
+fix = "Name a layer of the board, or declare it (design.user_layers for User.<n>)."
+see = "build"
+
+["build.verbatim-net"]
+meaning = "A verbatim item names a net the design does not hold, or names one by its number."
+fix = "Name a net of the design by its name: (net \"GND\"). The build writes the target's form."
+see = "build"
+
 ["build.area-unknown"]
 meaning = "A rule selects a rule area by name (select.area) and the board that the build is about to write holds no rule area of that name. KiCad would load the rule and apply it to nothing."
 fix = "Declare the area with design.rule_area(), draw and name it in KiCad, or remove the selector. Area names are compared with letter case."
@@ -1178,6 +1223,31 @@ see = "build"
 meaning = "A pin that is connected to a net has no pad in the footprint."
 fix = "Choose a footprint with that pad, or map the pin to an existing pad."
 see = "build"
+
+["build.image-missing"]
+meaning = "A design.image() names a file that is not beside the script; nothing is written."
+fix = "Put the PNG file at the path the call names, relative to the script folder."
+see = "Build target"
+
+["build.image-format"]
+meaning = "A design.image() names a file that is not a PNG picture; nothing is written."
+fix = "Convert the picture to PNG, or name the PNG file."
+see = "Build target"
+
+["altium.image-skipped"]
+meaning = "A board image of the script is not written to the PCB document: the writer has no picture record."
+fix = "Nothing to do for KiCad; place the picture in Altium if the document needs it."
+see = "Build target"
+
+["build.pad-unknown"]
+meaning = "Part.edit_pad() names a pad number the part's footprint does not hold; nothing is written."
+fix = "Name a pad number of the footprint, as its library file numbers it."
+see = "Build target"
+
+["build.teardrops-overlap"]
+meaning = "Pads or vias are selected by more than one design.teardrops() call; each takes the settings of the later call."
+fix = "Nothing to do when the later call is meant to win; otherwise narrow the where= of one call."
+see = "Build target"
 
 ["build.plane-zone-missing"]
 meaning = "A plane of the script has no copper on a KiCad board: no zone of its net lies on its layer. The layer is still written as a plane layer (type power); one issue per plane."
@@ -1441,6 +1511,11 @@ see = "check"
 ["copper.clearance-unset"]
 meaning = "Some item pairs were judged for shorts only, because no clearance is in force for them."
 fix = "Set a clearance in the net class or in a rule to have them judged."
+see = "check"
+
+["copper.text-unchecked"]
+meaning = "The board holds texts on copper layers. Fenolite draws no glyphs, so its copper check leaves them out; KiCad's DRC judges a copper text over a track as a short (H-K-BOARD-TEXT)."
+fix = "Nothing to fix. Run fenolite check with the KiCad DRC (kicad-cli) to judge the copper texts."
 see = "check"
 
 ["copper.item-unsupported"]
@@ -4297,6 +4372,16 @@ meaning = "No --timestamp: the header and PROVENANCE.json carry today's date, so
 fix = "Pass --timestamp to make the output reproducible."
 see = "import"
 
+["import.board-only"]
+meaning = "Footprints of the source board share a reference, or have one a script cannot name (REF**, an empty one). Each is written as Part(ref, ..., name=<key>, board_only=True): no schematic symbol, and KiCad's board_only footprint attribute, which a footprint without it gains (the message counts them)."
+fix = "Nothing to fix. Rename the key in name= if you want another one."
+see = "import"
+
+["import.teardrops-regenerated"]
+meaning = "The source board holds teardrop zones that KiCad drew from the teardrop settings of its pads and vias. The code keeps those settings (the pads' in the vendored footprints, the vias' as teardrop= of their tables), so the zones are not written: KiCad draws them again when it fills the board."
+fix = "Nothing to fix. Run fenolite fill on the built board to draw the teardrops."
+see = "import"
+
 ["library.deprecated"]
 meaning = "The design uses a library record (pins, package, device or part) that is deprecated: its interface was replaced by another record. The design still builds."
 fix = "Move the part to the record named in the message (deprecated.by) when you can; read the reason in the record."
@@ -4732,6 +4817,11 @@ see = "build"
 ["drawn.opaque-dropped"]
 meaning = "An opaque item of the drawing (text or graphics kept verbatim for KiCad) has no form for the target and is not written."
 fix = "Nothing to do for the nets; give the item an altium text if the target should show it."
+see = "build"
+
+["drawn.coordinate-rounded"]
+meaning = "A drawn point has no exact representation on Altium's 127/50 nm coordinate step. The default build refuses it; --allow-lossy reports the point and writes its rounded coordinate only if the native readback still means the circuit."
+fix = "Move the named point to an exact coordinate, or review the reported rounding and use --allow-lossy."
 see = "build"
 
 ["drawn.frozen"]
@@ -5313,3 +5403,23 @@ see = "suppliers"
 meaning = "Supplier-reported attributes are displayed but supply no device parameters."
 fix = "Use a locally authored grammar or verify parameters against the datasheet; offers and reported attributes are omitted from stored plans and written drafts."
 see = "suppliers"
+
+["library.item-conflict"]
+meaning = "Two vendored folders define the same kind and id with different content, so the build refuses the conflict."
+fix = "Restore one intended pinned item from its reviewed release and remove the conflicting local copy after checking its provenance."
+see = "library"
+
+["library.overrides-item"]
+meaning = "An authored project record overrides a vendored item of the same id."
+fix = "Check that the override is intentional; use a distinct namespace if both definitions must coexist."
+see = "library"
+
+["library.seed-renamed"]
+meaning = "A seeded element name was cleaned or collided with another item and received a deterministic id."
+fix = "Review and use the proposed id; the original upstream element UUID remains in provenance."
+see = "library"
+
+["library.seed-skipped"]
+meaning = "The conservative LibrePCB seed converter skipped unsupported or invalid geometry and its dependants."
+fix = "Read the named element and reason; author and review the unsupported records separately without raising their evidence."
+see = "library"

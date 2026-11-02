@@ -18,12 +18,13 @@ import hashlib
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from fenolite.backends.altium.altsym import AltiumSymbol, from_generic, map_pins
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.binary import write_schdoc_binary
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
+from fenolite.backends.altium.draftsman import DraftsmanSpec, write_draftsman
 from fenolite.backends.altium.layout import (
     ClassMark,
     PartSpec,
@@ -43,6 +44,9 @@ from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
+
+if TYPE_CHECKING:
+    from fenolite.backends.altium.hierarchy import ProjectSheets
 from fenolite.schematic.intent import CompositionIntent
 
 PATH_PROPERTY = "fenolite.path"
@@ -72,6 +76,7 @@ PCBDOC_KIND = "altium_pcbdoc"
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
+        "H-A-DWF-PARAMS",
         "H-A-CONV-SCHEMATIC",
         "H-A-ECO-NETCLASS",
         "H-A-ECO-PRJ-KEYS",
@@ -528,14 +533,18 @@ def plan_sheet(
 
 
 def library_symbols(
-    design: Design, *, name: str, symbols: Mapping[str, AltiumSymbol] | None = None
+    design: Design,
+    *,
+    name: str,
+    symbols: Mapping[str, AltiumSymbol] | None = None,
+    extra_symbols: Sequence[str] = (),
 ) -> dict[str, list[AltiumSymbol]]:
     """Library file → its symbols, one per lib id of the design (``symbols`` first, generic otherwise),
     with the library files in the MS-CFB order of their names."""
     generic = generic_symbols(design)
     given = symbols or {}
     libraries: dict[str, list[AltiumSymbol]] = {}
-    for lib_id in sorted({c.lib_symbol_ref for c in design.circuit.components}):
+    for lib_id in sorted({c.lib_symbol_ref for c in design.circuit.components} | set(extra_symbols)):
         library = schlib_name(lib_id, design=name)
         symbol = given.get(lib_id) or generic[lib_id]
         users = [c for c in design.circuit.components if c.lib_symbol_ref == lib_id]
@@ -550,7 +559,7 @@ def library_symbols(
         if footprint is not None:
             designators = [pin.designator for pin in symbol.pins]
             maps = {map_pins(c, designators) for c in users}
-            on_model = all(split_link(c.lib_footprint_ref) == footprint for c in users)
+            on_model = bool(users) and all(split_link(c.lib_footprint_ref) == footprint for c in users)
             if len(maps) == 1 and (only := maps.pop()) and on_model:
                 symbol = dataclasses.replace(symbol, pin_pads=only)
             model_library, model_name = footprint
@@ -582,6 +591,9 @@ def write_project(
     pour: PourMode = "outline",
     pour_results: list[PcbDocResult] | None = None,
     pour_regions: bool = True,
+    draftsman: DraftsmanSpec | None = None,
+    planned_sheets: ProjectSheets | None = None,
+    extra_symbols: Sequence[str] = (),
 ) -> dict[str, bytes]:
     """``<name>.SchDoc`` in ``form``, one ``<library>.SchLib`` per library that the lib ids name and, when
     ``project`` is true, ``<name>.PrjPcb`` listing them, as bytes; no file is written. ``symbols`` maps a
@@ -599,20 +611,24 @@ def write_project(
     given, receives what the write of the PCB document did; ``BackendUnavailable`` for ``computed`` without
     the ``geo`` extra. ``pour_regions`` off writes the computed document without the regions of its
     polygons (``write_pcbdoc_result``; the input ``reference/`` of the kit's pour samples)."""
-    from fenolite.backends.altium.hierarchy import plan_sheets, write_harness
+    from fenolite.backends.altium.hierarchy import ProjectSheets, plan_sheets, write_harness
 
     if form not in ("binary", "ascii"):
         raise ValueError(f"unknown schematic form {form!r}")
     _text(name, "design name")
-    planned = plan_sheets(
-        design,
-        name=name,
-        sheets=sheets,
-        form=form,
-        symbols=symbols,
-        directions=directions,
-        extra_modules=extra_modules,
-        read_circuit=read_circuit,
+    planned = (
+        planned_sheets
+        if isinstance(planned_sheets, ProjectSheets)
+        else plan_sheets(
+            design,
+            name=name,
+            sheets=sheets,
+            form=form,
+            symbols=symbols,
+            directions=directions,
+            extra_modules=extra_modules,
+            read_circuit=read_circuit,
+        )
     )
     baseline = planned
     if composition is not None:
@@ -641,7 +657,7 @@ def write_project(
                 )
             )
     harness_files = planned.harness_files
-    libraries = library_symbols(design, name=name, symbols=symbols)
+    libraries = library_symbols(design, name=name, symbols=symbols, extra_symbols=extra_symbols)
     files: dict[str, bytes] = {}
     listed = list(libraries)
     if footprints:
@@ -655,6 +671,8 @@ def write_project(
             harnesses=tuple(harness_files),
             net_classes=bool(design.circuit.netclasses),
             outjob=f"{name}.OutJob" if outjob is not None else None,
+            draftsman=f"{name}.PCBDwf" if draftsman is not None else None,
+            parameters=draftsman.parameters if draftsman is not None else (),
         )
     for sheet in planned.sheets:
         frame = (frames or {}).get(sheet.file)
@@ -715,6 +733,8 @@ def write_project(
             pour_results.append(written)
     if outjob is not None:
         files[f"{name}.OutJob"] = outjob
+    if draftsman is not None:
+        files[f"{name}.PCBDwf"] = write_draftsman(draftsman)
     return files
 
 

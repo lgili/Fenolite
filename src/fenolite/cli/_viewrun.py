@@ -139,7 +139,15 @@ class ChildRunner:
             return None
         if found is None:
             return None
-        return {"command": found.command, "cwd": found.cwd, "writes": [dict(row) for row in found.writes]}
+        return {
+            "command": found.command,
+            "cwd": found.cwd,
+            "writes": [dict(row) for row in found.writes],
+            "inputs": [
+                {"path": str((Path(found.cwd) / path).resolve()), "sha256": digest}
+                for path, digest in found.depends
+            ],
+        }
 
     def staged_bytes(self, plan_id: str, row: Json) -> bytes | None:
         try:

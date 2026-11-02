@@ -35,3 +35,8 @@
   - Changed: `docs/viewer.md` ("Assembly variants"), the `view` section of `docs/cli-contract.md`, a line in `references/files.md`, the hypothesis row, the evidence matrix and the LEGAL-ANNEX row.
   - `test_altium_build.py::test_evidence` leaves `H-A-PRJ-VARIANT` out of the build's rows, because only `fenolite view` reads variants.
 - [ ] 2.2 The maintainer compares a variant of their own with Altium. Proof: the record under this task.
+
+## Continuation review — 2026-11-01
+
+Altium Designer is unavailable per the maintainer; no personal native variant comparison was supplied. Task 2.2 remains open.
+See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.

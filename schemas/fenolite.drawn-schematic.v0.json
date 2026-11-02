@@ -267,6 +267,14 @@
             270
           ]
         },
+        "mirror": {
+          "type": "string",
+          "enum": [
+            "",
+            "x",
+            "y"
+          ]
+        },
         "fields": {
           "$ref": "#/$defs/fields"
         }
@@ -451,6 +459,9 @@
             "x",
             "y"
           ]
+        },
+        "symbol": {
+          "type": "string"
         },
         "fields": {
           "$ref": "#/$defs/fields"

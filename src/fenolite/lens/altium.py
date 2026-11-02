@@ -36,6 +36,9 @@ from fenolite.backends.altium import (
     schdot,
     schlib,
 )
+from fenolite.backends.altium import (
+    draftsman as draftsman_writer,
+)
 from fenolite.backends.altium import outjob as job_writer
 from fenolite.backends.altium.altsym import DEFAULT_BODIES, AltiumSymbol, SymbolBodies, from_symbol_def
 from fenolite.backends.altium.ascii import text_problem
@@ -57,6 +60,7 @@ from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm
+from fenolite.exports.drawing_spec import DrawingSpec
 from fenolite.lens import altium_copper, preserve
 from fenolite.lens.altium_copper import CopperSource, match_source
 from fenolite.lens.build import (
@@ -87,6 +91,7 @@ from fenolite.model.board import (
 )
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
+from fenolite.model.drawn import DrawnSchematic
 from fenolite.model.library import FootprintDef, SymbolDef, flatten_symbol
 from fenolite.model.presentation import PAPER_SIZES, DrawingSheet, SheetBitmap, SheetFrameRef, TitleBlock
 from fenolite.schematic.composition import CompositionError, fail
@@ -141,6 +146,8 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.schlib-generic": "info",
         "altium.schlib-not-in-project": "info",
         "altium.not-lowered": "info",
+        "altium.verbatim-skipped": "warning",
+        "altium.image-skipped": "warning",
         "altium.project-kept": "info",
         "altium.footprint-extras-dropped": "info",
         "altium.pcbdoc-not-written": "info",
@@ -148,6 +155,8 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.pcb-not-in-project": "info",
         "altium.sheets-not-in-project": "info",
         "altium.outjob-not-listed": "info",
+        "altium.draftsman-not-written": "info",
+        "altium.draftsman-not-listed": "info",
         "altium.experimental": "info",
         **altium_copper.COPPER_ISSUE_CODES,
     }
@@ -201,6 +210,7 @@ PCB_EXPERIMENTAL: Mapping[str, object] = MappingProxyType(
 
 
 KEPT_PROJECT_CODES = (
+    "altium.draftsman-not-listed",
     "altium.outjob-not-listed",
     "altium.pcb-not-in-project",
     "altium.project-kept",
@@ -284,11 +294,13 @@ def resolve_symbols(
     design: Design,
     resolver: LibraryResolver | None,
     authored: Mapping[str, SymbolDef] = MappingProxyType({}),
+    *,
+    extra: Sequence[str] = (),
 ) -> dict[str, SymbolDef]:
     """Lib id → resolved ``SymbolDef`` of every KiCad lib id; ``UnresolvedLibrariesError`` (FEN-3001)
     with one ``kicad.lib.*`` issue per lib id that does not resolve. A lib id of ``authored`` (a symbol
     the script authored or took from the catalog, change c0086) is that symbol and is not resolved."""
-    wanted = kicad_lib_ids(design)
+    wanted = tuple(sorted(set(kicad_lib_ids(design)) | set(extra)))
     # a derived symbol the script authored is flattened onto its base of the same library (change c0261)
     found: dict[str, SymbolDef] = {
         lib_id: flatten_symbol(
@@ -547,6 +559,13 @@ def pad_extras(defn: FootprintDef) -> dict[str, pcblib.PadExtras]:
                 if _decimal_atom(node) == 0:
                     continue
                 dropped.append(PAD_DROPPED[head])
+        # an authored pad holds its shape in the model (change c0277)
+        if ratio is None and pad.corner_ratio is not None and pad.shape == "roundrect":
+            ratio = Decimal(pad.corner_ratio).scaleb(-6)
+        if pad.chamfer_ratio:
+            refusal = refusal or PAD_REFUSED["chamfer_ratio"]
+        if pad.primitives:
+            refusal = refusal or PAD_REFUSED["primitives"]
         out[pad.id] = pcblib.PadExtras(ratio, refusal, tuple(dropped))
     return out
 
@@ -1935,6 +1954,7 @@ def _summary(
     copper: Mapping[str, object] | None = None,
     pcb: Mapping[str, object] | None = None,
     outjob: Mapping[str, object] | None = None,
+    draftsman: Mapping[str, object] | None = None,
     drawing_sheet: Mapping[str, object] | None = None,
     rules: Mapping[str, object] | None = None,
     directions: bool = True,
@@ -1947,8 +1967,11 @@ def _summary(
     hidden parameters and the ports and sheet entries that carry a direction; it is ``None`` for a refused
     build."""
     plans = [sheet.plan for sheet in planned.sheets] if planned is not None else []
+    explicit = [dict(record) for plan in plans for record in (plan.drawn_records or ())]
     labels = sum(1 for plan in plans for s in (*plan.links, *plan.stubs) if s.net.kind == "label")
+    labels += sum(record.get("RECORD") == "25" for record in explicit)
     ports = sum(1 for plan in plans for s in plan.stubs if s.net.kind == "port")
+    ports += sum(record.get("RECORD") == "17" for record in explicit)
     members = [symbol for symbols in (libraries or {}).values() for symbol in symbols]
     crossed = [
         item.crossing
@@ -1962,12 +1985,22 @@ def _summary(
             "symbols": symbol_bodies,
             "symbols_drawn": sum(1 for symbol in members if symbol.drawn),
             "symbols_simplified": sum(1 for symbol in members if not symbol.drawn),
-            "buses": sum(len(plan.bus_blocks) for plan in plans),
+            "buses": sum(len(plan.bus_blocks) for plan in plans)
+            + sum(record.get("RECORD") == "26" for record in explicit),
             "parameters": sum(
-                len(part.spec.parameters) for plan in plans for part in plan.parts if part.part == 1
-            ),
+                len(part.spec.parameters)
+                for plan in plans
+                if plan.drawn_records is None
+                for part in plan.parts
+                if part.part == 1
+            )
+            + sum(record.get("RECORD") == "41" for record in explicit),
             "directions": "on" if directions else "off",
-            "directed": sum(1 for crossing in crossed if crossing.io != "unspecified"),
+            "directed": sum(1 for crossing in crossed if crossing.io != "unspecified")
+            + sum(
+                record.get("RECORD") in {"16", "18"} and record.get("IOTYPE", "0") != "0"
+                for record in explicit
+            ),
         }
     found = list(libraries or {})
     if footprints:
@@ -1977,21 +2010,25 @@ def _summary(
         "nets": len(design.circuit.nets),
         "labels": labels,
         "power_ports": ports,
-        "no_connects": sum(len(plan.no_connects) for plan in plans),
+        "no_connects": sum(len(plan.no_connects) for plan in plans)
+        + sum(record.get("RECORD") == "22" for record in explicit),
         "sheet": planned.top.plan.size.name if planned is not None else None,
         "libraries": found,
         "symbols": sum(len(symbols) for symbols in (libraries or {}).values()),
         "footprints": footprints,
         "pcb_document": pcb_document,
-        "sheet_mode": sheets,
+        "sheet_mode": planned.mode if planned is not None and explicit else sheets,
         "sheets": [sheet.file for sheet in planned.sheets] if planned is not None else [],
-        "ports": sum(len(plan.ports) for plan in plans),
-        "sheet_entries": sum(len(symbol.entries) for plan in plans for symbol in plan.symbols),
+        "ports": sum(len(plan.ports) for plan in plans)
+        + sum(record.get("RECORD") == "18" for record in explicit),
+        "sheet_entries": sum(len(symbol.entries) for plan in plans for symbol in plan.symbols)
+        + sum(record.get("RECORD") == "16" for record in explicit),
         "harnesses": len({block.name for plan in plans for block in plan.harnesses}),
         "schematic": schematic,
         "copper": copper,
         "pcb": pcb,
         "outjob": outjob,
+        "draftsman": draftsman,
         "drawing_sheet": drawing_sheet,
         "rules": rules,
         "kept": list(kept),
@@ -2018,6 +2055,7 @@ def _written_claims(
         ".pcbdoc": project.PCBDOC_KIND,
         ".harness": project.HARNESS_KIND,
         ".outjob": job_writer.OUTJOB_KIND,
+        ".pcbdwf": draftsman_writer.DRAFTSMAN_KIND,
         ".schdot": schdot.SCHDOT_KIND,
     }
     kinds = {suffixes[suffix] for name in files if (suffix := PurePosixPath(name).suffix.lower()) in suffixes}
@@ -2082,6 +2120,9 @@ def build_altium(
     pour_regions: bool = True,
     unused: Mapping[str, Sequence[str]] | None = None,
     two_terminal: Sequence[str] = (),
+    draftsman: bool = False,
+    drawing_spec: DrawingSpec | None = None,
+    drawn: DrawnSchematic | None = None,
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
 
@@ -2171,7 +2212,12 @@ def build_altium(
         design = hole_parts.design
         placed = tuple(path for path in placed if path in paths)
         placements = {path: request for path, request in (placements or {}).items() if path in paths}
-    resolved = resolve_symbols(design, resolver, authored_symbols)
+    extra_symbols = (
+        tuple(sorted({symbol.symbol for sheet in drawn.sheets for symbol in sheet.symbols if symbol.symbol}))
+        if drawn is not None
+        else ()
+    )
+    resolved = resolve_symbols(design, resolver, authored_symbols, extra=extra_symbols)
     design = _with_symbol_fields(design, resolved)
     issues = _check(design, name, placed, sheets, form)
     if fiducial_info is not None:
@@ -2292,8 +2338,63 @@ def build_altium(
             )
         )
     planned = hierarchy.plan_sheets(
-        model, name=name, sheets=sheets, form=form, symbols=symbols, directions=directions
+        model,
+        name=name,
+        sheets="modules" if drawn is not None else sheets,
+        form=form,
+        symbols=symbols,
+        directions=directions,
     )
+    if drawn is not None:
+        from fenolite.backends.altium.drawn import EVIDENCE as DRAWN_EVIDENCE
+        from fenolite.backends.altium.drawn import lower_drawn
+        from fenolite.backends.kicad.drawn import unit_signature
+        from fenolite.model.drawn_connect import instances as drawn_instances
+        from fenolite.model.drawn_connect import issue as drawn_issue
+
+        aliases: dict[str, tuple[str, AltiumSymbol]] = {}
+        by_path = {component_path(c): c for c in model.circuit.components}
+        for instance in drawn_instances(drawn)[0]:
+            sheet = drawn.sheet(instance.sheet)
+            if sheet is None:
+                continue
+            for pose in sheet.symbols:
+                if not pose.symbol:
+                    continue
+                component = by_path.get(instance.component(pose.part))
+                primary = resolved.get(component.lib_symbol_ref) if component is not None else None
+                alternate = resolved.get(pose.symbol)
+                body = symbols.get(pose.symbol)
+                if (
+                    primary is None
+                    or alternate is None
+                    or body is None
+                    or (unit_signature(primary, pose.unit) != unit_signature(alternate, pose.unit))
+                ):
+                    issues.append(
+                        drawn_issue(
+                            "drawn.part-unknown",
+                            "the drawn unit alias is missing or has incompatible logical pins",
+                            instance.component(pose.part),
+                        )
+                    )
+                    continue
+                aliases[pose.symbol] = (project.schlib_name(pose.symbol, design=name), body)
+        planned = lower_drawn(
+            drawn,
+            model,
+            planned,
+            name=name,
+            issues=issues,
+            allow_lossy=allow_lossy,
+            form=form,
+            symbol_overrides=aliases,
+        )
+        input_evidence.append(DRAWN_EVIDENCE)
+        if any(found.severity == "error" for found in issues):
+            return BuildOutput(
+                model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
+            )
     unlisted = [*(sheet.file for sheet in planned.modules), *sorted(planned.harness_files, key=name_key)]
     unlisted = not_listed(unlisted, project_listed) if project_exists else []
     if unlisted:
@@ -2312,8 +2413,66 @@ def build_altium(
     job: tuple[OutputGroup, ...] | None = None
     job_info: dict[str, object] | None = None
     relist = False
+    drawing: draftsman_writer.DraftsmanSpec | None = None
+    drawing_info: dict[str, object] | None = None
+    if not draftsman or not draftsman_writer.NATIVE_WRITE or spec is None:
+        reason = (
+            "the option is off"
+            if not draftsman
+            else (
+                "the native write gate is off; Part F has no passing native report"
+                if not draftsman_writer.NATIVE_WRITE
+                else "no PCB document is written"
+            )
+        )
+        issues.append(issue("altium.draftsman-not-written", f"Draftsman not written: {reason}"))
+    else:
+        from fenolite.exports.drawing_spec import DEFAULT as DEFAULT_DRAWING
+        from fenolite.lens.altium_draftsman import document_summary, draftsman_spec
+
+        try:
+            drawn_model = dataclasses.replace(model, board=lower.stored_board(model, spec))
+            drawing, drawing_issues = draftsman_spec(drawn_model, drawing_spec or DEFAULT_DRAWING)
+            drawing = dataclasses.replace(drawing, name=name)
+            # The existing minimal project writer is ASCII. Refuse an unrepresentable parameter before writes.
+            project.write_prjpcb(schematic=f"{name}.SchDoc", parameters=drawing.parameters)
+        except ValueError as error:
+            issues.append(issue("altium.text-unwritable", str(error), "draftsman"))
+            return BuildOutput(
+                model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
+            )
+        issues.extend(drawing_issues)
+        drawing_info = document_summary(drawing)
+        drawing_info["not_lowered"] = [i.message for i in drawing_issues if i.code == "altium.not-lowered"]
+        input_evidence.append(draftsman_writer.EVIDENCE)
+        missing_drawing = project_exists and bool(not_listed([f"{name}.PCBDwf"], project_listed))
+        if missing_drawing:
+            issues.append(
+                issue(
+                    "altium.draftsman-not-listed",
+                    f"the kept {name}.PrjPcb does not list "
+                    f"{name}.PCBDwf; add it in Altium (Project » Add Existing to Project)",
+                    f"{name}.PrjPcb",
+                    unread_hint,
+                )
+            )
+            relist = project_digest is not None
+        elif project_exists:
+            issues.append(
+                issue(
+                    "altium.not-lowered",
+                    "the kept project parameters are not rewritten; "
+                    "check the Draftsman title-block parameters in Altium",
+                    f"{name}.PrjPcb",
+                )
+            )
     if outjob and spec is not None:
-        job = job_writer.from_preset(outjob_preset, name=name, copper=pcbdoc.document_stack(spec).copper)
+        job = job_writer.from_preset(
+            outjob_preset,
+            name=name,
+            copper=pcbdoc.document_stack(spec).copper,
+            draftsman=f"{name}.PCBDwf" if drawing is not None else None,
+        )
         job_info = outjob_summary(name, job, job_writer.unmapped(outjob_preset))
         evidence = Evidence.combine(evidence, job_writer.EVIDENCE)
         if project_listed is not None and f"{name}.OutJob".casefold() in project_listed:
@@ -2330,7 +2489,7 @@ def build_altium(
                 )
             )
         # change c0138: a project file that is as a build wrote it and lacks the job is written again
-        relist = project_exists and not outjob_listed and project_digest is not None
+        relist = relist or (project_exists and not outjob_listed and project_digest is not None)
     frames: dict[str, schdot.SheetFrame] = {}
     sheet_info: dict[str, object] | None = None
     if drawing_sheet is not None:
@@ -2396,12 +2555,15 @@ def build_altium(
             pcb=spec,
             sheets=sheets,
             outjob=job_writer.write_outjob(job) if job is not None else None,
+            draftsman=drawing,
             frames=frames,
             directions=directions,
             composition=composition,
             composition_margins=margins,
             pour_results=pour_results,
             pour_regions=pour_regions,
+            planned_sheets=planned if drawn is not None else None,
+            extra_symbols=extra_symbols,
         )
         pour_mode: PourMode = pour or "computed"
         try:
@@ -2460,6 +2622,19 @@ def build_altium(
         return BuildOutput(
             model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
         )
+    if drawn is not None:
+        from fenolite.backends.altium.drawn import planned_coverage, readback_issues
+
+        findings = readback_issues(files, model, expected=planned_coverage(planned))
+        issues.extend(findings)
+        if any(found.severity == "error" for found in findings):
+            return BuildOutput(
+                model,
+                {},
+                tuple(issues),
+                Evidence.combine(evidence, *input_evidence),
+                _summary(model, kept, None, form, sheets=sheets),
+            )
     if relist:
         # the project file is written, so it is not kept and nothing is left for the user to add to it
         kept = []
@@ -2513,6 +2688,7 @@ def build_altium(
         copper=copper_info,
         pcb={**pcb_account, "bodies": body_mode, "pour": pour_info} if spec is not None else None,
         outjob=job_info,
+        draftsman=drawing_info,
         drawing_sheet=sheet_info,
         rules=rules_info,
         directions=directions,

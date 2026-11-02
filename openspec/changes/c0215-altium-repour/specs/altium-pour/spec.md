@@ -9,6 +9,12 @@
 
 ### Requirement: Pour engine
 `fenolite.backends.altium.pour.pour_reading(reading, *, backend=None)` SHALL compute, for each polygon of a PCB document as Fenolite's reader reads it, the pieces of its poured copper from that reading only: its polygon records, its rules, its objects and its board shape.
+
+#### Scenario: Detailed contract for pour engine
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`fenolite.backends.altium.pour.pour_reading(reading, *, backend=None)` SHALL compute, for each polygon of a PCB document as Fenolite's reader reads it, the pieces of its poured copper from that reading only: its polygon records, its rules, its objects and its board shape.
 - The area of a polygon MUST be its outline within the board shape (I17), less the governing clearance (I2) around each object of another net (I18, I19), less each keep-out with the copper restriction on its layer or on the Keep-Out layer (I16), less the copper of the earlier polygons of other nets on its layer grown by their clearance, polygons being poured in rising `POURINDEX` (I9).
 - Objects of the polygon's net MUST be treated by `POUROVERSTYLE` (I8), and its pads and vias by the governing Polygon Connect Style (I5 to I7).
 - The steps MUST run in the order of I11: the area and its voids; necks removed by an opening of `NECKWIDTHTHRESHOLD` when `REMOVENECKS` is true (I10); conductors and direct joins; the pieces; pieces below `AREATHRESHOLD` removed when `REMOVEISLANDSBYAREA` is true (I12); dead copper removed when `REMOVEDEAD` is true (I13).
@@ -41,6 +47,12 @@
 - **THEN** both results are equal, piece for piece and vertex for vertex
 
 ### Requirement: Refusal of a pour
+A refused polygon SHALL retain only its outline, with a warning naming its reason. Refusal closure MUST be recomputed until no finding involves a pour; the detailed refusal conditions below apply.
+
+#### Scenario: Detailed contract for refusal of a pour
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 A polygon SHALL keep its outline only, as an unpoured polygon, when one of its inputs refuses it (a reason of `pour.REASONS`), when Fenolite's copper check of the poured reading reports a short or a clearance finding that involves its copper, or when it is a later polygon of the same layer whose outline, grown by the largest clearance of that layer, meets a refused polygon. The closure MUST be computed again after each refusal until no finding involves a pour. Each refused polygon MUST give one `altium.zone-unpoured` (warning) with `where` `zone/<id>` and its reason.
 
 #### Scenario: A rule scope the reader does not parse
@@ -54,6 +66,12 @@ A polygon SHALL keep its outline only, as an unpoured polygon, when one of its i
 - **THEN** the polygon is written with its outline only, its reason is `copper-check`, and the written document holds no region of it
 
 ### Requirement: Pour comparison
+`fenolite.backends.altium.pourcompare.compare_pours(candidate, reference, *, points=())` SHALL compare the pours of two readings of one board, polygon by polygon, matched by layer, name and `POURINDEX`, and SHALL write nothing. With `d` the polygon's `ARCRESOLUTION`, a polygon passes when:
+
+#### Scenario: Detailed contract for pour comparison
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 `fenolite.backends.altium.pourcompare.compare_pours(candidate, reference, *, points=())` SHALL compare the pours of two readings of one board, polygon by polygon, matched by layer, name and `POURINDEX`, and SHALL write nothing. With `d` the polygon's `ARCRESOLUTION`, a polygon passes when:
 - **M1** the area of the XOR of the two pours is at most `d` times the boundary length of the reference pour;
 - **M2** no part of the XOR still has area after an inward offset by `d`;

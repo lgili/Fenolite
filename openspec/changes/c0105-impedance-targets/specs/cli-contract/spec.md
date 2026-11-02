@@ -2,6 +2,12 @@
 
 ### Requirement: Impedance command
 `fenolite impedance PATH [--estimate] [--out FILE]` SHALL be registered by `src/fenolite/cli/cmd_impedance.py` with `mutates=True`, and SHALL give the impedance table of a project ("Impedance table for the fabricator"), written as a CSV file only with `--out`.
+
+#### Scenario: Detailed contract for impedance command
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`fenolite impedance PATH [--estimate] [--out FILE]` SHALL be registered by `src/fenolite/cli/cmd_impedance.py` with `mutates=True`, and SHALL give the impedance table of a project ("Impedance table for the fabricator"), written as a CSV file only with `--out`.
 - **Project.** `PATH` MUST resolve as for `bom` (a `.kicad_pcb`, a `.kicad_pro` or a project folder), with its usage and input errors. An Altium document or project MUST get the error that `bom` gives for it: no Altium record is read into a target. On built input the design MUST be the `.fenolite/` model; on native input, the board read with its project applied ("Tuning profiles are read into impedance targets"). `result.source` MUST be `model` or `project`.
 - **Result.** `result` MUST hold `source`, `columns` (`COLUMNS`), `rows` (one object per row, lengths in nanometres) and `counts` (`targets`, `rows`, `estimated`, `left_out`). A design without targets MUST give one `impedance.none` info and exit 0.
 - **`--estimate`.** Each row MUST gain `estimate`: `{"mohm", "suggested_width", "in_range", "form", "reason"}` from `analysis.impedance.estimate` and `solve_width` for the target's `ohms`; `mohm` and `suggested_width` MUST be `null` when no form applies, `reason` naming why, and `suggested_width` MUST be `null` when `ohms` is empty. The issues MUST follow the table of `exports.impedance.ISSUE_CODES`, and a row left out for a missing stack-up or permittivity MUST count in `left_out`. The envelope evidence MUST combine the source's level with `analysis.impedance.EVIDENCE`, and MUST be `UNVERIFIED` when a row was left out.

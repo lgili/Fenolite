@@ -91,3 +91,8 @@
 - [x] 9.4 Add to `CHANGELOG.md` under Unreleased: "Impedance targets per net class or pair (`design.rules.impedance()`, `trace()`), checked by derived rules on KiCad 9 and 10 and written as KiCad 10 tuning profiles; build warnings for shadowed rules, class values, gaps and an unmarked stack-up; `fenolite impedance` with the table for the fabricator and `INFERRED` estimates of single-ended lines; an Altium build keeps targets in the model and names them; 0.2.x and 0.3.0 cannot read a `rules.json` that carries the key `impedance`". Update the c0105 row of `docs/roadmap.md` (the table of "v0.4: proposals on other branches", or the milestone table if the section was folded into it by then). Proof: `git diff --stat CHANGELOG.md docs/roadmap.md` lists both files; `grep -n "c0105" docs/roadmap.md` shows the row.
   - 2026-10-08: the CHANGELOG line is at the end of `[Unreleased]`. Open: the c0105 row of `docs/roadmap.md` holds its id and slug only, as every row of that table; its update is the coordinator's.
   - 2026-10-08: the CHANGELOG line of task 9.4 is in `[Unreleased]`, and a line under `### Changed` records the probes and the deferral; the row of c0105 in `docs/roadmap.md` says it is built and that the GUI save is deferred, with a paragraph "c0105 on `v04`". `git diff --stat CHANGELOG.md docs/roadmap.md` lists both; `grep -n "c0105" docs/roadmap.md` shows the row.
+
+## Continuation review — 2026-11-01
+
+Only KiCad 9.0.2 is installed here. The task explicitly needs an actual 10.0.6 GUI save; no fixture or personal review was fabricated.
+See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.

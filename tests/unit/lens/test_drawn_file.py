@@ -5,6 +5,8 @@ file", "Drawn file numbers", "Drawn sheet items" and "Canonical drawn file"; cha
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import _drawn
 import pytest
 from hypothesis import given, settings
@@ -93,6 +95,28 @@ def test_angles_and_mirrors() -> None:
     _fails(text, "sheet[0].symbol[0].fields.Value.rotation")
 
 
+def test_mirrored_power_canonical_file() -> None:
+    value = read_drawn(MINIMAL)
+    root = value.sheets[0]
+    changed = replace(value, sheets=(replace(root, powers=(replace(root.powers[0], mirror="y"),)),))
+    text = write_drawn(changed)
+    assert 'mirror = "y"' in text
+    assert read_drawn(text) == changed
+    _fails(text.replace('mirror = "y"', 'mirror = "z"'), "sheet[0].power[0].mirror")
+    assert write_drawn(value) == MINIMAL
+
+
+def test_native_symbol_override_canonical_file() -> None:
+    value = read_drawn(MINIMAL)
+    root = value.sheets[0]
+    symbol = replace(root.symbols[0], symbol="Mini:AuthoredAlias")
+    changed = replace(value, sheets=(replace(root, symbols=(symbol, *root.symbols[1:])),))
+    text = write_drawn(changed)
+    assert 'symbol = "Mini:AuthoredAlias"' in text
+    assert read_drawn(text) == changed
+    _fails(text.replace('symbol = "Mini:AuthoredAlias"', "symbol = 42"), "sheet[0].symbol[0].symbol")
+
+
 def test_every_kind_read() -> None:
     """Scenario "Every kind read"."""
     drawn = _drawn.drawn("full")
@@ -168,6 +192,7 @@ def drawn_values(draw: st.DrawFn) -> DrawnSchematic:
         angles,
         st.sampled_from(["", "x", "y"]),
         st.lists(fields, max_size=2, unique_by=lambda f: f.name).map(tuple),
+        texts,
     )
     label = st.builds(
         DrawnLabel,
@@ -207,7 +232,16 @@ def drawn_values(draw: st.DrawFn) -> DrawnSchematic:
         ),
         False,
         tuple(draw(st.lists(symbol, max_size=3))),
-        tuple(draw(st.lists(st.builds(DrawnPower, texts, texts, points, angles), max_size=2))),
+        tuple(
+            draw(
+                st.lists(
+                    st.builds(
+                        DrawnPower, texts, texts, points, angles, mirror=st.sampled_from(["", "x", "y"])
+                    ),
+                    max_size=2,
+                )
+            )
+        ),
         tuple(draw(st.lists(polyline, max_size=3))),
         tuple(draw(st.lists(polyline, max_size=2))),
         tuple(draw(st.lists(st.builds(DrawnBusEntry, points, points), max_size=2))),

@@ -49,9 +49,12 @@
 
 ## 4. Losses the import reports (issues 4 and 5)
 
-- [x] 4.1 The unexpressed kinds `outline-width` and `layer-table` (scenario "Wide outline and short layer
+- [x] 4.1 The unexpressed kinds `outline-width` and `layer-table` (scenario "Mixed outline widths and short layer
   table"). Proof: `uv run pytest tests/unit/importer/test_unexpressed_c0281.py -q`.
   Done 2026-10-30: `emit.design._losses` (KiCad sources only: an Altium document's outline and layers are those of its conversion); proof passed.
+  Follow-up done 2026-11-01 in c0317: the updated loss test retains mixed-width and missing-layer
+  refusals; a separate uniform-width/missing-layer control still refuses only the layer loss. The
+  combined import/notch group passed (9); uniform supported strokes survive the DSL/model/writer.
 
 ## 5. Proof fixes (issues 4, 5, 7, 8, 9)
 

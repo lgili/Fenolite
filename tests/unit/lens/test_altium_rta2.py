@@ -33,6 +33,10 @@ FORMS = {"binary": (), "ascii": ("--altium-format", "ascii")}
 OFFICIAL = "blink_official/design.py"
 """The one example that needs the official KiCad libraries: built only where they are installed."""
 WITH_PCB = {
+    "blocks/layouts.py",  # c0271: captured layout example
+    "library-devices/design.py",  # c0266: data-only device items
+    "library_import/design.py",  # c0264: authored local import
+    "topologies/design.py",  # c0258: topology declarations remain reported model inputs
     "testing/design.py",
     "picks/design.py",
     "picks/divider.py",
@@ -66,6 +70,11 @@ SCHEMATIC_ONLY = {
     "schematic_blocks/grid.py",
 }
 REFUSED = {
+    "board_coverage/design.py": (
+        "the shaped pads of Local:Shaped_Pads have no Altium PCB-library form "
+        "(altium.footprint-unsupported), so altium.copper-no-document on coverage.PcbDoc "
+        "refuses the script copper"
+    ),
     "sensor_rails/bad.py": (
         "the bad variant of change c0252, refused by design: circuit.rail-current on 3V3 and "
         "circuit.logic-level on U2.i2c1 and U3.i2c"
@@ -79,7 +88,7 @@ REFUSED = {
 2026-10-08): nothing is written, so there is nothing for RT-A2 to judge. ``test_refused_example_is_refused``
 holds each entry to its reason where the libraries are installed, so that an example which starts to build
 fails there and is moved to ``WITH_PCB`` or ``SCHEMATIC_ONLY``."""
-MODULES = {"import_python/copper.py"}
+MODULES = {"import_python/copper.py", "blocks/divider.py"}
 """Files of an example that its design script imports: modules, not scripts (change c0275)."""
 NOT_JUDGED = {
     "import_python/design.py": (
@@ -141,8 +150,14 @@ def test_example_holds_rta2(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, scr
         # the stored model holds the board that was written: every kind of the scope is compared
         assert summary["compared"]["pcb"] == PCB_KINDS
         board = load_dir(folder / ".fenolite").board
-        assert board is not None and len(board.footprints) >= (2 if script == "testing/design.py" else 3)
-        assert sum(len(footprint.pads) for footprint in board.footprints) >= 3
+        assert board is not None
+        single = {"library-devices/design.py": 2, "library_import/design.py": 8}
+        if script in single:
+            assert len(board.footprints) == 1
+            assert sum(len(fp.pads) for fp in board.footprints) == single[script]
+        else:
+            assert len(board.footprints) >= (2 if script == "testing/design.py" else 3)
+            assert sum(len(footprint.pads) for footprint in board.footprints) >= 3
 
 
 def test_module_sheets_hold_rta2(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

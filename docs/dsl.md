@@ -79,6 +79,40 @@ each family.
 
 ## Assembly and test features (c0118)
 
+A pad of an authored footprint may have a shape beyond a circle, a rectangle, an oval and a rounded
+rectangle (change c0277):
+
+```python
+from fenolite.dsl.footprint import circle, poly, segment
+
+fp.pad("1", at=(mm(0), mm(0)), size=(mm(1), mm(2)), shape="trapezoid", delta=(mm("0.2"), mm(0)))
+fp.pad("2", at=(mm(2), mm(0)), size=(mm(1), mm(1)), shape="rect", chamfer=250_000, corners=("top_left",))
+fp.pad("3", at=(mm(4), mm(0)), size=(mm(1), mm(1)), shape="roundrect", radius_ratio=200_000)
+fp.pad(
+    "4",
+    at=(mm(6), mm(0)),
+    size=(mm("0.5"), mm("0.5")),
+    shape="custom",
+    anchor="circle",
+    primitives=(segment((mm(0), mm(0)), (mm(0.6), mm(0)), width=mm(0.2)), circle((mm(0.6), mm(0)), mm(0.15))),
+)
+```
+
+- `delta` (a trapezoid only, required) says how much the opposite sides differ, along x or along y: one of
+  the two is 0 (KiCad's `rect_delta`).
+- `chamfer` (an `int` of parts per million of the shorter side, 0 to 500 000) cuts the `corners` (some of
+  `top_left`, `top_right`, `bottom_left`, `bottom_right`) of a `rect` or `roundrect` pad. A chamfered `rect`
+  is written as KiCad writes it: a `roundrect` without rounding.
+- `radius_ratio` (parts per million, a `roundrect` only) rounds the corners; without it KiCad's default
+  applies.
+- `shape="custom"` takes `anchor` (`circle` or `rect` of `size`) and `primitives`, a non-empty tuple made
+  by `poly(points, width=None, fill=True)`, `segment(start, end, width=)`, `circle(center, radius,
+  width=None, fill=True)` and `arc(start, mid, end, width=)` of `fenolite.dsl.footprint`, in the pad's frame.
+- A value outside these rules raises `DslError` naming the argument. The model holds
+  `Pad.trapezoid_delta`, `corner_ratio`, `chamfer_ratio`, `chamfer_corners`, `anchor_shape` and
+  `primitives` (`PadPrimitive`); a KiCad reader projects them from a read pad and keeps its children.
+  KiCad 10.0.6 keeps the written children on `fp upgrade` (`H-K-PAD-SHAPES`).
+
 A pad of an authored footprint takes a fabrication mark, the value KiCad calls the fabrication property of
 a pad:
 
@@ -243,6 +277,16 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   a symbol `Library:Name`; `footprint=None` falls back to the symbol's `Footprint` property, and
   `value=""` to its `Value` property. `properties` maps user property names to text ("User properties").
   The ref may be left out: the build then assigns one ("Reference designators and the design lock").
+  `height=` states how tall the part is ("Part heights and height limits"). `dnp=True` marks a part that
+  is not populated (change c0277): its schematic symbol is written with `(dnp yes)` and its board
+  footprint with the `dnp` attribute, KiCad's own marks, so `fenolite export bom` and `pnp` count it under
+  `counts.dnp`; its pins stay connected.
+- `Part(..., board_only=True)` is a part on the board only ("Board-only parts"; change c0277).
+- `Part(..., footprint_definition="Local:Variant")` selects a KiCad geometry definition while preserving
+  the explicit `footprint="Original:Name"` as native PCB/schematic identity (change c0318). It requires
+  an explicit symbol and footprint, so device/query parts refuse it; Altium builds refuse it before
+  writing. The default empty string keeps ordinary resolution. An override may preserve a native empty
+  string; without an override, `footprint=""` remains invalid. The usual pad-map/electrical checks apply.
 - `Design.part(...)` and `Module.part(...)` take the arguments of `Part`, create the part and attach it.
 - `part[designator]` returns a pin handle; `connect(net, *pins)` joins pins to a net.
 - `no_connect(*pins)` marks pins as intentionally unconnected ("No-connect marks"); `part.unused_no_connect()`
@@ -250,15 +294,20 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   common patterns ("Connection helpers").
 - `Part.place(x, y, rot=0, side="top", locked=False)`, once per part; with references instead of `x, y`
   (`right_of=u1`, `left=board.left + mm(2)`, `by=c5.pad(1)`) the build resolves it ("Relative placement").
-- `Part.field(name, *, dx, dy, rot, layer, visible, size, thickness, justify, outside, gap, locked)`,
+- `Part.field(name, *, dx, dy, rot, layer, visible, size, thickness, justify, outside, gap, locked, bold,
+  italic, face)`,
   once per field name: where the `Reference` or the `Value` of the part's footprint goes ("Field
   placement"). `fields(design)` returns the requests.
 - `Design.sheet(paper, …, drawing_sheet=…)` and `Design.title_block(…)`: the paper, your drawing sheet and the title block ("Drawing sheet and title block").
 - `Design.moved(old, new)`: a path alias that keeps the layout of a renamed part or module ("Path
   aliases"); `Design.moved_net(old, new)`: the same for a renamed net.
-- `Design.board(width, height, copper=2, planes=None)`, once per design. `copper` is 2, 4, 6 or 8
-  (`fenolite.dsl.design.COPPER_COUNTS`); any other value, a `bool` or a `float` included, is a
-  `DslError` that names the counts. `design.board(mm(50), mm(30), copper=6)` declares the layers `F.Cu`,
+- `Design.board(width, height, copper=2, planes=None)`, once per design. `copper` is an even count from 2
+  to 32 (`fenolite.dsl.design.COPPER_COUNTS`; 10 to 32 since change c0277); any other value, an odd
+  count, a `bool` or a `float` included, is a `DslError` that names the counts. KiCad refuses a table of
+  one copper layer, so `copper=1` is a `DslError` that says a single-sided board is `copper=2` with
+  nothing on `B.Cu` (`H-K-PCB-ONE-COPPER`). Every count gets zones, planes on any inner layer, script
+  copper, the copper guard and one Gerber per copper layer, as eight layers do; an Altium build refuses
+  more than 16 signal layers (the count less its planes) or 16 planes with `altium.stack-signal-limit`. `design.board(mm(50), mm(30), copper=6)` declares the layers `F.Cu`,
   `In1.Cu`, `In2.Cu`, `In3.Cu`, `In4.Cu` and `B.Cu`. `Design.copper_layers` gives those names for the
   declared count, top to bottom (`("F.Cu", "B.Cu")` before `board()`), and
   `fenolite.dsl.design.inner_layers(copper)` the inner ones. Both KiCad targets get the layer table that
@@ -318,7 +367,7 @@ Nothing of the DSL is re-exported from the root `fenolite` package: the DSL `Des
   `Net(f"{m.path}/FB")`.
 - Errors are raised as `DslError` at the offending call, so the traceback points at the script line:
   duplicate paths, duplicate net, class or interface names, two `Net` objects with one name, a net in
-  two classes, a second `place()` or `board()`, a `copper` that is not 2, 4, 6 or 8, a plane or a zone
+  two classes, a second `place()` or `board()`, a `copper` that is not an even count from 2 to 32, a plane or a zone
   on a layer that the count does not have, one designator on two nets,
   an unknown `side`, an invalid name. Equal refs in different modules are reported by
   `Design.validate()` (`model.duplicate-ref`).
@@ -683,6 +732,7 @@ Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl"
 | board text | `txt` | `text:<drawing key>` |
 | board graphic | `gfx` | `graphic:<drawing key>` |
 | dimension | `dim` | `dimension:<drawing key>` |
+| group | `grp` | `group:<key>` (the name unless `key=` is given; change c0277) |
 | stack-up | `stk` | `stackup` |
 | stack-up entry | `sly` | `stack_layer:<k>`, k from 0, top to bottom |
 | impedance target | `imp` | `impedance:<target name>`; its derived rules are `rule:named:<derived rule name>` (change c0105) |
@@ -693,7 +743,24 @@ Footprints and pads are keyed by the component path through the KiCad embedder.
 
 `board(width, height)` declares a rectangle. `board(outline=path)` declares any closed ring instead, and
 `cutout(path)` adds a cut-out to either form; exactly one form of `board()` is given. `slot()` adds a
-milled slot (change c0167).
+milled slot (change c0167). An edge of the outline that a footprint's own `Edge.Cuts` draws (a USB
+connector's notch) is not written again: KiCad joins the footprint's edges to the board's (change c0277;
+`H-K-OUTLINE-FPEDGE`).
+
+`board(..., outline_width=mm("0.23"))` sets one nonnegative stroke width for generated KiCad root
+edges, including cut-outs and slots. Zero is explicit; `None` keeps the existing 0.1 mm default.
+Footprint edges retain their own strokes. An explicit width change follows the outline rebuild policy;
+hand-edited outline geometry keeps its existing precedence unless `locked=True`.
+
+`board(..., technical_layers=None)` keeps the complete standard non-copper table. An explicit
+sequence selects only those standard rows, in canonical order: `F.Adhes`, `B.Adhes`, `F.Paste`,
+`B.Paste`, `F.SilkS`, `B.SilkS`, `F.Mask`, `B.Mask`, `Dwgs.User`, `Cmts.User`, `Eco1.User`,
+`Eco2.User`, `Edge.Cuts`, `Margin`, `F.CrtYd`, `B.CrtYd`, `F.Fab`, `B.Fab`. Names must be unique;
+`Edge.Cuts` is required for the outline. Copper and `User.n` rows are not part of this selection:
+`copper=` and `design.user_layers()` still declare them independently. The existing model layer rows
+carry the selection without a new persisted field. An item referencing an omitted layer, including
+a footprint pad/field or an image, refuses the build rather than being removed or reassigned. The
+`board-workflow` guide page has a complete executable example omitting the unused Eco rows.
 
 ```python
 from fenolite.dsl import arc_to, mm, shape
@@ -1017,6 +1084,27 @@ r1.field("Reference", dx=mm(0), dy="-2.5mm", rot=0, justify="left", locked=True)
 - **`locked`.** On a first build every request applies. On a rebuild over an existing board, a field
   edited in KiCad wins over an unlocked request; `locked=True` makes the request win (`docs/lens.md`,
   "Footprint fields").
+- **Overrides** (change c0277). `Part.override(*, clearance=None, mask_margin=None, paste_margin=None,
+  paste_ratio=None, zone_connection=None, thermal_gap=None, thermal_spoke_width=None)`, once per part, sets
+  the footprint-level settings of this part's instance: KiCad's footprint `clearance`, `solder_mask_margin`,
+  `solder_paste_margin`, `solder_paste_margin_ratio` (`paste_ratio` in parts per million, may be negative),
+  `zone_connect` (`solid`, `thermal`, `none`, `thru_hole_only`), `thermal_width` and `thermal_gap`, written
+  before the footprint's `attr` (`FootprintInstance.overrides`, `FootprintOverrides`). `Part.edit_pad(number,
+  **fields)` replaces `at`, `size`, `rotation`, `shape`, `drill`, `mask_margin` or `paste_margin` of every
+  pad of that number of this instance only; a number the footprint does not hold is `build.pad-unknown`
+  (error). The vendored library footprint is unchanged, and the copper guard judges the edited pads.
+- **3D models** (change c0277). `Part.model(name, *, offset=(0, 0, 0), rotation=(0, 0, 0), scale=("1", "1",
+  "1"), hidden=False)` adds one 3D model to the part's footprint instance; any call replaces the footprint's
+  own models for this part. `name` is a reference only (`"${KICAD10_3DMODEL_DIR}/Package_SO.3dshapes/
+  SOIC-8.step"`, `"3dmodels/cap.step"`): nothing is read, and `fenolite models --vendor` and the STEP export
+  resolve it as they resolve a library's. `offset` holds lengths in the footprint frame (Y down; `0` is no
+  offset), `rotation` angles in degrees counter-clockwise, `scale` positive decimal strings. The model holds
+  `FootprintInstance.models` (`ModelRef`).
+- **Font** (change c0277). `bold=True` or `False`, `italic=True` or `False` and `face="KiCad Font"` set the
+  field's font; `None` (the default) keeps the font the footprint gives. The build writes the flags into the
+  field's `effects` and leaves every other child as it is: `u1.field("Reference", dx=mm(0), dy=mm(-3),
+  bold=True, face="KiCad Font")`. `FootprintField.bold`, `italic` and `face` hold them; a KiCad reader does
+  not project them.
 - **Errors.** Another name, a second request for one field of one part, a request that sets nothing,
   `dx` without `dy`, a bare number for a length and any other value outside these rules raise `DslError`
   at the call. A footprint that has no such field is found by the build (`FEN-3004`).
@@ -1111,7 +1199,7 @@ design.stitch("ep", net=gnd, pitch=mm(1), region=u1.pad(33), diameter=mm(0.6), d
 | `via_step(x, y, *, to, diameter=None, drill=None, kind="through")`, `via_step(point, *, to, …)` | a via inside a track path, after which the track runs on the copper layer `to`; `kind` is `through`, `blind`, `buried` or `micro`. The point is two lengths, or one argument: an `(x, y)` pair or an anchor |
 | `arc_to(mid, end)` | an arc inside a track path: from the point of the element before it through `mid` to `end`, each an `(x, y)` point or an anchor; the path continues from `end` |
 | `design.track(key, *path, layer="F.Cu", width=None, net=None, locked=False)` | a track along `path`: pad references, `(x, y)` points, anchors, arc steps and via steps, starting on `layer` |
-| `design.via(key, x, y, *, net, diameter=None, drill=None, kind="through", layers=None, locked=False)`, `design.via(key, point, *, net, …)` | one via, at two lengths or at one point (an `(x, y)` pair or an anchor); a via that is not a through via names its two copper layers in `layers` |
+| `design.via(key, x, y, *, net, diameter=None, drill=None, kind="through", layers=None, locked=False, protection=None, teardrop=None, free=False)`, `design.via(key, point, *, net, …)` | one via, at two lengths or at one point (an `(x, y)` pair or an anchor); a via that is not a through via names its two copper layers in `layers`; `free=True` writes KiCad's `(free yes)`, a via that keeps its net when no track joins it (change c0277; `via_table` takes it too) |
 | `design.stitch(key, *, net, pitch, along=(), region=(), origin=None, diameter=None, drill=None, clearance=None, margin=None, locked=False)` | through vias every `pitch` along a polyline, or on a grid inside a region; `region=part.pad(number)` is the copper of that pad (a thermal array) |
 | `copper(design)` | the intents as frozen dataclasses in key order (`TrackIntent`, `ViaIntent`, `StitchIntent`, with `PadEnd`, `Anchor`, `ViaStep` and `ArcStep`), which the build resolves |
 
@@ -1227,7 +1315,9 @@ design.via_table(
 - Rows are `(x1, y1, x2, y2)`, `(sx, sy, mx, my, ex, ey)` (start, a point on the arc, end) and `(x, y)`.
   The keyword `rows_nm` states the unit: the values are plain `int`s, so a table of thousands of rows stays
   one line per row. Widths and via sizes are `Length` values and are required.
-- `via_table` takes `kind`, `layers`, `protection` and `locked` as `via()` does; every table takes `locked`.
+- `via_table` takes `kind`, `layers`, `protection`, `teardrop` and `locked` as `via()` does; every table
+  takes `locked`. A via table also takes a blind via over both outer layers (`kind="blind"`,
+  `layers=("F.Cu", "B.Cu")`), as KiCad writes some (change c0277); `via()` and `via_step` refuse it.
 - Row `i` of table `key` is the copper item `seg[i]`, `arc[i]` or `via[i]` of the key: the build gives it
   the copper uuid it derives for that item, so a rebuild keeps it, and the lens treats it as script copper.
 - **Errors at the call.** `DslError` names the key and the row index for a row of the wrong length, a value
@@ -1253,7 +1343,7 @@ design.zone(
 | `layers` | the copper layers of the pour, any of `Design.copper_layers`: `F.Cu`, `B.Cu` and the inner layers `In1.Cu` … `In<copper − 2>.Cu` of the count (`In6.Cu` is the deepest with `copper=8`); a refused name lists the board's layers | required |
 | `name` | names the zone across builds; unique in the design | the net's name; required when `net` is `None` |
 | `key` | the zone's identity across builds when it has no name (change c0275), written nowhere in the board; with `key` and no `name` the zone has no name; unique among zones | the name |
-| `outline` | at least three `(x, y)` points in the frame of `place()` | the board rectangle |
+| `outline` | at least three `(x, y)` points in the frame of `place()`, which may hold `arc_to(mid, end)` steps as `board(outline=…)` does (change c0277): each is an arc edge, written in KiCad as an `arc` of the outline, polygonised by the copper check and written as segments in an Altium region | the board rectangle |
 | `priority` | an `int` of at least 0; a higher priority is filled first | 0 |
 | `clearance` | the distance the fill keeps from other nets (at least 0) | 0.5 mm |
 | `min_thickness` | the smallest width of copper that a fill keeps (above 0) | 0.25 mm |
@@ -1262,10 +1352,11 @@ design.zone(
 | `islands` | `always` removes unconnected copper, `never` keeps it, `below_area` keeps islands of at least `min_island_area` | `always` |
 | `min_island_area` | a string with the unit `mm2`, such as `"2.5mm2"`; only with `islands="below_area"` | 10 mm² |
 | `locked` | the script wins over an edit of the zone in KiCad, and the zone is locked there | `False` |
+| `smoothing`, `smoothing_radius` | `chamfer` or `fillet` cuts or rounds the corners of the fill by `smoothing_radius` (a length of at least 0); the radius only with a smoothing (change c0277) | no smoothing |
 
 - **Defaults are KiCad's.** A setting left out takes the value KiCad gives a new zone
-  (`docs/design-model.md`, "Zone settings"). Hatched fills and corner smoothing are not DSL arguments;
-  the model API sets them.
+  (`docs/design-model.md`, "Zone settings"). Hatched fills are not DSL arguments; the model API sets
+  them.
 - **Lengths carry a unit**, as everywhere in the DSL: `clearance=0.3` is refused.
 - **One zone, several layers.** A zone on two layers is one KiCad zone. A second zone on the same net
   needs its own `name=`.
@@ -1334,7 +1425,7 @@ design.stackup(
 
 | entry | arguments |
 |---|---|
-| `stack.silkscreen(*, color="")` | no thickness |
+| `stack.silkscreen(*, color="", material="")` | no thickness; `material` names the ink (change c0277) |
 | `stack.mask(thickness, *, material="", epsilon_r=None, loss_tangent=None, color="")` | a thickness of at least 0 |
 | `stack.copper(thickness)` | a thickness above 0 |
 | `stack.core(thickness, *, material="", epsilon_r=None, loss_tangent=None, color="")` | a thickness above 0 |
@@ -1440,6 +1531,41 @@ design.track(
   gives such a feature to vias that do not carry it says so with `kicad.via.protection-not-exported`
   (info); set it with `protection=` on those vias, or state it in the fabrication notes. Fenolite supplies
   no protection the script does not give, and checks none.
+
+## Teardrops
+
+A teardrop widens the copper where a track meets a pad or a via. KiCad draws it when it fills the board, from
+the teardrop settings of the pad or via; Fenolite writes the settings and no teardrop copper (change c0277):
+
+```python
+from fenolite.dsl import teardrop
+
+design.via("v1", mm(5), mm(5), net=gnd, teardrop=teardrop(max_length=mm(1), length_ratio=500_000))
+design.via_table("GND/via/1", net=gnd, diameter=mm("0.6"), drill=mm("0.3"), rows_nm=rows, teardrop=teardrop())
+```
+
+- `teardrop(*, max_length=None, max_width=None, length_ratio=None, width_ratio=None, curved=None,
+  filter_ratio=None, two_segments=None, prefer_zones=None, enabled=True)` returns a `Teardrop` of the model.
+  `max_length` and `max_width` are positive lengths; the three ratios are `int` parts per million of the pad
+  or via size, from 0 to 1 000 000 (`500_000` is one half); `curved`, `two_segments` and `prefer_zones` are
+  bools. `None` writes nothing, so KiCad's own default applies. `enabled=False` writes settings that turn
+  teardrops off. Any other value raises `DslError` naming the argument.
+- `teardrop=` on `Design.via` and `Design.via_table` takes that value or `None`; anything else raises
+  `DslError` naming the copper key. The build writes the via's `teardrops` child with the stated values
+  and `enabled`; a rebuild replaces the child of a script via with the script's settings.
+- `Design.teardrops(*, where=None, pads=True, vias=True, max_length=None, …, enabled=True)` takes the
+  arguments of `teardrop()` and a `select` expression: the build writes those settings on every pad and via
+  of the built board that `where` selects (`None`: all), a pad as the subject `pad` of its net, its net's
+  class (`Default` without one) and its part's reference, a via as the subject `via`. `pads=False` or
+  `vias=False` leaves that kind out. A pad or via that two calls select takes the later call
+  (`build.teardrops-overlap`, info, one per build); a via's own `teardrop=` wins over every call:
+
+  ```python
+  design.teardrops(where=select.netclass("PWR"), max_length=mm(1), length_ratio=500_000)
+  ```
+- The pads of a footprint no call selects keep the teardrop settings of the footprint's library file.
+  Teardrop zones are drawn by `fenolite fill` (KiCad), never by the build, and the copper guard does not
+  judge them.
 
 ## Design rules
 
@@ -1687,7 +1813,7 @@ design.rules.pair(
 
 ## Rule areas
 
-`design.rule_area(name, outline, *, layers=None, forbid=(), key=None)` declares one rule area and returns its
+`design.rule_area(name, outline, *, layers=None, forbid=(), key=None, placement=None)` declares one rule area and returns its
 `RuleArea` record. It is the one call for rule areas and keep-outs: a keep-out is a rule area that forbids
 something.
 
@@ -1700,7 +1826,8 @@ design.rule_area(
 hv = design.rule_area("HV", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(30))], layers=("F.Cu",))
 ```
 
-- **`name`** matches `^[A-Za-z0-9_.+-]+$` and is unique. Two names that differ only in letter case are
+- **`name`** matches `^[A-Za-z0-9_.+/-]+$` (a slash since change c0277, as KiCad names its automatic
+  placement areas `auto-placement-area-/CH1/`) and is unique. Two names that differ only in letter case are
   refused: KiCad compares area names with letter case, so a rule written for one would miss the other.
 - **`key`** (change c0275) is the area's identity across builds, written nowhere in the board, in the
   alphabet of copper keys; without it the key is the name. With a key the name may be `""`: an unnamed
@@ -1711,6 +1838,9 @@ hv = design.rule_area("HV", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(30))],
 - **`forbid`** takes `tracks`, `vias`, `pads`, `pours` and `footprints`. With an empty `forbid` the area
   forbids nothing and only rules select it (`select.area`, "Rules with selectors"). `footprints` makes
   the area a placement keep-out ("Placement rules" below).
+- **`placement`** (change c0277) makes the area a placement rule area of KiCad's multichannel tool for the
+  sheet it names, as KiCad names it (`"/CH1/"`): it is written as `(placement (enabled yes) (sheetname
+  "/CH1/"))`. Fenolite's placement does not read it; KiCad's "Repeat layout" does.
 - **In the model** each area is a `Keepout` with its `name`, in name order, with the id
   `derived_id("kpo", "dsl", "area:<key>")`. `design.rule_areas` holds the records by key.
 - **What a keep-out does.** KiCad's DRC reports a track (one that only crosses the edge too), a via or a
@@ -1724,6 +1854,79 @@ hv = design.rule_area("HV", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(30))],
 - **Altium.** An area that forbids something is written as a keep-out with its restrictions; its name has
   no place in the record and is reported, and an area that forbids nothing is reported and not written
   (`docs/altium.md`, "Rule areas, texts and dimensions").
+
+## Board-only parts
+
+A logo, a stitching via kept as a footprint, a mounting hole: KiCad marks a footprint that has no symbol
+with the `board_only` attribute, and such footprints often share a reference (`STITCH1`) or have one no
+part could take (`REF**`). `Part(..., board_only=True)` says it (change c0277):
+
+```python
+logo = Part("REF**", "Imported:Logo", footprint="Imported:Logo", name="logo", board_only=True)
+vias = [
+    Part("STITCH1", "Imported:Via", footprint="Imported:Via", name=f"stitch_{k}", board_only=True)
+    for k in range(1, 4)
+]
+```
+
+- **The ref is written as given**: any printable text without surrounding spaces, an empty one included,
+  and several board-only parts may share it. The build neither assigns nor renumbers it, and the design
+  lock holds no entry for it. `name=` then names the part across builds; it is required when the ref is
+  not a name of the path alphabet. A board-only part takes its ref as written, so `ref=None` is refused.
+- **On the board** its footprint carries KiCad's `board_only` attribute after its type, where KiCad writes
+  it. Its pins still connect it: `connect(gnd, vias[0][1])` puts its pad on `GND`.
+- **On the schematic** it has no symbol, as KiCad's board-only footprints, and its value is the one
+  `value=` gives (empty without it), not its symbol's.
+- **Comparisons** (`fenolite verify-source`, the import's self-check) pair footprints that share a
+  reference by their place (`docs/equivalence.md`, "Level 1").
+
+## User layers
+
+`design.user_layers(count, *, names=None)` declares the user layers `User.1` … `User.<count>` (1 to 45),
+once per design (change c0277). The board's layer table holds them after `B.Fab` as KiCad 9.0 and 10.0
+write them, at the odd numbers from 39, and `names` gives one the name KiCad shows:
+
+```python
+design.user_layers(9, names={"User.9": "plugins.config"})
+design.text("note", "ASSEMBLY NOTE", (mm(5), mm(5)), layer="User.2")
+```
+
+Texts, graphics and dimensions may go on a declared user layer. A rebuild adds a declared user layer the
+existing board lacks; one the board holds keeps its name there.
+
+## Verbatim items
+
+The last resort for what no call says (change c0277): an item kept as KiCad text.
+
+```python
+design.verbatim("art/qr", '(barcode (at 120 80) (layer "F.SilkS") (text "SN-0001") (type qr))')
+design.verbatim(
+    "rule/hv",
+    '(rule "hv" (constraint clearance (min 2mm)) (condition "A.NetClass == \'HV\'"))',
+    target="kicad_dru",
+)
+u1.verbatim("fab/mark", '(fp_line (start -1 0) (end 1 0) (stroke (width 0.1) (type solid)) (layer "F.Fab"))')
+```
+
+- **`design.verbatim(key, text, *, target="kicad_pcb")`** keeps a child of the board root, or with
+  `target="kicad_dru"` a rule of the rules file; **`part.verbatim(key, text)`** keeps a child of the part's
+  footprint. `key` matches the pattern of drawing keys and is unique (a part's within the part); `text` is
+  a non-empty string, which the DSL does not parse. Groups may hold a board item by its key.
+- **The build parses it** and refuses, as errors that stop it: text that is not one list
+  (`build.verbatim-invalid`); a head Fenolite writes itself (`build.verbatim-head`: the file's header, a
+  footprint, a track, a via, a zone, a drawing, a dimension, a group; a pad, a field, `at` or `layer` in a
+  footprint; anything but `rule` in the rules file); a layer the board does not hold
+  (`build.verbatim-layer`); a net the design does not hold, or one named by its number
+  (`build.verbatim-net`). Each item it writes gives one `build.verbatim-item` (info).
+- **What is written.** Every `uuid` child takes `embed.placement_uuid(<key>, "/verbatim/<n>")`, so two builds
+  agree and two items never share a uuid; a net is written in the form of the target (its number for 9);
+  other atoms, the `members` of a `generated` item among them, are written as they are. A board item goes
+  after every other root item, a part's at the end of its footprint, a rule at the end of the rules file.
+- **Versions.** The emit check gates the tokens as it gates a read board: a token KiCad 9 cannot read refuses
+  a target-9 build (`FEN-7001`), and `--allow-lossy` leaves the item out with a warning.
+- **Rebuilds.** An item replaces the one a build wrote before with its uuid; an item removed from the script
+  stays in the board until it is deleted there.
+- **Altium** has no record for KiCad text: each item is `altium.verbatim-skipped` (warning).
 
 ## Board drawings
 
@@ -1741,34 +1944,93 @@ design.dimension("width", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-5))
 ```
 
 - **Layers.** A drawing goes on a silkscreen, solder-mask, fabrication or user layer: `F.SilkS`, `B.SilkS`,
-  `F.Mask`, `B.Mask`, `F.Fab`, `B.Fab`, `Dwgs.User`, `Cmts.User`, `Eco1.User` and `Eco2.User`. Copper is
-  refused: the copper check cannot see glyphs, KiCad reports a copper text across a track as a short, and
-  it does not report a copper line across a track at all. `Edge.Cuts` belongs to the outline of `board()`.
-- **`text(key, text, at, *, layer="F.SilkS", size=None, thickness=None, rot=0, justify=None)`**: one
-  printable line, 1 mm high with a 0.15 mm stroke unless `size` and `thickness` say otherwise. `justify`
-  is `left` or `right`, then `top` or `bottom`; without it the text is centred on `at`. A text on a back
-  layer is mirrored. A centred label close to the board edge reaches it: KiCad then warns with
-  `silk_edge_clearance`.
+  `F.Mask`, `B.Mask`, `F.Fab`, `B.Fab`, `Dwgs.User`, `Cmts.User`, `Eco1.User` and `Eco2.User`, and the user
+  layers `design.user_layers()` declares. A text may also go on a copper layer of the board (change c0277):
+  KiCad reports a copper text across a track as a short, and the copper check, which draws no glyphs,
+  leaves it out (`copper.text-unchecked`, info). A graphic may go on a copper layer too and take
+  `net=`, a `Net` that joins the design: the copper check judges it as copper of that net (of no net
+  without one), so a copper shape across a pad of another net is a `copper.short`. A dimension stays
+  off copper. `Edge.Cuts` belongs to the outline of `board()`.
+- **`text(key, text, at, *, layer="F.SilkS", size=None, thickness=None, rot=0, justify=None,
+  knockout=False, bold=False, italic=False, face=None)`**: printable lines joined by `\n` (an empty text is
+  kept, as KiCad keeps one), 1 mm high with a 0.15 mm stroke unless `size` and `thickness` say otherwise.
+  `size` is a length, or a `(width, height)` pair of lengths for a font that is not square. `justify` is
+  `left` or `right`, then `top` or `bottom`; without it the text is centred on `at`. A text on a back layer
+  is mirrored. `knockout=True` cuts the text out of a filled box (a copper or silkscreen layer only);
+  `bold`, `italic` and `face` (a font name such as `KiCad Font`) style it (change c0277). A centred label
+  close to the board edge reaches it: KiCad then warns with `silk_edge_clearance`.
 - **`line(key, start, end)`, `rect(key, start, end)`, `circle(key, center, edge)`, `arc(key, start, mid,
-  end)` and `polygon(key, points)`** take `layer` and `width`; `rect`, `circle` and `polygon` take
-  `fill=False`. `width` is above 0 for a line, an arc and a shape that is not filled, and may be `mm(0)` for
-  a filled one. The three points of an arc are not on one line.
+  end)` and `polygon(key, points)`** take `layer`, `width` and `net=None`; `rect`, `circle` and `polygon`
+  take `fill=False`. `width` is above 0 for a line, an arc and a shape that is not filled, and may be
+  `mm(0)` for a filled one, or `None`: a filled shape without an outline, which KiCad writes with a stroke
+  width of −1 nm (`-0.000001`; change c0277). The three points of an arc are not on one line.
 - **`dimension(key, start, end, *, offset, layer="Dwgs.User", direction=None, units="mm", precision=4,
-  size=None, thickness=None, width=None)`**: a linear dimension. Without `direction` it is aligned with the
-  two points; with `horizontal` or `vertical` it measures that coordinate difference only. `offset` is the
-  signed distance of the dimension line from the measured points, KiCad's `height`: for a dimension from
-  left to right a negative offset puts the line above the points (towards smaller y), and for one from top
-  to bottom a negative offset puts it to their right. `units` is `mm` or `in`, `precision` 0 to 4
-  decimals. KiCad computes the text, its place and its angle from the points when it loads the board.
+  size=None, thickness=None, width=None, extension_offset=None, text_at=None)`**: a linear dimension.
+  Without `direction` it is aligned with the two points; with `horizontal` or `vertical` it measures that
+  coordinate difference only. `offset` is the signed distance of the dimension line from the measured
+  points, KiCad's `height`: for a dimension from left to right a negative offset puts the line above the
+  points (towards smaller y), and for one from top to bottom a negative offset puts it to their right.
+  `units` is `mm`, `in`, `mils` or `auto` (the units the board editor shows; change c0277), `precision` 0
+  to 4 decimals. `extension_offset` is the gap between a measured point and its extension line (`None`:
+  0.5 mm), `size` may be a `(width, height)` pair, as a text's, and `text_at` places the text by hand
+  (KiCad's `text_position_mode 2`; change c0277). KiCad computes the text, and without `text_at` its place
+  and its angle, from the points when it loads the board.
+- **`radial_dimension(key, center, edge, *, leader_length, layer="Dwgs.User", units="mm", precision=4,
+  size=None, thickness=None, width=None)`** (change c0277): the radius from `center` to the point `edge` of
+  a circle, shown with the prefix `R ` at the end of a leader `leader_length` long past `edge`.
+- **`leader(key, start, knee, *, text, frame="none", layer="Dwgs.User", size=None, thickness=None,
+  width=None, text_at=None, units="mm", precision=4)`** (change c0277): an arrow from `start` to `knee` and
+  the note `text` (one line), framed by `frame` (`none`, `rect` or `circle`). The text stands at `text_at`,
+  else 2 mm past the knee on the side the arrow points to.
+- **`center_mark(key, center, edge, *, layer="Dwgs.User", width=None)`** (change c0277): the cross of a
+  circle's centre, its arms reaching `edge`. It has no text.
+- **`image(key, file, at, *, layer="F.SilkS", scale="1")`** (change c0277): a picture on the board. `file` is
+  a PNG path relative to the script folder; the DSL does not read it, the build does, and the file is an
+  input of the build's plan (a changed picture changes the plan). `scale` is a positive decimal string
+  (`"0.5"` draws it at half its size). A file that is not there is `build.image-missing`, one that is not a
+  PNG `build.image-format` (errors, nothing is written). The model holds an `Image` (`img`) with the base64
+  text of the file in `Board.images`; `result.board_items.images` counts them. An Altium build reports each
+  image (`altium.image-skipped`, warning).
 - **In the model** a text is a `Text` (`txt`), a graphic a `Graphic` (`gfx`) and a dimension a `Dimension`
   (`dim`), each in key order; `design.drawings` holds the records by key.
 - **Errors at the call** (`DslError`, nothing recorded): no `board()` yet, a key used twice, a layer that
-  takes no drawing, an empty or multi-line text, a bare number for a length, corners of a rectangle that
-  share a coordinate, a `direction` whose difference is 0, a `precision` outside 0 to 4.
+  takes no drawing, a text with a character that is not printable (a line break excepted), a knockout off
+  copper and silkscreen, a bare number for a length, corners of a rectangle that
+  share a coordinate, a `direction` whose difference is 0, a `precision` outside 0 to 4, a
+  `leader_length` that is not a positive length, a leader's `text` that is empty or of several lines, a
+  `frame` outside `none`, `rect` and `circle`.
 - **Rebuilds.** As for rule areas: script drawings are written again on every build, and what was drawn
   in KiCad stays.
-- **Altium.** Centred texts and graphics are written; a justified text and a dimension are reported and
-  not written (`docs/altium.md`).
+- **Altium.** Centred texts and graphics are written; a justified text, a text of several lines or in a
+  copper layer, a knocked-out, bold, italic or face text, and a dimension are reported and not written
+  (`docs/altium.md`).
+
+## Groups
+
+A group gathers board items that move together in KiCad: a logo and its frame, a block of parts (change
+c0277).
+
+```python
+design.text("silk/logo", "LOGO", (mm(5), mm(5)))
+design.group("logo", r1, "silk/logo", locked=True)
+design.group("", "logo", d1, key="power")  # a group may hold a group declared before it
+```
+
+- **`group(name, *members, locked=False, key=None)`**: members are parts and keys of drawings, zones, rule
+  areas and earlier groups, at least one. `name` is the name KiCad shows, `""` for an unnamed group with
+  a `key`; the key, else the name, names the group across builds and in other groups, so two groups may
+  share a name under different keys. `locked=True` writes `(locked yes)`.
+- **In the model** a group is a `Group` (`grp`) of `Board.groups`, in key order, whose `member_ids` are the
+  ids of its parts' components and of its items, sorted.
+- **The KiCad writer** writes each group after the zones, as KiCad does: `(group "name" (uuid …) [(locked
+  yes)] (members "…" …))`, a part by the uuid of its footprint, the members sorted.
+- **Errors at the call** (`DslError`, nothing recorded): no member, a part not added to the design, a key
+  that names no item or more than one, a member already in a group, a key used twice, a name that is not
+  printable, `locked` not a bool. A group is declared after its members, so it cannot hold itself.
+- **Rebuilds.** A group of the script replaces the group of the same uuid in the board; a group drawn in
+  KiCad stays, and one removed from the script stays in the board until it is deleted there.
+- **Altium.** The document has no group record: each group is reported as `altium.not-lowered` (info) and
+  its members are written alone (`docs/altium.md`).
 
 ## Placement rules
 

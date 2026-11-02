@@ -19,7 +19,44 @@
   them). `make check-fast` passed on 2026-10-29; `openspec validate` cannot run here (no `openspec` CLI in
   this environment), so the task stays open for that one proof.
 
+  Continuation entry — 2026-11-01, base `eabbeeef38f54c0ff14ac2cbb0bd2234da464ff1`:
+  c0275/c0276/c0277/c0279 remain active, but their actual surfaces are present. c0275's CLI entry is
+  `cli.cmd_import`, with `importer.source.read_kicad`, `importer.emit.emit`, and the emitted
+  `PROVENANCE.json` of schema `fenolite.import-provenance.v0` (the library wraps it in
+  `fenolite.provenance.v0`). c0276 supplies `model.drawn.DrawnSchematic`,
+  `backends.kicad.drawn.extract`/`extract_with_pins`, and `model.drawn_connect.resolve`.
+  Source-sheet/symbol import preservation is unfinished on this base and owned separately; its actual
+  signed prerequisite is needed for positive all-level round trips. The five MODIFIED requirements
+  remain owned only by c0278; no archived owner requires rebasing their text. The names `verify-source`,
+  `view.fidelity` and `rtf` are already claimed by this change's current implementation/preparation,
+  not free for an unrelated change. The five dated decisions of 2026-10-29 remain adopted.
+  Strict validation now passes. Task 0.1 remains open because its literal proof includes the coordinating
+  `make check-fast`; focused proofs do not substitute for that full fast gate.
+
   Proof: `openspec validate c0278-fidelity-proof --strict`; `make check-fast`.
+
+  Entry refresh 2026-11-02, integration base `697cdf02b39c570b7827bd2b7b5419dfcf6bdea6`:
+  c0275/c0276/c0277/c0279 remain active and implemented. Import enters through
+  cli.cmd_import, importer.source.read_kicad and importer.emit.emit, writing PROVENANCE.json
+  with fenolite.import-provenance.v0; library provenance wraps that in fenolite.provenance.v0.
+  c0276 now supplies actual source-drawing/native-symbol preservation as well as
+  model.drawn.DrawnSchematic, backends.kicad.drawn.extract/extract_with_pins and
+  model.drawn_connect.resolve. The earlier missing-source-drawing entry is superseded by
+  these implemented APIs, not by a claim that every external round trip passes. Only c0278
+  holds the five listed equivalence MODIFIED requirements; no newly archived owner requires
+  regeneration. verify-source, view.fidelity and corpus use rtf are already owned here.
+  Explicit equivalent level S is implemented; integer/default result contracts remain separate.
+  All five accepted recommendations remain 1000 ppm configurable masks, a later independent
+  plot oracle, no merged-segment library-proof relaxation, reviewed acceptance changes, and
+  locked as a notice. Pending corpus ratchets, native GUI/application gates, releases and
+  exact-head CI stay open; no new accepted count or third-party source fact is asserted.
+
+  Available proof: `openspec validate c0278-fidelity-proof --strict` passes without warnings
+  (OpenSpec 1.16.0).
+  The literal `make check-fast` is not run by this worker and has no applicable passing
+  serialized receipt yet. Task 0.1 remains unchecked for that actual proof; independent
+  CI, native/manual and release criteria are unchanged.
+
 
 ## 1. Package constants and kinds
 
@@ -75,6 +112,13 @@
   `fenolite.api.equivalent(..., strict=, presentation=)` (level 8 needs the renderer of `view`, which `api`
   may not import, so the caller passes it); schema regenerated; proof passed.
 
+- [x] 3.2 Finish the existing S prerequisite through actual schematic extraction: accept explicit `level="S"` in the API/CLI, compare only the schematic level, widen the active v0 result types additively, and preserve every integer/default result byte. Reuse the shared actual-sheet comparator without an API-to-CLI import edge. Prove raw schematic, project, hierarchy, bus, Repeat, missing-side, planted junction and exact historical integer results; coordinate the final shape with the result-contract owner before freeze. Proof: `uv run pytest tests/unit/api/test_equivalence_api.py tests/unit/cli/test_equivalent_cmd.py tests/unit/api/test_equivalent_s_api.py tests/unit/cli/test_equivalent_s_cmd.py tests/unit/checks/equivalence/test_level_s.py tests/consistency -k equivalent -q`; generated schemas and the typed public API examples pass.
+
+  Reopened 2.4 and 3.1 on 2026-11-01: their historical integer/engine proofs remain recorded, but actual
+  `equivalent --level S` still refuses every input on this base. They close only after the authored and
+  available public S cases actually pass, without accepting source drawing losses. Root authorizes this
+  prerequisite before the last-v0 freeze; the result-contract owner prepares the same exact union shape.
+
 ## 4. verify-source
 
 - [ ] 4.1 Author `tests/data/fidelity/sensor/` (a KiCad 10 project authored for Fenolite, CC0, saved by the
@@ -106,7 +150,7 @@
   "Authored fixtures", "A regression shows"), and add `tests/fidelity` to the hermetic set of
   `make check-fast`. Proof: `uv run pytest tests/fidelity -q`; `make check-fast`.
   Open 2026-10-29: waits for c0275 (`fenolite import --to python`), not merged.
-- [ ] 5.2 Tag the demo project rows with `rtf` by the licence rule and add the manifest check (scenarios of
+- [x] 5.2 Tag the demo project rows with `rtf` by the licence rule and add the manifest check (scenarios of
   "Round-trip fidelity use"). Proof: `uv run pytest tests/corpus/test_manifest.py -k rtf -q`.
   Open 2026-10-29: the `rtf` use and its manifest check come with the round trip, which waits for c0275.
 
@@ -147,3 +191,83 @@
   and KiCad jobs on the exact commit. Proof: `make check-fast`; the required CI jobs are green on the
   commit.
   Open 2026-10-29: `make check-fast PYTEST_WORKERS=2` passed locally; CI runs with the batch.
+
+## Continuation proof — 2026-11-01
+
+Task 5.2: the 24 board roots and 150 declared inputs carry `rtf` by the shipped board-library licence
+allow-list, including both refs and heavy inputs. NC/ND and restricted variants are rejected. The exact
+manifest `-k rtf` proof passes: 11 passed, 49 deselected. Real inputs remain fetched-only; the new residue
+case emits a cached row into a temporary tool-tree stand-in and reports its row id. No third-party file
+or derived code is committed.
+
+Task 5.1's implementation now includes the source-dependent authored tests after prerequisite
+`81f3bb1d`. The strict helper imports, explicitly builds, and verifies all 1–8+S levels without
+lossy/acceptance/tolerance flags, with original-byte snapshots. The actual sensor, hierarchy, bus and
+Repeat comparisons pass all nine levels with copper compared. A passing all-level control precedes the
+redundant-junction negative, which then reports exactly one missing junction at S. The sensor's earlier
+64S+1presentation failure remains historical evidence of the old source path. The task stays open:
+its literal proof also includes the coordinating full fast gate, which has not run on this batch.
+
+Tasks 6.1 and 6.2 remain open. The native upgrade/refill test is prepared, but `kicad-cli` 9.0.2 lacks the
+10-only upgrade/refill methods and no exact CI job or GUI-saved task-4.1 fixture is supplied. No evidence
+level is raised. Corpus ratchet infrastructure validates counts in both directions and separates
+unreviewed baselines from actual observations. A real strict full-project local census, with no broad
+acceptance flags, failed 22 cases and skipped two heavy rows. Its observations retain 16 import refusals,
+five unequal comparisons and one published-malformed input refusal after the focused variant fix.
+These are failed proofs, not accepted differences or zero counts. The counts-only observations and their
+scope/timings are in `docs/evidence/fidelity.md`; baselines remain pending review.
+
+The manifest-wide focused group has one inherited failure: `test_committed_data_files_are_declared_and_embeddable`
+on missing declarations for `examples/board_coverage` and `examples/library-devices` in this base. The
+coordinating branch owns their already-prepared declaration union. No unrelated fixture row is changed here.
+Task 8.2 retains full fast/CI/publication requirements with the coordinating branch.
+
+Combined integration — 2026-11-01, base `5cede829`: the focused fidelity/category, manifest,
+documentation and converted-code group passes all 75 cases, including the formerly missing fixture
+declarations supplied by the batch. All 405 corpus entries, existing fields and prior uses remain;
+`rtf` is added to 150 inputs. Viewer build targets remain present. That checkpoint omitted positive
+source-dependent cases; reviewed corpus baselines, native/GUI and full/CI gates remained open.
+
+Authored continuation — 2026-11-01, after source prerequisite `81f3bb1d`: `uv run pytest tests/fidelity
+-q` passes all 14 cases, including five actual source-fidelity tests; the cross-tag materialization and
+licence policy selector passes 11 cases (49 deselected). Explicitly identical declared cross-tag inputs
+are reused with their original SHA-256 checks; the selected corpus remains 24 roots and 150 inputs.
+Only the authored runtime proofs are now satisfied; reviewed corpus baselines, GUI/native and full/CI
+requirements remain open.
+
+## Explicit S completion — 2026-11-01
+
+Tasks 2.4, 3.1 and 3.2 now pass their actual authored/public proofs. Explicit S uses the shared native-sheet
+comparator, with the old CLI helper retaining its imports. Raw schematic, project and written-build
+inputs identify the actual root sheet; no PCB or netlist-export process is needed for S. Native sheet
+instance paths retain repeated symbol identities, including source symbols without PCB footprints.
+A critical unsplit native crossing loses both a junction item and its resolved net when its junction is
+deleted; excluding that exact item still leaves `drawn-net`. Integer/default behavior is unchanged.
+
+The final focused API/CLI/conversion/schema/import-graph/engine/fidelity/guide group passes 329 tests.
+It includes actual cached public rows 04 and 12, authored flat/full/hierarchy/bus/Repeat drawings,
+missing-side/invalid-option checks, and nine byte digests compared against the pre-S API at c4533497.
+The equivalent consistency selection passes 12 tests. Full source pyright and a typed public client
+(`level="S"`, integer and default calls) each report zero errors/warnings. Ruff/format, guide/schema
+generation checks and residue pass. The active v0 producer/schema widens only the four existing level
+fields to `int | Literal["S"]`; the version-1 contract owner has the exact unchanged-key shape before
+root's final last-v0 capture. There is no legacy-schema exemption or generic type fallback.
+
+The source prerequisite is signed at 81f3bb1d and integrated by merge 5cab0e29. The independently proved
+0738456b packet adds the formerly omitted positive authored round trips: all nine levels pass with actual
+copper, and the redundant endpoint-junction writer fault is located after a passing control (5 passed).
+Manifest cross-tag materialization uses only the declared identical-at-tag notes; 11 policy cases pass,
+with the same 24 roots and 150 fetched-only input rows. These focused proofs do not close 0.1/5.1/8.2's
+coordinated full fast/CI requirements, task 4.1's literal GUI save, or native/evidence tasks 6.1/6.2.
+
+## Strict corpus refresh — 2026-11-01
+
+The actual all-level corpus census was rerun on signed source 613b6f1b after the source prerequisite
+and explicit S completion. It failed 22 cases and skipped the two declared heavy inputs in 186.16s:
+19 import refusals (13 FEN-3004 validation, six FEN-7001 unexpressed content), one manifest-declared
+malformed-input refusal and two unequal comparisons. Both compared inputs are equal at S; the remaining
+raw differences are 3:footprint-name=7 and 8:render-pixels=1 on one input, and 7:graphic-missing=5 and
+8:render-pixels=1 on the other. Counts, timing and refusal codes replace the older infrastructure-only
+observations in the evidence page; attribution remains undecided and all 24 baselines remain pending.
+This failed local proof does not close 6.2 or claim native/CI evidence. The corpus ratchet requires all
+nine level entries and a nonempty reason for any explicit skipped level.

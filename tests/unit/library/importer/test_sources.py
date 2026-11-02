@@ -19,6 +19,17 @@ def test_authored_fixtures_are_reproducible() -> None:
     assert {path.name: path.read_bytes() for path in DATA.iterdir()} == fixtures()
 
 
+def test_authored_archives_ignore_windows_creator_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    class WindowsZipInfo(zipfile.ZipInfo):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.create_system = 0
+
+    monkeypatch.setattr(zipfile, "ZipInfo", WindowsZipInfo)
+    # Compare the complete ZIP container, not only extracted members or a normalized projection.
+    assert {path.name: path.read_bytes() for path in DATA.iterdir()} == fixtures()
+
+
 def test_kicad_and_zip_sources_keep_pins_and_pads() -> None:
     got = read_sources([DATA / "exb6202.zip"])
     assert got.symbol.name == "EXB6202" and len(got.symbol.pins) == len(got.footprint.pads) == 8

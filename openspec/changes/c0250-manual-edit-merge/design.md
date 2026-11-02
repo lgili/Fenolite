@@ -323,6 +323,21 @@ that both resolve would make the order matter.
   `--confirm --plan`. Undo is a new build with the other take.
 - Without c0245, the two command lines are offered to copy. The viewer never writes by itself.
 
+Decided 2026-11-01 (the user delegated the recommended implementation): c0303's TypeScript plan-review
+dialog is the Pending review surface. Keep the copyable command lines and add structured conflict
+Properties and finite take actions through its existing plan/confirm/receipt/undo API. `--edit` is an
+additive alias of `--allow-actions`. The page sends only the finding index and side. The server binds the
+script path/hash, selected board/output and existing base/build records; it rejects stale or mismatched
+inputs before executing the source. A take alone may use the bound script's authoring root when the
+output lies inside it, so the ordinary `B/board` case can plan source-side lock/edits writes. Other actions
+keep their existing root restriction. Review lists every staged input/write and the source execution
+context; confirm replays only that plan. Undo uses the same recorded scope and reviewed receipt, with
+all existing path/symlink guards and input-change checks. No arbitrary command, path or root comes from
+the page, and no CAD evidence label changes.
+The real-child regression also exercises undo when a take writes both inside `B/` and beside the
+script. Its stored restore envelope rebases paths to the validated authoring root, preserving the
+original receipt and working directory for audit; the public confirmation receipt stays unchanged.
+
 ### 15. Modules and data flow
 
 `src/fenolite/lens/edits.py` (pure; imports stdlib, `core`, `model`, `backends`, `lens.placements`):

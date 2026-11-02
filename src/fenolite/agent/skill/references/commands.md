@@ -81,7 +81,7 @@ another type; a flag without a value is a switch.
 | `blocks` | [Arguments](commands-1.md#blocks) |
 | `bom` | [Arguments](commands-1.md#bom) |
 | `build` | [Arguments](commands-1.md#build) |
-| `capabilities` | [Arguments](commands-1.md#capabilities) |
+| `capabilities` | [Arguments](commands-2.md#capabilities) |
 | `catalog` | [Arguments](commands-2.md#catalog) |
 | `check` | [Arguments](commands-2.md#check) |
 | `convert` | [Arguments](commands-2.md#convert) |

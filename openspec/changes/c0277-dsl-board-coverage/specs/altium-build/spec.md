@@ -6,7 +6,7 @@ An Altium build of a script whose signal layers (copper count minus declared pla
 #### Scenario: Twenty layers without planes
 - **GIVEN** a blink variant with `copper=20` and no plane
 - **WHEN** it is built with `--target altium --dry-run --json`
-- **THEN** the exit code is 5, `issues` hold one `altium.stack-signal-limit` naming 18 signal layers, and nothing is planned
+- **THEN** the exit code is 5, `issues` hold one `altium.stack-signal-limit` naming 20 signal layers, and nothing is planned
 
 #### Scenario: Twenty layers with four planes
 - **GIVEN** the same variant with planes on `In1.Cu`, `In6.Cu`, `In12.Cu` and `In18.Cu`

@@ -32,10 +32,10 @@
 
 ## 2. Plugins
 
-- [ ] 2.1 `digikey.py` with its authored fake responses and sidecars (scenario "Only the query leaves"). Proof: `uv run pytest tests/unit/suppliers/test_digikey.py -q`.
-- [ ] 2.2 `mouser.py` with its fake responses (the key redacted from every URL in messages). Proof: `uv run pytest tests/unit/suppliers/test_mouser.py -q`.
-- [ ] 2.3 `nexar.py` with its fake responses. Proof: `uv run pytest tests/unit/suppliers/test_nexar.py -q`.
-- [ ] 2.4 `farnell.py` with its fake responses and cache `none`. Proof: `uv run pytest tests/unit/suppliers/test_farnell.py -q`.
+- [x] 2.1 `digikey.py` with its authored fake responses and sidecars (scenario "Only the query leaves"). Proof: `uv run pytest tests/unit/suppliers/test_digikey.py -q`.
+- [x] 2.2 `mouser.py` with its fake responses (the key redacted from every URL in messages). Proof: `uv run pytest tests/unit/suppliers/test_mouser.py -q`.
+- [x] 2.3 `nexar.py` with its fake responses. Proof: `uv run pytest tests/unit/suppliers/test_nexar.py -q`.
+- [x] 2.4 `farnell.py` with its fake responses and cache `none`. Proof: `uv run pytest tests/unit/suppliers/test_farnell.py -q`.
 - [x] 2.5 Policies against their pages; fixtures authored and offline (scenarios "Policies agree with their pages", "Fixtures are authored and offline"). Proof: `uv run pytest tests/unit/suppliers -q`.
 
 ## 3. Command integration
@@ -58,20 +58,76 @@
 - [x] 6.3 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits for `0.7.0.dev0` on `dev` (the guard of v0.6 keeps `[Unreleased]` empty until then). Proof: `.venv/bin/python -m pytest tests/unit/test_release_record*.py tests/unit/test_release_tool.py -k changelog -q`.
 - [ ] 6.4 Run `make check-fast`, publish the batch to its working branch, and read the required CI jobs on the exact commit. Proof: `make check-fast`; the required jobs green on the pushed head.
 
-Source review 2026-11-01: 0.2 remains open because primary DigiKey terms were inaccessible,
+Initial framework review 2026-11-01: 0.2 remained open because primary DigiKey terms were inaccessible,
 Mouser terms returned 403, Nexar API-terms body was unavailable and Farnell's readable partner
 terms do not establish durable identity-row rights. Shared machinery proceeds with authored test
 policies; production policies stay unavailable. Source-specific readiness tasks remain open.
 
-Delivery proof 2026-11-01: the final `uv run pytest` group with the suppliers extra installed passes
+Initial framework delivery proof 2026-11-01: the final `uv run pytest` group with the suppliers extra installed passes
 197 supplier/CLI/plan-replay/import/extras tests. Consistency: 662 pass, 41 expected mutating skips.
 Guide: 117 pass, 19 require KiCad 10 and are skipped on this installation. Provenance, hypotheses,
 release and authored-data checks: 54 pass; focused changelog selection: 7 pass. Ruff, pyright,
 schema/guide/evidence freshness, residue and strict OpenSpec checks pass. No live supplier request,
 account, key or product data was used.
 
-Tasks 2.1–2.4 remain open: DigiKey/Nexar response mappings are unavailable; Mouser/Farnell documented
-mappings and authored fixtures pass offline, but source-specific readiness is unproven. Current policies
+At that framework checkpoint, tasks 2.1–2.4 remained open: DigiKey/Nexar mappings were unavailable; Mouser/Farnell documented
+mappings and authored fixtures pass offline, but source-specific readiness was unproven. Current policies
 remain unavailable with no persistence or cache. Task 5.1 remains closed to implementation pending
 approved JLC sources. Task 6.4 is open: the maintainer serializes full gates, publication and exact-head CI;
 focused local proofs do not substitute for them.
+
+## Public-source continuation audit — 2026-11-01
+
+Base 17706a46 in an isolated supplier worktree. S-1220..S-1227 were checked for collisions across source
+registers and active designs before use. The DigiKey keyword Swagger and primary API agreement are
+now readable: section 5.1(e) restricts creating/updating an information database, so durable identity
+permission remains unestablished. Mouser's exact primary API terms URL still returns403. Nexar's
+public API accordion body remains unavailable; current primary add-on documentation excludes any
+assumption of specs/datasheet/ECAD entitlement. Farnell's primary 4(A) storage restriction and 5 source
+attribution/link obligations were reread. All four production policies remain unavailable with no
+cache or persistence. Task 0.2 remains open for missing primary terms/rights completeness; task 5.1
+remains open because approved JLC API documentation/terms have not been supplied. No JLC registration,
+API key, live request, billing or source-data permission is assumed.
+
+## Authored protocol proofs — 2026-11-01
+
+Tasks 2.1–2.4 are implementation proofs under explicit fictional test permissions, not production
+readiness. Their individual required commands pass with sockets forbidden:
+
+- 2.1 `tests/unit/suppliers/test_digikey.py`: 15 passed. Primary-documented token/keyword requests,
+  local query/result bounds, malformed token/container refusal, rejected credentials and received-token
+  redaction are covered. New token and keyword fixtures/sidecars are authored CC0 and registered.
+- 2.2 `tests/unit/suppliers/test_mouser.py`: 11 passed. Documented source errors cannot turn partial
+  rows into success; optional attribute/price arrays are validated, absence and local bounds retained.
+- 2.3 `tests/unit/suppliers/test_nexar.py`: 18 passed. Supply-scope token and basic JSON GraphQL,
+  escaped query text, no assumed add-ons, partial/error refusal, documented auth error codes, selected
+  container validation and received-token redaction are covered. A Retry-After warning survives a later
+  GraphQL error; partial data never clears it. New fixtures are authored CC0 only.
+- 2.4 `tests/unit/suppliers/test_farnell.py`: 16 passed. The documented keyword mapping keeps cache
+  disabled, distinguishes absent fields from malformed arrays/offers, and applies its local limit.
+
+The source/provenance/policy audit group passes 10 tests, but does not close 0.2: missing primary terms
+bodies and unestablished durable identity rights remain real dependencies. All policies still have
+ready=false, persist=[] and cache=none, checked before credentials or transport. JLC 5.1 remains gated
+and unregistered. Full fast, publication and exact-head CI 6.4 remain owned by the coordinating branch.
+No live supplier request, real credential, billing, product answer or provider implementation was used.
+
+## Primary terms body follow-up — 2026-11-01
+
+The approved plain public fetch of S-1222 returned HTTP 200 and 128331 bytes; the local SHA-256 matches
+`e59c7416f2e979658091c098b838cebccd9844f56eb7ac644a02082466073b7f`. This is actual Mouser Search API
+Terms of Service (last modified 2013-03-11), with the complete numbered sections, not only a challenge.
+Sections 2/4/5/6/7 establish application-specific approval, a content-storage prohibition, conspicuous
+source credit/preserved links, account-assigned call limits and deletion after termination. No new
+numeric limit or permission to persist identity drafts is established. Source/policy notes now record
+these primary facts; the first framework/adapter proofs above retain their original review context.
+
+This resolves the Mouser primary-body portion of 0.2 only. The Nexar plain fetch returned 403; its error
+body is not terms evidence. Task 0.2 stays open for the missing Nexar API terms body and unestablished
+permitted identity scope. All four production policies remain unavailable, with no cache or persistence,
+and no runtime mapping or public result shape changed. Tasks 5.1/6.4 remain open for their prior reasons.
+
+The follow-up source/policy/registry/Mouser/capabilities group passes 25 tests. It checks the recorded
+terms against policy data and retains every production gate. Lint, format, public residue, generated
+guide/schema/evidence checks and strict OpenSpec pass. The 231 adapter/CLI tests on 33f878e3 remain
+the functional checkpoint; no mapping or shared HTTP algorithm changed in this evidence-only follow-up.

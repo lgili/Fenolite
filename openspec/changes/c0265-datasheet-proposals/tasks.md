@@ -19,6 +19,30 @@
   and the H-G namespace alignment are recorded in design.md. The root owns the complete local gate,
   so 0.1 remains open despite strict validation passing.
 
+  Entry refresh 2026-11-02, integration base `697cdf02b39c570b7827bd2b7b5419dfcf6bdea6`:
+  c0246/c0259/c0260/c0261/c0262/c0264 remain active and implemented. Public range
+  input is `Range`/`between(a,b,nominal=...)`; record pins use `type`/`group`, while model
+  `PinRow` calls the electrical type `etype`. c0260's nine families and manufacturer-land
+  parameters, c0262's rules/review, and c0264's canonical record sealing are present.
+  `ProposalOrigin` stays distinct from `ImportOrigin`; current human review and current
+  output seals remain necessary for shipping proposals. c0195/c0196 remain active; MCP
+  derives the shared library tool from argparse and excludes review in schema and runtime,
+  while file-based propose stays reachable. The living guide still says 22 written pages,
+  750 generated lines and 300000 folder bytes. Active c0275 raises the latter budgets to
+  800 lines/400000 bytes; the implemented guide has 19 tool, 11 practice and four feature
+  pages, eight generated references (six command detail pages), and the start page. Written
+  pages retain 250 lines/12000 bytes and the start page has the existing 200-line bound.
+  All four recommendations are accepted: human review outside MCP, file proposals rather
+  than inline proposals, explicit CC0 proposals still requiring review, and cited land
+  parameters allowed. These choices confer no new source terms or automatic approval.
+
+  Available proof: `openspec validate c0265-datasheet-proposals --strict` passes without warnings
+  (OpenSpec 1.16.0).
+  The literal `make check-fast` is not run by this worker and has no applicable passing
+  serialized receipt yet. Task 0.1 remains unchecked for that actual proof; independent
+  CI, native/manual and release criteria are unchanged.
+
+
 ## 1. Proposal file
 
 - [x] 1.1 Add `src/fenolite/library/proposals/schema.py`: `parse_proposal`, the closed keys, the geometry refusal, citations, doubts, grids and the canonical writer. Author `tests/data/proposals/` (an SOIC-8 proposal, a grid proposal pair, and a one-page PDF written for Fenolite, each with the authored-for-Fenolite line; the illustrative part and datasheet are invented). Scenarios "An authored proposal is read", "Coordinates refused", "A doubt is reported". Register `H-G-PROPOSAL` in `docs/hypotheses.md`. Proof: `uv run pytest tests/unit/library/proposals/test_parse.py -q`; `uv run pytest tests/unit/test_hypotheses_register.py -q`.

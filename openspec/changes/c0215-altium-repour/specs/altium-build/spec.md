@@ -2,6 +2,12 @@
 
 ### Requirement: Copper in an Altium build
 The Altium build SHALL write copper and net classes into the planned `<name>.PcbDoc` from exactly one copper source per build, and it SHALL invent no copper: a computed pour is derived from the written document alone ("Pour mode of an Altium build").
+
+#### Scenario: Detailed contract for copper in an altium build
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+The Altium build SHALL write copper and net classes into the planned `<name>.PcbDoc` from exactly one copper source per build, and it SHALL invent no copper: a computed pour is derived from the written document alone ("Pour mode of an Altium build").
 - `lens.altium.build_altium(design, …, copper=2, planes=None, copper_source=None, pour="computed")` MUST take the copper layer count of the script (`fenolite.dsl.Design.copper`), its planes ("Internal planes in an Altium build"), at most one `lens.altium.CopperSource(design, origin, where="")`, whose `origin` is `script` or `board`, and the pour mode. `cli/cmd_build.py` MUST pass the count, the planes and the pour mode.
 - The sources are: **model**, the tracks, arcs, vias and zones of `design.board` itself (tests, and routers that return model copper, c0016 and c0023); **script**, "Script copper in an Altium build"; **board**, "Copper from a routed KiCad board". A `copper_source` given together with copper in `design.board` MUST raise `ValueError`: one source per build.
 - The copper layers MUST be the copper layers of `design.board.layers` when it holds any, else `F.Cu`, `B.Cu` for `copper=2` and `F.Cu`, `In1.Cu`, `In2.Cu`, `B.Cu` for `copper=4`. `lens.altium.pcb_document` MUST pass them as `PcbDocSpec.copper_layers`.
@@ -35,6 +41,12 @@ The Altium build SHALL write copper and net classes into the planned `<name>.Pcb
 ## ADDED Requirements
 
 ### Requirement: Pour mode of an Altium build
+Altium build, conversion and panel commands SHALL accept `--altium-pour outline|computed`. The corresponding writer APIs SHALL accept `pour=`. Defaults, missing-extra behavior, reporting and rewrite rules MUST follow the scenarios below.
+
+#### Scenario: Detailed contract for pour mode of an altium build
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 `fenolite build --target altium`, `fenolite convert --to altium` and `fenolite panel --target altium` SHALL take `--altium-pour outline|computed` and pass it to `pcbdoc.write_pcbdoc` (`altium-pcb-writer`, "Polygon pour modes"); `lower.write_design`, `AltiumBackend.write` and `lens.altium.build_altium` SHALL take it as `pour=`. The default of the three commands and of those three functions SHALL be `computed` (the maintainer's decision of 2026-10-26, roadmap "Open decisions", row 48); `AltiumBackend.model_roundtrip` SHALL keep `outline`. A change of the default SHALL be a recorded decision of the maintainer.
 - `computed` by default without the `geo` extra MUST write every polygon unpoured, as `outline` does, and MUST add one `altium.pour-unavailable` (warning) naming `fenolite[geo]`.
 - `result.pcb.pour` MUST hold `mode`, `poured` (a count), `unpoured` (an object from reason to count), `evidence` (the level) and `hypotheses` (the ids the poured polygons used), and MUST be present whenever the PCB document is planned.

@@ -143,7 +143,13 @@ def test_clean_blink_stays_clean(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 
 
 def test_refused_build_does_not_run_the_guard(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    script = variant(tmp_path, ("connect(led_a, r1[2], d1[2])", "connect(led_a, r1[2], d1[2], r1[9])"))
+    script = variant(
+        tmp_path,
+        (
+            "series(led_drv, r1, led_a, (d1.b, d1.a), gnd)",
+            "series(led_drv, r1, led_a, (d1.b, d1.a), gnd)\nconnect(led_a, r1[9])",
+        ),
+    )
     code, env, _, _ = run(monkeypatch, tmp_path, "build", str(script), "--out", "out", "--dry-run")
     assert code == 5
     assert env["result"]["placement"] == {"ran": False, "counts": {}, **NO_RULES} and place_issues(env) == []

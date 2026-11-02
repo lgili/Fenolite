@@ -8,6 +8,23 @@
 
   Proof: `openspec validate c0249-design-lock --strict`; `make check-fast`.
   - 2026-10-29, base 3cabfe5a (`circuits-as-code`): c0248 is not archived nor merged in `circuits-as-code`, so `device=` and the device's `ref_prefix` are left to the merge with c0248 (this branch keeps `lib_id` required and takes the prefix from `prefix=` or the catalog symbol). c0251 holds a delta of "Design structure and names"; nothing touching it or "Reproducible builds" is archived. `FEN-7004` is free in `src/fenolite/cli/errors.py` and in the open changes (c0266 cites it as c0249's; c0216 does not use it). The maintainer's answers to the four open questions are pending; the recommended answers are implemented (lowest free number, explicit refs recorded, `<stem>.lock`, no `check --frozen`). `openspec` is not installed in this environment, so `openspec validate` was not run; `make check-fast` passes. Left open for the maintainer's answers.
+  - 2026-11-01, closure base `7c2f1df2`: c0248 and c0251 are implemented and still open, so no archived delta needs regeneration; device-based prefixes and the complete lock-section order are present. `FEN-7004` is now c0249's implemented frozen-lock code, not an available new code. The user accepted all four recommended decisions (`design.md`). Fresh strict validation passes. Task 0.1 stays open because its exact Proof also requires root's serialized full gate; no unavailable maintainer answer is being inferred.
+
+  Entry refresh 2026-11-02, integration base `697cdf02b39c570b7827bd2b7b5419dfcf6bdea6`:
+  c0248 and c0251 remain active, with device-based parts/prefixes and blocks implemented.
+  No new archival requires regenerating this delta: c0249 and c0251 both hold "Design structure
+  and names"; only c0249 holds "Reproducible builds". The living copies still precede those
+  active changes. `FEN-7004` is c0249's implemented frozen-lock refusal, not a free code;
+  c0216 does not claim it for another meaning. `dsl.lock.SECTIONS` now orders refs, picks,
+  pins, blocks, library. The accepted four recommendations remain lowest-free allocation,
+  explicit refs recorded, `<stem>.lock`, and frozen checking on build only.
+
+  Available proof: `openspec validate c0249-design-lock --strict` passes without warnings
+  (OpenSpec 1.16.0).
+  The literal `make check-fast` is not run by this worker and has no applicable passing
+  serialized receipt yet. Task 0.1 remains unchecked for that actual proof; independent
+  CI, native/manual and release criteria are unchanged.
+
 
 ## 1. Part keys and prefixes
 

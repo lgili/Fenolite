@@ -631,6 +631,7 @@ def test_outline_reason() -> None:
 def test_evidence() -> None:
     assert outjob.EVIDENCE.level is Level.INFERRED
     assert set(outjob.EVIDENCE.hypotheses) == {
+        "H-A-DWF-OUTJOB",
         "H-A-OUTJOB-GERBER-ACCEPT",
         "H-A-OUTJOB-GERBER-LAYERS",
         "H-A-OUTJOB-GERBER-RECORD",

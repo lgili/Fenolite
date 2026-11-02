@@ -17,6 +17,7 @@ SRC = Path(__file__).resolve().parents[3] / "src" / "fenolite"
 MODULES = (
     "model/drawn_connect.py",
     "backends/kicad/drawn.py",
+    "backends/altium/drawn.py",
     "lens/build.py",
     "lens/sync.py",
     "checks/drawn.py",
@@ -52,6 +53,7 @@ def test_closed_and_explained() -> None:
         "drawn.sheet-unknown", "drawn.repeated-value-differs", "drawn.net-name-differs", "drawn.unit-missing",
         "drawn.dangling", "drawn.label-unconnected", "drawn.bus-member-unknown", "drawn.placements-ignored",
         "drawn.opaque-dropped", "drawn.frozen", "drawn.altium-repeat-flattened",
+        "drawn.coordinate-rounded",
     }  # fmt: skip
     errors = {code for code, severity in ISSUE_CODES.items() if severity == "error"}
     assert errors == {
@@ -63,9 +65,7 @@ def test_closed_and_explained() -> None:
         "drawn.frozen",
         "drawn.altium-repeat-flattened",
     }
-    emitted = _emitted() - {"drawn.opaque-dropped", "drawn.altium-repeat-flattened"}  # the Altium phase (6.1)
-    assert emitted <= set(ISSUE_CODES)
-    assert emitted == set(ISSUE_CODES) - {"drawn.opaque-dropped", "drawn.altium-repeat-flattened"}
+    assert _emitted() == set(ISSUE_CODES)
     for code in ISSUE_CODES:
         assert ISSUE_CODE.match(code)
         found = explain.explain(code)

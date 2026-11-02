@@ -12,17 +12,22 @@ from __future__ import annotations
 
 import dataclasses
 import re
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import PurePosixPath
 from typing import cast
 
+from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.lowering import MINIMUM_KEYS
 from fenolite.backends.kicad.outline import edge_outline
 from fenolite.backends.kicad.pcb import OUTLINE_WIDTH
 from fenolite.backends.kicad.pro import project_minimums, template
+from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
+from fenolite.dsl.items import BOARD_LAYER_KINDS
 from fenolite.importer import coverage
 from fenolite.importer.codes import issue
 from fenolite.importer.coverage import Ledger, Unexpressed
@@ -43,13 +48,32 @@ from fenolite.importer.emit.printer import (
     string,
     text,
 )
+from fenolite.importer.emit.sheets import Hierarchy, instances
 from fenolite.importer.keys import lock_of, segment
 from fenolite.importer.provenance import Provenance
+from fenolite.importer.schematic import drawing as source_drawing
 from fenolite.importer.source import Source
-from fenolite.importer.tables import ORIGIN, Table, copper_tables, protect_arguments
+from fenolite.importer.tables import (
+    ORIGIN,
+    Table,
+    copper_tables,
+    has_teardrops,
+    protect_arguments,
+    teardrop_arguments,
+)
+from fenolite.importer.texts import (
+    area_placement,
+    dimension_style,
+    graphic_net,
+    special_style,
+    text_style,
+    zone_arc_ring,
+)
 from fenolite.importer.vendor import natural, vendor
+from fenolite.model.base import Entity, Opaque
 from fenolite.model.board import (
     Board,
+    Dimension,
     FootprintInstance,
     Graphic,
     Keepout,
@@ -62,7 +86,7 @@ from fenolite.model.board import (
 from fenolite.model.design import Design
 from fenolite.model.rules import Rule, Selector
 
-COPPER_COUNTS = (2, 4, 6, 8)
+COPPER_COUNTS = tuple(range(2, 33, 2))
 NAME = re.compile(r"^[A-Za-z0-9_.+-]+$")
 DESIGN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 UNCONNECTED = "unconnected-("
@@ -142,8 +166,51 @@ def _xy(point: Point) -> Tup:
     return Tup((length(point.x - ORIGIN.x), length(point.y - ORIGIN.y)))
 
 
+def net_numbers(design: Design) -> dict[int, str]:
+    """Each number of the source's net table and the name of its net, as the KiCad reader keeps them in the
+    nets' ``kicad`` bags (a KiCad 9 board numbers its nets; change c0277)."""
+    found: dict[int, str] = {}
+    for net in design.circuit.nets:
+        bag = net.ext.get("kicad")
+        number = dict(bag.payload).get("number", "") if bag is not None else ""
+        if number.isdigit():
+            found[int(number)] = net.name
+    return found
+
+
 def _kinds(board: Board) -> dict[str, str]:
     return {layer.name: layer.kind for layer in board.layers}
+
+
+_USER = re.compile(r"^User\.([1-9][0-9]*)$")
+
+
+def user_layers(board: Board) -> tuple[int, dict[str, str]]:
+    """The user layers the code declares for ``board`` (change c0277): ``User.1`` up to the highest
+    ``User.<k>`` of its table (45 at most), and the user name each of them has there."""
+    count = 0
+    names: dict[str, str] = {}
+    for layer in board.layers:
+        found = _USER.fullmatch(layer.name)
+        if found is None or int(found.group(1)) > 45:
+            continue
+        count = max(count, int(found.group(1)))
+        bag = layer.ext.get("kicad")
+        alias = dict(bag.payload).get("user_name", "") if bag is not None else ""
+        if alias and alias != layer.name:
+            names[layer.name] = alias
+    return count, names
+
+
+def _user_lines(board: Board) -> list[list[str]]:
+    count, names = user_layers(board)
+    if not count:
+        return []
+    kwargs: tuple[tuple[str, Expr], ...] = ()
+    if names:
+        ordered = sorted(names.items(), key=lambda item: natural(item[0]))
+        kwargs = (("names", Dct(tuple((name, text(alias)) for name, alias in ordered))),)
+    return [statement(Call("design.user_layers", (number(count),), kwargs))]
 
 
 def _copper_names(count: int) -> tuple[str, ...]:
@@ -182,34 +249,62 @@ def _ring_path(points: Sequence[Point], mids: Mapping[int, Point], writer: _Writ
 
 
 def _outline(design: Design) -> Outline | None:
-    """The outline of the board's root edge graphics; footprint edges come back with their footprints."""
+    """The outline of the board's root edge graphics; footprint edges come back with their footprints. When
+    the root graphics do not close, the edges of the footprints join them (a USB connector's notch, change
+    c0277): the build writes the outline without the edges a footprint draws."""
     board = design.board
     assert board is not None
     bare = dataclasses.replace(design, board=dataclasses.replace(board, footprints=()))
-    return edge_outline(bare)
+    return edge_outline(bare) or edge_outline(design)
+
+
+def _outline_width(board: Board) -> int | None:
+    """The one nonnegative root edge width ``board(outline_width=...)`` can preserve (change c0317).
+    Footprint edges are vendored and keep their own widths."""
+    kinds = _kinds(board)
+    widths = {g.width for g in board.graphics if kinds.get(g.layer) == "edge"}
+    if len(widths) == 1:
+        (width,) = widths
+        return width if width >= 0 else None
+    return None
 
 
 def _losses(board: Board, copper: int, ledger: Ledger) -> None:
-    """What a DSL board writes its own way (change c0281): the stroke of its outline (``outline-width``,
-    one row per source width that is not ``OUTLINE_WIDTH``) and its non-copper layer table
+    """What a DSL board cannot preserve (changes c0281/c0317): mixed or negative outline widths
+    (``outline-width``, one row per source width that is not ``OUTLINE_WIDTH``) and its non-copper layer table
     (``layer-table``, the names one side holds and the other does not)."""
     kinds = _kinds(board)
     widths: dict[int, int] = {}
-    for graphic in board.graphics:
-        if kinds.get(graphic.layer) == "edge" and graphic.width != OUTLINE_WIDTH:
-            widths[graphic.width] = widths.get(graphic.width, 0) + 1
+    if _outline_width(board) is None:
+        for graphic in board.graphics:
+            if kinds.get(graphic.layer) == "edge" and graphic.width != OUTLINE_WIDTH:
+                widths[graphic.width] = widths.get(graphic.width, 0) + 1
     for width, count in sorted(widths.items()):
         ledger.add("outline-width", f"{width} nm instead of {OUTLINE_WIDTH} nm", count)
     try:
         written = {layer.name for layer in created_layers(copper) if layer.kind != "copper"}
     except ValueError:
         return  # a copper count no DSL board has is already ``copper-count``
+    count, _ = user_layers(board)
+    selected = _technical_layers(board)
+    if selected is not None:
+        written.difference_update(BOARD_LAYER_KINDS)
+        written.update(selected)
+    written.update(f"User.{index}" for index in range(1, count + 1))
     held = {layer.name for layer in board.layers if layer.kind != "copper"}
     missing, extra = sorted(written - held), sorted(held - written)
     if missing:
         ledger.add("layer-table", "the source lacks " + ", ".join(missing), len(missing))
     if extra:
         ledger.add("layer-table", "the DSL board lacks " + ", ".join(extra), len(extra))
+
+
+def _technical_layers(board: Board) -> tuple[str, ...] | None:
+    """Supported explicit technical rows; missing Edge.Cuts remains unrepresentable."""
+    held = {layer.name for layer in board.layers if layer.kind != "copper"}
+    if "Edge.Cuts" not in held:
+        return None
+    return tuple(name for name in BOARD_LAYER_KINDS if name in held)
 
 
 def _board(design: Design, writer: _Writer, ledger: Ledger) -> tuple[list[list[str]], int]:
@@ -222,6 +317,12 @@ def _board(design: Design, writer: _Writer, ledger: Ledger) -> tuple[list[list[s
     outline = _outline(design)
     out: list[list[str]] = []
     extra: list[tuple[str, Expr]] = [("copper", number(chosen))] if chosen != 2 else []
+    technical = _technical_layers(board)
+    if technical is not None and technical != tuple(BOARD_LAYER_KINDS):
+        extra.append(("technical_layers", Tup(tuple(text(name) for name in technical))))
+    width = _outline_width(board)
+    if width is not None and width != OUTLINE_WIDTH:
+        extra.append(("outline_width", length(width)))
     if outline is None:
         ledger.add("outline", "no closed board outline on Edge.Cuts")
         xs = [fp.position.x for fp in board.footprints] or [ORIGIN.x]
@@ -271,7 +372,9 @@ def _stack_entry(layer: StackLayer) -> tuple[str, int | None, dict[str, str]] | 
     if layer.kind == "silkscreen":
         if layer.thickness:
             return None
-        return "silkscreen", None, {k: v for k, v in extras.items() if k == "color"}
+        if "epsilon_r" in extras or "loss_tangent" in extras:
+            return None
+        return "silkscreen", None, extras
     if layer.kind == "soldermask":
         return "mask", layer.thickness, extras
     if layer.kind == "copper":
@@ -300,10 +403,6 @@ def _stackup(board: Board, copper: int, writer: _Writer, ledger: Ledger) -> list
         if made is None:
             ledger.add("stackup", f"{layer.name} ({layer.kind})")
             return []
-        if layer.kind == "silkscreen":
-            for name in ("material", "epsilon_r", "loss_tangent"):
-                if getattr(layer, name):
-                    ledger.add("stackup-field", f"{layer.name} {name}")
         rows.append(made)
     probe = DslDesign("probe")
     probe.board(Length(1_000_000), Length(1_000_000), copper=copper)
@@ -547,9 +646,15 @@ def _zone_args(zone: Zone, ledger: Ledger) -> list[tuple[str, Expr]]:
         out.append(("islands", text(settings.island_removal)))
         if settings.island_removal == "below_area":
             out.append(("min_island_area", area_mm2(settings.min_island_area)))
+    if settings.smoothing != ZONE_DEFAULT.smoothing:
+        out.append(("smoothing", text(settings.smoothing)))  # change c0277
+        if settings.smoothing_radius != ZONE_DEFAULT.smoothing_radius:
+            out.append(("smoothing_radius", length(settings.smoothing_radius)))
     unsaid = (
-        settings.smoothing != ZONE_DEFAULT.smoothing
-        or settings.smoothing_radius != ZONE_DEFAULT.smoothing_radius
+        (
+            settings.smoothing == ZONE_DEFAULT.smoothing
+            and settings.smoothing_radius != ZONE_DEFAULT.smoothing_radius
+        )
         or settings.fill_mode != ZONE_DEFAULT.fill_mode
         or settings.hatch != ZONE_DEFAULT.hatch
     )
@@ -561,7 +666,13 @@ def _zone_args(zone: Zone, ledger: Ledger) -> list[tuple[str, Expr]]:
 
 
 def _zones(
-    board: Board, names: Mapping[str, str], nets: Mapping[str, str], layers: Sequence[str], ledger: Ledger
+    board: Board,
+    names: Mapping[str, str],
+    nets: Mapping[str, str],
+    layers: Sequence[str],
+    ledger: Ledger,
+    members: dict[str, Expr] | None = None,
+    writer: _Writer | None = None,
 ) -> list[list[str]]:
     out: list[list[str]] = []
     named: set[str] = set()
@@ -578,19 +689,27 @@ def _zones(
         if not zone.layers or any(layer not in layers for layer in zone.layers):
             ledger.add("zone-layer", where)
             continue
-        if len(zone.outline) < 3:
+        ring, bends = tuple(zone.outline), dict[int, Point]()
+        if len(ring) < 3 and writer is not None:
+            # an outline with an arc stays in the zone's slots; the code writes it with arc_to (change c0277)
+            found = zone_arc_ring(zone)
+            if found is not None:
+                ring, bends = found
+        if len(ring) < 3:
             ledger.add("zone-outline", where)
             continue
         args: list[tuple[str, Expr]] = [("layers", Tup(tuple(text(layer) for layer in zone.layers)))]
         if net is not None and zone.name == net and net not in named and net not in keys:
             named.add(net)
             keys.add(net)
+            identity = net
         elif (
             zone.name and zone.name == zone.name.strip() and zone.name not in named and zone.name not in keys
         ):
             named.add(zone.name)
             keys.add(zone.name)
             args.append(("name", text(zone.name)))
+            identity = zone.name
         else:
             if zone.name:
                 ledger.add("zone-name", zone.name)
@@ -601,14 +720,24 @@ def _zones(
             counters[stem] = index
             keys.add(f"{stem}/{index}")
             args.append(("key", text(f"{stem}/{index}")))
-        args.append(("outline", Tup(tuple(_xy(p) for p in zone.outline))))
+            identity = f"{stem}/{index}"
+        if bends and writer is not None:
+            args.append(("outline", _ring_path(ring, bends, writer)))
+        else:
+            args.append(("outline", Tup(tuple(_xy(p) for p in ring))))
         args += _zone_args(zone, ledger)
         target: Expr = Raw(nets[net]) if net is not None else Raw("None")
         out.append(statement(Call("design.zone", (target,), tuple(args))))
+        if members is not None:
+            members[_native(zone)] = text(identity)
     return out
 
 
-def _areas(board: Board, layers: Sequence[str], ledger: Ledger) -> list[list[str]]:
+def _areas(
+    board: Board, layers: Sequence[str], ledger: Ledger, members: dict[str, Expr] | None = None
+) -> list[list[str]]:
+    from fenolite.dsl.items import AREA_NAME
+
     out: list[list[str]] = []
     names: set[str] = set()
     index = 0
@@ -621,15 +750,24 @@ def _areas(board: Board, layers: Sequence[str], ledger: Ledger) -> list[list[str
             ledger.add("rule-area-layer", area.name or area.id)
             continue
         args: list[tuple[str, Expr]] = []
-        if area.name and NAME.fullmatch(area.name) and area.name.casefold() not in names:
+        if area.name and AREA_NAME.fullmatch(area.name) and area.name.casefold() not in names:
             names.add(area.name.casefold())
             first: Expr = text(area.name)
+            identity = area.name
         else:
             if area.name:
                 ledger.add("rule-area-name", area.name)
             index += 1
             first = text("")
             args.append(("key", text(f"area/{index}")))
+            identity = f"area/{index}"
+        if members is not None:
+            members[_native(area)] = text(identity)
+        placement = area_placement(area)
+        if placement is None:
+            ledger.add("rule-area-placement", area.name or area.id)
+        elif placement:
+            args.append(("placement", text(placement)))
         if area.layers and tuple(area.layers) != tuple(layers):
             args.insert(0, ("layers", Tup(tuple(text(layer) for layer in area.layers))))
         forbid = tuple(text(word) for word, flag in FORBID if getattr(area, flag))
@@ -642,11 +780,19 @@ def _areas(board: Board, layers: Sequence[str], ledger: Ledger) -> list[list[str
     return out
 
 
-def _graphic(graphic: Graphic, key: str) -> Call | None:
+def _graphic(graphic: Graphic, key: str, net: Expr | None = None) -> Call | None:
+    made = _graphic_call(graphic, key)
+    if made is None or net is None:
+        return made
+    return dataclasses.replace(made, kwargs=(*made.kwargs, ("net", net)))
+
+
+def _graphic_call(graphic: Graphic, key: str) -> Call | None:
     points = graphic.points
-    if graphic.width < 0:
+    if graphic.width < 0 and not (graphic.width == -1 and graphic.filled and graphic.kind != "line"):
         return None
-    width = length(graphic.width)
+    # a filled shape of width -1 nm has no outline: width=None says it (change c0277)
+    width: Expr = length(graphic.width) if graphic.width >= 0 else Raw("None")
     fill = (("fill", Raw("True")),) if graphic.filled else ()
     layer = ("layer", text(graphic.layer))
     if graphic.kind == "line" and len(points) == 2 and points[0] != points[1] and graphic.width > 0:
@@ -669,32 +815,181 @@ def _graphic(graphic: Graphic, key: str) -> Call | None:
     return None
 
 
-def _text(item: Text, key: str) -> Call | None:
-    if not item.text or not item.text.isprintable() or item.size.w != item.size.h:
+def _text(item: Text, key: str, copper: bool) -> Call | None:
+    """``design.text()`` of a board text, with the style the reader keeps in its slots (change c0277);
+    ``None`` for a text the DSL cannot say."""
+    if not all(line.isprintable() for line in item.text.split("\n")):
         return None
-    if item.size.w <= 0 or item.thickness <= 0:
+    if item.size.w <= 0 or item.size.h <= 0 or item.thickness <= 0:
+        return None
+    style = text_style(item)
+    if style is None or (style.knockout and not copper and not item.layer.endswith(".SilkS")):
         return None
     words = [w for w in (item.h_justify, item.v_justify) if w != "center"]
+    size: Expr = (
+        length(item.size.w) if item.size.w == item.size.h else Tup((length(item.size.w), length(item.size.h)))
+    )
     kwargs: list[tuple[str, Expr]] = [
         ("layer", text(item.layer)),
-        ("size", length(item.size.w)),
+        ("size", size),
         ("thickness", length(item.thickness)),
     ]
     if item.rotation:
         kwargs.append(("rot", angle(item.rotation)))
     if words:
         kwargs.append(("justify", text(" ".join(words))))
+    for name in ("knockout", "bold", "italic"):
+        if getattr(style, name):
+            kwargs.append((name, Raw("True")))
+    if style.face:
+        kwargs.append(("face", text(style.face)))
     return Call("design.text", (text(key), text(item.text), _xy(item.position)), tuple(kwargs))
 
 
-def _drawings(board: Board, ledger: Ledger) -> list[list[str]]:
+def _dimension(item: Dimension, key: str) -> Call | None:
+    """``design.dimension()`` of an aligned or orthogonal dimension whose format and style are those a
+    created dimension writes, but for its line width and its extension offset (change c0277); ``None``
+    for another one."""
+    if item.start == item.end or not 0 <= item.precision <= 4:
+        return None
+    style = dimension_style(item)
+    if style is None:
+        return None
+    kwargs: list[tuple[str, Expr]] = [("offset", length(item.offset))]
+    if item.layer != "Dwgs.User":
+        kwargs.append(("layer", text(item.layer)))
+    if item.direction is not None:
+        kwargs.append(("direction", text(item.direction)))
+    if style.units != "mm":
+        kwargs.append(("units", text(style.units)))
+    if item.precision != 4:
+        kwargs.append(("precision", number(item.precision)))
+    if item.size is not None:
+        if item.size.w <= 0 or item.size.h <= 0:
+            return None
+        pair = Tup((length(item.size.w), length(item.size.h)))
+        kwargs.append(("size", length(item.size.w) if item.size.w == item.size.h else pair))
+    for name in ("thickness", "width"):
+        value = getattr(item, name)
+        if value is not None:
+            if value <= 0:
+                return None
+            kwargs.append((name, length(value)))
+    if style.extension_offset is not None:
+        kwargs.append(("extension_offset", length(style.extension_offset)))
+    if style.text_at is not None:
+        kwargs.append(("text_at", _xy(style.text_at)))  # a text placed by hand (change c0277)
+    return Call("design.dimension", (text(key), _xy(item.start), _xy(item.end)), tuple(kwargs))
+
+
+def _special(item: Dimension, key: str) -> Call | None:
+    """``design.radial_dimension()``, ``leader()`` or ``center_mark()`` of a dimension of those kinds whose
+    ``format``, ``style`` and text effects are those the build writes (change c0277); ``None`` for another
+    one."""
+    if item.start == item.end or not 0 <= item.precision <= 4:
+        return None
+    found = special_style(item)
+    if found is None:
+        return None
+    units, text_at = found
+    kwargs: list[tuple[str, Expr]] = []
+    if item.kind == "radial":
+        assert item.leader_length is not None
+        kwargs.append(("leader_length", length(item.leader_length)))
+    elif item.kind == "leader":
+        kwargs.append(("text", text(item.text or "")))
+        if item.frame not in (None, "none"):
+            kwargs.append(("frame", text(item.frame or "none")))
+    if item.layer != "Dwgs.User":
+        kwargs.append(("layer", text(item.layer)))
+    if item.kind != "center":
+        if units != "mm":
+            kwargs.append(("units", text(units)))
+        if item.precision != 4:
+            kwargs.append(("precision", number(item.precision)))
+        if item.size is not None:
+            if item.size.w <= 0 or item.size.h <= 0:
+                return None
+            pair = Tup((length(item.size.w), length(item.size.h)))
+            kwargs.append(("size", length(item.size.w) if item.size.w == item.size.h else pair))
+        if item.thickness is not None:
+            if item.thickness <= 0:
+                return None
+            kwargs.append(("thickness", length(item.thickness)))
+    if item.width is not None:
+        if item.width <= 0:
+            return None
+        kwargs.append(("width", length(item.width)))
+    if text_at is not None:
+        kwargs.append(("text_at", _xy(text_at)))
+    call = {"radial": "design.radial_dimension", "leader": "design.leader", "center": "design.center_mark"}
+    return Call(call[item.kind], (text(key), _xy(item.start), _xy(item.end)), tuple(kwargs))
+
+
+def _native(item: Entity) -> str:
+    return item.native_ids.get("kicad", "")
+
+
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+def _images(
+    board: Board, ledger: Ledger, binary: dict[str, bytes], members: dict[str, Expr] | None = None
+) -> list[list[str]]:
+    """``design.image()`` of each board image whose data is a PNG (change c0277), the file written as
+    ``images/<layer>-<n>.png`` beside ``design.py``; another one is the kind ``image``."""
+    import base64
+    import binascii
+
+    from fenolite.dsl.items import BOARD_LAYER_KINDS, IMAGE_SCALE
+
+    count, _ = user_layers(board)
+    declared = {f"User.{k}" for k in range(1, count + 1)}
+    out: list[list[str]] = []
+    counters: dict[str, int] = {}
+    for image in sorted(board.images, key=lambda i: (i.layer, i.position.x, i.position.y, _native(i))):
+        where = f"image on {image.layer}"
+        try:
+            data = base64.b64decode(image.data, validate=True)
+        except (binascii.Error, ValueError):
+            data = b""
+        known = image.layer in BOARD_LAYER_KINDS or image.layer in declared
+        if not data.startswith(PNG_SIGNATURE) or not known or not IMAGE_SCALE.fullmatch(image.scale):
+            ledger.add("image", where)
+            continue
+        counters[image.layer] = counters.get(image.layer, 0) + 1
+        key = f"{segment(image.layer)}/image/{counters[image.layer]}"
+        file = f"images/{segment(image.layer)}-{counters[image.layer]}.png"
+        binary[file] = data
+        kwargs: list[tuple[str, Expr]] = []
+        if image.layer != "F.SilkS":
+            kwargs.append(("layer", text(image.layer)))
+        if image.scale != "1":
+            kwargs.append(("scale", text(image.scale)))
+        out.append(
+            statement(Call("design.image", (text(key), text(file), _xy(image.position)), tuple(kwargs)))
+        )
+        if members is not None:
+            members[_native(image)] = text(key)
+    return out
+
+
+def _drawings(
+    board: Board,
+    ledger: Ledger,
+    members: dict[str, Expr] | None = None,
+    net_vars: Mapping[str, str] | None = None,
+    numbers: Mapping[int, str] | None = None,
+) -> list[list[str]]:
     from fenolite.dsl.items import BOARD_LAYER_KINDS
 
-    # a DSL board holds the standard layers only: a drawing on another user layer cannot be written
+    # a DSL board holds the standard layers and the user layers it declares (design.user_layers, c0277)
+    count, _ = user_layers(board)
+    declared = {f"User.{k}" for k in range(1, count + 1)}
     kinds = {
         name: kind
         for name, kind in _kinds(board).items()
-        if name in BOARD_LAYER_KINDS or kind in ("edge", "copper")
+        if name in BOARD_LAYER_KINDS or name in declared or kind in ("edge", "copper")
     }
     out: list[list[str]] = []
     counters: dict[tuple[str, str], int] = {}
@@ -706,35 +1001,192 @@ def _drawings(board: Board, ledger: Ledger) -> list[list[str]]:
         kind = kinds.get(graphic.layer, "")
         if kind == "edge":
             continue
-        if kind not in DRAWING_KINDS:
-            ledger.add(
-                "copper-drawing" if kind == "copper" else "drawing-layer",
-                f"{graphic.kind} on {graphic.layer}",
-            )
+        if kind not in (*DRAWING_KINDS, "copper"):
+            ledger.add("drawing-layer", f"{graphic.kind} on {graphic.layer}")
             continue
+        # a copper graphic takes its net (change c0277); a slot design.line() cannot say leaves it out
+        net = graphic_net(graphic, numbers or {})
+        if net is not None and net and (kind != "copper" or net not in (net_vars or {})):
+            net = None
         slot = (graphic.layer, graphic.kind)
         counters[slot] = counters.get(slot, 0) + 1
-        made = _graphic(graphic, f"{segment(graphic.layer)}/{graphic.kind}/{counters[slot]}")
+        key = f"{segment(graphic.layer)}/{graphic.kind}/{counters[slot]}"
+        made = None if net is None else _graphic(graphic, key, Raw((net_vars or {})[net]) if net else None)
         if made is None:
             ledger.add("drawing", f"{graphic.kind} on {graphic.layer}")
             continue
         out.append(statement(made))
+        if members is not None:
+            members[_native(graphic)] = text(key)
 
     def tkey(item: Text) -> tuple[object, ...]:
         return (item.layer, item.position.x, item.position.y, item.text)
 
     for item in sorted(board.texts, key=tkey):
         kind = kinds.get(item.layer, "")
-        if kind not in DRAWING_KINDS:
+        if kind not in (*DRAWING_KINDS, "copper"):
             ledger.add("text-layer", f"text on {item.layer}")
             continue
         slot = (item.layer, "text")
         counters[slot] = counters.get(slot, 0) + 1
-        made = _text(item, f"{segment(item.layer)}/text/{counters[slot]}")
+        key = f"{segment(item.layer)}/text/{counters[slot]}"
+        made = _text(item, key, kind == "copper")
         if made is None:
             ledger.add("text", item.text[:40])
             continue
         out.append(statement(made))
+        if members is not None:
+            members[_native(item)] = text(key)
+
+    def dkey(item: Dimension) -> tuple[object, ...]:
+        return (item.layer, item.start.x, item.start.y, item.end.x, item.end.y, item.offset)
+
+    for dimension in sorted(board.dimensions, key=dkey):
+        where = f"{dimension.kind} on {dimension.layer}"
+        if kinds.get(dimension.layer, "") not in DRAWING_KINDS:
+            ledger.add("dimension", where)
+            continue
+        slot = (dimension.layer, "dimension")
+        counters[slot] = counters.get(slot, 0) + 1
+        key = f"{segment(dimension.layer)}/dimension/{counters[slot]}"
+        made = (
+            _dimension(dimension, key)
+            if dimension.kind in ("aligned", "orthogonal")
+            else _special(dimension, key)
+        )
+        if made is None:
+            ledger.add("dimension-style", where)
+            continue
+        out.append(statement(made))
+        if members is not None:
+            members[_native(dimension)] = text(key)
+    return out
+
+
+def _root_nodes(board: Board) -> list[Node]:
+    """The root nodes the reader keeps in the board's slots, in file order."""
+    bag = board.ext.get("kicad")
+    found: list[Node] = []
+    for slot in slotlib.from_ext(bag) if bag is not None else ():
+        if isinstance(slot, Opaque):
+            child = slotlib.opaque_child(slot)
+            if isinstance(child, Node):
+                found.append(child)
+    return found
+
+
+def _group_nodes(board: Board) -> list[Node]:
+    """The root ``group`` nodes the reader keeps in the board's slots."""
+    return [child for child in _root_nodes(board) if child.name == "group"]
+
+
+def _verbatim_node(tree: Node, numbers: Mapping[int, str], built: Mapping[str, str]) -> Node | None:
+    """``tree`` as a verbatim item says it (change c0277): a net named by its number (a KiCad 9 board) named
+    by its name, and each copper uuid of a ``members`` list the uuid its table row takes in the build;
+    ``None`` when a net number or a member names nothing the code writes."""
+    if tree.name == "net":
+        atoms = tree.atoms()
+        if len(atoms) == 1 and atoms[0].kind == AtomKind.STRING:
+            return tree
+        name = numbers.get(int(atoms[0].value)) if len(atoms) == 1 and atoms[0].value.isdigit() else None
+        return None if not name else tree.with_children([Atom.string(name)])
+    if tree.name == "members":
+        mapped = [built.get(a.value) for a in tree.atoms()]
+        if any(found is None for found in mapped) or tree.nodes():
+            return None
+        return tree.with_children([Atom.string(cast(str, found)) for found in mapped])
+    children: list[Node | Atom] = []
+    for child in tree.children:
+        if isinstance(child, Node):
+            made = _verbatim_node(child, numbers, built)
+            if made is None:
+                return None
+            children.append(made)
+        else:
+            children.append(child)
+    return tree.with_children(children)
+
+
+def _verbatim(
+    board: Board,
+    numbers: Mapping[int, str],
+    built: Mapping[str, str],
+    members: dict[str, Expr],
+    ledger: Ledger,
+) -> list[list[str]]:
+    """``design.verbatim()`` of each root item the reader keeps and no other call says (change c0277): a
+    ``generated`` tuning pattern, an image, a target, a barcode… keyed ``<head>/<n>`` in file order. An item
+    that names copper the code does not write, or a net by a number the source table lacks, is unexpressed
+    by its head."""
+    from fenolite.backends.kicad import verbatim as verbatimlib
+    from fenolite.backends.kicad.sexpr import dumps
+
+    out: list[list[str]] = []
+    counters: dict[str, int] = {}
+    for child in _root_nodes(board):
+        if child.name in verbatimlib.ROOT_REFUSED or child.name in coverage.INFRASTRUCTURE:
+            continue
+        made = _verbatim_node(child, numbers, built)
+        if made is None:
+            ledger.add(child.name, child.name)
+            continue
+        counters[child.name] = counters.get(child.name, 0) + 1
+        key = f"{segment(child.name)}/{counters[child.name]}"
+        out.append(statement(Call("design.verbatim", (text(key), text(dumps(made, style="compact"))))))
+        held = child.find("uuid")
+        if held is not None and held.atoms():
+            members[held.atoms()[0].value] = text(key)
+    return out
+
+
+def _groups(board: Board, members: dict[str, Expr], ledger: Ledger) -> list[list[str]]:
+    """``design.group()`` calls for the board's groups whose members the code writes (change c0277); a
+    group holding a member it does not write (copper, a part or a drawing left out) is unexpressed. A group
+    inside a group is written after it, so the inner group's key exists."""
+    pending: list[tuple[str, str, bool, list[str], str]] = []
+    for node_ in _group_nodes(board):
+        atoms = node_.atoms()
+        name = atoms[0].value if atoms else ""
+        held = node_.find("uuid")
+        uuid = held.atoms()[0].value if held is not None and held.atoms() else ""
+        lock = node_.find("locked")
+        locked = lock is not None and [a.value for a in lock.atoms()] in ([], ["yes"])
+        listed = node_.find("members")
+        uuids = [a.value for a in listed.atoms()] if listed is not None else []
+        pending.append((name, uuid, locked, uuids, name or "group"))
+    out: list[list[str]] = []
+    said = Counter(flat(expr) for expr in members.values())
+    taken: set[str] = set(said)
+    # a key two items share (a zone and a rule area of one name) names neither in design.group()
+    ambiguous = {uuid for uuid, expr in members.items() if said[flat(expr)] > 1}
+    index = 0
+    progress = True
+    while pending and progress:
+        progress = False
+        for item in sorted(pending, key=lambda g: (g[0], g[3])):
+            name, uuid, locked, uuids, _ = item
+            if not uuids or not all(u in members and u not in ambiguous for u in uuids):
+                continue
+            pending.remove(item)
+            progress = True
+            if name and NAME.fullmatch(name) and flat(text(name)) not in taken:
+                key = name
+                kwargs: list[tuple[str, Expr]] = []
+            else:
+                index += 1
+                while flat(text(f"group/{index}")) in taken:
+                    index += 1
+                key = f"group/{index}"
+                kwargs = [("key", text(key))]
+            taken.add(flat(text(key)))
+            if locked:
+                kwargs.append(("locked", Raw("True")))
+            listed_members = tuple(sorted((members[u] for u in uuids), key=flat))
+            out.append(statement(Call("design.group", (text(name), *listed_members), tuple(kwargs))))
+            if uuid:
+                members[uuid] = text(key)
+    for _, _, _, _, label in pending:
+        ledger.add("group", label)
     return out
 
 
@@ -757,6 +1209,19 @@ def _copper_file(tables: Sequence[Table], header: Sequence[str]) -> str:
                 values = tuple((name, Raw("True" if v is True else "False" if v is False else string(str(v))))
                                for name, v in said)  # fmt: skip
                 args.append(("protection", Call("protect", (), values)))
+            if table.free:
+                args.append(("free", Raw("True")))  # KiCad's free vias (change c0277)
+            if table.teardrop is not None:
+                imports.add("teardrop")
+                stated: list[tuple[str, Expr]] = []
+                for name, value in teardrop_arguments(table.teardrop):
+                    if isinstance(value, bool):
+                        stated.append((name, Raw("True" if value else "False")))
+                    elif name in ("max_length", "max_width"):
+                        stated.append((name, length(cast(int, value))))
+                    else:
+                        stated.append((name, number(cast(int, value))))
+                args.append(("teardrop", Call("teardrop", (), tuple(stated))))
         else:
             args += [("layer", text(table.layer)), ("width", length(table.width)), ("rows_nm", rows)]
         if table.locked:
@@ -775,15 +1240,72 @@ def _copper_file(tables: Sequence[Table], header: Sequence[str]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def board_only_keys(
+    design: Design, *, schematic_refs: frozenset[str] = frozenset()
+) -> tuple[Design, dict[str, str], frozenset[str]]:
+    """``design`` with a key in place of the reference of each footprint that shares its reference or has
+    one a script cannot name (change c0277), the source reference of each such component by id, and the
+    ids of the components that the code writes as board-only parts: those, and the footprints that carry
+    KiCad's ``board_only`` attribute without an active source symbol. The attribute itself stays in
+    the derived footprint even for a matched symbol. A key is the reference cut to the name alphabet
+    (``fp`` when nothing is left), then ``_<n>``, the lowest number no other reference or key holds,
+    in placement order."""
+    board = design.board
+    if board is None:
+        return design, {}, frozenset()
+    refs = {c.id: c.ref for c in design.circuit.components}
+    counts = Counter(refs.get(fp.component_id, "") for fp in board.footprints)
+    taken = {ref for ref in refs.values() if NAME.fullmatch(ref)}
+    shown: dict[str, str] = {}
+    keys: dict[str, str] = {}
+    board_only = {
+        fp.component_id
+        for fp in board.footprints
+        if "board_only" in fp.attributes and refs.get(fp.component_id, "") not in schematic_refs
+    }
+
+    def order(fp: FootprintInstance) -> tuple[object, ...]:
+        return (natural(refs.get(fp.component_id, "")), fp.side, fp.position.x, fp.position.y, fp.id)
+
+    for fp in sorted(board.footprints, key=order):
+        ref = refs.get(fp.component_id, "")
+        if fp.component_id in keys or (NAME.fullmatch(ref) and counts[ref] == 1):
+            continue
+        base = re.sub(r"[^A-Za-z0-9_.+-]", "", ref) or "fp"
+        number = 1
+        while f"{base}_{number}" in taken:
+            number += 1
+        keys[fp.component_id] = f"{base}_{number}"
+        taken.add(keys[fp.component_id])
+        shown[fp.component_id] = ref
+        board_only.add(fp.component_id)
+    if not keys:
+        return design, shown, frozenset(board_only)
+    components = tuple(
+        dataclasses.replace(c, ref=keys[c.id]) if c.id in keys else c for c in design.circuit.components
+    )
+    keyed = dataclasses.replace(design, circuit=dataclasses.replace(design.circuit, components=components))
+    return keyed, shown, frozenset(board_only)
+
+
 def emit(source: Source, options: Options) -> Emission:
     """The files of the Fenolite project folder of ``source``."""
     design = source.design
-    board = design.board
-    if board is None:
+    if design.board is None:
         raise ValueError("the source holds no board")
+    schematic_refs = frozenset(
+        ref for instance in instances(source, include_root=True) for ref in instance.refs.values()
+    )
+    design, shown, board_only = board_only_keys(design, schematic_refs=schematic_refs)
+    board = design.board
+    assert board is not None
     ledger = Ledger()
     issues: list[Issue] = []
     writer = _Writer()
+    hierarchy = Hierarchy(source)
+    writer.taken.update(f"_sheet_{name}" for name in hierarchy.files.values())
+    if hierarchy.instances:
+        writer.taken.update({"module", "path", "refs", "nets"})
     header = options.provenance.header()
     board_lines, copper_count = _board(design, writer, ledger)
     if source.backend == "kicad":
@@ -792,14 +1314,28 @@ def emit(source: Source, options: Options) -> Emission:
         _losses(design.board, copper_count, ledger)
     board_lines += _stackup(board, copper_count, writer, ledger)
     board_lines += _title_block(board, ledger)
+    board_lines += _user_lines(board)
     layers = _copper_names(copper_count)
     names = {net.id: net.name for net in design.circuit.nets}
     refs = {c.id: c.ref for c in design.circuit.components}
-    vendored = vendor(design, source.board_text, target=options.target)
+    vendored = vendor(design, source.board_text, target=options.target, source=source)
     issues += vendored.issues
+    if shown:
+        bare = sum(
+            1 for fp in board.footprints if fp.component_id in shown and "board_only" not in fp.attributes
+        )
+        listed = ", ".join(sorted({repr(ref) for ref in shown.values()}, key=natural)[:3])
+        said = (
+            f"{len(shown)} footprint(s) share a reference or have none a script can name ({listed}): "
+            "they are board-only parts named by key"
+        )
+        if bare:
+            said += f"; {bare} of them gain KiCad's board_only attribute"
+        issues.append(issue("import.board-only", said, where="footprints"))
     tables = copper_tables(board, names)
     for kind, count in tables.left_out.items():
         ledger.add(kind, count=count)
+    ledger.teardrops_lost += tables.teardrops_lost
     kept_tables: list[Table] = []
     for table in tables.tables:
         if table.kind != "via" and table.layer not in layers:
@@ -823,6 +1359,8 @@ def emit(source: Source, options: Options) -> Emission:
         else:
             taken_refs.add(ref)
             placed.append(footprint)
+            continue
+        ledger.teardrops_lost += any(has_teardrops(pad) for pad in footprint.pads)
     # pads by net
     members: dict[str, dict[tuple[str, str], None]] = {}
     seen: dict[tuple[str, str], str] = {}
@@ -837,6 +1375,8 @@ def emit(source: Source, options: Options) -> Emission:
                 continue
             other = seen.get((ref, pad.number))
             if other is not None and other != net:
+                if net.startswith(UNCONNECTED) and other.startswith(UNCONNECTED):
+                    continue  # KiCad names an open pad's net per pad; the build names them again (c0277)
                 ledger.add("pad-net-conflict", f"{ref}.{pad.number}")
                 continue
             seen[(ref, pad.number)] = net
@@ -844,6 +1384,10 @@ def emit(source: Source, options: Options) -> Emission:
     used_nets = {net for net, pins in members.items() if not (len(pins) == 1 and net.startswith(UNCONNECTED))}
     used_nets |= {table.net for table in kept_tables}
     used_nets |= {names[z.net_id] for z in board.zones if z.net_id in names}
+    numbers = net_numbers(design)
+    copper_layers = {layer.name for layer in board.layers if layer.kind == "copper"}
+    graphic_nets = (graphic_net(g, numbers) for g in board.graphics if g.layer in copper_layers)
+    used_nets |= {found for found in graphic_nets if found and found in names.values()}
     net_vars: dict[str, str] = {}
     net_lines: list[list[str]] = []
     for net in sorted(used_nets):
@@ -874,6 +1418,8 @@ def emit(source: Source, options: Options) -> Emission:
     # parts
     part_lines: list[list[str]] = []
     place_lines: list[list[str]] = []
+    part_calls: dict[str, Call] = {}
+    place_calls: dict[str, Call] = {}
     part_vars: dict[str, str] = {}
     lock_refs: dict[str, str] = {}
     containers: dict[tuple[str, ...], list[str]] = {(): []}
@@ -884,10 +1430,16 @@ def emit(source: Source, options: Options) -> Emission:
     paths: dict[str, tuple[str, ...]] = {}
     sheets = _sheet_names(board, source.board_text)
     renamed: dict[str, str] = {}
+    for file, module in hierarchy.files.items():
+        stem = PurePosixPath(file).stem
+        if stem != module:
+            renamed[stem] = module
     for footprint in footprints:
         ref = refs[footprint.component_id]
         sheet = sheets.get(footprint.id, "")
         paths[ref] = _path_of(design, footprint.component_id, ref, sheet)
+        if hierarchy.instances:
+            paths[ref] = hierarchy.paths.get(ref, (ref,))
         for part in (p for p in sheet.split("/") if p):
             if module_name(part) != part:
                 renamed[part] = module_name(part)
@@ -907,19 +1459,26 @@ def emit(source: Source, options: Options) -> Emission:
         component = components[footprint.component_id]
         var = identifier(ref, writer.taken, prefix="p")
         part_vars[ref] = var
-        lock_refs["/".join(path)] = ref
+        if component.id not in board_only:
+            lock_refs["/".join(path)] = ref  # a board-only part keeps its ref and no lock entry
         lib_id = vendored.footprints[ref]
-        kwargs = [("footprint", text(lib_id))]
+        kwargs = [("footprint", text(footprint.lib_ref))]
+        if lib_id != footprint.lib_ref:
+            kwargs.append(("footprint_definition", text(lib_id)))
         if component.value:
             kwargs.append(("value", text(component.value)))
-        if path[-1] != ref:
+        written = shown.get(component.id, ref)
+        if path[-1] != written:
             kwargs.append(("name", text(path[-1])))
         props = _properties(component.properties)
         if props is not None:
             kwargs.append(("properties", props))
-        part_lines.append(
-            statement(Call("Part", (text(ref), text(vendored.symbols[ref])), tuple(kwargs)), target=var)
-        )
+        if component.dnp:
+            kwargs.append(("dnp", Raw("True")))
+        if component.id in board_only:
+            kwargs.append(("board_only", Raw("True")))
+        part_calls[ref] = Call("Part", (text(written), text(vendored.symbols[ref])), tuple(kwargs))
+        part_lines.append(statement(part_calls[ref], target=var))
         for depth in range(1, len(path)):
             prefix = path[:depth]
             if prefix not in module_vars:
@@ -938,7 +1497,8 @@ def emit(source: Source, options: Options) -> Emission:
         if footprint.locked:
             place.append(("locked", Raw("True")))
         xy = (length(at.x - ORIGIN.x), length(at.y - ORIGIN.y))
-        place_lines.append(statement(Call(f"{var}.place", xy, tuple(place))))
+        place_calls[ref] = Call(f"{var}.place", xy, tuple(place))
+        place_lines.append(statement(place_calls[ref]))
     if part_vars:
         writer.imports.add("Part")
     if module_vars:
@@ -960,11 +1520,60 @@ def emit(source: Source, options: Options) -> Emission:
             connect_lines.append(statement(Call("connect", (Raw(net_vars[net]), *handles))))
     if connect_lines:
         writer.imports.add("connect")
-    zone_lines = _zones(board, names, net_vars, layers, ledger)
-    area_lines = _areas(board, layers, ledger)
-    drawing_lines = _drawings(board, ledger)
+    grouped: dict[str, Expr] = {}
+    for footprint in footprints:
+        if not (native_id := _native(footprint)):
+            continue
+        ref = refs[footprint.component_id]
+        grouped[native_id] = (
+            Sub("design.parts", text("/".join(paths[ref])))
+            if hierarchy.instances and len(paths[ref]) > 1
+            else Raw(part_vars[ref])
+        )
+    zone_lines = _zones(board, names, net_vars, layers, ledger, grouped, writer)
+    area_lines = _areas(board, layers, ledger, grouped)
+    drawing_lines = _drawings(board, ledger, grouped, net_vars, numbers)
+    binary: dict[str, bytes] = {}
+    drawing_lines += _images(board, ledger, binary, grouped)
+    verbatim_lines = _verbatim(board, numbers, tables.built, grouped, ledger)
+    group_lines = _groups(board, grouped, ledger)
     coverage.scan(design, ledger)
+    issues += coverage.regenerated_issues(ledger)
     files: dict[str, str] = dict(vendored.files)
+    sheet_aliases: list[list[str]] = []
+    if hierarchy.instances:
+        sheet_files, sheet_calls, sheet_aliases = hierarchy.emit(
+            paths=paths, part_vars=part_vars, parts=part_calls, places=place_calls,
+            members=members, net_vars=net_vars, header=header,
+        )  # fmt: skip
+        files.update(sheet_files)
+        owners = hierarchy.owners(members, paths)
+        net_lines = [
+            lines for net, lines in zip(sorted(used_nets), net_lines, strict=True) if not owners.get(net, ())
+        ]
+        root_refs = [ref for ref in part_vars if len(paths[ref]) == 1]
+        part_lines = [statement(part_calls[ref], target=part_vars[ref]) for ref in root_refs]
+        place_lines = [statement(place_calls[ref]) for ref in root_refs]
+        module_lines = []
+        add_lines = (
+            [statement(Call("design.add", tuple(Raw(part_vars[r]) for r in root_refs)))] if root_refs else []
+        )
+        connect_lines = []
+        for net, pins in sorted(members.items()):
+            handles = tuple(Sub(part_vars[r], text(p)) for r, p in sorted(pins) if r in root_refs)
+            if handles and net in net_vars:
+                connect_lines.append(statement(Call("connect", (Raw(net_vars[net]), *handles))))
+        add_lines += sheet_calls
+        for scope in hierarchy.instances:
+            if scope:
+                module_vars.setdefault(scope, "")
+        writer.imports.discard("Module")
+        if not root_refs:
+            writer.imports.discard("Part")
+        if not connect_lines:
+            writer.imports.discard("connect")
+        if not net_lines:
+            writer.imports.discard("Net")
     copper_line: list[list[str]] = []
     if kept_tables:
         files["copper.py"] = _copper_file(kept_tables, header)
@@ -977,15 +1586,19 @@ def emit(source: Source, options: Options) -> Emission:
         [statement(Call("Design", (text(options.name),)), target="design")],
         board_lines,
         net_lines,
-        class_lines,
+        class_lines if not hierarchy.instances else [],
         part_lines,
         module_lines,
         add_lines,
+        sheet_aliases,
+        class_lines if hierarchy.instances else [],
         connect_lines,
         place_lines,
         zone_lines,
         area_lines,
         drawing_lines,
+        verbatim_lines,
+        group_lines,
         copper_line,
     ):
         writer.section(block)
@@ -993,10 +1606,22 @@ def emit(source: Source, options: Options) -> Emission:
     lines = [*header, ""]
     if kept_tables:
         lines.append("import copper")
+    if hierarchy.instances:
+        direct = {
+            hierarchy.files[instance.file]
+            for scope, instance in hierarchy.instances.items()
+            if len(scope) == 1
+        }
+        lines += [f"from sheets import {name} as _sheet_{name}" for name in sorted(direct)]
     lines.append(f"from fenolite.dsl import {', '.join(imports)}")
     for body in writer.sections:
         lines += ["", *body]
     files["design.py"] = "\n".join(lines) + "\n"
+    drawing, drawing_issues = source_drawing(source, {ref: path for path, ref in lock_refs.items()})
+    issues.extend(drawing_issues)
+    if drawing is not None:
+        files["schematic.toml"] = drawing
+        files["design.py"] += '\ndesign.load_schematic("schematic.toml")\n'
     files["design.lock"] = lock_of(options.name, lock_refs)
     rows = ledger.rows()
     counts = {
@@ -1010,17 +1635,19 @@ def emit(source: Source, options: Options) -> Emission:
         "drawings": len(drawing_lines),
         "tables": len(kept_tables),
     }
-    if vendored.symbols:
+    regenerated = {lib_id for ref, lib_id in vendored.symbols.items() if ref not in vendored.native_refs}
+    if regenerated:
         issues.append(
             issue(
                 "import.symbol-regenerated",
-                f"{len({*vendored.symbols.values()})} symbol(s) drawn by Fenolite from the pad numbers of "
-                "their footprints",
+                f"{len(regenerated)} symbol(s) drawn by Fenolite from the pad numbers of their footprints",
                 where="lib",
             )
         )
     return Emission(
-        files={path: body.encode("utf-8") for path, body in sorted(files.items())},
+        files=dict(
+            sorted({**{path: body.encode("utf-8") for path, body in files.items()}, **binary}.items())
+        ),
         unexpressed=rows,
         counts=counts,
         modules=tuple("/".join(p) for p in sorted(module_vars)),

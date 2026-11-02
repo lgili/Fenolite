@@ -202,7 +202,7 @@ Both join `lens.build.BUILD_ISSUE_CODES` and the Altium build's codes, `docs/cli
 | behaviour | level before merge |
 |---|---|
 | helpers lower to nets, marks and rules | unit tests on `to_model` |
-| unused marks equal explicit marks | `KICAD-VERIFIED`: the blink rewritten with `u1.unused_no_connect()` keeps every pinned digest of `tests/unit/lens/test_build_bytes_pinned.py`, and CI's KiCad job runs ERC on it |
+| unused marks and the `series` chain equal explicit wiring | local pinned-byte proof: 83 passed on 2026-11-01 without changing a digest; the required exact-head KiCad ERC/CI proof remains pending (tasks 3.1 and 4.2) |
 | new codes stop the build | build tests (no `kicad-cli` needed) |
 
 ## Risks / Trade-offs
@@ -225,3 +225,8 @@ Both join `lens.build.BUILD_ISSUE_CODES` and the Altium build's codes, `docs/cli
    *Recommended:* the ends win, and such pins use `part["a"]`; c0248 confirms.
 4. Should `unused_no_connect` also exist on a module or the design (all parts at once)? *Recommended:*
    not yet; marking a whole board hides forgotten connections, which is what the guard is for.
+
+Decided 2026-11-01: the user approved the recommended answers above. Complete task 3.1's blink
+`series` migration now, updating tests that edit its source text while retaining their original circuit
+mutations. No pinned digest may move. Local byte proofs and the later exact-commit KiCad ERC/CI proof
+remain distinct; only the observed tool/version may be reported.

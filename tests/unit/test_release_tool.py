@@ -57,6 +57,15 @@ def test_check_agrees(tmp_path: Path) -> None:
     assert release.check(source(tmp_path), "v1.2.0") == []
 
 
+def test_one_zero_release_requires_the_legal_review(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    tree = source(tmp_path, version="1.0.0")
+    (tree / "CHANGELOG.md").write_text("## [1.0.0] - 2026-11-01\n\n- authored release fixture\n")
+    monkeypatch.setattr(release, "legal_review_problems", lambda _: ["legal review row A1 is unanswered"])
+    assert release.check(tree, "v1.0.0") == ["legal review row A1 is unanswered"]
+    monkeypatch.setattr(release, "legal_review_problems", lambda _: [])
+    assert release.check(tree, "v1.0.0") == []
+
+
 def test_check_names_each_disagreement(tmp_path: Path) -> None:
     problems = release.check(source(tmp_path, version="1.3.0", pin="1.2.0"), "v1.3.0")
     assert any("alias does not pin fenolite==1.3.0" in p for p in problems)

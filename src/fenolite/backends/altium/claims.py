@@ -32,6 +32,7 @@ from types import MappingProxyType
 
 from fenolite.backends.altium import (
     binary,
+    draftsman,
     hierarchy,
     import_evidence,
     lower,
@@ -58,6 +59,7 @@ SCHEMATIC_READ = Evidence.combine(read_sch.EVIDENCE, IMPORT)
 WRITE = ("write",)
 
 RAW_MATRIX: tuple[MatrixRow, ...] = (
+    MatrixRow(NAME, draftsman.DRAFTSMAN_KIND, write=draftsman.EVIDENCE, experimental=WRITE),
     MatrixRow(NAME, project.HARNESS_KIND, write=hierarchy.EVIDENCE, experimental=WRITE),
     MatrixRow(NAME, outjob.OUTJOB_KIND, write=outjob.EVIDENCE, experimental=WRITE),
     MatrixRow(
@@ -117,6 +119,7 @@ _HIERARCHY_READBACK = (
     "tests/unit/backends/altium/test_readback.py::test_hierarchy_sample_reads_back_in_both_forms"
 )
 OWN_READBACK: dict[str, str] = {
+    draftsman.DRAFTSMAN_KIND: "tests/unit/backends/altium/test_draftsman_write.py::test_readback",
     project.HARNESS_KIND: _HIERARCHY_READBACK,
     outjob.OUTJOB_KIND: "tests/unit/backends/altium/test_outjob_write.py::test_readback",
     project.PCBDOC_KIND: (

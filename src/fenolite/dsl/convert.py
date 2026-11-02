@@ -27,7 +27,7 @@ from fenolite.dsl.design import MINIMUM_KINDS, Design, ImpedanceSpec
 from fenolite.dsl.devices import port_params
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.interfaces import Interface as DslInterface
-from fenolite.dsl.items import DimensionSpec, GraphicSpec, TextSpec
+from fenolite.dsl.items import BOARD_LAYER_KINDS, DimensionSpec, GraphicSpec, ImageSpec, TextSpec
 from fenolite.dsl.lock import assign_refs, make_lock
 from fenolite.dsl.module import Module as DslModule
 from fenolite.dsl.panel import Panel
@@ -38,17 +38,24 @@ from fenolite.dsl.quantity import UNITS, Range
 from fenolite.dsl.roles import to_roles
 from fenolite.dsl.schematic import extract as schematic_composition
 from fenolite.dsl.shape import ring_box
+from fenolite.model.base import ExtBag
 from fenolite.model.board import (
     Board,
     Dimension,
+    FootprintOverrides,
     Graphic,
+    Group,
     Keepout,
+    Layer,
+    ModelRef,
     Outline,
     OutlineArc,
     OutlineSlot,
     StackLayer,
     Stackup,
     Text,
+    VerbatimItem,
+    VerbatimTarget,
     Zone,
 )
 from fenolite.model.circuit import (
@@ -81,6 +88,7 @@ from fenolite.model.rules import (
     Rule,
     RuleSet,
     Selector,
+    TeardropRule,
     TraceGeometry,
 )
 
@@ -110,6 +118,8 @@ KEYS: Mapping[str, tuple[str, str]] = MappingProxyType(
         "text": ("txt", "text:<drawing key>"),
         "graphic": ("gfx", "graphic:<drawing key>"),
         "dimension": ("dim", "dimension:<drawing key>"),
+        "group": ("grp", "group:<key>"),
+        "verbatim": ("vbt", "verbatim:<key>"),
         "stackup": ("stk", "stackup"),
         "stack_layer": ("sly", "stack_layer:<k>"),
         "impedance": ("imp", "impedance:<target name>"),
@@ -145,6 +155,9 @@ def _component(part: Part) -> Component:
         properties=dict(sorted(properties.items())),
         pin_pad_map=pad_pairs(part.pad_map),
         value_range=None if part.value_range is None else range_to_model(part.value_range),
+        dnp=part.dnp,
+        board_only=part.board_only,
+        footprint_definition_ref=part.footprint_definition,
     )
 
 
@@ -542,6 +555,7 @@ def _design_model(design: Design) -> ModelDesign:
         outline = Outline(
             id=key_id("outline"),
             points=rings[0].points,
+            stroke_width=design.outline_width,
             cutouts=tuple(ring.points for ring in rings[1:]),
             arcs=tuple(
                 OutlineArc(index, edge, mid) for index, ring in enumerate(rings) for edge, mid in ring.arcs
@@ -573,6 +587,7 @@ def _design_model(design: Design) -> ModelDesign:
                 priority=spec.priority,
                 settings=spec.settings,
                 locked=spec.locked,
+                arcs=tuple(OutlineArc(0, edge, Point(x0 + mx, y0 + my)) for edge, (mx, my) in spec.arcs),
             )
             for name, spec in sorted(design.zones.items())
         )
@@ -625,6 +640,7 @@ def _design_model(design: Design) -> ModelDesign:
         ),
         board=Board(
             id=key_id("board"),
+            layers=_board_layers(design),
             outline=outline,
             zones=zones,
             keepouts=_keepouts(design),
@@ -635,6 +651,8 @@ def _design_model(design: Design) -> ModelDesign:
             sheet=_sheet(design),
             title_block=design.block,
             via_protection=design.via_default[0] if design.via_default is not None else None,
+            groups=_groups(design),
+            verbatim=_verbatim(design),
         ),
         rules=RuleSet(
             id=key_id("rules"),
@@ -663,6 +681,76 @@ def _at(pair: tuple[int, int]) -> Point:
     return Point(BOARD_ORIGIN.x + pair[0], BOARD_ORIGIN.y + pair[1])
 
 
+def _verbatim(design: Design) -> tuple[VerbatimItem, ...]:
+    """One model item per ``verbatim()`` call of the design and of its parts, in key order (change c0277): a
+    part's item is keyed ``<part path>/<key>`` and targets its footprint."""
+    found: list[VerbatimItem] = [
+        VerbatimItem(id=key_id("verbatim", key), key=key, text=text, target=cast("VerbatimTarget", target))
+        for key, (text, target) in design.verbatim_items.items()
+    ]
+    for part in design.parts.values():
+        for key, text in part.verbatim_items.items():
+            full = f"{part.path}/{key}"
+            found.append(
+                VerbatimItem(
+                    id=key_id("verbatim", full),
+                    key=full,
+                    text=text,
+                    target="footprint",
+                    component_id=key_id("component", part.path),
+                )
+            )
+    return tuple(sorted(found, key=lambda item: item.key))
+
+
+def _board_layers(design: Design) -> tuple[Layer, ...]:
+    """Explicit technical rows, then declared User.n rows; the absent selection preserves old bytes."""
+    out = [
+        Layer(id=key_id("layer", name), name=name, kind=BOARD_LAYER_KINDS[name], ordinal=ordinal)
+        for ordinal, name in enumerate(design.technical_layer_names or ())
+    ]
+    for name in design.user_layer_names:
+        alias = design.user_layer_aliases.get(name)
+        ext = {"kicad": ExtBag(None, (("user_name", alias),))} if alias is not None else {}
+        out.append(Layer(id=key_id("layer", name), ext=ext, name=name, kind="user", ordinal=len(out)))
+    return tuple(out)
+
+
+def _groups(design: Design) -> tuple[Group, ...]:
+    """One model group per ``group()`` call, in key order; a member is the id of its entity (change c0277)."""
+
+    def member_id(member: object) -> str:
+        if isinstance(member, Part):
+            return key_id("component", member.path)
+        assert isinstance(member, str)
+        drawing = design.drawings.get(member)
+        if isinstance(drawing, TextSpec):
+            return key_id("text", member)
+        if isinstance(drawing, GraphicSpec):
+            return key_id("graphic", member)
+        if isinstance(drawing, DimensionSpec):
+            return key_id("dimension", member)
+        if member in design.zones:
+            return key_id("zone", member)
+        if member in design.rule_areas:
+            return key_id("area", member)
+        if member in design.verbatim_items:
+            return key_id("verbatim", member)
+        if member in design.images:
+            return derived_id("img", DSL_BACKEND, f"image:{member}")  # the id the build gives it (c0277)
+        return key_id("group", member)
+
+    return tuple(
+        Group(
+            id=key_id("group", key),
+            name=spec.name,
+            member_ids=tuple(sorted(member_id(m) for m in spec.members)),
+            locked=spec.locked,
+        )
+        for key, spec in sorted(design.groups.items())
+    )
+
+
 def _keepouts(design: Design) -> tuple[Keepout, ...]:
     """One model keep-out per ``rule_area()``, in name order."""
     return tuple(
@@ -676,6 +764,7 @@ def _keepouts(design: Design) -> tuple[Keepout, ...]:
             no_pads="pads" in area.forbid,
             no_copper_pour="pours" in area.forbid,
             no_footprints="footprints" in area.forbid,
+            placement=area.placement,
         )
         for name, area in sorted(design.rule_areas.items())
     )
@@ -693,11 +782,15 @@ def _texts(design: Design) -> tuple[Text, ...]:
                 text=spec.text,
                 position=_at(spec.at),
                 layer=spec.layer,
-                size=Size(spec.size, spec.size),
+                size=Size(spec.size if spec.width is None else spec.width, spec.size),
                 thickness=spec.thickness,
                 rotation=spec.rotation,
                 h_justify=next((w for w in words if w in ("left", "right")), "center"),  # type: ignore[arg-type]
                 v_justify=next((w for w in words if w in ("top", "bottom")), "center"),  # type: ignore[arg-type]
+                knockout=spec.knockout,
+                bold=spec.bold,
+                italic=spec.italic,
+                face=spec.face,
             )
         )
     return tuple(out)
@@ -712,6 +805,7 @@ def _graphics(design: Design) -> tuple[Graphic, ...]:
             points=tuple(_at(p) for p in spec.points),
             width=spec.width,
             filled=spec.fill,
+            net_id=key_id("net", spec.net) if spec.net is not None else None,
         )
         for key, spec in sorted(design.drawings.items())
         if isinstance(spec, GraphicSpec)
@@ -730,9 +824,18 @@ def _dimensions(design: Design) -> tuple[Dimension, ...]:
             direction=spec.direction,
             units=spec.units,
             precision=spec.precision,
-            size=Size(spec.size, spec.size) if spec.size is not None else None,
+            size=(
+                None
+                if spec.size is None
+                else Size(spec.size if spec.text_width is None else spec.text_width, spec.size)
+            ),
             thickness=spec.thickness,
             width=spec.width,
+            extension_offset=spec.extension_offset,
+            text_position=None if spec.text_at is None else _at(spec.text_at),
+            leader_length=spec.leader_length,
+            text=spec.text,
+            frame=spec.frame,  # type: ignore[arg-type]
         )
         for key, spec in sorted(design.drawings.items())
         if isinstance(spec, DimensionSpec)
@@ -852,6 +955,46 @@ def unused_marks(design: Design) -> Mapping[str, tuple[str, ...]]:
             if part.unused_request is not None
         }
     )
+
+
+def footprint_overrides(design: Design) -> Mapping[str, FootprintOverrides]:
+    """The footprint-level settings of each part that gives some (``Part.override``; change c0277), by
+    component path in path order."""
+    return MappingProxyType(
+        {path: part.overrides for path, part in sorted(design.parts.items()) if part.overrides is not None}
+    )
+
+
+def pad_edits(design: Design) -> Mapping[str, tuple[tuple[str, Mapping[str, object]], ...]]:
+    """The pad edits of each part that makes some (``Part.edit_pad``; change c0277), by component path in
+    path order, each ``(pad number, fields)`` in call order."""
+    return MappingProxyType(
+        {
+            path: tuple((number, MappingProxyType(dict(values))) for number, values in part.pad_edits)
+            for path, part in sorted(design.parts.items())
+            if part.pad_edits
+        }
+    )
+
+
+def model_refs(design: Design) -> Mapping[str, tuple[ModelRef, ...]]:
+    """The 3D models of each part that names some (``Part.model``; change c0277), by component path in
+    path order: the build gives them to the part's footprint instance."""
+    return MappingProxyType(
+        {path: tuple(part.model_refs) for path, part in sorted(design.parts.items()) if part.model_refs}
+    )
+
+
+def images(design: Design) -> tuple[ImageSpec, ...]:
+    """The ``image()`` calls of the script, in key order (change c0277): the build reads each file and puts
+    the image on the board."""
+    return tuple(spec for _, spec in sorted(design.images.items()))
+
+
+def teardrop_rules(design: Design) -> tuple[TeardropRule, ...]:
+    """The ``teardrops()`` calls of the script, in call order (change c0277): the build writes their settings
+    on the pads and vias they select."""
+    return tuple(design.teardrop_rules)
 
 
 def two_terminal(design: Design) -> tuple[str, ...]:
@@ -986,6 +1129,11 @@ __all__ = [
     "planes",
     "range_to_model",
     "stackup_locked",
+    "teardrop_rules",
+    "model_refs",
+    "footprint_overrides",
+    "pad_edits",
+    "images",
     "to_model",
     "two_terminal",
     "unused_marks",

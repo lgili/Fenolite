@@ -23,7 +23,7 @@ import posixpath
 import re
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from types import MappingProxyType
 
 from fenolite.backends.kicad import netnames, sch, schlayout, symembed
@@ -39,10 +39,11 @@ from fenolite.backends.kicad.schgen import (
     library_row,
     sheet_file,
 )
-from fenolite.backends.kicad.sexpr import Atom, dumps
+from fenolite.backends.kicad.sexpr import Atom, dumps, parse
 from fenolite.backends.kicad.symembed import EmbeddedSymbol
+from fenolite.backends.kicad.versions import DEFAULT_TARGET, FORMAT_VERSIONS, FileKind
 from fenolite.core.coords import Point, Size
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.model.circuit import Circuit, Component, Net
@@ -69,8 +70,11 @@ from fenolite.model.drawn_connect import (
     PinKey,
     PinPoint,
     UnitInfo,
+    bus_group_parts,
+    bus_vector,
     component_path,
     coverage,
+    expand,
     instances,
     issue,
     natural,
@@ -114,12 +118,30 @@ _UNSAFE = re.compile(r"[^A-Za-z0-9_.-]")
 
 @dataclass(frozen=True)
 class PowerSymbol:
-    """A power symbol a drawing names, resolved by the build: its definition, the symbols it extends and
+    """An extra native symbol a drawing names: its definition, the symbols it extends and
     the origin of its library row (``project``, ``authored`` or another)."""
 
     symbol: SymbolDef
     parents: tuple[SymbolDef, ...] = ()
     origin: str = "project"
+
+
+@dataclass(frozen=True)
+class SymbolBinding:
+    """The code's library id and pad mapping, used to retain native overrides during extraction."""
+
+    symbol: str
+    pin_pad_map: tuple[tuple[str, str], ...] = ()
+
+    def original_id(self, native_id: str) -> str:
+        if not self.pin_pad_map:
+            return native_id
+        return native_id.removesuffix(symembed.variant_name("", self.pin_pad_map))
+
+
+def unit_signature(definition: SymbolDef, unit: int) -> tuple[tuple[str, str, str, bool], ...]:
+    """The logical pins of a unit; native positions and graphics belong to its drawing."""
+    return tuple(sorted((p.number, p.name, p.etype, p.hidden) for p in definition.pins_of(unit)))
 
 
 @dataclass(frozen=True)
@@ -211,6 +233,7 @@ class _Lowering:
                 pin_numbers=mapping or None,
                 allow_lossy=self.allow_lossy,
                 issues=self.issues,
+                show_hidden_power=False,
             )
             self.origins[self.embedded[key].lib_id] = origin
         return self.embedded[key]
@@ -257,6 +280,40 @@ def _power_definition(
     return state.embed(found.symbol, found.parents, (), found.origin)
 
 
+def opaque_symbol(item: DrawnOpaque) -> SymbolInstance | None:
+    """Read a native opaque symbol through the schematic reader, without a second symbol parser."""
+    native = parse(item.kicad)
+    if native.name != "symbol":
+        return None
+    root = node(
+        "kicad_sch",
+        node("version", Atom.integer(FORMAT_VERSIONS[FileKind.SCHEMATIC][DEFAULT_TARGET])),
+        native,
+    )
+    try:
+        symbols = sch.read_schematic(root).symbols
+    except ValueError as exc:
+        raise FormatError(f"invalid opaque native symbol: {exc}") from exc
+    if len(symbols) != 1:
+        raise FormatError("an opaque native symbol must contain one readable instance")
+    return symbols[0]
+
+
+def _graphic_instance(definition: SymbolDef, symbol: SymbolInstance) -> bool:
+    return not definition.pins and not symbol.in_bom and not symbol.on_board
+
+
+def _excluded_passive_instance(definition: SymbolDef, symbol: SymbolInstance) -> bool:
+    """S-0020/H-K-EQ-SCHSIDE excludes these native nodes; visible passive pins add no global names."""
+    return (
+        not symbol.in_bom
+        and not symbol.on_board
+        and not definition.power
+        and bool(definition.pins)
+        and all(pin.etype == "passive" and not pin.hidden for pin in definition.pins)
+    )
+
+
 def lower_drawn(
     drawn: DrawnSchematic,
     design: Design,
@@ -267,6 +324,8 @@ def lower_drawn(
     vendor: str = "all",
     allow_lossy: bool = False,
     power_symbols: Mapping[str, PowerSymbol] = MappingProxyType({}),
+    opaque_symbols: Mapping[str, PowerSymbol] = MappingProxyType({}),
+    symbol_overrides: Mapping[str, PowerSymbol] = MappingProxyType({}),
     groups: Mapping[str, Sequence[SheetGroup]] | None = None,
 ) -> GeneratedSchematic:
     """The created sheets of ``drawn`` for ``design``, whose components ``parts`` resolve to symbols, in the
@@ -361,6 +420,27 @@ def lower_drawn(
         if file is None:
             continue
         used: dict[str, EmbeddedSymbol] = {}
+        for opaque in sheet.opaques:
+            native = opaque_symbol(opaque)
+            if native is None:
+                continue
+            lib_id = native.lib_name or native.lib_ref
+            resolved = opaque_symbols.get(lib_id)
+            if resolved is None or not (
+                _graphic_instance(resolved.symbol, native)
+                or _excluded_passive_instance(resolved.symbol, native)
+            ):
+                issues.append(
+                    issue(
+                        "drawn.part-unknown",
+                        f"opaque symbol {native.ref or lib_id} on {key} has no resolved board/BOM-excluded "
+                        "pinless graphic or visible passive definition",
+                        key,
+                    )
+                )
+                continue
+            definition = state.embed(resolved.symbol, resolved.parents, (), resolved.origin)
+            used[definition.lib_id] = definition
         symbols: list[SymbolInstance] = []
         for symbol in sheet.symbols:
             shown = [(i, found[i].component(symbol.part)) for i in indices]
@@ -369,7 +449,26 @@ def lower_drawn(
                 continue
             first_part, first = known[0][1]
             mapping = symembed.variant_pairs(first.pin_pad_map)
-            definition = state.embed(first_part.symbol, first_part.parents, mapping, first_part.symbol_origin)
+            if symbol.symbol:
+                override = symbol_overrides.get(symbol.symbol)
+                if override is None or any(
+                    unit_signature(part.symbol, symbol.unit) != unit_signature(override.symbol, symbol.unit)
+                    for _, (part, _) in known
+                ):
+                    issues.append(
+                        issue(
+                            "drawn.part-unknown",
+                            f"symbol override {symbol.symbol} for {symbol.part} unit {symbol.unit} "
+                            f"on {key} is missing or has incompatible logical pins",
+                            key,
+                        )
+                    )
+                    continue
+                definition = state.embed(override.symbol, override.parents, mapping, override.origin)
+            else:
+                definition = state.embed(
+                    first_part.symbol, first_part.parents, mapping, first_part.symbol_origin
+                )
             used[definition.lib_id] = definition
             properties = {k: "" for k in MANDATORY} | dict(first.properties)
             properties |= {"Reference": first.ref, "Value": first.value, "Footprint": first.lib_footprint_ref}
@@ -419,6 +518,7 @@ def lower_drawn(
                     lib_ref=definition.lib_id,
                     position=power.at,
                     rotation=power.rotation,
+                    mirror=power.mirror,  # type: ignore[arg-type]
                     ref=refs[0],
                     value=power.net,
                     properties={k2: "" for k2 in MANDATORY} | {"Reference": refs[0], "Value": power.net},
@@ -817,6 +917,32 @@ def _definition(sheet: SchematicSheet, symbol: SymbolInstance) -> SymbolDef | No
     return None
 
 
+def source_symbol_id(definition: SymbolDef, symbol: SymbolInstance) -> str:
+    """A local embedded alias under its original library namespace, or the private source fallback."""
+    if definition.library:
+        return definition.lib_id
+    namespace, separator, _ = symbol.lib_ref.partition(":")
+    return f"{namespace if separator and namespace else '_Source'}:{definition.name}"
+
+
+def _power_instance(definition: SymbolDef, symbol: SymbolInstance, ref: str) -> bool:
+    """Power flags or the narrow legacy form whose hidden input already supplies its global name."""
+    if not ref.startswith("#"):
+        return False
+    if definition.power:
+        return True
+    if not ref.startswith(POWER_REFERENCE) or len(definition.pins) != 1:
+        return False
+    pin = definition.pins[0]
+    return (
+        pin.hidden
+        and pin.etype == "power_in"
+        and pin.position == Point(0, 0)
+        and pin.name == symbol.value
+        and bool(pin.name)
+    )
+
+
 def _key(text: str, taken: set[str]) -> str:
     base = _UNSAFE.sub("_", text) or "sheet"
     if not re.match(r"[A-Za-z_]", base):
@@ -885,12 +1011,15 @@ def extract(
     *,
     components: Mapping[str, str],
     root_file: str = "",
+    symbol_defaults: Mapping[str, SymbolBinding] = MappingProxyType({}),
 ) -> tuple[DrawnSchematic, tuple[Issue, ...]]:
     """The drawn schematic of read sheets: ``root`` and ``children`` (file, from the root file's folder, to
     sheet, as ``sch.sheet_files`` lists them), with ``components`` mapping a reference to its component
     path. Returns the value and the issues (``drawn.part-unknown`` for a symbol of no component, kept as an
     opaque item, and ``kicad.sch.inexact-length`` for a slot kept verbatim)."""
-    found = extract_with_pins(root, children, components=components, root_file=root_file)
+    found = extract_with_pins(
+        root, children, components=components, root_file=root_file, symbol_defaults=symbol_defaults
+    )
     return found.drawn, found.issues
 
 
@@ -900,6 +1029,7 @@ def extract_with_pins(
     *,
     components: Mapping[str, str],
     root_file: str = "",
+    symbol_defaults: Mapping[str, SymbolBinding] = MappingProxyType({}),
 ) -> Extracted:
     """``extract`` with the pin points of every drawn symbol and power symbol (``drawn_connect.resolve``)."""
     issues: list[Issue] = []
@@ -937,15 +1067,40 @@ def extract_with_pins(
     for instance in walk:
         absolute: list[str] = []
         for k, symbol in enumerate(instance.sheet.symbols):
-            use = next((u for u in symbol.uses if u.path == instance.use_path), None)
+            uses = [u for u in symbol.uses if u.path == instance.use_path]
+            project = posixpath.basename(root_name).removesuffix(".kicad_sch")
+            use = next((u for u in uses if u.project == project), uses[0] if uses else None)
             ref = use.ref if use is not None else symbol.ref
             instance.refs[k] = ref
             if ref in components:
                 absolute.append(_module_of(components[ref]))
-        if absolute:
+        if instance.parent is None:
+            instance.module = ""
+        elif absolute:
             instance.module = _common(absolute)
-        elif instance.parent is not None:
+        else:
             instance.module = walk[instance.parent].module
+    definitions: dict[tuple[str, int], SymbolDef | None] = {}
+    primary: dict[str, tuple[int, str]] = {}
+    for instance in walk:
+        for index, symbol in enumerate(instance.sheet.symbols):
+            cache_key = (instance.file, index)
+            if cache_key not in definitions:
+                definitions[cache_key] = _definition(instance.sheet, symbol)
+            definition = definitions[cache_key]
+            ref = instance.refs.get(index, symbol.ref)
+            if definition is None or ref not in components:
+                continue
+            lib_id = source_symbol_id(definition, symbol)
+            binding = symbol_defaults.get(ref)
+            if binding is not None:
+                lib_id = binding.original_id(lib_id)
+            candidate = (symbol.unit, lib_id)
+            primary[ref] = min(primary.get(ref, candidate), candidate)
+    defaults = {
+        ref: symbol_defaults[ref].symbol if ref in symbol_defaults else value[1]
+        for ref, value in primary.items()
+    }
     # sheet keys, one per file
     taken: set[str] = {ROOT_KEY}
     keys: dict[str, str] = {root_name: ROOT_KEY}
@@ -967,20 +1122,32 @@ def extract_with_pins(
         opaques: list[DrawnOpaque] = []
         for k, symbol in enumerate(sheet.symbols):
             ref = first.refs.get(k, symbol.ref)
-            definition = _definition(sheet, symbol)
-            if ref.startswith("#") and definition is not None and definition.power and not symbol.mirror:
+            definition = definitions[(file, k)]
+            if definition is not None and _power_instance(definition, symbol, ref):
                 pins[(key, "power", len(powers))] = _pins_of(
-                    definition, symbol.unit, symbol.body_style, symbol.position, symbol.rotation, ""
+                    definition,
+                    symbol.unit,
+                    symbol.body_style,
+                    symbol.position,
+                    symbol.rotation,
+                    symbol.mirror,
                 )
                 powers.append(
                     DrawnPower(
-                        symbol.lib_name or symbol.lib_ref,
+                        source_symbol_id(definition, symbol),
                         symbol.value,
                         symbol.position,
                         symbol.rotation,
                         _fields(symbol, power=True),
+                        symbol.mirror,
                     )  # fmt: skip
                 )
+                continue
+            if definition is not None and (
+                _graphic_instance(definition, symbol) or _excluded_passive_instance(definition, symbol)
+            ):
+                graphic = replace(symbol, lib_ref=source_symbol_id(definition, symbol), lib_name="")
+                opaques.append(DrawnOpaque(dumps(sch._entity_node(graphic), style="compact")))  # pyright: ignore[reportPrivateUsage]
                 continue
             parts: list[str] = []
             for index in indices:
@@ -1010,9 +1177,32 @@ def extract_with_pins(
                     symbol.rotation,
                     symbol.mirror,
                 )
+            overrides: list[str] = []
+            if definition is not None:
+                native_id = source_symbol_id(definition, symbol)
+                for index in indices:
+                    current_ref = walk[index].refs.get(k, symbol.ref)
+                    binding = symbol_defaults.get(current_ref)
+                    original_id = binding.original_id(native_id) if binding is not None else native_id
+                    if defaults.get(current_ref, original_id) != original_id:
+                        overrides.append(original_id)
+                if len(set(overrides)) > 1:
+                    issues.append(
+                        issue(
+                            "drawn.part-unknown",
+                            f"repeated symbol {ref} has incompatible native bindings",
+                            file,
+                        )
+                    )
             symbols.append(
                 DrawnSymbol(
-                    parts[0], symbol.unit, symbol.position, symbol.rotation, symbol.mirror, _fields(symbol)
+                    parts[0],
+                    symbol.unit,
+                    symbol.position,
+                    symbol.rotation,
+                    symbol.mirror,
+                    _fields(symbol),
+                    overrides[0] if overrides else "",
                 )
             )
         labels: list[DrawnLabel] = []
@@ -1101,6 +1291,88 @@ def refs_to_paths(circuit: Circuit) -> dict[str, str]:
     return {c.ref: component_path(c) for c in circuit.components if c.ref}
 
 
+def _bus_member_keys(text: str, aliases: Mapping[str, Sequence[str]]) -> Mapping[str, tuple[str, ...]]:
+    """Native identities within one physical bus, never replacements for literal scalar names.
+
+    Authored 9.0.2 controls distinguish ascending vector positions from named group members. A nested vector's
+    written definition remains part of its group identity; unlike a top-level vector, reversing it
+    was not an alias in that native control. Unknown/ambiguous structures retain literal identities.
+    """
+    if text in aliases:
+        return {}
+    vector = bus_vector(text)
+    if vector is not None:
+        prefix, first, last = vector
+        step = 1 if last >= first else -1
+        lower = min(first, last)
+        return {
+            f"{prefix}{index}": ("vector", str(index - lower)) for index in range(first, last + step, step)
+        }
+    group = bus_group_parts(text)
+    if group is None:
+        return {}
+    prefix, items = group
+    keys: dict[str, tuple[str, ...]] = {}
+    for item in items:
+        names = expand(item, aliases)
+        vector = None if item in aliases else bus_vector(item)
+        if vector is not None:
+            _name, first, last = vector
+            step = 1 if last >= first else -1
+            identities = tuple(
+                ("group-vector", item, str(index)) for index in range(first, last + step, step)
+            )
+        elif names is not None:
+            identities = tuple(("group-definition", item, name) for name in names)
+        else:
+            names = (item,)
+            identities = (("group-net", item),)
+        for member, identity in zip(names or (), identities, strict=True):
+            full = f"{prefix}.{member}" if prefix else member
+            if full in keys and keys[full] != identity:
+                return {}
+            keys[full] = identity
+    return keys
+
+
+def _connection_names(found: Extracted) -> tuple[DrawnSchematic, dict[PinKey, tuple[PinPoint, ...]]]:
+    """A private connectivity view; native slash aliases join without changing visible drawing text.
+
+    S-0020/H-K-SCH-SLASH also governs the generated-schematic guard. Keep this target rule here,
+    outside the generic resolver, and leave the extracted value available to level S unchanged.
+    """
+    name = netnames.model_name
+    sheets = tuple(
+        replace(
+            sheet,
+            labels=tuple(replace(label, text=name(label.text)) for label in sheet.labels),
+            powers=tuple(replace(power, net=name(power.net)) for power in sheet.powers),
+            sheet_refs=tuple(
+                replace(ref, pins=tuple(replace(pin, name=name(pin.name)) for pin in ref.pins))
+                for ref in sheet.sheet_refs
+            ),
+            bus_aliases=tuple(
+                replace(alias, name=name(alias.name), members=tuple(name(member) for member in alias.members))
+                for alias in sheet.bus_aliases
+            ),
+        )
+        for sheet in found.drawn.sheets
+    )
+    pins = {
+        key: tuple(replace(pin, name=name(pin.name)) for pin in values) for key, values in found.pins.items()
+    }
+    return replace(found.drawn, sheets=sheets), pins
+
+
+def _resolve_extracted(found: Extracted, *, name: str = "") -> DrawnNetlist:
+    """The native connectivity view, leaving the extracted source drawing untouched."""
+    connections, pins = _connection_names(found)
+    return resolve(
+        connections, pins, design_name=name, _bus_member_keys=_bus_member_keys,
+        _local_scalar_aliases=True,
+    )  # fmt: skip
+
+
 def resolve_sheets(
     root: SchematicSheet,
     children: Mapping[str, SchematicSheet],
@@ -1110,8 +1382,15 @@ def resolve_sheets(
     root_file: str = "",
 ) -> tuple[DrawnSchematic, DrawnNetlist, tuple[Issue, ...]]:
     """The drawn schematic of read sheets, its nets and the issues of extraction and resolution."""
-    found = extract_with_pins(root, children, components=refs_to_paths(circuit), root_file=root_file)
-    netlist = resolve(found.drawn, found.pins, design_name=name)
+    bindings = {
+        c.ref: SymbolBinding(c.lib_symbol_ref, c.pin_pad_map)
+        for c in circuit.components
+        if c.ref and c.lib_symbol_ref and not c.board_only
+    }
+    found = extract_with_pins(
+        root, children, components=refs_to_paths(circuit), root_file=root_file, symbol_defaults=bindings
+    )
+    netlist = _resolve_extracted(found, name=name)
     return found.drawn, netlist, (*found.issues, *netlist.issues)
 
 
@@ -1133,10 +1412,14 @@ __all__ = [
     "ROOT_KEY",
     "Extracted",
     "PowerSymbol",
+    "SymbolBinding",
     "drawn_counts",
     "extract",
     "extract_with_pins",
     "lower_drawn",
+    "opaque_symbol",
     "refs_to_paths",
     "resolve_sheets",
+    "source_symbol_id",
+    "unit_signature",
 ]

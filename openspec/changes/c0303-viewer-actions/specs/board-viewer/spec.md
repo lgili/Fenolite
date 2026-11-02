@@ -33,7 +33,7 @@ A confirmed action SHALL return its receipt, which the page SHALL show before it
 - **THEN** the first receipt names the board and its backup, and after the undo the board's SHA-256 equals the original
 
 ### Requirement: Allowed actions
-An action SHALL be one of `fill`, `tidy`, `silk`, `testpoints`, `waive`, `move`, `shift`, `turn`, `export` and `bom`, built from its fixed template with typed options. A word, a path outside the project root, an unknown reference, a malformed length, a reason with a line break or `--no-backup` MUST be refused with 400, and no action MAY write an Altium document.
+Actions SHALL use fixed templates for `fill`, `tidy`, `silk`, `testpoints`, `waive`, `move`, `shift`, `turn`, `export`, `bom`, `roles`, `route-accept`, `route-reject` or `take`. Unknown words/options/refs, invalid lengths/reasons, path escapes and `--no-backup` MUST give 400. Only a bound conflict take MAY use its validated authoring root; other actions MUST stay under the served project root. Altium documents MUST NOT be written.
 
 #### Scenario: Refused actions
 - **WHEN** `uv run pytest tests/unit/view/test_actions.py` validates an `export` to `../out`, a `move` of an unknown reference, a `waive` whose reason holds a line break and a `silk` of an Altium board

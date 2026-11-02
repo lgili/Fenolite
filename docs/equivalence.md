@@ -16,7 +16,7 @@ reads no file, runs no tool and uses no floating-point number.
 ## The public API and the reply
 
 `fenolite.api.equivalent(a, b, *, level=None, tolerances=None, frame=None, ignore_refs=(), profile=None,
-against=None, kicad_cli=None, timeout=300.0)` is the comparison as a library call (change c0158). `a` and
+against=None, kicad_cli=None, timeout=300.0, strict=False, presentation=None)` is the comparison as a library call (change c0158). `a` and
 `b` are paths of any side the command reads, or `Design` values; `b` is `None` exactly when `against` is
 `"kicad-import"`. It reads the sides as the command does, runs `compare_designs` at the highest level both
 sides hold unless `level` says otherwise, and returns an `EquivalenceResult`: `report`, the sides `a` and
@@ -24,6 +24,14 @@ sides hold unless `level` says otherwise, and returns an `EquivalenceResult`: `r
 `issues` in the command's order and the `evidence`. `to_json()` is exactly the command's `result`, and the
 command is a thin caller of the function.
 
+- Explicit `level="S"` runs only the schematic comparison. Raw `.kicad_sch` files, KiCad projects and
+  built projects with written sheets are read from actual geometry and embedded definitions without a
+  netlist export. Symbols without PCB footprints and repeated native sheet instances remain included.
+  The result has the same keys with `level: "S"` and one level named `schematic`; integer/default result
+  bytes stay unchanged. A model without actual sheets is not a schematic side.
+- S compares actual sheet coordinates. `strict`, `ignore_refs` and the PCB import triangle are refused
+  for S; a scoped profile can exclude particular S differences with its normal recorded reason. A
+  junction-item exclusion does not exclude a changed pin group (`drawn-net`). Evidence stays INFERRED.
 - `tolerances` is a `Tolerances`, or a mapping of the fields to set (`{"length_nm": 1}`) over the values
   of the profile, else 0; `frame` `None` is the profile's frame, else `absolute` (`relative` for the
   triangle).
@@ -81,12 +89,16 @@ whose copper it does not care about passes `--level 4`.
 Levels 6 to 8 and S are delivered by change c0278. `--level 6` and `--level 7` need a footprint on both
 sides; they run level 5 when both sides hold copper. `--level 8` runs the levels 1 to 7 and renders both
 boards. `compare_designs` runs the levels 1 to 7; level 8 lives in `fenolite.view.fidelity` (it needs the
-scene builders) and level S in `compare_drawn` (`fenolite verify-source` runs it; `fenolite equivalent --level S` still exits 2
-naming side `a` in this version). `fenolite verify-source` runs every level on a script and its original (`docs/fidelity.md`).
+scene builders) and level S in `compare_drawn`. Both `fenolite verify-source` and explicit
+`fenolite equivalent --level S` use actual extracted native sheets and resolved pin connectivity. `fenolite verify-source` runs every level on a script and its original (`docs/fidelity.md`).
 
-- **Components are paired by reference.** Model ids differ between backends. A reference that a side
-  holds more than once, or an empty reference, cannot be paired: it gives one `ref-ambiguous` difference
-  and takes no further part. `--ignore-ref GLOB` leaves such references out.
+- **Components are paired by reference.** Model ids differ between backends. A reference that both sides
+  hold equally often, more than once or empty, whose holders each have one footprint, is paired in
+  placement order (side, then x, y, rotation and footprint name): the holders become `REF#1`, `REF#2`, … on
+  both sides, so footprints that share a reference (stitching vias, logos) are compared one by one
+  (change c0277). Any other reference that a side holds more than once, or an empty one, cannot be
+  paired: it gives one `ref-ambiguous` difference and takes no further part. `--ignore-ref GLOB` leaves
+  such references out, and a reference it matches is not paired.
 - **Each fault is reported once.** A component reported as missing or ambiguous at level 1 is not
   compared at the later levels, and a component placed on one side only is reported at level 3 and not at
   level 4.

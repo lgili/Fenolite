@@ -168,6 +168,20 @@ copper.apply(design, {"GND": gnd, "VIN": vin})
   is the ref of the first instance in sheet order, and `refs` maps each key to the instance's ref; the
   explicit ref is given, so c0249 assigns nothing and the lock records the table.
 - A board without a schematic, or a single-sheet project, writes no `sheets/` folder.
+
+Decided 2026-11-01: complete task 2.4 using the parsed source hierarchy, not inferred similarity of
+footprints. Carry the sheet definitions in the import source so emission remains pure. Walk references
+in source order, resolve each symbol's instance ref, and reuse one file/function for each referenced
+source file. A shared file may have different physical placements, local net names or footprint
+variants per instance; write explicit instance branches in that function rather than assuming a rigid
+transform. Its `refs` mapping uses the first instance's keys. Construct each net at the common ancestor
+of all its pin scopes, pass boundary nets by sheet-pin keywords (sanitized names when necessary), and
+alias local nets from `design.nets` only when root-level classes/copper/zones need them. Keep the
+single-sheet and board-only inline path. Prove real repeated source files, nested net ownership,
+determinism and read/build equivalence with authored temporary inputs; never move pinned digests.
+For Altium's in-memory KiCad bridge, retain each already-read component's original sheet file and
+element locator. Group by that native identity, so generated intermediary file names cannot split a
+shared source sheet into separate factories.
 - *Alternative:* one flat file. Rejected for boards of more than one sheet: the research asks for
   modules, and a reviewer reads a sheet at a time. *Alternative:* classes per sheet. Rejected: a
   function is the smallest form the DSL already supports (`Module`).

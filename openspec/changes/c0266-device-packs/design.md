@@ -248,3 +248,13 @@ Checks retain the closest authored folder's precedence across v0/v1 records and 
 External `library check` dispatches `fenolite.library-sources.v0` to the device register's validated
 `source_ids` reader. It accepts registered D ids, rejects ids mentioned only in comments and refuses
 malformed source rows as bad input; existing S-id project and core registers keep their checks.
+
+### Authored example inventory closure (2026-11-01)
+
+The source tree, local release archives/index/checksums and design of the offline example are original
+Fenolite fixtures under CC0-1.0. Inventory each payload explicitly in the data manifest, retaining the
+existing vendored closure declarations. Pin file bytes and archive member paths/hashes; compare members
+to the declared original source files and the local index. The all-zero release commit remains a fixture
+marker. Original licence declarations and fixture review notes remain unchanged; they do not establish
+upstream legal approval, and the production legal-text hash gate stays fail-closed. This correction
+adds no source fact, fetched payload, waiver or evidence promotion.

@@ -56,7 +56,8 @@ fenolite explain supplier.unmapped --json
 `FEN-6005` means refused credentials, exit 6 and not retryable. Check the named variables/keyring
 service and your own account access, without pasting their values into a report. `FEN-6003` covers
 retryable network, timeout, source failure or repeated 429; `FEN-3004` covers an undocumented response.
-A source policy and authored offline fixtures do not prove live access or source-data rights. Local
-mechanics are `INFERRED`; proposed identities remain `UNVERIFIED`. See `docs/suppliers.md`.
+All four adapters have authored offline fixtures. DigiKey/Nexar tokens stay within one lookup and
+join credential redaction; Nexar omits paid add-on fields. API/GraphQL errors refuse partial answers.
+These mechanics do not prove live access, plan entitlement or source-data rights. Local mechanics are `INFERRED`; proposed identities remain `UNVERIFIED`. See `docs/suppliers.md`.
 
 Read next: `parts`, `recovery`, `library-items`.

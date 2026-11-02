@@ -379,7 +379,8 @@ def _header(tree: Node, defn: FootprintDef, component: Component, at: Point, rot
             if isinstance(name, Atom) and name.value in values:
                 child = child.with_children([name, Atom.string(values[name.value]), *child.children[2:]])
         body.append(child)
-    head: list[Node | Atom] = [Atom.string(defn.lib_id)]
+    lib_ref = component.lib_footprint_ref if component.footprint_definition_ref else defn.lib_id
+    head: list[Node | Atom] = [Atom.string(lib_ref)]
     if locked:
         head.append(node("locked", Atom.symbol("yes")))
     head += [
@@ -458,6 +459,12 @@ def place_footprint(
     assert design.board is not None
     (instance,) = design.board.footprints
     attributes = tuple(a for a in (defn.kind, *defn.flags) if a in _ATTRIBUTES)
+    if component.board_only and "board_only" not in attributes:
+        # a board-only part marks its footprint after the type, where KiCad writes it (change c0277)
+        typed = 1 if attributes and attributes[0] in ("smd", "through_hole") else 0
+        attributes = (*attributes[:typed], "board_only", *attributes[typed:])
+    if component.dnp and "dnp" not in attributes:
+        attributes = (*attributes, "dnp")  # a part not populated marks its footprint (change c0277)
     return dataclasses.replace(instance, provenance=None, component_id=component.id, attributes=attributes)  # type: ignore[arg-type]
 
 

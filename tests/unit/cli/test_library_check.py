@@ -17,11 +17,11 @@ def external_sources(tmp_path):
     tree = tmp_path / "external"
     shutil.copytree(ROOT / "examples/library-devices/source", tree)
     register = tree / "sources.toml"
-    register.write_text(register.read_text().replace("D-0001", "D-0003"))
+    register.write_text(register.read_text(encoding="utf-8").replace("D-0001", "D-0003"), encoding="utf-8")
     paths = sorted(tree.glob("*/cc0/*/*/record.toml"))
     assert len(paths) == 3
     for path in paths:
-        path.write_text(path.read_text().replace("D-0001", "D-0003"))
+        path.write_text(path.read_text(encoding="utf-8").replace("D-0001", "D-0003"), encoding="utf-8")
     return tree, paths
 
 
@@ -36,9 +36,11 @@ def test_external_sources_registered_for_all_device_kinds(monkeypatch, tmp_path)
 def test_external_sources_unregistered_comment_is_rejected(monkeypatch, tmp_path):
     tree, paths = external_sources(tmp_path)
     register = tree / "sources.toml"
-    register.write_text(register.read_text() + "\n# D-0099 is not a registered source.\n")
+    register.write_text(
+        register.read_text(encoding="utf-8") + "\n# D-0099 is not a registered source.\n", encoding="utf-8"
+    )
     for path in paths:
-        path.write_text(path.read_text().replace("D-0003", "D-0099"))
+        path.write_text(path.read_text(encoding="utf-8").replace("D-0003", "D-0099"), encoding="utf-8")
     code, reply, _, _ = run(monkeypatch, tmp_path, "library", "check", *map(str, paths))
     assert code == 5
     findings = [issue for issue in reply["issues"] if issue["code"] == "library.source-unknown"]
@@ -57,7 +59,12 @@ def test_external_sources_malformed_row_is_bad_input(monkeypatch, tmp_path):
     tree, paths = external_sources(tmp_path)
     register = tree / "sources.toml"
     register.write_text(
-        "\n".join(line for line in register.read_text().splitlines() if not line.startswith("used ="))
+        "\n".join(
+            line
+            for line in register.read_text(encoding="utf-8").splitlines()
+            if not line.startswith("used =")
+        ),
+        encoding="utf-8",
     )
     code, reply, error, _ = run(
         monkeypatch, tmp_path, "library", "check", *map(str, paths), "--sheets", "review", "--dry-run"
@@ -70,10 +77,11 @@ def test_external_sources_malformed_row_is_bad_input(monkeypatch, tmp_path):
 def test_external_sources_legacy_s_register_stays_supported(monkeypatch, tmp_path):
     tree, paths = external_sources(tmp_path)
     (tree / "sources.toml").write_text(
-        'schema = "fenolite.sources.v0"\n[sources.S-1234]\ntitle = "Authored project source"\n'
+        'schema = "fenolite.sources.v0"\n[sources.S-1234]\ntitle = "Authored project source"\n',
+        encoding="utf-8",
     )
     for path in paths:
-        path.write_text(path.read_text().replace("D-0003", "S-1234"))
+        path.write_text(path.read_text(encoding="utf-8").replace("D-0003", "S-1234"), encoding="utf-8")
     code, reply, error, _ = run(monkeypatch, tmp_path, "library", "check", *map(str, paths))
     assert code == 0, (reply, error)
     assert not any(issue["code"] == "library.source-unknown" for issue in reply["issues"])
@@ -90,12 +98,12 @@ def test_clean_records_and_plain_library_mixed_folder(monkeypatch, tmp_path):
     from fenolite.catalog.footprints import generate, read_package
 
     tree = copy_records(tmp_path)
-    (tree / "broken.toml").write_text("schema = [")
+    (tree / "broken.toml").write_text("schema = [", encoding="utf-8")
     pretty = tree / "Demo.pretty"
     pretty.mkdir()
-    fp = generate(read_package((tree / "packages/chip.toml").read_text())).footprint
+    fp = generate(read_package((tree / "packages/chip.toml").read_text(encoding="utf-8"))).footprint
     assert fp is not None
-    (pretty / "chip.kicad_mod").write_text(write_footprint(fp))
+    (pretty / "chip.kicad_mod").write_text(write_footprint(fp), encoding="utf-8")
     code, reply, _, _ = run(monkeypatch, tmp_path, "library", "check", "records")
     assert code == 5, reply
     assert sum(f["code"] == "library.record-invalid" for f in reply["issues"]) == 1
@@ -113,7 +121,7 @@ def test_sheets_dry_run_deterministic_and_receipt(monkeypatch, tmp_path):
     assert len(plan) == 3
     code, written, _, _ = run(monkeypatch, tmp_path, *args, "--confirm", "--plan", reply["result"]["plan_id"])
     assert code == 0, written
-    manifest = json.loads((tmp_path / "review/sheets.json").read_text())
+    manifest = json.loads((tmp_path / "review/sheets.json").read_text(encoding="utf-8"))
     row = manifest["items"][0]
     sheet = (tmp_path / "review" / row["path"]).read_bytes()
     assert hashlib.sha256(sheet).hexdigest() == row["sha256"]
@@ -142,14 +150,18 @@ def test_compare_same_added_removed_fields_and_interface(monkeypatch, tmp_path):
     code, reply, _, _ = run(monkeypatch, tmp_path, "library", "check", "records", "--compare", "old")
     assert code == 0 and all(p["change"] == "same" for p in reply["result"]["compare"])
     path = tree / "pins/chip.toml"
-    path.write_text(path.read_text().replace('name = "P1"', 'name = "RENAMED"'))
+    path.write_text(
+        path.read_text(encoding="utf-8").replace('name = "P1"', 'name = "RENAMED"'), encoding="utf-8"
+    )
     (tree / "devices/to.toml").unlink()
     code, reply, _, _ = run(monkeypatch, tmp_path, "library", "check", "records", "--compare", "old")
     assert code == 0, reply
     pairs = reply["result"]["compare"]
     assert any(p["change"] == "changed" and p["symbol_changed"] for p in pairs)
     assert "library.removed" in {f["code"] for f in reply["issues"]}
-    path.write_text(path.read_text().replace('number = "1"', 'number = "9"'))
+    path.write_text(
+        path.read_text(encoding="utf-8").replace('number = "1"', 'number = "9"'), encoding="utf-8"
+    )
     code, reply, _, _ = run(monkeypatch, tmp_path, "library", "check", "records", "--compare", "old")
     assert code == 5 and "library.interface-changed" in {f["code"] for f in reply["issues"]}
 
@@ -159,7 +171,9 @@ def test_compare_sheets_reuses_visual_overlay(monkeypatch, tmp_path):
     old = tmp_path / "old"
     shutil.copytree(tree, old)
     path = tree / "packages/chip.toml"
-    path.write_text(path.read_text().replace('length="0.8mm"', 'length="0.9mm"'))
+    path.write_text(
+        path.read_text(encoding="utf-8").replace('length="0.8mm"', 'length="0.9mm"'), encoding="utf-8"
+    )
     code, reply, _, _ = run(
         monkeypatch,
         tmp_path,
@@ -175,7 +189,7 @@ def test_compare_sheets_reuses_visual_overlay(monkeypatch, tmp_path):
     assert code == 0, reply
     pair = reply["result"]["compare"][0]
     assert pair["footprint_changed"] and "land.pad.length" in pair["fields"]
-    html = (tmp_path / "review" / reply["result"]["items"][0]["sheet"]["path"]).read_text()
+    html = (tmp_path / "review" / reply["result"]["items"][0]["sheet"]["path"]).read_text(encoding="utf-8")
     assert "review-diff-0" in html and "Visual diff" in html and "srcdoc=" in html
 
 
@@ -201,9 +215,9 @@ def test_manufacturer_land_detects_generator_drift(monkeypatch, tmp_path):
 
 
 def test_sheet_paths_do_not_collide_when_namespaces_contain_underscores(monkeypatch, tmp_path):
-    text = (GOOD / "pins/chip.toml").read_text()
+    text = (GOOD / "pins/chip.toml").read_text(encoding="utf-8")
     for name, ident in (("a.toml", "Rules_A:B"), ("b.toml", "Rules:A_B")):
-        (tmp_path / name).write_text(text.replace("Rules:RuleChipPins", ident))
+        (tmp_path / name).write_text(text.replace("Rules:RuleChipPins", ident), encoding="utf-8")
     code, reply, _, _ = run(
         monkeypatch, tmp_path, "library", "check", "a.toml", "b.toml", "--sheets", "review", "--dry-run"
     )

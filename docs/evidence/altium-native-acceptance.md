@@ -663,3 +663,36 @@ separate notice about macOS ARM capacity constraints. Its test log is unavailabl
 (HTTP 404); no specific test failure or resource-exhaustion cause can be established.
 A fresh run on the corrected commit is required. This batch is not a passing
 complete gate, and no archive or evidence promotion follows from it.
+
+## Continuation inventory — 2026-11-01
+
+Reviewed from base `7ebbd86081bd200c7e8d979575a9453fff486314`. The maintainer reports that Altium
+Designer is unavailable now. No application run, native save, personal-project review or paid-agent
+trial is inferred from implementation or own readback. Existing dated reports retain their exact scope.
+The published kit records and later scoped author reports take precedence over older pending summaries;
+records of different input digests are never combined into a fictitious fresh run.
+
+| change | remaining work and actual dependency | available preparation/evidence |
+|---|---|---|
+| c0092 | 5.2 needs the maintainer's acceptance-block decision; 6.1 needs the coordinating full gate and exact-head CI | Existing graduation rule, published kit record `2026-10-13-87c930fa`, per-kind inventory and measured evidence are retained; the new Draftsman kind remains experimental |
+| c0105 | 1.4 needs an actual KiCad 10.0.6 GUI tuning save | This host has KiCad 9.0.2; it cannot establish the required 10.0.6 save. No GUI fixture is fabricated |
+| c0160 | 5.3 still needs the complete Part T report on DIFAT, SCHEMATIC, connector masks and library/ECO cases | [Four-layer Full Stack follow-up](altium-padstack-part-t.md) confirms only that authored stack and placement |
+| c0166 | 2.1 and 3.1-3.6 retain the unmatched native cases and Viewer checks | Historic K1-K9 completion and scoped legacy reports above stay recorded; they do not settle new input digests or missing personal-project checks |
+| c0168 | 5.2 remains incomplete because native S3 did not show the required 3D openings | [Part S](altium-part-s-slots-2026-10-17.md): seven cases passed; S3 incomplete, so `CUTOUT_REGIONS` remains false |
+| c0172 | F0/G1, FP native outcomes, F8 and gate graduation need actual Altium files/reports | Candidate writer/build/CLI, public corpus census, FP3-FP5 and candidate acceptance are prepared; FP1-FP2 need the real F0.3 control. Native generic Table/dimensions and exact filters stay deferred |
+| c0173 | Q1-Q6 saved observations precede embedded-array/layer-type serialization and phase B | Authored phase A kit and flat-panel implementation exist; `EMBEDDED_ARRAYS` remains false, with unknown record/type rows preserved |
+| c0175 | 10.4 needs c0241's measured operations and a named house library; 14.1 needs full/CI gates | Existing package splits and KiCad reuse/coverage tools are retained; no Altium model-store rotation rule is guessed |
+| c0177 | 2.4 requires the maintainer's schematic review against Altium | Existing authored/public viewer tests remain mechanical evidence |
+| c0178 | 3.4 requires a user-owned KiCad project and theme review | A local KiCad binary does not supply that personal review |
+| c0179 | 2.4 requires the maintainer's own library review | No personal library was supplied |
+| c0180 | 2.4 requires the maintainer's own Draftsman drawing compared with Altium/F0.5 | Public drawing geometry evidence is retained; no personal/native visual review is claimed |
+| c0181 | 3.3 requires a native layer-tab/mask comparison on the maintainer's board | Existing public/authored layer geometry tests remain scoped |
+| c0186 | 2.2 requires the maintainer's native variant comparison | No personal variant or native application was supplied |
+| c0195 | 5.4 is an optional personal MCP-client session | Existing SDK/stdio proofs can run locally; no user's client configuration is changed |
+| c0215 | 7.4 needs K6 on the computed-pour probes of that change | Older native repour reports concern their recorded older kit inputs and do not verify the later computed-pour engine |
+| c0241 | J1-J22 saves/report precede any `backends/altium/edit/` modules, then phase B gates each operation | Phase A is reproducible; read-only intake now scans before member interpretation and reports counts/digests, never native verdicts |
+| c0081 | 4.2-4.3 need a maintainer-started paid trial or a dated decision not to run | The real runner row already cites S-0618/S-0832; no paid agent is started, key read, cost invented or decision inferred |
+
+No unavailable native or personal-review task is closed by this inventory. The coordinating branch
+owns full gates, publication and exact-head CI. Candidate Part F and observation tooling are documented
+in [Draftsman evidence](altium-draftsman.md); Part J stays observation-first as its design requires.

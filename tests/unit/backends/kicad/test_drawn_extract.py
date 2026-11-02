@@ -5,6 +5,7 @@ KiCad sheets" and "Opaque items of read sheets"; change c0276)."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import _drawn
@@ -14,6 +15,7 @@ from _buildhelp import resolver
 from fenolite.backends.kicad import drawn as kdrawn
 from fenolite.backends.kicad import sch
 from fenolite.backends.kicad.sexpr import Node, parse
+from fenolite.core.coords import Point
 from fenolite.dsl import Design, Part, mm, to_model
 from fenolite.lens.build import _resolve  # pyright: ignore[reportPrivateUsage]
 from fenolite.model.drawn import DrawnSchematic, DrawnSheet
@@ -130,3 +132,57 @@ def test_empty_sheet_extracts() -> None:
     drawn, issues = kdrawn.extract(sheet, {}, components={"U2": "U2"}, root_file="units.kicad_sch")
     assert isinstance(drawn.sheets[0], DrawnSheet) and [s.unit for s in drawn.sheets[0].symbols] == [1, 2, 3]
     assert issues == ()
+
+
+@pytest.mark.parametrize("mirror", ["x", "y"])
+@pytest.mark.parametrize("target", [9, 10])
+def test_mirrored_power_survives_lowering(mirror: str, target: int) -> None:
+    sheet = sch.read_schematic(DATA / "flat.kicad_sch", file="flat.kicad_sch")
+    sheet = replace(
+        sheet,
+        symbols=tuple(replace(s, mirror=mirror) if s.ref.startswith("#") else s for s in sheet.symbols),  # type: ignore[arg-type]
+    )
+    first, issues = kdrawn.extract(sheet, {}, components=FLAT_REFS, root_file="flat.kicad_sch")
+    assert issues == ()
+    assert first.sheets[0].powers[0].mirror == mirror
+    assert _lower_and_extract(first, _flat_design(), target, FLAT_REFS) == first
+
+
+def test_power_pin_transform_uses_mirror_after_rotation() -> None:
+    sheet = sch.read_schematic(DATA / "flat.kicad_sch", file="flat.kicad_sch")
+    power = next(s for s in sheet.symbols if s.ref.startswith("#"))
+    definition = next(d for d in sheet.lib_symbols if d.lib_id == power.lib_ref)
+    definition = replace(
+        definition, pins=tuple(replace(p, position=Point(1_000_000, 2_000_000)) for p in definition.pins)
+    )
+    power = replace(power, position=Point(10_000_000, 20_000_000), rotation=90_000_000, mirror="y")
+    sheet = replace(sheet, symbols=(power,), lib_symbols=(definition,))
+    found = kdrawn.extract_with_pins(sheet, {}, components={}, root_file="flat.kicad_sch")
+    assert found.issues == ()
+    assert found.pins[("root", "power", 0)][0].at == Point(12_000_000, 19_000_000)
+
+
+@pytest.mark.parametrize("defect", ["", "visible", "signal-pin", "other-name", "off-origin", "extra-pin"])
+def test_legacy_power_requires_its_hidden_global_pin(defect: str) -> None:
+    sheet = sch.read_schematic(DATA / "flat.kicad_sch", file="flat.kicad_sch")
+    power = next(s for s in sheet.symbols if s.ref.startswith("#"))
+    definition = next(d for d in sheet.lib_symbols if d.lib_id == power.lib_ref)
+    pin = replace(definition.pins[0], name=power.value)
+    if defect == "visible":
+        pin = replace(pin, hidden=False)
+    elif defect == "signal-pin":
+        pin = replace(pin, etype="input")
+    elif defect == "other-name":
+        pin = replace(pin, name="AUTHORED_OTHER")
+    elif defect == "off-origin":
+        pin = replace(pin, position=Point(1, 0))
+    pins = (pin, replace(pin, number="2")) if defect == "extra-pin" else (pin,)
+    definition = replace(definition, power="", pins=pins)
+    sheet = replace(sheet, symbols=(power,), lib_symbols=(definition,))
+    found = kdrawn.extract_with_pins(sheet, {}, components={}, root_file="flat.kicad_sch")
+    if defect:
+        assert not found.drawn.sheets[0].powers
+        assert [i.code for i in found.issues] == ["drawn.part-unknown"]
+    else:
+        assert found.issues == ()
+        assert found.drawn.sheets[0].powers[0].net == power.value

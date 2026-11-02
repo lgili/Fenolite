@@ -75,6 +75,25 @@ def test_top_placement_of_the_mini_resistor() -> None:
     assert instance.side == "top" and instance.position == AT and instance.provenance is None
 
 
+@pytest.mark.parametrize("native", ("Original:R", ""))
+@pytest.mark.parametrize("side", ("top", "bottom"))
+def test_explicit_definition_changes_only_native_header(native: str, side: str) -> None:
+    """c0318: selection and geometry stay separate, including a deliberately empty native ID."""
+    defn = definition()
+    ordinary = dataclasses.replace(component(), lib_footprint_ref=native)
+    selected = dataclasses.replace(ordinary, footprint_definition_ref=defn.lib_id)
+    one = place_footprint(defn, component=ordinary, at=AT, key="R1", side=side)  # type: ignore[arg-type]
+    other = place_footprint(defn, component=selected, at=AT, key="R1", side=side)  # type: ignore[arg-type]
+    assert one.lib_ref == defn.lib_id and other.lib_ref == native
+    assert one.position == other.position and one.rotation == other.rotation and one.side == other.side
+    (original,) = parse(write_board(design_with((ordinary, one)), target=10).text).nodes("footprint")
+    (node,) = parse(write_board(design_with((selected, other)), target=10).text).nodes("footprint")
+    assert node.children[0] == Atom.string(native)
+    assert node.children[1:] == original.children[1:]
+    read = read_board(write_board(design_with((selected, other)), target=10).text)
+    assert read.board is not None and read.board.footprints[0].lib_ref == native
+
+
 def test_head_children_in_canonical_position() -> None:
     instance = place_footprint(
         definition(), component=component(), at=AT, rotation=30_000_000, key="R1", locked=True

@@ -17,14 +17,58 @@ import _drawn
 import _erc
 import _probes
 import pytest
+from _buildhelp import build as build_design
 
 from fenolite.api.sides import read_side
 from fenolite.backends.kicad import drawn as kdrawn
 from fenolite.backends.kicad import sch
+from fenolite.backends.kicad.sexpr import dumps
+from fenolite.model.drawn import DrawnLabelKind
 from fenolite.model.drawn_connect import DrawnNetlist
 
 pytestmark = pytest.mark.needs_kicad
 CASES = (*_drawn.NAMES, "example")
+
+
+@pytest.mark.parametrize("kind", ["local", "global"])
+def test_native_slash_label_aliases_join(kind: DrawnLabelKind) -> None:
+    """H-K-SCH-SLASH applies to drawing connectivity without changing the visible label spellings."""
+    code, value = _drawn.slash_aliases(kind)
+    output = build_design(code, _probes.major(), project_dir=_drawn.folder("flat"), drawn=value,
+                          drawn_file="schematic.toml")  # fmt: skip
+    assert output.files and not any(i.severity == "error" for i in output.issues), output.issues
+    root, children = _drawn.sheets(output)
+    found, netlist, issues = kdrawn.resolve_sheets(
+        root, children, circuit=output.design.circuit, name=code.name, root_file=_drawn.root_name(output)
+    )
+    assert not any(i.severity == "error" for i in issues), issues
+    refs = _refs(output)
+    pins = {(refs[p], n) for p, n in netlist.pins}
+    exported = _erc.netlist(_probes.runner(), _drawn.root_name(output), dict(output.files))
+    assert _partition(netlist, refs) == _kicad_partition(exported, pins)
+    assert [label.text for label in found.sheets[0].labels] == ["A/B", "A{slash}B"]
+
+
+def test_excluded_passive_has_no_native_node_or_partition_effect() -> None:
+    """H-K-EQ-SCHSIDE: explicit board exclusion removes native nodes; visible passive pins add no joins."""
+    target = _probes.major()
+    output = _drawn.build("flat", target)
+    root, children = _drawn.sheets(output)
+    changed = _drawn.excluded_passive(root, target)
+    files = dict(output.files)
+    files[_drawn.root_name(output)] = dumps(changed).encode()
+    native = sch.read_schematic(files[_drawn.root_name(output)].decode())
+    found, netlist, issues = kdrawn.resolve_sheets(
+        native, children, circuit=output.design.circuit, name="flat", root_file=_drawn.root_name(output)
+    )
+    assert not any(i.severity == "error" for i in issues), issues
+    refs = _refs(output)
+    pins = {(refs[p], n) for p, n in netlist.pins}
+    exported = _erc.netlist(_probes.runner(), _drawn.root_name(output), files)
+    assert all(ref != "R9" for group in exported.values() for ref, _pin in group)
+    assert _partition(netlist, refs) == _kicad_partition(exported, pins)
+    assert any((native := kdrawn.opaque_symbol(item)) is not None and native.ref == "R9"
+               for item in found.sheets[0].opaques)  # fmt: skip
 
 
 def _refs(output: object) -> dict[str, str]:

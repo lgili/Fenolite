@@ -2,6 +2,12 @@
 
 ### Requirement: Impedance table for the fabricator
 `fenolite.exports.impedance.impedance_table(design) -> tuple[ImpedanceRow, ...]` SHALL give the impedance table of a design: one row per impedance target and layer ("Impedance targets in the rules model"), sorted by target name, then in stack order. It reads the model only, runs no tool and writes nothing.
+
+#### Scenario: Detailed contract for impedance table for the fabricator
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`fenolite.exports.impedance.impedance_table(design) -> tuple[ImpedanceRow, ...]` SHALL give the impedance table of a design: one row per impedance target and layer ("Impedance targets in the rules model"), sorted by target name, then in stack order. It reads the model only, runs no tool and writes nothing.
 - `ImpedanceRow` MUST hold `target`, `kind`, `structure` (`microstrip` for one reference on an outer layer, `stripline` for two references on an inner layer, else `""`), `layer`, `references`, `ohms`, `tolerance_percent`, `width`, `gap` (`None` for a single target), `heights` (one height per reference in nanometres, from `Board.stackup`, or `None` without a stack-up), `epsilon_r` (the permittivity between the layer and its references, as decimal text, `""` when unknown or when the references see different values), `classes` (names) and `nets` (the names of the classes' nets, sorted).
 - `COLUMNS` MUST be the CSV header: `target`, `kind`, `structure`, `layer`, `references`, `ohms`, `tolerance_percent`, `width_mm`, `gap_mm`, `heights_mm`, `epsilon_r`, `classes`, `nets`. `render_csv(rows, estimates=None) -> bytes` MUST write them through `assembly.render_csv`, lengths as exact millimetre text, lists joined by one space, and, when `estimates` is given, the columns `estimate_ohms` and `suggested_width_mm` after them.
 - `fenolite.exports.impedance.ISSUE_CODES` MUST be the closed table of the codes of the table and of `fenolite impedance` ("Impedance command"):

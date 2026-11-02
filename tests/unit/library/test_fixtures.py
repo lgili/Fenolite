@@ -16,10 +16,10 @@ def test_good_fixtures_cover_every_family_and_are_declared(monkeypatch, tmp_path
     from fenolite.catalog.footprints.record import FAMILIES
 
     assert {p.stem for p in (GOOD / "packages").glob("*.toml")} >= set(FAMILIES)
-    manifest = (ROOT / "tests/data/MANIFEST.toml").read_text()
+    manifest = (ROOT / "tests/data/MANIFEST.toml").read_text(encoding="utf-8")
     for path in GOOD.rglob("*.toml"):
-        assert "# SPDX-License-Identifier: CC0-1.0" in path.read_text()
-        assert "Authored for Fenolite" in path.read_text()
+        assert "# SPDX-License-Identifier: CC0-1.0" in path.read_text(encoding="utf-8")
+        assert "Authored for Fenolite" in path.read_text(encoding="utf-8")
         assert path.relative_to(ROOT).as_posix() in manifest
     code, reply, _, _ = run(monkeypatch, tmp_path, "library", "check", str(GOOD))
     assert code == 0, reply

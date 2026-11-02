@@ -39,7 +39,7 @@ from typing import Any, Protocol, cast
 from urllib.parse import parse_qs, unquote
 
 from fenolite.core.errors import FormatError
-from fenolite.view import actions, review, runs
+from fenolite.view import actions, conflicts, review, runs
 from fenolite.view import proposals as proposals_view
 from fenolite.view.compact import compact
 from fenolite.view.export import page
@@ -169,6 +169,11 @@ class Live:
         }
         if guarded_read:
             out["token"] = self.token
+        if doc is not None and doc.file is not None:
+            context = self._context(doc.id)
+            why = conflicts.current(context.resolve, doc.file)
+            if why is not None:
+                out["actions"].pop("take", None)
         return out
 
     def _context(self, doc_id: str) -> actions.Context:
@@ -185,6 +190,7 @@ class Live:
         if placed is None:
             placed = cast("dict[str, Any] | None", scene.get("check"))
         findings = tuple(cast("list[dict[str, Any]]", (placed or {}).get("findings") or []))
+        resolve = cast("dict[str, Any] | None", (placed or {}).get("resolve"))
         held = scene.get("proposals")  # c0280: the candidate and proposal ids the route actions may name
         candidates, proposal_ids = (
             proposals_view.ids_of(cast("dict[str, Any]", held)) if isinstance(held, dict) else (None, None)
@@ -192,7 +198,7 @@ class Live:
         data = scene.get("roles")
         if not isinstance(data, dict):  # c0305: the inferred roles and groups that Confirm roles may name
             return actions.Context(
-                refs=refs, findings=findings, candidates=candidates, proposals=proposal_ids
+                refs=refs, findings=findings, candidates=candidates, proposals=proposal_ids, resolve=resolve
             )
         rows = [_object(r) for r in cast("list[Any]", cast("dict[str, Any]", data).get("roles") or [])]
         groups = [_object(g) for g in cast("list[Any]", cast("dict[str, Any]", data).get("groups") or [])]
@@ -205,6 +211,7 @@ class Live:
             ),
             candidates=candidates,
             proposals=proposal_ids,
+            resolve=resolve,
         )
 
     def _tools(self) -> ActionTools:
@@ -223,6 +230,8 @@ class Live:
             raise Refused(400, found.reason)
         job = self._begin("plan", found.command, found.doc, found.action)
         job.private.update(words=found.words, command=found.command)
+        if found.binding is not None:
+            job.private.update(write_root=found.binding["root"], source_context=found.binding)
         self.log(f"view: plan {found.action} of {found.target.name}")
         words = actions.with_flags(found.words, "--dry-run")
         self._launch(job, lambda sink: tools.start_words(words, sink), self._after_plan)
@@ -236,14 +245,32 @@ class Live:
         receipt = next((r for r in self.receipts if r["id"] == wanted), None)
         if receipt is None:
             raise Refused(400, "receipt: the id of a write of this session")
-        words = actions.undo_words(tools.receipt_file(str(receipt["id"])), self.tree.root.resolve())
+        root = Path(str(receipt.get("write_root", self.tree.root)))
+        if "write_root" in receipt and root.resolve() != root:
+            raise Refused(400, "the bound authoring root changed: review the source context again")
+        words = actions.undo_words(tools.receipt_file(str(receipt["id"])), root)
         job = self._begin("undo", "restore", str(receipt["doc"]), "undo")
         job.private.update(words=words, command="restore", receipt=receipt["id"])
+        if "write_root" in receipt:
+            original = cast("dict[str, Any]", receipt.get("source_context") or {})
+            if original.get("operation") == "restore":
+                original = cast("dict[str, Any]", original.get("original") or {})
+            job.private.update(
+                write_root=str(root),
+                source_context={
+                    "operation": "restore",
+                    "root": str(root),
+                    "cwd": str(self.tree.root.resolve()),
+                    "out": original.get("out"),
+                    "from_receipt": receipt["id"],
+                    "original": original,
+                },
+            )
         planned = actions.with_flags(words, "--dry-run")
         self._launch(job, lambda sink: tools.start_words(planned, sink), self._after_plan)
         return job
 
-    def _plan_refused(self, plan_id: str, command: str) -> str | None:
+    def _plan_refused(self, plan_id: str, command: str, write_root: str | None = None) -> str | None:
         """Why the staged plan may not be confirmed here: it must be a plan of ``command`` whose every write
         lies under the project root (the rule of ``fenolite mcp``)."""
         staged = self._tools().staged(plan_id)
@@ -251,7 +278,9 @@ class Live:
             return f"plan {plan_id} is not in the plan store"
         if staged["command"] != command:
             return f"plan {plan_id} is a plan of {staged['command']}, not {command}"
-        root = self.tree.root.resolve()
+        root = Path(write_root) if write_root is not None else self.tree.root.resolve()
+        if write_root is not None and root.resolve() != root:
+            return "the bound authoring root changed: review the source context again"
         for row in staged["writes"]:
             where = (Path(staged["cwd"]) / str(row.get("path", ""))).resolve()
             try:
@@ -268,7 +297,7 @@ class Live:
         if outcome.exit not in (0, 5) or not isinstance(plan_id, str):
             return {"plan": None} if outcome.exit in (0, 5) else {}
         tools = self._tools()
-        refused = self._plan_refused(plan_id, str(job.private["command"]))
+        refused = self._plan_refused(plan_id, str(job.private["command"]), job.private.get("write_root"))
         staged = tools.staged(plan_id) or {"writes": [], "cwd": str(self.tree.root)}
         rows = [
             {key: row.get(key) for key in ("path", "kind", "bytes", "sha256", "replaces")}
@@ -281,7 +310,13 @@ class Live:
             "issues": issues,
             "evidence": envelope.get("evidence"),
             "confirmable": bool(rows) and not errors and refused is None,
+            "inputs": list(staged.get("inputs", [])),
         }
+        if job.private.get("source_context") is not None:
+            plan["source_context"] = job.private["source_context"]
+            for item in job.private["source_context"].get("inputs", []):
+                if not any(row.get("path") == item.get("path") for row in plan["inputs"]):
+                    plan["inputs"].append(dict(item))
         if refused is not None:
             plan["refused"] = refused
         job.private["plan_id"] = plan_id
@@ -319,12 +354,17 @@ class Live:
             raise Refused(400, "this plan cannot be confirmed: review its issues, or plan again")
         if planned.private.get("confirmed"):
             raise Refused(400, "this plan was confirmed already")
-        refused = self._plan_refused(plan_id, str(planned.private["command"]))
+        refused = self._plan_refused(
+            plan_id, str(planned.private["command"]), planned.private.get("write_root")
+        )
         if refused is not None:
             raise Refused(400, refused)
         job = self._begin("confirm", planned.command, planned.doc, planned.action)
         planned.private["confirmed"] = True
         job.private.update(plan_job=planned.id)
+        for key in ("write_root", "source_context"):
+            if key in planned.private:
+                job.private[key] = planned.private[key]
         words = actions.with_flags(tuple(planned.private["words"]), "--confirm", f"--plan={plan_id}")
         self.log(f"view: confirm {planned.action} (plan {plan_id})")
         self._launch(job, lambda sink: tools.start_words(words, sink), self._after_confirm)
@@ -344,7 +384,12 @@ class Live:
         receipt = cast("dict[str, Any] | None", outcome.envelope.get("receipt"))
         if not receipt or not receipt.get("id"):
             return {"note": "the command wrote nothing"}
-        self._tools().keep_receipt(outcome.envelope)
+        stored = outcome.envelope
+        if job.private.get("write_root") is not None:
+            stored = conflicts.receipt_for_root(
+                stored, cwd=self.tree.root.resolve(), root=Path(str(job.private["write_root"]))
+            )
+        self._tools().keep_receipt(stored)
         entry = {
             "id": receipt["id"],
             "action": job.action,
@@ -353,10 +398,17 @@ class Live:
             "backup": list(cast("list[str]", receipt.get("backup") or [])),
             "time": datetime.now().strftime("%H:%M:%S"),
         }
+        for key in ("write_root", "source_context"):
+            if key in job.private:
+                entry[key] = job.private[key]
         with self.lock:
             self.receipts.insert(0, entry)
             del self.receipts[RECEIPTS:]
         doc, state = self.tree.document(job.doc), self.states.get(job.doc)
+        if job.action == "take" and doc is not None and doc.file is not None and self.derive is not None:
+            self.derive(doc.file, "build", outcome.envelope)
+            with self.lock:
+                self.checks.pop(job.doc, None)
         if doc is not None and state is not None and doc.file is not None:
             state.signature = self._signature(doc.file)  # read again now, not after the watcher settles
             self._rebuild(doc, state)

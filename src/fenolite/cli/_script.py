@@ -114,7 +114,10 @@ def _project(tree: LibraryTree, vendored: VendoredTree | None = None) -> Project
         for key, ref in vendored.items.items()
         if key[0] == "device" and tree.files.get(key, "").startswith("fenolite_library/")
     }
-    return ProjectDevices(tree.devices(), owners, dict(tree.parts), libraries, hint_namespaces())
+    symbols, _ = tree.device_symbols()
+    return ProjectDevices(
+        tree.devices(), owners, dict(tree.parts), libraries, hint_namespaces(), {key: key for key in symbols}
+    )
 
 
 def _inside(path: str | None, folder: Path) -> bool:

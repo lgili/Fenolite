@@ -260,3 +260,8 @@ unbounded in size. Big integers beyond 2⁵³ at a fixed scale: lose exactness i
    keeps every integer below 2⁵³ and covers every quantity of the table in Decision 7 with room to spare.
 4. Should `Range` offer an absolute tolerance (`volt("3.3").plus_minus(volt("50m"))`)? *Recommended:* not
    yet; `between(q - d, q + d, nominal=q)` covers it, and c0252 can add it if interface tables need it.
+
+Decided 2026-11-01: the user authorized all four recommended answers. They preserve the already
+implemented public constructors and exact decimal model; no tolerance field or additional constructor
+is needed to close this change. Evidence promotion and exact-head publication still require tasks 4.2
+and 4.4; local unit proofs alone do not promote the backend evidence.

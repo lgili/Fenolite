@@ -7,6 +7,10 @@ This file explains where Fenolite's knowledge of third-party file formats comes 
 project relates to earlier, non-public work in the same domain. It is a statement of project
 policy, not legal advice.
 
+The [dependency inventory](docs/licences.md) records the installed metadata and uninspected
+lock branches. The [1.0 policy review](docs/release/v1.0-legal-review.md) records dated answers
+and their repository evidence; the current private history proof remains a separate release task.
+
 ## A. Format analysis
 
 Fenolite reads and writes files produced by other electronic design automation (EDA) tools.

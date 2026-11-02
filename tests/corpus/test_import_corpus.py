@@ -12,37 +12,30 @@ so each is read alone.
 
 from __future__ import annotations
 
+import hashlib
 import json
-import re
 import shutil
 import time
 from pathlib import Path
 
 import pytest
 from _corpus import manifest_items, require
+from _importcoverage import observation
+from _importcoverage import recorded as coverage_recorded
 
 from fenolite.api import run
 
 pytestmark = pytest.mark.needs_corpus
 ROOT = Path(__file__).resolve().parents[2]
-PAGE = ROOT / "docs" / "evidence" / "import-corpus.md"
 PREFIX = "kicad-demo-10-0-6-pcb-"
 ALLOWED = ("CC-BY-SA-4.0", "CC-BY-4.0", "CC0-1.0", "CERN-OHL-S-2.0", "CERN-OHL-W-2.0", "CERN-OHL-P-2.0")
 """Licences under which an import of a board may be published; the corpus measurement takes only those."""
-BEGIN, END = "<!-- import-corpus:begin -->", "<!-- import-corpus:end -->"
 ITEMS = [item for item in manifest_items("rt0") if item.id.startswith(PREFIX) and item.license in ALLOWED]
 
 
 def recorded() -> dict[str, str]:
-    """Row number → the ``kind count`` list of the page's table, as written."""
-    text = PAGE.read_text(encoding="utf-8")
-    body = text.split(BEGIN, 1)[1].split(END, 1)[0]
-    rows: dict[str, str] = {}
-    for line in body.splitlines():
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if len(cells) >= 3 and re.fullmatch(r"\d\d", cells[0]):
-            rows[cells[0]] = cells[2]
-    return rows
+    """Current source-emission observations; historical full-conversion rows stay unchanged."""
+    return {row: shown(items) for row, items in coverage_recorded().items()}
 
 
 def shown(unexpressed: list[dict[str, object]]) -> str:
@@ -52,6 +45,8 @@ def shown(unexpressed: list[dict[str, object]]) -> str:
 @pytest.mark.parametrize("item", ITEMS, ids=[item.id.removeprefix(PREFIX) for item in ITEMS])
 def test_demo_board_imports_equivalent(item: object, tmp_path: Path) -> None:
     board = require(item)  # type: ignore[arg-type]
+    expected = next(row for row in observation()["rows"] if row["id"] == item.id)  # type: ignore[attr-defined]
+    assert hashlib.sha256(board.read_bytes()).hexdigest() == expected["input_sha256"]
     folder = tmp_path / "src"
     folder.mkdir()
     copy = folder / board.name.replace(" ", "_")

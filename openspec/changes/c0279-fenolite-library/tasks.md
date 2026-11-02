@@ -90,8 +90,15 @@
   Done 2026-10-30: `docs/library-repo.md`, `## get` and "Library repository verbs" plus the four codes in `docs/cli-contract.md`, a row in `docs/index.md`. Proof passed (74 passed; consistency 638 passed).
 - [x] 5.2 Agent guide (AGENTS.md rule 6): tested lines for `fenolite get`, `fenolite get --locked`, `fenolite get --search`, the `library` verbs and the four codes, then `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent/test_pages.py -q`.
   Done 2026-10-30: page `footprints` gains "Items from fenolite-library" (`get`, `--search`, `--locked`, `--status`, the board form and the four `library` verbs, tested lines); page `recovery` names `FEN-3021`, `FEN-4003`, `FEN-6004`, `FEN-6006` (trimmed to 11995 bytes); `HOME` maps `get` to `footprints`; `tools/gen_agent_guide.py` run (skill folder 316535 bytes). Proof passed (76 passed).
-- [ ] 5.3 Example `examples/library-get/`: a design using one authored demo device got from a local release folder, with its lock, offline. Proof: `uv run pytest tests/unit/test_examples.py -k library_get -q`.
+- [x] 5.3 Example `examples/library-devices/`: a design using one authored demo device got from a local release folder, with its lock, offline. Proof: `uv run pytest tests/unit/test_examples.py -k library_devices -q`.
   Open 2026-10-30: waits for c0266 (reading `fenolite_library/devices` as project records is not merged), so a design cannot use a got device yet; committing a vendored folder in `examples/` would also need the residue exemption. The offline flow (release folder, `get`, lock, `--locked --offline`) is covered by tests/unit/cli/test_get_lock.py.
+  Decided 2026-11-01: reuse the existing authored c0266 worked example rather than duplicate its payload
+  under `library-get`. It supplies the local deterministic release, lock and vendored dependency closure;
+  its proof blocks connections/subprocesses during restore and compares every native build byte against
+  the same authored records read directly. The all-zero release commit is a fixture, not publication,
+  and the illustrative records remain UNVERIFIED.
+  Proof passed on the combined source, 2026-11-01: 3 passed, 32 deselected. This closes only the
+  existing worked-example task; external release/workflow and exact-head CI tasks remain open.
 - [x] 5.4 Run `uv run pytest tests/residue -q` and update evidence labels of the new behaviours. Proof: `uv run pytest tests/residue tests/unit/test_inferred_hypotheses.py -q`.
   Done 2026-10-30: `tests/residue` passed (91 passed with tests/corpus/test_manifest.py); `H-G-LIBRARY-GET` and `H-G-LIBRARY-REPLAY` measured and kept `INFERRED`.
 - [x] 5.5 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.

@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living specs this change touches (`design-dsl`, `layout-lens`, `layout-reuse`, `placement`) and the changes it builds on (c0251 blocks, c0250 manual edits, c0210 and c0227 reuse). Write under this task, with the date and the base commit:
+- [x] 0.1 Read `openspec list`, the living specs this change touches (`design-dsl`, `layout-lens`, `layout-reuse`, `placement`) and the changes it builds on (c0251 blocks, c0250 manual edits, c0210 and c0227 reuse). Write under this task, with the date and the base commit:
   - c0251's final names for the block builder, the instance handle, block paths and nested instances;
   - whether c0250 (or another open change) holds a delta of "Placement precedence", and whether one was archived (then regenerate the MODIFIED block from the living text, keeping both edits);
   - whether `level 3` is still `placements.toml` or already c0250's `edits.toml`;
@@ -16,6 +16,7 @@
   - Signatures: `reuse.fit_block(reference, target, parts, *, anchor=None, mapping=None, tolerance=DEFAULT_TOLERANCE)`, `reuse.copy_copper(fit, reference, target, *, items=None, zones=None)`, c0227's group move `cli.place_group.moving_copper(design, pads, members)` with `_moved_item` and `backends.kicad.replace.move_footprint`.
   - Open questions: the recommended answers, written as "Decided 2026-10-29" in `design.md` (the maintainer delegated them).
   - Left open: the `openspec` command is not installed in this container and fetching it was refused here, so the strict validation is for the coordinator.
+  2026-11-01, base `7c2f1df2`: re-read the current changes and living requirements. The builder/handle names, paths, reuse signatures and `edits.toml` precedence recorded above still apply; c0250 and c0255 remain open, so no archived delta needs regeneration. The user authorized the recommended decisions. `openspec list --json` and `openspec validate c0255-relative-placement --strict --no-interactive` pass from the offline cache.
 
 ## 1. DSL
 
@@ -62,8 +63,9 @@
 
 - [x] 6.1 `docs/dsl.md` ("Relative placement", "Block layout"), `docs/lens.md` ("Placement precedence", the six levels), `docs/placement.md`, `docs/cli-contract.md` ("Placement in code" codes). Proof: `uv run pytest tests/consistency -q`.
   2026-10-29: passed (the codes are a paragraph "Placement in code" of the `build` section).
-- [ ] 6.2 Agent guide: tested lines for the relations, `by`, `layout()`, `row`/`column`/`grid`/`pack` and the precedence list on `placement` and `board-floorplan`, and for the four `layout.*` codes and `reuse.port-unmapped` on `recovery`; then `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
+- [x] 6.2 Agent guide: tested lines for the relations, `by`, `layout()`, `row`/`column`/`grid`/`pack` and the precedence list on `placement` and `board-floorplan`, and for the four `layout.*` codes and `reuse.port-unmapped` on `recovery`; then `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
   2026-10-29: the lines and the design block are written and `--check` passes; every test of `tests/unit/agent` passes but `test_budget_holds`, which fails on the base already: the generated page `commands.md` holds 766 lines (limit 750) before this change, which adds no command. Open until that budget is fixed on the integration branch.
+  2026-11-01: the integration guide splits generated command pages and uses the accepted 800-line generated-page budget. The exact proofs pass: `tests/unit/agent` gives 123 passed and 19 explicitly skipped KiCad10 cases on local KiCad9.0.2; `gen_agent_guide.py --check` passes, including all page budgets. This closes the guide task, without claiming the skipped KiCad10 oracle ran.
 
 ## 7. Closing
 

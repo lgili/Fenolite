@@ -16,7 +16,7 @@
 `lower_drawn` MUST cut each wire at the junctions on its inside and each bus at its junctions and bus entry ends, the form KiCad's editor keeps (9.0.9 does not join the uncut form; measured on 2026-10-29).
 
 #### Scenario: KiCad loads the drawn sheets
-- **WHEN** `uv run pytest tests/kicad/schematic/test_drawn_write_oracle.py -rA` runs with `kicad-cli` 9.0.9 or 10.0.6
+- **WHEN** `uv run pytest tests/kicad/schematic/test_drawn_oracle.py -k kicad_loads_the_drawn_sheets -rA` runs with `kicad-cli` 9.0.9 or 10.0.6
 - **THEN** the netlist export of each written drawn fixture equals the resolver's nets, ERC reports no violation that the source lacks, and the probe `drawn-write` records `equal`
 
 ### Requirement: Repeated sheets written

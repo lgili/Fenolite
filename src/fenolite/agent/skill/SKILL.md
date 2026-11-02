@@ -1,13 +1,14 @@
 ---
 name: fenolite
-description: Build, inspect, route, check and export KiCad boards from Python with the fenolite CLI.
+description: Build, inspect, route, check and export KiCad boards from Python.
 ---
 
 # Fenolite: the board loop for an agent
 
-Build KiCad 9 or 10 projects from Python and produce fabrication files.
-Commands return JSON. `fenolite guide --text` lists pages; `fenolite guide <topic> --text` prints one.
-If the copied guide's footer differs from `fenolite --version`, use the installed guide.
+Build KiCad 9/10 projects and fabrication files from Python. Commands return JSON.
+`fenolite guide --text` lists pages; `fenolite guide <topic> --text` prints one. Pages belong to the
+installed version. A copy's footer names the version it came from; if it differs from
+`fenolite --version`, use the installed guide.
 
 ## Rules for every command
 
@@ -27,8 +28,8 @@ If the copied guide's footer differs from `fenolite --version`, use the installe
    | 6 | an external tool is missing; install the named tool or choose an available operation |
    | 7 | loss refused; accept --allow-lossy only after reviewing the specific loss |
 
-   On nonzero exit stderr ends with an error object: code, message, hint, retryable. With `--progress`,
-   earlier stderr lines are progress records. Preserve `result.recovery.preserved` and inspect
+   On nonzero exit stderr ends with an error object: code, message, hint, retryable. `--progress`
+   also writes earlier progress records. Preserve `result.recovery.preserved` and inspect
    `result.recovery.failed` on incomplete rollback.
 3. Writes require `--dry-run` or `--confirm`. Preview first; inspect `result.plan` and `result.plan_id`.
    Use the same arguments with `--confirm --plan ID` to replay reviewed bytes without rerunning
@@ -46,8 +47,8 @@ If the copied guide's footer differs from `fenolite --version`, use the installe
 ## The loop
 
 Run these ten commands in order in a new folder. Stop on a nonzero exit and read its diagnostic.
-Build/view need no CAD installation; fill, full check, fabrication export and plot views need KiCad.
-The direct router is an educational straight-line router: it does not check clearances.
+Build/view need no CAD tool; fill, full check, fabrication export and plot views need KiCad.
+The educational direct router draws straight lines without checking clearances.
 
 ```fenolite-loop
 fenolite capabilities --brief --json
@@ -66,7 +67,7 @@ fenolite render blink/build -o blink/views --svg --png --confirm --json
 schematic, rules and local libraries. Parts without positions are staged beside the board. Rebuilds
 preserve supported editor changes; `design-script` explains the limits and precedence.
 
-`place` positions staged parts; the starter already places them. Query pads before scripting copper:
+`place` positions staged parts. The starter is placed, so this changes nothing here. Before scripting copper:
 `fenolite pads blink/build D1 --origin 100mm,100mm --json` returns script-frame positions, layers and nets.
 
 Production routing uses an external router or scripted copper. `route` keeps copper and connects open
@@ -100,7 +101,7 @@ Use `fenolite explain CODE` for diagnostics, `fenolite neighbors` and `fenolite 
 
 ## Designing a good board
 
-Read `board-practice` before placing parts on a real board; it links the engineering practice pages.
+Read `board-practice` before placing parts; it links engineering practice pages.
 
 ## The pages
 
@@ -131,9 +132,11 @@ argument. Practice pages explain engineering judgement; example numbers are not 
 - `commands-5`: Generated arguments; index: commands.
 - `commands-6`: Generated arguments; index: commands.
 - `datasheets`: Read a datasheet with your own tools, propose cited parameters, generate records and hand review to a person.
-- `design-script`: The shape of a script: design, modules, nets, parts, lengths with units, the board frame, and the edit and build cycle.
+- `design-script`: Design scripts: modules, nets, parts, unit lengths, board frame and build cycle.
 - `device-packs`: Use device items offline; seed CC0 data.
+- `device-symbols`: Bind device pin tables to package-specific drawings.
 - `dsl-reference`: The complete list: each name a design script imports from fenolite.dsl, with its signature.
+- `equivalent-s`: Drawings and nets.
 - `fabrication`: export, the bill of materials, the position table, the manifest and its states, render, and what is not produced.
 - `files`: Inspect files Fenolite did not write, compare designs and undo writes.
 - `footprints`: Footprint and Symbol from dimensions or pin tables, library records, items from fenolite-library, and what a person must check against the datasheet.

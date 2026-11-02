@@ -23,6 +23,25 @@
   Strict validation passed without warnings. The integrated make check-fast proof is deliberately
   unrun here under the user's serialized-gate instruction.
 
+  Entry refresh 2026-11-02, integration base `697cdf02b39c570b7827bd2b7b5419dfcf6bdea6`:
+  c0249/c0268/c0279 phase A remain active and implemented; no living block-library
+  or fenolite-library spec exists yet. `dsl.record.describe/record_json` retain canonical
+  block records, and `cli.blocksrc.SOURCES` is builtin/library/file. `[blocks]` pins block
+  identity/version separately from `[library.items]`; section order is refs,picks,pins,blocks,library.
+  `get` uses fenolite_library/ and the missing pinned item remains FEN-6004. `_run_script`
+  puts the script folder first and now restores/isolates namespace imports as well, so the
+  earlier entry's cache-isolation defect is implemented rather than still pending. All four
+  accepted recommendations remain authored FenoliteBlocks/Apache-2.0 items, a small core
+  starter set, private repositories later in the same format, and separate get/upgrade reviews.
+  None of this records an external release, third-party legal approval or completed CI.
+
+  Available proof: `openspec validate c0273-block-packages --strict` passes without warnings
+  (OpenSpec 1.16.0).
+  The literal `make check-fast` is not run by this worker and has no applicable passing
+  serialized receipt yet. Task 0.1 remains unchecked for that actual proof; independent
+  CI, native/manual and release criteria are unchanged.
+
+
 ## 1. Block items and discovery
 
 - [x] 1.1 Add `dsl/blockitem.py` (schema `fenolite.block-item.v0`, canonical text) and the verb

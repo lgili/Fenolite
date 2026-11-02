@@ -45,3 +45,8 @@
 - [x] 3.4 Add an entry under `## [Unreleased]` in `CHANGELOG.md` once the version after 0.5.0 is open. Proof: `uv run pytest tests/unit/test_release_record_v05.py -q`.
   - 2026-10-25: the entry is under `## [0.5.0]` of `CHANGELOG.md`, not `[Unreleased]`: by the maintainer's decision of 2026-10-25 the change ships in 0.5.0 (c0171 task 1.15). Proof passed (`tests/unit/test_release_record_v05.py`).
   - 2026-10-25: WAITS on the maintainer (the release guard of 0.5.0). The text is ready: `- **Libraries, units and measurement in the viewer** (c0179): `fenolite view` opens symbol and footprint libraries (`.SchLib`, `.PcbLib`, `.kicad_sym`, `.kicad_mod`, `.pretty`) with a list of their items, each footprint drawn alone with its pads' exact sizes and each symbol per part; every length reads in millimetres or mil (button or `Q`); Measure (`M`) works on boards, sheets and libraries and snaps to pad centres and vertices.`
+
+## Continuation review — 2026-11-01
+
+No personal-library review was supplied; mechanical library-viewer tests do not replace task 2.4.
+See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.

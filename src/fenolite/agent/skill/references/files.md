@@ -114,12 +114,33 @@ fitted flag needs `--allow-lossy` (exit 7); an unexplained difference exits 5.
 fenolite import blink/build/blink.kicad_pro --to python --out blink/code --dry-run --json
 ```
 
-`import PATH --to python --out DIR` writes `design.py`, `copper.py` (the copper as `track_table`,
-`arc_table` and `via_table` rows in nm), the vendored `lib/`, `design.lock` and `PROVENANCE.json`. It
-builds the code first and compares it with the board (`result.equivalence`): `import.unequal` exits 5. An
-item the DSL cannot say exits 7 (`FEN-7001`) unless `--allow-lossy`. Pass `--licence`, `--copyright`,
-`--source` and `--timestamp` for a board you did not author; publish converted boards only where their
-licence allows.
+The output holds `design.py`, `copper.py` (`track_table`, `arc_table`, `via_table` rows in nm), `lib/`,
+`design.lock` and `PROVENANCE.json`. Hierarchies add `sheets/*.py` factories: repeated source sheets
+share one function, local nets stay local, and boundary nets pass as keywords. The code builds before
+comparison (`result.equivalence`); `import.unequal` exits 5. Unexpressed items exit 7 (`FEN-7001`) unless
+`--allow-lossy`. State `--licence`, `--copyright`, `--source`, `--timestamp`; publish where rights allow.
+
+A KiCad project with sheets also writes `schematic.toml` and `load_schematic`: its embedded source
+symbols and drawn wires survive. The private self-check writes and reads back that drawing before
+staging; a changed source sheet invalidates the reviewed plan. Board-only inputs keep generated symbols.
+Power poses preserve `mirror = "x"` or `"y"`; level S compares that mirror too.
+Pinless native graphic symbols and excluded visible passive instances stay opaque; active electrical symbols refuse.
+Bare embedded aliases keep native geometry under the source library namespace (`_Source` if absent).
+A drawn unit's optional `symbol` selects a compatible native body; sync retains it, including pin-pad variants.
+
+Imported physical variants keep the native `footprint` name and select local geometry with
+`footprint_definition`. This keyword needs an explicit symbol and footprint; device/query parts and
+Altium builds refuse it. The original name is written into the PCB and schematic; pads come from the
+selected definition, with the usual pin-map and electrical checks.
+
+```fenolite-design
+from fenolite.dsl import Design, Part, mm
+design = Design("variant")
+design.board(mm(20), mm(20))
+r = Part("R1", "Fenolite:Resistor", footprint="Original:R", footprint_definition="Fenolite:Chip_0603")
+design.add(r)
+r.place(mm(10), mm(10))
+```
 
 A table is one net's copper, each row in integer nm in the frame of `place()`:
 

@@ -231,6 +231,11 @@ a large design is not flooded with info lines.
 4. *Should `fenolite check` also have `--frozen`?* Recommended: no. `build --frozen --dry-run` is the CI
    gate, and `check` reads projects that may have no script.
 
+Decided 2026-11-01: the user authorized all four recommended answers. Lowest-free numbering keeps the
+existing deterministic allocator and warning; explicit refs keep the lock complete; `<stem>.lock`
+supports multiple scripts; the frozen gate stays on build. These decisions add no command or lock
+format change. Entry task 0.1 and closing task 5.5 retain their required full/CI gates.
+
 ## Relation to the batch
 
 - **c0248** (devices): `ref_prefix` and `design.part`. c0248 keeps the ref required; this change lifts

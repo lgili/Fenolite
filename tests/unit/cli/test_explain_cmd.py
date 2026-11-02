@@ -57,6 +57,8 @@ def test_tables_give_every_code_with_its_severities() -> None:
     assert not [code for code in codes if "<" in code]
     assert codes["zone.fill-stale"] == ("warning",)  # named by three tables
     assert codes["blocks.index-stale"] == ("error", "warning")  # check versus ordinary build (c0273)
+    assert codes["circuit.rating-missing"] == ("warning", "info")
+    assert codes["build.block-port-merged"] == ("info",)
 
 
 def test_table_is_complete() -> None:

@@ -74,7 +74,8 @@ def test_newer_block_version_is_not_taken() -> None:
     found = blocks_of(design_of("sense_a", definition=divider("1.1.0")), first)
     (issue,) = [i for i in found.issues if i.code == "lock.block-version"]
     assert issue.severity == "error" and all(t in issue.message for t in ("sense_a", "1.0.0", "1.1.0"))
-    assert "fenolite blocks show Acme:divider" in issue.hint
+    assert "fenolite blocks upgrade <script> --dry-run" in issue.hint
+    assert "confirm its lock plan" in issue.hint
     assert found.lock.sections["blocks"]["sense_a"] == "Acme:divider@1.0.0"
 
 

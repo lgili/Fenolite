@@ -23,6 +23,12 @@ A pad of kind `connect` SHALL be written as a surface pad whose paste and solder
 - **THEN** the pad is a surface pad on its copper layer with no paste and no mask opening, and the report has no lost `pad`
 
 ### Requirement: Mechanical layers of KiCad drawings
+`lower.KICAD_MECHANICAL` SHALL map `User.1` to `User.8` to Mechanical 1 to 8, `Dwgs.User` to Mechanical 9, `Cmts.User` to Mechanical 10, and `Eco1.User` and `Eco2.User` to Mechanical 11 and 12; the fabrication and courtyard layers keep Mechanical 13 to 16.
+
+#### Scenario: Detailed contract for mechanical layers of kicad drawings
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 `lower.KICAD_MECHANICAL` SHALL map `User.1` to `User.8` to Mechanical 1 to 8, `Dwgs.User` to Mechanical 9, `Cmts.User` to Mechanical 10, and `Eco1.User` and `Eco2.User` to Mechanical 11 and 12; the fabrication and courtyard layers keep Mechanical 13 to 16. A graphic or text on a mapped layer MUST be written there and the document MUST name the layer after its KiCad name. A text on a copper layer MUST be written as a text record on that copper layer. A layer outside the map MUST stay a reported loss.
 
 #### Scenario: Drawing on Dwgs.User

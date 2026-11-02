@@ -113,27 +113,30 @@ def test_code_sets_are_those_of_the_checks() -> None:
     assert WAIVED_COPPER == COPPER_CODES and DRC_VERDICTS == RESERVED_SUFFIXES
 
 
-def test_circuit_waiver_with_its_digest() -> None:
+@pytest.mark.parametrize(
+    "code, row", [("circuit.rating-voltage", "C3:voltage"), ("circuit.pullup-parallel", "I2C:SDA")]
+)
+def test_circuit_waiver_with_its_digest(code: str, row: str) -> None:
     """Scenario "A circuit waiver with its digest" (change c0274): one exact row id and the row's digest;
     a missing digest, a pattern, a code of no error or warning, and a digest on a copper waiver are
     refused."""
     design, parts = design_with("C3")
-    design.waive("circuit.rating-voltage", "C3:voltage", reason="bench is current-limited",
+    design.waive(code, row, reason="bench is current-limited",
                  digest="9f2c4a1b0d3e5f67")  # fmt: skip
     (waiver,) = to_model(design).findings.waivers
     assert (waiver.name, waiver.items, waiver.digest) == (
-        "circuit.rating-voltage:C3:voltage",
-        ("C3:voltage",),
+        f"{code}:{row}",
+        (row,),
         "9f2c4a1b0d3e5f67",
     )
     for args, kwargs, message in (
-        (("circuit.rating-voltage", "C3:voltage"), {}, "needs digest="),
-        (("circuit.rating-voltage", "C*:voltage"), {"digest": "9f2c4a1b0d3e5f67"}, "exact row"),
+        ((code, row), {}, "needs digest="),
+        ((code, "*"), {"digest": "9f2c4a1b0d3e5f67"}, "exact row"),
         (("circuit.policy-missing", "contracts"), {"digest": "9f2c4a1b0d3e5f67"}, "not a finding"),
         (("copper.short", "A", "B"), {"digest": "9f2c4a1b0d3e5f67"}, "digest belongs to a circuit"),
-        (("circuit.rating-voltage", "C1:voltage"), {"digest": "9F2C4A1B0D3E5F67"}, "needs digest="),
+        ((code, row), {"digest": "9F2C4A1B0D3E5F67"}, "needs digest="),
     ):
         with pytest.raises(DslError, match=message):
             design.waive(*args, reason="accepted", **kwargs)  # type: ignore[arg-type]
-    assert list(design.waivers) == ["circuit.rating-voltage:C3:voltage"]
+    assert list(design.waivers) == [f"{code}:{row}"]
     assert parts["C3"].ref == "C3"

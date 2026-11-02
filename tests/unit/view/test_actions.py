@@ -173,6 +173,7 @@ def test_offered_lists_every_action(tree: ProjectTree) -> None:
             "route-reject",
             "shift",
             "silk",
+            "take",
             "testpoints",
             "tidy",
             "turn",

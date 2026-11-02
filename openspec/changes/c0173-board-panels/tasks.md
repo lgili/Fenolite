@@ -74,3 +74,8 @@
 
 - [x] 8.4 Add to `CHANGELOG.md` under `## [Unreleased]`: the panel script and model, `fenolite panel`, the KiCad panel board, the flattened Altium panel, the array behind its gate, the score layer in Gerber exports (c0171 moves the lines into `[0.5.0]`, open question 7). Proof: `grep -n "fenolite panel" CHANGELOG.md`; `openspec validate c0173-board-panels --strict --no-interactive` passes.
   - 2026-10-24: the coordinator moved the entry from `## [Unreleased]` into `## [0.5.0]`, because 0.5.0 includes c0173 by the maintainer's decision of 2026-10-16 (open question 7) and this branch's release guard requires `[Unreleased]` to be empty. Five lines under `### Added` (the panel script and model; `fenolite panel` with its checks and sourced limits; the KiCad panel board; the flattened Altium panel; the Embedded Board Array behind `pcbdoc.EMBEDDED_ARRAYS`, nothing claimed) and one under `### Changed` (the `V-Score` layer in Gerber exports, file function `Other,User`). Proof: `grep -n "fenolite panel" CHANGELOG.md` finds line 78; `openspec validate c0173-board-panels --strict --no-interactive` passes; `uv run pytest tests/unit/test_release_record_v05.py -q` passed (28 tests).
+
+## Continuation review — 2026-11-01
+
+Altium Designer is unavailable per the maintainer. No Q1-Q6 saved observations arrived, so embedded-array/layer-type records and phase B are not guessed; EMBEDDED_ARRAYS stays false.
+See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.

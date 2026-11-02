@@ -148,6 +148,18 @@ geometry"). `fenolite.backends.altium.read.dwfdraw` relies on these rows.
 | Every top or bottom view (12 of 12) lies on its sheet when `Location` is the lower-left corner of the board's bounds on the sheet (Y up) and the scale is `CustomScale` when `UseCustomScale` is true, else `Numenator` over `Denominator`; a bottom view is mirrored in X. The two tables of S-0785 with a `Size` fit when their `Location` is their lower-left corner. The `Anchor` `Top Left` is not that corner; the two side views (`Right`, `Front`) are not measured; round F0.5 of Part F confirms the placement | S-0785, S-0786 | INFERRED | H-A-DWF-GEOM |
 | The root member `IsPanel` is `false` in the four documents; what a drawing of a panel holds is not shown by any public file | S-0785, S-0786 | INFERRED | H-A-PANEL-RECORD |
 
+## Candidate writer measurements (2026-11-01)
+
+Re-read from the four fetched samples with Fenolite's reader. Only member names, order and value forms
+are retained. These facts support a candidate shell, not a claim that AD 26.5 opens it.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| `FontStyles` holds `FontStyleData`, with members `Decorations`, `DecorationsV2`, `FamilyName`, `Id`, `Size` in that order; every font id is decimal | S-0785, S-0786 | CORPUS-VERIFIED | H-A-DWF-GEOM |
+| The root has `SourceDocumentName`, an absolute PCB path in all four samples; view and table `BoardSourceName` members are empty. Acceptance of a relative bare PCB name in a written shell is not measured | S-0785, S-0786 | UNKNOWN | H-A-DWF-IMPORT |
+| Assembly views hold `DefaultComponentDisplaySettings/ShowDesignator` (a boolean) and `ViewComponentDisplaySettingsData/ComponentCaptionSource` (`Designator`); `DefaultComponentDisplaySettings` follows the view's common members and precedes `ViewComponentDisplaySettingsData` and `ViewSide` | S-0785, S-0786 | CORPUS-VERIFIED | H-A-DWF-IMPORT |
+| A Note's `ElementFontStyleId` and `ElementTextColor` precede `Elements`, then `StartPoint`, `Title`, `TitleFontStyleId`, `TitleTextColor`, `TitleVisible`, `VerticalSpacing`, `Width`; `TitleVisible` is boolean | S-0786 | INFERRED | H-A-DWF-GEOM |
+
 ## Side views and callouts (change c0190)
 
 Measured on 2026-10-25 on the two public documents of S-0786 (the only side views and the only callout of the

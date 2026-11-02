@@ -28,9 +28,9 @@ since c0247, resolved by the build). Tests that connect or mark those pins thems
 without them (``marks=False``)."""
 
 
-IMPORT = "from fenolite.dsl import Design, Net, Part, Power, connect, mm\n"
+IMPORT = "from fenolite.dsl import Design, Net, Part, Power, connect, mm, series\n"
 """The import line of the blink example."""
-VARIANT_IMPORT = "from fenolite.dsl import Design, Net, Part, Power, connect, mm, no_connect\n"
+VARIANT_IMPORT = "from fenolite.dsl import Design, Net, Part, Power, connect, mm, no_connect, series\n"
 """The import line of a blink variant: with ``no_connect``, as the example had before c0247, so that the
 lines a test appends or substitutes can mark pins."""
 

@@ -22,7 +22,7 @@ Back to [the command index](commands.md).
 - `--no-browser`: with --serve: no browser
 - `--run-timeout SECONDS`: with --serve: time limit of a check the page runs (default 600)
 - `--no-run`: with --serve: the page runs no check (recorded results only)
-- `--allow-actions`: with --serve: the page can write the project's files through reviewed plans (fill, tidy, silk, test points, waivers, moves, exports, BOM); each write keeps a backup and can be undone
+- `--allow-actions`, `--edit`: with --serve: the page can write the project's files through reviewed plans (fill, tidy, silk, test points, waivers, moves, exports, BOM); each write keeps a backup and can be undone
 - `--export FILE`: write one standalone page
 - `--cache {off,project,user}` (default `user`): scene cache
 - `--docs ID,...`: --export only these

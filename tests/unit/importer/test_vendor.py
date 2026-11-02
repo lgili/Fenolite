@@ -36,7 +36,8 @@ def test_edited_instance(tmp_path: Path) -> None:
         "Mini_R_0603_2.kicad_mod",
     ]
     text = (tmp_path / "out" / "design.py").read_text(encoding="utf-8")
-    assert 'Part("R201", "Mini:Mini_R_0603_2", footprint="Mini:Mini_R_0603_2"' in text
+    assert '"R201",\n    "Mini:Mini_R_0603_2",\n    footprint="Mini:Mini_R_0603",' in text
+    assert 'footprint_definition="Mini:Mini_R_0603_2"' in text
     codes = [i["code"] for i in (reply.envelope or {})["issues"]]
     assert codes.count("import.footprint-variant") == 1
     assert reply.result["equivalence"]["equivalent"] is True

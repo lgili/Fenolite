@@ -232,6 +232,12 @@
               "type": "null"
             }
           ]
+        },
+        "board_only": {
+          "type": "boolean"
+        },
+        "footprint_definition_ref": {
+          "type": "string"
         }
       },
       "additionalProperties": false,

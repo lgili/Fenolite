@@ -935,3 +935,30 @@ character outside printable 7-bit ASCII is written as `%UTF8%TEXT` in UTF-8 and 
 page. For read circuits, printable characters outside Windows-1252 retain their UTF-8 twin and
 use `?` replacements in the plain fallback (c0160); script validation stays strict. Every other text
 stays printable 7-bit ASCII. A bus line holds `LINEWIDTH=2` and the colour of a wire.
+
+## Drawn-sheet writer (c0276)
+
+The drawn writer reuses the record forms above: component/pin records, wires 27, buses 26,
+junctions 29, labels 25, ports 18, power ports 17, sheet symbols/entries 15/16 with names/files 32/33,
+bus entries 37 and no-ERC directives 22 (S-0130, S-0131). Fractional coordinates use the existing
+1/100 000 ten-mil unit, exactly 127/50 nm. Off-grid source points refuse unless the caller accepts
+reported rounding. These implementation choices and their native-record readback remain **INFERRED**
+under `H-A-DRAWN-WRITE`; they are not an application compile or a native GUI save.
+
+The existing Automatic mode 0 selects the scope described by S-0185. When it selects Global, the
+writer qualifies local names shared by several sheet instances and reports every text change. It
+keeps unique local names and Hierarchical/Flat names. Repeated sheets become separate native files;
+this preserves the tested pin partition without claiming drawn text or hierarchy identity.
+
+Native component child geometry carries quarter turns and mirrors, with rectangle bounds ordered
+as the existing rectangle row requires. Component mirror metadata remains unverified. Field anchors,
+rotation, visibility and the documented parameter mirror flag are written; source justification is
+reported as unrepresented rather than assigned an undocumented parameter field. Power ports use
+native glyph/text placement; source power field poses and mirror metadata are reported as unsupported.
+Bus alias declarations and per-sheet source title metadata are not emitted as native metadata; each
+omission is reported. The written connectivity must still match code.
+
+The guard checks the actual document set, component units, shown logical pins, footprint maps and
+logical pin partition, including unconnected parts. It repeats after native templates. Opaque native
+text is limited to valid root graphics; unsupported or malformed native content cannot bypass the
+guard. The authored controls are `tests/unit/backends/altium/test_drawn_altium.py`.

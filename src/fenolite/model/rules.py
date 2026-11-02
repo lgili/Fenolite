@@ -13,12 +13,15 @@ import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from fenolite.core.units import Nm
 from fenolite.model.base import Entity
 from fenolite.model.circuit import ValueRange
 from fenolite.model.pairs import base_matches
+
+if TYPE_CHECKING:
+    from fenolite.model.board import Teardrop
 
 RuleKind = Literal[
     "clearance",
@@ -1070,6 +1073,18 @@ class RuleSet(Entity):
             areas.add(limit.area)
 
 
+@dataclass(frozen=True, slots=True)
+class TeardropRule:
+    """One ``Design.teardrops()`` call (change c0277): the teardrop ``settings`` of every pad (with ``pads``)
+    and via (with ``vias``) of the built board that ``selector`` matches. It is a build parameter, as a plane
+    is: the build writes the settings on the pads and vias, and a later rule wins over an earlier one."""
+
+    settings: Teardrop
+    selector: Selector = field(default_factory=lambda: Selector("all"))
+    pads: bool = True
+    vias: bool = True
+
+
 __all__ = [
     "CONFIDENCES",
     "CONTRACT_STRICTNESS",
@@ -1116,5 +1131,6 @@ __all__ = [
     "Selector",
     "SelectorOp",
     "Terminal",
+    "TeardropRule",
     "TraceGeometry",
 ]

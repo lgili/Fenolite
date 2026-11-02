@@ -46,6 +46,10 @@ def test_closed_set() -> None:
         "build.library-changed": "warning",
         "build.no-connect-on-net": "error",  # c0036
         "build.plane-zone-missing": "warning",  # c0107 (build.plane-not-lowered of c0038 left the table)
+        "build.teardrops-overlap": "info",  # c0277
+        "build.image-missing": "error",
+        "build.pad-unknown": "error",
+        "build.image-format": "error",
         "build.diff-pair-name": "warning", "build.i2c-pullup-missing": "warning",  # c0073
         "build.diff-pair-gap-shadowed": "warning",  # c0104
         "build.impedance-layer": "error", "build.impedance-shadowed": "warning",  # c0105
@@ -85,6 +89,9 @@ def test_closed_set() -> None:
         **PRESERVE_ISSUE_CODES,  # c0019
         **EDIT_ISSUE_CODES,  # c0250: the edit merge passes through
         **DRAWN_ISSUE_CODES,  # c0276: the drawn schematic
+        # c0277: verbatim items
+        "build.verbatim-item": "info", "build.verbatim-invalid": "error", "build.verbatim-head": "error",
+        "build.verbatim-layer": "error", "build.verbatim-net": "error",
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table
     assert {code: BUILD_ISSUE_CODES[code] for code in LOCK_CODES} == dict(LOCK_CODES)
@@ -95,6 +102,7 @@ def test_closed_set() -> None:
         kicad / "schlayout.py",
         ROOT / "src" / "fenolite" / "cli" / "cmd_build.py",
         ROOT / "src" / "fenolite" / "catalog" / "devices.py",  # c0248: device.edited
+        kicad / "verbatim.py",  # c0277: verbatim items
     ]
     for path in [*(ROOT / "src" / "fenolite" / "lens").glob("*.py"), *generator]:
         literals |= set(

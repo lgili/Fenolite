@@ -146,3 +146,26 @@ Until then the authored script `tests/data/fidelity/sensor_code/design.py` is pr
 Levels 5 strict, 6 and 7 are `INFERRED`: unit tests with planted edits and the authored fixture. Level 8 is
 `INFERRED` because one renderer draws both sides (`H-K-FID-PLOT-AGREE`). That KiCad keeps zone outlines when
 it refills and saves a board is `H-K-FID-ZONE-OUTLINE`, `INFERRED` until the KiCad CI job measures it.
+
+## Round-trip test categories
+
+`make fidelity` runs the authored sensor, hierarchy, bus and Repeat projects through the actual importer,
+explicit build and every `verify-source` level (1–7, S and 8), alongside the ratchet and corpus contract
+tests. `make check-fast` includes this category. The shared `roundtrip` helper reads native project
+bytes into a fresh temporary folder, uses strict copper matching and the default zero geometry
+tolerances, accepts no difference automatically and starts no external process.
+
+The generated hierarchy, bus and Repeat originals include a small authored copper stub so strict
+level 5 is reached. The sensor also compares its actual tracks, arcs and vias. These are authored text
+stand-ins; the literal KiCad GUI-save task remains open.
+
+`make fidelity-corpus` uses only the allow-listed `rtf` descriptors in the public corpus manifest. The
+helper copies the declared project, board, rules and child sheets into the test temporary folder and
+checks their SHA-256 before import. No fetched board, schematic or derived code belongs in this repository.
+The count-only `tests/kicad/fidelity/accepted.toml` ratchet fails when a count grows and when it shrinks;
+improvements require lowering the reviewed entry. Pending rows have no reviewed baseline and are
+reported as skips; they grant no passing corpus proof. See `docs/evidence/fidelity.md` for their exact state.
+
+The planted-junction test first requires the unmodified all-level round trip to pass, then removes one
+electrically redundant endpoint junction in the writer and requires exactly one `item-missing` at S.
+A connectivity-critical deletion still belongs to the build's earlier byte-connectivity guard.

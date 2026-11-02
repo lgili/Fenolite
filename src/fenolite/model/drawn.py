@@ -87,6 +87,8 @@ class DrawnSymbol:
     rotation: Udeg = 0
     mirror: str = ""
     fields: tuple[DrawnField, ...] = ()
+    symbol: str = ""
+    """Optional native library binding for this unit; its logical pins must match the code symbol."""
 
     def __post_init__(self) -> None:
         if not self.part:
@@ -108,12 +110,15 @@ class DrawnPower:
     at: Point
     rotation: Udeg = 0
     fields: tuple[DrawnField, ...] = ()
+    mirror: str = ""
 
     def __post_init__(self) -> None:
         if not self.symbol or not self.net:
             raise ValueError("a power symbol names its library symbol and its net")
         _check_point(self.at, f"power {self.net} position")
         _check_angle(self.rotation, ROTATIONS, f"power {self.net} rotation")
+        if self.mirror not in MIRRORS:
+            raise ValueError(f"power {self.net}: mirror {self.mirror!r} is not '', 'x' or 'y'")
 
 
 @dataclass(frozen=True, slots=True)

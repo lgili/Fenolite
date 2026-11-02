@@ -5,8 +5,9 @@
 
 ``examples/devices/design.py`` is built for each target the running ``kicad-cli`` reads, and so is the same
 design written with plain ``Part`` calls (symbol, footprint and pad map spelled out), below. Each folder is
-given to the whole ``fenolite check`` (ERC and DRC with ``kicad-cli``): the device build must report no
-finding that the plain build does not report, and the device's ``Datasheet`` must read back from the board.
+given to the whole ``fenolite check`` (ERC and DRC with ``kicad-cli``): the device build's additional
+findings must be exactly the stated metadata infos, with no extra error or warning. The device's
+``Datasheet`` must read back from the board.
 """
 
 from __future__ import annotations
@@ -90,7 +91,9 @@ def run(monkeypatch: pytest.MonkeyPatch, *args: str) -> tuple[int, dict[str, Any
     return code, json.loads(stdout.getvalue() or "{}"), stderr.getvalue()
 
 
-def build_and_check(monkeypatch: pytest.MonkeyPatch, script: Path, out: Path, target: int) -> Counter[str]:
+def build_and_check(
+    monkeypatch: pytest.MonkeyPatch, script: Path, out: Path, target: int
+) -> Counter[tuple[str, str]]:
     code, _, err = run(
         monkeypatch, "--kicad-version", str(target), "build", str(script), "--out", str(out), "--confirm"
     )
@@ -100,7 +103,7 @@ def build_and_check(monkeypatch: pytest.MonkeyPatch, script: Path, out: Path, ta
     # circuit.rating-missing: the shipped devices carry no ratings yet, so that info is not a finding of the
     # device build; any other severity of it still counts
     return Counter(
-        issue["code"]
+        (issue["code"], issue["severity"])
         for issue in envelope["issues"]
         if (issue["code"], issue["severity"]) != ("circuit.rating-missing", "info")
     )
@@ -127,7 +130,10 @@ def test_device_build_passes_the_kicad_oracle(
     found = build_and_check(monkeypatch, devices / "design.py", tmp_path / "out_devices", target)
     control = build_and_check(monkeypatch, plain / "design.py", tmp_path / "out_plain", target)
     print(f"kicad-cli {version}, target {target}: devices {dict(found)}, plain {dict(control)}")
-    assert not found - control, found - control
+    # These two device metadata limitations are infos; a warning/error of either code still fails.
+    assert found - control == Counter(
+        {("circuit.policy-missing", "info"): 1, ("circuit.value-unknown", "info"): 1}
+    ), found - control
     board = read_board((tmp_path / "out_devices" / "devices.kicad_pcb").read_text(encoding="utf-8"))
     u1 = next(component for component in board.circuit.components if component.ref == "U1")
     assert u1.properties["Datasheet"] == "https://example.invalid/exb6202.pdf"

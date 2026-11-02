@@ -1,0 +1,85 @@
+{
+  "change": "c0319-integration-repairs",
+  "historical_tables": "unchanged docs/evidence/conversion.md",
+  "native_tool": null,
+  "policy": "c0277 placement pairing; 10 nm / 20 ppm; relative frame; ignore empty references",
+  "python": "3.12.14",
+  "rows": {
+    "08": {
+      "differences": {},
+      "explained": [],
+      "input_id": "kicad-demo-10-0-6-pcb-08",
+      "input_ref": "10.0.6",
+      "input_sha256": "7f17191488b51f8782efc0a3b9ce7b5748a4e771ff0babb34ec0369ffcf43be5",
+      "largest_nm": 0,
+      "level": 4,
+      "nonempty_repeated_reference_counts": [
+        [
+          4,
+          4
+        ]
+      ],
+      "writer_ledger_sha256": "1d8a09b71a10212244f4df8b8d33af8b42a0c13d952becba69d3ae34a3248b0e"
+    },
+    "16": {
+      "differences": {
+        "dnp": 11,
+        "pad-missing": 20,
+        "route-connectivity": 1
+      },
+      "explained": [
+        [
+          "dnp",
+          "dnp",
+          "9"
+        ],
+        [
+          "dnp",
+          "footprint",
+          "2"
+        ],
+        [
+          "edge-ring",
+          "outline",
+          "2"
+        ],
+        [
+          "pad-missing",
+          "pad",
+          "20"
+        ],
+        [
+          "route-connectivity",
+          "footprint",
+          "1"
+        ]
+      ],
+      "input_id": "kicad-demo-10-0-6-pcb-16",
+      "input_ref": "10.0.6",
+      "input_sha256": "0d26bf9b6d561e32cf610d428541d6433e60b45e1838f34f73467e25b9144814",
+      "largest_nm": 2,
+      "level": 5,
+      "nonempty_repeated_reference_counts": [
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          130,
+          130
+        ]
+      ],
+      "writer_ledger_sha256": "a744a3297bff7b360b3c320d7112954f0edef0e6a47fb60ff2a0fd7bc7d782f8"
+    }
+  },
+  "schema": "fenolite.conversion-comparison.v0",
+  "source_commit": "46d788ee0e10516838a4b0a63b254eab2a475fd1"
+}

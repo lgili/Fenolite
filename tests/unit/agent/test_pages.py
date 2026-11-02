@@ -72,9 +72,9 @@ PRACTICE = (
     "board-workflow",
 )
 """The eleven practice pages written by hand: design practice, not features."""
-FEATURES = ("signal-topologies", "starter-blocks")
+FEATURES = ("signal-topologies", "starter-blocks", "device-symbols", "equivalent-s")
 WRITTEN = (*TOOLS, *PRACTICE, *FEATURES)
-"""The thirty-two pages written by hand."""
+"""The thirty-four pages written by hand."""
 GENERATED = guide.GENERATED_TOPICS
 RUN_TAGS = ("fenolite-loop", "fenolite-cmd", "fenolite-recipe")
 """The tags whose lines are commands: a public command needs a line in one of them."""
@@ -85,6 +85,8 @@ RULE = "adds a tested line to a page of the agent guide"
 """The words by which ``AGENTS.md`` and ``CONTRIBUTING.md`` state the rule for new commands and names."""
 
 HOME: Mapping[str, tuple[str, ...]] = {
+    "equivalent-s": ("equivalent",),
+    "device-symbols": ("build", "library"),
     "block-layouts": ("blocks",),
     "block-testing": ("blocks",),
     "design-script": ("init", "build", "sync", "template"),
@@ -112,8 +114,11 @@ HOME: Mapping[str, tuple[str, ...]] = {
 before the change that adds it) is not asked for."""
 
 TEACHES: Mapping[str, tuple[str, ...]] = {
+    "equivalent-s": ("--level S", "raw", "junction", "drawn-net", "INFERRED", "integer"),
     "starter-blocks": ("voltage_divider", "rc_lowpass", "led_indicator", "i2c_pullups",
                        "protected_input", "design.use", "REQUIRED", "circuit.pullup-parallel", "PI"),
+    "device-symbols": ("pin table", "Footprint", "ki_fp_filters", "symbol_file", "provenance",
+                       "UNVERIFIED", "example"),
     "block-layouts": ("blocks capture", "side=\"bottom\"", "reuse.layout-stale", "--origin"),
     "block-testing": (
         "stimulus", "requirements", "achieved", "PartView", "--golden", "--only",
@@ -128,7 +133,7 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
     ),
     "design-script": (
         "`design`", "Design(", "Module(", "Net(", "Part(", "connect(", "no_connect(", "Power(", "mm()",
-        "top-left corner", "Y down", "--dry-run", "--confirm", "What a rebuild keeps",
+        "top-left corner", "Y down", "--dry-run", "--confirm", "What a rebuild keeps", "outline_width=",
     ),
     "parts": (
         "a symbol", "a footprint", "catalog list --query", "fp-lib-table", "sym-lib-table", "pad_map",
@@ -156,14 +161,18 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
         "One fix per iteration", "--fields", "--stages", "--format concise", "--limit", *LABELS[:3],
         "INFERRED",
     ),
-    "files": ("roundtrip", "fenolite diff", "fenolite equivalent", "fenolite restore", "did not write"),
-    "viewer": ("--allow-actions", "--roles", "--proposals", "receipt", "INFERRED"),
+    "files": ("roundtrip", "fenolite diff", "fenolite equivalent", "fenolite restore", "did not write",
+              "footprint_definition"),
+    "viewer": (
+        "--allow-actions", "--edit", "Take CAD", "inputs", "--roles", "--proposals", "receipt", "INFERRED",
+    ),
     "fabrication": (
         "fenolite export", "bill of materials", "position", "manifest", "fenolite render", "fenolite panel",
         "Panel(",
     ),
     "altium": (
         "build --target altium", "What it writes",
+        "--altium-draftsman", "--drawing-spec", "altium.draftsman-not-written", "altium.draftsman-not-listed",
         "The Altium verification kit is a run that a person performs in Altium Designer",
     ),
     "supplier-lookup": (
@@ -212,6 +221,7 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
     ),
     "board-workflow": (
         "Work on a copy", "SHA-256", "a person has open", "--plan", "fenolite restore", "synthetic",
+        "technical_layers=None", "Edge.Cuts", "omitted layer",
     ),
 }  # fmt: skip
 """Topic → words the page must hold, from the requirement "Guide pages"."""
@@ -942,3 +952,42 @@ def test_parts_teaches_local_library_import() -> None:
     assert "fenolite library import --symbol" in page.text
     assert "UNVERIFIED" in page.text and "until reviewed" in page.text
     assert "library" in commands_of(page)
+
+
+def test_files_teaches_imported_source_drawings() -> None:
+    page = guide.page("files")
+    for words in (
+        "embedded source",
+        "schematic.toml",
+        "self-check",
+        "source sheet invalidates",
+        "Power poses preserve",
+        "mirror",
+        "Pinless native graphic symbols",
+        "excluded visible passive instances",
+        "active electrical symbols refuse",
+        "Bare embedded aliases",
+        "_Source",
+        "optional `symbol`",
+        "sync retains it",
+        "pin-pad variants",
+    ):
+        assert words in page.text
+    assert "import" in commands_of(page)
+
+
+def test_altium_teaches_drawn_sources_and_native_limitations() -> None:
+    page = guide.page("altium").text
+    for words in (
+        "load_schematic",
+        "drawn.coordinate-rounded",
+        "FEN-7001",
+        "drawn.altium-repeat-flattened",
+        "pin tables",
+        "changed alias files",
+        "result.schematic.source",
+        "INFERRED",
+        "native kit",
+        "application acceptance",
+    ):
+        assert words in page

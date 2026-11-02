@@ -140,6 +140,12 @@ On boards and footprints the bottom bar no longer lists layers; on sheets it kee
 
 ## Open Questions
 
+Decided 2026-11-01: use the actual page/theme/bundle/guide modules for the
+documentation proof because the old `docs and viewer` selector selects no tests.
+Review the documented dock, Layers, net emphasis, 3D controls and unit rows
+against the actual browser proof and regenerated references. Keep exact CI and
+the complete batch gate open until they run.
+
 - Should the dock be on the right (as KiCad's Appearance and Altium's Properties panels are) or should the
   Layers panel live in the left side bar, keeping the right side free?
 - Should per-layer opacity be stored in the link for every layer, or only visibility and the current layer

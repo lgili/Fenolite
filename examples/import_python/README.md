@@ -12,12 +12,15 @@ fenolite import tests/data/import_python/two_sheet/two_sheet.kicad_pro --to pyth
 fenolite build examples/import_python/design.py --out build/import_python --confirm
 ```
 
-- `design.py`: the board, the nets, the net class `Power`, five parts in the modules `ch1` and `ch2` with
-  their keys (`name="R101"` for the second channel's `R201`), the connections, the placements, a zone, a
+- `design.py`: the board, shared nets, the net class `Power`, root connector, sheet calls, a zone,
   keep-out and two silkscreen drawings.
+- `sheets/ch1.py` and `sheets/ch2.py`: the actual source-sheet factories, local nets, parts and placements;
+  `refs` preserves the second channel's `R201` under its authored key `R101`.
 - `copper.py`: the 40 track segments, 3 arcs and 6 vias as `track_table`, `arc_table` and `via_table` rows
   in nanometres.
-- `lib/`: the two footprints brought back from the board and the symbols drawn from their pads, named by
+- `schematic.toml`: the retained source drawing, loaded by `design.load_schematic`, including the
+  hierarchy and its symbol and field poses, labels and wires.
+- `lib/`: the two footprints brought back from the board and the source's native embedded symbols, named by
   the project tables `fp-lib-table` and `sym-lib-table`.
 - `design.lock` and `PROVENANCE.json`: the refs, and where the code came from.
 

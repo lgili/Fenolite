@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: CC0-1.0
+# Copyright (c) 2026 Fenolite contributors
 # Authored for Fenolite as an illustrative offline device example (c0266).
 from fenolite.dsl import Design, mm
 

@@ -136,3 +136,10 @@ Publication derivative proof 2026-10-14: task 3.1a completed as documented in do
 - 2026-10-13, task 1.1: 44 register/provenance tests passed. Task 1.2 focused rule/matrix/import-graph proof: 60 passed; comprehensive backend quick proof remains part of check-fast.
 
 - **2026-10-14 integration checkpoint:** rebased the uncommitted work onto the other agent's latest commit `56477fff` in `codex/c0161-c0092-integration`, at the maintainer's explicit request to save this progress as a signed commit. c0091 is now archived and four sound native kit records are committed on that base; the generated resource includes their current validated support. The c0092 implementation is still partial. The authored acceptance run passed all seven build/check/equivalence/RT-A3/import steps on Linux KiCad 10.0.6, using the existing conversion profile for quantization and ignoring only the differing NPTH helper reference. Comprehensive backend/lens checks before integration reported 7010 passed and 29 failures, chiefly new-notice/evidence expectations, universal graduation reporting and generic-example handling; these remain to repair before closing c0092. No spec is archived or promoted by this checkpoint, and no push or merge is authorized.
+
+## Continuation review — 2026-11-01
+
+The acceptance-block decision is still absent; existing published/author evidence is retained per the dated continuation inventory. Full/CI gates belong to the coordinating branch.
+See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.
+
+Task 6.2 remains open on this base: its literal declaration proof has the three pre-existing failures named in c0172's continuation note. The coordinating branch owns the cross-backend declaration repair. Current own-readback and matrix regeneration do not promote the new Draftsman kind or settle the maintainer's separate acceptance-block decision.

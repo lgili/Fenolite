@@ -33,12 +33,18 @@ from fenolite.core.ids import FENOLITE_NS
 from fenolite.model.board import (
     Board,
     Dimension,
+    FootprintOverrides,
     Graphic,
+    Group,
     Hole,
+    Image,
     Keepout,
+    ModelRef,
     Outline,
+    PadPrimitive,
     StackLayer,
     Stackup,
+    Teardrop,
     Text,
     Track,
 )
@@ -48,6 +54,17 @@ from fenolite.model.design import Design
 ROOT = Path(__file__).resolve().parents[4]
 SKELETON = ROOT / "tests" / "data" / "kicad" / "tokens" / "skeleton.kicad_pcb"
 TRACK_ID = "trk_00000000-0000-4000-8000-000000000001"
+FULL_TEARDROP = Teardrop(
+    max_length=1_000_000,
+    max_width=2_000_000,
+    length_ratio=500_000,
+    width_ratio=1_000_000,
+    curved=False,
+    filter_ratio=900_000,
+    two_segments=True,
+    prefer_zones=True,
+)
+"""Teardrop settings with every field, as the demo boards write them (change c0277)."""
 
 
 def two_dimensions() -> tuple[Dimension, ...]:
@@ -176,8 +193,8 @@ def test_four_copper_layers() -> None:
     ]
     assert copper == [("F.Cu", "0"), ("In1.Cu", "4"), ("In2.Cu", "6"), ("B.Cu", "2")]
     assert len(created_layers(2)) == 20 and len(layers) == 22
-    for count in (3, 10):
-        with pytest.raises(ValueError, match="2, 4, 6 or 8"):
+    for count in (3, 34):
+        with pytest.raises(ValueError, match="an even count from 2 to 32"):
             created_layers(count)
 
 
@@ -190,6 +207,115 @@ def test_created_layers_round_trip() -> None:
     )
     rows = root.find("layers")
     assert rows is not None and rows.children[1] == parse('(4 "In1.Cu" signal)')
+
+
+def coverage_board() -> Design:
+    """The created test board with one of each item of change c0277 the writer creates (the coverage board of
+    kicad-file-backend, "Coverage items written to boards"): dimensions of every kind, a styled text, a
+    group, an image, a placement rule area, a via with teardrops, shaped pads, and the overrides, a 3D model
+    and a bold reference of the footprint."""
+    created_design = created_board()
+    assert created_design.board is not None
+    # the created test board holds no dimension: one of each kind is added here (c0103), and the teardrop
+    # settings of c0277 on a via
+    board = created_design.board
+    via = dataclasses.replace(board.vias[0], teardrop=FULL_TEARDROP, free=True)  # and a free via
+    styled = Text(
+        id="txt_00000000-0000-4000-8000-0000000000c7",
+        text="STYLED",
+        position=mm(120, 120),
+        layer="F.SilkS",
+        size=Size(1_000_000, 1_000_000),
+        thickness=150_000,
+        knockout=True,
+        bold=True,
+        italic=True,
+        face="KiCad Font",
+    )  # the text styles of c0277
+    group = Group(
+        id="grp_00000000-0000-4000-8000-0000000000c8", name="G", member_ids=(styled.id,), locked=True
+    )
+    first, second = board.footprints[0].pads[:2]
+    shaped = (  # the pad shapes of c0277, on the created pads of the footprint and on a third, custom one
+        dataclasses.replace(first, shape="trapezoid", trapezoid_delta=mm(0.1, 0)),
+        dataclasses.replace(
+            second, shape="roundrect", corner_ratio=0, chamfer_ratio=250_000, chamfer_corners=("top_left",)
+        ),  # fmt: skip
+        dataclasses.replace(
+            second,
+            id="pad_00000000-0000-4000-8000-0000000000cd",
+            number="3",
+            shape="custom",
+            position=mm(0, 3),
+            anchor_shape="circle",
+            primitives=(PadPrimitive("segment", (mm(0, 0), mm(0.3, 0)), 100_000),),
+        ),  # fmt: skip
+    )
+    footprints = (dataclasses.replace(board.footprints[0], pads=shaped), *board.footprints[1:])
+    coverage = dataclasses.replace(
+        created_design,
+        board=dataclasses.replace(
+            board,
+            footprints=footprints,
+            dimensions=(  # and a radial dimension and a leader of c0277
+                *two_dimensions(),
+                Dimension(
+                    id="dim_00000000-0000-4000-8000-0000000000ca",
+                    kind="radial",
+                    layer="Dwgs.User",
+                    start=mm(60, 60),
+                    end=mm(62, 60),
+                    offset=0,
+                    leader_length=2_000_000,
+                ),
+                Dimension(
+                    id="dim_00000000-0000-4000-8000-0000000000cb",
+                    kind="leader",
+                    layer="Dwgs.User",
+                    start=mm(70, 60),
+                    end=mm(72, 58),
+                    offset=0,
+                    text="N",
+                    frame="rect",
+                ),
+            ),  # fmt: skip
+            vias=(via, *board.vias[1:]),
+            texts=(*board.texts, styled),
+            groups=(group,),  # a group of c0277
+            images=(  # and a board image of c0277
+                Image(
+                    id="img_00000000-0000-4000-8000-0000000000cc",
+                    position=mm(80, 80),
+                    layer="F.SilkS",
+                    data="iVBORw0KGgo=",
+                    scale="0.5",
+                ),
+            ),  # fmt: skip
+            keepouts=(  # a placement rule area of c0277
+                *board.keepouts,
+                Keepout(
+                    id="kpo_00000000-0000-4000-8000-0000000000c9",
+                    outline=(mm(100, 100), mm(110, 100), mm(110, 110)),
+                    layers=("F.Cu",),
+                    name="ch1",
+                    placement="/CH1/",
+                ),
+            ),
+        ),
+    )
+    assert coverage.board is not None
+    fp = coverage.board.footprints[0]
+    fields = tuple(
+        dataclasses.replace(f, bold=True, face="KiCad Font") if f.name == "Reference" else f
+        for f in fp.fields
+    )
+    fp = dataclasses.replace(
+        fp, fields=fields, overrides=FootprintOverrides(clearance=150_000, paste_ratio=-100_000),
+        models=(ModelRef("3dmodels/part.step", (0, 0, 100_000)),),
+    )  # fmt: skip
+    return dataclasses.replace(
+        coverage, board=dataclasses.replace(coverage.board, footprints=(fp, *coverage.board.footprints[1:]))
+    )
 
 
 def test_created_tokens() -> None:
@@ -215,12 +341,7 @@ def test_created_tokens() -> None:
         and inventory.match(FileKind.BOARD, (head, child)) is None
     )
     assert unknown == []
-    created_design = created_board()
-    assert created_design.board is not None
-    # the created test board holds no dimension: one of each kind is added here (c0103)
-    with_dimensions = dataclasses.replace(
-        created_design, board=dataclasses.replace(created_design.board, dimensions=two_dimensions())
-    )
+    with_dimensions = coverage_board()
     written = {n.name for _, n in walk(parse(write_board(with_dimensions, target=9).text))}
     assert set(FLOOR_HEADS) <= written
     assert set(FLOOR_HEADS).isdisjoint(skeleton)
@@ -559,3 +680,36 @@ def test_emit_check_is_clean_for_board_items(target: int) -> None:
     design = empty_design(keepouts=(area,), texts=(label,), dimensions=two_dimensions())
     text = write_board(design, target=target).text
     assert check_emittable(parse(text), FileKind.BOARD, target) == ()
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_coverage_read_back(target: int) -> None:
+    """Scenario "Read back what was written": the modelled items read back equal; the items the reader keeps
+    in slots are in the text once, with the written tokens."""
+    design = coverage_board()
+    assert design.board is not None
+    text = write_board(design, target=target).text
+    back = read_board(text)
+    assert back.board is not None
+    key = lambda d: (d.kind, d.start, d.end, d.leader_length, d.text, d.frame)  # noqa: E731
+    assert sorted(map(key, back.board.dimensions)) == sorted(map(key, design.board.dimensions))
+    assert [(i.position, i.layer, i.data, i.scale) for i in back.board.images] == [
+        (i.position, i.layer, i.data, i.scale) for i in design.board.images
+    ]
+    pads = {p.number: p for p in back.board.footprints[0].pads}
+    assert pads["1"].trapezoid_delta == mm(0.1, 0)
+    assert (pads["2"].chamfer_ratio, pads["2"].chamfer_corners) == (250_000, ("top_left",))
+    assert pads["3"].anchor_shape == "circle" and len(pads["3"].primitives) == 1
+    root = parse(text)
+    (footprint,) = root.nodes("footprint")
+    assert dumps(footprint.find("clearance"), style="compact") == "(clearance 0.15)"  # type: ignore[arg-type]
+    assert len(footprint.nodes("model")) == 1 and len(root.nodes("group")) == 1
+    assert "(bold yes)" in dumps(footprint, style="compact")
+    (via,) = [v for v in root.nodes("via") if v.find("teardrops") is not None]
+    assert via.find("free") is not None
+
+
+def test_coverage_tokens() -> None:
+    """Scenario "Created coverage tokens are known": the check of ``test_created_tokens`` over the coverage
+    board."""
+    test_created_tokens()

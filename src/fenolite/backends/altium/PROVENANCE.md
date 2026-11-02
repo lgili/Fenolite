@@ -106,3 +106,19 @@ own reader; it establishes no Altium GUI acceptance. See `docs/evidence/schemati
 Change c0207 (`resave.py`) decodes the spellings of property text by the reader's own rules (mil text,
 `TRUE`/`T` booleans, decimal and scientific numbers), facts of S-0002 and S-0163 already recorded in
 `docs/formats/altium/pcb-read.md`; nothing was read from a third-party parser.
+
+## Draftsman candidate continuation (2026-11-01, c0172)
+
+`draftsman.py` writes stored chunks and only the sheet, Text, Note and shell members already recorded
+in `docs/formats/altium/draftsman.md`, from S-0772 to S-0786 and S-0803/S-0810. The four fetched public
+samples were re-read for names, member order and counts only; no document bytes, parser code, fonts or
+board snapshot were copied. Font/style members and the absolute source-path shape were measured there
+before being added to the writer. The relative source name, minimal defaults and table/view shells are
+unconfirmed candidate choices. `NATIVE_WRITE` remains false. Own readback is INFERRED, not native proof.
+
+The lens composes the existing drawing-spec layout with authored content. `prjpcb.py` writes the known
+`[Parameter<n>]` form (S-0187); `outjob.py` adds the known `PCBDrawing` binding (S-0786, S-0187), each
+subject to the pending Part F hypotheses. The FP and acceptance kits are authored generated artifacts
+outside the repository; actual F0/F8 controls have not arrived. Observation intake reuses the kit privacy
+scan before interpretation, including decoded chunks, and publishes only hashes, counts and member names.
+No installed Altium binary or assembly was inspected or run, and no native application outcome is claimed.

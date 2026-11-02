@@ -31,4 +31,17 @@ here on 2026-10-29 and renumbered: 6.1 is 1.1, 6.2 is 1.2, 6.3 is 2.1, 6.4 to 6.
 
 - [ ] 6.1 Run the tests and the residue scan. Proof: `make check-fast`, then the CI jobs of the branch.
 - [ ] 6.2 Update the evidence labels of the rows `H-A-EDIT-*` and `H-A-INTEG-*` and the matrix. Proof: `uv run python tools/gen_evidence_matrix.py --check`; `uv run pytest tests/unit/test_hypotheses_register.py -q`.
-- [ ] 6.3 Add an entry to `CHANGELOG.md` under `## [Unreleased]` for each closed task. Proof: `uv run pytest tests/unit -k "release_record or changelog" -q`.
+- [x] 6.3 Add an entry to `CHANGELOG.md` under `## [Unreleased]` for each closed task. Proof: `uv run pytest tests/unit -k "release_record or changelog" -q`.
+
+## Observation intake preparation
+
+- [x] 1.3 Prepare a read-only intake harness for phase A: scan with the kit's path/privacy rules before interpretation, compare J1/J2 controls separately from edited files, expose only counts/digests, and keep native verdicts unjudged. Proof: `uv run pytest tests/unit/cli/test_altium_observations.py tests/unit/backends/altium/test_part_j.py -q`.
+
+## Continuation review — 2026-11-01
+
+Altium Designer is unavailable per the maintainer. No phase A saves/report arrived; Decision 1 forbids edit modules before those observations. Phase B and all native gates remain open.
+See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.
+
+Intake proof — 2026-11-01: `tests/unit/cli/test_altium_observations.py` and `test_part_j.py`: 8 passed. Raw/decoded privacy guards, changed-member/record counts, plain-resave controls and unjudged native verdicts are covered. No edit operation is implemented or graduated.
+
+Task 6.3 proof — 2026-11-01: the Unreleased entry records the closed read-only intake task; `tests/unit -k "release_record or changelog"` passes (167 passed, 1 optional SDK skip, 17466 deselected). Task 6.2 stays open for the actual native phase A/B measurements; no `H-A-EDIT-*` or `H-A-INTEG-*` level is raised by the authored harness. Full/CI task 6.1 stays with the coordinating branch.

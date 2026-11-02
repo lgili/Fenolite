@@ -21,6 +21,7 @@ fitted under ``dnp``.
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import re
@@ -132,6 +133,10 @@ LARGEST_NM = 2
 """The largest per-coordinate difference without tolerance over every written board (2026-10-09): the
 written unit is 2.54 nm and the reader rounds it to the nanometre."""
 LEDGER = Path(__file__).resolve().parents[2] / "docs" / "evidence" / "conversion.md"
+CURRENT_COMPARISONS = json.loads(
+    LEDGER.with_name("conversion-comparison-c0319.json").read_text(encoding="utf-8")
+)["rows"]
+"""Source-bound current pairing measurements; the dated tables above remain historical."""
 ITEMS = {item.id.removeprefix(PREFIX): item for item in manifest_items("rt0") if item.id.startswith(PREFIX)}
 _NUMBER = re.compile(r"-?\d+")
 
@@ -203,8 +208,20 @@ def test_differences_per_kind(key: str) -> None:
     found = dict(sorted(Counter(d.kind for d in report.differences).items()))
     exact = compare_designs(a, b, level=min(level, 4), frame="relative", ignore_refs=("",))
     print(f"{ITEMS[key].path.stem}: level {level}, {found}, largest {_largest(exact)} nm")
-    assert (level, found) == DIFFERENCES[key]
+    current = _current_comparison(key)
+    expected = (current["level"], current["differences"]) if current else DIFFERENCES[key]
+    assert (level, found) == expected
     assert _largest(exact) <= LARGEST_NM
+    if current:
+        counts_a = Counter(c.ref for c in a.circuit.components)
+        counts_b = Counter(c.ref for c in b.circuit.components)
+        repeated = sorted(
+            [counts_a[ref], counts_b[ref]]
+            for ref in counts_a.keys() | counts_b.keys()
+            if ref and max(counts_a[ref], counts_b[ref]) > 1
+        )
+        assert repeated == current["nonempty_repeated_reference_counts"]
+        assert _largest(exact) == current["largest_nm"]
 
 
 def _table(marker: str) -> list[tuple[str, ...]]:
@@ -217,6 +234,15 @@ def _table(marker: str) -> list[tuple[str, ...]]:
         cells = re.split(r"(?<!\\)\|", line.strip().strip("|"))
         rows.append(tuple(cell.strip().replace("\\|", "|") for cell in cells))
     return rows
+
+
+def _current_comparison(key: str):
+    """A recorded current comparison applies only to its exact declared source bytes."""
+    row = CURRENT_COMPARISONS.get(key)
+    if row is not None:
+        assert row["input_id"] == ITEMS[key].id
+        assert row["input_sha256"] == hashlib.sha256(require(ITEMS[key]).read_bytes()).hexdigest()
+    return row
 
 
 @pytest.mark.parametrize("key", sorted(DIFFERENCES))
@@ -236,7 +262,16 @@ def test_conversion_is_explained(key: str) -> None:
     assert rows == [row for row in _table("ledger") if row[0] == board]
     explained = Counter((e.difference.kind, e.kind) for e in result.explained)
     found = [(board, kind, by, str(n)) for (kind, by), n in sorted(explained.items())]
-    assert found == [row for row in _table("explained") if row[0] == board]
+    current = _current_comparison(key)
+    expected = (
+        [(board, *row) for row in current["explained"]]
+        if current
+        else [row for row in _table("explained") if row[0] == board]
+    )
+    assert found == expected
+    if current:
+        encoded = json.dumps(rows, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        assert hashlib.sha256(encoded).hexdigest() == current["writer_ledger_sha256"]
 
 
 @pytest.mark.parametrize("key", sorted(CONVERT_TOO_LARGE))

@@ -17,6 +17,29 @@
   `cmd_library.ACTIONS` dispatch and repository verbs. All four recommendations are decided in the
   design on this date. The proposed H-L identifier is aligned to the existing general-register prefix as H-G-LIBRARY-IMPORT. Task remains open until the root runs the single scheduled full local gate.
 
+  Entry refresh 2026-11-02, integration base `697cdf02b39c570b7827bd2b7b5419dfcf6bdea6`:
+  c0248/c0259/c0260/c0261 remain active and implemented, with recursive device records,
+  `record_uid(kind,id)` identity and distinct `ImportOrigin` metadata. The compatibility
+  `catalog import` wrapper now shares `library.importer.templates` readers/templates;
+  source selection, zip safety, normalized records and cross-checks live in that importer
+  package. `licence`, `origin` and non-shippable local imports retain their existing meanings.
+  c0260 exposes `catalog.footprints.generate/read_package`; c0261 exposes
+  `catalog.generate.symbol.generate_symbol`. The implemented import-graph table already
+  permits library-to-catalog/dsl edges. The living and active "Allowed import edges" copies
+  still omit the library row; their archive-time union remains a formal alignment item,
+  not an invented delta owner or a new edge here. Shared `cmd_library.ACTIONS` supplies
+  symbol/generate/check/review/import/propose/seed/audit/replay/release/gallery; no second
+  dispatcher is needed. The four accepted recommendations remain a separately evidenced
+  future IntLib reader, source hashes without a duplicate archive, `Imported:` by default,
+  and the compatibility alias for one minor release.
+
+  Available proof: `openspec validate c0264-library-import --strict` passes without warnings
+  (OpenSpec 1.16.0).
+  The literal `make check-fast` is not run by this worker and has no applicable passing
+  serialized receipt yet. Task 0.1 remains unchecked for that actual proof; independent
+  CI, native/manual and release criteria are unchanged.
+
+
 ## 1. Sources and zip safety
 
 - [x] 1.1 Add `src/fenolite/library/importer/zipsafe.py`: in-memory reading with the limits and name rules of design decision 5, counted while inflating (scenarios "A compression bomb", "Path traversal refused", "Legacy library skipped"). Archives are built inside the tests. Proof: `uv run pytest tests/unit/library/importer/test_zipsafe.py -q`.

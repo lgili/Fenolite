@@ -128,6 +128,16 @@ c0246) holds the exact range of a part value given as a DSL `Range` (`docs/dsl.m
   read from KiCad without `.fenolite/` has `None`. The unit tables of the DSL arithmetic
   (`quantity.UNIT_PRODUCTS`, `quantity.UNIT_QUOTIENTS`) are in `docs/dsl.md`, "Ranges".
 
+### Native footprint identity and definition selection
+
+`Component.lib_footprint_ref` is the original/native footprint name. An imported physical instance can
+use a distinct local geometry definition without changing that identity (change c0318):
+`footprint_definition_ref: str = ""` selects the KiCad definition to resolve; the PCB header and
+schematic `Footprint` property retain `lib_footprint_ref`. The field is appended, optional and omitted
+when empty; old documents load unchanged and ordinary builds keep their bytes. Empty uses the ordinary
+native/symbol fallback. A nonempty reference also permits an explicitly empty native name. It conveys
+no equivalence, pin mapping or electrical claim. Altium builds refuse this explicit selection.
+
 ## Library definitions
 
 `fenolite.model.library` holds reference data shared by many designs, outside `Design` and outside
@@ -274,6 +284,10 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
   is two arcs. The canonical writer omits `arcs` when it is empty, so a `board.json` written before
   loads unchanged and an outline without arcs keeps its bytes.
   Release 0.2.x cannot read a model document that carries `arcs`: its reader refuses an unknown key.
+- **Outline stroke** (change c0317). `Outline.stroke_width` is an optional nonnegative integer nm width
+  for generated root edge strokes, including cut-outs and slots. `None` keeps the backend default and
+  is omitted from canonical JSON; zero is retained. Older readers without this field refuse a document
+  carrying it. Documents with the field omitted retain their bytes. Footprint edges keep their strokes.
 - **Board slots** (change c0167). `Outline.slots` holds the board's milled slots, in order:
   `OutlineSlot(id, name, center, length, width, rotation)` (prefix `slt`), a non-plated stadium of
   overall `length` (both round ends included) and `width` (positive and even; `length` exceeds it), its

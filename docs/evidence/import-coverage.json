@@ -1,0 +1,346 @@
+{
+  "base_commit": "fbec5cd9e711cc9b50f9b8d393ab8bb1cda48556",
+  "date": "2026-11-02",
+  "measurement_sha256": "c40ba136c8ee4da2d3c3a0fe25cbc1e4d43f857f19860329fcf89db5330c41fd",
+  "rows": [
+    {
+      "counts": {
+        "arcs": 200,
+        "drawings": 189,
+        "nets": 159,
+        "parts": 112,
+        "rule_areas": 1,
+        "tables": 355,
+        "tracks": 1884,
+        "vias": 444,
+        "zones": 13
+      },
+      "id": "kicad-demo-10-0-6-pcb-01",
+      "input_sha256": "123e209e6245cbcc344c1c70b425dcb44a12cd0a2d05f00a39d3f2e7ff307ffa",
+      "measurement_sha256": "b25b6b74deead9d1148c24e2070ae4fbcfe204bf108cdf7ac45ec0eae5d0522e",
+      "unexpressed": []
+    },
+    {
+      "counts": {
+        "arcs": 0,
+        "drawings": 2,
+        "nets": 50,
+        "parts": 68,
+        "rule_areas": 0,
+        "tables": 78,
+        "tracks": 364,
+        "vias": 0,
+        "zones": 1
+      },
+      "id": "kicad-demo-10-0-6-pcb-02",
+      "input_sha256": "d5f4162d4c766448832723d139f9e0fcb88a17c82340f10f6f6dc6c2042f0d69",
+      "measurement_sha256": "adc01817a239904e76099234d47db5f90ccf62a012a163dc12d9cbdcbfcb63a6",
+      "unexpressed": []
+    },
+    {
+      "counts": {
+        "arcs": 0,
+        "drawings": 0,
+        "nets": 9,
+        "parts": 15,
+        "rule_areas": 0,
+        "tables": 8,
+        "tracks": 59,
+        "vias": 0,
+        "zones": 1
+      },
+      "id": "kicad-demo-10-0-6-pcb-03",
+      "input_sha256": "0ab45f4f8c90ac877e3313a1888d875107f2be3fc2b2f40cfb7927873b35260c",
+      "measurement_sha256": "9a69f89aea18682d0ac2dbc427be35081d41b9796c54ea6d9522ad2772658f4f",
+      "unexpressed": []
+    },
+    {
+      "counts": {
+        "arcs": 0,
+        "drawings": 0,
+        "nets": 9,
+        "parts": 15,
+        "rule_areas": 0,
+        "tables": 9,
+        "tracks": 53,
+        "vias": 0,
+        "zones": 1
+      },
+      "id": "kicad-demo-10-0-6-pcb-04",
+      "input_sha256": "9be2caf4c257a93fc2b3904add1061a4d2e23cde502a7846513ae7db6b214c30",
+      "measurement_sha256": "e3226518fe94d94c4363294c065ee856cbc6b43e967e4e0197f82890c1c7c898",
+      "unexpressed": []
+    },
+    {
+      "counts": {
+        "arcs": 0,
+        "drawings": 10,
+        "nets": 110,
+        "parts": 25,
+        "rule_areas": 0,
+        "tables": 221,
+        "tracks": 731,
+        "vias": 84,
+        "zones": 1
+      },
+      "id": "kicad-demo-10-0-6-pcb-05",
+      "input_sha256": "a740ce7fde77ab6af191e23ece21e57d36bb3c29325879248520dcd9ab47b57e",
+      "measurement_sha256": "427a4d6e5ae4df29344192d210a83aaa0ba1f1cecd16adc7fec52d5416ec1785",
+      "unexpressed": []
+    },
+    {
+      "counts": {
+        "arcs": 2316,
+        "drawings": 298,
+        "nets": 883,
+        "parts": 1125,
+        "rule_areas": 28,
+        "tables": 2398,
+        "tracks": 19835,
+        "vias": 3235,
+        "zones": 97
+      },
+      "id": "kicad-demo-10-0-6-pcb-06",
+      "input_sha256": "e61179b68ac151376f5552f91a8acc2aed46f0cc4cd9c771049490735cdbf3f8",
+      "measurement_sha256": "37b15eb63d41a09dc0123ebea36afb53da23c0631033e9ec10044f6aa0e4a7d8",
+      "unexpressed": [
+        {
+          "count": 24,
+          "kind": "dimension-style"
+        },
+        {
+          "count": 6,
+          "kind": "drawing"
+        },
+        {
+          "count": 2,
+          "kind": "rule-area-placement"
+        }
+      ]
+    },
+    {
+      "counts": {
+        "arcs": 0,
+        "drawings": 5,
+        "nets": 209,
+        "parts": 160,
+        "rule_areas": 0,
+        "tables": 550,
+        "tracks": 2935,
+        "vias": 253,
+        "zones": 3
+      },
+      "id": "kicad-demo-10-0-6-pcb-07",
+      "input_sha256": "392cf6bf4b9b62beb435f965ccd7671a46decb17f947b74bfde482acd2132a5e",
+      "measurement_sha256": "74ee4e876a2ce8e24fcb5a49739d1b9d54e664aebda5ee86d5974e7ea722bf42",
+      "unexpressed": []
+    },
+    {
+      "counts": {
+        "arcs": 0,
+        "drawings": 3,
+        "nets": 0,
+        "parts": 4,
+        "rule_areas": 0,
+        "tables": 0,
+        "tracks": 0,
+        "vias": 0,
+        "zones": 0
+      },
+      "id": "kicad-demo-10-0-6-pcb-08",
+      "input_sha256": "7f17191488b51f8782efc0a3b9ce7b5748a4e771ff0babb34ec0369ffcf43be5",
+      "measurement_sha256": "188448ef1d2f55ef1e363e1666eb4df46dfb513f8b4a41c1249e9ddc31cf350c",
+      "unexpressed": []
+    },
+    {
+      "counts": {
+        "arcs": 0,
+        "drawings": 2,
+        "nets": 79,
+        "parts": 114,
+        "rule_areas": 4,
+        "tables": 25,
+        "tracks": 140,
+        "vias": 19,
+        "zones": 1
+      },
+      "id": "kicad-demo-10-0-6-pcb-09",
+      "input_sha256": "149b2dce16e0f59adb78f87068f4137b7dafca0e991a0b21fdd967c873fd5ee9",
+      "measurement_sha256": "32c4771cab9dd010db3bee16b9a4984fdfdf8822d08f4c63f6f470933620c24e",
+      "unexpressed": []
+    },
+    {
+      "counts": {
+        "arcs": 0,
+        "drawings": 2,
+        "nets": 79,
+        "parts": 114,
+        "rule_areas": 4,
+        "tables": 85,
+        "tracks": 576,
+        "vias": 29,
+        "zones": 2
+      },
+      "id": "kicad-demo-10-0-6-pcb-10",
+      "input_sha256": "44b7c119a0d05c98e9f294659879184038a5f6c30073c04d9536990429ca413e",
+      "measurement_sha256": "e9db1f6b243fc0ff2e95ef9b0ba102f69e013483ecb82805b3571ab6ee1fa915",
+      "unexpressed": []
+    },
+    {
+      "counts": {
+        "arcs": 16,
+        "drawings": 55,
+        "nets": 121,
+        "parts": 210,
+        "rule_areas": 3,
+        "tables": 297,
+        "tracks": 1638,
+        "vias": 410,
+        "zones": 34
+      },
+      "id": "kicad-demo-10-0-6-pcb-11",
+      "input_sha256": "a577ba5e2b337c9b827f3c30256161a1893da8303d278fb7db10dba4f02ea810",
+      "measurement_sha256": "770facca7226c0b319802b43253acd00a3318f623e9b84431774f16c3ea54b98",
+      "unexpressed": []
+    },
+    {
+      "counts": {
+        "arcs": 0,
+        "drawings": 19,
+        "nets": 34,
+        "parts": 63,
+        "rule_areas": 0,
+        "tables": 46,
+        "tracks": 370,
+        "vias": 6,
+        "zones": 1
+      },
+      "id": "kicad-demo-10-0-6-pcb-12",
+      "input_sha256": "1ca70b620506818eb0227e2863bbd573d1fec1672072dc43d0dbe8475e69c8fb",
+      "measurement_sha256": "7dfc49c1c21cad8f66750d15a10f228ab70e9c22051a03fbed9f354143755af5",
+      "unexpressed": []
+    },
+    {
+      "counts": {
+        "arcs": 0,
+        "drawings": 72,
+        "nets": 68,
+        "parts": 71,
+        "rule_areas": 0,
+        "tables": 207,
+        "tracks": 943,
+        "vias": 183,
+        "zones": 4
+      },
+      "id": "kicad-demo-10-0-6-pcb-13",
+      "input_sha256": "535dbe212f43a8bab12b23277e176a94ac9694177258af2981c0e7b08e4b7252",
+      "measurement_sha256": "afa1ea21b9522cb51a552dd30090318a32d7a6e18c8fd6154a66bbf879897de8",
+      "unexpressed": []
+    },
+    {
+      "counts": {
+        "arcs": 48,
+        "drawings": 4,
+        "nets": 1,
+        "parts": 2,
+        "rule_areas": 0,
+        "tables": 9,
+        "tracks": 112,
+        "vias": 2,
+        "zones": 0
+      },
+      "id": "kicad-demo-10-0-6-pcb-14",
+      "input_sha256": "cd87e6d1b20fe0d129d9a9c807af3118c67749eff44b1f032d85c047a814c6dc",
+      "measurement_sha256": "3414f39412ebdc09b0c2a93328d745671604f3a4d5b635363fc4ecce61bb0a1e",
+      "unexpressed": []
+    },
+    {
+      "counts": {
+        "arcs": 0,
+        "drawings": 9,
+        "nets": 26,
+        "parts": 25,
+        "rule_areas": 0,
+        "tables": 38,
+        "tracks": 208,
+        "vias": 3,
+        "zones": 1
+      },
+      "id": "kicad-demo-10-0-6-pcb-15",
+      "input_sha256": "d0dee876715fcdd3f656dd6a77cc1141c39bec4d6f8492a3784d38edd6b9a998",
+      "measurement_sha256": "421c604ed82afa2185819ceba15b66fb6c5c04810c72112d33c86906afc63d1d",
+      "unexpressed": []
+    },
+    {
+      "counts": {
+        "arcs": 0,
+        "drawings": 573,
+        "nets": 108,
+        "parts": 309,
+        "rule_areas": 0,
+        "tables": 372,
+        "tracks": 2143,
+        "vias": 405,
+        "zones": 2
+      },
+      "id": "kicad-demo-10-0-6-pcb-16",
+      "input_sha256": "0d26bf9b6d561e32cf610d428541d6433e60b45e1838f34f73467e25b9144814",
+      "measurement_sha256": "bd95cd2385244a536e71b3b147e60e785c1542f973b7f5c2948d4324e61effdd",
+      "unexpressed": []
+    },
+    {
+      "counts": {
+        "arcs": 0,
+        "drawings": 17,
+        "nets": 371,
+        "parts": 189,
+        "rule_areas": 0,
+        "tables": 982,
+        "tracks": 7932,
+        "vias": 808,
+        "zones": 2
+      },
+      "id": "kicad-demo-10-0-6-pcb-17",
+      "input_sha256": "f620675158ddd5c61e5ce9e15f4c92b230ae1df1cbcec6c502b8ce266e4007ea",
+      "measurement_sha256": "214de6c71bf25c1f7ac22cea25fa62824f2002d17072c1d40f60821dd668e057",
+      "unexpressed": []
+    },
+    {
+      "counts": {
+        "arcs": 1792,
+        "drawings": 1486,
+        "nets": 1338,
+        "parts": 1508,
+        "rule_areas": 5,
+        "tables": 4097,
+        "tracks": 24853,
+        "vias": 4374,
+        "zones": 123
+      },
+      "id": "kicad-demo-10-0-6-pcb-18",
+      "input_sha256": "1c76ac238b04babc238d2d50585858988fb3f6c4f8d0fbacc738cfe4862fff5b",
+      "measurement_sha256": "26f585bf8ecec719253105555819079ed2eeabf78e4500de32e4d3941a25a6fb",
+      "unexpressed": [
+        {
+          "count": 10,
+          "kind": "text"
+        },
+        {
+          "count": 5,
+          "kind": "zero-length-track"
+        },
+        {
+          "count": 6,
+          "kind": "zone-name"
+        },
+        {
+          "count": 1,
+          "kind": "zone-setting"
+        }
+      ]
+    }
+  ],
+  "schema": "fenolite.import-coverage.v0",
+  "tool_sha256": "c603ae4d932eefedba6655974ada60dc965386d3ed0c8c086fd9df898a5d4c6b",
+  "verification": "emission-only"
+}

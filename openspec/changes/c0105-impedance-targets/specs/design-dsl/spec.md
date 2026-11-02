@@ -2,6 +2,12 @@
 
 ### Requirement: Impedance targets in the DSL
 `design.rules.impedance(name, *, ohms, netclass=None, pair=None, layers, tolerance=None, priority=1)` SHALL declare one impedance target, and `fenolite.dsl.impedance.trace(layer, *, refs, width, gap=None)` SHALL give one layer of it; `fenolite.dsl` SHALL re-export `trace` (an addition under "DSL package").
+
+#### Scenario: Detailed contract for impedance targets in the dsl
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`design.rules.impedance(name, *, ohms, netclass=None, pair=None, layers, tolerance=None, priority=1)` SHALL declare one impedance target, and `fenolite.dsl.impedance.trace(layer, *, refs, width, gap=None)` SHALL give one layer of it; `fenolite.dsl` SHALL re-export `trace` (an addition under "DSL package").
 - **At the call**, `DslError` MUST be raised and nothing recorded for: a `name` that is not a non-empty string or is already used by `impedance()`; an `ohms` that is not a `Quantity` of unit ohm, a positive `int` or the text of a positive decimal number (a `float` is refused); a `tolerance` that is not a positive `int` or decimal text below 100; both or neither of `netclass` and `pair`; empty `layers`, or an item that is not a `trace()`; one layer twice; `refs` that is not one name or two distinct names, or that holds the layer; a `width` or `gap` that is not a length above 0; a `gap` on some traces only; a `pair` with a trace without `gap`; a `priority` that is not an integer of 0 or more.
 - `netclass` MUST be a class name or a sequence of names. `pair` MUST be a `DiffPair` or `USB2` interface ("Typed interfaces in the DSL"), or a sequence of them. The target is `differential` when its traces carry a gap and `single` otherwise.
 - **In `to_model`**, the classes MUST be the named ones, or the class of each pair's two nets; a name that is no class of the design, or a pair whose nets are in two classes or in none, MUST raise `DslError` naming them.
@@ -38,6 +44,12 @@
 - **THEN** `DslError` is raised naming the pair, `A` and `B`
 
 ### Requirement: Impedance targets in a build
+A build SHALL check the impedance targets of the design after the parts are resolved, as "Built project files" allows for added steps of `build_design`, with `lens.build.impedance_checks(design, *, target)`, and SHALL report these six codes, which join the closed build set ("Build issue codes"); each MUST have a table in `src/fenolite/cli/data/explain.toml`:
+
+#### Scenario: Detailed contract for impedance targets in a build
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 A build SHALL check the impedance targets of the design after the parts are resolved, as "Built project files" allows for added steps of `build_design`, with `lens.build.impedance_checks(design, *, target)`, and SHALL report these six codes, which join the closed build set ("Build issue codes"); each MUST have a table in `src/fenolite/cli/data/explain.toml`:
 
 | code | severity | when |

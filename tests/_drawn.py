@@ -19,17 +19,20 @@ from _buildhelp import build as build_design_of
 import fenolite.cli.main as cli_main
 from fenolite.api.sides import read_side
 from fenolite.backends.kicad import drawn as kdrawn
-from fenolite.backends.kicad import sch
+from fenolite.backends.kicad import sch, symembed
 from fenolite.backends.kicad.schlayout import pin_point
+from fenolite.backends.kicad.sexpr import Atom, Node, parse
 from fenolite.backends.kicad.sym import read_symbol_library
+from fenolite.core.coords import Point
+from fenolite.core.ids import derived_id
 from fenolite.dsl import Design, to_model
 from fenolite.lens.build import BuildOutput
 from fenolite.lens.drawn import read_drawn, write_drawn
 from fenolite.model.circuit import Circuit
-from fenolite.model.drawn import DrawnSchematic, DrawnSheet
+from fenolite.model.drawn import DrawnLabel, DrawnLabelKind, DrawnSchematic, DrawnSheet
 from fenolite.model.drawn_connect import DrawnNetlist, PinKey, PinPoint, component_path, resolve
 from fenolite.model.library import SymbolDef
-from fenolite.model.schematic import SchematicSheet
+from fenolite.model.schematic import SchematicSheet, SymbolInstance
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "data" / "drawn"
@@ -56,6 +59,74 @@ def text(name: str) -> str:
 
 def drawn(name: str) -> DrawnSchematic:
     return read_drawn(text(name), file="schematic.toml")
+
+
+def slash_aliases(kind: DrawnLabelKind = "local") -> tuple[Design, DrawnSchematic]:
+    """Two disjoint authored wire islands with native aliases for one net (H-K-SCH-SLASH)."""
+    code = design("flat")
+    net = code.nets.pop("SDA")
+    net.name = "A/B"
+    code.nets[net.name] = net
+    value = drawn("flat")
+    positions = pins(value, "flat")
+    root = value.sheets[0]
+    index = {symbol.part: k for k, symbol in enumerate(root.symbols)}
+    first = next(pin.at for pin in positions[(root.key, "symbol", index["U1"])] if pin.number == "17")
+    second = next(pin.at for pin in positions[(root.key, "symbol", index["R1"])] if pin.number == "1")
+    first_end = dataclasses.replace(first, x=first.x + 2_540_000)
+    second_end = dataclasses.replace(second, x=second.x + 2_540_000)
+    shape = "" if kind == "local" else "input"
+    root = dataclasses.replace(
+        root,
+        wires=((first, first_end), (second, second_end)),
+        junctions=(),
+        labels=(DrawnLabel(kind, "A/B", first_end, shape=shape),
+                DrawnLabel(kind, "A{slash}B", second_end, shape=shape)),
+    )  # fmt: skip
+    return code, dataclasses.replace(value, sheets=(root,))
+
+
+def excluded_passive(sheet: SchematicSheet, target: int, *, defect: str = "") -> Node:
+    """Append an authored native passive instance excluded from board and BOM (H-K-EQ-SCHSIDE)."""
+    base = library()["Mini:Mini_R"]
+    definition = SymbolDef(
+        id=derived_id("sym", "authored", "excluded-passive"),
+        name="AuthoredPassive",
+        library="Mini",
+        properties={"Reference": "R", "Value": "EXCLUDED"},
+        pins=tuple(dataclasses.replace(pin, etype="input" if defect == "active" else pin.etype,
+                                       hidden=defect == "hidden") for pin in base.pins),
+        graphics=base.graphics,
+    )  # fmt: skip
+    instance = SymbolInstance(
+        id=derived_id("sci", "authored", "excluded-passive"),
+        lib_ref=definition.lib_id,
+        position=Point(50_800_000, 101_600_000),
+        ref="R9",
+        value="EXCLUDED",
+        in_bom=defect == "in_bom",
+        on_board=defect == "on_board",
+        dnp=True,
+        properties={"Reference": "R9", "Value": "EXCLUDED", "Footprint": "", "Datasheet": ""},
+    )
+    embedded = symembed.embed_symbol(definition, target=target)
+    created = SchematicSheet(id=derived_id("sch", "authored", "excluded-passive"), name="excluded",
+                             lib_symbols=(embedded.definition,), symbols=(instance,))  # fmt: skip
+    authored = parse(sch.write_schematic(created, target=target).text)
+    native = authored.nodes("symbol")[0]
+    authored_library = authored.find("lib_symbols")
+    assert authored_library is not None
+    definitions = authored_library.nodes("symbol")
+    if defect == "power":
+        # An authored native power marker, independently of the authored-library synthesis path.
+        definition_node = definitions[0]
+        power = Node(Atom.symbol("power"), (Atom.symbol("global"),) if target >= 10 else ())
+        definitions = (definition_node.with_children((*definition_node.children, power)),)
+    root = sch.rebuild_schematic(sheet)
+    symbols = root.find("lib_symbols")
+    assert symbols is not None
+    added = symbols.with_children((*symbols.children, *definitions))
+    return root.with_children((*(added if c is symbols else c for c in root.children), native))
 
 
 def build(name: str, target: int = 10, value: DrawnSchematic | None = None, **kwargs: object) -> BuildOutput:
@@ -147,7 +218,7 @@ def resolved(output: BuildOutput) -> tuple[DrawnSchematic, DrawnNetlist, Circuit
     found = kdrawn.extract_with_pins(
         root, children, components=kdrawn.refs_to_paths(circuit), root_file=root_name(output)
     )
-    return found.drawn, resolve(found.drawn, found.pins), circuit
+    return found.drawn, kdrawn._resolve_extracted(found), circuit
 
 
 def cli_build(script: Path, out: Path, *extra: str) -> tuple[int, dict[str, Any]]:

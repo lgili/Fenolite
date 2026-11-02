@@ -275,10 +275,13 @@ q.pin("8", "V+", etype="power_in", at=("0mm", "7.62mm"), length="2.54mm", rotati
 - `Symbol.from_pins(table, *, library, footprint="", fp_filters=())` returns a finished `Symbol` whose
   definition is the generator's output; calling `pin()` on it raises `DslError` (a generated symbol is
   changed in its table, not in code). The DSL reads no file: `read_pins` belongs to `fenolite.catalog`.
-- **Devices.** When a c0259 device record names `pins` and no `symbol`, the catalog generates the symbol
-  under the device's namespace and name, with `Footprint` and `ki_fp_filters` from the device's package,
-  and the device uses it. A device with both keeps its named symbol and c0262 checks that its pins agree
-  with the table.
+- **Devices (integration decided 2026-11-01).** The final c0259 spelling is `symbol`, naming a pins
+  record. When that record has a pin table without an explicit drawing or imported `symbol_file`, the
+  catalog generates a symbol under the device's namespace and name, with `Footprint` equal to the
+  package id and `ki_fp_filters` equal to its package name. Each device gets its own definition, so two
+  packages sharing a table do not overwrite each other's properties. The authored device record and
+  pin-table evidence remain unchanged; only the resolved build definition uses the generated id.
+  Explicit drawings and imported symbol files keep their existing identity and precedence.
 - **CLI.**
 
   ```

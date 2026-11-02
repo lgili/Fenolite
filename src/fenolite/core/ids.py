@@ -25,6 +25,9 @@ PREFIXES: frozenset[str] = frozenset(
         "cmp", "pin", "net", "cls", "itf", "mod", "bus", "prt",  # circuit (prt: block ports, change c0251)
         "brd", "lay", "stk", "sly", "fp", "pad", "pst", "trk", "arc", "via",  # board
         "zon", "kpo", "txt", "gfx", "hol", "out", "slt", "dim",  # board (slt: milled slots, change c0167)
+        "grp",  # board groups (change c0277)
+        "vbt",  # verbatim items (change c0277)
+        "img",  # board images (change c0277)
         "fld",  # footprint fields
         "bdy",  # component bodies
         "rst", "rul", "imp", "top",  # rules (top: ordered signal topologies)

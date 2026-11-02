@@ -174,4 +174,22 @@ Exit 3 with `FEN-3007` means a file is kept only online: ask the owner to make t
   drawing documents still held absolute paths to the old folder, so the new release printed the old
   board.
 
+## Exact technical rows
+
+`board(technical_layers=None)` keeps the standard table. To copy a board without unused Eco rows:
+
+```fenolite-design
+from fenolite.dsl import Design, mm
+design = Design("short_layers")
+design.board(mm(20), mm(10), technical_layers=(
+    "F.Adhes", "B.Adhes", "F.Paste", "B.Paste", "F.SilkS", "B.SilkS",
+    "F.Mask", "B.Mask", "Dwgs.User", "Cmts.User", "Edge.Cuts", "Margin",
+    "F.CrtYd", "B.CrtYd", "F.Fab", "B.Fab",
+))
+```
+
+Names are closed and unique; `Edge.Cuts` is required. Declare `User.n` separately with `user_layers()`.
+A drawing, pad, field or image on an omitted layer refuses the build. Strict import emits this option
+when needed; unknown layers still refuse. Compare the rebuilt table before confirming a conversion.
+
 Read next: `board-review`, `files`, `recovery`.

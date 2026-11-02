@@ -501,6 +501,7 @@ def _merge_issue(code: str, message: str, where: str, hint: str = "") -> Issue:
 def _compared(zone: Zone, nets: Mapping[str, str]) -> dict[str, object]:
     return {
         "outline": zone.outline,
+        "arcs": zone.arcs,
         "layers": zone.layers,
         "net": nets.get(zone.net_id or "", ""),
         "priority": zone.priority,

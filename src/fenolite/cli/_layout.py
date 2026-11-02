@@ -91,7 +91,7 @@ def footprint_definitions(
     found: dict[str, FootprintDef] = {}
     resolver: LibraryResolver | None = None
     for component in sorted(model.circuit.components, key=_component_path):
-        lib_ref = component.lib_footprint_ref
+        lib_ref = component.footprint_definition_ref or component.lib_footprint_ref
         if not lib_ref:
             continue
         defn = authored.get(lib_ref)
@@ -707,8 +707,10 @@ def plan_layout(
     components = {_component_path(c): c for c in model.circuit.components}
     for path, defn in defs.items():
         component = components.get(path)
-        if component is not None and component.lib_footprint_ref:
-            by_lib.setdefault(component.lib_footprint_ref, defn)
+        if component is not None:
+            lib_ref = component.footprint_definition_ref or component.lib_footprint_ref
+            if lib_ref:
+                by_lib.setdefault(lib_ref, defn)
     sources: dict[str, object] = {}
     for path in layouts:
         made = design.modules[path]

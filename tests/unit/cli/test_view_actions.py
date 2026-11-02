@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from _view_conflict import build_conflict
 
 from fenolite.cli import cmd_view
 from fenolite.cli import main as cli_main
@@ -41,12 +42,16 @@ class _Served:
         tmp_path: Path,
         source: Path | None = None,
         extra: tuple[str, ...] = (),
+        *,
+        copy_source: bool = True,
     ) -> None:
         self.folder = tmp_path / "project"
         if source is None:
             self.folder.mkdir()
             self.board = self.folder / BOARD.name
             shutil.copy(BOARD, self.board)
+        elif not copy_source:
+            self.folder, self.board = source.parent, source
         else:  # a built project: its folder, its model and its project file (change c0280)
             shutil.copytree(source.parent, self.folder)
             self.board = self.folder / source.name
@@ -205,6 +210,65 @@ def test_file_changed_after_the_review(served: _Served) -> None:
     assert done["exit"] == 4 and done["error"]["code"] == "FEN-4002", done
     assert done["review_again"] is True
     assert _sha(served.board) == rewritten
+
+
+def test_workbench_take_confirm_and_scoped_undo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    script, board, reply, _ = build_conflict(tmp_path / "authoring", major=9)
+    before = _sha(board)
+    lock_before = _sha(script.with_suffix(".lock"))
+    base_file = board.parent / "fenolite-base.json"
+    base_before = base_file.read_bytes()
+    served = _Served(monkeypatch, tmp_path, board, ("--check", str(reply), "--edit"), copy_source=False)
+    with served:
+        scene = served.get("/scene/doc1.json")
+        index = next(i for i, row in enumerate(scene["check"]["findings"]) if row["where"] == "R1#value")
+        plan = served.plan("take", finding=index, side="cad")
+        assert plan["state"] == "done" and plan["plan"]["confirmable"], plan
+        reviewed = plan["plan"]
+        assert reviewed["source_context"]["root"] == str(script.parent)
+        assert reviewed["source_context"]["cwd"] == str(board.parent)
+        assert str(script) in [row["path"] for row in reviewed["inputs"]]
+        assert any(Path(row["path"]).resolve() == script.with_suffix(".lock") for row in reviewed["writes"])
+        assert _sha(board) == before and _sha(script.with_suffix(".lock")) == lock_before
+        done = served.confirm(plan)
+        assert done["state"] == "done" and done["exit"] == 0, done
+        assert script.with_suffix(".lock").is_file()
+        assert _sha(board) == before  # taking CAD preserves its already-edited value
+        assert _sha(script.with_suffix(".lock")) != lock_before and base_file.read_bytes() != base_before
+        assert json.loads(base_file.read_text())["parts"]["R1"]["value"] == {"code": "470", "out": "4k7"}
+        updated = served.get("/scene/doc1.json")
+        assert not any(row["code"] == "sync.conflict" for row in updated["check"]["findings"])
+        code, started = served.post("/action/undo", {"receipt": done["receipt"]["id"]})
+        assert code == 202, started
+        undo = served.job(started["job"])
+        assert undo["plan"]["confirmable"], undo
+        restored = served.confirm(undo)
+        assert restored["state"] == "done" and restored["exit"] == 0, restored
+        assert _sha(board) == before and _sha(script.with_suffix(".lock")) == lock_before
+        assert base_file.read_bytes() == base_before
+
+
+def test_workbench_refuses_changed_source_and_reviewed_input(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    script, board, reply, _ = build_conflict(tmp_path / "authoring")
+    before = _sha(board)
+    lock_before = _sha(script.with_suffix(".lock"))
+    served = _Served(monkeypatch, tmp_path, board, ("--check", str(reply)), copy_source=False)
+    with served:
+        scene = served.get("/scene/doc1.json")
+        index = next(i for i, row in enumerate(scene["check"]["findings"]) if row["where"] == "R1#value")
+        plan = served.plan("take", finding=index, side="code")
+        assert plan["plan"]["confirmable"], plan
+        script.write_text(script.read_text() + "\n# Authored edit after plan review.\n")
+        done = served.confirm(plan)
+        assert done["exit"] == 4 and done["error"]["code"] == "FEN-4002", done
+        assert done["review_again"] is True
+        code, refused = served.post(
+            "/action/plan", {"action": "take", "doc": "doc1", "options": {"finding": index, "side": "code"}}
+        )
+        assert code == 400 and "changed" in refused["error"]
+        assert _sha(board) == before and _sha(script.with_suffix(".lock")) == lock_before
 
 
 def test_move_shift_and_turn_preview_one_moved_part(served: _Served) -> None:

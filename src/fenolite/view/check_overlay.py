@@ -27,6 +27,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
 from fenolite.core.errors import FormatError
+from fenolite.view import conflicts
 
 SEVERITY_ORDER = {"error": 0, "warning": 1, "info": 2}
 STAGE_OF = (
@@ -270,6 +271,7 @@ def overlay(
             stages[str(stage.get("name"))] = stage
     default = _label(reply.get("evidence"))
     findings: list[dict[str, Any]] = []
+    conflict_rows = conflicts.records(reply)
     subject_rows = cast("dict[str, Any]", reply.get("result") or {}).get("subjects", [])
     subjects_by_issue: dict[int, list[dict[str, Any]]] = {}
     if isinstance(subject_rows, list):
@@ -365,6 +367,7 @@ def overlay(
                 "box": box,
             }
             | ({"commands": commands} if commands else {})
+            | ({"conflict": conflict_rows[where]} if code == CONFLICT and where in conflict_rows else {})
         )
     findings.sort(key=lambda f: (SEVERITY_ORDER.get(f["severity"], 3), f["code"]))
     counts = {severity: sum(1 for f in findings if f["severity"] == severity) for severity in SEVERITY_ORDER}

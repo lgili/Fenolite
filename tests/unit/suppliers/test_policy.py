@@ -16,10 +16,10 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_policies_equal_their_review_pages() -> None:
-    sources = (ROOT / "docs/evidence/sources.md").read_text()
+    sources = (ROOT / "docs/evidence/sources.md").read_text(encoding="utf-8")
     for name in POLICIES:
         policy = policy_for(name)
-        page = (ROOT / f"docs/formats/suppliers/{name}.md").read_text()
+        page = (ROOT / f"docs/formats/suppliers/{name}.md").read_text(encoding="utf-8")
         block = re.search(r"```toml\n(.*?)```", page, re.DOTALL)
         assert block is not None
         data = tomllib.loads(block.group(1))
@@ -41,16 +41,16 @@ def test_policies_equal_their_review_pages() -> None:
 
 
 def test_fixtures_are_authored_and_registered() -> None:
-    manifest = tomllib.loads((ROOT / "tests/data/MANIFEST.toml").read_text())
+    manifest = tomllib.loads((ROOT / "tests/data/MANIFEST.toml").read_text(encoding="utf-8"))
     registered = {row["path"] for row in manifest["file"]}
     for path in (ROOT / "tests/fixtures/suppliers").rglob("*.json"):
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         assert data["_fixture"]["SPDX-License-Identifier"] == "CC0-1.0"
         assert "Authored for Fenolite" in data["_fixture"]["authored"]
         sidecar = path.with_suffix(".source.toml")
-        source = tomllib.loads(sidecar.read_text())
+        source = tomllib.loads(sidecar.read_text(encoding="utf-8"))
         assert source["origin"] == "authored" and source["licence"] == "CC0-1.0"
-        assert source["source"] in (ROOT / "docs/evidence/sources.md").read_text()
+        assert source["source"] in (ROOT / "docs/evidence/sources.md").read_text(encoding="utf-8")
         assert (
             path.relative_to(ROOT).as_posix() in registered
             and sidecar.relative_to(ROOT).as_posix() in registered

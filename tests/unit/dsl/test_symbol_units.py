@@ -14,7 +14,7 @@ from _schbuild import sheet_of
 from fenolite.backends.kicad.sym import read_symbol_library, write_symbol_library
 from fenolite.catalog.generate.symbol import generate_symbol
 from fenolite.catalog.pins import read_pins
-from fenolite.dsl import Design, DslError, Symbol, mm, placements, to_model
+from fenolite.dsl import Design, DslError, Footprint, Symbol, mm, placements, to_model
 from fenolite.lens.build import BuildOutput, build_design
 
 PINS = Path(__file__).resolve().parents[2] / "data" / "pins"
@@ -106,17 +106,22 @@ def test_hidden_alternates_and_refusals() -> None:
 
 
 def _authored_build(*symbols: object, lib_id: str, by_name: bool = False) -> BuildOutput:
-    if by_name:  # R1 connected by pin names of the generated regulator: BST and GND (pins 2 and 7)
+    if by_name:  # BST is pin 1; GND includes both its primary 2 and stacked 7.
         from _buildhelp import BLINK, blink_text
 
         scope: dict[str, object] = {"__name__": "design"}
-        text = blink_text().replace("r1[1]", 'r1["BST"]').replace("r1[2]", 'r1["GND"]')
-        text = text.replace(
-            'footprint="Mini:Mini_R_0603", value="330"', 'footprint="Mini:Mini_QFP-32_7x7mm_P0.8mm"'
-        )
+        line = "series(led_drv, r1, led_a, (d1.b, d1.a), gnd)"
+        assert line in blink_text()
+        text = blink_text().replace(line, 'series(led_drv, (r1["BST"], r1["GND"]), led_a, (d1.b, d1.a), gnd)')
+        text = text.replace('footprint="Mini:Mini_R_0603", value="330"', 'footprint="Example:Regulator7"')
         exec(compile(text, str(BLINK), "exec"), scope)  # noqa: S102 - our own example
         design = scope["design"]
         assert isinstance(design, Design)
+        # Authored temporary definition matching the illustrative seven-pad pin table.
+        package = Footprint("Example", "Regulator7")
+        for number in range(1, 8):
+            package.pad(str(number), at=(mm(number), mm(0)), size=(mm("0.5"), mm("0.5")))
+        design.add_footprint(package)
     else:
         design = blink()
     design.add(*symbols)
@@ -127,6 +132,7 @@ def _authored_build(*symbols: object, lib_id: str, by_name: bool = False) -> Bui
         name=design.name,
         copper=2,
         resolver=resolver(10),
+        authored_footprints={key: fp.definition for key, fp in design.footprints.items()},
         authored_symbols={key: s.definition for key, s in design.symbols.items()},  # type: ignore[attr-defined]
     )
 
@@ -166,8 +172,8 @@ def test_derived_needs_its_base_in_the_design() -> None:
 
 def test_generated_symbol_in_a_design() -> None:
     table = read_pins(PINS / "example_buck.toml")
-    u = Symbol.from_pins(table, library="Example", footprint="Mini:Mini_R_0603")
-    expected = generate_symbol(table, library="Example", footprint="Mini:Mini_R_0603")
+    u = Symbol.from_pins(table, library="Example", footprint="Example:Regulator7")
+    expected = generate_symbol(table, library="Example", footprint="Example:Regulator7")
     assert u.definition == expected[0]
     assert [v.definition for v in u.variants] == list(expected[1]) and u.generated and u.issues == ()
     for call in (
@@ -182,6 +188,13 @@ def test_generated_symbol_in_a_design() -> None:
     output = _authored_build(u, *u.variants, lib_id="Example:EXB6202", by_name=True)
     assert not [i for i in output.issues if i.severity == "error"], [i.message for i in output.issues]
     assert not [i for i in output.issues if i.code == "build.unknown-pin"]
+    assert not [i for i in output.issues if i.code == "build.pad-without-pin"]
+    assert output.design.board is not None
+    component = output.design.by_ref["R1"]
+    footprint = next(fp for fp in output.design.board.footprints if fp.component_id == component.id)
+    nets = {pad.number: pad.net_id for pad in footprint.pads}
+    assert set(nets) == {str(n) for n in range(1, 8)}
+    assert nets["2"] is not None and nets["2"] == nets["7"]
     library = output.files["lib/Example.kicad_sym"].decode("utf-8")
     assert library == write_symbol_library([u.definition, *(v.definition for v in u.variants)], target=10)
     assert output.summary["libraries"]["Example:EXB6202"] == "authored"  # type: ignore[index]

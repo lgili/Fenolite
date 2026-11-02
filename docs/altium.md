@@ -788,6 +788,7 @@ item, with `altium.not-lowered` (info) and `where` `<kind>/<id>`:
 | a text with a `justify` | not written: the text record has no key for a justification, and a centred text would be at another place | the text and its justification (`text/<id>`) |
 | a line, rectangle, circle, arc or polygon | a graphic, as before | as before |
 | a dimension | not written: the document has no dimension record | the dimension (`dimension/<id>`); `result.pcb.not_lowered` holds `dimension` |
+| a group (`design.group`, change c0277) | not written: the document has no group record, and its members are written alone | the group by its name (`group/<id>`) |
 
 - A rule whose selector holds `select.area(...)` has no scope in the rule records: it is not written and
   gives the `altium.not-lowered` warning of this section with the reason `scope-unsupported`
@@ -1404,6 +1405,20 @@ never stops an import.
 The backend's report and every read stay `INFERRED` while any `H-A-IMP-*` row of `docs/hypotheses.md` is
 (the lowest wins).
 
+## Drawn source
+
+`design.load_schematic("schematic.toml")` selects native drawn sheets for `build --target altium`.
+The writer carries the supported geometry in ASCII or binary and checks actual native coverage,
+physical pin maps and logical connectivity before staging and after templates. Compatible unit aliases
+carry their own bodies and library entries; changed alias files invalidate reviewed plans. Repeated
+instances become separate files, and Automatic/Global scope may qualify shared local labels, with
+reported text changes. Unsupported metadata remains explicit in the findings.
+
+Edit this drawing in `schematic.toml`; Altium-to-drawn sync is unavailable. The output stays
+**INFERRED** pending the native compile/save kit; the maintainer reports Altium unavailable.
+See `docs/drawn-schematic.md` for the pose/metadata limits and `docs/evidence/altium-schematic.md`
+for the concrete kit and its pending gate.
+
 ## Round trips
 
 Four levels say how far a reading, a build or a rewrite of Altium files can be trusted (changes c0044
@@ -1497,6 +1512,8 @@ Fields of these kinds that the scope leaves out, and why:
 | `component` | `path` | the reader maps it elsewhere: an imported path is built from the sheet names |
 | `component` | `pins` | the writer writes a fixed value: the pins of the body it draws, whose ids and, for a generic body, names are its own |
 | `component` | `value_range` | the writer does not write it (it stays in `.fenolite/circuit.json`, change c0246) |
+| `component` | `board_only` | the writer does not write it: a board-only part (change c0277) is written as any other component, and the KiCad attribute has no Altium record |
+| `component` | `footprint_definition_ref` | the writer does not write it: this selects a KiCad geometry definition (c0318); an Altium build refuses a nonempty override before writing |
 | `net` | `netclass_id` | the reader maps it elsewhere: a class is a record of the PCB document, and a schematic reading holds none |
 | `netclass` | `clearance`, `track_width`, `via_diameter`, `via_drill` | the reader maps it elsewhere: the values are written as design rules and read as rules |
 | `netclass` | `description` | the writer does not write it |
@@ -1506,6 +1523,7 @@ Fields of these kinds that the scope leaves out, and why:
 | `footprint` | `locked` | the writer does not write it from the model: the lock comes with the placement request |
 | `footprint` | `anchor` | the writer does not write it: authoring intent metadata stays in the neutral model |
 | `footprint` | `attributes` | the writer does not write it |
+| `footprint` | `models`, `overrides` | the writer does not write it: instance model references and footprint-level overrides stay in the neutral model and give `altium.not-lowered` (change c0277); the separately compared extruded `bodies` do not represent these settings |
 | `footprint` | `pads` | the reader maps it elsewhere: pads are the kind `pad` |
 | `footprint` | `graphics` | the reader maps it elsewhere: graphics are the kind `footprint_graphic` |
 | `footprint` | `fields`, `texts` | written and not compared: the write of a model writes the fields `Reference` and `Value` at their place and the free texts as texts of the component (change c0126), but a build places the designator and the comment itself and its stored board holds no field for them; their read-back is covered by unit tests (`tests/unit/backends/altium/test_lower_items.py`) |
@@ -1515,14 +1533,21 @@ Fields of these kinds that the scope leaves out, and why:
 | `pad` | `zone_connection` | the writer does not write it |
 | `pad` | `fab_property` | the writer does not write it: no public source says where an Altium pad record holds a fabrication mark, and the build names the marked footprints in one `altium.not-lowered` info (change c0118) |
 | `pad` | `mask_margin`, `paste_margin` | the writer does not write it: the import reads a pad's openings by its kind and its expansion (`H-A-CONV-PADMASK`, change c0223), and the writer leaves Altium's rules to give them |
+| `pad` | `teardrop` | the writer does not write it: no public source says where an Altium pad record holds teardrop settings (change c0277) |
+| `pad` | `die_delay_fs` | the writer does not write it: the neutral delay has no measured native Altium time-token mapping (change c0258) |
+| `pad` | `trapezoid_delta`, `chamfer_ratio`, `chamfer_corners`, `anchor_shape`, `primitives` | the writer does not write it: trapezoid and custom pads, active chamfers and custom primitives remain refused rather than approximated (change c0277); their shape details are outside this scope |
 | `via` | `layers` | the writer writes a fixed value: only through vias are written |
 | `via` | `protection` | the writer writes a fixed value for a tenting side that neither the via nor the board default states (a clear flag, read back as `False`), and nothing for covering, plugging, capping and filling: a `None` has no Altium form, so a written and re-read model differs from the original where a side is stated nowhere (c0112). Stated tenting is written and read back, and a test of c0112 proves it |
 | `via` | `via_type` | the writer writes a fixed value: only through vias are written |
+| `via` | `teardrop` | the writer does not write it: no public source says where an Altium via record holds teardrop settings (change c0277) |
+| `via` | `free` | the writer does not write it: KiCad's free via has no Altium record (change c0277) |
+| `footprint_graphic` | `net_id` | the writer does not write it: a footprint graphic holds no net, and a board graphic of a net (change c0277) is lowered without it |
 | `zone` | `name` | the writer writes a fixed value for a zone without a name: a generated one |
 | `zone` | `priority` | the reader maps it elsewhere: the priority is written as the pour order |
 | `zone` | `fills`, `filled` | the writer does not write it: the poured copper is Altium's to compute |
 | `zone` | `settings` | the writer does not write it |
 | `zone` | `locked` | the writer does not write it |
+| `zone` | `arcs` | the writer writes a fixed value: a region holds no arc, so an arc edge is written as segments and the zone is counted as changed (change c0277) |
 | `hole` | `intent` | the writer does not write it: the mechanical intent of a hole stays in the neutral model |
 
 **Holes and cut-outs** (change c0168). A board hole is compared by its position, drill, plating, slot
@@ -1854,6 +1879,38 @@ and conflicting pin memberships are described in `docs/conversion.md`, "KiCad to
 The writers use DIFAT sectors for large compound documents. Altium opening, compile, repour, DRC,
 ECO and library placement checks are Part T in `docs/evidence/altium-pcb.md`; they remain unverified
 until the maintainer reports the actual outcomes.
+
+## Draftsman document
+
+`fenolite build DESIGN.py --out DIR --target altium --altium-draftsman on [--drawing-spec FILE]`
+requests `<name>.PCBDwf`. The drawing specification is the unchanged `fenolite.drawing-spec.v0` of
+[KiCad drawings](drawings.md). The default is `off`; without a document every generated file keeps its
+previous bytes. `--drawing-spec` requires `--altium-draftsman on`; both options require the Altium target.
+Unreadable or malformed specifications are input errors, and reviewed plans bind their exact digest.
+
+The native gate is **closed**. `altium.draftsman-not-written` states the reason, no `.PCBDwf` is planned,
+and `result.draftsman` is null. No command option bypasses the gate. The maintainer reports on
+2026-11-01 that Altium Designer is unavailable, so no F0 save or native probe is inferred.
+
+The candidate writer, exercised with test-only gate overrides, writes measured sheets, parameter Texts,
+Notes, assembly/drill views, a Drill Table, a Layer Stack Legend and a BOM shell. C0117's pure packing
+places them at 1:1 with estimated table sizes. Only populated requested assembly sides are included.
+The generic board rows are Texts: native generic Table and dimensions await F0. Exact table filtering,
+data refresh and the relative PCB binding also await the native probes. Every deferred member is
+reported with `altium.not-lowered`; DNP parts remain fitted. Own readback is `INFERRED`.
+
+With the gate on in a test, the project lists the drawing after the output job, title-block fields become
+`[Parameter<n>]`, and the job gains a `PCBDrawing` output enabled for its PDF container. A kept edited
+project is preserved; `altium.draftsman-not-listed` names a missing listing. A project still identical
+to the prior build can be relisted. Changed output files follow the normal reviewed-plan/backup rules.
+`result.draftsman` then holds `file`, per-sheet `sheets`, `not_lowered`, and `spec` (given path and SHA-256).
+
+[Part F](evidence/altium-draftsman.md#part-f-draftsman-documents) has reproducible observation, probe and
+candidate acceptance kits. FP1/FP2 need the actual F0.3 control; the independent FP3/FP4/FP5 are ready.
+No gate has failed or passed. Route T (a document template) or route P (project parameters and a manual
+document procedure) is chosen only after the corresponding actual failed probe. Meanwhile create a
+document from an Altium template whose title block reads the project parameters, then use Import Changes
+and the native PDF/output-job flow; these are instructions for a future native session, not measured outcomes.
 
 ## Panels (change c0173)
 

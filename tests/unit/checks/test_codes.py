@@ -58,6 +58,7 @@ TABLE = {
     "copper.rules-incomplete": ("warning",),
     "copper.item-unsupported": ("warning",),
     "copper.clearance-unset": ("info",),
+    "copper.text-unchecked": ("info",),  # change c0277
     "copper.edge-clearance": ("error", "warning"),
     "copper.hole-in-cutout": ("error",),
     "copper.hole-overlap": ("warning",),
@@ -119,6 +120,7 @@ TABLE = {
     "drawn.label-unconnected": ("warning",),
     "drawn.bus-member-unknown": ("warning",),
     "drawn.placements-ignored": ("warning",),
+    "drawn.coordinate-rounded": ("warning",),
     "drawn.opaque-dropped": ("info",),
     "drawn.frozen": ("info",),
     "drawn.altium-repeat-flattened": ("info",),
@@ -131,6 +133,7 @@ TABLE = {
     "circuit.bus-pullup": ("warning", "info"),
     "circuit.requires-missing": ("warning", "info"),
     "circuit.port-split": ("warning", "info"),
+    "circuit.pullup-parallel": ("warning", "info"),
     "circuit.rating-voltage": ("error", "info"),  # c0253
     "circuit.rating-current": ("error", "info"),
     "circuit.rating-power": ("error", "info"),
@@ -225,13 +228,17 @@ def test_codes_finding_row() -> None:
 
 
 def test_circuit_contract_codes() -> None:
-    """Change c0253, "Codes explained": thirteen contract codes beside c0252's nine, and a severity a code
-    does not take is refused."""
+    """The nine circuit codes, thirteen contract codes and shared-I2C check stay closed and keep their
+    specified severities (c0252/c0253/c0272)."""
     circuit = [code for code in ISSUE_CODES if code.startswith("circuit.")]
-    assert len(circuit) == 9 + 13
+    assert len(circuit) == 9 + 13 + 1
     with pytest.raises(ValueError):
         issue("circuit.expect-unsure", "m", severity="error")
     assert issue("circuit.value-unknown", "m", severity="warning").severity == "warning"
+    assert issue("circuit.rating-missing", "m").severity == "info"
+    assert issue("circuit.pullup-parallel", "m").severity == "warning"
+    with pytest.raises(ValueError):
+        issue("circuit.pullup-parallel", "m", severity="error")
 
 
 def test_waived_severities_are_allowed() -> None:

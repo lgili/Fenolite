@@ -46,6 +46,8 @@ class Container:
         properties: Mapping[str, str] | None = None,
         pad_map: Mapping[str, str | Sequence[str]] | None = None,
         height: object = None,
+        dnp: bool = False,
+        board_only: bool = False,
     ) -> Part:
         """Create a part with the arguments of ``Part`` and attach it; the ref may be left out
         (``docs/dsl.md``, "Reference designators and the design lock"), and a device id resolves against
@@ -66,6 +68,8 @@ class Container:
                 properties=properties,
                 pad_map=pad_map,
                 height=height,
+                dnp=dnp,
+                board_only=board_only,
             )
         self.add(made)
         return made

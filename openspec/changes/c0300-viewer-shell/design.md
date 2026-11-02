@@ -161,6 +161,13 @@ document kinds that can be opened.
 
 ## Open Questions
 
+Decided 2026-11-01: re-review the eleven regenerated existing references under
+the maintainer's delegation to complete review tasks. The expired `docs and
+viewer` test selector selects no tests on this tree; use the actual page, theme,
+bundle and guide test modules, together with a dated manual mapping of the three
+documented sections to the observed controls. Full-batch and exact CI proofs
+remain separate. No screenshot expectation is relaxed or new baseline accepted.
+
 - Should the light theme be the default when the system asks for it (as designed), or should dark stay the
   default with light opt-in?
 - Is `?` acceptable for the shortcut sheet, given that it is `Shift+/` on most layouts?

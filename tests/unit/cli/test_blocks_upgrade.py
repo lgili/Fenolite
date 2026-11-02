@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ from _blockitems import VENDORED, get, project, release
 from _checkcli import run
 from _libdemo import files_of, no_network
 
+from fenolite.cli import cmd_build
 from fenolite.cli._blocks_upgrade import _circuit_diff
 from fenolite.dsl.lock import lock_text, make_lock, read_lock
 from fenolite.model.circuit import Circuit, Component
@@ -76,7 +78,21 @@ def test_planned_upgrade_and_build_after_confirmation(
     assert not any(i["code"] == "lock.block-version" for i in result["issues"])
 
 
-def test_circuit_difference_shown(monkeypatch: pytest.MonkeyPatch, upgraded_code: Path) -> None:
+@pytest.mark.parametrize("separators", ["native", "windows"])
+def test_circuit_difference_shown(
+    monkeypatch: pytest.MonkeyPatch, upgraded_code: Path, separators: str
+) -> None:
+    if separators == "windows":
+        original = cmd_build._built
+
+        def windows_paths(*args, **kwargs):
+            validated = original(*args, **kwargs)
+            return replace(
+                validated,
+                writes=tuple(replace(w, path=w.path.replace("/", "\\")) for w in validated.writes),
+            )
+
+        monkeypatch.setattr(cmd_build, "_built", windows_paths)
     code, result, error, _ = run(
         monkeypatch, upgraded_code, "blocks", "upgrade", "design.py", "--out", "B", "--dry-run"
     )

@@ -588,6 +588,13 @@ def schdoc_records(plan: SheetPlan, frame: Frame | None = None) -> list[Record]:
     """Every record after the header, in file order. With ``frame`` (change c0087) the sheet record is the
     frame's custom sheet and the frame's root records come last, so no owner index changes; without one
     the records are those of the changes before."""
+    if plan.drawn_records is not None:
+        header = sheet_record(plan)
+        return [
+            header if frame is None else frame.sheet_record(header),
+            *(list(record) for record in plan.drawn_records),
+            *(list(record) for record in (frame.records if frame is not None else ())),
+        ]
     writer = _Writer(plan)
     writer.add(sheet_record(plan) if frame is None else frame.sheet_record(sheet_record(plan)))
     for symbol in plan.symbols:
@@ -751,6 +758,15 @@ def write_schdoc(plan: SheetPlan, frame: Frame | None = None) -> bytes:
     return encode_records(schdoc_records(plan, frame))
 
 
+def component_records(placed: PlacedPart, *, height: int = 2_000_000) -> list[Record]:
+    """One component's existing records at its pose, with owner indexes starting at zero."""
+    from fenolite.backends.altium.layout import SheetSize
+
+    writer = _Writer(SheetPlan(SheetSize("component", height, height, None), (), ()))
+    writer.component(placed)
+    return writer.records
+
+
 __all__ = [
     "FONT_NAME",
     "Frame",
@@ -758,6 +774,7 @@ __all__ = [
     "IO_TYPES",
     "additional_records",
     "block_records",
+    "component_records",
     "graphic_fields",
     "io_field",
     "line_record",

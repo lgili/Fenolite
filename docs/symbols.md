@@ -156,6 +156,12 @@ design.add(Part("U1", "Example:EXB6202DR"))
 without a design (`docs/cli-contract.md`, "library"); `--out lib/Example.SchLib` plans an Altium schematic
 library.
 
+A project device's `symbol` may name this pin-table record instead of an explicit drawing. The build
+generates a symbol under the device's id, sets `Footprint` to its package id and `ki_fp_filters` to the
+package name. Two devices sharing one table keep separate drawings and package properties. Explicit
+drawings and imported `symbol_file` definitions retain precedence. Generation changes neither the
+authored records nor their evidence or provenance.
+
 ## Altium notes
 
 The Altium library has no derivation: a variant is written flat, under its own lib ref. Each unit is a part,

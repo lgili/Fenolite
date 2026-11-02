@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite; all values and tokens are fictional.
+source = "S-1223"
+origin = "authored"
+licence = "CC0-1.0"
+notes = "Only field names follow primary documentation; no response or implementation copied."

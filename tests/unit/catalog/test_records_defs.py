@@ -15,7 +15,6 @@ import pytest
 import fenolite.cli.main as cli_main
 from fenolite.catalog import get_footprint, get_symbol
 from fenolite.catalog.records import (
-    GeneratorMissingError,
     PackageRecord,
     PinsRecord,
     footprint_def,
@@ -115,23 +114,24 @@ def test_records_give_todays_catalog() -> None:
     )
 
 
-def test_no_drawing_and_no_generator(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_pin_table_without_a_drawing_generates(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     bare = TWO_PIN[: TWO_PIN.index("[symbol]")]
     record = parse_record(bare)
     assert isinstance(record, PinsRecord)
-    with pytest.raises(GeneratorMissingError):
-        symbol_def(record)
+    generated = symbol_def(record)
+    assert [pin.number for pin in generated.pins] == ["1", "2"]
+    assert generated.graphics and record.header.evidence == "UNVERIFIED"
     folder = project(
         tmp_path,
         "Proj:Two_Pin",
         "Proj:Two_Pad",
         {"pins/two_pin.toml": bare, "packages/two_pad.toml": TWO_PAD},
     )
-    code, envelope, _ = build(monkeypatch, folder, "--confirm")
-    assert code == 5
+    code, envelope, err = build(monkeypatch, folder, "--confirm")
+    assert code == 0, err
     found = [issue for issue in envelope["issues"] if issue["code"] == "library.generator-missing"]  # type: ignore[union-attr, index]
-    assert len(found) == 1 and found[0]["severity"] == "error" and "Proj:Two_Pin" in found[0]["message"]  # type: ignore[index]
-    assert not (tmp_path / "out").exists()
+    assert not found
+    assert (tmp_path / "out" / "lib" / "Proj.kicad_sym").is_file()
 
 
 def test_family_package_before_its_generator(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

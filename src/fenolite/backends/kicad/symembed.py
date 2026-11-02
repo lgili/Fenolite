@@ -234,11 +234,12 @@ def _pins(
     numbers: Mapping[str, tuple[str, ...]],
     empty: set[tuple[str, str]],
     shown: list[str],
+    show_hidden_power: bool = True,
 ) -> Node:
     """``symbol`` with its sub-symbols renamed to ``name`` and their pins rewritten: mapped numbers (the
-    first pad of a pin, and one stacked pin after it for each further pad), power inputs shown, and ``~``
-    as the empty name where the library meant it (``empty`` holds the (number, name) pairs the reader gave
-    an empty name)."""
+    first pad of a pin, and one stacked pin after it for each further pad), optionally shown power inputs,
+    and ``~`` as the empty name where the library meant it (``empty`` holds the (number, name) pairs
+    the reader gave an empty name)."""
     old = _first_text(symbol)
     children: list[Node | Atom] = []
     for child in symbol.children:
@@ -254,7 +255,7 @@ def _pins(
             number = _first_text(item.find("number"))
             pin_children = list(item.children)
             kinds = [a.value for a in item.atoms()]
-            if kinds[:1] == ["power_in"] and any(_is_hide(c) for c in pin_children):
+            if show_hidden_power and kinds[:1] == ["power_in"] and any(_is_hide(c) for c in pin_children):
                 pin_children = [c for c in pin_children if not _is_hide(c)]
                 shown.append(number)
             for index, part in enumerate(pin_children):
@@ -330,6 +331,7 @@ def embed_symbol(
     pin_numbers: Sequence[tuple[str, str]] | None = None,
     allow_lossy: bool = False,
     issues: list[Issue] | None = None,
+    show_hidden_power: bool = True,
 ) -> EmbeddedSymbol:
     """The definition a generated sheet embeds for ``definition``.
 
@@ -338,6 +340,8 @@ def embed_symbol(
     ``pin_pad_map``: its pins take those numbers (a pin of several pads its first, with one stacked pin
     per further pad) and the name of ``variant_name``. A token that ``target``
     does not read raises ``LossyWriteError``, or is dropped with a warning when ``allow_lossy`` is set.
+    ``show_hidden_power=False`` preserves source-drawn implicit power connections; generated sheets
+    keep the default visible power pins so their explicit labels own connectivity.
     """
     if target not in TARGET_MAJORS:
         raise ValueError(f"unsupported target KiCad {target}; supported targets: {TARGET_MAJORS}")
@@ -349,7 +353,14 @@ def embed_symbol(
     if literal:
         empty = {(pin.number, "name") for pin in definition.pins if not pin.name}
     shown: list[str] = []
-    flat = _pins(_renamed(flat, definition.name), name, pad_groups(pin_numbers or ()), empty, shown)
+    flat = _pins(
+        _renamed(flat, definition.name),
+        name,
+        pad_groups(pin_numbers or ()),
+        empty,
+        shown,
+        show_hidden_power,
+    )
     if literal:
         flat = _untilde(flat, definition)
     authored = definition if not definition.ext.get("kicad") and not pin_numbers and not shown else None

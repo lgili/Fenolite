@@ -62,3 +62,68 @@ def test_undocumented_shape_is_refused(policy: SourcePolicy, monkeypatch: pytest
 def test_production_permission_stays_closed() -> None:
     with pytest.raises(CredentialsMissing):
         Mouser().lookup(parse_query("capacitor(100nF)"), timestamp="2026-11-01T00:00:00Z")
+
+
+@pytest.mark.parametrize("field", ["ProductAttributes", "PriceBreaks"])
+@pytest.mark.parametrize("invalid", [None, "not-an-array", ["not-an-object"]])
+def test_malformed_optional_array_is_refused(
+    field: str, invalid: object, policy: SourcePolicy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plugin = Mouser()
+    plugin.policy = replace(policy, name="mouser", hosts=plugin.policy.hosts)
+    monkeypatch.setenv("FENOLITE_MOUSER_API_KEY", "AUTHORED-KEY")
+    with pytest.raises(ResponseShapeError):
+        plugin.lookup(
+            parse_query("capacitor(100nF)"),
+            timestamp="2026-11-01T00:00:00Z",
+            transport=FakeTransport(
+                response(
+                    {"SearchResults": {"Parts": [{"ManufacturerPartNumber": "EXAMPLE", field: invalid}]}}
+                )
+            ),
+        )
+
+
+def test_source_errors_cannot_hide_behind_partial_rows(
+    policy: SourcePolicy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plugin = Mouser()
+    plugin.policy = replace(policy, name="mouser", hosts=plugin.policy.hosts)
+    monkeypatch.setenv("FENOLITE_MOUSER_API_KEY", "AUTHORED-KEY")
+    data = {
+        "Errors": [{"Message": "AUTHORED-KEY"}],
+        "SearchResults": {"Parts": [{"ManufacturerPartNumber": "EXAMPLE"}]},
+    }
+    with pytest.raises(ResponseShapeError) as caught:
+        plugin.lookup(
+            parse_query("capacitor(100nF)"),
+            timestamp="2026-11-01T00:00:00Z",
+            transport=FakeTransport(response(data)),
+        )
+    assert "AUTHORED-KEY" not in str(caught.value)
+
+
+def test_optional_absence_and_local_limit(policy: SourcePolicy, monkeypatch: pytest.MonkeyPatch) -> None:
+    plugin = Mouser()
+    plugin.policy = replace(policy, name="mouser", hosts=plugin.policy.hosts)
+    monkeypatch.setenv("FENOLITE_MOUSER_API_KEY", "AUTHORED-KEY")
+    result = plugin.lookup(
+        parse_query("capacitor(100nF)"),
+        limit=1,
+        timestamp="2026-11-01T00:00:00Z",
+        transport=FakeTransport(
+            response(
+                {
+                    "Errors": [],
+                    "SearchResults": {
+                        "Parts": [
+                            {"ManufacturerPartNumber": "EXAMPLE"},
+                            {"ManufacturerPartNumber": "OTHER-EXAMPLE"},
+                        ]
+                    },
+                }
+            )
+        ),
+    )
+    assert len(result.drafts) == 1 and result.drafts[0].display["mpn"] == "EXAMPLE"
+    assert result.drafts[0].display["reported"] == {} and result.drafts[0].display["offer"] == {}

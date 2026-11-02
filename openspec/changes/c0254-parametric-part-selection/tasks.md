@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living specs this change touches (`design-dsl`, `cli-contract`, `fenolite-component-catalog`, `package-layering`) and the archived or open changes it depends on (c0246, c0248, c0249, c0251, c0252, c0253). Write under this task, with the date and the base commit:
+- [x] 0.1 Read `openspec list`, the living specs this change touches (`design-dsl`, `cli-contract`, `fenolite-component-catalog`, `package-layering`) and the archived or open changes it depends on (c0246, c0248, c0249, c0251, c0252, c0253). Write under this task, with the date and the base commit:
   - the final names of c0246's range type and whether its exact core lives in `model` (decision 2 of `design.md`);
   - c0248's device schema and resolution step, and which of `kind`, `value`, `case`, `dielectric`, `tolerance` it lacks (decision 5);
   - c0249's lock module, its canonical form and whether `[picks]` is reserved as decision 7 expects;
@@ -33,6 +33,7 @@
   Left open: the proof `openspec validate c0254-parametric-part-selection --strict --no-interactive` could not
   be run in this session (the `openspec` CLI is not installed and running it through `npx` was refused);
   the coordinator runs it.
+  2026-11-01, base `7c2f1df2`: re-read the current open changes and living requirements; the names and layering decisions recorded above still apply. The dependencies are implemented and remain open for batch validation. Additive v1 catalog records coexist with the legacy device reader; lock section order is now `refs,picks,pins,blocks,library`. No new public-source fact or source id is needed. `openspec list --json` and `openspec validate c0254-parametric-part-selection --strict --no-interactive` pass with the offline cache, closing the formerly unavailable proof.
 - [x] 0.2 Register the public sources: the E-series values (IEC 60063 values as published on a public page), the I2C specification (pull-up window and its constants) and the chip-resistor and chip-capacitor datasheets whose ratings the shipped families state, each with what is used and what is not copied. Proof: `uv run pytest tests/unit/test_provenance.py -q`.
   2026-10-29: S-0940 (E series, IEC 60063 values as published), S-0941 (NXP UM10204 Rev. 7.0: the pull-up window, VOL, IOL, tr), S-0942 (YAGEO RC_L v14: power and working voltage of 0402 to 1206, resistance ranges), S-0943 (KEMET C1002 X7R) and S-0944 (KEMET C1003 C0G) registered, each with what is used; `tests/unit/test_provenance.py` passes.
 ## 1. Package, queries and rows

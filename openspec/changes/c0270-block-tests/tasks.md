@@ -22,6 +22,27 @@
   CLI contract were reviewed. Neither examples nor the guide exports a helper named `draw`.
   The full `make check-fast` proof is reserved for the integration coordinator, so 0.1 remains open.
 
+  Entry refresh 2026-11-02, integration base `697cdf02b39c570b7827bd2b7b5419dfcf6bdea6`:
+  c0256 and the c0251/c0253/c0254/c0268/c0271/c0273 dependencies remain active and
+  implemented; no living design-testing spec exists yet. `fenolite.testing` exports
+  instantiate/TestDesign/PartView/TestingError. c0253 supplies supply/sink and
+  `core.requirement_table.RequirementRow`, whose statuses are pass/fail/unsure/unknown/deferred;
+  the unbounded code remains `circuit.expect-unknown`. c0254 uses `result.generators` and
+  `gen.achieved`. c0268's canonical record remains in `dsl.record`; `blocks show` adds
+  tests/usage/golden convention paths through `testing.blocks`, without decorator fields.
+  `cli.blocksrc.CatalogEntry` supplies lazy definitions/records from builtin/library/file.
+  The implemented verbs are list/show/doc/where/test/capture/index/upgrade. `draw` is this
+  change's public `fenolite.testing.draw`, not a newly free name. The three accepted
+  recommendations remain project-convention warnings only in blocks test, circuit/rules
+  goldens rather than board goldens, and in-process tests with restored private state.
+
+  Available proof: `openspec validate c0270-block-tests --strict` passes without warnings
+  (OpenSpec 1.16.0).
+  The literal `make check-fast` is not run by this worker and has no applicable passing
+  serialized receipt yet. Task 0.1 remains unchecked for that actual proof; independent
+  CI, native/manual and release criteria are unchanged.
+
+
 ## 1. Stimulus and queries in `fenolite.testing`
 
 - [x] 1.1 `testing/stimulus.py`: `stimulus`, `source`, `draw`, `Stimulus`, the reference rule and its refusals (scenario "Ambiguous reference"). Proof: `uv run pytest tests/unit/testing/test_stimulus.py -k reference -q`.
@@ -55,7 +76,10 @@
 ## 6. Closing
 
 - [ ] 6.1 Run `make check-fast`, then the required CI jobs on the pushed head of the branch. Proof: `make check-fast`, and the required jobs green on the exact commit.
-- [ ] 6.2 Evidence: register `H-G-BLOCK-GOLDEN` in `docs/hypotheses.md` with its measurement on the three unit jobs and regenerate the evidence matrix. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
+- [x] 6.2 Evidence: register `H-G-BLOCK-GOLDEN` in `docs/hypotheses.md` with its measurement on the three unit jobs and regenerate the evidence matrix. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
+  2026-11-02: the exact L9 block-step observations and complete-job failures are recorded in the
+  register and design section 9. The literal register proof passes (38 tests); the regenerated
+  matrix and its `--check` pass. The row remains `INFERRED`; this closes the measurement task only.
 - [x] 6.3 Add an entry to `CHANGELOG.md` under `## [Unreleased]`. This waits for `0.7.0.dev0`: on `0.6.0` the v0.6 guard requires `[Unreleased]` empty. Proof: `uv run pytest tests/unit -k changelog -q`.
 
 ## Validation record — 2026-11-01
@@ -86,3 +110,19 @@
   intentionally empty until c0272, as the parametrised suites report.
 - 6.2 remains open: Linux stable-byte proofs and the register/matrix checks passed, but Linux/macOS/
   Windows unit-matrix measurements are pending. The hypothesis records that limit without claiming CI.
+
+## Evidence continuation — 2026-11-02
+
+Base `ea762411cbb24bc5f9ba5a16d8b372ae7c720568`. The actual logs of run `41406065844` on
+`46d788ee0e10516838a4b0a63b254eab2a475fd1` report five passed usages, five equal goldens,
+sixteen passed test functions and zero issues in the block step on Linux Python 3.11/3.12/3.13,
+macOS Python 3.12 and Windows Python 3.12. Design section 9 records all five job ids. Each whole
+unit job failed other checks; no complete CI success or cross-platform measurement of this
+continuation is inferred.
+
+After updating the register, `uv run pytest tests/unit/test_hypotheses_register.py -q` passed
+(38 tests), `uv run python tools/gen_evidence_matrix.py` completed, and
+`uv run python tools/gen_evidence_matrix.py --check` passed without changing the generated page.
+The matrix renders backend claims; this general hypothesis keeps its existing `INFERRED` level.
+Task 6.2 is complete. Entry/full-gate task 0.1, KiCad read-back task 4.2 and final integration
+task 6.1 remain open. No source, model, schema, golden, decoder or byte expectation changes here.

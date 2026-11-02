@@ -381,6 +381,8 @@ class SheetPlan:
     """The bus blocks in cells of their own (change c0086): the buses with a pin on this sheet that no
     port and no sheet entry of the sheet carries. The blocks of ports and sheet entries are theirs."""
     composition: CompositionPlan | None = None
+    drawn_records: tuple[tuple[tuple[str, str], ...], ...] | None = None
+    """Explicit native records for a drawn sheet; the sheet header and optional frame are added later."""
 
     @property
     def bus_blocks(self) -> tuple[BusBlock, ...]:

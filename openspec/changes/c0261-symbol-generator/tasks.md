@@ -80,9 +80,14 @@
 
   2026-10-29: `Symbol.pin(unit=, hidden=, alternates=)`, `Symbol.unit`, `unit=` on graphics, `Symbol.derive` (`DerivedSymbol`), `Symbol.from_pins` (with `variants` and `issues`), and `Design.add` of a derived symbol after its base; the builds flatten an authored derived symbol for resolution and keep `extends` in the library. The `dsl` → `catalog` edge is added to `tests/unit/test_import_graph.py` and `tests/unit/dsl/test_fields.py`. Proof passed: `tests/unit/dsl/test_symbol.py tests/unit/dsl/test_symbol_units.py` 9 passed.
 
-- [ ] 4.2 Generate the symbol of a c0259 device that names a pin table and no symbol, with `Footprint` and `ki_fp_filters` from its package. Proof: `uv run pytest tests/unit/catalog/test_devices.py -k pins -q`.
+- [x] 4.2 Generate the symbol of a c0259 device that names a pin table without a drawing, with `Footprint` and `ki_fp_filters` from its package. Proof: `uv run pytest tests/unit/catalog/test_devices.py -k pins -q`.
 
-  Open (2026-10-29): depends on c0259 (device records, the data tree and the device key that names a pin table) and c0248 (`DeviceDef`, `tests/unit/catalog/test_devices.py`), neither merged into `circuits-as-code`. `generate_symbol(table, library=, footprint=, fp_filters=)` already takes the device's `Footprint` and `ki_fp_filters`.
+  Completed 2026-11-01 on the integrated c0259/c0248 base: `symbol` names the pins record. Generated
+  tables retain the full envelope and rich rows through canonical writing; each device resolves a
+  separate drawing id and package properties without modifying its authored record or provenance.
+  Explicit drawings and imported `symbol_file` sources keep precedence. Proof passed: 9 tests,
+  including shared tables, stacked pins, envelope edits, orderable parts and actual KiCad 9/10 and
+  Altium builds. No application acceptance or evidence promotion is claimed.
 
 - [x] 4.3 Add the action words of `fenolite library` and `fenolite library symbol` (scenarios "Existing form unchanged", "Reserved action", "Plan and write", "Wrong suffix"), and describe both in `docs/cli-contract.md`, "library". Proof: `uv run pytest tests/unit/cli/test_library.py tests/unit/cli/test_library_symbol.py -q`; `uv run pytest tests/consistency -q`.
 

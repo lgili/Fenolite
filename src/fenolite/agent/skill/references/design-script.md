@@ -1,22 +1,21 @@
 ---
 topic: design-script
 title: Writing a design script
-summary: The shape of a script: design, modules, nets, parts, lengths with units, the board frame, and the edit and build cycle.
+summary: Design scripts: modules, nets, parts, unit lengths, board frame and build cycle.
 ---
 
 # Writing a design script
 
-A Python script binds a module-level `design` to a `Design`. `fenolite build` runs it as your
-code in its own process and writes that design. Use `fenolite.dsl` and the starter circuits
-in `fenolite.blocks`. Build only scripts you trust.
+A Python script binds module-level `design` to a `Design`. `fenolite build` runs that code in its
+own process. Use `fenolite.dsl` and `fenolite.blocks` starter circuits. Build only scripts you trust.
 
 ## A whole script
 
 ```fenolite-design
 from fenolite.dsl import Design, Module, Net, Part, connect, inch, mil, mm, nm, no_connect
 
-design = Design("lamp")  # the name becomes the stem of every file
-design.board(mm(30), inch("0.8"))  # width and height of the outline; two copper layers
+design = Design("lamp")  # file stem
+design.board(mm(30), inch("0.8"), outline_width=mm("0.23"))  # optional root stroke; two copper layers
 
 # Your fabricator's limits. These numbers are examples.
 design.rules.minimum(clearance=mm(0.2), track_width=nm(200_000), edge_clearance=mm(0.3))
@@ -46,7 +45,7 @@ d1.place(mm(15), mm(6), rot=180)
 ## What each piece is
 
 - **`Design(name)`** holds everything. `design.board(width, height, copper=2)` declares the outline, once;
-  `copper` is 2, 4, 6 or 8.
+  `copper` is an even count, 2 to 32. `outline_width=` is a nonnegative length; omission keeps the default.
 - **`Module(name)`** groups parts. A module has `add()` like the design, and modules nest. A part's path
   is its reference at the top and `module/REF` inside a module; the path names the part across builds.
 - **`Part(ref, lib_id, footprint=..., value=...)`** is one component (page `parts`).

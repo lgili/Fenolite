@@ -176,9 +176,9 @@ fenolite equivalent blink/build blink/altium/blink.PrjPcb --frame relative --tol
 
 - `equivalent A B` says level by level whether two designs are the same: components, netlist,
   footprints, placement, routing. Exit 5 lists each difference at `REF` or `REF-PIN`; it writes nothing.
-- A side is a board, a project folder, an Altium document or project, a `.fenolite/` folder, or a root
-  `.kicad_sch`, which is compared at levels 1 and 2 only. A schematic that `build` did not write needs
-  `kicad-cli` (exit 6 without one).
+- A side is a board, project, Altium file, `.fenolite/`, or root `.kicad_sch`.
+  Schematics default to levels 1–2. For drawings use `--level S`; see `equivalent-s`.
+  Other schematic netlists can need `kicad-cli` (exit 6).
 - `capabilities --command equivalent` lists the `levels` and `sides`; the reply follows
   `fenolite.equivalent.v0`, as does `fenolite.api.equivalent(a, b)` in Python.
 

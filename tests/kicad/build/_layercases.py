@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The blink variant of 4, 6 and 8 copper layers that the build oracle runs through fill, DRC and export
-(capability kicad-oracle, "Builds of four, six and eight copper layers pass the oracle"; hypothesis
-H-K-BUILD-LAYERS; change c0100, design Decision 10).
+"""The blink variant of 4, 6, 8, 10, 16 and 32 copper layers that the build oracle runs through fill, DRC
+and export (capability kicad-oracle, "Builds of four, six and eight copper layers pass the oracle" and
+"Builds of ten, sixteen and thirty-two copper layers pass the oracle"; hypotheses H-K-BUILD-LAYERS and
+H-K-BUILD-LAYERS-32; change c0100, design Decision 10; change c0277).
 
 The variant holds a zone on every inner layer (``GND`` on ``In1.Cu``, ``In3.Cu`` and ``In5.Cu``, ``VIN``
 on the others), the ``LED_A`` track stepping through a via to the deepest inner layer and back to
@@ -28,7 +29,7 @@ from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.model.design import Design as Model
 
-COUNTS: tuple[int, ...] = (4, 6, 8)
+COUNTS: tuple[int, ...] = (4, 6, 8, 10, 16, 32)
 TARGETS: tuple[int, ...] = (9, 10)
 FIXTURE_COUNTS: tuple[int, ...] = (6, 8)
 """The counts whose filled target-9 board is committed for the 9.0.9 half."""

@@ -63,8 +63,13 @@ def test_decimal_values() -> None:
     assert ValueRange("volt", low=Decimal10(-5, 0)).high is None
 
 
-def test_value_range_is_the_last_field_of_a_component() -> None:
-    assert [f.name for f in dataclasses.fields(Component)][-1] == "value_range"
+def test_value_range_precedes_the_appended_component_fields() -> None:
+    """The c0246 value range precedes board-only (c0277) and definition identity (c0318)."""
+    assert [f.name for f in dataclasses.fields(Component)][-3:] == [
+        "value_range",
+        "board_only",
+        "footprint_definition_ref",
+    ]
     assert Component(id="cmp_x", ref="R1").value_range is None
 
 

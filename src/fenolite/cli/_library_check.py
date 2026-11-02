@@ -134,7 +134,10 @@ class Item:
 
 
 def _relative(path: Path, cwd: Path) -> str:
-    return Path(os.path.relpath(path, cwd)).as_posix()
+    try:
+        return Path(os.path.relpath(path, cwd)).as_posix()
+    except ValueError:  # another Windows drive, as in cmd_library._relative
+        return path.as_posix()
 
 
 def _files(targets: list[Path]) -> list[Path]:

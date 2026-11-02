@@ -69,8 +69,8 @@ an MPN into parameters) when it is present. Independent of c0259–c0266 otherwi
 ## Evidence-bound delivery (2026-11-01)
 
 All four production policies remain unavailable, with no persistence/cache permissions inferred.
-Mouser/Farnell authored mapping proofs cover documented shapes under fictional test policies;
-DigiKey/Nexar complete response mappings remain open. JLC stays unregistered. Task 0.2 and supplier
+All four authored mapping proofs cover documented shapes under fictional test policies. DigiKey and
+Nexar include per-lookup token redaction; Nexar selects basic fields without assuming add-on entitlement. JLC stays unregistered. Task 0.2 and supplier
 readiness remain open until adequate primary terms and schema evidence exist. This delivery also adds
 `--timeout`, filtered transient staging and a distinct review-only identity schema; it preserves the
 existing legacy `Supplier.propose` API.

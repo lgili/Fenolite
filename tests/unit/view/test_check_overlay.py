@@ -5,18 +5,184 @@ change c0188). The replies are authored here."""
 
 from __future__ import annotations
 
+import json
 import shlex
+import shutil
+import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
 import pytest
+from _view_conflict import build_conflict
 
+from fenolite.api import run
 from fenolite.cli.cmd_view import scene_of
 from fenolite.core.errors import FormatError
+from fenolite.view.actions import ActionRefused, ActionRequest, Context, plan
 from fenolite.view.check_overlay import overlay, read_reply, summary
+from fenolite.view.conflicts import bind, current
+from fenolite.view.export import embedded, template
+from fenolite.view.project import load_tree
 
 ROOT = Path(__file__).resolve().parents[3]
 BOARD = ROOT / "tests" / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
+
+
+@pytest.mark.parametrize("major", [9, 10])
+def test_workbench_conflict_properties_and_bound_take(tmp_path: Path, major: int) -> None:
+    script, board, reply, _ = build_conflict(tmp_path / "authoring", major=major)
+    page = tmp_path / "page.html"
+    result = run("view", str(board), "--check", str(reply), "--export", str(page), "--confirm", cwd=tmp_path)
+    assert result.exit_code == 0, result.error
+    data = embedded(page.read_text(encoding="utf-8"))
+    assert data is not None
+    (scene,) = data["scenes"].values()
+    placed = scene["check"]
+    index = next(i for i, row in enumerate(placed["findings"]) if row["where"] == "R1#value")
+    row = placed["findings"][index]
+    assert row["conflict"] == {
+        "key": "R1#value",
+        "reason": "both-changed",
+        "base": "330",
+        "code": "470",
+        "cad": {"board": "4k7"},
+    }
+    assert len(row["commands"]) == 2
+    context = Context(findings=tuple(placed["findings"]), resolve=placed["resolve"])
+    request = plan(
+        {"action": "take", "doc": "doc1", "options": {"finding": index, "side": "cad"}},
+        load_tree(board),
+        context,
+    )
+    assert isinstance(request, ActionRequest), request
+    assert request.words == (
+        "build",
+        f"--kicad-version={major}",
+        f"--out={board.parent}",
+        "--take=cad:R1#value",
+        "--",
+        str(script),
+    )
+    assert request.binding is not None and request.binding["root"] == str(script.parent)
+
+
+def test_workbench_typescript_sends_only_finding_and_side() -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    html = template()
+    model = html[html.index("// ---- inspector model (c0301)") : html.index("// ---- end inspector model")]
+    actions = html[html.index("function conflictChoices(") : html.index("function ConflictActions(")]
+    script = (
+        "const calls=[];const actPlan=(a,o)=>calls.push([a,o]);"
+        + model
+        + actions
+        + 'const x={conflict:{key:"R1#value",reason:"both-changed",base:"330",code:"470",cad:{board:"4k7"}},'
+        'commands:["copy code","copy cad"]};'
+        'const empty={conflict:{key:"R1#property:x",base:"",code:null,cad:{board:""}}};'
+        'conflictTake(3,"cad");console.log(JSON.stringify({rows:findingSection(x,null).rows,'
+        "empty:findingSection(empty,null).rows,calls,choices:conflictChoices(x.conflict)}));"
+    )
+    done = subprocess.run([node, "-e", script], capture_output=True, text=True, check=True, timeout=60)
+    result = json.loads(done.stdout)
+    values = {row["label"]: row["value"] for row in result["rows"]}
+    assert values["Base"] == "330" and values["Code value"] == "470" and values["CAD board"] == "4k7"
+    assert values["Resolve 1 (copy)"] == "copy code" and values["Resolve 2 (copy)"] == "copy cad"
+    assert result["calls"] == [["take", {"finding": 3, "side": "cad"}]]
+    assert result["choices"] == ["code", "cad"]
+    empty = {row["label"]: row["value"] for row in result["empty"]}
+    assert empty["Base"] == '""' and empty["CAD board"] == '""' and empty["Code value"] == "absent"
+
+
+def test_workbench_real_child_plan_confirm_and_undo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The actual Live job/child/plan replay flow, independent of the HTTP listener's socket permission."""
+    from fenolite.cli._viewrun import ChildRunner  # noqa: PLC0415
+    from fenolite.cli.api import discover  # noqa: PLC0415
+    from fenolite.view.server import Live  # noqa: PLC0415
+
+    monkeypatch.setenv("FENOLITE_STATE_DIR", str(tmp_path / "state"))
+    script, board, _, reply = build_conflict(tmp_path / "authoring", major=9)
+    before, lock_before = board.read_bytes(), script.with_suffix(".lock").read_bytes()
+    session = {"reply": reply}
+
+    def build(path: Path) -> dict[str, Any]:
+        scene = scene_of(path)
+        placed = overlay(session["reply"], scene)
+        placed["resolve"] = bind(
+            session["reply"], board=path, cwd=script.parent, board_sha256=scene["meta"]["sha256"]
+        )
+        return scene | {"check": placed}
+
+    def derive(path: Path, command: str, envelope: dict[str, Any]) -> dict[str, Any]:
+        session["reply"] = envelope
+        return {}
+
+    tree = load_tree(board)
+    runner = ChildRunner(discover(), root=tree.root, timeout=60)
+    live = Live(tree, build, runner=runner, actions=runner, derive=derive)
+
+    def finished(job: Any) -> dict[str, Any]:
+        deadline = time.monotonic() + 60
+        while job.state == "running" and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert job.state != "running", "the real child job did not finish"
+        return job.to_json()
+
+    scene = build(board)
+    index = next(i for i, row in enumerate(scene["check"]["findings"]) if row["where"] == "R1#value")
+    planned = finished(
+        live.start_plan(
+            json.dumps(
+                {"action": "take", "doc": "doc1", "options": {"finding": index, "side": "code"}}
+            ).encode()
+        )
+    )
+    assert planned["state"] == "done" and planned["plan"]["confirmable"], planned
+    assert any(Path(row["path"]) == script.with_suffix(".lock") for row in planned["plan"]["writes"])
+    assert board.read_bytes() == before and script.with_suffix(".lock").read_bytes() == lock_before
+    done = finished(live.start_confirm(json.dumps({"job": planned["job"]}).encode()))
+    assert done["state"] == "done" and done["exit"] == 0, done
+    assert board.read_bytes() != before and script.with_suffix(".lock").read_bytes() != lock_before
+    stored = json.loads(runner.receipt_file(done["receipt"]["id"]).read_text())
+    assert stored["original_receipt"] == done["receipt"]
+    assert stored["receipt_root"] == str(script.parent)
+    assert all(not Path(row["path"]).is_absolute() for row in stored["receipt"]["written"])
+    undo = finished(live.start_undo(json.dumps({"receipt": done["receipt"]["id"]}).encode()))
+    assert "plan" in undo, undo
+    assert undo["plan"]["confirmable"], undo
+    restored = finished(live.start_confirm(json.dumps({"job": undo["job"]}).encode()))
+    assert restored["state"] == "done" and restored["exit"] == 0, restored
+    assert board.read_bytes() == before and script.with_suffix(".lock").read_bytes() == lock_before
+
+
+def test_workbench_refuses_unbound_options_stale_and_escaped_inputs(tmp_path: Path) -> None:
+    script, board, _, reply = build_conflict(tmp_path / "authoring")
+    scene = scene_of(board)
+    placed = overlay(reply, scene)
+    binding = bind(reply, board=board, cwd=script.parent, board_sha256=scene["meta"]["sha256"])
+    context = Context(findings=tuple(placed["findings"]), resolve=binding)
+    index = next(i for i, row in enumerate(placed["findings"]) if row["where"] == "R1#value")
+    tree = load_tree(board)
+    for options in (
+        {"finding": True, "side": "cad"},
+        {"finding": 1000, "side": "cad"},
+        {"finding": index, "side": "mine"},
+        {"finding": index, "side": "cad", "root": "/"},
+        {"finding": index, "side": "cad", "script": "other.py"},
+    ):
+        assert isinstance(
+            plan({"action": "take", "doc": "doc1", "options": options}, tree, context), ActionRefused
+        )
+    source_before = script.read_bytes()
+    script.write_text(script.read_text() + "\n# Authored stale source.\n")
+    assert "changed" in (current(binding, board) or "")
+    script.write_bytes(source_before)
+    outside = tmp_path / "outside.toml"
+    outside.write_text("authored = true\n")
+    (script.parent / "edits.toml").symlink_to(outside)
+    refused = bind(reply, board=board, cwd=script.parent, board_sha256=scene["meta"]["sha256"])
+    assert refused is not None and "outside" in refused["why"]
 
 
 def _reply(*issues: dict[str, Any], stages: list[dict[str, Any]] | None = None) -> dict[str, Any]:

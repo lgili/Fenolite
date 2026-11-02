@@ -52,3 +52,8 @@
 - [x] 4.4 Add an entry under `## [Unreleased]` in `CHANGELOG.md` once the version after 0.5.0 is open. Proof: `uv run pytest tests/unit/test_release_record_v05.py -q`.
   - 2026-10-25: the entry is under `## [0.5.0]` of `CHANGELOG.md`, not `[Unreleased]`: by the maintainer's decision of 2026-10-25 the change ships in 0.5.0 (c0171 task 1.15). Proof passed (`tests/unit/test_release_record_v05.py`).
   - 2026-10-25: WAITS on the maintainer (the release guard of 0.5.0). The text is ready: `- **Native looks** (c0178): `fenolite view` draws each document in the look of its tool: KiCad boards and sheets in a palette in KiCad's manner (or the user's KiCad colour theme with `--theme`), Altium boards in a palette in Altium's manner, and Altium sheets in their own colours; KiCad schematics are now drawn — symbols, pins, wires, labels, power symbols, sheets, frame and title block, stroke texts — with net highlight, Navigator and cross-probing.`
+
+## Continuation review — 2026-11-01
+
+No user-owned project/theme comparison was supplied. Local KiCad 9.0.2 is not the maintainer review required by task 3.4.
+See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.

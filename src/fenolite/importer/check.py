@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import importlib.resources
 from collections import Counter
-from collections.abc import Collection, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from fenolite.checks.equivalence import compare_designs, load_profiles, max_level
@@ -96,11 +96,9 @@ def copper_differences(source: Design, built: Design) -> tuple[Difference, ...]:
     return tuple(out)
 
 
-def self_check(
-    source: Design, built: Design, unexpressed: Sequence[Unexpressed], *, variants: Collection[str] = ()
-) -> SelfCheck:
+def self_check(source: Design, built: Design, unexpressed: Sequence[Unexpressed]) -> SelfCheck:
     """``built`` compared with ``source`` at every level both hold, up to 5, and item by item at level 5.
-    A level-3 footprint name of a ref in ``variants`` (written as ``<name>_2``) is explained."""
+    Native footprint identity must match, including parts with local definition variants (c0318)."""
     level = max_level(source, built)
     report = compare_designs(source, built, level=level, tolerances=_tolerances(), frame="absolute")
     # compare_designs runs only the integer levels 1 to 7 (LevelId also names the schematic level, c0278)
@@ -111,9 +109,7 @@ def self_check(
     if level >= 5:
         found += copper_differences(source, built)
     for difference in found:
-        level_kind = (difference.level, difference.kind)
-        renamed = level_kind == (3, "footprint-name") and difference.where in variants
-        if renamed or explained(difference.level, difference.kind, unexpressed):
+        if explained(difference.level, difference.kind, unexpressed):
             said.append(difference)
         else:
             unsaid.append(difference)

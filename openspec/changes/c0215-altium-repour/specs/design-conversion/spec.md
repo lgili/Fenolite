@@ -1,6 +1,12 @@
 ## MODIFIED Requirements
 
 ### Requirement: Changes of the Altium direction
+In the report of the direction from KiCad to Altium, a polygon whose fill is not carried from the source (kind `zone-fill`) and a schematic generated from the circuit (kind `schematic`) SHALL be counted under `changed`, not `lost`, each under its reason.
+
+#### Scenario: Detailed contract for changes of the altium direction
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 In the report of the direction from KiCad to Altium, a polygon whose fill is not carried from the source (kind `zone-fill`) and a schematic generated from the circuit (kind `schematic`) SHALL be counted under `changed`, not `lost`, each under its reason. The reason of `zone-fill` MUST be "a polygon is written unpoured; Altium fills it on a repour" with the pour mode `outline`, and "the pour is computed by Fenolite from the written document (experimental)" for a polygon poured with `computed`; a polygon refused with `computed` keeps the first reason.
 
 #### Scenario: Unpoured polygon is a change

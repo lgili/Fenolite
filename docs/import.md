@@ -36,6 +36,7 @@ boards/board/
   design.py        # header, board, nets, classes, minimums, parts and modules, connections, placements,
                    # zones, rule areas, drawings, then copper.apply(design, nets)
   copper.py        # track_table, arc_table and via_table calls
+  sheets/*.py      # one factory per source sheet file; absent for board-only/single-sheet input
   design.lock      # every part key and its ref (c0249)
   fp-lib-table     # project tables naming ${KIPRJMOD}/lib/...
   sym-lib-table
@@ -57,18 +58,25 @@ every platform, and every emitted `.py` file is left unchanged by `ruff format` 
 - **The board** is `board(width, height)` for a rectangle at the origin, else `board(outline=…)` with
   `arc_to` steps, and one `cutout()` per inner ring, from the board's root `Edge.Cuts` items (the edges of
   footprints come back with their footprints).
-- **Nets** keep their source names. The single-pad nets KiCad names `unconnected-(…)` are pads on no net and
-  are not written.
+  One uniform nonnegative root stroke is retained with `outline_width=` when it differs from the
+  existing default. Mixed or negative root widths remain `outline-width` findings and refuse strict
+  import. Footprint edge strokes are retained independently; this does not relax other omissions.
+- **Nets** keep their source names and are constructed in the deepest sheet containing all their pins.
+  Boundary nets pass to child factories as keyword arguments, using matching sheet-pin names when
+  available. Board-level rules, zones and copper use aliases from `design.nets`; they do not construct
+  a second net. Single-pad `unconnected-(…)` nets are pads on no net and are not written.
 - **Parts** have explicit refs: `Part("R201", "Mini:Mini_R_0603", footprint="Mini:Mini_R_0603", value="1k",
   name="R101")`. Their placements keep the source lock flags (the import does not lock what the source did
   not lock). A part's own properties (not `Reference`, `Value`, `Datasheet`, `Description`, KiCad's sheet
   fields or `fenolite.*`) are written as `properties=`.
-- **Modules.** A board built by Fenolite carries each component's path (`fenolite.path`): the import
-  rebuilds the modules from it, the part's key the last segment (`name=` when it is not the ref). Another
-  KiCad board gives each footprint's sheet path (`sheetname`, `/power/ch1/`) as nested modules, each sheet
-  name lowered to `[a-z0-9_]` (`import.sheet-renamed` when that changes it), the key the ref. A board
-  without either gives a flat design whose keys are the refs. One module file per sheet (`sheets/`, a
-  repeated sheet one function) is a later step: the modules are written in `design.py`.
+- **Modules.** A hierarchy writes `sheets/<file_stem>.py` with
+  `sheet(design, *, path, refs=None, **nets)`, called once per instance. Repeated source files share one
+  function; explicit instance branches preserve their differing placements, local net names and
+  footprint variants. The `refs` map uses the first instance's part keys; authored `fenolite.path` keys
+  are preserved. Original Altium sheet/element identities survive the in-memory KiCad conversion.
+  Stems and instance names are sanitized (`import.sheet-renamed` reports changed file
+  stems). A board without a schematic, or a single-sheet project, writes no `sheets/`: its existing
+  `fenolite.path` or footprint `sheetname` rebuilds inline modules, else its parts stay at the root.
 - **Rules.** The project's net classes but `Default` become `design.rules.netclass()`; the custom rules a
   build writes for minimums, and the board-setup minimums that differ from a new project's, become
   `design.rules.minimum()`. Any other custom rule is unexpressed.
@@ -76,7 +84,9 @@ every platform, and every emitted `.py` file is left unchanged by `ruff format` 
   that name; another named zone keeps its name; an unnamed one gets `key="<net>/<n>"`. A rule area keeps
   a valid unique name, else gets `key="area/<n>"`.
 - **Drawings** on silkscreen, mask, fabrication and user layers become `line`, `rect`, `circle`, `arc`,
-  `polygon` and `text` calls keyed `<layer>/<kind>/<n>`.
+  `polygon` and `text` calls keyed `<layer>/<kind>/<n>`. A text may also be on a copper layer, and keeps
+  its knockout, bold, italic and font face, a size of two values, several lines or no character (change
+  c0277); an aligned or orthogonal dimension becomes a `dimension` call with its extension offset.
 
 ## Copper tables
 
@@ -87,16 +97,40 @@ escaped into the key alphabet injectively (`_` and other characters become `_` a
 `i` of table `k` keeps the copper uuid the build derives for item `i` of `k`, so later builds find it.
 When an upstream revision adds a segment, rows renumber and some copper gets new uuids; the geometry stays.
 
+A via keeps its teardrop settings (change c0277): the reader leaves the `teardrops` child in the via's slot,
+the import reads it and groups vias by it too, and the table says it as `teardrop=teardrop(...)`. A blind via
+over both outer layers, as KiCad writes some, is a table row with `kind="blind"` and `layers=("F.Cu",
+"B.Cu")`.
+
+**Teardrop zones** are not written. KiCad draws a `padvia` teardrop zone from the teardrop settings of the
+pad or via it joins, and the code keeps them: the pads' in their vendored footprints, the vias' in their
+tables. The import reports them once as `import.teardrops-regenerated` (info); `fenolite fill` draws them on
+the built board. When a via's settings cannot be read, or a via or footprint holding settings is left out,
+every teardrop zone is counted as `teardrop`, unexpressed.
+
 ## The vendored library
 
 The footprints are the board's own instances brought back to their origin, rotation 0 and the top side
 (the derive of `fenolite library`), one `lib/<nickname>.pretty` per source nickname (`Imported` for a
 footprint without one), the instance's own properties removed. An instance that still differs from the
-first of its name (a moved field, an edited pad) is written as `<name>_2` and its part names that footprint
-(`import.footprint-variant`). Each footprint gets a symbol drawn by Fenolite, one passive pin per pad
-number (none for a number that no instance puts on a net, so a shield or thermal pad stays on no net;
-c0281), in `lib/<nickname>.kicad_sym` (`import.symbol-regenerated`); the source's symbols are not copied
-until the drawn schematic of c0276 needs them. 3D models are referenced by name, not copied.
+first of its name (a moved field, an edited pad) is written as `<name>_2` (`import.footprint-variant`).
+Its part retains the original/native `footprint` name and selects the local definition separately with
+`footprint_definition` (c0318). The build resolves that geometry, preserves all pads, and writes the
+original name into the PCB header and schematic property. A shared physical sheet therefore keeps one
+native identity per symbol while its instances may select different definitions. A KiCad project with
+schematics keeps its embedded symbol definitions,
+native drawing slots and hidden power pins in the project symbol libraries. Its source instance
+references select the parts; conflicting definitions of one library id, a missing definition or an
+unsupported pose refuse before staging. A source library row wins over a built-in of the same id in a
+drawn build. Board-only input keeps the generated passive symbols, one pin per netted pad number
+(`import.symbol-regenerated`); a shield or thermal pad on no net stays on no net (c0281). Genuine
+board-only parts beside a drawing retain fallback symbols. 3D models are referenced by name, not copied.
+
+The project import also writes `schematic.toml` and `design.load_schematic("schematic.toml")`: symbol
+and field poses, wires, junctions, labels, buses, sheet pins and repeated sheets come from the source.
+Source symbol rotations and field rotations must fit the drawn file's documented angles; alternate
+body styles currently refuse explicitly. Original files remain unchanged, and a reviewed plan binds
+every input sheet's bytes. No source or converted third-party material belongs in the tool repository.
 
 ## Provenance
 
@@ -125,31 +159,62 @@ Never silently. The kinds today:
 
 | kind | what |
 |---|---|
-| a root item KiCad keeps that the model does not (`group`, `generated`, `image`, `target`…) | named by its head; a zone KiCad made as a teardrop is `teardrop` |
-| `hole`, `dimension`, `net-tie`, `dnp` | model items no emitter writes yet |
-| `stackup`, `stackup-field`, `title-block` | a stack-up row or a title-block field the DSL refuses; the material of a silkscreen row (the stack-up is written without it) |
+| a root item KiCad keeps that the model does not (`group`, `generated`, `target`…) | named by its head; a teardrop zone of a type other than `padvia`, or any teardrop zone when teardrop settings were lost (below), is `teardrop` |
+| `hole` | model items no emitter writes yet |
+| `group` | a group holding an item the code does not write (a track, a via, a footprint or a drawing left out), named by its name; a group whose members the code writes becomes `design.group()` (change c0277) |
+| `dimension`, `dimension-style` | a dimension on a layer the DSL does not take, or one whose `format` or `style` holds what `design.dimension()`, `radial_dimension()`, `leader()` or `center_mark()` does not write (a prefix, a text position…) |
+| `image` | a board image whose data is not a PNG, on a layer the DSL does not take, or with a scale that is not a plain decimal; another image becomes `design.image()` and its file `images/<layer>-<n>.png` (change c0277) |
+| `stackup`, `title-block` | a stack-up row or a title-block field the DSL refuses (a silkscreen row with a dielectric constant or a loss tangent) |
 | `custom-rule` | a `.kicad_dru` rule whose selector the DSL cannot write (a layer leaf, an undeclared class) |
-| `zone-setting`, `zone-name`, `zone-layer`, `zone-outline`, `rule-area-name`, `rule-area-layer` | a zone smoothing or hatch, a repeated zone name, a zone or area off the copper layers or without an outline, an area name the DSL refuses |
-| `drawing`, `drawing-layer`, `copper-drawing`, `text`, `text-layer` | a drawing the DSL calls refuse, or one on a layer they do not take (copper, or a user layer a DSL board does not hold) |
+| `zone-setting`, `zone-name`, `zone-layer`, `zone-outline`, `rule-area-name`, `rule-area-layer`, `rule-area-placement` | a zone hatch, a repeated zone name, a zone or area off the copper layers or without an outline, an area name the DSL refuses, a placement area that places by another source than a sheet |
+| `drawing`, `drawing-layer`, `text`, `text-layer` | a drawing the DSL calls refuse (a hidden text, a mirror that does not follow the layer side, a knockout off copper and silkscreen, a dashed stroke, a copper graphic on a net the code does not declare), or one on a layer they do not take |
 | `copper-without-net`, `zero-length-track`, `degenerate-arc`, `via-protection`, `via-span`, `copper-layer`, `copper-count` | copper no table holds |
-| `footprint-ref`, `duplicate-ref`, `footprint` | a footprint whose reference the DSL refuses, a second footprint of one reference, one the library derive cannot bring back |
+| `teardrop-setting` | a via's `teardrops` child the import cannot read: the via is written without it |
+| `footprint` | a footprint the library derive cannot bring back |
 | `pad-net-unnumbered`, `pad-net-conflict`, `outline` | a pad on a net without a number, a pad number on two nets, no closed outline |
 | `outline-width` | root `Edge.Cuts` items drawn with another stroke than the 0.1 mm a DSL board writes (one row per width; c0281) |
-| `layer-table` | non-copper layers that the source and the DSL board of its copper count do not both hold, such as `Eco1.User` (c0281) |
+| `layer-table` | non-copper rows the DSL cannot preserve: unknown names, a missing required `Edge.Cuts`, or gaps in declared `User.n` rows; supported shorter standard tables use `technical_layers=` (c0324) |
 
 Change c0277 (verbatim items and the DSL coverage holes) is not merged yet: until it is, its kinds stay in
-this list, and each item it makes expressible removes its row.
+this list, and each item it makes expressible removes its row. Since its first part the import also writes
+(change c0277):
+
+- **board-only parts**: footprints that share a reference, or have none a script can name (`REF**`, an
+  empty one), are `Part(..., board_only=True)` named by key (`import.board-only`, info, counts those
+  that gain KiCad's `board_only` attribute); a footprint with the attribute is board-only too;
+- **technical layers**: `board(technical_layers=...)` only when the supported standard non-copper rows
+  differ from the default; unused `Eco1.User`/`Eco2.User` can stay absent. `Edge.Cuts` is required,
+  unknown names and references to omitted layers still refuse, and strict table comparison remains.
+- **user layers**: `design.user_layers()` up to the highest `User.<n>` of the source table, with its
+  names, and the drawings on them;
+- **copper graphics** with their net (`net=`), and filled shapes without an outline (`width=None`);
+- **free vias** (`free=True` of their tables, which group vias by it), **smoothed zones**
+  (`smoothing=`, `smoothing_radius=`), **dimensions in mils or automatic units** and the **material of a
+  silkscreen** in the stack-up;
+- **verbatim items**: every root item the reader keeps and no call says (a `generated` tuning pattern, an
+  image, a target, a barcode…) is `design.verbatim("<head>/<n>", "<its text>")`, a net named by its
+  number named by its name and the copper uuids of its `members` replaced by the uuids its tracks take in
+  their tables; one that names copper the code does not write is unexpressed by its head;
+- **zone outlines with arcs**, which the reader keeps in the zone's slots, as `outline=` with `arc_to` steps;
+- **a board outline closed by a footprint's `Edge.Cuts`** (a USB connector's notch): the code declares the
+  closed outline, and the build leaves out the edges the footprint draws;
+- **placement rule areas** (`placement=`; a disabled one without a sheet is none, another is
+  `rule-area-placement`), **chamfered pads of a bottom footprint**, and pads of one number that KiCad put
+  on two `unconnected-(…)` nets, which the build names again.
 
 ## Self-check
 
 Unless `--no-verify`, the emitted files are built by `fenolite build` in a private temporary folder, and
 the built board is compared with the source by the equivalence levels 1 to 5 (`docs/equivalence.md`)
 under the profile `import` (absolute frame, no tolerance) and copper item by item: every track, arc and
-via with its geometry, width or sizes, layers and lock flag. A difference an unexpressed kind explains, or
-the name of a variant footprint, is accepted; any other is `import.unequal` (error): exit 5, nothing
-written. `result.equivalence` is `{"levels": [1, 2, 3, 4, 5], "equivalent": true}` on success. The self-check build
-runs with `--copper-check warn` and without a schematic: a board that breaks Fenolite's copper rules (one
-the source already broke) is still compared.
+via with its geometry, width or sizes, layers and lock flag. A difference an unexpressed kind explains
+is accepted; any other is `import.unequal` (error): exit 5, nothing
+written. Native footprint-name changes are errors, including names resembling local variants.
+`result.equivalence` is `{"levels": [1, 2, 3, 4, 5], "equivalent": true}` on success. The self-check build
+runs with `--copper-check warn`: a board that breaks Fenolite's copper rules (one the source already
+broke) is still compared. Imported drawings are written and read back in this build, so the existing
+connectivity guard checks the bytes before staging. Inputs without a drawing still skip schematic
+generation in the self-check. Levels 1–8+S remain an independent `verify-source` proof.
 
 ## Copy mode
 
@@ -183,9 +248,8 @@ of a third-party board belongs in the library repository or your own folder.
 
 ## Not yet
 
-- **Sheet modules** of a KiCad hierarchy (`sheets/<module>.py`, a repeated sheet one function) and the
-  **drawn schematic** (c0276) follow; an Altium document's rules and records that the model keeps opaque
-  are the conversion's to report (`convert.*`).
+- An Altium document's rules and records that the model keeps opaque are the conversion's to report
+  (`convert.*`); native Altium drawing extraction remains unavailable.
 - **Field placements** of an instance are not written as `Part.field()`: an instance whose fields moved is
   vendored as a variant footprint.
 
@@ -203,6 +267,8 @@ of a third-party board belongs in the library repository or your own folder.
 | `import.upgraded` | info | a file upgraded through `kicad-cli` on a private copy |
 | `import.provenance-missing` | warning | no `--licence`, `--copyright` or `--source` |
 | `import.timestamp-missing` | info | no `--timestamp`: the output is not reproducible |
+| `import.teardrops-regenerated` | info | teardrop zones left out because KiCad draws them again from the pad and via teardrop settings the code keeps (change c0277) |
+| `import.board-only` | info | footprints that share a reference or have none a script can name, written as board-only parts named by key; the count of those that gain KiCad's `board_only` attribute (change c0277) |
 
 ## Evidence
 

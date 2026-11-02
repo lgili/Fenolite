@@ -1,5 +1,63 @@
 ## ADDED Requirements
 
+### Requirement: Corpus rows retain native owner context
+Each declared demo row SHALL be measured in every registered project root that reaches it, preserving annotation paths and the full owner's pin universe. Reports MUST bind row, owner/export-root IDs, input hashes and instance-path hashes. Unowned rows SHALL remain standalone cases; missing, unreadable or conflicting contexts MUST remain failures. No row, pin or finding may be removed to make the census pass.
+
+#### Scenario: Child port in a repeated root
+- **GIVEN** an authored root referencing one child with a hierarchical port twice
+- **WHEN** the child's corpus row is measured
+- **THEN** both annotated instances are covered in the native owner hierarchy and compared without unmatched artificial root ports
+
+### Requirement: Native KiCad connection names
+Resolution of read KiCad drawings SHALL use KiCad's native identity for slash spellings in connection names, including labels, sheet pins, power names and bus members. It MUST preserve the extracted drawing text and strict code partition comparison. The generic resolver MUST keep its literal name semantics.
+
+#### Scenario: Native slash aliases join
+- **GIVEN** separate wire islands labeled `A/B` and `A{slash}B`
+- **WHEN** their native KiCad sheets are resolved
+- **THEN** their pins join, the two drawn texts survive, and distinct code nets still fail the build guard
+
+### Requirement: Root sheet component paths
+Extraction MUST keep the root sheet instance at the empty code-module path. A common prefix of its components MUST remain in their drawn `part` paths, even when every root-sheet part belongs to one named code module. Child-sheet module paths MUST retain their existing relative behavior.
+
+#### Scenario: Root parts share a code module
+- **WHEN** an authored flat source project whose parts all have one code-module prefix is strictly imported, built and compared
+- **THEN** the root drawing retains that prefix, all nine fidelity levels compare equal and source bytes remain unchanged
+
+### Requirement: Per-unit native symbol bindings
+A drawn symbol MAY name an optional library `symbol` override for its unit. Its logical pin numbers, names, types and hidden states MUST match the code symbol's unit before lowering. Extraction MUST preserve distinct source unit bodies and sync MUST retain overrides relative to code, including pin-pad variants. Missing or incompatible bindings MUST refuse; ordinary files MUST keep their bytes.
+
+#### Scenario: Native unit aliases
+- **WHEN** authored units of one component use distinct compatible embedded aliases and are strictly imported, built and synced
+- **THEN** each native body survives, all nine fidelity levels compare equal and a conflicting same-unit or incompatible binding refuses
+
+### Requirement: Pinless native graphic symbols
+Extraction SHALL keep a pinless source symbol as a native opaque graphic when its instance excludes it from board and BOM. Library default flags MUST remain unchanged and MUST NOT cancel those instance exclusions. Lowering MUST embed the same definition. Missing definitions and unsupported electrical opaque instances MUST refuse; this path MUST NOT add circuit components or connectivity.
+
+#### Scenario: Graphic symbol survives
+- **WHEN** an authored pinless excluded graphic symbol is strictly imported, built and compared
+- **THEN** its native body and instance survive with all nine levels equal, while an electrical lookalike refuses
+
+### Requirement: Excluded passive native instances
+A native instance excluded from board and BOM MAY remain opaque when its resolved definition is non-power with only visible passive pins. Extraction and lowering MUST preserve its definition and flags without circuit nodes. Active, hidden or power pins and missing exclusions MUST refuse; the native export's common-pin partition MUST remain equal.
+
+#### Scenario: Excluded passive instance survives
+- **WHEN** an authored excluded resistor is strictly imported, rebuilt and exported by KiCad
+- **THEN** all nine authored levels are equal, its native pose survives, and the export has no node for it
+
+### Requirement: Legacy hidden power instances
+Extraction SHALL represent a legacy `#PWR` instance lacking a power flag when its definition has exactly one hidden `power_in` pin at the origin, named by the instance value. It MUST preserve the definition and poses and resolve that global connection through the hidden-pin rule. A reference prefix alone MUST NOT classify a symbol as power.
+
+#### Scenario: Legacy power without flag
+- **WHEN** an authored symbol with that hidden pin and no power flag is strictly imported and built
+- **THEN** its native definition survives, all nine fidelity levels compare equal and malformed lookalikes still refuse
+
+### Requirement: Mirrored source power symbols
+A drawn power item SHALL accept optional `mirror` equal to empty, `x` or `y`. Extraction and lowering MUST preserve it and transform its pin points with that mirror. Level S MUST compare the mirror. Omitting it MUST retain existing canonical bytes.
+
+#### Scenario: Mirrored power round trip
+- **WHEN** an authored sheet with mirrored power symbols is extracted, written as TOML, lowered for either KiCad target and extracted again
+- **THEN** the mirror, drawing and resolved connectivity survive and a changed mirror produces a level S difference
+
 ### Requirement: Drawn schematic file
 `fenolite.lens.drawn.read_drawn(text, *, file="") -> DrawnSchematic` SHALL read a `schematic.toml` of schema `fenolite.drawn-schematic.v0`: the root keys `schema`, `root` and one or more `[[sheet]]` tables. An unknown key, a missing key, a wrong type, a duplicate sheet key or a `root` naming no sheet MUST raise `FormatError` (`FEN-3004`) naming the file and the locator. It reads no other file.
 
@@ -167,7 +225,7 @@ Before a drawn schematic is lowered, every unit of every code component with a r
 - **THEN** one `drawn.unit-missing` warning names that unit and no error is given
 
 ### Requirement: Drawn schematic issue codes
-`fenolite.model.drawn_connect.ISSUE_CODES` SHALL be the closed set: errors `drawn.netlist-differs`, `drawn.symbol-missing`, `drawn.part-unknown`, `drawn.sheet-pin-unmatched`, `drawn.sheet-unknown` and `drawn.repeated-value-differs`; warnings `drawn.net-name-differs`, `drawn.unit-missing`, `drawn.dangling`, `drawn.label-unconnected`, `drawn.bus-member-unknown` and `drawn.placements-ignored`; infos `drawn.opaque-dropped`, `drawn.frozen` and `drawn.altium-repeat-flattened`.
+`drawn_connect.ISSUE_CODES` SHALL be closed: errors `drawn.netlist-differs`, `drawn.symbol-missing`, `drawn.part-unknown`, `drawn.sheet-pin-unmatched`, `drawn.sheet-unknown`, `drawn.repeated-value-differs`; warnings `drawn.net-name-differs`, `drawn.unit-missing`, `drawn.dangling`, `drawn.label-unconnected`, `drawn.bus-member-unknown`, `drawn.placements-ignored`, `drawn.coordinate-rounded`; infos `drawn.opaque-dropped`, `drawn.frozen`, `drawn.altium-repeat-flattened`.
 
 #### Scenario: Closed and explained
 - **WHEN** `uv run pytest tests/unit/model/test_drawn_codes.py` collects the codes the modules emit
@@ -250,3 +308,11 @@ Each connectivity and naming rule of the resolver SHALL be a row of `docs/format
 #### Scenario: Pages cover the names
 - **WHEN** `uv run pytest tests/consistency tests/unit/agent/test_pages.py` runs
 - **THEN** both pass, and every key of the reader's closed sets appears in `docs/drawn-schematic.md`
+
+### Requirement: Demo drawn census
+Every manifest demo schematic row SHALL have a version-bound census of input hashes, drawn item counts, lowering/resolution and native partition/naming outcomes or explicit refusal. Comparisons MUST retain native-only pins and open singletons. Reports MUST precede strict assertions and contain no component values, labels or CAD fragments. Census completion SHALL NOT imply equality or raise evidence levels.
+
+#### Scenario: A demo refuses or differs
+- **WHEN** extraction, lowering or native export refuses a row, or pin partitions differ
+- **THEN** its report records the actual stage/kinds/counts and the corpus assertion fails
+- **AND** native-version incompatibility and naming warnings remain distinct from equal connectivity

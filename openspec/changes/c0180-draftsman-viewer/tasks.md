@@ -46,3 +46,8 @@
   - 2026-10-25: the page was regenerated with the new module; the check passed.
 - [x] 3.4 Add an entry under `## [Unreleased]` in `CHANGELOG.md` once the version after 0.5.0 is open. Proof: `uv run pytest tests/unit/test_release_record_v05.py -q`.
   - 2026-10-25: the entry is under `## [0.5.0]` of `CHANGELOG.md`, not `[Unreleased]`: by the maintainer's decision of 2026-10-25 the change ships in 0.5.0 (c0171 task 1.15). Proof passed (`tests/unit/test_release_record_v05.py`).
+
+## Continuation review — 2026-11-01
+
+Altium Designer is unavailable per the maintainer, and no personal F0.5 drawing comparison was supplied. Task 2.4 remains open.
+See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.

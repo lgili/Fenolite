@@ -63,7 +63,7 @@ class ReplyTolerances:
 class ReplyLevel:
     """One level that ran, with its counts and summary."""
 
-    level: int = dataclasses.field(metadata={"minimum": 1})
+    level: int | Literal["S"] = dataclasses.field(metadata={"minimum": 1})
     name: str = dataclasses.field(metadata={"enum": list(ALL_LEVEL_NAMES.values())})
     compared: int = dataclasses.field(metadata=_COUNT)
     differences: int = dataclasses.field(metadata=_COUNT)
@@ -76,7 +76,7 @@ class ReplyLevel:
 class ReplyDifference:
     """A difference or a notice, located at ``REF``, ``REF-PIN`` or a net."""
 
-    level: int = dataclasses.field(metadata={"minimum": 1})
+    level: int | Literal["S"] = dataclasses.field(metadata={"minimum": 1})
     kind: str = dataclasses.field(metadata={"enum": list(KIND_NAMES)})
     where: str
     field: str
@@ -88,7 +88,7 @@ class ReplyDifference:
 class ReplyExcluded:
     """A difference that a rule of the profile excluded."""
 
-    level: int = dataclasses.field(metadata={"minimum": 1})
+    level: int | Literal["S"] = dataclasses.field(metadata={"minimum": 1})
     kind: str = dataclasses.field(metadata={"enum": list(KIND_NAMES)})
     where: str
     field: str
@@ -110,7 +110,7 @@ class ReplyProfile:
 class EquivalentReply:
     """The result of fenolite equivalent."""
 
-    level: int = dataclasses.field(
+    level: int | Literal["S"] = dataclasses.field(
         metadata={"minimum": 0, "description": "the highest level run; 0 when none ran"}
     )
     equivalent: bool

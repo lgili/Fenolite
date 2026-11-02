@@ -230,6 +230,23 @@ Each code is explained by `fenolite explain` and listed in `docs/cli-contract.md
 | golden stability | `INFERRED`, `H-G-BLOCK-GOLDEN`, measured on the three unit jobs |
 | usage boards | `KICAD-VERIFIED` read-back (targets 9 and 10) |
 
+Measured 2026-11-02 on commit `46d788ee0e10516838a4b0a63b254eab2a475fd1`, CI run
+`41406065844`: the `uv run fenolite blocks test --json` step reported five passed usage builds,
+five equal goldens, sixteen passed test functions and zero issues in every job below.
+
+| unit job | job id | block step | complete job |
+|---|---|---|---|
+| Linux, Python 3.11 | `125148247115` | passed | failed |
+| Linux, Python 3.12 | `125148246873` | passed | failed |
+| Linux, Python 3.13 | `125148246985` | passed | failed |
+| macOS, Python 3.12 | `125148246982` | passed | failed |
+| Windows, Python 3.12 | `125148246825` | passed | failed |
+
+This measures the golden comparison on three operating systems and Python 3.11–3.13. The
+complete unit jobs failed other checks; no complete CI success is claimed. The evidence stays
+`INFERRED`. This observation does not establish the KiCad read-back or final integration gates
+of tasks 4.2 and 6.1, nor a platform measurement of a later commit.
+
 ## Risks / Trade-offs
 
 - **Golden churn** when the model gains a field: every golden file changes in the same commit. Mitigation:

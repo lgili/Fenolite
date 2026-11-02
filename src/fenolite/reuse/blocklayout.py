@@ -437,7 +437,9 @@ def part_rows(
     footprints = {fp.component_id: fp for fp in design.board.footprints} if design.board else {}
     rows: list[list[Any]] = []
     for path, c in sorted(instance_parts(design, instance).items()):
-        defn = (definitions or {}).get(f"{instance}/{path}") or (definitions or {}).get(c.lib_footprint_ref)
+        defn = (definitions or {}).get(f"{instance}/{path}") or (definitions or {}).get(
+            c.footprint_definition_ref or c.lib_footprint_ref
+        )
         pads = defn.pads if defn is not None else (footprints[c.id].pads if c.id in footprints else ())
         numbers = sorted(pad.number for pad in pads)
         rows.append([path, c.lib_footprint_ref, numbers])

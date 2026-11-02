@@ -329,8 +329,8 @@ def _clean(value: Any) -> Any:
     return value
 
 
-def _name(value: str) -> str:
-    text = re.sub(r"[^\w.-]", "_", value).strip(". ") or "unnamed"
+def _name(value: str, *, allow_space: bool = False) -> str:
+    text = re.sub(r"[^\w. -]" if allow_space else r"[^\w.-]", "_", value).strip(". ") or "unnamed"
     if text.upper() in {
         "CON",
         "PRN",
@@ -393,7 +393,7 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
     for fp in sorted(board.footprints, key=lambda f: (refs.get(f.component_id, ""), f.id)):
         raw = fp.lib_ref or f"FREE_{fp.id}"
         if raw not in allocated:
-            candidate = _name(raw.rsplit(":", 1)[-1])
+            candidate = _name(raw.rsplit(":", 1)[-1], allow_space=True)
             base = candidate
             index = 2
             while candidate.casefold() in used:

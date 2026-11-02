@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
+from fenolite.view import conflicts
 from fenolite.view.project import Document, ProjectTree
 from fenolite.view.runs import KICAD_BOARD, KICAD_PROJECT, is_altium, under_root
 
@@ -68,6 +69,16 @@ class Action:
 
 
 ACTIONS: Mapping[str, Action] = {
+    "take": Action(
+        "build",
+        "Resolve edit conflict",
+        {
+            "finding": Option("conflict", required=True, label="conflict finding"),
+            "side": Option(
+                "choice", required=True, choices=("code", "cad", "board", "schematic"), label="side"
+            ),
+        },
+    ),
     "fill": Action("fill", "Fill zones", note="kicad-cli 10 refills every zone on a copy"),
     "tidy": Action(
         "tidy",
@@ -193,6 +204,7 @@ class ActionRequest:
     command: str
     words: tuple[str, ...]
     target: Path
+    binding: Json | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,6 +227,7 @@ class Context:
     groups: frozenset[str] | None = None
     candidates: frozenset[str] | None = None
     proposals: frozenset[str] | None = None
+    resolve: Json | None = None
 
 
 def availability(tree: ProjectTree, doc: Document | None) -> str | None:
@@ -332,6 +345,13 @@ def _typed(key: str, option: Option, value: Any, context: Context, root: Path) -
         return value.strip()
     if kind == "finding":
         return _finding(key, value, context)
+    if kind == "conflict":
+        if type(value) is not int or not 0 <= value < len(context.findings):
+            return ActionRefused(f"{key}: the index of a conflict in this session")
+        row = context.findings[value]
+        if row.get("code") != "sync.conflict" or not isinstance(row.get("conflict"), dict):
+            return ActionRefused(f"{key}: a structured sync.conflict of this session")
+        return value
     if kind in ("nets", "groups"):
         return _role_names(key, value, context.roles if kind == "nets" else context.groups)
     if kind in ("candidates", "decisions"):
@@ -426,6 +446,27 @@ def plan(body: Any, tree: ProjectTree, context: Context = Context()) -> ActionRe
         if isinstance(checked, ActionRefused):
             return checked
         values[key] = checked
+    if name == "take":
+        assert doc.file is not None
+        why = conflicts.current(context.resolve, doc.file)
+        if why is not None:
+            return ActionRefused(why)
+        row = cast(Json, context.findings[values["finding"]]["conflict"])
+        if values["side"] not in conflicts.sides(row):
+            return ActionRefused("this conflict needs " + " or ".join(conflicts.sides(row)))
+        assert context.resolve is not None
+        binding = context.resolve
+        words = (
+            "build",
+            f"--kicad-version={binding['target']}",
+            f"--out={binding['out']}",
+            f"--take={values['side']}:{row['key']}",
+            "--",
+            str(binding["script"]),
+        )
+        return ActionRequest(
+            name, doc.id, "build", words, doc.file, dict(binding) | {"cwd": str(tree.root.resolve())}
+        )
     flags = _flags(name, values)
     if isinstance(flags, ActionRefused):
         return flags

@@ -252,7 +252,8 @@ def _violations() -> list[str]:
                     "blocks/protect.py",
                 }
                 allowed = target in {"dsl", "core", "root"} if starter else _allowed(source, target)
-                if not allowed and not (edge.lazy and _lazy(source, target)):
+                preparation = _drawing_preparation(path.relative_to(SRC).as_posix(), edge.target)
+                if not allowed and not (edge.lazy and _lazy(source, target)) and not preparation:
                     lazily = " (only inside a function)" if _lazy(source, target) else ""
                     problems.append(f"{rel}:{edge.line}: {source} → {target} is not allowed{lazily}")
             elif top not in sys.stdlib_module_names:
@@ -261,6 +262,27 @@ def _violations() -> list[str]:
                 elif not edge.guarded:
                     problems.append(f"{rel}:{edge.line}: unguarded third-party import {top}")
     return problems
+
+
+def _drawing_preparation(source: str, target: str) -> bool:
+    """C0172's exact pure preparation edges; this grants no general lens-to-exports permission."""
+    allowed = {
+        "lens/altium.py": {"fenolite.exports.drawing_spec"},
+        "lens/altium_draftsman.py": {
+            "fenolite.exports.drawing_spec",
+            "fenolite.exports.drawing_layout",
+            "fenolite.exports.drawing_tables",
+        },
+    }
+    return target in allowed.get(source, set())
+
+
+def test_draftsman_preparation_is_not_an_export_runner_exception() -> None:
+    for source in ("lens/altium.py", "lens/altium_draftsman.py"):
+        assert _drawing_preparation(source, "fenolite.exports.drawing_spec")
+        assert not _drawing_preparation(source, "fenolite.exports.drawings")
+        assert not _drawing_preparation(source, "fenolite.exports")
+    assert not _drawing_preparation("backends/altium/draftsman.py", "fenolite.exports.drawing_spec")
 
 
 def test_layering() -> None:

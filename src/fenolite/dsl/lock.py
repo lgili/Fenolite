@@ -248,7 +248,7 @@ def _resolve_refs(design: Design, entries: Mapping[str, LockValue]) -> SectionRe
     A reference edit (``hand_refs``) is an explicit ref when it was recorded over the part's explicit or
     locked ref, or the part has neither; an edit made over another ref is stale and left to the build's
     merge, which reports it."""
-    parts: dict[str, Part] = dict(design.parts)
+    parts: dict[str, Part] = {path: part for path, part in design.parts.items() if not part.board_only}
     explicit = {path: part.explicit_ref for path, part in parts.items() if part.explicit_ref is not None}
     for path, (ref, over) in sorted(_HAND.get().items()):
         if path not in parts:
@@ -264,7 +264,9 @@ def _resolve_refs(design: Design, entries: Mapping[str, LockValue]) -> SectionRe
     """Path → (locked ref, reason) of a part whose locked ref could not be kept."""
     for path in sorted(entries, key=natural_key):
         locked = cast(str, entries[path])
-        part = parts[path]
+        part = parts.get(path)
+        if part is None:
+            continue
         if path in explicit:
             ref = explicit[path]
             if locked != ref:

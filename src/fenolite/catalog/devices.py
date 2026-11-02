@@ -372,7 +372,8 @@ PART_ATTRIBUTES: frozenset[str] = frozenset(
     {
         "a", "assigned", "at", "b", "connections", "design", "device", "device_origin", "device_overrides",
         "explicit_ref",
-        "field", "field_requests", "footprint", "height", "key", "label", "lib_id", "name", "no_connects",
+        "field", "field_requests", "footprint", "footprint_definition", "height", "key", "label", "lib_id",
+        "name", "no_connects",
         "pad", "pad_map", "pad_zone_requests", "parent", "path", "place", "port", "ports", "prefix",
         "properties", "ref", "request", "take", "two_terminal", "unused_no_connect", "unused_request",
         "value",
@@ -381,6 +382,9 @@ PART_ATTRIBUTES: frozenset[str] = frozenset(
         "bottom", "center_x", "center_y", "left", "relative", "right", "top", "turn",
         # the part queries of change c0254
         "call_query", "query",
+        # assembly flags and exact native edits; actual Part attributes cannot be device interfaces
+        "board_only", "dnp", "edit_pad", "model", "model_refs", "override", "overrides", "pad_edits",
+        "verbatim", "verbatim_items",
     }
 )  # fmt: skip
 """The attributes of a DSL ``Part`` that an interface name cannot shadow (``fenolite.dsl.part.Part``; the

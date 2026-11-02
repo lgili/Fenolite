@@ -1,6 +1,19 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list` and the living specs this change touches (`specctra-dsn`, `cli-contract`, `routing`, `board-analyses`, `design-dsl`, `assembly-test-features`, `design-conversion`, `manufacturing-exports`, `kicad-oracle`). Write under this task, with the date: which open change holds a delta of "Routing rules in design files", "Route command budget and tiers" or "Analyze command" (regenerate the MODIFIED blocks from the living text if one was archived); the maintainer's answers to the three open questions of `design.md`; and which packages the maintainer splits into their own changes, with their ids. Proof: `openspec validate c0175-board-engineering-tools --strict --no-interactive`.
+- [x] 0.1 Read `openspec list` and the living specs this change touches (`specctra-dsn`, `cli-contract`, `routing`, `board-analyses`, `design-dsl`, `assembly-test-features`, `design-conversion`, `manufacturing-exports`, `kicad-oracle`). Write under this task, with the date: which open change holds a delta of "Routing rules in design files", "Route command budget and tiers" or "Analyze command" (regenerate the MODIFIED blocks from the living text if one was archived); the maintainer's answers to the three open questions of `design.md`; and which packages the maintainer splits into their own changes, with their ids. Proof: `openspec validate c0175-board-engineering-tools --strict --no-interactive`.
+
+Entry review — 2026-11-01, base `7ebbd86081bd200c7e8d979575a9453fff486314`.
+The living `specctra-dsn` has "Routing rules in design files" and living `cli-contract` has
+"Route command budget and tiers"; no active delta owns either name. The only active
+"Analyze command" delta is this change's `board-analyses` MODIFIED block, still based on the living
+requirement. No replacement MODIFIED block is needed. The three recommended decisions are adopted
+under this continuation's authorization and dated in `design.md`: separate `tidy`/`silk`, optional
+requirements-v0 keys, and lock patterns added only with registered public sources.
+Package owners remain the explicit splits recorded below: router c0197; ties c0198; crossings c0199;
+file safety c0201/c0207; practice/pour shapes c0204/c0213; native edits c0241; tidy/router
+c0208/c0214/c0228; reuse c0210/c0227; marks c0212/c0226/c0229; library c0223; copper c0224;
+release/readback/gates/renders c0203/c0209/c0225/c0211. Task 10.4 remains here, blocked by measured
+native edits and a named house library. No native outcome is inferred from the entry decisions.
 
 ## 1. Router input fidelity (package 1)
 
@@ -159,4 +172,11 @@ crossing analysis), with the requirement "Region renders" of `manufacturing-expo
 - [ ] 14.1 Run the tests and the residue scan. Proof: `make check-fast`, then the CI jobs of the branch.
 - [x] 14.2 Update the evidence labels: the hypotheses of packages 1, 2 and 7 in `docs/hypotheses.md` (package 12's are c0241's), and the matrix. Proof: `uv run python tools/gen_evidence_matrix.py --check`; `uv run pytest tests/unit/test_hypotheses_register.py -q`.
   - 2026-10-28: package 1: `H-G-DSN-WIDTH-ALL` and `H-G-DSN-ONE-SIDED` stay `ORACLE-VERIFIED(freerouting 2.4.1)`, their proof moved from the local run to CI: both `routing` jobs passed `test_router_input_bench`, which asserts the criterion, in runs 40355527379 (`aaea7b4`) and 40703612332 (`01068dd`); `docs/evidence/routing.md` names the runs. Packages 2 and 7: `H-G-TIES`, `H-G-PRACTICE-*`, `H-G-SHAPE-*` and `H-G-POWER-SPLIT` stay `INFERRED`: only authored unit benches prove them, and no oracle or corpus test compares them with KiCad. Package 12 is not updated here: it moves to change c0241, which registers its rows. The matrix lists no `H-G-` row and is unchanged. Proof passed: `uv run python tools/gen_evidence_matrix.py --check` (exit 0), `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/verify/test_register.py -q -n 2` (53 passed).
-- [ ] 14.3 Add an entry to `CHANGELOG.md` under `## [Unreleased]` once the maintainer has opened the version after 0.5.0. Proof: `uv run pytest tests/unit -k "release_record or changelog" -q`.
+- [x] 14.3 Add an entry to `CHANGELOG.md` under `## [Unreleased]` once the maintainer has opened the version after 0.5.0. Proof: `uv run pytest tests/unit -k "release_record or changelog" -q`.
+
+## Continuation review — 2026-11-01
+
+Altium body copy still needs measured c0241 operations and a named house library. Full/CI gates are coordinated separately; no model-store rule is guessed.
+See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.
+
+Closing documentation proof — 2026-11-01: strict validation passes the dated entry review (0.1). The version after 0.5.0 is already open; the Unreleased decision/dependency entry satisfies 14.3. Its exact `tests/unit -k "release_record or changelog"` proof passes: 167 passed, 1 optional SDK skip, 17466 deselected. The native body-copy dependency (10.4) and coordinating full/CI gate (14.1) remain open.

@@ -213,9 +213,13 @@ def test_the_altium_target_has_its_own_guard(tmp_path: Path, monkeypatch: pytest
 def test_refused_build_does_not_run_the_guard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     blink = Blink(tmp_path, monkeypatch)
     text = blink.script.read_text(encoding="utf-8")
-    assert "connect(led_a, r1[2], d1[2])" in text
+    assert "series(led_drv, r1, led_a, (d1.b, d1.a), gnd)" in text
     blink.script.write_text(
-        text.replace("connect(led_a, r1[2], d1[2])", "connect(led_a, r1[7], d1[2])"), "utf-8"
+        text.replace(
+            "series(led_drv, r1, led_a, (d1.b, d1.a), gnd)",
+            "series(led_drv, (r1[1], r1[7]), led_a, (d1.b, d1.a), gnd)",
+        ),
+        "utf-8",
     )
     code, env, _ = blink.build("--dry-run")
     assert code == 5 and "build.unknown-pin" in [i["code"] for i in env["issues"]]  # type: ignore[union-attr,index]

@@ -96,6 +96,8 @@ Back to [the command index](commands.md).
 - `--altium-sheets {flat,modules}`: the sheets of the Altium schematic with --target altium: flat (default, one sheet) or modules (a top sheet with sheet symbols and one sheet per top-level module, with ports, sheet entries and signal harnesses); a usage error with --target kicad (default: flat)
 - `--altium-outjob {off,on}`: with --target altium: on (default) writes <name>.OutJob, an output job with Gerber, NC drill, pick-and-place, bill-of-materials, schematic-print and PCB-print outputs, when the build writes a PCB document; off writes none; a usage error with --target kicad
 - `--altium-outjob-preset FILE`: the export preset (the TOML file of export --preset) the output job is made for: its gerbers.precision is the decimals of the job's Gerber settings (result.outjob.gerber), and its other options are listed in result.outjob.defaults, to be set in Altium; a usage error with --target kicad or with --altium-outjob off
+- `--altium-draftsman {off,on}`: with --target altium: on requests a native Draftsman document; off (default) keeps legacy files. The native gate remains closed until Part F passes in Altium
+- `--drawing-spec FILE`: fenolite.drawing-spec.v0 TOML for --target altium --altium-draftsman on
 - `--altium-symbols {generic,graphics}`: with --target altium: graphics (default) draws each resolved symbol from its own graphics, generic draws one rectangle per part (the output of 0.2.0 and earlier); a usage error with --target kicad (default: graphics)
 - `--altium-directions {off,on}`: with --target altium: on (default) gives each port and sheet entry the I/O type that follows from the pin types on its net, off leaves them all unspecified; a usage error with --target kicad (default: on)
 - `--altium-bodies {extruded,off}`: with --target altium: extruded writes the extruded component bodies of the board's footprints (experimental), off writes none and reports each body, as earlier versions did; a usage error with --target kicad (default: extruded)
@@ -106,11 +108,3 @@ Back to [the command index](commands.md).
 - `--schematic {skip,write}`: write (default): also write DIR/<name>.kicad_sch, its symbol libraries under DIR/lib/ and sym-lib-table, and name the pads of unconnected pins as KiCad does; skip: write the board without a schematic; a usage error with --target altium
 - `--schematic-layout {grid,readable}`: readable (default): one sheet per module under DIR/sheets/, and 2-pin parts beside the IC pins they connect to, joined by a wire; grid: one flat sheet with a label on every pin, the form of v0.2a; a usage error with --target altium
 - `--altium-layout {blocks,grid}`: Altium arrangement: grid preserves legacy layout; blocks composes functional blocks
-
-## capabilities
-
-`fenolite capabilities [OPTIONS]`
-
-- `--no-tools`: skip external tool detection
-- `--brief`: the small first reply: commands with a summary, targets, tools, routers, guide pages, starters
-- `--command NAME`: describe one command: its entry, its usage and its arguments as data

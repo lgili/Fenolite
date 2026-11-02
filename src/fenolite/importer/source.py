@@ -30,6 +30,7 @@ from fenolite.backends.kicad.versions import (
 from fenolite.core.errors import FenoliteError, Issue
 from fenolite.model.design import Design
 from fenolite.model.rules import Rule
+from fenolite.model.schematic import SchematicSheet
 
 KICAD_SUFFIXES = (".kicad_pro", ".kicad_pcb", ".kicad_sch")
 ALTIUM_SUFFIXES = (".prjpcb", ".pcbdoc")
@@ -116,6 +117,9 @@ class Source:
     issues: tuple[Issue, ...] = ()
     paths: tuple[Path, ...] = ()
     folder: Path = Path()
+    hierarchy: Mapping[str, SchematicSheet] = field(default_factory=lambda: {})
+    sheet_origins: Mapping[str, tuple[str, str]] = field(default_factory=lambda: {})
+    """Reference to native sheet file/element identity across an in-memory backend conversion."""
 
 
 def _sha(data: bytes) -> str:
@@ -188,9 +192,11 @@ def read_kicad(path: Path, *, upgrade: Upgrader | None = None) -> Source:
         ruleset = read_rules(raw.decode("utf-8"), file=dru.name, issues=issues)
         rules = ruleset.rules
     sheets = 0
+    hierarchy: dict[str, SchematicSheet] = {}
     root = folder / f"{stem}.kicad_sch"
     if root.is_file():
         read = parity_inputs.read_sheets(root)
+        hierarchy = read
         sheets = len(read)
         for name in read:
             sheet = folder / name
@@ -211,6 +217,7 @@ def read_kicad(path: Path, *, upgrade: Upgrader | None = None) -> Source:
         issues=tuple(i for i in issues if i.severity != "error"),
         paths=tuple(paths),
         folder=folder,
+        hierarchy=hierarchy,
     )
 
 

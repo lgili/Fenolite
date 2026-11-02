@@ -320,3 +320,30 @@ No new `FEN-` code: usage `FEN-2001`, missing input `FEN-3001`, malformed proven
   statuses in the gallery, and owns the rest of the provenance schema.
 - **c0249 design-lock, c0250 manual-edit-merge:** the build in the temporary folder uses the lock and
   `edits.toml` beside the script as a normal build does.
+
+## Continuation decisions — 2026-11-01
+
+The actual dependency surfaces may be exercised while their OpenSpecs remain active. This does not
+close their missing proofs or the full-gate entry task. The harness uses no lossy import, acceptance,
+geometry tolerance or level-subset override. An import/build refusal is a refused stage, never zero
+comparison differences. Ratchets contain reviewed counts only; pending entries are explicitly not
+baselines. Value-free observations preserve failed local probes separately from any accepted count.
+The source drawing/symbol implementation stays with c0276; native GUI and exact-head CI gates stay open.
+
+The existing `equivalent --level S` production gap is authorized next. It must reuse actual extraction
+and comparison behind `verify-source`, add S explicitly to the level argument/result type, preserve
+all historical integer requests and result bytes, and coordinate its additive public API/schema shape
+with the version-1 contract work before finalization. No junction or geometry assertion is relaxed.
+
+### Explicit S API and wire shape — decided 2026-11-01
+
+`equivalent(..., level="S")` compares only actual extracted sheets and their resolved pin connectivity.
+Its result has the existing keys, `level: "S"`, and one existing level object named `schematic`, with
+its actual summary (including `extraction_issues`). Difference/notice/excluded rows use the existing
+closed S kinds. The four active-v0 level annotations become `int | Literal["S"]`; integer metadata
+and every historical integer/default result byte stay unchanged. The private actual-sheet helper moves
+to `api/_drawn.py`, with the old CLI helper re-exporting it so verify-source keeps its existing path.
+Raw schematic sides for S are read from their hierarchy/embedded definitions without a netlist export;
+S resolves the actual drawing itself. S does not run the PCB import triangle or the strict copper rule.
+Profiles/tolerances retain their existing validation; unrecognized level strings remain usage errors.
+The version-1 contract owner has the exact unchanged-key shape and will type it without an Any fallback.

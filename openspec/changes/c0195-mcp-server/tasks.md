@@ -106,3 +106,8 @@
 - [ ] 5.4 **Maintainer, optional.** Add `fenolite mcp` to an MCP client of his (Claude Code, an IDE) and run a
   dry run and a confirmed write; record the client, its version and the outcome under this task. Nothing waits
   on it.
+
+## Continuation review — 2026-11-01
+
+No personal MCP-client session was supplied. The optional task 5.4 stays open; no client configuration is changed or external session assumed.
+See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.

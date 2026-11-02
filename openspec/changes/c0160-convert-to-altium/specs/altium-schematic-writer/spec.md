@@ -1,6 +1,12 @@
 ## ADDED Requirements
 
 ### Requirement: Schematic of a converted project
+When a KiCad source project holds a schematic, its conversion to Altium SHALL take the circuit from that schematic (as a schematic side of `equivalent` reads it) and the graphics of each symbol from the schematic's own `lib_symbols`, written with the symbol graphics of `--altium-symbols graphics` and one Altium sheet per KiCad sheet of the tree, as `--altium-sheets modules` writes a module.
+
+#### Scenario: Detailed contract for schematic of a converted project
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 When a KiCad source project holds a schematic, its conversion to Altium SHALL take the circuit from that schematic (as a schematic side of `equivalent` reads it) and the graphics of each symbol from the schematic's own `lib_symbols`, written with the symbol graphics of `--altium-symbols graphics` and one Altium sheet per KiCad sheet of the tree, as `--altium-sheets modules` writes a module. Symbol positions and wires MUST come from the writer's layout, and the report row `schematic` MUST be `changed` with the reason "positions and wires are not converted". A source without a schematic keeps the generated sheet of generic symbols.
 
 #### Scenario: Netlist kept
@@ -9,6 +15,12 @@ When a KiCad source project holds a schematic, its conversion to Altium SHALL ta
 - **THEN** levels 1 and 2 report no difference, and the written project holds one schematic document per KiCad sheet
 
 ### Requirement: Tolerant texts and nets of a read circuit
+The schematic writer SHALL write a circuit that was read from a file, as follows:
+
+#### Scenario: Detailed contract for tolerant texts and nets of a read circuit
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 The schematic writer SHALL write a circuit that was read from a file, as follows:
 - a comment that starts with `=` and was read from an Altium document MUST be written as read; one read from a KiCad file MUST be written with a leading space and counted `changed`;
 - in the binary form, a text with a character outside Windows-1252 MUST be written with its `%UTF8%` twin holding the text and a plain value with `?` for each such character; the ASCII form keeps refusing it;

@@ -2,6 +2,12 @@
 
 ### Requirement: Impedance estimates
 `fenolite.analysis.impedance` SHALL estimate the quasi-static impedance of single-ended lines with closed forms from public sources, under the rules of "Analysis package and report" (pure functions, `decimal`, no `float`).
+
+#### Scenario: Detailed contract for impedance estimates
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`fenolite.analysis.impedance` SHALL estimate the quasi-static impedance of single-ended lines with closed forms from public sources, under the rules of "Analysis package and report" (pure functions, `decimal`, no `float`).
 - `microstrip_mohm(width, height, thickness, epsilon_r) -> int` MUST compute the one-formula microstrip form of 1977 with its thickness correction, as the source S-0641 states it, with `Z_VACUUM_OHM = Decimal("376.730313412")` (S-0643).
 - `stripline_mohm(width, spacing, thickness, epsilon_r) -> int` MUST compute the thick-strip form for a strip centred between two planes `spacing` apart, as the source S-0642 states it; `stripline_in_range(…)` MUST be true only inside the condition under which S-0642 claims its accuracy.
 - `offset_stripline_mohm(width, below, above, thickness, epsilon_r) -> int` MUST combine the centred lines of spacings `2·below + thickness` and `2·above + thickness` in parallel, `2·Z₁·Z₂ / (Z₁ + Z₂)`, as S-0642 describes.
@@ -29,6 +35,12 @@
 - **THEN** it returns an `Estimate` whose `mohm` is `None` and whose `reason` is `differential`
 
 ### Requirement: Impedance formula sources are recorded
+`docs/analyses.md` SHALL hold the table "Impedance formulas" with one row per named constant of `fenolite.analysis.impedance` (`Z_VACUUM_OHM` and each number of the two forms): its name, value, unit, a source id registered in `docs/evidence/sources.md`, the label `INFERRED` and a hypothesis id.
+
+#### Scenario: Detailed contract for impedance formula sources are recorded
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 `docs/analyses.md` SHALL hold the table "Impedance formulas" with one row per named constant of `fenolite.analysis.impedance` (`Z_VACUUM_OHM` and each number of the two forms): its name, value, unit, a source id registered in `docs/evidence/sources.md`, the label `INFERRED` and a hypothesis id. The page MUST state, in Fenolite's own words, each form's claimed accuracy and range, and what the forms leave out: solder mask, etch angle, frequency, loss and copper roughness. `src/fenolite/analysis/PROVENANCE.md` MUST hold a row per source (S-0641, S-0642, S-0643), facts only: each form is re-derived and written in Fenolite's own code, and no text of a source is copied.
 
 #### Scenario: Table equals the code

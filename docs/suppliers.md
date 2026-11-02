@@ -84,8 +84,12 @@ named variables/keyring service. Network/timeout/source failure or repeated 429 
 credential-bearing URLs and response bodies. `fenolite explain supplier.rate-limited` and the other
 `supplier.*` codes explain the findings.
 
-Only Mouser/Farnell documented mappings currently have authored response fixtures. DigiKey/Nexar
-registration and refusal proofs do not assert completed response adapters. The socket-blocked tests
+All four documented request/response mappings have authored offline fixtures. DigiKey and Nexar
+obtain a per-lookup Bearer token through the same timeout/host/rate client; received tokens join the
+redaction set and never enter a persistent cache. Nexar requests documented basic identity/offers only;
+paid specs, lifecycle, datasheets and ECAD add-ons are not assumed. Source/GraphQL errors refuse partial
+answers, and malformed selected containers are not treated as absent fields. These tests do not clear
+any production rights gate. The socket-blocked tests
 prove local mechanics (`H-G-SUPPLIER-OFFLINE`, `INFERRED`); they do not verify a live API, account access,
 licensing, current quotas or a supplier's response. No live supplier smoke test runs in CI.
 

@@ -41,7 +41,9 @@ def test_protection_required_inputs_typed():
 
 def test_sources_registered():
     root = Path(__file__).resolve().parents[3]
-    known = set(re.findall(r"^\| (S-\d+) \|", (root / "docs/evidence/sources.md").read_text(), re.M))
+    known = set(
+        re.findall(r"^\| (S-\d+) \|", (root / "docs/evidence/sources.md").read_text(encoding="utf-8"), re.M)
+    )
     for entry in find_blocks():
         assert entry.record.header.sources
         assert set(entry.record.header.sources) <= known
@@ -54,7 +56,7 @@ def test_authored_asset_manifest_covers_shipped_fixtures():
 
     from fenolite.blocks.tests._support import ROOT
 
-    data = tomllib.loads((ROOT / "MANIFEST.toml").read_text())
+    data = tomllib.loads((ROOT / "MANIFEST.toml").read_text(encoding="utf-8"))
     wanted = {
         p.relative_to(ROOT).as_posix()
         for folder in ("usage", "devices", "layouts", "golden")

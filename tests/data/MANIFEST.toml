@@ -3161,6 +3161,30 @@ corpus_id = ""
 notes = "import example (c0275): the copper tables of the same import"
 
 [[file]]
+path = "examples/import_python/schematic.toml"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0276): retained drawing of the authored two-sheet project, written by the same exact import recipe"
+
+[[file]]
+path = "examples/import_python/sheets/__init__.py"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): package header of authored source-sheet factories"
+
+[[file]]
+path = "examples/import_python/sheets/ch1.py"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): first authored source-sheet factory with its local net and placements"
+
+[[file]]
+path = "examples/import_python/sheets/ch2.py"
+origin = "authored"
+corpus_id = ""
+notes = "import example (c0275): second authored source-sheet factory preserving explicit refs and part keys"
+
+[[file]]
 path = "examples/import_python/design.lock"
 origin = "authored"
 corpus_id = ""
@@ -3188,7 +3212,7 @@ notes = "import example (c0275): the symbol table of the same import"
 path = "examples/import_python/lib/Mini.kicad_sym"
 origin = "authored"
 corpus_id = ""
-notes = "import example (c0275): the symbols the import vendored (drawn by Fenolite from pad numbers)"
+notes = "import example (c0276): native embedded symbols retained from the authored source schematic"
 
 [[file]]
 path = "examples/import_python/lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod"
@@ -3897,6 +3921,7 @@ path = "tests/data/blocks/lib/divider.py"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite; shared block-test/layout fixture (c0270/c0271), CC0-1.0."
+spdx = "CC0-1.0"
 
 [[file]]
 path = "tests/data/blocks/lib/layouts/divider.toml"
@@ -3909,6 +3934,7 @@ path = "tests/data/blocks/bench/divider.py"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite; c0271 block layout bench, CC0-1.0."
+spdx = "CC0-1.0"
 
 [[file]]
 path = "tests/data/blocks/bench/divider.kicad_pcb"
@@ -3969,12 +3995,14 @@ path = "tests/data/blocks/lib/tests/test_divider.py"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite, CC0-1.0, block test convention and deterministic golden (c0270)."
+spdx = "CC0-1.0"
 
 [[file]]
 path = "tests/data/blocks/lib/usage/divider.py"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite, CC0-1.0, block test convention and deterministic golden (c0270)."
+spdx = "CC0-1.0"
 
 [[file]]
 path = "tests/data/library_repo/block_items/README.md"
@@ -4005,6 +4033,7 @@ path = "tests/data/library_repo/block_items/blocks/cc0/Demo/led/__init__.py"
 origin = "authored"
 corpus_id = ""
 notes = "Authored CC0 c0273 block-item release fixture; no upstream material."
+spdx = "CC0-1.0"
 
 [[file]]
 path = "tests/data/library_repo/block_items/blocks/cc0/Demo/led/item.json"
@@ -4446,90 +4475,120 @@ notes = "Authored for Fenolite (c0266): closure of original illustrative records
 
 [[file]]
 path = "examples/library-devices/fenolite_library/devices/FenoliteDevices/Demo900/LICENSE"
+spdx = "CC0-1.0"
+sha256 = "82d5ca06c0caac0ed773fafccda6b30892e97511a583363f0b3181d815a74a78"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266): closure of original illustrative records, copied by get from the authored local release; LICENSE is an original authored fixture declaration, not public legal text"
 
 [[file]]
 path = "examples/library-devices/fenolite_library/devices/FenoliteDevices/Demo900/NOTICE"
+spdx = "CC0-1.0"
+sha256 = "db30ef31bf6b09af1a11ca6190b3c321f87a7d7e0927d6676afec03f46ce2807"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266): closure of original illustrative records, copied by get from the authored local release; LICENSE is an original authored fixture declaration, not public legal text"
 
 [[file]]
 path = "examples/library-devices/fenolite_library/devices/FenoliteDevices/Demo900/PROVENANCE.json"
+spdx = "CC0-1.0"
+sha256 = "695c4a12f795f04bbbb02a84fe05a5fdebb3e861687210eb2bfbd9250b899306"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266): closure of original illustrative records, copied by get from the authored local release; LICENSE is an original authored fixture declaration, not public legal text"
 
 [[file]]
 path = "examples/library-devices/fenolite_library/devices/FenoliteDevices/Demo900/item.json"
+spdx = "CC0-1.0"
+sha256 = "64778bc23265aa7122fa0a3d11aa1a1adb40d3b9469011443ae79bdc781ce004"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266): closure of original illustrative records, copied by get from the authored local release; LICENSE is an original authored fixture declaration, not public legal text"
 
 [[file]]
 path = "examples/library-devices/fenolite_library/devices/FenoliteDevices/Demo900/record.toml"
+spdx = "CC0-1.0"
+sha256 = "aeb710fdd3b20d93d580ce662f367bf8fbe21129362c73200630598a8ede95ee"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266): closure of original illustrative records, copied by get from the authored local release; LICENSE is an original authored fixture declaration, not public legal text"
 
 [[file]]
 path = "examples/library-devices/fenolite_library/footprints/FenoliteDevices/DemoTwoPad/LICENSE"
+spdx = "CC0-1.0"
+sha256 = "82d5ca06c0caac0ed773fafccda6b30892e97511a583363f0b3181d815a74a78"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266): closure of original illustrative records, copied by get from the authored local release; LICENSE is an original authored fixture declaration, not public legal text"
 
 [[file]]
 path = "examples/library-devices/fenolite_library/footprints/FenoliteDevices/DemoTwoPad/NOTICE"
+spdx = "CC0-1.0"
+sha256 = "db30ef31bf6b09af1a11ca6190b3c321f87a7d7e0927d6676afec03f46ce2807"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266): closure of original illustrative records, copied by get from the authored local release; LICENSE is an original authored fixture declaration, not public legal text"
 
 [[file]]
 path = "examples/library-devices/fenolite_library/footprints/FenoliteDevices/DemoTwoPad/PROVENANCE.json"
+spdx = "CC0-1.0"
+sha256 = "b3e1a1dbb53f69ac0392ac82049d7ab8d1e3299d7860c13bbded7fbfdb321f94"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266): closure of original illustrative records, copied by get from the authored local release; LICENSE is an original authored fixture declaration, not public legal text"
 
 [[file]]
 path = "examples/library-devices/fenolite_library/footprints/FenoliteDevices/DemoTwoPad/item.json"
+spdx = "CC0-1.0"
+sha256 = "6e34adc015336af6d7f01cd6e849d241e24f01829a67353a7bade24e234abc22"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266): closure of original illustrative records, copied by get from the authored local release; LICENSE is an original authored fixture declaration, not public legal text"
 
 [[file]]
 path = "examples/library-devices/fenolite_library/footprints/FenoliteDevices/DemoTwoPad/record.toml"
+spdx = "CC0-1.0"
+sha256 = "d9133e2e2745a85d44ea59d8979a80a9389297958f948ff4495b118382928fae"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266): closure of original illustrative records, copied by get from the authored local release; LICENSE is an original authored fixture declaration, not public legal text"
 
 [[file]]
 path = "examples/library-devices/fenolite_library/symbols/FenoliteDevices/DemoTwoPin/LICENSE"
+spdx = "CC0-1.0"
+sha256 = "82d5ca06c0caac0ed773fafccda6b30892e97511a583363f0b3181d815a74a78"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266): closure of original illustrative records, copied by get from the authored local release; LICENSE is an original authored fixture declaration, not public legal text"
 
 [[file]]
 path = "examples/library-devices/fenolite_library/symbols/FenoliteDevices/DemoTwoPin/NOTICE"
+spdx = "CC0-1.0"
+sha256 = "db30ef31bf6b09af1a11ca6190b3c321f87a7d7e0927d6676afec03f46ce2807"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266): closure of original illustrative records, copied by get from the authored local release; LICENSE is an original authored fixture declaration, not public legal text"
 
 [[file]]
 path = "examples/library-devices/fenolite_library/symbols/FenoliteDevices/DemoTwoPin/PROVENANCE.json"
+spdx = "CC0-1.0"
+sha256 = "5684e0217179334fa42c0ae9061ba7337e901f54ef8a1be240df606f33771e3f"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266): closure of original illustrative records, copied by get from the authored local release; LICENSE is an original authored fixture declaration, not public legal text"
 
 [[file]]
 path = "examples/library-devices/fenolite_library/symbols/FenoliteDevices/DemoTwoPin/item.json"
+spdx = "CC0-1.0"
+sha256 = "9205811607fdb32d6841d0056097ff990325972c11d046855208025549cd7620"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266): closure of original illustrative records, copied by get from the authored local release; LICENSE is an original authored fixture declaration, not public legal text"
 
 [[file]]
 path = "examples/library-devices/fenolite_library/symbols/FenoliteDevices/DemoTwoPin/record.toml"
+spdx = "CC0-1.0"
+sha256 = "90feb70615564fd5c60e83cd5c7f48a231398667450794dc4e285581972aae80"
 origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266): closure of original illustrative records, copied by get from the authored local release; LICENSE is an original authored fixture declaration, not public legal text"
@@ -4581,3 +4640,301 @@ path = "tests/fixtures/suppliers/farnell/keyword_mlcc.source.toml"
 origin = "authored"
 corpus_id = ""
 notes = "CC0-1.0; authored for Fenolite from documented field names (S-1108); fictional values only."
+
+[[file]]
+path = "examples/library-devices/design.lock"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "86a8aab4d620503e472fb9c11101c773063b0f881056009d23310c47c3a1dd5d"
+
+[[file]]
+path = "examples/library-devices/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "f09025402095e78be54c31c85b2468dedb7bbc5f04a67d280fa80d6b45a0a9d3"
+
+[[file]]
+path = "examples/library-devices/release/SHA256SUMS"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "29dda0a280d3d31317982f8af612fd80e8cee6f24253f5ebbb3f89d33eb40873"
+
+[[file]]
+path = "examples/library-devices/release/devices-cc0.tar.gz"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "8d22ead8b925368539da347667230135a8bac7d5ad2b031dded20206baa7da16"
+members = [
+  { path = "devices-cc0/devices/cc0/FenoliteDevices/Demo900/LICENSE", sha256 = "82d5ca06c0caac0ed773fafccda6b30892e97511a583363f0b3181d815a74a78", spdx = "CC0-1.0" },
+  { path = "devices-cc0/devices/cc0/FenoliteDevices/Demo900/NOTICE", sha256 = "db30ef31bf6b09af1a11ca6190b3c321f87a7d7e0927d6676afec03f46ce2807", spdx = "CC0-1.0" },
+  { path = "devices-cc0/devices/cc0/FenoliteDevices/Demo900/PROVENANCE.json", sha256 = "695c4a12f795f04bbbb02a84fe05a5fdebb3e861687210eb2bfbd9250b899306", spdx = "CC0-1.0" },
+  { path = "devices-cc0/devices/cc0/FenoliteDevices/Demo900/item.json", sha256 = "64778bc23265aa7122fa0a3d11aa1a1adb40d3b9469011443ae79bdc781ce004", spdx = "CC0-1.0" },
+  { path = "devices-cc0/devices/cc0/FenoliteDevices/Demo900/record.toml", sha256 = "aeb710fdd3b20d93d580ce662f367bf8fbe21129362c73200630598a8ede95ee", spdx = "CC0-1.0" },
+]
+
+[[file]]
+path = "examples/library-devices/release/footprints-cc0.tar.gz"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "060bdfccb883019ae52f673132cbb523c1458e928ac5ed6b73c3c55fb00042bf"
+members = [
+  { path = "footprints-cc0/footprints/cc0/FenoliteDevices/DemoTwoPad/LICENSE", sha256 = "82d5ca06c0caac0ed773fafccda6b30892e97511a583363f0b3181d815a74a78", spdx = "CC0-1.0" },
+  { path = "footprints-cc0/footprints/cc0/FenoliteDevices/DemoTwoPad/NOTICE", sha256 = "db30ef31bf6b09af1a11ca6190b3c321f87a7d7e0927d6676afec03f46ce2807", spdx = "CC0-1.0" },
+  { path = "footprints-cc0/footprints/cc0/FenoliteDevices/DemoTwoPad/PROVENANCE.json", sha256 = "b3e1a1dbb53f69ac0392ac82049d7ab8d1e3299d7860c13bbded7fbfdb321f94", spdx = "CC0-1.0" },
+  { path = "footprints-cc0/footprints/cc0/FenoliteDevices/DemoTwoPad/item.json", sha256 = "6e34adc015336af6d7f01cd6e849d241e24f01829a67353a7bade24e234abc22", spdx = "CC0-1.0" },
+  { path = "footprints-cc0/footprints/cc0/FenoliteDevices/DemoTwoPad/record.toml", sha256 = "d9133e2e2745a85d44ea59d8979a80a9389297958f948ff4495b118382928fae", spdx = "CC0-1.0" },
+]
+
+[[file]]
+path = "examples/library-devices/release/index.json"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "a23fd1746e1882c4971ee4b6783bf879c723fde747af24a585c46d9a0f0dda61"
+
+[[file]]
+path = "examples/library-devices/release/symbols-cc0.tar.gz"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "ba7d9ae2fa7ef60d761389535d517a920c879d88f9e9ecf690ac46d7b99bdb87"
+members = [
+  { path = "symbols-cc0/symbols/cc0/FenoliteDevices/DemoTwoPin/LICENSE", sha256 = "82d5ca06c0caac0ed773fafccda6b30892e97511a583363f0b3181d815a74a78", spdx = "CC0-1.0" },
+  { path = "symbols-cc0/symbols/cc0/FenoliteDevices/DemoTwoPin/NOTICE", sha256 = "db30ef31bf6b09af1a11ca6190b3c321f87a7d7e0927d6676afec03f46ce2807", spdx = "CC0-1.0" },
+  { path = "symbols-cc0/symbols/cc0/FenoliteDevices/DemoTwoPin/PROVENANCE.json", sha256 = "5684e0217179334fa42c0ae9061ba7337e901f54ef8a1be240df606f33771e3f", spdx = "CC0-1.0" },
+  { path = "symbols-cc0/symbols/cc0/FenoliteDevices/DemoTwoPin/item.json", sha256 = "9205811607fdb32d6841d0056097ff990325972c11d046855208025549cd7620", spdx = "CC0-1.0" },
+  { path = "symbols-cc0/symbols/cc0/FenoliteDevices/DemoTwoPin/record.toml", sha256 = "90feb70615564fd5c60e83cd5c7f48a231398667450794dc4e285581972aae80", spdx = "CC0-1.0" },
+]
+
+[[file]]
+path = "examples/library-devices/source/devices/cc0/FenoliteDevices/Demo900/LICENSE"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "82d5ca06c0caac0ed773fafccda6b30892e97511a583363f0b3181d815a74a78"
+
+[[file]]
+path = "examples/library-devices/source/devices/cc0/FenoliteDevices/Demo900/NOTICE"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "db30ef31bf6b09af1a11ca6190b3c321f87a7d7e0927d6676afec03f46ce2807"
+
+[[file]]
+path = "examples/library-devices/source/devices/cc0/FenoliteDevices/Demo900/PROVENANCE.json"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "695c4a12f795f04bbbb02a84fe05a5fdebb3e861687210eb2bfbd9250b899306"
+
+[[file]]
+path = "examples/library-devices/source/devices/cc0/FenoliteDevices/Demo900/item.json"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "64778bc23265aa7122fa0a3d11aa1a1adb40d3b9469011443ae79bdc781ce004"
+
+[[file]]
+path = "examples/library-devices/source/devices/cc0/FenoliteDevices/Demo900/record.toml"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "aeb710fdd3b20d93d580ce662f367bf8fbe21129362c73200630598a8ede95ee"
+
+[[file]]
+path = "examples/library-devices/source/footprints/cc0/FenoliteDevices/DemoTwoPad/LICENSE"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "82d5ca06c0caac0ed773fafccda6b30892e97511a583363f0b3181d815a74a78"
+
+[[file]]
+path = "examples/library-devices/source/footprints/cc0/FenoliteDevices/DemoTwoPad/NOTICE"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "db30ef31bf6b09af1a11ca6190b3c321f87a7d7e0927d6676afec03f46ce2807"
+
+[[file]]
+path = "examples/library-devices/source/footprints/cc0/FenoliteDevices/DemoTwoPad/PROVENANCE.json"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "b3e1a1dbb53f69ac0392ac82049d7ab8d1e3299d7860c13bbded7fbfdb321f94"
+
+[[file]]
+path = "examples/library-devices/source/footprints/cc0/FenoliteDevices/DemoTwoPad/item.json"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "6e34adc015336af6d7f01cd6e849d241e24f01829a67353a7bade24e234abc22"
+
+[[file]]
+path = "examples/library-devices/source/footprints/cc0/FenoliteDevices/DemoTwoPad/record.toml"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "d9133e2e2745a85d44ea59d8979a80a9389297958f948ff4495b118382928fae"
+
+[[file]]
+path = "examples/library-devices/source/library.toml"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "25a8c9ddd71322abbe3f065d190d9042ae7948403fc710bcb249c76ea773e29f"
+
+[[file]]
+path = "examples/library-devices/source/sources.toml"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "38c01e9be62c57595ea19c64517f21e58f1c2ba62b85db639fa7b7b8a1879fbb"
+
+[[file]]
+path = "examples/library-devices/source/symbols/cc0/FenoliteDevices/DemoTwoPin/LICENSE"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "82d5ca06c0caac0ed773fafccda6b30892e97511a583363f0b3181d815a74a78"
+
+[[file]]
+path = "examples/library-devices/source/symbols/cc0/FenoliteDevices/DemoTwoPin/NOTICE"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "db30ef31bf6b09af1a11ca6190b3c321f87a7d7e0927d6676afec03f46ce2807"
+
+[[file]]
+path = "examples/library-devices/source/symbols/cc0/FenoliteDevices/DemoTwoPin/PROVENANCE.json"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "5684e0217179334fa42c0ae9061ba7337e901f54ef8a1be240df606f33771e3f"
+
+[[file]]
+path = "examples/library-devices/source/symbols/cc0/FenoliteDevices/DemoTwoPin/item.json"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "9205811607fdb32d6841d0056097ff990325972c11d046855208025549cd7620"
+
+[[file]]
+path = "examples/library-devices/source/symbols/cc0/FenoliteDevices/DemoTwoPin/record.toml"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
+spdx = "CC0-1.0"
+sha256 = "90feb70615564fd5c60e83cd5c7f48a231398667450794dc4e285581972aae80"
+[[file]]
+path = "tests/data/build_bytes.json"
+origin = "authored"
+corpus_id = ""
+notes = "integration byte baseline of c0277: 72 example/target rows measured from clean base 7c2f1df2 and independently equal after merge; only three board_coverage rows are new; authored for Fenolite"
+
+[[file]]
+path = "examples/board_coverage/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0277), CC0-1.0: original board coverage design, local mini-library table or illustrative PNG; no third-party CAD or artwork."
+spdx = "CC0-1.0"
+sha256 = "c7a259567430ae5a9e44c495fefeda264449657c7cd432633d13b15cc959ce7a"
+
+[[file]]
+path = "examples/board_coverage/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0277), CC0-1.0: original board coverage design, local mini-library table or illustrative PNG; no third-party CAD or artwork."
+spdx = "CC0-1.0"
+sha256 = "328ee0774905427ea2615cff33272e01e92f8cf0ca59999b6827472ba6f46e1d"
+
+[[file]]
+path = "examples/board_coverage/logo.png"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0277), CC0-1.0: original board coverage design, local mini-library table or illustrative PNG; no third-party CAD or artwork."
+spdx = "CC0-1.0"
+sha256 = "9d21ae385d2547f62255f5ef2d4e334a5d22097f3d80edf7610c39e59b6eee5e"
+
+[[file]]
+path = "examples/board_coverage/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "Authored for Fenolite (c0277), CC0-1.0: original board coverage design, local mini-library table or illustrative PNG; no third-party CAD or artwork."
+spdx = "CC0-1.0"
+sha256 = "6de7325d528a108419ac2319446929c1e940d51044dcff7c437941425b62927a"
+
+[[file]]
+path = "tests/fixtures/suppliers/digikey/auth-reply.json"
+origin = "authored"
+corpus_id = ""
+notes = "CC0-1.0; authored for Fenolite from documented field names (S-1100); fictional values only."
+
+[[file]]
+path = "tests/fixtures/suppliers/digikey/auth-reply.source.toml"
+origin = "authored"
+corpus_id = ""
+notes = "CC0-1.0; authored for Fenolite from documented field names (S-1100); fictional values only."
+
+[[file]]
+path = "tests/fixtures/suppliers/digikey/keyword_mlcc.json"
+origin = "authored"
+corpus_id = ""
+notes = "CC0-1.0; authored for Fenolite from documented field names (S-1220); fictional values only."
+
+[[file]]
+path = "tests/fixtures/suppliers/digikey/keyword_mlcc.source.toml"
+origin = "authored"
+corpus_id = ""
+notes = "CC0-1.0; authored for Fenolite from documented field names (S-1220); fictional values only."
+
+[[file]]
+path = "tests/fixtures/suppliers/nexar/auth-reply.json"
+origin = "authored"
+corpus_id = ""
+notes = "CC0-1.0; authored for Fenolite from documented field names (S-1105); fictional values only."
+
+[[file]]
+path = "tests/fixtures/suppliers/nexar/auth-reply.source.toml"
+origin = "authored"
+corpus_id = ""
+notes = "CC0-1.0; authored for Fenolite from documented field names (S-1105); fictional values only."
+
+[[file]]
+path = "tests/fixtures/suppliers/nexar/keyword_mlcc.json"
+origin = "authored"
+corpus_id = ""
+notes = "CC0-1.0; authored for Fenolite from documented field names (S-1223); fictional values only."
+
+[[file]]
+path = "tests/fixtures/suppliers/nexar/keyword_mlcc.source.toml"
+origin = "authored"
+corpus_id = ""
+notes = "CC0-1.0; authored for Fenolite from documented field names (S-1223); fictional values only."

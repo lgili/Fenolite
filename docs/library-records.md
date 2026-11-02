@@ -134,8 +134,11 @@ points = [["-2.54mm", "0mm"], ["-1.905mm", "1.05mm"]]
 `[[pin]]` takes `number`, `name`, `type`, and optionally `shape`, `hidden`, `unit`, `group`, `alternates`.
 `[symbol]` places every pin exactly once and lists its graphics; the symbol's properties are `Reference`,
 `Value` (default the name part of the id) and `Description` (the summary). `polarity = "anode-first"` marks
-the two-pin symbols with pin 1 at the anode. A pins record without `[symbol]` is valid data; a build that uses
-it reports `library.generator-missing` (error) until a symbol generator exists.
+the two-pin symbols with pin 1 at the anode. Without an explicit drawing or imported `symbol_file`, the
+record is a generated pin table (`docs/symbols.md`): rows also accept `side`, `bus` and `stacked`, and
+`[symbol]` may configure the generator instead of placing pins. Devices naming this table get a drawing
+under their own id, with their package as `Footprint` and its name as `ki_fp_filters`. Their authored
+records, provenance and evidence remain unchanged.
 
 ## Package records
 

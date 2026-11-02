@@ -26,6 +26,25 @@ design.load_schematic("schematic.toml")  # the sheets come from the file, the ne
 and a power symbol, and the sheet of the module `child` joined through a hierarchical label and a sheet
 pin.
 
+A KiCad project imported with `import --to python` carries this file and the source's embedded symbol
+definitions. Its actual drawing is built and checked before staging, including hidden power-pin
+connectivity. Conflicting embedded definitions, a missing source symbol or an unrepresentable source
+pose refuse explicitly; the originals remain unchanged. Board-only imports keep generated symbols.
+Pinless native graphic symbols excluded from both board and BOM stay opaque, with their embedded
+definitions preserved. An explicitly board/BOM-excluded instance may also stay opaque when its
+non-power definition has only visible passive pins; its native export contributes no circuit nodes.
+Hidden or active pins, power definitions, missing exclusions and missing definitions refuse.
+The instance's explicit exclusions apply even when library defaults differ; those defaults stay intact.
+Source-local bare embedded aliases use their original library namespace in the vendored project, or
+`_Source` when the original id is also bare. Their native geometry stays unchanged; conflicting bodies
+under the resulting identity still refuse.
+
+A unit may select a different native library `symbol`, preserving source-local per-unit bodies. Its
+logical pin numbers, names, types and hidden states must match that unit of the code's primary symbol;
+pin positions and graphics may differ. Build/check/sync retain the binding relative to code, including
+pin-pad variants, and the written-byte guard checks its actual connections. Missing, incompatible or
+conflicting same-unit bindings refuse. Level S compares the per-unit binding too.
+
 ## The file
 
 Schema `fenolite.drawn-schematic.v0` (`schemas/fenolite.drawn-schematic.v0.json` describes it for
@@ -41,9 +60,9 @@ more `[[sheet]]` tables.
 |---|---|---|
 | `sheet` | `key`, `paper`, `title_block` (optional), `generated` (optional, default false) | one drawn sheet; `paper` is one of `A0`–`A5`, `Letter`, `Legal`, `Tabloid` |
 | `title_block` | `title`, `date`, `revision`, `organization`, `doc_id`, `responsible`, `approver`, `params` | the sheet's own title block; without it the sheet takes the board's |
-| `symbol` | `part`, `unit` (default 1), `at`, `rotation` (0, 90, 180, 270), `mirror` (`x`, `y` or none), `fields` | one unit of a code component, named by its path relative to the module of the sheet's instance |
+| `symbol` | `part`, `unit` (default 1), `at`, `rotation` (0, 90, 180, 270), `mirror` (`x`, `y` or none), `symbol` (optional library id), `fields` | one unit of a code component, named by its path relative to the module of the sheet's instance |
 | `fields.<name>` | `at`, `rotation` (0 or 90), `justify` (words of `left`, `right`, `top`, `bottom`, `mirror`), `hide` | the pose of one field; a symbol with poses shows the posed fields only, the others hidden at its origin; without poses the writer places `Reference` and `Value` |
-| `power` | `symbol`, `net`, `at`, `rotation`, `fields` | a power symbol: a global connection named `net`, drawn with the library symbol `symbol`; its `#PWR` reference is assigned by the writer |
+| `power` | `symbol`, `net`, `at`, `rotation`, `mirror`, `fields` | a power symbol: a global connection named `net`, drawn with the library symbol `symbol`; optional `mirror` is empty, `x` or `y`; its `#PWR` reference is assigned by the writer |
 | `wire`, `bus` | `pts` (two or more points) | a polyline; each pair of points is one segment |
 | `bus_entry` | `at`, `size` | a bus entry from `at` to `at + size` |
 | `junction` | `at`, `diameter` (optional) | a junction |
@@ -84,7 +103,26 @@ connectivity"):
 - names: a global label or power symbol names its net; a net named only by local or hierarchical labels is
   `/<sheet names>/<text>`; ties go to the text that sorts first.
 
+Read KiCad sheets resolve `/` and `{slash}` spellings as one native connection name, including sheet
+pins and bus members. Their extracted texts stay unchanged for level S and subsequent writing. This
+target rule applies before connectivity resolution; the generic resolver keeps literal names, and
+the written-byte guard still refuses distinct code nets that KiCad would join.
+
+The KiCad connectivity view also matches corresponding members on a connected bus: top-level vector
+positions in ascending index order and literal group members, while preserving qualified scalar labels.
+Bus-only entry ends and junctions keep bus labels on the bus; overbar spans remain literal member text. Same-text scalar
+local and hierarchical/global labels join on their own sheet without making another sheet's local label
+global. Generic/Altium scope defaults stay unchanged. Authored native9.0.2 controls cover these rules,
+disconnected buses, reversed nested-vector negatives, unequal names and missing members (S-1280).
+Raw labels, sheet pins and geometry remain unchanged for level S. The two read-only public diagnostics
+now have equal complete pin partitions (313/2033pins); unknown-member and dangling warnings remain
+visible. Wider native CI and complete conversion/fidelity proofs are separate gates.
+
 ## Building
+
+Extraction also preserves a legacy `#PWR` instance without a power flag when its definition has exactly
+one hidden power-input pin at the origin named by its value. Its existing hidden-pin connection supplies
+the global net; extraction does not add a flag or classify other symbols by their reference alone.
 
 `fenolite build` reads the file (a missing or bad file exits 3 with `FEN-3004`) and draws the sheets from it
 instead of generating them; every later step is the same. Before it plans a file, the build checks the
@@ -170,12 +208,37 @@ point joins the pin, as on a symbol pin.
 | `drawn.dangling` | warning | a wire end that joins nothing |
 | `drawn.label-unconnected` | warning | a label on no wire and no pin |
 | `drawn.bus-member-unknown` | warning | a bus member that no label carries or no alias defines |
+| `drawn.coordinate-rounded` | warning | an Altium point rounded only with explicit `--allow-lossy` |
 | `drawn.placements-ignored` | warning | `schematic-placements.toml` beside a script that loads a drawn schematic |
 | `drawn.opaque-dropped` | info | an opaque item the target cannot carry (the Altium phase) |
 | `drawn.frozen` | info | `--freeze-schematic` wrote the file |
 | `drawn.altium-repeat-flattened` | info | a repeated sheet written once per instance for Altium (the Altium phase) |
 
+## Corpus measurement
+
+The [drawn census](evidence/drawn-schematic.md) records each manifest demo sheet's input hashes,
+tool/format versions, item counts, source/lowered/native partitions, naming outcomes and refusals.
+`uv run pytest tests/kicad/schematic/test_drawn_corpus.py -rA` writes per-case metadata before its
+strict assertions; the KiCad jobs retain the reports even on failure. Native-only pins and open
+singletons stay in the comparison. No CAD payload, accepted-difference list or loss flag is added.
+Local measurements name their actual tool version and do not establish the other major's CI result.
+
 ## Altium
 
-Writing drawn sheets as SchDoc records is a later phase of change c0276 and is not implemented yet; until
-then a drawn schematic is a KiCad build's.
+`build --target altium` writes drawn sheets in ASCII or binary native form and verifies the actual
+native documents, units, shown pin tables, physical pin maps and logical connectivity before staging.
+The guard runs again after templates. Compatible unit aliases carry their own bodies and native
+library entries; their files bind reviewed plans. Unreadable or missing native content refuses.
+
+Repeated sheets become separate native files. Under Automatic/Global scope, shared local names get
+reported qualifications; unique names and Hierarchical/Flat names keep their text. This preserves the
+tested pin partition, with explicit text and hierarchy changes. Opaque items without native text are
+reported as dropped. A point outside the native fractional grid refuses unless `--allow-lossy`, which
+reports every rounding. Source field justification and power field/mirror metadata are not represented;
+component mirror geometry is written, with native mirror metadata still unverified. Bus alias declarations
+and per-sheet title metadata have explicit unrepresented-metadata findings. Edit the drawing in
+`schematic.toml`; Altium-to-drawn sync is unavailable.
+
+The behavior stays **INFERRED**. The maintainer reports Altium unavailable on 2026-11-01, so the native
+compile/save kit (`H-A-DRAWN-WRITE`, `docs/evidence/altium-schematic.md`) remains open. Own-reader
+connectivity checks do not establish native application acceptance or drawing identity.

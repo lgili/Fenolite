@@ -25,6 +25,8 @@
   Add strict and 500 nm boundary cases and update prior band expectations. Proof:
   `uv run pytest tests/unit/checks/test_copper*.py -q`.
   Passed 2026-11-01: 174 tests, including exact c, c-500 nm and c-501 nm rows for five pair kinds.
+  Integration with c0277 adds an off-axis graphic-arc counterpart. Its regression first misses the
+  below-tolerance violation with polygonised graphics; graphic arcs now retain the exact arc core.
 
 - [x] 2.2 Preserve bounded analysis arc polylines and compare their underlying exact arcs,
   widths and declared bands with the copper check. Regenerate the evidence matrix after

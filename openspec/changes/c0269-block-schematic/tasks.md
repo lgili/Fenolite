@@ -15,6 +15,27 @@
 
   Proof: `openspec validate c0269-block-schematic --strict`; `make check-fast`.
 
+  Entry refresh 2026-11-02, integration base `697cdf02b39c570b7827bd2b7b5419dfcf6bdea6`:
+  c0251 and c0252 remain active and are implemented. Port members remain named maps
+  (`net`, `hv/lv`, `sda/scl`, `p/n`, and kind-specific members); the model is `model.circuit.Port`
+  with name/owner/kind/direction/members/optional and its additive typed interface fields.
+  KiCad sheet titles retain `<name> (<block name>)`, and `dsl.schematic._implicit` supplies
+  the implicit Altium groups. c0252 now provides Rail (Power is its alias), Ground and Logic;
+  only Rail/Power has interface kind `power` (hv/lv); Ground/Logic alone do not join that
+  set. `model.circuit.power_interface_nets` is the common membership helper. This change
+  alone holds the six listed schematic MODIFIED requirements, so no newly archived owner
+  requires regeneration. `schematic_group` and `block_schematics` are implemented names
+  owned here, not free names. All five accepted recommendations remain uniform KiCad
+  hierarchical power labels, deferred KiCad group-title/new shared Altium layout work,
+  unchanged measured Altium direction mapping pending its own proof, and per-instance sheets.
+
+  Available proof: `openspec validate c0269-block-schematic --strict` passes without warnings
+  (OpenSpec 1.16.0).
+  The literal `make check-fast` is not run by this worker and has no applicable passing
+  serialized receipt yet. Task 0.1 remains unchecked for that actual proof; independent
+  CI, native/manual and release criteria are unchanged.
+
+
 ## 1. DSL and model
 
 - [x] 1.1 Add `schematic_group`, the builder's `schematic`, `dsl.block_schematics` and the sheet-name

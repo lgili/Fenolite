@@ -797,9 +797,15 @@ def short_text(text: str) -> bytes:
 
 def text_problem_of(text: Text) -> str | None:
     """Why a free text cannot be written, or ``None``: an empty string, a control character or a line
-    break, or a height or stroke width that is not positive."""
+    break, a height or stroke width that is not positive, or a style of change c0277 (knockout, bold,
+    italic, a font face) that the text record of the writer does not hold."""
     if not text.text:
         return "the text is empty"
+    styles = [name for name in ("knockout", "bold", "italic") if getattr(text, name)]
+    if text.face:
+        styles.append(f"the font face {text.face!r}")
+    if styles:
+        return f"the text record of the writer holds no {', '.join(styles)}"
     if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in text.text):
         return "the text holds a control character or a line break"
     if text.size.h <= 0:
@@ -1649,16 +1655,19 @@ def document_stack(spec: PcbDocSpec) -> StackSpec:
     planes. ``ValueError`` when the stack does not hold one id per copper layer (a signal layer's id of
     ``pcbrecords.LAYER_MAP``, or a plane on an inner layer), or when a plane's net is not a net of the
     document."""
-    signal = rec.copper_stack(spec.copper_layers)
     if spec.stack is None:
-        return StackSpec.default(signal)
+        return StackSpec.default(rec.copper_stack(spec.copper_layers))
     stack = spec.stack
     planes = [
         name
         for name, layer in zip(spec.copper_layers, stack.copper, strict=False)
         if layer >= rec.FIRST_PLANE and name not in (spec.copper_layers[0], spec.copper_layers[-1])
     ]
-    if len(stack.copper) != len(signal) or rec.copper_stack(spec.copper_layers, planes) != stack.copper:
+    # a stack of more than 16 copper layers holds planes; the ids are checked with them (change c0277)
+    if (
+        len(stack.copper) != len(spec.copper_layers)
+        or rec.copper_stack(spec.copper_layers, planes) != stack.copper
+    ):
         raise ValueError(
             f"the stack {stack.copper!r} does not hold one id per copper layer of {spec.copper_layers!r}"
         )

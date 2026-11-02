@@ -1,5 +1,13 @@
 ## ADDED Requirements
 
+### Requirement: Device symbols from pin tables
+A device whose `symbol` names a pins record without an explicit drawing or imported `symbol_file` SHALL use a generated symbol under the device's namespace and name. `Footprint` MUST be the package id and `ki_fp_filters` its name. Devices sharing a table MUST keep separate package properties. Explicit and imported drawings MUST retain precedence; generation MUST NOT raise evidence or change the authored records.
+
+#### Scenario: Shared table and distinct packages
+- **GIVEN** two device records naming one pin table and distinct packages
+- **WHEN** their project is built
+- **THEN** both symbols carry the corresponding package properties, with the table's pins and unchanged source evidence
+
 ### Requirement: Pin table records
 `fenolite.catalog.pins.parse_pins(text, *, file)` SHALL read one TOML record of schema `fenolite.pins.v0` into a `PinTable` of `PinRow` values. Each row MUST hold `number`, `name` and `type`, and MAY hold `group`, `side`, `bus`, `unit`, `shape`, `hidden`, `stacked` and `alternates`. Another key, a missing key or a wrong type MUST raise `FormatError` (`FEN-3004`) naming the file, the row and the key; a newer schema MUST give `FEN-3002`.
 

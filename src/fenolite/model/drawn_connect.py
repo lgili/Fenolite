@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
 
@@ -55,6 +55,7 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "drawn.label-unconnected": "warning",
         "drawn.bus-member-unknown": "warning",
         "drawn.placements-ignored": "warning",
+        "drawn.coordinate-rounded": "warning",
         "drawn.opaque-dropped": "info",
         "drawn.frozen": "info",
         "drawn.altium-repeat-flattened": "info",
@@ -69,11 +70,14 @@ NETLIST_HINT = (
     "the code: the code is the source of the nets"
 )
 _VECTOR = re.compile(r"^(.*?)\[(\d+)\.\.(\d+)\]$")
-_GROUP = re.compile(r"^([^{}]*)\{([^{}]*)\}$")
+_GROUP = re.compile(r"^([^{}]*)\{([\s\S]*)\}$")
 _NATURAL = re.compile(r"(\d+)")
 
 Element = tuple[str, str]
 """A pin of a drawn component: (component path, pin number)."""
+_MemberIdentity = tuple[str, ...]
+_BusMemberMapper = Callable[[str, Mapping[str, Sequence[str]]], Mapping[str, _MemberIdentity]]
+
 PinKey = tuple[str, str, int]
 """The pins of one drawn item: (sheet key, ``symbol`` or ``power``, index in its sheet's array)."""
 
@@ -177,6 +181,43 @@ def instances(drawn: DrawnSchematic) -> tuple[tuple[DrawnInstance, ...], tuple[I
 # --- bus names ------------------------------------------------------------------------------------
 
 
+def bus_vector(text: str) -> tuple[str, int, int] | None:
+    """The literal prefix and index endpoints of a vector definition, before member expansion."""
+    vector = _VECTOR.match(text)
+    return None if vector is None else (vector.group(1), int(vector.group(2)), int(vector.group(3)))
+
+
+def bus_group_parts(text: str) -> tuple[str, tuple[str, ...]] | None:
+    """Split a group while retaining formatted overbar spans as literal member text."""
+    match = _GROUP.match(text)
+    if match is None or match.group(1).endswith("~"):
+        return None
+    body = match.group(2)
+    items: list[str] = []
+    token: list[str] = []
+    depth = 0
+    for index, char in enumerate(body):
+        if char == "{":
+            if not index or body[index - 1] != "~":
+                return None
+            depth += 1
+        elif char == "}":
+            if not depth:
+                return None
+            depth -= 1
+        if not depth and (char.isspace() or char == ","):
+            if token:
+                items.append("".join(token))
+                token = []
+        else:
+            token.append(char)
+    if depth:
+        return None
+    if token:
+        items.append("".join(token))
+    return match.group(1), tuple(items)
+
+
 def expand(text: str, aliases: Mapping[str, Sequence[str]], depth: int = 0) -> tuple[str, ...] | None:
     """The member names of a bus text: ``NAME[a..b]`` gives ``NAMEa`` to ``NAMEb``, ``{A B}`` gives its
     items expanded, ``P{A B}`` gives ``P.A`` and ``P.B``, and an alias name its members expanded. ``None``
@@ -188,16 +229,16 @@ def expand(text: str, aliases: Mapping[str, Sequence[str]], depth: int = 0) -> t
         for member in aliases[text]:
             members += expand(member, aliases, depth + 1) or (member,)
         return tuple(members)
-    vector = _VECTOR.match(text)
+    vector = bus_vector(text)
     if vector is not None:
-        prefix, first, last = vector.group(1), int(vector.group(2)), int(vector.group(3))
+        prefix, first, last = vector
         step = 1 if last >= first else -1
         return tuple(f"{prefix}{k}" for k in range(first, last + step, step))
-    group = _GROUP.match(text)
+    group = bus_group_parts(text)
     if group is not None:
-        prefix = group.group(1)
+        prefix, items = group
         members = []
-        for item in group.group(2).replace(",", " ").split():
+        for item in items:
             inner = expand(item, aliases, depth + 1) or (item,)
             members += [f"{prefix}.{m}" if prefix else m for m in inner]
         return tuple(members)
@@ -279,15 +320,26 @@ def _aliases(drawn: DrawnSchematic, sheet: DrawnSheet) -> dict[str, tuple[str, .
     return found
 
 
+def _bus_definitions(
+    text: str, aliases: Mapping[str, Sequence[str]], names: Sequence[str], mapper: _BusMemberMapper | None
+) -> tuple[tuple[str, _MemberIdentity], ...]:
+    keys: Mapping[str, _MemberIdentity] = {} if mapper is None else mapper(text, aliases)
+    return tuple((member, keys.get(member, ("literal", member))) for member in names)
+
+
 def resolve(
     drawn: DrawnSchematic,
     pins: Mapping[PinKey, Sequence[PinPoint]],
     *,
     design_name: str = "",
+    _bus_member_keys: _BusMemberMapper | None = None,
+    _local_scalar_aliases: bool = False,
 ) -> DrawnNetlist:
     """The nets of ``drawn``. ``pins`` gives, per drawn symbol and power symbol (``PinKey``), the pins of its
     unit in the sheet frame; a power symbol without an entry connects at its own position. ``design_name``
-    names the root in messages."""
+    names the root in messages. The private backend mapper supplies identities only within a bus;
+    the default keeps full member names literal, as generic/Altium callers expect. KiCad additionally
+    enables measured same-sheet scalar label aliases; the generic scope nodes remain separate."""
     found, issues = instances(drawn)
     out = list(issues)
     groups = _Groups()
@@ -308,7 +360,8 @@ def resolve(
         wires = _Segments(sheet.segments())
         buses = _Segments(sheet.bus_segments())
         touched: defaultdict[Point, int] = defaultdict(int)
-        """How many items other than a segment end lie at each point of the wire layer."""
+        """Contacts used for wire-end diagnostics; bus entries/junctions can also touch only the bus."""
+        wire_contacts: set[Point] = set()
 
         def point(at: Point) -> tuple[object, ...]:
             return ("P", index, at.x, at.y)  # noqa: B023
@@ -330,6 +383,7 @@ def resolve(
                 elements.add(element)
                 union.join(("E", element), point(pin.at))
                 touched[pin.at] += 1  # a pin joins a wire at the wire's end only (H-K-SCH-WIRE-END)
+                wire_contacts.add(pin.at)
                 if pin.hidden and pin.etype == "power_in" and pin.name and pin.name != "~":
                     union.join(("E", element), ("G", pin.name))
                     name(("G", pin.name), 0, pin.name, pin.name)
@@ -339,6 +393,7 @@ def resolve(
             global_net = not given or any(p.etype == "power_in" for p in given)
             for at in points:
                 touched[at] += 1
+                wire_contacts.add(at)
                 if global_net:
                     union.join(point(at), ("G", power.net))
             if global_net:
@@ -348,6 +403,7 @@ def resolve(
             interest.append(junction.at)
         for flag in sheet.no_connects:
             touched[flag] += 1
+            wire_contacts.add(flag)
         for entry in sheet.bus_entries:
             touched[entry.at] += 1
             touched[entry.end] += 1
@@ -356,10 +412,17 @@ def resolve(
                 for pin in ref.pins:
                     if wires.under(pin.at) or not buses.under(pin.at):
                         touched[pin.at] += 1
+                        wire_contacts.add(pin.at)
         bus_labels: list[tuple[str, str, Point]] = []
         for label in sheet.labels:
-            on_wire = bool(wires.under(label.at)) or touched[label.at] > 0
             on_bus = bool(buses.under(label.at))
+            # A bus-only entry end or junction does not turn a bus label into a scalar label.
+            on_wire = (
+                bool(wires.under(label.at))
+                or label.at in wire_contacts
+                or touched[label.at] > 0
+                and (not on_bus or expand(label.text, aliases) is None)
+            )
             if on_bus and not on_wire and expand(label.text, aliases) is not None:
                 bus_labels.append((label.kind, label.text, label.at))
                 continue
@@ -390,6 +453,8 @@ def resolve(
                 hier_labels[index].add(label.text)
                 name(node, 1, f"{prefix}{label.text}", label.text)
             union.join(point(label.at), node)
+            if _local_scalar_aliases and label.kind != "local":
+                union.join(node, ("L", index, label.text))
         bus_pins: list[tuple[int, str, Point]] = []
         for ref in sheet.sheet_refs:
             child = child_of.get((index, ref.key))
@@ -425,7 +490,7 @@ def resolve(
         for junction in sheet.junctions:
             for start, _end in buses.under(junction.at):
                 union.join(bus_point(junction.at), bus_point(start))
-        members: dict[object, set[str]] = defaultdict(set)
+        members: dict[object, set[tuple[str, _MemberIdentity]]] = defaultdict(set)
         unknown: dict[object, set[str]] = defaultdict(set)
 
         def bus_group(at: Point) -> object | None:
@@ -440,27 +505,32 @@ def resolve(
             if names is None:
                 unknown[group].add(text)
                 continue
-            members[group].update(names)
+            definitions = _bus_definitions(text, aliases, names, _bus_member_keys)
+            members[group].update(definitions)
             if kind == "hierarchical":
                 hier_labels[index].add(text)
-                for member in names:
-                    union.join(("HB", index, text, member), ("BM", index, group, member))
+                for member, identity in definitions:
+                    union.join(("HB", index, text, member), ("BM", index, group, identity))
             elif kind == "global":
-                for member in names:
-                    union.join(("GB", text, member), ("BM", index, group, member))
+                for member, identity in definitions:
+                    union.join(("GB", text, member), ("BM", index, group, identity))
         for child, text, at in bus_pins:
             group = bus_group(at)
             names = expand(text, aliases)
             if group is None or names is None:
                 continue
-            members[group].update(names)
-            for member in names:
-                union.join(("HB", child, text, member), ("BM", index, group, member))
-        local_texts = {label.text for label in sheet.labels if label.kind in ("local", "global")}
-        for group, names in sorted(members.items(), key=lambda pair: str(pair[0])):
-            for member in sorted(names):
-                union.join(("BM", index, group, member), ("L", index, member))
-                if member not in local_texts:
+            definitions = _bus_definitions(text, aliases, names, _bus_member_keys)
+            members[group].update(definitions)
+            for member, identity in definitions:
+                union.join(("HB", child, text, member), ("BM", index, group, identity))
+        local_texts = {
+            label.text for label in sheet.labels if label.kind in ("local", "global") or _local_scalar_aliases
+        }
+        for group, definitions in sorted(members.items(), key=lambda pair: str(pair[0])):
+            defined = {identity for member, identity in definitions if member in local_texts}
+            for member, identity in sorted(definitions):
+                union.join(("BM", index, group, identity), ("L", index, member))
+                if identity not in defined:
                     unknown[group].add(member)
         for _group, names in sorted(unknown.items(), key=lambda pair: str(pair[0])):
             for member in sorted(names):

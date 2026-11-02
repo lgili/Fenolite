@@ -591,3 +591,11 @@ Left:
 Decided 2026-10-31: the bounded written guide adds library-items as the twelfth tool page. Existing tested content stays covered; footprints links to it. The guide-pages delta updates the existing count without dropping its other requirements.
 
 Decided 2026-10-31: local-file library clones and replay checkouts explicitly disable ambient Git automatic newline conversion and select LF. Payload digests describe the pinned bytes, not host-specific checkout conversions. Repository-declared attributes remain Git's own source contract; no global configuration is changed.
+
+Decided 2026-11-01: task 5.3 uses `examples/library-devices/`, the existing authored worked example shared
+with c0266. Its source items, reproducible local release, vendored closure and lock already exercise the
+requested offline device flow. Reusing that example avoids duplicate payloads under `library-get`.
+`tests/unit/test_examples.py -k library_devices` checks original ownership, byte-reproducible assets,
+restore with connections/subprocesses blocked, native build-byte equality with direct authored records,
+and missing-pin refusal. The all-zero release commit is a fixture marker, all records remain UNVERIFIED,
+and its original licence declarations are not upstream legal text or a production licence approval.

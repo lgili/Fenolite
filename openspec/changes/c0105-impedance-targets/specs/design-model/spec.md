@@ -2,6 +2,12 @@
 
 ### Requirement: Impedance targets in the rules model
 `fenolite.model.rules` SHALL define `ImpedanceKind = Literal["single", "differential"]`, the value object `TraceGeometry(layer, references, width, gap=None)` and the entity `ImpedanceTarget(name, kind, netclass_ids, ohms, tolerance_percent="", layers=())`, and `RuleSet` SHALL gain the field `impedance: tuple[ImpedanceTarget, ...]`, empty by default and stored in `rules.json`. This is an addition to the `rules` layer of "Model layers for v0.1".
+
+#### Scenario: Detailed contract for impedance targets in the rules model
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`fenolite.model.rules` SHALL define `ImpedanceKind = Literal["single", "differential"]`, the value object `TraceGeometry(layer, references, width, gap=None)` and the entity `ImpedanceTarget(name, kind, netclass_ids, ohms, tolerance_percent="", layers=())`, and `RuleSet` SHALL gain the field `impedance: tuple[ImpedanceTarget, ...]`, empty by default and stored in `rules.json`. This is an addition to the `rules` layer of "Model layers for v0.1".
 - `TraceGeometry.layer` MUST be a copper layer name; `references` MUST hold one or two layer names in stack order, none equal to `layer`; `width` MUST be an `Nm` above 0; `gap` MUST be an `Nm` above 0 for a `differential` target and `None` for a `single` one.
 - `ImpedanceTarget.netclass_ids` MUST name the classes the target governs, in order; `ohms` and `tolerance_percent` MUST be decimal texts of positive numbers (`"90"`, `"42.5"`) or `""`, never produced from a `float`. `ohms` is `""` only for a target read from a file that gives none. `layers` MUST be in stack order.
 - `Design.validate()` MUST report the error `model.impedance-invalid`, naming the target, for: a class id that names no class, a class named by two targets, two targets of one name, one layer twice in a target, a `gap` that does not fit the kind, a width or gap of 0 or less, a reference count other than one or two or a reference equal to the layer, and an `ohms` or tolerance text that is not a positive decimal, or a tolerance of 100 or more.

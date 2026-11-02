@@ -33,6 +33,9 @@ from _resources import (  # noqa: E402  (imported after the sys.path setup above
 
 pytest_plugins = ["pytester"]
 
+# Authored block self-test payload, executed explicitly by the block runner (c0322).
+collect_ignore = ["data/blocks/lib/tests/test_divider.py"]
+
 if sys.platform == "win32":
     # The test helpers write their fixtures with ``Path.write_text`` and the code under test reads bytes.
     # Windows would write CR LF where the fixtures mean LF, so a helper's text keeps its own line ends.

@@ -297,7 +297,7 @@ def run_capture(args: argparse.Namespace, ctx: Context) -> Result:
         pose = Transform.translation(fp.position.x, fp.position.y)
     definitions_by_path = _layout.footprint_definitions(model, {}, script_path=board_path, ctx=ctx)
     definitions = {
-        c.lib_footprint_ref: definitions_by_path[component_path(c)]
+        c.footprint_definition_ref or c.lib_footprint_ref: definitions_by_path[component_path(c)]
         for c in model.circuit.components
         if component_path(c) in definitions_by_path
     }

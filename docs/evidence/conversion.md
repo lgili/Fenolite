@@ -13,8 +13,18 @@ explicitly after c0215 changed the default to computed pours; its counts and ass
 Computed-pour behavior is tested separately by the pour-mode, conversion and public Altium pour census
 tests described in [the pour evidence](altium-pour.md). This ledger does not verify computed pours.
 
-`tests/corpus/test_convert_census.py` reads the two tables between the markers below and fails when a
-conversion gives other rows, or any `convert.unexplained`. Regenerate them by running the census and
+The dated tables remain unchanged after c0277's placement pairing. The additive
+[current comparison record](conversion-comparison-c0319.json), measured on source
+`46d788ee0e10516838a4b0a63b254eab2a475fd1` with Python 3.12.14 on 2026-11-02, binds the
+declared input SHA-256 values of rows 08 and 16. Equal repeated references now pair:
+row 08 has no comparison differences; row 16 retains exactly 11 `dnp`, 20
+`pad-missing` and one `route-connectivity` difference. Raw duplicate counts and
+all historical writer-ledger rows remain checked. These are local backend
+comparisons, with no native Altium execution or new KiCad importer claim.
+
+`tests/corpus/test_convert_census.py` reads the two tables between the markers below, with the explicit
+current comparison supplement for rows 08/16, and fails when a conversion gives other rows or any
+`convert.unexplained`. Regenerate measurements by running the census and
 copying its rows; never edit a count by hand. The page also holds, under "KiCad to Altium, before
 c0160", the frozen census that change measures its losses against; no test reads it.
 

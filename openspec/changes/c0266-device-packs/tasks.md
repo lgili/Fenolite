@@ -12,6 +12,30 @@
 
 Entry facts (2026-11-01; initial base 8dea6432, resolved prerequisite 7a2f6746): `openspec list` and the named living specs/changes read. c0279 uses `fenolite.library-item.v0` (`item.json`), `fenolite.provenance.v0` (`PROVENANCE.json`), `[library.items]`; `get` copies into `fenolite_library/<kind folder>/<namespace>/<name>/`. c0259 uses `catalog/records.py:load_tree`, recursive TOML, ignores JSON and families, excludes `VERSIONS.toml` and optional proposed paths, and rejects duplicate kind/id. c0262 provides `library check` and `library review`; external jobs remain `records`, `regenerate`, `versions`, `origin`, `renders`. c0259 holds the other open catalog MODIFIED delta; c0266 retained the complete living built-in requirement and added only vendored precedence/origins. Final actions are `symbol`, `generate`, `check`, `review`, `import`, `propose`, `seed`, `audit`, `replay`, `release`, `gallery`; c0265 supplies propose, legacy reserved fetch is replaced by get. All four recommended design decisions accepted 2026-11-01. S-1090..1097 reserved/actually read for public format/library facts. Full entry `make check-fast` remains root-owned and unclaimed.
 
+  Entry refresh 2026-11-02, integration base `697cdf02b39c570b7827bd2b7b5419dfcf6bdea6`:
+  c0279 phase A, c0259/c0262 and c0260/c0261/c0254 remain active and implemented.
+  Item/provenance schemas remain `fenolite.library-item.v0` and `fenolite.provenance.v0`;
+  `get` copies into `fenolite_library/<kind folder>/<namespace>/<name>/` and pins
+  `[library.items."<kind>/<id>"]`. `catalog.records.load_tree` walks TOML recursively in
+  POSIX order, skips VERSIONS/family files, supports explicit excluded folders, and rejects
+  duplicate kind/id; active-record callers exclude proposed records. The implemented CLI
+  actions are symbol/generate/check/review/import/propose/seed/audit/replay/release/gallery.
+  Only c0266 currently holds "Build resolves built-in definitions"; its living baseline
+  still has builtin/authored origins, and the delta adds library precedence. c0262 supplies
+  check/review and sheets; records/regenerate/versions/origin/renders remain the named
+  external-library CI contract, not jobs executed by this entry review. The four accepted
+  decisions remain FenoliteDevices, persistent seeded origin after review, source/library
+  commit attribution, and whole-family device items. S-1090..1097 are already registered
+  public facts; S-1098..1099 are unused in that register and remain reserved. No new source,
+  legal-text fixture, external seed/release or live LibrePCB compatibility proof is claimed.
+
+  Available proof: `openspec validate c0266-device-packs --strict` passes without warnings
+  (OpenSpec 1.16.0).
+  The literal `make check-fast` is not run by this worker and has no applicable passing
+  serialized receipt yet. Task 0.1 remains unchecked for that actual proof; independent
+  CI, native/manual and release criteria are unchanged.
+
+
 ## 1. Vendored records in the core
 
 - [x] 1.1 `src/fenolite/catalog/vendored.py`: `load_vendored` over `fenolite_library/symbols`, `fenolite_library/footprints` and `fenolite_library/devices`, pairing records with their `item.json`. Author the vendored fixture `tests/data/library/project/`, each file with the authored-for-Fenolite line. Proof: `uv run pytest tests/unit/catalog/test_vendored.py -q`.
@@ -60,6 +84,9 @@ Entry facts (2026-11-01; initial base 8dea6432, resolved prerequisite 7a2f6746):
 - [x] 5.4 Run `uv run pytest tests/residue -q` and update evidence labels. Proof: `uv run pytest tests/residue tests/unit/test_inferred_hypotheses.py -q`.
 - [x] 5.5 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
 - [ ] 5.6 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit, KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
+- [x] 5.7 Declare every authored `examples/library-devices/` payload in `tests/data/MANIFEST.toml`, retaining the authored-only legal declarations and existing vendored entries. Record CC0 ownership and exact file hashes; archive rows also list member paths and hashes. Verify the release index and archive members against the original source files. Proof: `uv run pytest tests/corpus/test_manifest.py -q`; `uv run pytest tests/unit/test_examples.py -k library_devices -q` (the existing release/get/frozen-build regression). Production licence validation MUST remain unchanged and no waiver is added.
+  Open 2026-11-01, closure base `7c2f1df2`: focused manifest proof finds 24 undeclared source/release/design paths despite the existing 15 vendored declarations. The user authorized correcting this prerequisite. The fixture README, source registration, per-item provenance and original fixture licence declarations establish illustrative CC0 ownership; this is not upstream legal-text validation. Add declarations and measure content before ticking this task.
+  Done 2026-11-01: declared the 24 missing paths and retained the 15 vendored declarations. All 39 payloads explicitly state CC0-1.0 and their raw SHA-256; three archive rows list all 15 member paths/hashes. Every member equals its authored source file, and archive hashes/lengths equal the local release index. Exact proofs pass: manifest 48 passed, one unavailable-corpus skip; offline example 3 passed. No payload, production licence check or waiver changed. This closes the inventory task, without closing 0.1/4.1/4.2/5.6 or claiming upstream legal approval.
 
 
 Local proof record (2026-11-01): changed-source lint/format and pyright pass; strict c0266 validates.

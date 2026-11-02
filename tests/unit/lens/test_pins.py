@@ -5,6 +5,7 @@ and devices are authored for Fenolite: ``examples/pins`` and the records below."
 
 from __future__ import annotations
 
+import ast
 import io
 import json
 import re
@@ -16,6 +17,7 @@ import pytest
 
 import fenolite.cli.main as cli_main
 from fenolite.catalog.devices import parse_device
+from fenolite.checks.readiness import READY_CHECKS
 from fenolite.lens.pins import PIN_ISSUE_CODES, LockedChoice, TakeRequest, solve
 from fenolite.model.library import DeviceDef, DeviceOption, DevicePin
 
@@ -299,6 +301,48 @@ def test_unused_take(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 # -- codes and the example
 
 
+def pins_code_literals(source: str) -> set[str]:
+    """Keep issue literals distinct from proposal filenames and declared readiness stages."""
+    tree = ast.parse(source)
+    parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+    literals: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
+            continue
+        text, parent = node.value, parents.get(node)
+        if not re.fullmatch(r"pins\.[a-z][a-z0-9-]*", text):
+            continue
+        if text == "pins.toml" and isinstance(parent, (ast.Tuple, ast.Set)):
+            siblings = {item.value for item in parent.elts if isinstance(item, ast.Constant)}
+            if {"pins.toml", "package.toml"} <= siblings <= {"device.toml", "pins.toml", "package.toml"}:
+                continue  # the pin/package records, optionally with a device, of a library proposal
+        if text in READY_CHECKS and (
+            isinstance(parent, ast.Tuple)
+            or (
+                isinstance(parent, ast.Call) and isinstance(parent.func, ast.Name) and parent.func.id == "ran"
+            )
+        ):
+            continue
+        literals.add(text)
+    return literals
+
+
+@pytest.mark.parametrize(
+    "source, expected",
+    [
+        ('for name in ("device.toml", "pins.toml", "package.toml"): pass', set()),
+        ('zip(("pins.toml", "package.toml"), records)', set()),
+        ('files = {"device.toml", "pins.toml", "package.toml", *extra}', set()),
+        ('Issue("pins.toml", "error", "m")', {"pins.toml"}),
+        ("code = 'pins.unknown-v2'", {"pins.unknown-v2"}),
+        ('checks = ("pins.unconnected",); ran("pins.unconnected", found)', set()),
+        ('Issue("pins.unconnected", "error", "m")', {"pins.unconnected"}),
+    ],
+)
+def test_code_literals_keep_unknown_issues_visible(source: str, expected: set[str]) -> None:
+    assert pins_code_literals(source) == expected
+
+
 def test_codes(monkeypatch: pytest.MonkeyPatch) -> None:
     """Scenario "Closed set": every ``pins.*`` literal of the sources is a key of ``PIN_ISSUE_CODES`` with
     the severity of the spec, and ``fenolite explain`` knows each."""
@@ -313,9 +357,7 @@ def test_codes(monkeypatch: pytest.MonkeyPatch) -> None:
     }
     literals: set[str] = set()
     for path in (ROOT / "src" / "fenolite").rglob("*.py"):
-        if path.name == "readiness.py":
-            continue  # its "pins.unconnected" names a readiness check, not a finding of the build
-        literals |= set(re.findall(r'"(pins\.[a-z][a-z-]*)"', path.read_text(encoding="utf-8")))
+        literals |= pins_code_literals(path.read_text(encoding="utf-8"))
     assert literals and literals <= set(PIN_ISSUE_CODES)
     for code in PIN_ISSUE_CODES:
         status, env = run(monkeypatch, "explain", code)

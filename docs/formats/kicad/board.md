@@ -50,6 +50,8 @@ never taken from KiCad's writer code.
 | Pad angles in board files are absolute: the footprint angle is included (DRC library parity: one mismatch for a control whose stored pad angles leave it out) | S-0019, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-G-PAD-ANGLE-ABS |
 | In the demo boards pad angles lie in [0°, 360°), footprint angles may be negative, and a zero pad or footprint angle is not written | S-0024 | INFERRED | H-K-PCB-READ |
 | `gr_text` is `(gr_text "TEXT" (at X Y [ANGLE]) (layer L [knockout]) (uuid U) (effects …))`; the demo boards write the text angle even when it is 0 (456 of 585 texts) | S-0001, S-0024 | INFERRED | H-K-PCB-READ |
+| The `font` of text effects holds `[(face NAME)] (size HEIGHT WIDTH) [(thickness T)] [bold] [italic]` in this order; the demo boards of 10.0.6 write the flags as `(bold yes)` and `(italic yes)` (`tinytapeout-demo`: 34 bold texts, 3 with a face; `One-Air-Max`: 25 bold), and 124 texts of `tinytapeout-demo` carry `knockout` on their layer | S-0001, S-0058 | CORPUS-VERIFIED | H-K-PCB-READ |
+| In those demos a text on a back layer is mirrored (`justify … mirror`) and a text on any other layer is not, with no exception (`tinytapeout-demo` 136 and 99, `One-Air-Max` 17 and 8) | S-0058 | CORPUS-VERIFIED | H-K-PCB-READ |
 | `zone`: `net`, `net_name`, `layer` (or `layers`), `uuid`, optional `name`, `hatch`, optional `priority` (absent when 0), `connect_pads`, `min_thickness`, optional keepout settings, fill settings, `polygon` (the outline), then one `filled_polygon` per filled area | S-0001 | INFERRED | H-K-PCB-READ |
 | `pcb drc --format json --severity-all --refill-zones --save-board` on a copy of a target-9 or target-10 board saves the copy in the running 10.0.6 board format (`20260206`, generator `pcbnew`) and writes its zone fills; the original file is not changed | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-FILL-SAVE |
 | The same refill of the authored project keeps each zone uuid and gives the GND zone one filled polygon with 16 points | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-FILL-SAVE |
@@ -58,6 +60,9 @@ never taken from KiCad's writer code.
 | A zone with a `keepout` child is a rule area; its settings `tracks`, `vias`, `pads`, `copperpour`, `footprints` take `allowed` or `not_allowed` | S-0001 | INFERRED | H-K-PCB-READ |
 | Rule areas gained a `placement` child in 9.0 (`20241009`) | S-0030, S-0050 | INFERRED | H-K-PCB-READ |
 | Teardrops are zones carrying `(attr (teardrop (type …)))` and a name such as `$teardrop_padvia$` | S-0024 | INFERRED | H-K-PCB-READ |
+| The `teardrops` child of a pad and of a via holds `best_length_ratio`, `max_length`, `best_width_ratio`, `max_width`, `curved_edges`, `filter_ratio`, `enabled`, `allow_two_segments` and `prefer_zone_connections`, in this order; a ratio is a decimal fraction of the pad or via size (`0.5`, `1`, `0.9`), a length is in mm, a flag `yes` or `no`. At tag 10.0.6 the demo `RoyalBlue54L-Feather` holds 349 such children (197 on pads, 152 on vias) and `complex_hierarchy` 165 (on pads), each with all nine in that order; the child comes before `uuid` in a pad and between `layers` and `net` in a via | S-0058 | CORPUS-VERIFIED | H-K-TEARDROP |
+| Every teardrop zone of those two demos is of the type `padvia` (263 and 165) | S-0058 | CORPUS-VERIFIED | H-K-TEARDROP |
+| KiCad writes a blind via between the two outer copper layers: every via of the demo `RoyalBlue54L-Feather` at tag 10.0.6 (183, 8 copper layers) is `(via blind … (layers "F.Cu" "B.Cu") …)` | S-0058 | CORPUS-VERIFIED | H-K-PCB-READ |
 | A `pts` list may hold `(arc (start)(mid)(end))` in zone polygons | S-0018 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-G-PTS-ARC |
 | A fill island is marked by the bare `(island)` up to 9.0 and by `(island yes)` or `(island no)` from `20250801` | S-0030 | INFERRED | H-K-PCB-READ |
 | A `uuid` is a version 4 UUID meant to be globally unique | S-0001 | INFERRED | H-K-PCB-UUID |
@@ -134,9 +139,10 @@ never taken from KiCad's writer code.
 | The `at` of an `fp_text` of a board footprint holds the angle of the text on the board, as the `at` of a property and of a pad does; the projection gives the angle relative to the footprint, `(stored − θ) mod 360°`. A text without a font `size` or `thickness`, a graphic whose stroke is not solid, a polygon with an arc, `fp_text_box`, `fp_curve`, `dimension` and a number that is no whole number of nanometres are not projected: they are counted by head and stay in their slots | S-0021; the rows of `H-G-PAD-ANGLE-ABS` and `H-K-FIELD-FRAME` above | INFERRED | H-K-PCB-FPGFX |
 | `roundrect_rratio` of a pad is a decimal of the pad's shorter side that gives the corner radius, from 0 to 0.5 (`frame.md`, the row of `H-G-FRAME-SHAPE`). The projection gives it as `Pad.corner_ratio` in parts per million of the shorter side, `r · 1 000 000`, rounded half to even to one ppm when the text has more than six decimals; a value outside 0 to 0.5 is not projected | S-0001 | INFERRED | H-K-PCB-FPGFX |
 | In KiCad's own boards the inner copper rows are `(2k + 2 "In<k>.Cu" signal)` after `F.Cu` and before `(2 "B.Cu" signal)`, without a user name: `In1.Cu` 4 to `In4.Cu` 10 in a six-layer demo (header `20250513`), and to `In6.Cu` 14 in an eight-layer demo (header `20241229`) | S-0058 | CORPUS-VERIFIED | H-K-PCB-LAYERS |
-| A layer table of 2, 4, 6 or 8 copper layers with those inner rows loads on 10.0.6 in the target-9 and the target-10 text (`pcb drc` writes its report), `pcb export gerbers` writes one Gerber per copper layer, named after it, and `pcb upgrade --force` keeps every copper row (number, name, type, no user name, in order) | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-PCB-LAYERS |
+| A layer table of every even count of copper layers from 2 to 32 with those inner rows (`In30.Cu` is 62; 10 to 32 measured for change c0277 on 2026-10-30) loads on 10.0.6 in the target-9 and the target-10 text (`pcb drc` writes its report), `pcb export gerbers` writes one Gerber per copper layer, named after it, and `pcb upgrade --force` keeps every copper row (number, name, type, no user name, in order) | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-PCB-LAYERS |
 | 10.0.6 refuses a table of three copper layers (`F.Cu`, `In1.Cu`, `B.Cu`) in both texts: no DRC report and no Gerber | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PCB-LAYERS |
-| 9.0.9 loads the target-9 text of the same tables of 2, 4, 6 and 8 copper layers, gives one Gerber per copper layer and refuses the table of three; its `kicad-cli` has no `pcb upgrade`, so the re-save is judged on 10.0.6 only | S-0029, S-0037 | KICAD-VERIFIED (9.0.x) | H-K-PCB-LAYERS |
+| 9.0.9 and 10.0.6 refuse a table whose only copper row is `F.Cu` (the two-copper table without `B.Cu`) in both texts: `pcb drc` stops with "1 is not a valid layer count", so a single-sided board is a table of two copper layers with nothing on `B.Cu` (measured on 2026-10-30, the pinned images, local run) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PCB-ONE-COPPER |
+| 9.0.9 loads the target-9 text of the same tables of every even count from 2 to 32 copper layers, gives one Gerber per copper layer and refuses the table of three; its `kicad-cli` has no `pcb upgrade`, so the re-save is judged on 10.0.6 only | S-0029, S-0037 | KICAD-VERIFIED (9.0.x) | H-K-PCB-LAYERS |
 | A copper row of type `power` (`(4 "In1.Cu" power)`) loads on 10.0.6 in the target-9 and the target-10 text and adds no violation type to the DRC report of the same routed board with `signal` rows; its Gerber carries the file function `Copper,L<n>,Inr`, as a signal row's does; `pcb upgrade --force` keeps the type. The type says what the layer is for and changes no check: tracks on it are not reported | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-LAYER-POWER |
 | 9.0.9 loads the target-9 text with `power` rows the same way (measured on 2026-10-05; `pcb-layer-power-t9` recorded `equal` in `9.0.9.json` on 2026-10-08, the pinned image, local run; confirmed by the `kicad-9` job of CI run 37772583226 on `04ef42a`) | S-0029 | KICAD-VERIFIED (9.0.x) | H-K-LAYER-POWER |
 | A rule area is a `zone` with a `keepout` child; its name is the child `(name "<name>")`, which 10.0.6 writes right after `uuid`. A created area with the name there and without `hatch`, `connect_pads`, `min_thickness`, `placement` and `fill` loads, and `pcb upgrade --force` on 10.0.6 keeps the name (probe `area-name-keep`, recorded for 10.0.6; the named benches load on 9.0.9 and 10.0.6) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-AREA-NAME |
@@ -853,6 +859,92 @@ passed in the `kicad-9` and `kicad-10` jobs of CI run 37772583226 (2026-10-08).
 
 Errors raise `LossyWriteError` (`FEN-7001`); `droppable` is true only when every error is a too-new
 token inside opaque content.
+
+## Teardrop settings (c0277)
+
+- **Created settings.** A pad or via whose model `teardrop` is set gets a `teardrops` child
+  (`backends/kicad/teardrops.py`) with one child per field that is not `None`, in the order of the fact row
+  above, `enabled` always; a ratio held in parts per million is written as the decimal fraction, a length in
+  mm. The child goes where the fact row says: before `uuid` in a pad, between the protection children and
+  `net` in a via. `INFERRED` until `H-K-TEARDROP` loads, checks and re-saves a created board on both majors.
+- **Read boards.** The reader does not project a `teardrops` child; it stays in its slot and is written back
+  as read. When the model of a read pad or via gets settings (a script via over a board that held the via),
+  the writer replaces that slot's child with the model's.
+- **Teardrop zones** are never created: KiCad draws them when it fills the board, from the settings above
+  (`H-K-UUID-KEEP-2`: a 10.0.6 re-save removes them).
+- **Blind vias over the board.** A via table of a script (`Design.via_table`) may hold a blind via whose
+  two layers are the two outer copper layers, written as the fact row above shows; a single via or a via
+  step keeps the rule that a blind via joins one outer layer.
+
+## Board texts and dimensions of a script (c0277)
+
+- **Text styles.** A created text with `Text.knockout` writes `(layer L knockout)`; one with `bold`, `italic`
+  or `face` writes them in its font in the order of the fact row above, the flags as `(bold yes)` and
+  `(italic yes)`. A text on a copper layer is written like any other; the copper check leaves it out
+  (`copper.text-unchecked`, info) and KiCad's DRC judges it (`H-K-BOARD-TEXT`). The reader does not project
+  `knockout`, `bold`, `italic` or `face`: a read text keeps them in its slots.
+- **Several lines and an empty text** are written as the string atom holds them (`\n` escaped, as KiCad
+  writes it); the reader reads them back unchanged.
+- **Extension offset.** A created dimension writes `Dimension.extension_offset` in its `style`, 0.5 mm when it
+  is `None`.
+- `INFERRED` until `H-K-COPPER-ART` loads a created board with a copper text and the styles on both majors.
+
+## Board items of an import (c0277)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A via's `(free yes)` follows its `layers` and comes before its protection children (`tenting` …) | S-0058 (`CM5_MINIMA_3`, `One-Air-Max`, `RoyalBlue54L-Feather` at 10.0.6) | INFERRED | H-K-PCB-WRITE |
+| A graphic on a copper layer holds `(net …)` after its `layer`: the net number on a 9.0 board (`One-Air-Max`); a 10.0 board names its nets in every reference, so the writer names it there | S-0058 | INFERRED | H-K-COPPER-ART |
+| A filled shape without an outline is written with `(stroke (width -0.000001) (type solid))` | S-0058 (`CM5_MINIMA_3`) | INFERRED | H-K-PCB-WRITE |
+| A dimension's `units` codes are 0 inches, 1 mils, 2 millimetres and 3 automatic | S-0001, S-0058 (`tinytapeout-demo`) | INFERRED | H-K-DIM |
+| `board_only` follows the type atom of `attr` (`(attr through_hole board_only exclude_from_pos_files exclude_from_bom)`) | S-0058 (150 footprints) | INFERRED | H-K-PCB-WRITE |
+| A zone's `smoothing` and `radius` follow `thermal_bridge_width` in its `fill` | S-0058 (`CM5_MINIMA_3`) | INFERRED | H-K-PCB-WRITE |
+| A placement rule area holds `(placement (enabled yes) (sheetname "/CH1/"))` after its `keepout`; KiCad 9 writes `(placement (enabled no) (sheetname ""))` on a rule area that places nothing | S-0058 (`multichannel_mixer`, `CM5_MINIMA_3`) | INFERRED | H-K-PCB-WRITE |
+| A chamfered pad of a bottom footprint names its corners in the board's frame: brought back to the top side, a top corner is a bottom one (`top_left` ↔ `bottom_left`, `top_right` ↔ `bottom_right`), as the pad is mirrored about its local X axis | S-0058 (`RoyalBlue54L-Feather`, J1) | INFERRED | H-G-FLIP |
+| A `generated` tuning pattern names the tracks it made in `members`, by uuid, and is written after the groups | S-0058 (`CM5_MINIMA_3`, `One-Air-Max`) | INFERRED | H-K-VERBATIM |
+| A board outline may be closed by the `Edge.Cuts` of a footprint (`tinytapeout-demo`'s USB connector J15): the created outline leaves out an edge a footprint draws, in either direction | S-0058 | INFERRED | H-K-OUTLINE-FPEDGE |
+| A zone outline with an arc edge holds `(arc (start) (mid) (end))` items in its `pts`, beside `xy` items; a line joins an item's last point to the next one's first, and the last item to the first | S-0058 (`RoyalBlue54L-Feather`) | INFERRED | H-K-ZONE-ARC |
+| A radial dimension holds `type radial`, `layer`, `uuid`, `pts` (centre, then a point of the circle), `leader_length`, `format` with a prefix such as `"R "`, `style` (`thickness`, `arrow_length`, `text_position_mode`, `extension_offset`, `keep_text_aligned`) and a `gr_text`, and no `height`; a leader holds `type leader`, `pts` (arrow point, then knee), `format` with `(units_format 0)` and `override_value` (the note), `style` with `text_frame` after `text_position_mode`, and a `gr_text` whose `at` is where the note stands | S-0058 (`constraints`, `jetson-agx-thor-baseboard`, `RoyalBlue54L-NFC-Antenna`) | INFERRED | H-K-DIM-KINDS |
+| A board image is a root `(image (at X Y) (layer L) (scale S) (data "…" "…") (uuid U))`: the PNG bytes as base64 text split into strings of 76 characters; 10.0.6 keeps the bytes, the chunks and the children on re-save of an image written so. No demo board holds one (measured on 2026-10-30, the pinned image, local run) | S-0001 ("Images"), S-0020 | INFERRED | H-K-IMAGE |
+| No demo board holds a centre mark. One written as `type center`, `layer`, `uuid`, `pts` (centre, then the end of an arm) and a `style` (`thickness`, `arrow_length`, `text_position_mode`, `extension_offset`), without `format` and `gr_text`, loads on 9.0.9 and 10.0.6, and 10.0.6 keeps those children on re-save; it keeps the radial and leader forms above too, recomputing a radial text's angle; a leader with `(units_format 1)` shows its note with the units appended (measured on 2026-10-30, the pinned images, local run) | S-0020, S-0029 | INFERRED | H-K-DIM-KINDS |
+
+- **Free vias.** The reader keeps a read via's `free` in its slots; a created via of `Via.free` writes it,
+  and a script via over a read one replaces the read child.
+- **Copper graphics.** `Graphic.net_id` is written through the net table of the target, as a track's net;
+  the reader keeps a read graphic's `net` in its slots.
+- **Dimensions.** The reader now projects the codes 1 and 3 into `Dimension.units` (`mils`, `auto`), which
+  it read as `mm` before; a created dimension in `auto` caches its text in millimetres, as KiCad does
+  before it recomputes it. Radial dimensions, leaders and centre marks are modelled (`Dimension.kind`
+  `radial`, `leader`, `center`, with `leader_length`, and a leader's `text` and `frame` projected from its
+  `format` and `style`); one in another form stays an opaque root slot. A created one is written in the
+  forms of the fact rows above (`H-K-DIM-KINDS`): a radial dimension with the prefix `R ` and its text at the
+  end of its leader, a leader with `(units 2) (units_format 0)` and its note 2 mm past the knee unless the
+  model places it, a centre mark with its `style` alone.
+- **Images.** A board `image` is modelled (`Image`, `Board.images`: `at`, `layer`, `scale`, the joined
+  `data`); a created one is written in the form of the fact row above, after the dimensions, and a script
+  image is regenerated on a rebuild as the other board items are (`boarditems`); one in another form stays
+  an opaque root slot.
+- **User layers** of a script are the rows of "User layers for conversion" (`H-K-BOARD-USERLAYERS`), with the
+  user name a script gives.
+- **Explicit technical tables** (c0324) are a Fenolite selection policy over the canonical row names
+  and row form already recorded above (S-0001, S-0021). `board(technical_layers=...)` uses existing
+  model layer rows to retain a supported source table without adding unused standard rows. Copper
+  and declared `User.n` rows remain independent. Default `None` keeps the complete created table.
+  Native writer checks still refuse any modeled item on an undeclared layer, including images;
+  exact layer-table equivalence is unchanged. This adds no format or native-application acceptance
+  claim; authored writer/readback proofs remain `INFERRED`.
+
+## Groups of a script (c0277)
+
+- **Written.** A `Group` of `Board.groups` is written as a root `(group "name" (uuid U) [(locked yes)]
+  (members "…" …))` after the zones, its members the uuids the writer gives the items (a component by the
+  uuid of its footprint), sorted: the place and the sorted members of the fact rows above (`H-K-PCB-WRITE`,
+  `H-K-LENS-RENAME`). A member that the board does not hold is left out.
+- **Read boards.** The reader does not project a group; it stays in its slot and is written back as read.
+  When a script group has the uuid of a read one (a rebuild), the writer writes the model's group in that
+  slot instead, so a rebuild changes no byte and a changed script group replaces the old one.
+- `INFERRED` for the created form until `H-K-GROUP` loads a created board with a nested and a locked group
+  and re-saves it unchanged on both majors (task 4.4 of c0277).
 
 ## Net-tie groups (c0114)
 

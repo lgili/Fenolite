@@ -217,6 +217,16 @@ The side bar of a board holds, as Altium's PCB panel does (change c0187):
 
 ## Check findings
 
+A build/sync reply with `sync.conflict` supplies structured base, code and CAD values in Properties,
+alongside its copyable `build --take` commands. On a page served with `--edit` (an alias of
+`--allow-actions`), **Take code** and **Take CAD** open the existing plan-review dialog; disagreeing CAD
+sides offer **Take board** and **Take schematic**. Planning executes the identified design script.
+The server binds its hash, selected board/output and available base/build records. Its authoring root
+must contain the output; a stale or unavailable binding leaves the commands available to copy.
+The dialog lists the source execution context, every input and every write, including source-side lock
+or edits files outside the board folder. Confirm replays those reviewed bytes; the receipt offers a
+reviewed undo in the same scope.
+
 ### Project review (development after 0.5.0)
 
 Choose **Review** in the Projects heading for the current document's status and a guided list of

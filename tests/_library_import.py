@@ -82,11 +82,14 @@ def fixtures() -> dict[str, bytes]:
         archive.comment = b"SPDX-License-Identifier: CC0-1.0; Authored for Fenolite"
         for name in ("exb6202.kicad_sym", "exb6202.kicad_mod", "exb6202.step"):
             info = zipfile.ZipInfo(f"KiCad/{name}", (2026, 11, 1, 0, 0, 0))
+            info.create_system = 3  # Existing checked archives use the Unix creator on every host.
             info.compress_type = zipfile.ZIP_DEFLATED
             info.comment = b"Authored for Fenolite (CC0-1.0)"
             archive.writestr(info, files[name])
+        readme = zipfile.ZipInfo("README.txt", (2026, 11, 1, 0, 0, 0))
+        readme.create_system = 3
         archive.writestr(
-            zipfile.ZipInfo("README.txt", (2026, 11, 1, 0, 0, 0)),
+            readme,
             "SPDX-License-Identifier: CC0-1.0\nAuthored for Fenolite. https://example.invalid/exb6202\n",
         )
     files["exb6202.zip"] = buffer.getvalue()

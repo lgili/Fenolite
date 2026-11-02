@@ -33,7 +33,7 @@ ITEMS = AREA + LABEL + DIMENSION
 CORNER = "[(mm(1), mm(1)), (mm(5), mm(1)), (mm(5), mm(5)), (mm(1), mm(5))]"
 HV = f'design.rule_area("HV", {CORNER})\n'
 SELECT = "from fenolite.dsl import select\n"
-COUNTS = {"rule_areas": 1, "texts": 1, "graphics": 0, "dimensions": 1}
+COUNTS = {"rule_areas": 1, "texts": 1, "graphics": 0, "dimensions": 1, "images": 0}
 ZERO = {"regenerated": 0, "stale": 0}
 DRAWN = "30000000-0000-4000-8000-00000000000{}"
 """Version-4 uuids of items drawn in KiCad."""
@@ -87,7 +87,13 @@ def test_blink_with_a_keep_out_a_label_and_a_dimension(target: int) -> None:
 
 def test_a_design_without_the_calls_reports_zeros() -> None:
     output = build(blink(), 10)
-    assert output.summary["board_items"] == {"rule_areas": 0, "texts": 0, "graphics": 0, "dimensions": 0}
+    assert output.summary["board_items"] == {
+        "rule_areas": 0,
+        "texts": 0,
+        "graphics": 0,
+        "dimensions": 0,
+        "images": 0,
+    }
     assert output.summary["preserved"]["board_items"] == ZERO  # type: ignore[index]
     assert "H-K-DIM" not in output.evidence.hypotheses
     text = output.files["blink.kicad_pcb"].decode("utf-8")
@@ -106,7 +112,13 @@ def test_graphics_are_written_and_read_back() -> None:
     design.text("t", "BACK", (mm(20), mm(28)), layer="B.SilkS", justify="right top", rot=90)
     output = build(design, 10)
     assert not [i for i in output.issues if i.severity == "error"]
-    assert output.summary["board_items"] == {"rule_areas": 0, "texts": 1, "graphics": 5, "dimensions": 0}
+    assert output.summary["board_items"] == {
+        "rule_areas": 0,
+        "texts": 1,
+        "graphics": 5,
+        "dimensions": 0,
+        "images": 0,
+    }
     board = board_of(output.files["blink.kicad_pcb"].decode("utf-8"))
     scripted = {g.native_ids["kicad"]: g for g in board.graphics if is_item_uuid(g.native_ids["kicad"])}
     wanted = {key: item_uuid(derived_id("gfx", "dsl", f"graphic:{key}")) for key in "lrcap"}
@@ -206,7 +218,13 @@ def test_an_area_drawn_in_kicad_is_a_valid_target(tmp_path: Path, monkeypatch: p
     assert (area.name, area.native_ids["kicad"]) == ("HV", DRAWN.format(1))
     rules = (project.out / f"{NAME}.kicad_dru").read_text(encoding="utf-8")
     assert "(condition \"A.intersectsArea('HV')\")" in rules
-    assert env["result"]["board_items"] == {"rule_areas": 0, "texts": 0, "graphics": 0, "dimensions": 0}
+    assert env["result"]["board_items"] == {
+        "rule_areas": 0,
+        "texts": 0,
+        "graphics": 0,
+        "dimensions": 0,
+        "images": 0,
+    }
     assert item_codes(env) == []
 
 

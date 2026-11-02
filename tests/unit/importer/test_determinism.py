@@ -37,13 +37,13 @@ def test_same_bytes_twice(tmp_path: Path) -> None:
     second = _run(tmp_path / "b", "4242")
     assert first == second
     for folder in (tmp_path / "a" / "out",):
-        for script in folder.glob("*.py"):
+        for script in folder.rglob("*.py"):
             text = script.read_text(encoding="utf-8")
             assert str(tmp_path) not in text and str(PROJECT.parent) not in text
     ruff = shutil.which("ruff")
     if ruff is None:
         pytest.skip("ruff is not installed")
-    scripts = [str(p) for p in sorted((tmp_path / "a" / "out").glob("*.py"))]
+    scripts = [str(p) for p in sorted((tmp_path / "a" / "out").rglob("*.py"))]
     done = subprocess.run(
         [ruff, "format", "--check", "--no-cache", "--line-length", "110", *scripts],
         capture_output=True, text=True, check=False,

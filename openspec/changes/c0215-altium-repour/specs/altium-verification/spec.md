@@ -1,6 +1,12 @@
 ## ADDED Requirements
 
 ### Requirement: Kit group K6 for computed pours
+The kit SHALL include two- and four-layer computed/reference pour samples and manual K6.2-K6.11 checks. Each probe MUST have its own net and declared copper points. The sample paths, step outcomes and per-hypothesis criteria below MUST be retained.
+
+#### Scenario: Detailed contract for kit group k6 for computed pours
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 The kit SHALL hold the samples `pour` (two copper layers) and `pour4` (four copper layers with blind and buried vias and through-hole pads with inner shapes), built from `examples/kit/pour/design.py` and `examples/kit/pour4/design.py`, each written twice from one computation: `<sample>/computed/<sample>.PcbDoc` with the pour mode `computed`, and `<sample>/reference/<sample>.PcbDoc`, the same document without the regions of its polygons (`pour_regions=False`). Each probe of the design of change c0215 (P0 to P10) MUST be its own polygon on its own net and MUST declare its points where copper must stay or must be gone. `fenolite.verify.kit.steps.STEPS` SHALL gain these steps in group 6, after K6.1, which stays as it is; the kit MUST build `routed` with the pour mode `outline`, so that K6.1 still repours an unpoured board:
 
 | step | sample | what | kind | checks or expected value |
@@ -40,6 +46,12 @@ The kit SHALL hold the samples `pour` (two copper layers) and `pour4` (four copp
 - **THEN** K6.2 fails on `pour-match` naming probe P3 and M2 at the neck's place, `H-A-POUR-KIT` and `H-A-POUR-NECK` fail, and `H-A-POUR-CLEARANCE` passes
 
 ### Requirement: Pour census of the public corpus
+`tests/corpus/test_altium_pour_census.py` SHALL pour, with `pour.pour_reading`, every polygon of the public PCB documents of the corpus manifest (`altium-third-party-pcbdoc-01` to `-08`) and SHALL compare each polygon that is not refused with the regions the document holds, by M1 to M4 of `pourcompare.compare_pours`.
+
+#### Scenario: Detailed contract for pour census of the public corpus
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 `tests/corpus/test_altium_pour_census.py` SHALL pour, with `pour.pour_reading`, every polygon of the public PCB documents of the corpus manifest (`altium-third-party-pcbdoc-01` to `-08`) and SHALL compare each polygon that is not refused with the regions the document holds, by M1 to M4 of `pourcompare.compare_pours`. `docs/evidence/altium-pour.md` SHALL hold, per document: the polygons, the refused ones by reason, the compared ones, those that pass, and the worst M1 ratio and M2 difference. A failed comparison MUST be listed with its polygon and its place and MUST NOT fail the test: a saved pour may be stale, or poured by another version or with AdvancedPour. A pass supports `H-A-POUR-CORPUS` for that polygon only, at `CORPUS-VERIFIED`.
 
 #### Scenario: Census counts are pinned

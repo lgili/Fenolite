@@ -41,6 +41,7 @@ from fenolite.model.library import (
     FootprintDef,
     FootprintKind,
     PinAlternate,
+    PinTable,
     Rating,
     SymbolDef,
     SymbolGraphic,
@@ -305,6 +306,8 @@ class PinsRecord:
     symbol: SymbolDrawing | None = None
     polarity: str = ""
     symbol_file: str = ""
+    table: PinTable | None = None
+    """Generator body only: header facts live solely in ``header`` and are restored at use."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -761,6 +764,24 @@ _SYMBOL_KEYS = ("reference", "value", "pin_names_hidden", "pin_numbers_hidden", 
 
 
 def _pins_record(read: _Reader, header: Header, data: Mapping[str, object]) -> PinsRecord:
+    drawing = data.get("symbol", {})
+    if (
+        not data.get("symbol_file")
+        and isinstance(drawing, dict)
+        and not any(
+            key in drawing
+            for key in (
+                "pins",
+                "graphic",
+                "units",
+                "value",
+                "pin_names_hidden",
+                "pin_numbers_hidden",
+                "pin_name_offset",
+            )
+        )
+    ):
+        return _generated_pins_record(read, header, data)
     _closed(read, data, (*HEADER_KEYS, "pin", "symbol", "polarity", "symbol_file"), "")
     pins: list[PinEntry] = []
     for index, table in enumerate(_tables(read, data.get("pin", _NONE), "pin")):
@@ -874,6 +895,48 @@ def _pins_record(read: _Reader, header: Header, data: Mapping[str, object]) -> P
         polarity,
         _import_file(read, data["symbol_file"], "symbol_file") if "symbol_file" in data else "",
     )
+
+
+def _generated_pins_record(read: _Reader, header: Header, data: Mapping[str, object]) -> PinsRecord:
+    from fenolite.catalog.pins import parse_pins_data
+
+    _closed(read, data, (*HEADER_KEYS, "pin", "symbol", "polarity", "variant"), "")
+    table = parse_pins_data(
+        {
+            "schema": header.schema,
+            "id": header.id,
+            "version": header.version,
+            "summary": header.summary,
+            "licence": header.licence,
+            "evidence": header.evidence,
+            "sources": list(header.sources or sorted({s for ids in header.sources_by.values() for s in ids})),
+            **({"category": header.category} if header.category else {}),
+            **{key: data[key] for key in ("pin", "symbol", "variant") if key in data},
+        },
+        file=read.file,
+    )
+    # The interface lists stacked numbers too; the generator keeps their shared location and hiding.
+    pins = tuple(
+        PinEntry(
+            number,
+            row.name,
+            row.etype if number == row.number else "passive",
+            row.shape,
+            row.hidden or number != row.number,
+            row.unit if row.unit is not None else 1,
+            row.group,
+            row.alternates if number == row.number else (),
+        )
+        for row in table.rows
+        for number in (row.number, *row.stacked)
+    )
+    polarity = read.text(data.get("polarity", ""), "polarity", empty=True)
+    if polarity not in ("", "anode-first"):
+        raise read.fail("polarity", "is 'anode-first' or absent")
+    body = replace(
+        table, name="", namespace="", version="", summary="", licence="", evidence="", sources=(), category=""
+    )
+    return PinsRecord(header, pins, polarity=polarity, table=body)
 
 
 _PAD_KEYS = ("number", "key", "shape", "size", "at", "kind", "rotation", "drill", "layers", "corner_ratio",
@@ -1339,6 +1402,12 @@ def _review_lines(header: Header) -> list[str]:
 
 def _pins_text(record: PinsRecord) -> list[str]:
     lines = _header_lines(record.header, "pins")
+    if record.table is not None:
+        from fenolite.catalog.pins import pins_text
+
+        if record.polarity:
+            lines.append(f"polarity = {_string(record.polarity)}")
+        return [*lines, "", *pins_text(_pin_table(record)).partition("\n\n")[2].splitlines()]
     if record.symbol_file:
         lines.append(f"symbol_file = {_string(record.symbol_file)}")
     if record.polarity:
@@ -1615,11 +1684,32 @@ def upgraded_device(record: DeviceRecord, *, licence: str) -> DeviceRecord:
 # ------------------------------------------------------------------------------------ definitions
 
 
+def _pin_table(record: PinsRecord) -> PinTable:
+    if record.table is None:
+        raise GeneratorMissingError(f"{record.header.id}: no generated pin table")
+    header = record.header
+    return replace(
+        record.table,
+        name=header.name,
+        namespace=header.namespace,
+        version=header.version,
+        summary=header.summary,
+        licence=header.licence,
+        evidence=header.evidence,
+        sources=header.sources or tuple(sorted({s for ids in header.sources_by.values() for s in ids})),
+        category=header.category,
+    )
+
+
 def symbol_def(record: PinsRecord) -> SymbolDef:
-    """The ``SymbolDef`` of a pins record with a ``[symbol]`` table; ``GeneratorMissingError`` without one."""
+    """The explicit drawing or deterministic generated definition of a pins record."""
     drawing = record.symbol
     header = record.header
     if drawing is None:
+        if record.table is not None:
+            from fenolite.catalog.generate.symbol import generate_symbol
+
+            return generate_symbol(_pin_table(record), library=header.namespace)[0]
         raise GeneratorMissingError(
             f"{header.id}: the pins record has no [symbol] drawing and no symbol generator is installed"
         )
@@ -1808,7 +1898,11 @@ def output_digest(record: Record) -> str:
     """The SHA-256 of the canonical JSON of the definition ``record`` gives (for a pins or package record
     without geometry: of the record's data without its header)."""
     if isinstance(record, PinsRecord):
-        return _sha(symbol_def(record)) if record.symbol is not None else _sha(replace(record, header=_BLANK))
+        return (
+            _sha(symbol_def(record))
+            if record.symbol is not None or record.table is not None
+            else _sha(replace(record, header=_BLANK))
+        )
     if isinstance(record, PackageRecord):
         if record.generator in GENERATORS:
             return _sha(footprint_def(record))
@@ -1875,6 +1969,33 @@ class LibraryTree:
 
     def devices(self) -> tuple[DeviceDef, ...]:
         return tuple(record.device for record in self.records if isinstance(record, DeviceRecord))
+
+    def device_symbols(
+        self, *, used: Collection[str] | None = None
+    ) -> tuple[dict[str, SymbolDef], tuple[Issue, ...]]:
+        """Device-specific drawings for generated pin tables, without changing source records."""
+        from fenolite.catalog.generate.symbol import generate_symbol
+
+        symbols: dict[str, SymbolDef] = {}
+        issues: list[Issue] = []
+        for record in self.records:
+            if not isinstance(record, DeviceRecord) or (used is not None and record.header.id not in used):
+                continue
+            pins = self.get("pins", record.device.symbol)
+            if not isinstance(pins, PinsRecord) or pins.table is None or pins.symbol_file:
+                continue
+            table = replace(
+                _pin_table(pins), namespace=record.header.namespace, name=record.header.name, variants=()
+            )
+            symbol, _, found = generate_symbol(
+                table,
+                library=record.header.namespace,
+                footprint=record.device.footprint,
+                fp_filters=(record.device.footprint.split(":", 1)[-1],),
+            )
+            symbols[record.header.id] = symbol
+            issues.extend(found)
+        return symbols, tuple(issues)
 
 
 def _walk(

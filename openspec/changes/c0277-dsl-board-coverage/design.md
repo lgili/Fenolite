@@ -112,7 +112,7 @@ d.teardrops(
 ```
 
 - One call per selection; a pad or via matched by two calls takes the later call (reported
-  `dsl.teardrops-overlap`, info). Every parameter left at `None` omits its token, so KiCad's own default
+  `build.teardrops-overlap`, info, decision 4a). Every parameter left at `None` omits its token, so KiCad's own default
   applies; Fenolite authors no default value.
 - Written as the teardrop settings node of each matching pad (inside the vendored footprint instance)
   and via, with the tokens of the KiCad file-format documentation (S-0001), recorded in
@@ -121,13 +121,49 @@ d.teardrops(
   them on fill, so `fenolite fill` makes them. The copper guard ignores teardrops; KiCad's DRC judges them.
 - Model: `Pad.teardrop` and `Via.teardrop` (`Teardrop`, frozen), omitted when unset.
 
+### 4a. Teardrop settings of vias (2026-10-30)
+
+- Before `Design.teardrops`, a via states its own settings: `teardrop(...)` returns a `Teardrop` (as
+  `protect()` returns a `ViaProtection`), and `Design.via` and `Design.via_table` take it as `teardrop=`.
+  The c0275 importer needs per-via settings: a selection by net or class cannot say which of the vias of
+  one net carry teardrops. `Teardrop` adds `filter_ratio`, `two_segments` and `prefer_zones` beside the
+  fields of decision 4, and `enabled`, because every pad and via of the demo boards holds all nine
+  children (`board.md`, "Teardrop settings"); `Design.teardrops` takes them too when it lands.
+- The overlap finding is a build code, `build.teardrops-overlap`: the build, not the DSL, sees the pads.
+- The reader does not project the child (non-goal above); a read item whose model gains settings has its
+  slot replaced by the writer. Pads keep the settings of their vendored footprints.
+
+### 4b. Blind vias over the board (2026-10-30)
+
+- KiCad writes blind vias whose two layers are the outer copper layers (every via of the demo
+  `RoyalBlue54L-Feather`). A via table, the form an import writes, accepts that span; a single via and a via
+  step keep the rule that a blind via joins one outer layer, which catches a mistake in an authored script.
+
 ### 5. Groups
 
 - `d.group(name, *members, locked=False)`: members are `Part` objects, and keys of copper intents, table
   rows' tables, zones, rule areas, drawings, images and other groups. A member in two groups, an unknown
   key or a cycle raises `DslError`. Model `Group(name, member_ids, locked)` in `Board.groups`, id
   `derived_id("grp", "dsl", "group:<name>")`; the KiCad uuid comes from the id.
-- Altium has no group record in the writer: `altium.group-skipped` (warning) per group.
+- Altium has no group record in the writer: each group is one `altium.not-lowered` (info), the code
+  every other item without a record gives; its members are written alone (implemented 2026-10-30).
+- A key, else the name, identifies a group (as for zones and rule areas), so an import keeps two groups
+  of one name; the id is `derived_id("grp", "dsl", "group:<key>")`. The reader keeps a read group
+  opaque, and the writer replaces the one whose uuid a script group has.
+
+### 5a. Board-only parts, user layers and the items of the demo boards (2026-10-30)
+
+- **Board-only parts.** A footprint without a symbol (a logo, a stitching via kept as a footprint) often
+  shares a reference or has none a part could take. `Part(..., board_only=True)` keeps its ref as text, is
+  named by `name=`, gets KiCad's `board_only` attribute and no schematic symbol; it reuses the part
+  machinery (a symbol still gives its pins). *Alternative:* a separate `design.footprint()` without
+  pins; rejected for now, because connections, placement and the lock all hang on parts.
+- **Shared references in comparisons.** `compare_designs` pairs references that both sides hold equally
+  often by placement, so an import of stitching vias checks each one (`design-equivalence`).
+- **User layers** are declared once by count (`design.user_layers`), as KiCad's board setup does, with
+  their user names.
+- **Free vias, smoothing, dimension units, `width=None`, silkscreen material**: small fields the demo
+  boards use, each left out of the canonical JSON when unset.
 
 ### 6. Images
 
@@ -153,9 +189,10 @@ new fields, omitted when unset. Units, precision and text sizes follow the linea
 
 `zone(outline=…)` accepts `arc_to` steps as `board(outline=…)` does, through `closed_ring`; `Zone.arcs`
 (`OutlineArc`) is new and omitted when empty. The KiCad writer emits the arc inside the polygon's
-`pts`; the fill engine and the copper guard flatten arcs with the tolerance the board outline uses.
-Altium: an arc edge is written as a region arc when the writer has one, else flattened with
-`altium.zone-arc-flattened` (info).
+`pts`; the copper guard flattens arcs (`geometry.rings.zone_ring`) with the tolerance the board outline
+uses (KiCad fills the zone; Fenolite has no fill engine of its own). Altium: a region holds no arc, so an
+arc edge is written as segments and counted as a changed item of the zone (the c0160 mechanism), not
+under a new `altium.zone-arc-flattened` code (implemented 2026-10-30).
 
 ### 9. Footprint-instance overrides
 
@@ -216,13 +253,13 @@ d.verbatim(
 | code | severity | when |
 |---|---|---|
 | `copper.text-unchecked` | info | copper text exists; only KiCad's DRC judges it |
-| `dsl.teardrops-overlap` | info | a pad or via matched by two `teardrops` calls |
+| `build.teardrops-overlap` | info | a pad or via matched by two `teardrops` calls |
 | `build.image-missing`, `build.image-format` | error | image file absent or not PNG |
 | `build.pad-unknown` | error | `edit_pad` names no pad of the footprint |
 | `build.verbatim-item` | info | one per verbatim item |
 | `build.verbatim-invalid`, `-head`, `-layer`, `-net` | error | refused verbatim text |
 | `altium.stack-signal-limit` | error | more than 16 signal or 16 plane layers |
-| `altium.group-skipped`, `altium.image-skipped`, `altium.verbatim-skipped` | warning | no Altium record |
+| `altium.image-skipped`, `altium.verbatim-skipped` | warning | no Altium record (a group is `altium.not-lowered`, info) |
 | `altium.zone-arc-flattened` | info | an arc edge written as segments |
 
 ## Risks / Trade-offs
@@ -236,15 +273,22 @@ d.verbatim(
 - **Teardrop tokens differ between majors.** Recorded per major before the writer; the gate refuses a
   token a target does not know.
 
-## Open questions
+## Decisions confirmed 2026-11-01
 
-1. *Accept `copper=1` when KiCad loads a one-copper table?* Recommended: yes, decided by the probe.
-2. *Promote radial/leader/centre dimensions, groups, images and pad shapes to modelled content on read?*
-   Recommended: yes, in a follow-up after c0278 exists to prove the read-write round trip.
-3. *Allow verbatim items in the rules file?* Recommended: yes (`target="kicad_dru"`), because custom
-   rules are common on real boards and the DSL rule constructor covers a subset.
+1. Accept `copper=1` only when the recorded probes load it on both majors. The probes refuse it,
+   so one copper layer remains unsupported.
+2. Promote radial/leader/centre dimensions, groups, images and pad shapes to modelled content on read
+   in a follow-up after c0278 supplies a read-write round-trip proof.
+3. Allow verbatim items in the rules file (`target="kicad_dru"`), because custom rules are common on
+   real boards and the DSL rule constructor covers a subset.
 
 ## Relation to the batch
+
+Integration decision 2026-11-01: the historical import census records earlier full conversions and is
+immutable evidence. Current coverage expectations are separate observations of the real emission ledger,
+with input and measurement hashes. Verification reads the emission's frozen `unexpressed` tuple; it adds
+equivalence findings, never new coverage rows. A helper/CLI agreement proof on authored and public inputs
+guards that boundary. The complete corpus conversion still builds and compares every row independently.
 
 - **c0275** uses every call here; its coverage table lists what is still unexpressed and writes verbatim
   items with `--allow-lossy`. c0275 also modifies "Zones in the DSL" (`key=`): whichever change archives
@@ -253,6 +297,22 @@ d.verbatim(
 - **c0276** (drawn schematic) is unrelated: this change touches the board only.
 
 ## Evidence
+
+### Combined integration (2026-11-01)
+
+Keep c0282's exact circular core for copper graphic arcs as well as routed arcs; an authored off-axis
+regression first reproduced a missed below-tolerance violation with polygonised graphics. Keep one
+chamfer mirror, preserving atom order, ratios and opaque namesakes outside pads.
+
+The c0281 loss detector includes the user layers that the emitted DSL declares, while still reporting
+genuine missing or extra layer names. Groups referring to parts emitted inside source-sheet factories
+resolve those parts through their full `design.parts` paths; factory-local variable names are not
+available to the root script. Authored integration cases cover both paths without a GUI or oracle claim.
+
+The byte guard retains every native output digest. Only six `families`/`picks` canonical `circuit.json`
+digests were stale against the root's existing contracts/picks work. Independent dry runs against clean
+`51c877b8706aadc1282eaf01d98ec98df9e79f88` and the combined tree produced identical complete file maps
+for all six rows. Refresh those six model digests only; all other recorded digests remain unchanged.
 
 | behaviour | level before merge | hypothesis |
 |---|---|---|

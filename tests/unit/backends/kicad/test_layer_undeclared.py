@@ -46,8 +46,11 @@ def test_census_examples_and_scripts() -> None:
         script = run_design_script(path).design
         design = to_model(script)
         if design.board is not None:
-            # The build installs exactly this table before resolving footprints.
-            board = dataclasses.replace(design.board, layers=created_layers(script.copper))
+            # The build keeps the model's declared user layers beside its created table (c0277).
+            declared = [layer for layer in design.board.layers if layer.name.startswith("User.")]
+            board = dataclasses.replace(
+                design.board, layers=created_layers(script.copper, len(declared), script.user_layer_aliases)
+            )
             assert not undeclared_layers(board), path.relative_to(ROOT)
             checked += 1
     assert checked >= 8

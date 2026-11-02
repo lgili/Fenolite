@@ -73,9 +73,13 @@ export function keepoutSection(label, layer) {   // "keep-out NAME: what it forb
 export function findingSection(x, layer) {   // a finding of `--check` or of a run
   return isection("Finding", [irow("Code", x.code), irow("Severity", x.severity), irow("Stage", x.stage), irow("Evidence", x.evidence),
     irow("Message", x.message), irow("Where", x.where), irow("Layer", layer), irow("Guidance", x.hint),
+    ...(x.conflict ? [irow("Property", x.conflict.key), irow("Reason", x.conflict.reason),
+      irow("Base", conflictValue(x.conflict.base)), irow("Code value", conflictValue(x.conflict.code)),
+      ...Object.entries(x.conflict.cad).map(([side, value]) => irow(`CAD ${side}`, conflictValue(value)))] : []),
     ...(x.commands || []).map((command, i) => irow(`Resolve ${i + 1} (copy)`, command)),
     x.at ? null : irow("Position", "none on this document")]);
 }
+export function conflictValue(value) { return value === null ? "absent" : value === "" ? '""' : typeof value === "string" ? value : JSON.stringify(value); }
 export function areaOf(ring) {   // the area of a flat ring [x0, y0, x1, y1, …] by the shoelace formula
   let s = 0; for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) s += (ring[j] + ring[i]) * (ring[j + 1] - ring[i + 1]); return Math.abs(s) / 2;
 }

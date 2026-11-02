@@ -66,6 +66,7 @@ def test_files_of_the_sample() -> None:
     assert [i.code for i in output.issues] == [
         "altium.schlib-generic",
         "altium.pcbdoc-not-written",
+        "altium.draftsman-not-written",
         "altium.generic-symbols",
         "altium.experimental",
     ]
@@ -187,6 +188,7 @@ def test_summary_of_the_sample() -> None:
         "copper": None,
         "pcb": None,
         "outjob": None,
+        "draftsman": None,
         "drawing_sheet": None,
         "rules": {"written": [], "not_lowered": []},
         "experimental": True,
@@ -259,6 +261,7 @@ def test_evidence() -> None:
     # change c0173: the PCB document writer writes the flattened panel; the array rows that its kit has not
     # measured (H-A-PANEL-RECORD, H-A-PANEL-LAYERKIND) are no claim of the build yet
     rows |= {"H-A-PANEL-FLAT", "H-A-PANEL-KIT"}
+    rows |= {"H-A-DWF-PARAMS"}
     assert refuted == {"H-A-SCHBIN-MINI"}, "a refuted row is not a claim of the build"
     assert set(ALTIUM_BUILD_EVIDENCE.hypotheses) == rows
     assert set(project.EVIDENCE.hypotheses) <= rows

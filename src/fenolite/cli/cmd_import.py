@@ -147,6 +147,14 @@ def _altium(path: Path, args: argparse.Namespace, ctx: Context) -> tuple[Source,
         read, name=origin.path.stem, backend="altium", inputs=inputs, paths=tuple(files), folder=origin.root,
         sheets=0,
     )  # fmt: skip
+    source = dataclasses.replace(
+        source,
+        sheet_origins={
+            component.ref: (component.provenance.file, component.provenance.locator)
+            for component in origin.design.circuit.components
+            if component.provenance is not None and component.provenance.file.lower().endswith(".schdoc")
+        },
+    )
     return source, [i for i in found.issues if i.severity == "error" or i.code != "convert.no-verify"]
 
 
@@ -172,7 +180,8 @@ def _build(emission: Emission, name: str, major: int, ctx: Context) -> tuple[lis
             target.write_bytes(data)
         reply = run(
             "build", "design.py", "--out", "built", "--confirm", "--kicad-version", str(major),
-            "--copper-check", "warn", "--schematic", "skip",
+            "--copper-check", "warn", "--schematic",
+            "write" if "schematic.toml" in emission.files else "skip",
             cwd=root, timestamp=ctx.timestamp,
         )  # fmt: skip
         if reply.exit_code != 0:
@@ -254,7 +263,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 where=row.file,
             )
         )
-    if source.sheets:
+    if source.sheets and "schematic.toml" not in emission.files:
         issues.append(
             issue(
                 "import.schematic-generated",
@@ -272,7 +281,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         build_issues, built, built_text = _build(emission, name, target, ctx)
         issues += build_issues
         if built is not None:
-            checked = self_check(source.design, built, emission.unexpressed, variants=emission.variants)
+            checked = self_check(source.design, built, emission.unexpressed)
             issues += checked.issues
             equivalence = checked.as_json()
             if args.adopt:

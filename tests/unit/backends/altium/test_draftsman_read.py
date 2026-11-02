@@ -188,7 +188,13 @@ def test_f0_files_decode() -> None:
     """Gate G1, the F0 half: every ``.PCBDwf`` and ``.DwfDot`` that the maintainer saved decodes into one
     Draftsman document with at least one sheet."""
     folder = Path(str(F0)).expanduser()
-    files = sorted(p for p in folder.rglob("*") if p.suffix.lower() in (".pcbdwf", ".dwfdot"))
-    assert files, folder
-    for path in files:
-        assert summary(read_draftsman(path.read_bytes())).sheets, path.name
+    from fenolite.cli.altium_observations import checked_files
+
+    files = {
+        name: data
+        for name, data in checked_files(folder).items()
+        if Path(name).suffix.lower() in (".pcbdwf", ".dwfdot")
+    }
+    assert files, "no F0 drawing files have been supplied"
+    for name, data in files.items():
+        assert summary(read_draftsman(data)).sheets, name

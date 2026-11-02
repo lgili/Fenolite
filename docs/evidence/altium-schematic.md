@@ -1623,3 +1623,31 @@ On 2026-10-09 the maintainer reported, for his sessions of 2026-10-07 and 2026-1
 Every Altium write stays experimental: an author report moves no write kind out of `experimental`, and the
 graduation rule of change c0092 is not applied by this report. The PCB side of the same report is in
 `docs/evidence/altium-pcb.md`, "Report of 2026-10-09".
+
+## Drawn-sheet kit request (c0276, 2026-11-01)
+
+`H-A-DRAWN-WRITE` remains **INFERRED** and pending. The source writer and hermetic native-record
+coverage/connectivity guards are implemented, but the maintainer reports that Altium is unavailable.
+No application compile, native save or successful kit report is claimed for these new files.
+
+When the application is available, use only the authored `examples/drawn/` and
+`tests/data/drawn/{full,repeat}/` fixtures for this step:
+
+1. Build each fixture in a fresh folder with `--target altium`, first with `--altium-format binary`
+   and then `--altium-format ascii`. Review `--dry-run --json`, then confirm the returned plan.
+   Preserve the exact source commit, command, timestamp, output hashes and issue list.
+2. Open each generated `.PrjPcb` in Altium, record its exact version, and run that version's project
+   validation/compile operation. Record every message and whether every sheet loads.
+3. Export the compiled connectivity and compare every authored component/pin group with the build's
+   `.fenolite/circuit.json`; names and any reported qualification are recorded separately. Include
+   the repeated instances and their separate local nets, ports, buses, junctions and power ports.
+4. Inspect symbol poses, wire bends, sheet entries and field positions. Record the known transformed
+   local text, flattened repeated hierarchy, unsupported justification and power/mirror metadata.
+   These limitations prevent a claim of drawing identity even when connectivity is equal.
+5. Save into a new copy, reopen it and repeat connectivity comparison. Return the authored files'
+   hashes, compile log and value-free group/count verdict with the version. Only an actual report
+   can close the native application gate or raise `H-A-DRAWN-WRITE`.
+
+The automated source proof is `tests/unit/backends/altium/test_drawn_altium.py`: ASCII/binary authored
+fixtures, native coverage and physical maps, aliases, rejected malformed content, writer/template
+faults and reviewed-input changes. Its own-reader result does not replace this application step.

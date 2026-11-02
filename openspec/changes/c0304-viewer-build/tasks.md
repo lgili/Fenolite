@@ -46,7 +46,7 @@
 
 ## 5. CI, notices and documents
 
-- [ ] 5.1 The `viewer` job runs `uv run python tools/build_viewer.py --check` before the visual tests (scenario "The viewer job rebuilds"). Proof: `uv run pytest tests/unit/test_ci_workflow.py -q`; the job on the branch.
+- [x] 5.1 The `viewer` job runs `uv run python tools/build_viewer.py --check` before the visual tests (scenario "The viewer job rebuilds"). Proof: `uv run pytest tests/unit/test_ci_workflow.py -q`; the job on the branch.
   - 2026-10-29: `tests/unit/test_ci_workflow.py` passes (47 tests, the new one included); the job's run on the
     branch is open until the batch is published.
 - [x] 5.2 `NOTICE` lists Preact (MIT); `viewer.js` carries its notice; `tools/residue/scope.toml` excludes `viewer/package-lock.json` (modified requirement "NOTICE lists only real derivations"). Proof: `uv run pytest tests/unit/view/test_viewer_bundle.py -k notice -q`; `uv run python tools/residue/scan.py`.
@@ -65,3 +65,6 @@
 - [x] 6.3 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. Proof: `uv run pytest tests/unit -k "release_record or changelog" -q -n 2`.
   - 2026-10-29: passes once `0.7.0.dev0` is open (`b86a1b8`, as `21f7407` opened `0.6.0.dev0`): the guard of the
     0.6.0 record keeps `[Unreleased]` empty only at the released version.
+
+
+Published build proof, 2026-11-01: `uv run pytest tests/unit/test_ci_workflow.py -q` passed all 48 cases on exact published commit `96d687d18450f429bcc57b60087f9e6f43dfb707`. [CI run 41359100272, viewer job 125005408616](https://github.com/lgili/Fenolite/actions/runs/41359100272/job/125005408616) completed successfully. Its step 6 ran `uv run python tools/build_viewer.py --check` and exited 0 before step 9 passed all 104 visual cases. This closes only task 5.1; the complete gate in task 6.1 remains open.

@@ -20,30 +20,33 @@ SUPPLIER_ISSUE_CODES = {
 POLICIES: dict[str, dict[str, Any]] = {
     "digikey": {
         "title": "DigiKey",
-        "terms": (),
-        "sources": ("S-1100", "S-1101", "S-1102"),
+        "terms": ("S-1221",),
+        "sources": ("S-1100", "S-1101", "S-1102", "S-1220"),
         "credentials": ("CLIENT_ID", "CLIENT_SECRET"),
         "hosts": ("api.digikey.com",),
         "per_minute": 120,
         "per_day": 1000,
-        "reason": "primary API terms and durable identity-proposal permission have not been verified",
+        "reason": (
+            "the API agreement restricts creating an information database; "
+            "durable identity-proposal permission is unverified"
+        ),
     },
     "mouser": {
         "title": "Mouser",
-        "terms": (),
-        "sources": ("S-1103", "S-1104"),
+        "terms": ("S-1222",),
+        "sources": ("S-1103", "S-1104", "S-1222"),
         "credentials": ("API_KEY",),
         "hosts": ("api.mouser.com",),
         "per_minute": 30,
         "per_day": 1000,
         "reason": (
-            "the primary terms page was inaccessible; cache, attribution and persistence rights are unknown"
+            "primary API terms prohibit storing content; durable identity-proposal permission is unverified"
         ),
     },
     "nexar": {
         "title": "Nexar",
         "terms": ("S-1107",),
-        "sources": ("S-1105", "S-1106"),
+        "sources": ("S-1105", "S-1106", "S-1223", "S-1224", "S-1225", "S-1226", "S-1227"),
         "credentials": ("CLIENT_ID", "CLIENT_SECRET"),
         "hosts": ("identity.nexar.com", "api.nexar.com"),
         "per_minute": 1,

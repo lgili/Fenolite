@@ -311,6 +311,12 @@ def parse_pins(text: str, *, file: str = "") -> PinTable:
         data = tomllib.loads(text, parse_float=Decimal)
     except tomllib.TOMLDecodeError as exc:
         raise reader.fail("", f"not TOML: {exc}") from None
+    return parse_pins_data(data, file=file)
+
+
+def parse_pins_data(data: dict[str, Any], *, file: str = "") -> PinTable:
+    """Validate an already parsed pin table, also used by the full record-envelope reader."""
+    reader = _Reader(file)
     _schema(data, reader)
     reader.table(data, "", _TOP)
     for key in _REQUIRED:
@@ -471,6 +477,7 @@ __all__ = [
     "UNIT_PINS",
     "PinsSchemaError",
     "parse_pins",
+    "parse_pins_data",
     "pins_text",
     "read_pins",
 ]

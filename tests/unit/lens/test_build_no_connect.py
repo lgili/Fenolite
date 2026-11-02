@@ -175,8 +175,8 @@ def test_cli_build_keeps_the_marks_and_the_kicad_files(
 def test_cli_build_refuses_a_marked_pin_on_a_net(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     script = blink_variant(
         tmp_path / "v",
-        "connect(gnd, u1[10], d1[1])",
-        'from fenolite.dsl import no_connect\n\nconnect(gnd, u1["GND"], d1[1])',
+        "connect(gnd, u1[10])",
+        'from fenolite.dsl import no_connect\n\nconnect(gnd, u1["GND"])',
         append="\nno_connect(u1[10])\n",
     )
     out = tmp_path / "out"

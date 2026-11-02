@@ -204,6 +204,48 @@ Every difference SHALL be a `Difference(level, kind, where, field, a, b)`, whose
 - **WHEN** `uv run fenolite capabilities --json --no-tools` runs
 - **THEN** `result.commands` holds an entry named `equivalent` with `mutates` `false` and `schema` `fenolite.equivalent.v0`
 
+### Requirement: Public equivalence API
+`fenolite.api.equivalent` SHALL retain its existing integer/default-level behavior and additionally accept `level="S"`. Explicit S MUST compare actual extracted schematic hierarchies and resolved connectivity, return only level S, apply existing profile rules/tolerances, and refuse a side without a readable drawing. It MUST run no netlist-export tool for S. Existing integer/default result bytes MUST remain unchanged.
+
+#### Scenario: Existing API contract remains in force
+- **WHEN** callers use the API at integer or default levels
+- **THEN** the complete existing contract MUST remain in force:
+
+The package `fenolite.api` SHALL provide `equivalent(a, b, *, level=None, tolerances=None, frame=None, ignore_refs=(), profile=None, against=None, kicad_cli=None, timeout=300.0) -> EquivalenceResult`. It MUST read the sides as "Equivalent command" describes, run `compare_designs` at the highest level both sides hold when `level` is `None`, and return an `EquivalenceResult` with `report`, `a`, `b`, `profile`, `issues` and `evidence`, whose `to_json()` MUST return the command's `result`.
+
+
+#### Scenario: Same reply as the command
+- **WHEN** `uv run pytest tests/unit/api/test_equivalence_api.py -k same_as_cli` calls `equivalent` and runs `fenolite equivalent --json` on the two-layer board and its copy with one footprint moved
+- **THEN** `to_json()` of the call equals `result` of the reply, and the issues are equal in order
+
+#### Scenario: Actual schematic is compared hermetically
+- **GIVEN** authored hierarchical, bus and Repeat projects, and their native root schematic files
+- **WHEN** the API and CLI request level S with subprocesses refused
+- **THEN** both return the same existing-key result with `level` S and the actual schematic counts, and a planted junction deletion remains a located S difference
+
+### Requirement: Equivalent result schema
+`schemas/fenolite.equivalent.v0.json` SHALL retain the existing result keys, closed kinds and object boundaries. Its top-level, level-object, difference and excluded `level` fields MUST additionally accept only the string `S` beside the existing integers, preserving their integer bounds. Existing integer/default result bytes MUST remain unchanged.
+
+#### Scenario: Existing schema contract remains in force
+- **WHEN** command results are validated
+- **THEN** the complete existing contract MUST remain in force:
+
+`schemas/fenolite.equivalent.v0.json` SHALL be a JSON Schema of the `result` object of `fenolite equivalent`: every key of "Equivalent command" with its type, `additionalProperties` false on every object, and the kinds of difference as the closed list of `docs/equivalence.md`. `tests/consistency` MUST validate the `result` of every command for which a file `schemas/fenolite.<name>.v0.json` exists.
+
+
+#### Scenario: Reply validates
+- **WHEN** `uv run pytest tests/consistency -k equivalent` runs the command's `example_args`
+- **THEN** the envelope validates against the envelope schema and `result` against `fenolite.equivalent.v0.json`
+
+#### Scenario: Unknown key refused
+- **GIVEN** a reply whose `result` gains a key `extra`
+- **WHEN** it is validated against the schema
+- **THEN** validation fails naming `extra`
+
+#### Scenario: S is typed without opening the schema
+- **WHEN** an actual S result and integer/default results are validated
+- **THEN** they pass; an unknown level string, unknown kind or extra key fails
+
 ## ADDED Requirements
 
 ### Requirement: Level 5 strict compares copper items

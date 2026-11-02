@@ -120,6 +120,25 @@ def test_label_text_is_an_item_field() -> None:
     assert [(d.field, d.a, d.b) for d in found] == [("label.local.text", "SDA", "SCL")]
 
 
+def test_power_mirror_is_an_item_field() -> None:
+    a = _drawn.drawn("flat")
+    powers = tuple(dataclasses.replace(power, mirror="y") for power in a.sheets[0].powers)
+    found = [d for d in level(a, replaced(a, powers=powers)).differences if d.kind == "item-field"]
+    assert [(d.field, d.a, d.b) for d in found] == [("power.mirror", "", "y")]
+
+
+def test_native_unit_binding_is_a_symbol_field() -> None:
+    a = _drawn.drawn("flat")
+    symbols = tuple(
+        dataclasses.replace(s, symbol="Mini:AuthoredAlias") if s.part == "R1" else s
+        for s in a.sheets[0].symbols
+    )
+    differences = level(a, replaced(a, symbols=symbols)).differences
+    assert [(d.kind, d.field, d.a, d.b) for d in differences] == [
+        ("symbol-field", "symbol", "", "Mini:AuthoredAlias")
+    ]
+
+
 def test_sheet_missing() -> None:
     a = _drawn.drawn("hier")
     b = dataclasses.replace(a, sheets=(dataclasses.replace(a.sheets[0], sheet_refs=()), *a.sheets[1:]))

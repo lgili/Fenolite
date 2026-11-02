@@ -18,6 +18,7 @@ import { copyAndSay } from "../ui/toast";
 import { dockShowSelection } from "./dock";
 import { waiveState } from "../core/commands";
 import { RUNS, runAgainAction } from "../review/runs";
+import { ConflictActions } from "./conflicts";
 
 export const INSPECT = { model: null as any, waive: false };
 const KIND_LABEL = { pad: "Pad", track: "Track", arc: "Arc", via: "Via", hole: "Hole", zone: "Zone", keepout: "Keep-out", part: "Part", net: "Net",
@@ -73,6 +74,7 @@ export function Inspector({ model }: { model: any }) {
     </header>
     {model.note ? <p class="inspNote">{model.note}</p> : null}
     <InspectorActions />
+    {model.kind === "finding" ? <ConflictActions finding={model.target?.finding} /> : null}
     {model.extra ? model.extra() : null}
     {model.sections.map((s, k) => <details key={s.title + k} class="isect" open={!s.collapsed}>
       <summary><span class="chev"><Icon name="chevRight" size={12} /></span>{s.title}</summary>

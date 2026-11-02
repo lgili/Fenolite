@@ -21,8 +21,11 @@ from fenolite.dsl.errors import DslError
 from fenolite.dsl.quantity import RATIO, SIGNED, Quantity, Range
 from fenolite.dsl.relative import Edges, LiveRequest, check_frame, parse_request
 from fenolite.dsl.units import as_nm, as_udeg
-from fenolite.model.board import MechanicalIntent
+from fenolite.model.board import FootprintOverrides, MechanicalIntent, ModelRef
 from fenolite.model.library import DeviceDef
+
+_SCALE = re.compile(r"^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$")
+"""A scale of ``Part.model``: a decimal string, no exponent, no sign (change c0277)."""
 
 if TYPE_CHECKING:
     from fenolite.dsl.design import Design
@@ -152,6 +155,8 @@ class Request:
 
 
 PAD_ZONE_CONNECTIONS = ("solid", "thermal", "none", "thru_hole_only")
+PAD_EDIT_FIELDS: tuple[str, ...] = ("at", "size", "rotation", "shape", "drill", "mask_margin", "paste_margin")
+"""The pad fields ``Part.edit_pad`` replaces (change c0277)."""
 """The values of ``Pad.zone_connection`` (``docs/design-model.md``)."""
 
 
@@ -189,6 +194,10 @@ class FieldRequest:
     outside: str | None = None
     gap: Nm | None = None
     locked: bool = False
+    bold: bool | None = None
+    italic: bool | None = None
+    face: str | None = None
+    """The field's font (change c0277): ``None`` keeps the footprint's."""
 
 
 @dataclass(frozen=True)
@@ -281,17 +290,38 @@ class Part(Edges):
         properties: Mapping[str, str] | None = None,
         pad_map: Mapping[str, str | Sequence[str]] | None = None,
         height: object = None,
+        dnp: bool = False,
+        board_only: bool = False,
+        footprint_definition: str = "",
     ) -> None:
-        self.explicit_ref: str | None = None if ref is None else check_name(ref, "ref")
+        if not isinstance(board_only, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part {ref or name}: board_only must be a bool, not {board_only!r}")
+        self.board_only = board_only
+        """The part is on the board only (change c0277): no symbol in the schematic, KiCad's ``board_only``
+        attribute on its footprint, and a ref that is free text (``docs/dsl.md``, "Board-only parts")."""
+        self.explicit_ref: str | None = None if ref is None else self._checked_ref(ref)
         """The ref the script wrote, or ``None``: the build then assigns one (``docs/dsl.md``, "Reference
         designators and the design lock")."""
         self.assigned: str | None = None
         """The ref the build assigned to a part without an explicit ref (``to_model``)."""
         self.name: str | None = None if name is None else check_name(name, "part name")
+        if board_only and ref is None:
+            raise DslError(f"part {name}: a board-only part takes its ref as written; give ref")
+        if board_only and self.name is None and not NAME.fullmatch(cast(str, ref)):
+            raise DslError(
+                f"part {ref!r}: a board-only part whose ref is not a name of {NAME.pattern} needs name="
+            )
         if prefix is not None and (not isinstance(prefix, str) or not PREFIX.fullmatch(prefix)):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part prefix {prefix!r} must match {PREFIX.pattern}")
         query = device if isinstance(device, PartQuery) else None
         label = ref or name or prefix or lib_id or (query.kind if query is not None else device)
+        if not isinstance(footprint_definition, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part {label}: footprint_definition must be a string")
+        if footprint_definition and (footprint is None or lib_id is None or device is not None):
+            raise DslError(
+                f"part {label}: footprint_definition requires explicit lib_id and footprint; "
+                "do not give it with device="
+            )
         self.device: DeviceDef | None = None
         self.device_origin: Origin | None = None
         self.device_overrides = False
@@ -327,7 +357,7 @@ class Part(Edges):
                 found.origin,
                 found.overrides,
             )
-            lib_id, footprint = found.device.symbol, found.device.footprint
+            lib_id, footprint = found.symbol or found.device.symbol, found.device.footprint
             pad_map = {
                 pin: tuple(pad for owner, pad in found.device.pad_map if owner == pin)
                 for pin in dict.fromkeys(owner for owner, _ in found.device.pad_map)
@@ -348,7 +378,9 @@ class Part(Edges):
                 "reference prefix is unknown"
             )
         ref = cast(str, label)
-        if footprint is not None and (not isinstance(footprint, str) or not footprint):  # pyright: ignore[reportUnnecessaryIsInstance]
+        if footprint is not None and (
+            not isinstance(footprint, str) or (not footprint and not footprint_definition)  # pyright: ignore[reportUnnecessaryIsInstance]
+        ):
             raise DslError(f"part {ref}: footprint must be a non-empty string or None")
         #: The exact range of the value when it was given as a ``Range`` (change c0246); else ``None``.
         self.value_range: Range | None = None
@@ -361,6 +393,9 @@ class Part(Edges):
             raise DslError(f"part {ref}: value must be a string, a Quantity or a Range")
         self.lib_id = lib_id
         self.footprint = footprint
+        self.footprint_definition = footprint_definition
+        """An explicit KiCad geometry definition; ``footprint`` keeps the native name (change c0318).
+        Empty uses ordinary resolution. Requires an explicit symbol and footprint, rather than device=."""
         self.value = value
         self.properties: Mapping[str, str] = _properties(ref, properties)
         if self.device is not None:
@@ -401,6 +436,13 @@ class Part(Edges):
             self.height = as_nm(height, name=f"part {ref}: height")
             if self.height <= 0:
                 raise DslError(f"part {ref}: height must be above 0")
+        if not isinstance(dnp, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part {ref}: dnp must be a bool, not {dnp!r}")
+        self.verbatim_items: dict[str, str] = {}
+        """The text of each ``verbatim()`` call of this part by key, in call order (change c0277)."""
+        self.dnp = dnp
+        """The part is not populated (change c0277): its symbol is marked, and its footprint takes the
+        ``dnp`` attribute."""
         self.parent: Container | None = None
         self.request: Request | None = None
         self.relative: LiveRequest | None = None
@@ -408,6 +450,9 @@ class Part(Edges):
         self.turn: tuple[Udeg, Side] | None = None
         """``place(rot=..., side=...)`` without a position: a layout strategy places the part, turned."""
         self.field_requests: dict[str, FieldRequest] = {}
+        self.model_refs: list[ModelRef] = []
+        self.overrides: FootprintOverrides | None = None
+        self.pad_edits: list[tuple[str, dict[str, object]]] = []
         """The field placement requests of ``field()``, by field name."""
         self.pad_zone_requests: dict[tuple[str, int | None], PadZoneRequest] = {}
         """The requests of ``zone_connection()``, by pad number and index."""
@@ -423,6 +468,20 @@ class Part(Edges):
         self.unused_request: frozenset[str] | None = None
         """The ``keep`` designators of ``unused_no_connect()``, as written; ``None`` without a request."""
 
+    def verbatim(self, key: str, text: str) -> None:
+        """One child of this part's footprint kept as KiCad text (change c0277); the DSL does not parse it.
+        The build checks it and writes it in the placed footprint (``docs/dsl.md``, "Verbatim items")."""
+        from fenolite.dsl.items import DRAWING_KEY
+
+        what = f"part {self.label}: verbatim {key!r}"
+        if not isinstance(key, str) or not DRAWING_KEY.fullmatch(key):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: the key must match {DRAWING_KEY.pattern}")
+        if key in self.verbatim_items:
+            raise DslError(f"{what}: the key is already used")
+        if not isinstance(text, str) or not text.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: text must be a non-empty string, not {text!r}")
+        self.verbatim_items[key] = text
+
     @property
     def ref(self) -> str | None:
         """The explicit ref, or the ref the build assigned (``to_model``); ``None`` before that."""
@@ -431,7 +490,18 @@ class Part(Edges):
     @ref.setter
     def ref(self, value: str | None) -> None:
         """Setting a ref makes it the part's explicit ref (``None`` removes it)."""
-        self.explicit_ref = None if value is None else check_name(value, "ref")
+        self.explicit_ref = None if value is None else self._checked_ref(value)
+
+    def _checked_ref(self, value: object) -> str:
+        """``value`` as a ref: a name of ``NAME``, or for a board-only part any printable text without
+        surrounding spaces, the empty text included (``REF**``, ``STITCH1`` shared by many vias)."""
+        if not self.board_only:
+            return check_name(value, "ref")
+        if not isinstance(value, str) or not value.isprintable() or value != value.strip():
+            raise DslError(
+                f"ref {value!r} of a board-only part must be printable text without surrounding spaces"
+            )
+        return value
 
     @property
     def key(self) -> str:
@@ -658,6 +728,122 @@ class Part(Edges):
             as_nm(x, name="x"), as_nm(y, name="y"), as_udeg(rot, name="rot"), side, locked, anchor
         )
 
+    def override(
+        self,
+        *,
+        clearance: object = None,
+        mask_margin: object = None,
+        paste_margin: object = None,
+        paste_ratio: int | None = None,
+        zone_connection: str | None = None,
+        thermal_gap: object = None,
+        thermal_spoke_width: object = None,
+    ) -> None:
+        """Footprint-level settings of this part's instance (change c0277), once per part: the clearance of
+        its pads, the solder-mask and paste margins, the paste ratio (parts per million of the pad size, may
+        be negative), the zone connection (``solid``, ``thermal``, ``none`` or ``thru_hole_only``) and the
+        thermal relief. ``None`` keeps what the footprint says; the library footprint is unchanged."""
+        what = f"part {self.label}: override"
+        if self.overrides is not None:
+            raise DslError(f"{what}: called once per part")
+        lengths: dict[str, Nm | None] = {}
+        given = {
+            "clearance": clearance, "mask_margin": mask_margin, "paste_margin": paste_margin,
+            "thermal_gap": thermal_gap, "thermal_spoke_width": thermal_spoke_width,
+        }  # fmt: skip
+        for label, value in given.items():
+            lengths[label] = None if value is None else as_nm(value, name=f"{what}: {label}")
+        for label in ("clearance", "thermal_gap", "thermal_spoke_width"):
+            if lengths[label] is not None and lengths[label] <= 0:  # type: ignore[operator]
+                raise DslError(f"{what}: {label} must be positive")
+        ratio: object = paste_ratio
+        if ratio is not None and (
+            isinstance(ratio, bool) or not isinstance(ratio, int) or abs(ratio) > 1_000_000  # pyright: ignore[reportUnnecessaryIsInstance]
+        ):
+            raise DslError(f"{what}: paste_ratio must be an int of parts per million, not {paste_ratio!r}")
+        if zone_connection is not None and zone_connection not in PAD_ZONE_CONNECTIONS:
+            names = ", ".join(PAD_ZONE_CONNECTIONS)
+            raise DslError(f"{what}: zone_connection must be one of {names}, not {zone_connection!r}")
+        found = FootprintOverrides(
+            clearance=lengths["clearance"], mask_margin=lengths["mask_margin"],
+            paste_margin=lengths["paste_margin"], paste_ratio=paste_ratio,
+            zone_connection=zone_connection,  # type: ignore[arg-type]
+            thermal_gap=lengths["thermal_gap"], thermal_spoke_width=lengths["thermal_spoke_width"],
+        )  # fmt: skip
+        if found == FootprintOverrides():
+            raise DslError(f"{what}: the call sets nothing")
+        self.overrides = found
+
+    def edit_pad(self, number: str | int, **fields: object) -> None:
+        """Replace fields of every pad numbered ``number`` of this part's instance only (change c0277): ``at``
+        and ``size`` (pairs of lengths in the footprint frame), ``rotation`` (degrees, footprint-relative),
+        ``shape`` (``circle``, ``rect``, ``oval`` or ``roundrect``), ``drill``, ``mask_margin`` and
+        ``paste_margin``. A number the footprint does not hold is ``build.pad-unknown``; the library
+        footprint is unchanged."""
+        what = f"part {self.label}: edit_pad({number!r})"
+        name = str(number)
+        if not name or isinstance(number, bool):
+            raise DslError(f"{what}: a pad number is a non-empty string or an int")
+        unknown = sorted(set(fields) - set(PAD_EDIT_FIELDS))
+        if unknown or not fields:
+            raise DslError(
+                f"{what}: fields are some of {', '.join(PAD_EDIT_FIELDS)}, not {unknown or 'none'}"
+            )
+        values: dict[str, object] = {}
+        for key, value in fields.items():
+            if key in ("at", "size"):
+                if not isinstance(value, tuple) or len(value) != 2:  # pyright: ignore[reportUnknownArgumentType]
+                    raise DslError(f"{what}: {key} must be an (x, y) pair of lengths")
+                pair = (as_nm(value[0], name=f"{what}: {key}"), as_nm(value[1], name=f"{what}: {key}"))  # pyright: ignore[reportUnknownArgumentType]
+                if key == "size" and (pair[0] <= 0 or pair[1] <= 0):
+                    raise DslError(f"{what}: size must be positive")
+                values[key] = pair
+            elif key == "rotation":
+                values[key] = as_udeg(value, name=f"{what}: rotation")
+            elif key == "shape":
+                if value not in ("circle", "rect", "oval", "roundrect"):
+                    raise DslError(f"{what}: shape must be circle, rect, oval or roundrect, not {value!r}")
+                values[key] = value
+            else:
+                found = as_nm(value, name=f"{what}: {key}")
+                if key == "drill" and found <= 0:
+                    raise DslError(f"{what}: drill must be positive")
+                values[key] = found
+        if any(n == name for n, _ in self.pad_edits):
+            raise DslError(f"{what}: the pad is already edited")
+        self.pad_edits.append((name, values))
+
+    def model(
+        self,
+        name: str,
+        *,
+        offset: tuple[object, object, object] = (0, 0, 0),
+        rotation: tuple[object, object, object] = (0, 0, 0),
+        scale: tuple[str, str, str] = ("1", "1", "1"),
+        hidden: bool = False,
+    ) -> None:
+        """Add a 3D model to this part's footprint instance (change c0277); one call per model, and any call
+        replaces the footprint's own models for this part. ``name`` is a reference only (a path, or
+        ``${KICAD10_3DMODEL_DIR}/…``): nothing is read. ``offset`` holds lengths (0 is accepted as no
+        offset), ``rotation`` angles in degrees, ``scale`` positive decimal strings."""
+        what = f"part {self.label}: model"
+        if not isinstance(name, str) or not name.strip() or not name.isprintable():  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: name must be a model path, not {name!r}")
+        if not isinstance(hidden, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: hidden must be a bool, not {hidden!r}")
+        triples = {"offset": offset, "rotation": rotation, "scale": scale}
+        for label, value in triples.items():
+            if not isinstance(value, tuple) or len(value) != 3:  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"{what}: {label} must be an (x, y, z) triple, not {value!r}")
+        lengths = tuple(
+            0 if v == 0 and not isinstance(v, bool) else as_nm(v, name=f"{what}: offset") for v in offset
+        )
+        angles = tuple(as_udeg(v, name=f"{what}: rotation") for v in rotation)
+        for factor in scale:
+            if not isinstance(factor, str) or not _SCALE.fullmatch(factor) or float(factor) <= 0:  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"{what}: scale holds positive decimal strings such as '1', not {factor!r}")
+        self.model_refs.append(ModelRef(name, lengths, angles, scale, hidden))  # type: ignore[arg-type]
+
     def field(
         self,
         name: str,
@@ -673,8 +859,12 @@ class Part(Edges):
         outside: str | None = None,
         gap: object = None,
         locked: bool = False,
+        bold: bool | None = None,
+        italic: bool | None = None,
+        face: str | None = None,
     ) -> None:
         """Request a placement of the footprint field ``name`` (``Reference`` or ``Value``), once per name.
+        ``bold``, ``italic`` and ``face`` set the field's font (change c0277); ``None`` keeps the footprint's.
 
         ``dx`` and ``dy`` are lengths in the board frame from the part's placement point and ``rot`` is the
         field's angle on the board, so "2.5 mm above the part, horizontal" stays true when the part
@@ -686,6 +876,11 @@ class Part(Edges):
             raise DslError(f"{what}: only {' and '.join(FIELD_NAMES)} can be placed")
         if name in self.field_requests:
             raise DslError(f"part {self.label}: field {name} already has a placement request")
+        for label, flag in (("bold", bold), ("italic", italic)):
+            if flag is not None and not isinstance(flag, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"{what}: {label} must be a bool, not {flag!r}")
+        if face is not None and (not isinstance(face, str) or not face.strip() or not face.isprintable()):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: face must be a font name such as 'KiCad Font', not {face!r}")
         for label, flag in (("visible", visible), ("locked", locked)):
             if flag is not None and not isinstance(flag, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
                 raise DslError(f"{what}: {label} must be a bool, not {flag!r}")
@@ -732,6 +927,9 @@ class Part(Edges):
             outside,
             lengths["gap"],
             locked,
+            bold,
+            italic,
+            face,
         )
         if request == FieldRequest(name, locked=locked):
             raise DslError(f"{what}: the request sets nothing")

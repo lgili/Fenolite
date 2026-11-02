@@ -308,6 +308,12 @@ No new `FEN-` code. Each `proposal.*` code joins `fenolite.library.codes` and `e
 
 ## Open questions
 
+Decided 2026-11-02, confirming the maintainer's acceptance of all recommendations:
+keep human review outside MCP, retain file-based proposals, allow explicit CC0 proposals
+while requiring current human review for shipping, and allow cited manufacturer-land
+parameters. This confirms the implemented policy; it does not grant source rights,
+provide native acceptance or close the entry's full-gate proof.
+
 1. *Should the MCP server leave `library review` out of its tool list?* Recommended: yes; review is a
    person's act, and a tool that an agent can call invites it. The CLI keeps it.
 2. *Should the MCP tool accept a proposal inline (for clients without a file system)?* Recommended: not

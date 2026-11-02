@@ -29,7 +29,15 @@ function PlanPlan({ job }: { job: any }) {   // the body of a finished dry run
   const evidence = plan.evidence ? plan.evidence.level + (plan.evidence.oracle ? ` (${plan.evidence.oracle})` : "") : "UNKNOWN";
   return <>
     {lead ? <p>{lead}</p> : null}
+    {plan.source_context ? <div class="notes" id="conflictSourceContext">
+      <p>{job.action === "undo" ? "This plan restores its recorded receipt." : `This plan runs ${plan.source_context.script}.`}</p>
+      <p>{`Working directory: ${plan.source_context.cwd}. Authoring root: ${plan.source_context.root}. Output: ${plan.source_context.out}.`}</p>
+    </div> : null}
     <PlanFiles writes={plan.writes} />
+    {plan.inputs?.length ? <details id="planInputs"><summary>{`Inputs (${plan.inputs.length})`}</summary>
+      <table class="planFiles"><thead><tr><th>Read</th><th>SHA-256</th></tr></thead><tbody>
+        {plan.inputs.map(input => <tr><td>{String(input.path)}</td><td title={String(input.sha256)}>{input.sha256 ? actShort(input.sha256) : "absent"}</td></tr>)}
+      </tbody></table></details> : null}
     <PlanIssues issues={plan.issues} />
     <p class="notes">{`Evidence: ${evidence}`}</p>
     {job.preview ? <p class="notes">{`On the board: ${job.preview.changes.length} change(s) — added in green, removed in magenta, moved parts as arrows; listed under Changes.`}</p>

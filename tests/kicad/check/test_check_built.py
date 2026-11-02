@@ -27,6 +27,7 @@ DEFAULT = [
     "erc.kicad",
     "copper.clearance",
     "length.rules",
+    "topology.rules",  # c0258: the tool-free topology check follows length rules
     "placement.rules",
     "roles.rules",
     "zone.fill",

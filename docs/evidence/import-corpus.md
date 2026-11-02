@@ -10,9 +10,10 @@ content of a board is written here (corpus-policy, "Converted code stays out of 
 corpus holds the boards without their project files, so each is read alone.
 
 `tests/corpus/test_import_corpus.py` imports each board and fails when it does not come through equivalent
-or when the kinds it leaves out differ from its row below. Regenerate the table by running the census and
-copying its rows; never edit a count by hand. The two heavy boards (rows 06 and 18) run only with
-`FENOLITE_HEAVY=1`; their aggregate measurements below come from CI.
+or when the kinds it leaves out differ from the current emission observations below. The historical
+conversion table is retained unchanged; never replace its counts or timings with emission-only data.
+The two heavy boards (rows 06 and 18) run full conversions only with `FENOLITE_HEAVY=1`; their historical
+aggregate conversion measurements below come from CI. Current emission observations include both.
 
 What the label means: `CORPUS-VERIFIED` here says that the code Fenolite writes for each board rebuilds a
 board equal to the source at levels 1 to 5 and copper item by item, once the listed omitted kinds are
@@ -61,7 +62,46 @@ The table rows are copied from emitted aggregate records; no source board or con
 | 18 | `vme-wren.kicad_pcb` | copper-count 1, copper-layer 4527, dimension 2, dnp 3, drawing-layer 839, generated 89, group 3, layer-table 9, outline-width 29, property 37, rule-area-layer 3, stackup 1, text 68, text-layer 34, zero-length-track 5, zone-layer 13, zone-name 5, zone-setting 1 | 1508 | 21126 | 992 | 4374 | 110 | yes | 469 |
 <!-- import-corpus:end -->
 
-Reading the table: every board comes through equivalent. What is left out is what the DSL cannot say yet
+Reading the historical table: every measured board came through equivalent at that revision. What was
+left out was what the DSL could not say then
 (`docs/import.md`, "What the DSL cannot say"): KiCad's groups, generated items and teardrops, components
 not fitted, net ties and dimensions (c0277), texts the DSL's `text()` refuses or on layers it does not take,
 and a few items of exotic demos (blind vias spanning the whole board, footprints without a reference).
+
+## Current source-emission observations
+
+Measured on 2026-11-02 with `tools/measure_import_coverage.py` against emitter commit
+`fbec5cd9e711cc9b50f9b8d393ab8bb1cda48556` (`0.7.0.dev0`, explicit standard technical layer tables).
+[import-coverage.json](import-coverage.json) binds each declared input SHA-256, its complete emission
+counts and omitted kinds, the measurement tool SHA-256, and each observation's SHA-256. The collection
+measurement SHA-256 is `c40ba136c8ee4da2d3c3a0fe25cbc1e4d43f857f19860329fcf89db5330c41fd`.
+
+These are **emission-only observations**, including rows 06 and 18. They do not claim a completed
+conversion, equivalence, native output bytes, or elapsed conversion time. The helper uses the production
+reader and complete emitter, including footprint derivation; two authored fixtures and public rows 03 and 07
+prove that its counts and omitted kinds match the complete CLI import. The corpus test independently
+builds every selected row and still requires exit 0 and equivalent=true before comparing these current
+expectations. No converted content is retained here.
+
+<!-- import-coverage:begin -->
+| row | input SHA-256 | current emission left out (kind count) |
+|---|---|---|
+| 01 | `123e209e6245cbcc344c1c70b425dcb44a12cd0a2d05f00a39d3f2e7ff307ffa` | none |
+| 02 | `d5f4162d4c766448832723d139f9e0fcb88a17c82340f10f6f6dc6c2042f0d69` | none |
+| 03 | `0ab45f4f8c90ac877e3313a1888d875107f2be3fc2b2f40cfb7927873b35260c` | none |
+| 04 | `9be2caf4c257a93fc2b3904add1061a4d2e23cde502a7846513ae7db6b214c30` | none |
+| 05 | `a740ce7fde77ab6af191e23ece21e57d36bb3c29325879248520dcd9ab47b57e` | none |
+| 06 | `e61179b68ac151376f5552f91a8acc2aed46f0cc4cd9c771049490735cdbf3f8` | dimension-style 24, drawing 6, rule-area-placement 2 |
+| 07 | `392cf6bf4b9b62beb435f965ccd7671a46decb17f947b74bfde482acd2132a5e` | none |
+| 08 | `7f17191488b51f8782efc0a3b9ce7b5748a4e771ff0babb34ec0369ffcf43be5` | none |
+| 09 | `149b2dce16e0f59adb78f87068f4137b7dafca0e991a0b21fdd967c873fd5ee9` | none |
+| 10 | `44b7c119a0d05c98e9f294659879184038a5f6c30073c04d9536990429ca413e` | none |
+| 11 | `a577ba5e2b337c9b827f3c30256161a1893da8303d278fb7db10dba4f02ea810` | none |
+| 12 | `1ca70b620506818eb0227e2863bbd573d1fec1672072dc43d0dbe8475e69c8fb` | none |
+| 13 | `535dbe212f43a8bab12b23277e176a94ac9694177258af2981c0e7b08e4b7252` | none |
+| 14 | `cd87e6d1b20fe0d129d9a9c807af3118c67749eff44b1f032d85c047a814c6dc` | none |
+| 15 | `d0dee876715fcdd3f656dd6a77cc1141c39bec4d6f8492a3784d38edd6b9a998` | none |
+| 16 | `0d26bf9b6d561e32cf610d428541d6433e60b45e1838f34f73467e25b9144814` | none |
+| 17 | `f620675158ddd5c61e5ce9e15f4c92b230ae1df1cbcec6c502b8ce266e4007ea` | none |
+| 18 | `1c76ac238b04babc238d2d50585858988fb3f6c4f8d0fbacc738cfe4862fff5b` | text 10, zero-length-track 5, zone-name 6, zone-setting 1 |
+<!-- import-coverage:end -->

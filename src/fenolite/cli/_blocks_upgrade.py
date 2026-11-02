@@ -198,7 +198,12 @@ def run_upgrade(args: argparse.Namespace, ctx: Context) -> Result:
         for row in rows:
             row["circuit"] = None  # unavailable when the validated build has errors
         source = next(
-            (write.data for write in validated.writes if write.path.endswith("/.fenolite/circuit.json")), None
+            (
+                write.data
+                for write in validated.writes
+                if write.path.replace("\\", "/").endswith("/.fenolite/circuit.json")
+            ),
+            None,
         )
         if source is not None:
             after = cast(Circuit, canonical.loads(source.decode("utf-8"), Circuit, file="circuit.json"))

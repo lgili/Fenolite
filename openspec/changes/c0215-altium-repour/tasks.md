@@ -92,3 +92,8 @@
   - 2026-10-26, a deviation: `pcbdoc.EVIDENCE` does not name the `H-A-POUR-*` rows, since it is the evidence of every PCB write, `outline` included; `pour.EVIDENCE` names them and is joined to a result's evidence when a polygon is poured (build, convert, panel), and `connectstyle.EVIDENCE` names `H-A-POUR-CONNECT` and `H-A-POUR-RELIEF` (the evidence matrix regenerated). Every row's level is its test's: `INFERRED`, but `H-A-POUR-KICAD` `ORACLE-VERIFIED(kicad-cli)`. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/backends/altium -q` passes (with the evidence tests: 2789 passed).
 - [x] 9.3 Update `CHANGELOG.md` under `## [Unreleased]`. Proof: `uv run pytest tests/unit/test_release_record.py -q`.
   - 2026-10-26: `CHANGELOG.md`, `[Unreleased]`: the computed pour, the connect style rules, `--altium-pour`, `pourcompare`, the census, kit group K6, the import's two new pairs, and the change of default. Proof: `uv run pytest tests/unit/test_release_record.py -q` passes.
+
+## Continuation review — 2026-11-01
+
+Altium Designer is unavailable per the maintainer. Older native K6 reports do not settle this change's later computed-pour probes; task 7.4 stays open.
+See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.

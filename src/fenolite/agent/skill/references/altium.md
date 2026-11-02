@@ -69,10 +69,21 @@ Read `altium.not-lowered` locators. A `track_width` rule needs both limits (page
 
 ## The status of each file kind
 
+`--altium-draftsman on` requests a native document; `--drawing-spec FILE` uses the same drawing TOML as
+KiCad exports and requires that option plus `--target altium`. The native gate is closed pending Part F:
+`altium.draftsman-not-written` explains why no file is planned and `result.draftsman` is null.
+`altium.draftsman-not-listed` names a kept project that needs the drawing added. Candidate shells and
+their own readback stay `INFERRED`; they do not prove that Altium fills or prints the drawing.
+
+```fenolite-cmd
+fenolite build blink/design.py --out blink/altium --target altium --altium-draftsman on --dry-run --json
+```
+
 It matches `capabilities` (`result.backends`, `result.matrix`).
 
 | kind | file | status | evidence |
 |---|---|---|---|
+| `altium_draftsman` | `.PCBDwf`, gate closed | `experimental` | `INFERRED` |
 | `altium_harness` | `.Harness` | `experimental` | `INFERRED` |
 | `altium_outjob` | `.OutJob` | `experimental` | `INFERRED` |
 | `altium_pcbdoc` | `.PcbDoc` | `experimental` | `INFERRED` |
@@ -132,5 +143,25 @@ fenolite kit status --json
 ```fenolite-cmd
 fenolite convert blink/altium/lamp.PrjPcb --to kicad --out converted --dry-run --json
 ```
+
+
+## A drawing beside the script
+
+`design.load_schematic("schematic.toml")` also selects the Altium drawn writer. Its ASCII/binary native
+records carry wires, junctions, buses, labels, ports and sheet references; the build verifies actual
+native units, pin tables, physical maps and connectivity before staging and again after templates.
+Compatible per-unit aliases resolve through the project libraries; changed alias files invalidate a
+reviewed plan. `result.schematic.source` is `drawn`, with counts in `result.schematic.drawn`.
+
+`drawn.coordinate-rounded` names each point accepted with `--allow-lossy`; without that flag an
+unrepresentable coordinate gives `FEN-7001`. Opaque content without native text gives
+`drawn.opaque-dropped`. `drawn.altium-repeat-flattened` reports repeated instances written separately.
+Automatic/Global scope may qualify shared local labels; each text change is reported. Native mirror
+metadata, field justification, power field poses, bus aliases and per-sheet title metadata have explicit
+limitations. Read the findings. Edit the drawing in `schematic.toml`; Altium-to-drawn sync is unavailable.
+
+These files stay `INFERRED`: the drawn-sheet writer needs the native kit in
+`docs/evidence/altium-schematic.md`. Altium is currently unavailable; own-reader checks do not establish
+application acceptance or drawing identity.
 
 Read next: `files`, `rules`, `checks`.

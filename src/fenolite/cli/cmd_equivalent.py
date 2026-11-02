@@ -33,10 +33,6 @@ LEVEL_CHOICES: tuple[str, ...] = (*map(str, LEVELS), str(PRESENTATION_LEVEL), SC
 """What ``--level`` takes: 1 to 7 compare the models, 8 renders the boards, S compares drawn schematics."""
 DEFAULT_PIXEL_PPM = 1000
 DEFAULT_PITCH_UM = 50
-NO_DRAWN = (
-    "level S compares two drawn schematics, which needs the extraction of change c0276, not part of this "
-    "version"
-)
 PCB_DOCUMENT = ".pcbdoc"
 OPTIONS = {
     "level": "--level",
@@ -45,6 +41,7 @@ OPTIONS = {
     "profile": "--exclusions",
     "frame": "--frame",
     "against": "--against",
+    "ignore_refs": "--ignore-ref",
 }
 """The option of the command that a parameter of ``fenolite.api.equivalent`` named in an error stands for."""
 
@@ -168,9 +165,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     tolerances = _tolerances(args)
     if args.level is not None and args.level not in LEVEL_CHOICES:
         raise _usage(f"--level is one of {', '.join(LEVEL_CHOICES)}", where="--level")
-    if args.level == SCHEMATIC_LEVEL:
-        raise _usage(f"{NO_DRAWN}: side a has no drawn schematic it reads", where="--level")
-    level = None if args.level is None else int(args.level)
+    level = (
+        SCHEMATIC_LEVEL if args.level == SCHEMATIC_LEVEL else None if args.level is None else int(args.level)
+    )
     for flag, value in (("--pixel-ppm", args.pixel_ppm), ("--render-pitch-um", args.render_pitch_um)):
         if value < 0 or (flag == "--render-pitch-um" and value == 0):
             raise _usage(f"{flag} is a {'positive' if value == 0 else 'non-negative'} integer", where=flag)

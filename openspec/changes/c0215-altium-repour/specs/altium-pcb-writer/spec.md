@@ -2,6 +2,12 @@
 
 ### Requirement: Polygon pour records
 `pcbdoc.write_pcbdoc` SHALL write each `model.board.Zone` of `PcbDocSpec.zones` as one `Polygons6` property record per zone layer, with or without poured copper by its pour mode ("Polygon pour modes"; S-0160, S-0172, S-0174, S-0175, S-0176, S-0195, S-0196, S-0833; `H-A-PCB-CU-REPOUR`).
+
+#### Scenario: Detailed contract for polygon pour records
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`pcbdoc.write_pcbdoc` SHALL write each `model.board.Zone` of `PcbDocSpec.zones` as one `Polygons6` property record per zone layer, with or without poured copper by its pour mode ("Polygon pour modes"; S-0160, S-0172, S-0174, S-0175, S-0176, S-0195, S-0196, S-0833; `H-A-PCB-CU-REPOUR`).
 - A record MUST hold, in this order: the seven common keys with `LAYER` = the layer text; `PRIMITIVELOCK=TRUE`, `POLYGONTYPE=Polygon`, `POUROVER=TRUE`, `REMOVEDEAD=TRUE` (`FALSE` for a zone whose islands are never removed, change c0085), `GRIDSIZE=20mil`, `TRACKWIDTH=8mil`, `HATCHSTYLE=Solid`, `USEOCTAGONS=FALSE`, `MINPRIMLENGTH=3mil`; per vertex `KIND<k>=0`, `VX<k>`, `VY<k>`, `CX<k>`, `CY<k>`, `SA<k>`, `EA<k>`, `R<k>` as the board outline writes them, the first vertex repeated last; `SHELVED=FALSE`, `RESTORELAYER=UNKNOWN`, `RESTORENET` (empty), `REMOVEISLANDSBYAREA=TRUE`, `REMOVENECKS=TRUE`, `AREATHRESHOLD=250000000000.000000`, `ARCRESOLUTION=0.5mil`, `NECKWIDTHTHRESHOLD=5mil`, `POUROVERSTYLE=1`, `NAME`, `POURINDEX`, `IGNOREVIOLATIONS=FALSE`, `AUTONAME` (only when the name is generated), `OPTIMALVOIDROTATION` (`TRUE` with the pour mode `outline`, `FALSE` with `computed`, change c0215), and `NET` (the net's index; left out without a net).
 - `NAME` MUST be the character codes of the name in decimal, joined by commas. The name is `Zone.name`, or `<net name>_L<layer position, two digits from 01>_P<pour index, three digits>` when it is empty (`NONET` stands for a missing net), in upper case, with `AUTONAME=TRUE`.
 - `POURINDEX` MUST number the records from 0 in the order of falling `Zone.priority`, then net name, first outline point, zone id and stack position, so a zone of higher priority is poured first. `POURINDEX` MUST equal the record's position in `Polygons6`.
@@ -32,6 +38,12 @@
 
 ### Requirement: Polygon pour modes
 `pcbdoc.write_pcbdoc(spec, *, pour="outline")` SHALL take the pour mode `outline` or `computed`.
+
+#### Scenario: Detailed contract for polygon pour modes
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`pcbdoc.write_pcbdoc(spec, *, pour="outline")` SHALL take the pour mode `outline` or `computed`.
 - With `outline`, every polygon MUST be written unpoured with its net, layer, outline, priority (as the pour index) and island removal, the document's bytes MUST be those the writer gave for the same spec before change c0215, and the build MUST report `altium.zones-unpoured` (info) once, with the count.
 - With `computed`, the writer MUST write the document without pour regions, read it back with Fenolite's reader, pour that reading with `pour.pour_reading` (capability `altium-pour`), and write the document again with the regions of every polygon that is not refused ("Refusal of a pour"). It MUST also write `OPTIMALVOIDROTATION=FALSE` in every polygon record and the Polygon Connect Style rules of "Polygon Connect Style records".
 - `computed` without the `geo` extra MUST raise `BackendUnavailable` with a hint naming `fenolite[geo]`; a command maps it to exit 6.
@@ -46,6 +58,12 @@
 - **THEN** the two documents differ only in `Regions6` and `ShapeBasedRegions6`, and in their headers' record counts
 
 ### Requirement: Poured regions
+With the pour mode `computed`, `pcbdoc.write_pcbdoc` SHALL write each piece of a poured polygon as one region in `Regions6` and its twin at the same position in `ShapeBasedRegions6`, in the form of the fact rows of `docs/formats/altium/pcb-pour.md`, "Written form" (`H-A-POUR-REGION`).
+
+#### Scenario: Detailed contract for poured regions
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 With the pour mode `computed`, `pcbdoc.write_pcbdoc` SHALL write each piece of a poured polygon as one region in `Regions6` and its twin at the same position in `ShapeBasedRegions6`, in the form of the fact rows of `docs/formats/altium/pcb-pour.md`, "Written form" (`H-A-POUR-REGION`).
 - The prefix MUST hold the polygon's layer, no net (`0xFFFF`: the net is the polygon's), the polygon's index (its position in `Polygons6`) and no component, with the flags `0C 00`.
 - The keys and their order MUST be those of the census of poured regions in the public corpus (task 1.3 of change c0215). The plain form MUST hold the holes of the piece; the shape-based form MUST hold them in the form the census found, every vertex straight.
@@ -62,6 +80,12 @@ With the pour mode `computed`, `pcbdoc.write_pcbdoc` SHALL write each piece of a
 - **THEN** each imported zone holds fills equal to the written pieces within 10 nm, and the zones of refused polygons hold none
 
 ### Requirement: Polygon Connect Style records
+With the pour mode `computed` and at least one polygon, `pcbdoc.write_pcbdoc` SHALL write Polygon Connect Style rules (kind number 20) in `Rules6` after the kinds of "Design rule records", in the Advanced form of the fact rows of `docs/formats/altium/pcb-pour.md`, "Polygon Connect Style" (`H-A-POUR-CONNECT`), lowered from the zones (the maintainer's decision of 2026-10-26):
+
+#### Scenario: Detailed contract for polygon connect style records
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
 With the pour mode `computed` and at least one polygon, `pcbdoc.write_pcbdoc` SHALL write Polygon Connect Style rules (kind number 20) in `Rules6` after the kinds of "Design rule records", in the Advanced form of the fact rows of `docs/formats/altium/pcb-pour.md`, "Polygon Connect Style" (`H-A-POUR-CONNECT`), lowered from the zones (the maintainer's decision of 2026-10-26):
 - One rule scoped `InNet('<net>')` per net whose zones agree on `ZoneSettings.connection`, `thermal_gap`, `thermal_spoke_width` and `clearance` (through `effective()`): `thermal` is Relief Connect for through-hole and SMD pads; `thru_hole_only` is Relief Connect for through-hole pads and Direct Connect for SMD pads; `solid` is Direct Connect for both; `none` is No Connect for both with `clearance` as the air gap. A relief MUST have 4 conductors at 90°, the conductor width `thermal_spoke_width` and the air gap `thermal_gap`. Vias MUST be Direct Connect in every rule.
 - One `All` rule from `ZoneSettings()`, with the last priority; priorities count from 1 within the kind, the net rules in net-name order.

@@ -46,6 +46,18 @@ private run recorded; an inventory of licences; a review record.
 
 ## Files and public API
 
+### Inventory details — Decided 2026-11-01
+
+Read the dependency graph from the universal lock, retaining every locked version and
+requested dependency extra. Inspect only the exact installed name/version; other
+platform or interpreter branches remain explicitly not inspected. Prefer the SPDX
+expression, then the legacy licence field, then a clearly identified classifier.
+Long legacy licence texts are represented by their SHA-256 and classifier, rather
+than copied into this repository. Normalize only unambiguous short spellings.
+Apply the process-boundary check to every imported extra, including suppliers;
+MPL remains permitted only in development tools. The record reports metadata, not
+a legal opinion. Public metadata/lock facts are registered as S-1180 and S-1181.
+
 | file | content |
 |---|---|
 | `tools/gen_licences.py` (new) | `inventory(lock, environment) -> Inventory`; writes `docs/licences.md`; `--check` |
@@ -68,6 +80,20 @@ private run recorded; an inventory of licences; a review record.
   names the packages the maintainer checked by hand.
 
 ## Open questions
+
+Decided 2026-11-01: the existing bundled Preact asset needs its own review row,
+separate from Python dependency metadata and Fenolite's Apache notice. Bind that
+row to the exact locked version and NOTICE digest, inspect the existing bundled
+licence header, and require re-review after either binding changes. Source S-1182
+is the upstream licence at the locked tag. This records declared terms and
+repository witnesses, not legal advice. Restoring the historical changelog wording
+and adding the current work under Unreleased preserves release history.
+
+Decided 2026-11-01: the three authored example scripts modified in this batch
+must begin with SPDX and copyright, as AGENTS.md requires. Keep their original
+authorship statements on the next line and refresh only their actual source
+digests in the authored-data manifest. Native example byte guards remain strict;
+comment-only changes do not authorize new native golden files.
 
 The maintainer accepted every recommended answer below on 2026-10-27 (roadmap, "Open decisions", row 49).
 

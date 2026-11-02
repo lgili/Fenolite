@@ -37,3 +37,9 @@
 - **GIVEN** a record with one row whose answer is empty
 - **WHEN** the release gate of `1.0.0` is checked
 - **THEN** it fails naming the row
+
+#### Scenario: Bundled viewer dependency is reviewed separately
+- **GIVEN** the viewer bundles Preact
+- **WHEN** the 1.0.0 review gate runs
+- **THEN** its separate row binds the locked Preact version and the NOTICE SHA-256, the package and lock agree on MIT, and the bundled header retains the version and permission notice
+- **AND** a missing row, changed binding or missing bundled notice holds the release without treating the Python metadata inventory as review of this asset

@@ -11,6 +11,7 @@ from urllib.parse import urlencode
 from fenolite.core.partquery import PartQuery
 from fenolite.suppliers.base import SupplierPlugin, array_at, object_at, text_at
 from fenolite.suppliers.credentials import Secret
+from fenolite.suppliers.errors import ResponseShapeError
 from fenolite.suppliers.http import Client, Request
 from fenolite.suppliers.rows import Candidate
 
@@ -28,6 +29,8 @@ class Mouser(SupplierPlugin):
             {"SearchByKeywordRequest": {"keyword": query.text(), "records": limit, "startingRecord": 0}}
         ).encode()
         data = client.request_json(Request(url, "POST", {"Content-Type": "application/json"}, body))
+        if "Errors" in data and array_at(data, "Errors", self.name):
+            raise ResponseShapeError("mouser: search response contains source errors")
         found = object_at(data, "SearchResults", self.name)
         rows = array_at(found, "Parts", self.name)
         return tuple(
@@ -35,10 +38,21 @@ class Mouser(SupplierPlugin):
                 text_at(part, "ManufacturerPartNumber", self.name),
                 text_at(part, "Manufacturer", self.name, optional=True),
                 text_at(part, "DataSheetUrl", self.name, optional=True),
-                {"ProductAttributes": object_at(part, "ProductAttributes", self.name)}
+                {"ProductAttributes": array_at(part, "ProductAttributes", self.name)}
                 if "ProductAttributes" in part
                 else {},
-                {key: part[key] for key in ("Availability", "PriceBreaks", "LifecycleStatus") if key in part},
+                {
+                    **{
+                        key: text_at(part, key, self.name, optional=True)
+                        for key in ("Availability", "LifecycleStatus")
+                        if key in part
+                    },
+                    **(
+                        {"PriceBreaks": array_at(part, "PriceBreaks", self.name)}
+                        if "PriceBreaks" in part
+                        else {}
+                    ),
+                },
             )
             for part in rows[:limit]
         )

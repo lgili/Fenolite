@@ -15,11 +15,14 @@ import dataclasses
 from collections.abc import Mapping, Sequence
 
 from fenolite.backends.kicad import pcb
+from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad.embed import PATH_PROPERTY, place_footprint, with_property
+from fenolite.backends.kicad.sexpr import Atom, Node
 from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Udeg
+from fenolite.model.base import Opaque
 from fenolite.model.board import FootprintField, FootprintInstance, Side
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
@@ -38,6 +41,9 @@ FIELD_VALUES: tuple[str, ...] = (
     "h_justify",
     "v_justify",
     "mirrored",
+    "bold",
+    "italic",
+    "face",
 )
 """What a field of a rotated footprint takes from the old one (equal to ``lens.fields.FIELD_VALUES``)."""
 
@@ -75,6 +81,33 @@ def _component(design: Design, footprint: FootprintInstance) -> Component:
     return Component(
         id=footprint.component_id, ref=values.get("Reference", ""), value=values.get("Value", "")
     )
+
+
+def _field_font(field: FootprintField) -> dict[str, bool | str]:
+    """Supported font properties of a read field: the reader retains them in opaque effects."""
+    found: dict[str, bool | str] = {}
+    bag = field.ext.get("kicad")
+    for slot in slotlib.from_ext(bag) if bag is not None else ():
+        if not isinstance(slot, Opaque):
+            continue
+        effects = slotlib.opaque_child(slot)
+        if not isinstance(effects, Node) or effects.name != "effects":
+            continue
+        font = effects.find("font")
+        if font is None:
+            continue
+        for flag in ("bold", "italic"):
+            child = font.find(flag)
+            if child is not None and not child.nodes():
+                values = [a.value for a in child.atoms()]
+                if values in ([], ["yes"], ["no"]):
+                    found[flag] = values != ["no"]
+            elif any(isinstance(a, Atom) and a.value == flag for a in font.children):
+                found[flag] = True
+        face = font.find("face")
+        if face is not None and not face.nodes() and len(face.atoms()) == 1:
+            found["face"] = face.atoms()[0].value
+    return found
 
 
 def _replaced(
@@ -121,6 +154,9 @@ def _replaced(
                 carried.append(field)
             else:
                 values = {name: getattr(was, name) for name in FIELD_VALUES}
+                values.update(
+                    {name: value for name, value in _field_font(was).items() if values[name] is None}
+                )
                 carried.append(dataclasses.replace(field, **values))
         fields = tuple(carried)
     return dataclasses.replace(

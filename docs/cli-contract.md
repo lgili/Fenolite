@@ -354,6 +354,14 @@ connection metrics and findings. Confirmation writes `.fenolite/schematic-compos
 changed intent/baselines yield `build.altium-layout-conflict` even with `--discard-layout`. Text metrics
 and native acceptance remain `INFERRED`. See `docs/schematic-composition.md`.
 
+`--altium-draftsman {off,on}` (default `off`) requests a Draftsman document for `--target altium`.
+`--drawing-spec FILE` reads `fenolite.drawing-spec.v0` and requires that target and `--altium-draftsman on`;
+invalid combinations are usage errors. While the native gate is closed, `altium.draftsman-not-written`
+explains the reason and `result.draftsman` is null. A test-only gate override writes `.PCBDwf`, lists it
+after the job, writes title parameters, and adds the PDF-enabled `PCBDrawing` output. A kept project that
+lacks the drawing gives `altium.draftsman-not-listed`. The non-null result holds `file`, `sheets`,
+`not_lowered` and `spec` (given path and SHA-256). See [the limits](altium.md#draftsman-document).
+
 `--altium-outjob {on,off}` (change c0087) writes `<name>.OutJob`, an Altium output job, beside the PCB
 document of an Altium build: `on` is the default, `off` writes none, and a build without a PCB document
 writes none either. The job holds the containers `fab` (a folder) and `doc` (a PDF) and six outputs: Gerber,
@@ -465,6 +473,7 @@ The copper codes of the Altium build:
 | `altium.copper-stack` | error | the board's copper layers are not `F.Cu`, `B.Cu` or `F.Cu`, `In1.Cu`, `In2.Cu`, `B.Cu`, their count differs from `copper`, or a plane names a layer that is not an inner layer or a net the design does not hold |
 | `altium.copper-layer` | error | a track, arc, via or zone names a layer outside the board's copper layers |
 | `altium.via-unsupported` | error | a via is blind, buried or micro, or does not span the top and the bottom layer |
+| `altium.verbatim-skipped` | warning | a verbatim item, KiCad text that the PCB document has no record for, is not written (change c0277) |
 | `altium.zone-unsupported` | error | a zone has fewer than three outline points, or names no layer |
 | `altium.copper-invalid` | error | a track of zero length, a width of 0 or less, a drill not below its diameter, or a net id that names no net |
 | `altium.plane-copper` | error | a track or arc lies on a plane layer, or a zone on a plane layer has another net than the plane |
@@ -500,6 +509,8 @@ A build for the KiCad target also checks the blocks of the design (`docs/dsl.md`
 | `build.port-unused` | warning | a port of a block instance that is not `optional` has nothing outside the block on its members; `where` is `<block path>/<port>` |
 | `build.block-net-escape` | warning | a script-named net joins pins inside and outside a block instance without a port of that block; `where` is `<block path>:<net>`, the hint "declare a port" |
 | `build.block-sheet-name-clash` | error | Altium, `sheets="modules"`: a port of a block instance and a net that crosses its sheet without a port have one name (change c0269); `where` is the block path, and nothing is written |
+| `build.verbatim-item` | info | one per verbatim item the build writes as given (change c0277); `where` is its key |
+| `build.verbatim-invalid`, `build.verbatim-head`, `build.verbatim-layer`, `build.verbatim-net` | error | a verbatim item that is not one KiCad list, whose head Fenolite writes itself (or, for the rules file, is not `rule`), that names a layer the board does not hold or a net the design does not hold (change c0277) |
 
 A build for either target applies the catalog's default pin-to-pad map (change c0147,
 `docs/catalog/sources.md`) and reports each part it applies it to:
@@ -517,6 +528,7 @@ A build for either target applies the catalog's default pin-to-pad map (change c
 [--altium-format binary|ascii] [--altium-sheets flat|modules] [--altium-layout grid|blocks] [--altium-outjob on|off]
 [--altium-outjob-preset FILE] [--altium-symbols graphics|generic] [--altium-directions on|off]
 [--altium-bodies off|extruded] [--altium-pour computed|outline]
+[--altium-draftsman off|on] [--drawing-spec FILE]
 [--copper-check refuse|warn] [--lock FILE] [--frozen] [--take SIDE[:TARGET]]...` runs the design script
 (your own code: never run it on an untrusted script) and plans the files of a KiCad project under `DIR`
 (`docs/dsl.md`). It is mutating. `--discard-layout` replaces outputs edited since the last build.
@@ -673,8 +685,8 @@ evidence also combines the copper and board-frame evidence, which are `INFERRED`
 `--kicad-version 10`: for KiCad 9 the board writer refuses it and the build exits 7 (`FEN-7001`).
 
 A script may declare rule areas, keep-outs, texts, graphics and dimensions (`docs/dsl.md`, "Rule areas"
-and "Board drawings"). `result.board_items` reports the counts `rule_areas`, `texts`, `graphics` and
-`dimensions` of the script, and `result.preserved.board_items` the counts `regenerated` and `stale` of
+and "Board drawings"). `result.board_items` reports the counts `rule_areas`, `texts`, `graphics`,
+`dimensions` and `images` (change c0277) of the script, and `result.preserved.board_items` the counts `regenerated` and `stale` of
 the merge with an existing board (0 without one): script items are written again on every build, with
 `kicad.board-item.regenerated` (info) for one that was edited in KiCad and `kicad.board-item.stale`
 (warning) for one whose call is gone (`docs/lens.md`, "Board items declared in the script"). A rule that
@@ -1487,6 +1499,8 @@ with `FEN-4002`.
 | `import.upgraded` | info | a file upgraded through `kicad-cli` on a private copy |
 | `import.provenance-missing` | warning | no `--licence`, `--copyright` or `--source` |
 | `import.timestamp-missing` | info | no `--timestamp`: the output is not reproducible |
+| `import.teardrops-regenerated` | info | teardrop zones left out because KiCad draws them again from the pad and via teardrop settings the code keeps (change c0277) |
+| `import.board-only` | info | footprints that share a reference or have none a script can name, written as board-only parts named by key; the count of those that gain KiCad's `board_only` attribute (change c0277) |
 
 ## check
 
@@ -1835,6 +1849,7 @@ repeat.
 | `drawn.netlist-differs` | error | `schematic.drawn`: a pin is in another group in the drawing than in the circuit, or open on one side only; `where` is the first `REF-PIN` (change c0276) |
 | `drawn.symbol-missing`, `drawn.part-unknown`, `drawn.sheet-pin-unmatched`, `drawn.sheet-unknown`, `drawn.repeated-value-differs` | error | `schematic.drawn` and `build`: the coverage, sheet and repeated-value errors of `docs/drawn-schematic.md`, "Codes" |
 | `drawn.net-name-differs`, `drawn.unit-missing`, `drawn.dangling`, `drawn.label-unconnected`, `drawn.bus-member-unknown`, `drawn.placements-ignored` | warning | the drawn schematic warnings of `docs/drawn-schematic.md`, "Codes" |
+| `drawn.coordinate-rounded` | warning | an Altium drawn point rounded only with explicit `--allow-lossy`; without it, the build refuses before planning writes |
 | `drawn.opaque-dropped`, `drawn.frozen`, `drawn.altium-repeat-flattened` | info | an opaque item dropped for a target, a schematic frozen by `sync --freeze-schematic`, a repeated sheet written per instance |
 | `check.footprint-unresolved` | error | a non-DNP component has no footprint reference or instance |
 | `check.symbol-unresolved` | error | a built component that carries `fenolite.path` has no symbol reference; a board-only footprint added in KiCad, without that key, is not asked for one (`docs/lens.md`) |
@@ -1876,6 +1891,7 @@ repeat.
 | `copper.rules-incomplete` | warning | a clearance rule stayed opaque, a project file was not read, or no rules source was given |
 | `copper.item-unsupported` | warning | copper items left out of the check, one issue per kind; `where` is the kind |
 | `copper.clearance-unset` | info | item pairs judged for shorts only, because no clearance is in force for them |
+| `copper.text-unchecked` | info | texts on copper layers left out of the copper check, which draws no glyphs; KiCad's DRC judges them (change c0277) |
 | `zone.unfilled` | warning | KiCad's refill produces copper but the saved board has none for a zone |
 | `zone.fill-stale` | warning | the saved fill polygons differ from a KiCad refill |
 | `zone.fill-unchecked` | info | the selected tool cannot refill zones, or two refill runs differ; the stage is skipped |
@@ -4188,20 +4204,20 @@ Each of `A` and `B` is one of:
 - a `.fenolite/` folder (it holds `meta.json` or `build.json`): the built design, backend `fenolite`;
 - a `.kicad_pro` file or a project folder, resolved to its board as `check` resolves it;
 - a root KiCad schematic, a file ending in `.kicad_sch`, read with its sheet tree into a circuit and
-  compared at levels 1 and 2 only: through Fenolite's own netlist for a schematic that `build` wrote, else
-  through `kicad-cli sch export netlist` (`--kicad-cli`);
+  compared by default at levels 1 and 2 through the own netlist or `kicad-cli sch export netlist`;
+  explicit `--level S` reads the actual drawing and embedded definitions without a netlist export;
 - any other file that a backend reads into a design: a KiCad board, an Altium PCB document, schematic
   document or project file.
 
 | option | meaning |
 |---|---|
-| `--level N` | run the levels 1 to `N` (1 components, 2 netlist, 3 footprints, 4 placement, 5 routing, 6 rules, 7 geometry, 8 presentation). The default is the highest of 1 to 5 both sides hold: 5 when both have footprints and copper (a track, an arc or a via), 4 when both have footprints, else 2. Pass `--level 4` to compare two routed boards without their routing. Levels 6 and 7 need a footprint on both sides (they run level 5 when both sides hold copper); level 8 runs the levels 1 to 7 and then renders both boards; `--level S` (drawn schematics) needs the extraction of change c0276 and exits 2 naming side `a` in this version |
+| `--level N` | run the levels 1 to `N` (1 components, 2 netlist, 3 footprints, 4 placement, 5 routing, 6 rules, 7 geometry, 8 presentation). The default is the highest of 1 to 5 both sides hold: 5 when both have footprints and copper (a track, an arc or a via), 4 when both have footprints, else 2. Pass `--level 4` to compare two routed boards without their routing. Levels 6 and 7 need a footprint on both sides (they run level 5 when both sides hold copper); level 8 runs the levels 1 to 7 and then renders both boards; `--level S` runs only the actual drawn-schematic and resolved-connectivity comparison; each side needs readable native sheets |
 | `--strict` | level 5 also matches every track, arc and via item by item (change c0278); exit 2 below level 5 |
 | `--pixel-ppm N`, `--render-pitch-um N` | level 8: the differing pixels a layer may hold in parts per million of its inked pixels (default 1000), and the pixel pitch of a board layer (default 50 µm) |
 | `--tolerance-nm N`, `--tolerance-udeg N` | how far two lengths (per coordinate) and two angles may differ; non-negative integers, default 0 |
 | `--tolerance-ppm N` | level 5 only: two routed lengths are equal within the larger of `--tolerance-nm` and `N` parts per million of the longer one; a non-negative integer, default 0 |
 | `--frame absolute\|relative` | `relative` removes one translation, the per-axis lower median of the footprint positions of `B` minus `A`; default `absolute` |
-| `--ignore-ref GLOB` | leave out the components whose reference matches (repeatable) |
+| `--ignore-ref GLOB` | leave out matching components (repeatable); level S compares complete drawings and refuses this option |
 | `--exclusions FILE --profile NAME` | apply the rules of one profile of an exclusion file. The profile also gives the frame and the tolerances; an option on the command line overrides its value |
 | `--against kicad-import` | instead of `B`: convert `A`, an Altium PCB document, with `kicad-cli pcb import` (10.0 only) and compare Fenolite's read of `A` with the read of the converted board, under the `kicad-import` profile of the running version line |
 | `--kicad-cli PATH`, `--timeout SECONDS` | the tool of `--against`, or of a schematic side outside the own netlist's grammar, and its time limit (default 300 s) |
@@ -4210,7 +4226,7 @@ Each of `A` and `B` is one of:
 
 | key | value |
 |---|---|
-| `level` | the highest level that ran (0 when the triangle's converter gave no board; `result.tool_version` then names the `kicad-cli`) |
+| `level` | the highest numeric level that ran, or `"S"` for an explicit schematic comparison (0 when the triangle's converter gave no board; `result.tool_version` then names the `kicad-cli`) |
 | `equivalent` | `true` when no difference remains outside the rules |
 | `sides` | `a` and `b`, each with `path` (the name without its folder), `sha256` (of a file; `null` for a folder), `backend` (`kicad`, `altium`, `fenolite` or `kicad-import`), `netlist_source` (`board`, `circuit` or `schematic`), `components` and `footprints` (counts); side `b` of `--against` also has `tool_version`, and a schematic side `power_symbols`, the count of its `#` references, which are no components |
 | `tolerances` | `length_nm`, `angle_udeg` and `length_ppm` |
@@ -4249,7 +4265,7 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 | `equiv.netclass-missing`, `equiv.netclass-field`, `equiv.netclass-members`, `equiv.rule-missing`, `equiv.rule-field`, `equiv.ruleset-field`, `equiv.stackup-missing`, `equiv.stackup-field`, `equiv.layer-field`, `equiv.layer-missing` | error | level 6: a net class, a custom rule, the rule set, the stack-up or the layer table differs |
 | `equiv.outline-missing`, `equiv.zone-missing`, `equiv.zone-field`, `equiv.keepout-missing`, `equiv.keepout-field`, `equiv.graphic-missing`, `equiv.graphic-field`, `equiv.opaque-count`, `equiv.text-missing`, `equiv.text-field`, `equiv.field-pose`, `equiv.hole-missing`, `equiv.dimension-missing` | error | level 7: the exact geometry differs (zone fills are never compared) |
 | `equiv.render-missing`, `equiv.render-pixels` | error | level 8: a layer drawn on one side only, or rendered masks that differ beyond `--pixel-ppm` |
-| `equiv.sheet-missing`, `equiv.symbol-missing`, `equiv.symbol-pose`, `equiv.symbol-field`, `equiv.item-missing`, `equiv.item-field`, `equiv.drawn-net` | error | level S: the drawn schematics differ (`verify-source`) |
+| `equiv.sheet-missing`, `equiv.symbol-missing`, `equiv.symbol-pose`, `equiv.symbol-field`, `equiv.item-missing`, `equiv.item-field`, `equiv.drawn-net` | error | level S: the drawn schematics differ (`equivalent --level S` and `verify-source`) |
 | `equiv.excluded` | info | a rule of the profile matched differences (count and reason) |
 | `equiv.import-message` | info | a warning or error of `kicad-cli`'s import report, counted by text |
 | `equiv.no-exclusion-profile` | warning | no profile for the running `kicad-cli` version line: no rule, the relative frame, tolerance 0 |
@@ -4259,7 +4275,7 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 |---|---|---|
 | 0 | none | equivalent up to the level, outside the rules |
 | 5 | none | a difference remains, or `equiv.oracle-failed` |
-| 2 | `FEN-2001` | neither `B` nor `--against`, or both; a level above what both sides hold (the message names the side without footprints, or without copper for level 5) or outside 1 to 8 and S; `--level S` in this version; `--strict` below level 5; level 8 on a side without a board; a bad value; `--exclusions` without `--profile` or the reverse; a profile the file lacks; an input no backend reads, or a library; `--against` on anything but an Altium PCB document |
+| 2 | `FEN-2001` | neither `B` nor `--against`, or both; a level above what both sides hold (the message names the side without footprints, or without copper for level 5) or outside 1 to 8 and S; level S without actual sheets, or with `--strict`, `--ignore-ref` or the PCB import triangle; `--strict` below numeric level 5; level 8 on a side without a board; a bad value; `--exclusions` without `--profile` or the reverse; a profile the file lacks; an input no backend reads, or a library; `--against` on anything but an Altium PCB document |
 | 3 | `FEN-3001` | an input does not exist |
 | 3 | the reader's code | an input or the exclusion file cannot be read |
 | 6 | `FEN-6001`, `FEN-6002` | `--against` without `kicad-cli`, or with a major other than 10; `FEN-6001` also for a schematic side outside the own netlist's grammar without `kicad-cli` |
@@ -4470,7 +4486,7 @@ commands as tools to a client of the Model Context Protocol on standard input an
 ## view
 
 `fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--cache user|project|off]
-[--compare OLD] [--variant NAME] [--check FILE|run] [--roles FILE|run] [--proposals FILE|run] [--report FILE]... [--select REF] [--marks FILE] [--serve [--port N] [--no-browser] [--run-timeout SECONDS] [--no-run] [--allow-actions]] [--export FILE [--docs ID,...]] [--no-review] [--no-models]
+[--compare OLD] [--variant NAME] [--check FILE|run] [--roles FILE|run] [--proposals FILE|run] [--report FILE]... [--select REF] [--marks FILE] [--serve [--port N] [--no-browser] [--run-timeout SECONDS] [--no-run] [--allow-actions|--edit]] [--export FILE [--docs ID,...]] [--no-review] [--no-models]
 [--silk-gap MM] [--mask-expansion MM]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
 c0177, c0178 and c0193; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
 board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbLib`, `.kicad_sym`,
@@ -4616,6 +4632,13 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbL
   The receipt of each write is kept as `view-receipts/<id>.json` of the state folder, and
   `result.serve.writes` lists the session's receipts (`id`, `action`, `files`). `--allow-actions` without
   `--serve` is `FEN-2001`.
+  `--edit` aliases `--allow-actions`. A bound build/sync conflict adds `take` with exactly `finding`
+  (the session index) and `side` (`code`, `cad`, or the named CAD side). The server fixes script, output
+  and KiCad target from the hashed source context and available base/build records. A take alone may
+  plan within that source's authoring root when it contains the output; other actions keep the served
+  project root. Its review includes `inputs` and `source_context` (script, working directory, root,
+  output and bindings), as well as every write. Confirm and receipt/undo retain that scope and the
+  existing stale-input and path guards. The browser supplies no source path, root or command words.
 - **Review** (change c0193). Unless `--no-review`, a board's review findings are drawn by group (45° corners,
   silkscreen near a mask opening, near other silkscreen or the edge, copper outside the board) with the open
   connections of `analysis.connectivity`, ground nets apart. `--silk-gap MM` is the silkscreen gap (default: the

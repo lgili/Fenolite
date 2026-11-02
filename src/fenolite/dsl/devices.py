@@ -45,6 +45,8 @@ class ProjectDevices:
     parts: Mapping[str, tuple[PartEntry, ...]] = field(default_factory=lambda: MappingProxyType({}))
     libraries: Mapping[str, Mapping[str, str]] = field(default_factory=lambda: MappingProxyType({}))
     hint_namespaces: tuple[str, ...] = ()
+    symbols: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+    """Generated drawing ids by device id; authored records and provenance stay unchanged."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +57,7 @@ class Resolved:
     device: DeviceDef
     origin: Origin
     overrides: bool = False
+    symbol: str = ""
 
 
 _PROJECT: ContextVar[ProjectDevices | None] = ContextVar("fenolite_project_devices", default=None)
@@ -120,7 +123,7 @@ def resolve(device_id: object) -> Resolved:
         if mpn not in {part.mpn for part in parts}:
             listed = ", ".join(sorted(part.mpn for part in parts)) or "none"
             raise DslError(f"device {base} has no part {mpn!r}; its parts: {listed}")
-        return Resolved(effective_part(found.device, parts, mpn), found.origin, found.overrides)
+        return Resolved(effective_part(found.device, parts, mpn), found.origin, found.overrides, found.symbol)
     shipped = {device.id for device in shipped_devices()}
     design = _DESIGN.get() or {}
     if device_id in design:
@@ -128,7 +131,9 @@ def resolve(device_id: object) -> Resolved:
     for device in project_devices().devices:
         if device.id == device_id:
             origin = "library" if device_id in project_devices().libraries else "authored"
-            return Resolved(device, origin, device_id in shipped)
+            return Resolved(
+                device, origin, device_id in shipped, project_devices().symbols.get(device_id, "")
+            )
     for device in shipped_devices():
         if device.id == device_id:
             return Resolved(device, "builtin")

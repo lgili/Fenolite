@@ -2402,7 +2402,20 @@ function PlanPlan({ job }) {
     const evidence = plan.evidence ? plan.evidence.level + (plan.evidence.oracle ? ` (${plan.evidence.oracle})` : "") : "UNKNOWN";
     return preact.h(preact.Fragment, null,
         lead ? preact.h("p", null, lead) : null,
+        plan.source_context ? preact.h("div", { class: "notes", id: "conflictSourceContext" },
+            preact.h("p", null, job.action === "undo" ? "This plan restores its recorded receipt." : `This plan runs ${plan.source_context.script}.`),
+            preact.h("p", null, `Working directory: ${plan.source_context.cwd}. Authoring root: ${plan.source_context.root}. Output: ${plan.source_context.out}.`)) : null,
         preact.h(PlanFiles, { writes: plan.writes }),
+        plan.inputs?.length ? preact.h("details", { id: "planInputs" },
+            preact.h("summary", null, `Inputs (${plan.inputs.length})`),
+            preact.h("table", { class: "planFiles" },
+                preact.h("thead", null,
+                    preact.h("tr", null,
+                        preact.h("th", null, "Read"),
+                        preact.h("th", null, "SHA-256"))),
+                preact.h("tbody", null, plan.inputs.map(input => preact.h("tr", null,
+                    preact.h("td", null, String(input.path)),
+                    preact.h("td", { title: String(input.sha256) }, input.sha256 ? actShort(input.sha256) : "absent")))))) : null,
         preact.h(PlanIssues, { issues: plan.issues }),
         preact.h("p", { class: "notes" }, `Evidence: ${evidence}`),
         job.preview ? preact.h("p", { class: "notes" }, `On the board: ${job.preview.changes.length} change(s) — added in green, removed in magenta, moved parts as arrows; listed under Changes.`)
@@ -6105,9 +6118,13 @@ function keepoutSection(label, layer) {
 function findingSection(x, layer) {
     return isection("Finding", [irow("Code", x.code), irow("Severity", x.severity), irow("Stage", x.stage), irow("Evidence", x.evidence),
         irow("Message", x.message), irow("Where", x.where), irow("Layer", layer), irow("Guidance", x.hint),
+        ...(x.conflict ? [irow("Property", x.conflict.key), irow("Reason", x.conflict.reason),
+            irow("Base", conflictValue(x.conflict.base)), irow("Code value", conflictValue(x.conflict.code)),
+            ...Object.entries(x.conflict.cad).map(([side, value]) => irow(`CAD ${side}`, conflictValue(value)))] : []),
         ...(x.commands || []).map((command, i) => irow(`Resolve ${i + 1} (copy)`, command)),
         x.at ? null : irow("Position", "none on this document")]);
 }
+function conflictValue(value) { return value === null ? "absent" : value === "" ? '""' : typeof value === "string" ? value : JSON.stringify(value); }
 function areaOf(ring) {
     let s = 0;
     for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2)
@@ -6259,6 +6276,7 @@ function Inspector({ model }) {
                 preact.h("span", { class: "lbl" }, "Copy all")) : null),
         model.note ? preact.h("p", { class: "inspNote" }, model.note) : null,
         preact.h(InspectorActions, null),
+        model.kind === "finding" ? preact.h(ConflictActions, { finding: model.target?.finding }) : null,
         model.extra ? model.extra() : null,
         model.sections.map((s, k) => preact.h("details", { key: s.title + k, class: "isect", open: !s.collapsed },
             preact.h("summary", null,
@@ -6336,6 +6354,23 @@ function DocSummary() {
             S.kind === "table" ? "Click a row that names a document or parts to open it." : `Click ${isSch() ? "a part, a pin or a wire" : "a pad, a track, a via or a zone"} to see its properties here. Lengths read in ${UNIT === "mm" ? "millimetres" : "mil"} (Q).`));
 }
 function refreshSummary() { preact.render(preact.h(DocSummary, null), $("infoEmpty")); }
+// ---- panels/conflicts.tsx
+// Edit conflict actions (c0250): the server binds the source; the page sends only a finding and side.
+function conflictChoices(record) {
+    return record?.reason === "sides-disagree" ? ["board", "schematic"] : ["code", "cad"];
+}
+function conflictTake(finding, side) { return actPlan("take", { finding, side }); }
+function ConflictActions({ finding }) {
+    const record = S?.check?.findings?.[finding]?.conflict, binding = S?.check?.resolve;
+    if (!record || !ACTS.enabled)
+        return null;
+    if (!ACTS.offer?.take || binding?.why)
+        return preact.h("p", { class: "notes", role: "status" }, binding?.why || "Load a current build reply to review a take.");
+    const labels = { code: "Take code", cad: "Take CAD", board: "Take board", schematic: "Take schematic" };
+    return preact.h(preact.Fragment, null,
+        preact.h("p", { class: "notes" }, `Planning runs ${binding.script} for ${binding.out}.`),
+        preact.h("div", { class: "inspActs", role: "toolbar", "aria-label": "Resolve this edit conflict" }, conflictChoices(record).map(side => preact.h("button", { type: "button", class: "tb small", id: `conflictTake${side}`, disabled: !!ACTS.job, onClick: () => conflictTake(finding, side) }, labels[side]))));
+}
 // ---- panels/layers.tsx
 // ================================================================== the Layers panel (c0301, design decision 5)
 // The dock's Layers tab, on boards and footprints: the layers of tabLayers() in groups (copper, mask and paste,

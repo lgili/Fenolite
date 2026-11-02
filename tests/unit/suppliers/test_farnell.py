@@ -59,3 +59,75 @@ def test_undocumented_shape_is_refused(policy: SourcePolicy, monkeypatch: pytest
 def test_production_permission_stays_closed() -> None:
     with pytest.raises(CredentialsMissing):
         Farnell().lookup(parse_query("capacitor(100nF)"), timestamp="2026-11-01T00:00:00Z")
+
+
+@pytest.mark.parametrize("field", ["datasheets", "attributes", "prices"])
+@pytest.mark.parametrize("invalid", [None, "not-an-array", ["not-an-object"]])
+def test_malformed_optional_array_is_refused(
+    field: str, invalid: object, policy: SourcePolicy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plugin = Farnell()
+    plugin.policy = replace(policy, name="farnell", hosts=plugin.policy.hosts)
+    monkeypatch.setenv("FENOLITE_FARNELL_API_KEY", "AUTHORED-KEY")
+    with pytest.raises(ResponseShapeError):
+        plugin.lookup(
+            parse_query("capacitor(100nF)"),
+            timestamp="2026-11-01T00:00:00Z",
+            transport=FakeTransport(
+                response(
+                    {
+                        "keywordSearchReturn": {
+                            "products": [{"translatedManufacturerPartNumber": "EXAMPLE", field: invalid}]
+                        }
+                    }
+                )
+            ),
+        )
+
+
+@pytest.mark.parametrize("field, invalid", [("stock", None), ("stock", []), ("productStatus", {})])
+def test_malformed_offer_is_refused(
+    field: str, invalid: object, policy: SourcePolicy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plugin = Farnell()
+    plugin.policy = replace(policy, name="farnell", hosts=plugin.policy.hosts)
+    monkeypatch.setenv("FENOLITE_FARNELL_API_KEY", "AUTHORED-KEY")
+    with pytest.raises(ResponseShapeError):
+        plugin.lookup(
+            parse_query("capacitor(100nF)"),
+            timestamp="2026-11-01T00:00:00Z",
+            transport=FakeTransport(
+                response(
+                    {
+                        "keywordSearchReturn": {
+                            "products": [{"translatedManufacturerPartNumber": "EXAMPLE", field: invalid}]
+                        }
+                    }
+                )
+            ),
+        )
+
+
+def test_optional_absence_and_local_limit(policy: SourcePolicy, monkeypatch: pytest.MonkeyPatch) -> None:
+    plugin = Farnell()
+    plugin.policy = replace(policy, name="farnell", hosts=plugin.policy.hosts, cache="none", max_age_s=0)
+    monkeypatch.setenv("FENOLITE_FARNELL_API_KEY", "AUTHORED-KEY")
+    result = plugin.lookup(
+        parse_query("capacitor(100nF)"),
+        limit=1,
+        timestamp="2026-11-01T00:00:00Z",
+        transport=FakeTransport(
+            response(
+                {
+                    "keywordSearchReturn": {
+                        "products": [
+                            {"translatedManufacturerPartNumber": "EXAMPLE"},
+                            {"translatedManufacturerPartNumber": "OTHER-EXAMPLE"},
+                        ]
+                    }
+                }
+            )
+        ),
+    )
+    assert len(result.drafts) == 1 and result.drafts[0].display["mpn"] == "EXAMPLE"
+    assert result.drafts[0].display["reported"] == {} and result.drafts[0].display["offer"] == {}
