@@ -263,11 +263,36 @@ def test_read_profiles_no_class_names() -> None:
     assert not [i for i in issues if i.code.startswith("kicad.project.")]
 
 
-@pytest.mark.skipif(not GUI_SAVE.is_file(), reason="the GUI save of task 1.4 needs KiCad 10.0.6's GUI (owed)")
-def test_gui_save() -> None:  # pragma: no cover - runs once the authored save is committed
+def test_gui_save() -> None:
     saved = _json.loads(GUI_SAVE.read_text(encoding="utf-8"))
     entries = cast(list[JsonObject], _json.get(saved, PROFILES_POINTER))
-    assert entries and all(tuple(entry) == ENTRY_KEYS for entry in entries)
+    assert [(entry["profile_name"], entry["type"]) for entry in entries] == [
+        ("SE50", JsonNumber("0")),
+        ("USB90", JsonNumber("1")),
+    ]
+    with_targets, _ = designs()
+    assert with_targets.rules is not None
+    lowered = {target.name: lower_profile(target) for target in with_targets.rules.impedance}
     for entry in entries:
-        for row in cast(list[JsonObject], entry["layer_entries"]):
-            assert tuple(row) == LAYER_KEYS
+        # Native JSON sorts object keys; object member order is not a format fact.
+        assert set(entry) == set(ENTRY_KEYS)
+        expected = lowered[cast(str, entry["profile_name"])]
+        assert {key: type(value) for key, value in entry.items()} == {
+            key: type(value) for key, value in expected.items()
+        }
+        rows = cast(list[JsonObject], entry["layer_entries"])
+        assert len(rows) == 1
+        expected_row = cast(list[JsonObject], expected["layer_entries"])[0]
+        for row in rows:
+            assert set(row) == set(LAYER_KEYS)
+            assert {key: type(value) for key, value in row.items()} == {
+                key: type(value) for key, value in expected_row.items()
+            }
+            assert row["signal_layer"] == "F.Cu"
+            assert row["top_reference_layer"] == "UNDEFINED"
+            assert row["bottom_reference_layer"] == "In1.Cu"
+        assert entry["via_overrides"] == []
+    assert entries[0]["target_impedance"] == JsonNumber("50.0")
+    assert entries[1]["target_impedance"] == JsonNumber("90.0")
+    assert rows[0]["width"] == JsonNumber("200000")
+    assert rows[0]["diff_pair_gap"] == JsonNumber("150000")

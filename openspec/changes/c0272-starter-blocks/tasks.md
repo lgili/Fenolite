@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living specs this change touches (`package-layering`, `cli-contract`, `verification-loop`) and the changes it builds on (c0252, c0253, c0254, c0268, c0269, c0270, c0271). Write under this task, with the date and the base commit:
+- [x] 0.1 Read `openspec list`, the living specs this change touches (`package-layering`, `cli-contract`, `verification-loop`) and the changes it builds on (c0252, c0253, c0254, c0268, c0269, c0270, c0271). Write under this task, with the date and the base commit:
   - the final names of `@block`, `param`, `b.schematic`, `stimulus`, `b.layout(reuse=...)` and `fenolite blocks capture`;
   - c0253's expectation functions and the rating keys `power`, `voltage` and `current` of c0248's records;
   - c0254's generator signatures, the module of `PI` (the π enclosure) and of the I2C mode constants, and whether a public `i2c_mode_limits(mode, bus_capacitance)` exists (if not, task 1.4 adds it over the same table, one formula and two callers);
@@ -31,6 +31,20 @@
   and exact-head CI run; focused dependency proofs run here.
 
   Proof: `openspec validate c0272-starter-blocks --strict`; `make check-fast`.
+
+  Entry proof completed 2026-11-02 on `ea762411cbb24bc5f9ba5a16d8b372ae7c720568`: root
+  ran the serialized `make check-fast` from 09:45:03 to 10:17:02 UTC, exit 0
+  (19564 passed, 55 skipped; JUnit records zero failures/errors). Fresh OpenSpec
+  1.16.0 strict validation of this change also passes without warnings. The
+  preceding API/family/expectation entry remains applicable: `core.generator_limits`
+  and `dsl.gen` provide the shared enclosures/mode helper, and S-1120..1125 are
+  now registered alongside S-0941. The five authored layout assets remain distinct
+  from the still-required manual GUI work of task 2.1.
+  This dated proof supersedes the earlier missing-fast-gate blocker only.
+  Independent CI, native/manual, corpus, external-library and release criteria
+  remain unchanged. The source-bound receipt, log and JUnit hashes are recorded
+  in [the integration validation record](../c0319-integration-repairs/validation.md).
+
 - [x] 0.2 Register the sources of design decision 8 in `docs/evidence/sources.md` (licence, what is used, "read for facts, nothing copied"), and replace the placeholders `S-DIV`, `S-JOULE`, `S-RC`, `S-LED`, `S-INTERVAL`, `S-TVS` in `design.md` with the ids. Proof: `uv run pytest tests/unit/test_provenance.py -q`.
 
 ## 1. The five blocks

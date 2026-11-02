@@ -96,3 +96,44 @@ def test_native_vector_identity_uses_ascending_index_positions(reverse: bool) ->
     )
     assert second == {("U1", "19"), ("R12", "1")}
     assert ours == theirs
+
+
+@pytest.mark.parametrize("connected", [False, True])
+@pytest.mark.parametrize("labels", [0, 1, 2])
+def test_native_repeated_bus_ports_do_not_invent_parent_scalar_aliases(
+    connected: bool,
+    labels: int,
+) -> None:
+    output, file, files, refs = _bus_scope.repeated_bus_files(
+        _probes.major(),
+        connected=connected,
+        labels=labels,
+    )
+    root = sch.read_schematic(files[file].decode(), file=file)
+    children = {
+        name: sch.read_schematic(data.decode(), file=name)
+        for name, data in files.items()
+        if name.endswith(".kicad_sch") and name != file
+    }
+    _raw, own, _issues = kdrawn.resolve_sheets(
+        root,
+        children,
+        circuit=output.design.circuit,
+        name="authored-repeated-bus",
+        root_file=file,
+    )
+    native = _erc.netlist(_probes.runner(), file, files)
+    ours = {frozenset((refs[path], number) for path, number in net.members) for net in own.nets}
+    ours |= {frozenset({(refs[path], number)}) for path, number in own.open}
+    theirs = {frozenset(group) for group in native.values()}
+    assert {pin for group in theirs for pin in group} == {(refs[path], number) for path, number in own.pins}
+    first = next(group for group in theirs if (refs["ch0/R1"], "2") in group)
+    joined = (refs["ch1/R1"], "2") in first
+    assert joined is (connected or labels == 2)
+    assert len(own.pins) == 8
+    assert len(theirs) == (4 if joined else 5)
+    print(
+        f"{_probes.version()} repeated connected={connected} labels={labels}: "
+        f"native_joined={joined}, own={len(ours)}, native={len(theirs)}"
+    )
+    assert ours == theirs

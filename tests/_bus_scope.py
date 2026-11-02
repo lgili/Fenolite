@@ -28,6 +28,52 @@ FORMS: tuple[Form, ...] = ("vector", "group", "alias", "overbar")
 CONTACTS: tuple[Contact, ...] = ("entry", "junction")
 
 
+def repeated_bus_files(target: int, *, connected: bool, labels: int):
+    """Original repeated-sheet control: equal bus ports on isolated parent bus islands."""
+    output = _drawn.build("repeat", target)
+    assert output.files and not any(issue.severity == "error" for issue in output.issues)
+    files = dict(output.files)
+    name = _drawn.root_name(output)
+    root = parse(files[name].decode())
+    refs = root.nodes("sheet")
+    assert len(refs) == 2
+    changed = {}
+    extras = []
+    for index, ref in enumerate(refs):
+        y = "55.88" if index == 0 else "81.28"
+        pin = parse(f'(pin "{{FB}}" bidirectional (at 50.8 {y} 180) (effects (font (size 1.27 1.27))))')
+        changed[id(ref)] = ref.with_children((*ref.children, pin))
+        extras.append(parse(f"(bus (pts (xy 38.1 {y}) (xy 50.8 {y})) (stroke (width 0) (type default)))"))
+        if index < labels:
+            extras.append(
+                parse(
+                    f'(label "{{FB}}" (at 40.64 {y} 0) '
+                    "(effects (font (size 1.27 1.27)) (justify left bottom)))"
+                )
+            )
+    if connected:
+        extras.append(parse("(bus (pts (xy 38.1 55.88) (xy 38.1 81.28)) (stroke (width 0) (type default)))"))
+    files[name] = dumps(
+        root.with_children((*[changed.get(id(item), item) for item in root.children], *extras))
+    ).encode()
+    child_name = next(key for key in files if key.endswith(".kicad_sch") and key != name)
+    child = parse(files[child_name].decode())
+    fragments = (
+        "(wire (pts (xy 88.9 80.01) (xy 101.6 80.01)) (stroke (width 0) (type default)))",
+        "(bus (pts (xy 86.36 77.47) (xy 86.36 90.17)) (stroke (width 0) (type default)))",
+        "(bus_entry (at 86.36 77.47) (size 2.54 2.54) (stroke (width 0) (type default)))",
+        '(hierarchical_label "{FB}" (shape bidirectional) (at 86.36 90.17 90) '
+        "(effects (font (size 1.27 1.27)) (justify left)))",
+    )
+    files[child_name] = dumps(
+        child.with_children((*child.children, *(parse(text) for text in fragments)))
+    ).encode()
+    paths = {
+        component.properties["fenolite.path"]: component.ref for component in output.design.circuit.components
+    }
+    return output, name, files, paths
+
+
 def value(form: Form, contact: Contact) -> DrawnSchematic:
     original = _drawn.drawn("bus")
     bus_name = {

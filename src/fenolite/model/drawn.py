@@ -59,6 +59,60 @@ def _check_point(value: Point, what: str) -> None:
         raise TypeError(f"{what} is whole nanometres, not {value!r}")
 
 
+def _check_length(value: object, what: str, *, positive: bool = False) -> None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{what} is whole nanometres, not {value!r}")
+    if value < 0 or (positive and value == 0):
+        raise ValueError(f"{what} must be {'positive' if positive else 'nonnegative'}")
+
+
+def _check_justify(value: str, what: str) -> None:
+    if not isinstance(value, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+        raise TypeError(f"{what}: justify is text, not {value!r}")
+    if any(word not in JUSTIFY_WORDS for word in value.split()) or value != " ".join(value.split()):
+        raise ValueError(f"{what}: justify {value!r} must be canonical words of {sorted(JUSTIFY_WORDS)}")
+
+
+@dataclass(frozen=True, slots=True)
+class DrawnFont:
+    """Optional font attributes, with exact canonical presence (change c0326).
+
+    Size is width/height in nm, independently of a backend's written axis order. ``None``, false and
+    zero stay distinct in the model; a native backend must prove their effective meaning or refuse.
+    A font names a face only; it never contains a font file or requests one from the filesystem.
+    """
+
+    size: Size | None = None
+    thickness: Nm | None = None
+    bold: bool | None = None
+    italic: bool | None = None
+    face: str | None = None
+
+    def __post_init__(self) -> None:
+        if all(value is None for value in (self.size, self.thickness, self.bold, self.italic, self.face)):
+            raise ValueError("an empty drawn font is absent; use font=None")
+        if self.size is not None:
+            if not isinstance(self.size, Size):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise TypeError("drawn font size is a Size in whole nanometres")
+            _check_length(self.size.w, "drawn font width", positive=True)
+            _check_length(self.size.h, "drawn font height", positive=True)
+        if self.thickness is not None:
+            _check_length(self.thickness, "drawn font thickness")
+        for name, value in (("bold", self.bold), ("italic", self.italic)):
+            if value is not None and not isinstance(value, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise TypeError(f"drawn font {name} is a boolean or None")
+        if self.face is not None:
+            if not isinstance(self.face, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise TypeError("drawn font face is a name")
+            if not self.face.strip() or not self.face.isprintable() or any(c in self.face for c in "/\\"):
+                raise ValueError("drawn font face is a nonempty name without controls or a path")
+
+
+def _check_font(value: DrawnFont | None) -> None:
+    if value is not None and not isinstance(value, DrawnFont):  # pyright: ignore[reportUnnecessaryIsInstance]
+        raise TypeError("drawn font is a DrawnFont or None")
+
+
 @dataclass(frozen=True, slots=True)
 class DrawnField:
     """The pose of one field (``Reference``, ``Value`` or another property) of a drawn symbol."""
@@ -69,12 +123,43 @@ class DrawnField:
     justify: str = ""
     """Blank-separated words of ``JUSTIFY_WORDS``; ``""`` centres the text on ``at``."""
     hide: bool = False
+    font: DrawnFont | None = None
 
     def __post_init__(self) -> None:
         _check_point(self.at, f"field {self.name} position")
         _check_angle(self.rotation, FIELD_ROTATIONS, f"field {self.name} rotation")
-        if any(word not in JUSTIFY_WORDS for word in self.justify.split()):
-            raise ValueError(f"field {self.name}: justify {self.justify!r} holds an unknown word")
+        _check_justify(self.justify, f"field {self.name}")
+        _check_font(self.font)
+
+
+@dataclass(frozen=True, slots=True)
+class DrawnSheetProperty:
+    """Literal custom sheet-reference text and its pose; built-in name/file text stays code-owned."""
+
+    name: str
+    text: str
+    at: Point
+    rotation: Udeg = 0
+    justify: str = ""
+    hide: bool = False
+    font: DrawnFont | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.name, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise TypeError("a custom sheet property name is text")
+        if not self.name or not self.name.isprintable() or self.name in {"Sheetname", "Sheetfile"}:
+            raise ValueError("a custom sheet property has a nonempty nonreserved printable name")
+        if not isinstance(self.text, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise TypeError("a custom sheet property value is text")
+        if type(self.hide) is not bool:
+            raise TypeError("a custom sheet property hide flag is boolean")
+        _ = self.pose  # validate the supported pose/font forms using DrawnField
+        if any(type(value) is not int for value in (self.at.x, self.at.y, self.rotation)):
+            raise TypeError("custom sheet property coordinates and rotation are integer units, not booleans")
+
+    @property
+    def pose(self) -> DrawnField:
+        return DrawnField(self.name, self.at, self.rotation, self.justify, self.hide, self.font)
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +215,9 @@ class DrawnLabel:
     at: Point
     rotation: Udeg = 0
     shape: DrawnShape = ""
+    font: DrawnFont | None = None
+    justify: str | None = None
+    """None keeps the legacy role-selected anchor; an explicit empty string centres the text."""
 
     def __post_init__(self) -> None:
         if self.kind not in ("local", "global", "hierarchical"):
@@ -138,6 +226,9 @@ class DrawnLabel:
             raise ValueError("a label has a text")
         _check_point(self.at, f"label {self.text} position")
         _check_angle(self.rotation, ROTATIONS, f"label {self.text} rotation")
+        _check_font(self.font)
+        if self.justify is not None:
+            _check_justify(self.justify, f"label {self.text}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,12 +239,18 @@ class DrawnPin:
     shape: DrawnShape
     at: Point
     rotation: Udeg = 0
+    font: DrawnFont | None = None
+    justify: str | None = None
+    """None keeps the legacy box-edge anchor; an explicit empty string centres the text."""
 
     def __post_init__(self) -> None:
         if not self.name or not self.shape:
             raise ValueError("a sheet pin has a name and a shape")
         _check_point(self.at, f"sheet pin {self.name} position")
         _check_angle(self.rotation, ROTATIONS, f"sheet pin {self.name} rotation")
+        _check_font(self.font)
+        if self.justify is not None:
+            _check_justify(self.justify, f"sheet pin {self.name}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,6 +268,10 @@ class DrawnSheetRef:
     page: str
     file: str = ""
     pins: tuple[DrawnPin, ...] = ()
+    fields: tuple[DrawnField, ...] = ()
+    """Optional Sheetname/Sheetfile poses and effects; their text stays in name/file."""
+    properties: tuple[DrawnSheetProperty, ...] = ()
+    """Ordered custom property texts and poses; never overrides Sheetname or Sheetfile."""
 
     def __post_init__(self) -> None:
         if not self.key or not self.sheet or not self.name:
@@ -178,6 +279,22 @@ class DrawnSheetRef:
         _check_point(self.at, f"sheet reference {self.key} position")
         if self.size.w <= 0 or self.size.h <= 0:
             raise ValueError(f"sheet reference {self.key}: its size must be positive")
+        if not isinstance(self.fields, tuple) or any(  # pyright: ignore[reportUnnecessaryIsInstance]
+            not isinstance(pose, DrawnField)  # pyright: ignore[reportUnnecessaryIsInstance]
+            for pose in self.fields
+        ):
+            raise TypeError("sheet reference fields are a tuple of DrawnField poses")
+        names = tuple(pose.name for pose in self.fields)
+        if len(names) != len(set(names)) or set(names) - {"Sheetname", "Sheetfile"}:
+            raise ValueError("sheet reference fields uniquely name Sheetname or Sheetfile")
+        if not isinstance(self.properties, tuple) or any(  # pyright: ignore[reportUnnecessaryIsInstance]
+            not isinstance(prop, DrawnSheetProperty)  # pyright: ignore[reportUnnecessaryIsInstance]
+            for prop in self.properties
+        ):
+            raise TypeError("sheet reference properties are a tuple of DrawnSheetProperty values")
+        property_names = tuple(prop.name for prop in self.properties)
+        if len(property_names) != len(set(property_names)):
+            raise ValueError("custom sheet property names are unique")
 
 
 @dataclass(frozen=True, slots=True)
@@ -399,6 +516,7 @@ __all__ = [
     "DrawnBusAlias",
     "DrawnBusEntry",
     "DrawnField",
+    "DrawnFont",
     "DrawnInstance",
     "DrawnJunction",
     "DrawnLabel",
@@ -408,6 +526,7 @@ __all__ = [
     "DrawnPower",
     "DrawnSchematic",
     "DrawnSheet",
+    "DrawnSheetProperty",
     "DrawnSheetRef",
     "DrawnShape",
     "DrawnSymbol",

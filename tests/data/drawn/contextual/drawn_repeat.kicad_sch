@@ -1,0 +1,96 @@
+(kicad_sch
+	(version 20250114)
+	(generator "fenolite")
+	(generator_version "9.0")
+	(uuid "a0e7833a-be47-500e-83a0-e5cfff49a3fc")
+	(paper "A4")
+	(lib_symbols)
+	(sheet
+		(at 50.8 50.8)
+		(size 25.4 12.7)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0)
+		)
+		(uuid "7de557d7-0820-563d-a2e3-16b75a3f84aa")
+		(property "Sheetname" "ch0"
+			(at 50.8 49.53 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Sheetfile" "sheets/channel.kicad_sch"
+			(at 50.8 64.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(instances
+			(project "drawn_repeat"
+				(path "/a0e7833a-be47-500e-83a0-e5cfff49a3fc"
+					(page "2")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 50.8 76.2)
+		(size 25.4 12.7)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0)
+		)
+		(uuid "76205c94-0fbd-5a51-9cfb-2231c0b64b4e")
+		(property "Sheetname" "ch1"
+			(at 50.8 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Sheetfile" "sheets/channel_authored_second.kicad_sch"
+			(at 50.8 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(instances
+			(project "drawn_repeat"
+				(path "/a0e7833a-be47-500e-83a0-e5cfff49a3fc"
+					(page "3")
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+	(embedded_fonts no)
+)

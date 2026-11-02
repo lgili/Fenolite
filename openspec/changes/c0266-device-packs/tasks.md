@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living specs this change touches (`fenolite-component-catalog`, `cli-contract`, and `fenolite-library` once c0279 is archived) and the changes it builds on (c0279 phase A, c0259, c0262; c0260, c0261, c0254). Write under this task, with the date and the base commit:
+- [x] 0.1 Read `openspec list`, the living specs this change touches (`fenolite-component-catalog`, `cli-contract`, and `fenolite-library` once c0279 is archived) and the changes it builds on (c0279 phase A, c0259, c0262; c0260, c0261, c0254). Write under this task, with the date and the base commit:
   - c0279's item, provenance and lock-section names as implemented, and whether `fenolite get` copies into `fenolite_library/<kind folder>/`;
   - c0259's record module and `load_tree` rules, and c0262's command and job names used by the library CI;
   - which open change holds a delta of "Build resolves built-in definitions" (regenerate the MODIFIED block from the living text);
@@ -35,6 +35,17 @@ Entry facts (2026-11-01; initial base 8dea6432, resolved prerequisite 7a2f6746):
   serialized receipt yet. Task 0.1 remains unchecked for that actual proof; independent
   CI, native/manual and release criteria are unchanged.
 
+  Entry proof completed 2026-11-02 on `ea762411cbb24bc5f9ba5a16d8b372ae7c720568`: root
+  ran the serialized `make check-fast` from 09:45:03 to 10:17:02 UTC, exit 0
+  (19564 passed, 55 skipped; JUnit records zero failures/errors). Fresh OpenSpec
+  1.16.0 strict validation of this change also passes without warnings. The
+  `a85f7846` entry review was checked against this source: dependencies remain
+  active, no new archival requires rebasing a delta, and the named APIs, accepted
+  decisions and current dispatcher/record contracts still apply.
+  This dated proof supersedes the earlier missing-fast-gate blocker only.
+  Independent CI, native/manual, corpus, external-library and release criteria
+  remain unchanged. The source-bound receipt, log and JUnit hashes are recorded
+  in [the integration validation record](../c0319-integration-repairs/validation.md).
 
 ## 1. Vendored records in the core
 

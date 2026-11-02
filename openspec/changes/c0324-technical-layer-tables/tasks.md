@@ -60,17 +60,28 @@
   Eight authored/metadata/public proofs pass, including complete-CLI agreement
   for rows 03/07 and the unchanged original row-03 full-conversion assertions.
 
-- [ ] 3.1 Repeat strict cached public kit import and explicit build in scratch,
+- [x] 3.1 Repeat strict cached public kit import and explicit build in scratch,
   retaining source hashes, unexpressed findings and all-level verification limits.
   Proof: recorded actual CLI commands/results on the signed source checkpoint,
   no lossy/acceptance/tolerance flags and source bytes unchanged.
-  2026-11-02: actual strict full-project replay on the signed source removes the
+  Earlier 2026-11-02, on `fbec5cd9`: actual strict full-project replay removes the
   two layer-table findings, then refuses at import self-check (exit 5, FEN-5001,
   one import.unequal finding from the written schematic's pin partition). All
   five source files and the copied original remain byte-identical; no converted
   code is written. Explicit build and all-level comparison are not reached, so
   this task remains open on that separate schematic resolver blocker. No
   acceptance or layer/comparison relaxation was added; see validation.md.
+  Passed 2026-11-02 on signed `ea762411cbb24bc5f9ba5a16d8b372ae7c720568`:
+  fresh strict import and its reviewed confirmation exit 0, with no unexpressed
+  items and all 113 planned hashes matching. A separate explicit build and its
+  reviewed confirmation exit 0; all 119 planned hashes match. The five native
+  input files remain byte-identical. Full verification reaches every level:
+  1-7 and S are equal, while three level-8 render-pixels findings retain exit 5.
+  No loss, acceptance or tolerance override was used. Default copy-mode copper
+  checking reports zero shorts, clearance or edge-clearance findings; existing
+  naming, placement, provenance and unjudged-routing notices remain visible.
+  This closes the requested actual replay measurement, not full fidelity or
+  task 3.2's combined CI gate. Exact commands and boundaries are in validation.md.
 - [ ] 3.2 Run the serial combined complete gate and required exact-head CI.
   Proof: root's complete local gate and successful required CI jobs on the exact
   published candidate. No local focused proof substitutes for this gate.

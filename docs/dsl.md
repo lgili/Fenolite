@@ -2236,6 +2236,10 @@ design.load_schematic("schematic.toml")
   it otherwise. `dsl.drawn_schematic(design)` gives the path, or `None` for a generated schematic.
 - `fenolite sync --to-source` copies a drawing edited in KiCad back into the file, and
   `--freeze-schematic` writes it from a generated schematic once.
+- **`symbol_contexts="symbol-contexts.toml"`** requires the sibling native snapshot index for
+  imported local property variants (c0327, `docs/symbol-contexts.md`). It records only a DSL input:
+  model/S fields stay unchanged. Missing/stale/unsafe bindings refuse; build/sync plans bind every
+  index and asset. Contextual projects require KiCad schematic output in this phase.
 
 ## Reference designators and the design lock
 

@@ -101,6 +101,9 @@
         },
         "hide": {
           "type": "boolean"
+        },
+        "font": {
+          "$ref": "#/$defs/font"
         }
       },
       "required": [
@@ -113,6 +116,38 @@
       "additionalProperties": {
         "$ref": "#/$defs/field"
       }
+    },
+    "font": {
+      "type": "object",
+      "properties": {
+        "size": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "[width, height] in millimetres, positive whole nanometres"
+        },
+        "thickness": {
+          "type": "number",
+          "minimum": 0
+        },
+        "bold": {
+          "type": "boolean"
+        },
+        "italic": {
+          "type": "boolean"
+        },
+        "face": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Font name only; no control characters or filesystem paths"
+        }
+      },
+      "minProperties": 1,
+      "additionalProperties": false
     },
     "junction": {
       "type": "object",
@@ -165,6 +200,12 @@
             "passive",
             "tri_state"
           ]
+        },
+        "font": {
+          "$ref": "#/$defs/font"
+        },
+        "justify": {
+          "type": "string"
         }
       },
       "required": [
@@ -228,6 +269,12 @@
             180,
             270
           ]
+        },
+        "font": {
+          "$ref": "#/$defs/font"
+        },
+        "justify": {
+          "type": "string"
         }
       },
       "required": [
@@ -385,6 +432,18 @@
       ],
       "additionalProperties": false
     },
+    "sheet_fields": {
+      "type": "object",
+      "properties": {
+        "Sheetname": {
+          "$ref": "#/$defs/field"
+        },
+        "Sheetfile": {
+          "$ref": "#/$defs/field"
+        }
+      },
+      "additionalProperties": false
+    },
     "sheet_ref": {
       "type": "object",
       "properties": {
@@ -411,6 +470,18 @@
         },
         "page": {
           "type": "string"
+        },
+        "fields": {
+          "$ref": "#/$defs/sheet_fields"
+        },
+        "properties": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^(?!Sheetname$|Sheetfile$).+$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/sheet_property"
+          }
         },
         "pin": {
           "type": "array",
@@ -520,6 +591,44 @@
       },
       "required": [
         "pts"
+      ],
+      "additionalProperties": false
+    },
+    "sheet_property": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "at": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "[x, y] in millimetres, whole nanometres"
+        },
+        "rotation": {
+          "type": "integer",
+          "enum": [
+            0,
+            90
+          ]
+        },
+        "justify": {
+          "type": "string"
+        },
+        "hide": {
+          "type": "boolean"
+        },
+        "font": {
+          "$ref": "#/$defs/font"
+        }
+      },
+      "required": [
+        "text",
+        "at"
       ],
       "additionalProperties": false
     }

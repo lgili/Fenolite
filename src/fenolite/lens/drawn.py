@@ -34,6 +34,7 @@ from fenolite.model.drawn import (
     DrawnBusAlias,
     DrawnBusEntry,
     DrawnField,
+    DrawnFont,
     DrawnJunction,
     DrawnLabel,
     DrawnOpaque,
@@ -41,6 +42,7 @@ from fenolite.model.drawn import (
     DrawnPower,
     DrawnSchematic,
     DrawnSheet,
+    DrawnSheetProperty,
     DrawnSheetRef,
     DrawnSymbol,
 )
@@ -53,16 +55,20 @@ SHEET_KEYS: tuple[str, ...] = (
     "no_connect", "label", "bus_alias", "sheet_ref", "opaque",
 )  # fmt: skip
 SYMBOL_KEYS: tuple[str, ...] = ("part", "unit", "at", "rotation", "mirror", "symbol", "fields")
-FIELD_KEYS: tuple[str, ...] = ("at", "rotation", "justify", "hide")
+FIELD_KEYS: tuple[str, ...] = ("at", "rotation", "justify", "hide", "font")
+SHEET_PROPERTY_KEYS: tuple[str, ...] = ("text", *FIELD_KEYS)
+FONT_KEYS: tuple[str, ...] = ("size", "thickness", "bold", "italic", "face")
 POWER_KEYS: tuple[str, ...] = ("symbol", "net", "at", "rotation", "mirror", "fields")
 POLYLINE_KEYS: tuple[str, ...] = ("pts",)
 BUS_ENTRY_KEYS: tuple[str, ...] = ("at", "size")
 JUNCTION_KEYS: tuple[str, ...] = ("at", "diameter")
 NO_CONNECT_KEYS: tuple[str, ...] = ("at",)
-LABEL_KEYS: tuple[str, ...] = ("kind", "text", "at", "rotation", "shape")
+LABEL_KEYS: tuple[str, ...] = ("kind", "text", "at", "rotation", "shape", "font", "justify")
 BUS_ALIAS_KEYS: tuple[str, ...] = ("name", "members")
-SHEET_REF_KEYS: tuple[str, ...] = ("key", "sheet", "module", "name", "file", "at", "size", "page", "pin")
-PIN_KEYS: tuple[str, ...] = ("name", "shape", "at", "rotation")
+SHEET_REF_KEYS: tuple[str, ...] = (
+    "key", "sheet", "module", "name", "file", "at", "size", "page", "fields", "properties", "pin",
+)  # fmt: skip
+PIN_KEYS: tuple[str, ...] = ("name", "shape", "at", "rotation", "font", "justify")
 OPAQUE_KEYS: tuple[str, ...] = ("kicad", "altium")
 TITLE_KEYS: tuple[str, ...] = (*TITLE_FIELDS, "params")
 CLOSED_KEYS: Mapping[str, tuple[str, ...]] = {
@@ -71,6 +77,8 @@ CLOSED_KEYS: Mapping[str, tuple[str, ...]] = {
     "title_block": TITLE_KEYS,
     "symbol": SYMBOL_KEYS,
     "field": FIELD_KEYS,
+    "sheet_property": SHEET_PROPERTY_KEYS,
+    "font": FONT_KEYS,
     "power": POWER_KEYS,
     "wire": POLYLINE_KEYS,
     "bus": POLYLINE_KEYS,
@@ -89,7 +97,7 @@ SHEET_KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_.-]*")
 SHAPES: frozenset[str] = frozenset({"input", "output", "bidirectional", "tri_state", "passive"})
 PAPERS: tuple[str, ...] = tuple(p for p in get_args(PaperSize) if p != "custom")
 """The papers of a drawn sheet: the named papers of ``SheetFrameRef``."""
-_NM = Decimal(1_000_000)
+_NM = 1_000_000
 _UDEG = 1_000_000
 
 Table = Mapping[str, Any]
@@ -130,10 +138,14 @@ class _Reader:
     def length(self, value: object, where: str) -> int:
         if isinstance(value, bool) or not isinstance(value, (int, Decimal)):
             raise self.fail(where, f"a length is a number of millimetres, not {value!r}")
-        scaled = Decimal(value) * _NM
-        if not scaled.is_finite() or scaled != scaled.to_integral_value():
+        number = Decimal(value)
+        if not number.is_finite():
             raise self.fail(where, f"{value} mm is not a whole number of nanometres")
-        return int(scaled)
+        numerator, denominator = number.as_integer_ratio()
+        whole, remainder = divmod(numerator * _NM, denominator)
+        if remainder:
+            raise self.fail(where, f"{value} mm is not a whole number of nanometres")
+        return whole
 
     def point(self, value: object, where: str) -> Point:
         if not isinstance(value, list) or len(cast(list[object], value)) != 2:
@@ -156,26 +168,60 @@ class _Reader:
             raise self.fail(f"{where}.{key}", f"{key} is an array of tables")
         return [(f"{where}.{key}[{i}]", item) for i, item in enumerate(cast(list[object], value))]
 
-    def fields(self, data: Table, where: str) -> tuple[DrawnField, ...]:
+    def justify(self, data: Table, where: str) -> str:
+        value = self.text(data, "justify", where, "")
+        if any(word not in JUSTIFY_WORDS for word in value.split()) or value != " ".join(value.split()):
+            raise self.fail(f"{where}.justify", f"justify {value!r} is words of {sorted(JUSTIFY_WORDS)}")
+        return value
+
+    def font(self, data: Table, where: str) -> DrawnFont | None:
+        if "font" not in data:
+            return None
+        at = f"{where}.font"
+        font = self.table(data["font"], at, "font", ())
+        if not font:
+            raise self.fail(at, "an empty font is absent; leave out the font key")
+        size = None
+        if "size" in font:
+            pair = self.point(font["size"], f"{at}.size")
+            if pair.x <= 0 or pair.y <= 0:
+                raise self.fail(f"{at}.size", "font width and height must be positive")
+            size = Size(pair.x, pair.y)
+        thickness = self.length(font["thickness"], f"{at}.thickness") if "thickness" in font else None
+        if thickness is not None and thickness < 0:
+            raise self.fail(f"{at}.thickness", "font thickness cannot be negative")
+        face = self.text(font, "face", at) if "face" in font else None
+        try:
+            return DrawnFont(
+                size,
+                thickness,
+                self.boolean(font, "bold", at) if "bold" in font else None,
+                self.boolean(font, "italic", at) if "italic" in font else None,
+                face,
+            )
+        except ValueError as error:
+            raise self.fail(f"{at}.face" if face is not None else at, str(error)) from error
+
+    def fields(
+        self, data: Table, where: str, *, names: frozenset[str] | None = None
+    ) -> tuple[DrawnField, ...]:
         value = data.get("fields", {})
         if not isinstance(value, dict):
             raise self.fail(f"{where}.fields", "fields is a table of field poses")
         found: list[DrawnField] = []
         for name, raw in cast(dict[str, object], value).items():
             at = f"{where}.fields.{name}"
+            if names is not None and name not in names:
+                raise self.fail(at, f"sheet property is one of {sorted(names)}, not {name!r}")
             pose = self.table(raw, at, "field", ("at",))
-            justify = self.text(pose, "justify", at, "")
-            if any(word not in JUSTIFY_WORDS for word in justify.split()) or justify != " ".join(
-                justify.split()
-            ):
-                raise self.fail(f"{at}.justify", f"justify {justify!r} is words of {sorted(JUSTIFY_WORDS)}")
             found.append(
                 DrawnField(
                     name,
                     self.point(pose["at"], f"{at}.at"),
                     self.angle(pose, "rotation", at, FIELD_ROTATIONS),
-                    justify,
+                    self.justify(pose, at),
                     self.boolean(pose, "hide", at),
+                    self.font(pose, at),
                 )
             )
         return tuple(found)
@@ -186,6 +232,30 @@ class _Reader:
         if not isinstance(points, list) or len(cast(list[object], points)) < 2:
             raise self.fail(f"{where}.pts", f"a {kind} has two or more points")
         return tuple(self.point(p, f"{where}.pts[{i}]") for i, p in enumerate(cast(list[object], points)))
+
+    def properties(self, data: Table, where: str) -> tuple[DrawnSheetProperty, ...]:
+        value = data.get("properties", {})
+        if not isinstance(value, dict):
+            raise self.fail(f"{where}.properties", "properties is a table of custom sheet properties")
+        found: list[DrawnSheetProperty] = []
+        for name, raw in cast(dict[str, object], value).items():
+            at = f"{where}.properties.{name}"
+            prop = self.table(raw, at, "sheet_property", ("text", "at"))
+            try:
+                found.append(
+                    DrawnSheetProperty(
+                        name,
+                        self.text(prop, "text", at),
+                        self.point(prop["at"], f"{at}.at"),
+                        self.angle(prop, "rotation", at, FIELD_ROTATIONS),
+                        self.justify(prop, at),
+                        self.boolean(prop, "hide", at),
+                        self.font(prop, at),
+                    )
+                )
+            except (TypeError, ValueError) as error:
+                raise self.fail(at, str(error)) from error
+        return tuple(found)
 
     def shape(self, data: Table, where: str, *, required: bool) -> str:
         value = self.text(data, "shape", where, "")
@@ -332,6 +402,8 @@ class _Reader:
             self.point(data["at"], f"{where}.at"),
             self.angle(data, "rotation", where, ROTATIONS),
             shape,  # type: ignore[arg-type]
+            self.font(data, where),
+            self.justify(data, where) if "justify" in data else None,
         )
 
     def sheet_ref(self, raw: object, where: str) -> DrawnSheetRef:
@@ -360,6 +432,8 @@ class _Reader:
                     self.shape(table, at, required=True),  # type: ignore[arg-type]
                     self.point(table["at"], f"{at}.at"),
                     self.angle(table, "rotation", at, ROTATIONS),
+                    self.font(table, at),
+                    self.justify(table, at) if "justify" in table else None,
                 )
             )
         return DrawnSheetRef(
@@ -372,6 +446,8 @@ class _Reader:
             self.text(data, "page", where),
             self.text(data, "file", where, ""),
             tuple(pins),
+            self.fields(data, where, names=frozenset({"Sheetname", "Sheetfile"})),
+            self.properties(data, where),
         )
 
 

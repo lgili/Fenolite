@@ -246,6 +246,14 @@ of both, in sorted order, whose group of common pins differs gives one `drawn-ne
 Lengths match within `--tolerance-nm` per coordinate and angles within `--tolerance-udeg`. A field pose that
 one side leaves to the target gives `symbol-field` with an empty side.
 
+Typed fonts are compared attribute by attribute (`font.size`, `thickness`, `bold`, `italic`, `face`),
+including symbol/power fields, labels, sheet pins and sheet-name/file fields. Symbol differences use
+`fields.<name>.font.<attribute>`; other items use `item-field` with their located attribute. Explicit
+label/pin centring differs from the legacy role-selected anchor. Native extraction first normalizes
+the effective default spellings established for that target; the backend-independent comparison
+does not guess native defaults or change canonical `None`/false/zero presence. No absent style adds
+a new difference attribute. Sheet-property poses are observable too; their texts stay code-owned.
+
 ## Kinds of difference
 
 A difference is `{level, kind, where, field, a, b}`. `a` and `b` are the two values as exact strings: text
@@ -322,7 +330,7 @@ level are sorted by `where`, then kind.
 | S | `sheet-missing` | `sheet` | a sheet instance that only one side holds |
 | S | `symbol-missing` | `symbol` | a symbol unit that only one side draws |
 | S | `symbol-pose` | the field | the position, rotation or mirror of a matched symbol differs |
-| S | `symbol-field` | the field | the pose of a field of a matched symbol differs |
+| S | `symbol-field` | the field | the pose or effective font of a field of a matched symbol differs |
 | S | `item-missing` | the item kind | a wire, bus, bus entry, junction, no-connect flag, label, power symbol, sheet reference, sheet pin or opaque item that only one side holds |
 | S | `item-field` | the field | an attribute of a matched item (label, power symbol, junction, bus entry, sheet reference and its pins) or the paper or title block of a sheet differs |
 | S | `drawn-net` | `net` | the drawn connectivity differs (a `REF-PIN` in another group) |

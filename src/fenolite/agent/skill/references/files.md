@@ -127,6 +127,7 @@ Power poses preserve `mirror = "x"` or `"y"`; level S compares that mirror too.
 Pinless native graphic symbols and excluded visible passive instances stay opaque; active electrical symbols refuse.
 Bare embedded aliases keep native geometry under the source library namespace (`_Source` if absent).
 A drawn unit's optional `symbol` selects a compatible native body; sync retains it, including pin-pad variants.
+For local metadata snapshots, read `guide equivalent-s`.
 
 Imported physical variants keep the native `footprint` name and select local geometry with
 `footprint_definition`. This keyword needs an explicit symbol and footprint; device/query parts and

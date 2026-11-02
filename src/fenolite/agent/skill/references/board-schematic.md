@@ -70,6 +70,11 @@ that means other nets. After you redraw in KiCad, copy the drawing back; a gener
 fenolite sync blink/design.py --out build/blink --to-source --freeze-schematic --dry-run --json
 ```
 
+Custom sheet-reference metadata uses `properties.<name>` with required `text` and `at`,
+plus optional pose/font. Sheetname/Sheetfile remain code-owned; custom properties cannot override them.
+Keep unsupported data visible as a refusal instead of dropping it. Empty text is preserved,
+and these properties never add an electrical connection. See `docs/drawn-schematic.md`.
+
 ## Rails, levels and interfaces in the script
 
 State each supply's voltage once, and the operating range, draw and thresholds of each port from the

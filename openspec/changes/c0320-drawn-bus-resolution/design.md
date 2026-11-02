@@ -86,3 +86,21 @@ position, also when the written Q range is reversed. The first equal-base
 controls did not distinguish those rules. Correct only the top-level vector
 identity to that measured position and rerun existing controls/public rows.
 Keep the literal nested-group distinction and disconnected-bus negatives.
+
+## Repeated unnamed parent buses — Decided 2026-11-02
+
+The signed c0329 VME replay reaches all 6811 pins but still overjoins nets
+(own 1700 groups, native 1800). An original repeated-sheet control on native
+10.0.6 reproduces one bounded cause: two disconnected parent bus islands with
+equal `{FB}` sheet ports remain separate. One actual parent bus label does not
+join the other island either; two equal actual bus labels or a physical bus
+connection do join them. The unchanged resolver fails the two isolation cases
+and passes the four legitimate-join controls.
+
+At the KiCad boundary only, a sheet-port-only member must not invent a parent
+scalar alias. Preserve a join to an actual same-sheet scalar label, or to a
+member explicitly declared by an actual bus label on that same connected bus.
+Bus-member identities still join within a physical bus, and existing global/
+hierarchical scope nodes remain unchanged. An explicit private policy keeps
+generic and Altium behavior byte-for-byte unchanged. Prove both installed
+native versions and source preservation before another clean public replay.

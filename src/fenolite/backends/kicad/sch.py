@@ -29,7 +29,7 @@ from types import MappingProxyType
 from typing import Any, get_args
 
 from fenolite.backends.base import RoundTrip, WriteResult
-from fenolite.backends.kicad import _pcbwrite, resolver, schlayout
+from fenolite.backends.kicad import _drawn_font, _drawn_style, _pcbwrite, resolver, schlayout
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad._fpmap import angle_atom, node, point_node
 from fenolite.backends.kicad._libread import (
@@ -65,11 +65,12 @@ from fenolite.backends.kicad.versions import (
     require_editable,
 )
 from fenolite.core.coords import Point, Size
-from fenolite.core.errors import Issue, Severity
+from fenolite.core.errors import FormatError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import content_hash, content_id, derived_id
 from fenolite.model.base import Entity, ExtBag, Modeled, Opaque, Slot
 from fenolite.model.canonical import to_data
+from fenolite.model.drawn import DrawnFont
 from fenolite.model.library import SymbolDef
 from fenolite.model.presentation import SheetFrameRef
 from fenolite.model.schematic import (
@@ -121,7 +122,7 @@ SHEET_TEXT_GAP = 1_270_000
 """The properties of a created sheet reference lie this far above and below its box."""
 SHEET_FILL = "(fill (color 0 0 0 0.0))"
 """A created sheet reference has no fill colour: KiCad draws it in the colour of its theme."""
-"""The height and width of every text a created sheet writes (KiCad's default, 50 mil)."""
+"""The legacy default text height/width (50 mil); explicit drawn fonts keep their own dimensions."""
 FIRST_PROPERTIES: tuple[str, ...] = ("Reference", "Value", "Footprint", "Datasheet", "Description")
 VISIBLE_PROPERTIES: frozenset[str] = frozenset({"Reference", "Value"})
 INTERSHEET = ("Intersheetrefs", "${INTERSHEET_REFS}")
@@ -1059,31 +1060,61 @@ class FieldPose:
     rotation: int = 0
     justify: str = ""
     hide: bool = False
+    font: DrawnFont | None = None
 
 
 def field_pose_ext(poses: Sequence[FieldPose]) -> ExtBag:
     """The ``DRAWN_EXT`` bag that carries ``poses`` on a created symbol instance."""
-    return ExtBag(
-        None,
-        tuple(
-            (
-                "field",
-                "\x1f".join((p.name, str(p.at.x), str(p.at.y), str(p.rotation), p.justify, str(int(p.hide)))),
-            )
-            for p in poses
-        ),
+    legacy = tuple(
+        (
+            "field",
+            "\x1f".join((p.name, str(p.at.x), str(p.at.y), str(p.rotation), p.justify, str(int(p.hide)))),
+        )
+        for p in poses
     )
+    fonts = tuple(
+        (_drawn_style.FIELD_FONT, _drawn_style.font_payload(p.font, name=p.name))
+        for p in poses
+        if p.font is not None
+    )
+    return ExtBag(None, (*legacy, *fonts))
 
 
-def field_poses(symbol: SymbolInstance) -> dict[str, FieldPose]:
+def field_poses(symbol: SymbolInstance | SheetRef) -> dict[str, FieldPose]:
     """The field poses a drawn schematic gives ``symbol``, by field name; empty for a generated symbol."""
     bag = symbol.ext.get(DRAWN_EXT)
+    texts = _drawn_style.sheet_property_texts(symbol)
+    if texts and not isinstance(symbol, SheetRef):
+        raise FormatError("custom sheet property text cannot override a symbol field")
     found: dict[str, FieldPose] = {}
+    fonts: dict[str, DrawnFont] = {}
     for key, value in bag.payload if bag is not None else ():
+        if key == _drawn_style.FIELD_FONT:
+            name, font = _drawn_style.read_font(value, named=True, where=f"{DRAWN_EXT}.{key}")
+            assert name is not None
+            if name in fonts:
+                raise FormatError(f"repeated drawn font for field {name!r}", locator=f"{DRAWN_EXT}.{key}")
+            fonts[name] = font
+            continue
+        if _drawn_style.style_key(key):
+            raise FormatError(f"unsupported drawn field style {key!r}", locator=f"{DRAWN_EXT}.{key}")
         if key != "field":
             continue
-        name, x, y, rotation, justify, hide = value.split("\x1f")
-        found[name] = FieldPose(name, Point(int(x), int(y)), int(rotation), justify, hide == "1")
+        try:
+            name, x, y, rotation, justify, hide = value.split("\x1f")
+            if name in found or hide not in {"0", "1"}:
+                raise ValueError("a field pose has a unique name and hide 0 or 1")
+            found[name] = FieldPose(name, Point(int(x), int(y)), int(rotation), justify, hide == "1")
+        except ValueError as error:
+            raise FormatError(
+                f"invalid legacy drawn field pose: {error}", locator=f"{DRAWN_EXT}.field"
+            ) from error
+    for name, font in fonts.items():
+        if name not in found:
+            raise FormatError(
+                f"drawn font has no field pose {name!r}", locator=f"{DRAWN_EXT}.{_drawn_style.FIELD_FONT}"
+            )
+        found[name] = dataclasses.replace(found[name], font=font)
     return found
 
 
@@ -1230,29 +1261,45 @@ def _udeg(text: str) -> int:
 
 def symbol_field_poses(symbol: SymbolInstance) -> tuple[FieldPose, ...]:
     """The pose of each ``property`` of a read symbol instance, in file order: its point and angle, its
-    justification and whether it is hidden (``hide`` as a child of the property, 10.0, or of ``effects``,
-    9.0). A property whose numbers are not whole nanometres is left out."""
+    justification, supported effective font and whether it is hidden (``hide`` as a child of the
+    property, 10.0, or of ``effects``, 9.0). Unsupported fonts refuse explicitly. A property whose
+    pose numbers are not whole nanometres is left out."""
+    return _source_field_poses(symbol)
+
+
+def _source_properties(symbol: SymbolInstance | SheetRef) -> tuple[Node, ...]:
     bag = symbol.ext.get("kicad")
-    found: list[FieldPose] = []
+    found: list[Node] = []
     for slot in slotlib.from_ext(bag, ".") if bag is not None else ():
         if not isinstance(slot, Opaque) or not slot.fragment.startswith("(property"):
             continue
-        item = parse(slot.fragment)
+        found.append(parse(slot.fragment))
+    return tuple(found)
+
+
+def _source_field_poses(symbol: SymbolInstance | SheetRef) -> tuple[FieldPose, ...]:
+    found: list[FieldPose] = []
+    for item in _source_properties(symbol):
         named = leading_atoms(item)
         at = item.find("at")
         if not named or at is None:
             continue
         effects = item.find("effects")
         hidden = _hidden(item) or (effects is not None and _hidden(effects))
-        justify = effects.find("justify") if effects is not None else None
+        name = named[0].value
+        file = symbol.provenance.file if symbol.provenance is not None else ""
+        shown = symbol.ref or symbol.lib_ref if isinstance(symbol, SymbolInstance) else symbol.name
+        font = _drawn_font.read_font(
+            item, default_nm=TEXT_SIZE, where=f"{shown}.fields.{name}.font", file=file
+        )
         try:
             atoms = at.atoms()
             point = Point(atoms[0].to_nm(), atoms[1].to_nm())
             rotation = _udeg(atoms[2].text) if len(atoms) > 2 else 0
         except (ValueError, IndexError):
             continue
-        words = " ".join(a.value for a in justify.atoms()) if justify is not None else ""
-        found.append(FieldPose(named[0].value, point, rotation, words, hidden))
+        words = _drawn_font.read_justify(item, where=f"{shown}.fields.{name}.justify", file=file)
+        found.append(FieldPose(name, point, rotation, words, hidden, font))
     return tuple(found)
 
 
@@ -1292,13 +1339,20 @@ def gate_created(root: Node, target: int, allow_lossy: bool, issues: list[Issue]
     return root
 
 
-def _font(*extra: Node) -> Node:
-    size = node("size", Atom.from_nm(TEXT_SIZE), Atom.from_nm(TEXT_SIZE))
-    return node("effects", node("font", size), *extra)
+def _font(*extra: Node, font: DrawnFont | None = None) -> Node:
+    return node("effects", _drawn_font.font_node(font, default_nm=TEXT_SIZE), *extra)
 
 
 def _property(
-    key: str, text: str, at: Point, *, ten: bool, hidden: bool, justify: str = "", angle: int = 0
+    key: str,
+    text: str,
+    at: Point,
+    *,
+    ten: bool,
+    hidden: bool,
+    justify: str = "",
+    angle: int = 0,
+    font: DrawnFont | None = None,
 ) -> Node:
     """One ``property`` of a created item: ``hide`` is a child of the property for target 10 and a child
     of ``effects`` for target 9, and target 10 also gets ``show_name`` and ``do_not_autoplace``."""
@@ -1306,9 +1360,14 @@ def _property(
     side = [node("justify", *(Atom.symbol(word) for word in justify.split()))] if justify else []
     children: list[Node | Atom] = [Atom.string(key), Atom.string(text), _at(at, angle)]
     if ten:
-        children += [_yes_no("show_name", False), _yes_no("do_not_autoplace", False), *hide, _font(*side)]
+        children += [
+            _yes_no("show_name", False),
+            _yes_no("do_not_autoplace", False),
+            *hide,
+            _font(*side, font=font),
+        ]
     else:
-        children.append(_font(*side, *hide))
+        children.append(_font(*side, *hide, font=font))
     return node("property", *children)
 
 
@@ -1402,6 +1461,7 @@ def _created_symbol(
                     hidden=pose.hide,
                     justify=pose.justify,
                     angle=pose.rotation,
+                    font=pose.font,
                 )
             )
             continue
@@ -1447,13 +1507,15 @@ def _created_symbol(
 
 def _created_label(label: NetLabel, ten: bool) -> Node:
     head = next(h for h, kind in LABEL_HEADS.items() if kind == label.kind)
-    justify = "left" if label.rotation in (0, 90_000_000) else "right"
+    font, explicit = _drawn_style.text_style(label)
+    justify = explicit if explicit is not None else _drawn_font.label_justify(label.rotation)
+    alignment = [node("justify", *(Atom.symbol(word) for word in justify.split()))] if justify else []
     children: list[Node | Atom] = [Atom.string(label.name)]
     if label.shape:
         children.append(node("shape", Atom.symbol(label.shape)))
     children += [
         _at(label.position, label.rotation),
-        _font(node("justify", Atom.symbol(justify))),
+        _font(*alignment, font=font),
         node("uuid", Atom.string(kicad_uuid(label))),
     ]
     if ten and label.kind == "global":
@@ -1503,14 +1565,16 @@ def _created_bus_alias(alias: BusAlias) -> Node:
 def _created_sheet_pin(ref: SheetRef, pin: SheetPin) -> Node:
     """A pin of a created sheet reference: name, shape, ``at``, a uuid and ``effects`` justified away from
     the box edge it stands on (``H-K-SCH-BLOCK-PINS``)."""
-    justify = "left" if pin.rotation in (180_000_000, 270_000_000) else "right"
+    font, explicit = _drawn_style.text_style(pin)
+    justify = explicit if explicit is not None else _drawn_font.pin_justify(pin.rotation)
+    alignment = [node("justify", *(Atom.symbol(word) for word in justify.split()))] if justify else []
     return node(
         "pin",
         Atom.string(pin.name),
         Atom.symbol(pin.shape),
         _at(pin.position, pin.rotation),
         node("uuid", Atom.string(kicad_uuid(pin))),
-        _font(node("justify", Atom.symbol(justify))),
+        _font(*alignment, font=font),
     )
 
 
@@ -1520,6 +1584,40 @@ def _created_sheet_ref(ref: SheetRef, ten: bool) -> Node:
     items, _ = _emit_sheet_ref(ref)
     above = Point(ref.position.x, ref.position.y - SHEET_TEXT_GAP)
     below = Point(ref.position.x, ref.position.y + ref.size.h + SHEET_TEXT_GAP)
+    poses = field_poses(ref)
+    properties: list[Node] = []
+    for key, text, default in (("Sheetname", ref.name, above), ("Sheetfile", ref.file, below)):
+        pose = poses.get(key)
+        properties.append(
+            _property(
+                key,
+                text,
+                pose.at if pose is not None else default,
+                ten=ten,
+                hidden=pose.hide if pose is not None else False,
+                justify=pose.justify if pose is not None else "left",
+                angle=pose.rotation if pose is not None else 0,
+                font=pose.font if pose is not None else None,
+            )
+        )
+    for key, text in _drawn_style.sheet_property_texts(ref):
+        if text == "~" and not ten:
+            raise FormatError("literal tilde custom sheet text cannot be represented by KiCad 9", locator=key)
+        pose = poses.get(key)
+        if pose is None:
+            raise FormatError("custom sheet property text has no matching pose", locator=key)
+        properties.append(
+            _property(
+                key,
+                text,
+                pose.at,
+                ten=ten,
+                hidden=pose.hide,
+                justify=pose.justify,
+                angle=pose.rotation,
+                font=pose.font,
+            )
+        )
     projects: dict[str, list[Node]] = {}
     for use in ref.uses:
         projects.setdefault(use.project, []).append(
@@ -1536,8 +1634,7 @@ def _created_sheet_ref(ref: SheetRef, ten: bool) -> Node:
         node("stroke", node("width", Atom.from_nm(0)), node("type", Atom.symbol("solid"))),
         parse(SHEET_FILL),
         node("uuid", Atom.string(kicad_uuid(ref))),
-        _property("Sheetname", ref.name, above, ten=ten, hidden=False, justify="left"),
-        _property("Sheetfile", ref.file, below, ten=ten, hidden=False, justify="left"),
+        *properties,
         *(_created_sheet_pin(ref, pin) for pin in ref.pins),
         node("instances", *(node("project", Atom.string(p), *paths) for p, paths in projects.items())),
     )

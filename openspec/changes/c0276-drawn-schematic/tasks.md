@@ -316,6 +316,12 @@
   2026-11-01: the concrete compile/export/save kit is documented and its metadata proof passed.
   The maintainer reports Altium unavailable, so actual application acceptance and this gate remain
   open; `H-A-DRAWN-WRITE` stays `INFERRED`. No old author report is reused as a drawn-sheet result.
+  2026-11-02: actual Altium 22.2.1 compiles all six authored original cases;
+  complete native pin partitions equal code, including after new-copy native
+  save/reopen. c0331 repairs the full fixture's invalid bus alias and proves a
+  connected boundary plus an independently broken native control. Original
+  source ERC and raw name findings remain, so the no-connectivity-message
+  criterion and this task stay open. See `docs/evidence/altium-drawn-native.md`.
 
 ## 7. Evidence
 
@@ -344,6 +350,16 @@
   follow the dated design decision. Local 9.0.2 results, explicit refusals or a completed census
   do not establish native 10.0.6 equality or close this literal CI proof.
   The actual failed `9c44f7a2` measurement and its limits are recorded under 7.3 below.
+  2026-11-02 owner-context replay: the clean signed `ce3b999244af8e6a246f9457289ef6b5023bba05`
+  producer, all 132 schematic and 54 project hashes verified, actual native 9.0.2: 41 failed,
+  51 passed, 38 incompatible-tag skips in 1276.45 s (exit 1). All 130 per-row records and owner
+  instance maps are in `docs/evidence/drawn-context.json`. Thirty-six VME rows retain the real
+  owner's conflicting-definition refusal; five formats remain below the reader floor. All 51
+  compared row contexts match in all three complete partition comparisons; 21 row contexts
+  still have naming warnings. Missing comparisons are not zero differences. There are no
+  missing/invalid cache cases, internal errors or retained CAD files. The earlier `695dee0f`
+  diagnostic and byte-identical `9c44f7a2` artifact remain separate. Task 7.2 remains open for
+  source coverage and actual required versioned CI; neither native 10 nor full CI is claimed.
 
 - [x] 7.3 Implement and prove the census driver/comparison/privacy controls with authored CC0 inputs,
   preserving every production drawn/model field and strict native contract; retain the actual measured
@@ -375,7 +391,7 @@
   owner hierarchy and record per-row owner/export-root/instance bindings. Keep standalone/orphan,
   missing, unsupported and ambiguous contexts explicit; do not remove a row, pin or finding.
   Fetch the declared owner project inputs in both KiCad jobs and require their exact hashes.
-  Proof: `uv run pytest tests/unit/test_drawn_census.py tests/unit/test_drawn_context.py -q`;
+  Proof: `uv run pytest tests/unit/test_drawn_census.py tests/unit/test_drawn_context.py tests/unit/test_drawn_context_evidence.py -q`;
   `uv run pytest tests/kicad/schematic/test_drawn_context.py -q` on the actual installed CLI.
   Record the cache-complete `695dee0f` leaf-root run separately before a fresh context-correct rerun.
   This driver proof does not close task 7.2's strict corpus equality in both required CI jobs.
@@ -387,6 +403,11 @@
   post-lowering guards in the earlier `695dee0f` run were artificial child-as-root contexts;
   native owner selection does not weaken any production resolver, reader-floor or definition guard.
   The 130-row source-bound rerun and its exact required CI proof remain task 7.2, unchecked.
+  The final combined authored/workflow group passed 74 cases in 5.72 s; four existing
+  source-conflict, incompatible-binding and electrical-pin guards passed in 5.54 s. The
+  source-bound local measurement remains failed as recorded under 7.2; artifact-integrity
+  controls verify both new observations and preserve the original historical artifact hash.
+  The expanded literal proof, including artifact-integrity controls, passes 28 cases in 5.58 s.
 
 ## 8. Documentation and guide
 

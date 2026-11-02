@@ -739,6 +739,8 @@ class Design(Container):
         self.drawn_source: str | None = None
         """The drawn schematic of ``load_schematic()``, as the script names it: a path relative to its
         folder (change c0276)."""
+        self.symbol_context_source: str | None = None
+        """Required contextual native symbol index; DSL input only, never part of the model (c0327)."""
         self.copper_intents: dict[str, Recorded] = {}
         """Copper intents by key, as recorded by ``track()``, ``via()`` and ``stitch()``."""
         self.meander_intents: dict[str, MeanderIntent] = {}
@@ -1560,7 +1562,7 @@ class Design(Container):
                 f"sheet(): drawing_sheet {path!r} must be a path inside the folder of the design script"
             )
 
-    def load_schematic(self, path: str) -> None:
+    def load_schematic(self, path: str, *, symbol_contexts: str | None = None) -> None:
         """Draw the schematic from ``path``, a ``schematic.toml`` beside the script (schema
         ``fenolite.drawn-schematic.v0``, ``docs/drawn-schematic.md``) instead of generating it. The file is
         read by ``fenolite build``, which proves that the drawing means the nets of the script; the script
@@ -1574,7 +1576,14 @@ class Design(Container):
             raise DslError(
                 f"load_schematic(): {path!r} must be a path inside the folder of the design script"
             )
+        if symbol_contexts is not None:
+            wanted = "/".join((*parts[:-1], "symbol-contexts.toml"))
+            if symbol_contexts != wanted or "\\" in path or any(ord(c) < 32 for c in path):
+                raise DslError(
+                    "load_schematic(): symbol_contexts must name symbol-contexts.toml beside the drawing"
+                )
         self.drawn_source = path
+        self.symbol_context_source = symbol_contexts
 
     def title_block(
         self,

@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living specs this change touches (`cli-contract`, and `design-testing` once c0256 is archived) and the changes it builds on (c0251, c0253, c0254, c0256, c0268; c0271, c0273). Write under this task, with the date and the base commit:
+- [x] 0.1 Read `openspec list`, the living specs this change touches (`cli-contract`, and `design-testing` once c0256 is archived) and the changes it builds on (c0251, c0253, c0254, c0256, c0268; c0271, c0273). Write under this task, with the date and the base commit:
   - whether c0256 is archived and the final names of `instantiate`, `TestDesign`, `PartView` and `TestingError` (regenerate the ADDED blocks of `specs/design-testing/` against the living text if names changed);
   - c0253's names of `supply`, `sink`, the requirement-table row and its statuses, and whether `circuit.expect-unknown` is the code of an unbounded expectation;
   - c0254's name of `result.generators` and of `gen.achieved`;
@@ -42,6 +42,17 @@
   serialized receipt yet. Task 0.1 remains unchecked for that actual proof; independent
   CI, native/manual and release criteria are unchanged.
 
+  Entry proof completed 2026-11-02 on `ea762411cbb24bc5f9ba5a16d8b372ae7c720568`: root
+  ran the serialized `make check-fast` from 09:45:03 to 10:17:02 UTC, exit 0
+  (19564 passed, 55 skipped; JUnit records zero failures/errors). Fresh OpenSpec
+  1.16.0 strict validation of this change also passes without warnings. The
+  `a85f7846` entry review was checked against this source: dependencies remain
+  active, no new archival requires rebasing a delta, and the named APIs, accepted
+  decisions and current dispatcher/record contracts still apply.
+  This dated proof supersedes the earlier missing-fast-gate blocker only.
+  Independent CI, native/manual, corpus, external-library and release criteria
+  remain unchanged. The source-bound receipt, log and JUnit hashes are recorded
+  in [the integration validation record](../c0319-integration-repairs/validation.md).
 
 ## 1. Stimulus and queries in `fenolite.testing`
 

@@ -18,7 +18,7 @@ import _erc
 
 from fenolite import __version__
 from fenolite.backends.kicad import drawn as kdrawn
-from fenolite.backends.kicad import parity_inputs, sch
+from fenolite.backends.kicad import parity_inputs, sch, symbol_contexts
 from fenolite.backends.kicad.cli import KicadCli
 from fenolite.core.errors import FenoliteError
 from fenolite.core.ids import derived_id
@@ -259,6 +259,7 @@ def measure(
         }
         stage = "lower"
         stamp = time.perf_counter()
+        contextual = symbol_contexts.from_source(library.contexts, found.drawn, root_file=root_file)
         lowered = kdrawn.lower_drawn(
             found.drawn,
             design,
@@ -269,6 +270,7 @@ def measure(
             power_symbols=definitions,
             opaque_symbols=definitions,
             symbol_overrides=definitions,
+            context_symbols=contextual,
         )
         issues[stage] = _issues(lowered.issues)
         timings[stage] = round(time.perf_counter() - stamp, 6)
@@ -283,6 +285,10 @@ def measure(
                 for name, sheet in lowered.children.items()
             }
         )
+        if contextual is not None:
+            for name, sheet in {root_file: lowered.sheet, **lowered.children}.items():
+                symbol_contexts.check_written(sheet, written[name].text, target=major)
+            report["counts"]["contextual_definitions"] = len(contextual.symbols)
         issues[stage] = _issues([issue for result in written.values() for issue in result.issues])
         if any(issue.severity == "error" for result in written.values() for issue in result.issues):
             report["refusal"] = {"stage": stage, "code": "write-issues"}

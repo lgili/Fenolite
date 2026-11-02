@@ -25,6 +25,7 @@ from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.ids import derived_id
 from fenolite.importer.codes import issue
+from fenolite.importer.schematic import SourceSymbols
 from fenolite.importer.schematic import symbols as source_symbols
 from fenolite.importer.source import Source
 from fenolite.library import derive_from_model, nickname_of
@@ -65,6 +66,7 @@ class Vendored:
     variants: tuple[str, ...] = ()
     issues: tuple[Issue, ...] = ()
     native_refs: frozenset[str] = frozenset()
+    source_symbols: SourceSymbols = field(default_factory=SourceSymbols)
 
 
 def natural(text: str) -> tuple[tuple[int, int, str], ...]:
@@ -202,7 +204,19 @@ def _with_source(found: Vendored, source: Source, target: int) -> Vendored:
     libraries: dict[str, list[symembed.EmbeddedSymbol]] = {}
     for definition in definitions.values():
         nickname = definition.nickname
-        if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.+-]*", nickname) or nickname in (".", ".."):
+        if (
+            not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.+ -]*", nickname)
+            or nickname.endswith((".", " "))
+            or nickname.partition(".")[0].casefold()
+            in {
+                "con",
+                "prn",
+                "aux",
+                "nul",
+                *(f"com{i}" for i in range(1, 10)),
+                *(f"lpt{i}" for i in range(1, 10)),
+            }
+        ):
             raise FormatError(f"source symbol library {nickname!r} cannot name a vendored file")
         libraries.setdefault(nickname, []).append(definition)
     for nickname, definitions_of in sorted(libraries.items()):
@@ -215,6 +229,7 @@ def _with_source(found: Vendored, source: Source, target: int) -> Vendored:
         files=files,
         symbols=refs,
         native_refs=frozenset(native.refs),
+        source_symbols=native,
         issues=(*found.issues, *native.issues),
     )
 

@@ -225,6 +225,30 @@ def _sheets_of(original: Original) -> tuple[Path, ...]:
     return tuple(p for p in original.files if p.suffix == ".kicad_sch")
 
 
+def _root_scene_key(original: Original) -> str | None:
+    try:
+        root = resolve_board(original.path).with_suffix(".kicad_sch")
+    except FenoliteError:
+        return None
+    return f"sheet:{root.relative_to(original.root).as_posix()}" if root in original.files else None
+
+
+def _paired_sheet_scenes(
+    original: Original, rebuilt: Original
+) -> tuple[dict[str, Mapping[str, Any]], dict[str, Mapping[str, Any]]]:
+    """Pair only explicit project roots; preserve child identities and every scene primitive."""
+    first = sheet_scenes(original.root, _sheets_of(original))
+    second = sheet_scenes(rebuilt.root, _sheets_of(rebuilt))
+    left, right = _root_scene_key(original), _root_scene_key(rebuilt)
+    if left is not None and right is not None and left != right and left in first and right in second:
+        if left in second or right in first:
+            raise FormatError(
+                "renamed root schematic identity collides with a child panel", locator="root-sheet"
+            )
+        second = {left if key == right else key: scene for key, scene in second.items()}
+    return first, second
+
+
 def _original(path: Path) -> Original:
     if path.is_file() and path.suffix.lower() == ALTIUM_PROJECT:
         files = [path, *(p for p in sorted(path.parent.iterdir()) if p.suffix.lower() in ALTIUM_DOCUMENTS)]
@@ -669,8 +693,11 @@ def _compare(
                 scenes_b = dict(board_scenes(b, side_b.backend))
                 built_files = _project_files(out)
                 if original.backend == "kicad" and _has_sheets(original.files) and _has_sheets(built_files):
-                    scenes_a.update(sheet_scenes(original.root, _sheets_of(original)))
-                    scenes_b.update(sheet_scenes(out, _sheets_of(Original(out, out, "kicad", built_files))))
+                    sheets_a, sheets_b = _paired_sheet_scenes(
+                        original, Original(out, out, "kicad", built_files)
+                    )
+                    scenes_a.update(sheets_a)
+                    scenes_b.update(sheets_b)
                 level8 = presentation_level(scenes_a, scenes_b, pixel_ppm=pixel_ppm, pitch_nm=pitch_um * 1000)
                 rendered = apply_rules(level8, extra)
         return report, rendered

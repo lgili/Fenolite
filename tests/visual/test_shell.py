@@ -57,7 +57,7 @@ def test_toolbar_groups_icons_and_labels(pages: dict[str, Path], tmp_path: Path)
 def test_palette_jumps_to_a_part_from_a_text_field(pages: dict[str, Path], tmp_path: Path) -> None:
     """Scenario "Jump to a part from a text field" and "The palette chord in a text field"."""
     script = """
-    $("query").focus(); press($("query"), "k", {ctrlKey: true}); await settle();
+    $("query").focus(); press($("query"), "k", {[IS_MAC ? "metaKey" : "ctrlKey"]: true}); await settle();
     const opened = $("palette").open, focus = document.activeElement.id;
     await type("r1"); const first = $("palList").querySelector("[aria-selected=true]").textContent;
     const before = view.s; press($("palInput"), "Enter"); await settle();
@@ -90,10 +90,10 @@ def test_palette_nets_commands_and_the_mac_chord(pages: dict[str, Path], tmp_pat
 
 
 def test_plain_keys_in_the_search_field_are_text(pages: dict[str, Path], tmp_path: Path) -> None:
-    """A plain K or M typed in the search field is text, not a shortcut; Ctrl+K opens the palette."""
+    """A plain K or M typed in the search field is text; the platform chord opens the palette."""
     script = """
     $("search").focus(); press($("search"), "m"); const measuring = st.measure;
-    press($("search"), "k", {ctrlKey: true}); await settle();
+    press($("search"), "k", {[IS_MAC ? "metaKey" : "ctrlKey"]: true}); await settle();
     return {measuring, opened: $("palette").open};
     """
     assert _act(pages, tmp_path, script) == {"measuring": False, "opened": True}
@@ -103,10 +103,11 @@ def test_shortcut_sheet_lists_the_registry(pages: dict[str, Path], tmp_path: Pat
     script = """
     press(window, "?", {shiftKey: true}); await settle();
     const text = $("shortcuts").textContent, open = $("shortcuts").open;
-    return {open, text, n: COMMANDS.filter(c => c.keys.length).every(c => text.includes(c.title))};
+    return {open, text, chord: IS_MAC ? "⌘ K" : "Ctrl K",
+      n: COMMANDS.filter(c => c.keys.length).every(c => text.includes(c.title))};
     """
     found = _act(pages, tmp_path, script)
-    assert found["open"] and found["n"] and "Measure" in found["text"] and "Ctrl K" in found["text"]
+    assert found["open"] and found["n"] and "Measure" in found["text"] and found["chord"] in found["text"]
 
 
 def test_sections_collapse_and_zero_groups_fold(pages: dict[str, Path], tmp_path: Path) -> None:

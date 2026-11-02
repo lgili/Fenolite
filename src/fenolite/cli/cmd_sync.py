@@ -21,12 +21,14 @@ import hashlib
 from pathlib import Path
 
 import fenolite
-from fenolite.backends.kicad import sch
+from fenolite.backends.kicad import sch, symbol_contexts
+from fenolite.backends.kicad.sexpr import parse
+from fenolite.backends.kicad.versions import inspect
 from fenolite.cli._documents import built_cache
 from fenolite.cli._padmap import apply_default_pad_maps
 from fenolite.cli._script import DesignScriptError, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
-from fenolite.cli.cmd_build import MINIMAL, code_placements
+from fenolite.cli.cmd_build import MINIMAL, code_placements, read_drawn_source, read_symbol_context_source
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FormatError, Issue
@@ -158,6 +160,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     run = run_design_script(script_path)
     design = run.design
     if args.target == "altium":
+        if design.symbol_context_source is not None:
+            raise FormatError("contextual native symbols require KiCad schematic output")
         from fenolite.cli.altium_schematic_layout import sync_native
 
         return sync_native(
@@ -226,6 +230,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     freeze = bool(getattr(args, "freeze_schematic", False))
     drawn_result: dict[str, object] | None = None
     sheet_paths: list[Path] = []
+    context_paths: list[Path] = []
     if drawn_name is not None or freeze:
         root_path = out_dir / f"{design.name}.kicad_sch"
         if sheets is None:
@@ -241,6 +246,20 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         circuit = cached.circuit if built and cached is not None and not cache_error else model.circuit
         children = _children(root_path, sheets)
         sheet_paths = [root_path, *(out_dir / name for name in children)]
+        if design.symbol_context_source is not None:
+            original = read_drawn_source(source / file, file)
+            contexts = read_symbol_context_source(design, script_path, original)
+            assert contexts is not None
+            target = inspect(parse(root_path.read_text(encoding="utf-8")), file=root_path.name).major
+            symbol_contexts.check_native(
+                contexts,
+                original,
+                {root_path.name: sheets[0], **children},
+                circuit,
+                root_file=root_path.name,
+                target=target or ctx.kicad_target,
+            )
+            context_paths = [source / file, *contexts.paths]
         drawn = plan_drawn(
             sheets[0],
             children,
@@ -299,6 +318,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         depends=depends_on(
             ctx.cwd,
             script_path,
+            *(run.source_files if context_paths else ()),
+            *context_paths,
             *(
                 file
                 for file in (

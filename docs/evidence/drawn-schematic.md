@@ -15,6 +15,9 @@ declared project inputs. The earlier file-as-root observations below remain
 historical diagnostics, including artificial root-port/annotation failures;
 they are not evidence that a child has that behavior in its real project.
 
+The [owner-context measurements](drawn-context.md) retain the later source-bound
+diagnostic and corrected runs, including unresolved formats, definitions and names.
+
 It verifies cached input SHA-256 values, extracts/lower/resolves the drawing and
 compares complete source/lowered/native pin partitions. Open singletons and
 native-only nodes remain in the comparison. Naming is recorded separately for

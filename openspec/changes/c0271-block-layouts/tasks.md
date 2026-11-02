@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living specs this change touches (`layout-reuse`, `cli-contract`, and `placement-in-code` once c0255 is archived) and the changes it builds on (c0251, c0255, c0268; c0250, c0270, c0273). Write under this task, with the date and the base commit:
+- [x] 0.1 Read `openspec list`, the living specs this change touches (`layout-reuse`, `cli-contract`, and `placement-in-code` once c0255 is archived) and the changes it builds on (c0251, c0255, c0268; c0250, c0270, c0273). Write under this task, with the date and the base commit:
   - whether c0255 is archived, the final names of `inst.place`, `b.layout`, `inst.layout`, the level-5 resolver hook and the `build.json` pose record (regenerate the ADDED blocks of `specs/placement-in-code/` against the living text if names changed);
   - whether c0255 kept the mirrored pose out (its open question 1) or another change took it;
   - c0268's record fields `id` and `version`, the module of the block codes, and the verbs of `fenolite blocks`;
@@ -44,6 +44,17 @@
   serialized receipt yet. Task 0.1 remains unchecked for that actual proof; independent
   CI, native/manual and release criteria are unchanged.
 
+  Entry proof completed 2026-11-02 on `ea762411cbb24bc5f9ba5a16d8b372ae7c720568`: root
+  ran the serialized `make check-fast` from 09:45:03 to 10:17:02 UTC, exit 0
+  (19564 passed, 55 skipped; JUnit records zero failures/errors). Fresh OpenSpec
+  1.16.0 strict validation of this change also passes without warnings. The
+  `a85f7846` entry review was checked against this source: dependencies remain
+  active, no new archival requires rebasing a delta, and the named APIs, accepted
+  decisions and current dispatcher/record contracts still apply.
+  This dated proof supersedes the earlier missing-fast-gate blocker only.
+  Independent CI, native/manual, corpus, external-library and release criteria
+  remain unchanged. The source-bound receipt, log and JUnit hashes are recorded
+  in [the integration validation record](../c0319-integration-repairs/validation.md).
 
 - [x] 0.2 Write `docs/formats/fenolite/block-layout.md`: the format of design decision 1 and the digests of decision 2, Fenolite's own format, evidence `INFERRED`. Proof: `uv run pytest tests/consistency -q`.
 

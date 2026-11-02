@@ -296,3 +296,17 @@ All nine are archived under `changes/archive/2026-10-28-c0232-*` through `2026-1
 | c0240 | `catalog-selection` | c0231; c0219 |
 
 Fetched refs already reserve c0210-layout-reuse, c0211-region-renders and c0212-assembly-marks; another agent holds c0214. Current dev's c0215–c0221 and remote c0222-net-roles are preserved. A final fetch also found c0223-library-fidelity, c0224-generated-copper and c0225–c0229 (drc-gate, silk-clip, reuse-moves, octilinear-router and testpoint-place) on other agents' branches. Only this batch moved to c0232–c0240. Its implementation CI passed all 13 jobs on 8c2fa270 under the earlier c0223–c0231 identities; those proof records remain aliases. The final archived revision requires its own CI before dev advances. The next free number in these inspected refs is c0241; fetch and inspect active/archive changes before allocating it. Earlier committed collisions remain identified by full slug and commit, including the two archived c0164 changes.
+
+
+## CAC continuation allocation — 2026-11-02
+
+The published model-0 assembly includes c0326 `drawn-font-preservation`, c0327
+`contextual-symbol-definitions` and the bounded c0328
+`deterministic-boolean-realization` experiment. Local c0329
+`sheet-custom-properties` follows their typed representation and strict fidelity
+boundaries. Model-1 activation remains held until the final combined model-0
+inventory is recaptured. These are active changes, not successful batch gates.
+
+c0330 `root-sheet-presentation-identity` follows the clean external-library
+replay: pair only explicitly resolved project-root panels after a safe filename
+change, retaining child identities, visible-loss detection and collision refusal.

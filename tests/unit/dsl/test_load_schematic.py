@@ -49,3 +49,27 @@ def test_only_toml_files() -> None:
     design = _design(False)
     design.load_schematic("drawings/main.toml")
     assert drawn_schematic(design) == "drawings/main.toml"
+
+
+def test_context_index_is_a_required_dsl_input_without_a_model_field() -> None:
+    design = _design(False)
+    plain = canonical.dump_texts(to_model(design))
+    design.load_schematic("drawings/main.toml", symbol_contexts="drawings/symbol-contexts.toml")
+    assert design.symbol_context_source == "drawings/symbol-contexts.toml"
+    assert canonical.dump_texts(to_model(design)) == plain
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "../symbol-contexts.toml",
+        "/symbol-contexts.toml",
+        "other.toml",
+        "elsewhere/symbol-contexts.toml",
+        "a\\symbol-contexts.toml",
+        42,
+    ],
+)
+def test_context_index_must_be_the_explicit_sibling(path) -> None:
+    with pytest.raises(DslError, match="symbol_contexts"):
+        _design(False).load_schematic("schematic.toml", symbol_contexts=path)

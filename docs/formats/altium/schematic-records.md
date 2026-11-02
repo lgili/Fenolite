@@ -958,6 +958,15 @@ native glyph/text placement; source power field poses and mirror metadata are re
 Bus alias declarations and per-sheet source title metadata are not emitted as native metadata; each
 omission is reported. The written connectivity must still match code.
 
+Bus-only alias/group identifiers whose exact members form one contiguous
+canonical numeric range are written as native vectors (S-0301, **INFERRED**,
+`H-A-DRAWN-WRITE`). Matching labels, ports and sheet entries use the same
+expansion; every text change is reported. Scalar wire labels and existing
+vectors remain literal. Heterogeneous, gapped, empty or padded groups refuse
+before output rather than inventing a signal harness or dropping members.
+The [actual 22.2.1 observations](../../evidence/altium-drawn-native.md) retain
+the original invalid `{BUSA}` diagnostic and the independent native proof scope.
+
 The guard checks the actual document set, component units, shown logical pins, footprint maps and
 logical pin partition, including unconnected parts. It repeats after native templates. Opaque native
 text is limited to valid root graphics; unsupported or malformed native content cannot bypass the

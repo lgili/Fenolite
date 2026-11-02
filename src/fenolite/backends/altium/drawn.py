@@ -27,7 +27,15 @@ from fenolite.core.errors import FenoliteError, FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 from fenolite.model.drawn import DrawnInstance, DrawnSchematic, DrawnSheet, DrawnSheetRef, DrawnSymbol
-from fenolite.model.drawn_connect import UnitInfo, component_path, coverage, instances, issue
+from fenolite.model.drawn_connect import (
+    UnitInfo,
+    bus_vector,
+    component_path,
+    coverage,
+    expand,
+    instances,
+    issue,
+)
 
 if TYPE_CHECKING:
     from fenolite.backends.altium.adapter.netlist import Resolved
@@ -39,6 +47,77 @@ UNIT_SCALE = 100_000
 NM_NUMERATOR, NM_DENOMINATOR = 50, 127
 _IO = {"input": "2", "output": "1", "bidirectional": "3", "tri_state": "3"}
 _COORD = re.compile(r"(?:LOCATION|CORNER)\.X|X[0-9]+")
+_BUS_MEMBER = re.compile(r"^(.+?)([0-9]+)$")
+
+
+def _native_buses(drawn: DrawnSchematic, sheet: DrawnSheet, where: str, issues: list[Issue]) -> DrawnSheet:
+    """Lower only bus-anchored identifiers, preserving the exact scalar member set (S-0301)."""
+    aliases: dict[str, tuple[str, ...]] = {}
+    for other in drawn.sheets:
+        for alias in other.bus_aliases:
+            aliases.setdefault(alias.name, alias.members)
+    aliases.update((alias.name, alias.members) for alias in sheet.bus_aliases)
+
+    def on(at: Point, segments: Sequence[tuple[Point, Point]]) -> bool:
+        return any(
+            (at.x - a.x) * (b.y - a.y) == (at.y - a.y) * (b.x - a.x)
+            and min(a.x, b.x) <= at.x <= max(a.x, b.x)
+            and min(a.y, b.y) <= at.y <= max(a.y, b.y)
+            for a, b in segments
+        )
+
+    def name(text: str, at: Point, locator: str) -> str:
+        if not on(at, sheet.bus_segments()) or on(at, sheet.segments()):
+            return text
+        members = expand(text, aliases)
+        if members is None or (bus_vector(text) is not None and text not in aliases):
+            return text
+        parsed = [_BUS_MEMBER.fullmatch(member) for member in members]
+        if not parsed or any(match is None for match in parsed):
+            raise FormatError(f"bus {text!r} has no exact native bus vector; a signal harness is required",
+                              locator=locator)  # fmt: skip
+        pairs = [(match[1], int(match[2])) for match in parsed if match is not None]
+        prefix, first = pairs[0]
+        indices = sorted({index for _, index in pairs})
+        replacement = f"{prefix}[{indices[0]}..{indices[-1]}]"
+        if (
+            any(stem != prefix for stem, _ in pairs)
+            or len(indices) != len(members)
+            or indices[-1] - indices[0] + 1 != len(indices)
+            or set(expand(replacement, {}) or ()) != set(members)
+        ):
+            raise FormatError(f"bus {text!r} has no exact native bus vector; a signal harness is required",
+                              locator=locator)  # fmt: skip
+        if first == indices[-1] and len(indices) > 1:
+            replacement = f"{prefix}[{indices[-1]}..{indices[0]}]"
+        issues.append(
+            Issue(
+                "altium.not-lowered",
+                "info",
+                f"bus identifier {text!r} is written as native bus vector {replacement!r}; "
+                "drawn identifier text is changed, scalar members are preserved",
+                where=locator,
+            )
+        )
+        return replacement
+
+    return replace(
+        sheet,
+        labels=tuple(
+            replace(label, text=name(label.text, label.at, f"{where}.label[{index}]"))
+            for index, label in enumerate(sheet.labels)
+        ),
+        sheet_refs=tuple(
+            replace(
+                ref,
+                pins=tuple(
+                    replace(pin, name=name(pin.name, pin.at, f"{where}.sheet_ref.{ref.key}.pin[{index}]"))
+                    for index, pin in enumerate(ref.pins)
+                ),
+            )
+            for ref in sheet.sheet_refs
+        ),
+    )
 
 
 class DrawnLossError(FenoliteError):
@@ -50,6 +129,47 @@ class DrawnLossError(FenoliteError):
     def __init__(self, finding: Issue) -> None:
         self.issues = (finding,)
         super().__init__(finding.message)
+
+
+class _DrawnStyleLoss(DrawnLossError):
+    """A new explicit drawn style has no proved native lowering."""
+
+    hint = "review the named source style, then use --allow-lossy to accept its reported loss"
+
+
+def _style_losses(sheet: DrawnSheet, where: str) -> tuple[Issue, ...]:
+    styles: list[tuple[str, str]] = []
+    for kind, items in (("symbol", sheet.symbols), ("power", sheet.powers)):
+        for index, item in enumerate(items):
+            for field in item.fields:
+                if field.font is not None:
+                    styles.append((f"{kind}[{index}].fields.{field.name}.font", "font"))
+    for index, label in enumerate(sheet.labels):
+        if label.font is not None:
+            styles.append((f"label[{index}].font", "font"))
+        if label.justify is not None:
+            styles.append((f"label[{index}].justify", "justification"))
+    for ref in sheet.sheet_refs:
+        base = f"sheet_ref.{ref.key}"
+        for prop in ref.properties:
+            styles.append((f"{base}.properties.{prop.name}", "custom sheet property text/pose/effects"))
+        for field in ref.fields:
+            styles.append((f"{base}.fields.{field.name}", "sheet-property pose/effects"))
+        for index, pin in enumerate(ref.pins):
+            if pin.font is not None:
+                styles.append((f"{base}.pin[{index}].font", "font"))
+            if pin.justify is not None:
+                styles.append((f"{base}.pin[{index}].justify", "justification"))
+    return tuple(
+        Issue(
+            "altium.not-lowered",
+            "info",
+            f"explicit drawn {kind} at {where}.{path} has no proved Altium lowering",
+            where=f"{where}.{path}",
+            hint=_DrawnStyleLoss.hint,
+        )
+        for path, kind in styles
+    )
 
 
 def _round(value: int, divisor: int) -> int:
@@ -508,6 +628,13 @@ def lower_drawn(
         for key, spec in specs.items()
     }
     issues.extend(coverage(drawn, design.circuit, units))
+    for instance in found:
+        sheet = drawn.sheet(instance.sheet)
+        if sheet is not None:
+            losses = _style_losses(sheet, instance.path or "root")
+            if losses and not allow_lossy:
+                raise _DrawnStyleLoss(losses[0])
+            issues.extend(losses)
     generated = {sheet.module or "": sheet for sheet in planned.sheets}
     files: dict[str, str] = {}
     for instance in found:
@@ -554,6 +681,7 @@ def lower_drawn(
             raise FormatError(f"Altium drawn sheet {sheet.key}: unsupported paper {sheet.paper!r}")
         base = SheetPlan(size, (), ())
         state = _Sheet(base, issues, allow_lossy, form)
+        sheet = _native_buses(drawn, sheet, instance.path or "root", issues)
         plan = state.drawing(sheet, instance, specs, files, symbol_overrides)
         written.append(
             SheetFile(

@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list` and the living specs this change touches (`cli-contract`, `fenolite-component-catalog`, `visual-diff`, `verification-evidence`, `package-layering`), and record under this task, with the date and the base commit:
+- [x] 0.1 Read `openspec list` and the living specs this change touches (`cli-contract`, `fenolite-component-catalog`, `visual-diff`, `verification-evidence`, `package-layering`), and record under this task, with the date and the base commit:
   - whether c0259, c0260 and c0261 are archived; the spellings of c0259's `review` key, deprecation key and source register; c0260's family names and terminal count; c0261's action dispatch. Align the rule table and the scenarios with them;
   - whether c0184's sheet comparison and c0179's library scenes are on `dev` (the sheet overlay reuses them);
   - whether c0195's MCP tool list has an exclusion mechanism;
@@ -41,6 +41,17 @@
   serialized receipt yet. Task 0.1 remains unchecked for that actual proof; independent
   CI, native/manual and release criteria are unchanged.
 
+  Entry proof completed 2026-11-02 on `ea762411cbb24bc5f9ba5a16d8b372ae7c720568`: root
+  ran the serialized `make check-fast` from 09:45:03 to 10:17:02 UTC, exit 0
+  (19564 passed, 55 skipped; JUnit records zero failures/errors). Fresh OpenSpec
+  1.16.0 strict validation of this change also passes without warnings. The
+  `a85f7846` entry review was checked against this source: dependencies remain
+  active, no new archival requires rebasing a delta, and the named APIs, accepted
+  decisions and current dispatcher/record contracts still apply.
+  This dated proof supersedes the earlier missing-fast-gate blocker only.
+  Independent CI, native/manual, corpus, external-library and release criteria
+  remain unchanged. The source-bound receipt, log and JUnit hashes are recorded
+  in [the integration validation record](../c0319-integration-repairs/validation.md).
 
 ## 1. Facts and test records
 

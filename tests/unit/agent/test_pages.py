@@ -976,6 +976,24 @@ def test_files_teaches_imported_source_drawings() -> None:
     assert "import" in commands_of(page)
 
 
+def test_equivalent_s_teaches_required_contextual_symbol_inputs() -> None:
+    page = guide.page("equivalent-s").text
+    for words in (
+        "symbol_contexts",
+        "symbol-contexts.toml",
+        "full native property snapshot",
+        "symlinks refuse",
+        "core-default conflicts",
+        "no model/S field",
+        "fenolite.symbol-contexts.v0",
+        "every used native definition",
+        "FEN-4002",
+        "changed cache metadata",
+        "KiCad schematic output",
+    ):
+        assert words in page
+
+
 def test_altium_teaches_drawn_sources_and_native_limitations() -> None:
     page = guide.page("altium").text
     for words in (
@@ -991,3 +1009,10 @@ def test_altium_teaches_drawn_sources_and_native_limitations() -> None:
         "application acceptance",
     ):
         assert words in page
+
+
+def test_drawn_custom_sheet_properties_are_taught_without_text_override() -> None:
+    text = guide.page("board-schematic").text
+    assert "properties.<name>" in text and "required `text` and `at`" in text
+    assert "Sheetname/Sheetfile remain code-owned" in text
+    assert "never add an electrical connection" in text

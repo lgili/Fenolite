@@ -1,0 +1,2289 @@
+{
+  "all_inputs_after_native": {
+    "changed": [],
+    "checked": 167,
+    "sets": [
+      {
+        "checked": 92,
+        "set": ""
+      },
+      {
+        "checked": 60,
+        "set": "corrected-v1"
+      },
+      {
+        "checked": 15,
+        "set": "native-negative-v1"
+      }
+    ],
+    "time": "2026-11-02T20:16:45.2097830Z"
+  },
+  "complete_example_plan_comparison": {
+    "all_rows_and_all_file_hashes_equal": true,
+    "baseline_commit": "de6c6f2f4dd53cdda45b4119f63822b5bd3ea6eb",
+    "baseline_receipt_sha256": "288ea9ec8718b1f16ade96db1db9a4611d4b6a2d36b14f64a8d8f02b62b15ab1",
+    "candidate_commit": "c8faa50cabe8b1228b0362e775e127767761c84d",
+    "candidate_receipt_sha256": "9bea29dde060a52cd1f0aac0035fd079c1d2d35d1f12f599f61d40bab6d11426",
+    "files": 1172,
+    "plans": 75,
+    "unchanged_refusals": 10
+  },
+  "complete_local_fast_gate": {
+    "after_head": "c8faa50cabe8b1228b0362e775e127767761c84d",
+    "after_status": "",
+    "elapsed_seconds": 890.8572906249901,
+    "ended": "2026-11-02T20:22:57.301495+00:00",
+    "exit": 2,
+    "head": "c8faa50cabe8b1228b0362e775e127767761c84d",
+    "started": "2026-11-02T20:08:06.424984+00:00"
+  },
+  "corrected_cases": [
+    {
+      "generated": {
+        "all_pins": 36,
+        "case": "full-binary",
+        "compiler_log": [
+          "[Error]|Net B0 has only one pin (Pin U1-18)|Compiler",
+          "[Error]|Net B1 has only one pin (Pin U1-19)|Compiler",
+          "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+          "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+        ],
+        "compiler_messages": {
+          "[Error]": 3,
+          "[Warning]": 1
+        },
+        "components": 3,
+        "connectivity_equal": true,
+        "groups": 32,
+        "name_differences": [
+          {
+            "code": "IN",
+            "native": [
+              [
+                "NetR2_1",
+                "NetR2_1"
+              ]
+            ],
+            "pins": [
+              [
+                "R2",
+                "1"
+              ],
+              [
+                "U1",
+                "1"
+              ]
+            ]
+          }
+        ],
+        "raw_sha256": {
+          "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+          "NativeCase.pas": "2822abc882bb2ca3993ccdc618d08ea059549cef68bfd5fd1fc40b5b7f27420a",
+          "messages.txt": "c6730b7b7b643a844768a3d3e8c72bd2d3bc90b2020f58869332c8b1c1d1efbf",
+          "nets.tsv": "5aacdf28e628de8f8f11efd653debac30a1c05ebb6448e817f9732d79f671a4b",
+          "pins.tsv": "31e9e4879d6511b40f1ff84cf470d8f9360f21bd889263d79942aac2f788cdc3",
+          "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+        },
+        "source_sha256": "055a45f0137125aac47cc8efbb57e40338a45b4c8fc3deb38ef0fa52e701d0ea",
+        "writer_source_commit": "c8faa50cabe8b1228b0362e775e127767761c84d"
+      },
+      "saved_reopened": {
+        "all_pins": 36,
+        "case": "full-binary",
+        "compiler_log": [
+          "[Error]|Net B0 has only one pin (Pin U1-18)|Compiler",
+          "[Error]|Net B1 has only one pin (Pin U1-19)|Compiler",
+          "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+          "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+        ],
+        "compiler_messages": {
+          "[Error]": 3,
+          "[Warning]": 1
+        },
+        "components": 3,
+        "connectivity_equal": true,
+        "groups": 32,
+        "name_differences": [
+          {
+            "code": "IN",
+            "native": [
+              [
+                "NetR2_1",
+                "NetR2_1"
+              ]
+            ],
+            "pins": [
+              [
+                "R2",
+                "1"
+              ],
+              [
+                "U1",
+                "1"
+              ]
+            ]
+          }
+        ],
+        "raw_sha256": {
+          "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+          "NativeCase.pas": "93c6bf7073c880e39ff1cdb34ef0d5dc8be5adff283b81d10e25a231f1b907e1",
+          "messages.txt": "c6730b7b7b643a844768a3d3e8c72bd2d3bc90b2020f58869332c8b1c1d1efbf",
+          "nets.tsv": "5aacdf28e628de8f8f11efd653debac30a1c05ebb6448e817f9732d79f671a4b",
+          "pins.tsv": "31e9e4879d6511b40f1ff84cf470d8f9360f21bd889263d79942aac2f788cdc3",
+          "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+        },
+        "source_sha256": "055a45f0137125aac47cc8efbb57e40338a45b4c8fc3deb38ef0fa52e701d0ea",
+        "writer_source_commit": "c8faa50cabe8b1228b0362e775e127767761c84d"
+      }
+    },
+    {
+      "generated": {
+        "all_pins": 36,
+        "case": "full-ascii",
+        "compiler_log": [
+          "[Error]|Net B0 has only one pin (Pin U1-18)|Compiler",
+          "[Error]|Net B1 has only one pin (Pin U1-19)|Compiler",
+          "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+          "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+        ],
+        "compiler_messages": {
+          "[Error]": 3,
+          "[Warning]": 1
+        },
+        "components": 3,
+        "connectivity_equal": true,
+        "groups": 32,
+        "name_differences": [
+          {
+            "code": "IN",
+            "native": [
+              [
+                "NetR2_1",
+                "NetR2_1"
+              ]
+            ],
+            "pins": [
+              [
+                "R2",
+                "1"
+              ],
+              [
+                "U1",
+                "1"
+              ]
+            ]
+          }
+        ],
+        "raw_sha256": {
+          "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+          "NativeCase.pas": "c07a74494a4259552f2f703fc935b9bc4e90343e4028fc61d7a0f5450ed20980",
+          "messages.txt": "c6730b7b7b643a844768a3d3e8c72bd2d3bc90b2020f58869332c8b1c1d1efbf",
+          "nets.tsv": "5aacdf28e628de8f8f11efd653debac30a1c05ebb6448e817f9732d79f671a4b",
+          "pins.tsv": "31e9e4879d6511b40f1ff84cf470d8f9360f21bd889263d79942aac2f788cdc3",
+          "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+        },
+        "source_sha256": "055a45f0137125aac47cc8efbb57e40338a45b4c8fc3deb38ef0fa52e701d0ea",
+        "writer_source_commit": "c8faa50cabe8b1228b0362e775e127767761c84d"
+      },
+      "saved_reopened": {
+        "all_pins": 36,
+        "case": "full-ascii",
+        "compiler_log": [
+          "[Error]|Net B0 has only one pin (Pin U1-18)|Compiler",
+          "[Error]|Net B1 has only one pin (Pin U1-19)|Compiler",
+          "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+          "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+        ],
+        "compiler_messages": {
+          "[Error]": 3,
+          "[Warning]": 1
+        },
+        "components": 3,
+        "connectivity_equal": true,
+        "groups": 32,
+        "name_differences": [
+          {
+            "code": "IN",
+            "native": [
+              [
+                "NetR2_1",
+                "NetR2_1"
+              ]
+            ],
+            "pins": [
+              [
+                "R2",
+                "1"
+              ],
+              [
+                "U1",
+                "1"
+              ]
+            ]
+          }
+        ],
+        "raw_sha256": {
+          "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+          "NativeCase.pas": "f97b1d33144e842f5fd115d0c7df59037a60da8cd3ba4c768083bfb5196399e3",
+          "messages.txt": "c6730b7b7b643a844768a3d3e8c72bd2d3bc90b2020f58869332c8b1c1d1efbf",
+          "nets.tsv": "5aacdf28e628de8f8f11efd653debac30a1c05ebb6448e817f9732d79f671a4b",
+          "pins.tsv": "31e9e4879d6511b40f1ff84cf470d8f9360f21bd889263d79942aac2f788cdc3",
+          "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+        },
+        "source_sha256": "055a45f0137125aac47cc8efbb57e40338a45b4c8fc3deb38ef0fa52e701d0ea",
+        "writer_source_commit": "c8faa50cabe8b1228b0362e775e127767761c84d"
+      }
+    },
+    {
+      "generated": {
+        "all_pins": 40,
+        "case": "bus-binary",
+        "compiler_log": [
+          "[Error]|Net NetU1_11 contains floating input pins (Pin U1-11)|Compiler",
+          "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+          "[Warning]|Net NetU1_11 has no driving source (Pin U1-11)|Compiler",
+          "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+        ],
+        "compiler_messages": {
+          "[Error]": 2,
+          "[Warning]": 2
+        },
+        "components": 5,
+        "connectivity_equal": true,
+        "groups": 36,
+        "name_differences": [],
+        "raw_sha256": {
+          "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+          "NativeCase.pas": "cce494142f3b8558ffd3c1e03b237d8ca7629c508ec8941c2397f80dc902c57f",
+          "messages.txt": "4597945971823d442fe263e6ecbff6e4bb1d8f1f0add75c0b4094424fc31d0bc",
+          "nets.tsv": "1d02152ca018f7fc2f943ecbe218d3dbd9d1bd9b4493965121b43c9e930be306",
+          "pins.tsv": "2699d75d02fa0b388ce08795a3c170c57ecdc6d7d0a402f6511d26417b7e5388",
+          "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+        },
+        "source_sha256": "404c88627eb6230891a42d2c5d83195a9d460e3729b3d0ad8ec776f9f4970891",
+        "writer_source_commit": "c8faa50cabe8b1228b0362e775e127767761c84d"
+      },
+      "saved_reopened": {
+        "all_pins": 40,
+        "case": "bus-binary",
+        "compiler_log": [
+          "[Error]|Net NetU1_11 contains floating input pins (Pin U1-11)|Compiler",
+          "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+          "[Warning]|Net NetU1_11 has no driving source (Pin U1-11)|Compiler",
+          "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+        ],
+        "compiler_messages": {
+          "[Error]": 2,
+          "[Warning]": 2
+        },
+        "components": 5,
+        "connectivity_equal": true,
+        "groups": 36,
+        "name_differences": [],
+        "raw_sha256": {
+          "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+          "NativeCase.pas": "a56416aebc7eba0789e487675bf1d70cbc4d29be53edef80d3d55eb23e2af2b0",
+          "messages.txt": "4597945971823d442fe263e6ecbff6e4bb1d8f1f0add75c0b4094424fc31d0bc",
+          "nets.tsv": "1d02152ca018f7fc2f943ecbe218d3dbd9d1bd9b4493965121b43c9e930be306",
+          "pins.tsv": "2699d75d02fa0b388ce08795a3c170c57ecdc6d7d0a402f6511d26417b7e5388",
+          "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+        },
+        "source_sha256": "404c88627eb6230891a42d2c5d83195a9d460e3729b3d0ad8ec776f9f4970891",
+        "writer_source_commit": "c8faa50cabe8b1228b0362e775e127767761c84d"
+      }
+    },
+    {
+      "generated": {
+        "all_pins": 40,
+        "case": "bus-ascii",
+        "compiler_log": [
+          "[Error]|Net NetU1_11 contains floating input pins (Pin U1-11)|Compiler",
+          "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+          "[Warning]|Net NetU1_11 has no driving source (Pin U1-11)|Compiler",
+          "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+        ],
+        "compiler_messages": {
+          "[Error]": 2,
+          "[Warning]": 2
+        },
+        "components": 5,
+        "connectivity_equal": true,
+        "groups": 36,
+        "name_differences": [],
+        "raw_sha256": {
+          "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+          "NativeCase.pas": "a7babc41a7f9334e11b3eccd54f59e95391aa0e2cd637cb8637643e1d7312c85",
+          "messages.txt": "4597945971823d442fe263e6ecbff6e4bb1d8f1f0add75c0b4094424fc31d0bc",
+          "nets.tsv": "1d02152ca018f7fc2f943ecbe218d3dbd9d1bd9b4493965121b43c9e930be306",
+          "pins.tsv": "2699d75d02fa0b388ce08795a3c170c57ecdc6d7d0a402f6511d26417b7e5388",
+          "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+        },
+        "source_sha256": "404c88627eb6230891a42d2c5d83195a9d460e3729b3d0ad8ec776f9f4970891",
+        "writer_source_commit": "c8faa50cabe8b1228b0362e775e127767761c84d"
+      },
+      "saved_reopened": {
+        "all_pins": 40,
+        "case": "bus-ascii",
+        "compiler_log": [
+          "[Error]|Net NetU1_11 contains floating input pins (Pin U1-11)|Compiler",
+          "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+          "[Warning]|Net NetU1_11 has no driving source (Pin U1-11)|Compiler",
+          "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+        ],
+        "compiler_messages": {
+          "[Error]": 2,
+          "[Warning]": 2
+        },
+        "components": 5,
+        "connectivity_equal": true,
+        "groups": 36,
+        "name_differences": [],
+        "raw_sha256": {
+          "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+          "NativeCase.pas": "8c0e5b50ef5d969adc5679ca89c8c99afa0d38f7494a1ea47fad15252cf96ba2",
+          "messages.txt": "4597945971823d442fe263e6ecbff6e4bb1d8f1f0add75c0b4094424fc31d0bc",
+          "nets.tsv": "1d02152ca018f7fc2f943ecbe218d3dbd9d1bd9b4493965121b43c9e930be306",
+          "pins.tsv": "2699d75d02fa0b388ce08795a3c170c57ecdc6d7d0a402f6511d26417b7e5388",
+          "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+        },
+        "source_sha256": "404c88627eb6230891a42d2c5d83195a9d460e3729b3d0ad8ec776f9f4970891",
+        "writer_source_commit": "c8faa50cabe8b1228b0362e775e127767761c84d"
+      }
+    }
+  ],
+  "date": "2026-11-02",
+  "evidence_promoted": false,
+  "fresh_model0_capture": {
+    "classes": 174,
+    "clean_after": true,
+    "complete_maps_equal_de6": true,
+    "decision_date_update": "2026-11-02 replaces the inherited historical review date; source script retained verbatim",
+    "fields": 1244,
+    "fixed_extension_keys": 40,
+    "model1_activated": false,
+    "planned_files": 1172,
+    "planned_rows": 75,
+    "schema_count": 20,
+    "seconds": 4.996922166988952,
+    "source_commit": "c8faa50cabe8b1228b0362e775e127767761c84d",
+    "source_tree": "458e50d5e7a22187ec1fbe83aee05dc653ae2a51",
+    "strict_refusals": 10,
+    "tool_sha256": "970f9f3fc2683aee675a7bffe45cd3375621c7fd823c038884fd19392e1a0ff0",
+    "tool_source_commit": "bf6532a4b439612e6d83c09fddc746b40d458a26"
+  },
+  "full_fixture_other_compiler_and_name_findings_unchanged": true,
+  "full_gate_passed": false,
+  "input_writer_commit": "1918e63214a7d0123e1f5fa8ef095c73fd2e1472",
+  "native_negative_control": {
+    "all_pins": 40,
+    "comparator_exit": 1,
+    "compiler_log": [
+      "[Error]|Duplicate Net Names Wire D0|Compiler",
+      "[Error]|Duplicate Net Names Wire D1|Compiler",
+      "[Error]|Duplicate Net Names Wire D2|Compiler",
+      "[Error]|Duplicate Net Names Wire D3|Compiler",
+      "[Error]|Net D0 has only one pin (Pin R10-1)|Compiler",
+      "[Error]|Net D0 has only one pin (Pin U1-17)|Compiler",
+      "[Error]|Net D1 has only one pin (Pin R11-1)|Compiler",
+      "[Error]|Net D1 has only one pin (Pin U1-18)|Compiler",
+      "[Error]|Net D2 has only one pin (Pin R12-1)|Compiler",
+      "[Error]|Net D2 has only one pin (Pin U1-19)|Compiler",
+      "[Error]|Net D3 has only one pin (Pin R13-1)|Compiler",
+      "[Error]|Net D3 has only one pin (Pin U1-20)|Compiler",
+      "[Error]|Net NetU1_11 contains floating input pins (Pin U1-11)|Compiler",
+      "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+      "[Error]|Port BROKEN[0..3] not matched to Sheet Entry at 2400mil,4600mil|Compiler",
+      "[Error]|Sheet-Entry D[0..3] not matched to Port at 4000mil,4600mil|Compiler",
+      "[Warning]|Net NetU1_11 has no driving source (Pin U1-11)|Compiler",
+      "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+    ],
+    "compiler_messages": {
+      "[Error]": 16,
+      "[Warning]": 2
+    },
+    "correctly_refused": true,
+    "expected_groups": 36,
+    "groups": 40,
+    "intentional_fault": {
+      "change": "child bus port D[0..3] -> BROKEN[0..3] only",
+      "expected": "complete pin universe preserved, cross-sheet pin partition differs; comparator must refuse",
+      "file": "drawn_bus_drawn_QMSFTVMJ.SchDoc",
+      "new_sha256": "5f44ac4fe23b096baf5c91738aabcc80769021b1c26abc4959f04f6877d13e24",
+      "old_sha256": "bebd49b09499fdd97ed16e65e92a750f513b8bb940b549ab1251f729bbdbe746"
+    },
+    "missing_or_extra_pins": false,
+    "name_differences": [
+      {
+        "code": "D0",
+        "native": [],
+        "pins": [
+          [
+            "R10",
+            "1"
+          ],
+          [
+            "U1",
+            "17"
+          ]
+        ]
+      },
+      {
+        "code": "D1",
+        "native": [],
+        "pins": [
+          [
+            "R11",
+            "1"
+          ],
+          [
+            "U1",
+            "18"
+          ]
+        ]
+      },
+      {
+        "code": "D2",
+        "native": [],
+        "pins": [
+          [
+            "R12",
+            "1"
+          ],
+          [
+            "U1",
+            "19"
+          ]
+        ]
+      },
+      {
+        "code": "D3",
+        "native": [],
+        "pins": [
+          [
+            "R13",
+            "1"
+          ],
+          [
+            "U1",
+            "20"
+          ]
+        ]
+      }
+    ],
+    "only_code_groups": [
+      [
+        [
+          "R10",
+          "1"
+        ],
+        [
+          "U1",
+          "17"
+        ]
+      ],
+      [
+        [
+          "R12",
+          "1"
+        ],
+        [
+          "U1",
+          "19"
+        ]
+      ],
+      [
+        [
+          "R11",
+          "1"
+        ],
+        [
+          "U1",
+          "18"
+        ]
+      ],
+      [
+        [
+          "R13",
+          "1"
+        ],
+        [
+          "U1",
+          "20"
+        ]
+      ]
+    ],
+    "only_native_groups": [
+      [
+        [
+          "U1",
+          "19"
+        ]
+      ],
+      [
+        [
+          "U1",
+          "18"
+        ]
+      ],
+      [
+        [
+          "R11",
+          "1"
+        ]
+      ],
+      [
+        [
+          "U1",
+          "20"
+        ]
+      ],
+      [
+        [
+          "R13",
+          "1"
+        ]
+      ],
+      [
+        [
+          "R10",
+          "1"
+        ]
+      ],
+      [
+        [
+          "R12",
+          "1"
+        ]
+      ],
+      [
+        [
+          "U1",
+          "17"
+        ]
+      ]
+    ],
+    "raw_sha256": {
+      "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+      "NativeCase.pas": "a6b5a568dff67bc3b1a5ade596551e92992f6b114212dce9b6ad0cf82a80f7e5",
+      "messages.txt": "7e08132750bd1006493c58f183c621102c0a110b04c2c45c2057895a719b2b70",
+      "nets.tsv": "151cf904171a60853734344475cf3f850f7d6a2a12cab640a5d72f4d614c2260",
+      "pins.tsv": "2699d75d02fa0b388ce08795a3c170c57ecdc6d7d0a402f6511d26417b7e5388",
+      "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+    }
+  },
+  "native_saved_copies": {
+    "complete_projects_reopened": 10,
+    "corrected": {
+      "files": [
+        {
+          "bytes": 64500,
+          "file": "full-binary/.fenolite/board.json",
+          "native_schematic": false,
+          "sha256": "9e221b8b03e05cd72193cc4a4cb28af69a88dfb8f812728a533e837816b8a1af"
+        },
+        {
+          "bytes": 868,
+          "file": "full-binary/.fenolite/build.json",
+          "native_schematic": false,
+          "sha256": "b28de737387b722726c8c4accc997dba207e243173a23055559ec6f3fb175dc7"
+        },
+        {
+          "bytes": 8549,
+          "file": "full-binary/.fenolite/circuit.json",
+          "native_schematic": false,
+          "sha256": "055a45f0137125aac47cc8efbb57e40338a45b4c8fc3deb38ef0fa52e701d0ea"
+        },
+        {
+          "bytes": 3,
+          "file": "full-binary/.fenolite/findings.json",
+          "native_schematic": false,
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+        },
+        {
+          "bytes": 55,
+          "file": "full-binary/.fenolite/manufacturing.json",
+          "native_schematic": false,
+          "sha256": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358"
+        },
+        {
+          "bytes": 140,
+          "file": "full-binary/.fenolite/meta.json",
+          "native_schematic": false,
+          "sha256": "6264e3c829ae3ffee24b5c72a24aed8c681e59056bbc0bb1f7dcdcec0cf26143"
+        },
+        {
+          "bytes": 55,
+          "file": "full-binary/.fenolite/rules.json",
+          "native_schematic": false,
+          "sha256": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a"
+        },
+        {
+          "bytes": 3045,
+          "file": "full-binary/drawn_full.OutJob",
+          "native_schematic": false,
+          "sha256": "cc62c9be79c150866d6108ebc8890051e0d32dd91d64b9ec68e1c28169936c3c"
+        },
+        {
+          "bytes": 144384,
+          "file": "full-binary/drawn_full.PcbDoc",
+          "native_schematic": false,
+          "sha256": "5aa81b99a68726e3ab603d4452508a91c3005215a9fe0cf2de734dc4df92af0c"
+        },
+        {
+          "bytes": 127488,
+          "file": "full-binary/drawn_full.PcbLib",
+          "native_schematic": false,
+          "sha256": "0f713628690d535c43b60ac0b144a2f7d18f6e1b360bc64942b390f838d6a013"
+        },
+        {
+          "bytes": 480,
+          "file": "full-binary/drawn_full.PrjPcb",
+          "native_schematic": false,
+          "sha256": "6adec272b99e4119fb33987f689302ce1e6e4d50b4236b5b4a0e54ab9160827a"
+        },
+        {
+          "bytes": 24576,
+          "file": "full-binary/drawn_full.SchDoc",
+          "native_schematic": true,
+          "sha256": "4c6941e8b78ef78ea02777444abf7b24547f94f9bb169553d0dc2776c89ad7af"
+        },
+        {
+          "bytes": 6144,
+          "file": "full-binary/drawn_full.SchLib",
+          "native_schematic": false,
+          "sha256": "2c89a9f4786bc1f02de02b565fc59358d459cc76dd4a4624636d721961260262"
+        },
+        {
+          "bytes": 9216,
+          "file": "full-binary/drawn_full_drawn_VQKTWNLP.SchDoc",
+          "native_schematic": true,
+          "sha256": "3250d0004347efcc49cf8435d641e1e7931396b627ae5191fb326e3e809d18a6"
+        },
+        {
+          "bytes": 756,
+          "file": "full-binary/fenolite-base.json",
+          "native_schematic": false,
+          "sha256": "b353ce2a3f40f0183c3bcc0ad40d57a740775706908fb4d97972cc875ed436e4"
+        },
+        {
+          "bytes": 64500,
+          "file": "full-ascii/.fenolite/board.json",
+          "native_schematic": false,
+          "sha256": "9e221b8b03e05cd72193cc4a4cb28af69a88dfb8f812728a533e837816b8a1af"
+        },
+        {
+          "bytes": 868,
+          "file": "full-ascii/.fenolite/build.json",
+          "native_schematic": false,
+          "sha256": "02a360e5efb63f009728feb57ccc93b48c80bec61f0ab8bd3c603b3542460a60"
+        },
+        {
+          "bytes": 8549,
+          "file": "full-ascii/.fenolite/circuit.json",
+          "native_schematic": false,
+          "sha256": "055a45f0137125aac47cc8efbb57e40338a45b4c8fc3deb38ef0fa52e701d0ea"
+        },
+        {
+          "bytes": 3,
+          "file": "full-ascii/.fenolite/findings.json",
+          "native_schematic": false,
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+        },
+        {
+          "bytes": 55,
+          "file": "full-ascii/.fenolite/manufacturing.json",
+          "native_schematic": false,
+          "sha256": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358"
+        },
+        {
+          "bytes": 140,
+          "file": "full-ascii/.fenolite/meta.json",
+          "native_schematic": false,
+          "sha256": "6264e3c829ae3ffee24b5c72a24aed8c681e59056bbc0bb1f7dcdcec0cf26143"
+        },
+        {
+          "bytes": 55,
+          "file": "full-ascii/.fenolite/rules.json",
+          "native_schematic": false,
+          "sha256": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a"
+        },
+        {
+          "bytes": 3045,
+          "file": "full-ascii/drawn_full.OutJob",
+          "native_schematic": false,
+          "sha256": "cc62c9be79c150866d6108ebc8890051e0d32dd91d64b9ec68e1c28169936c3c"
+        },
+        {
+          "bytes": 144384,
+          "file": "full-ascii/drawn_full.PcbDoc",
+          "native_schematic": false,
+          "sha256": "5aa81b99a68726e3ab603d4452508a91c3005215a9fe0cf2de734dc4df92af0c"
+        },
+        {
+          "bytes": 127488,
+          "file": "full-ascii/drawn_full.PcbLib",
+          "native_schematic": false,
+          "sha256": "0f713628690d535c43b60ac0b144a2f7d18f6e1b360bc64942b390f838d6a013"
+        },
+        {
+          "bytes": 480,
+          "file": "full-ascii/drawn_full.PrjPcb",
+          "native_schematic": false,
+          "sha256": "6adec272b99e4119fb33987f689302ce1e6e4d50b4236b5b4a0e54ab9160827a"
+        },
+        {
+          "bytes": 24576,
+          "file": "full-ascii/drawn_full.SchDoc",
+          "native_schematic": true,
+          "sha256": "ce6e85fbf65d72fe1139c9a6dbd382720c53c66430b8b3d6110e16479b367787"
+        },
+        {
+          "bytes": 6144,
+          "file": "full-ascii/drawn_full.SchLib",
+          "native_schematic": false,
+          "sha256": "2c89a9f4786bc1f02de02b565fc59358d459cc76dd4a4624636d721961260262"
+        },
+        {
+          "bytes": 9216,
+          "file": "full-ascii/drawn_full_drawn_VQKTWNLP.SchDoc",
+          "native_schematic": true,
+          "sha256": "9ad06efc10fc5358fca85476dbc9df34426dcfdfa934ff8950e194548d3422e6"
+        },
+        {
+          "bytes": 756,
+          "file": "full-ascii/fenolite-base.json",
+          "native_schematic": false,
+          "sha256": "b353ce2a3f40f0183c3bcc0ad40d57a740775706908fb4d97972cc875ed436e4"
+        },
+        {
+          "bytes": 77866,
+          "file": "bus-binary/.fenolite/board.json",
+          "native_schematic": false,
+          "sha256": "8679f531773bc3c8c3f6d3bbddc7bde3d8ff8f26f09d31df3725c4921d258015"
+        },
+        {
+          "bytes": 860,
+          "file": "bus-binary/.fenolite/build.json",
+          "native_schematic": false,
+          "sha256": "51a98c13f5df8f145761e4526bae929dd14cffc911375318504c15604e093c5d"
+        },
+        {
+          "bytes": 9255,
+          "file": "bus-binary/.fenolite/circuit.json",
+          "native_schematic": false,
+          "sha256": "404c88627eb6230891a42d2c5d83195a9d460e3729b3d0ad8ec776f9f4970891"
+        },
+        {
+          "bytes": 3,
+          "file": "bus-binary/.fenolite/findings.json",
+          "native_schematic": false,
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+        },
+        {
+          "bytes": 55,
+          "file": "bus-binary/.fenolite/manufacturing.json",
+          "native_schematic": false,
+          "sha256": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358"
+        },
+        {
+          "bytes": 139,
+          "file": "bus-binary/.fenolite/meta.json",
+          "native_schematic": false,
+          "sha256": "0722bc86e417b8decea98056435a2b4a3fa4794e0ec3278a1fbd46ae82dd989a"
+        },
+        {
+          "bytes": 55,
+          "file": "bus-binary/.fenolite/rules.json",
+          "native_schematic": false,
+          "sha256": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a"
+        },
+        {
+          "bytes": 3040,
+          "file": "bus-binary/drawn_bus.OutJob",
+          "native_schematic": false,
+          "sha256": "49dfa126c3ed1c5291aa915fdf532536827dc5669e069ad21aad1da47b334ca3"
+        },
+        {
+          "bytes": 149504,
+          "file": "bus-binary/drawn_bus.PcbDoc",
+          "native_schematic": false,
+          "sha256": "255081bb4a946b806a384149e3b8f411bd62bf6e2bd6e78c749c83ebd9db8ca5"
+        },
+        {
+          "bytes": 127488,
+          "file": "bus-binary/drawn_bus.PcbLib",
+          "native_schematic": false,
+          "sha256": "af66b8f62824f76248b46ef819b5e905c71ef9cc35e4de4d246339fa71730bf0"
+        },
+        {
+          "bytes": 474,
+          "file": "bus-binary/drawn_bus.PrjPcb",
+          "native_schematic": false,
+          "sha256": "4c6e55e5d04cc688574bd44533566592e940e26a6abdfa9105d02f2ad46ecd82"
+        },
+        {
+          "bytes": 22528,
+          "file": "bus-binary/drawn_bus.SchDoc",
+          "native_schematic": true,
+          "sha256": "33d73252c6a870dc757e9f95a61b816ab29189245f80bb1ce83e5d0a0be58679"
+        },
+        {
+          "bytes": 6144,
+          "file": "bus-binary/drawn_bus.SchLib",
+          "native_schematic": false,
+          "sha256": "0c25c97e6c1a5a1922cf3d84209d14bc42a0364f7f506f864d28c7b35f701e15"
+        },
+        {
+          "bytes": 16384,
+          "file": "bus-binary/drawn_bus_drawn_QMSFTVMJ.SchDoc",
+          "native_schematic": true,
+          "sha256": "6b691b8aec8a04f75146d58c076311d702ca4c5c38f04db2389b3e31e2e80ec1"
+        },
+        {
+          "bytes": 1302,
+          "file": "bus-binary/fenolite-base.json",
+          "native_schematic": false,
+          "sha256": "7a1a163ee2fa33c79d92e0364873cbd484c411b5a6be0aaa9726934ec1c21e45"
+        },
+        {
+          "bytes": 77866,
+          "file": "bus-ascii/.fenolite/board.json",
+          "native_schematic": false,
+          "sha256": "8679f531773bc3c8c3f6d3bbddc7bde3d8ff8f26f09d31df3725c4921d258015"
+        },
+        {
+          "bytes": 860,
+          "file": "bus-ascii/.fenolite/build.json",
+          "native_schematic": false,
+          "sha256": "fa4581f3e3825c03a99e722704feaad6406f229e9e60bcbc656a19eccd3436fc"
+        },
+        {
+          "bytes": 9255,
+          "file": "bus-ascii/.fenolite/circuit.json",
+          "native_schematic": false,
+          "sha256": "404c88627eb6230891a42d2c5d83195a9d460e3729b3d0ad8ec776f9f4970891"
+        },
+        {
+          "bytes": 3,
+          "file": "bus-ascii/.fenolite/findings.json",
+          "native_schematic": false,
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+        },
+        {
+          "bytes": 55,
+          "file": "bus-ascii/.fenolite/manufacturing.json",
+          "native_schematic": false,
+          "sha256": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358"
+        },
+        {
+          "bytes": 139,
+          "file": "bus-ascii/.fenolite/meta.json",
+          "native_schematic": false,
+          "sha256": "0722bc86e417b8decea98056435a2b4a3fa4794e0ec3278a1fbd46ae82dd989a"
+        },
+        {
+          "bytes": 55,
+          "file": "bus-ascii/.fenolite/rules.json",
+          "native_schematic": false,
+          "sha256": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a"
+        },
+        {
+          "bytes": 3040,
+          "file": "bus-ascii/drawn_bus.OutJob",
+          "native_schematic": false,
+          "sha256": "49dfa126c3ed1c5291aa915fdf532536827dc5669e069ad21aad1da47b334ca3"
+        },
+        {
+          "bytes": 149504,
+          "file": "bus-ascii/drawn_bus.PcbDoc",
+          "native_schematic": false,
+          "sha256": "255081bb4a946b806a384149e3b8f411bd62bf6e2bd6e78c749c83ebd9db8ca5"
+        },
+        {
+          "bytes": 127488,
+          "file": "bus-ascii/drawn_bus.PcbLib",
+          "native_schematic": false,
+          "sha256": "af66b8f62824f76248b46ef819b5e905c71ef9cc35e4de4d246339fa71730bf0"
+        },
+        {
+          "bytes": 474,
+          "file": "bus-ascii/drawn_bus.PrjPcb",
+          "native_schematic": false,
+          "sha256": "4c6e55e5d04cc688574bd44533566592e940e26a6abdfa9105d02f2ad46ecd82"
+        },
+        {
+          "bytes": 22528,
+          "file": "bus-ascii/drawn_bus.SchDoc",
+          "native_schematic": true,
+          "sha256": "075c48cd57619fb992dab6214ca4833bf36e5818ddd9ab7e86df694f232730cb"
+        },
+        {
+          "bytes": 6144,
+          "file": "bus-ascii/drawn_bus.SchLib",
+          "native_schematic": false,
+          "sha256": "0c25c97e6c1a5a1922cf3d84209d14bc42a0364f7f506f864d28c7b35f701e15"
+        },
+        {
+          "bytes": 16384,
+          "file": "bus-ascii/drawn_bus_drawn_QMSFTVMJ.SchDoc",
+          "native_schematic": true,
+          "sha256": "189c1cb1bdd7371bbea36156a81816fd7113fb6a0c0532f2a7e8b4d9872278ca"
+        },
+        {
+          "bytes": 1302,
+          "file": "bus-ascii/fenolite-base.json",
+          "native_schematic": false,
+          "sha256": "7a1a163ee2fa33c79d92e0364873cbd484c411b5a6be0aaa9726934ec1c21e45"
+        }
+      ],
+      "stage": "entry\r\nsaved:full-binary/drawn_full.SchDoc\r\nsaved:full-binary/drawn_full_drawn_VQKTWNLP.SchDoc\r\nsaved:full-ascii/drawn_full.SchDoc\r\nsaved:full-ascii/drawn_full_drawn_VQKTWNLP.SchDoc\r\nsaved:bus-binary/drawn_bus.SchDoc\r\nsaved:bus-binary/drawn_bus_drawn_QMSFTVMJ.SchDoc\r\nsaved:bus-ascii/drawn_bus.SchDoc\r\nsaved:bus-ascii/drawn_bus_drawn_QMSFTVMJ.SchDoc\r\ncomplete\r\n",
+      "time": "2026-11-02T20:09:40.5311711Z"
+    },
+    "format": "Advanced Schematic binary",
+    "gui_authorship_claimed": false,
+    "native_schematic_files": 22,
+    "original": {
+      "files": [
+        {
+          "bytes": 71247,
+          "file": "example-binary/.fenolite/board.json",
+          "native_schematic": false,
+          "sha256": "e50bce16a80dedf45a4a5f3a61d9fc0759be42092edb5efefb50ad814b82de3b"
+        },
+        {
+          "bytes": 828,
+          "file": "example-binary/.fenolite/build.json",
+          "native_schematic": false,
+          "sha256": "d0c7644dda479e29d597ef0fe61d02a5cb2bbbfa7d2354d475cbaf1445812ba5"
+        },
+        {
+          "bytes": 8985,
+          "file": "example-binary/.fenolite/circuit.json",
+          "native_schematic": false,
+          "sha256": "82c238e2538bad6486cfa598a59432ee9561fc286244c9a09237740490b757a0"
+        },
+        {
+          "bytes": 3,
+          "file": "example-binary/.fenolite/findings.json",
+          "native_schematic": false,
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+        },
+        {
+          "bytes": 55,
+          "file": "example-binary/.fenolite/manufacturing.json",
+          "native_schematic": false,
+          "sha256": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358"
+        },
+        {
+          "bytes": 135,
+          "file": "example-binary/.fenolite/meta.json",
+          "native_schematic": false,
+          "sha256": "cae3d83b9a5996238b9c6d9664f2bc80064d2e9180587d9753867500806f16cb"
+        },
+        {
+          "bytes": 55,
+          "file": "example-binary/.fenolite/rules.json",
+          "native_schematic": false,
+          "sha256": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a"
+        },
+        {
+          "bytes": 3020,
+          "file": "example-binary/drawn.OutJob",
+          "native_schematic": false,
+          "sha256": "4d4448c15751df8aab9fe5d33ceb82d128ea1f3fe88df4c5818534d068ba6589"
+        },
+        {
+          "bytes": 146944,
+          "file": "example-binary/drawn.PcbDoc",
+          "native_schematic": false,
+          "sha256": "8eea2e36d9a93084c540ecd16a27e4b5b49210c59ba99433ef0bbc42535204c8"
+        },
+        {
+          "bytes": 127488,
+          "file": "example-binary/drawn.PcbLib",
+          "native_schematic": false,
+          "sha256": "10221f23770ced2646b10fae9cabb1f1f5e92ce93dbe968b785dc03939ccbad6"
+        },
+        {
+          "bytes": 450,
+          "file": "example-binary/drawn.PrjPcb",
+          "native_schematic": false,
+          "sha256": "e3746b4d99e82e2241686b80cd6165f102be7759f784cd9abe7ca4ef2f122a24"
+        },
+        {
+          "bytes": 23552,
+          "file": "example-binary/drawn.SchDoc",
+          "native_schematic": true,
+          "sha256": "a612f08dda6d77797e6bef4aa73e0196e66a42efe85158acdfaebcf7aa2ef565"
+        },
+        {
+          "bytes": 6144,
+          "file": "example-binary/drawn.SchLib",
+          "native_schematic": false,
+          "sha256": "d3c3cc2bd4581ca5e0f1f195408514a0944a1bbef0fda4e6257384081aabd7be"
+        },
+        {
+          "bytes": 11264,
+          "file": "example-binary/drawn_drawn_QMSFTVMJ.SchDoc",
+          "native_schematic": true,
+          "sha256": "9e1b64e9946ed5f667fcd6d295bcf4fe2129126d661802de781dd17014f8eed2"
+        },
+        {
+          "bytes": 1026,
+          "file": "example-binary/fenolite-base.json",
+          "native_schematic": false,
+          "sha256": "ac76ee740f6b9eb942bbc3c2adbdfad7845758346522a03f1c855575b0633a29"
+        },
+        {
+          "bytes": 71247,
+          "file": "example-ascii/.fenolite/board.json",
+          "native_schematic": false,
+          "sha256": "e50bce16a80dedf45a4a5f3a61d9fc0759be42092edb5efefb50ad814b82de3b"
+        },
+        {
+          "bytes": 828,
+          "file": "example-ascii/.fenolite/build.json",
+          "native_schematic": false,
+          "sha256": "2349f44801e417b1accdd91e45629c3fb1c039d0bc122218196b3f8418927ae5"
+        },
+        {
+          "bytes": 8985,
+          "file": "example-ascii/.fenolite/circuit.json",
+          "native_schematic": false,
+          "sha256": "82c238e2538bad6486cfa598a59432ee9561fc286244c9a09237740490b757a0"
+        },
+        {
+          "bytes": 3,
+          "file": "example-ascii/.fenolite/findings.json",
+          "native_schematic": false,
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+        },
+        {
+          "bytes": 55,
+          "file": "example-ascii/.fenolite/manufacturing.json",
+          "native_schematic": false,
+          "sha256": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358"
+        },
+        {
+          "bytes": 135,
+          "file": "example-ascii/.fenolite/meta.json",
+          "native_schematic": false,
+          "sha256": "cae3d83b9a5996238b9c6d9664f2bc80064d2e9180587d9753867500806f16cb"
+        },
+        {
+          "bytes": 55,
+          "file": "example-ascii/.fenolite/rules.json",
+          "native_schematic": false,
+          "sha256": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a"
+        },
+        {
+          "bytes": 3020,
+          "file": "example-ascii/drawn.OutJob",
+          "native_schematic": false,
+          "sha256": "4d4448c15751df8aab9fe5d33ceb82d128ea1f3fe88df4c5818534d068ba6589"
+        },
+        {
+          "bytes": 146944,
+          "file": "example-ascii/drawn.PcbDoc",
+          "native_schematic": false,
+          "sha256": "8eea2e36d9a93084c540ecd16a27e4b5b49210c59ba99433ef0bbc42535204c8"
+        },
+        {
+          "bytes": 127488,
+          "file": "example-ascii/drawn.PcbLib",
+          "native_schematic": false,
+          "sha256": "10221f23770ced2646b10fae9cabb1f1f5e92ce93dbe968b785dc03939ccbad6"
+        },
+        {
+          "bytes": 450,
+          "file": "example-ascii/drawn.PrjPcb",
+          "native_schematic": false,
+          "sha256": "e3746b4d99e82e2241686b80cd6165f102be7759f784cd9abe7ca4ef2f122a24"
+        },
+        {
+          "bytes": 23552,
+          "file": "example-ascii/drawn.SchDoc",
+          "native_schematic": true,
+          "sha256": "64c096e4eb17be160358e407fba669aa0ce71984630565303eaada1ad6bb77f8"
+        },
+        {
+          "bytes": 6144,
+          "file": "example-ascii/drawn.SchLib",
+          "native_schematic": false,
+          "sha256": "d3c3cc2bd4581ca5e0f1f195408514a0944a1bbef0fda4e6257384081aabd7be"
+        },
+        {
+          "bytes": 11264,
+          "file": "example-ascii/drawn_drawn_QMSFTVMJ.SchDoc",
+          "native_schematic": true,
+          "sha256": "801a4e2dafd13b7f6adb87e8f6b0ec4749da4554285ce0f52868cfb058f7e58c"
+        },
+        {
+          "bytes": 1026,
+          "file": "example-ascii/fenolite-base.json",
+          "native_schematic": false,
+          "sha256": "ac76ee740f6b9eb942bbc3c2adbdfad7845758346522a03f1c855575b0633a29"
+        },
+        {
+          "bytes": 64500,
+          "file": "full-binary/.fenolite/board.json",
+          "native_schematic": false,
+          "sha256": "9e221b8b03e05cd72193cc4a4cb28af69a88dfb8f812728a533e837816b8a1af"
+        },
+        {
+          "bytes": 868,
+          "file": "full-binary/.fenolite/build.json",
+          "native_schematic": false,
+          "sha256": "77f42ef7a742861913e0165cadf0b77e97942e0ab228be25764f4c00d52f83e0"
+        },
+        {
+          "bytes": 8549,
+          "file": "full-binary/.fenolite/circuit.json",
+          "native_schematic": false,
+          "sha256": "055a45f0137125aac47cc8efbb57e40338a45b4c8fc3deb38ef0fa52e701d0ea"
+        },
+        {
+          "bytes": 3,
+          "file": "full-binary/.fenolite/findings.json",
+          "native_schematic": false,
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+        },
+        {
+          "bytes": 55,
+          "file": "full-binary/.fenolite/manufacturing.json",
+          "native_schematic": false,
+          "sha256": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358"
+        },
+        {
+          "bytes": 140,
+          "file": "full-binary/.fenolite/meta.json",
+          "native_schematic": false,
+          "sha256": "6264e3c829ae3ffee24b5c72a24aed8c681e59056bbc0bb1f7dcdcec0cf26143"
+        },
+        {
+          "bytes": 55,
+          "file": "full-binary/.fenolite/rules.json",
+          "native_schematic": false,
+          "sha256": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a"
+        },
+        {
+          "bytes": 3045,
+          "file": "full-binary/drawn_full.OutJob",
+          "native_schematic": false,
+          "sha256": "cc62c9be79c150866d6108ebc8890051e0d32dd91d64b9ec68e1c28169936c3c"
+        },
+        {
+          "bytes": 144384,
+          "file": "full-binary/drawn_full.PcbDoc",
+          "native_schematic": false,
+          "sha256": "5aa81b99a68726e3ab603d4452508a91c3005215a9fe0cf2de734dc4df92af0c"
+        },
+        {
+          "bytes": 127488,
+          "file": "full-binary/drawn_full.PcbLib",
+          "native_schematic": false,
+          "sha256": "0f713628690d535c43b60ac0b144a2f7d18f6e1b360bc64942b390f838d6a013"
+        },
+        {
+          "bytes": 480,
+          "file": "full-binary/drawn_full.PrjPcb",
+          "native_schematic": false,
+          "sha256": "6adec272b99e4119fb33987f689302ce1e6e4d50b4236b5b4a0e54ab9160827a"
+        },
+        {
+          "bytes": 24576,
+          "file": "full-binary/drawn_full.SchDoc",
+          "native_schematic": true,
+          "sha256": "c8816dbeddb6f4a110b839a887357be6cfaf50568684cc588129597e07e6d1cb"
+        },
+        {
+          "bytes": 6144,
+          "file": "full-binary/drawn_full.SchLib",
+          "native_schematic": false,
+          "sha256": "2c89a9f4786bc1f02de02b565fc59358d459cc76dd4a4624636d721961260262"
+        },
+        {
+          "bytes": 9216,
+          "file": "full-binary/drawn_full_drawn_VQKTWNLP.SchDoc",
+          "native_schematic": true,
+          "sha256": "99a0ef5c36e69c3c447ed553a31e8deb1f6c622bbfb4c5f307ec0599897574a8"
+        },
+        {
+          "bytes": 756,
+          "file": "full-binary/fenolite-base.json",
+          "native_schematic": false,
+          "sha256": "b353ce2a3f40f0183c3bcc0ad40d57a740775706908fb4d97972cc875ed436e4"
+        },
+        {
+          "bytes": 64500,
+          "file": "full-ascii/.fenolite/board.json",
+          "native_schematic": false,
+          "sha256": "9e221b8b03e05cd72193cc4a4cb28af69a88dfb8f812728a533e837816b8a1af"
+        },
+        {
+          "bytes": 868,
+          "file": "full-ascii/.fenolite/build.json",
+          "native_schematic": false,
+          "sha256": "2f4fe24f9921526f155527e57d38bd94ce3b0afd7cb8d03e33f5cf9d87d9236f"
+        },
+        {
+          "bytes": 8549,
+          "file": "full-ascii/.fenolite/circuit.json",
+          "native_schematic": false,
+          "sha256": "055a45f0137125aac47cc8efbb57e40338a45b4c8fc3deb38ef0fa52e701d0ea"
+        },
+        {
+          "bytes": 3,
+          "file": "full-ascii/.fenolite/findings.json",
+          "native_schematic": false,
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+        },
+        {
+          "bytes": 55,
+          "file": "full-ascii/.fenolite/manufacturing.json",
+          "native_schematic": false,
+          "sha256": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358"
+        },
+        {
+          "bytes": 140,
+          "file": "full-ascii/.fenolite/meta.json",
+          "native_schematic": false,
+          "sha256": "6264e3c829ae3ffee24b5c72a24aed8c681e59056bbc0bb1f7dcdcec0cf26143"
+        },
+        {
+          "bytes": 55,
+          "file": "full-ascii/.fenolite/rules.json",
+          "native_schematic": false,
+          "sha256": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a"
+        },
+        {
+          "bytes": 3045,
+          "file": "full-ascii/drawn_full.OutJob",
+          "native_schematic": false,
+          "sha256": "cc62c9be79c150866d6108ebc8890051e0d32dd91d64b9ec68e1c28169936c3c"
+        },
+        {
+          "bytes": 144384,
+          "file": "full-ascii/drawn_full.PcbDoc",
+          "native_schematic": false,
+          "sha256": "5aa81b99a68726e3ab603d4452508a91c3005215a9fe0cf2de734dc4df92af0c"
+        },
+        {
+          "bytes": 127488,
+          "file": "full-ascii/drawn_full.PcbLib",
+          "native_schematic": false,
+          "sha256": "0f713628690d535c43b60ac0b144a2f7d18f6e1b360bc64942b390f838d6a013"
+        },
+        {
+          "bytes": 480,
+          "file": "full-ascii/drawn_full.PrjPcb",
+          "native_schematic": false,
+          "sha256": "6adec272b99e4119fb33987f689302ce1e6e4d50b4236b5b4a0e54ab9160827a"
+        },
+        {
+          "bytes": 24576,
+          "file": "full-ascii/drawn_full.SchDoc",
+          "native_schematic": true,
+          "sha256": "a8cd56cd380a08dd1e8a7e38a66cff49f6ccd6e02e9a82a36ea63db536f5c767"
+        },
+        {
+          "bytes": 6144,
+          "file": "full-ascii/drawn_full.SchLib",
+          "native_schematic": false,
+          "sha256": "2c89a9f4786bc1f02de02b565fc59358d459cc76dd4a4624636d721961260262"
+        },
+        {
+          "bytes": 9216,
+          "file": "full-ascii/drawn_full_drawn_VQKTWNLP.SchDoc",
+          "native_schematic": true,
+          "sha256": "8ca1f0ebd5924dbda47f2a2db14735958234f08f67c3955db92743dd0121a76a"
+        },
+        {
+          "bytes": 756,
+          "file": "full-ascii/fenolite-base.json",
+          "native_schematic": false,
+          "sha256": "b353ce2a3f40f0183c3bcc0ad40d57a740775706908fb4d97972cc875ed436e4"
+        },
+        {
+          "bytes": 27800,
+          "file": "repeat-binary/.fenolite/board.json",
+          "native_schematic": false,
+          "sha256": "8eab8e90797e201983b3e3f44314d2f3dda31be4fd36ff7bbfe1e5397bc3ae9b"
+        },
+        {
+          "bytes": 994,
+          "file": "repeat-binary/.fenolite/build.json",
+          "native_schematic": false,
+          "sha256": "9958902d6ce6970c3139b338f906d214f0eaedbabe4d3f37f796780157bfd8e7"
+        },
+        {
+          "bytes": 3508,
+          "file": "repeat-binary/.fenolite/circuit.json",
+          "native_schematic": false,
+          "sha256": "77a79892286001654189a7456e200aa3241e1e0ec81811fc144adfd583a50c78"
+        },
+        {
+          "bytes": 3,
+          "file": "repeat-binary/.fenolite/findings.json",
+          "native_schematic": false,
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+        },
+        {
+          "bytes": 55,
+          "file": "repeat-binary/.fenolite/manufacturing.json",
+          "native_schematic": false,
+          "sha256": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358"
+        },
+        {
+          "bytes": 142,
+          "file": "repeat-binary/.fenolite/meta.json",
+          "native_schematic": false,
+          "sha256": "3b0ea42947b8a8c8de399aea2cfecd73ff3a0bdc2bc491219434b518211ab559"
+        },
+        {
+          "bytes": 55,
+          "file": "repeat-binary/.fenolite/rules.json",
+          "native_schematic": false,
+          "sha256": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a"
+        },
+        {
+          "bytes": 3055,
+          "file": "repeat-binary/drawn_repeat.OutJob",
+          "native_schematic": false,
+          "sha256": "f3586cdd918e953ce30d3c011e6b7f00f3982007c909c4e58ae50f98953e556d"
+        },
+        {
+          "bytes": 121344,
+          "file": "repeat-binary/drawn_repeat.PcbDoc",
+          "native_schematic": false,
+          "sha256": "ff89d680db2caa0b940a6d9f4629b571b1cd1f59deb1fdb0e2f21e7a2e249a4c"
+        },
+        {
+          "bytes": 98304,
+          "file": "repeat-binary/drawn_repeat.PcbLib",
+          "native_schematic": false,
+          "sha256": "6d241e7798442e46adca569916fd4805c01a0ae8fa82ac08c8ebcb00af087fc0"
+        },
+        {
+          "bytes": 636,
+          "file": "repeat-binary/drawn_repeat.PrjPcb",
+          "native_schematic": false,
+          "sha256": "4245eec843c8ea38527b4472962e50da5bce85ae3e4e975265fd90be88040f05"
+        },
+        {
+          "bytes": 8192,
+          "file": "repeat-binary/drawn_repeat.SchDoc",
+          "native_schematic": true,
+          "sha256": "49ecded6c993311011ea81a35620cbd252f6d604f6db11f754a188a6a1876988"
+        },
+        {
+          "bytes": 4096,
+          "file": "repeat-binary/drawn_repeat.SchLib",
+          "native_schematic": false,
+          "sha256": "f862905bd62b05620760e81fd29cc4e513ace94ef4cb8b0153db24afaf0613ab"
+        },
+        {
+          "bytes": 11264,
+          "file": "repeat-binary/drawn_repeat_drawn_EVKKEYCV.SchDoc",
+          "native_schematic": true,
+          "sha256": "6dc2193cff2108595dafa76cd8980249b77718a77ecf3397599463248d39be53"
+        },
+        {
+          "bytes": 11264,
+          "file": "repeat-binary/drawn_repeat_drawn_FKEFGCYI.SchDoc",
+          "native_schematic": true,
+          "sha256": "21d2182d9ed008d3cda2b114f7ece94738b796df2c2469a7ed671045e6e9a9bf"
+        },
+        {
+          "bytes": 1130,
+          "file": "repeat-binary/fenolite-base.json",
+          "native_schematic": false,
+          "sha256": "2f7d32261d4f6b0bab30d3f441b64ab4c32ed4e40969ff2ee7aacc33edef0e43"
+        },
+        {
+          "bytes": 27800,
+          "file": "repeat-ascii/.fenolite/board.json",
+          "native_schematic": false,
+          "sha256": "8eab8e90797e201983b3e3f44314d2f3dda31be4fd36ff7bbfe1e5397bc3ae9b"
+        },
+        {
+          "bytes": 994,
+          "file": "repeat-ascii/.fenolite/build.json",
+          "native_schematic": false,
+          "sha256": "34e9d0767f22caae6bea7e177b109176a9795a26939749d7c20a650d9219b42d"
+        },
+        {
+          "bytes": 3508,
+          "file": "repeat-ascii/.fenolite/circuit.json",
+          "native_schematic": false,
+          "sha256": "77a79892286001654189a7456e200aa3241e1e0ec81811fc144adfd583a50c78"
+        },
+        {
+          "bytes": 3,
+          "file": "repeat-ascii/.fenolite/findings.json",
+          "native_schematic": false,
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+        },
+        {
+          "bytes": 55,
+          "file": "repeat-ascii/.fenolite/manufacturing.json",
+          "native_schematic": false,
+          "sha256": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358"
+        },
+        {
+          "bytes": 142,
+          "file": "repeat-ascii/.fenolite/meta.json",
+          "native_schematic": false,
+          "sha256": "3b0ea42947b8a8c8de399aea2cfecd73ff3a0bdc2bc491219434b518211ab559"
+        },
+        {
+          "bytes": 55,
+          "file": "repeat-ascii/.fenolite/rules.json",
+          "native_schematic": false,
+          "sha256": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a"
+        },
+        {
+          "bytes": 3055,
+          "file": "repeat-ascii/drawn_repeat.OutJob",
+          "native_schematic": false,
+          "sha256": "f3586cdd918e953ce30d3c011e6b7f00f3982007c909c4e58ae50f98953e556d"
+        },
+        {
+          "bytes": 121344,
+          "file": "repeat-ascii/drawn_repeat.PcbDoc",
+          "native_schematic": false,
+          "sha256": "ff89d680db2caa0b940a6d9f4629b571b1cd1f59deb1fdb0e2f21e7a2e249a4c"
+        },
+        {
+          "bytes": 98304,
+          "file": "repeat-ascii/drawn_repeat.PcbLib",
+          "native_schematic": false,
+          "sha256": "6d241e7798442e46adca569916fd4805c01a0ae8fa82ac08c8ebcb00af087fc0"
+        },
+        {
+          "bytes": 636,
+          "file": "repeat-ascii/drawn_repeat.PrjPcb",
+          "native_schematic": false,
+          "sha256": "4245eec843c8ea38527b4472962e50da5bce85ae3e4e975265fd90be88040f05"
+        },
+        {
+          "bytes": 8192,
+          "file": "repeat-ascii/drawn_repeat.SchDoc",
+          "native_schematic": true,
+          "sha256": "c3eeb0d33f337a668596d832cd0bcf244d576b8c11806c3e6aa9490be160e8b0"
+        },
+        {
+          "bytes": 4096,
+          "file": "repeat-ascii/drawn_repeat.SchLib",
+          "native_schematic": false,
+          "sha256": "f862905bd62b05620760e81fd29cc4e513ace94ef4cb8b0153db24afaf0613ab"
+        },
+        {
+          "bytes": 11264,
+          "file": "repeat-ascii/drawn_repeat_drawn_EVKKEYCV.SchDoc",
+          "native_schematic": true,
+          "sha256": "74424c47e1db37831055d68aa8239d0f4f19baca90b938a8d3097c2457edc501"
+        },
+        {
+          "bytes": 11264,
+          "file": "repeat-ascii/drawn_repeat_drawn_FKEFGCYI.SchDoc",
+          "native_schematic": true,
+          "sha256": "33812412a8a157f1993e7e12b8cc9f13bc757abf2a4ac2832cf02387b42d56f5"
+        },
+        {
+          "bytes": 1130,
+          "file": "repeat-ascii/fenolite-base.json",
+          "native_schematic": false,
+          "sha256": "2f7d32261d4f6b0bab30d3f441b64ab4c32ed4e40969ff2ee7aacc33edef0e43"
+        }
+      ],
+      "stage": "entry\r\nsaved:example-binary/drawn.SchDoc\r\nsaved:example-binary/drawn_drawn_QMSFTVMJ.SchDoc\r\nsaved:example-ascii/drawn.SchDoc\r\nsaved:example-ascii/drawn_drawn_QMSFTVMJ.SchDoc\r\nsaved:full-binary/drawn_full.SchDoc\r\nsaved:full-binary/drawn_full_drawn_VQKTWNLP.SchDoc\r\nsaved:full-ascii/drawn_full.SchDoc\r\nsaved:full-ascii/drawn_full_drawn_VQKTWNLP.SchDoc\r\nsaved:repeat-binary/drawn_repeat.SchDoc\r\nsaved:repeat-binary/drawn_repeat_drawn_EVKKEYCV.SchDoc\r\nsaved:repeat-binary/drawn_repeat_drawn_FKEFGCYI.SchDoc\r\nsaved:repeat-ascii/drawn_repeat.SchDoc\r\nsaved:repeat-ascii/drawn_repeat_drawn_EVKKEYCV.SchDoc\r\nsaved:repeat-ascii/drawn_repeat_drawn_FKEFGCYI.SchDoc\r\ncomplete\r\n",
+      "time": "2026-11-02T20:07:02.4516416Z"
+    }
+  },
+  "native_version": "22.2.1",
+  "operator_scripts_sha256": {
+    "fenolite_altium_ui.py": "a3d8680710c68a3bba0ffe9ebbff31f57287b0e3d8d35d86b2e6070ffd5a0251",
+    "fenolite_c0331_build.py": "4cd03b374434169da9fd08ea4a40a48b3c4003c42f2c137df8959ac7caac54e2",
+    "fenolite_c0331_native_negative.py": "f24f073b35229ca5725354dc01ca3949aea980447e31746d92f722cb1154f402",
+    "fenolite_c0331_save_corrected.py": "746bc38a151dedde0794474e2e0716eef34887650930520210cedc935a789ad9",
+    "fenolite_cac_altium_compare.py": "474c59a4ea340d973344e3595f5405680c17097139e81f1fe07ef1b5d526788c",
+    "fenolite_cac_native_probe.py": "6f08863447588268ba7a970762d4897cb14255cc72d46cfa5991469098426db1",
+    "fenolite_cac_native_save_all.py": "60e5f81cacd35be212522f8a9660d6dbd0bc19b8d0c060d501508e00102d18b8",
+    "fenolite_cac_native_saved_collect.py": "9636b073cd017603858a6450554eafc0bfefb6e592fe355b881c68cb49453323"
+  },
+  "original_cases": [
+    {
+      "all_pins": 38,
+      "all_six_cases_done": false,
+      "case": "example-binary",
+      "compiler_log": [
+        "[Error]|Net GND has only one pin (Pin U1-10)|Compiler",
+        "[Error]|Net NetU1_11 contains floating input pins (Pin U1-11)|Compiler",
+        "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+        "[Warning]|Net NetU1_11 has no driving source (Pin U1-11)|Compiler",
+        "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+      ],
+      "compiler_messages": {
+        "[Error]": 3,
+        "[Warning]": 2
+      },
+      "components": 4,
+      "connectivity_equal": true,
+      "evidence_promoted": false,
+      "groups": 33,
+      "name_differences": [
+        {
+          "code": "IN",
+          "native": [
+            [
+              "NetR2_1",
+              "NetR2_1"
+            ]
+          ],
+          "pins": [
+            [
+              "R2",
+              "1"
+            ],
+            [
+              "U1",
+              "3"
+            ]
+          ]
+        }
+      ],
+      "native_memberships": 37,
+      "native_net_objects": 32,
+      "native_version": "22.2.1",
+      "only_code_groups": [],
+      "only_native_groups": [],
+      "raw_sha256": {
+        "FenoliteCompile2.PrjScr": "a6093a1471aa6efc147996a456551293b221c488cb7523b0ad02ca84fea2b2c8",
+        "FenoliteCompile2.pas": "020d07ed48915868b3165669b5400ea628b5f7d3654fe91bb61ac2005a7ff507",
+        "FenoliteNets4.PrjScr": "833cc59637aaa021a73bb3816a0f836f9a488f41a89bc742388360edc0111dd0",
+        "FenoliteNets4.pas": "745843a4afeb1bb643baa17f01fb442f268dc21f6abaee3a306a9681bab1e76d",
+        "FenolitePins3.PrjScr": "9d71cc238ee241c0a22980832c11cacb76f787dabc349857cac7a5d5607b513b",
+        "FenolitePins3.pas": "3d7906f20074dbafe48f28ce32e89b7375387b651db95f193cd2ef85a5a2322f",
+        "compile2-stage.txt": "323449a19befd16d5b25bf4bb10dcf0ab74c7a33c0d0a1ceca512ebbbbd87dc8",
+        "example-binary-messages2.txt": "d1dba05064d7837c37ed2811380917cb234a0b3a66200245d04d2bdf68c2f2b4",
+        "example-binary-nets4.tsv": "629ea1e4ef20eb68d6d3b5da09b45b60824be1ddcfcd96776caa95ed8e1f9c8f",
+        "example-binary-pins3.tsv": "50e45f2f650f95c0f3afe64b536114e3b7d869f831d43ee83c53308586f4208e",
+        "nets4-stage.txt": "c9b310a721cdaae6a1ded69f24b968fe854aae9a991875bbdf6cc0855f7f3f4f",
+        "ping.txt": "4b51bb199efb3d92ca397e12f20b5bc4019a3a2d3160a815174decff996c4da7",
+        "pins3-stage.txt": "b38081b576304ea8abfa2dafa2cd36a65b69717a6573d851b9d8aeaa1c096743"
+      },
+      "save_reopen_done": false,
+      "schema": "fenolite.altium-native-drawn-probe.v0",
+      "source_sha256": "82c238e2538bad6486cfa598a59432ee9561fc286244c9a09237740490b757a0",
+      "status": "measured-with-findings",
+      "unlisted_native_net_pins": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "writer_source_commit": "1918e63214a7d0123e1f5fa8ef095c73fd2e1472"
+    },
+    {
+      "all_pins": 38,
+      "all_six_cases_done": false,
+      "case": "example-ascii",
+      "compiler_log": [
+        "[Error]|Net GND has only one pin (Pin U1-10)|Compiler",
+        "[Error]|Net NetU1_11 contains floating input pins (Pin U1-11)|Compiler",
+        "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+        "[Warning]|Net NetU1_11 has no driving source (Pin U1-11)|Compiler",
+        "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+      ],
+      "compiler_messages": {
+        "[Error]": 3,
+        "[Warning]": 2
+      },
+      "components": 4,
+      "connectivity_equal": true,
+      "evidence_promoted": false,
+      "groups": 33,
+      "name_differences": [
+        {
+          "code": "IN",
+          "native": [
+            [
+              "NetR2_1",
+              "NetR2_1"
+            ]
+          ],
+          "pins": [
+            [
+              "R2",
+              "1"
+            ],
+            [
+              "U1",
+              "3"
+            ]
+          ]
+        }
+      ],
+      "native_memberships": 37,
+      "native_net_objects": 32,
+      "native_version": "22.2.1",
+      "only_code_groups": [],
+      "only_native_groups": [],
+      "raw_sha256": {
+        "NativeCase.PrjScr": "7b9d3e820050086db9ad1f702b05347b9c86267c3e76dca026466b9386968037",
+        "NativeCase.pas": "9ffb2032e1ca1acb4f18980f4c4d79be8897b5128c2affe256ca7d95a28eb432",
+        "messages.txt": "d1dba05064d7837c37ed2811380917cb234a0b3a66200245d04d2bdf68c2f2b4",
+        "nets.tsv": "629ea1e4ef20eb68d6d3b5da09b45b60824be1ddcfcd96776caa95ed8e1f9c8f",
+        "pins.tsv": "50e45f2f650f95c0f3afe64b536114e3b7d869f831d43ee83c53308586f4208e",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "save_reopen_done": false,
+      "schema": "fenolite.altium-native-drawn-probe.v0",
+      "source_sha256": "82c238e2538bad6486cfa598a59432ee9561fc286244c9a09237740490b757a0",
+      "status": "measured-with-findings",
+      "unlisted_native_net_pins": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "writer_source_commit": "1918e63214a7d0123e1f5fa8ef095c73fd2e1472"
+    },
+    {
+      "all_pins": 36,
+      "all_six_cases_done": false,
+      "case": "full-binary",
+      "compiler_log": [
+        "[Error]|Net B0 has only one pin (Pin U1-18)|Compiler",
+        "[Error]|Net B1 has only one pin (Pin U1-19)|Compiler",
+        "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+        "[Error]|Wire Net Label {BUSA} at 5000mil,4450mil placed on a bus.|Compiler",
+        "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+      ],
+      "compiler_messages": {
+        "[Error]": 4,
+        "[Warning]": 1
+      },
+      "components": 3,
+      "connectivity_equal": true,
+      "evidence_promoted": false,
+      "groups": 32,
+      "name_differences": [
+        {
+          "code": "IN",
+          "native": [
+            [
+              "NetR2_1",
+              "NetR2_1"
+            ]
+          ],
+          "pins": [
+            [
+              "R2",
+              "1"
+            ],
+            [
+              "U1",
+              "1"
+            ]
+          ]
+        }
+      ],
+      "native_memberships": 35,
+      "native_net_objects": 32,
+      "native_version": "22.2.1",
+      "only_code_groups": [],
+      "only_native_groups": [],
+      "raw_sha256": {
+        "NativeCase.PrjScr": "7b9d3e820050086db9ad1f702b05347b9c86267c3e76dca026466b9386968037",
+        "NativeCase.pas": "4d9b3048d8678c133fc871d6c8f6f0a09717ff1e27640d3c0528e9ef9507d072",
+        "messages.txt": "42cb8a753f3427ffa809525182f06ea9adfc1ac259a6662a66c919c84291c5af",
+        "nets.tsv": "e04189edadd7a107173fbfeb6bc71b5bfd56314f90240e75444fa7cf613e33ab",
+        "pins.tsv": "31e9e4879d6511b40f1ff84cf470d8f9360f21bd889263d79942aac2f788cdc3",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "save_reopen_done": false,
+      "schema": "fenolite.altium-native-drawn-probe.v0",
+      "source_sha256": "055a45f0137125aac47cc8efbb57e40338a45b4c8fc3deb38ef0fa52e701d0ea",
+      "status": "measured-with-findings",
+      "unlisted_native_net_pins": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "writer_source_commit": "1918e63214a7d0123e1f5fa8ef095c73fd2e1472"
+    },
+    {
+      "all_pins": 36,
+      "all_six_cases_done": false,
+      "case": "full-ascii",
+      "compiler_log": [
+        "[Error]|Net B0 has only one pin (Pin U1-18)|Compiler",
+        "[Error]|Net B1 has only one pin (Pin U1-19)|Compiler",
+        "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+        "[Error]|Wire Net Label {BUSA} at 5000mil,4450mil placed on a bus.|Compiler",
+        "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+      ],
+      "compiler_messages": {
+        "[Error]": 4,
+        "[Warning]": 1
+      },
+      "components": 3,
+      "connectivity_equal": true,
+      "evidence_promoted": false,
+      "groups": 32,
+      "name_differences": [
+        {
+          "code": "IN",
+          "native": [
+            [
+              "NetR2_1",
+              "NetR2_1"
+            ]
+          ],
+          "pins": [
+            [
+              "R2",
+              "1"
+            ],
+            [
+              "U1",
+              "1"
+            ]
+          ]
+        }
+      ],
+      "native_memberships": 35,
+      "native_net_objects": 32,
+      "native_version": "22.2.1",
+      "only_code_groups": [],
+      "only_native_groups": [],
+      "raw_sha256": {
+        "NativeCase.PrjScr": "7b9d3e820050086db9ad1f702b05347b9c86267c3e76dca026466b9386968037",
+        "NativeCase.pas": "4c18ac0e940fafb5cee59f166c7b4c21fe00762ffc12dfc46ed929ddb4780deb",
+        "messages.txt": "42cb8a753f3427ffa809525182f06ea9adfc1ac259a6662a66c919c84291c5af",
+        "nets.tsv": "e04189edadd7a107173fbfeb6bc71b5bfd56314f90240e75444fa7cf613e33ab",
+        "pins.tsv": "31e9e4879d6511b40f1ff84cf470d8f9360f21bd889263d79942aac2f788cdc3",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "save_reopen_done": false,
+      "schema": "fenolite.altium-native-drawn-probe.v0",
+      "source_sha256": "055a45f0137125aac47cc8efbb57e40338a45b4c8fc3deb38ef0fa52e701d0ea",
+      "status": "measured-with-findings",
+      "unlisted_native_net_pins": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "writer_source_commit": "1918e63214a7d0123e1f5fa8ef095c73fd2e1472"
+    },
+    {
+      "all_pins": 8,
+      "all_six_cases_done": false,
+      "case": "repeat-binary",
+      "compiler_log": [
+        "[Info]|Compile successful, no errors found.|Compiler"
+      ],
+      "compiler_messages": {
+        "[Info]": 1
+      },
+      "components": 4,
+      "connectivity_equal": true,
+      "evidence_promoted": false,
+      "groups": 5,
+      "name_differences": [
+        {
+          "code": "FB0",
+          "native": [
+            [
+              "__local_PCWPSBNL_FB",
+              "__local_PCWPSBNL_FB"
+            ]
+          ],
+          "pins": [
+            [
+              "R1",
+              "2"
+            ],
+            [
+              "R2",
+              "1"
+            ]
+          ]
+        },
+        {
+          "code": "FB1",
+          "native": [
+            [
+              "__local_HIETOPDD_FB",
+              "__local_HIETOPDD_FB"
+            ]
+          ],
+          "pins": [
+            [
+              "R3",
+              "2"
+            ],
+            [
+              "R4",
+              "1"
+            ]
+          ]
+        }
+      ],
+      "native_memberships": 8,
+      "native_net_objects": 5,
+      "native_version": "22.2.1",
+      "only_code_groups": [],
+      "only_native_groups": [],
+      "raw_sha256": {
+        "NativeCase.PrjScr": "7b9d3e820050086db9ad1f702b05347b9c86267c3e76dca026466b9386968037",
+        "NativeCase.pas": "00da1aa82dd8e2886bd588f3a0f020acf9085b0428b990c22f181f44b3eb415d",
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "18319c4f53f09b6a70d5c387491a3d6cb2afa155bc1a8d552be22eb908537000",
+        "pins.tsv": "fb3440a42e273bad37ee63959a79154f66b757c9e0a637bda56270150d9bd756",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "save_reopen_done": false,
+      "schema": "fenolite.altium-native-drawn-probe.v0",
+      "source_sha256": "77a79892286001654189a7456e200aa3241e1e0ec81811fc144adfd583a50c78",
+      "status": "measured-with-findings",
+      "unlisted_native_net_pins": [],
+      "writer_source_commit": "1918e63214a7d0123e1f5fa8ef095c73fd2e1472"
+    },
+    {
+      "all_pins": 8,
+      "all_six_cases_done": false,
+      "case": "repeat-ascii",
+      "compiler_log": [
+        "[Info]|Compile successful, no errors found.|Compiler"
+      ],
+      "compiler_messages": {
+        "[Info]": 1
+      },
+      "components": 4,
+      "connectivity_equal": true,
+      "evidence_promoted": false,
+      "groups": 5,
+      "name_differences": [
+        {
+          "code": "FB0",
+          "native": [
+            [
+              "__local_PCWPSBNL_FB",
+              "__local_PCWPSBNL_FB"
+            ]
+          ],
+          "pins": [
+            [
+              "R1",
+              "2"
+            ],
+            [
+              "R2",
+              "1"
+            ]
+          ]
+        },
+        {
+          "code": "FB1",
+          "native": [
+            [
+              "__local_HIETOPDD_FB",
+              "__local_HIETOPDD_FB"
+            ]
+          ],
+          "pins": [
+            [
+              "R3",
+              "2"
+            ],
+            [
+              "R4",
+              "1"
+            ]
+          ]
+        }
+      ],
+      "native_memberships": 8,
+      "native_net_objects": 5,
+      "native_version": "22.2.1",
+      "only_code_groups": [],
+      "only_native_groups": [],
+      "raw_sha256": {
+        "NativeCase.PrjScr": "7b9d3e820050086db9ad1f702b05347b9c86267c3e76dca026466b9386968037",
+        "NativeCase.pas": "4000f75f9b3a27def6235cbd0359a226ce23e8380091eb2974715e9af704861b",
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "18319c4f53f09b6a70d5c387491a3d6cb2afa155bc1a8d552be22eb908537000",
+        "pins.tsv": "fb3440a42e273bad37ee63959a79154f66b757c9e0a637bda56270150d9bd756",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "save_reopen_done": false,
+      "schema": "fenolite.altium-native-drawn-probe.v0",
+      "source_sha256": "77a79892286001654189a7456e200aa3241e1e0ec81811fc144adfd583a50c78",
+      "status": "measured-with-findings",
+      "unlisted_native_net_pins": [],
+      "writer_source_commit": "1918e63214a7d0123e1f5fa8ef095c73fd2e1472"
+    }
+  ],
+  "original_inputs_after_six": {
+    "changed": [],
+    "checked": 92,
+    "time": "2026-11-02T20:04:22.5037540Z"
+  },
+  "save_probes": {
+    "first_kind_SCH": {
+      "returned": "saved_result=-1\ntarget_name_matches=True\nkind=SCH\n",
+      "target_existed": false
+    },
+    "raw_sha256": {
+      "drawn-native-format.SchDoc": "0e28ed1128edaaac3f669fbff87911c83aea0f1afb3d5bbed9ffc89b769f3afa",
+      "probe1/SaveProbe.PrjScr": "0a8663b67150d069e1c97dcbcedfdefc052e1a32be183c846713e46380237bb1",
+      "probe1/SaveProbe.pas": "faec5b9de63bd62b2a810a518306e84f0a9dd6f8b9c2ff4768c85a49c53d7e9f",
+      "probe1/returned.txt": "d49ad41f4b2dbaf1e8d313d6524bcbd888741c150b9a0ce0a11cca1db0a6b699",
+      "probe1/stage.txt": "09d0f1a17d82e9e2d5b75e0cff1442b1f2914eebf779399e206796e682ada448",
+      "probe2/SaveProbe.PrjScr": "0a8663b67150d069e1c97dcbcedfdefc052e1a32be183c846713e46380237bb1",
+      "probe2/SaveProbe.pas": "db8a9f193519affad291d85241bcebd41b905f070405f9ae0e3e69fd60d21aad",
+      "probe2/returned.txt": "ac6d2276097bf322c7db3ab1df0f3357a3280de8664346c03973697ab66d5697",
+      "probe2/stage.txt": "09d0f1a17d82e9e2d5b75e0cff1442b1f2914eebf779399e206796e682ada448"
+    },
+    "reopen_partition_compared": true,
+    "scope": "initial root-only probes followed by all six complete original projects and four corrected controls, each saved into a fresh copy and recompiled",
+    "second_documented_format": {
+      "bytes": 23552,
+      "format": "Advanced Schematic binary",
+      "modified_marked": true,
+      "returned": "saved_result=-1\ntarget_name_matches=True\nkind=Advanced Schematic binary\n",
+      "sha256": "0e28ed1128edaaac3f669fbff87911c83aea0f1afb3d5bbed9ffc89b769f3afa",
+      "target_existed": true
+    }
+  },
+  "saved_original_cases": [
+    {
+      "all_pins": 38,
+      "case": "example-binary",
+      "compiler_log": [
+        "[Error]|Net GND has only one pin (Pin U1-10)|Compiler",
+        "[Error]|Net NetU1_11 contains floating input pins (Pin U1-11)|Compiler",
+        "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+        "[Warning]|Net NetU1_11 has no driving source (Pin U1-11)|Compiler",
+        "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+      ],
+      "compiler_messages": {
+        "[Error]": 3,
+        "[Warning]": 2
+      },
+      "components": 4,
+      "connectivity_equal": true,
+      "groups": 33,
+      "name_differences": [
+        {
+          "code": "IN",
+          "native": [
+            [
+              "NetR2_1",
+              "NetR2_1"
+            ]
+          ],
+          "pins": [
+            [
+              "R2",
+              "1"
+            ],
+            [
+              "U1",
+              "3"
+            ]
+          ]
+        }
+      ],
+      "raw_sha256": {
+        "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+        "NativeCase.pas": "5692c16fe70d3f559312522952317f8e16fc68e62c785187ec4f004641d5cc32",
+        "messages.txt": "d1dba05064d7837c37ed2811380917cb234a0b3a66200245d04d2bdf68c2f2b4",
+        "nets.tsv": "629ea1e4ef20eb68d6d3b5da09b45b60824be1ddcfcd96776caa95ed8e1f9c8f",
+        "pins.tsv": "50e45f2f650f95c0f3afe64b536114e3b7d869f831d43ee83c53308586f4208e",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "source_sha256": "82c238e2538bad6486cfa598a59432ee9561fc286244c9a09237740490b757a0",
+      "writer_source_commit": "1918e63214a7d0123e1f5fa8ef095c73fd2e1472"
+    },
+    {
+      "all_pins": 38,
+      "case": "example-ascii",
+      "compiler_log": [
+        "[Error]|Net GND has only one pin (Pin U1-10)|Compiler",
+        "[Error]|Net NetU1_11 contains floating input pins (Pin U1-11)|Compiler",
+        "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+        "[Warning]|Net NetU1_11 has no driving source (Pin U1-11)|Compiler",
+        "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+      ],
+      "compiler_messages": {
+        "[Error]": 3,
+        "[Warning]": 2
+      },
+      "components": 4,
+      "connectivity_equal": true,
+      "groups": 33,
+      "name_differences": [
+        {
+          "code": "IN",
+          "native": [
+            [
+              "NetR2_1",
+              "NetR2_1"
+            ]
+          ],
+          "pins": [
+            [
+              "R2",
+              "1"
+            ],
+            [
+              "U1",
+              "3"
+            ]
+          ]
+        }
+      ],
+      "raw_sha256": {
+        "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+        "NativeCase.pas": "7578061c994b301f992fd0d60f3371a608c71485aa7dd502b5e111c1d9782a12",
+        "messages.txt": "d1dba05064d7837c37ed2811380917cb234a0b3a66200245d04d2bdf68c2f2b4",
+        "nets.tsv": "629ea1e4ef20eb68d6d3b5da09b45b60824be1ddcfcd96776caa95ed8e1f9c8f",
+        "pins.tsv": "50e45f2f650f95c0f3afe64b536114e3b7d869f831d43ee83c53308586f4208e",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "source_sha256": "82c238e2538bad6486cfa598a59432ee9561fc286244c9a09237740490b757a0",
+      "writer_source_commit": "1918e63214a7d0123e1f5fa8ef095c73fd2e1472"
+    },
+    {
+      "all_pins": 36,
+      "case": "full-binary",
+      "compiler_log": [
+        "[Error]|Net B0 has only one pin (Pin U1-18)|Compiler",
+        "[Error]|Net B1 has only one pin (Pin U1-19)|Compiler",
+        "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+        "[Error]|Wire Net Label {BUSA} at 5000mil,4450mil placed on a bus.|Compiler",
+        "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+      ],
+      "compiler_messages": {
+        "[Error]": 4,
+        "[Warning]": 1
+      },
+      "components": 3,
+      "connectivity_equal": true,
+      "groups": 32,
+      "name_differences": [
+        {
+          "code": "IN",
+          "native": [
+            [
+              "NetR2_1",
+              "NetR2_1"
+            ]
+          ],
+          "pins": [
+            [
+              "R2",
+              "1"
+            ],
+            [
+              "U1",
+              "1"
+            ]
+          ]
+        }
+      ],
+      "raw_sha256": {
+        "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+        "NativeCase.pas": "7353c8c27aa6c6e52a8be0824fc7749b8b21da231e762faa459df23ea3de5e41",
+        "messages.txt": "42cb8a753f3427ffa809525182f06ea9adfc1ac259a6662a66c919c84291c5af",
+        "nets.tsv": "e04189edadd7a107173fbfeb6bc71b5bfd56314f90240e75444fa7cf613e33ab",
+        "pins.tsv": "31e9e4879d6511b40f1ff84cf470d8f9360f21bd889263d79942aac2f788cdc3",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "source_sha256": "055a45f0137125aac47cc8efbb57e40338a45b4c8fc3deb38ef0fa52e701d0ea",
+      "writer_source_commit": "1918e63214a7d0123e1f5fa8ef095c73fd2e1472"
+    },
+    {
+      "all_pins": 36,
+      "case": "full-ascii",
+      "compiler_log": [
+        "[Error]|Net B0 has only one pin (Pin U1-18)|Compiler",
+        "[Error]|Net B1 has only one pin (Pin U1-19)|Compiler",
+        "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+        "[Error]|Wire Net Label {BUSA} at 5000mil,4450mil placed on a bus.|Compiler",
+        "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+      ],
+      "compiler_messages": {
+        "[Error]": 4,
+        "[Warning]": 1
+      },
+      "components": 3,
+      "connectivity_equal": true,
+      "groups": 32,
+      "name_differences": [
+        {
+          "code": "IN",
+          "native": [
+            [
+              "NetR2_1",
+              "NetR2_1"
+            ]
+          ],
+          "pins": [
+            [
+              "R2",
+              "1"
+            ],
+            [
+              "U1",
+              "1"
+            ]
+          ]
+        }
+      ],
+      "raw_sha256": {
+        "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+        "NativeCase.pas": "5e9845dea44a0af50de5a2f985d86705970f5bbb839e14fa7e59a455ea3d78e0",
+        "messages.txt": "42cb8a753f3427ffa809525182f06ea9adfc1ac259a6662a66c919c84291c5af",
+        "nets.tsv": "e04189edadd7a107173fbfeb6bc71b5bfd56314f90240e75444fa7cf613e33ab",
+        "pins.tsv": "31e9e4879d6511b40f1ff84cf470d8f9360f21bd889263d79942aac2f788cdc3",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "source_sha256": "055a45f0137125aac47cc8efbb57e40338a45b4c8fc3deb38ef0fa52e701d0ea",
+      "writer_source_commit": "1918e63214a7d0123e1f5fa8ef095c73fd2e1472"
+    },
+    {
+      "all_pins": 8,
+      "case": "repeat-binary",
+      "compiler_log": [
+        "[Info]|Compile successful, no errors found.|Compiler"
+      ],
+      "compiler_messages": {
+        "[Info]": 1
+      },
+      "components": 4,
+      "connectivity_equal": true,
+      "groups": 5,
+      "name_differences": [
+        {
+          "code": "FB0",
+          "native": [
+            [
+              "__local_PCWPSBNL_FB",
+              "__local_PCWPSBNL_FB"
+            ]
+          ],
+          "pins": [
+            [
+              "R1",
+              "2"
+            ],
+            [
+              "R2",
+              "1"
+            ]
+          ]
+        },
+        {
+          "code": "FB1",
+          "native": [
+            [
+              "__local_HIETOPDD_FB",
+              "__local_HIETOPDD_FB"
+            ]
+          ],
+          "pins": [
+            [
+              "R3",
+              "2"
+            ],
+            [
+              "R4",
+              "1"
+            ]
+          ]
+        }
+      ],
+      "raw_sha256": {
+        "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+        "NativeCase.pas": "f7ee7a4ee45ed2af69e264126f2bbf00a52c92710fb59add2d4eb6c8010455b4",
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "18319c4f53f09b6a70d5c387491a3d6cb2afa155bc1a8d552be22eb908537000",
+        "pins.tsv": "fb3440a42e273bad37ee63959a79154f66b757c9e0a637bda56270150d9bd756",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "source_sha256": "77a79892286001654189a7456e200aa3241e1e0ec81811fc144adfd583a50c78",
+      "writer_source_commit": "1918e63214a7d0123e1f5fa8ef095c73fd2e1472"
+    },
+    {
+      "all_pins": 8,
+      "case": "repeat-ascii",
+      "compiler_log": [
+        "[Info]|Compile successful, no errors found.|Compiler"
+      ],
+      "compiler_messages": {
+        "[Info]": 1
+      },
+      "components": 4,
+      "connectivity_equal": true,
+      "groups": 5,
+      "name_differences": [
+        {
+          "code": "FB0",
+          "native": [
+            [
+              "__local_PCWPSBNL_FB",
+              "__local_PCWPSBNL_FB"
+            ]
+          ],
+          "pins": [
+            [
+              "R1",
+              "2"
+            ],
+            [
+              "R2",
+              "1"
+            ]
+          ]
+        },
+        {
+          "code": "FB1",
+          "native": [
+            [
+              "__local_HIETOPDD_FB",
+              "__local_HIETOPDD_FB"
+            ]
+          ],
+          "pins": [
+            [
+              "R3",
+              "2"
+            ],
+            [
+              "R4",
+              "1"
+            ]
+          ]
+        }
+      ],
+      "raw_sha256": {
+        "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+        "NativeCase.pas": "13ad4a524827e889de3162793c4ee3bc7042de503291e368ab0304df0e470c24",
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "18319c4f53f09b6a70d5c387491a3d6cb2afa155bc1a8d552be22eb908537000",
+        "pins.tsv": "fb3440a42e273bad37ee63959a79154f66b757c9e0a637bda56270150d9bd756",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "source_sha256": "77a79892286001654189a7456e200aa3241e1e0ec81811fc144adfd583a50c78",
+      "writer_source_commit": "1918e63214a7d0123e1f5fa8ef095c73fd2e1472"
+    }
+  ],
+  "schema": "fenolite.altium-drawn-native-observation.v0"
+}

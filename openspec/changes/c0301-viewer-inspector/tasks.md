@@ -24,7 +24,15 @@
 ## 6. References and documentation
 
 - [x] 6.1 Regenerate the screenshot references with the dock and add `kicad_board_net.png` with `uv run python tools/update_view_refs.py` in the `viewer` job's environment; the maintainer reviews the images before they are committed (requirement "Net emphasis reference"). Proof: `uv run pytest tests/visual -q` in the `viewer` CI job on the commit that holds the references.
-- [ ] 6.2 Update `docs/viewer.md` ("The page": Layers panel instead of layer tabs, the inspector, net emphasis, the 3D controls; "Units and measurement": the inspector rows). Proof: `uv run pytest tests/unit/view/test_page.py tests/unit/view/test_themes.py tests/unit/view/test_viewer_bundle.py tests/unit/agent/test_pages.py -q`; `make check-fast`.
+- [x] 6.2 Update `docs/viewer.md` ("The page": Layers panel instead of layer tabs, the inspector, net emphasis, the 3D controls; "Units and measurement": the inspector rows). Proof: `uv run pytest tests/unit/view/test_page.py tests/unit/view/test_themes.py tests/unit/view/test_viewer_bundle.py tests/unit/agent/test_pages.py -q`; `make check-fast`.
+
+  Completed 2026-11-02: the literal four-module proof passes all 128 cases
+  (`test_page.py`, `test_themes.py`, `test_viewer_bundle.py`, `agent/test_pages.py`).
+  The documented shell/inspector/layers/3D/unit surfaces remain discoverable and
+  root's actual `make check-fast` on `ea762411cbb24bc5f9ba5a16d8b372ae7c720568`
+  passes (19564 passed, 55 skipped, exit 0). This closes the documentation proof
+  only; task 7.1 still requires the complete exact-head CI result. Existing image
+  reference evidence is preserved without regeneration or a new browser claim.
 
 ## 7. Closing
 

@@ -19,6 +19,7 @@ runs a tool.
 
 from __future__ import annotations
 
+import json
 import posixpath
 import re
 from collections import defaultdict
@@ -26,7 +27,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from types import MappingProxyType
 
-from fenolite.backends.kicad import netnames, sch, schlayout, symembed
+from fenolite.backends.kicad import _drawn_font, _drawn_style, netnames, sch, schlayout, symembed
+from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad._fpmap import node, point_node
 from fenolite.backends.kicad.pcb import kicad_uuid
 from fenolite.backends.kicad.schgen import (
@@ -39,13 +41,15 @@ from fenolite.backends.kicad.schgen import (
     library_row,
     sheet_file,
 )
-from fenolite.backends.kicad.sexpr import Atom, dumps, parse
+from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse
+from fenolite.backends.kicad.symbol_contexts import Contexts, compatible_resolved, definition_sha
 from fenolite.backends.kicad.symembed import EmbeddedSymbol
 from fenolite.backends.kicad.versions import DEFAULT_TARGET, FORMAT_VERSIONS, FileKind
 from fenolite.core.coords import Point, Size
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
+from fenolite.model.base import ExtBag, Opaque
 from fenolite.model.circuit import Circuit, Component, Net
 from fenolite.model.design import Design
 from fenolite.model.drawn import (
@@ -53,6 +57,7 @@ from fenolite.model.drawn import (
     DrawnBusAlias,
     DrawnBusEntry,
     DrawnField,
+    DrawnFont,
     DrawnInstance,
     DrawnJunction,
     DrawnLabel,
@@ -61,6 +66,7 @@ from fenolite.model.drawn import (
     DrawnPower,
     DrawnSchematic,
     DrawnSheet,
+    DrawnSheetProperty,
     DrawnSheetRef,
     DrawnSymbol,
     title_pairs,
@@ -83,6 +89,7 @@ from fenolite.model.drawn_connect import (
 from fenolite.model.library import SymbolDef
 from fenolite.model.presentation import SheetFrameRef, TitleBlock
 from fenolite.model.schematic import (
+    PIN_SHAPES,
     BusAlias,
     BusEntry,
     BusWire,
@@ -212,10 +219,12 @@ class _Lowering:
     target: int
     allow_lossy: bool
     issues: list[Issue]
-    embedded: dict[tuple[str, tuple[tuple[str, str], ...]], EmbeddedSymbol] = field(
+    contexts: Contexts | None = None
+    embedded: dict[tuple[str, tuple[tuple[str, str], ...], str], EmbeddedSymbol] = field(
         default_factory=lambda: {}
     )
     origins: dict[str, str] = field(default_factory=lambda: {})
+    used_contexts: set[tuple[str, str]] = field(default_factory=lambda: set())
 
     def embed(
         self,
@@ -223,8 +232,22 @@ class _Lowering:
         parents: Sequence[SymbolDef],
         mapping: tuple[tuple[str, str], ...],
         origin: str,
+        sheet: str = "",
     ) -> EmbeddedSymbol:
-        key = (symbol.lib_id, mapping)
+        context = ""
+        if self.contexts is not None:
+            binding = (sheet, symbol.lib_id)
+            full = self.contexts.symbol(sheet, symbol.lib_id)
+            local = symembed.embed_symbol(full.definition, target=self.target, show_hidden_power=False)
+            base = symembed.embed_symbol(symbol, parents=parents, target=self.target, show_hidden_power=False)
+            if not compatible_resolved(base, local):
+                raise FormatError(
+                    f"context binding changes native semantics for {sheet!r}, {symbol.lib_id!r}"
+                )
+            self.used_contexts.add(binding)
+            context = f"{sheet}:{definition_sha(full)}"
+            symbol, parents = full.definition, ()
+        key = (symbol.lib_id, mapping, context)
         if key not in self.embedded:
             self.embedded[key] = symembed.embed_symbol(
                 symbol,
@@ -239,9 +262,26 @@ class _Lowering:
         return self.embedded[key]
 
 
-def _field_ext(fields: Sequence[DrawnField]) -> dict[str, object]:
-    poses = [sch.FieldPose(f.name, f.at, f.rotation, f.justify, f.hide) for f in fields]
+def _field_ext(fields: Sequence[DrawnField]) -> dict[str, ExtBag]:
+    poses = [sch.FieldPose(f.name, f.at, f.rotation, f.justify, f.hide, f.font) for f in fields]
     return {sch.DRAWN_EXT: sch.field_pose_ext(poses)} if poses else {}
+
+
+def _sheet_ext(ref: DrawnSheetRef) -> dict[str, ExtBag]:
+    ext = _field_ext((*ref.fields, *(prop.pose for prop in ref.properties)))
+    if ref.properties:
+        bag = ext[sch.DRAWN_EXT]
+        records = tuple(
+            (_drawn_style.SHEET_PROPERTY, json.dumps({"name": p.name, "text": p.text}, ensure_ascii=False))
+            for p in ref.properties
+        )
+        ext[sch.DRAWN_EXT] = ExtBag(None, (*bag.payload, *records))
+    return ext
+
+
+def _text_ext(font: DrawnFont | None, justify: str | None) -> dict[str, ExtBag]:
+    bag = _drawn_style.text_ext(font, justify)
+    return {sch.DRAWN_EXT: bag} if bag.payload else {}
 
 
 def _segment_fragment(start: Point, end: Point, uuid: str, head: str = "wire") -> str:
@@ -260,11 +300,19 @@ def _power_definition(
     state: _Lowering, power: DrawnPower, symbols: Mapping[str, PowerSymbol], where: str
 ) -> EmbeddedSymbol | None:
     library, _, symbol_name = power.symbol.partition(":")
+    if state.contexts is not None:
+        full = state.contexts.symbol(where, power.symbol)
+        found = symbols.get(power.symbol)
+        if found is None and symembed.is_power_flag(power.symbol):
+            return state.embed(full.definition, (), (), "project", where)
+        if found is None:
+            raise FormatError(f"context power symbol {power.symbol!r} has no resolved definition")
+        return state.embed(found.symbol, found.parents, (), found.origin, where)
     if symbol_name == symembed.FLAG_NAME and library.casefold() == symembed.FLAG_LIBRARY:
         flag = symembed.power_flag(state.target, library)
-        state.embedded.setdefault((flag.lib_id, ()), flag)
+        state.embedded.setdefault((flag.lib_id, (), ""), flag)
         state.origins[flag.lib_id] = "authored"
-        return state.embedded[(flag.lib_id, ())]
+        return state.embedded[(flag.lib_id, (), "")]
     found = symbols.get(power.symbol)
     if found is None:
         state.issues.append(
@@ -326,6 +374,7 @@ def lower_drawn(
     power_symbols: Mapping[str, PowerSymbol] = MappingProxyType({}),
     opaque_symbols: Mapping[str, PowerSymbol] = MappingProxyType({}),
     symbol_overrides: Mapping[str, PowerSymbol] = MappingProxyType({}),
+    context_symbols: Contexts | None = None,
     groups: Mapping[str, Sequence[SheetGroup]] | None = None,
 ) -> GeneratedSchematic:
     """The created sheets of ``drawn`` for ``design``, whose components ``parts`` resolve to symbols, in the
@@ -337,7 +386,7 @@ def lower_drawn(
     issues: list[Issue] = []
     found, walk_issues = instances(drawn)
     issues += walk_issues
-    state = _Lowering(design, name, target, allow_lossy, issues)
+    state = _Lowering(design, name, target, allow_lossy, issues, context_symbols)
     circuit = design.circuit
     components = {c.id: c for c in circuit.components}
     by_path: dict[str, tuple[SchematicPart, Component]] = {}
@@ -439,7 +488,7 @@ def lower_drawn(
                     )
                 )
                 continue
-            definition = state.embed(resolved.symbol, resolved.parents, (), resolved.origin)
+            definition = state.embed(resolved.symbol, resolved.parents, (), resolved.origin, key)
             used[definition.lib_id] = definition
         symbols: list[SymbolInstance] = []
         for symbol in sheet.symbols:
@@ -464,10 +513,10 @@ def lower_drawn(
                         )
                     )
                     continue
-                definition = state.embed(override.symbol, override.parents, mapping, override.origin)
+                definition = state.embed(override.symbol, override.parents, mapping, override.origin, key)
             else:
                 definition = state.embed(
-                    first_part.symbol, first_part.parents, mapping, first_part.symbol_origin
+                    first_part.symbol, first_part.parents, mapping, first_part.symbol_origin, key
                 )
             used[definition.lib_id] = definition
             properties = {k: "" for k in MANDATORY} | dict(first.properties)
@@ -487,7 +536,7 @@ def lower_drawn(
                 in_bom="exclude_from_bom" not in first_part.footprint.flags,
                 on_board=True,
                 uses=tuple(SymbolUse(name, use_paths[i], c.ref, symbol.unit) for i, (_, c) in known),
-                ext=_field_ext(symbol.fields),  # type: ignore[arg-type]
+                ext=_field_ext(symbol.fields),
             )
             symbols.append(instance)
             for i, (part, component) in known:
@@ -525,13 +574,15 @@ def lower_drawn(
                     in_bom=False,
                     on_board=False,
                     uses=tuple(SymbolUse(name, use_paths[i], refs[j], 1) for j, i in enumerate(indices)),
-                    ext=_field_ext(power.fields),  # type: ignore[arg-type]
+                    ext=_field_ext(power.fields),
                 )
             )
         block = board.title_block if board is not None else None
         sheets[key] = _sheet(state, drawn, sheet, key, file, symbols, used, indices, found, files, ref_ids,
                              use_paths, sheet_ids[key], block, blocks.ref_files)  # fmt: skip
     libraries: dict[str, list[EmbeddedSymbol]] = {}
+    if context_symbols is not None:
+        context_symbols.validate_used(state.used_contexts)
     unvendored: list[str] = list(blocks.unvendored)
     listed: set[str] = set()
     for definition in sorted((*state.embedded.values(), *blocks.definitions), key=lambda e: e.lib_id):
@@ -835,6 +886,7 @@ def _sheet(
                 position=ref.at,
                 size=ref.size,
                 uses=uses,
+                ext=_sheet_ext(ref),
                 pins=tuple(
                     SheetPin(
                         id=derived_id("shr", ID_BACKEND, f"{base}:ref:{k}:pin:{p}"),
@@ -842,6 +894,7 @@ def _sheet(
                         shape=pin.shape,  # type: ignore[arg-type]
                         position=pin.at,
                         rotation=pin.rotation,
+                        ext=_text_ext(pin.font, pin.justify),
                     )
                     for p, pin in enumerate(ref.pins)
                 ),
@@ -864,6 +917,7 @@ def _sheet(
                 position=label.at,
                 rotation=label.rotation,
                 shape=label.shape,
+                ext=_text_ext(label.font, label.justify),
             )
             for i, label in enumerate(sheet.labels)
         ),
@@ -980,13 +1034,112 @@ def _relative(path: str, module: str) -> str | None:
 def _fields(symbol: SymbolInstance, *, power: bool = False) -> tuple[DrawnField, ...]:
     found: list[DrawnField] = []
     for pose in sch.symbol_field_poses(symbol):
-        if pose.name not in VISIBLE_FIELDS and pose.hide:
+        if pose.name not in VISIBLE_FIELDS and pose.hide and pose.font is None:
             continue
         if power and pose.name == "Reference" and pose.hide:
             continue
         if pose.rotation not in (0, 90_000_000):
             continue
-        found.append(DrawnField(pose.name, pose.at, pose.rotation, pose.justify, pose.hide))
+        found.append(DrawnField(pose.name, pose.at, pose.rotation, pose.justify, pose.hide, pose.font))
+    return tuple(found)
+
+
+def _text_effects(native: Node, *, legacy: str, file: str, where: str) -> tuple[DrawnFont | None, str | None]:
+    font = _drawn_font.read_font(native, default_nm=sch.TEXT_SIZE, where=f"{where}.font", file=file)
+    effects = native.find("effects")
+    if sch._hidden(native) or (effects is not None and sch._hidden(effects)):  # pyright: ignore[reportPrivateUsage]
+        raise FormatError("hidden drawn labels/pins are not represented", file=file, locator=where)
+    justify = _drawn_font.read_justify(native, where=f"{where}.justify", file=file)
+    return font, None if justify == legacy else justify
+
+
+def _sheet_pins(ref: SheetRef, *, file: str) -> tuple[DrawnPin, ...]:
+    bag = ref.ext.get("kicad")
+    found: list[DrawnPin] = []
+    for slot in slotlib.from_ext(bag, ".") if bag is not None else ():
+        if not isinstance(slot, Opaque) or not slot.fragment.startswith("(pin"):
+            continue
+        native = parse(slot.fragment)
+        if native.name != "pin":
+            continue
+        where = f"{ref.name}.pin[{len(found)}]"
+        try:
+            named = native.atoms()
+            at = native.find("at")
+            if len(named) != 2 or named[1].value not in PIN_SHAPES or at is None:
+                raise ValueError("a sheet pin has a name, supported shape and position")
+            atoms = at.atoms()
+            point = Point(atoms[0].to_nm(), atoms[1].to_nm())
+            rotation = sch._udeg(atoms[2].text) if len(atoms) > 2 else 0  # pyright: ignore[reportPrivateUsage]
+            if rotation not in ROTATIONS:
+                raise ValueError("sheet pin angle is not a quarter turn")
+            font, justify = _text_effects(
+                native, legacy=_drawn_font.pin_justify(rotation), file=file, where=where
+            )
+            found.append(DrawnPin(named[0].value, named[1].value, point, rotation, font, justify))  # type: ignore[arg-type]
+        except (ValueError, IndexError) as error:
+            raise FormatError(f"unsupported drawn sheet pin: {error}", file=file, locator=where) from error
+    return tuple(found)
+
+
+def _sheet_fields(ref: SheetRef, *, file: str) -> tuple[DrawnField, ...]:
+    above = Point(ref.position.x, ref.position.y - sch.SHEET_TEXT_GAP)
+    below = Point(ref.position.x, ref.position.y + ref.size.h + sch.SHEET_TEXT_GAP)
+    defaults = {"Sheetname": above, "Sheetfile": below}
+    found: list[DrawnField] = []
+    names: set[str] = set()
+    for pose in sch._source_field_poses(ref):  # pyright: ignore[reportPrivateUsage]
+        if pose.name not in defaults:
+            continue  # custom values and complete poses are checked by _sheet_properties
+        if pose.name in names:
+            raise FormatError(
+                "unsupported or repeated sheet property", file=file, locator=f"{ref.name}.fields.{pose.name}"
+            )
+        names.add(pose.name)
+        if pose.rotation not in (0, 90_000_000):
+            raise FormatError(
+                "unsupported sheet property rotation", file=file, locator=f"{ref.name}.fields.{pose.name}"
+            )
+        if (
+            pose.at == defaults[pose.name]
+            and pose.rotation == 0
+            and pose.justify == "left"
+            and not pose.hide
+            and pose.font is None
+        ):
+            continue
+        found.append(DrawnField(pose.name, pose.at, pose.rotation, pose.justify, pose.hide, pose.font))
+    return tuple(found)
+
+
+def _sheet_properties(ref: SheetRef, *, file: str, version: int | None) -> tuple[DrawnSheetProperty, ...]:
+    poses = sch._source_field_poses(ref)  # pyright: ignore[reportPrivateUsage]
+    found: list[DrawnSheetProperty] = []
+    names: set[str] = set()
+    for item in sch._source_properties(ref):  # pyright: ignore[reportPrivateUsage]
+        atoms = item.atoms()
+        name = atoms[0].value if atoms else ""
+        if name in {"Sheetname", "Sheetfile"}:
+            continue
+        where = f"{ref.name}.properties.{name}"
+        if name in names:
+            raise FormatError("repeated custom sheet property", file=file, locator=where)
+        text = _drawn_font.sheet_property_text(item, version=version, where=where, file=file)
+        matching = [pose for pose in poses if pose.name == name]
+        if len(matching) > 1:
+            raise FormatError("repeated custom sheet property pose", file=file, locator=where)
+        if len(matching) != 1:
+            raise FormatError(
+                "custom sheet property requires one exact supported pose", file=file, locator=where
+            )
+        pose = matching[0]
+        try:
+            found.append(
+                DrawnSheetProperty(name, text, pose.at, pose.rotation, pose.justify, pose.hide, pose.font)
+            )
+        except (TypeError, ValueError) as error:
+            raise FormatError(str(error), file=file, locator=where) from error
+        names.add(name)
     return tuple(found)
 
 
@@ -1206,12 +1359,34 @@ def extract_with_pins(
                 )
             )
         labels: list[DrawnLabel] = []
-        for label in sheet.labels:
+        for label_index, label in enumerate(sheet.labels):
             if label.rotation not in ROTATIONS:
                 opaques.append(DrawnOpaque(dumps(sch._entity_node(label), style="compact")))  # pyright: ignore[reportPrivateUsage]
                 continue
             shape = "" if label.kind == "local" else (label.shape or "passive")
-            labels.append(DrawnLabel(label.kind, label.name, label.position, label.rotation, shape))  # type: ignore[arg-type]
+            native = sch._entity_node(label)  # pyright: ignore[reportPrivateUsage]
+            where = f"label[{label_index}]"
+            font, justify = _text_effects(
+                native, legacy=_drawn_font.label_justify(label.rotation), file=file, where=where
+            )
+            for prop in native.nodes("property"):
+                effective = prop.find("effects")
+                hidden = sch._hidden(prop) or (effective is not None and sch._hidden(effective))  # pyright: ignore[reportPrivateUsage]
+                if (
+                    not hidden
+                    or _drawn_font.read_font(
+                        prop, default_nm=sch.TEXT_SIZE, where=f"{where}.property.font", file=file
+                    )
+                    is not None
+                ):
+                    raise FormatError(
+                        "drawn label properties with visible/custom effects are not represented",
+                        file=file,
+                        locator=where,
+                    )
+            labels.append(
+                DrawnLabel(label.kind, label.name, label.position, label.rotation, shape, font, justify)
+            )  # type: ignore[arg-type]
         refs: list[DrawnSheetRef] = []
         ref_keys: set[str] = set()
         for ref in sheet.sheets:
@@ -1224,15 +1399,13 @@ def extract_with_pins(
             module = ""
             if child_index is not None:
                 relative = (
-                    _relative(walk[child_index].module, first.module) if walk[child_index].module else ""
+                    ""
+                    if walk[child_index].module == first.module
+                    else _relative(walk[child_index].module, first.module)
                 )
                 module = relative if relative is not None else walk[child_index].module
             use = next((u for u in ref.uses if u.path == first.use_path), ref.uses[0] if ref.uses else None)
-            pins_found = tuple(
-                DrawnPin(pin_name, shape or "passive", at, rotation)  # type: ignore[arg-type]
-                for pin_name, shape, at, rotation in sch.opaque_sheet_pins(ref)
-                if rotation in ROTATIONS
-            )
+            pins_found = _sheet_pins(ref, file=file)
             refs.append(
                 DrawnSheetRef(
                     _key(ref.name or "sheet", ref_keys),
@@ -1244,6 +1417,10 @@ def extract_with_pins(
                     use.page if use is not None else "",
                     ref.file,
                     pins_found,
+                    _sheet_fields(ref, file=file),
+                    _sheet_properties(
+                        ref, file=file, version=info.version if (info := sch.source_info(sheet)) else None
+                    ),
                 )
             )
         drawing = sch.opaque_drawing(sheet)
@@ -1369,7 +1546,7 @@ def _resolve_extracted(found: Extracted, *, name: str = "") -> DrawnNetlist:
     connections, pins = _connection_names(found)
     return resolve(
         connections, pins, design_name=name, _bus_member_keys=_bus_member_keys,
-        _local_scalar_aliases=True,
+        _local_scalar_aliases=True, _bus_port_scalar_aliases=False,
     )  # fmt: skip
 
 

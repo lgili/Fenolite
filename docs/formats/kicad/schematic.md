@@ -120,9 +120,53 @@ stay `INFERRED` until the KiCad job of CI passes on the commit (task 7.1 of c027
 | On authored9.0.2 controls, a bus label at a bus-side entry end or a bus-only junction stays on the bus; that contact alone does not make it a scalar label. Real wires and pins keep their existing priority. Overbar spans such as `CHANNEL.~{READY}` remain literal group member names | S-1280 | INFERRED (9.0.2 measured; wider CI pending) | H-K-DRAWN-BUS |
 | On one connected authored9.0.2 bus, top-level vectors match by ascending index position, including different prefixes, offset index bases and reversed written ranges; qualified groups match their literal scalar members regardless of order. A nested vector with the same written definition matches across group prefixes; the reversed nested definition stays separate. Disconnected bus definitions stay separate. These identities are scoped to KiCad connectivity, not replacements for scalar labels | S-1280 | INFERRED (9.0.2 measured; wider CI pending) | H-K-DRAWN-BUS |
 | Scalar local and hierarchical/global labels of the same exact text on one authored9.0.2 sheet join. The root's local label of that text stays separate when the other sheet has the global/hierarchical label; unequal texts stay separate. An unmatched hierarchical port remains a diagnostic. Generic/Altium scope defaults are unchanged | S-1280 | INFERRED (9.0.2 measured; wider CI pending) | H-K-DRAWN-CONNECT |
+| On the original repeated-sheet control, two isolated parent bus islands with equal `{FB}` sheet ports keep their child scalar nets separate. One explicit parent bus label still keeps them separate; two equal bus labels or a physical bus connection join them. Every control covers all eight pins. This bounds the KiCad-only rule against invented parent scalar aliases | S-0020 | KICAD-VERIFIED (CLI 9.0.9 and 10.0.6, 2026-11-02; authored partition controls only) | H-K-DRAWN-BUS |
 | A sheet file named by several sheet references gives one set of local nets per instance, with the references of each instance's `path`; global nets are shared | S-0046, S-0367 | INFERRED | H-K-DRAWN-REPEAT |
 | A net named by a global label or a power symbol takes that text; one named only by local or hierarchical labels takes `/` plus the sheet names from the root and the text, the highest sheet first; ties go to the text that sorts first | S-0046 | INFERRED | H-K-DRAWN-NAMES |
 | A no-connect flag marks a pin as open on purpose and joins nothing | S-0367 | INFERRED | H-K-DRAWN-CONNECT |
+
+## Drawn field-font observations (c0326)
+
+Original authored text controls were loaded and exported with `kicad-cli sch export svg`
+9.0.2 on 2026-11-02, as a subprocess, without a GUI save. The SVG text groups and
+their ancestor styles were compared separately from Fenolite's presentation masks.
+The controls derive only from Fenolite's CC0 Mini fixture. These observations do
+not establish the required 9.0.9/10.0.6 CI or the other typed text surfaces.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The common `(size HEIGHT WIDTH)` order maps to `Size(w=WIDTH, h=HEIGHT)`: the authored 1-by-2 field is 1 mm high with twice the glyph width of the 2-by-1 field, which is 2 mm high | S-0001, S-0020 | INFERRED (9.0.2 measured; wider CI pending) | H-K-DRAWN-WRITE |
+| A bare `bold` or `italic` flag and its `(bold yes)` or `(italic yes)` form produce equal native SVG groups/styles. Their `no` forms produce the exact omitted-flag group/styles. Canonical false presence therefore does not require a distinct native state | S-0020 | INFERRED (9.0.2 measured; wider CI pending) | H-K-DRAWN-WRITE |
+| Omitted thickness and explicit thickness 0 produce identical field groups/styles. An explicit 0.15 mm thickness changes the native stroke from the default 0.1524 mm on the authored 1.27 mm field | S-0020 | INFERRED (9.0.2 measured; wider CI pending) | H-K-DRAWN-WRITE |
+| An empty font, no font and no effects produce the same field group/styles as explicit size 1.27 mm. Changing the library's default Value bold, italic or size does not change those instance groups; an instance font without size but with bold keeps size 1.27 mm and becomes bold | S-0020 | INFERRED (9.0.2 measured; wider CI pending) | H-K-DRAWN-WRITE |
+| The authored positive sizes 1, 499, 500, 999, 1000 and 1001 nm all export with a 1 µm glyph height at the native SVG precision. They never become a 1.27 mm field. Sub-µm typed fonts remain unsupported at the native/render boundary until represented honestly; the exact model still permits positive integer nm | S-0020 | INFERRED (9.0.2 measured; wider CI pending) | H-K-DRAWN-WRITE |
+
+Native parsing keeps the default spellings equivalent; the canonical drawn codec
+still retains explicit false and zero. Unknown or conflicting font/effect children,
+inexact dimensions and unsupported rendering must refuse with their locator rather
+than select the default font. Font-face output changes the actual ink; preserving
+its name is not proof that the default stroke renderer reproduces that font.
+
+Follow-up: 84 original label/pin/sheet-property controls on the same CLI version
+cover all four label/pin angles and asymmetric fonts on every typed text surface.
+All load/export successfully with unchanged authored source bytes. Missing native
+`justify` and explicit empty `justify` produce exactly equal text SVG groups;
+left/right produce distinct groups on local/global/hierarchical labels, sheet
+pins and sheet-name/file properties. Extraction must preserve native omission as
+explicit centring, not the model's legacy role-selected anchor. An explicit
+native anchor equal to that legacy role may use the legacy model default without
+changing its effective drawing. Width/height order agrees with the field probes
+on all six additional surfaces (S-0020; `INFERRED`, 9.0.2 measured, wider CI pending;
+`H-K-DRAWN-WRITE`). This is still a CLI export, not a GUI save.
+
+The current versioned font oracle repeats those forms across all eight typed
+surfaces and actual model-font output: 27 cases, 94 SVG exports on 9.0.2, every
+source hash unchanged. Complete glyph groups retain native repeated plots and
+ancestor styles; none is selected arbitrarily or deduplicated. Installed
+Inkscape 1.4's 150 dpi raster of the wide/tall field controls differs by 919 RGBA
+pixels, with unchanged SVGs and recorded input/output hashes. These observations
+reuse S-0020 and remain `INFERRED` for wider-version support; exact 9.0.9/10.0.6
+CI and GUI-save requirements are still independent gates.
 
 ## Netlist export
 
@@ -155,3 +199,22 @@ projects that `build` wrote, on 9.0.9 and on 10.0.6. The outcomes per version ar
 ## Issue codes
 
 `sch.ISSUE_CODES` is the closed table of the capability `kicad-schematic`, "Schematic read issue codes". The writer's codes are `sch.WRITE_ISSUE_CODES` (`kicad.sch.dropped-too-new`), and those of the generator, its layout and the embedding are `schgen.ISSUE_CODES`; both are listed in `docs/cli-contract.md` under `build`.
+
+## Custom sheet-property observations (c0329)
+
+These controls are original Fenolite-authored temporary projects, not copied
+demo fields or native GUI saves. The public source is the installed CLI oracle
+S-0020; its raw scratch replies and hashes remain outside the core repository.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| CLI 10.0.6 exports no literal tilde glyph description for custom sheet text `~` in the authored source-format-9 drawing, and one for the authored source-format-10 drawing; both commands exit 0 | S-0020 | KICAD-VERIFIED (10.0.6; authored CLI exports, 2026-11-02) | H-K-DRAWN-WRITE |
+| CLI 9.0.9 exports literal stroked tilde paths for the same authored format-9 custom text `~`; this disagrees with the 10.0.6 reading, so the legacy custom value refuses rather than normalizing to empty | S-0020 | KICAD-VERIFIED (9.0.9 and 10.0.6; authored CLI exports, 2026-11-02) | H-K-DRAWN-WRITE |
+
+The typed custom-property path preserves supported literal text and pose/font
+separately from the code-owned Sheetname/Sheetfile fields. Existing default
+false `show_name` and `do_not_autoplace` writer forms remain accepted; true or
+unrepresented forms refuse. This describes implemented validation, not a new
+native claim for unmeasured flags. A strict all-nine authored internal proof
+and its planted loss controls do not establish native glyph-raster equality
+or the complete public VME resolver result.

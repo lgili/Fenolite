@@ -5,6 +5,7 @@ documented", scenario "Pages name the levels and the codes"; change c0044)."""
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -282,4 +283,12 @@ def test_drawn_kit_is_concrete_but_native_acceptance_remains_pending() -> None:
     ):
         assert words in section
     row = next(line for line in _page("hypotheses.md").splitlines() if line.startswith("| H-A-DRAWN-WRITE |"))
-    assert "INFERRED" in row and "acceptance pending" in row and "Altium unavailable" in row
+    assert "INFERRED" in row and "native acceptance stays pending" in row
+    assert "actual Altium 22.2.1" in row and "altium-drawn-native.md" in row
+    observed = json.loads(_page("evidence/altium-drawn-native.json"))
+    assert not observed["full_gate_passed"] and not observed["evidence_promoted"]
+    assert len(observed["original_cases"]) == 6
+    assert all(case["connectivity_equal"] for case in observed["original_cases"])
+    assert any(case["compiler_messages"].get("[Error]", 0) for case in observed["original_cases"])
+    assert observed["native_saved_copies"]["complete_projects_reopened"] == 10
+    assert observed["native_negative_control"]["correctly_refused"]

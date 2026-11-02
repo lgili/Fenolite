@@ -30,9 +30,7 @@ defaults, byte pins, evidence limits and strict comparison/refusal behavior.
 - **AND** successful and exceptional bodies retain their isolation and original results
 
 ### Requirement: Public registry agreement
-Issue explanations, severity tables, capability lists and reserved DSL attribute
-tables MUST agree with actual public behavior. A hermetic test SHALL declare
-external resource requirements truthfully rather than silently bypass its proof.
+Issue explanations, severity tables, capability lists and reserved DSL attribute tables MUST agree with actual public behavior. A hermetic test SHALL declare external resource requirements truthfully rather than silently bypass its proof.
 
 #### Scenario: Existing public attribute or issue
 - **WHEN** the combined public interfaces are audited

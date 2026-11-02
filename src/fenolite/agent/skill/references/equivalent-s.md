@@ -6,6 +6,14 @@ summary: Drawings and nets.
 
 # Compare drawn schematics
 
+Local property variants require `load_schematic(..., symbol_contexts="symbol-contexts.toml")`.
+The closed index binds every sheet's full native property snapshot and digest-named assets;
+missing/stale bindings, unsafe paths and symlinks refuse. Pin/body/flag/core-default conflicts still refuse.
+This input changes no model/S field; ordinary projects keep their existing bytes.
+Schema `fenolite.symbol-contexts.v0` requires every used native definition once a variant exists.
+Build/sync plans bind all inputs; `FEN-4002` requires review again after an edit.
+Sync refuses changed cache metadata; contextual projects require KiCad schematic output.
+
 Request `--level S` to compare actual native schematic sheets and resolved pin connectivity. A raw
 schematic, a KiCad project, or a build with written sheets can be a side. This comparison reads the
 embedded symbols and hierarchy; it needs no netlist export or external tool.

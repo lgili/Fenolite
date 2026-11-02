@@ -25,6 +25,7 @@ from fenolite import __version__
 from fenolite.api import convert, read_board, run
 from fenolite.backends.altium.read.project import read_project
 from fenolite.backends.kicad.cli import find_kicad_cli
+from fenolite.backends.kicad.symbol_contexts import check_paths
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
@@ -313,6 +314,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         PlannedWrite(f"{shown_out}/{relative}", data, WRITE_KINDS.get(Path(relative).suffix, "text"))
         for relative, data in sorted(files.items())
     )
+    check_paths([ctx.cwd / write.path for write in writes])
     read_file = source.paths[0]
     version = next((row.version for row in source.inputs if row.file == read_file.name), None)
     result: dict[str, Any] = {

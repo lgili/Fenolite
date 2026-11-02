@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list` and the changes and living specs this change builds on, and record under this task, with the date and the base commit:
+- [x] 0.1 Read `openspec list` and the changes and living specs this change builds on, and record under this task, with the date and the base commit:
   - whether c0248, c0259, c0260 and c0261 are archived. If c0248 is not, move its `catalog import` code into `fenolite.library.importer` as part of its own implementation (design decision 9). Take the device tree, the record keys (`origin`, `licence`, `shippable`) and the stable-id rule from c0259 as archived, and adapt the paths of this change if c0259 kept flat `devices/*.toml` files;
   - the package and function names of c0260's generators and whether `fenolite.library` needs an import edge to them or to `catalog` (update "Allowed import edges" through the change that owns it if so);
   - whether another library change (c0262, c0265, c0266, c0279) already added the subcommand dispatch of `fenolite library`;
@@ -39,6 +39,17 @@
   serialized receipt yet. Task 0.1 remains unchecked for that actual proof; independent
   CI, native/manual and release criteria are unchanged.
 
+  Entry proof completed 2026-11-02 on `ea762411cbb24bc5f9ba5a16d8b372ae7c720568`: root
+  ran the serialized `make check-fast` from 09:45:03 to 10:17:02 UTC, exit 0
+  (19564 passed, 55 skipped; JUnit records zero failures/errors). Fresh OpenSpec
+  1.16.0 strict validation of this change also passes without warnings. The
+  `a85f7846` entry review was checked against this source: dependencies remain
+  active, no new archival requires rebasing a delta, and the named APIs, accepted
+  decisions and current dispatcher/record contracts still apply.
+  This dated proof supersedes the earlier missing-fast-gate blocker only.
+  Independent CI, native/manual, corpus, external-library and release criteria
+  remain unchanged. The source-bound receipt, log and JUnit hashes are recorded
+  in [the integration validation record](../c0319-integration-repairs/validation.md).
 
 ## 1. Sources and zip safety
 

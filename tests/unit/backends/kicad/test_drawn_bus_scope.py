@@ -13,6 +13,35 @@ from fenolite.backends.kicad import drawn as kdrawn
 from fenolite.backends.kicad import sch
 from fenolite.lens.drawn import write_drawn
 from fenolite.model.drawn import DrawnLabelKind, DrawnSchematic
+from fenolite.model.drawn_connect import resolve
+
+
+@pytest.mark.parametrize("connected", [False, True])
+@pytest.mark.parametrize("labels", [0, 1, 2])
+def test_repeated_bus_isolation_keeps_source_and_generic_policy(connected: bool, labels: int) -> None:
+    _output, file, files, refs = _bus_scope.repeated_bus_files(9, connected=connected, labels=labels)
+    root = sch.read_schematic(files[file].decode(), file=file)
+    children = {
+        name: sch.read_schematic(data.decode(), file=name)
+        for name, data in files.items()
+        if name.endswith(".kicad_sch") and name != file
+    }
+    found = kdrawn.extract_with_pins(
+        root,
+        children,
+        components={ref: path for path, ref in refs.items()},
+        root_file=file,
+    )
+    raw, pins = write_drawn(found.drawn), dict(found.pins)
+    native = kdrawn._resolve_extracted(found)
+    first = native.net_of(("ch0/R1", "2"))
+    assert first is not None
+    assert (("ch1/R1", "2") in first.members) is (connected or labels == 2)
+    assert len(native.pins) == 8
+    generic = resolve(found.drawn, found.pins)
+    first = generic.net_of(("ch0/R1", "2"))
+    assert first is not None and ("ch1/R1", "2") in first.members
+    assert write_drawn(found.drawn) == raw and found.pins == pins
 
 
 def extracted(drawing: DrawnSchematic) -> kdrawn.Extracted:

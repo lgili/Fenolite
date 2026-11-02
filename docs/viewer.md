@@ -615,6 +615,15 @@ Every text is a stroke text in Fenolite's own stroke font, so a long field may e
 than in KiCad. The nets come from wires, junctions, labels, power symbols and hidden power pins. Images, text
 boxes, tables and rule areas are counted in the notes, not drawn.
 
+Text sizes use both native axes. Missing and empty justification centre text;
+the old generated role-selected anchors retain their defaults. Visible nonzero
+font thickness, bold, italic, font faces and mirrored text have an explicit
+unsupported-render refusal; the current stroke renderer does not substitute its
+default font for those effects. Hidden fields retain their styles without visible
+ink. Positive sizes below the supported µm boundary refuse instead of becoming
+1.27 mm. Level-8 text envelopes and thresholds are unchanged, so these scenes do
+not establish equality with native glyph rasterisation.
+
 ## For agents
 
 Use `fenolite view PATH --json` to list a project's documents and to check what a board holds (the counts of

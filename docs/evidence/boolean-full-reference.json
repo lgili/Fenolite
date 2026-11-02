@@ -1,0 +1,106 @@
+{
+  "artifact_sha256": {
+    "controls-receipt.json": "d54ebc80760e78ae57824defb0333682a6de5938cb673f8db77c01a2c7e3cc02",
+    "failure-certificate.json": "bec30f75f2204e85425b3200400603f0bcb69e1851086ccdd445e27e59a90295",
+    "prove_full_reference.py": "1273679f8535b2b3f5744f150b12f9f40d5318d07665ae0aacbade87fd98f47f",
+    "refutation-receipt.json": "42f5e59d3dc944b3e3d3dad39cc5105c4543deb89b9a0e9b7eae8e1dbb48f383",
+    "rejected-realization.json": "045b31a875134554ae2716e205b1b74ceae6632325e24099189f8fa0221983e9",
+    "source-exact-loops.json": "bf003c784270e897362c00a477f0deb8826524c27b9fee1eb568a1675d14a404",
+    "source-failure.json": "b31cec0e62e57a760dc4cce9777eef90054f90c0560675e94ab09ed3f78fbbe0",
+    "verify_refutation.py": "a242c56991635ef2ec0e4b818f6db10d280758f45c825ef8fce8dac5e2bcd306"
+  },
+  "c0328_task_2_2_complete": false,
+  "candidate_file_sha256": "04065a7726a1b0efcf7b3adea730c627e49616227ee2739c7074d5ce265e1923",
+  "controls": {
+    "cases": 84,
+    "direct_finite_and_symbolic_winding_checked": true,
+    "negative_controls": {
+      "area-global-overflow": "area rational bit-length budget",
+      "area-overflow": "area rational bit-length budget",
+      "retained-loss": "unqualified retained loss: planted-large-piece",
+      "seed": "direct/propagated face winding differs"
+    },
+    "same_scale_subdivision_checked": true,
+    "status": "passed",
+    "translated_back_output_checked": true
+  },
+  "date": "2026-11-02",
+  "full_plan_sha256": "f19a337536e5f29c698960b4077330a3da827f6c90da8c65432dc8689996d559",
+  "historical_oracle_rerun": false,
+  "old_mac_guard_fixed": false,
+  "production_changed": false,
+  "refutation_audit": {
+    "auditor_exit": 0,
+    "does_not_close_source_gate": true,
+    "status": "verified-refutation",
+    "verifier_sha256": "a242c56991635ef2ec0e4b818f6db10d280758f45c825ef8fce8dac5e2bcd306"
+  },
+  "rejected_candidate": {
+    "canonical_polygon_sha256": "923aaa891d6ade45f20cae028ca7fb7894cf6780cc6459bc9b72e494e3e8af17",
+    "certified_collapsed_pieces": 27,
+    "certified_debris_holes": 403,
+    "holes": 10,
+    "not_a_native_file_or_golden": true,
+    "polygons": 1,
+    "source_realization_passed": false,
+    "status": "rejected",
+    "vertices": 4680
+  },
+  "schema": "fenolite.boolean-full-reference-observation.v0",
+  "source": {
+    "budgets": {
+      "peak_memory_bytes": 67289088,
+      "rational_max_bits": {
+        "area": 500,
+        "coordinate": 54,
+        "local": 83
+      },
+      "seconds": 2.696538792020874,
+      "seed_visits": 908502,
+      "stage_seconds": {
+        "faces": 0.3411398339958396,
+        "index": 3.7910067476332188e-06,
+        "noding": 0.2103876670007594,
+        "realization": 0.34150533299543895,
+        "selection": 0.1602715830085799,
+        "start": 1.0792020475491881e-05,
+        "winding": 1.6432182919816114
+      }
+    },
+    "canonical_nodes_projected_once": 5822,
+    "command_exit": 1,
+    "exact_selection": {
+      "area": [
+        40041127894482867265108663384223777803693276280511939318710043471412359088515073158033925664120105229355847437794555742457650885725423599820693167,
+        5135730903291648891078624923651615209014892290310511660982666153966447203058744364033354305524894808743098439159503402400078388000
+      ],
+      "boundary_halfedges": 6156,
+      "exact_loop_sha256": "6000b60bb707a6e4825f27159d67d58257fde42e0a3caefce802f89fb7ecacfb",
+      "loops": 441,
+      "negative": 413,
+      "positive": 28
+    },
+    "face_components": 107,
+    "face_cycles": 2659,
+    "half_ties": 0,
+    "inverted_retained_turns": 17,
+    "minimum_affected_ring_area_floor_ratio": 909383,
+    "noding": {
+      "cancelled_edges": 0,
+      "cancelled_provenance_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "graph_sha256": "18d9c68488a4e3f771f2db71e08f8b9f6385e30e6aef2f8b15016565293375a0",
+      "intersecting_pairs": 16018,
+      "kept_current_edges": 10334,
+      "max_denominator_bits": 28,
+      "nodes": 7889,
+      "subedges": 10334
+    },
+    "realization_passed": false,
+    "retained_rings_affected": 8,
+    "source_coordinates_missing": 0
+  },
+  "source_commit": "fc9334198a57586b26f32185377cd674c8aea91b",
+  "source_operands_sha256": "e9dc5cb64238a2d1a56801f3dffe468275bd524ab7f147f1f624e65ffc8f0000",
+  "source_script_sha256": "1273679f8535b2b3f5744f150b12f9f40d5318d07665ae0aacbade87fd98f47f",
+  "status": "refuted-source-realization"
+}

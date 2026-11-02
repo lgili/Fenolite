@@ -4938,3 +4938,49 @@ path = "tests/fixtures/suppliers/nexar/keyword_mlcc.source.toml"
 origin = "authored"
 corpus_id = ""
 notes = "CC0-1.0; authored for Fenolite from documented field names (S-1223); fictional values only."
+
+[[file]]
+path = "tests/data/drawn/contextual/NOTICE"
+origin = "authored"
+corpus_id = ""
+spdx = "CC0-1.0"
+sha256 = "53095d66619fd8a96b704dd0ba090757f706829336ddb056d635b5a7637cd238"
+notes = "Authored CC0-1.0 contextual symbol metadata witness for Fenolite (c0327); no third-party CAD or library data."
+
+[[file]]
+path = "tests/data/drawn/contextual/drawn_repeat.kicad_pro"
+origin = "authored"
+corpus_id = ""
+spdx = "CC0-1.0"
+sha256 = "c768dcffa193f65bf0e3121ba5f6e9f1d5e6d9cc9b111486911ddbea3e0f7041"
+notes = "Authored CC0-1.0 contextual symbol metadata witness for Fenolite (c0327); no third-party CAD or library data."
+
+[[file]]
+path = "tests/data/drawn/contextual/drawn_repeat.kicad_sch"
+origin = "authored"
+corpus_id = ""
+spdx = "CC0-1.0"
+sha256 = "d3ecb8cfee3fffec89e853ad0576932b903f9c3b6e376004448c1c123e6c9107"
+notes = "Authored CC0-1.0 contextual symbol metadata witness for Fenolite (c0327); no third-party CAD or library data."
+
+[[file]]
+path = "tests/data/drawn/contextual/sheets/channel.kicad_sch"
+origin = "authored"
+corpus_id = ""
+spdx = "CC0-1.0"
+sha256 = "6a934c8057ed4976d75764daedc7cab3718e63364740d10575c52919b857b8b4"
+notes = "Authored CC0-1.0 contextual symbol metadata witness for Fenolite (c0327); no third-party CAD or library data."
+
+[[file]]
+path = "tests/data/drawn/contextual/sheets/channel_authored_second.kicad_sch"
+origin = "authored"
+corpus_id = ""
+spdx = "CC0-1.0"
+sha256 = "0c2361ee59ae9b38c4c01b763c0bf19f8e0bf6245056d63409aa48da239d7e63"
+notes = "Authored CC0-1.0 contextual symbol metadata witness for Fenolite (c0327); no third-party CAD or library data."
+
+[[file]]
+path = "tests/data/kicad/project/tuning_10.kicad_pro"
+origin = "authored"
+corpus_id = ""
+notes = "Authored CC0 impedance bench copy; SE50 Single 50 ohm and USB90 Differential 90 ohm profiles created and saved through the KiCad 10.0.6 macOS GUI, 2026-11-02. No third-party board data. SHA-256 c9ce320f1be18609b3339cc6fbf7d95db7000be5642ede68b5406412ad6829cf."

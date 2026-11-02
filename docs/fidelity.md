@@ -61,6 +61,12 @@ a side's sheets could not be read.
 
 Level 8 renders the board of both sides, layer by layer, and each schematic sheet that both sides hold
 under the same path, with the viewer's scene builders (`docs/equivalence.md`, "Level 8: presentation").
+The explicitly resolved project-root sheets also pair when import makes the
+root filename safe, using the original root's panel identity. Every primitive
+is still compared. Child filenames keep their exact identities; a root spelling
+that collides with a distinct child panel refuses instead of overwriting it.
+Missing roots are not invented and no pixel tolerance or acceptance is added
+by this pairing (c0330).
 
 ## Tolerances
 

@@ -23,10 +23,20 @@ pytestmark = [pytest.mark.needs_kicad, pytest.mark.kicad_min_major(10)]
 
 OPEN = "kicad.drc.unconnected-items"
 ERRORS: dict[tuple[str, int], set[str]] = {
+    ("block-layouts", 0): {"kicad.erc.pin-not-connected"},
+    ("board-floorplan", 0): {OPEN, "kicad.erc.pin-not-connected"},
     ("board-power", 0): {OPEN, "kicad.erc.pin-not-driven", "kicad.erc.pin-not-connected"},
     ("board-power", 1): {OPEN},
+    ("board-review", 0): {"kicad.erc.pin-not-connected"},
+    ("board-schematic", 0): {OPEN},
+    ("board-workflow", 0): set(),
     ("design-script", 0): {OPEN},
     ("design-script", 1): {OPEN},
+    ("design-script", 2): {OPEN, "kicad.erc.pin-not-connected", "kicad.erc.power-pin-not-driven"},
+    ("design-script", 3): {OPEN},
+    ("files", 0): {"kicad.erc.pin-not-connected"},
+    ("files", 1): set(),
+    ("files", 2): {OPEN},
     ("footprints", 0): {OPEN},
     ("footprints", 1): {  # symbols from pin tables (c0261)
         OPEN,
@@ -35,6 +45,7 @@ ERRORS: dict[tuple[str, int], set[str]] = {
         "kicad.erc.power-pin-not-driven",
     },
     ("footprints", 2): {"kicad.erc.pin-not-connected"},  # an orderable part, nothing connected (c0259)
+    ("footprints", 3): {"kicad.erc.pin-not-connected"},
     ("parts", 0): {OPEN, "kicad.erc.power-pin-not-driven"},
     ("parts", 1): {OPEN},  # value ranges (c0246)
     ("parts", 2): {OPEN},  # the parts placed from devices (c0248)
@@ -45,6 +56,9 @@ ERRORS: dict[tuple[str, int], set[str]] = {
     ("rules", 0): {OPEN},
     ("rules", 1): {OPEN},
     ("rules", 2): {OPEN},
+    ("rules", 3): set(),
+    ("signal-topologies", 0): {OPEN, "kicad.erc.pin-not-connected"},
+    ("starter-blocks", 0): {OPEN},
 }
 """(topic, index of the KiCad design block on its page) → the codes of the errors that the whole check
 reports for the script as it is built, before any routing."""
@@ -95,7 +109,8 @@ def test_kicad_table_names_every_design_block() -> None:
 def test_kicad_check_reports_what_the_page_says(key: tuple[str, int], tmp_path: Path) -> None:
     """The whole check of each script, as built, gives exactly the errors of ``ERRORS``."""
     _build(_blocks()[key], tmp_path / "work")
-    assert _errors(tmp_path / "work") == (5, ERRORS[key])
+    expected = ERRORS[key]
+    assert _errors(tmp_path / "work") == (5 if expected else 0, expected)
 
 
 def test_kicad_routed_script_passes_after_fill(tmp_path: Path) -> None:

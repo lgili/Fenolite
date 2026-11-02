@@ -19,6 +19,7 @@ from pathlib import PurePosixPath
 from typing import cast
 
 from fenolite.backends.kicad import slots as slotlib
+from fenolite.backends.kicad import symbol_contexts
 from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.lowering import MINIMUM_KEYS
 from fenolite.backends.kicad.outline import edge_outline
@@ -51,7 +52,7 @@ from fenolite.importer.emit.printer import (
 from fenolite.importer.emit.sheets import Hierarchy, instances
 from fenolite.importer.keys import lock_of, segment
 from fenolite.importer.provenance import Provenance
-from fenolite.importer.schematic import drawing as source_drawing
+from fenolite.importer.schematic import drawing_value as source_drawing
 from fenolite.importer.source import Source
 from fenolite.importer.tables import (
     ORIGIN,
@@ -70,6 +71,7 @@ from fenolite.importer.texts import (
     zone_arc_ring,
 )
 from fenolite.importer.vendor import natural, vendor
+from fenolite.model._drawn_text import write_drawn
 from fenolite.model.base import Entity, Opaque
 from fenolite.model.board import (
     Board,
@@ -1620,8 +1622,17 @@ def emit(source: Source, options: Options) -> Emission:
     drawing, drawing_issues = source_drawing(source, {ref: path for path, ref in lock_refs.items()})
     issues.extend(drawing_issues)
     if drawing is not None:
-        files["schematic.toml"] = drawing
-        files["design.py"] += '\ndesign.load_schematic("schematic.toml")\n'
+        files["schematic.toml"] = write_drawn(drawing)
+        contexts = symbol_contexts.write(
+            vendored.source_symbols.contexts,
+            {item.file: item.sha256 for item in source.inputs},
+            drawing,
+            root_file=next(iter(source.hierarchy)),
+            target=options.target,
+        )
+        files.update(contexts)
+        keyword = ', symbol_contexts="symbol-contexts.toml"' if contexts else ""
+        files["design.py"] += f'\ndesign.load_schematic("schematic.toml"{keyword})\n'
     files["design.lock"] = lock_of(options.name, lock_refs)
     rows = ledger.rows()
     counts = {

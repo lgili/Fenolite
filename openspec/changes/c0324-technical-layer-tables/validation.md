@@ -55,3 +55,54 @@ open; no source content, geometry, acceptance or ratchet baseline was added.
 
 Root owns the serial combined gate and required exact published-head CI. Neither
 those gates nor native Altium/application acceptance is claimed here.
+
+## Completed explicit replay on the integrated source
+
+The later signed source `ea762411cbb24bc5f9ba5a16d8b372ae7c720568` includes the
+drawn-bus prerequisite. A new scratch replay on that exact clean source reaches
+the explicit build and full verification; it does not overwrite the earlier
+`fbec5cd9` refusal recorded above. All five original native file hashes, including
+the board SHA-256 already listed, remain unchanged in both cached and copied
+inputs. No third-party CAD or derived script is added to this repository.
+
+| Actual phase | CLI exit | Seconds | Observed result |
+| --- | --- | --- | --- |
+| Strict import dry run | 0 | 28.366 | Self-check equal; no unexpressed items; 113 new planned files. |
+| Reviewed import confirmation | 0 | 1.799 | All 113 files match their reviewed SHA-256 values. |
+| Separate explicit build dry run | 0 | 18.309 | 119 new planned files; no error finding. |
+| Reviewed build confirmation | 0 | 2.175 | All 119 files match their reviewed SHA-256 values. |
+| Full verify-source | 5 | 60.280 | Levels 1-7 and S equal; three level-8 render-pixels findings; zero acceptances. |
+
+Actual CLI arguments below are relative to a fresh scratch folder. `PLAN_IMPORT`
+and `PLAN_BUILD` stand for the recorded, reviewed ids; they are not a request to
+recompute either operation at confirmation.
+
+```sh
+fenolite import upstream/demos/kit-dev-coldfire-xilinx_5213/kit-dev-coldfire-xilinx_5213.kicad_pro --to python --out out --licence CC-BY-SA-4.0 --source https://gitlab.com/kicad/code/kicad/-/tree/97acc80c223d75520c03fc44cab63cd9a3202c42/demos/kit-dev-coldfire-xilinx_5213 --revision 97acc80c223d75520c03fc44cab63cd9a3202c42 --timestamp 2026-10-31T00:00:00Z --dry-run --json
+fenolite import upstream/demos/kit-dev-coldfire-xilinx_5213/kit-dev-coldfire-xilinx_5213.kicad_pro --to python --out out --licence CC-BY-SA-4.0 --source https://gitlab.com/kicad/code/kicad/-/tree/97acc80c223d75520c03fc44cab63cd9a3202c42/demos/kit-dev-coldfire-xilinx_5213 --revision 97acc80c223d75520c03fc44cab63cd9a3202c42 --timestamp 2026-10-31T00:00:00Z --confirm --plan PLAN_IMPORT --json
+fenolite build out/design.py --out built --lock build.lock --kicad-version 9 --seed 0 --timestamp 2026-11-02T00:00:00Z --dry-run --json
+fenolite build out/design.py --out built --lock build.lock --kicad-version 9 --seed 0 --timestamp 2026-11-02T00:00:00Z --confirm --plan PLAN_BUILD --json
+fenolite verify-source out/design.py --against upstream/demos/kit-dev-coldfire-xilinx_5213/kit-dev-coldfire-xilinx_5213.kicad_pro --provenance out/PROVENANCE.json --timestamp 2026-11-02T00:00:00Z --json
+```
+
+The external `c0324-ea-replay/PROOF.json` receipt has SHA-256
+`65953af83b4f0b7e5866073fb83634794afeba9f05a9c7981ff0b8a2d347124f`.
+It binds the actual source, raw replies, input invariants, complete argument
+lists, all five CLI exits and the reviewed file hashes. The source stayed clean
+before and after execution. Normal Python bytecode behavior was used.
+
+Copy provenance selects the existing default copper mode `warn`; no override
+flag was passed. The guard ran and reports zero shorts, clearance and
+edge-clearance findings. The build retains four pad-without-pin notices, one
+text-unchecked notice, 132 drawn-net naming notices, one class-shadowed notice
+and six outside-outline notices. The import retains 67 footprint-variant
+notices, one sheet-renamed notice and one provenance-missing notice; no upstream
+copyright holder was invented. Full verification retains two unjudged-routing
+notices. None of these is silently treated as native application approval.
+
+The overall full-fidelity command still fails at presentation on all three
+schematic sheets. Hidden-reference summary text is not a measured explanation
+of the differing pixels. Font preservation and any other presentation findings
+remain separate work, with no changed acceptance or mask threshold. Task 3.1's
+actual replay is proved; task 3.2 and full fidelity remain open. The successful
+local fast gate on this source does not establish successful required CI.

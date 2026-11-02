@@ -1651,3 +1651,12 @@ When the application is available, use only the authored `examples/drawn/` and
 The automated source proof is `tests/unit/backends/altium/test_drawn_altium.py`: ASCII/binary authored
 fixtures, native coverage and physical maps, aliases, rejected malformed content, writer/template
 faults and reviewed-input changes. Its own-reader result does not replace this application step.
+
+## Maintainer-host drawn measurements — 2026-11-02
+
+The later [actual Altium 22.2.1 report](altium-drawn-native.md) retains all six
+original binary/ASCII compile and complete pin-partition observations, native
+new-copy save/reopen and c0331's corrected/negative bus controls. All source
+ERC/raw name findings remain visible. This is a bounded native observation,
+not execution of the entire formal kit. The original no-connectivity-message
+criterion is not met; `H-A-DRAWN-WRITE` remains INFERRED and pending.

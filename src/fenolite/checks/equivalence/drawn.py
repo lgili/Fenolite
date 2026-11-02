@@ -33,7 +33,15 @@ from fenolite.checks.equivalence.model import (
 )
 from fenolite.checks.equivalence.norm import angles_equal, points_equal
 from fenolite.core.coords import Point
-from fenolite.model.drawn import DrawnField, DrawnInstance, DrawnSchematic, DrawnSheet, DrawnSymbol
+from fenolite.model.drawn import (
+    DrawnField,
+    DrawnFont,
+    DrawnInstance,
+    DrawnSchematic,
+    DrawnSheet,
+    DrawnSheetProperty,
+    DrawnSymbol,
+)
 from fenolite.model.drawn_connect import DrawnNetlist, Element, PinKey, PinPoint, natural, resolve
 
 _FIELD = {kind: name for level, kind, name in KINDS if level == SCHEMATIC_LEVEL}
@@ -105,7 +113,12 @@ def items(sheet: DrawnSheet) -> list[Item]:
             (
                 f"label.{label.kind}",
                 (label.at,),
-                (("text", label.text), ("rotation", str(label.rotation)), ("shape", label.shape)),
+                (
+                    ("text", label.text),
+                    ("rotation", str(label.rotation)),
+                    ("shape", label.shape),
+                    *_text_attributes(label.font, label.justify),
+                ),
             )
         )
     for power in sheet.powers:
@@ -134,6 +147,13 @@ def items(sheet: DrawnSheet) -> list[Item]:
                     ("name", ref.name),
                     ("size", f"{ref.size.w},{ref.size.h}"),
                     ("pins", pins),
+                    *_field_attributes(ref.fields),
+                    *_sheet_property_attributes(ref.properties),
+                    *(
+                        attribute
+                        for index, pin in enumerate(ref.pins)
+                        for attribute in _text_attributes(pin.font, pin.justify, f"pins[{index}].")
+                    ),
                 ),
             )  # fmt: skip
         )
@@ -147,9 +167,65 @@ def items(sheet: DrawnSheet) -> list[Item]:
 
 def _field_attributes(fields: Sequence[DrawnField]) -> tuple[tuple[str, str], ...]:
     return tuple(
-        (f"fields.{f.name}", f"{_point(f.at)}/{f.rotation}/{f.justify}/{'hide' if f.hide else 'show'}")
-        for f in fields
+        attribute
+        for field in fields
+        for attribute in (
+            (
+                f"fields.{field.name}",
+                f"{_point(field.at)}/{field.rotation}/{field.justify}/{'hide' if field.hide else 'show'}",
+            ),
+            *_font_attributes(field.font, f"fields.{field.name}.font"),
+        )
     )
+
+
+def _sheet_property_attributes(properties: Sequence[DrawnSheetProperty]) -> tuple[tuple[str, str], ...]:
+    attributes: list[tuple[str, str]] = []
+    for index, prop in enumerate(properties):
+        prefix = f"properties[{index}]"
+        attributes.extend(
+            (
+                (f"{prefix}.name", prop.name),
+                (f"{prefix}.text", prop.text),
+                (
+                    f"{prefix}.pose",
+                    f"{_point(prop.at)}/{prop.rotation}/{prop.justify}/{'hide' if prop.hide else 'show'}",
+                ),
+                *_font_attributes(prop.font, f"{prefix}.font"),
+            )
+        )
+    return tuple(attributes)
+
+
+def _font_attributes(font: DrawnFont | None, prefix: str = "font") -> tuple[tuple[str, str], ...]:
+    """Observable attributes of backend-extracted effective fonts, without guessing target defaults.
+
+    Native extraction normalizes equivalent spellings before this backend-independent comparison.
+    Canonical presence remains exact in the model/codec; no absent style adds an attribute here.
+    """
+    if font is None:
+        return ()
+    attributes: list[tuple[str, str]] = []
+    if font.size is not None:
+        attributes.append(("size", f"{font.size.w},{font.size.h}"))
+    for name, value in (
+        ("thickness", font.thickness),
+        ("bold", font.bold),
+        ("italic", font.italic),
+        ("face", font.face),
+    ):
+        if value is not None:
+            attributes.append((name, str(value)))
+    return tuple((f"{prefix}.{name}", value) for name, value in attributes)
+
+
+def _text_attributes(
+    font: DrawnFont | None, justify: str | None, prefix: str = ""
+) -> tuple[tuple[str, str], ...]:
+    attributes = _font_attributes(font, prefix + "font")
+    if justify is not None:
+        attributes += ((prefix + "justify", justify or "center"),)
+    return attributes
 
 
 def _shown(item: Item) -> str:
@@ -258,6 +334,11 @@ def compare_symbols(
                     found.append(
                         _difference("symbol-field", where, str(va), str(vb), f"fields.{name}.{attribute}")
                     )
+            fonts_a, fonts_b = dict(_font_attributes(fa.font)), dict(_font_attributes(fb.font))
+            for attribute in sorted(fonts_a.keys() | fonts_b.keys()):
+                va, vb = fonts_a.get(attribute, ""), fonts_b.get(attribute, "")
+                if va != vb:
+                    found.append(_difference("symbol-field", where, va, vb, f"fields.{name}.{attribute}"))
     return found
 
 

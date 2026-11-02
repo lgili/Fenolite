@@ -75,6 +75,7 @@ from fenolite.backends.kicad.pcb import WRITE_EVIDENCE, read_board, write_board
 from fenolite.backends.kicad.schgen import GeneratedSchematic
 from fenolite.backends.kicad.schlayout import SymbolPlacement
 from fenolite.backends.kicad.sexpr import parse_bytes
+from fenolite.backends.kicad.symbol_contexts import Contexts, check_written
 from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.kicad.zones import PadZoneRequestLike, apply_pad_connections, keep_pad_connections
 from fenolite.core.coords import Point, Size
@@ -1489,6 +1490,7 @@ def build_design(
     layout_record: Mapping[str, object] | None = None,
     drawn: DrawnSchematic | None = None,
     drawn_file: str = "schematic.toml",
+    context_symbols: Contexts | None = None,
     schematic_groups: Mapping[str, Sequence[SheetGroup]] | None = None,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
@@ -2012,13 +2014,16 @@ def build_design(
             power_symbols=drawing_symbols,
             opaque_symbols=drawing_symbols,
             symbol_overrides=drawing_symbols,
+            context_symbols=context_symbols,
             groups=schematic_groups,
         )
         issues += generated.issues
         symbol_files = _symbol_libraries(generated, authored_symbols, target, allow_lossy, issues)
         if any(i.severity == "error" for i in issues):
             return _refused(built, issues, libraries)
-        drawn_texts, found = drawn_netlist_issues(target_design, generated, name, target, allow_lossy)
+        drawn_texts, found = drawn_netlist_issues(
+            target_design, generated, name, target, allow_lossy, contextual=context_symbols is not None
+        )
         issues += found
         if any(i.severity == "error" for i in issues):
             return _refused(built, issues, libraries)
@@ -2657,7 +2662,13 @@ def _drawing_symbols(
 
 
 def drawn_netlist_issues(
-    design: Design, generated: GeneratedSchematic, name: str, target: int, allow_lossy: bool
+    design: Design,
+    generated: GeneratedSchematic,
+    name: str,
+    target: int,
+    allow_lossy: bool,
+    *,
+    contextual: bool = False,
 ) -> tuple[dict[str, str], list[Issue]]:
     """The sheet texts of a drawn schematic and the guard's issues (capability design-dsl, "Drawn schematic
     build guard"; change c0276).
@@ -2671,11 +2682,15 @@ def drawn_netlist_issues(
     issues: list[Issue] = []
     texts: dict[str, str] = {}
     written = sch.write_schematic(generated.sheet, target=target, allow_lossy=allow_lossy)
+    if contextual:
+        check_written(generated.sheet, written.text, target=target)
     issues += written.issues
     root_file = f"{name}.kicad_sch"
     texts[root_file] = written.text
     for path, child in generated.children.items():
         written = sch.write_schematic(child, target=target, allow_lossy=allow_lossy)
+        if contextual:
+            check_written(child, written.text, target=target)
         issues += [found for found in written.issues if found not in issues]
         texts[path] = written.text
     root = sch.read_schematic(texts[root_file], file=root_file, issues=[])

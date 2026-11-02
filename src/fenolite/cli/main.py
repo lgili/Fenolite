@@ -430,6 +430,21 @@ def _replay(command: Command, staged: plans.StagedPlan, args: Mapping[str, Any],
             f"the plan {staged.id} was made for another command line (the argument {first!r} differs)",
             "--plan",
         )
+    if command.name in ("build", "sync", "import"):
+        from fenolite.backends.kicad.symbol_contexts import check_paths
+        from fenolite.core.errors import FormatError
+
+        try:
+            check_paths(
+                [
+                    *(ctx.cwd / path for path, _ in staged.depends),
+                    *(ctx.cwd / str(row["path"]) for row in staged.writes),
+                ]
+            )
+        except FormatError as error:
+            raise _stale(
+                f"context paths changed after the plan {staged.id} was reviewed: {error}", "--plan"
+            ) from error
     for path, digest in staged.depends:
         if plans.digest_of(ctx.cwd / path) != digest:
             raise _stale(f"{_named(path)} changed after the plan {staged.id} was reviewed", _named(path))

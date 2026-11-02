@@ -185,7 +185,7 @@
   all 107 cases. Strict validation is valid; source, schema, example and fixture
   trees remain byte-identical. Native/full/exact-head CI remain open.
 
-- [ ] 1.15 Repair the eight exact L8 KiCad 10 failures from run `41362730027`, job
+- [x] 1.15 Repair the eight exact L8 KiCad 10 failures from run `41362730027`, job
   `125016358377`. Preserve raw duplicate-reference counts and historical conversion tables;
   record source-bound current comparisons after c0277 pairing. Preserve safe interior spaces in
   derived footprint names without changing project/symbol naming, path guards or name comparison.
@@ -203,6 +203,15 @@
   table sections, the strict comparator and the native-import exclusion file retain identical
   bytes. No actual local KiCad 10 import is available; task 1.15 and combined/full/CI tasks
   2.2/2.3 remain unchecked pending their literal required proofs.
+
+  Superseding measured continuation, 2026-11-02, clean signed
+  `1918e63214a7d0123e1f5fa8ef095c73fd2e1472`: the complete specified
+  unit/document/four-census selection passes 43 tests (12.92 s). All native
+  selectors above pass on the actual installed KiCad CLI 10.0.6 with heavy
+  inputs enabled: 16 passed (56.79 s), no skipped cases. This includes the
+  authored space/underscore load, triangle keys and public independent
+  importer proofs. No exclusion/table, tolerance or raw duplicate count is
+  changed. This closes only 1.15; complete and exact-head CI stay open.
 
 - [x] 1.16 Declare the drawn Altium writer's existing inferred evidence and use
   a pure, permitted own-module import without broadening backend import rules.
@@ -232,6 +241,88 @@
   record facts; native application acceptance remains pending. Strict valid;
   production/source fixtures and all original provenance assertions unchanged.
 
+- [x] 1.19 Make the three viewer shell assertions use the existing platform-specific
+  palette chord and displayed shortcut. Preserve the explicit Mac Ctrl-rejection/Cmd-acceptance
+  control, production bundle and screenshot references.
+  Proof: `uv run pytest tests/visual/test_shell.py -k 'palette or plain_keys or shortcut_sheet' -q`
+  with the required pinned browser on the maintainer's Mac; focused Ruff checks.
+  Passed 2026-11-02: all four selected cases pass on macOS with Playwright 1.63.0
+  (12.52 s), including the unchanged explicit Mac Ctrl-rejection/Cmd-acceptance
+  case. Focused Ruff lint/format and diff whitespace checks pass. The initial
+  complete visual run was 90 passed/14 failed: these three chord assertions and
+  eleven screenshot comparisons. Screenshot references, production TypeScript
+  and the committed bundle retain their exact bytes. The image comparisons and
+  combined/full/exact-head gates remain separate unresolved results.
+
+- [x] 1.20 Measure the guide's newly added authored design blocks with actual KiCad 10,
+  extend the exact error-code table and its per-block native cases, and retain complete
+  coverage plus the existing routed/fill proof. Do not infer expected findings from prose.
+  Proof: `uv run pytest tests/unit/agent/test_pages_kicad.py -q` on native KiCad 10;
+  focused Ruff checks. Record any build refusal as a blocker rather than omitting its block.
+  Passed 2026-11-02: all fourteen previously missing blocks were actually built and checked on
+  native KiCad 10.0.6. `board-workflow:0`, `files:1` and `rules:3` return exit 0 with no errors;
+  the other eleven return exit 5 with their measured exact error-code sets. The complete
+  unchanged coverage comparison, all 31 per-block native cases and existing routed/fill case
+  pass together: 33 passed in 222.41 s. Focused Ruff lint/format and diff checks pass. No guide
+  script, native issue code, severity or production implementation changes.
+
+  L12 integration repeats pass on native KiCad 10.0.6 and the pinned browser:
+  all 33 guide cases (137.93 s) and four shortcut cases (7.89 s). The previous
+  receipts above retain their earlier L10 source scope.
+
+### Maintainer-host L12 repairs
+
+- [x] 1.21 Keep the native contextual-property preservation proof at its source
+  format version while running the actual installed KiCad 9/10 process. Explicitly
+  bind import/build/verify to that version: the authored hierarchy is KiCad 9,
+  even when the oracle is KiCad 10. Preserve exact complete property assertions,
+  native components/BOM, all-nine equality and unchanged source bytes. Retain the
+  separate legacy-tilde conversion contract. Proof: `uv run pytest
+  tests/kicad/schematic/test_contextual_symbols.py tests/unit/backends/kicad/test_symembed.py -q`.
+  Proof on native KiCad 10.0.6: 15 passed (7.59 s). The first attempt still
+  combined a target-10 board with target-9 versioned drawings; selecting the
+  matching target-9 authored board closes that setup defect, preserving the
+  original complete-property assertion and all nine strict comparisons.
+- [x] 1.22 Isolate direct font-oracle CLI exports in a copied input project, retain
+  exact hashes of every original and copied input, and record only the bounded
+  new native project-local settings file as an output. A failed sample must not
+  poison subsequent parameter setup. No source-file exclusion, native AST
+  normalization, glyph comparison or tolerance relaxation is permitted.
+  Proof: `uv run pytest tests/kicad/schematic/test_drawn_fonts_oracle.py -q`.
+
+  Native KiCad 10.0.6: the entire font file passes 28 cases (45.71 s),
+  including a planted failed export followed by a real successful retry.
+  The retry control first reproduced the stale-directory failure. Every
+  attempt now has its own retained scratch directory; failed attempts do not
+  populate the sample cache. All original and copied input bytes remain exact;
+  only a new `drawn_full.kicad_prl` may appear in the export copy and its digest
+  is retained in the receipt. Source hashes, glyph groups, styles, multiplicity,
+  and native default/asymmetric-axis comparisons are unchanged.
+
+- [x] 1.23 Keep the block-document consistency probe's ordinary import in its
+  own temporary folder. It currently creates an undeclared divider bytecode
+  file beside the committed data and makes the subsequent manifest proof fail.
+  Preserve ordinary bytecode and the strict data-manifest policy. Proof:
+  `uv run pytest tests/consistency/test_block_docs.py tests/corpus/test_manifest.py
+  tests/unit/backends/kicad/test_tuning_profiles.py tests/unit/test_format_facts.py -q`
+  after staging the authored tuning fixture and its declaration.
+
+  Passed after staging: 100 cases (2.32 s). The preceding overlay run
+  reproduced the undeclared bytecode failure (96 passed, 1 failed). The probe
+  now imports a byte-identical temporary copy with ordinary bytecode enabled;
+  only its previously generated untracked cache file was removed. The strict
+  manifest rules and native fixture save digest are unchanged.
+
+- [x] 1.24 Record the maintainer-host takeover ledger, exact open task IDs,
+  external-resource boundaries and completed CI cleanup with archived evidence.
+  Preserve historical failed outcomes and all exact-head CI gates.
+  Proof: ledger task IDs/counts agree with current source task files;
+  `npx -y @fission-ai/openspec validate c0319-integration-repairs --strict`;
+  `git diff --check`.
+  Passed 2026-11-02: 58 current task files and 101 unchecked numbered tasks
+  verified against the ledger (excluding this self-referential task). Strict
+  OpenSpec validates without warnings and the diff is whitespace-clean.
+
 ## 2. Combined validation
 
 - [x] 2.1 Update the one Unreleased entry, retain exact proof scope and run static,
@@ -246,6 +337,39 @@
   exact mapped proof, model0 boundary, byte guards and remaining source/native/CI limits.
 - [ ] 2.2 Repeat the complete local fast gate on the stable repaired candidate.
   Proof: `make check-fast`.
+
+  Passed 2026-11-02 on the stable repaired source
+  `ea762411cbb24bc5f9ba5a16d8b372ae7c720568`: `make check-fast`, exit 0,
+  19564 passed and 55 skipped, JUnit zero failures/errors. The source-bound
+  timestamps and receipt/log/XML digests are in validation.md. This is the
+  complete local fast gate, not successful GitHub CI. Task 2.3 and the specific
+  independent native/private/release proofs remain open.
+
+  L12 continuation: the historical passing L10 receipt above is retained.
+  The L12 maintainer-host complete run finishes with 1 failed, 20005 passed,
+  51 skipped (1157.18 s): only `board_40parts@altium` fails. Static, types,
+  generated checks and private residue pass. No byte table, tolerance or
+  producer change is used to hide that existing Mac mismatch. Keep this task
+  open; the earlier L10 receipt remains historical.
+
 - [ ] 2.3 Publish one reviewed batch and confirm all required CI jobs on that
   exact commit; keep native/private/release proofs separate.
   Proof: required GitHub CI jobs completed successfully on the recorded commit.
+
+- [x] 2.4 Publish the ready inspection checkpoints and record their exact
+  remote heads, implemented scope, open gates and source-bound CI outcomes in
+  `published-checkpoints.md`. Preserve active work and the separate model-1 hold.
+  Proof: remote branch reads match all three recorded heads;
+  `npx -y @fission-ai/openspec validate c0319-integration-repairs --strict`.
+  Passed 2026-11-02: GitHub API branch reads confirm the recorded L11,
+  prepared-model and separate-library SHA values after non-forced pushes.
+  Strict validation is valid without warnings. This publication proof closes
+  no remaining implementation, activation, native acceptance or CI gate.
+
+
+Inspection source update — 2026-11-02 (L12): the new assembly preserves font
+`b548fa46`/proof-only `2376efe5` and contextual `4595266e` from immutable 2fa.
+The published-checkpoints index now distinguishes functional contextual plan
+binding from the historical interim refusal and retains the source-bound VME
+1700-versus-1800 failure. No new remote-head, all-corpus, model1, native GUI or
+successful exact-head CI claim closes task 2.3 or a feature gate.

@@ -431,6 +431,8 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 
 | module | declaration |
 |---|---|
+| `_drawn_font` | see `sch`, `drawn` |
+| `_drawn_style` | none: Fenolite-owned private drawn-style extension records, not native KiCad syntax |
 | `_edgesign` | see `pcb`, `outline` |
 | `_fpmap` | see `mod`, `pcb` |
 | `_json` | see `pro` |
@@ -493,6 +495,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `slots` | see `dru`, `mod`, `pcb`, `sch`, `sym`, `wks` |
 | `stackup` | `EVIDENCE` KICAD-VERIFIED: `H-K-STACKUP-JOB`, `H-K-STACKUP-COMPLETE`, `H-K-STACKUP-DEFAULT`, `H-K-STACKUP-RESAVE` |
 | `sym` | `EVIDENCE` INFERRED: `H-K-LIB-READ`<br>`WRITE_EVIDENCE` UNVERIFIED: — |
+| `symbol_contexts` | none: Fenolite-owned context-index validation and hashes; native symbol syntax is read by sch |
 | `symembed` | see `schgen` |
 | `teardrops` | `EVIDENCE` INFERRED: `H-K-TEARDROP` |
 | `textink` | `EVIDENCE` KICAD-VERIFIED: `H-K-SILK-INK` |

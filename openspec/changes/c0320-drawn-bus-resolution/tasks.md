@@ -75,6 +75,44 @@
   to the respective entry snapshots. Unknown-member warnings32/374 and
   public17's979 dangling warnings remain visible; no overall fidelity claim.
 
+- [x] 1.5 Investigate the clean c0329 VME own-1700/native-1800 partition
+  discrepancy using original authored disconnected-bus/member controls first.
+  Record actual native outcomes, including any refuted hypothesis. Implement
+  only a demonstrated bounded scope correction; preserve generic/Altium
+  behavior, full source/S data, all pins, warnings and native acceptance gates.
+  Proof: authored complete-partition controls on actual KiCad 9/10, existing
+  scope regressions and the literal fresh owner-106 census on a clean source.
+
+  Initial four original native 10.0.6 controls: one isolation failure and
+  three valid joins pass (14.36 s). The stronger six-case version adds a
+  single-labelled-island negative: two failures/four passes before the fix
+  (2.91 s). After the KiCad-only explicit policy, the entire native scope
+  file passes 34 tests on 10.0.6 (17.50 s) and 34 on pinned 9.0.9 (43.72 s).
+  Model/backend/Altium/source-stage/all-nine neighbors pass 127 tests
+  (18.95 s), including six source/pin-preserving generic-policy controls.
+  The earlier four single-child diagnostics all matched native and refuted
+  the broader idea that actual scalar labels elsewhere should be ignored.
+  No scalar-label rule, warning policy or acceptance is relaxed. The fresh
+  clean-source VME replay and combined/static gate remain open.
+
+  Final whole-tree lint/format, source types (zero diagnostics), guide/schema
+  generation and strict c0320 validation pass. Format/agent documentation
+  selection: 120 passed (8.28 s). Private-list residue: zero hits in 6391
+  files, sixteen existing waivers, private gate on. All 75 complete API maps
+  (1172 planned files including version-bearing files, ten unchanged refusals)
+  remain identical to signed `11fa8594`. The last complete local fast run
+  predates this bus correction and fails only the recorded Mac Altium byte
+  guard; it is not a passing gate for this source. Fresh public replay and
+  final combined validation remain open.
+
+  Clean signed `1918e63214a7d0123e1f5fa8ef095c73fd2e1472`, actual native
+  10.0.6, literal owner-106 census: 1 passed (84.67 s). Source, lowered and
+  both native views have all 6811 pins and exactly 1800 groups; zero missing
+  pins or differing groups. Native original/written names also agree exactly.
+  Own naming remains a separate open finding: 486 differences across 967
+  compared named groups; the census's partition pass does not close it.
+  All context/input hashes and warnings remain in the actual external receipt.
+
 ## 2. Closing
 
 - [x] 2.1 Run focused lint/format/types, generated-guide/schema, residue and

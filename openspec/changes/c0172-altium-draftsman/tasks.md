@@ -77,7 +77,14 @@
 
 - [x] 7.1 Document the document, the options, the gate, the routes and the limits in `docs/altium.md` ("Draftsman document"). Replace the Altium sentence of `docs/drawings.md` with a pointer to it. Proof: `uv run pytest tests/consistency -q`.
 - [x] 7.2 Update the evidence: every `H-A-DWF-*` row holds its measured level, `draftsman.EVIDENCE` names them, and run `uv run python tools/gen_evidence_matrix.py`. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_evidence_matrix_page.py -q`.
-- [ ] 7.3 Run the residue scan and the fast checks. Proof: `uv run python tools/residue/scan.py` exits 0; `make check-fast` passes.
+- [x] 7.3 Run the residue scan and the fast checks. Proof: `uv run python tools/residue/scan.py` exits 0; `make check-fast` passes.
+
+  Local validation completed 2026-11-02: the public residue scan has zero hits,
+  and root's serialized `make check-fast` on `ea762411cbb24bc5f9ba5a16d8b372ae7c720568`
+  exits 0 (19564 passed, 55 skipped). This closes the literal local checks only.
+  Native F0/FP/F1-F8 saves, writer-route/gate decisions and task 7.5 exact CI stay
+  open; neither an Altium session nor private-history clearance is claimed.
+
 - [x] 7.4 Add to `CHANGELOG.md` under `## [Unreleased]`: the Draftsman reader, the document behind its gate, the two build options, the job output and the project parameters, or the route that shipped. Proof: `grep -n "Draftsman" CHANGELOG.md`; `openspec validate c0172-altium-draftsman --strict --no-interactive` passes.
 - [ ] 7.5 Publish the branch for CI and confirm the required jobs on the exact commit (AGENTS.md, workflow 4). Proof: `gh pr checks` shows `unit` and `wheel` passing.
 

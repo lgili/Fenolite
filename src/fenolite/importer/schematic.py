@@ -13,10 +13,11 @@ from dataclasses import dataclass, field, replace
 
 from fenolite.backends.kicad import drawn, sch, symembed
 from fenolite.backends.kicad.sexpr import dumps
+from fenolite.backends.kicad.symbol_contexts import compatible
 from fenolite.core.errors import FormatError, Issue
 from fenolite.importer.source import Source
 from fenolite.model._drawn_text import write_drawn
-from fenolite.model.drawn import FIELD_ROTATIONS, ROTATIONS
+from fenolite.model.drawn import FIELD_ROTATIONS, ROTATIONS, DrawnSchematic
 from fenolite.model.library import SymbolDef
 
 
@@ -27,6 +28,7 @@ class SourceSymbols:
     definitions: Mapping[str, symembed.EmbeddedSymbol] = field(default_factory=lambda: {})
     refs: Mapping[str, str] = field(default_factory=lambda: {})
     issues: tuple[Issue, ...] = ()
+    contexts: Mapping[tuple[str, str], symembed.EmbeddedSymbol] = field(default_factory=lambda: {})
 
 
 def symbols(source: Source, *, target: int) -> SourceSymbols:
@@ -40,8 +42,13 @@ def symbols(source: Source, *, target: int) -> SourceSymbols:
     references: dict[str, str] = {}
     by_symbol: dict[tuple[str, str], tuple[str, int]] = {}
     issues: list[Issue] = []
+    local: dict[tuple[str, str], symembed.EmbeddedSymbol] = {}
+    variants: set[str] = set()
+    inherited: set[str] = set()
     for file, sheet in source.hierarchy.items():
         available = {definition.lib_id: definition for definition in sheet.lib_symbols}
+        if len(available) != len(sheet.lib_symbols):
+            raise FormatError("source sheet has duplicate embedded definitions", file=file)
         by_name = {definition.name: definition for definition in sheet.lib_symbols}
         embedded_cache: dict[tuple[str, str], symembed.EmbeddedSymbol] = {}
         for instance in sheet.symbols:
@@ -72,6 +79,8 @@ def symbols(source: Source, *, target: int) -> SourceSymbols:
                 parents.append(parent)
                 seen.add(parent.name)
                 cursor = parent
+            if parents:
+                inherited.add(canonical_id)
             embedded = symembed.embed_symbol(
                 replace(definition, library=canonical_id.partition(":")[0]),
                 parents=parents,
@@ -80,14 +89,26 @@ def symbols(source: Source, *, target: int) -> SourceSymbols:
                 show_hidden_power=False,
             )
             signature = dumps(embedded.node, style="compact")
-            if embedded.lib_id in signatures and signatures[embedded.lib_id] != signature:
+            context_key = (file, embedded.lib_id)
+            if context_key in local and local[context_key].node != embedded.node:
                 raise FormatError(
-                    f"source sheets embed conflicting definitions of {embedded.lib_id!r}", file=file
+                    f"source sheet embeds conflicting definitions of {embedded.lib_id!r}", file=file
                 )
-            signatures[embedded.lib_id] = signature
-            definitions[embedded.lib_id] = embedded
+            local[context_key] = embedded
+            if embedded.lib_id in signatures and signatures[embedded.lib_id] != signature:
+                if not compatible(definitions[embedded.lib_id].node, embedded.node):
+                    raise FormatError(
+                        f"source sheets embed conflicting definitions of {embedded.lib_id!r}", file=file
+                    )
+                variants.add(embedded.lib_id)
+            signatures.setdefault(embedded.lib_id, signature)
+            definitions.setdefault(embedded.lib_id, embedded)
             embedded_cache[cache_key] = embedded
             by_symbol[(file, instance.id)] = (embedded.lib_id, instance.unit)
+    if variants & inherited:
+        raise FormatError(
+            "conflicting definitions with contextual inheritance cannot preserve all native properties"
+        )
     units_by_ref: dict[str, dict[int, str]] = {}
     files_by_ref: dict[str, str] = {}
     for instance in instances(source, include_root=True):
@@ -111,11 +132,18 @@ def symbols(source: Source, *, target: int) -> SourceSymbols:
                     file=files_by_ref[ref],
                 )
         references[ref] = primary
-    return SourceSymbols(definitions, references, tuple(issues))
+    contexts = local if variants else {}
+    return SourceSymbols(definitions, references, tuple(issues), contexts)
 
 
 def drawing(source: Source, refs: Mapping[str, str]) -> tuple[str | None, tuple[Issue, ...]]:
     """Canonical source drawing using the emitter's final reference-to-component-path map."""
+    value, issues = drawing_value(source, refs)
+    return (write_drawn(value) if value is not None else None), issues
+
+
+def drawing_value(source: Source, refs: Mapping[str, str]) -> tuple[DrawnSchematic | None, tuple[Issue, ...]]:
+    """The extracted drawing before serialization, including its unchanged existing sheet keys."""
     if source.backend != "kicad" or not source.hierarchy:
         return None, ()
     root_file = next(iter(source.hierarchy))
@@ -125,7 +153,7 @@ def drawing(source: Source, refs: Mapping[str, str]) -> tuple[str | None, tuple[
     errors = [issue for issue in issues if issue.severity == "error"]
     if errors:
         raise FormatError("source drawing cannot be imported: " + errors[0].message, file=root_file)
-    return write_drawn(value), issues
+    return value, issues
 
 
-__all__ = ["SourceSymbols", "drawing", "symbols"]
+__all__ = ["SourceSymbols", "drawing", "drawing_value", "symbols"]

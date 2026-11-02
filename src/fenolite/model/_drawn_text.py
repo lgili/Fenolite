@@ -8,7 +8,7 @@ import re
 from collections.abc import Sequence
 
 from fenolite.core.coords import Point
-from fenolite.model.drawn import SCHEMA, DrawnField, DrawnSchematic, DrawnSheet
+from fenolite.model.drawn import SCHEMA, DrawnField, DrawnFont, DrawnSchematic, DrawnSheet, DrawnSheetProperty
 
 HEADER = "# Drawn schematic of a Fenolite design (docs/drawn-schematic.md). Code owns the nets."
 _UDEG = 1_000_000
@@ -57,15 +57,40 @@ def _deg(udeg: int) -> str:
     return str(udeg // _UDEG)
 
 
+def _font(font: DrawnFont) -> str:
+    parts: list[str] = []
+    if font.size is not None:
+        parts.append(f"size = [{mm(font.size.w)}, {mm(font.size.h)}]")
+    if font.thickness is not None:
+        parts.append(f"thickness = {mm(font.thickness)}")
+    for name, value in (("bold", font.bold), ("italic", font.italic)):
+        if value is not None:
+            parts.append(f"{name} = {'true' if value else 'false'}")
+    if font.face is not None:
+        parts.append(f"face = {_string(font.face)}")
+    return "{ " + ", ".join(parts) + " }"
+
+
+def _field_parts(found: DrawnField) -> list[str]:
+    parts = [f"at = {_point(found.at)}", f"rotation = {_deg(found.rotation)}"]
+    if found.justify:
+        parts.append(f"justify = {_string(found.justify)}")
+    if found.hide:
+        parts.append("hide = true")
+    if found.font is not None:
+        parts.append(f"font = {_font(found.font)}")
+    return parts
+
+
 def _fields(fields: Sequence[DrawnField]) -> list[str]:
+    return [f"fields.{_key(found.name)} = {{ {', '.join(_field_parts(found))} }}" for found in fields]
+
+
+def _properties(properties: Sequence[DrawnSheetProperty]) -> list[str]:
     lines: list[str] = []
-    for found in fields:
-        parts = [f"at = {_point(found.at)}", f"rotation = {_deg(found.rotation)}"]
-        if found.justify:
-            parts.append(f"justify = {_string(found.justify)}")
-        if found.hide:
-            parts.append("hide = true")
-        lines.append(f"fields.{_key(found.name)} = {{ {', '.join(parts)} }}")
+    for prop in properties:
+        parts = [f"text = {_string(prop.text)}", *_field_parts(prop.pose)]
+        lines.append(f"properties.{_key(prop.name)} = {{ {', '.join(parts)} }}")
     return lines
 
 
@@ -130,6 +155,10 @@ def _sheet_blocks(sheet: DrawnSheet) -> list[str]:
         ]
         if label.shape:
             lines.append(f"shape = {_string(label.shape)}")
+        if label.font is not None:
+            lines.append(f"font = {_font(label.font)}")
+        if label.justify is not None:
+            lines.append(f"justify = {_string(label.justify)}")
         blocks.append(_block("[[sheet.label]]", lines))
     for alias in sheet.bus_aliases:
         members = ", ".join(_string(m) for m in alias.members)
@@ -150,19 +179,21 @@ def _sheet_blocks(sheet: DrawnSheet) -> list[str]:
             f"size = [{mm(ref.size.w)}, {mm(ref.size.h)}]",
             f"page = {_string(ref.page)}",
         ]
-        blocks.append(_block("[[sheet.sheet_ref]]", lines))
+        blocks.append(
+            _block("[[sheet.sheet_ref]]", [*lines, *_fields(ref.fields), *_properties(ref.properties)])
+        )
         for pin in ref.pins:
-            blocks.append(
-                _block(
-                    "[[sheet.sheet_ref.pin]]",
-                    [
-                        f"name = {_string(pin.name)}",
-                        f"shape = {_string(pin.shape)}",
-                        f"at = {_point(pin.at)}",
-                        f"rotation = {_deg(pin.rotation)}",
-                    ],
-                )
-            )
+            lines = [
+                f"name = {_string(pin.name)}",
+                f"shape = {_string(pin.shape)}",
+                f"at = {_point(pin.at)}",
+                f"rotation = {_deg(pin.rotation)}",
+            ]
+            if pin.font is not None:
+                lines.append(f"font = {_font(pin.font)}")
+            if pin.justify is not None:
+                lines.append(f"justify = {_string(pin.justify)}")
+            blocks.append(_block("[[sheet.sheet_ref.pin]]", lines))
     for opaque in sheet.opaques:
         lines = [f"kicad = {_string(opaque.kicad)}"]
         if opaque.altium:

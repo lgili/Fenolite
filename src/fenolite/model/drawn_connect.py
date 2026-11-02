@@ -334,12 +334,14 @@ def resolve(
     design_name: str = "",
     _bus_member_keys: _BusMemberMapper | None = None,
     _local_scalar_aliases: bool = False,
+    _bus_port_scalar_aliases: bool = True,
 ) -> DrawnNetlist:
     """The nets of ``drawn``. ``pins`` gives, per drawn symbol and power symbol (``PinKey``), the pins of its
     unit in the sheet frame; a power symbol without an entry connects at its own position. ``design_name``
     names the root in messages. The private backend mapper supplies identities only within a bus;
     the default keeps full member names literal, as generic/Altium callers expect. KiCad additionally
-    enables measured same-sheet scalar label aliases; the generic scope nodes remain separate."""
+    enables measured same-sheet scalar label aliases and disables invented scalar aliases from
+    sheet-port-only bus members; the generic scope nodes remain separate."""
     found, issues = instances(drawn)
     out = list(issues)
     groups = _Groups()
@@ -491,6 +493,7 @@ def resolve(
             for start, _end in buses.under(junction.at):
                 union.join(bus_point(junction.at), bus_point(start))
         members: dict[object, set[tuple[str, _MemberIdentity]]] = defaultdict(set)
+        labelled_members: dict[object, set[tuple[str, _MemberIdentity]]] = defaultdict(set)
         unknown: dict[object, set[str]] = defaultdict(set)
 
         def bus_group(at: Point) -> object | None:
@@ -507,6 +510,7 @@ def resolve(
                 continue
             definitions = _bus_definitions(text, aliases, names, _bus_member_keys)
             members[group].update(definitions)
+            labelled_members[group].update(definitions)
             if kind == "hierarchical":
                 hier_labels[index].add(text)
                 for member, identity in definitions:
@@ -529,7 +533,12 @@ def resolve(
         for group, definitions in sorted(members.items(), key=lambda pair: str(pair[0])):
             defined = {identity for member, identity in definitions if member in local_texts}
             for member, identity in sorted(definitions):
-                union.join(("BM", index, group, identity), ("L", index, member))
+                if (
+                    _bus_port_scalar_aliases
+                    or member in local_texts
+                    or (member, identity) in labelled_members[group]
+                ):
+                    union.join(("BM", index, group, identity), ("L", index, member))
                 if identity not in defined:
                     unknown[group].add(member)
         for _group, names in sorted(unknown.items(), key=lambda pair: str(pair[0])):

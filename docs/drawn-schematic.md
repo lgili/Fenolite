@@ -28,8 +28,12 @@ pin.
 
 A KiCad project imported with `import --to python` carries this file and the source's embedded symbol
 definitions. Its actual drawing is built and checked before staging, including hidden power-pin
-connectivity. Conflicting embedded definitions, a missing source symbol or an unrepresentable source
+connectivity. Incompatible embedded definitions, a missing source symbol or an unrepresentable source
 pose refuse explicitly; the originals remain unchanged. Board-only imports keep generated symbols.
+Property-only local snapshots use a required closed [context index](symbol-contexts.md) and full native
+assets. Every occurrence retains its complete property nodes; the cache is keyed by sheet and digest.
+Protected defaults, pin/body/flag differences, same-file duplicates and contextual inheritance refuse.
+The actual written AST is checked before staging, including repeated and opaque properties.
 Pinless native graphic symbols excluded from both board and BOM stay opaque, with their embedded
 definitions preserved. An explicitly board/BOM-excluded instance may also stay opaque when its
 non-power definition has only visible passive pins; its native export contributes no circuit nodes.
@@ -61,21 +65,50 @@ more `[[sheet]]` tables.
 | `sheet` | `key`, `paper`, `title_block` (optional), `generated` (optional, default false) | one drawn sheet; `paper` is one of `A0`–`A5`, `Letter`, `Legal`, `Tabloid` |
 | `title_block` | `title`, `date`, `revision`, `organization`, `doc_id`, `responsible`, `approver`, `params` | the sheet's own title block; without it the sheet takes the board's |
 | `symbol` | `part`, `unit` (default 1), `at`, `rotation` (0, 90, 180, 270), `mirror` (`x`, `y` or none), `symbol` (optional library id), `fields` | one unit of a code component, named by its path relative to the module of the sheet's instance |
-| `fields.<name>` | `at`, `rotation` (0 or 90), `justify` (words of `left`, `right`, `top`, `bottom`, `mirror`), `hide` | the pose of one field; a symbol with poses shows the posed fields only, the others hidden at its origin; without poses the writer places `Reference` and `Value` |
+| `fields.<name>` | `at`, `rotation` (0 or 90), `justify` (words of `left`, `right`, `top`, `bottom`, `mirror`), `hide`, optional `font` | the pose of one field; a symbol with poses shows the posed fields only, the others hidden at its origin; without poses the writer places `Reference` and `Value` |
+| `font` | optional `size`, `thickness`, `bold`, `italic`, `face` | a nonempty font value; `size` is `[width, height]` in mm with both axes positive; `thickness` is nonnegative mm; flags are booleans; `face` is a font name, never a font file |
 | `power` | `symbol`, `net`, `at`, `rotation`, `mirror`, `fields` | a power symbol: a global connection named `net`, drawn with the library symbol `symbol`; optional `mirror` is empty, `x` or `y`; its `#PWR` reference is assigned by the writer |
 | `wire`, `bus` | `pts` (two or more points) | a polyline; each pair of points is one segment |
 | `bus_entry` | `at`, `size` | a bus entry from `at` to `at + size` |
 | `junction` | `at`, `diameter` (optional) | a junction |
 | `no_connect` | `at` | a no-connect flag |
-| `label` | `kind` (`local`, `global`, `hierarchical`), `text`, `at`, `rotation`, `shape` (global and hierarchical: `input`, `output`, `bidirectional`, `tri_state`, `passive`) | a label |
+| `label` | `kind` (`local`, `global`, `hierarchical`), `text`, `at`, `rotation`, `shape` (global and hierarchical: `input`, `output`, `bidirectional`, `tri_state`, `passive`), optional `font`, `justify` | a label |
 | `bus_alias` | `name`, `members` | a bus alias of this sheet; on a bus, write it as `{NAME}` |
-| `sheet_ref` | `key`, `sheet`, `module`, `name`, `file` (optional), `at`, `size`, `page`, `[[pin]]` | a reference to the drawn sheet `sheet`; `module` is the code module, relative to the module of the instance that holds the reference (`""`: the same module), whose parts that instance shows |
-| `pin` | `name`, `shape`, `at`, `rotation` | a sheet pin of a reference |
+| `sheet_ref` | `key`, `sheet`, `module`, `name`, `file` (optional), `at`, `size`, `page`, optional `fields`, `properties`, `[[pin]]` | a reference to the drawn sheet `sheet`; `module` is the code module, relative to the module of the instance that holds the reference (`""`: the same module), whose parts that instance shows; property poses may name only `Sheetname` and `Sheetfile` |
+| `properties.<name>` | required `text` and `at`; optional `rotation`, `justify`, `hide`, `font` | ordered custom sheet-reference metadata; empty text is preserved; names are unique and cannot be `Sheetname` or `Sheetfile` |
+| `pin` | `name`, `shape`, `at`, `rotation`, optional `font`, `justify` | a sheet pin of a reference |
 | `opaque` | `kicad` (one S-expression), `altium` (optional) | an item the model does not hold (text, graphics, images, tables), kept verbatim |
 
 `fenolite.lens.drawn.write_drawn` writes the canonical form: the root keys, then the sheets in page order,
 keys in the order of the table, items in their order, numbers as the shortest exact decimal of
 millimetres, and a final newline. Reading and writing a canonical file gives its bytes.
+
+Change c0326 adds `DrawnFont` in `fenolite.model.drawn` and the optional codec keys
+above. Omission, explicit false and zero retain their exact canonical presence;
+none of them promises a distinct native style state. Lengths remain integer nm.
+For labels/pins, omitted justification keeps the legacy role-selected anchor,
+while `justify = ""` explicitly centres the text. Other justification is written
+as single-space-separated words without leading/trailing whitespace. Field poses
+carry no text override: Reference, Value and Footprint remain code-owned.
+Native font preservation and effective-style/render proofs are separate c0326
+tasks; the model/codec checkpoint alone does not establish native support.
+
+KiCad drawn read/write preserves these fonts on fields, labels, sheet pins and
+sheet-name/file poses. Native extraction compares effective defaults proved by
+the target observations; it does not turn canonical false/zero into invented
+native tokens. The current schematic scene supports both size axes and text
+justification. A visible explicit nonzero thickness, bold, italic, face or text
+mirror cannot be represented faithfully by its stroke renderer/masks and refuses
+with `FEN-3004` (`unsupported schematic rendering`) before a mask can pass.
+Hidden field styles retain their native data without being drawn. This is not
+permission to accept a fidelity loss: a full proof stays unavailable until its
+renderer supports the requested style. Native-writing/S proofs can be reported
+separately with their actual level selection.
+
+The exact model can hold positive sub-µm sizes; the current native/render boundary
+refuses them explicitly. It never substitutes 1.27 mm after µm rounding, and a
+1 µm axis stays small. Level 8 still compares the existing text envelopes with
+unchanged thresholds; it is not an oracle proof of actual native glyph ink.
 
 ## Repeated sheets
 
@@ -114,6 +147,14 @@ Bus-only entry ends and junctions keep bus labels on the bus; overbar spans rema
 local and hierarchical/global labels join on their own sheet without making another sheet's local label
 global. Generic/Altium scope defaults stay unchanged. Authored native9.0.2 controls cover these rules,
 disconnected buses, reversed nested-vector negatives, unequal names and missing members (S-1280).
+
+In the KiCad connectivity view, equal sheet bus ports on separate parent bus
+islands do not create parent scalar labels by themselves. A physical bus
+connection, an actual matching scalar label or corresponding explicit bus
+labels retains the measured connection. One bus label on just one isolated
+island does not name the other island's members. Original repeated-sheet
+controls pass on native CLI 9.0.9 and 10.0.6; generic/Altium policy and the
+extracted source drawing remain unchanged (c0320).
 Raw labels, sheet pins and geometry remain unchanged for level S. The two read-only public diagnostics
 now have equal complete pin partitions (313/2033pins); unknown-member and dangling warnings remain
 visible. Wider native CI and complete conversion/fidelity proofs are separate gates.
@@ -239,6 +280,42 @@ component mirror geometry is written, with native mirror metadata still unverifi
 and per-sheet title metadata have explicit unrepresented-metadata findings. Edit the drawing in
 `schematic.toml`; Altium-to-drawn sync is unavailable.
 
-The behavior stays **INFERRED**. The maintainer reports Altium unavailable on 2026-11-01, so the native
-compile/save kit (`H-A-DRAWN-WRITE`, `docs/evidence/altium-schematic.md`) remains open. Own-reader
-connectivity checks do not establish native application acceptance or drawing identity.
+New explicit drawn fonts, label/pin justification and sheet-name/file poses have no proved Altium
+lowering. Strict builds refuse with `FEN-7001` before planning writes. An explicit `--allow-lossy`
+retains one located `altium.not-lowered` finding for each omitted effect or sheet-property pose;
+false/zero font members are still explicit source intent. Old absent styles keep the existing
+writer path and bytes. This loss report does not establish native application support.
+
+The behavior stays **INFERRED**. Later actual Altium 22.2.1
+[compile/save/reopen observations](evidence/altium-drawn-native.md) retain equal
+complete native pin partitions, the corrected alias control and all remaining
+source ERC/raw name findings. The native kit's no-connectivity-message criterion
+(`H-A-DRAWN-WRITE`) remains open. Neither own-reader checks nor these bounded
+native observations establish complete application acceptance or drawing identity.
+
+## Custom sheet properties (c0329)
+
+`DrawnSheetProperty` in `fenolite.model.drawn` carries literal custom text and
+its supported pose/font. Append values to `DrawnSheetRef.properties`; its empty
+default adds no codec key or ordinary output. In `schematic.toml`, for example:
+
+```toml
+properties.AuthoredNote = { text = "Bench metadata", at = [5, 5], rotation = 0 }
+```
+
+This belongs inside a `[[sheet.sheet_ref]]` table. Quoted names, Unicode and
+empty text round-trip exactly; property order is retained. Built-in `fields`
+still carries only Sheetname/Sheetfile poses, whose text is taken from `name`
+and the resolved `file`. Properties cannot override those built-ins or any
+symbol text and do not change electrical connectivity.
+
+KiCad lowering writes supported custom text and poses; S observes their names,
+texts and effects, and the scene draws visible text under its existing font
+limits. Unknown attributes, repeated names, unsupported display/autoplace
+flags, inexact poses and text variables refuse before a plan can be staged.
+Altium keeps these as explicit unproved losses under its existing loss policy.
+The authored CLI controls expose conflicting meanings of format-9 custom text
+`~`: native 9.0.9 draws literal paths, while 10.0.6 treats it as empty. Extraction
+and scene rendering refuse that ambiguous legacy value. Format-10 literal tilde
+is supported; writing literal tilde to target 9 refuses. These narrow measurements do not close a public corpus,
+native application, full combined or exact-head CI gate.

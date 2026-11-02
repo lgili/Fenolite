@@ -74,7 +74,15 @@
 ## 4. Closing
 
 
-- [ ] 4.1 Run the tests and the residue scan. Proof: `make check-fast`.
+- [x] 4.1 Run the tests and the residue scan. Proof: `make check-fast`.
+
+  Local validation completed 2026-11-02: root's serialized `make check-fast` on
+  `ea762411cbb24bc5f9ba5a16d8b372ae7c720568` exits 0 (19564 passed, 55 skipped),
+  including lint, format, source types and the zero-hit public residue scan.
+  This closes task 4.1 only. Task 1.3 still requires the maintainer's private
+  lists and actual scan of the eventual release commit; no release or private
+  gate result follows from the public gate.
+
 - [x] 4.2 Update the evidence labels: none changes. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`.
 - [x] 4.3 Update `CHANGELOG.md` under `## [Unreleased]`. Proof: `uv run pytest tests/unit/test_release_record.py -q`.
   - 2026-11-01: legal, release, hypothesis, format-fact and provenance proofs passed (104).

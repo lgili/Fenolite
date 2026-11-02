@@ -59,7 +59,7 @@ from fenolite.backends.altium.project import (
 )
 from fenolite.backends.altium.read.project import read_project
 from fenolite.backends.kicad import copper as kicad_copper
-from fenolite.backends.kicad import copperrules, wks
+from fenolite.backends.kicad import copperrules, symbol_contexts, wks
 from fenolite.backends.kicad import frame as kicad_frame
 from fenolite.backends.kicad import generate as kicad_generate
 from fenolite.backends.kicad import pcb as kicad_pcb
@@ -1125,6 +1125,21 @@ def read_drawn_source(path: Path, named: str) -> DrawnSchematic:
     return read_drawn(text, file=named)
 
 
+def read_symbol_context_source(
+    design: fenolite.dsl.Design, script_path: Path, drawn: DrawnSchematic | None
+) -> symbol_contexts.Contexts | None:
+    """Required native authoring inputs; the DSL and model never read or hold the snapshots."""
+    named = design.symbol_context_source
+    if named is None:
+        return None
+    if drawn is None or design.drawn_source is None:
+        raise FormatError("contextual native symbols require their drawn schematic", file=named)
+    folder = script_path.resolve().parent
+    return symbol_contexts.read(
+        folder / named, drawing_path=folder / design.drawn_source, drawn=drawn, project_folder=folder
+    )
+
+
 def source_summary(
     prepared: Prepared | None, issues: Sequence[Issue], *, read: bool, file: str | None = None
 ) -> dict[str, object]:
@@ -1316,6 +1331,11 @@ def _built(
     if source_inputs is not None:
         source_inputs.extend(run.source_files)
     design = run.design
+    if design.symbol_context_source is not None and (args.target != "kicad" or args.schematic == "skip"):
+        raise FormatError(
+            "contextual native symbols require KiCad schematic output",
+            file=design.symbol_context_source,
+        )
     if args.altium_layout == "grid" and (design.schematic_flow is not None or design.schematic_blocks):
         raise CliError(
             "FEN-2001",
@@ -1572,11 +1592,13 @@ def _built(
     symbol_placements = None
     drawn_name = drawn_schematic(design)
     drawn_value = None
+    drawn_contexts = None
     drawn_depends: tuple[str, ...] = ()
     if schematic == "write" and drawn_name is not None:
         drawn_path = script_path.resolve().parent / drawn_name
         drawn_value = read_drawn_source(drawn_path, drawn_name)
-        drawn_depends = depends_on(ctx.cwd, drawn_path)
+        drawn_contexts = read_symbol_context_source(design, script_path, drawn_value)
+        drawn_depends = depends_on(ctx.cwd, drawn_path, *(drawn_contexts.paths if drawn_contexts else ()))
     placements_path = script_path.resolve().parent / SYMBOL_PLACEMENTS_FILE
     if schematic == "write" and placements_path.is_file() and drawn_value is not None:
         symbol_issues.append(
@@ -1669,6 +1691,7 @@ def _built(
         layout_record=plan.record() if plan is not None else None,
         drawn=drawn_value,
         drawn_file=drawn_name or "schematic.toml",
+        context_symbols=drawn_contexts,
     )
     if plan is not None:
         layout_issues = [
