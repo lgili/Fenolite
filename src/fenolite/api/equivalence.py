@@ -18,6 +18,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
 
+from fenolite.api import _native_rules
 from fenolite.api._drawn import DRAWN_EVIDENCE, read_drawn_side, root_schematic, schematic_level
 from fenolite.api.sides import (
     DEFAULT_TIMEOUT,
@@ -400,6 +401,7 @@ def equivalent(
         )
     except ValueError as error:
         raise SideUsageError(str(error), where="level") from None
+    report = _native_rules.augment(report, side_a, side_b, applied.rules if applied else ())
     if level == PRESENTATION_LEVEL and presentation is not None:
         rendered = apply_rules(presentation(side_a, side_b), applied.rules if applied else ())
         report = replace(report, levels=(*report.levels, rendered))

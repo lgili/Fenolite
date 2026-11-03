@@ -25,7 +25,14 @@ c0344 binds native project sheet identity caches to the emitted drawings. A comp
 75-plan/1172-file comparison changes only41 KiCad project files and their41 build manifests;
 all other1090 files and ten strict refusals remain identical. The41 recorded project digests
 were reviewed against that explicit writer change and the independent native GUI proof.
-See docs/evidence/project-sheet-identity-plan-delta.json; no other pin is refreshed here.
+See docs/evidence/project-sheet-identity-plan-delta.json.
+
+c0351 refreshes only the three explicitly imported-example rows after a complete
+75-plan/1172-file before comparison. All72 other complete plans match exactly.
+The native10 example retains all native bytes; only canonical circuit.json adds
+its actual Default class. Its explicit native10 sidecar refuses target9 and Altium
+before staging. Target-specific identity positives and independent refusal tests
+retain both compatibility directions. Full maps are in c0351/carrier-regression-proof.json.
 """
 
 from __future__ import annotations

@@ -491,7 +491,7 @@ def test_review_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None
     assert code == 0
     summary = envelope["result"]["summary"]
     assert set(summary["findings"]) == {*GROUPS, "open_ground", "open_net"} and summary["models"] is None
-    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--no-review")
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--no-review", "--cache", "off")
     assert code == 0 and envelope["result"]["summary"]["findings"] == {}
     code, _, error, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--silk-gap", "-1")
     assert code == 2 and error["code"] == "FEN-2001"
@@ -686,3 +686,23 @@ def test_allow_actions_needs_serve(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     """Scenario "Option without serve" (change c0303)."""
     code, _, error, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--allow-actions")
     assert code == 2 and error["code"] == "FEN-2001" and error["where"] == "--allow-actions"
+
+
+@pytest.mark.parametrize("source_level", ["INFERRED", "UNVERIFIED", "UNKNOWN"])
+def test_view_keeps_scene_hypothesis_without_promoting_source(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, source_level: str
+) -> None:
+    original = cmd_view.scene_of
+
+    def scene_of(path, kicad=None):
+        scene = original(path, kicad)
+        scene["meta"]["evidence"] = source_level
+        return scene
+
+    monkeypatch.setattr(cmd_view, "scene_of", scene_of)
+    before = BOARD.read_bytes()
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--no-review", "--cache", "off")
+    assert code == 0
+    assert envelope["evidence"]["level"] == source_level
+    assert "H-G-VIEW-SCENE" in envelope["evidence"]["hypotheses"]
+    assert BOARD.read_bytes() == before and not list(tmp_path.iterdir())

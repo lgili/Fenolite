@@ -448,3 +448,9 @@ What the label means: `evidence.oracle` is `kicad-cli`, and a result without dif
 independent readers of one file agree at that level. It says nothing about Altium Designer, and both
 readers could share a mistake. The measured results per public document, the rules and what remains
 undecided are in `docs/evidence/equivalence-triangle.md`.
+
+### Native project context at level6 (c0352)
+
+When both native sides have supported, already traced project+board inputs, path-based API/CLI and verify-source append exact comparison of the five supported project hard floors, seven represented netclass length fields and effective class memberships bound by complete numbered-pad partitions. Native raw net spelling and patterns are resolved against the original raw names; no slash guesses match aliases. Same-number same-net duplicate physical pads collapse only in electrical sets.
+
+The `native_project_rules` summary/proof names judged keys/counts, absent-both fields as unjudged, source/generated majors and read-set hashes. It does not certify all project JSON or actual custom DRU semantics. Existing canonical differences remain visible. Missing/inexact/malformed supported floors, duplicate classes, multiple-class aggregation, unbound/ambiguous identity or stale traced bytes refuse complete native-context comparison. Pure canonical Design-vs-Design has no independent hard-floor field and is unchanged.

@@ -43,3 +43,18 @@ def test_declaration_records_no_file_io_and_is_unique(tmp_path, monkeypatch) -> 
     assert not list(tmp_path.iterdir())
     with pytest.raises(DslError, match="once"):
         design.kicad_project("other.kicad_pro", sha256="2" * 64)
+
+
+@pytest.mark.parametrize("value", [None, 0, 1, "true", (), []])
+def test_preserve_minimums_requires_exact_bool(value) -> None:
+    with pytest.raises(DslError, match="preserve_minimums is a bool"):
+        Design("authored").kicad_project("native/project.kicad_pro", sha256="1" * 64, preserve_minimums=value)
+
+
+def test_floor_ownership_is_request_metadata_not_canonical_model() -> None:
+    from fenolite.dsl import to_model
+
+    design = Design("authored")
+    original = to_model(design)
+    design.kicad_project("native/project.kicad_pro", sha256="1" * 64, preserve_minimums=True)
+    assert to_model(design) == original

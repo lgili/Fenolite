@@ -161,3 +161,50 @@ def test_code_owned_minimum_governs_planning_and_output_with_fresh_root_ids(monk
     root_uuid = parse(output.files[root_name].decode()).find("uuid").atoms()[0].value
     assert final["sheets"][0][0] == root_uuid and all(row[1] != "STALE" for row in final["sheets"])
     assert final["schematic"]["top_level_sheets"][0]["filename"] == root_name
+
+
+def test_declared_floor_owner_is_consistent_in_planning_and_final_output(monkeypatch) -> None:
+    import _drawn
+    from _buildhelp import build
+
+    from fenolite.backends.kicad import pro
+    from fenolite.backends.kicad.dru import read_rules
+    from fenolite.dsl import copper, mm
+    from fenolite.lens import build as build_module
+
+    design = _drawn.design("full")
+    design.rules.minimum(edge_clearance=mm("0.7"))
+    design.track(
+        "source_floor_control",
+        (mm(35), mm(25)),
+        (mm(37), mm(25)),
+        width=mm("0.25"),
+        net=next(iter(design.nets.values())),
+    )
+    data = json.loads(pro.write_project_text(pro.template(10)))
+    data["board"]["design_settings"]["rules"]["min_copper_edge_clearance"] = 0.01
+    seen = []
+    actual = build_module.resolve_copper
+
+    def capture(*args, **kwargs):
+        seen.append(kwargs["edge_floor"])
+        return actual(*args, **kwargs)
+
+    monkeypatch.setattr(build_module, "resolve_copper", capture)
+    output = build(
+        design,
+        10,
+        project_dir=_drawn.folder("full"),
+        drawn=_drawn.drawn("full"),
+        drawn_file="schematic.toml",
+        copper_intents=copper(design),
+        project_template=json.dumps(data),
+        preserve_project_minimums=True,
+    )
+    assert output.files and not [issue for issue in output.issues if issue.severity == "error"]
+    assert seen == [10_000]
+    project_name = next(name for name in output.files if name.endswith(".kicad_pro"))
+    final = json.loads(output.files[project_name])
+    assert final["board"]["design_settings"]["rules"]["min_copper_edge_clearance"] == 0.01
+    custom = read_rules(output.files[project_name.removesuffix(".kicad_pro") + ".kicad_dru"].decode())
+    assert any(rule.kind == "edge_clearance" and rule.min == 700_000 for rule in custom.rules)

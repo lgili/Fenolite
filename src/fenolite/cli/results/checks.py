@@ -964,7 +964,24 @@ class EquivalentLevelsItemSummaryZonesUnfilled:
 
 
 @dataclass(frozen=True, kw_only=True)
+class NativeProjectRulesSummary:
+    """Scoped exact native context; unknown rule properties are explicitly outside coverage."""
+
+    scope: str
+    judged_keys: list[str]
+    unjudged_absent_fields: list[str]
+    judged_count: int
+    source_major: int
+    generated_major: int
+    a_read_files: dict[str, str]
+    b_read_files: dict[str, str]
+    unjudged: str
+
+
+@dataclass(frozen=True, kw_only=True)
 class EquivalentLevelsItemSummary:
+    project_geometry: int = field(metadata={"optional": True})
+    native_project_rules: NativeProjectRulesSummary = field(metadata={"optional": True})
     items: int = field(metadata={"optional": True})
     extraction_issues: int = field(metadata={"optional": True})
     instances: int = field(metadata={"optional": True})
@@ -1549,6 +1566,8 @@ class VerifySourceLevelsItemSummaryZonesUnfilled:
 
 @dataclass(frozen=True, kw_only=True)
 class VerifySourceLevelsItemSummary:
+    project_geometry: int = field(metadata={"optional": True})
+    native_project_rules: NativeProjectRulesSummary = field(metadata={"optional": True})
     changes: VerifySourceLevelsItemSummaryChanges = field(metadata={"optional": True})
     components: VerifySourceLevelsItemSummaryComponents = field(metadata={"optional": True})
     copper_no_net: VerifySourceLevelsItemSummaryCopperNoNet = field(metadata={"optional": True})

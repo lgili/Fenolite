@@ -16,6 +16,7 @@ they need neither flag.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import os
 from collections.abc import Mapping
 from pathlib import Path
@@ -245,10 +246,18 @@ def _verdict_issues(verdict: KitVerdict) -> list[Issue]:
     return issues
 
 
+def _verdict_evidence(verdict: KitVerdict) -> Evidence:
+    if not verdict.passed or verdict.synthetic:
+        return UNVERIFIED_RUN
+    return dataclasses.replace(
+        KIT_RUN, hypotheses=tuple(sorted(h.id for h in verdict.hypotheses if h.outcome == "pass"))
+    )
+
+
 def _verify(args: argparse.Namespace, ctx: Context) -> Result:
     _only(args, "folder")
     verdict = verify_results(_kit_folder(args, ctx), judge=_kit.judge_document)
-    evidence = KIT_RUN if verdict.passed and not verdict.synthetic else UNVERIFIED_RUN
+    evidence = _verdict_evidence(verdict)
     return Result(result=_verdict_result(verdict), issues=tuple(_verdict_issues(verdict)), evidence=evidence)
 
 
@@ -301,7 +310,7 @@ def _record(args: argparse.Namespace, ctx: Context) -> Result:
         ),
         PlannedWrite(path=_relative(target, ctx), data=data, kind="kit-run-record"),
     )
-    evidence = KIT_RUN if verdict.passed else UNVERIFIED_RUN
+    evidence = _verdict_evidence(verdict)
     # the record is written also for a run with failed steps: it records them; the exit code says so
     packed = (folder.joinpath(*entry.path.split("/")) for entry in verdict.results)
     return Result(

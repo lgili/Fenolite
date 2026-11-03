@@ -14,7 +14,7 @@ from fenolite.backends.kicad import drawn as kdrawn
 from fenolite.backends.kicad import sch
 from fenolite.backends.kicad.sexpr import Node, parse
 from fenolite.backends.kicad.versions import LossyWriteError
-from fenolite.model.drawn import DrawnOpaque, DrawnSchematic
+from fenolite.model.drawn import DrawnField, DrawnOpaque, DrawnSchematic
 
 GROUP = (
     '(group "g" (uuid "7d2f6f90-63b4-4f4c-9b39-2f56b1f1e0aa") '
@@ -50,7 +50,26 @@ def test_every_kind_written(target: int) -> None:
     again = extracted.sheets[0]
     assert set(again.segments()) == set(root.segments())
     assert again.junctions == root.junctions and again.bus_entries == root.bus_entries
-    assert again.bus_aliases == root.bus_aliases and again.labels == root.labels
+    assert again.bus_aliases == root.bus_aliases
+    # Legacy target10 output adds its explicit hidden field at the authored label anchor. c0348
+    # preserves that actual pose: project visibility can override hide, so it cannot become None.
+    expected_labels = tuple(
+        dataclasses.replace(
+            label,
+            intersheet_refs=DrawnField(
+                "Intersheetrefs",
+                label.at,
+                0,
+                {90_000_000: "left", 180_000_000: "right"}[label.rotation],
+                True,
+            ),
+        )
+        if target == 10 and label.kind == "global"
+        else label
+        for label in root.labels
+    )
+    assert all(label.intersheet_refs is None for label in root.labels)
+    assert again.labels == expected_labels
     assert again.opaques == root.opaques and again.title_block == root.title_block
     assert [s.part for s in again.symbols] == [s.part for s in root.symbols]
     assert again.symbols[0].fields == root.symbols[0].fields

@@ -329,6 +329,9 @@
     "FidelityProof": {
       "type": "object",
       "properties": {
+        "native_project_rules": {
+          "$ref": "#/$defs/NativeProjectRulesSummary"
+        },
         "levels": {
           "type": "object",
           "additionalProperties": {
@@ -470,6 +473,63 @@
         "by",
         "date",
         "note"
+      ]
+    },
+    "NativeProjectRulesSummary": {
+      "description": "Scoped exact native context; unknown rule properties are explicitly outside coverage.",
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string"
+        },
+        "judged_keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unjudged_absent_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "judged_count": {
+          "type": "integer"
+        },
+        "source_major": {
+          "type": "integer"
+        },
+        "generated_major": {
+          "type": "integer"
+        },
+        "a_read_files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "b_read_files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "unjudged": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "judged_keys",
+        "unjudged_absent_fields",
+        "judged_count",
+        "source_major",
+        "generated_major",
+        "a_read_files",
+        "b_read_files",
+        "unjudged"
       ]
     },
     "Trademarks": {

@@ -158,3 +158,21 @@ c0353-public3-native10-clean.json. Native source version9 is intentionally teste
 Thus the literal public replay2.4 now passes. Combined exact-head CI, final format/surface/model
 review and closure3.1 remain coordinator-owned; no archival or global native fidelity claim follows
 from this scoped proof.
+
+
+## Strict adjacent legacy-default characterization
+
+Root fast-batch4 exposed one stale every-kind assertion: the fixture's original global labels have
+None, while the unchanged legacy target10 writer emits an explicit hidden Intersheetrefs property.
+The newly correct reader preserves that real property; stripping it would be wrong when project
+show=true overrides hide. Before proof:1failed/4passed in0.93s. The exact expected appended field
+now asserts name, the authored label anchor, rotation0, hidden=true, font=None and the two fixture
+justifications (label90deg→left,180deg→right), retaining equality of every other label field.
+Target9 keeps its absent field. Existing authored native9/10 hidden/show and translated-pose proofs
+S-1288 independently establish the preserved property's effect; explicit nondefault tests remain
+strict. No production code, source pose or default output byte changes.
+
+The final focused writer/explicit-field/view-context group passes53 tests; an initial wrong model
+test path and two incorrect fixture-rotation assumptions are retained as failed attempts, then
+corrected by inspecting the authored fixture. They are not treated as production bugs or passed
+runs. Log: c0348-adjacent-default-after-v4.log. Root exact-head CI remains separate.

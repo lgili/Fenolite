@@ -19332,6 +19332,13 @@
                 "kind": "KEYWORD_ONLY",
                 "name": "sha256",
                 "required": true
+              },
+              {
+                "annotation": "bool",
+                "default": false,
+                "kind": "KEYWORD_ONLY",
+                "name": "preserve_minimums",
+                "required": false
               }
             ]
           },

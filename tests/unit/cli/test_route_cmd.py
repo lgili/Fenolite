@@ -52,14 +52,19 @@ def test_example_route_dry_run(monkeypatch, tmp_path: Path) -> None:
     assert code == 0, (env, error)
     assert env["result"]["routed"] == ["ROUTE_ME"]
     assert env["result"]["ripped"] == 0
-    assert env["evidence"]["level"] == "UNVERIFIED"
+    assert env["evidence"]["level"] == "INFERRED"
     assert env["result"]["plan"][0]["path"] == "routed.kicad_pcb"
+
+    assert "H-G-ROUTE-PLAN" in env["evidence"]["hypotheses"]
 
 
 def test_unknown_router(monkeypatch, tmp_path: Path) -> None:
     board = ROOT / "tests/data/kicad/routing/two_pads.kicad_pcb"
+    before = board.read_bytes()
     code, env, error, _ = run(monkeypatch, tmp_path, "route", str(board), "--router", "nope", "--dry-run")
     assert code == 2 and error["code"] == "FEN-2001"
+    assert not env["result"].get("plan") and board.read_bytes() == before
+    assert not list(tmp_path.iterdir())
 
 
 def test_fake_router_and_net_filter(monkeypatch, tmp_path: Path) -> None:
@@ -273,9 +278,12 @@ def test_freerouting_through_the_command(monkeypatch, tmp_path: Path) -> None:
     assert result["selected"] == ["A"] and result["routed"] == ["A"] and result["unrouted"] == []
     assert (result["tracks"], result["vias"]) == (2, 1)
     assert result["plan"][0]["path"] == "routed.kicad_pcb"
-    assert env["evidence"]["level"] == "UNVERIFIED" and "2.4.1" in env["evidence"]["oracle"]
+    assert env["evidence"]["level"] == "INFERRED" and "2.4.1" in env["evidence"]["oracle"]
     argv = json.loads(record.read_text(encoding="utf-8"))["argv"]
     assert argv[argv.index("-mp") + 1] == "3" and "-da" in argv
+
+    assert "H-G-ROUTE-PLAN" in env["evidence"]["hypotheses"]
+    assert "H-G-DSN-UNITS" in env["evidence"]["hypotheses"]
 
 
 @posix_tools
@@ -480,8 +488,10 @@ def test_example_confirm_routes_the_two_pads(monkeypatch, tmp_path: Path) -> Non
     assert result["routed"] == [NET] and result["selected"] == [NET] and result["unrouted"] == []
     assert result["connections"] == {"before": 1, "after": 0} and result["open"] == []
     assert result["rip_kept"] == {"locked": 0, "script": 0}
-    assert env["evidence"]["level"] == "UNVERIFIED"
+    assert env["evidence"]["level"] == "INFERRED"
     assert len(segments(tmp_path / "fenolite-routed.kicad_pcb")) == len(segments(Path(EXAMPLE_UNROUTED))) + 1
+
+    assert "H-G-ROUTE-PLAN" in env["evidence"]["hypotheses"]
 
 
 def test_nothing_to_route_on_a_closed_board(monkeypatch, tmp_path: Path) -> None:

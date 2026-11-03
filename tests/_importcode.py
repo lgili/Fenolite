@@ -24,10 +24,31 @@ STAMP = "2026-10-30T00:00:00Z"
 OLD_VERSION = 20221018
 
 
-def copy_project(tmp: Path, name: str = "src") -> Path:
-    """A copy of the two-sheet project in ``tmp/name``; its project file."""
+def copy_project(tmp: Path, name: str = "src", *, native_target: int = 10) -> Path:
+    """An authored target-specific project; never relabel a target10 project as target9."""
     target = tmp / name
-    shutil.copytree(TWO_SHEET, target)
+    if native_target == 10:
+        shutil.copytree(TWO_SHEET, target)
+    else:
+        assert native_target == 9
+        author = tmp / f"{name}-author"
+        work = author / "data/src"
+        shutil.copytree(DATA / "src", work)
+        shutil.copytree(DATA.parent / "libs", author / "libs")
+        reply = run(
+            "build",
+            "two_sheet.py",
+            "--out",
+            str(target),
+            "--confirm",
+            "--kicad-version",
+            str(native_target),
+            cwd=work,
+            timestamp=STAMP,
+        )
+        assert reply.exit_code == 0, reply.error
+        shutil.rmtree(target / ".fenolite")
+        (target / "fenolite-base.json").unlink()
     return target / "two_sheet.kicad_pro"
 
 

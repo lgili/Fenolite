@@ -131,7 +131,7 @@ def test_stopped_route_goes_on(monkeypatch: MonkeyPatch, tmp_path: Path, router:
     (info,) = [issue for issue in env["issues"] if issue["code"] == "route.resumed"]
     assert info["severity"] == "info" and "2 router run(s)" in info["message"]
     assert env["result"]["selected"] == ["N3", "N4", "N5"] and env["result"]["tracks"] == 5
-    assert env["evidence"]["level"] == "UNVERIFIED"
+    assert env["evidence"]["level"] == "INFERRED"
     written = tracks(board)
     assert len(written) == 5 and {abs(t.end.x - t.start.x) for t in written} == {SPAN}
     assert sorted({t.start.y for t in written}) == sorted({row * 2_000_000 for row in range(len(NETS))})
@@ -140,6 +140,8 @@ def test_stopped_route_goes_on(monkeypatch: MonkeyPatch, tmp_path: Path, router:
     router.started = []
     code, env, _, _ = run(monkeypatch, tmp_path, *ARGS)
     assert code == 0 and router.started == [] and env["result"]["resumed"] is None
+
+    assert "H-G-ROUTE-PLAN" in env["evidence"]["hypotheses"]
 
 
 def test_another_board_another_record(monkeypatch: MonkeyPatch, tmp_path: Path, router: PerNetRouter) -> None:

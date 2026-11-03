@@ -332,7 +332,7 @@ comparison tolerances, DRC minimum rules and Fenolite kernel certificates.
 ## Explicit imported project baseline (c0351)
 
 The Python importer retains the checked original project JSON as `native/project.kicad_pro`
-and emits `design.kicad_project(path, sha256=...)`. This is a declared, digest-bound input,
+and emits `design.kicad_project(path, sha256=..., preserve_minimums=True)`. This is a declared, digest-bound input,
 not a canonical model field and not ambient discovery. Paths must stay within the script folder;
 exact JSON, writable version pairs and known drawing-sheet resource references are checked before
 staging. The existing managed drawing-sheet input must own any nonempty native frame reference.
@@ -340,7 +340,7 @@ staging. The existing managed drawing-sheet input must own any nonempty native f
 With this declaration the native input is authoritative for unmanaged values on both fresh builds
 and rebuilds. Typed/code-owned minima, classes, stack, copper curve, text variables and frame
 override it; final file names, root UUID, sheets and top-level caches are rebound to fresh outputs.
-Copper planning uses the same managed minimum as final project writing. Without a declaration,
+The optional exact-bool `preserve_minimums` defaults False and retains that managed minimum behavior. Import explicitly sets True: the five supported project hard floors stay owned by the declared native input in all three planners and final output, and only actual source DRU constraints become DSL custom rules. This keeps hard floors and overriding rules independent; the existing measured H-K-PRO-MIN-RULE-2 precedence is unchanged. Copper planning and final writing use the same ownership. Without a declaration,
 existing template/update behavior and default bytes remain unchanged. Altium refuses this
 KiCad-specific input even with `--allow-lossy`; changed template bytes invalidate a confirmed plan.
 

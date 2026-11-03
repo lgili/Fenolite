@@ -644,7 +644,7 @@ def _minimums(source: Source, classes: set[str], ledger: Ledger, writer: _Writer
                 others.append(made)
             continue
         scopes.setdefault(found[0], {})[found[1]] = cast(int, rule.min)
-    if source.major in MINIMUM_KEYS:
+    if source.major in MINIMUM_KEYS and not (source.backend == "kicad" and source.project_text is not None):
         fresh = project_minimums(template(source.major))
         board = scopes.setdefault(None, {})
         for kind, key in MINIMUM_KEYS[source.major].items():
@@ -1728,7 +1728,12 @@ def emit(source: Source, options: Options) -> Emission:
         project_path = "native/project.kicad_pro"
         files[project_path] = source.project_text
         project_sha = hashlib.sha256(project_bytes).hexdigest()
-        files["design.py"] += f"\ndesign.kicad_project({project_path!r}, sha256={project_sha!r})\n"
+        declaration = Call(
+            "design.kicad_project",
+            (text(project_path),),
+            (("sha256", text(project_sha)), ("preserve_minimums", Raw("True"))),
+        )
+        files["design.py"] += "\n" + "\n".join(statement(declaration)) + "\n"
     files["design.lock"] = lock_of(options.name, lock_refs)
     rows = ledger.rows()
     counts = {

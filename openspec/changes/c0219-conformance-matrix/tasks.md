@@ -65,3 +65,31 @@
 - Actual seven-command output census is external and read-only. edit/mcp NO_CLAIM disposition is
   still awaiting the maintainer; publish already supplies H-G-SNAPSHOT-STABLE. Neither B reply guard
   nor C underlying evidence fixes are included in this A checkpoint.
+
+- [x] 0.4 Parent approved current underlying evidence derivation: view combines actual scene level
+  with existing real view hypothesis, kit uses actual passing verdict IDs, analysis lowering remains;
+  DirectRouter never receives DSN hypotheses. Route's mechanical-only authored hypothesis requires
+  its own negative controls before runtime. NO_CLAIM question remains separate.
+
+- [x] 2.2a Preserve actual view/source lowest-wins evidence with the existing H-G-VIEW-SCENE;
+  add actual passed verdict hypotheses to kit verify/record and retain synthetic/failed lowering.
+  Proof: six authored controls failed before runtime and pass after; complete view command component
+  33 passed. Source-level planted UNKNOWN/UNVERIFIED controls explicitly disable caching so each
+  asserted source level is actually evaluated; no input is written.
+- [x] 2.2b Implement/prove route mechanical-scope inference without attributing DSN to DirectRouter,
+  and preserve analysis incomplete/unsupported lowering; main 2.2 remains open until both pass.
+
+- View/kit checkpoint: six authored controls pass; corrected complete view component 33 pass;
+  agent guide 102 pass; staged private residue zero hits across eight files. Initial combined
+  view/kit run started before the cache-disabled authored correction and retains its two initial
+  source-cache failures in the external log; no complete green kit run is claimed until it finishes.
+  Root check-fast/CI and final types remain separate gates.
+
+- Route/analysis checkpoint: 119 affected command tests pass; 11 authored provenance/unsupported
+  controls pass. Four earlier successful-route expectations now explicitly require mechanical
+  inference and its actual hypothesis; external-session positive also requires its existing DSN ID.
+  Analysis incomplete/unsupported results remain UNVERIFIED; no analysis result was promoted.
+- Corrected guide 103 passed, corrected hypothesis/evidence registers 43 passed. Initial register
+  placement outside its table and a prohibited hypothesis ID in guide prose were caught and fixed;
+  original failures remain in external logs. Guide budgets/style guards were not weakened.
+  Whole task 2.2 and root check-fast/CI remain open until their full exact-candidate selection passes.

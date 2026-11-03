@@ -178,4 +178,7 @@ traceability, not a new execution or broader native guarantee. Keep current CI a
 pending until their exact-commit proofs pass. The repository publishes `docs/evidence/conformance.json`
 and `conformance.md`; releases attach the JSON and checksum.
 
+A native kit reply lists only hypotheses whose actual verdict passed. Failed and synthetic runs
+retain their lower kit-stability evidence; a displayed scene also retains the lowest source level.
+
 Read next: `files`, `rules`, `checks`.

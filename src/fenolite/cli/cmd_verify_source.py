@@ -32,6 +32,7 @@ from types import MappingProxyType
 from typing import Any, cast
 
 import fenolite
+from fenolite.api import _native_rules
 from fenolite.api.sides import ReadSide, SideError, read_side, source_hashes
 from fenolite.backends.kicad import versions
 from fenolite.backends.kicad.projectset import resolve_board
@@ -726,6 +727,7 @@ def _compare(
             strict_model = compare_designs(
                 a, b, level=7, tolerances=Tolerances(), frame="absolute", strict=True
             )
+            strict_model = _native_rules.augment(strict_model, side_a, side_b)
             if not strict_model.differences:
                 tool = supported_tool(args.kicad_cli, args.timeout)
                 cache_summary, cache_differences = _derived_cache.prove(cache_a, cache_b, tool)
@@ -737,6 +739,7 @@ def _compare(
         if top:
             report = compare_designs(a, b, level=top, tolerances=tolerances, frame=frame, rules=extra,
                                      strict=top >= 5 and highest == 5)  # fmt: skip
+            report = _native_rules.augment(report, side_a, side_b, extra)
             report = _with_opaque(report, opaque, extra)
             if cache_summary is not None:
                 cache_level = apply_rules(LevelResult(7, 1, cache_differences), extra)
@@ -896,6 +899,11 @@ def _record(
         "tolerances": base["tolerances"],
         "levels": {str(row["level"]): row["status"] for row in levels},
     }
+    native_rules = next(
+        (row["summary"].get("native_project_rules") for row in levels if row["level"] == 6), None
+    )
+    if native_rules is not None:
+        member["proof"]["native_project_rules"] = native_rules
     cache = next((row["summary"].get("derived_cache") for row in levels if row["level"] == 7), None)
     if cache is not None:
         member["proof"]["derived_cache"] = cache

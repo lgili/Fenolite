@@ -1,7 +1,7 @@
 ---
 topic: routing
 title: Routing: routers, scripted copper and zones
-summary: Which router does what, route with --nets and --rip, what unrouted means, copper written in the script, zones and fill.
+summary: Routers, guarded plans, copper, zones and fill.
 ---
 
 # Routing: routers, scripted copper and zones
@@ -55,7 +55,7 @@ fenolite net blink/build GND --json
   stay. Use it after you moved a part, or when old copper is in the way.
 - **`result.unrouted`** lists the nets that still have an open connection after the run, and
   `result.open` those connections with their two ends. `routed` and `unrouted` are computed from the
-  board, not from what the router says. An empty `unrouted` is not yet a proof: `fenolite check` is.
+  board, not from what the router says. `INFERRED` for a complete plan describes byte materialization, not electrical correctness; run `check`.
 - **When nets stay open:** run `route` again (it continues from the copper of the first run); give the
   router room with `fenolite place --move`; choose another router; or declare that copper in the
   script.

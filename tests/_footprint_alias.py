@@ -9,8 +9,10 @@ from _importcode import copy_project
 from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse
 
 
-def alias_project(tmp_path: Path, alias: str = "Original:Mini_LED_THT_3mm") -> Path:
-    project = copy_project(tmp_path)
+def alias_project(
+    tmp_path: Path, alias: str = "Original:Mini_LED_THT_3mm", *, native_target: int = 10
+) -> Path:
+    project = copy_project(tmp_path, native_target=native_target)
     sheet = project.with_suffix(".kicad_sch")
     root = parse(sheet.read_text())
     changed = []

@@ -1510,6 +1510,7 @@ def build_design(
     context_symbols: Contexts | None = None,
     schematic_groups: Mapping[str, Sequence[SheetGroup]] | None = None,
     project_template: str | None = None,
+    preserve_project_minimums: bool = False,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
 
@@ -1600,6 +1601,8 @@ def build_design(
         raise ValueError(
             f"unknown schematic layout {schematic_layout!r}; use one of: {', '.join(schgen.LAYOUTS)}"
         )
+    if preserve_project_minimums and project_template is None:
+        raise ValueError("preserving native project floors requires a declared project template")
     if project_template is not None:
         validate_project_template(project_template, managed_frame=drawing_sheet is not None)
     effective_project = (
@@ -1847,7 +1850,12 @@ def build_design(
         project_text = effective_project
         if project_template is not None:
             project_text = pro.update_project(
-                project_template, built, target=target, allow_lossy=allow_lossy, issues=issues
+                project_template,
+                built,
+                target=target,
+                allow_lossy=allow_lossy,
+                issues=issues,
+                preserve_minimums=preserve_project_minimums,
             )
         project_data = (
             pro.read_project_text(project_text) if project_text is not None else pro.template(target)
@@ -1887,7 +1895,12 @@ def build_design(
         project_text = effective_project
         if project_template is not None:
             project_text = pro.update_project(
-                project_template, built, target=target, allow_lossy=allow_lossy, issues=issues
+                project_template,
+                built,
+                target=target,
+                allow_lossy=allow_lossy,
+                issues=issues,
+                preserve_minimums=preserve_project_minimums,
             )
         project_data = (
             pro.read_project_text(project_text) if project_text is not None else pro.template(target)
@@ -1923,7 +1936,12 @@ def build_design(
         project_text = effective_project
         if project_template is not None:
             project_text = pro.update_project(
-                project_template, built, target=target, allow_lossy=allow_lossy, issues=issues
+                project_template,
+                built,
+                target=target,
+                allow_lossy=allow_lossy,
+                issues=issues,
+                preserve_minimums=preserve_project_minimums,
             )
         project_data = (
             pro.read_project_text(project_text) if project_text is not None else pro.template(target)
@@ -2106,6 +2124,7 @@ def build_design(
         name=name,
         target=target,
         existing_project=existing.project,
+        preserve_minimums=preserve_project_minimums,
         renamed_nets=tuple(prepared.net_aliases.values()) if prepared is not None else (),
         # the drawing sheet of design.sheet() frames the schematic the build writes, too (c0074)
         schematic=schematic == "write",

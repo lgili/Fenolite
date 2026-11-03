@@ -3,7 +3,95 @@
   "census_sha256": "78cf9255ddeb2c85cbf69ddbaa45a8859264434f9dd76ad328a0e28129d3dae5",
   "change": "c0352",
   "core_snapshot": "6d464cd3",
+  "floor_ownership_native": {
+    "10": [
+      {
+        "actual_rule_nm": 700000,
+        "canary_fired": true,
+        "input_sha256": {
+          "bench.kicad_dru": "9f357b3655db65ebe8598a37870508cd0ca54737a37c5030c875ff1d935ad083",
+          "bench.kicad_pcb": "b33832accd1c43a0f50f390d750159cf22c8cf8fe799a056f5f9c4a58d5ce608",
+          "bench.kicad_pro": "fab2c95c5eb0b16ad92d0ee862850f455e186035035460b04b204fd3de948665"
+        },
+        "measured_outcome": "present",
+        "native_floor_mm": "0.7",
+        "native_report_sha256": "6439fcee4dbc27fa2efbde3654d67012d4954c204965ec420746d6ebf80e4fd3",
+        "native_version": "10.0.6",
+        "preserve_minimums": false,
+        "probe_uuids": [
+          "a6459fb8-5bb5-594a-b6b8-77ef6ecc3fe3",
+          "a8f8bd82-7919-5ef6-acc5-d6c707545e48"
+        ]
+      },
+      {
+        "actual_rule_nm": 700000,
+        "canary_fired": true,
+        "input_sha256": {
+          "bench.kicad_dru": "9f357b3655db65ebe8598a37870508cd0ca54737a37c5030c875ff1d935ad083",
+          "bench.kicad_pcb": "b33832accd1c43a0f50f390d750159cf22c8cf8fe799a056f5f9c4a58d5ce608",
+          "bench.kicad_pro": "986640e66c3a74fea14116fa03ca2bfa08286dd6891e2231f8f2c25d3ba06654"
+        },
+        "measured_outcome": "present",
+        "native_floor_mm": "0.01",
+        "native_report_sha256": "20b91d56bf682d22afaf74a8200a1ecf2abd78c457ebdf2d81be61422d5442fa",
+        "native_version": "10.0.6",
+        "preserve_minimums": true,
+        "probe_uuids": [
+          "a6459fb8-5bb5-594a-b6b8-77ef6ecc3fe3",
+          "a8f8bd82-7919-5ef6-acc5-d6c707545e48"
+        ]
+      }
+    ],
+    "9": [
+      {
+        "actual_rule_nm": 700000,
+        "canary_fired": true,
+        "input_sha256": {
+          "bench.kicad_dru": "9f357b3655db65ebe8598a37870508cd0ca54737a37c5030c875ff1d935ad083",
+          "bench.kicad_pcb": "9959d4f2f989ae1310a9f198ce5ef42d6d401e73b620ff1beb6d591dcb392678",
+          "bench.kicad_pro": "f065fb77a4a892b4d5690208a0bc3a696a5c01adaf74ef7905fa89ecfd7d29e7"
+        },
+        "measured_outcome": "present",
+        "native_floor_mm": "0.7",
+        "native_report_sha256": "d05262fef860deef68fda0050b41451734b6c656f5f2b3e2503062b73906c064",
+        "native_version": "9.0.9",
+        "preserve_minimums": false,
+        "probe_uuids": [
+          "a6459fb8-5bb5-594a-b6b8-77ef6ecc3fe3",
+          "a8f8bd82-7919-5ef6-acc5-d6c707545e48"
+        ]
+      },
+      {
+        "actual_rule_nm": 700000,
+        "canary_fired": true,
+        "input_sha256": {
+          "bench.kicad_dru": "9f357b3655db65ebe8598a37870508cd0ca54737a37c5030c875ff1d935ad083",
+          "bench.kicad_pcb": "9959d4f2f989ae1310a9f198ce5ef42d6d401e73b620ff1beb6d591dcb392678",
+          "bench.kicad_pro": "7827593d7ba1a7af0928a9026056363dd24322b3264012bb3e436980fc9b2404"
+        },
+        "measured_outcome": "present",
+        "native_floor_mm": "0.01",
+        "native_report_sha256": "c1a9e0d798d98a5399c7f1000c06cdad2e6b739a50171a568fd6bc63eac1cc9c",
+        "native_version": "9.0.9",
+        "preserve_minimums": true,
+        "probe_uuids": [
+          "a6459fb8-5bb5-594a-b6b8-77ef6ecc3fe3",
+          "a8f8bd82-7919-5ef6-acc5-d6c707545e48"
+        ]
+      }
+    ]
+  },
   "generated_dru_exists": true,
+  "implementation_scope": {
+    "Default_emitter": "preserves supported class fields through existing DSL",
+    "actual_source_dru": "kept as independent custom rules; no Pro-floor synthesis under carrier",
+    "canonical_model_fields_added": 0,
+    "floor_carrier": "explicit preserve_minimums=True; defaultFalse unchanged",
+    "native_context_level6": "Implemented: traced supported floor5, represented class7 and exact verified numbered-pad membership; absent fields/custom DRU/unrelated native properties explicitly unjudged.",
+    "public_surface_added_arguments": [
+      "fenolite.dsl.Design.kicad_project(preserve_minimums)"
+    ]
+  },
   "limits": [
     "ReadSide currently projects only typed curve; native classes and independent floors were not globally judged by canonical path level6.",
     "Native controls judge specific clearance UUIDs and a loaded canary, not DRC safety of a board.",
@@ -204,6 +292,16 @@
         ]
       }
     ]
+  },
+  "native_context_controls": {
+    "after_new_api_cli_cases": 22,
+    "before": "six floor/Default negative controls claimed equality and failed before runtime augmentation",
+    "canonical_model_fields_added": 0,
+    "closed_import_fidelity": "actual imported record dry/confirm; unknown member/type negatives; v0/v1 semantic binding and original-source SHA equality",
+    "combined_backend_cache_native_context_cases": 110,
+    "existing_api_curve_verify_source_cases": 62,
+    "native_cache_acceptance_changed": false,
+    "pure_design_hard_floor_property_invented": false
   },
   "native_project_floor_values_equal": true,
   "native_rebuilt_dru_sha256": "68c46e1476dfd993ef1d85646cba1ef5074b89f3a77361a3f445e1cca7669361",

@@ -23,6 +23,7 @@ text = "VIN"
 at = [29.21, 27.94]
 rotation = 180
 shape = "passive"
+intersheet_refs = { at = [29.21, 27.94], rotation = 0, justify = "right", hide = true }
 
 [[sheet.label]]
 kind = "global"
@@ -30,6 +31,7 @@ text = "GND"
 at = [36.83, 27.94]
 rotation = 0
 shape = "passive"
+intersheet_refs = { at = [36.83, 27.94], rotation = 0, justify = "left", hide = true }
 
 [[sheet.sheet_ref]]
 key = "ch1"
@@ -80,6 +82,7 @@ text = "GND"
 at = [29.21, 27.94]
 rotation = 180
 shape = "passive"
+intersheet_refs = { at = [29.21, 27.94], rotation = 0, justify = "right", hide = true }
 
 [[sheet.label]]
 kind = "global"
@@ -87,6 +90,7 @@ text = "CH1_A"
 at = [36.83, 27.94]
 rotation = 0
 shape = "passive"
+intersheet_refs = { at = [36.83, 27.94], rotation = 0, justify = "left", hide = true }
 
 [[sheet.label]]
 kind = "global"
@@ -94,6 +98,7 @@ text = "VIN"
 at = [68.58, 29.21]
 rotation = 90
 shape = "passive"
+intersheet_refs = { at = [68.58, 29.21], rotation = 0, justify = "left", hide = true }
 
 [[sheet.label]]
 kind = "global"
@@ -101,6 +106,7 @@ text = "CH1_A"
 at = [68.58, 36.83]
 rotation = 270
 shape = "passive"
+intersheet_refs = { at = [68.58, 36.83], rotation = 0, justify = "right", hide = true }
 
 [[sheet]]
 key = "ch2"
@@ -131,6 +137,7 @@ text = "GND"
 at = [29.21, 27.94]
 rotation = 180
 shape = "passive"
+intersheet_refs = { at = [29.21, 27.94], rotation = 0, justify = "right", hide = true }
 
 [[sheet.label]]
 kind = "global"
@@ -138,6 +145,7 @@ text = "CH2_A"
 at = [36.83, 27.94]
 rotation = 0
 shape = "passive"
+intersheet_refs = { at = [36.83, 27.94], rotation = 0, justify = "left", hide = true }
 
 [[sheet.label]]
 kind = "global"
@@ -145,6 +153,7 @@ text = "VIN"
 at = [68.58, 29.21]
 rotation = 90
 shape = "passive"
+intersheet_refs = { at = [68.58, 29.21], rotation = 0, justify = "left", hide = true }
 
 [[sheet.label]]
 kind = "global"
@@ -152,3 +161,4 @@ text = "CH2_A"
 at = [68.58, 36.83]
 rotation = 270
 shape = "passive"
+intersheet_refs = { at = [68.58, 36.83], rotation = 0, justify = "right", hide = true }

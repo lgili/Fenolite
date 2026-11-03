@@ -1078,6 +1078,7 @@ def update_project(
     renamed_nets: Collection[str] = (),
     downgrade: bool = False,
     edits: list[resolver.Edit] | None = None,
+    preserve_minimums: bool = False,
 ) -> str:
     """``existing_text`` with only its managed keys changed (project.md, "Updates").
 
@@ -1105,7 +1106,8 @@ def update_project(
         _gate_nine(
             data, design, pair, allow_lossy=allow_lossy, issues=found, downgrade=downgrade, edits=edits
         )
-    _write_minimums(data, design, target=target, update=True, issues=found)
+    if not preserve_minimums:
+        _write_minimums(data, design, target=target, update=True, issues=found)
     _write_curve_error(data, design)
     _write_severities(data, design, target=target, allow_lossy=allow_lossy, issues=found)
     classes = _classes(data)

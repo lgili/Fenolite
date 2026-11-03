@@ -1058,6 +1058,11 @@ def test_equivalent_s_teaches_declared_native_project_template() -> None:
         "mandatory digest",
         "changed input invalidates",
         "including rebuilds",
+        "preserve_minimums=True",
+        "preserve_minimums=False",
+        "actual custom DRU",
+        "native_project_rules",
+        "Pure Design-vs-Design",
         "typed rules",
         "Altium output refuse",
     ):
@@ -1083,3 +1088,8 @@ def test_viewer_teaches_actual_project_instance_context() -> None:
         "explicit field pose",
     ):
         assert words in page.text
+
+
+def test_routing_teaches_mechanical_plan_scope() -> None:
+    text = (SKILL / "references/routing.md").read_text()
+    assert "INFERRED" in text and "byte materialization, not electrical correctness" in text

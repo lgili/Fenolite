@@ -840,6 +840,7 @@ class Conversion:
 
 @dataclass(frozen=True, kw_only=True)
 class FidelityProof:
+    native_project_rules: checks.NativeProjectRulesSummary = field(metadata={"optional": True})
     levels: dict[str, str]
     skipped: dict[str, str] = field(default_factory=lambda: {})
     fenolite: str = ""
@@ -890,6 +891,7 @@ class ImportSource:
 
 @dataclass(frozen=True, kw_only=True)
 class ImportProvenanceFile(Document):
+    fidelity: Fidelity = field(metadata={"optional": True})
     design: str
     licence: str
     copyright: list[str]

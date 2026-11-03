@@ -99,3 +99,8 @@ reason = "Authored c0264 library generated reproducibly by tests/_library_import
 path = "tests/data/proposals/exb6202.pdf"
 pattern = "numeric-code"
 reason = "Authored c0265 one-page PDF: its six ten-digit xref offsets are PDF structure (zero and byte offsets 98, 147, 204, 330, 400), not component codes. The page describes an invented part and is CC0-1.0; all other residue patterns still apply."
+
+[[waiver]]
+path = "examples/import_python/native/project.kicad_pro"
+pattern = "numeric-code"
+reason = "Exact digest-bound copy of the already waived Fenolite-authored tests/data/import_python/two_sheet/two_sheet.kicad_pro (c0351): both numeric matches are KiCad INT_MAX class priority 2147483647. Source and sidecar SHA-256 are c0c49764831dbbb9ab9a54a643153d4fb636b70e8113c56e328e1f431f78173f. All other public/private patterns and known-blob checks remain active."

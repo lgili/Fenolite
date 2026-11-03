@@ -34,6 +34,7 @@ def write_triad(
     name: str,
     target: int = DEFAULT_TARGET,
     existing_project: str | None = None,
+    preserve_minimums: bool = False,
     renamed_nets: Collection[str] = (),
     schematic: bool = False,
     allow_lossy: bool = False,
@@ -64,6 +65,7 @@ def write_triad(
         project = update_project(
             existing_project,
             design,
+            preserve_minimums=preserve_minimums,
             target=target,
             allow_lossy=allow_lossy,
             issues=found,

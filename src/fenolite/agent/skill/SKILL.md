@@ -145,7 +145,7 @@ argument. Practice pages explain engineering judgement; example numbers are not 
 - `parts`: Symbols, footprints, pin maps, exact values, device imports, interfaces and blocks.
 - `placement`: place() by coordinates or by reference, staged parts and the grid strategy, moving parts on the board, copying a block by its pads, pads and text fields.
 - `recovery`: One tested recipe per exit code from 2 to 7 and for shorted copper, the table of every error code, and reading the guide itself.
-- `routing`: Which router does what, route with --nets and --rip, what unrouted means, copper written in the script, zones and fill.
+- `routing`: Routers, guarded plans, copper, zones and fill.
 - `rules`: Net classes against minimums, rules with selectors, the stack-up, whose numbers apply, and analyze for current, clearance and creepage.
 - `signal-topologies`: Ordered pad trees, explicit timing and loss inputs, protocol budgets and rule precedence.
 - `starter-blocks`: Five reusable circuits with exact expectations and explicit electrical inputs.

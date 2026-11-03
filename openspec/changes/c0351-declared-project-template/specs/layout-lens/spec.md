@@ -30,3 +30,11 @@ A retained native project key SHALL NOT be reported as globally modeled level6 s
 - **GIVEN** non-default checked show/own-page/short/prefix/suffix settings
 - **WHEN** original project becomes generated Python and a fresh native project
 - **THEN** all5 controls and independently measured native effective text survive without an equivalence waiver
+
+### Requirement: Explicit imported floor ownership
+The existing declaration SHALL accept optional exact-bool preserve_minimums=False. False SHALL retain the original typed-minimum planning/output behavior. Explicit True SHALL retain the five supported native hard floors from the declared digest-bound baseline in every planner and final output while actual DRU override rules remain independent. The importer SHALL emit True. No canonical model field SHALL be introduced.
+
+#### Scenario: Source floor and actual override coexist
+- **GIVEN** a declared source hard floor0.01 and an actual custom rule0.7
+- **WHEN** preserve_minimums=True builds the project
+- **THEN** native Pro retains0.01, actual DRU retains0.7, and native DRC observes the override

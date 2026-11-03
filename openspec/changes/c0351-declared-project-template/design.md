@@ -112,3 +112,7 @@ import output intentionally gains a declared native input; fixture changes must
 be measured and reviewed, never blindly regenerated. No canonical field is added.
 The public surface delta is an implementation change, not completion of the
 separate pending maintainer surface-inventory review.
+
+## c0352 ownership addendum
+
+An optional `preserve_minimums: bool = False` keyword to the existing declaration distinguishes imported source hard floors from authored minimum rules. DefaultFalse preserves this design's managed-wins contract and original controls. ExplicitTrue retains the five native project floor values from the digest-bound declaration in all planners/final output, while actual custom DRU overrides remain independent and effective. Import emitsTrue. This is recipe/request ownership only, not a canonical model property.

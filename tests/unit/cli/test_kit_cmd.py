@@ -275,3 +275,26 @@ def test_a_file_of_another_kind_is_named_by_verify(monkeypatch: pytest.MonkeyPat
         "resave: the file is a schematic document, and the step wants a PCB document: "
         "save board6.PcbDoc of the sample, not another document of its project"
     ]
+
+
+@pytest.mark.parametrize("passed,synthetic", [(True, False), (False, False), (True, True)])
+def test_verdict_evidence_uses_only_actual_passing_hypotheses(passed: bool, synthetic: bool) -> None:
+    from types import SimpleNamespace
+
+    from fenolite.cli import cmd_kit
+
+    verdict = SimpleNamespace(
+        passed=passed,
+        synthetic=synthetic,
+        hypotheses=(
+            SimpleNamespace(id="H-A-WRITE-SCHDOC", outcome="pass"),
+            SimpleNamespace(id="H-A-KIT-STABLE", outcome="pending"),
+            SimpleNamespace(id="H-A-PH-LAYOUT", outcome="fail"),
+        ),
+    )
+    evidence = cmd_kit._verdict_evidence(verdict)
+    if passed and not synthetic:
+        assert evidence.level.value == "ALTIUM-VERIFIED(kit)"
+        assert evidence.hypotheses == ("H-A-WRITE-SCHDOC",)
+    else:
+        assert evidence == cmd_kit.UNVERIFIED_RUN

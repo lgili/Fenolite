@@ -1711,6 +1711,7 @@ def _built(
         drawn_file=drawn_name or "schematic.toml",
         context_symbols=drawn_contexts,
         project_template=native_project_text,
+        preserve_project_minimums=design._kicad_project_preserve_minimums,  # pyright: ignore[reportPrivateUsage] - DSL request ownership
     )
     if plan is not None:
         layout_issues = [

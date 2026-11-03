@@ -104,3 +104,29 @@ operations and scopes above their existing cell/register. Existing source guards
 Iteration B (reply checks and evidence tails) is separate: actual output census first; edit/mcp/publish
 remain the explicit open question and are not silently added to NO_CLAIM. Model writer activation is
 not part of this change; CLI remains v0.
+
+## Current-source underlying evidence iteration C (review approved)
+
+Keep view's H-G-VIEW-SCENE when combining the actual displayed scene level, using lowest-wins;
+never replace UNKNOWN/UNVERIFIED with INFERRED. Native kit verification/recording derives its
+hypothesis IDs solely from actually passing verdict entries; failed/synthetic verdicts keep their
+existing inferred kit-stability label and cannot gain a native label. Analysis already lowers
+incomplete/unsupported reports and that lowering remains intact.
+
+Route refinement approved separately: do not attach DSN hypotheses to DirectRouter, which creates
+tracks without DSN. A narrowly authored H-G-ROUTE-PLAN may describe only deterministic same-input
+plan materialization/provenance, backed by stale-input/fault/unsupported controls, with no electrical
+or DRC claim. Actual external DSN evidence applies only to the external DSN path. Historical blanket
+outcome promotion is not a current authority. The route part follows focused view/kit proof.
+
+### Route materialization boundary
+
+The new H-G-ROUTE-PLAN records only the deterministic guarded plan/replay mechanism; supported
+same-input copper bytes are materialized as reviewed and stale inputs/targets refuse. A complete,
+error-free route can expose that INFERRED mechanical scope, carrying only hypotheses actually supplied
+by its router plus the plan hypothesis. UNKNOWN remains UNKNOWN. Incomplete/unattempted/open/error
+outcomes retain their existing lower evidence, and a DRC gate keeps its independently measured
+verdict. No DSN constants are imported into cmd_route. Default DirectRouter evidence has no native
+hypotheses, so its successful reply names the plan hypothesis only. Actual external DSN hypotheses
+are retained only from the external outcome, never assigned to an unrelated algorithm. This is not
+a connectivity/clearance assertion and the guide continues to require check after routing.

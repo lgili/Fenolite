@@ -87,7 +87,7 @@ def test_newer_schema_and_decimal_values():
         parse_proposal(
             (DATA / "exb6202.proposal.toml")
             .read_text()
-            .replace("fenolite.proposal.v0", "fenolite.proposal.v1")
+            .replace("fenolite.proposal.v0", "fenolite.proposal.v2")
         )
     with pytest.raises(FormatError):
         edit(lambda r: r["package"].update(pins=8.0))
@@ -119,3 +119,25 @@ def test_wrong_enum_container_types_are_bad_input(change):
 def test_missing_family_parameters_name_the_required_key(change):
     with pytest.raises(FormatError, match="required key is missing"):
         edit(change)
+
+
+def test_reviewed_v1_mirror_retains_every_authored_proposal_field():
+    original = example()
+    text = (DATA / "exb6202.proposal.toml").read_text()
+    mirror = parse_proposal(text.replace("fenolite.proposal.v0", "fenolite.proposal.v1"), file="mirror.toml")
+    expected = copy.deepcopy(original.data)
+    expected["schema"] = "fenolite.proposal.v1"
+    assert mirror.data == expected
+    assert mirror.parameters == original.parameters and mirror.quantities == original.quantities
+    assert mirror.pins == original.pins and mirror.family == original.family
+    assert mirror.uncited == original.uncited
+
+
+@pytest.mark.parametrize("schema", ["fenolite.proposal.v0", "fenolite.proposal.v1"])
+def test_mirrors_both_refuse_decimal_pin_counts(schema):
+    text = (DATA / "exb6202.proposal.toml").read_text().replace("fenolite.proposal.v0", schema)
+    assert text.count('"pins" = 8') == 1
+    text = text.replace('"pins" = 8', '"pins" = 8.0')
+    with pytest.raises(FormatError) as caught:
+        parse_proposal(text, file="decimal.toml")
+    assert caught.value.file == "decimal.toml" and caught.value.locator == "package.pins"

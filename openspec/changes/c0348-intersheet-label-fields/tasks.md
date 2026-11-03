@@ -31,3 +31,5 @@ Caller/context/cache/live controls pass; real-owner replay2.4 and root-owned clo
 No native default field pose is invented when the source lacks it.
 
 Public2.4 native9/10 owner replay now passes with c0351 carrier and c0353 direct embedding repair, recorded in evidence.md. Required exact-head CI/model reviews3.1 stay open.
+
+Adjacent closed expectation after root fast-batch4: target10 legacy writer materializes an explicit hidden reference field at the authored label anchor (rotation0, exact justify); extraction must preserve it. The every-kind characterization now asserts that exact appended field and all other label fields, while target9 retains None. No producer or native pose is normalized away. Focused before/after and prior authored native hide/pose controls are recorded in evidence.md.

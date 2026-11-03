@@ -36,9 +36,9 @@ def _created(sheet: SchematicSheet) -> SchematicSheet:
     return dataclasses.replace(sheet, ext={sch.DRAWN_EXT: sch.opaque_ext(fragments)})
 
 
-def _shared_project(tmp: Path) -> Path:
+def _shared_project(tmp: Path, target: int = 10) -> Path:
     """One Fenolite-authored physical sheet, two reference/path instances, one changed physical pad."""
-    project = copy_project(tmp)
+    project = copy_project(tmp, native_target=target)
     root_file = project.with_suffix(".kicad_sch")
     root = read_schematic(root_file)
     first, second = [read_schematic(root_file.parent / ref.file) for ref in root.sheets]
@@ -53,16 +53,26 @@ def _shared_project(tmp: Path) -> Path:
             for label in first.labels
         ),
     )
-    (project.parent / "channel.kicad_sch").write_text(write_schematic(shared).text)
+    (project.parent / "channel.kicad_sch").write_text(write_schematic(shared, target=target).text)
     root_file.write_text(
         write_schematic(
             dataclasses.replace(
                 _created(root),
                 sheets=tuple(dataclasses.replace(ref, file="channel.kicad_sch") for ref in root.sheets),
-            )
+            ),
+            target=target,
         ).text
     )
-    text = edited(tmp).read_text().replace('"CH1_A"', '"/ch1/A"').replace('"CH2_A"', '"/ch2/A"')
+    text = project.with_suffix(".kicad_pcb").read_text()
+    at = text.index('"R201"')
+    pad = text.index('(pad "1"', at)
+    old = "(at -0.8 0 180)"
+    where = text.index(old, pad)
+    text = (
+        (text[:where] + "(at -0.9 0 180)" + text[where + len(old) :])
+        .replace('"CH1_A"', '"/ch1/A"')
+        .replace('"CH2_A"', '"/ch2/A"')
+    )
     project.with_suffix(".kicad_pcb").write_text(text)
     return project
 
@@ -140,7 +150,7 @@ def test_real_variant_builds_native_name_with_exact_pads(tmp_path: Path, target:
 
 @pytest.mark.parametrize("target", (9, 10))
 def test_one_physical_sheet_keeps_native_metadata_for_different_geometry(tmp_path: Path, target: int) -> None:
-    project = _shared_project(tmp_path)
+    project = _shared_project(tmp_path, target)
     board = project.with_suffix(".kicad_pcb")
     reply = imported(tmp_path, project, "--confirm", "--kicad-version", str(target))
     assert reply.exit_code == 0, (reply.error, (reply.envelope or {}).get("issues"))
@@ -203,24 +213,49 @@ def test_actual_native_name_change_is_not_explained_as_a_variant(name: str) -> N
     assert not equivalent(source, bad, level=3).equivalent
 
 
+def test_target10_project_is_not_silently_lowered_to_target9(tmp_path: Path) -> None:
+    source = copy_project(tmp_path)
+    before = _snapshot(source.parent)
+    assert imported(tmp_path, source, "--kicad-version", "9", "--confirm").exit_code == 0
+    out = tmp_path / "out"
+    imported_before = _snapshot(out)
+    reply = build(out, "--kicad-version", "9", "--dry-run")
+    assert reply.exit_code == 7 and reply.error is not None
+    assert reply.error["code"] == "FEN-7001"
+    assert not (out / "built").exists()
+    assert _snapshot(out) == imported_before
+    assert _snapshot(source.parent) == before
+
+
 @pytest.mark.parametrize(
-    "target,expected",
+    "target,imported_digest,expected",
     (
-        (9, "021ad831c254ca8cc7908258abf68881a987f78e1e7607b4ced093f3c128a526"),
-        (10, "f89bb04ccb4d8bece6b5fdfd76a5c774e2dda952ef141815a4d2503efc0bca8d"),
+        (
+            9,
+            "403dfe636c95151c39c4c7687dd90f0393986d7c4accafd7f7e025440f2cf5be",
+            "9e4907bf50866e9699d7d1d37e3a607d11c2e485608edda64251c2fd1ca0a761",
+        ),
+        (
+            10,
+            "64788ade238c244ddce1e60f1870afbbe1202c4aae31936360c0915a1fbef24a",
+            "51366c597857fee8572d0d883e998a7f67f7d3f056fcad4e1cc66e04a5005462",
+        ),
     ),
 )
-def test_ordinary_import_and_rebuild_keep_every_byte(tmp_path: Path, target: int, expected: str) -> None:
-    """Pins include c0344 identity caches and c0339 absent-title-block preservation.
+def test_ordinary_import_and_rebuild_keep_every_byte(
+    tmp_path: Path, target: int, imported_digest: str, expected: str
+) -> None:
+    """Complete file maps reviewed in c0351 carrier-regression proof.
 
-    All rebuilt files retain that baseline except the three empty native title blocks
-    deliberately omitted by c0339 and their paired manifest hashes;
-    c0342 leaves nonalias imports unchanged. The source fixture changed only
-    .pro top_level_sheets/sheets, to stay a fresh build after c0344.
+    Each positive uses an authored project of its actual target. The carrier and
+    explicit Default declaration are intentional; all native rebuilt files retain
+    their complete pre-carrier bytes, with only canonical circuit Default added.
+    A separate negative preserves refusal of a native10 project on target9.
     """
-    assert imported(tmp_path, PROJECT, "--confirm", "--kicad-version", str(target)).exit_code == 0
+    source = copy_project(tmp_path, native_target=target)
+    assert imported(tmp_path, source, "--confirm", "--kicad-version", str(target)).exit_code == 0
     out = tmp_path / "out"
-    assert _digest(out) == "34ce82be48949789f53cb7985d26bfe4be00806334b65ef316a520ad22359f03"
+    assert _digest(out) == imported_digest
     assert build(out, "--kicad-version", str(target)).exit_code == 0
     assert _digest(out / "built") == expected
 

@@ -356,6 +356,24 @@ def _net_values(net: Net, classes: dict[str, NetClass], default_class: NetClass 
     )
 
 
+PLAN_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-ROUTE-PLAN",))
+"""Guarded copper materialization only: this does not certify connectivity or clearance."""
+
+
+def _plan_evidence(evidence: Evidence, *, oracle: str, complete: bool) -> Evidence:
+    """Describe a complete guarded plan, retaining actual router IDs and real lower scopes.
+
+    Router output is not a native electrical verdict. The inferred scope here is the separately
+    tested materialization/replay mechanism. Incomplete results remain unverified; an unknown
+    source remains unknown and never acquires this successful-plan hypothesis.
+    """
+    if evidence.level == Level.UNKNOWN:
+        return dataclasses.replace(evidence, oracle=oracle)
+    if not complete:
+        return dataclasses.replace(evidence, level=Level.UNVERIFIED, oracle=oracle)
+    return Evidence(Level.INFERRED, oracle, tuple(sorted({*evidence.hypotheses, *PLAN_EVIDENCE.hypotheses})))
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if args.out and Path(args.out).is_absolute():
         raise CliError("FEN-2001", "--out must be relative to the working directory")
@@ -686,6 +704,15 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             fan_issues.append(
                 Issue("route.fill-stale", "info", "routing changed copper; run fenolite fill before check")
             )
+        if fan_gate is None:
+            fan_evidence = _plan_evidence(
+                fan_evidence,
+                oracle=router.name,
+                complete=not any(
+                    i.severity in ("error", "warning")
+                    for i in (*read_issues, *before.issues, *fan_issues, *skipped)
+                ),
+            )
         return Result(
             result={
                 "board": board_path.name,
@@ -844,10 +871,15 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if added and not failed and (args.out is not None or board_text != text)
         else ()
     )
-    evidence = gate_evidence or dataclasses.replace(
+    evidence = gate_evidence or _plan_evidence(
         outcome.evidence,
-        level=Level.UNVERIFIED,
         oracle=f"{outcome.tool} {outcome.tool_version}".strip(),
+        complete=merged_ok
+        and not failed
+        and not budget_ended
+        and not open_names
+        and not outcome.not_attempted
+        and not outcome.unrouted,
     )
     selected = set(candidates)
     if getattr(args, "dry_run", False) and not budget_ended and not failed:

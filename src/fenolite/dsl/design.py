@@ -739,6 +739,7 @@ class Design(Container):
         self.block: TitleBlock | None = None
         """The title block of ``title_block()``."""
         self._kicad_project_input: tuple[str, str] | None = None
+        self._kicad_project_preserve_minimums = False
         """Explicit native project input declaration, outside canonical model state (c0351)."""
         self.drawn_source: str | None = None
         """The drawn schematic of ``load_schematic()``, as the script names it: a path relative to its
@@ -1573,11 +1574,13 @@ class Design(Container):
                 f"sheet(): drawing_sheet {path!r} must be a path inside the folder of the design script"
             )
 
-    def kicad_project(self, path: str, *, sha256: str) -> None:
+    def kicad_project(self, path: str, *, sha256: str, preserve_minimums: bool = False) -> None:
         """Declare a portable native .kicad_pro baseline with its mandatory SHA-256 (c0351).
 
         The build reads it relative to this script and retains unmanaged project settings; typed design
         settings and fresh generated identities win. The declaration is authoritative on rebuilds too.
+        ``preserve_minimums=True`` keeps the declared native hard floors independently of custom
+        rules; False retains authored minimum planning/output precedence.
         No file is read by this method. Other backends refuse the request before staging.
         """
         if self._kicad_project_input is not None:
@@ -1594,7 +1597,10 @@ class Design(Container):
             raise DslError("kicad_project(): path must stay inside the design script folder")
         if not isinstance(sha256, str) or re.fullmatch(r"[0-9a-f]{64}", sha256) is None:  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError("kicad_project(): sha256 is the mandatory lowercase 64-hex digest")
+        if type(preserve_minimums) is not bool:
+            raise DslError("kicad_project(): preserve_minimums is a bool")
         self._kicad_project_input = ("/".join(parts), sha256)
+        self._kicad_project_preserve_minimums = preserve_minimums
 
     def load_schematic(self, path: str, *, symbol_contexts: str | None = None) -> None:
         """Draw the schematic from ``path``, a ``schematic.toml`` beside the script (schema

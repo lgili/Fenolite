@@ -1223,7 +1223,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 result["notes"].append(f"--select: {doc.name} holds no part or net {args.select!r}")
         result["theme"] = _theme_name(scene)
         evidence = (
-            Evidence(Level(scene["meta"]["evidence"]))
+            Evidence.combine(evidence, Evidence(Level(scene["meta"]["evidence"])))
             if scene["meta"]["evidence"] in Level._value2member_map_
             else evidence
         )

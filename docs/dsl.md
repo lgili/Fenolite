@@ -2823,3 +2823,7 @@ and compare canonical SVG goldens. The helpers are separate from design scripts 
 expectations run on every build. See the [generated block index](blocks/index.md)
 for parameters, ports, expectations, usages and captured layouts. LED electrical data
 and protection limits must be supplied; illustrative example records are UNVERIFIED.
+
+### Declared native project floor ownership
+
+`design.kicad_project("native/project.kicad_pro", sha256="<64 lowercase hex digits>", preserve_minimums=True)` declares a portable digest-bound native baseline. The optional bool defaults False, retaining authored DSL minimum planning/output precedence. Import emits True to preserve the five native project hard floors independently of actual DRU override rules. It changes no canonical model field; native-context comparison names its supported scope separately. Changed input bytes require reviewing the digest and a new plan.

@@ -49,3 +49,32 @@ Public flat_hierarchy/Royal replay is still required after integration; retain a
 owns combined fast and exact-head CI. c0348 path-aware per-instance presentation/cache/live context
 and maintainer surface review remain open. This checkpoint does not assert broad semantic
 coverage of uninterpreted project keys, acceptance changes, final closure or archival.
+
+
+## Authored carrier regression review, 2026-11-03
+
+`carrier-regression-proof.json` records complete before/after file maps from clean
+pre-carrier runtime b50fd0f05a8d37125048d54fbf4754e3cd2b2e9c and combined runtime
+613b78df, using the same authored target-specific sources. All11 source files per
+target remain identical. Fresh imports add only the explicit Default declaration
+and exact project sidecar; all19 rebuilt files retain their bytes except the
+canonical circuit's actual Default class. Every rebuilt native file is identical.
+
+The committed derived example additionally catches up with c0348's ten retained
+hidden reference fields. Its explicit native10 baseline refuses target9 and
+Altium at build time. This is independently tested with no built output and
+unchanged source/import files. No production lowering guard was relaxed.
+Positive target9 identity/alias tests now author actual target9 native inputs
+from the existing CC0 two-sheet design instead of reusing the native10 project.
+
+All75 complete example plans were compared:72 unchanged, only the imported
+example's three rows change. Target10 differs only in canonical circuit.json;
+target9/Altium refuse before staging. Only those three byte-table rows were
+refreshed. The original source fixture and all physical/identity assertions stay
+strict. Focused proof:62 tests passed; full byte guard76 tests passed.
+
+The exact new sidecar has two public numeric-code scan matches, both existing
+authored KiCad class priority INT_MAX. Its SHA-256 equals the already waived
+original fixture c0c49764831dbbb9ab9a54a643153d4fb636b70e8113c56e328e1f431f78173f.
+A file-specific numeric-code waiver documents this identity; every other
+public/private token/blob check stays active.

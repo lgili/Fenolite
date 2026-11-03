@@ -5,29 +5,27 @@
 from __future__ import annotations
 
 import hashlib
-from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import Any, cast
 
+from fenolite.api._native_rules import bindings as _bindings
+from fenolite.api._native_rules import raw_bindings as _raw_bindings
 from fenolite.api.sides import ReadSide
 from fenolite.backends.kicad import _json, dru, pro
 from fenolite.backends.kicad.cli import KicadCli
 from fenolite.backends.kicad.derived_teardrops import (
     Tree,
     crossing_counts,
-    native_net,
     qualifies,
     regions,
     without_regions,
 )
 from fenolite.backends.kicad.lowering import MINIMUM_KEYS
-from fenolite.backends.kicad.sexpr import AtomKind, Node, dumps, parse_bytes
-from fenolite.checks.assignment_compare import board_netlist, net_names
+from fenolite.backends.kicad.sexpr import dumps, parse_bytes
 from fenolite.checks.equivalence.model import Difference
 from fenolite.cli.errors import CliError
-from fenolite.model.design import Design
 
 
 @dataclass(frozen=True)
@@ -40,72 +38,6 @@ class CacheInput:
 
 def _hash(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
-
-
-def _bindings(design: Design) -> dict[str, tuple[str, ...]]:
-    netlist, _ = board_netlist(design)
-    members: dict[str, list[str]] = defaultdict(list)
-    seen: dict[str, str] = {}
-    for assignment in netlist.assignments:
-        if assignment.element in seen:
-            if seen[assignment.element] != assignment.net:
-                raise ValueError("ambiguous numbered-pad binding")
-            continue
-        seen[assignment.element] = assignment.net
-        members[assignment.net].append(assignment.element)
-    names = net_names(design)
-    result: dict[str, tuple[str, ...]] = {}
-    for net, elements in members.items():
-        name = names.get(net)
-        if name is None:
-            continue
-        if name in result:
-            raise ValueError("ambiguous native net name")
-        result[name] = tuple(sorted(elements))
-    return result
-
-
-def _raw_bindings(root: Node, expected: frozenset[tuple[str, ...]]) -> dict[str, tuple[str, ...]]:
-    """Bind raw native net tokens by exact numbered-pad partitions, never spelling substitutions."""
-    members: dict[str, list[str]] = defaultdict(list)
-    seen: dict[str, str] = {}
-    seen_refs: set[str] = set()
-    for footprint in root.nodes("footprint"):
-        references = [
-            p.atoms()[1].value
-            for p in footprint.nodes("property")
-            if len(p.atoms()) >= 2 and p.atoms()[0].value == "Reference"
-        ]
-        references += [
-            p.atoms()[1].value
-            for p in footprint.nodes("fp_text")
-            if len(p.atoms()) >= 2 and p.atoms()[0].value == "reference"
-        ]
-        if len(references) != 1 or not references[0]:
-            raise ValueError("native footprint has no unique reference")
-        if references[0] in seen_refs:
-            raise ValueError("native footprint reference ambiguous")
-        seen_refs.add(references[0])
-        for pad in footprint.nodes("pad"):
-            atoms = pad.atoms()
-            if not atoms or atoms[0].kind != AtomKind.STRING:
-                raise ValueError("native pad number malformed")
-            if not atoms[0].value or not pad.nodes("net"):
-                continue
-            net = native_net(pad, root)
-            if not net:
-                continue
-            element = references[0] + "-" + atoms[0].value
-            if element in seen:
-                if seen[element] != net:
-                    raise ValueError("native numbered-pad identity ambiguous")
-                continue
-            seen[element] = net
-            members[net].append(element)
-    result = {name: tuple(sorted(elements)) for name, elements in members.items()}
-    if frozenset(result.values()) != expected:
-        raise ValueError("native named-pad partitions changed")
-    return result
 
 
 def inputs(side: ReadSide) -> CacheInput | None:

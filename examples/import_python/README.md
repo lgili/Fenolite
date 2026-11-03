@@ -12,7 +12,7 @@ fenolite import tests/data/import_python/two_sheet/two_sheet.kicad_pro --to pyth
 fenolite build examples/import_python/design.py --out build/import_python --confirm
 ```
 
-- `design.py`: the board, shared nets, the net class `Power`, root connector, sheet calls, a zone,
+- `design.py`: the board, shared nets, the net classes `Default` and `Power`, root connector, sheet calls, a zone,
   keep-out and two silkscreen drawings.
 - `sheets/ch1.py` and `sheets/ch2.py`: the actual source-sheet factories, local nets, parts and placements;
   `refs` preserves the second channel's `R201` under its authored key `R101`.
@@ -22,6 +22,10 @@ fenolite build examples/import_python/design.py --out build/import_python --conf
   hierarchy and its symbol and field poses, labels and wires.
 - `lib/`: the two footprints brought back from the board and the source's native embedded symbols, named by
   the project tables `fp-lib-table` and `sym-lib-table`.
+- `native/project.kicad_pro`: the exact digest-bound KiCad10 project input, declared by
+  `design.kicad_project`. This example targets KiCad10; a target9 or Altium build refuses
+  its incompatible native project settings before writing. To import for KiCad9, build
+  the authored source script for KiCad9 first, then import that target9 project.
 - `design.lock` and `PROVENANCE.json`: the refs, and where the code came from.
 
 Each `.py` file carries, after the provenance header, the line `# Authored for Fenolite: …`: the residue

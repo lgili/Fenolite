@@ -61,3 +61,14 @@
 
 Actual-source preparation proof: current-source-proof.md. Root must refresh/freeze the complete
 reviewed final source and confirm exact-head gates before archival. No historical approval/freeze is used.
+
+- [x] 0.4 Resolve the actual combined-fast stale proposal future-version negative with a literal v1
+  positive and unsupported v2 negative, retaining closed data and decimal refusal. Proof:
+  `uv run pytest tests/unit/library/proposals/test_parse.py -q` and focused proposal component.
+
+Follow-up proof: the actual reader deliberately accepts only the reviewed v0/v1 pair; initial stale
+v1-as-future negative failed. The literal v1 authored positive preserves every field/parameter/
+quantity; unsupported v2 still refuses. Literal TOML decimal pin counts are rejected at
+`decimal.toml:package.pins` under both mirrors, in addition to the original serializer refusal.
+`uv run pytest tests/unit/library/proposals -q`: 51 passed. No parser, schema, tamper guard,
+fixture byte or writer changed. Ruff/format and strict OpenSpec pass; combined CI remains open.

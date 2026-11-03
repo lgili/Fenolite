@@ -104,3 +104,11 @@ Custom properties retain their text plus pose/font; fields and properties stay t
 The inter-sheet field uses the same raw field-pose record. Reader semantic validation remains authoritative
 for names, legal global-label attachment and nonempty fonts. Authored actual writer/reader/schema
 roundtrips fail with ten missing descriptor properties before these descriptor-only additions.
+
+## Combined-fast proposal-reader regression follow-up
+
+The actual v0 writer remains unchanged and the bounded public proposal reader now deliberately
+accepts the reviewed v1 mirror. A stale test calls v1 newer-than-supported; keep the future refusal
+and move only that negative to unsupported v2. Add a literal v1 authored positive proving all
+original data/quantities are retained, plus v0/v1 decimal pin-count rejection with the same location.
+Do not change parser code, schema objects, mirror bounds, closed-key guards or tamper checks.

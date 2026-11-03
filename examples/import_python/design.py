@@ -26,6 +26,17 @@ ch1_a = design.nets["CH1_A"]
 ch2_a = design.nets["CH2_A"]
 
 design.rules.netclass(
+    "Default",
+    clearance=mm("0.2"),
+    track_width=mm("0.2"),
+    via_diameter=mm("0.6"),
+    via_drill=mm("0.3"),
+    diff_pair_width=mm("0.2"),
+    diff_pair_gap=mm("0.25"),
+    diff_pair_via_gap=mm("0.25"),
+    nets=(),
+)
+design.rules.netclass(
     "Power",
     clearance=mm("0.2"),
     track_width=mm("0.5"),
@@ -67,3 +78,9 @@ design.text(
 copper.apply(design, {"CH1_A": ch1_a, "CH2_A": ch2_a, "GND": gnd, "VIN": vin})
 
 design.load_schematic("schematic.toml")
+
+design.kicad_project(
+    "native/project.kicad_pro",
+    sha256="c0c49764831dbbb9ab9a54a643153d4fb636b70e8113c56e328e1f431f78173f",
+    preserve_minimums=True,
+)

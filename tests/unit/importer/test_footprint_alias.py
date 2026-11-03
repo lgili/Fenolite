@@ -17,13 +17,16 @@ from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse
 
 @pytest.mark.parametrize("target", [9, 10])
 def test_visible_source_alias_is_preserved_with_local_exact_geometry(tmp_path: Path, target: int) -> None:
-    source = alias_project(tmp_path)
+    source = alias_project(tmp_path, native_target=target)
     reply = imported(tmp_path, source, "--confirm", "--kicad-version", str(target))
     assert reply.exit_code == 0, reply.error
     out = tmp_path / "out"
     assert 'footprint="Original:Mini_LED_THT_3mm"' in (out / "design.py").read_text()
     assert (out / "lib/Original.pretty/Mini_LED_THT_3mm.kicad_mod").is_file()
-    assert '(uri "${KIPRJMOD}/lib/Original.pretty")' in (out / "fp-lib-table").read_text()
+    uri = (
+        '(uri "${KIPRJMOD}/lib/Original.pretty")' if target == 10 else "(uri ${KIPRJMOD}/lib/Original.pretty)"
+    )
+    assert uri in (out / "fp-lib-table").read_text()
     made = build(out, "--kicad-version", str(target))
     assert made.exit_code == 0, made.error
     original = read_board(source.with_suffix(".kicad_pcb")).design

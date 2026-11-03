@@ -7,6 +7,9 @@
     "schema": {
       "const": "fenolite.import-provenance.v1"
     },
+    "fidelity": {
+      "$ref": "#/$defs/Fidelity"
+    },
     "design": {
       "type": "string"
     },
@@ -89,6 +92,70 @@
     "equivalence"
   ],
   "$defs": {
+    "Fidelity": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/VerifySourceNewAcceptedItem"
+          }
+        },
+        "proof": {
+          "$ref": "#/$defs/FidelityProof"
+        }
+      },
+      "additionalProperties": false
+    },
+    "FidelityProof": {
+      "type": "object",
+      "properties": {
+        "native_project_rules": {
+          "$ref": "#/$defs/NativeProjectRulesSummary"
+        },
+        "levels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "skipped": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "fenolite": {
+          "type": "string"
+        },
+        "against": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "date": {
+          "type": "string"
+        },
+        "script_sha256": {
+          "type": "string"
+        },
+        "tolerances": {
+          "$ref": "#/$defs/VerifySourceTolerances"
+        },
+        "generated_read_files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "generated read-set paths mapped to SHA-256"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "levels"
+      ]
+    },
     "ImportEquivalence": {
       "type": "object",
       "properties": {
@@ -169,6 +236,63 @@
         "format"
       ]
     },
+    "NativeProjectRulesSummary": {
+      "description": "Scoped exact native context; unknown rule properties are explicitly outside coverage.",
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string"
+        },
+        "judged_keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unjudged_absent_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "judged_count": {
+          "type": "integer"
+        },
+        "source_major": {
+          "type": "integer"
+        },
+        "generated_major": {
+          "type": "integer"
+        },
+        "a_read_files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "b_read_files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "unjudged": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "judged_keys",
+        "unjudged_absent_fields",
+        "judged_count",
+        "source_major",
+        "generated_major",
+        "a_read_files",
+        "b_read_files",
+        "unjudged"
+      ]
+    },
     "Upgrade": {
       "description": "One upgrade of a file on a private copy (decision 13).",
       "type": "object",
@@ -211,6 +335,85 @@
         "to_version",
         "sha256_before",
         "sha256_after"
+      ]
+    },
+    "VerifySourceNewAcceptedItem": {
+      "type": "object",
+      "properties": {
+        "attribution": {
+          "type": "string"
+        },
+        "decided": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "attribution",
+        "decided",
+        "field",
+        "id",
+        "kind",
+        "level",
+        "reason",
+        "where"
+      ]
+    },
+    "VerifySourceTolerances": {
+      "type": "object",
+      "properties": {
+        "angle_udeg": {
+          "type": "integer"
+        },
+        "frame": {
+          "type": "string"
+        },
+        "length_nm": {
+          "type": "integer"
+        },
+        "length_ppm": {
+          "type": "integer"
+        },
+        "pixel_ppm": {
+          "type": "integer"
+        },
+        "render_pitch_um": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "angle_udeg",
+        "frame",
+        "length_nm",
+        "length_ppm",
+        "pixel_ppm",
+        "render_pitch_um"
       ]
     }
   }

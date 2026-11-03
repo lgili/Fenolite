@@ -42,9 +42,12 @@ records their matching rule ids. The drawing proof is **INFERRED**, with native 
 `design.kicad_project("native/project.kicad_pro", sha256="<64 lowercase hex digits>")` declares an
 explicit native project template relative to the script. Import emits this portable sidecar and its
 mandatory digest. Review the digest after editing it; a changed input invalidates a staged plan.
+Import adds `preserve_minimums=True`: the declared project owns its five native hard floors, while actual custom DRU overrides remain independent. The default `preserve_minimums=False` retains authored DSL minimum planning/output precedence.
 On every build, including rebuilds, this opt-in template owns unmanaged settings; typed rules,
 classes, stack, text variables, frame and fresh schematic identities win. A template never replaces
 connectivity or proves all native settings semantically. Unsafe paths/resources, unsupported JSON
 versions and Altium output refuse before staging; declare a drawing sheet through `design.sheet`.
 
 Read next: `checks`, `files`.
+
+For path-based level6, `native_project_rules` names the five judged native floors, represented class fields and exact numbered-pad membership, with input hashes and absent fields explicitly unjudged. Pure Design-vs-Design has no independent native hard-floor field. Custom DRU and unrelated project properties are outside this native-context comparison; retained JSON alone does not prove them. Ambiguous bindings, unbound nets, unsupported aggregation and changed traced bytes refuse complete native-context comparison.

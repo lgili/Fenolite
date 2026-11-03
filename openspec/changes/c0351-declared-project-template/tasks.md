@@ -15,6 +15,8 @@
 - [x] 2.3 Teach/document the actual method and precedence, regenerate agent guide and public surface, review delta and format owner. Update CHANGELOG. Proof: guide/generated/API/source/residue checks with no canonical model field.
 - [ ] 2.4 Measure actual native9/10 original versus rebuilt settings/text, complete electrical graphs and scoped physical behavior; replay public flat_hierarchy/Royal separately with input hashes. Preserve all unrelated findings. Proof: source-bound receipts; no semantic coverage or acceptance waiver.
 
+- [x] 2.5 Revalidate imported-example and physical-identity controls against the explicit project carrier: author genuine target9 inputs for target9 positives, retain a source10-to9 zero-output refusal, and review complete derived file maps before updating byte pins. Preserve every physical/identity assertion and source fixture. Proof: 62 focused examples/identity/alias/data/determinism and76 complete byte guards passed; all75 complete before/after plan maps and target-specific maps are recorded in carrier-regression-proof.json (2026-11-03).
+
 ## 3. Required closure
 
 - [ ] 3.1 Root-owned combined fast and required exact-head CI, plus public-surface review and all linked c0348 context/presentation gates. Proof: successful exact jobs; no archive while any literal task remains incomplete.
