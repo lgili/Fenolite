@@ -87,3 +87,26 @@ regulator-zone, two-sided) are intentionally not run because the maintainer
 declined this benchmark. This dated decision supersedes the earlier open/deferred
 status; it adds no row, cost or result. Strict OpenSpec and private residue pass.
 Required exact-head CI remains before archive.
+
+
+## Scoped implementation closure — 2026-11-03
+
+The maintainer clarified that problematic geometry was already outside this
+closure CI batch before the run. Close only this specification’s implementation
+on tested source 985f59a1d01a612b2eac0219243199896c24075a and reviewed
+archival documentation. Run 41708879698 remains FAILURE: the27known c0332
+geometry failures are DEFERRED_NOT_PASSED, not passed tests. KiCad9 and all
+five unit jobs succeeded. The relevant KiCad10 module results are inferred
+from complete unfiltered collection and the exhaustive -ra non-pass report;
+no nominal PASSED line or green KiCad10 job is claimed.
+
+`scoped-ci-985f59a1.json` binds the exact tests, explicit KiCad9 positive
+lines, complete log hashes, reused fast proof and existing scoped records.
+The isolated runtime/tests/tools/configuration remain byte-identical to985;
+this does not validate later CAC runtime, close c0355 or replace subsequent
+integration CI. Existing authored/native/default-map proofs and limitations
+remain intact. No suite, native CAD test or CI rerun was started for archive.
+
+The already recorded special gate is verified, without asking for a new
+review: maintainer no-run decision. Its exact record and scope are bound in the
+portable receipt; original limits and no-results statements remain intact.
