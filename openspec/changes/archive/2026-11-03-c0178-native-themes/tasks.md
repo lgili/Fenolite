@@ -77,3 +77,26 @@ are recorded in `docs/evidence/native-viewer-maintainer-review-plan.md`.
   - 2026-11-03: four isolated KiCad10.0.6 CLI discovery subprocesses exited0. Official primary IPC scope confirms9/10 needs GUI; no supported headless theme-persistence path was established. No GPL import, native UI, theme file, themed viewer export or maintainer outcome is claimed. Exact GUI creation/automatic-save/capture handoff prepared externally. S-1298 facts;3.4/3.4a remain open.
 
 Native preparation2026-11-03: actual isolated KiCadGUI10.0.6 authored/persisted the theme;4native matched captures,4actual standalone viewer dry/exactconfirm exports fromclean11bfefd0 and5embedded RGBslots verified.10originalinputs andnativeJSONSHA unchanged. External30filepacket manifest and all links/digests verified; no native JSON/vendorpalette/CAD/screenshots copied into core. Native/browser limitations and launch recovery are explicit in native-gui-preparation-proof.json. Human3.4 and requiredCI remain open. The separate c0180F0.5 drawing is outside this c0178preparation and stays pending in its own tasks.
+
+
+## Scoped implementation closure — 2026-11-03
+
+The maintainer clarified that problematic geometry was already outside this
+closure CI batch before the run. Close only this specification’s implementation
+on tested source 985f59a1d01a612b2eac0219243199896c24075a and reviewed
+archival documentation. Run 41708879698 remains FAILURE: the27known c0332
+geometry failures are DEFERRED_NOT_PASSED, not passed tests. KiCad9 and all
+five unit jobs succeeded. The relevant KiCad10 module results are inferred
+from complete unfiltered collection and the exhaustive -ra non-pass report;
+no nominal PASSED line or green KiCad10 job is claimed.
+
+`scoped-ci-985f59a1.json` binds the exact tests, explicit KiCad9 positive
+lines, complete log hashes, reused fast proof and existing scoped records.
+The isolated runtime/tests/tools/configuration remain byte-identical to985;
+this does not validate later CAC runtime, close c0355 or replace subsequent
+integration CI. Existing authored/native/default-map proofs and limitations
+remain intact. No suite, native CAD test or CI rerun was started for archive.
+
+The already recorded special gate is verified, without asking for a new
+review: actual maintainer approval. Its exact record and scope are bound in the
+portable receipt; original limits and no-results statements remain intact.
