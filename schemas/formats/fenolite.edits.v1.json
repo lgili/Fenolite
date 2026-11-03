@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.edits.v1",
+  "title": "EditsFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.edits.v1"
+    },
+    "part": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/PartEdits"
+      },
+      "description": "Component path to edited values and their recorded script values."
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema"
+  ],
+  "$defs": {
+    "OverValues": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "y": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "rotation": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "side": {
+          "enum": [
+            "top",
+            "bottom"
+          ]
+        },
+        "ref": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "footprint": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "datasheet": {
+          "type": "string"
+        },
+        "dnp": {
+          "type": "boolean"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "User property name to text."
+        },
+        "unplaced": {
+          "enum": [
+            true
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "PartEdits": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "y": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "rotation": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "side": {
+          "enum": [
+            "top",
+            "bottom"
+          ]
+        },
+        "ref": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "footprint": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "datasheet": {
+          "type": "string"
+        },
+        "dnp": {
+          "type": "boolean"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "User property name to text."
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "over": {
+          "$ref": "#/$defs/OverValues"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

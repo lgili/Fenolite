@@ -105,7 +105,7 @@ def test_hidden_power_refused() -> None:
 
 def test_newer_schema_is_fen_3002() -> None:
     with pytest.raises(PinsSchemaError) as caught:
-        parse_pins(HEADER.replace("pins.v0", "pins.v1"))
+        parse_pins(HEADER.replace("pins.v0", "pins.v2"))
     assert from_exception(caught.value, "t").code == "FEN-3002"
 
 

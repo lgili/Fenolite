@@ -123,3 +123,15 @@ Source stayed clean and unchanged; command exit0. Full lint, generated guide,
 format, types and private residue gate passed. See
 `docs/evidence/neck-cut-final-fast.json` for log/driver digests. Later
 accumulated CAC changes retain their own combined gates; task2.2 remains open.
+
+Actual native save/reopen — 2026-11-03: current signed74caa591 regenerates
+all15board_40parts plan files exactly equal to the earlier reviewed native input.
+Altium24.5.2.23 opens an isolated source clone, saves a separate binary document,
+closes it and reopens the saved copy. All573enumerated object kinds and region
+hole counts10/0/0 match. Both complete typed region storages retain every outline,
+hole and closing vertex exactly, including4646hole vertices per storage; both
+reads have zero findings. The original and clone source hashes remain unchanged.
+`docs/evidence/neck-cut-native-save.json` records version, hashes, SDK stages and
+the distinction between three native region objects and two records per byte
+storage. No DRC, repour, metadata-wide equality or other-version claim is made.
+Task2.2 remains open for exact-head CI and any remaining explicit native gates.

@@ -82,6 +82,11 @@ plus optional pose/font. Sheetname/Sheetfile remain code-owned; custom propertie
 Keep unsupported data visible as a refusal instead of dropping it. Empty text is preserved,
 and these properties never add an electrical connection. See `docs/drawn-schematic.md`.
 
+A global label can carry `intersheet_refs = { at = [15, 22], hide = true }` in
+`schematic.toml`; it preserves the fixed Intersheetrefs placeholder pose, including hidden fields.
+Project settings and the selected sheet instance determine the effective text; never replace
+`${INTERSHEET_REFS}` with a literal visible reference or discard its pose because it is hidden.
+
 ## Rails, levels and interfaces in the script
 
 State each supply's voltage once, and the operating range, draw and thresholds of each port from the

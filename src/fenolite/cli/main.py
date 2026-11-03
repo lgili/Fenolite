@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, NoReturn, TextIO, cast
 
 from fenolite import __version__
-from fenolite.cli import plans
+from fenolite.cli import deprecation, plans
 from fenolite.cli import progress as progress_records
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, discover
 from fenolite.cli.errors import CliError, ErrorInfo, from_exception
@@ -75,6 +75,11 @@ class _Parser(argparse.ArgumentParser):
     ``fenolite.api.run`` (``in_process``) prints nothing: ``--help`` is a usage error."""
 
     in_process: bool = False
+
+    def _get_values(self, action: argparse.Action, arg_strings: list[str]) -> Any:
+        values = super()._get_values(action, arg_strings)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownVariableType, reportUnknownMemberType]
+        deprecation.record(self, action)
+        return values
 
     def error(self, message: str) -> NoReturn:
         raise CliError("FEN-2001", message, hint=f"run '{self.prog} --help'")
@@ -585,7 +590,10 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
             if outcome.writes and not command.mutates:
                 raise RuntimeError(f"command {command.name!r} returned writes but is not declared mutating")
     except Exception as exc:  # library errors keep their code; any other exception is a bug (FEN-1001)
-        return _failed(command, exc, started, Result() if isinstance(exc, CliError) else None)
+        failed = Result() if isinstance(exc, CliError) else _refusal(exc)
+        return _failed(command, exc, started, _with_deprecations(failed, ctx))
+
+    outcome = _with_deprecations(outcome, ctx)
 
     n_errors = sum(1 for issue in outcome.issues if issue.severity == "error")
     # a command that reports an error plans, stages and writes nothing, `place --force` excepted
@@ -682,7 +690,9 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
 
     n_failures = n_errors
     if command.name == "library" and getattr(args, "fail_on", "error") == "warning":
-        n_failures += sum(1 for issue in outcome.issues if issue.severity == "warning")
+        n_failures += sum(
+            1 for issue in outcome.issues if issue.severity == "warning" and issue.code != "cli.deprecated"
+        )
     if code is ExitCode.OK and n_failures:
         code = ExitCode.FINDINGS
         detail = (
@@ -692,7 +702,9 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
         )
         error = CliError("FEN-5001", detail, where=command.name).info()
     elif code is ExitCode.OK and outcome.fail_on_warning:
-        n_warnings = sum(1 for issue in outcome.issues if issue.severity == "warning")
+        n_warnings = sum(
+            1 for issue in outcome.issues if issue.severity == "warning" and issue.code != "cli.deprecated"
+        )
         if n_warnings:
             code = ExitCode.FINDINGS
             error = CliError(
@@ -702,6 +714,13 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
     ok = code is ExitCode.OK
     envelope = _envelope(command, shown_outcome, result, ok=ok, receipt=receipt, started=started)
     return _Reply(int(code), envelope, error, outcome.text, outcome.text_on_failure)
+
+
+def _with_deprecations(outcome: Result, ctx: Context) -> Result:
+    # A staged result already carries its reviewed notices. Current use must not duplicate them.
+    present = {issue.where for issue in outcome.issues if issue.code == "cli.deprecated"}
+    additional = tuple(issue for issue in ctx.deprecations if issue.where not in present)
+    return dataclasses.replace(outcome, issues=(*outcome.issues, *additional)) if additional else outcome
 
 
 def _recovery_path(path: Path, cwd: Path) -> str:
@@ -779,6 +798,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 parser.print_help(out)
                 return int(ExitCode.OK)
             ctx = _context(args, mode, err, Path.cwd())
+            ctx = dataclasses.replace(ctx, deprecations=deprecation.notices(parser, commands[args.command]))
             reply = _dispatch(commands[args.command], args, ctx, started)
             _print(reply, ctx, out, err)
             return reply.code
@@ -804,7 +824,8 @@ def invoke(argv: Sequence[str], *, cwd: Path) -> tuple[int, dict[str, Any] | Non
     try:
         try:
             commands = discover()
-            args = build_parser(commands, in_process=True).parse_args(list(argv))
+            parser = build_parser(commands, in_process=True)
+            args = parser.parse_args(list(argv))
             if args.text:
                 raise CliError(
                     "FEN-2001", "--text: fenolite.api.run returns the JSON envelope", where="--text"
@@ -812,6 +833,7 @@ def invoke(argv: Sequence[str], *, cwd: Path) -> tuple[int, dict[str, Any] | Non
             if args.command is None:
                 raise CliError("FEN-2001", "no command was named", where="fenolite")
             ctx = _context(args, "json", io.StringIO(), cwd, in_process=True)
+            ctx = dataclasses.replace(ctx, deprecations=deprecation.notices(parser, commands[args.command]))
             reply = _dispatch(commands[args.command], args, ctx, started)
             envelope = None if reply.envelope is None else json.loads(render_json(reply.envelope))
             error = None if reply.error is None else to_jsonable(reply.error)

@@ -27,3 +27,85 @@ Generated output hashes are labelled generated, not additional original inputs.
 A planted setting change must fail at level6 from the existing and a fresh
 script path; no loader/cache workaround is involved. A prior negative failure
 was diagnosed as missing project projection, not a cache bug.
+
+### Fresh private-copy cache inputs
+After both sides qualify, remove only their fully qualified native padvia derived
+zone nodes from both private native input copies before regeneration. Record
+original cache counts and raw board hashes separately from stripped native-input
+hashes. Unknown/unqualified/non-padvia caches are never stripped or waived.
+All other editable AST nodes and all project/rule bytes stay intact. This is a
+regeneration comparison, never a claim that original cached165 equals new167.
+The existing subprocess wrapper reports only changed files: stripping also
+ensures a successful regeneration must return a changed saved board, so absent
+native output remains failure instead of being silently treated as success.
+Coordinator approved this explicit fresh-regeneration contract2026-11-02 after
+the original-source stripped-copy native167 geometry probe matched normal refill.
+
+### Native non-simple derived rings
+Actual KiCad10.0.6 fresh regeneration of the declared public Complex source
+produces nonzero-area derived rings with proper edge crossings. Rejecting all
+non-simple rings would add a constraint outside the exact-ring contract. Keep
+all rational vertices, crossings and multiplicities unchanged and compare the
+complete regenerated multisets; expose raw/native proper-crossing ring and
+edge-pair counts with hashes and tool version. This is not geometry validation,
+repair or a DRC pass. Malformed syntax, unknown metadata and zero-area rings
+still refuse. For a crossing ring, parent qualification uses exact edge/body
+intersection only, never an assumed interior winding. For a simple ring an
+entirely enclosed parent may also qualify. Coordinator reviewed this distinction
+before implementation2026-11-02; planted crossing/vertex changes must still fail.
+
+### Stacked physical pads and electrical partition identity
+Measured public Royal source has multiple physical pads sharing the same
+reference, pad number and net. Existing strict model levels including L3 are
+equal; these pads denote one electrical element in the L2 partition. Collapse
+only identical (REF-PIN, net) repetitions for partition binding. Preserve every
+physical pad and its geometry/multiplicity in the model and all derived cache
+multiplicities. A repeated REF-PIN with a different net or duplicate Reference
+across footprint instances remains ambiguous and refuses. Raw native saved
+bindings enforce this same exact rule; no net spelling/alias approximation.
+Coordinator approved this focused follow-up before code2026-11-02.
+
+### Exact via copper spans
+Royal declared source has8 copper layers;49 otherwise valid cached regions
+could not qualify because via endpoint layers were mistaken for the complete
+occupied span (20 In4,11 In5,8 In2 and10 front attachments). Resolve only via
+spans by the exact copper stack declared in the native board: named endpoints
+include each intervening copper layer. A blind span includes only its declared
+subrange. Unknown/duplicate/invalid endpoint or stack declarations refuse,
+with no guessed two-layer fallback. Existing pad-layer semantics are unchanged.
+Coordinator approved this existing-model-semantics correction before code;
+authored interior/blind/outside/malformed controls precede implementation.
+
+### Explicit custom-pad anchor subset
+The remaining10Royal front parents are custom pads with an explicit rectangular
+anchor of the declared size, plus additive primitives. Existing model/facts
+(frame.md S-0001) specify an anchor circle/rectangle and added copper. After
+an authored actual native10 control, qualification may use ONLY an explicitly
+validated anchor circle/rectangle as a conservative contact subset. It never
+pretends to model the additional primitive copper, defaults a missing anchor,
+or qualifies attachment outside that subset. Unknown/malformed options refuse.
+All physical primitives remain untouched in original models/private inputs and
+the complete native-regenerated geometry comparison remains exact. Parents with
+a drill offset refuse until its actual shifted copper is supported (existing
+KICAD-VERIFIED frame-offset fact). Coordinator approved before implementation;
+inside-anchor/outside-primitive native controls precede the adapter change.
+
+### Conservative curved attachment
+An arc's endpoint chord is not its copper path. The helper's former chord
+substitution gave a false contact on an authored arc curving around a pad.
+Until exact arc/body intersection is supported, require an actual arc endpoint
+inside the supported anchor/body. Segment/body intersection remains exact;
+arc-interior-only contact conservatively does not qualify. Routing/arc syntax,
+geometry and multiplicity remain unchanged. Coordinator approved before fix.
+
+### Exact shifted rectangle bodies
+The Complex regression is specifically27 nonzero drill-offset parents
+(18roundrect,9rect), not an arc/padstack/chamfer issue. Existing verified frame
+facts place the hole at pad.at while translating the copper in the pad's own
+quarter-turn frame. After authored native controls, permit only RECT/ROUNDRECT
+integer-nm offsets, translating the analytic body exactly by its raw pad-angle
+quarter turn. Do not alter hole/model/native syntax. Custom/oval/circle offsets
+remain unqualified. Prove0/90/180/270 and both footprint sides before permitting
+all such poses; reject malformed/inexact offsets without rounding. Coordinator
+approved this scope before implementation. Complex must regain exact16b255c6
+geometry from the original raw165→fresh167 pair, not a waived cache match.

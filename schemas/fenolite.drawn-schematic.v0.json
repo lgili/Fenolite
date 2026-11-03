@@ -206,6 +206,9 @@
         },
         "justify": {
           "type": "string"
+        },
+        "intersheet_refs": {
+          "$ref": "#/$defs/field"
         }
       },
       "required": [
@@ -213,7 +216,23 @@
         "text",
         "at"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "intersheet_refs"
+            ]
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "const": "global"
+              }
+            }
+          }
+        }
+      ]
     },
     "no_connect": {
       "type": "object",

@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.lock.v1",
+  "title": "LockFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.lock.v1"
+    },
+    "design": {
+      "type": "string"
+    },
+    "refs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "picks": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "description": "Picked query key to recorded identity; readers validate each supported binding."
+    },
+    "pins": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/LockPin"
+      }
+    },
+    "blocks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "library": {
+      "$ref": "#/$defs/LockLibraries"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "design"
+  ],
+  "$defs": {
+    "LockLibraries": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/LockLibrary"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "LockLibrary": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "release": {
+          "type": "string"
+        },
+        "spdx": {
+          "type": "string"
+        },
+        "tree": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "path",
+        "release",
+        "spdx",
+        "tree",
+        "version"
+      ]
+    },
+    "LockPin": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "option": {
+          "type": "string"
+        },
+        "alternative": {
+          "type": "integer"
+        },
+        "pins": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "choice": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "option",
+        "alternative",
+        "pins"
+      ]
+    }
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.symbol-contexts.v1",
+  "title": "SymbolContextsFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.symbol-contexts.v1"
+    },
+    "drawing": {
+      "type": "string"
+    },
+    "target": {
+      "enum": [
+        9,
+        10
+      ]
+    },
+    "symbol": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SymbolContext"
+      },
+      "minItems": 1
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "drawing",
+    "target",
+    "symbol"
+  ],
+  "$defs": {
+    "SymbolContext": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string"
+        },
+        "native_id": {
+          "type": "string"
+        },
+        "asset": {
+          "type": "string"
+        },
+        "asset_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "definition_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "input": {
+          "type": "string"
+        },
+        "input_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "binding_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "sheet",
+        "native_id",
+        "asset",
+        "asset_sha256",
+        "definition_sha256",
+        "input",
+        "input_sha256",
+        "binding_sha256"
+      ]
+    }
+  }
+}

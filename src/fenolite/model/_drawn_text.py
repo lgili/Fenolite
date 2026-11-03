@@ -159,6 +159,8 @@ def _sheet_blocks(sheet: DrawnSheet) -> list[str]:
             lines.append(f"font = {_font(label.font)}")
         if label.justify is not None:
             lines.append(f"justify = {_string(label.justify)}")
+        if label.intersheet_refs is not None:
+            lines.append("intersheet_refs = { " + ", ".join(_field_parts(label.intersheet_refs)) + " }")
         blocks.append(_block("[[sheet.label]]", lines))
     for alias in sheet.bus_aliases:
         members = ", ".join(_string(m) for m in alias.members)

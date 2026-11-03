@@ -1,0 +1,531 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.net.v1",
+  "title": "NetResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "net": {
+      "$ref": "#/$defs/NetNet"
+    },
+    "nets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/NetNetsItem"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "NetNet": {
+      "type": "object",
+      "properties": {
+        "box": {
+          "$ref": "#/$defs/NetNetBox"
+        },
+        "class": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "copper": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NetNetCopperItem"
+          }
+        },
+        "fill_islands": {
+          "type": "integer"
+        },
+        "islands": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "open": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NetNetOpenItem"
+          }
+        },
+        "pads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NetNetPadsItem"
+          }
+        },
+        "vias": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NetNetViasItem"
+          }
+        },
+        "zones": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NetNetZonesItem"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "box",
+        "class",
+        "copper",
+        "fill_islands",
+        "islands",
+        "name",
+        "open",
+        "pads",
+        "vias",
+        "zones"
+      ]
+    },
+    "NetNetBox": {
+      "type": "object",
+      "properties": {
+        "x0": {
+          "type": "integer"
+        },
+        "x1": {
+          "type": "integer"
+        },
+        "y0": {
+          "type": "integer"
+        },
+        "y1": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "x0",
+        "x1",
+        "y0",
+        "y1"
+      ]
+    },
+    "NetNetCopperItem": {
+      "type": "object",
+      "properties": {
+        "arcs": {
+          "type": "integer"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "length": {
+          "type": "integer"
+        },
+        "tracks": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "arcs",
+        "layer",
+        "length",
+        "tracks"
+      ]
+    },
+    "NetNetOpenItem": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "$ref": "#/$defs/NetNetOpenItemA"
+        },
+        "b": {
+          "$ref": "#/$defs/NetNetOpenItemB"
+        },
+        "length": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "length"
+      ]
+    },
+    "NetNetOpenItemA": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "position": {
+          "$ref": "#/$defs/NetNetOpenItemAPosition"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "layers",
+        "position",
+        "where"
+      ]
+    },
+    "NetNetOpenItemAPosition": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "NetNetOpenItemB": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "position": {
+          "$ref": "#/$defs/NetNetOpenItemBPosition"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "layers",
+        "position",
+        "where"
+      ]
+    },
+    "NetNetOpenItemBPosition": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "NetNetPadsItem": {
+      "type": "object",
+      "properties": {
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "position": {
+          "$ref": "#/$defs/NetNetPadsItemPosition"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "layers",
+        "position",
+        "where"
+      ]
+    },
+    "NetNetPadsItemPosition": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "NetNetViasItem": {
+      "type": "object",
+      "properties": {
+        "diameter": {
+          "type": "integer"
+        },
+        "drill": {
+          "type": "integer"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "position": {
+          "$ref": "#/$defs/NetNetViasItemPosition"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "diameter",
+        "drill",
+        "layers",
+        "position"
+      ]
+    },
+    "NetNetViasItemPosition": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "NetNetZonesItem": {
+      "type": "object",
+      "properties": {
+        "filled": {
+          "type": "boolean"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "filled",
+        "layers",
+        "name"
+      ]
+    },
+    "NetNetsItem": {
+      "type": "object",
+      "properties": {
+        "class": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "islands": {
+          "type": "integer"
+        },
+        "length": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "open": {
+          "type": "integer"
+        },
+        "pads": {
+          "type": "integer"
+        },
+        "tracks": {
+          "type": "integer"
+        },
+        "vias": {
+          "type": "integer"
+        },
+        "zones": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "class",
+        "islands",
+        "length",
+        "name",
+        "open",
+        "pads",
+        "tracks",
+        "vias",
+        "zones"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    }
+  }
+}

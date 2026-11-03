@@ -31,6 +31,8 @@ BRIEF_KEYS = [
     "starters",
     "suppliers",
     "sends_data_offsite",
+    "contract",
+    "deprecated",
 ]
 BYTES_PER_COMMAND = 300
 BYTES_FIXED = 2000
@@ -65,6 +67,7 @@ def test_brief_view(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         monkeypatch.setattr(type(router), "available", _refuse)
     result = _result(monkeypatch, tmp_path, "--brief", "--no-tools")
     assert list(result) == BRIEF_KEYS
+    assert result["contract"] == "v0" and result["deprecated"] == []
     assert result["fenolite_version"] == fenolite.__version__
     commands = {entry["name"]: entry for entry in result["commands"]}
     public = sorted(name for name, command in discover().items() if not command.hidden)
@@ -138,6 +141,7 @@ def test_default_view_is_unchanged(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     assert list(result) == [
         "fenolite_version", "commands", "global_flags", "mutation_flags", "backends", "experimental",
         "matrix", "conversions", "extras", "tools", "routers", "suppliers", "sends_data_offsite",
+        "contract", "deprecated",
     ]  # fmt: skip
     assert all("summary" not in entry and "arguments" not in entry for entry in result["commands"])
     # change c0110 adds the features of each router
@@ -165,7 +169,8 @@ def test_command_view(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _no_subprocess(monkeypatch)
     for extra in ((), ("--no-tools",)):
         result = _result(monkeypatch, tmp_path, "--command", "route", *extra)
-        assert list(result) == ["command", "global_arguments"]
+        assert list(result) == ["command", "global_arguments", "contract", "deprecated"]
+        assert result["contract"] == "v0" and result["deprecated"] == []
         command = result["command"]
         assert command["name"] == "route" and command["mutates"] is True
         assert "--router" in [flag for argument in command["arguments"] for flag in argument["flags"]]

@@ -1,0 +1,934 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.verify-source.v1",
+  "title": "VerifySourceResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "accepted": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VerifySourceAcceptedItem"
+      }
+    },
+    "against": {
+      "$ref": "#/$defs/VerifySourceAgainst"
+    },
+    "build": {
+      "$ref": "#/$defs/VerifySourceBuild"
+    },
+    "differences": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VerifySourceDifferencesItem"
+      }
+    },
+    "equivalent": {
+      "type": "boolean"
+    },
+    "levels": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VerifySourceLevelsItem"
+      }
+    },
+    "new_accepted": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VerifySourceNewAcceptedItem"
+      }
+    },
+    "notices": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VerifySourceNoticesItem"
+      }
+    },
+    "provenance": {
+      "$ref": "#/$defs/VerifySourceProvenance"
+    },
+    "script": {
+      "$ref": "#/$defs/VerifySourceScript"
+    },
+    "tolerances": {
+      "$ref": "#/$defs/VerifySourceTolerances"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    },
+    "VerifySourceAcceptedItem": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "rule": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "field",
+        "kind",
+        "level",
+        "rule",
+        "where"
+      ]
+    },
+    "VerifySourceAgainst": {
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "backend",
+        "files",
+        "name"
+      ]
+    },
+    "VerifySourceBuild": {
+      "type": "object",
+      "properties": {
+        "copper_check": {
+          "type": "string"
+        },
+        "copy": {
+          "type": "boolean"
+        },
+        "files": {
+          "type": "integer"
+        },
+        "target": {
+          "type": "string"
+        },
+        "read_files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "generated temporary build outputs read by the proof"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "copper_check",
+        "copy",
+        "files",
+        "target"
+      ]
+    },
+    "VerifySourceDifferencesItem": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "field",
+        "kind",
+        "level",
+        "where"
+      ]
+    },
+    "VerifySourceLevelsItem": {
+      "type": "object",
+      "properties": {
+        "compared": {
+          "type": "integer"
+        },
+        "differences": {
+          "type": "integer"
+        },
+        "excluded": {
+          "type": "integer"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "notices": {
+          "type": "integer"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "summary": {
+          "$ref": "#/$defs/VerifySourceLevelsItemSummary"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "compared",
+        "differences",
+        "excluded",
+        "level",
+        "name",
+        "notices",
+        "reason",
+        "status",
+        "summary"
+      ]
+    },
+    "VerifySourceLevelsItemSummary": {
+      "type": "object",
+      "properties": {
+        "changes": {
+          "$ref": "#/$defs/VerifySourceLevelsItemSummaryChanges"
+        },
+        "components": {
+          "$ref": "#/$defs/VerifySourceLevelsItemSummaryComponents"
+        },
+        "copper_no_net": {
+          "$ref": "#/$defs/VerifySourceLevelsItemSummaryCopperNoNet"
+        },
+        "copper_unknown": {
+          "type": "integer"
+        },
+        "dimensions": {
+          "type": "integer"
+        },
+        "extraction_issues": {
+          "type": "integer"
+        },
+        "footprint_items": {
+          "type": "integer"
+        },
+        "footprints": {
+          "type": "integer"
+        },
+        "frame": {
+          "type": "string"
+        },
+        "graphics": {
+          "type": "integer"
+        },
+        "holes": {
+          "type": "integer"
+        },
+        "ignored": {
+          "type": "integer"
+        },
+        "instances": {
+          "type": "integer"
+        },
+        "items": {
+          "type": "integer"
+        },
+        "keepouts": {
+          "type": "integer"
+        },
+        "layers": {
+          "type": "integer"
+        },
+        "length": {
+          "$ref": "#/$defs/VerifySourceLevelsItemSummaryLength"
+        },
+        "netclasses": {
+          "type": "integer"
+        },
+        "nets": {
+          "type": "integer"
+        },
+        "nets_unpaired": {
+          "$ref": "#/$defs/VerifySourceLevelsItemSummaryNetsUnpaired"
+        },
+        "opaque": {
+          "type": "integer"
+        },
+        "outline": {
+          "type": "integer"
+        },
+        "pieces": {
+          "$ref": "#/$defs/VerifySourceLevelsItemSummaryPieces"
+        },
+        "pins": {
+          "type": "integer"
+        },
+        "pitch_nm": {
+          "$ref": "#/$defs/VerifySourceLevelsItemSummaryPitchNm"
+        },
+        "pixel_ppm": {
+          "type": "integer"
+        },
+        "renamed": {
+          "type": "integer"
+        },
+        "rules": {
+          "type": "integer"
+        },
+        "sheets": {
+          "type": "integer"
+        },
+        "sources": {
+          "$ref": "#/$defs/VerifySourceLevelsItemSummarySources"
+        },
+        "stackup": {
+          "type": "integer"
+        },
+        "strict": {
+          "$ref": "#/$defs/VerifySourceLevelsItemSummaryStrict"
+        },
+        "symbols": {
+          "type": "integer"
+        },
+        "texts": {
+          "type": "integer"
+        },
+        "translation": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "unjudged": {
+          "type": "integer"
+        },
+        "unnumbered": {
+          "$ref": "#/$defs/VerifySourceLevelsItemSummaryUnnumbered"
+        },
+        "unshaped": {
+          "$ref": "#/$defs/VerifySourceLevelsItemSummaryUnshaped"
+        },
+        "vias": {
+          "$ref": "#/$defs/VerifySourceLevelsItemSummaryVias"
+        },
+        "zones": {
+          "type": "integer"
+        },
+        "zones_unfilled": {
+          "$ref": "#/$defs/VerifySourceLevelsItemSummaryZonesUnfilled"
+        }
+      },
+      "additionalProperties": true
+    },
+    "VerifySourceLevelsItemSummaryChanges": {
+      "type": "object",
+      "properties": {
+        "board": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "VerifySourceLevelsItemSummaryComponents": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "VerifySourceLevelsItemSummaryCopperNoNet": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "VerifySourceLevelsItemSummaryLength": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "VerifySourceLevelsItemSummaryNetsUnpaired": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "VerifySourceLevelsItemSummaryPieces": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "VerifySourceLevelsItemSummaryPitchNm": {
+      "type": "object",
+      "properties": {
+        "board": {
+          "type": "integer"
+        },
+        "sheet": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "board",
+        "sheet"
+      ]
+    },
+    "VerifySourceLevelsItemSummarySources": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "VerifySourceLevelsItemSummaryStrict": {
+      "type": "object",
+      "properties": {
+        "arcs": {
+          "$ref": "#/$defs/VerifySourceLevelsItemSummaryStrictArcs"
+        },
+        "tracks": {
+          "$ref": "#/$defs/VerifySourceLevelsItemSummaryStrictTracks"
+        },
+        "vias": {
+          "$ref": "#/$defs/VerifySourceLevelsItemSummaryStrictVias"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "arcs",
+        "tracks",
+        "vias"
+      ]
+    },
+    "VerifySourceLevelsItemSummaryStrictArcs": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        },
+        "matched": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "matched"
+      ]
+    },
+    "VerifySourceLevelsItemSummaryStrictTracks": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        },
+        "matched": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "matched"
+      ]
+    },
+    "VerifySourceLevelsItemSummaryStrictVias": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        },
+        "matched": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "matched"
+      ]
+    },
+    "VerifySourceLevelsItemSummaryUnnumbered": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "VerifySourceLevelsItemSummaryUnshaped": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "VerifySourceLevelsItemSummaryVias": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "VerifySourceLevelsItemSummaryZonesUnfilled": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "VerifySourceNewAcceptedItem": {
+      "type": "object",
+      "properties": {
+        "attribution": {
+          "type": "string"
+        },
+        "decided": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "attribution",
+        "decided",
+        "field",
+        "id",
+        "kind",
+        "level",
+        "reason",
+        "where"
+      ]
+    },
+    "VerifySourceNoticesItem": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "field",
+        "kind",
+        "level",
+        "where"
+      ]
+    },
+    "VerifySourceProvenance": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "integer"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "record": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "accepted",
+        "path",
+        "record"
+      ]
+    },
+    "VerifySourceScript": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "sha256"
+      ]
+    },
+    "VerifySourceTolerances": {
+      "type": "object",
+      "properties": {
+        "angle_udeg": {
+          "type": "integer"
+        },
+        "frame": {
+          "type": "string"
+        },
+        "length_nm": {
+          "type": "integer"
+        },
+        "length_ppm": {
+          "type": "integer"
+        },
+        "pixel_ppm": {
+          "type": "integer"
+        },
+        "render_pitch_um": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "angle_udeg",
+        "frame",
+        "length_nm",
+        "length_ppm",
+        "pixel_ppm",
+        "render_pitch_um"
+      ]
+    }
+  }
+}

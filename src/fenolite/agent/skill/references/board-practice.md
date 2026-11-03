@@ -126,4 +126,20 @@ design = Design("curve_configuration")
 design.board(mm(30), mm(20), max_curve_error=mm("0.01"))
 ```
 
+For `verify-source`, a qualified padvia cache may require KiCad10 fresh
+regeneration on both private copies. Read level7 `summary.derived_cache`: raw
+counts/hashes remain visible and complete regenerated geometry must match
+exactly. This does not certify original caches, all project settings or DRC
+safety. Missing tool is `FEN-6001`; native9 cannot run this proof (`FEN-6002`).
+## Reusable scripts and CLI compatibility
+
+Check `capabilities`' `result.contract` and `result.deprecated` before reusing an older script or command.
+The active contract stays `v0` until the 1.0 release; prepared v1 schemas do not activate it.
+`cli.deprecated` names the replacement while retaining the old spelling through contract 1.x;
+it alone changes neither the exit code nor the planned writes. Keep the warning visible and migrate
+callers deliberately instead of treating it as a failed board check.
+
+Conversion reports call the unsupported setting `project-curve-error`, in the
+`project` group with loss class `refuse`; strict conversion stages no write.
+
 Read next: `board-floorplan`, `board-review`, `board-workflow`.

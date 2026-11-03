@@ -1,0 +1,525 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.schematic-composition.v1",
+  "title": "SchematicCompositionFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.schematic-composition.v1"
+    },
+    "algorithm": {
+      "type": "string"
+    },
+    "evidence": {
+      "$ref": "#/$defs/CompositionEvidence"
+    },
+    "units": {
+      "type": "string"
+    },
+    "origin": {
+      "type": "string"
+    },
+    "replayed_sheets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "limits": {
+      "$ref": "#/$defs/CompositionLimits"
+    },
+    "sheets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ComposedSheet"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "algorithm",
+    "evidence",
+    "units",
+    "origin",
+    "replayed_sheets",
+    "limits",
+    "sheets"
+  ],
+  "$defs": {
+    "Attachment": {
+      "type": "object",
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "anchor": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "anchor",
+        "net",
+        "reason"
+      ]
+    },
+    "Box": {
+      "type": "object",
+      "properties": {
+        "x0": {
+          "type": "integer"
+        },
+        "y0": {
+          "type": "integer"
+        },
+        "x1": {
+          "type": "integer"
+        },
+        "y1": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "x0",
+        "y0",
+        "x1",
+        "y1"
+      ]
+    },
+    "ComposedBlock": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "bounds": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "title",
+        "bounds"
+      ]
+    },
+    "ComposedPlacement": {
+      "type": "object",
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "component": {
+          "type": "string"
+        },
+        "part": {
+          "type": "integer"
+        },
+        "block": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "bounds": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "visible": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Visible"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "component",
+        "part",
+        "block",
+        "origin",
+        "rotation",
+        "bounds",
+        "visible"
+      ]
+    },
+    "ComposedSheet": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string"
+        },
+        "flow": {
+          "type": "string"
+        },
+        "preview": {
+          "type": "string"
+        },
+        "region": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "reserved": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "items": false,
+            "minItems": 4,
+            "maxItems": 4
+          }
+        },
+        "placement_candidates": {
+          "type": "integer"
+        },
+        "connection_candidates": {
+          "type": "integer"
+        },
+        "wrapped": {
+          "type": "boolean"
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ComposedBlock"
+          }
+        },
+        "placements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ComposedPlacement"
+          }
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Attachment"
+          }
+        },
+        "wires": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ComposedWire"
+          }
+        },
+        "labelled_connections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LabelledConnection"
+          }
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Issue"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "sheet",
+        "flow",
+        "preview",
+        "region",
+        "reserved",
+        "placement_candidates",
+        "connection_candidates",
+        "wrapped",
+        "blocks",
+        "placements",
+        "attachments",
+        "wires",
+        "labelled_connections",
+        "issues"
+      ]
+    },
+    "ComposedWire": {
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "start": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "end": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "bends": {
+          "type": "integer"
+        },
+        "crossings": {
+          "type": "integer"
+        },
+        "length": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "net",
+        "start",
+        "end",
+        "points",
+        "bends",
+        "crossings",
+        "length"
+      ]
+    },
+    "CompositionEvidence": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string"
+        },
+        "native_review": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "native_review"
+      ]
+    },
+    "CompositionLimits": {
+      "type": "object",
+      "properties": {
+        "grid": {
+          "type": "integer"
+        },
+        "pin_grid": {
+          "type": "integer"
+        },
+        "fanout": {
+          "type": "integer"
+        },
+        "placement_budget": {
+          "type": "integer"
+        },
+        "wire_budget": {
+          "type": "integer"
+        },
+        "text_bounds": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "grid",
+        "pin_grid",
+        "fanout",
+        "placement_budget",
+        "wire_budget",
+        "text_bounds"
+      ]
+    },
+    "Issue": {
+      "description": "A finding reported by a command. Findings of severity ``error`` make the exit code 5.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(\\.[a-z0-9-]+)+$"
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "warning",
+            "info"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        },
+        "hint": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "severity",
+        "message"
+      ]
+    },
+    "LabelledConnection": {
+      "type": "object",
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "pin": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "power": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "pin",
+        "net",
+        "power"
+      ]
+    },
+    "Visible": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "box": {
+          "$ref": "#/$defs/Box"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "kind",
+        "box"
+      ]
+    }
+  }
+}

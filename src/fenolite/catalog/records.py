@@ -52,10 +52,13 @@ from fenolite.model.library import (
 Kind = Literal["pins", "package", "device", "part"]
 SCHEMAS: Mapping[str, Kind] = {
     "fenolite.pins.v0": "pins",
+    "fenolite.pins.v1": "pins",
     "fenolite.package.v0": "package",
+    "fenolite.package.v1": "package",
     "fenolite.device.v1": "device",
     "fenolite.device.v0": "device",
     "fenolite.part.v0": "part",
+    "fenolite.part.v1": "part",
 }
 """Schema → record kind. ``fenolite.device.v0`` is change c0248's format, still read."""
 SCHEMA_OF: Mapping[Kind, str] = {
@@ -566,6 +569,9 @@ def _import_origin(read: _Reader, table: Mapping[str, object]) -> ImportOrigin:
 
 def _header(read: _Reader, data: Mapping[str, object], kind: Kind) -> Header:
     schema = read.text(data.get("schema"), "schema")
+    if kind in {"pins", "package", "part"} and schema in {f"fenolite.{kind}.v0", f"fenolite.{kind}.v1"}:
+        # Mirror IDs decode to the current domain version, matching record_text's unchanged writer.
+        schema = SCHEMA_OF[kind]
     for key in HEADER_REQUIRED:
         if key not in data:
             raise read.fail(key, "is missing")

@@ -54,7 +54,7 @@ def test_read_rejects_unknown_and_inexact(tmp_path: Path, old: str, new: str, ke
 
 def test_read_higher_schema(tmp_path: Path) -> None:
     path = tmp_path / "future.toml"
-    path.write_text(LAYOUT.read_text().replace("block-layout.v0", "block-layout.v1"))
+    path.write_text(LAYOUT.read_text().replace("block-layout.v0", "block-layout.v2"))
     with pytest.raises(BlockLayoutError) as error:
         read_block_layout(path)
     assert error.value.code == "FEN-3002"

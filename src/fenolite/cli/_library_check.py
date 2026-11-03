@@ -26,11 +26,12 @@ from fenolite.catalog.footprints import Generated, generate, positions_of
 from fenolite.catalog.footprints.record import Keys, Package, package_from
 from fenolite.catalog.generate.symbol import generate_symbol
 from fenolite.catalog.pins import read_pins
-from fenolite.cli.api import Context, PlannedWrite, Result, depends_on
+from fenolite.cli.api import Context, PlannedWrite, Result, contract_schema, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level, parse_level, strength
 from fenolite.core.quantities import LengthRange
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.geometry.errors import GeometryError
 from fenolite.library import items as library_items
 from fenolite.library import review, rules
@@ -47,7 +48,7 @@ def capability_entries() -> list[dict[str, object]]:
         {
             "name": f"library {action}",
             "mutates": True,
-            "schema": "fenolite.library.v0",
+            "schema": contract_schema("library"),
             "hidden": False,
             "usage": usage,
         }
@@ -188,7 +189,7 @@ def _read(path: Path, cwd: Path) -> list[Item]:
         parse_proposal(text, file=file)
         return []
     family = raw.get("family") or (raw.get("generator") if raw.get("generator") != "explicit" else None)
-    if schema == "fenolite.package.v0" and family and raw.get("generator") != "explicit":
+    if accepts_schema(schema, "fenolite.package.v0") and family and raw.get("generator") != "explicit":
         package = package_from(raw, file=file)
         count = (positions_of(package) or (None,))[0]
         generated = generate(package, positions=count)
@@ -222,7 +223,9 @@ def _read(path: Path, cwd: Path) -> list[Item]:
                 )
         return [item]
     drawing = raw.get("symbol", {})
-    if schema == "fenolite.pins.v0" and (not isinstance(drawing, dict) or "pins" not in drawing):
+    if accepts_schema(schema, "fenolite.pins.v0") and (
+        not isinstance(drawing, dict) or "pins" not in drawing
+    ):
         table = read_pins(path)
         symbol, _derived, findings = generate_symbol(table, library=table.namespace or "Local")
         header = records.parse_header(raw, "pins", file=file)
@@ -275,7 +278,7 @@ def _register(path: Path) -> tuple[set[str] | None, Path | None]:
                 schema = tomllib.loads(text).get("schema")
             except ValueError as error:
                 raise FormatError(f"sources.toml: {error}", file=str(candidate)) from None
-            if schema == "fenolite.library-sources.v0":
+            if accepts_schema(schema, "fenolite.library-sources.v0"):
                 return set(source_ids(parent)), candidate
             # Retain the earlier S-id register form for project records.
             return set(re.findall(r"\bS-\d{4,}\b", text)), candidate

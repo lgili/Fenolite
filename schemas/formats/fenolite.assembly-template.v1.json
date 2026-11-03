@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.assembly-template.v1",
+  "title": "AssemblyTemplateFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.assembly-template.v1"
+    },
+    "csv": {
+      "$ref": "#/$defs/CsvOptions"
+    },
+    "bom": {
+      "$ref": "#/$defs/BomTemplate"
+    },
+    "placement": {
+      "$ref": "#/$defs/PlacementTemplate"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema"
+  ],
+  "$defs": {
+    "AssemblyColumn": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "field"
+      ]
+    },
+    "BomTemplate": {
+      "type": "object",
+      "properties": {
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Column"
+          }
+        },
+        "group_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ref_separator": {
+          "type": "string"
+        },
+        "exclude_dnp": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Column": {
+      "description": "One column: the ``name`` printed in the header and the ``field`` whose value fills it.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "field"
+      ]
+    },
+    "CsvOptions": {
+      "type": "object",
+      "properties": {
+        "delimiter": {
+          "type": "string"
+        },
+        "quote": {
+          "enum": [
+            "minimal",
+            "all"
+          ]
+        },
+        "line_end": {
+          "enum": [
+            "lf",
+            "crlf"
+          ]
+        },
+        "header": {
+          "type": "boolean"
+        },
+        "encoding": {
+          "enum": [
+            "utf-8",
+            "utf-8-sig"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "FootprintRotation": {
+      "type": "object",
+      "properties": {
+        "match": {
+          "type": "string"
+        },
+        "offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "match",
+        "offset"
+      ]
+    },
+    "PlacementTemplate": {
+      "type": "object",
+      "properties": {
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AssemblyColumn"
+          }
+        },
+        "units": {
+          "enum": [
+            "mm",
+            "in",
+            "mil"
+          ]
+        },
+        "decimals": {
+          "type": "integer"
+        },
+        "rotation_decimals": {
+          "type": "integer"
+        },
+        "origin": {
+          "enum": [
+            "page",
+            "outline"
+          ]
+        },
+        "y_axis": {
+          "enum": [
+            "up",
+            "down"
+          ]
+        },
+        "sides": {
+          "$ref": "#/$defs/SideNames"
+        },
+        "exclude_dnp": {
+          "type": "boolean"
+        },
+        "smd_only": {
+          "type": "boolean"
+        },
+        "rotation": {
+          "$ref": "#/$defs/RotationRule"
+        },
+        "fiducials": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RotationRule": {
+      "type": "object",
+      "properties": {
+        "top": {
+          "$ref": "#/$defs/SideRotation"
+        },
+        "bottom": {
+          "$ref": "#/$defs/SideRotation"
+        },
+        "footprint": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FootprintRotation"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "SideNames": {
+      "description": "What the ``side`` field prints for each side of the board.",
+      "type": "object",
+      "properties": {
+        "top": {
+          "type": "string"
+        },
+        "bottom": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SideRotation": {
+      "type": "object",
+      "properties": {
+        "sign": {
+          "enum": [
+            -1,
+            1
+          ]
+        },
+        "offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

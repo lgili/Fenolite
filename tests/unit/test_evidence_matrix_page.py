@@ -6,6 +6,7 @@ page"; change c0067)."""
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import sys
 from pathlib import Path
@@ -14,7 +15,7 @@ from types import ModuleType
 import pytest
 
 from fenolite.backends import matrix
-from fenolite.backends.base import MatrixRow
+from fenolite.backends.base import MatrixRow, VersionEvidence
 from fenolite.backends.matrix import ModuleClaim
 from fenolite.core.evidence import Evidence, Level
 from fenolite.verify import load_register
@@ -199,3 +200,104 @@ def test_graduation_rendering_uses_injected_proof_context() -> None:
         [row], [], register, runs=[replace(run, stale_hypotheses=frozenset({ident}))], **context
     )
     assert f"kit run {run_id} is stale" in text
+
+
+def test_versioned_conformance_artifacts_are_deterministic_and_current() -> None:
+    tool = _tool()
+    rows = matrix.rows()
+    text = tool.render_conformance_json(rows)
+    assert text == tool.render_conformance_json(tuple(reversed(rows)))
+    assert tool.CONFORMANCE_JSON.read_text(encoding="utf-8") == text
+    assert tool.CONFORMANCE_PAGE.read_text(encoding="utf-8") == tool.render_conformance(rows)
+    data = json.loads(text)
+    assert data["schema"] == "fenolite.conformance.v1"
+    for entry in data["rows"]:
+        assert list(entry) == ["backend", "kind", "operation", "version", "tool", "level", "source"]
+    dsn = next(entry for entry in data["rows"] if entry["kind"] == "specctra_dsn")
+    assert dsn["version"] is dsn["tool"] is dsn["source"] is None and dsn["level"] == "INFERRED"
+    assert str(ROOT) not in text and "\r" not in text
+
+
+def test_missing_conformance_source_fails_check_without_writing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scope = VersionEvidence("20260206", "kicad-cli 10.0.6", Level.INFERRED, "tests/kicad/test_missing.py")
+    row = MatrixRow(
+        "kicad",
+        "kicad_pcb",
+        read=Evidence(Level.INFERRED, hypotheses=("H-K-PCB-READ",)),
+        versions={"read": (scope,)},
+    )
+    tool = _tool()
+    before = {path: path.read_bytes() for path in (PAGE, tool.CONFORMANCE_JSON, tool.CONFORMANCE_PAGE)}
+    monkeypatch.setattr(matrix, "rows", lambda: (row,))
+    assert tool.main(["--check"]) == 1
+    message = capsys.readouterr().err
+    assert "kicad/kicad_pcb/read" in message and "tests/kicad/test_missing.py" in message
+    assert before == {path: path.read_bytes() for path in before}
+
+
+@pytest.mark.parametrize(
+    "source", ["tests/../outside.py", "tests/test_missing.py", "../test_outside.py", "tests\\test_missing.py"]
+)
+def test_conformance_test_sources_cannot_escape_or_name_missing_files(tmp_path: Path, source: str) -> None:
+    scope = VersionEvidence("1", "authored test", Level.INFERRED, source)
+    row = MatrixRow(
+        "x", "kind", read=Evidence(Level.INFERRED, hypotheses=("H-G-MODEL-OWN",)), versions={"read": (scope,)}
+    )
+    assert _tool().source_problems([row], repository=tmp_path)
+
+
+def test_conformance_native_sources_require_current_nonsynthetic_passing_records() -> None:
+    from dataclasses import replace
+
+    from fenolite.verify.kit.manifest import Kit
+    from fenolite.verify.kit.record import load_records
+
+    rows = [row for row in matrix.rows() if row.backend == "altium" and row.kind == "altium_schdoc_ascii"]
+    register = load_register(REGISTER)
+    records = load_records(ROOT)
+    empty_kit = Kit("0" * 64, {}, {}, {}, (), "0" * 64)
+    problems = _tool().source_problems(rows, register=register, records=records, kit=empty_kit)
+    assert len(problems) == 1 and "no current passing native observation" in problems[0]
+    modified = [{**record, "synthetic": True} for record in records]
+    problems = _tool().source_problems(rows, register=register, records=modified, kit=empty_kit)
+    assert len(problems) == 1 and "synthetic" in problems[0]
+    scope = rows[0].versions["write"][0]
+    missing = replace(scope, source="2026-11-01-00000000")
+    bad = replace(rows[0], versions={"write": (missing,)})
+    assert (
+        "no validated recorded run"
+        in _tool().source_problems([bad], register=register, records=records, kit=empty_kit)[0]
+    )
+
+
+@pytest.mark.parametrize("alteration", ["version", "tool", "missing", "failed"])
+def test_native_scope_refuses_mismatched_or_failed_record(alteration: str) -> None:
+    from dataclasses import replace
+
+    from fenolite.verify.kit.manifest import Kit
+    from fenolite.verify.kit.record import load_records
+
+    row = next(row for row in matrix.rows() if row.backend == "altium" and row.kind == "altium_schdoc_ascii")
+    scope = row.versions["write"][0]
+    if alteration == "version":
+        scope = replace(scope, version="AD 0.0")
+    elif alteration == "tool":
+        scope = replace(scope, tool="unrecorded tool")
+    records = load_records(ROOT)
+    if alteration == "missing":
+        records = []
+    elif alteration == "failed":
+        records = [
+            {**record, "hypotheses": [{**item, "outcome": "fail"} for item in record["hypotheses"]]}
+            for record in records
+        ]
+    candidate = replace(row, versions={"write": (scope,)})
+    problems = _tool().source_problems(
+        [candidate],
+        register=load_register(REGISTER),
+        records=records,
+        kit=Kit("0" * 64, {}, {}, {}, (), "0" * 64),
+    )
+    assert problems and "altium/altium_schdoc_ascii/write" in problems[0]

@@ -1,0 +1,29 @@
+# Design
+
+## Existing representations
+
+`Rule` represents an overriding custom rule; it has no hard-floor origin/type. `NetClass` represents class values. KiCad project import clamps effective class values to project floors, but does not preserve independent floor identity in canonical Design. c0351 already declares a native `.kicad_pro` with a digest and includes it in the build/verification read set. Use this declared carrier; never encode hidden Rule name/provenance/ext conventions or invent source rule rows.
+
+## Import
+
+For supported KiCad source projects, emit Default through the existing `design.rules.netclass` API, including exact modeled fields and class membership. Preserve existing supported named-class handling. Preserve hard floors in declared project bytes and do not turn them into unconditional DRU rules. Actual source DRU rules retain their existing selectors, order, severity and minimum/rule DSL path. A source carrying both Pro floors and DRU overrides must retain both, with unchanged measured precedence. Board-only sources and authored minimum() calls keep their current semantics.
+
+## Level6 native context
+
+Path-based API/CLI comparison and verify-source may additionally judge only the existing supported5 floor keys: min_clearance, min_track_width, min_via_diameter, min_through_hole_diameter, min_copper_edge_clearance. Compare supported-version effective values exactly with existing rule-field differences, including a changed floor below every class. Do not erase canonical differences. Missing/ambiguous/malformed native context must not fabricate zero/template success. Explicit Pro selection and unambiguous adjacent project resolution follow c0340. Every read native project file is already bound through source_files and plan dependencies; new consumption must preserve original paths and stale-plan rejection.
+
+Pure Design-vs-Design remains scoped to represented canonical fields; no floor is silently injected. Document this boundary explicitly. No model field, runtime dependency or new public DSL name is added.
+
+## Proofs and limits
+
+Before implementation, census canonical Rules/NetClasses and actual Pro/DRU effective data on original ReadSide, emitted code and rebuilt native project, with exact source/tool hashes. Author native small cases for Default .15/.2 and hardfloor .0762/class .2032; observe actual DRC rows by UUID and include a canary, no exit-code-only judgment. Include source Pro+DRU precedence cases and preserve H-K-PRO-MIN-RULE-2. Plant native floor tampering below all classes and show level6 failure with same/fresh paths; plan stale guards remain required. Existing authored defaults and minimum DSL shapes/bytes must remain exact. Royal may remain a genuine geometry failure; no regeneration loop or relaxed acceptance follows from this change.
+
+## Option B: native netclasses and effective assignments (parent requested review)
+
+The pre-fix census found path ReadSide has ZERO Rules and ZERO NetClasses on both Royal sides: `_with_project_curve` currently projects only curve tolerance. Thus existing path level6 never judged these native classes. Importer Source does apply the project; emitted canonical code has five invented overrides and only USB_DIFF, skipping Default. Record these distinct views explicitly; never claim existing global rule coverage.
+
+Option B adds native-context comparison of the seven existing modeled class length fields and effective class assignments, in addition to the five supported floor keys. Reuse `read_project`/`apply_project` in an ephemeral clone, not new persisted fields. Bind raw PCB net names to canonical nets by exact numbered-pad partitions before applying native patterns/assignments; native escaped spellings and wildcard semantics must be resolved against original raw names, then class membership compared using verified partitions. Same-number same-net stacked pads collapse ONLY in the electrical binding, preserving all physical multiplicities. Conflicting pad nets, duplicate refs and ambiguous bindings refuse. For track-only/unbound nets, retain exact names conservatively, without slash substitutions.
+
+No netclass JSON equality: compare only supported typed fields and effective assignments. Duplicate class names, inexact modeled values, unsupported multiple-class aggregation and malformed relevant assignments must not yield complete native-context equality; expose located refusal/unjudged scope. Unknown unrelated project keys remain outside coverage. Context consumption rechecks traced bytes/digests and supported versions; no ambient undisclosed Pro or stale read set. Differences reuse existing level6 `rule-field`, `netclass-field`, `netclass-members`, `netclass-missing` with native context locations, while all existing canonical differences remain.
+
+Controls required before promotion: source Default .15→.2 changes native DRC and native-context level6; planted floor .0762→.08 below both classes fails independently; switching effective class assignment fails; native raw slash escaping and exact partition rename passes only with unchanged class assignment and L2; conflicting or ambiguous bindings, malformed/duplicate/inexact class fields, unsupported version and changed read sets do not pass. Pure Design and ordinary authored default bytes remain unchanged. This option awaits parent review before runtime implementation.

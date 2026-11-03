@@ -218,12 +218,21 @@ class DrawnLabel:
     font: DrawnFont | None = None
     justify: str | None = None
     """None keeps the legacy role-selected anchor; an explicit empty string centres the text."""
+    intersheet_refs: DrawnField | None = None
+    """The fixed global-label reference placeholder pose; effective text requires project context."""
 
     def __post_init__(self) -> None:
         if self.kind not in ("local", "global", "hierarchical"):
             raise ValueError(f"label kind {self.kind!r} is not local, global or hierarchical")
         if not self.text:
             raise ValueError("a label has a text")
+        if self.intersheet_refs is not None:
+            if not isinstance(self.intersheet_refs, DrawnField):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise TypeError("intersheet_refs is a DrawnField or None")
+            if self.kind != "global":
+                raise ValueError("intersheet_refs belongs to a global label only")
+            if self.intersheet_refs.name != "Intersheetrefs":
+                raise ValueError("intersheet_refs has the fixed field name Intersheetrefs")
         _check_point(self.at, f"label {self.text} position")
         _check_angle(self.rotation, ROTATIONS, f"label {self.text} rotation")
         _check_font(self.font)

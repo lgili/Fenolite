@@ -230,3 +230,52 @@ same-sheet connections even without a parent sheet reference. Native9.0.9 and
 10.0.6 retain all40pins and exact groups/names before/after lowering, with
 same-named child labels isolated. This does not excuse unmatched ports on
 actual child references. Generic/Altium resolver policy is unchanged.
+
+## Global-label inter-sheet reference fields (c0348)
+
+`INFERRED`, S-1290: the official 9/10 manuals describe global-label inter-sheet
+references as project-controlled page lists, expanded from the fixed placeholder.
+The project chooses enabled state, current-page inclusion, short form and affixes.
+
+`ORACLE-VERIFIED(kicad-cli 9.0.9/10.0.6)`, S-1288: authored two-sheet/repeated
+controls agree on enabled/disabled/no-project state, own-page inclusion and
+prefix/suffix, including affixes around an empty list. Short form uses first..last
+for more than two remaining pages even when own-page removal leaves a gap.
+Project show=true displays the field despite stored property hide=yes; without
+a project the default is disabled for either stored hide state. Multiple equal
+global labels on one page do not duplicate that page. Numeric 3,12,4 sorts 3,4,12;
+B,A2,A1 sorts A1,A2,B; numeric ties 2,02 preserve observed hierarchy order.
+Duplicate actual page numbers differ between native 9 and 10 and are not silently
+normalized by a viewer. Complete named Mini native graphs are unchanged by the
+field pose, and moving it by 5 mm/7 mm moves the native SVG text by the same deltas.
+The visible SVG text anchor is not the property's pose point: font/rotation
+baselines offset it. No copied vendor glyph/path/template is introduced.
+
+Further S-1288 authored native controls confirm natural text order A1,A2,A10,
+stable numeric ties in either leading-zero order, case-sensitive A2,B,a10 and
+natural dotted-page order2.1,2.2,2.10 on both actual tools. The private raw-bytes
+scene API treats None context explicitly as no project (display disabled), not
+as recovery from an unresolved owner. Path-aware callers must resolve actual
+project/instance context and cannot silently choose the first repeated instance.
+
+
+## Empty pin numbers at the embedding boundary (c0353)
+
+**ORACLE-VERIFIED(kicad-cli)**, S-1291: in original authored controls, old-format number text `~`
+exports as the empty pin number on9.0.9/10.0.6, while modern-format literal `~` exports as a tilde
+on10.0.6. Empty and literal numbers remain different even at coincident positions. All connected
+control pins and complete named partitions are retained across the four source/target pairs; the
+older executable cannot load a future source, so the modern original is separately measured by10
+and the old target copy by9. No intersection/filter establishes equality.
+
+The embedding writer associates raw slots with checked canonical pins by unit/body-style, pin order,
+cardinality and exact geometry/number identity before rewriting an empty marker. Modern embedding
+converts only a raw tilde whose canonical number/name is empty. Literal tilde numbers are preserved
+on a modern target; an older target refuses locally unless explicit pad mapping supplies a different
+representable number. The authored default body-style0→native1 convention is used only for this
+ephemeral association. No model field is added; the canonical source definition remains unchanged.
+
+Public flat_hierarchy controls are separate source-derived integration evidence, not authored
+fixtures: before correction six HOLE pins changed empty→tilde in direct9→10 embedding. The source
+and portable-import replay remain separate; the latter already retained its generated library's
+correct identities. No native/library source payload is committed here.

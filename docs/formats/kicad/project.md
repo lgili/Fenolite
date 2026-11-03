@@ -327,3 +327,26 @@ normalize the proved effective5000nm default to absence. Nondefault10000nm
 must survive a fresh standalone build and level6 comparison. `None` retains
 legacy default bytes and an existing project’s setting. This is separate from
 comparison tolerances, DRC minimum rules and Fenolite kernel certificates.
+
+
+## Explicit imported project baseline (c0351)
+
+The Python importer retains the checked original project JSON as `native/project.kicad_pro`
+and emits `design.kicad_project(path, sha256=...)`. This is a declared, digest-bound input,
+not a canonical model field and not ambient discovery. Paths must stay within the script folder;
+exact JSON, writable version pairs and known drawing-sheet resource references are checked before
+staging. The existing managed drawing-sheet input must own any nonempty native frame reference.
+
+With this declaration the native input is authoritative for unmanaged values on both fresh builds
+and rebuilds. Typed/code-owned minima, classes, stack, copper curve, text variables and frame
+override it; final file names, root UUID, sheets and top-level caches are rebound to fresh outputs.
+Copper planning uses the same managed minimum as final project writing. Without a declaration,
+existing template/update behavior and default bytes remain unchanged. Altium refuses this
+KiCad-specific input even with `--allow-lossy`; changed template bytes invalidate a confirmed plan.
+
+**ORACLE-VERIFIED(kicad-cli)** (S-1288 authored native controls extended by c0351): actual import
+and confirmed rebuild on 9.0.9 and 10.0.6 retain all five inter-sheet reference settings, effective
+SVG reference text, full named electrical partitions, and a native annular-width finding caused by
+an unmanaged project minimum. Every unrelated DRC finding is compared too. This proves the scoped
+controls, not semantic interpretation of every retained native key. The original and portable
+sidecar are checked unchanged. Proof: `tests/kicad/importer/test_project_template.py`.

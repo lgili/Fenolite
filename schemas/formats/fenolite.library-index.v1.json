@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.library-index.v1",
+  "title": "LibraryIndexFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.library-index.v1"
+    },
+    "name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "commit": {
+      "type": "string"
+    },
+    "requires": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LibraryIndexItem"
+      }
+    },
+    "archives": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/IndexArchive"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "name",
+    "version",
+    "commit",
+    "requires",
+    "items",
+    "archives"
+  ],
+  "$defs": {
+    "Depend": {
+      "description": "An exact dependency of an item: ``kind``, ``id`` and ``version``.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "version"
+      ]
+    },
+    "IndexArchive": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "bytes",
+        "sha256"
+      ]
+    },
+    "LibraryIndexItem": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "spdx": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "depends": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Depend"
+          }
+        },
+        "executes": {
+          "type": "boolean"
+        },
+        "family": {
+          "type": "string"
+        },
+        "reciprocal": {
+          "type": "boolean"
+        },
+        "authors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "upstream": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Upstream"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notice": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "tree": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SizedFile"
+          }
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "proof": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gallery": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "archive": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "version",
+        "title",
+        "summary",
+        "spdx",
+        "tags",
+        "depends",
+        "executes",
+        "family",
+        "reciprocal",
+        "authors",
+        "upstream",
+        "notice",
+        "path",
+        "tree",
+        "bytes",
+        "files",
+        "evidence",
+        "proof",
+        "gallery",
+        "archive"
+      ]
+    },
+    "SizedFile": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "bytes"
+      ]
+    },
+    "Upstream": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "commit": {
+          "type": "string"
+        },
+        "archive_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "retrieved": {
+          "type": "string"
+        },
+        "spdx_expression": {
+          "type": "string"
+        },
+        "source_location": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "commit"
+      ]
+    }
+  }
+}

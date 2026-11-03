@@ -21,7 +21,8 @@ STEPS = [
     ("corpus cache", "uses: actions/cache"),
     (
         "corpus fetch",
-        "run: uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses project --uses cfb",
+        "run: uv run python tools/corpus_fetch.py --uses rt0 --uses sch --uses libs "
+        "--uses project --uses cfb",
     ),
     ("pytest", "run: uv run pytest tests/kicad tests/corpus -q"),
 ]
@@ -90,6 +91,8 @@ def job_problems(workflow: str) -> list[str]:
         if p2 < p1:
             problems.append(f"kicad-10: step {second!r} must come after {first!r}")
     fetches = [line for line in job.splitlines() if "tools/corpus_fetch.py" in line]
+    if not any(re.search(r"--uses sch(?:\s|$)", line) for line in fetches):
+        problems.append("kicad-10: the corpus fetch must pass --uses sch (all declared floor inputs)")
     if not any("--uses libs" in line for line in fetches):
         problems.append("kicad-10: the corpus fetch must pass --uses libs (the demo library rows)")
     if not any("--uses project" in line for line in fetches):
@@ -137,8 +140,13 @@ def test_steps_out_of_order() -> None:
 
 
 def test_library_rows_not_fetched() -> None:
-    text = WORKFLOW.read_text(encoding="utf-8").replace("--uses rt0 --uses libs ", "--uses rt0 ")
+    text = WORKFLOW.read_text(encoding="utf-8").replace(" --uses libs", "")
     assert "kicad-10: the corpus fetch must pass --uses libs (the demo library rows)" in job_problems(text)
+
+
+def test_floor_schematic_rows_not_fetched() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8").replace(" --uses sch ", " ", 1)
+    assert "kicad-10: the corpus fetch must pass --uses sch (all declared floor inputs)" in job_problems(text)
 
 
 def test_reader_rows_not_fetched() -> None:
@@ -926,7 +934,7 @@ def test_kicad_10_heavy_prerequisites_required() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     disabled = text.replace('FENOLITE_HEAVY: "1"', 'FENOLITE_HEAVY: "0"')
     assert any("FENOLITE_HEAVY" in problem for problem in job_problems(disabled))
-    excluded = text.replace("--uses rt0 --uses libs", "--uses rt0 --exclude-uses heavy --uses libs")
+    excluded = text.replace("--uses rt0", "--uses rt0 --exclude-uses heavy", 1)
     assert any("must not exclude heavy" in problem for problem in job_problems(excluded))
 
 
@@ -1083,3 +1091,14 @@ def test_history_scan_shape_rejected() -> None:
         release, nightly, pushed
     )
     assert macos_app_problems(nightly) == [] and yardstick_problems(nightly, ci) == []
+
+
+def test_release_conformance_asset_is_copied_from_the_tag_and_checksummed() -> None:
+    text = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    github = job_text(text, "github-release")
+    copy = github.index("cp docs/evidence/conformance.json ../dist/conformance.json")
+    checksum = github.index("sha256sum -- * > SHA256SUMS")
+    upload = github.index('gh release upload "$TAG" dist/*')
+    create = github.index('gh release create "$TAG" dist/*')
+    assert "working-directory: source" in github[:copy]
+    assert copy < checksum < upload and checksum < create

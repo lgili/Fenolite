@@ -25,7 +25,7 @@ fenolite verify-source ... --record --timestamp 2026-11-01T00:00:00Z --confirm -
    else's finished board, and the build's copper guard runs in `warn`: its findings stay in `issues` as
    warnings and the levels run. Otherwise it refuses as `fenolite build` does. `--copper-check refuse|warn`
    overrides both; `result.build` reports `copper_check` and `copy`.
-2. **Read.** The original (a KiCad project folder or `.kicad_pro`, or an Altium `.PrjPcb`) and the build are
+2. **Read.** The original (a KiCad project folder, `.kicad_pro` or `.kicad_pcb`, or an Altium `.PrjPcb`) and the build are
    read as `fenolite equivalent` reads its sides. A `.kicad_pro` (or a folder of one project) names one
    project: only its `.kicad_pro`, the board and `.kicad_dru` of its stem and the sheet tree of its root
    sheet are read, recorded and rendered, never a second project of the same folder. A KiCad board older than 9.0 is refused (`FEN-3003`, exit
@@ -36,6 +36,33 @@ fenolite verify-source ... --record --timestamp 2026-11-01T00:00:00Z --confirm -
    groups, generated items, images) and reports `opaque-count` for a kind whose counts differ, so a board
    whose import left copper out cannot pass unless the difference is accepted. `--levels 1-7,8` runs a subset. A level a side cannot reach is `skipped` with
    `fidelity.level-skipped` and its reason, never passed silently.
+
+For fully qualified native **padvia derived caches only**, verify-source can
+prove their regenerated result with one KiCad10 tool/version/options on both
+private input copies. Both sides must retain enabled same-net/layer parents,
+exact numbered-pad partition bindings and matching supported project settings;
+existing editable model levels still compare strictly. Only qualified derived
+cache nodes are stripped from the copies, then native refill must save output.
+The complete regenerated polygon/fill/settings multisets compare exactly,
+including rational vertices, holes, layers and duplicate multiplicity. Native
+non-simple rings retain every crossing and vertex; proper crossing counts are
+exposed and no geometry-validity certificate is claimed. Only
+native identifiers and derived priority ordinals are normalized; normal zone
+priorities and pure `equivalent` remain strict. No tolerance or glyph mask is
+used for this copper proof.
+
+Level7 `summary.derived_cache` and recorded proof retain raw counts/hashes,
+stripped native-input hashes, tool/version/command/outcome, regenerated counts
+and geometry hashes. A raw165→167 change remains visible: regenerated equality
+does not assert original cache equality. Missing tool requires installation
+(`FEN-6001`); native9 refuses this feature (`FEN-6002`). Unknown/unqualified
+caches retain the ordinary opaque comparison. Failed native execution, changed
+configuration or unequal complete regenerated geometry cannot qualify equality.
+The summary explicitly lists unjudged native project setting/rule deltas:
+only the existing supported five minima, max_error and teardrop settings are
+judged here; whole project JSON/rule-file equality and a safety DRC gate are not claimed.
+Rule-file syntax is checked before native regeneration: KiCad may otherwise
+report exit0 while ignoring a malformed custom rule file.
 
 | reason | when |
 |---|---|

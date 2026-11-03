@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.altium-observations.v1",
+  "title": "AltiumObservationsFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.altium-observations.v1"
+    },
+    "round": {
+      "enum": [
+        "F0",
+        "J"
+      ]
+    },
+    "native_verdict": {
+      "enum": [
+        "unjudged"
+      ]
+    },
+    "evidence": {
+      "enum": [
+        "INFERRED"
+      ]
+    },
+    "privacy_scan": {
+      "enum": [
+        "passed"
+      ]
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ObservationF0"
+          },
+          {
+            "$ref": "#/$defs/ObservationJ"
+          }
+        ]
+      }
+    },
+    "missing": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "round",
+    "native_verdict",
+    "evidence",
+    "privacy_scan",
+    "files"
+  ],
+  "$defs": {
+    "ObservationF0": {
+      "type": "object",
+      "properties": {
+        "case": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "elements": {
+          "type": "integer"
+        },
+        "sheets": {
+          "type": "integer"
+        },
+        "items": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "control": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "changed_members": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "case",
+        "file",
+        "sha256",
+        "elements",
+        "sheets",
+        "items",
+        "control",
+        "changed_members"
+      ]
+    },
+    "ObservationJ": {
+      "type": "object",
+      "properties": {
+        "case": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "control": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "changes_by_kind": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resave_changes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "case",
+        "file",
+        "sha256",
+        "control",
+        "changes_by_kind",
+        "resave_changes"
+      ]
+    }
+  }
+}

@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.neighbors.v0",
+  "title": "NeighborsResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "neighbors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/NeighborsNeighborsItem"
+      }
+    },
+    "part": {
+      "$ref": "#/$defs/NeighborsPart"
+    },
+    "radius": {
+      "type": "integer"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "NeighborsNeighborsItem": {
+      "type": "object",
+      "properties": {
+        "distance": {
+          "type": "integer"
+        },
+        "overlap": {
+          "type": "boolean"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "shared_nets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "side": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "distance",
+        "overlap",
+        "ref",
+        "shared_nets",
+        "side"
+      ]
+    },
+    "NeighborsPart": {
+      "type": "object",
+      "properties": {
+        "box": {
+          "$ref": "#/$defs/NeighborsPartBox"
+        },
+        "position": {
+          "$ref": "#/$defs/NeighborsPartPosition"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "side": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "box",
+        "position",
+        "ref",
+        "rotation",
+        "side"
+      ]
+    },
+    "NeighborsPartBox": {
+      "type": "object",
+      "properties": {
+        "x0": {
+          "type": "integer"
+        },
+        "x1": {
+          "type": "integer"
+        },
+        "y0": {
+          "type": "integer"
+        },
+        "y1": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "x0",
+        "x1",
+        "y0",
+        "y1"
+      ]
+    },
+    "NeighborsPartPosition": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    }
+  }
+}

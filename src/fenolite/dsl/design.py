@@ -738,6 +738,8 @@ class Design(Container):
         """The drawing sheet of ``sheet()``, as the script names it: a path relative to its folder."""
         self.block: TitleBlock | None = None
         """The title block of ``title_block()``."""
+        self._kicad_project_input: tuple[str, str] | None = None
+        """Explicit native project input declaration, outside canonical model state (c0351)."""
         self.drawn_source: str | None = None
         """The drawn schematic of ``load_schematic()``, as the script names it: a path relative to its
         folder (change c0276)."""
@@ -1570,6 +1572,29 @@ class Design(Container):
             raise DslError(
                 f"sheet(): drawing_sheet {path!r} must be a path inside the folder of the design script"
             )
+
+    def kicad_project(self, path: str, *, sha256: str) -> None:
+        """Declare a portable native .kicad_pro baseline with its mandatory SHA-256 (c0351).
+
+        The build reads it relative to this script and retains unmanaged project settings; typed design
+        settings and fresh generated identities win. The declaration is authoritative on rebuilds too.
+        No file is read by this method. Other backends refuse the request before staging.
+        """
+        if self._kicad_project_input is not None:
+            raise DslError("kicad_project() is called once")
+        if not isinstance(path, str) or not path.lower().endswith(".kicad_pro"):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError("kicad_project(): path names a native .kicad_pro input")
+        parts = path.replace("\\", "/").split("/")
+        if (
+            path.startswith(("/", "\\"))
+            or ":" in parts[0]
+            or any(p in {"", ".", ".."} for p in parts)
+            or any(ord(char) < 32 for char in path)
+        ):
+            raise DslError("kicad_project(): path must stay inside the design script folder")
+        if not isinstance(sha256, str) or re.fullmatch(r"[0-9a-f]{64}", sha256) is None:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError("kicad_project(): sha256 is the mandatory lowercase 64-hex digest")
+        self._kicad_project_input = ("/".join(parts), sha256)
 
     def load_schematic(self, path: str, *, symbol_contexts: str | None = None) -> None:
         """Draw the schematic from ``path``, a ``schematic.toml`` beside the script (schema

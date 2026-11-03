@@ -1,3 +1,15 @@
+#### Scenario: Context version changes require explicit rebinding
+- **GIVEN** a valid public symbol-contexts v0 index whose binding hashes include its actual schema string
+- **WHEN** only its schema changes to v1
+- **THEN** the reader refuses its stale bindings
+- **AND** a deliberately rebound v1 index with unchanged valid assets and definitions is accepted without changing v0 writer bytes
+
+#### Scenario: Current drawn fields remain closed and typed
+- **GIVEN** authored drawn fields with fonts, explicit false/zero, power mirrors, label/pin justification, custom sheet properties and a global inter-sheet reference pose
+- **WHEN** the actual writer output and compatible mirror are validated and read
+- **THEN** every current field is described and retained exactly
+- **AND** unknown nested font keys and invalid field types are rejected
+
 ## MODIFIED Requirements
 
 ### Requirement: Consistency test covers every command
@@ -38,7 +50,7 @@ Every visible command SHALL have a wire class in `fenolite.cli.results.RESULTS` 
 - **THEN** it fails naming `bom` and `rows`
 
 ### Requirement: File format schemas
-Each file format that Fenolite reads or writes beside a design and that is classified public (written by a user, or read by an agent as a command's output) SHALL have a schema file `schemas/fenolite.<name>.v1.json` generated from its dataclass, and its reader MUST accept a document of `fenolite.<name>.v0` and of `fenolite.<name>.v1`. `schemas/README.md` MUST list each format id found in `src/fenolite` with its class, `public` or `internal`; an internal format carries no promise between releases.
+Each file format that Fenolite reads or writes beside a design and that is classified public (written by a user, or read by an agent as a command's output) SHALL have a standalone schema file `schemas/formats/fenolite.<name>.v1.json` generated from its dataclass, and its reader MUST accept a document of `fenolite.<name>.v0` and of `fenolite.<name>.v1`. `schemas/README.md` MUST list each format id found in `src/fenolite` with its class, `public` or `internal`; an internal format carries no promise between releases.
 
 #### Scenario: A v0 document is still read
 - **GIVEN** a `requirements` file of `fenolite.requirements.v0` that `fenolite analyze` read in `0.5.0`

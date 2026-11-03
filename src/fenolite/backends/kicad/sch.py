@@ -126,7 +126,9 @@ SHEET_FILL = "(fill (color 0 0 0 0.0))"
 FIRST_PROPERTIES: tuple[str, ...] = ("Reference", "Value", "Footprint", "Datasheet", "Description")
 VISIBLE_PROPERTIES: frozenset[str] = frozenset({"Reference", "Value"})
 INTERSHEET = ("Intersheetrefs", "${INTERSHEET_REFS}")
-"""The property KiCad 10 keeps on every global label: the list of the pages that use the label."""
+"""The fixed native global-label property; project context expands its page references."""
+INTERSHEET_EXT = "drawn-intersheet"
+"""Private typed field-pose carrier, separate from the label text-style role."""
 
 ROOT = ("kicad_sch",)
 SYMBOL_CHAIN = ("kicad_sch", "symbol")
@@ -1080,9 +1082,11 @@ def field_pose_ext(poses: Sequence[FieldPose]) -> ExtBag:
     return ExtBag(None, (*legacy, *fonts))
 
 
-def field_poses(symbol: SymbolInstance | SheetRef) -> dict[str, FieldPose]:
+def field_poses(
+    symbol: SymbolInstance | SheetRef | NetLabel, *, namespace: str = DRAWN_EXT
+) -> dict[str, FieldPose]:
     """The field poses a drawn schematic gives ``symbol``, by field name; empty for a generated symbol."""
-    bag = symbol.ext.get(DRAWN_EXT)
+    bag = symbol.ext.get(namespace)
     texts = _drawn_style.sheet_property_texts(symbol)
     if texts and not isinstance(symbol, SheetRef):
         raise FormatError("custom sheet property text cannot override a symbol field")
@@ -1090,14 +1094,14 @@ def field_poses(symbol: SymbolInstance | SheetRef) -> dict[str, FieldPose]:
     fonts: dict[str, DrawnFont] = {}
     for key, value in bag.payload if bag is not None else ():
         if key == _drawn_style.FIELD_FONT:
-            name, font = _drawn_style.read_font(value, named=True, where=f"{DRAWN_EXT}.{key}")
+            name, font = _drawn_style.read_font(value, named=True, where=f"{namespace}.{key}")
             assert name is not None
             if name in fonts:
-                raise FormatError(f"repeated drawn font for field {name!r}", locator=f"{DRAWN_EXT}.{key}")
+                raise FormatError(f"repeated drawn font for field {name!r}", locator=f"{namespace}.{key}")
             fonts[name] = font
             continue
         if _drawn_style.style_key(key):
-            raise FormatError(f"unsupported drawn field style {key!r}", locator=f"{DRAWN_EXT}.{key}")
+            raise FormatError(f"unsupported drawn field style {key!r}", locator=f"{namespace}.{key}")
         if key != "field":
             continue
         try:
@@ -1107,12 +1111,12 @@ def field_poses(symbol: SymbolInstance | SheetRef) -> dict[str, FieldPose]:
             found[name] = FieldPose(name, Point(int(x), int(y)), int(rotation), justify, hide == "1")
         except ValueError as error:
             raise FormatError(
-                f"invalid legacy drawn field pose: {error}", locator=f"{DRAWN_EXT}.field"
+                f"invalid legacy drawn field pose: {error}", locator=f"{namespace}.field"
             ) from error
     for name, font in fonts.items():
         if name not in found:
             raise FormatError(
-                f"drawn font has no field pose {name!r}", locator=f"{DRAWN_EXT}.{_drawn_style.FIELD_FONT}"
+                f"drawn font has no field pose {name!r}", locator=f"{namespace}.{_drawn_style.FIELD_FONT}"
             )
         found[name] = dataclasses.replace(found[name], font=font)
     return found
@@ -1518,7 +1522,23 @@ def _created_label(label: NetLabel, ten: bool) -> Node:
         _font(*alignment, font=font),
         node("uuid", Atom.string(kicad_uuid(label))),
     ]
-    if ten and label.kind == "global":
+    poses = field_poses(label, namespace=INTERSHEET_EXT)
+    if poses:
+        if label.kind != "global" or set(poses) != {INTERSHEET[0]}:
+            raise FormatError("a label field pose must be the fixed global Intersheetrefs property")
+        pose = poses[INTERSHEET[0]]
+        children.append(
+            _property(
+                *INTERSHEET,
+                pose.at,
+                ten=ten,
+                hidden=pose.hide,
+                justify=pose.justify,
+                angle=pose.rotation,
+                font=pose.font,
+            )
+        )
+    elif ten and label.kind == "global":
         children.append(_property(*INTERSHEET, label.position, ten=True, hidden=True, justify=justify))
     return node(head, *children)
 

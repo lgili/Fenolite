@@ -9,6 +9,7 @@ Returns a list of "<json-pointer>: <problem>" strings; empty means valid.
 
 from __future__ import annotations
 
+import copy
 import json
 import re
 from pathlib import Path
@@ -29,6 +30,28 @@ _TYPES: dict[str, tuple[type, ...]] = {
 
 def load(name: str) -> dict[str, Any]:
     return json.loads((SCHEMAS / name).read_text(encoding="utf-8"))
+
+
+def closed(schema: dict[str, Any]) -> dict[str, Any]:
+    """Close declared structures while retaining explicitly typed, data-keyed map boundaries."""
+    result = copy.deepcopy(schema)
+
+    def visit(node: Any) -> None:
+        if isinstance(node, dict):
+            if (
+                node.get("type") == "object"
+                and "properties" in node
+                and not node.get("x-fenolite-map", False)
+            ):
+                node["additionalProperties"] = False
+            for value in node.values():
+                visit(value)
+        elif isinstance(node, list):
+            for value in node:
+                visit(value)
+
+    visit(result)
+    return result
 
 
 def _is_type(value: Any, name: str) -> bool:
@@ -61,9 +84,14 @@ def validate(instance: Any, schema: dict[str, Any], root: dict[str, Any] | None 
         names = schema["type"] if isinstance(schema["type"], list) else [schema["type"]]
         if not any(_is_type(instance, n) for n in names):
             return [f"{where}: expected {'/'.join(names)}, got {type(instance).__name__}"]
-    if "enum" in schema and instance not in schema["enum"]:
+    if "enum" in schema and not any(
+        instance == choice and isinstance(instance, bool) == isinstance(choice, bool)
+        for choice in schema["enum"]
+    ):
         errors.append(f"{where}: {instance!r} not in {schema['enum']!r}")
-    if "const" in schema and instance != schema["const"]:
+    if "const" in schema and (
+        instance != schema["const"] or isinstance(instance, bool) != isinstance(schema["const"], bool)
+    ):
         errors.append(f"{where}: expected constant {schema['const']!r}")
     if isinstance(instance, str) and "pattern" in schema and not re.search(schema["pattern"], instance):
         errors.append(f"{where}: {instance!r} does not match {schema['pattern']!r}")
@@ -85,6 +113,10 @@ def validate(instance: Any, schema: dict[str, Any], root: dict[str, Any] | None 
             elif isinstance(additional, dict):
                 errors.extend(validate(value, additional, root, child))
     if isinstance(instance, list):
+        if len(instance) < schema.get("minItems", 0):
+            errors.append(f"{where}: fewer than {schema['minItems']} items")
+        if "maxItems" in schema and len(instance) > schema["maxItems"]:
+            errors.append(f"{where}: more than {schema['maxItems']} items")
         prefix: list[Any] = schema.get("prefixItems", [])
         for index, value in enumerate(instance):
             child = f"{pointer}/{index}"

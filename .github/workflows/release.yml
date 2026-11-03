@@ -155,6 +155,7 @@ jobs:
           python3 ../tooling/tools/release.py notes --tag "$TAG" --dist ../dist --source . \
             --previous "$previous" --pypi \
             --run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" > ../notes.md
+          cp docs/evidence/conformance.json ../dist/conformance.json
           (cd ../dist && sha256sum -- * > SHA256SUMS)
           echo "latest=$(python3 ../tooling/tools/release.py latest --tag "$TAG" --tags ../tags.txt)" >> "$GITHUB_OUTPUT"
       - name: Create or update the GitHub Release

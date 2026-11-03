@@ -1,0 +1,2253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.view.v0",
+  "title": "ViewResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "proposals": {
+      "$ref": "#/$defs/ViewProposals"
+    },
+    "roles": {
+      "$ref": "#/$defs/ViewRoles"
+    },
+    "serve": {
+      "$ref": "#/$defs/ViewServe"
+    },
+    "cache": {
+      "$ref": "#/$defs/ViewCache"
+    },
+    "check": {
+      "$ref": "#/$defs/ViewCheck"
+    },
+    "compare": {
+      "$ref": "#/$defs/ViewCompare"
+    },
+    "document": {
+      "type": "string"
+    },
+    "export": {
+      "$ref": "#/$defs/ViewExport"
+    },
+    "marks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ViewMarksItem"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "project": {
+      "$ref": "#/$defs/ViewProject"
+    },
+    "review": {
+      "$ref": "#/$defs/ViewReview"
+    },
+    "select": {
+      "$ref": "#/$defs/ViewSelect"
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/ViewSummary"
+        }
+      ]
+    },
+    "theme": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "variant": {
+      "$ref": "#/$defs/ViewVariant"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "DrcLimit": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "reported": {
+          "type": "integer"
+        },
+        "limit": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "type",
+        "reported",
+        "limit"
+      ]
+    },
+    "Issue": {
+      "description": "A finding reported by a command. Findings of severity ``error`` make the exit code 5.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(\\.[a-z0-9-]+)+$"
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "warning",
+            "info"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        },
+        "hint": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "severity",
+        "message",
+        "where",
+        "hint",
+        "retryable"
+      ]
+    },
+    "OperationFinding": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "hint": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "at": {
+          "type": "null"
+        },
+        "box": {
+          "type": "null"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "severity",
+        "message",
+        "hint",
+        "where",
+        "stage",
+        "evidence",
+        "at",
+        "box"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    },
+    "ViewCache": {
+      "type": "object",
+      "properties": {
+        "hits": {
+          "type": "integer"
+        },
+        "misses": {
+          "type": "integer"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "hits",
+        "misses",
+        "where"
+      ]
+    },
+    "ViewCheck": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "integer"
+        },
+        "info": {
+          "type": "integer"
+        },
+        "placed": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "warning": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "error",
+        "info",
+        "placed",
+        "total",
+        "warning"
+      ]
+    },
+    "ViewCompare": {
+      "type": "object",
+      "properties": {
+        "added": {
+          "type": "integer"
+        },
+        "changed": {
+          "type": "integer"
+        },
+        "changes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "type": "string"
+        },
+        "moved": {
+          "type": "integer"
+        },
+        "old": {
+          "$ref": "#/$defs/ViewCompareOld"
+        },
+        "removed": {
+          "type": "integer"
+        },
+        "zone": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "added",
+        "changed",
+        "changes",
+        "kind",
+        "moved",
+        "old",
+        "removed",
+        "zone"
+      ]
+    },
+    "ViewCompareOld": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "sha256"
+      ]
+    },
+    "ViewExport": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": "integer"
+        },
+        "documents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "bytes",
+        "documents",
+        "sha256"
+      ]
+    },
+    "ViewFindingCounts": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "integer"
+        },
+        "warning": {
+          "type": "integer"
+        },
+        "info": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "error",
+        "warning",
+        "info"
+      ]
+    },
+    "ViewMarksItem": {
+      "type": "object",
+      "properties": {
+        "created": {
+          "type": "string"
+        },
+        "doc": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "select": {
+          "type": "string"
+        },
+        "x_mm": {
+          "type": "number"
+        },
+        "x_nm": {
+          "type": "integer"
+        },
+        "y_mm": {
+          "type": "number"
+        },
+        "y_nm": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "created",
+        "doc",
+        "id",
+        "note",
+        "select",
+        "x_mm",
+        "x_nm",
+        "y_mm",
+        "y_nm"
+      ]
+    },
+    "ViewProject": {
+      "type": "object",
+      "properties": {
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewProjectGroupsItem"
+          }
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Issue"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "project_file": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "groups",
+        "issues",
+        "name",
+        "project_file",
+        "source"
+      ]
+    },
+    "ViewProjectGroupsItem": {
+      "type": "object",
+      "properties": {
+        "documents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewProjectGroupsItemDocumentsItem"
+          }
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "documents",
+        "name"
+      ]
+    },
+    "ViewProjectGroupsItemDocumentsItem": {
+      "type": "object",
+      "properties": {
+        "group": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "present": {
+          "type": "boolean"
+        },
+        "size": {
+          "type": "integer"
+        },
+        "viewable": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "group",
+        "id",
+        "kind",
+        "name",
+        "path",
+        "present",
+        "size",
+        "viewable"
+      ]
+    },
+    "ViewProposals": {
+      "type": "object",
+      "properties": {
+        "document": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proposals": {
+          "type": "integer"
+        },
+        "candidates": {
+          "type": "integer"
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "native_check": {
+          "enum": [
+            "not-run",
+            "candidate-facts",
+            "acceptance-findings"
+          ]
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "document",
+        "proposals",
+        "candidates",
+        "evidence"
+      ]
+    },
+    "ViewReview": {
+      "type": "object",
+      "properties": {
+        "binding": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/ViewReviewBinding"
+            }
+          ]
+        },
+        "cards": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewReviewCardsItem"
+          }
+        },
+        "note": {
+          "type": "string"
+        },
+        "operation_findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OperationFinding"
+          }
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewReviewStagesItem"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "binding",
+        "cards",
+        "note",
+        "operation_findings",
+        "stages"
+      ]
+    },
+    "ViewReviewBinding": {
+      "type": "object",
+      "properties": {
+        "matched": {
+          "type": "boolean"
+        },
+        "note": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "matched",
+        "note",
+        "path",
+        "sha256"
+      ]
+    },
+    "ViewReviewCardsItem": {
+      "type": "object",
+      "properties": {
+        "binding": {
+          "$ref": "#/$defs/ViewReviewCardsItemBinding"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewReviewCardsItemStagesItem"
+          }
+        },
+        "state": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "missing",
+        "stages",
+        "state",
+        "title"
+      ]
+    },
+    "ViewReviewCardsItemBinding": {
+      "type": "object",
+      "properties": {
+        "matched": {
+          "type": "boolean"
+        },
+        "note": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "matched",
+        "note",
+        "path",
+        "sha256"
+      ]
+    },
+    "ViewReviewCardsItemStagesItem": {
+      "type": "object",
+      "properties": {
+        "counts": {
+          "$ref": "#/$defs/ViewReviewCardsItemStagesItemCounts"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "limits": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DrcLimit"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "state": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "summary": {
+          "$ref": "#/$defs/ViewReviewCardsItemStagesItemSummary"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "counts",
+        "evidence",
+        "limits",
+        "name",
+        "reasons",
+        "state",
+        "status",
+        "summary"
+      ]
+    },
+    "ViewReviewCardsItemStagesItemCounts": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "integer"
+        },
+        "info": {
+          "type": "integer"
+        },
+        "warning": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "error",
+        "info",
+        "warning"
+      ]
+    },
+    "ViewReviewCardsItemStagesItemSummary": {
+      "type": "object",
+      "properties": {
+        "approximated": {
+          "type": "integer"
+        },
+        "arc_tol": {
+          "type": "integer"
+        },
+        "bytes_equal": {
+          "type": "integer"
+        },
+        "clearance": {
+          "type": "integer"
+        },
+        "clearance_cells": {
+          "$ref": "#/$defs/ViewReviewCardsItemStagesItemSummaryClearanceCells"
+        },
+        "compared": {
+          "type": "boolean"
+        },
+        "components": {
+          "type": "integer"
+        },
+        "connections_missing": {
+          "type": "integer"
+        },
+        "differences": {
+          "type": "integer"
+        },
+        "documents": {
+          "type": "integer"
+        },
+        "edge_clearance": {
+          "type": "integer"
+        },
+        "edges": {
+          "$ref": "#/$defs/ViewReviewCardsItemStagesItemSummaryEdges"
+        },
+        "failed": {
+          "type": "integer"
+        },
+        "floating-pin": {
+          "type": "integer"
+        },
+        "hole_in_cutout": {
+          "type": "integer"
+        },
+        "hole_overlap": {
+          "type": "integer"
+        },
+        "holes": {
+          "type": "integer"
+        },
+        "items": {
+          "$ref": "#/$defs/ViewReviewCardsItemStagesItemSummaryItems"
+        },
+        "judged": {
+          "type": "integer"
+        },
+        "keepouts": {
+          "type": "integer"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "level": {
+          "type": "string"
+        },
+        "max_clearance": {
+          "type": "integer"
+        },
+        "measures": {
+          "$ref": "#/$defs/ViewReviewCardsItemStagesItemSummaryMeasures"
+        },
+        "min_pins": {
+          "type": "integer"
+        },
+        "net_tie_pairs": {
+          "type": "integer"
+        },
+        "netlist": {
+          "type": "string"
+        },
+        "nets": {
+          "type": "integer"
+        },
+        "nets_split": {
+          "type": "integer"
+        },
+        "opaque_count": {
+          "type": "integer"
+        },
+        "output-conflict": {
+          "type": "integer"
+        },
+        "pairs": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ViewReviewCardsItemStagesItemSummaryPairsItem"
+              }
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "parity.duplicate-footprints": {
+          "type": "integer"
+        },
+        "parity.extra-footprint": {
+          "type": "integer"
+        },
+        "parity.footprint-mismatch": {
+          "type": "integer"
+        },
+        "parity.missing-footprint": {
+          "type": "integer"
+        },
+        "parity.net-conflict": {
+          "type": "integer"
+        },
+        "parity.pad-without-pin": {
+          "type": "integer"
+        },
+        "parity.pin-without-pad": {
+          "type": "integer"
+        },
+        "pcb": {
+          "$ref": "#/$defs/ViewReviewCardsItemStagesItemSummaryPcb"
+        },
+        "power-undriven": {
+          "type": "integer"
+        },
+        "records": {
+          "type": "integer"
+        },
+        "refs_one_side": {
+          "type": "integer"
+        },
+        "rule_areas": {
+          "type": "integer"
+        },
+        "rules": {
+          "$ref": "#/$defs/ViewReviewCardsItemStagesItemSummaryRules"
+        },
+        "schematic": {
+          "$ref": "#/$defs/ViewReviewCardsItemStagesItemSummarySchematic"
+        },
+        "shorts": {
+          "type": "integer"
+        },
+        "streams": {
+          "type": "integer"
+        },
+        "tolerance": {
+          "type": "integer"
+        },
+        "unjudged": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "unnumbered": {
+          "type": "integer"
+        },
+        "unpoured": {
+          "type": "integer"
+        },
+        "unset_pairs": {
+          "type": "integer"
+        },
+        "unsupported": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true
+        },
+        "zone_overlaps": {
+          "type": "integer"
+        },
+        "zones_unjudged": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true
+    },
+    "ViewReviewCardsItemStagesItemSummaryClearanceCells": {
+      "type": "object",
+      "properties": {
+        "judged": {
+          "type": "integer"
+        },
+        "unjudged": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "judged",
+        "unjudged"
+      ]
+    },
+    "ViewReviewCardsItemStagesItemSummaryEdges": {
+      "type": "object",
+      "properties": {
+        "judged": {
+          "type": "integer"
+        },
+        "max": {
+          "type": "integer"
+        },
+        "rings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unset_items": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "judged",
+        "max",
+        "rings",
+        "unset_items"
+      ]
+    },
+    "ViewReviewCardsItemStagesItemSummaryItems": {
+      "type": "object",
+      "properties": {
+        "arc": {
+          "type": "integer"
+        },
+        "fill": {
+          "type": "integer"
+        },
+        "pad": {
+          "type": "integer"
+        },
+        "track": {
+          "type": "integer"
+        },
+        "via": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "pad"
+      ]
+    },
+    "ViewReviewCardsItemStagesItemSummaryMeasures": {
+      "type": "object",
+      "properties": {
+        "congestion": {
+          "$ref": "#/$defs/ViewReviewCardsItemStagesItemSummaryMeasuresCongestion"
+        },
+        "hpwl": {
+          "type": "integer"
+        },
+        "left_out": {
+          "$ref": "#/$defs/ViewReviewCardsItemStagesItemSummaryMeasuresLeftOut"
+        },
+        "longest": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewReviewCardsItemStagesItemSummaryMeasuresLongestItem"
+          }
+        },
+        "nets": {
+          "type": "integer"
+        },
+        "ratsnest": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "congestion",
+        "hpwl",
+        "left_out",
+        "longest",
+        "nets",
+        "ratsnest"
+      ]
+    },
+    "ViewReviewCardsItemStagesItemSummaryMeasuresCongestion": {
+      "type": "object",
+      "properties": {
+        "busiest": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewReviewCardsItemStagesItemSummaryMeasuresCongestionBusiestItem"
+          }
+        },
+        "cell": {
+          "type": "integer"
+        },
+        "layers_needed": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "x-fenolite-map": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pitch": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tracks_per_layer": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "busiest",
+        "cell",
+        "layers_needed",
+        "pitch",
+        "tracks_per_layer"
+      ]
+    },
+    "ViewReviewCardsItemStagesItemSummaryMeasuresCongestionBusiestItem": {
+      "type": "object",
+      "properties": {
+        "tracks": {
+          "type": "integer"
+        },
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "tracks",
+        "x",
+        "y"
+      ]
+    },
+    "ViewReviewCardsItemStagesItemSummaryMeasuresLeftOut": {
+      "type": "object",
+      "properties": {
+        "off_board": {
+          "type": "integer"
+        },
+        "one_pad_nets": {
+          "type": "integer"
+        },
+        "zone_nets": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "off_board",
+        "one_pad_nets",
+        "zone_nets"
+      ]
+    },
+    "ViewReviewCardsItemStagesItemSummaryMeasuresLongestItem": {
+      "type": "object",
+      "properties": {
+        "hpwl": {
+          "type": "integer"
+        },
+        "net": {
+          "type": "string"
+        },
+        "pads": {
+          "type": "integer"
+        },
+        "ratsnest": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "hpwl",
+        "net",
+        "pads",
+        "ratsnest"
+      ]
+    },
+    "ViewReviewCardsItemStagesItemSummaryPairsItem": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "common": {
+          "type": "integer"
+        },
+        "differences": {
+          "type": "integer"
+        },
+        "only_a": {
+          "type": "integer"
+        },
+        "only_b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "common",
+        "differences",
+        "only_a",
+        "only_b"
+      ]
+    },
+    "ViewReviewCardsItemStagesItemSummaryPcb": {
+      "type": "object",
+      "properties": {
+        "components": {
+          "type": "integer"
+        },
+        "nets": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "components",
+        "nets"
+      ]
+    },
+    "ViewReviewCardsItemStagesItemSummaryRules": {
+      "type": "object",
+      "properties": {
+        "min_clearance": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "near": {
+          "$ref": "#/$defs/ViewReviewCardsItemStagesItemSummaryRulesNear"
+        },
+        "opaque_clearance_rules": {
+          "type": "integer"
+        },
+        "unread": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "ViewReviewCardsItemStagesItemSummaryRulesNear": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "integer"
+        },
+        "judged": {
+          "type": "integer"
+        },
+        "skipped": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "judged",
+        "skipped"
+      ]
+    },
+    "ViewReviewCardsItemStagesItemSummarySchematic": {
+      "type": "object",
+      "properties": {
+        "components": {
+          "type": "integer"
+        },
+        "nets": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "components",
+        "nets"
+      ]
+    },
+    "ViewReviewStagesItem": {
+      "type": "object",
+      "properties": {
+        "counts": {
+          "$ref": "#/$defs/ViewReviewStagesItemCounts"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "limits": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DrcLimit"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "state": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "summary": {
+          "$ref": "#/$defs/ViewReviewStagesItemSummary"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "counts",
+        "evidence",
+        "limits",
+        "name",
+        "reasons",
+        "state",
+        "status",
+        "summary"
+      ]
+    },
+    "ViewReviewStagesItemCounts": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "integer"
+        },
+        "info": {
+          "type": "integer"
+        },
+        "warning": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "error",
+        "info",
+        "warning"
+      ]
+    },
+    "ViewReviewStagesItemSummary": {
+      "type": "object",
+      "properties": {
+        "approximated": {
+          "type": "integer"
+        },
+        "arc_tol": {
+          "type": "integer"
+        },
+        "bytes_equal": {
+          "type": "integer"
+        },
+        "clearance": {
+          "type": "integer"
+        },
+        "clearance_cells": {
+          "$ref": "#/$defs/ViewReviewStagesItemSummaryClearanceCells"
+        },
+        "compared": {
+          "type": "boolean"
+        },
+        "components": {
+          "type": "integer"
+        },
+        "connections_missing": {
+          "type": "integer"
+        },
+        "differences": {
+          "type": "integer"
+        },
+        "documents": {
+          "type": "integer"
+        },
+        "edge_clearance": {
+          "type": "integer"
+        },
+        "edges": {
+          "$ref": "#/$defs/ViewReviewStagesItemSummaryEdges"
+        },
+        "failed": {
+          "type": "integer"
+        },
+        "floating-pin": {
+          "type": "integer"
+        },
+        "hole_in_cutout": {
+          "type": "integer"
+        },
+        "hole_overlap": {
+          "type": "integer"
+        },
+        "holes": {
+          "type": "integer"
+        },
+        "items": {
+          "$ref": "#/$defs/ViewReviewStagesItemSummaryItems"
+        },
+        "judged": {
+          "type": "integer"
+        },
+        "keepouts": {
+          "type": "integer"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "level": {
+          "type": "string"
+        },
+        "max_clearance": {
+          "type": "integer"
+        },
+        "measures": {
+          "$ref": "#/$defs/ViewReviewStagesItemSummaryMeasures"
+        },
+        "min_pins": {
+          "type": "integer"
+        },
+        "net_tie_pairs": {
+          "type": "integer"
+        },
+        "netlist": {
+          "type": "string"
+        },
+        "nets": {
+          "type": "integer"
+        },
+        "nets_split": {
+          "type": "integer"
+        },
+        "opaque_count": {
+          "type": "integer"
+        },
+        "output-conflict": {
+          "type": "integer"
+        },
+        "pairs": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ViewReviewStagesItemSummaryPairsItem"
+              }
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "parity.duplicate-footprints": {
+          "type": "integer"
+        },
+        "parity.extra-footprint": {
+          "type": "integer"
+        },
+        "parity.footprint-mismatch": {
+          "type": "integer"
+        },
+        "parity.missing-footprint": {
+          "type": "integer"
+        },
+        "parity.net-conflict": {
+          "type": "integer"
+        },
+        "parity.pad-without-pin": {
+          "type": "integer"
+        },
+        "parity.pin-without-pad": {
+          "type": "integer"
+        },
+        "pcb": {
+          "$ref": "#/$defs/ViewReviewStagesItemSummaryPcb"
+        },
+        "power-undriven": {
+          "type": "integer"
+        },
+        "records": {
+          "type": "integer"
+        },
+        "refs_one_side": {
+          "type": "integer"
+        },
+        "rule_areas": {
+          "type": "integer"
+        },
+        "rules": {
+          "$ref": "#/$defs/ViewReviewStagesItemSummaryRules"
+        },
+        "schematic": {
+          "$ref": "#/$defs/ViewReviewStagesItemSummarySchematic"
+        },
+        "shorts": {
+          "type": "integer"
+        },
+        "streams": {
+          "type": "integer"
+        },
+        "tolerance": {
+          "type": "integer"
+        },
+        "unjudged": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "unnumbered": {
+          "type": "integer"
+        },
+        "unpoured": {
+          "type": "integer"
+        },
+        "unset_pairs": {
+          "type": "integer"
+        },
+        "unsupported": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true
+        },
+        "zone_overlaps": {
+          "type": "integer"
+        },
+        "zones_unjudged": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true
+    },
+    "ViewReviewStagesItemSummaryClearanceCells": {
+      "type": "object",
+      "properties": {
+        "judged": {
+          "type": "integer"
+        },
+        "unjudged": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "judged",
+        "unjudged"
+      ]
+    },
+    "ViewReviewStagesItemSummaryEdges": {
+      "type": "object",
+      "properties": {
+        "judged": {
+          "type": "integer"
+        },
+        "max": {
+          "type": "integer"
+        },
+        "rings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unset_items": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "judged",
+        "max",
+        "rings",
+        "unset_items"
+      ]
+    },
+    "ViewReviewStagesItemSummaryItems": {
+      "type": "object",
+      "properties": {
+        "arc": {
+          "type": "integer"
+        },
+        "fill": {
+          "type": "integer"
+        },
+        "pad": {
+          "type": "integer"
+        },
+        "track": {
+          "type": "integer"
+        },
+        "via": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "pad"
+      ]
+    },
+    "ViewReviewStagesItemSummaryMeasures": {
+      "type": "object",
+      "properties": {
+        "congestion": {
+          "$ref": "#/$defs/ViewReviewStagesItemSummaryMeasuresCongestion"
+        },
+        "hpwl": {
+          "type": "integer"
+        },
+        "left_out": {
+          "$ref": "#/$defs/ViewReviewStagesItemSummaryMeasuresLeftOut"
+        },
+        "longest": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewReviewStagesItemSummaryMeasuresLongestItem"
+          }
+        },
+        "nets": {
+          "type": "integer"
+        },
+        "ratsnest": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "congestion",
+        "hpwl",
+        "left_out",
+        "longest",
+        "nets",
+        "ratsnest"
+      ]
+    },
+    "ViewReviewStagesItemSummaryMeasuresCongestion": {
+      "type": "object",
+      "properties": {
+        "busiest": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewReviewStagesItemSummaryMeasuresCongestionBusiestItem"
+          }
+        },
+        "cell": {
+          "type": "integer"
+        },
+        "layers_needed": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "x-fenolite-map": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pitch": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tracks_per_layer": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "busiest",
+        "cell",
+        "layers_needed",
+        "pitch",
+        "tracks_per_layer"
+      ]
+    },
+    "ViewReviewStagesItemSummaryMeasuresCongestionBusiestItem": {
+      "type": "object",
+      "properties": {
+        "tracks": {
+          "type": "integer"
+        },
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "tracks",
+        "x",
+        "y"
+      ]
+    },
+    "ViewReviewStagesItemSummaryMeasuresLeftOut": {
+      "type": "object",
+      "properties": {
+        "off_board": {
+          "type": "integer"
+        },
+        "one_pad_nets": {
+          "type": "integer"
+        },
+        "zone_nets": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "off_board",
+        "one_pad_nets",
+        "zone_nets"
+      ]
+    },
+    "ViewReviewStagesItemSummaryMeasuresLongestItem": {
+      "type": "object",
+      "properties": {
+        "hpwl": {
+          "type": "integer"
+        },
+        "net": {
+          "type": "string"
+        },
+        "pads": {
+          "type": "integer"
+        },
+        "ratsnest": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "hpwl",
+        "net",
+        "pads",
+        "ratsnest"
+      ]
+    },
+    "ViewReviewStagesItemSummaryPairsItem": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "common": {
+          "type": "integer"
+        },
+        "differences": {
+          "type": "integer"
+        },
+        "only_a": {
+          "type": "integer"
+        },
+        "only_b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "common",
+        "differences",
+        "only_a",
+        "only_b"
+      ]
+    },
+    "ViewReviewStagesItemSummaryPcb": {
+      "type": "object",
+      "properties": {
+        "components": {
+          "type": "integer"
+        },
+        "nets": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "components",
+        "nets"
+      ]
+    },
+    "ViewReviewStagesItemSummaryRules": {
+      "type": "object",
+      "properties": {
+        "min_clearance": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "near": {
+          "$ref": "#/$defs/ViewReviewStagesItemSummaryRulesNear"
+        },
+        "opaque_clearance_rules": {
+          "type": "integer"
+        },
+        "unread": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "ViewReviewStagesItemSummaryRulesNear": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "integer"
+        },
+        "judged": {
+          "type": "integer"
+        },
+        "skipped": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "judged",
+        "skipped"
+      ]
+    },
+    "ViewReviewStagesItemSummarySchematic": {
+      "type": "object",
+      "properties": {
+        "components": {
+          "type": "integer"
+        },
+        "nets": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "components",
+        "nets"
+      ]
+    },
+    "ViewRoleStates": {
+      "type": "object",
+      "properties": {
+        "confirmed": {
+          "type": "integer"
+        },
+        "declared": {
+          "type": "integer"
+        },
+        "inferred": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "confirmed",
+        "declared",
+        "inferred"
+      ]
+    },
+    "ViewRoles": {
+      "type": "object",
+      "properties": {
+        "document": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "roles": {
+          "$ref": "#/$defs/ViewRoleStates"
+        },
+        "findings": {
+          "$ref": "#/$defs/ViewFindingCounts"
+        },
+        "groups": {
+          "type": "integer"
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "document",
+        "roles",
+        "findings",
+        "groups",
+        "evidence"
+      ]
+    },
+    "ViewRunCounts": {
+      "type": "object",
+      "properties": {
+        "done": {
+          "type": "integer"
+        },
+        "failed": {
+          "type": "integer"
+        },
+        "cancelled": {
+          "type": "integer"
+        },
+        "timeout": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true
+    },
+    "ViewSelect": {
+      "type": "object",
+      "properties": {
+        "found": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "found",
+        "name"
+      ]
+    },
+    "ViewServe": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "seconds": {
+          "type": "number"
+        },
+        "marks_written": {
+          "type": "integer"
+        },
+        "runs": {
+          "$ref": "#/$defs/ViewRunCounts"
+        },
+        "writes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewWrite"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "url",
+        "seconds"
+      ]
+    },
+    "ViewSummary": {
+      "type": "object",
+      "properties": {
+        "bounds_um": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "findings": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lib": {
+          "type": "string"
+        },
+        "models": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/ViewSummaryModels"
+            }
+          ]
+        },
+        "panel": {
+          "type": "boolean"
+        },
+        "sheets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unfilled": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "counts"
+      ]
+    },
+    "ViewSummaryModels": {
+      "type": "object",
+      "properties": {
+        "fitted": {
+          "type": "integer"
+        },
+        "model": {
+          "type": "integer"
+        },
+        "outline": {
+          "type": "integer"
+        },
+        "unmeshed": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "fitted",
+        "model",
+        "outline",
+        "unmeshed"
+      ]
+    },
+    "ViewVariant": {
+      "type": "object",
+      "properties": {
+        "fitted": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "not_fitted": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "fitted",
+        "name",
+        "not_fitted"
+      ]
+    },
+    "ViewWrite": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "action",
+        "files"
+      ]
+    }
+  }
+}

@@ -28,6 +28,7 @@ from typing import Any, Literal, cast, get_args
 from fenolite import __version__
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Level
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.exports import DOCUMENTS_EVIDENCE, EVIDENCE
 from fenolite.exports.plan import DOCUMENT_KINDS, VOLATILE_PREFIXES, Artifact
 
@@ -376,7 +377,7 @@ class _Reader:
         except ValueError as exc:
             raise self.fail(f"not JSON: {exc}", "") from None
         root = self.obj(loaded, "/")
-        if root.get("schema") != SCHEMA:
+        if not accepts_schema(root.get("schema"), SCHEMA):
             raise self.fail(f"the schema is not {SCHEMA}", "/schema")
         items = root.get("artifacts")
         if not isinstance(items, list):

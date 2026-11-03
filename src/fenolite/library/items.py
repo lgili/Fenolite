@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
+from fenolite.core.schema_ids import accepts_schema
+
 ITEM_SCHEMA = "fenolite.library-item.v0"
 ITEM_FILE = "item.json"
 PROVENANCE_FILE = "PROVENANCE.json"
@@ -183,7 +185,7 @@ def read_item(data: bytes, file: str = ITEM_FILE) -> Item:
     unknown = sorted(set(table) - set(ITEM_KEYS))
     if unknown:
         raise _fail(file, unknown[0], f"unknown key; the keys are {', '.join(ITEM_KEYS)}")
-    if table.get("schema") != ITEM_SCHEMA:
+    if not accepts_schema(table.get("schema"), ITEM_SCHEMA):
         raise _fail(file, "schema", f"must be {ITEM_SCHEMA!r}")
     kind = _text(table, "kind", file)
     ident = table.get("id")

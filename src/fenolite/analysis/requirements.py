@@ -37,6 +37,7 @@ from typing import cast
 
 from fenolite.core import quantities
 from fenolite.core.errors import FormatError
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.core.units import Nm, parse_area, parse_length
 from fenolite.model.circuit import Circuit, Net
 from fenolite.model.rules import RuleSubject, Selector
@@ -430,7 +431,7 @@ def load_requirements(text: str, *, file: str = "") -> Requirements:
         data: dict[str, object] = tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
         raise FormatError(f"not valid TOML: {error}", file=file) from None
-    if data.get("schema") != SCHEMA:
+    if not accepts_schema(data.get("schema"), SCHEMA):
         raise _fail(file, "schema", f"must be {SCHEMA!r}")
     _known(data, _TOP, "", file)
     currents: list[CurrentReq] = []

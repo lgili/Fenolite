@@ -6,9 +6,47 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- **Explicit unused-pin acceptance control** (c0276): add an authored connected
+  bus variant whose two unused inputs are declared unconnected. Both Altium
+  forms retain all40pins and place markers only at the intended pin endpoints;
+  original example findings and native acceptance gates stay separate.
+
+- **Native region save validation** (c0332): Altium24.5.2 saves and reopens the
+  authored40-component board while retaining every tested region outline and
+  hole coordinate exactly; original inputs remain unchanged.
+- **Preserve native empty pin numbers** (c0353): direct symbol embedding retains empty pin identities across KiCad targets and keeps literal tilde numbers distinct. Checked unit/style/geometry bindings prevent ambiguous pin matches; an unrepresentable old-target literal refuses before emission unless explicitly mapped. All three public full-owner cases retain complete native9/10 partitions after the correction.
+
+- **Checked inter-sheet presentation context** (c0348): view and level8 use actual owning project settings and explicit repeated-instance scenes. Cache and live reloads bind project/hierarchy inputs; ambiguous or missing contexts refuse while live views retain their last good scene. Public owning-project replay passes on native9/10; exact-head CI remains required.
+
+- **Declared native project inputs** (c0351): imported Python declares a portable KiCad project sidecar with its digest. Rebuilds retain unmanaged project settings while typed settings and fresh schematic identities win; changed inputs invalidate reviewed plans and incompatible targets refuse before staging. No canonical model field or broad native semantic coverage is added.
+
+- **Manual starter layout validation** (c0272): place and route all five authored
+  benches in KiCad, reproduce every reusable layout byte-for-byte and confirm one
+  unchanged five-block golden plan. Native10.0.6 DRC, connectivity and schematic
+  parity have zero findings; illustrative-device evidence remains INFERRED.
+
+
+- c0219: declare format/tool version scopes with test or recorded-kit sources in the conformance matrix; validate sources and include its JSON/checksum in future releases without raising evidence labels.
+
+
+
+- **Typed inter-sheet fields** (c0348): preserve the fixed global-label reference field's pose, hide and font through drawn TOML/canonical/native9/10 writing. Authored native controls retain complete electrical graphs and project-driven text behavior. A private source-bound context resolves project settings and per-instance page lists through view/presentation and cache/live callers. Real-owner replay and exact-head CI remain pending; no final visual fidelity closure is claimed.
+
+- **Typed result and public document schemas** (c0217): describe existing replies
+  with closed tests and extensible published records, retain typed user maps,
+  and accept reviewed v1 mirrors without changing v0 writer bytes. Contextual
+  symbol mirrors require explicit rebinding to their actual schema string.
+
+- **Prepared CLI stability contract** (c0216): discover the active v0 contract
+  and declared deprecations, retain deprecated spellings without altering writes
+  or exit thresholds, and check the actual public CLI/API/DSL surface for drift.
+  Prepared v1 envelope/error schemas leave the active contract and v0 bytes intact.
+
 - **Native root hierarchical ports** (c0350): preserve standalone KiCad root
   labels without inventing a parent, retaining exact pins, groups and names.
   Generic resolution and unmatched child-port errors keep their strict policy.
+  The native10-upgraded legacy control retains all284pins/84groups; the original
+  reader-floor refusal and independent cross-version gate remain explicit.
 
 - **Derived blank-title intent** (c0339): keep explicit blank metadata in the
   authored import example and record the exact removal of empty native blocks
@@ -45,6 +83,8 @@ All notable changes to Fenolite are documented here. The format follows
   supported font through board-to-code import. Refuse unrepresentable poses
   before staging. Native 9/10 SVG controls and the complete Multichannel proof
   retain the custom fields without relaxing geometry or rendering checks.
+- **Explicit reader-floor evidence** (c0347): retain original schematic refusals as strict negative tests and measure official copy upgrades separately, with complete pin/partition/name and digest provenance. Both native jobs must supply matching evidence to a new CI bridge gate. Four genuine old inputs qualify locally; the fifth remains explicitly partial because native9 omits 88 ordinary pins and standalone ports still refuse lowering. No parser floor or acceptance baseline changed. Closed workflow prerequisite tests retain all resource and heavy-input guards after the new schematic fetch.
+
 - **BOM-only diagnostics** (c0334): complete the closed issue ledgers, CLI explanations and guide teaching. Invalid pinned purchasing items now return the intended located build error before producing files. The existing Altium refusal, appended-field order and reserved device-interface name are covered by their adjacent contracts.
 
 - **Reviewed licence registry** (c0333): synchronize the three explicitly
@@ -84,12 +124,29 @@ All notable changes to Fenolite are documented here. The format follows
   names, numbers, geometry or electrical mappings. Exact signed cardinal pin
   rotations are canonicalized modulo360 with source-bound warnings; near-cardinal
   and noncardinal inputs are refused without rounding.
+- **Imported native rule semantics** (c0352, in progress): preserve the actual Default netclass in emitted canonical code and rebuilt native projects; authored KiCad9/10 controls and a representation census distinguish project floors from custom overrides.
+
+- Reuse exact teardrop qualification facts instead of repeating contact work for unrelated nets and layers (c0340); acceptance and geometry remain unchanged. The cache qualifier declares its own narrow INFERRED proof scope.
+
 - **Explicit project curve approximation** (c0340, in progress): preserve a
   positive integer-nm `Board.max_curve_error` through the board DSL, imports
   and KiCad project files; compare its effective setting at level6 and keep
   unsupported Altium lowering strict. Trace project-context input hashes in
   equivalence and verify-source plans. Actual KiCad9.0.9/10.0.6 sensitive
-  default controls pass. Derived-cache comparison and exact-head CI remain open.
+  default controls pass. For qualified padvia caches only, regenerate stripped
+  private copies with one KiCad10 and compare complete exact geometry while
+  retaining raw counts/hashes, crossings and unjudged configuration deltas.
+  Ordinary priorities, pure equivalence and thresholds remain unchanged;
+  Bind stacked pads sharing the same number/net as one electrical element
+  while preserving every physical pad. Conflicting nets and duplicate
+  footprint references refuse. Resolve via endpoints through the exact
+  declared copper stack; unknown/invalid spans refuse. Exact-head CI and
+  public-board closure remain open. The shared conversion ledger registers
+  unsupported curve approximation as an explicit project/refuse loss.
+  Qualify custom pads only through explicit validated anchors, refuse shifted
+  or unsupported bodies, and require actual arc endpoint contact. Support
+  verified rectangle/roundrect drill offsets by exact quarter-turn translation
+  without moving holes; unsupported/inexact offsets still refuse.
 
 - **Preserve blank native title blocks** (c0339, in progress): keep imported
   empty sheet metadata explicitly blank instead of inheriting a dated board.

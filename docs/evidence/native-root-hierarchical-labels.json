@@ -180,12 +180,130 @@
   ],
   "focused_unit_passed": 46,
   "original_sources_unchanged": true,
-  "upgraded_row092_pending": true,
+  "upgraded_row092_pending": false,
   "log_sha256": {
     "c0350-before-native9.log": "cf1d4b1b0568ec5fc8dc9f094ce1912ee2c0ddf73ab734e59b914fa5ac8d2f12",
     "c0350-before-native10.log": "a1bf80c69d7aff02c60100c5847551ec7109c7acbde71162c96c2cafe01aefe6",
     "c0350-after-native9.log": "a7ed8e45269b9f23cca6e9b7e27df9d6eca77856f3a8e4075376be7af9e6744c",
     "c0350-after-native10.log": "cdee18326fcbfeb525cf1099068b64318c8a3bbc8ff706af0989b3f891aa7f54",
-    "c0350-public10.log": "be14edccd4281e0316b32804592d63e8c43cadf1bebb1c2388d4c4a88197e4a1"
+    "c0350-public10.log": "be14edccd4281e0316b32804592d63e8c43cadf1bebb1c2388d4c4a88197e4a1",
+    "c0350-upgraded092.log": "85288119f137fa2209691b17783543f6690f9b12d57a791fa0e35e34e4dccaa3"
+  },
+  "upgraded_row092": {
+    "code_commit": "78c086be",
+    "id": "kicad-demo-10-0-6-sch-092",
+    "native_version": "10.0.6",
+    "original": {
+      "expectation": "original-reader-floor",
+      "format": 20230819,
+      "input_sha256": "0e7b55b9ebe23670147f7a70bef1500fcd8ac112ab6110923fe45673edc5d429",
+      "refusal": {
+        "code": "FEN-3003",
+        "stage": "read",
+        "type": "UnsupportedFormatError"
+      },
+      "status": "refused"
+    },
+    "original_native": {
+      "groups": 84,
+      "named_sha256": "0e0f82cddfc777aa42f5b5402917e0a30f6eb2de537bf1f8a9e4f16af37292c4",
+      "partition_sha256": "250acc335aae395749bd01b1430520e329a32912569c2347656b19dcfabc205a",
+      "pins": 284,
+      "pins_sha256": "82626aaff7a9039c283c262c4fbd9f25a82c1ad36cb85c257eb3893e9b83f4b6"
+    },
+    "upgraded_native": {
+      "groups": 84,
+      "named_sha256": "0e0f82cddfc777aa42f5b5402917e0a30f6eb2de537bf1f8a9e4f16af37292c4",
+      "partition_sha256": "250acc335aae395749bd01b1430520e329a32912569c2347656b19dcfabc205a",
+      "pins": 284,
+      "pins_sha256": "82626aaff7a9039c283c262c4fbd9f25a82c1ad36cb85c257eb3893e9b83f4b6"
+    },
+    "originals_unchanged": true,
+    "status": "upgraded/equal",
+    "upgrade_bridge_equal": true,
+    "upgrades": [
+      {
+        "file": "front-panel-io.kicad_sch",
+        "from_version": 20230819,
+        "relative": "front-panel-io.kicad_sch",
+        "sha256_after": "7e90151450b5c0929b25c8a566a774e50670bdca1e95e867f3e7f5ab55af8d3a",
+        "sha256_before": "0e7b55b9ebe23670147f7a70bef1500fcd8ac112ab6110923fe45673edc5d429",
+        "to_version": 20260306,
+        "tool": "kicad-cli",
+        "tool_version": "10.0.6"
+      }
+    ],
+    "census": {
+      "counts": {
+        "bus_entries": 32,
+        "buses": 34,
+        "junctions": 92,
+        "labels": 56,
+        "opaque": 1,
+        "powers": 84,
+        "sheet_refs": 0,
+        "sheets": 1,
+        "symbols": 116,
+        "wires": 299
+      },
+      "status": "equal",
+      "partition": {
+        "drawn_groups": 84,
+        "drawn_pins": 284,
+        "drawn_unlisted_pins": 0,
+        "equal": true,
+        "name_differences": 0,
+        "names_compared": 44,
+        "naming_equal": true,
+        "naming_scope": "drawn-named-nets",
+        "native_groups": 84,
+        "native_named_groups": 84,
+        "native_only_pins": 0,
+        "native_pins": 284,
+        "only_drawn_groups": 0,
+        "only_native_groups": 0
+      },
+      "lowered_partition": {
+        "drawn_groups": 84,
+        "drawn_pins": 284,
+        "drawn_unlisted_pins": 0,
+        "equal": true,
+        "name_differences": 0,
+        "names_compared": 44,
+        "naming_equal": true,
+        "naming_scope": "drawn-named-nets",
+        "native_groups": 84,
+        "native_named_groups": 84,
+        "native_only_pins": 0,
+        "native_pins": 284,
+        "only_drawn_groups": 0,
+        "only_native_groups": 0
+      },
+      "lowered_native_partition": {
+        "drawn_groups": 84,
+        "drawn_pins": 284,
+        "drawn_unlisted_pins": 0,
+        "equal": true,
+        "name_differences": 0,
+        "names_compared": 84,
+        "naming_equal": true,
+        "naming_scope": "drawn-named-nets",
+        "native_groups": 84,
+        "native_named_groups": 84,
+        "native_only_pins": 0,
+        "native_pins": 284,
+        "only_drawn_groups": 0,
+        "only_native_groups": 0
+      },
+      "issues": {
+        "extract": {},
+        "lower": {},
+        "resolve": {},
+        "resolve-lowered": {},
+        "write": {}
+      }
+    },
+    "raw_receipt_sha256": "f57b2902e06a1c1d96655397326adf2c2974a6f08240867e02b5042e9e6f9b53",
+    "limits": "Measured native10 copy upgrade only. Original remains below the reader floor and refused. Different original native9 exports remain an open c0347 cross-version gate; no equality between native9 and native10 is asserted."
   }
 }

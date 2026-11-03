@@ -1,0 +1,563 @@
+{
+  "schema": "fenolite.conformance.v1",
+  "rows": [
+    {
+      "backend": "altium",
+      "kind": "altium_draftsman",
+      "operation": "write",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_harness",
+      "operation": "write",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_outjob",
+      "operation": "write",
+      "version": "AD 26.5",
+      "tool": "Altium Designer 26.5",
+      "level": "INFERRED",
+      "source": "2026-10-13-87c930fa"
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_pcbdoc",
+      "operation": "detect",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_pcbdoc",
+      "operation": "read",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_pcbdoc",
+      "operation": "write",
+      "version": "AD 26.5",
+      "tool": "Altium Designer 26.5",
+      "level": "INFERRED",
+      "source": "2026-10-13-87c930fa"
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_pcblib",
+      "operation": "detect",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_pcblib",
+      "operation": "read",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_pcblib",
+      "operation": "write",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_prjpcb",
+      "operation": "detect",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_prjpcb",
+      "operation": "read",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_prjpcb",
+      "operation": "write",
+      "version": "AD 26.5",
+      "tool": "Altium Designer 26.5",
+      "level": "INFERRED",
+      "source": "2026-10-13-87c930fa"
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_schdoc_ascii",
+      "operation": "detect",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_schdoc_ascii",
+      "operation": "read",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_schdoc_ascii",
+      "operation": "write",
+      "version": "AD 26.5",
+      "tool": "Altium Designer 26.5",
+      "level": "INFERRED",
+      "source": "2026-10-13-87c930fa"
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_schdoc_binary",
+      "operation": "detect",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_schdoc_binary",
+      "operation": "read",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_schdoc_binary",
+      "operation": "write",
+      "version": "AD 26.5",
+      "tool": "Altium Designer 26.5",
+      "level": "INFERRED",
+      "source": "2026-10-13-87c930fa"
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_schdot",
+      "operation": "write",
+      "version": "AD 26.5",
+      "tool": "Altium Designer 26.5",
+      "level": "INFERRED",
+      "source": "2026-10-13-87c930fa"
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_schlib",
+      "operation": "detect",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_schlib",
+      "operation": "read",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "altium",
+      "kind": "altium_schlib",
+      "operation": "write",
+      "version": "AD 26.5",
+      "tool": "Altium Designer 26.5",
+      "level": "INFERRED",
+      "source": "2026-10-13-87c930fa"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_dru",
+      "operation": "detect",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_dru",
+      "operation": "read",
+      "version": "1",
+      "tool": "kicad-cli 10.0.6",
+      "level": "KICAD-VERIFIED",
+      "source": "tests/kicad/rules/test_rule_dialect.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_dru",
+      "operation": "read",
+      "version": "1",
+      "tool": "kicad-cli 9.0.9",
+      "level": "KICAD-VERIFIED",
+      "source": "tests/kicad/rules/test_rule_dialect.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_dru",
+      "operation": "write",
+      "version": "1",
+      "tool": "kicad-cli 10.0.6",
+      "level": "KICAD-VERIFIED",
+      "source": "tests/kicad/rules/test_rule_kinds.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_dru",
+      "operation": "write",
+      "version": "1",
+      "tool": "kicad-cli 9.0.9",
+      "level": "KICAD-VERIFIED",
+      "source": "tests/kicad/rules/test_rule_kinds.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_lib_table",
+      "operation": "read",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_lib_table",
+      "operation": "write",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_mod",
+      "operation": "detect",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_mod",
+      "operation": "read",
+      "version": "20241229",
+      "tool": "kicad-cli 9.0.9",
+      "level": "INFERRED",
+      "source": "tests/kicad/libs/test_mini_oracle.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_mod",
+      "operation": "read",
+      "version": "20260206",
+      "tool": "kicad-cli 10.0.6",
+      "level": "INFERRED",
+      "source": "tests/kicad/libs/test_mini_oracle.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_mod",
+      "operation": "write",
+      "version": "20241229",
+      "tool": "kicad-cli 9.0.9",
+      "level": "INFERRED",
+      "source": "tests/kicad/libs/test_mod_write_oracle.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_mod",
+      "operation": "write",
+      "version": "20260206",
+      "tool": "kicad-cli 10.0.6",
+      "level": "INFERRED",
+      "source": "tests/kicad/libs/test_mod_write_oracle.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_pcb",
+      "operation": "detect",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_pcb",
+      "operation": "read",
+      "version": "20241229",
+      "tool": "kicad-cli 9.0.9",
+      "level": "INFERRED",
+      "source": "tests/kicad/board/test_board_loads.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_pcb",
+      "operation": "read",
+      "version": "20260206",
+      "tool": "kicad-cli 10.0.6",
+      "level": "INFERRED",
+      "source": "tests/kicad/board/test_board_loads.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_pcb",
+      "operation": "write",
+      "version": "20241229",
+      "tool": "kicad-cli 9.0.9",
+      "level": "INFERRED",
+      "source": "tests/kicad/board/test_triad.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_pcb",
+      "operation": "write",
+      "version": "20260206",
+      "tool": "kicad-cli 10.0.6",
+      "level": "INFERRED",
+      "source": "tests/kicad/board/test_triad.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_pcb",
+      "operation": "roundtrip_exact",
+      "version": "20241229",
+      "tool": "kicad-cli 9.0.9",
+      "level": "INFERRED",
+      "source": "tests/kicad/check/test_corpus_rt.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_pcb",
+      "operation": "roundtrip_exact",
+      "version": "20260206",
+      "tool": "kicad-cli 10.0.6",
+      "level": "INFERRED",
+      "source": "tests/kicad/check/test_corpus_rt.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_pcb",
+      "operation": "roundtrip_modified",
+      "version": "20241229",
+      "tool": "kicad-cli 9.0.9",
+      "level": "INFERRED",
+      "source": "tests/kicad/check/test_corpus_rt.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_pcb",
+      "operation": "roundtrip_modified",
+      "version": "20260206",
+      "tool": "kicad-cli 10.0.6",
+      "level": "INFERRED",
+      "source": "tests/kicad/check/test_corpus_rt.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_pro",
+      "operation": "read",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_pro",
+      "operation": "write",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_pro",
+      "operation": "roundtrip_exact",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_sch",
+      "operation": "detect",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_sch",
+      "operation": "read",
+      "version": "20250114",
+      "tool": "kicad-cli 9.0.9",
+      "level": "CORPUS-VERIFIED",
+      "source": "tests/kicad/schematic/test_corpus_rt2.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_sch",
+      "operation": "read",
+      "version": "20260306",
+      "tool": "kicad-cli 10.0.6",
+      "level": "CORPUS-VERIFIED",
+      "source": "tests/kicad/schematic/test_corpus_rt2.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_sch",
+      "operation": "write",
+      "version": "20250114",
+      "tool": "kicad-cli 9.0.9",
+      "level": "KICAD-VERIFIED",
+      "source": "tests/kicad/schematic/test_generated_oracle.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_sch",
+      "operation": "write",
+      "version": "20260306",
+      "tool": "kicad-cli 10.0.6",
+      "level": "KICAD-VERIFIED",
+      "source": "tests/kicad/schematic/test_generated_oracle.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_sch",
+      "operation": "roundtrip_exact",
+      "version": "20250114",
+      "tool": "kicad-cli 9.0.9",
+      "level": "CORPUS-VERIFIED",
+      "source": "tests/kicad/schematic/test_corpus_rt2.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_sch",
+      "operation": "roundtrip_exact",
+      "version": "20260306",
+      "tool": "kicad-cli 10.0.6",
+      "level": "CORPUS-VERIFIED",
+      "source": "tests/kicad/schematic/test_corpus_rt2.py"
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_sym",
+      "operation": "detect",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_sym",
+      "operation": "read",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_sym",
+      "operation": "write",
+      "version": null,
+      "tool": null,
+      "level": "UNVERIFIED",
+      "source": null
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_wks",
+      "operation": "detect",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_wks",
+      "operation": "read",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_wks",
+      "operation": "write",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "kicad",
+      "kind": "kicad_wks",
+      "operation": "roundtrip_exact",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "specctra",
+      "kind": "specctra_dsn",
+      "operation": "write",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    },
+    {
+      "backend": "specctra",
+      "kind": "specctra_ses",
+      "operation": "read",
+      "version": null,
+      "tool": null,
+      "level": "INFERRED",
+      "source": null
+    }
+  ]
+}

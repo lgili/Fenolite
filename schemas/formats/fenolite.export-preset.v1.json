@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.export-preset.v1",
+  "title": "ExportPresetFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.export-preset.v1"
+    },
+    "gerbers": {
+      "$ref": "#/$defs/GerberPreset"
+    },
+    "drill": {
+      "$ref": "#/$defs/DrillPreset"
+    },
+    "pos": {
+      "$ref": "#/$defs/PositionPreset"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema"
+  ],
+  "$defs": {
+    "DrillPreset": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "enum": [
+            "excellon",
+            "gerber"
+          ]
+        },
+        "units": {
+          "enum": [
+            "mm",
+            "in"
+          ]
+        },
+        "separate_th": {
+          "type": "boolean"
+        },
+        "mirror_y": {
+          "type": "boolean"
+        },
+        "minimal_header": {
+          "type": "boolean"
+        },
+        "origin": {
+          "enum": [
+            "absolute",
+            "plot"
+          ]
+        },
+        "zeros": {
+          "enum": [
+            "decimal",
+            "suppressleading",
+            "suppresstrailing",
+            "keep"
+          ]
+        },
+        "oval_format": {
+          "enum": [
+            "route",
+            "alternate"
+          ]
+        },
+        "map": {
+          "enum": [
+            "none",
+            "pdf",
+            "gerberx2",
+            "ps",
+            "dxf",
+            "svg"
+          ]
+        },
+        "gerber_precision": {
+          "enum": [
+            5,
+            6
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "GerberPreset": {
+      "type": "object",
+      "properties": {
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "protel_extensions": {
+          "type": "boolean"
+        },
+        "x2": {
+          "type": "boolean"
+        },
+        "netlist_attributes": {
+          "type": "boolean"
+        },
+        "aperture_macros": {
+          "type": "boolean"
+        },
+        "precision": {
+          "enum": [
+            5,
+            6
+          ]
+        },
+        "subtract_soldermask": {
+          "type": "boolean"
+        },
+        "use_drill_file_origin": {
+          "type": "boolean"
+        },
+        "include_border_title": {
+          "type": "boolean"
+        },
+        "exclude_refdes": {
+          "type": "boolean"
+        },
+        "exclude_value": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "PositionPreset": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "enum": [
+            "csv",
+            "ascii",
+            "gerber"
+          ]
+        },
+        "units": {
+          "enum": [
+            "mm",
+            "in"
+          ]
+        },
+        "side": {
+          "enum": [
+            "front",
+            "back",
+            "both"
+          ]
+        },
+        "exclude_dnp": {
+          "type": "boolean"
+        },
+        "exclude_fp_th": {
+          "type": "boolean"
+        },
+        "smd_only": {
+          "type": "boolean"
+        },
+        "use_drill_file_origin": {
+          "type": "boolean"
+        },
+        "bottom_negate_x": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

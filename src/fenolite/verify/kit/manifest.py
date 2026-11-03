@@ -28,6 +28,7 @@ from typing import Any, cast
 
 from fenolite.core.errors import FormatError
 from fenolite.core.io import sha256_bytes
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.verify.kit.script import LOG, PROCEDURE, SCRIPT_CALLS, SCRIPT_NAME, script_text
 from fenolite.verify.kit.steps import KIT_SAMPLE, RESULTS, SAMPLES, STEPS, Step, steps_markdown
 
@@ -239,7 +240,9 @@ def read_kit(manifest: bytes, *, file: str = KIT_FILE) -> Kit:
         data: object = json.loads(manifest.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise FormatError(f"{file} is not JSON: {exc}", file=file) from exc
-    if not isinstance(data, dict) or cast(dict[str, object], data).get("schema") != KIT_SCHEMA:
+    if not isinstance(data, dict) or not accepts_schema(
+        cast(dict[str, object], data).get("schema"), KIT_SCHEMA
+    ):
         raise FormatError(f"{file} is not a kit manifest of the schema {KIT_SCHEMA}", file=file)
     body = cast(dict[str, Any], data)
     try:

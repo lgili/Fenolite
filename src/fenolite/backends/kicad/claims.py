@@ -24,7 +24,9 @@ rows they name are stronger.
 
 from __future__ import annotations
 
-from fenolite.backends.base import MatrixRow
+from dataclasses import replace
+
+from fenolite.backends.base import MatrixRow, VersionEvidence
 from fenolite.backends.kicad import dru, libs, lowering, mod, pcb, pro, sch, schgen, sym, versions, wks
 from fenolite.core.evidence import Evidence
 
@@ -32,7 +34,7 @@ NAME = "kicad"
 LIB_TABLE_KIND = "kicad_lib_table"
 PROJECT_KIND = "kicad_pro"
 
-MATRIX: tuple[MatrixRow, ...] = (
+RAW_MATRIX: tuple[MatrixRow, ...] = (
     MatrixRow(
         NAME,
         versions.FileKind.RULES.value,
@@ -84,4 +86,48 @@ MATRIX: tuple[MatrixRow, ...] = (
     ),
 )
 
-__all__ = ["LIB_TABLE_KIND", "MATRIX", "NAME", "PROJECT_KIND"]
+# These scopes preserve the generic cell level. They name the existing pinned oracle jobs and
+# actual tests, not a fresh run of the working tree. Tests guard the tool pins against ci.yml.
+ORACLE_TOOLS = {9: "kicad-cli 9.0.9", 10: "kicad-cli 10.0.6"}
+VERSION_SOURCES: dict[str, dict[str, str]] = {
+    "kicad_pcb": {
+        "read": "tests/kicad/board/test_board_loads.py",
+        "write": "tests/kicad/board/test_triad.py",
+        "roundtrip_exact": "tests/kicad/check/test_corpus_rt.py",
+        "roundtrip_modified": "tests/kicad/check/test_corpus_rt.py",
+    },
+    "kicad_mod": {
+        "read": "tests/kicad/libs/test_mini_oracle.py",
+        "write": "tests/kicad/libs/test_mod_write_oracle.py",
+    },
+    "kicad_dru": {
+        "read": "tests/kicad/rules/test_rule_dialect.py",
+        "write": "tests/kicad/rules/test_rule_kinds.py",
+    },
+    "kicad_sch": {
+        "read": "tests/kicad/schematic/test_corpus_rt2.py",
+        "write": "tests/kicad/schematic/test_generated_oracle.py",
+        "roundtrip_exact": "tests/kicad/schematic/test_corpus_rt2.py",
+    },
+}
+
+
+def _versioned(row: MatrixRow) -> MatrixRow:
+    declared = VERSION_SOURCES.get(row.kind, {})
+    if not declared:
+        return row
+    kind = versions.FileKind(row.kind)
+    scopes = {
+        operation: tuple(
+            VersionEvidence(str(versions.FORMAT_VERSIONS[kind][major]), tool, cell.level, declared[operation])
+            for major, tool in ORACLE_TOOLS.items()
+        )
+        for operation, cell in row.cells()
+        if operation in declared
+    }
+    return replace(row, versions=scopes)
+
+
+MATRIX = tuple(_versioned(row) for row in RAW_MATRIX)
+
+__all__ = ["LIB_TABLE_KIND", "MATRIX", "NAME", "ORACLE_TOOLS", "PROJECT_KIND", "VERSION_SOURCES"]

@@ -1,0 +1,566 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.pick.v0",
+  "title": "PickResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "sends": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "proposals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SupplierProposal"
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PickCandidatesItem"
+      }
+    },
+    "excluded": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PickExcludedItem"
+      }
+    },
+    "generators": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PickGeneratorsItem"
+      }
+    },
+    "lock": {
+      "$ref": "#/$defs/PickLock"
+    },
+    "matches": {
+      "type": "integer"
+    },
+    "path": {
+      "type": "string"
+    },
+    "picks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PickPicksItem"
+      }
+    },
+    "pins": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PinChoice"
+      }
+    },
+    "proposed": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PickProposedItem"
+      }
+    },
+    "query": {
+      "type": "string"
+    },
+    "skipped": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "updates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PickUpdatesItem"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "PickCandidatesItem": {
+      "type": "object",
+      "properties": {
+        "case": {
+          "type": "string"
+        },
+        "catalog": {
+          "type": "string"
+        },
+        "device": {
+          "type": "string"
+        },
+        "distance": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "row": {
+          "type": "string"
+        },
+        "tolerance": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "case",
+        "catalog",
+        "device",
+        "distance",
+        "evidence",
+        "row",
+        "tolerance",
+        "value"
+      ]
+    },
+    "PickExcludedItem": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "string"
+        },
+        "first": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "row": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "first",
+        "reason",
+        "row"
+      ]
+    },
+    "PickGeneratorsItem": {
+      "type": "object",
+      "properties": {
+        "achieved": {
+          "type": "string"
+        },
+        "generator": {
+          "type": "string"
+        },
+        "group": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "parts": {
+          "$ref": "#/$defs/PickGeneratorsItemParts"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "achieved",
+        "generator",
+        "group",
+        "message",
+        "ok",
+        "parts"
+      ]
+    },
+    "PickGeneratorsItemParts": {
+      "type": "object",
+      "properties": {
+        "bot": {
+          "type": "string"
+        },
+        "c": {
+          "type": "string"
+        },
+        "r": {
+          "type": "string"
+        },
+        "scl": {
+          "type": "string"
+        },
+        "sda": {
+          "type": "string"
+        },
+        "top": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "PickLock": {
+      "type": "object",
+      "properties": {
+        "changes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PickLockChangesItem"
+          }
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "file": {
+          "type": "string"
+        },
+        "frozen": {
+          "type": "boolean"
+        },
+        "written": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "changes",
+        "exists",
+        "file",
+        "frozen",
+        "written"
+      ]
+    },
+    "PickLockChangesItem": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": "string"
+        },
+        "before": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "section": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "after",
+        "before",
+        "key",
+        "reason",
+        "section"
+      ]
+    },
+    "PickPicksItem": {
+      "type": "object",
+      "properties": {
+        "before": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "catalog": {
+          "type": "string"
+        },
+        "device": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "row": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "before",
+        "catalog",
+        "device",
+        "evidence",
+        "path",
+        "query",
+        "row",
+        "state"
+      ]
+    },
+    "PickProposedItem": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "file",
+        "id"
+      ]
+    },
+    "PickUpdatesItem": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": "string"
+        },
+        "before": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "after",
+        "before",
+        "path"
+      ]
+    },
+    "PinChoice": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "option": {
+          "type": "string"
+        },
+        "alternative": {
+          "type": "integer"
+        },
+        "pins": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "role names mapped to chosen device functions"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "key",
+        "kind",
+        "option",
+        "alternative",
+        "pins",
+        "source"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    },
+    "SupplierProposal": {
+      "type": "object",
+      "properties": {
+        "mpn": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "attribution": {
+          "type": "string"
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "decoded_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "manufacturer": {
+          "type": "string"
+        },
+        "datasheet": {
+          "type": "string"
+        },
+        "reported": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-fenolite-map": true,
+          "description": "Display-only provider data; excluded from persisted identity."
+        },
+        "offer": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-fenolite-map": true,
+          "description": "Display-only provider offer data; excluded from stored plans."
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "mpn",
+        "file",
+        "attribution",
+        "complete",
+        "decoded_by"
+      ]
+    }
+  }
+}

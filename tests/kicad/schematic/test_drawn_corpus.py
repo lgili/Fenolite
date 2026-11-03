@@ -19,8 +19,11 @@ import pytest
 from _corpus import MANIFEST, manifest_items, require
 from _drawn_context import Contexts, SheetInput
 from _drawn_corpus import Input, measure, record
+from _drawn_floor import original_refusal
 from _resources import required_resources
 
+from fenolite.backends.kicad.sexpr import parse_bytes
+from fenolite.backends.kicad.versions import FileKind, VersionStatus, inspect
 from fenolite.core.errors import FenoliteError
 
 pytestmark = [pytest.mark.needs_kicad, pytest.mark.needs_corpus, pytest.mark.slow]
@@ -114,6 +117,15 @@ def test_demo_drawn_census(row: _schcorpus.SchRow, tmp_path: Path, native) -> No
         if "kicad" in required_resources():
             pytest.fail(f"drawn census input missing: {row.id}", pytrace=False)
     require(item)
+    # This is an explicit negative reader test, never an equality or generic-refusal allowance.
+    try:
+        info = inspect(parse_bytes(row.file.read_bytes()))
+    except FenoliteError:
+        info = None
+    if info is not None and info.kind == FileKind.SCHEMATIC and info.status == VersionStatus.TOO_OLD:
+        negative = original_refusal(row.file.read_bytes())
+        record(tmp_path, {**base, **negative, "seconds": round(time.perf_counter() - started, 6)})
+        return
     try:
         owners = contexts(running).for_row(row.id)
     except Exception as error:

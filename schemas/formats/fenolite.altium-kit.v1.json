@@ -1,0 +1,271 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.altium-kit.v1",
+  "title": "KitFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.altium-kit.v1"
+    },
+    "kit_version": {
+      "type": "integer"
+    },
+    "fenolite_version": {
+      "type": "string"
+    },
+    "seed": {
+      "type": "integer"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "samples": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/KitSample"
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FileDigest"
+      }
+    },
+    "form": {
+      "$ref": "#/$defs/KitForm"
+    },
+    "script": {
+      "$ref": "#/$defs/KitScript"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Step"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "kit_version",
+    "fenolite_version",
+    "seed",
+    "timestamp",
+    "samples",
+    "files",
+    "form",
+    "script",
+    "steps"
+  ],
+  "$defs": {
+    "FileDigest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size"
+      ]
+    },
+    "KitForm": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer"
+        },
+        "schema": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size",
+        "schema"
+      ]
+    },
+    "KitSample": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "script": {
+          "type": "string"
+        },
+        "script_sha256": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileDigest"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "script",
+        "script_sha256",
+        "digest",
+        "files"
+      ]
+    },
+    "KitScript": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "procedure": {
+          "type": "string"
+        },
+        "log": {
+          "type": "string"
+        },
+        "calls": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "procedure",
+        "log",
+        "calls"
+      ]
+    },
+    "Step": {
+      "description": "One step of the kit.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "sample": {
+          "type": "string"
+        },
+        "instruction": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "file",
+            "form"
+          ]
+        },
+        "result": {
+          "type": "string"
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "document": {
+          "type": "string"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "resave",
+              "netlist",
+              "parity",
+              "poured",
+              "copper.clearance",
+              "messages",
+              "listing",
+              "present",
+              "repoured",
+              "pour-match",
+              "pour-same",
+              "pour-kept"
+            ]
+          }
+        },
+        "pending": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "value_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "bool",
+                "int",
+                "text"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expected": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scripted": {
+          "type": "boolean"
+        },
+        "same_as": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "sample",
+        "instruction",
+        "kind",
+        "result",
+        "hypotheses"
+      ]
+    }
+  }
+}

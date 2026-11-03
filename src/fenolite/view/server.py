@@ -106,8 +106,8 @@ class _State:
     building: bool = False
     error: str | None = None
     updated: str | None = None
-    signature: tuple[int, int] | None = None
-    pending: tuple[int, int] | None = None
+    signature: tuple[int, int] | tuple[int, int, str] | None = None
+    pending: tuple[int, int] | tuple[int, int, str] | None = None
 
 
 class Live:
@@ -129,6 +129,8 @@ class Live:
         choices: Choices | None = None,
         derive: ResultDeriver | None = None,
         actions: ActionTools | None = None,
+        document_builder: Callable[[Document], dict[str, Any]] | None = None,
+        dependency_key: Callable[[Document], str] | None = None,
     ) -> None:
         self.tree, self.build, self.overlays, self.open_id, self.log = (
             tree,
@@ -138,6 +140,7 @@ class Live:
             log,
         )
         self.refine = refine
+        self.document_builder, self.dependency_key = document_builder, dependency_key
         self.states: dict[str, _State] = {}
         self.lock = threading.Lock()
         self.marks_file, self.select = marks_file, select
@@ -410,7 +413,7 @@ class Live:
             with self.lock:
                 self.checks.pop(job.doc, None)
         if doc is not None and state is not None and doc.file is not None:
-            state.signature = self._signature(doc.file)  # read again now, not after the watcher settles
+            state.signature = self._document_signature(doc)  # read again now, not after the watcher settles
             self._rebuild(doc, state)
         return {"receipt": receipt, "written": entry}
 
@@ -546,6 +549,13 @@ class Live:
             return None
         return (s.st_size, s.st_mtime_ns)
 
+    def _document_signature(self, doc: Document) -> tuple[int, int] | tuple[int, int, str] | None:
+        assert doc.file is not None
+        signature = self._signature(doc.file)
+        if signature is not None and self.dependency_key is not None:
+            return (*signature, self.dependency_key(doc))
+        return signature
+
     def _store(self, state: _State, scene: dict[str, Any], generation: int) -> bool:
         data = json.dumps(compact(scene), separators=(",", ":"), ensure_ascii=False).encode("utf-8")
         with self.lock:
@@ -564,7 +574,7 @@ class Live:
             state.building = True
         try:
             assert doc.file is not None
-            scene = self.build(doc.file)
+            scene = self.document_builder(doc) if self.document_builder is not None else self.build(doc.file)
             scene["overlays"] = list(scene.get("overlays", [])) + self.overlays
             stored = self._store(state, scene, generation)
             if stored and self.refine is not None:
@@ -600,7 +610,7 @@ class Live:
             return None
         state = self.states.get(doc.id)
         if state is None:
-            state = self.states[doc.id] = _State(signature=self._signature(doc.file))
+            state = self.states[doc.id] = _State(signature=self._document_signature(doc))
             self._rebuild(doc, state)
         return state.scene
 
@@ -622,7 +632,7 @@ class Live:
             doc = self.tree.document(doc_id)
             if doc is None or doc.file is None:
                 continue
-            sig = self._signature(doc.file)
+            sig = self._document_signature(doc)
             if sig is None or sig == state.signature:
                 state.pending = None
                 continue

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.library-sources.v1",
+  "title": "LibrarySourcesFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.library-sources.v1"
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/LibrarySource"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "sources"
+  ],
+  "$defs": {
+    "LibrarySource": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "licence": {
+          "type": "string"
+        },
+        "retrieved": {
+          "type": "string"
+        },
+        "used": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "url",
+        "licence",
+        "retrieved",
+        "used"
+      ]
+    }
+  }
+}

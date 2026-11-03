@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.importer.source import InputFile, Upgrade
 
 SCHEMA = "fenolite.import-provenance.v0"
@@ -91,10 +92,10 @@ def import_record(data: object) -> Mapping[str, Any] | None:
     if not isinstance(data, dict):
         return None
     root = cast(dict[str, Any], data)
-    if root.get("schema") == SCHEMA:
+    if accepts_schema(root.get("schema"), SCHEMA):
         return root
     member = root.get("import")
-    if isinstance(member, dict) and cast(dict[str, Any], member).get("schema") == SCHEMA:
+    if isinstance(member, dict) and accepts_schema(cast(dict[str, Any], member).get("schema"), SCHEMA):
         return cast(dict[str, Any], member)
     return None
 

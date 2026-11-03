@@ -234,7 +234,7 @@ jobs:
           path: /root/.cache/fenolite/corpus
           key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}
       - name: Fetch corpus
-        run: uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses project --uses cfb --uses altium-import --uses altium-pcbdoc --uses altium-pcblib --uses altium-sch --uses altium-schlib --uses altium-text --uses altium-sheet --uses altium-draftsman --uses rta
+        run: uv run python tools/corpus_fetch.py --uses rt0 --uses sch --uses libs --uses project --uses cfb --uses altium-import --uses altium-pcbdoc --uses altium-pcblib --uses altium-sch --uses altium-schlib --uses altium-text --uses altium-sheet --uses altium-draftsman --uses rta
       - name: Oracle and corpus tests
         env:
           FENOLITE_REQUIRE: kicad,corpus
@@ -253,6 +253,13 @@ jobs:
           name: drawn-census-kicad-10
           path: /tmp/**/drawn-census.json
           if-no-files-found: ignore
+      - name: Keep original-floor and copy-upgrade evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drawn-floor-kicad-10
+          path: /tmp/**/drawn-floor.json
+          if-no-files-found: error
 
   kicad-9:
     name: kicad-9 (kicad-cli 9.0 oracle)
@@ -290,6 +297,33 @@ jobs:
           name: drawn-census-kicad-9
           path: /tmp/**/drawn-census.json
           if-no-files-found: ignore
+      - name: Keep original-floor and copy-upgrade evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drawn-floor-kicad-9
+          path: /tmp/**/drawn-floor.json
+          if-no-files-found: error
+
+  drawn-floor-bridge:
+    name: drawn-floor (same-commit native9/native10 electrical bridge)
+    needs: [kicad-9, kicad-10]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download both original-floor evidence sets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: drawn-floor-kicad-*
+          path: /tmp/drawn-floor-evidence
+      - name: Require complete immutable original and upgraded graphs
+        run: python3 tools/verify_drawn_floor.py --reports /tmp/drawn-floor-evidence --commit "$GITHUB_SHA"
+      - name: Both complete native jobs remain required
+        env:
+          NATIVE_NINE_RESULT: ${{ needs.kicad-9.result }}
+          NATIVE_TEN_RESULT: ${{ needs.kicad-10.result }}
+        run: test "$NATIVE_NINE_RESULT" = success && test "$NATIVE_TEN_RESULT" = success
 
   routing:
     name: routing (KiCad ${{ matrix.target }}, pinned KiCadRoutingTools and Freerouting)

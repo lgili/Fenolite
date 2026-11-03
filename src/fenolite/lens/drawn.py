@@ -21,6 +21,7 @@ from typing import Any, cast, get_args
 
 from fenolite.core.coords import Point, Size
 from fenolite.core.errors import FormatError
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.model._drawn_text import HEADER as HEADER
 from fenolite.model._drawn_text import mm as mm
 from fenolite.model._drawn_text import write_drawn as write_drawn
@@ -63,7 +64,16 @@ POLYLINE_KEYS: tuple[str, ...] = ("pts",)
 BUS_ENTRY_KEYS: tuple[str, ...] = ("at", "size")
 JUNCTION_KEYS: tuple[str, ...] = ("at", "diameter")
 NO_CONNECT_KEYS: tuple[str, ...] = ("at",)
-LABEL_KEYS: tuple[str, ...] = ("kind", "text", "at", "rotation", "shape", "font", "justify")
+LABEL_KEYS: tuple[str, ...] = (
+    "kind",
+    "text",
+    "at",
+    "rotation",
+    "shape",
+    "font",
+    "justify",
+    "intersheet_refs",
+)
 BUS_ALIAS_KEYS: tuple[str, ...] = ("name", "members")
 SHEET_REF_KEYS: tuple[str, ...] = (
     "key", "sheet", "module", "name", "file", "at", "size", "page", "fields", "properties", "pin",
@@ -396,6 +406,11 @@ class _Reader:
         shape = self.shape(data, where, required=False)
         if kind == "local" and shape:
             raise self.fail(f"{where}.shape", "a local label has no shape")
+        reference = None
+        if "intersheet_refs" in data:
+            if kind != "global":
+                raise self.fail(f"{where}.intersheet_refs", "intersheet_refs belongs to a global label only")
+            reference = self.fields({"fields": {"Intersheetrefs": data["intersheet_refs"]}}, where)[0]
         return DrawnLabel(
             kind,  # type: ignore[arg-type]
             text,
@@ -404,6 +419,7 @@ class _Reader:
             shape,  # type: ignore[arg-type]
             self.font(data, where),
             self.justify(data, where) if "justify" in data else None,
+            reference,
         )
 
     def sheet_ref(self, raw: object, where: str) -> DrawnSheetRef:
@@ -489,7 +505,7 @@ def read_drawn(text: str, *, file: str = "") -> DrawnSchematic:
     except tomllib.TOMLDecodeError as error:
         raise reader.fail("", f"not valid TOML: {error}") from error
     root = reader.table(data, "", "root", ("schema", "root", "sheet"))
-    if root["schema"] != SCHEMA:
+    if not accepts_schema(root["schema"], SCHEMA):
         raise reader.fail("schema", f"schema is {SCHEMA!r}, not {root['schema']!r}")
     root_key = reader.text(root, "root", "")
     raw_sheets = root["sheet"]

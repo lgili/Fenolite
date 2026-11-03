@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any, cast
 
 from fenolite.core.errors import FormatError, Issue
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.model.board import Keepout, Track, Via, Zone
 from fenolite.model.design import Design
 from fenolite.roles.codes import issue
@@ -107,7 +108,7 @@ def loads(text: str, *, file: str = FILE) -> Manifest:
         raise FormatError(f"{file}: not JSON: {error.msg}", file=file) from None
     body = cast("dict[str, Any]", data) if isinstance(data, dict) else {}
     entries = body.get("items")
-    if body.get("schema") != SCHEMA or not isinstance(entries, list):
+    if not accepts_schema(body.get("schema"), SCHEMA) or not isinstance(entries, list):
         raise FormatError(f"{file}: not a {SCHEMA} document", file=file)
     found: dict[str, str] = {}
     for entry in cast("list[Any]", entries):

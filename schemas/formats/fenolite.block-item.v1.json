@@ -1,0 +1,458 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.block-item.v1",
+  "title": "BlockItemFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.block-item.v1"
+    },
+    "id": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "namespace": {
+      "type": "string"
+    },
+    "fenolite": {
+      "type": "string"
+    },
+    "record": {
+      "$ref": "#/$defs/BlockData"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "id",
+    "version",
+    "namespace",
+    "fenolite",
+    "record"
+  ],
+  "$defs": {
+    "BlockData": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "licence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "replaces": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deprecated": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockDeprecation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BlockParameter"
+          }
+        },
+        "ports": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BlockPort"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parts": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nets": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "blocks": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BlockNested"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requires": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockRequires"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "elaboration": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockElaboration"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "digests": {
+          "$ref": "#/$defs/BlockDigests"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "name",
+        "id",
+        "version",
+        "summary",
+        "category",
+        "licence",
+        "evidence",
+        "replaces",
+        "deprecated",
+        "sources",
+        "params",
+        "ports",
+        "parts",
+        "nets",
+        "blocks",
+        "requires",
+        "elaboration",
+        "digests"
+      ]
+    },
+    "BlockDeprecation": {
+      "type": "object",
+      "properties": {
+        "by": {
+          "type": "string"
+        },
+        "since": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "by",
+        "since",
+        "reason"
+      ]
+    },
+    "BlockDigests": {
+      "type": "object",
+      "properties": {
+        "definition": {
+          "type": "string"
+        },
+        "interface": {
+          "type": "string"
+        },
+        "record": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "definition",
+        "interface",
+        "record"
+      ]
+    },
+    "BlockElaboration": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "BlockNested": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "block": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "block"
+      ]
+    },
+    "BlockParameter": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "choices": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "doc": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type",
+        "unit",
+        "required",
+        "default",
+        "min",
+        "max",
+        "choices",
+        "doc"
+      ]
+    },
+    "BlockPort": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string"
+        },
+        "optional": {
+          "type": "boolean"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "doc": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "kind",
+        "direction",
+        "optional",
+        "members",
+        "doc"
+      ]
+    },
+    "BlockRequires": {
+      "type": "object",
+      "properties": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lib_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "devices",
+        "lib_ids",
+        "queries"
+      ]
+    }
+  }
+}

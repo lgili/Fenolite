@@ -1,0 +1,838 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.device.v1",
+  "title": "DeviceFile",
+  "type": "object",
+  "properties": {
+    "symbol": {
+      "type": "string"
+    },
+    "footprint": {
+      "type": "string"
+    },
+    "pins": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/$defs/DevicePin"
+          }
+        ]
+      }
+    },
+    "manufacturer": {
+      "type": "string"
+    },
+    "mpn": {
+      "type": "string"
+    },
+    "datasheet": {
+      "type": "string"
+    },
+    "ref_prefix": {
+      "type": "string"
+    },
+    "class": {
+      "type": "string"
+    },
+    "value": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "case": {
+      "type": "string"
+    },
+    "tolerance": {
+      "type": "string"
+    },
+    "dielectric": {
+      "type": "string"
+    },
+    "ground": {
+      "type": "string"
+    },
+    "unused_pads": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ends": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "properties": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "ratings": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/Rating"
+      }
+    },
+    "limits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PairLimit"
+      }
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Option"
+      }
+    },
+    "bridges": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Bridge"
+      }
+    },
+    "provenance": {
+      "$ref": "#/$defs/DeviceProvenance"
+    },
+    "schema": {
+      "const": "fenolite.device.v1"
+    },
+    "id": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "licence": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    },
+    "sources": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "origin": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Origin"
+        },
+        {
+          "$ref": "#/$defs/ImportOrigin"
+        },
+        {
+          "$ref": "#/$defs/ProposalOrigin"
+        }
+      ]
+    },
+    "replaces": {
+      "type": "string"
+    },
+    "deprecated": {
+      "$ref": "#/$defs/Deprecation"
+    },
+    "reviewed_by": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Review"
+      }
+    },
+    "waiver": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Waiver"
+      }
+    },
+    "interfaces": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DeviceInterface"
+      }
+    },
+    "part": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PartBody"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "symbol",
+    "footprint",
+    "pins",
+    "id",
+    "summary",
+    "evidence"
+  ],
+  "$defs": {
+    "Bounds": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": "string"
+        },
+        "max": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Bridge": {
+      "type": "object",
+      "properties": {
+        "between": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "delay_fs": {
+          "type": "integer"
+        },
+        "loss_mdb": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "between"
+      ]
+    },
+    "Deprecation": {
+      "type": "object",
+      "properties": {
+        "by": {
+          "type": "string"
+        },
+        "since": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "by",
+        "since",
+        "reason"
+      ]
+    },
+    "DeviceInterface": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string"
+        },
+        "members": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        },
+        "reference": {
+          "type": "string"
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "abs_max": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Bounds"
+            }
+          ]
+        },
+        "current": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Bounds"
+            }
+          ]
+        },
+        "input_high_min": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Bounds"
+            }
+          ]
+        },
+        "input_low_max": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Bounds"
+            }
+          ]
+        },
+        "output_current_max": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Bounds"
+            }
+          ]
+        },
+        "output_high_min": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Bounds"
+            }
+          ]
+        },
+        "output_low_max": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Bounds"
+            }
+          ]
+        },
+        "pullup": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Bounds"
+            }
+          ]
+        },
+        "voltage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Bounds"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "kind",
+        "direction",
+        "members"
+      ]
+    },
+    "DevicePin": {
+      "type": "object",
+      "properties": {
+        "pins": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "map": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        },
+        "voltage": {
+          "$ref": "#/$defs/Rating"
+        },
+        "current": {
+          "$ref": "#/$defs/Rating"
+        },
+        "input_high_min": {
+          "type": "string"
+        },
+        "input_low_max": {
+          "type": "string"
+        },
+        "output_current_max": {
+          "type": "string"
+        },
+        "output_high_min": {
+          "type": "string"
+        },
+        "output_low_max": {
+          "type": "string"
+        },
+        "must_connect": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "DeviceProvenance": {
+      "description": "The stamp of a device written by a tool: the tool, its source (lib ids, never a path), the ISO 8601",
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "source",
+        "date",
+        "sha256"
+      ]
+    },
+    "ImportOrigin": {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "shippable": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OriginSource"
+          }
+        },
+        "output": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ImportOutput"
+          }
+        },
+        "content_sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "date",
+        "shippable"
+      ]
+    },
+    "ImportOutput": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "sha256"
+      ]
+    },
+    "Option": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "evidence": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "name",
+        "alternatives"
+      ]
+    },
+    "Origin": {
+      "description": "Where a record taken from a CC0-1.0 library came from.",
+      "type": "object",
+      "properties": {
+        "library": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "element": {
+          "type": "string"
+        },
+        "licence": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "library",
+        "version",
+        "element",
+        "licence"
+      ]
+    },
+    "OriginSource": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "member": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "sha256"
+      ]
+    },
+    "PairLimit": {
+      "type": "object",
+      "properties": {
+        "between": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "voltage": {
+          "$ref": "#/$defs/Rating"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "between",
+        "voltage"
+      ]
+    },
+    "PartBody": {
+      "type": "object",
+      "properties": {
+        "mpn": {
+          "type": "string"
+        },
+        "extends": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "manufacturer": {
+          "type": "string"
+        },
+        "packing": {
+          "type": "string"
+        },
+        "lifecycle": {
+          "type": "string"
+        },
+        "grade": {
+          "type": "string"
+        },
+        "datasheet": {
+          "type": "string"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "ratings": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/Rating"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "mpn"
+      ]
+    },
+    "ProposalAuthor": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "name",
+        "date"
+      ]
+    },
+    "ProposalOrigin": {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "datasheet": {
+          "type": "string"
+        },
+        "datasheet_sha256": {
+          "type": "string"
+        },
+        "source": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OriginSource"
+          }
+        },
+        "proposer": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalAuthor"
+          }
+        },
+        "content_sha256": {
+          "type": "string"
+        },
+        "output": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ImportOutput"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "date",
+        "datasheet",
+        "datasheet_sha256",
+        "source",
+        "proposer"
+      ]
+    },
+    "Rating": {
+      "type": "object",
+      "properties": {
+        "abs_max": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Bounds"
+            }
+          ]
+        },
+        "operating": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Bounds"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Review": {
+      "description": "One review of a record: who, when, of which version and digest, and the label asserted.",
+      "type": "object",
+      "properties": {
+        "who": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "sheet": {
+          "type": "string"
+        },
+        "sheet_sha256": {
+          "type": "string"
+        },
+        "previous_evidence": {
+          "type": "string"
+        },
+        "accepted_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fenolite_version": {
+          "type": "string"
+        },
+        "record_sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "who",
+        "date",
+        "version",
+        "digest",
+        "evidence"
+      ]
+    },
+    "Waiver": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "reason"
+      ]
+    }
+  }
+}

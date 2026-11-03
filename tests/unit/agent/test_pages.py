@@ -211,7 +211,7 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
     "board-schematic": (
         "One master", "pin sets", "net class", "single-pin nets", "DC rating", "test condition",
         "fenolite parity", "bom_only=True", "equiv.bom-only", "build.bom-only", "model.bom-only",
-        "BUS_{A}{D[0..3]}",
+        "BUS_{A}{D[0..3]}", "intersheet_refs", "${INTERSHEET_REFS}",
     ),
     "board-emc": (
         "immunity", "surge", "raw side", "earth bond", "in stages", "Compare loop versions by inductance",
@@ -1029,5 +1029,57 @@ def test_footprints_teaches_explicit_root_edge_ownership() -> None:
         "kicad.board.outline-conflict",
         "without synthetic duplicates",
         "nearby edge alone",
+    ):
+        assert words in page.text
+
+
+def test_practice_teaches_cli_contract_and_deprecation() -> None:
+    page = guide.page("board-practice")
+    for words in (
+        "result.contract",
+        "result.deprecated",
+        "cli.deprecated",
+        "prepared v1 schemas",
+        "neither the exit code nor the planned writes",
+    ):
+        assert words in page.text
+
+
+def test_equivalent_s_teaches_explicit_context_schema_rebinding() -> None:
+    page = guide.page("equivalent-s")
+    for words in ("v1 mirror", "actual schema string", "changing only", "writer retains v0 bytes"):
+        assert words in page.text
+
+
+def test_equivalent_s_teaches_declared_native_project_template() -> None:
+    page = guide.page("equivalent-s")
+    for words in (
+        "design.kicad_project",
+        "mandatory digest",
+        "changed input invalidates",
+        "including rebuilds",
+        "typed rules",
+        "Altium output refuse",
+    ):
+        assert words in page.text
+
+
+def test_altium_teaches_version_scopes_without_fresh_execution_claim() -> None:
+    text = (SKILL / "references/altium.md").read_text()
+    for word in ("versions", "version", "tool", "level", "source", "conformance.json", "traceability"):
+        assert word in text
+    assert "not a new execution" in text
+
+
+def test_viewer_teaches_actual_project_instance_context() -> None:
+    page = guide.page("viewer")
+    for words in (
+        "owning project",
+        "logical instance document IDs",
+        "--doc",
+        "never selects the first instance",
+        "invalidate scene caches",
+        "last good scene",
+        "explicit field pose",
     ):
         assert words in page.text

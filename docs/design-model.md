@@ -893,3 +893,11 @@ names two independent member topology paths and a maximum in fs; no cross-net ed
 `Pad.die_delay_fs` is a known integer die-delay input; unprobed native units are not projected into it.
 Older readers that reject unknown keys cannot load these optional fields; files without them keep
 their prior bytes. The core still stores lengths in nm and angles in microdegrees.
+
+## Typed drawn global-label reference pose (c0348)
+
+DrawnLabel appends `intersheet_refs: DrawnField | None = None`, default-omitted
+and global-only, with the fixed field name `Intersheetrefs`. The property text
+is the fixed native placeholder, outside this pose value. No electrical pins or
+connections are added. Project display settings/current instance remain ephemeral
+view context, not a second persisted field or canonical NetLabel change.

@@ -1,0 +1,1898 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.check.v1",
+  "title": "CheckResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "matrix": {
+      "$ref": "#/$defs/CheckMatrix"
+    },
+    "project": {
+      "$ref": "#/$defs/CheckProject"
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CheckRulesItem"
+      }
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CheckStagesItem"
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CheckSubjectsItem"
+      }
+    },
+    "waivers": {
+      "$ref": "#/$defs/WaiverSummary"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "AcceptedDrc": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "comment": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "reported": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "type",
+        "items",
+        "comment",
+        "state",
+        "reported"
+      ]
+    },
+    "CheckMatrix": {
+      "type": "object",
+      "properties": {
+        "receipt": {
+          "$ref": "#/$defs/CheckMatrixReceipt"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CheckMatrixRowsItem"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "receipt",
+        "rows"
+      ]
+    },
+    "CheckMatrixReceipt": {
+      "type": "object",
+      "properties": {
+        "devices_sha256": {
+          "type": "string"
+        },
+        "fenolite": {
+          "type": "string"
+        },
+        "model_sha256": {
+          "type": "string"
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "devices_sha256",
+        "fenolite",
+        "model_sha256",
+        "stages"
+      ]
+    },
+    "CheckMatrixRowsItem": {
+      "type": "object",
+      "properties": {
+        "check": {
+          "type": "string"
+        },
+        "decidable": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "string"
+        },
+        "origin": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "waiver": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "check",
+        "decidable",
+        "digest",
+        "evidence",
+        "id",
+        "limit",
+        "origin",
+        "source",
+        "status",
+        "value",
+        "waiver"
+      ]
+    },
+    "CheckProject": {
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "board": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "built": {
+          "type": "boolean"
+        },
+        "documents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CheckProjectDocumentsItem"
+          }
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "project": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "skipped": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CheckProjectSkippedItem"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "board",
+        "built",
+        "files",
+        "skipped"
+      ]
+    },
+    "CheckProjectDocumentsItem": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "name",
+        "role"
+      ]
+    },
+    "CheckProjectSkippedItem": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "reason"
+      ]
+    },
+    "CheckRulesItem": {
+      "type": "object",
+      "properties": {
+        "governing": {
+          "$ref": "#/$defs/CheckRulesItemGoverning"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "overrides": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CheckRulesItemOverridesItem"
+          }
+        },
+        "rank": {
+          "type": "integer"
+        },
+        "subject": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "governing",
+        "kind",
+        "overrides",
+        "rank",
+        "subject"
+      ]
+    },
+    "CheckRulesItemGoverning": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "integer"
+        },
+        "rank": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "name",
+        "priority",
+        "rank"
+      ]
+    },
+    "CheckRulesItemOverridesItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "integer"
+        },
+        "rank": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "name",
+        "priority",
+        "rank"
+      ]
+    },
+    "CheckStagesItem": {
+      "type": "object",
+      "properties": {
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        },
+        "name": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "summary": {
+          "$ref": "#/$defs/CheckStagesItemSummary"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "evidence",
+        "name",
+        "reason",
+        "status",
+        "summary"
+      ]
+    },
+    "CheckStagesItemSummary": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AcceptedDrc"
+          }
+        },
+        "after": {
+          "$ref": "#/$defs/CheckStagesItemSummaryAfter"
+        },
+        "analyses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "approximated": {
+          "type": "integer"
+        },
+        "arc_tol": {
+          "type": "integer"
+        },
+        "before": {
+          "$ref": "#/$defs/CheckStagesItemSummaryBefore"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "by_type": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "bytes_equal": {
+          "type": "integer"
+        },
+        "canary": {
+          "type": "string"
+        },
+        "canary_reason": {
+          "type": "string"
+        },
+        "canary_removed": {
+          "type": "integer"
+        },
+        "clearance": {
+          "type": "integer"
+        },
+        "clearance_cells": {
+          "$ref": "#/$defs/CheckStagesItemSummaryClearanceCells"
+        },
+        "codes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "compared": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/CheckStagesItemSummaryCompared"
+            }
+          ]
+        },
+        "components": {
+          "type": "integer"
+        },
+        "connections_missing": {
+          "type": "integer"
+        },
+        "corners": {
+          "type": "integer"
+        },
+        "current": {
+          "type": "integer"
+        },
+        "deferred": {
+          "$ref": "#/$defs/CheckStagesItemSummaryDeferred"
+        },
+        "differences": {
+          "type": "integer"
+        },
+        "documents": {
+          "type": "integer"
+        },
+        "edge_clearance": {
+          "type": "integer"
+        },
+        "edges": {
+          "$ref": "#/$defs/CheckStagesItemSummaryEdges"
+        },
+        "excluded": {
+          "type": "integer"
+        },
+        "exclusions": {
+          "$ref": "#/$defs/CheckStagesItemSummaryExclusions"
+        },
+        "failed": {
+          "type": "integer"
+        },
+        "floating-pin": {
+          "type": "integer"
+        },
+        "halves": {
+          "$ref": "#/$defs/CheckStagesItemSummaryHalves"
+        },
+        "holds": {
+          "type": "boolean"
+        },
+        "hole_in_cutout": {
+          "type": "integer"
+        },
+        "hole_overlap": {
+          "type": "integer"
+        },
+        "holes": {
+          "type": "integer"
+        },
+        "ignored_checks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "items": {
+          "$ref": "#/$defs/CheckStagesItemSummaryItems"
+        },
+        "judged": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "keepouts": {
+          "type": "integer"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "level": {
+          "type": "string"
+        },
+        "limits": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DrcLimit"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "major": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_clearance": {
+          "type": "integer"
+        },
+        "measures": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "$ref": "#/$defs/CheckStagesItemSummaryMeasures"
+            }
+          ]
+        },
+        "min_pins": {
+          "type": "integer"
+        },
+        "model": {
+          "$ref": "#/$defs/CheckStagesItemSummaryModel"
+        },
+        "model_equal": {
+          "type": "boolean"
+        },
+        "net_tie_pairs": {
+          "type": "integer"
+        },
+        "netlist": {
+          "type": "string"
+        },
+        "nets": {
+          "type": "integer"
+        },
+        "nets_split": {
+          "type": "integer"
+        },
+        "normalised": {
+          "type": "boolean"
+        },
+        "opaque_count": {
+          "type": "integer"
+        },
+        "opaque_equal": {
+          "type": "boolean"
+        },
+        "open": {
+          "type": "integer"
+        },
+        "output-conflict": {
+          "type": "integer"
+        },
+        "pairs": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CheckStagesItemSummaryPairsItem"
+              }
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "parity": {
+          "type": "integer"
+        },
+        "parity.duplicate-footprints": {
+          "type": "integer"
+        },
+        "parity.extra-footprint": {
+          "type": "integer"
+        },
+        "parity.footprint-mismatch": {
+          "type": "integer"
+        },
+        "parity.missing-footprint": {
+          "type": "integer"
+        },
+        "parity.net-conflict": {
+          "type": "integer"
+        },
+        "parity.pad-without-pin": {
+          "type": "integer"
+        },
+        "parity.pin-without-pad": {
+          "type": "integer"
+        },
+        "parity_judged": {
+          "type": "boolean"
+        },
+        "pcb": {
+          "$ref": "#/$defs/CheckStagesItemSummaryPcb"
+        },
+        "pins": {
+          "type": "integer"
+        },
+        "power-undriven": {
+          "type": "integer"
+        },
+        "rails": {
+          "type": "integer"
+        },
+        "records": {
+          "type": "integer"
+        },
+        "refs_one_side": {
+          "type": "integer"
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CheckStagesItemSummaryRequirementsItem"
+          }
+        },
+        "roles": {
+          "$ref": "#/$defs/CheckStagesItemSummaryRoles"
+        },
+        "rule_areas": {
+          "type": "integer"
+        },
+        "rules": {
+          "$ref": "#/$defs/CheckStagesItemSummaryRules"
+        },
+        "runs": {
+          "$ref": "#/$defs/CheckStagesItemSummaryRuns"
+        },
+        "schematic": {
+          "$ref": "#/$defs/CheckStagesItemSummarySchematic"
+        },
+        "sheets": {
+          "type": "integer"
+        },
+        "shorts": {
+          "type": "integer"
+        },
+        "stackup": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stale": {
+          "type": "integer"
+        },
+        "streams": {
+          "type": "integer"
+        },
+        "tolerance": {
+          "type": "integer"
+        },
+        "tool_version": {
+          "type": "string"
+        },
+        "tool_writes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tree_equal": {
+          "type": "boolean"
+        },
+        "types": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "unconnected": {
+          "type": "integer"
+        },
+        "unfilled": {
+          "type": "integer"
+        },
+        "unjudged": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "unnumbered": {
+          "type": "integer"
+        },
+        "unpoured": {
+          "type": "integer"
+        },
+        "unset_pairs": {
+          "type": "integer"
+        },
+        "unstable": {
+          "type": "integer"
+        },
+        "unsupported": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true
+        },
+        "views": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CheckStagesItemSummaryViewsItem"
+          }
+        },
+        "violations": {
+          "type": "integer"
+        },
+        "violations_judged": {
+          "type": "boolean"
+        },
+        "waivers": {
+          "$ref": "#/$defs/WaiverSummary"
+        },
+        "zone_overlaps": {
+          "type": "integer"
+        },
+        "zones": {
+          "type": "integer"
+        },
+        "zones_unjudged": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true
+    },
+    "CheckStagesItemSummaryAfter": {
+      "type": "object",
+      "properties": {
+        "unconnected": {
+          "type": "integer"
+        },
+        "violations": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "unconnected",
+        "violations"
+      ]
+    },
+    "CheckStagesItemSummaryBefore": {
+      "type": "object",
+      "properties": {
+        "unconnected": {
+          "type": "integer"
+        },
+        "violations": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "unconnected",
+        "violations"
+      ]
+    },
+    "CheckStagesItemSummaryClearanceCells": {
+      "type": "object",
+      "properties": {
+        "judged": {
+          "type": "integer"
+        },
+        "unjudged": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "judged",
+        "unjudged"
+      ]
+    },
+    "CheckStagesItemSummaryCompared": {
+      "type": "object",
+      "properties": {
+        "pcb": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "schematic": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "pcb"
+      ]
+    },
+    "CheckStagesItemSummaryDeferred": {
+      "type": "object",
+      "properties": {
+        "route": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true
+    },
+    "CheckStagesItemSummaryEdges": {
+      "type": "object",
+      "properties": {
+        "judged": {
+          "type": "integer"
+        },
+        "max": {
+          "type": "integer"
+        },
+        "rings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unset_items": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "judged",
+        "max",
+        "rings",
+        "unset_items"
+      ]
+    },
+    "CheckStagesItemSummaryExclusions": {
+      "type": "object",
+      "properties": {
+        "live": {
+          "type": "integer"
+        },
+        "stale": {
+          "type": "integer"
+        },
+        "stored": {
+          "type": "integer"
+        },
+        "unjudged": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "live",
+        "stale",
+        "stored",
+        "unjudged"
+      ]
+    },
+    "CheckStagesItemSummaryHalves": {
+      "type": "object",
+      "properties": {
+        "contracts": {
+          "type": "string"
+        },
+        "rails": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "contracts",
+        "rails"
+      ]
+    },
+    "CheckStagesItemSummaryItems": {
+      "type": "object",
+      "properties": {
+        "arc": {
+          "type": "integer"
+        },
+        "fill": {
+          "type": "integer"
+        },
+        "pad": {
+          "type": "integer"
+        },
+        "track": {
+          "type": "integer"
+        },
+        "via": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "pad"
+      ]
+    },
+    "CheckStagesItemSummaryMeasures": {
+      "type": "object",
+      "properties": {
+        "congestion": {
+          "$ref": "#/$defs/CheckStagesItemSummaryMeasuresCongestion"
+        },
+        "hpwl": {
+          "type": "integer"
+        },
+        "left_out": {
+          "$ref": "#/$defs/CheckStagesItemSummaryMeasuresLeftOut"
+        },
+        "longest": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CheckStagesItemSummaryMeasuresLongestItem"
+          }
+        },
+        "nets": {
+          "type": "integer"
+        },
+        "ratsnest": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "congestion",
+        "hpwl",
+        "left_out",
+        "longest",
+        "nets",
+        "ratsnest"
+      ]
+    },
+    "CheckStagesItemSummaryMeasuresCongestion": {
+      "type": "object",
+      "properties": {
+        "busiest": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CheckStagesItemSummaryMeasuresCongestionBusiestItem"
+          }
+        },
+        "cell": {
+          "type": "integer"
+        },
+        "layers_needed": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "x-fenolite-map": true
+            }
+          ]
+        },
+        "pitch": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tracks_per_layer": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "busiest",
+        "cell",
+        "layers_needed",
+        "pitch",
+        "tracks_per_layer"
+      ]
+    },
+    "CheckStagesItemSummaryMeasuresCongestionBusiestItem": {
+      "type": "object",
+      "properties": {
+        "tracks": {
+          "type": "integer"
+        },
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "tracks",
+        "x",
+        "y"
+      ]
+    },
+    "CheckStagesItemSummaryMeasuresLeftOut": {
+      "type": "object",
+      "properties": {
+        "off_board": {
+          "type": "integer"
+        },
+        "one_pad_nets": {
+          "type": "integer"
+        },
+        "zone_nets": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "off_board",
+        "one_pad_nets",
+        "zone_nets"
+      ]
+    },
+    "CheckStagesItemSummaryMeasuresLongestItem": {
+      "type": "object",
+      "properties": {
+        "hpwl": {
+          "type": "integer"
+        },
+        "net": {
+          "type": "string"
+        },
+        "pads": {
+          "type": "integer"
+        },
+        "ratsnest": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "hpwl",
+        "net",
+        "pads",
+        "ratsnest"
+      ]
+    },
+    "CheckStagesItemSummaryModel": {
+      "type": "object",
+      "properties": {
+        "components": {
+          "type": "integer"
+        },
+        "nets": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "components",
+        "nets"
+      ]
+    },
+    "CheckStagesItemSummaryPairsItem": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "common": {
+          "type": "integer"
+        },
+        "differences": {
+          "type": "integer"
+        },
+        "only_a": {
+          "type": "integer"
+        },
+        "only_b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "common",
+        "differences",
+        "only_a",
+        "only_b"
+      ]
+    },
+    "CheckStagesItemSummaryPcb": {
+      "type": "object",
+      "properties": {
+        "components": {
+          "type": "integer"
+        },
+        "nets": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "components",
+        "nets"
+      ]
+    },
+    "CheckStagesItemSummaryRequirementsItem": {
+      "type": "object",
+      "properties": {
+        "check": {
+          "type": "string"
+        },
+        "corners": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CheckStagesItemSummaryRequirementsItemCornersItem"
+          }
+        },
+        "decidable": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "limit": {
+          "$ref": "#/$defs/CheckStagesItemSummaryRequirementsItemLimit"
+        },
+        "missing": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "string"
+        },
+        "severity": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/CheckStagesItemSummaryRequirementsItemValue"
+            }
+          ]
+        },
+        "waiver": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "check",
+        "corners",
+        "decidable",
+        "digest",
+        "entities",
+        "id",
+        "limit",
+        "missing",
+        "quantity",
+        "severity",
+        "status",
+        "subject",
+        "unit",
+        "value",
+        "waiver"
+      ]
+    },
+    "CheckStagesItemSummaryRequirementsItemCornersItem": {
+      "type": "object",
+      "properties": {
+        "corner": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "corner",
+        "status",
+        "text"
+      ]
+    },
+    "CheckStagesItemSummaryRequirementsItemLimit": {
+      "type": "object",
+      "properties": {
+        "basis": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "range": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/CheckStagesItemSummaryRequirementsItemLimitRange"
+            }
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "basis",
+        "evidence",
+        "kind",
+        "range",
+        "source",
+        "text"
+      ]
+    },
+    "CheckStagesItemSummaryRequirementsItemLimitRange": {
+      "type": "object",
+      "properties": {
+        "high": {
+          "$ref": "#/$defs/CheckStagesItemSummaryRequirementsItemLimitRangeHigh"
+        },
+        "low": {
+          "$ref": "#/$defs/CheckStagesItemSummaryRequirementsItemLimitRangeLow"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "unit"
+      ]
+    },
+    "CheckStagesItemSummaryRequirementsItemLimitRangeHigh": {
+      "type": "object",
+      "properties": {
+        "e": {
+          "type": "integer"
+        },
+        "m": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "e",
+        "m"
+      ]
+    },
+    "CheckStagesItemSummaryRequirementsItemLimitRangeLow": {
+      "type": "object",
+      "properties": {
+        "e": {
+          "type": "integer"
+        },
+        "m": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "e",
+        "m"
+      ]
+    },
+    "CheckStagesItemSummaryRequirementsItemValue": {
+      "type": "object",
+      "properties": {
+        "basis": {
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/CheckStagesItemSummaryRequirementsItemValueOrigin"
+        },
+        "range": {
+          "$ref": "#/$defs/CheckStagesItemSummaryRequirementsItemValueRange"
+        },
+        "source": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "basis",
+        "range",
+        "source",
+        "text"
+      ]
+    },
+    "CheckStagesItemSummaryRequirementsItemValueOrigin": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind"
+      ]
+    },
+    "CheckStagesItemSummaryRequirementsItemValueRange": {
+      "type": "object",
+      "properties": {
+        "high": {
+          "$ref": "#/$defs/CheckStagesItemSummaryRequirementsItemValueRangeHigh"
+        },
+        "low": {
+          "$ref": "#/$defs/CheckStagesItemSummaryRequirementsItemValueRangeLow"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "high",
+        "unit"
+      ]
+    },
+    "CheckStagesItemSummaryRequirementsItemValueRangeHigh": {
+      "type": "object",
+      "properties": {
+        "e": {
+          "type": "integer"
+        },
+        "m": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "e",
+        "m"
+      ]
+    },
+    "CheckStagesItemSummaryRequirementsItemValueRangeLow": {
+      "type": "object",
+      "properties": {
+        "e": {
+          "type": "integer"
+        },
+        "m": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "e",
+        "m"
+      ]
+    },
+    "CheckStagesItemSummaryRoles": {
+      "type": "object",
+      "properties": {
+        "declared": {
+          "type": "integer"
+        },
+        "inferred": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "declared",
+        "inferred"
+      ]
+    },
+    "CheckStagesItemSummaryRules": {
+      "type": "object",
+      "properties": {
+        "height": {
+          "$ref": "#/$defs/CheckStagesItemSummaryRulesHeight"
+        },
+        "length": {
+          "type": "integer"
+        },
+        "min_clearance": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "near": {
+          "$ref": "#/$defs/CheckStagesItemSummaryRulesNear"
+        },
+        "opaque_clearance_rules": {
+          "type": "integer"
+        },
+        "skew": {
+          "type": "integer"
+        },
+        "unread": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "CheckStagesItemSummaryRulesHeight": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "integer"
+        },
+        "judged": {
+          "type": "integer"
+        },
+        "unknown": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "judged",
+        "unknown"
+      ]
+    },
+    "CheckStagesItemSummaryRulesNear": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "integer"
+        },
+        "judged": {
+          "type": "integer"
+        },
+        "skipped": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "judged",
+        "skipped"
+      ]
+    },
+    "CheckStagesItemSummaryRuns": {
+      "type": "object",
+      "properties": {
+        "original": {
+          "type": "integer"
+        },
+        "redump": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "original",
+        "redump"
+      ]
+    },
+    "CheckStagesItemSummarySchematic": {
+      "type": "object",
+      "properties": {
+        "components": {
+          "type": "integer"
+        },
+        "nets": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "components",
+        "nets"
+      ]
+    },
+    "CheckStagesItemSummaryViewsItem": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "bytes",
+        "name",
+        "sha256"
+      ]
+    },
+    "CheckSubjectsItem": {
+      "type": "object",
+      "properties": {
+        "issue": {
+          "type": "integer"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CheckSubjectsItemItemsItem"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "issue",
+        "items"
+      ]
+    },
+    "CheckSubjectsItemItemsItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "kind",
+        "name"
+      ]
+    },
+    "DrcLimit": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "reported": {
+          "type": "integer"
+        },
+        "limit": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "type",
+        "reported",
+        "limit"
+      ]
+    },
+    "Evidence": {
+      "description": "A level plus the oracle that produced it and the hypotheses it depends on.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "enum": [
+            "ALTIUM-VERIFIED(kit)",
+            "KICAD-VERIFIED",
+            "ORACLE-VERIFIED",
+            "CORPUS-VERIFIED",
+            "ALTIUM-VERIFIED(author-report)",
+            "INFERRED",
+            "UNKNOWN",
+            "UNVERIFIED"
+          ]
+        },
+        "oracle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "level",
+        "oracle",
+        "hypotheses"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    },
+    "WaiverSummary": {
+      "type": "object",
+      "properties": {
+        "matched": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "match counts by authored waiver name"
+        },
+        "unmatched": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unjudged": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "unjudged reason by authored waiver name"
+        },
+        "declared": {
+          "type": "integer"
+        },
+        "expired": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "matched",
+        "unmatched"
+      ]
+    }
+  }
+}

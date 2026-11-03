@@ -23,14 +23,14 @@ duplicates refuse. Contextual inherited definitions refuse before the ordinary
 flattening path can merge their properties. Safe interior spaces in library
 namespaces remain native; unsafe/reserved filenames refuse.
 
-## Closed v0 index
+## Closed context index
 
 The filename is exactly `symbol-contexts.toml`, in the drawing's folder. Its
 root has exactly four keys:
 
 | Key | Type and meaning |
 |---|---|
-| `schema` | String, exactly `fenolite.symbol-contexts.v0` |
+| `schema` | String, `fenolite.symbol-contexts.v0` or the prepared compatible `fenolite.symbol-contexts.v1` |
 | `drawing` | String, the sibling drawn-source basename |
 | `target` | Integer 9 or 10, the native asset format; a boolean is invalid |
 | `symbol` | Nonempty array of tables, written with `[[symbol]]` |
@@ -93,3 +93,11 @@ The format facts and source references are in
 proof is supplemental. Required 9.0.9/10.0.6 CI and complete combined-head gates
 remain separate; this feature does not resolve naming differences or the
 schematic reader floor.
+
+## Prepared v1 mirror
+
+The writer retains v0 bytes. The v1 reader uses the actual accepted root `schema` string when
+checking each binding SHA; changing only the schema without recalculating bindings refuses.
+An intentionally rebound v1 index retains the same native assets and all their source/definition
+hashes. Future versions, bool targets, unknown keys and stale or malformed digests still refuse.
+The standalone descriptor supplements rather than replaces path, asset and native-AST validation.

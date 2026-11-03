@@ -1,0 +1,639 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.pins.v1",
+  "title": "PinsFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.pins.v1"
+    },
+    "id": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "licence": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    },
+    "sources": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "origin": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Origin"
+        },
+        {
+          "$ref": "#/$defs/ImportOrigin"
+        },
+        {
+          "$ref": "#/$defs/ProposalOrigin"
+        }
+      ]
+    },
+    "replaces": {
+      "type": "string"
+    },
+    "deprecated": {
+      "$ref": "#/$defs/Deprecation"
+    },
+    "reviewed_by": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Review"
+      }
+    },
+    "waiver": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Waiver"
+      }
+    },
+    "pin": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Pin"
+      }
+    },
+    "symbol": {
+      "$ref": "#/$defs/Symbol"
+    },
+    "polarity": {
+      "type": "string"
+    },
+    "symbol_file": {
+      "type": "string"
+    },
+    "variant": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PinVariant"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "id",
+    "summary",
+    "evidence",
+    "pin"
+  ],
+  "$defs": {
+    "Deprecation": {
+      "type": "object",
+      "properties": {
+        "by": {
+          "type": "string"
+        },
+        "since": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "by",
+        "since",
+        "reason"
+      ]
+    },
+    "GeneratedAlternate": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "shape": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ]
+    },
+    "GeneratedUnit": {
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "number"
+      ]
+    },
+    "ImportOrigin": {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "shippable": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OriginSource"
+          }
+        },
+        "output": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ImportOutput"
+          }
+        },
+        "content_sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "date",
+        "shippable"
+      ]
+    },
+    "ImportOutput": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "sha256"
+      ]
+    },
+    "Origin": {
+      "description": "Where a record taken from a CC0-1.0 library came from.",
+      "type": "object",
+      "properties": {
+        "library": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "element": {
+          "type": "string"
+        },
+        "licence": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "library",
+        "version",
+        "element",
+        "licence"
+      ]
+    },
+    "OriginSource": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "member": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "sha256"
+      ]
+    },
+    "Pin": {
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "shape": {
+          "type": "string"
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "unit": {
+          "type": "integer"
+        },
+        "group": {
+          "type": "string"
+        },
+        "alternates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GeneratedAlternate"
+          }
+        },
+        "side": {
+          "type": "string"
+        },
+        "bus": {
+          "type": "string"
+        },
+        "stacked": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "number",
+        "name",
+        "type"
+      ]
+    },
+    "PinPlacement": {
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "string"
+        },
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "rotation": {
+          "type": "string"
+        },
+        "length": {
+          "type": "string"
+        },
+        "body_style": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "number",
+        "at"
+      ]
+    },
+    "PinVariant": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "datasheet": {
+          "type": "string"
+        },
+        "footprint": {
+          "type": "string"
+        },
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fp_filters": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "ProposalAuthor": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "name",
+        "date"
+      ]
+    },
+    "ProposalOrigin": {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "datasheet": {
+          "type": "string"
+        },
+        "datasheet_sha256": {
+          "type": "string"
+        },
+        "source": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OriginSource"
+          }
+        },
+        "proposer": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalAuthor"
+          }
+        },
+        "content_sha256": {
+          "type": "string"
+        },
+        "output": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ImportOutput"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "date",
+        "datasheet",
+        "datasheet_sha256",
+        "source",
+        "proposer"
+      ]
+    },
+    "Review": {
+      "description": "One review of a record: who, when, of which version and digest, and the label asserted.",
+      "type": "object",
+      "properties": {
+        "who": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "sheet": {
+          "type": "string"
+        },
+        "sheet_sha256": {
+          "type": "string"
+        },
+        "previous_evidence": {
+          "type": "string"
+        },
+        "accepted_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fenolite_version": {
+          "type": "string"
+        },
+        "record_sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "who",
+        "date",
+        "version",
+        "digest",
+        "evidence"
+      ]
+    },
+    "Symbol": {
+      "type": "object",
+      "properties": {
+        "reference": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "pin_names_hidden": {
+          "type": "boolean"
+        },
+        "pin_numbers_hidden": {
+          "type": "boolean"
+        },
+        "pin_name_offset": {
+          "type": "string"
+        },
+        "units": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SymbolUnit"
+          }
+        },
+        "pins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PinPlacement"
+          }
+        },
+        "graphic": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SymbolGraphic"
+          }
+        },
+        "description": {
+          "type": "string"
+        },
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "split_above": {
+          "type": "integer"
+        },
+        "unit_pins": {
+          "type": "integer"
+        },
+        "auto_bus": {
+          "type": "boolean"
+        },
+        "unit": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GeneratedUnit"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "SymbolGraphic": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "width": {
+          "type": "string"
+        },
+        "filled": {
+          "type": "boolean"
+        },
+        "unit": {
+          "type": "integer"
+        },
+        "body_style": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "points"
+      ]
+    },
+    "SymbolUnit": {
+      "description": "One unit/body-style combination of a symbol.",
+      "type": "object",
+      "properties": {
+        "unit": {
+          "type": "integer"
+        },
+        "body_style": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "body_style"
+      ]
+    },
+    "Waiver": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "reason"
+      ]
+    }
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.supplier-proposal.v1",
+  "title": "SupplierProposalFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.supplier-proposal.v1"
+    },
+    "evidence": {
+      "enum": [
+        "UNVERIFIED"
+      ]
+    },
+    "licence": {
+      "type": "string"
+    },
+    "mpn": {
+      "type": "string"
+    },
+    "provenance": {
+      "$ref": "#/$defs/SupplierProvenance"
+    },
+    "manufacturer": {
+      "type": "string"
+    },
+    "datasheet": {
+      "type": "string"
+    },
+    "decoded": {
+      "$ref": "#/$defs/SupplierDecoded"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "evidence",
+    "licence",
+    "mpn",
+    "provenance"
+  ],
+  "$defs": {
+    "SupplierDecoded": {
+      "type": "object",
+      "properties": {
+        "device_toml": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "device_toml"
+      ]
+    },
+    "SupplierProvenance": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "retrieved": {
+          "type": "string"
+        },
+        "attribution": {
+          "type": "string"
+        },
+        "decoded_by": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "query",
+        "retrieved",
+        "attribution"
+      ]
+    }
+  }
+}

@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 from fenolite.core.errors import FormatError
+from fenolite.core.schema_ids import accepts_schema
 
 SCHEMA = "fenolite.review.v0"
 ID_LIMIT = 64
@@ -80,7 +81,7 @@ def _mark(raw: Any, where: str) -> ReviewMark:
 
 def read_review(data: Any, *, file: str = "") -> ReviewFile:
     """The review file ``data`` (parsed JSON); ``FormatError`` when it is not ``fenolite.review.v0``."""
-    if not isinstance(data, dict) or cast("dict[str, Any]", data).get("schema") != SCHEMA:
+    if not isinstance(data, dict) or not accepts_schema(cast("dict[str, Any]", data).get("schema"), SCHEMA):
         raise FormatError(f"{file or 'the file'} is not a {SCHEMA} file", file=file)
     raw = cast("dict[str, Any]", data).get("marks", [])
     if not isinstance(raw, list) or len(cast("list[Any]", raw)) > MARK_LIMIT:

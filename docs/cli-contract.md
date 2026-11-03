@@ -4,6 +4,19 @@ Normative text: `openspec/specs/cli-contract/spec.md` and `openspec/specs/packag
 This page is the short human version. The contract is frozen at 1.0; before that, a breaking change
 bumps the schema id.
 
+## Stability
+
+The active CLI contract remains `v0` until the package 1.0 release changes
+`fenolite.cli.api.CONTRACT_VERSION` to `v1`. Prepared envelope/error v1 schemas do not activate it.
+`capabilities` reports `result.contract` and `result.deprecated` in every view, including `--brief`.
+A deprecated command or spelling emits one `cli.deprecated` warning naming its replacement and remains
+available through contract 1.x. Deprecation alone changes neither the exit code nor the planned writes;
+it is not a warning-failure threshold violation. Public `fenolite.api` and `fenolite.dsl` exports join
+CLI commands/options in the declared surface; other Python modules remain implementation details.
+The generated current-source surface detects drift before 1.0; after 1.0 breaking changes are checked
+against the last stable release. Experimental and explicitly deprecated entries retain their stated
+exceptions; ordinary removals, narrowed choices, changed defaults/types and new required arguments break.
+
 ## Output
 
 - **JSON when stdout is not a terminal**, text when it is. `--json` / `--text` override.
@@ -5039,3 +5052,80 @@ and conversion into a complete device record. Existing legacy `Supplier.propose`
 contract. Display-only offers and reported attributes are filtered out of stored plan results. This
 filter can only remove result data; the framework still binds inputs, issues, write bytes and receipts.
 Confirmation with the plan id writes those exact bytes without loading a plugin or another request.
+
+<!-- BEGIN RESULT SCHEMAS -->
+## Result schema files
+
+Each visible command has a generated result descriptor. Its envelope label still comes from
+the active CLI contract. Newly prepared result document IDs use `fenolite.result.<command>.v1`
+to distinguish persisted documents with the same name. The four previously published v0 result
+files retain their IDs and bytes. The `migrate` descriptor is prepared for c0218.
+
+Published result structures accept additive keys. Fenolite's tests close declared structures
+and retain typed maps indexed by user data. Nullable fields and branch-specific optional fields
+describe existing replies; no result payload changes here. `--fields` projections are outside
+these complete-result schemas. Public file format declarations and the explicit internal/public
+inventory are in [`schemas/README.md`](../schemas/README.md). Readers retain semantic validation
+of ranges, references, provenance and hashes in addition to JSON Schema types.
+
+| Command | v0 file | Prepared v1 file | Prepared result ID |
+|---|---|---|---|
+| `analyze` | [`v0`](../schemas/fenolite.analyze.v0.json) | [`v1`](../schemas/fenolite.analyze.v1.json) | `fenolite.result.analyze.v1` |
+| `blocks` | [`v0`](../schemas/fenolite.blocks.v0.json) | [`v1`](../schemas/fenolite.blocks.v1.json) | `fenolite.result.blocks.v1` |
+| `bom` | [`v0`](../schemas/fenolite.bom.v0.json) | [`v1`](../schemas/fenolite.bom.v1.json) | `fenolite.result.bom.v1` |
+| `build` | [`v0`](../schemas/fenolite.build.v0.json) | [`v1`](../schemas/fenolite.build.v1.json) | `fenolite.result.build.v1` |
+| `capabilities` | [`v0`](../schemas/fenolite.capabilities.v0.json) | [`v1`](../schemas/fenolite.capabilities.v1.json) | `fenolite.result.capabilities.v1` |
+| `catalog` | [`v0`](../schemas/fenolite.catalog.v0.json) | [`v1`](../schemas/fenolite.catalog.v1.json) | `fenolite.result.catalog.v1` |
+| `check` | [`v0`](../schemas/fenolite.check.v0.json) | [`v1`](../schemas/fenolite.check.v1.json) | `fenolite.result.check.v1` |
+| `convert` | [`v0`](../schemas/fenolite.convert.v0.json) | [`v1`](../schemas/fenolite.convert.v1.json) | `fenolite.result.convert.v1` |
+| `copper` | [`v0`](../schemas/fenolite.copper.v0.json) | [`v1`](../schemas/fenolite.copper.v1.json) | `fenolite.result.copper.v1` |
+| `diff` | [`v0`](../schemas/fenolite.diff.v0.json) | [`v1`](../schemas/fenolite.diff.v1.json) | `fenolite.result.diff.v1` |
+| `doctor` | [`v0`](../schemas/fenolite.doctor.v0.json) | [`v1`](../schemas/fenolite.doctor.v1.json) | `fenolite.result.doctor.v1` |
+| `edit` | [`v0`](../schemas/fenolite.edit.v0.json) | [`v1`](../schemas/fenolite.edit.v1.json) | `fenolite.result.edit.v1` |
+| `equivalent` | [`v0`](../schemas/fenolite.equivalent.v0.json) | [`v1`](../schemas/fenolite.equivalent.v1.json) | `fenolite.result.equivalent.v1` |
+| `explain` | [`v0`](../schemas/fenolite.explain.v0.json) | [`v1`](../schemas/fenolite.explain.v1.json) | `fenolite.result.explain.v1` |
+| `export` | [`v0`](../schemas/fenolite.export.v0.json) | [`v1`](../schemas/fenolite.export.v1.json) | `fenolite.result.export.v1` |
+| `family` | [`v0`](../schemas/fenolite.family.v0.json) | [`v1`](../schemas/fenolite.family.v1.json) | `fenolite.result.family.v1` |
+| `fetch` | [`v0`](../schemas/fenolite.fetch.v0.json) | [`v1`](../schemas/fenolite.fetch.v1.json) | `fenolite.result.fetch.v1` |
+| `fill` | [`v0`](../schemas/fenolite.fill.v0.json) | [`v1`](../schemas/fenolite.fill.v1.json) | `fenolite.result.fill.v1` |
+| `fmt` | [`v0`](../schemas/fenolite.fmt.v0.json) | [`v1`](../schemas/fenolite.fmt.v1.json) | `fenolite.result.fmt.v1` |
+| `get` | [`v0`](../schemas/fenolite.get.v0.json) | [`v1`](../schemas/fenolite.get.v1.json) | `fenolite.result.get.v1` |
+| `guide` | [`v0`](../schemas/fenolite.guide.v0.json) | [`v1`](../schemas/fenolite.guide.v1.json) | `fenolite.result.guide.v1` |
+| `impedance` | [`v0`](../schemas/fenolite.impedance.v0.json) | [`v1`](../schemas/fenolite.impedance.v1.json) | `fenolite.result.impedance.v1` |
+| `import` | [`v0`](../schemas/fenolite.import.v0.json) | [`v1`](../schemas/fenolite.import.v1.json) | `fenolite.result.import.v1` |
+| `init` | [`v0`](../schemas/fenolite.init.v0.json) | [`v1`](../schemas/fenolite.init.v1.json) | `fenolite.result.init.v1` |
+| `inspect` | [`v0`](../schemas/fenolite.inspect.v0.json) | [`v1`](../schemas/fenolite.inspect.v1.json) | `fenolite.result.inspect.v1` |
+| `kit` | [`v0`](../schemas/fenolite.kit.v0.json) | [`v1`](../schemas/fenolite.kit.v1.json) | `fenolite.result.kit.v1` |
+| `library` | [`v0`](../schemas/fenolite.library.v0.json) | [`v1`](../schemas/fenolite.library.v1.json) | `fenolite.result.library.v1` |
+| `manifest` | [`v0`](../schemas/fenolite.manifest.v0.json) | [`v1`](../schemas/fenolite.manifest.v1.json) | `fenolite.result.manifest.v1` |
+| `mcp` | [`v0`](../schemas/fenolite.mcp.v0.json) | [`v1`](../schemas/fenolite.mcp.v1.json) | `fenolite.result.mcp.v1` |
+| `migrate` | [`v0`](../schemas/fenolite.migrate.v0.json) | [`v1`](../schemas/fenolite.migrate.v1.json) | `fenolite.result.migrate.v1` |
+| `models` | [`v0`](../schemas/fenolite.models.v0.json) | [`v1`](../schemas/fenolite.models.v1.json) | `fenolite.result.models.v1` |
+| `neighbors` | [`v0`](../schemas/fenolite.neighbors.v0.json) | [`v1`](../schemas/fenolite.neighbors.v1.json) | `fenolite.result.neighbors.v1` |
+| `net` | [`v0`](../schemas/fenolite.net.v0.json) | [`v1`](../schemas/fenolite.net.v1.json) | `fenolite.result.net.v1` |
+| `netlist` | [`v0`](../schemas/fenolite.netlist.v0.json) | [`v1`](../schemas/fenolite.netlist.v1.json) | `fenolite.result.netlist.v1` |
+| `pads` | [`v0`](../schemas/fenolite.pads.v0.json) | [`v1`](../schemas/fenolite.pads.v1.json) | `fenolite.result.pads.v1` |
+| `panel` | [`v0`](../schemas/fenolite.panel.v0.json) | [`v1`](../schemas/fenolite.panel.v1.json) | `fenolite.result.panel.v1` |
+| `parity` | [`v0`](../schemas/fenolite.parity.v0.json) | [`v1`](../schemas/fenolite.parity.v1.json) | `fenolite.result.parity.v1` |
+| `pick` | [`v0`](../schemas/fenolite.pick.v0.json) | [`v1`](../schemas/fenolite.pick.v1.json) | `fenolite.result.pick.v1` |
+| `place` | [`v0`](../schemas/fenolite.place.v0.json) | [`v1`](../schemas/fenolite.place.v1.json) | `fenolite.result.place.v1` |
+| `pnp` | [`v0`](../schemas/fenolite.pnp.v0.json) | [`v1`](../schemas/fenolite.pnp.v1.json) | `fenolite.result.pnp.v1` |
+| `publish` | [`v0`](../schemas/fenolite.publish.v0.json) | [`v1`](../schemas/fenolite.publish.v1.json) | `fenolite.result.publish.v1` |
+| `ready` | [`v0`](../schemas/fenolite.ready.v0.json) | [`v1`](../schemas/fenolite.ready.v1.json) | `fenolite.result.ready.v1` |
+| `refs` | [`v0`](../schemas/fenolite.refs.v0.json) | [`v1`](../schemas/fenolite.refs.v1.json) | `fenolite.result.refs.v1` |
+| `region` | [`v0`](../schemas/fenolite.region.v0.json) | [`v1`](../schemas/fenolite.region.v1.json) | `fenolite.result.region.v1` |
+| `render` | [`v0`](../schemas/fenolite.render.v0.json) | [`v1`](../schemas/fenolite.render.v1.json) | `fenolite.result.render.v1` |
+| `restore` | [`v0`](../schemas/fenolite.restore.v0.json) | [`v1`](../schemas/fenolite.restore.v1.json) | `fenolite.result.restore.v1` |
+| `roles` | [`v0`](../schemas/fenolite.roles.v0.json) | [`v1`](../schemas/fenolite.roles.v1.json) | `fenolite.result.roles.v1` |
+| `roundtrip` | [`v0`](../schemas/fenolite.roundtrip.v0.json) | [`v1`](../schemas/fenolite.roundtrip.v1.json) | `fenolite.result.roundtrip.v1` |
+| `route` | [`v0`](../schemas/fenolite.route.v0.json) | [`v1`](../schemas/fenolite.route.v1.json) | `fenolite.result.route.v1` |
+| `silk` | [`v0`](../schemas/fenolite.silk.v0.json) | [`v1`](../schemas/fenolite.silk.v1.json) | `fenolite.result.silk.v1` |
+| `skill` | [`v0`](../schemas/fenolite.skill.v0.json) | [`v1`](../schemas/fenolite.skill.v1.json) | `fenolite.result.skill.v1` |
+| `snapshot` | [`v0`](../schemas/fenolite.snapshot.v0.json) | [`v1`](../schemas/fenolite.snapshot.v1.json) | `fenolite.result.snapshot.v1` |
+| `sync` | [`v0`](../schemas/fenolite.sync.v0.json) | [`v1`](../schemas/fenolite.sync.v1.json) | `fenolite.result.sync.v1` |
+| `template` | [`v0`](../schemas/fenolite.template.v0.json) | [`v1`](../schemas/fenolite.template.v1.json) | `fenolite.result.template.v1` |
+| `testpoints` | [`v0`](../schemas/fenolite.testpoints.v0.json) | [`v1`](../schemas/fenolite.testpoints.v1.json) | `fenolite.result.testpoints.v1` |
+| `tidy` | [`v0`](../schemas/fenolite.tidy.v0.json) | [`v1`](../schemas/fenolite.tidy.v1.json) | `fenolite.result.tidy.v1` |
+| `verify-source` | [`v0`](../schemas/fenolite.verify-source.v0.json) | [`v1`](../schemas/fenolite.verify-source.v1.json) | `fenolite.result.verify-source.v1` |
+| `view` | [`v0`](../schemas/fenolite.view.v0.json) | [`v1`](../schemas/fenolite.view.v1.json) | `fenolite.result.view.v1` |
+<!-- END RESULT SCHEMAS -->

@@ -20,6 +20,7 @@ from typing import cast
 from fenolite.backends.kicad.layers import is_canonical
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.exports import plan
 
 PRESET_SCHEMA = "fenolite.export-preset.v0"
@@ -179,7 +180,7 @@ def read_preset(text: str, *, file: str = "") -> Preset:
         data = tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
         raise FormatError(f"not TOML: {error}", file=file) from error
-    if data.get("schema") != PRESET_SCHEMA:
+    if not accepts_schema(data.get("schema"), PRESET_SCHEMA):
         raise FormatError(
             f"schema is {data.get('schema')!r}, not {PRESET_SCHEMA!r}", file=file, locator="schema"
         )

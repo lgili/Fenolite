@@ -173,3 +173,15 @@ Any other form makes KiCad drop every custom rule silently, with exit 0 (`H-K-TO
 - **`kicad_min_major(N)`:** tests marked with it skip on an older kicad-cli. This covers `pcb upgrade`,
   `sch upgrade` and `pcb import`, which exist in 10.0 only (`H-K-00`, S-0022 against S-0037). The
   skip is never a failure, even with `FENOLITE_REQUIRE=kicad`.
+
+## Separate reader-floor and upgrade evidence (c0347)
+
+`ORACLE-VERIFIED(kicad-cli 9.0.9/10.0.6)`, S-1287: the authored fully
+named Mini pin-island control retains all 34 pins, 34 groups and literal names
+in the original native exports; official CLI10 copy upgrade preserves them.
+Its deliberately old header is a floor carrier, not a claim about legacy grammar.
+The original core reader still refuses at its published floor. Every upgrade
+needs separate byte/version provenance and complete original/upgraded electrical
+proof; a successful upgrade process never proves electrical equivalence by itself.
+The source-bound genuine corpus measurements and explicit partial results live
+in c0347 evidence; no original support or all-level fidelity is inferred.

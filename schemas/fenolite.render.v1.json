@@ -1,0 +1,3298 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.render.v1",
+  "title": "RenderResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "board_items": {
+      "$ref": "#/$defs/BuildBoardItems"
+    },
+    "components": {
+      "type": "integer"
+    },
+    "copper": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/BuildCopper"
+        }
+      ]
+    },
+    "copper_check": {
+      "$ref": "#/$defs/BuildCopperCheck"
+    },
+    "copper_input": {
+      "$ref": "#/$defs/BuildCopperInput"
+    },
+    "design": {
+      "type": "string"
+    },
+    "device_files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BuildDeviceFilesItem"
+      }
+    },
+    "devices": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BuildDevicesItem"
+      }
+    },
+    "drawing_sheet": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DrawingSheetSummary"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "draftsman": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BuildDraftsman"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "experimental": {
+      "type": "boolean"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "footprints": {
+      "type": "integer"
+    },
+    "generators": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BuildGeneratorsItem"
+      }
+    },
+    "harnesses": {
+      "type": "integer"
+    },
+    "kept": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "labels": {
+      "type": "integer"
+    },
+    "libraries": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true
+        }
+      ]
+    },
+    "library_items": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/BuildLibraryItemsValue"
+      },
+      "x-fenolite-map": true,
+      "description": "Keys are supplied by named items, rather than fixed record fields."
+    },
+    "lock": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/BuildLock"
+        }
+      ]
+    },
+    "native_template": {
+      "$ref": "#/$defs/BuildNativeTemplate"
+    },
+    "nets": {
+      "type": "integer"
+    },
+    "no_connects": {
+      "type": "integer"
+    },
+    "out": {
+      "type": "string"
+    },
+    "outjob": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/BuildOutjob"
+        }
+      ]
+    },
+    "pcb": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/BuildPcb"
+        }
+      ]
+    },
+    "pcb_document": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "picks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BuildPicksItem"
+      }
+    },
+    "pins": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PinChoice"
+      }
+    },
+    "placed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "placement": {
+      "$ref": "#/$defs/BuildPlacement"
+    },
+    "ports": {
+      "type": "integer"
+    },
+    "power_ports": {
+      "type": "integer"
+    },
+    "preserved": {
+      "$ref": "#/$defs/BuildPreserved"
+    },
+    "role_copper": {
+      "$ref": "#/$defs/BuildRoleCopper"
+    },
+    "rules": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/BuildRules"
+        }
+      ]
+    },
+    "schematic": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/BuildSchematic"
+        }
+      ]
+    },
+    "schematic_composition": {
+      "$ref": "#/$defs/BuildSchematicComposition"
+    },
+    "schematic_format": {
+      "type": "string"
+    },
+    "schematic_layout": {
+      "$ref": "#/$defs/BuildSchematicLayout"
+    },
+    "script_output": {
+      "type": "string"
+    },
+    "sheet": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "sheet_entries": {
+      "type": "integer"
+    },
+    "sheet_mode": {
+      "type": "string"
+    },
+    "sheets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stackup": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/BuildStackup"
+        }
+      ]
+    },
+    "staged": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "symbols": {
+      "type": "integer"
+    },
+    "target": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "vendored": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "board": {
+      "type": "string"
+    },
+    "region": {
+      "$ref": "#/$defs/RenderRegion"
+    },
+    "tool_version": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "views": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RenderViewsItem"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "BuildBoardItems": {
+      "type": "object",
+      "properties": {
+        "dimensions": {
+          "type": "integer"
+        },
+        "graphics": {
+          "type": "integer"
+        },
+        "rule_areas": {
+          "type": "integer"
+        },
+        "texts": {
+          "type": "integer"
+        },
+        "images": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "dimensions",
+        "graphics",
+        "rule_areas",
+        "texts"
+      ]
+    },
+    "BuildCopper": {
+      "type": "object",
+      "properties": {
+        "arcs": {
+          "type": "integer"
+        },
+        "duplicates": {
+          "type": "integer"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "intents": {
+          "type": "integer"
+        },
+        "layers": {
+          "type": "integer"
+        },
+        "locked": {
+          "$ref": "#/$defs/BuildCopperLocked"
+        },
+        "net_classes": {
+          "type": "integer"
+        },
+        "placements_from_board": {
+          "type": "integer"
+        },
+        "planes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "regenerated": {
+          "type": "integer"
+        },
+        "source": {
+          "type": "string"
+        },
+        "stale": {
+          "type": "integer"
+        },
+        "tracks": {
+          "type": "integer"
+        },
+        "vias": {
+          "type": "integer"
+        },
+        "zones": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "arcs",
+        "tracks",
+        "vias"
+      ]
+    },
+    "BuildCopperCheck": {
+      "type": "object",
+      "properties": {
+        "clearance": {
+          "type": "integer"
+        },
+        "edge_clearance": {
+          "type": "integer"
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "mode_source": {
+          "type": "string"
+        },
+        "ran": {
+          "type": "boolean"
+        },
+        "rules": {
+          "$ref": "#/$defs/BuildCopperCheckRules"
+        },
+        "shorts": {
+          "type": "integer"
+        },
+        "unpoured": {
+          "type": "integer"
+        },
+        "waivers": {
+          "$ref": "#/$defs/WaiverSummary"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "mode",
+        "mode_source",
+        "ran"
+      ]
+    },
+    "BuildCopperCheckRules": {
+      "type": "object",
+      "properties": {
+        "min_clearance": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "opaque_clearance_rules": {
+          "type": "integer"
+        },
+        "unread": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "min_clearance",
+        "opaque_clearance_rules",
+        "unread"
+      ]
+    },
+    "BuildCopperInput": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "format_version",
+        "kind",
+        "path",
+        "sha256"
+      ]
+    },
+    "BuildCopperLocked": {
+      "type": "object",
+      "properties": {
+        "arcs": {
+          "type": "integer"
+        },
+        "tracks": {
+          "type": "integer"
+        },
+        "vias": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "arcs",
+        "tracks",
+        "vias"
+      ]
+    },
+    "BuildDeviceFilesItem": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "sha256"
+      ]
+    },
+    "BuildDevicesItem": {
+      "type": "object",
+      "properties": {
+        "edited": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "item": {
+          "$ref": "#/$defs/BuildDevicesItemItem"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "edited",
+        "evidence",
+        "id",
+        "origin",
+        "parts",
+        "sha256"
+      ]
+    },
+    "BuildDevicesItemItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "kind",
+        "version"
+      ]
+    },
+    "BuildDraftsman": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "route": {
+          "type": "string"
+        },
+        "sheets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildDraftsmanSheet"
+          }
+        },
+        "not_lowered": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "spec": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BuildDraftsmanSpec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "file",
+        "route",
+        "sheets",
+        "not_lowered",
+        "spec"
+      ]
+    },
+    "BuildDraftsmanSheet": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "paper": {
+          "type": "string"
+        },
+        "objects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "title",
+        "paper",
+        "objects"
+      ]
+    },
+    "BuildDraftsmanSpec": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "sha256"
+      ]
+    },
+    "BuildGeneratorsItem": {
+      "type": "object",
+      "properties": {
+        "achieved": {
+          "type": "string"
+        },
+        "generator": {
+          "type": "string"
+        },
+        "group": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "parts": {
+          "$ref": "#/$defs/BuildGeneratorsItemParts"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "generator",
+        "group",
+        "message",
+        "ok",
+        "parts"
+      ]
+    },
+    "BuildGeneratorsItemParts": {
+      "type": "object",
+      "properties": {
+        "bot": {
+          "type": "string"
+        },
+        "c": {
+          "type": "string"
+        },
+        "r": {
+          "type": "string"
+        },
+        "scl": {
+          "type": "string"
+        },
+        "sda": {
+          "type": "string"
+        },
+        "top": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "BuildLibraryItemsValue": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "kind",
+        "version"
+      ]
+    },
+    "BuildLock": {
+      "type": "object",
+      "properties": {
+        "changes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildLockChangesItem"
+          }
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "file": {
+          "type": "string"
+        },
+        "frozen": {
+          "type": "boolean"
+        },
+        "written": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "changes",
+        "exists",
+        "file",
+        "frozen",
+        "written"
+      ]
+    },
+    "BuildLockChangesItem": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "before": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "key": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "section": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "after",
+        "before",
+        "key",
+        "reason",
+        "section"
+      ]
+    },
+    "BuildNativeTemplate": {
+      "type": "object",
+      "properties": {
+        "evidence": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "evidence",
+        "file",
+        "pages",
+        "sha256",
+        "source"
+      ]
+    },
+    "BuildOutjob": {
+      "type": "object",
+      "properties": {
+        "defaults": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "file": {
+          "type": "string"
+        },
+        "gerber": {
+          "$ref": "#/$defs/BuildOutjobGerber"
+        },
+        "media": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildOutjobMediaItem"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildOutjobOutputsItem"
+          }
+        },
+        "preset": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PresetReference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "defaults",
+        "file",
+        "gerber",
+        "media",
+        "outputs",
+        "preset"
+      ]
+    },
+    "BuildOutjobGerber": {
+      "type": "object",
+      "properties": {
+        "decimals": {
+          "type": "integer"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildOutjobGerberLayersItem"
+          }
+        },
+        "outline": {
+          "$ref": "#/$defs/BuildOutjobGerberOutline"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "decimals",
+        "layers",
+        "outline",
+        "unit"
+      ]
+    },
+    "BuildOutjobGerberLayersItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "BuildOutjobGerberOutline": {
+      "type": "object",
+      "properties": {
+        "plotted": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "plotted",
+        "reason"
+      ]
+    },
+    "BuildOutjobMediaItem": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "type"
+      ]
+    },
+    "BuildOutjobOutputsItem": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "document": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "medium": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "category",
+        "document",
+        "enabled",
+        "kind",
+        "medium",
+        "name",
+        "type"
+      ]
+    },
+    "BuildPcb": {
+      "type": "object",
+      "properties": {
+        "bodies": {
+          "type": "string"
+        },
+        "not_lowered": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "pour": {
+          "$ref": "#/$defs/BuildPcbPour"
+        },
+        "written": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "bodies",
+        "not_lowered",
+        "pour",
+        "written"
+      ]
+    },
+    "BuildPcbPour": {
+      "type": "object",
+      "properties": {
+        "evidence": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mode": {
+          "type": "string"
+        },
+        "poured": {
+          "type": "integer"
+        },
+        "unpoured": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "evidence",
+        "hypotheses",
+        "mode",
+        "poured",
+        "unpoured"
+      ]
+    },
+    "BuildPicksItem": {
+      "type": "object",
+      "properties": {
+        "before": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "catalog": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "device": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "row": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "state": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "before",
+        "catalog",
+        "device",
+        "evidence",
+        "path",
+        "query",
+        "row",
+        "state"
+      ]
+    },
+    "BuildPlacement": {
+      "type": "object",
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildPlacementBlocksItem"
+          }
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "digest": {
+          "type": "string"
+        },
+        "ran": {
+          "type": "boolean"
+        },
+        "relative": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildPlacementRelativeItem"
+          }
+        },
+        "rules": {
+          "$ref": "#/$defs/BuildPlacementRules"
+        },
+        "top": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "counts",
+        "ran",
+        "rules"
+      ]
+    },
+    "BuildPlacementBlocksItem": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "layout": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BuildPlacementBlocksItemLayout"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "side": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "staged": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "at",
+        "layout",
+        "path",
+        "rotation",
+        "source",
+        "staged"
+      ]
+    },
+    "BuildPlacementBlocksItemLayout": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "sha256",
+        "status"
+      ]
+    },
+    "BuildPlacementRelativeItem": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "frame": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildPlacementRelativeItemRefsItem"
+          }
+        },
+        "request": {
+          "type": "string"
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "side": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "at",
+        "frame",
+        "path",
+        "refs",
+        "request",
+        "rotation",
+        "side"
+      ]
+    },
+    "BuildPlacementRelativeItemRefsItem": {
+      "type": "object",
+      "properties": {
+        "box": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "center": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "ref": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "box",
+        "center",
+        "ref"
+      ]
+    },
+    "BuildPlacementRules": {
+      "type": "object",
+      "properties": {
+        "height": {
+          "$ref": "#/$defs/BuildPlacementRulesHeight"
+        },
+        "near": {
+          "$ref": "#/$defs/BuildPlacementRulesNear"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "near"
+      ]
+    },
+    "BuildPlacementRulesHeight": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "integer"
+        },
+        "judged": {
+          "type": "integer"
+        },
+        "unknown": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "judged",
+        "unknown"
+      ]
+    },
+    "BuildPlacementRulesNear": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "integer"
+        },
+        "judged": {
+          "type": "integer"
+        },
+        "skipped": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "judged",
+        "skipped"
+      ]
+    },
+    "BuildPreserved": {
+      "type": "object",
+      "properties": {
+        "added": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "aliases": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "board": {
+          "type": "boolean"
+        },
+        "board_items": {
+          "$ref": "#/$defs/BuildPreservedBoardItems"
+        },
+        "board_only": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dropped": {
+          "$ref": "#/$defs/BuildPreservedDropped"
+        },
+        "edits": {
+          "$ref": "#/$defs/BuildPreservedEdits"
+        },
+        "fields": {
+          "$ref": "#/$defs/BuildPreservedFields"
+        },
+        "fills": {
+          "$ref": "#/$defs/BuildPreservedFills"
+        },
+        "kept": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "module_aliases": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "net_aliases": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "orphans": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pad_zones": {
+          "$ref": "#/$defs/BuildPreservedPadZones"
+        },
+        "reader_infos": {
+          "type": "integer"
+        },
+        "replaced": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source": {
+          "$ref": "#/$defs/BuildPreservedSource"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "added",
+        "aliases",
+        "board",
+        "board_items",
+        "board_only",
+        "dropped",
+        "edits",
+        "fields",
+        "fills",
+        "kept",
+        "module_aliases",
+        "net_aliases",
+        "orphans",
+        "pad_zones",
+        "reader_infos",
+        "replaced",
+        "source"
+      ]
+    },
+    "BuildPreservedBoardItems": {
+      "type": "object",
+      "properties": {
+        "regenerated": {
+          "type": "integer"
+        },
+        "stale": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "regenerated",
+        "stale"
+      ]
+    },
+    "BuildPreservedDropped": {
+      "type": "object",
+      "properties": {
+        "arcs": {
+          "type": "integer"
+        },
+        "tracks": {
+          "type": "integer"
+        },
+        "vias": {
+          "type": "integer"
+        },
+        "zones": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "arcs",
+        "tracks",
+        "vias",
+        "zones"
+      ]
+    },
+    "BuildPreservedEdits": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildPreservedEditsConflictsItem"
+          }
+        },
+        "kept": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "taken": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unrecorded": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "conflicts",
+        "kept",
+        "taken",
+        "unrecorded"
+      ]
+    },
+    "BuildPreservedEditsConflictsItem": {
+      "type": "object",
+      "properties": {
+        "base": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "cad": {
+          "$ref": "#/$defs/BuildPreservedEditsConflictsItemCad"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "key": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "base",
+        "cad",
+        "code",
+        "key",
+        "reason"
+      ]
+    },
+    "BuildPreservedEditsConflictsItemCad": {
+      "type": "object",
+      "properties": {
+        "board": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "edits": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "BuildPreservedFields": {
+      "type": "object",
+      "properties": {
+        "carried": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "forced": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kept": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "carried",
+        "forced",
+        "kept"
+      ]
+    },
+    "BuildPreservedFills": {
+      "type": "object",
+      "properties": {
+        "dropped": {
+          "type": "integer"
+        },
+        "kept": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "dropped",
+        "kept"
+      ]
+    },
+    "BuildPreservedPadZones": {
+      "type": "object",
+      "properties": {
+        "forced": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kept": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "forced",
+        "kept"
+      ]
+    },
+    "BuildPreservedSource": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "stale": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unknown": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "used": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "file",
+        "stale",
+        "unknown",
+        "used"
+      ]
+    },
+    "BuildRoleCopper": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RoleFinding"
+          }
+        },
+        "before": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildRoleCopperBeforeItem"
+          }
+        },
+        "cleared": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildRoleCopperClearedItem"
+          }
+        },
+        "corridors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildRoleCopperCorridorsItem"
+          }
+        },
+        "nets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildRoleCopperNetsItem"
+          }
+        },
+        "records": {
+          "type": "integer"
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "vias": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "after",
+        "before",
+        "cleared",
+        "corridors",
+        "nets",
+        "records",
+        "rules",
+        "vias"
+      ]
+    },
+    "BuildRoleCopperBeforeItem": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "severity",
+        "where"
+      ]
+    },
+    "BuildRoleCopperClearedItem": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "severity",
+        "where"
+      ]
+    },
+    "BuildRoleCopperCorridorsItem": {
+      "type": "object",
+      "properties": {
+        "group": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "polygons": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "width": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "group",
+        "key",
+        "kind",
+        "layer",
+        "net",
+        "origin",
+        "polygons",
+        "width"
+      ]
+    },
+    "BuildRoleCopperNetsItem": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "max_width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "method": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "net": {
+          "type": "string"
+        },
+        "skipped": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "vias": {
+          "type": "integer"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "zones": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "layers",
+        "max_width",
+        "method",
+        "net",
+        "skipped",
+        "vias",
+        "width",
+        "zones"
+      ]
+    },
+    "BuildRules": {
+      "type": "object",
+      "properties": {
+        "not_lowered": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildRulesNotLoweredItem"
+          }
+        },
+        "written": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildRulesWrittenItem"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "not_lowered",
+        "written"
+      ]
+    },
+    "BuildRulesNotLoweredItem": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "reason",
+        "selector"
+      ]
+    },
+    "BuildRulesWrittenItem": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "rule": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "rule",
+        "selector"
+      ]
+    },
+    "BuildSchematic": {
+      "type": "object",
+      "properties": {
+        "buses": {
+          "type": "integer"
+        },
+        "directed": {
+          "type": "integer"
+        },
+        "directions": {
+          "type": "string"
+        },
+        "drawn": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/BuildSchematicDrawn"
+            }
+          ]
+        },
+        "file": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "labels": {
+          "type": "integer"
+        },
+        "libraries": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "no_connects": {
+          "type": "integer"
+        },
+        "paper": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "integer"
+        },
+        "power_flags": {
+          "type": "integer"
+        },
+        "satellites": {
+          "type": "integer"
+        },
+        "sheets": {
+          "type": "integer"
+        },
+        "source": {
+          "type": "string"
+        },
+        "symbols": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "symbols_drawn": {
+          "type": "integer"
+        },
+        "symbols_simplified": {
+          "type": "integer"
+        },
+        "unconnected_pads": {
+          "type": "integer"
+        },
+        "wires": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "sheets",
+        "symbols"
+      ]
+    },
+    "BuildSchematicComposition": {
+      "type": "object",
+      "properties": {
+        "algorithm": {
+          "type": "string"
+        },
+        "evidence": {
+          "$ref": "#/$defs/BuildSchematicCompositionEvidence"
+        },
+        "limits": {
+          "$ref": "#/$defs/BuildSchematicCompositionLimits"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "replayed_sheets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "schema": {
+          "type": "string"
+        },
+        "sheets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildSchematicCompositionSheetsItem"
+          }
+        },
+        "units": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "algorithm",
+        "evidence",
+        "limits",
+        "origin",
+        "replayed_sheets",
+        "schema",
+        "sheets",
+        "units"
+      ]
+    },
+    "BuildSchematicCompositionEvidence": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string"
+        },
+        "native_review": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "level",
+        "native_review"
+      ]
+    },
+    "BuildSchematicCompositionLimits": {
+      "type": "object",
+      "properties": {
+        "fanout": {
+          "type": "integer"
+        },
+        "grid": {
+          "type": "integer"
+        },
+        "pin_grid": {
+          "type": "integer"
+        },
+        "placement_budget": {
+          "type": "integer"
+        },
+        "text_bounds": {
+          "type": "string"
+        },
+        "wire_budget": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "fanout",
+        "grid",
+        "pin_grid",
+        "placement_budget",
+        "text_bounds",
+        "wire_budget"
+      ]
+    },
+    "BuildSchematicCompositionSheetsItem": {
+      "type": "object",
+      "properties": {
+        "attachments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildSchematicCompositionSheetsItemAttachmentsItem"
+          }
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildSchematicCompositionSheetsItemBlocksItem"
+          }
+        },
+        "connection_candidates": {
+          "type": "integer"
+        },
+        "flow": {
+          "type": "string"
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Issue"
+          }
+        },
+        "labelled_connections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildSchematicCompositionSheetsItemLabelledConnectionsItem"
+          }
+        },
+        "placement_candidates": {
+          "type": "integer"
+        },
+        "placements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildSchematicCompositionSheetsItemPlacementsItem"
+          }
+        },
+        "preview": {
+          "type": "string"
+        },
+        "region": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "reserved": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "items": false,
+            "minItems": 4,
+            "maxItems": 4
+          }
+        },
+        "sheet": {
+          "type": "string"
+        },
+        "wires": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildSchematicCompositionSheetsItemWiresItem"
+          }
+        },
+        "wrapped": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "attachments",
+        "blocks",
+        "connection_candidates",
+        "flow",
+        "issues",
+        "labelled_connections",
+        "placement_candidates",
+        "placements",
+        "preview",
+        "region",
+        "reserved",
+        "sheet",
+        "wires",
+        "wrapped"
+      ]
+    },
+    "BuildSchematicCompositionSheetsItemAttachmentsItem": {
+      "type": "object",
+      "properties": {
+        "anchor": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "anchor",
+        "net",
+        "reason",
+        "unit"
+      ]
+    },
+    "BuildSchematicCompositionSheetsItemBlocksItem": {
+      "type": "object",
+      "properties": {
+        "bounds": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "key": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "bounds",
+        "key",
+        "title"
+      ]
+    },
+    "BuildSchematicCompositionSheetsItemLabelledConnectionsItem": {
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "pin": {
+          "type": "string"
+        },
+        "power": {
+          "type": "boolean"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "net",
+        "pin",
+        "power",
+        "unit"
+      ]
+    },
+    "BuildSchematicCompositionSheetsItemPlacementsItem": {
+      "type": "object",
+      "properties": {
+        "block": {
+          "type": "string"
+        },
+        "bounds": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "component": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "part": {
+          "type": "integer"
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "visible": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildSchematicCompositionSheetsItemPlacementsItemVisibleItem"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "block",
+        "bounds",
+        "component",
+        "origin",
+        "part",
+        "rotation",
+        "unit",
+        "visible"
+      ]
+    },
+    "BuildSchematicCompositionSheetsItemPlacementsItemVisibleItem": {
+      "type": "object",
+      "properties": {
+        "box": {
+          "$ref": "#/$defs/BuildSchematicCompositionSheetsItemPlacementsItemVisibleItemBox"
+        },
+        "key": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "box",
+        "key",
+        "kind"
+      ]
+    },
+    "BuildSchematicCompositionSheetsItemPlacementsItemVisibleItemBox": {
+      "type": "object",
+      "properties": {
+        "x0": {
+          "type": "integer"
+        },
+        "x1": {
+          "type": "integer"
+        },
+        "y0": {
+          "type": "integer"
+        },
+        "y1": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "x0",
+        "x1",
+        "y0",
+        "y1"
+      ]
+    },
+    "BuildSchematicCompositionSheetsItemWiresItem": {
+      "type": "object",
+      "properties": {
+        "bends": {
+          "type": "integer"
+        },
+        "crossings": {
+          "type": "integer"
+        },
+        "end": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "length": {
+          "type": "integer"
+        },
+        "net": {
+          "type": "string"
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "start": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "bends",
+        "crossings",
+        "end",
+        "length",
+        "net",
+        "points",
+        "start"
+      ]
+    },
+    "BuildSchematicDrawn": {
+      "type": "object",
+      "properties": {
+        "buses": {
+          "type": "integer"
+        },
+        "file": {
+          "type": "string"
+        },
+        "junctions": {
+          "type": "integer"
+        },
+        "labels": {
+          "type": "integer"
+        },
+        "opaque": {
+          "type": "integer"
+        },
+        "wires": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "buses",
+        "file",
+        "junctions",
+        "labels",
+        "opaque",
+        "wires"
+      ]
+    },
+    "BuildSchematicLayout": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "formats": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "file",
+        "formats"
+      ]
+    },
+    "BuildStackup": {
+      "type": "object",
+      "properties": {
+        "copper": {
+          "type": "integer"
+        },
+        "source": {
+          "type": "string"
+        },
+        "thickness": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "copper",
+        "source",
+        "thickness"
+      ]
+    },
+    "DrawingSheetPage": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "paper": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "file",
+        "paper",
+        "width",
+        "height"
+      ]
+    },
+    "DrawingSheetSummary": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "items": {
+          "type": "integer"
+        },
+        "file": {
+          "type": "string"
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DrawingSheetPage"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "source",
+        "items"
+      ]
+    },
+    "Evidence": {
+      "description": "A level plus the oracle that produced it and the hypotheses it depends on.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "enum": [
+            "ALTIUM-VERIFIED(kit)",
+            "KICAD-VERIFIED",
+            "ORACLE-VERIFIED",
+            "CORPUS-VERIFIED",
+            "ALTIUM-VERIFIED(author-report)",
+            "INFERRED",
+            "UNKNOWN",
+            "UNVERIFIED"
+          ]
+        },
+        "oracle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "level",
+        "oracle",
+        "hypotheses"
+      ]
+    },
+    "Issue": {
+      "description": "A finding reported by a command. Findings of severity ``error`` make the exit code 5.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(\\.[a-z0-9-]+)+$"
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "warning",
+            "info"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        },
+        "hint": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "severity",
+        "message",
+        "where",
+        "hint",
+        "retryable"
+      ]
+    },
+    "PinChoice": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "option": {
+          "type": "string"
+        },
+        "alternative": {
+          "type": "integer"
+        },
+        "pins": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "role names mapped to chosen device functions"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "key",
+        "kind",
+        "option",
+        "alternative",
+        "pins",
+        "source"
+      ]
+    },
+    "PresetReference": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "file",
+        "sha256"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    },
+    "RenderRegion": {
+      "type": "object",
+      "properties": {
+        "copper": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "counts": {
+          "$ref": "#/$defs/RenderRegionCounts"
+        },
+        "cuts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RenderRegionCutsItem"
+          }
+        },
+        "grid": {
+          "type": "integer"
+        },
+        "highlighted": {
+          "$ref": "#/$defs/RenderRegionHighlighted"
+        },
+        "nets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "open": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RenderRegionOpenItem"
+          }
+        },
+        "pour_grid": {
+          "type": "integer"
+        },
+        "x0": {
+          "type": "integer"
+        },
+        "x1": {
+          "type": "integer"
+        },
+        "y0": {
+          "type": "integer"
+        },
+        "y1": {
+          "type": "integer"
+        },
+        "zones": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RenderRegionZonesItem"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "copper",
+        "counts",
+        "cuts",
+        "grid",
+        "highlighted",
+        "nets",
+        "open",
+        "pour_grid",
+        "x0",
+        "x1",
+        "y0",
+        "y1",
+        "zones"
+      ]
+    },
+    "RenderRegionCounts": {
+      "type": "object",
+      "properties": {
+        "cut": {
+          "type": "integer"
+        },
+        "edge": {
+          "type": "integer"
+        },
+        "grid": {
+          "type": "integer"
+        },
+        "hole": {
+          "type": "integer"
+        },
+        "label": {
+          "type": "integer"
+        },
+        "open": {
+          "type": "integer"
+        },
+        "pad": {
+          "type": "integer"
+        },
+        "slot": {
+          "type": "integer"
+        },
+        "track": {
+          "type": "integer"
+        },
+        "via": {
+          "type": "integer"
+        },
+        "way": {
+          "type": "integer"
+        },
+        "zone": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "edge",
+        "grid"
+      ]
+    },
+    "RenderRegionCutsItem": {
+      "type": "object",
+      "properties": {
+        "cut": {
+          "type": "string"
+        },
+        "open": {
+          "type": "integer"
+        },
+        "routed": {
+          "type": "integer"
+        },
+        "supply": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "cut",
+        "open",
+        "routed",
+        "supply"
+      ]
+    },
+    "RenderRegionHighlighted": {
+      "type": "object",
+      "properties": {
+        "arcs": {
+          "type": "integer"
+        },
+        "pads": {
+          "type": "integer"
+        },
+        "tracks": {
+          "type": "integer"
+        },
+        "vias": {
+          "type": "integer"
+        },
+        "zones": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "arcs",
+        "pads",
+        "tracks",
+        "vias",
+        "zones"
+      ]
+    },
+    "RenderRegionOpenItem": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "$ref": "#/$defs/RenderRegionOpenItemA"
+        },
+        "b": {
+          "$ref": "#/$defs/RenderRegionOpenItemB"
+        },
+        "length": {
+          "type": "integer"
+        },
+        "net": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "length",
+        "net"
+      ]
+    },
+    "RenderRegionOpenItemA": {
+      "type": "object",
+      "properties": {
+        "where": {
+          "type": "string"
+        },
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "where",
+        "x",
+        "y"
+      ]
+    },
+    "RenderRegionOpenItemB": {
+      "type": "object",
+      "properties": {
+        "where": {
+          "type": "string"
+        },
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "where",
+        "x",
+        "y"
+      ]
+    },
+    "RenderRegionZonesItem": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "zone": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "layer",
+        "net",
+        "reason",
+        "state",
+        "zone"
+      ]
+    },
+    "RenderViewsItem": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "bytes",
+        "kind",
+        "path",
+        "sha256"
+      ]
+    },
+    "RoleFinding": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "severity",
+        "where"
+      ]
+    },
+    "WaiverSummary": {
+      "type": "object",
+      "properties": {
+        "matched": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "match counts by authored waiver name"
+        },
+        "unmatched": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unjudged": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "unjudged reason by authored waiver name"
+        },
+        "declared": {
+          "type": "integer"
+        },
+        "expired": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "matched",
+        "unmatched"
+      ]
+    }
+  }
+}

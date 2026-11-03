@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.library_sheets.v1",
+  "title": "LibrarySheetsFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.library_sheets.v1"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LibrarySheet"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "items"
+  ],
+  "$defs": {
+    "LibrarySheet": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "record_digest": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "review_sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "record_digest",
+        "path",
+        "sha256",
+        "review_sha256"
+      ]
+    }
+  }
+}

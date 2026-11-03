@@ -22,6 +22,7 @@ from typing import Any, cast
 
 from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError
+from fenolite.core.schema_ids import accepts_schema
 
 SCHEMA = "fenolite.route-decisions.v0"
 FILE = ".fenolite/route-decisions.json"
@@ -324,7 +325,7 @@ def from_data(value: object, *, file: str = "") -> Decisions:
     """The record of a JSON value; ``FormatError`` naming the JSON pointer of the first fault."""
     reader = _Reader(file)
     data = reader.obj(value, "", ("schema", "board", "locked", "rejected"))
-    if data["schema"] != SCHEMA:
+    if not accepts_schema(data["schema"], SCHEMA):
         raise reader.fail(f"the schema must be {SCHEMA!r}", "/schema")
     locked = reader.items(data["locked"], "/locked")
     rejected = reader.items(data["rejected"], "/rejected")

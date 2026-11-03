@@ -15,6 +15,7 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.library.items import SHA256, TREE, Item
 
 PROVENANCE_SCHEMA = "fenolite.provenance.v0"
@@ -129,7 +130,7 @@ def provenance_problems(record: Mapping[str, Any], item: Item | None = None) -> 
     """Every rule of ``fenolite.provenance.v0`` that ``record`` breaks, and every disagreement with the
     item's manifest, each naming its field (and both values)."""
     problems: list[str] = []
-    if record.get("schema") != PROVENANCE_SCHEMA:
+    if not accepts_schema(record.get("schema"), PROVENANCE_SCHEMA):
         problems.append(f"schema: must be {PROVENANCE_SCHEMA!r}")
     if item is not None:
         for key in ("kind", "id", "version", "spdx"):
@@ -178,7 +179,9 @@ def provenance_problems(record: Mapping[str, Any], item: Item | None = None) -> 
         problems += _upstream_problems(record.get("upstream"), full=True)
         problems += _conversion_problems(record.get("conversion"))
         imported = record.get("import")
-        if not isinstance(imported, dict) or cast(dict[str, object], imported).get("schema") != IMPORT_SCHEMA:
+        if not isinstance(imported, dict) or not accepts_schema(
+            cast(dict[str, object], imported).get("schema"), IMPORT_SCHEMA
+        ):
             problems.append(f"import: c0275's record of schema {IMPORT_SCHEMA!r}, verbatim")
         else:
             licence = cast(dict[str, object], imported).get("licence")

@@ -1,0 +1,1807 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.package.v1",
+  "title": "PackageFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.package.v1"
+    },
+    "id": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "licence": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    },
+    "sources": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "origin": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Origin"
+        },
+        {
+          "$ref": "#/$defs/ImportOrigin"
+        },
+        {
+          "$ref": "#/$defs/ProposalOrigin"
+        }
+      ]
+    },
+    "replaces": {
+      "type": "string"
+    },
+    "deprecated": {
+      "$ref": "#/$defs/Deprecation"
+    },
+    "reviewed_by": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Review"
+      }
+    },
+    "waiver": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Waiver"
+      }
+    },
+    "name": {
+      "type": "string"
+    },
+    "generator": {
+      "type": "string"
+    },
+    "family": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "flags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "pad1": {
+      "type": "string"
+    },
+    "derived": {
+      "type": "string"
+    },
+    "footprint": {
+      "type": "string"
+    },
+    "pad": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Pad"
+          }
+        }
+      ]
+    },
+    "graphic": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Graphic"
+      }
+    },
+    "component_body": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Body"
+      }
+    },
+    "generate": {
+      "$ref": "#/$defs/GenerateOptions"
+    },
+    "body": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PackageBody"
+        },
+        {
+          "$ref": "#/$defs/PackageBody2"
+        },
+        {
+          "$ref": "#/$defs/PackageBody3"
+        },
+        {
+          "$ref": "#/$defs/PackageBody4"
+        },
+        {
+          "$ref": "#/$defs/PackageBody5"
+        },
+        {
+          "$ref": "#/$defs/PackageBody6"
+        },
+        {
+          "$ref": "#/$defs/PackageBody7"
+        },
+        {
+          "$ref": "#/$defs/PackageBody8"
+        },
+        {
+          "$ref": "#/$defs/PackageBody9"
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "terminal": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PackageTerminal"
+        },
+        {
+          "$ref": "#/$defs/PackageTerminal2"
+        }
+      ]
+    },
+    "polarity": {
+      "type": "string"
+    },
+    "span": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "lead": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PackageLead"
+        },
+        {
+          "$ref": "#/$defs/PackageLead2"
+        },
+        {
+          "$ref": "#/$defs/PackageLead3"
+        },
+        {
+          "$ref": "#/$defs/PackageLead4"
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "lead_style": {
+      "type": "string"
+    },
+    "pins": {
+      "type": "integer"
+    },
+    "pitch": {
+      "type": "string"
+    },
+    "arrangement": {
+      "type": "string"
+    },
+    "span_x": {
+      "type": "string"
+    },
+    "span_y": {
+      "type": "string"
+    },
+    "side": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PackageSide"
+      }
+    },
+    "tab": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PackageTab"
+        },
+        {
+          "$ref": "#/$defs/PackageTab2"
+        }
+      ]
+    },
+    "pull_back": {
+      "type": "string"
+    },
+    "ep": {
+      "$ref": "#/$defs/PackageEp"
+    },
+    "ep_number": {
+      "type": "string"
+    },
+    "paste": {
+      "$ref": "#/$defs/PackagePaste"
+    },
+    "rows": {
+      "type": "integer"
+    },
+    "columns": {
+      "type": "integer"
+    },
+    "pitch_x": {
+      "type": "string"
+    },
+    "pitch_y": {
+      "type": "string"
+    },
+    "ball": {
+      "$ref": "#/$defs/PackageBall"
+    },
+    "depopulated": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "$ref": "#/$defs/Depopulated"
+        }
+      ]
+    },
+    "mount": {
+      "type": "string"
+    },
+    "leads": {
+      "type": "integer"
+    },
+    "row_spacing": {
+      "type": "string"
+    },
+    "orientation": {
+      "type": "string"
+    },
+    "pin": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PackagePin"
+        },
+        {
+          "$ref": "#/$defs/PackagePin2"
+        }
+      ]
+    },
+    "numbering": {
+      "type": "string"
+    },
+    "series": {
+      "type": "string"
+    },
+    "positions": {
+      "type": "string"
+    },
+    "name_pattern": {
+      "type": "string"
+    },
+    "mechanical": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PackageMechanical"
+      }
+    },
+    "land": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        {
+          "$ref": "#/$defs/PackageLandChip"
+        },
+        {
+          "$ref": "#/$defs/PackageLandMolded"
+        },
+        {
+          "$ref": "#/$defs/PackageLandGullwing"
+        },
+        {
+          "$ref": "#/$defs/PackageLandNolead"
+        },
+        {
+          "$ref": "#/$defs/PackageLandGrid"
+        },
+        {
+          "$ref": "#/$defs/PackageLandTo"
+        },
+        {
+          "$ref": "#/$defs/PackageLandDip"
+        },
+        {
+          "$ref": "#/$defs/PackageLandHeader"
+        },
+        {
+          "$ref": "#/$defs/PackageLandConnector"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "id",
+    "summary",
+    "evidence"
+  ],
+  "$defs": {
+    "Body": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "height": {
+          "type": "string"
+        },
+        "outline": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "standoff": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "z_min": {
+          "type": "string"
+        },
+        "z_max": {
+          "type": "string"
+        },
+        "projection_unknown": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "height"
+      ]
+    },
+    "Depopulated": {
+      "type": "object",
+      "properties": {
+        "center": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "center"
+      ]
+    },
+    "Deprecation": {
+      "type": "object",
+      "properties": {
+        "by": {
+          "type": "string"
+        },
+        "since": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "by",
+        "since",
+        "reason"
+      ]
+    },
+    "GenerateOptions": {
+      "type": "object",
+      "properties": {
+        "drawing": {
+          "type": "integer"
+        },
+        "lands": {
+          "type": "integer"
+        },
+        "density": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "drawing"
+      ]
+    },
+    "Graphic": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "width": {
+          "type": "string"
+        },
+        "filled": {
+          "type": "boolean"
+        },
+        "key": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "layer",
+        "points"
+      ]
+    },
+    "ImportOrigin": {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "shippable": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OriginSource"
+          }
+        },
+        "output": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ImportOutput"
+          }
+        },
+        "content_sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "date",
+        "shippable"
+      ]
+    },
+    "ImportOutput": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "sha256"
+      ]
+    },
+    "Origin": {
+      "description": "Where a record taken from a CC0-1.0 library came from.",
+      "type": "object",
+      "properties": {
+        "library": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "element": {
+          "type": "string"
+        },
+        "licence": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "library",
+        "version",
+        "element",
+        "licence"
+      ]
+    },
+    "OriginSource": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "member": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "sha256"
+      ]
+    },
+    "PackageBall": {
+      "type": "object",
+      "properties": {
+        "diameter": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "diameter"
+      ]
+    },
+    "PackageBody": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        },
+        "height": {
+          "type": "string"
+        },
+        "standoff": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageBody2": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        },
+        "height": {
+          "type": "string"
+        },
+        "standoff": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageBody3": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        },
+        "height": {
+          "type": "string"
+        },
+        "standoff": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageBody4": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        },
+        "height": {
+          "type": "string"
+        },
+        "standoff": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageBody5": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        },
+        "height": {
+          "type": "string"
+        },
+        "standoff": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageBody6": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        },
+        "height": {
+          "type": "string"
+        },
+        "standoff": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageBody7": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        },
+        "height": {
+          "type": "string"
+        },
+        "standoff": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageBody8": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        },
+        "height": {
+          "type": "string"
+        },
+        "standoff": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "height"
+      ]
+    },
+    "PackageBody9": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/PackageBodyLength"
+            }
+          ]
+        },
+        "width": {
+          "type": "string"
+        },
+        "height": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageBodyLength": {
+      "type": "object",
+      "properties": {
+        "per_position": {
+          "type": "string"
+        },
+        "extra": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "per_position",
+        "extra"
+      ]
+    },
+    "PackageEp": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageLandChip": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "pad": {
+          "$ref": "#/$defs/PackageLandChipPad"
+        },
+        "row_spacing": {
+          "type": "string"
+        },
+        "row_spacing_x": {
+          "type": "string"
+        },
+        "row_spacing_y": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source"
+      ]
+    },
+    "PackageLandChipPad": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageLandConnector": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "drill": {
+          "type": "string"
+        },
+        "pad_diameter": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source"
+      ]
+    },
+    "PackageLandDip": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "drill": {
+          "type": "string"
+        },
+        "pad_diameter": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source"
+      ]
+    },
+    "PackageLandGrid": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "pad_diameter": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "pad_diameter"
+      ]
+    },
+    "PackageLandGullwing": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "pad": {
+          "$ref": "#/$defs/PackageLandGullwingPad"
+        },
+        "row_spacing": {
+          "type": "string"
+        },
+        "row_spacing_x": {
+          "type": "string"
+        },
+        "row_spacing_y": {
+          "type": "string"
+        },
+        "tab": {
+          "$ref": "#/$defs/PackageLandGullwingTab"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source"
+      ]
+    },
+    "PackageLandGullwingPad": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageLandGullwingTab": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        },
+        "at": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width",
+        "at"
+      ]
+    },
+    "PackageLandHeader": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "drill": {
+          "type": "string"
+        },
+        "pad_diameter": {
+          "type": "string"
+        },
+        "pad": {
+          "$ref": "#/$defs/PackageLandHeaderPad"
+        },
+        "row_spacing": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source"
+      ]
+    },
+    "PackageLandHeaderPad": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageLandMolded": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "pad": {
+          "$ref": "#/$defs/PackageLandMoldedPad"
+        },
+        "row_spacing": {
+          "type": "string"
+        },
+        "row_spacing_x": {
+          "type": "string"
+        },
+        "row_spacing_y": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source"
+      ]
+    },
+    "PackageLandMoldedPad": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageLandNolead": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "pad": {
+          "$ref": "#/$defs/PackageLandNoleadPad"
+        },
+        "row_spacing": {
+          "type": "string"
+        },
+        "row_spacing_x": {
+          "type": "string"
+        },
+        "row_spacing_y": {
+          "type": "string"
+        },
+        "ep": {
+          "$ref": "#/$defs/PackageLandNoleadEp"
+        },
+        "paste": {
+          "$ref": "#/$defs/PackageLandNoleadPaste"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source"
+      ]
+    },
+    "PackageLandNoleadEp": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageLandNoleadPad": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageLandNoleadPaste": {
+      "type": "object",
+      "properties": {
+        "grid": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "window": {
+          "type": "string"
+        },
+        "pitch": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "grid",
+        "window",
+        "pitch"
+      ]
+    },
+    "PackageLandTo": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "drill": {
+          "type": "string"
+        },
+        "pad_diameter": {
+          "type": "string"
+        },
+        "pad": {
+          "$ref": "#/$defs/PackageLandToPad"
+        },
+        "tab": {
+          "$ref": "#/$defs/PackageLandToTab"
+        },
+        "row_spacing": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source"
+      ]
+    },
+    "PackageLandToPad": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageLandToTab": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        },
+        "at": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width",
+        "at"
+      ]
+    },
+    "PackageLead": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageLead2": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        },
+        "thickness": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "PackageLead3": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "string"
+        },
+        "thickness": {
+          "type": "string"
+        },
+        "length": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "thickness",
+        "length"
+      ]
+    },
+    "PackageLead4": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "string"
+        },
+        "thickness": {
+          "type": "string"
+        },
+        "length": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "thickness"
+      ]
+    },
+    "PackageMechanical": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "drill": {
+          "type": "string"
+        },
+        "pad_diameter": {
+          "type": "string"
+        },
+        "beyond": {
+          "type": "string"
+        },
+        "y": {
+          "type": "string"
+        },
+        "number": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "drill",
+        "beyond",
+        "y"
+      ]
+    },
+    "PackagePaste": {
+      "type": "object",
+      "properties": {
+        "grid": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "window": {
+          "type": "string"
+        },
+        "pitch": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "grid",
+        "window",
+        "pitch"
+      ]
+    },
+    "PackagePin": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "string"
+        },
+        "thickness": {
+          "type": "string"
+        },
+        "length_above": {
+          "type": "string"
+        },
+        "length_below": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "length_above",
+        "length_below"
+      ]
+    },
+    "PackagePin2": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "string"
+        },
+        "thickness": {
+          "type": "string"
+        },
+        "length_above": {
+          "type": "string"
+        },
+        "length_below": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "width"
+      ]
+    },
+    "PackageSide": {
+      "type": "object",
+      "properties": {
+        "edge": {
+          "type": "string"
+        },
+        "numbers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "positions": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "edge",
+        "numbers",
+        "positions"
+      ]
+    },
+    "PackageTab": {
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        },
+        "length": {
+          "type": "string"
+        },
+        "edge": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "number",
+        "width",
+        "length",
+        "edge"
+      ]
+    },
+    "PackageTab2": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "string"
+        },
+        "length": {
+          "type": "string"
+        },
+        "hole": {
+          "type": "string"
+        },
+        "number": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "length"
+      ]
+    },
+    "PackageTerminal": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length"
+      ]
+    },
+    "PackageTerminal2": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "Pad": {
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "string"
+        },
+        "shape": {
+          "type": "string"
+        },
+        "size": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "key": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "rotation": {
+          "type": "string"
+        },
+        "drill": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "corner_ratio": {
+          "type": "integer"
+        },
+        "mask_margin": {
+          "type": "string"
+        },
+        "padstack": {
+          "$ref": "#/$defs/Padstack"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "number",
+        "shape",
+        "size",
+        "at"
+      ]
+    },
+    "Padstack": {
+      "type": "object",
+      "properties": {
+        "hole_shape": {
+          "type": "string"
+        },
+        "hole_length": {
+          "type": "string"
+        },
+        "hole_rotation": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PadstackLayer"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "hole_shape"
+      ]
+    },
+    "PadstackLayer": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string"
+        },
+        "shape": {
+          "type": "string"
+        },
+        "size": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "offset": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "corner_ratio": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "shape",
+        "size"
+      ]
+    },
+    "ProposalAuthor": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "name",
+        "date"
+      ]
+    },
+    "ProposalOrigin": {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "datasheet": {
+          "type": "string"
+        },
+        "datasheet_sha256": {
+          "type": "string"
+        },
+        "source": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OriginSource"
+          }
+        },
+        "proposer": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalAuthor"
+          }
+        },
+        "content_sha256": {
+          "type": "string"
+        },
+        "output": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ImportOutput"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "date",
+        "datasheet",
+        "datasheet_sha256",
+        "source",
+        "proposer"
+      ]
+    },
+    "Review": {
+      "description": "One review of a record: who, when, of which version and digest, and the label asserted.",
+      "type": "object",
+      "properties": {
+        "who": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "sheet": {
+          "type": "string"
+        },
+        "sheet_sha256": {
+          "type": "string"
+        },
+        "previous_evidence": {
+          "type": "string"
+        },
+        "accepted_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fenolite_version": {
+          "type": "string"
+        },
+        "record_sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "who",
+        "date",
+        "version",
+        "digest",
+        "evidence"
+      ]
+    },
+    "Waiver": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "reason"
+      ]
+    }
+  }
+}

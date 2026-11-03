@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.drawing-spec.v1",
+  "title": "DrawingSpecFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.drawing-spec.v1"
+    },
+    "page": {
+      "$ref": "#/$defs/DrawingPage"
+    },
+    "fab": {
+      "$ref": "#/$defs/FabricationDrawing"
+    },
+    "assembly": {
+      "$ref": "#/$defs/AssemblyDrawing"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema"
+  ],
+  "$defs": {
+    "AssemblyDrawing": {
+      "type": "object",
+      "properties": {
+        "title_top": {
+          "type": "string"
+        },
+        "title_bottom": {
+          "type": "string"
+        },
+        "sides": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dnp": {
+          "enum": [
+            "crossout",
+            "hide",
+            "show"
+          ]
+        },
+        "values": {
+          "type": "boolean"
+        },
+        "pads": {
+          "type": "boolean"
+        },
+        "designators": {
+          "type": "boolean"
+        },
+        "designator_size": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "at": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "description": "Drawing block name to corner in length units."
+        }
+      },
+      "additionalProperties": false
+    },
+    "DrawingPage": {
+      "type": "object",
+      "properties": {
+        "paper": {
+          "type": "string"
+        },
+        "portrait": {
+          "type": "boolean"
+        },
+        "drawing_sheet": {
+          "type": "string"
+        },
+        "text_size": {
+          "type": "string"
+        },
+        "gap": {
+          "type": "string"
+        },
+        "notes_width": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "FabricationDrawing": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "tables": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dimensions": {
+          "type": "boolean"
+        },
+        "dimension_offset": {
+          "type": "string"
+        },
+        "dimension_precision": {
+          "type": "integer"
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "at": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "description": "Drawing block name to corner in length units."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -24,6 +24,14 @@ from typing import Any, cast
 from fenolite.cli.output import Evidence, InputRef, Issue, OutputMode
 from fenolite.core.progress import NULL_PROGRESS, Progress
 
+CONTRACT_VERSION = "v0"
+"""The active CLI wire contract; the 1.0 release changes this to ``v1``."""
+
+
+def contract_schema(name: str) -> str:
+    """An envelope/result schema id under the active contract."""
+    return f"fenolite.{name}.{CONTRACT_VERSION}"
+
 
 @dataclass(frozen=True, slots=True)
 class Context:
@@ -44,6 +52,8 @@ class Context:
     in_process: bool = False
     """The command runs inside ``fenolite.api.run`` (change c0206): it has no stdin to read and must not
     block, so ``restore -`` and ``view --serve`` refuse with ``FEN-2001``."""
+    deprecations: tuple[Issue, ...] = ()
+    """Notices for deprecated spellings actually used in this call, outside the plan arguments."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,17 +169,34 @@ class Command:
     """Keys that the command's entry in ``fenolite capabilities`` holds besides those of every entry, each
     with its list (``equivalent``: ``levels`` and ``sides``; change c0158)."""
 
+    deprecated: str | None = None
+    """The release that deprecated this command; ``replacement`` names the supported spelling."""
+    replacement: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.deprecated is not None:
+            from fenolite.cli.deprecation import validate
+
+            validate(self.deprecated, self.replacement or "")
+
     @property
     def hidden(self) -> bool:
         return self.help is None
 
     @property
     def schema(self) -> str:
-        return f"fenolite.{self.name}.v0"
+        return contract_schema(self.name)
 
 
 def module_name_for(command_name: str) -> str:
     return "cmd_" + command_name.replace("-", "_")
+
+
+def deprecate(parser: argparse.ArgumentParser, flag: str, *, since: str, use: str) -> None:
+    """Declare an existing option's replacement, without changing how argparse consumes it."""
+    from fenolite.cli.deprecation import declare
+
+    declare(parser, flag, since=since, use=use)
 
 
 def discover() -> dict[str, Command]:
@@ -190,4 +217,7 @@ def discover() -> dict[str, Command]:
     return found
 
 
-__all__ = ["Command", "Context", "PlannedWrite", "Result", "depends_on", "discover", "module_name_for"]
+__all__ = [
+    "CONTRACT_VERSION", "Command", "Context", "PlannedWrite", "Result", "contract_schema", "depends_on",
+    "deprecate", "discover", "module_name_for",
+]  # fmt: skip

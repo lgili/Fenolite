@@ -1,0 +1,241 @@
+{
+  "census_driver_sha256": "05fd3193258b8efa647374bfa5fa3be075f75b68b4ce82c3b45a86bda3b7525a",
+  "census_sha256": "78cf9255ddeb2c85cbf69ddbaa45a8859264434f9dd76ad328a0e28129d3dae5",
+  "change": "c0352",
+  "core_snapshot": "6d464cd3",
+  "generated_dru_exists": true,
+  "limits": [
+    "ReadSide currently projects only typed curve; native classes and independent floors were not globally judged by canonical path level6.",
+    "Native controls judge specific clearance UUIDs and a loaded canary, not DRC safety of a board.",
+    "Royal exact fill geometry still differs; no success, public pin or payload update is claimed."
+  ],
+  "native": {
+    "10": [
+      {
+        "actual_override": false,
+        "canary_fired": true,
+        "clearance_nm": 150000,
+        "floor_mm": "0.0762",
+        "input_sha256": {
+          "bench.kicad_dru": "23c2145168cfa851e4ae6c9708582fb4a177f3b3db436e564b19ddd9a3cbdf39",
+          "bench.kicad_pcb": "b33832accd1c43a0f50f390d750159cf22c8cf8fe799a056f5f9c4a58d5ce608",
+          "bench.kicad_pro": "3ea75572c0bf5ebc550a4d7bef39dc2f6c8b08f2b30d5995a2e9ec7accc4ac2b"
+        },
+        "measured_outcome": "absent",
+        "named_class": false,
+        "native_report_sha256": "66c5fcf004907b910c4fe5ecf13d94aedd1b0e6d4f1e722bbe870d0eca37e80c",
+        "native_version": "10.0.6",
+        "probe_uuids": [
+          "a6459fb8-5bb5-594a-b6b8-77ef6ecc3fe3",
+          "a8f8bd82-7919-5ef6-acc5-d6c707545e48"
+        ]
+      },
+      {
+        "actual_override": false,
+        "canary_fired": true,
+        "clearance_nm": 200000,
+        "floor_mm": "0.0762",
+        "input_sha256": {
+          "bench.kicad_dru": "23c2145168cfa851e4ae6c9708582fb4a177f3b3db436e564b19ddd9a3cbdf39",
+          "bench.kicad_pcb": "b33832accd1c43a0f50f390d750159cf22c8cf8fe799a056f5f9c4a58d5ce608",
+          "bench.kicad_pro": "0e9ffe3f53acc781a3ef5e209263f93766dcce4d80f127a0bbf9b60a387ed452"
+        },
+        "measured_outcome": "present",
+        "named_class": false,
+        "native_report_sha256": "9a68cd9ecd5ebb8d3e8f4781f09bdabddda15305a07fa03e4f48c70e6dbbde06",
+        "native_version": "10.0.6",
+        "probe_uuids": [
+          "a6459fb8-5bb5-594a-b6b8-77ef6ecc3fe3",
+          "a8f8bd82-7919-5ef6-acc5-d6c707545e48"
+        ]
+      },
+      {
+        "actual_override": false,
+        "canary_fired": true,
+        "clearance_nm": 203200,
+        "floor_mm": "0.0762",
+        "input_sha256": {
+          "bench.kicad_dru": "23c2145168cfa851e4ae6c9708582fb4a177f3b3db436e564b19ddd9a3cbdf39",
+          "bench.kicad_pcb": "b33832accd1c43a0f50f390d750159cf22c8cf8fe799a056f5f9c4a58d5ce608",
+          "bench.kicad_pro": "af476c7827ec8e0d8c98651cd002f699b3463378052a66c20e9f0de85de0dc44"
+        },
+        "measured_outcome": "present",
+        "named_class": true,
+        "native_report_sha256": "b83b63ae0bfaa3511686de77a9419e6ec2f6c6870eab6ffebb07ac4cc97e16cb",
+        "native_version": "10.0.6",
+        "probe_uuids": [
+          "a6459fb8-5bb5-594a-b6b8-77ef6ecc3fe3",
+          "a8f8bd82-7919-5ef6-acc5-d6c707545e48"
+        ]
+      },
+      {
+        "actual_override": true,
+        "canary_fired": true,
+        "clearance_nm": 203200,
+        "floor_mm": "0.0762",
+        "input_sha256": {
+          "bench.kicad_dru": "e2f6166c78fb7334495309e890d84d02886ccbac8d51b1e6cef848e947f06ad2",
+          "bench.kicad_pcb": "b33832accd1c43a0f50f390d750159cf22c8cf8fe799a056f5f9c4a58d5ce608",
+          "bench.kicad_pro": "af476c7827ec8e0d8c98651cd002f699b3463378052a66c20e9f0de85de0dc44"
+        },
+        "measured_outcome": "absent",
+        "named_class": true,
+        "native_report_sha256": "97294fc7c0bcbb744ef989af675081b4562749f7b976a90be780464ef606c700",
+        "native_version": "10.0.6",
+        "probe_uuids": [
+          "a6459fb8-5bb5-594a-b6b8-77ef6ecc3fe3",
+          "a8f8bd82-7919-5ef6-acc5-d6c707545e48"
+        ]
+      },
+      {
+        "actual_override": true,
+        "canary_fired": true,
+        "clearance_nm": 203200,
+        "floor_mm": "0.25",
+        "input_sha256": {
+          "bench.kicad_dru": "e2f6166c78fb7334495309e890d84d02886ccbac8d51b1e6cef848e947f06ad2",
+          "bench.kicad_pcb": "b33832accd1c43a0f50f390d750159cf22c8cf8fe799a056f5f9c4a58d5ce608",
+          "bench.kicad_pro": "746ab4c38ed83f3a58b3aa151bac13a0f1a5faeba4b22107c232d1f4c8b522e3"
+        },
+        "measured_outcome": "absent",
+        "named_class": true,
+        "native_report_sha256": "0dd6030b74fafe4122e5eb1e0b86e0cbe115e08cc71f160b2759cceada1509a2",
+        "native_version": "10.0.6",
+        "probe_uuids": [
+          "a6459fb8-5bb5-594a-b6b8-77ef6ecc3fe3",
+          "a8f8bd82-7919-5ef6-acc5-d6c707545e48"
+        ]
+      }
+    ],
+    "9": [
+      {
+        "actual_override": false,
+        "canary_fired": true,
+        "clearance_nm": 150000,
+        "floor_mm": "0.0762",
+        "input_sha256": {
+          "bench.kicad_dru": "23c2145168cfa851e4ae6c9708582fb4a177f3b3db436e564b19ddd9a3cbdf39",
+          "bench.kicad_pcb": "9959d4f2f989ae1310a9f198ce5ef42d6d401e73b620ff1beb6d591dcb392678",
+          "bench.kicad_pro": "0e8584480ed17d54d9dcd8069b23019e76fed947ac101ce49b68af751ab83463"
+        },
+        "measured_outcome": "absent",
+        "named_class": false,
+        "native_report_sha256": "372cee7aeddd666bb2c8c067e0fd58ddebcfb889ca0b57466d552b2cd002f6bd",
+        "native_version": "9.0.9",
+        "probe_uuids": [
+          "a6459fb8-5bb5-594a-b6b8-77ef6ecc3fe3",
+          "a8f8bd82-7919-5ef6-acc5-d6c707545e48"
+        ]
+      },
+      {
+        "actual_override": false,
+        "canary_fired": true,
+        "clearance_nm": 200000,
+        "floor_mm": "0.0762",
+        "input_sha256": {
+          "bench.kicad_dru": "23c2145168cfa851e4ae6c9708582fb4a177f3b3db436e564b19ddd9a3cbdf39",
+          "bench.kicad_pcb": "9959d4f2f989ae1310a9f198ce5ef42d6d401e73b620ff1beb6d591dcb392678",
+          "bench.kicad_pro": "87579fa47fa49832890614cecfee3b403a09bcf616ef55e760c1b171512d4fa6"
+        },
+        "measured_outcome": "present",
+        "named_class": false,
+        "native_report_sha256": "acbf2b6b95ea027e51c92e091a3616cc9a4fb49ef2ca2e32208ee6179053fcb4",
+        "native_version": "9.0.9",
+        "probe_uuids": [
+          "a6459fb8-5bb5-594a-b6b8-77ef6ecc3fe3",
+          "a8f8bd82-7919-5ef6-acc5-d6c707545e48"
+        ]
+      },
+      {
+        "actual_override": false,
+        "canary_fired": true,
+        "clearance_nm": 203200,
+        "floor_mm": "0.0762",
+        "input_sha256": {
+          "bench.kicad_dru": "23c2145168cfa851e4ae6c9708582fb4a177f3b3db436e564b19ddd9a3cbdf39",
+          "bench.kicad_pcb": "9959d4f2f989ae1310a9f198ce5ef42d6d401e73b620ff1beb6d591dcb392678",
+          "bench.kicad_pro": "7c192e391b9e153ab6c54caea17c94e5ce769844e81f23eec34f129b0e1e7fd8"
+        },
+        "measured_outcome": "present",
+        "named_class": true,
+        "native_report_sha256": "9b76a7e9d564286ee394ae5d10166c3fe4f951e6f2d75f3647127a7a67f13355",
+        "native_version": "9.0.9",
+        "probe_uuids": [
+          "a6459fb8-5bb5-594a-b6b8-77ef6ecc3fe3",
+          "a8f8bd82-7919-5ef6-acc5-d6c707545e48"
+        ]
+      },
+      {
+        "actual_override": true,
+        "canary_fired": true,
+        "clearance_nm": 203200,
+        "floor_mm": "0.0762",
+        "input_sha256": {
+          "bench.kicad_dru": "e2f6166c78fb7334495309e890d84d02886ccbac8d51b1e6cef848e947f06ad2",
+          "bench.kicad_pcb": "9959d4f2f989ae1310a9f198ce5ef42d6d401e73b620ff1beb6d591dcb392678",
+          "bench.kicad_pro": "7c192e391b9e153ab6c54caea17c94e5ce769844e81f23eec34f129b0e1e7fd8"
+        },
+        "measured_outcome": "absent",
+        "named_class": true,
+        "native_report_sha256": "b50d5b768bd1718d96d8d7f7716274c6543bfd4b8ae05f796d560d3f90fc27ee",
+        "native_version": "9.0.9",
+        "probe_uuids": [
+          "a6459fb8-5bb5-594a-b6b8-77ef6ecc3fe3",
+          "a8f8bd82-7919-5ef6-acc5-d6c707545e48"
+        ]
+      },
+      {
+        "actual_override": true,
+        "canary_fired": true,
+        "clearance_nm": 203200,
+        "floor_mm": "0.25",
+        "input_sha256": {
+          "bench.kicad_dru": "e2f6166c78fb7334495309e890d84d02886ccbac8d51b1e6cef848e947f06ad2",
+          "bench.kicad_pcb": "9959d4f2f989ae1310a9f198ce5ef42d6d401e73b620ff1beb6d591dcb392678",
+          "bench.kicad_pro": "6415ae556df290ee97d4a809343c6d56961402c964b51cd013ae4d191ef0c09f"
+        },
+        "measured_outcome": "absent",
+        "named_class": true,
+        "native_report_sha256": "a27687688c349cd16c05192c12e8ff7b8d1f931f54bc644ffd4086eadedaf13a",
+        "native_version": "9.0.9",
+        "probe_uuids": [
+          "a6459fb8-5bb5-594a-b6b8-77ef6ecc3fe3",
+          "a8f8bd82-7919-5ef6-acc5-d6c707545e48"
+        ]
+      }
+    ]
+  },
+  "native_project_floor_values_equal": true,
+  "native_rebuilt_dru_sha256": "68c46e1476dfd993ef1d85646cba1ef5074b89f3a77361a3f445e1cca7669361",
+  "native_rebuilt_project_sha256": "54347fd5eda9fd3b7e6779d60a2cb8c277cdbdca61c32439ea79383eedf7e5bd",
+  "native_source_project_sha256": "a25ffa7ff829d5eaff27b29724b57821ce2ee7fd39ae367b9ea078d290e37690",
+  "phase": "pre-runtime controls and representation census",
+  "representations": {
+    "emitted_code_model": {
+      "class_clearances_nm": {
+        "USB_DIFF": 203200
+      },
+      "netclasses": 1,
+      "rules": 5
+    },
+    "original_importer_model": {
+      "class_clearances_nm": {
+        "Default": 150000,
+        "USB_DIFF": 203200
+      },
+      "netclasses": 2,
+      "rules": 0
+    },
+    "original_readside": {
+      "class_clearances_nm": {},
+      "netclasses": 0,
+      "rules": 0
+    },
+    "rebuilt_readside": {
+      "class_clearances_nm": {},
+      "netclasses": 0,
+      "rules": 0
+    }
+  },
+  "source_dru_exists": false
+}

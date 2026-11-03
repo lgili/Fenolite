@@ -6,6 +6,9 @@ change c0067).
 This module states no level: every cell is an evidence constant of a module of this package. The codec
 writes a design file and reads a session file; it detects nothing and round-trips nothing. A route read
 from a session is judged by the check that follows it, not by these cells.
+
+There is no recorded version-specific oracle scope for these cells. Their versions stay empty and
+their existing inferred levels stay unchanged; a tool version is not invented from a file suffix.
 """
 
 from __future__ import annotations

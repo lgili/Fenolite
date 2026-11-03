@@ -80,7 +80,7 @@ KINDS: tuple[KindRow, ...] = (
         ),
     ),
     *_rows("presentation", (), ("text", "graphic", "dimension", "schematic-text")),
-    *_rows("project", (), ("schematic",)),
+    *_rows("project", ("project-curve-error",), ("schematic",)),
 )
 """The closed vocabulary of kinds, in report order. Every kind that ``lower.LOSS_KINDS`` names and ``dnp``
 are ``refuse``; ``schematic`` is a project file, generated (a change) or not converted (a loss)."""

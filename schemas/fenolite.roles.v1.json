@@ -1,0 +1,1426 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.roles.v1",
+  "title": "RolesResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "classes": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/RolesClassesValue"
+      },
+      "x-fenolite-map": true,
+      "description": "Keys are supplied by named items, rather than fixed record fields."
+    },
+    "gates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RolesGatesItem"
+      }
+    },
+    "kelvins": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RolesKelvinsItem"
+      }
+    },
+    "loops": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RolesLoopsItem"
+      }
+    },
+    "measures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RolesMeasuresItem"
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RolesRequirementsItem"
+      }
+    },
+    "roles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RolesRolesItem"
+      }
+    },
+    "store": {
+      "$ref": "#/$defs/RolesStore"
+    },
+    "summary": {
+      "$ref": "#/$defs/RolesSummary"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "Corner": {
+      "description": "A row at one corner of the rig supplies (``bench=max,aux=min``): its status and value text.",
+      "type": "object",
+      "properties": {
+        "corner": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pass",
+            "fail",
+            "unsure",
+            "unknown",
+            "deferred"
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "corner",
+        "status",
+        "text"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    },
+    "ReturnSpan": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        },
+        "start": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "end": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "length": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "layer",
+        "where",
+        "start",
+        "end",
+        "length"
+      ]
+    },
+    "RolesClassesValue": {
+      "type": "object",
+      "properties": {
+        "class": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "terminals": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "class",
+        "confidence",
+        "evidence",
+        "terminals"
+      ]
+    },
+    "RolesGatesItem": {
+      "type": "object",
+      "properties": {
+        "confidence": {
+          "type": "string"
+        },
+        "drive": {
+          "type": "string"
+        },
+        "gate": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "resistor": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ret": {
+          "type": "string"
+        },
+        "rule": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "confidence",
+        "drive",
+        "gate",
+        "name",
+        "origin",
+        "resistor",
+        "ret",
+        "rule",
+        "source"
+      ]
+    },
+    "RolesKelvinsItem": {
+      "type": "object",
+      "properties": {
+        "confidence": {
+          "type": "string"
+        },
+        "element": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "force": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "receiver": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rule": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "confidence",
+        "element",
+        "force",
+        "name",
+        "origin",
+        "receiver",
+        "rule"
+      ]
+    },
+    "RolesLoopsItem": {
+      "type": "object",
+      "properties": {
+        "confidence": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "pads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rule": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "confidence",
+        "name",
+        "origin",
+        "pads",
+        "rule"
+      ]
+    },
+    "RolesMeasuresItem": {
+      "type": "object",
+      "properties": {
+        "analysis": {
+          "type": "string"
+        },
+        "copper": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "values": {
+          "$ref": "#/$defs/RolesMeasuresItemValues"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "analysis",
+        "copper",
+        "kind",
+        "subject",
+        "values"
+      ]
+    },
+    "RolesMeasuresItemValues": {
+      "type": "object",
+      "properties": {
+        "analyses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "area_nm2": {
+          "type": "integer"
+        },
+        "bound_nm2": {
+          "type": "integer"
+        },
+        "broadside": {
+          "type": "integer"
+        },
+        "capacity_ma": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "element": {
+          "type": "string"
+        },
+        "gap": {
+          "type": "integer"
+        },
+        "group": {
+          "type": "string"
+        },
+        "hull_free": {
+          "type": "boolean"
+        },
+        "items": {
+          "type": "integer"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "legs": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        "length": {
+          "type": "integer"
+        },
+        "method": {
+          "type": "string"
+        },
+        "milliamps": {
+          "type": "integer"
+        },
+        "net": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "node": {
+          "type": "string"
+        },
+        "offsets": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "open": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "over_fill": {
+          "type": "integer"
+        },
+        "pad": {
+          "type": "string"
+        },
+        "pads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "path_source": {
+          "type": "string"
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "power_source": {
+          "type": "string"
+        },
+        "ratio_permille": {
+          "type": "integer"
+        },
+        "required_vias": {
+          "type": "integer"
+        },
+        "required_width": {
+          "type": "integer"
+        },
+        "rise_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "score": {
+          "type": "integer"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "series": {
+          "type": "boolean"
+        },
+        "share_ma": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "shared": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "splits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReturnSpan"
+          }
+        },
+        "starts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "temp_rise_mk": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "two_ports": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unreferenced": {
+          "type": "integer"
+        },
+        "via_limit": {
+          "type": "string"
+        },
+        "vias": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "victim": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width_limit": {
+          "type": "string"
+        },
+        "zones": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "RolesRequirementsItem": {
+      "type": "object",
+      "properties": {
+        "check": {
+          "type": "string"
+        },
+        "corners": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RolesRequirementsItemCornersItem"
+          }
+        },
+        "decidable": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "limit": {
+          "$ref": "#/$defs/RolesRequirementsItemLimit"
+        },
+        "missing": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "string"
+        },
+        "severity": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/RolesRequirementsItemValue"
+            }
+          ]
+        },
+        "waiver": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "check",
+        "corners",
+        "decidable",
+        "digest",
+        "entities",
+        "id",
+        "limit",
+        "missing",
+        "quantity",
+        "severity",
+        "status",
+        "subject",
+        "unit",
+        "value",
+        "waiver"
+      ]
+    },
+    "RolesRequirementsItemCornersItem": {
+      "type": "object",
+      "properties": {
+        "corner": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "corner",
+        "status",
+        "text"
+      ]
+    },
+    "RolesRequirementsItemLimit": {
+      "type": "object",
+      "properties": {
+        "basis": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "range": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/RolesRequirementsItemLimitRange"
+            }
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "basis",
+        "evidence",
+        "kind",
+        "range",
+        "source",
+        "text"
+      ]
+    },
+    "RolesRequirementsItemLimitRange": {
+      "type": "object",
+      "properties": {
+        "high": {
+          "$ref": "#/$defs/RolesRequirementsItemLimitRangeHigh"
+        },
+        "low": {
+          "$ref": "#/$defs/RolesRequirementsItemLimitRangeLow"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "unit"
+      ]
+    },
+    "RolesRequirementsItemLimitRangeHigh": {
+      "type": "object",
+      "properties": {
+        "e": {
+          "type": "integer"
+        },
+        "m": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "e",
+        "m"
+      ]
+    },
+    "RolesRequirementsItemLimitRangeLow": {
+      "type": "object",
+      "properties": {
+        "e": {
+          "type": "integer"
+        },
+        "m": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "e",
+        "m"
+      ]
+    },
+    "RolesRequirementsItemValue": {
+      "type": "object",
+      "properties": {
+        "basis": {
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/RolesRequirementsItemValueOrigin"
+        },
+        "range": {
+          "$ref": "#/$defs/RolesRequirementsItemValueRange"
+        },
+        "source": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "basis",
+        "range",
+        "source",
+        "text"
+      ]
+    },
+    "RolesRequirementsItemValueOrigin": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind"
+      ]
+    },
+    "RolesRequirementsItemValueRange": {
+      "type": "object",
+      "properties": {
+        "high": {
+          "$ref": "#/$defs/RolesRequirementsItemValueRangeHigh"
+        },
+        "low": {
+          "$ref": "#/$defs/RolesRequirementsItemValueRangeLow"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "high",
+        "unit"
+      ]
+    },
+    "RolesRequirementsItemValueRangeHigh": {
+      "type": "object",
+      "properties": {
+        "e": {
+          "type": "integer"
+        },
+        "m": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "e",
+        "m"
+      ]
+    },
+    "RolesRequirementsItemValueRangeLow": {
+      "type": "object",
+      "properties": {
+        "e": {
+          "type": "integer"
+        },
+        "m": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "e",
+        "m"
+      ]
+    },
+    "RolesRolesItem": {
+      "type": "object",
+      "properties": {
+        "confidence": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "milliamps": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "net": {
+          "type": "string"
+        },
+        "pads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rule": {
+          "type": "string"
+        },
+        "sensitive": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string"
+        },
+        "working_mv": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "confidence",
+        "kind",
+        "milliamps",
+        "net",
+        "pads",
+        "rule",
+        "sensitive",
+        "source",
+        "working_mv"
+      ]
+    },
+    "RolesStore": {
+      "type": "object",
+      "properties": {
+        "built": {
+          "type": "boolean"
+        },
+        "file": {
+          "type": "string"
+        },
+        "read": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "built",
+        "file",
+        "read"
+      ]
+    },
+    "RolesSummary": {
+      "type": "object",
+      "properties": {
+        "analyses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "codes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "deferred": {
+          "$ref": "#/$defs/RolesSummaryDeferred"
+        },
+        "measures": {
+          "type": "integer"
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RolesSummaryRequirementsItem"
+          }
+        },
+        "roles": {
+          "$ref": "#/$defs/RolesSummaryRoles"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "analyses",
+        "codes",
+        "deferred",
+        "measures",
+        "requirements",
+        "roles"
+      ]
+    },
+    "RolesSummaryDeferred": {
+      "type": "object",
+      "properties": {
+        "route": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true
+    },
+    "RolesSummaryRequirementsItem": {
+      "type": "object",
+      "properties": {
+        "check": {
+          "type": "string"
+        },
+        "corners": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Corner"
+          }
+        },
+        "decidable": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "limit": {
+          "$ref": "#/$defs/RolesSummaryRequirementsItemLimit"
+        },
+        "missing": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "string"
+        },
+        "severity": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/RolesSummaryRequirementsItemValue"
+            }
+          ]
+        },
+        "waiver": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "check",
+        "corners",
+        "decidable",
+        "digest",
+        "entities",
+        "id",
+        "limit",
+        "missing",
+        "quantity",
+        "severity",
+        "status",
+        "subject",
+        "unit",
+        "value",
+        "waiver"
+      ]
+    },
+    "RolesSummaryRequirementsItemLimit": {
+      "type": "object",
+      "properties": {
+        "basis": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "range": {
+          "$ref": "#/$defs/RolesSummaryRequirementsItemLimitRange"
+        },
+        "source": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "basis",
+        "evidence",
+        "kind",
+        "range",
+        "source",
+        "text"
+      ]
+    },
+    "RolesSummaryRequirementsItemLimitRange": {
+      "type": "object",
+      "properties": {
+        "high": {
+          "$ref": "#/$defs/RolesSummaryRequirementsItemLimitRangeHigh"
+        },
+        "low": {
+          "$ref": "#/$defs/RolesSummaryRequirementsItemLimitRangeLow"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "unit"
+      ]
+    },
+    "RolesSummaryRequirementsItemLimitRangeHigh": {
+      "type": "object",
+      "properties": {
+        "e": {
+          "type": "integer"
+        },
+        "m": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "e",
+        "m"
+      ]
+    },
+    "RolesSummaryRequirementsItemLimitRangeLow": {
+      "type": "object",
+      "properties": {
+        "e": {
+          "type": "integer"
+        },
+        "m": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "e",
+        "m"
+      ]
+    },
+    "RolesSummaryRequirementsItemValue": {
+      "type": "object",
+      "properties": {
+        "basis": {
+          "type": "string"
+        },
+        "range": {
+          "$ref": "#/$defs/RolesSummaryRequirementsItemValueRange"
+        },
+        "source": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "basis",
+        "range",
+        "source",
+        "text"
+      ]
+    },
+    "RolesSummaryRequirementsItemValueRange": {
+      "type": "object",
+      "properties": {
+        "high": {
+          "$ref": "#/$defs/RolesSummaryRequirementsItemValueRangeHigh"
+        },
+        "low": {
+          "$ref": "#/$defs/RolesSummaryRequirementsItemValueRangeLow"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "high",
+        "unit"
+      ]
+    },
+    "RolesSummaryRequirementsItemValueRangeHigh": {
+      "type": "object",
+      "properties": {
+        "e": {
+          "type": "integer"
+        },
+        "m": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "e",
+        "m"
+      ]
+    },
+    "RolesSummaryRequirementsItemValueRangeLow": {
+      "type": "object",
+      "properties": {
+        "e": {
+          "type": "integer"
+        },
+        "m": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "e",
+        "m"
+      ]
+    },
+    "RolesSummaryRoles": {
+      "type": "object",
+      "properties": {
+        "declared": {
+          "type": "integer"
+        },
+        "inferred": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "inferred"
+      ]
+    }
+  }
+}

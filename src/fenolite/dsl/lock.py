@@ -615,7 +615,7 @@ def read_lock(text: str, *, file: str) -> Lock:
         raise _refuse(
             f"schema {schema!r} is not a lock schema; this version reads {SCHEMA!r}", file, "schema"
         )
-    if int(version.group(1)) > 0:
+    if int(version.group(1)) > 1:
         raise LockVersionError(
             f"the lock has the newer schema {schema!r}; this version reads {SCHEMA!r}",
             file=file,

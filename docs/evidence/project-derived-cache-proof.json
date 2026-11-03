@@ -1,0 +1,582 @@
+{
+  "authored_control": {
+    "all_levels_equal": true,
+    "derived_cache": {
+      "complete_regenerated_geometry_equal": true,
+      "drc_safety_gate_claimed": false,
+      "judged_project_keys": [
+        "min_clearance",
+        "min_track_width",
+        "min_via_diameter",
+        "min_through_hole_diameter",
+        "min_copper_edge_clearance",
+        "max_error",
+        "teardrop_options",
+        "teardrop_parameters"
+      ],
+      "normal_zone_priorities_normalized": false,
+      "raw_cache_equality_claimed": false,
+      "sides": {
+        "a": {
+          "command": [
+            "pcb",
+            "drc",
+            "--format",
+            "json",
+            "--severity-all",
+            "--refill-zones",
+            "--save-board",
+            "-o",
+            "derived-drc.json",
+            "font_probe.kicad_pcb"
+          ],
+          "exact_geometry_sha256": "0bc42a2c68a8b5a08495919748aed3a8950e6f30ec0b1add82675cd16bf589db",
+          "exit": 0,
+          "input_files": {
+            "font_probe.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "font_probe.kicad_pcb": "27536009350923a169b574c4c22d142b30b10e128fc2341a53b4f67823f260e3",
+            "font_probe.kicad_pro": "b83678b39bbcc973727b71a6d650cb29c42605f8f22568aa71a6f8dc9690d444"
+          },
+          "native_input_sha256": "e3266b394abfeb28e936b69161ff988f16a605cc56921fbef5d55829c8655ceb",
+          "native_non_simple_rings": {
+            "proper_edge_pair_crossings": 0,
+            "rings_with_proper_crossings": 0
+          },
+          "outcome": "exit",
+          "output_sha256": "27536009350923a169b574c4c22d142b30b10e128fc2341a53b4f67823f260e3",
+          "qualified_caches_removed_from_private_input": true,
+          "raw_caches": 2,
+          "raw_non_simple_rings": {
+            "proper_edge_pair_crossings": 0,
+            "rings_with_proper_crossings": 0
+          },
+          "regenerated_caches": 2,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_sha256": "1b2f9c4d6e0d574c3aacf72a2835650e9a2329496e3af67c84928e54486daa8d"
+        },
+        "b": {
+          "command": [
+            "pcb",
+            "drc",
+            "--format",
+            "json",
+            "--severity-all",
+            "--refill-zones",
+            "--save-board",
+            "-o",
+            "derived-drc.json",
+            "font_probe.kicad_pcb"
+          ],
+          "exact_geometry_sha256": "0bc42a2c68a8b5a08495919748aed3a8950e6f30ec0b1add82675cd16bf589db",
+          "exit": 0,
+          "input_files": {
+            "font_probe.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "font_probe.kicad_pcb": "7a45928e630abe7535411f1533a4fc5c0d48819efbbcca51503019a303200e1f",
+            "font_probe.kicad_pro": "b83678b39bbcc973727b71a6d650cb29c42605f8f22568aa71a6f8dc9690d444"
+          },
+          "native_input_sha256": "7a45928e630abe7535411f1533a4fc5c0d48819efbbcca51503019a303200e1f",
+          "native_non_simple_rings": {
+            "proper_edge_pair_crossings": 0,
+            "rings_with_proper_crossings": 0
+          },
+          "outcome": "exit",
+          "output_sha256": "5bc57e38781b46df3c45738b6de0e0e9ee9736a9d637b3a07edcf9314ba2473a",
+          "qualified_caches_removed_from_private_input": true,
+          "raw_caches": 0,
+          "raw_non_simple_rings": {
+            "proper_edge_pair_crossings": 0,
+            "rings_with_proper_crossings": 0
+          },
+          "regenerated_caches": 2,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_sha256": "1b2f9c4d6e0d574c3aacf72a2835650e9a2329496e3af67c84928e54486daa8d"
+        }
+      },
+      "status": "equal",
+      "tool": "kicad-cli",
+      "unjudged_project_rule_deltas": [],
+      "unjudged_project_setting_deltas": [],
+      "version": "10.0.6",
+      "whole_native_rule_file_equality_claimed": false,
+      "whole_project_json_equality_claimed": false
+    },
+    "driver_sha256": "2b2ba9a11f801d1a89a7e20d70e378d7cfbd62700d3c72424eb464427df73eb9",
+    "licence": "CC0-1.0",
+    "malformed_rule_file_refused": true,
+    "missing_tool_FEN6001": true,
+    "planted_curve_setting_L6_refused_before_regeneration": true,
+    "receipt_sha256": "af5f57bf4140a7669ad91e6a71ad2d2c80bc7717154beb7f602dcff2d8498223",
+    "record_plan_confirmed": true,
+    "source_unchanged": true
+  },
+  "ci_claimed": false,
+  "evidence": "ORACLE-VERIFIED(kicad-cli10.0.6)",
+  "final_public_pin_claimed": false,
+  "historical_initial_public_source": {
+    "accepted": [],
+    "code_files": {
+      "src/fenolite/backends/kicad/derived_teardrops.py": "995556acc874176b61e660f4e32cad838e63a4dd9d837e06639c4f524562ca9f",
+      "src/fenolite/cli/_derived_cache.py": "37328326df5b34514af77e2672b21c1c9fa5f127414e0fca7cd9ced3df11dccb",
+      "src/fenolite/cli/cmd_verify_source.py": "d0a267880ffd16b0bbdf29805ea91544383f3562776eae825417757c04aec0b8"
+    },
+    "commit": "97acc80c223d75520c03fc44cab63cd9a3202c42",
+    "derived_cache": {
+      "complete_regenerated_geometry_equal": true,
+      "drc_safety_gate_claimed": false,
+      "judged_project_keys": [
+        "min_clearance",
+        "min_track_width",
+        "min_via_diameter",
+        "min_through_hole_diameter",
+        "min_copper_edge_clearance",
+        "max_error",
+        "teardrop_options",
+        "teardrop_parameters"
+      ],
+      "normal_zone_priorities_normalized": false,
+      "raw_cache_equality_claimed": false,
+      "sides": {
+        "a": {
+          "command": [
+            "pcb",
+            "drc",
+            "--format",
+            "json",
+            "--severity-all",
+            "--refill-zones",
+            "--save-board",
+            "-o",
+            "derived-drc.json",
+            "complex_hierarchy.kicad_pcb"
+          ],
+          "exact_geometry_sha256": "16b255c6c4cef85741adccd28e2266abcf6617068ff12f16f2cad14fe637ad41",
+          "exit": 0,
+          "input_files": {
+            "complex_hierarchy.kicad_pcb": "d5f4162d4c766448832723d139f9e0fcb88a17c82340f10f6f6dc6c2042f0d69",
+            "complex_hierarchy.kicad_pro": "55438416ca7fd46b5bad22da2693e9c43240060977d06daabcba084aa17e2804"
+          },
+          "native_input_sha256": "c2963f2ed22a92e0cabea4717c6661a4ea9d872e990dc12f3ca6eaaaa8b80844",
+          "native_non_simple_rings": {
+            "proper_edge_pair_crossings": 14,
+            "rings_with_proper_crossings": 12
+          },
+          "outcome": "exit",
+          "output_sha256": "b5fa785fc9fab382a7e8a47445640248c021cac20dfa8292c4d6a93cfc979540",
+          "qualified_caches_removed_from_private_input": true,
+          "raw_caches": 165,
+          "raw_non_simple_rings": {
+            "proper_edge_pair_crossings": 0,
+            "rings_with_proper_crossings": 0
+          },
+          "regenerated_caches": 167,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_sha256": "6317f1d1ecc90864c7739cff89b34d4f3787d6cef10950896a4f0db3ce20872e"
+        },
+        "b": {
+          "command": [
+            "pcb",
+            "drc",
+            "--format",
+            "json",
+            "--severity-all",
+            "--refill-zones",
+            "--save-board",
+            "-o",
+            "derived-drc.json",
+            "complex_hierarchy.kicad_pcb"
+          ],
+          "exact_geometry_sha256": "16b255c6c4cef85741adccd28e2266abcf6617068ff12f16f2cad14fe637ad41",
+          "exit": 0,
+          "input_files": {
+            "complex_hierarchy.kicad_dru": "9cb5a782f7a048ce1a55ba3fc685400c2828a8d2c368daeff3d19f7b9a8b9744",
+            "complex_hierarchy.kicad_pcb": "aacc842682bdb245ad39fe147c6b066a86158e601c866e18011123d11793d397",
+            "complex_hierarchy.kicad_pro": "79eeff84e0b91b76c9516eadf58b449dc0bde53184baff61a8c85b926c925412"
+          },
+          "native_input_sha256": "aacc842682bdb245ad39fe147c6b066a86158e601c866e18011123d11793d397",
+          "native_non_simple_rings": {
+            "proper_edge_pair_crossings": 14,
+            "rings_with_proper_crossings": 12
+          },
+          "outcome": "exit",
+          "output_sha256": "9490862d4aadf8be97b886881ecf7b16d271cfad5a0c69bd825ce055bb9ed918",
+          "qualified_caches_removed_from_private_input": true,
+          "raw_caches": 0,
+          "raw_non_simple_rings": {
+            "proper_edge_pair_crossings": 0,
+            "rings_with_proper_crossings": 0
+          },
+          "regenerated_caches": 167,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_sha256": "6317f1d1ecc90864c7739cff89b34d4f3787d6cef10950896a4f0db3ce20872e"
+        }
+      },
+      "status": "equal",
+      "tool": "kicad-cli",
+      "unjudged_project_rule_deltas": [
+        {
+          "a": false,
+          "b": null,
+          "key": "allow_blind_buried_vias"
+        },
+        {
+          "a": false,
+          "b": null,
+          "key": "allow_microvias"
+        },
+        {
+          "a": [
+            "number",
+            0,
+            1
+          ],
+          "b": [
+            "number",
+            1,
+            4
+          ],
+          "key": "min_hole_clearance"
+        },
+        {
+          "a": [
+            "number",
+            127,
+            250
+          ],
+          "b": [
+            "number",
+            1,
+            5
+          ],
+          "key": "min_microvia_diameter"
+        },
+        {
+          "a": [
+            "number",
+            127,
+            625
+          ],
+          "b": [
+            "number",
+            1,
+            10
+          ],
+          "key": "min_microvia_drill"
+        },
+        {
+          "a": [
+            "number",
+            1,
+            20
+          ],
+          "b": [
+            "number",
+            1,
+            10
+          ],
+          "key": "min_via_annular_width"
+        }
+      ],
+      "unjudged_project_setting_deltas": [
+        {
+          "a_canonical_sha256": "b9ad928cee1c55c2dac00d1082fd171af5f95ae1c09313803f558c1ed7684e05",
+          "b_canonical_sha256": "a06c9135da86d1a8cf753103efecab3b1cb7854138d11c2710294d381a6d3285",
+          "key": "defaults"
+        },
+        {
+          "a_canonical_sha256": "7bae52e873878b4266ac7a99998728218f4b4bc120e7595b2ccad7ce14d7b3cb",
+          "b_canonical_sha256": "2e38e77b22c314a449e91fafed92a43826ac6aa403ae6a8acb6cf58239fbaf5d",
+          "key": "diff_pair_dimensions"
+        },
+        {
+          "a_canonical_sha256": "4e3e8bfc231253094a491543aae1f397bc99a9b3da86389d0bd542e474c5a837",
+          "b_canonical_sha256": "b38f965b1a79d7bea3f92285c39310b0e04e0ff4e09076b06d2cc9e03ecdffb2",
+          "key": "rule_severities"
+        },
+        {
+          "a_canonical_sha256": "3cbc87c7681f34db4617feaa2c8801931bc5e42d8d0f560e756dd4cd92885f18",
+          "b_canonical_sha256": "dc937b59892604f5a86ac96936cd7ff09e25f18ae6b758e8014a24c7fa039e91",
+          "key": "rule_severitieslegacy_courtyards_overlap"
+        },
+        {
+          "a_canonical_sha256": "60a33e6cf5151f2d52eddae9685cfa270426aa89d8dbc7dfb854606f1d1a40fe",
+          "b_canonical_sha256": "dc937b59892604f5a86ac96936cd7ff09e25f18ae6b758e8014a24c7fa039e91",
+          "key": "rule_severitieslegacy_no_courtyard_defined"
+        },
+        {
+          "a_canonical_sha256": "f4cadd73daf7dd7f3477c1329833ef72f05af23073bd13ddb1a6aaf101aea3f9",
+          "b_canonical_sha256": "2e38e77b22c314a449e91fafed92a43826ac6aa403ae6a8acb6cf58239fbaf5d",
+          "key": "track_widths"
+        },
+        {
+          "a_canonical_sha256": "14ef2ffc3248f26b3d4de1f966552f9d96c6ea65e0a4e70bb62844aa38f69e67",
+          "b_canonical_sha256": "ade7c5a06ccbf1a2274cd07718131a9ce0f34a7492d7f312e8e696e86c8fed40",
+          "key": "tuning_pattern_settings"
+        },
+        {
+          "a_canonical_sha256": "b27b3a92cbcecf9ec9405efa1dfc4db29cf210344ccc78bbd22cb3e02a911ea8",
+          "b_canonical_sha256": "2e38e77b22c314a449e91fafed92a43826ac6aa403ae6a8acb6cf58239fbaf5d",
+          "key": "via_dimensions"
+        },
+        {
+          "a_canonical_sha256": "3cbc87c7681f34db4617feaa2c8801931bc5e42d8d0f560e756dd4cd92885f18",
+          "b_canonical_sha256": "dc937b59892604f5a86ac96936cd7ff09e25f18ae6b758e8014a24c7fa039e91",
+          "key": "zones_use_no_outline"
+        }
+      ],
+      "version": "10.0.6",
+      "whole_native_rule_file_equality_claimed": false,
+      "whole_project_json_equality_claimed": false
+    },
+    "driver_sha256": "8c13fdd8cc20dd2d1c11d91d999e67e6ad48942682949bb19a3b18029e94dfae",
+    "full_proof_exit": 5,
+    "level7_status": "equal",
+    "original_files_unchanged": true,
+    "raw_receipt_availability": "Original unversioned driver overwrote its raw proof-v6 path during a later actual rerun; complete recorded code/input/native summaries remain here. No old raw availability claim.",
+    "raw_receipt_sha256": "f3acc074d90878dab044017746823516b5390f4fb398f2f83352ebd289acf411",
+    "remaining_differences": [
+      {
+        "kind": "render-pixels",
+        "level": 8
+      }
+    ],
+    "url": "https://gitlab.com/kicad/code/kicad/-/tree/97acc80c223d75520c03fc44cab63cd9a3202c42/demos/complex_hierarchy"
+  },
+  "limits": [
+    "Raw original cached geometry is not declared equal to regenerated geometry.",
+    "No geometry-validity or safety DRC certificate.",
+    "Only supported project keys and exact regenerated derived geometry are judged; native project/rule-file global equality is not claimed.",
+    "Native non-simple rings retain every exact vertex/crossing/multiplicity.",
+    "Pure comparison, normal zone priorities, editable model levels and all tolerances are unchanged."
+  ],
+  "public_source": {
+    "accepted": [],
+    "code_files": {
+      "src/fenolite/backends/kicad/derived_teardrops.py": "286928daad878346f15f594ceb6ea25adf17f565bda3113ff32db6b4e0bfb2b5",
+      "src/fenolite/cli/_derived_cache.py": "cd03229e1b8c54b5169ec04fc84aac20096bc275e9749ad5256edf280b5e622e",
+      "src/fenolite/cli/cmd_verify_source.py": "d0a267880ffd16b0bbdf29805ea91544383f3562776eae825417757c04aec0b8"
+    },
+    "commit": "97acc80c223d75520c03fc44cab63cd9a3202c42",
+    "derived_cache": {
+      "complete_regenerated_geometry_equal": true,
+      "drc_safety_gate_claimed": false,
+      "judged_project_keys": [
+        "min_clearance",
+        "min_track_width",
+        "min_via_diameter",
+        "min_through_hole_diameter",
+        "min_copper_edge_clearance",
+        "max_error",
+        "teardrop_options",
+        "teardrop_parameters"
+      ],
+      "normal_zone_priorities_normalized": false,
+      "raw_cache_equality_claimed": false,
+      "sides": {
+        "a": {
+          "command": [
+            "pcb",
+            "drc",
+            "--format",
+            "json",
+            "--severity-all",
+            "--refill-zones",
+            "--save-board",
+            "-o",
+            "derived-drc.json",
+            "complex_hierarchy.kicad_pcb"
+          ],
+          "exact_geometry_sha256": "16b255c6c4cef85741adccd28e2266abcf6617068ff12f16f2cad14fe637ad41",
+          "exit": 0,
+          "input_files": {
+            "complex_hierarchy.kicad_pcb": "d5f4162d4c766448832723d139f9e0fcb88a17c82340f10f6f6dc6c2042f0d69",
+            "complex_hierarchy.kicad_pro": "55438416ca7fd46b5bad22da2693e9c43240060977d06daabcba084aa17e2804"
+          },
+          "native_input_sha256": "c2963f2ed22a92e0cabea4717c6661a4ea9d872e990dc12f3ca6eaaaa8b80844",
+          "native_non_simple_rings": {
+            "proper_edge_pair_crossings": 14,
+            "rings_with_proper_crossings": 12
+          },
+          "outcome": "exit",
+          "output_sha256": "b5fa785fc9fab382a7e8a47445640248c021cac20dfa8292c4d6a93cfc979540",
+          "qualified_caches_removed_from_private_input": true,
+          "raw_caches": 165,
+          "raw_non_simple_rings": {
+            "proper_edge_pair_crossings": 0,
+            "rings_with_proper_crossings": 0
+          },
+          "regenerated_caches": 167,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_sha256": "6317f1d1ecc90864c7739cff89b34d4f3787d6cef10950896a4f0db3ce20872e"
+        },
+        "b": {
+          "command": [
+            "pcb",
+            "drc",
+            "--format",
+            "json",
+            "--severity-all",
+            "--refill-zones",
+            "--save-board",
+            "-o",
+            "derived-drc.json",
+            "complex_hierarchy.kicad_pcb"
+          ],
+          "exact_geometry_sha256": "16b255c6c4cef85741adccd28e2266abcf6617068ff12f16f2cad14fe637ad41",
+          "exit": 0,
+          "input_files": {
+            "complex_hierarchy.kicad_dru": "9cb5a782f7a048ce1a55ba3fc685400c2828a8d2c368daeff3d19f7b9a8b9744",
+            "complex_hierarchy.kicad_pcb": "aacc842682bdb245ad39fe147c6b066a86158e601c866e18011123d11793d397",
+            "complex_hierarchy.kicad_pro": "79eeff84e0b91b76c9516eadf58b449dc0bde53184baff61a8c85b926c925412"
+          },
+          "native_input_sha256": "aacc842682bdb245ad39fe147c6b066a86158e601c866e18011123d11793d397",
+          "native_non_simple_rings": {
+            "proper_edge_pair_crossings": 14,
+            "rings_with_proper_crossings": 12
+          },
+          "outcome": "exit",
+          "output_sha256": "9490862d4aadf8be97b886881ecf7b16d271cfad5a0c69bd825ce055bb9ed918",
+          "qualified_caches_removed_from_private_input": true,
+          "raw_caches": 0,
+          "raw_non_simple_rings": {
+            "proper_edge_pair_crossings": 0,
+            "rings_with_proper_crossings": 0
+          },
+          "regenerated_caches": 167,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_sha256": "6317f1d1ecc90864c7739cff89b34d4f3787d6cef10950896a4f0db3ce20872e"
+        }
+      },
+      "status": "equal",
+      "tool": "kicad-cli",
+      "unjudged_project_rule_deltas": [
+        {
+          "a": false,
+          "b": null,
+          "key": "allow_blind_buried_vias"
+        },
+        {
+          "a": false,
+          "b": null,
+          "key": "allow_microvias"
+        },
+        {
+          "a": [
+            "number",
+            0,
+            1
+          ],
+          "b": [
+            "number",
+            1,
+            4
+          ],
+          "key": "min_hole_clearance"
+        },
+        {
+          "a": [
+            "number",
+            127,
+            250
+          ],
+          "b": [
+            "number",
+            1,
+            5
+          ],
+          "key": "min_microvia_diameter"
+        },
+        {
+          "a": [
+            "number",
+            127,
+            625
+          ],
+          "b": [
+            "number",
+            1,
+            10
+          ],
+          "key": "min_microvia_drill"
+        },
+        {
+          "a": [
+            "number",
+            1,
+            20
+          ],
+          "b": [
+            "number",
+            1,
+            10
+          ],
+          "key": "min_via_annular_width"
+        }
+      ],
+      "unjudged_project_setting_deltas": [
+        {
+          "a_canonical_sha256": "b9ad928cee1c55c2dac00d1082fd171af5f95ae1c09313803f558c1ed7684e05",
+          "b_canonical_sha256": "a06c9135da86d1a8cf753103efecab3b1cb7854138d11c2710294d381a6d3285",
+          "key": "defaults"
+        },
+        {
+          "a_canonical_sha256": "7bae52e873878b4266ac7a99998728218f4b4bc120e7595b2ccad7ce14d7b3cb",
+          "b_canonical_sha256": "2e38e77b22c314a449e91fafed92a43826ac6aa403ae6a8acb6cf58239fbaf5d",
+          "key": "diff_pair_dimensions"
+        },
+        {
+          "a_canonical_sha256": "4e3e8bfc231253094a491543aae1f397bc99a9b3da86389d0bd542e474c5a837",
+          "b_canonical_sha256": "b38f965b1a79d7bea3f92285c39310b0e04e0ff4e09076b06d2cc9e03ecdffb2",
+          "key": "rule_severities"
+        },
+        {
+          "a_canonical_sha256": "3cbc87c7681f34db4617feaa2c8801931bc5e42d8d0f560e756dd4cd92885f18",
+          "b_canonical_sha256": "dc937b59892604f5a86ac96936cd7ff09e25f18ae6b758e8014a24c7fa039e91",
+          "key": "rule_severitieslegacy_courtyards_overlap"
+        },
+        {
+          "a_canonical_sha256": "60a33e6cf5151f2d52eddae9685cfa270426aa89d8dbc7dfb854606f1d1a40fe",
+          "b_canonical_sha256": "dc937b59892604f5a86ac96936cd7ff09e25f18ae6b758e8014a24c7fa039e91",
+          "key": "rule_severitieslegacy_no_courtyard_defined"
+        },
+        {
+          "a_canonical_sha256": "f4cadd73daf7dd7f3477c1329833ef72f05af23073bd13ddb1a6aaf101aea3f9",
+          "b_canonical_sha256": "2e38e77b22c314a449e91fafed92a43826ac6aa403ae6a8acb6cf58239fbaf5d",
+          "key": "track_widths"
+        },
+        {
+          "a_canonical_sha256": "14ef2ffc3248f26b3d4de1f966552f9d96c6ea65e0a4e70bb62844aa38f69e67",
+          "b_canonical_sha256": "ade7c5a06ccbf1a2274cd07718131a9ce0f34a7492d7f312e8e696e86c8fed40",
+          "key": "tuning_pattern_settings"
+        },
+        {
+          "a_canonical_sha256": "b27b3a92cbcecf9ec9405efa1dfc4db29cf210344ccc78bbd22cb3e02a911ea8",
+          "b_canonical_sha256": "2e38e77b22c314a449e91fafed92a43826ac6aa403ae6a8acb6cf58239fbaf5d",
+          "key": "via_dimensions"
+        },
+        {
+          "a_canonical_sha256": "3cbc87c7681f34db4617feaa2c8801931bc5e42d8d0f560e756dd4cd92885f18",
+          "b_canonical_sha256": "dc937b59892604f5a86ac96936cd7ff09e25f18ae6b758e8014a24c7fa039e91",
+          "key": "zones_use_no_outline"
+        }
+      ],
+      "version": "10.0.6",
+      "whole_native_rule_file_equality_claimed": false,
+      "whole_project_json_equality_claimed": false
+    },
+    "driver_sha256": "8c13fdd8cc20dd2d1c11d91d999e67e6ad48942682949bb19a3b18029e94dfae",
+    "full_proof_exit": 5,
+    "level7_status": "equal",
+    "offset_recovery_geometry_hash": "16b255c6c4cef85741adccd28e2266abcf6617068ff12f16f2cad14fe637ad41",
+    "original_files_unchanged": true,
+    "raw_receipt_availability": "Preserved under unique proof-offset-v1.json, driver retained byte-for-byte.",
+    "raw_receipt_sha256": "497a27fc2608bbada91756f01ed000456968e34e76879b6660242d57517742b9",
+    "remaining_differences": [
+      {
+        "kind": "render-pixels",
+        "level": 8
+      }
+    ],
+    "url": "https://gitlab.com/kicad/code/kicad/-/tree/97acc80c223d75520c03fc44cab63cd9a3202c42/demos/complex_hierarchy"
+  },
+  "schema": "fenolite.project-derived-cache-proof.v0"
+}

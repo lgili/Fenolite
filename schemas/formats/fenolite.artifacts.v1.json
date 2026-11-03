@@ -1,0 +1,281 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.artifacts.v1",
+  "title": "Manifest",
+  "description": "The artefact manifest of a folder, or of a project (``fenolite manifest``).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.artifacts.v1"
+    },
+    "fenolite": {
+      "type": "string"
+    },
+    "generated": {
+      "type": "string"
+    },
+    "board": {
+      "$ref": "#/$defs/BoardRef"
+    },
+    "tool": {
+      "$ref": "#/$defs/ToolRef"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ArtifactEntry"
+      }
+    },
+    "project": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProjectRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "check": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CheckRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "states": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "fenolite",
+    "generated",
+    "board",
+    "tool",
+    "artifacts"
+  ],
+  "$defs": {
+    "ArtifactEntry": {
+      "description": "One file: its path below the manifest's folder, its kind, the layer of a Gerber, its size, the hash",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "layer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "generated",
+            "checked",
+            "roundtrip-ok",
+            "oracle-verified",
+            "native-verified"
+          ]
+        },
+        "stale": {
+          "type": "boolean"
+        },
+        "from": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "tool": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "held": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "kind",
+        "layer",
+        "bytes",
+        "sha256",
+        "content_sha256",
+        "evidence"
+      ]
+    },
+    "BoardRef": {
+      "description": "A design file the artefacts were made from: the board, or the root schematic.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "format_version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "format_version"
+      ]
+    },
+    "CheckRef": {
+      "description": "The check that gave the states: the stages that ran, and the version of the tool they ran.",
+      "type": "object",
+      "properties": {
+        "stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StageRef"
+          }
+        },
+        "tool_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "stages",
+        "tool_version"
+      ]
+    },
+    "ProjectRef": {
+      "description": "The board and the root schematic of the project, each ``None`` when the project has none.",
+      "type": "object",
+      "properties": {
+        "board": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BoardRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "schematic": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BoardRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "board",
+        "schematic"
+      ]
+    },
+    "StageRef": {
+      "description": "One stage of the check behind the states: its status, evidence level and oracle.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string"
+        },
+        "oracle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "status",
+        "level",
+        "oracle"
+      ]
+    },
+    "ToolRef": {
+      "description": "The tool of the run that wrote the manifest.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ]
+    }
+  }
+}

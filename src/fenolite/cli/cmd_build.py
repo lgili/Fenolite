@@ -1331,6 +1331,24 @@ def _built(
     if source_inputs is not None:
         source_inputs.extend(run.source_files)
     design = run.design
+    native_project_text = None
+    native_project_request = design._kicad_project_input  # pyright: ignore[reportPrivateUsage] - DSL request state
+    if native_project_request is not None:
+        if args.target != "kicad":
+            raise CliError(
+                "FEN-7001",
+                "the declared native KiCad project has no Altium representation",
+                where=native_project_request[0],
+                hint="build this explicit native project with --target kicad",
+            )
+        from fenolite.lens.project_template import read_project_template
+
+        declared_project = read_project_template(
+            script_path, native_project_request, managed_frame=drawing_sheet_source(design) is not None
+        )
+        native_project_text = declared_project.text
+        if source_inputs is not None:
+            source_inputs.append(declared_project.path)
     if design.symbol_context_source is not None and (args.target != "kicad" or args.schematic == "skip"):
         raise FormatError(
             "contextual native symbols require KiCad schematic output",
@@ -1692,6 +1710,7 @@ def _built(
         drawn=drawn_value,
         drawn_file=drawn_name or "schematic.toml",
         context_symbols=drawn_contexts,
+        project_template=native_project_text,
     )
     if plan is not None:
         layout_issues = [

@@ -29,6 +29,7 @@ from fenolite.library.licences import Licences
 from fenolite.library.proof import recorded_result
 
 INDEX_SCHEMA = "fenolite.library-index.v0"
+METADATA_SCHEMA = "fenolite.library-metadata.v1"
 INDEX = "index.json"
 SUMS = "SHA256SUMS"
 LIBRARY_TOML = "library.toml"

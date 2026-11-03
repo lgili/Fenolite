@@ -11,6 +11,7 @@ point minus ``BOARD_ORIGIN``, so the build writes the source coordinates exactly
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import re
 from collections import Counter
 from collections.abc import Mapping, Sequence
@@ -1440,8 +1441,6 @@ def emit(source: Source, options: Options) -> Emission:
         if net.netclass_id is not None and net.name in net_vars:
             by_class.setdefault(net.netclass_id, []).append(net.name)
     for cls in sorted(design.circuit.netclasses, key=lambda c: c.name):
-        if cls.name == "Default":
-            continue
         kwargs: list[tuple[str, Expr]] = []
         for name in CLASS_FIELDS:
             value = getattr(cls, name)
@@ -1450,7 +1449,7 @@ def emit(source: Source, options: Options) -> Emission:
         listed = sorted(by_class.get(cls.id, ()))
         kwargs.append(("nets", Tup(tuple(Raw(net_vars[n]) for n in listed))))
         class_lines.append(statement(Call("design.rules.netclass", (text(cls.name),), tuple(kwargs))))
-    declared = {cls.name for cls in design.circuit.netclasses if cls.name != "Default"}
+    declared = {cls.name for cls in design.circuit.netclasses}
     class_lines += _minimums(source, declared, ledger, writer)
     # parts
     part_lines: list[list[str]] = []
@@ -1716,6 +1715,20 @@ def emit(source: Source, options: Options) -> Emission:
         files.update(contexts)
         keyword = ', symbol_contexts="symbol-contexts.toml"' if contexts else ""
         files["design.py"] += f'\ndesign.load_schematic("schematic.toml"{keyword})\n'
+    if source.backend == "kicad" and source.project_text is not None:
+        from fenolite.backends.kicad.pro_template import validate_project_template
+
+        held_board = source.design.board
+        validate_project_template(
+            source.project_text,
+            file="native/project.kicad_pro",
+            managed_frame=bool(held_board and held_board.sheet and held_board.sheet.drawing_sheet),
+        )
+        project_bytes = source.project_text.encode("utf-8")
+        project_path = "native/project.kicad_pro"
+        files[project_path] = source.project_text
+        project_sha = hashlib.sha256(project_bytes).hexdigest()
+        files["design.py"] += f"\ndesign.kicad_project({project_path!r}, sha256={project_sha!r})\n"
     files["design.lock"] = lock_of(options.name, lock_refs)
     rows = ledger.rows()
     counts = {

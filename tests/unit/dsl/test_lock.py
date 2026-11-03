@@ -106,7 +106,7 @@ def test_read_malformed(text: str, key: str) -> None:
 
 def test_read_newer_schema() -> None:
     with pytest.raises(LockVersionError) as caught:
-        read_lock('schema = "fenolite.lock.v1"\ndesign = "d"\n', file="design.lock")
+        read_lock('schema = "fenolite.lock.v2"\ndesign = "d"\n', file="design.lock")
     assert code(caught.value) == "FEN-3002"
 
 

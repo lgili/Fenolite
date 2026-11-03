@@ -20,6 +20,7 @@ from typing import cast
 
 from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError, Issue
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.core.units import Udeg
 from fenolite.model.board import Side
 
@@ -120,7 +121,7 @@ def read_placements(text: str, *, origin: Point, file: str = "") -> PlacementsFi
         data = tomllib.loads(text, parse_float=Decimal)
     except tomllib.TOMLDecodeError as error:
         raise FormatError(f"not TOML: {error}", file=file) from error
-    if data.get("schema") != SCHEMA:
+    if not accepts_schema(data.get("schema"), SCHEMA):
         raise FormatError(
             f"schema is {data.get('schema')!r}, not {SCHEMA!r}; fenolite sync --to-source writes the file",
             file=file,

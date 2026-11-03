@@ -187,7 +187,7 @@ def test_a_written_manifest_reads_back() -> None:
     [
         ("{", ""),
         ("[]", "/"),
-        ('{"schema": "fenolite.artifacts.v1", "artifacts": []}', "/schema"),
+        ('{"schema": "fenolite.artifacts.v2", "artifacts": []}', "/schema"),
         ('{"schema": "fenolite.artifacts.v0"}', "/artifacts"),
     ],
 )

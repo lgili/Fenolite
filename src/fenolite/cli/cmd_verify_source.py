@@ -13,8 +13,8 @@ The accepted differences of the ``fidelity`` member of ``PROVENANCE.json`` besid
 ``--provenance FILE``) become exclusion rules of the equivalence package (``accepted_rules``); an entry that
 matches nothing in a level that ran gives ``fidelity.accepted-unused``. ``--record`` plans one write of the
 provenance file with ``fidelity.proof``, through ``--dry-run`` and ``--confirm --plan``; ``--accept KEY
---reason TEXT`` adds accepted entries. No subprocess runs unless ``--upgrade`` asks ``kicad-cli`` to upgrade
-a copy of an original older than KiCad 9.0.
+--reason TEXT`` adds accepted entries. Native subprocesses run only for ``--upgrade`` or a qualified
+common-tool derived padvia cache proof. Both use isolated copies; original/editable models stay untouched.
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ from fenolite.checks.equivalence import (
 )
 from fenolite.checks.equivalence.exclusions import apply_rules
 from fenolite.checks.equivalence.model import FRAMES, Difference, Frame, LevelId
-from fenolite.cli import cmd_build
+from fenolite.cli import _derived_cache, cmd_build
 from fenolite.cli._drawn_level import DRAWN_EVIDENCE, UNREADABLE, root_schematic, schematic_level
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, board_format, supported_tool
 from fenolite.cli._presentation import board_scenes, presentation_level, sheet_scenes
@@ -141,7 +141,11 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help="the copper guard of the build: refuse or warn (default: warn for a copy, which the import "
         "record of the provenance file marks, else refuse)",
     )  # fmt: skip
-    parser.add_argument("--kicad-cli", metavar="PATH", help="the kicad-cli of --upgrade")
+    parser.add_argument(
+        "--kicad-cli",
+        metavar="PATH",
+        help="the kicad-cli of --upgrade or a derived padvia cache proof (KiCad 10)",
+    )
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT, metavar="SECONDS")
 
 
@@ -237,8 +241,21 @@ def _paired_sheet_scenes(
     original: Original, rebuilt: Original
 ) -> tuple[dict[str, Mapping[str, Any]], dict[str, Mapping[str, Any]]]:
     """Pair only explicit project roots; preserve child identities and every scene primitive."""
-    first = sheet_scenes(original.root, _sheets_of(original))
-    second = sheet_scenes(rebuilt.root, _sheets_of(rebuilt))
+
+    def owner(value: Original) -> Path | None:
+        if value.path.suffix.lower() == ".kicad_pro":
+            return value.path
+        if value.path.suffix.lower() == ".kicad_sch":
+            candidate = value.path.with_suffix(".kicad_pro")
+        else:
+            try:
+                candidate = resolve_board(value.path).with_suffix(".kicad_pro")
+            except FenoliteError:
+                return None
+        return candidate if candidate in value.files else None
+
+    first = sheet_scenes(original.root, _sheets_of(original), project=owner(original))
+    second = sheet_scenes(rebuilt.root, _sheets_of(rebuilt), project=owner(rebuilt))
     left, right = _root_scene_key(original), _root_scene_key(rebuilt)
     if left is not None and right is not None and left != right and left in first and right in second:
         if left in second or right in first:
@@ -690,6 +707,30 @@ def _compare(
     rules = provenance.rules
 
     opaque = _opaque_differences(a, b)
+    cache_summary: dict[str, object] | None = None
+    cache_differences: tuple[Difference, ...] = ()
+    # This does not change pure equivalence or relax its model/opaque comparisons.
+    if (
+        7 in wanted
+        and original.backend == "kicad"
+        and (root_kinds(a).get("teardrop", 0) or root_kinds(b).get("teardrop", 0))
+    ):
+        try:
+            cache_a, cache_b = _derived_cache.inputs(side_a), _derived_cache.inputs(side_b)
+            eligible = (
+                cache_a is not None and cache_b is not None and _derived_cache.eligible(cache_a, cache_b)
+            )
+        except ValueError:
+            cache_a, cache_b, eligible = None, None, False
+        if eligible and cache_a is not None and cache_b is not None:
+            strict_model = compare_designs(
+                a, b, level=7, tolerances=Tolerances(), frame="absolute", strict=True
+            )
+            if not strict_model.differences:
+                tool = supported_tool(args.kicad_cli, args.timeout)
+                cache_summary, cache_differences = _derived_cache.prove(cache_a, cache_b, tool)
+                if cache_summary.get("status") == "equal":
+                    opaque = tuple(d for d in opaque if d.kind != "opaque-count" or d.field != "teardrop")
 
     def run(extra: tuple[Rule, ...]) -> tuple[EquivalenceReport | None, LevelResult | None]:
         report = None
@@ -697,6 +738,28 @@ def _compare(
             report = compare_designs(a, b, level=top, tolerances=tolerances, frame=frame, rules=extra,
                                      strict=top >= 5 and highest == 5)  # fmt: skip
             report = _with_opaque(report, opaque, extra)
+            if cache_summary is not None:
+                cache_level = apply_rules(LevelResult(7, 1, cache_differences), extra)
+                report = dataclasses.replace(
+                    report,
+                    levels=tuple(
+                        dataclasses.replace(
+                            level,
+                            compared=level.compared + 1,
+                            differences=tuple(
+                                sorted(
+                                    (*level.differences, *cache_level.differences),
+                                    key=lambda d: (d.where, d.kind, d.field),
+                                )
+                            ),
+                            excluded=(*level.excluded, *cache_level.excluded),
+                            summary={**level.summary, "derived_cache": cache_summary},
+                        )
+                        if level.level == 7
+                        else level
+                        for level in report.levels
+                    ),
+                )
         rendered = None
         if PRESENTATION_LEVEL in wanted:
             if a.board is None or b.board is None:
@@ -833,6 +896,9 @@ def _record(
         "tolerances": base["tolerances"],
         "levels": {str(row["level"]): row["status"] for row in levels},
     }
+    cache = next((row["summary"].get("derived_cache") for row in levels if row["level"] == 7), None)
+    if cache is not None:
+        member["proof"]["derived_cache"] = cache
     if base["build"].get("read_files"):
         member["proof"]["generated_read_files"] = base["build"]["read_files"]
     skipped = {str(row["level"]): row["reason"] for row in levels if row["status"] == "skipped"}

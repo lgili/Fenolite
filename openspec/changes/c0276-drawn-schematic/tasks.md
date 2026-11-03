@@ -323,6 +323,15 @@
   source ERC and raw name findings remain, so the no-connectivity-message
   criterion and this task stay open. See `docs/evidence/altium-drawn-native.md`.
 
+- [ ] 6.3 Author an independent native clean-ERC bus acceptance control with explicit
+  intentional no-connects ONLY on the two truly unused input pins U1-11/U1-12.
+  Preserve the full40-pin universe, all connected bus groups and original source
+  findings. Build both Altium forms and verify the two exact native marker positions;
+  compile/export/save/reopen the isolated controls and record every message/name.
+  Retain the independent broken-bus full-partition negative. This control does not
+  retroactively pass the original examples or suppress messages on connected pins.
+  Proof: focused authored writer controls and actual source-bound native receipts.
+
 ## 7. Evidence
 
 - [ ] 7.1 KiCad CI job: compare the resolver with `kicad-cli sch export netlist` on the authored drawn

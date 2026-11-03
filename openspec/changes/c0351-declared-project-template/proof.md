@@ -1,0 +1,51 @@
+# c0351 focused implementation checkpoint
+
+## Independent before control
+
+Base `0366024d`, packet `90afe03f`, before runtime: authored actual import dry/confirm and build
+dry/confirm all exit0 and unexpressed=[], yet show/own_page/short/prefix/suffix revert from
+true/true/true/AUTH[/] to false/false/false/empty/empty. Original hashes are unchanged. The retained
+original and pre-fix rebuild additionally exported through native10 without modification: original
+SVG has AUTH[…] references, rebuilt SVG has none. Receipts: `c0348-settings-before/receipt.json`,
+`c0351-retained-before-native10.log`. Authored controls for unsupported declaration/absent emitted
+sidecar failed before implementation (19 intended failures); missing reader initially failed
+collection, not a pass. Existing c0348 native9/10 matrices establish the actual5-field semantics.
+
+## Focused after proof
+
+- 145 DSL/reader/CLI/import/agent-page tests passed (9.34s): mandatory lowercase digest, once/no I/O,
+  unsafe paths/drive/UNC/URI/traversal, symlink escape, missing/digest/UTF8/exact JSON/duplicate/nonfinite,
+  future/read-only versions and known frame references; moved-folder9/10 replay and authoritative
+  unmanaged rebuild; typed edge floor .7 overrides template .01 in actual copper planner/output,
+  unrelated .19 native minimum retained and final file/root/cache identities rebound.
+- The staged plan records the sidecar path+SHA. Editing it makes old confirmation FEN4002 with
+  zero output files; a new dry-run with stale literal digest is located FEN3004. Altium refuses
+  FEN7001 before a plan/output with and without allow-lossy. No new public read_files key exists.
+- 109 adjacent roundtrip/data/drawn-import/import-CLI/build-CLI/build-existing tests passed
+  (72.70s). No adjacent golden/fixture was edited.
+- Actual native9.0.9 and10.0.6 each pass the authored full import/build test: complete named
+  pin partitions agree (no intersection/filter), effective AUTH[…] SVG text agrees and all5
+  settings survive. A .1mm authored via annulus under the unmanaged .19mm native minimum produces
+  annular_width before and after. Every DRC section is compared, including full descriptions,
+  severity/exclusion and item descriptions/positions; UUID regeneration is not electrical identity.
+  Input/source/sidecar hashes remain unchanged. Logs/receipts: `c0351-native9-all.log/xml` and
+  `c0351-native10-all.log/xml`. xunit2 warns about record_property; tests pass and XML properties
+  retain receipts. The project source is original Fenolite Mini material, not third-party data.
+- No-declaration maps captured before/after are identical:17 emitted files and canonical design
+  SHA per target9/10 (`c0351-no-request-before.json`, `c0351-no-request-after.json`).
+- Ruff check/format and focused pyright have zero diagnostics; generated agent guide/public surface
+  checks are clean. The new method is taught in equivalent-s with a board-workflow crosslink,
+  within existing page budgets; the initial oversized page and misplaced Read next failures are
+  preserved as failed attempts, then corrected.
+
+Artifacts remain outside the repository under the coordinator's native-evidence artifact folder;
+no user absolute path is committed. S-1288 identifies the authored native controls and command
+versions. Public surface delta is the one approved Design method; no canonical model field and
+no new native file kind/schema is introduced.
+
+## Remaining literal gates
+
+Public flat_hierarchy/Royal replay is still required after integration; retain all findings. Root
+owns combined fast and exact-head CI. c0348 path-aware per-instance presentation/cache/live context
+and maintainer surface review remain open. This checkpoint does not assert broad semantic
+coverage of uninterpreted project keys, acceptance changes, final closure or archival.

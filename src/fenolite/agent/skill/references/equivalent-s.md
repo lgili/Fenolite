@@ -11,6 +11,8 @@ The closed index binds every sheet's full native property snapshot and digest-na
 missing/stale bindings, unsafe paths and symlinks refuse. Pin/body/flag/core-default conflicts still refuse.
 This input changes no model/S field; ordinary projects keep their existing bytes.
 Schema `fenolite.symbol-contexts.v0` requires every used native definition once a variant exists.
+The prepared v1 mirror requires rebinding each hash to the actual schema string; changing only the
+schema refuses. The writer retains v0 bytes and all native snapshots.
 Build/sync plans bind all inputs; `FEN-4002` requires review again after an edit.
 Sync refuses changed cache metadata; contextual projects require KiCad schematic output.
 
@@ -34,5 +36,15 @@ remaining differences. Geometry tolerances default to zero; S compares the actua
 `--strict`, `--ignore-ref` and the PCB import triangle apply to other comparison modes; S refuses them
 instead of silently dropping drawing content. Scoped S profile reasons stay in the profile; `excluded`
 records their matching rule ids. The drawing proof is **INFERRED**, with native gates recorded separately.
+
+## A declared KiCad project input
+
+`design.kicad_project("native/project.kicad_pro", sha256="<64 lowercase hex digits>")` declares an
+explicit native project template relative to the script. Import emits this portable sidecar and its
+mandatory digest. Review the digest after editing it; a changed input invalidates a staged plan.
+On every build, including rebuilds, this opt-in template owns unmanaged settings; typed rules,
+classes, stack, text variables, frame and fresh schematic identities win. A template never replaces
+connectivity or proves all native settings semantically. Unsafe paths/resources, unsupported JSON
+versions and Altium output refuse before staging; declare a drawing sheet through `design.sheet`.
 
 Read next: `checks`, `files`.

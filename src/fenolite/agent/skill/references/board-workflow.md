@@ -192,4 +192,6 @@ Names are closed and unique; `Edge.Cuts` is required. Declare `User.n` separatel
 A drawing, pad, field or image on an omitted layer refuses the build. Strict import emits this option
 when needed; unknown layers still refuse. Compare the rebuilt table before confirming a conversion.
 
+For digest-bound `design.kicad_project` inputs and rebuild precedence, read `equivalent-s`.
+
 Read next: `board-review`, `files`, `recovery`.

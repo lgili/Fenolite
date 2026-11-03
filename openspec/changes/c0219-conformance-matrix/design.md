@@ -89,3 +89,18 @@ The maintainer accepted every recommended answer below on 2026-10-27 (roadmap, "
    reads it claims), `mcp` (it serves the other commands, whose replies carry their own evidence) and
    `publish` (it copies files guarded by receipts); `refs` and `snapshot` already name a hypothesis. Open:
    raised on 2026-10-28, when the five changes were rebased on the work of c0195 to c0203.
+
+## Current-source selective iteration A (review approved)
+
+Port only typed version scopes, current backend claims, source validation, generated conformance
+artifacts and release attachment first. Existing labels/hypotheses/experimental declarations stay
+unchanged. KiCad pins come from current CI (9.0.9 and 10.0.6); Altium references must match validated
+non-synthetic published kit records and supporting current register rows. Test source existence is
+traceability, not execution proof. Specctra has no recorded version-specific native oracle and retains
+empty scopes. No inferred tool versions or evidence upgrades.
+
+Negative controls cover missing tests, missing/synthetic/mismatched kit records, unsupported
+operations and scopes above their existing cell/register. Existing source guards remain in force.
+Iteration B (reply checks and evidence tails) is separate: actual output census first; edit/mcp/publish
+remain the explicit open question and are not silently added to NO_CLAIM. Model writer activation is
+not part of this change; CLI remains v0.

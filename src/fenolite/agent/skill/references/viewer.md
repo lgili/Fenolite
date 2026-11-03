@@ -62,4 +62,10 @@ An edit-conflict finding keeps its two copyable `build --take ... --dry-run` com
 inspector. Copy one to the terminal to review its plan; selecting the finding runs neither command.
 Finding subjects remain listed, and a role finding can locate the pads of its named group.
 
+KiCad inter-sheet reference text uses the actual owning project and sheet instance. With references
+enabled, repeated sheets have explicit logical instance document IDs: choose one with `--doc`.
+An ambiguous physical child path refuses; it never selects the first instance. Project/hierarchy
+changes invalidate scene caches and live views, and missing inputs keep the last good scene with an
+error. Native visible reference text without an explicit field pose refuses instead of guessing.
+
 Read next: `files`, `checks`, `board-routing`.

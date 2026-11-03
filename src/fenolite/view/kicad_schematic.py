@@ -28,6 +28,7 @@ from fenolite.backends.kicad.schlayout import turned
 from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, parse
 from fenolite.core.errors import FormatError
 from fenolite.model.drawn import DrawnFont
+from fenolite.view.kicad_intersheet import Context as IntersheetContext
 from fenolite.view.themes import colour_note
 
 SCHEMA = "fenolite.view_schematic.v0"
@@ -893,9 +894,23 @@ def _on(p: Pt, a: Pt, z: Pt) -> bool:
 
 
 def build_kicad_schematic_scene(
-    text: str, *, name: str, data: bytes = b"", palette: dict[str, Any], evidence: str = "INFERRED"
+    text: str,
+    *,
+    name: str,
+    data: bytes = b"",
+    palette: dict[str, Any],
+    evidence: str = "INFERRED",
+    intersheet_context: IntersheetContext | None = None,
 ) -> dict[str, Any]:
     """The scene of one KiCad schematic sheet (see the module text)."""
+    # None is the explicit raw-bytes standalone/no-project contract, not a failed owner lookup.
+    if (
+        intersheet_context is not None
+        and hashlib.sha256(text.encode("utf-8")).hexdigest() != intersheet_context.source_sha256
+    ):
+        raise FormatError(
+            "inter-sheet context does not match the scene input", file=name, locator="Intersheetrefs"
+        )
     root = parse(text, file=name)
     if root.name != "kicad_sch":
         raise FormatError(f"{name} is not a KiCad schematic (root {root.name!r})", file=name)
@@ -1012,6 +1027,34 @@ def build_kicad_schematic_scene(
                     kind == "hierarchical_label",
                     effects,
                 )
+            if kind == "global_label" and intersheet_context is not None and intersheet_context.enabled:
+                from fenolite.backends.kicad import drawn as _kdrawn  # noqa: PLC0415 - active fields only
+
+                pose = _kdrawn._intersheet_pose(  # pyright: ignore[reportPrivateUsage] - shared typed envelope
+                    item, "global", file=name, where=f"global_label:{label}.Intersheetrefs"
+                )
+                reference = intersheet_context.reference(label)
+                b.objects[index]["info"].append(["Inter-sheet references", reference])
+                if reference:
+                    if pose is None:
+                        raise FormatError(
+                            "visible reference requires an explicit native field pose",
+                            file=name,
+                            locator=label,
+                        )
+                    prop = item.nodes("property")[0]
+                    field_effects = _effects(prop, file=name)
+                    b.text(
+                        _xy(prop.find("at")),
+                        reference,
+                        field_effects.height,
+                        b.color(role),
+                        rot=pose.rotation // 90_000_000,
+                        h=field_effects.h,
+                        v=field_effects.v,
+                        role="intersheet_refs",
+                        effects=field_effects,
+                    )
             b.done()
             key = ("label", kind if kind != "hierarchical_label" else "hier", label)
             union.find(key)
@@ -1091,7 +1134,7 @@ def build_kicad_schematic_scene(
         "prims": len(b.prims),
     }
     roles = b.roles
-    return {
+    scene: dict[str, Any] = {
         "schema": SCHEMA,
         "kind": "schematic",
         "meta": {
@@ -1126,6 +1169,13 @@ def build_kicad_schematic_scene(
         "nets": nets,
         "overlays": [],
     }
+
+    if intersheet_context is not None and intersheet_context.enabled:
+        scene["meta"]["instance"] = {
+            "path": list(intersheet_context.instance),
+            "page": intersheet_context.page,
+        }
+    return scene
 
 
 def _symbol(

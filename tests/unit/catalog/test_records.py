@@ -93,8 +93,8 @@ def test_each_kind_is_read_kinds() -> None:
 
 
 def test_newer_schema() -> None:
-    error = _refused(_package().replace("fenolite.package.v0", "fenolite.package.v1"), "FEN-3002")
-    assert "fenolite.package.v1" in str(error)
+    error = _refused(_package().replace("fenolite.package.v0", "fenolite.package.v2"), "FEN-3002")
+    assert "fenolite.package.v2" in str(error)
 
 
 def test_unknown_header_key() -> None:

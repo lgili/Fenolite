@@ -1,0 +1,59 @@
+{
+  "change": "c0332",
+  "measured_on": "2026-11-03",
+  "source_commit": "74caa591440e5eb92fcb2fd2297ebda44606e663",
+  "native_version": "24.5.2.23",
+  "source_pcb_sha256": "9e3cabd7ab7fb0e204fb23c521a63a2985997266f272352d690b3e9a2cd14a98",
+  "saved_pcb_sha256": "0e70bce74bb828622288a2ffc76c5951a604ac5524de637d7f1d666d0582df39",
+  "reviewed_current_plan_matches_previous_15_file_map": true,
+  "original_input_unchanged": true,
+  "native_saved_and_reopened": true,
+  "native_enumerated_objects_before_after": 573,
+  "native_object_kind_and_hole_histograms_equal": true,
+  "native_region_hole_counts": [
+    10,
+    0,
+    0
+  ],
+  "typed_region_storages": {
+    "regions": {
+      "records": 2,
+      "outline_vertices": 8,
+      "hole_vertices": 4646,
+      "holes": 10,
+      "geometry_sha256": "22854bde743182d9906bb9160c56751554ef79e128866acff3da4935da50b003",
+      "ordered_exact_coordinate_equality": true
+    },
+    "shape_regions": {
+      "records": 2,
+      "outline_vertices": 8,
+      "hole_vertices": 4646,
+      "holes": 10,
+      "geometry_sha256": "7bc6cd478b346e15027f6d3ec3c443daf8be50690f5e020583debe3bd2503879",
+      "ordered_exact_coordinate_equality": true
+    }
+  },
+  "typed_reader_findings_before_after": 0,
+  "artifact_packet": "fenolite-cac-neck-cut-pilot-20261102/native-save-v1",
+  "artifacts": {
+    "NativeSave.PrjScr": "fbcd9fbc35a93ebdbdc952f7aa1db8c2632fe239ad6ad03a48ed14ef509184b3",
+    "NativeSave.pas": "c88af31f0bad6c19cbafadb4e796fb376d40cd6682fa94b355fecd8acf9e0454",
+    "after.tsv": "6d3d95ae177dce5ef0713ddf786d0117b13f7100f66f11a7faeea0bf5b65d7ec",
+    "before.tsv": "2a24f2b34f5d45c44ff5becaa823d50e93a43c804934e3e284e05a9af4e8cc3d",
+    "process-before.json": "57c373d4449cd4eb2bfcf78fa4e073c251a44bfe988917515bcad96bde9fc4e8",
+    "saved.PcbDoc": "0e70bce74bb828622288a2ffc76c5951a604ac5524de637d7f1d666d0582df39",
+    "source.PcbDoc": "9e3cabd7ab7fb0e204fb23c521a63a2985997266f272352d690b3e9a2cd14a98",
+    "stage.txt": "d65ad537e46d598152185c8c5c7786667c4d8a7d75cea21a56a65fd0143f6cdc"
+  },
+  "scope": "Actual supported SDK guard, isolated native save/new-copy reopen, all enumerated object type counts, and every typed region storage outline/hole/closing coordinate exactly unchanged. No DRC, repour or complete metadata equivalence is asserted.",
+  "limits": [
+    "This measurement is scoped to Altium24.5.2.23 and the exact authored board_40parts bytes; it does not establish other Altium versions.",
+    "The native object enumerator reports three region objects; typed byte storages each contain two records. Both complete representations are recorded separately without equating their counts.",
+    "Exact-head CI and remaining required native acceptance gates remain independent."
+  ],
+  "sources": [
+    "S-0505",
+    "https://www.altium.com/documentation/altium-dxp-developer/pcb-api-system-interfaces-reference",
+    "https://www.altium.com/documentation/altium-dxp-developer/pcb-api-design-objects-interfaces-reference"
+  ]
+}

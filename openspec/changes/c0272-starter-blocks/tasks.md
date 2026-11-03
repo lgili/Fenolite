@@ -60,13 +60,28 @@
 
 ## 2. Layouts
 
-- [ ] 2.1 Lay out each usage board by hand in KiCad (bench style: every port to the connector), capture each with `fenolite blocks capture ... --confirm`, commit the five layouts, and switch each body to `b.layout(reuse=..., copper=True)`; regenerate the golden files under one `--golden` plan (scenario "Layout properties"). Proof: `uv run pytest tests/unit/blocks/test_starter_layouts.py -q`; `uv run fenolite blocks test --json`.
+- [x] 2.1 Lay out each usage board by hand in KiCad (bench style: every port to the connector), capture each with `fenolite blocks capture ... --confirm`, commit the five layouts, and switch each body to `b.layout(reuse=..., copper=True)`; regenerate the golden files under one `--golden` plan (scenario "Layout properties"). Proof: `uv run pytest tests/unit/blocks/test_starter_layouts.py -q`; `uv run fenolite blocks test --json`.
   Partial proof — 2026-11-01: all five exact placements/copper were authored in
   `tools/blocks/starter_layouts.py`, captured with the normal CLI confirm writer, and
   replayed byte-for-byte in `test_starter_layouts.py`. LED cathode polarity and the
   protection's 1 mm pad-to-via ground return are proved. Host connector routing is
   authored in each usage. No GUI layout or human review was performed, so this literal
   manual task remains open despite the focused capture proofs passing.
+
+  Completed native GUI work — 2026-11-03: each footprint was placed through KiCad
+  properties and each body routed through the interactive router after removing generated
+  copper. The protection return zone was drawn and filled in the editor. All five normal
+  dry-run/exact-plan/confirm captures match the already committed assets byte-for-byte;
+  existing bodies reuse those assets with copper. All ports were then manually connected
+  to each bench connector. Actual KiCad10.0.6 reports zero violations, unconnected items
+  and schematic-parity findings on all five complete boards, with unchanged inputs.
+  Eight focused layout tests pass; `fenolite blocks test --json` succeeds. One reviewed
+  five-block golden plan was confirmed, with all five old/new hashes identical.
+  `docs/evidence/starter-manual-layouts.json` binds boards, assets, actual confirmation
+  receipts and native reports. Failed routing/via attempts remain in the external packet.
+  This is agent-operated GUI work authorized by the maintainer, not human engineering
+  review; illustrative devices and asset evidence remain INFERRED. Task2.2/4.1 still
+  require exact-head CI on both supported majors.
 
 - [ ] 2.2 KiCad: usage boards of the five blocks for targets 9 and 10 in `tests/kicad/blocks/` (read-back and DRC, c0270 and c0271). Proof: `uv run pytest tests/kicad/blocks` in the KiCad jobs on the pushed head.
 

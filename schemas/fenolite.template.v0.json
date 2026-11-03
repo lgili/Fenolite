@@ -1,0 +1,333 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.template.v0",
+  "title": "TemplateResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "altium": {
+      "$ref": "#/$defs/TemplateAltium"
+    },
+    "drawn": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/TemplateDrawnValue"
+      },
+      "x-fenolite-map": true,
+      "description": "Keys are supplied by named items, rather than fixed record fields."
+    },
+    "imported": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "x-fenolite-map": true,
+      "description": "Keys are supplied by named items, rather than fixed record fields."
+    },
+    "kicad_version": {
+      "type": "integer"
+    },
+    "output": {
+      "type": "string"
+    },
+    "parameters": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reported": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sheet": {
+      "$ref": "#/$defs/TemplateSheet"
+    },
+    "source": {
+      "$ref": "#/$defs/TemplateSource"
+    },
+    "strings": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "x-fenolite-map": true,
+      "description": "Keys are supplied by named items, rather than fixed record fields."
+    },
+    "target": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    },
+    "TemplateAltium": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "type": "string"
+        },
+        "height": {
+          "type": "integer"
+        },
+        "lines": {
+          "type": "integer"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "size": {
+          "type": "string"
+        },
+        "strings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "texts": {
+          "type": "integer"
+        },
+        "width": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "format",
+        "height",
+        "lines",
+        "parameters",
+        "size",
+        "strings",
+        "texts",
+        "width"
+      ]
+    },
+    "TemplateDrawnValue": {
+      "type": "object",
+      "properties": {
+        "lines": {
+          "type": "integer"
+        },
+        "resolved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "texts": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "lines",
+        "resolved",
+        "texts"
+      ]
+    },
+    "TemplateSheet": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "sizes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tokens": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "items",
+        "name",
+        "tokens"
+      ]
+    },
+    "TemplateSource": {
+      "type": "object",
+      "properties": {
+        "form": {
+          "type": "string"
+        },
+        "height": {
+          "type": "integer"
+        },
+        "paper": {
+          "type": "string"
+        },
+        "portrait": {
+          "type": "boolean"
+        },
+        "style": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "form",
+        "height",
+        "paper",
+        "portrait",
+        "style",
+        "width"
+      ]
+    }
+  }
+}

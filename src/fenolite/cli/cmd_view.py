@@ -63,11 +63,14 @@ from fenolite.view.compare import summary as compare_summary
 from fenolite.view.drawing import PANEL_NOTE, drawing_scene, holds_panel
 from fenolite.view.drawing import summary as drawing_summary
 from fenolite.view.findings import review as findings_of
+from fenolite.view.intersheet_bindings import Bindings
+from fenolite.view.kicad_intersheet import Context as IntersheetContext
+from fenolite.view.kicad_intersheet import contexts_for_path
 from fenolite.view.kicad_schematic import build_kicad_schematic_scene
 from fenolite.view.library import library_scene
 from fenolite.view.library import summary as library_summary
 from fenolite.view.outjob import outjob_scene
-from fenolite.view.project import VIEWABLE_LIBRARIES, ProjectTree, load_tree
+from fenolite.view.project import VIEWABLE_LIBRARIES, Document, ProjectTree, load_tree
 from fenolite.view.project_nets import annotate as annotate_nets
 from fenolite.view.project_nets import project_index, sheet_params
 from fenolite.view.runs import Choices
@@ -186,7 +189,9 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--mask-expansion", metavar="MM", default="0", help="mask opening growth")
 
 
-def scene_of(path: Path, kicad: Palette | None = None) -> dict[str, Any]:
+def scene_of(
+    path: Path, kicad: Palette | None = None, *, intersheet_context: IntersheetContext | None = None
+) -> dict[str, Any]:
     """The scene of the board or the sheet at ``path``, read by the backend that reads it, in the colours of
     its tool; ``kicad`` replaces the ``kicad`` palette (a user's theme)."""
     suffix = path.suffix.lower()
@@ -206,8 +211,17 @@ def scene_of(path: Path, kicad: Palette | None = None) -> dict[str, Any]:
             text = data.decode("utf-8")
         except UnicodeDecodeError as exc:
             raise CliError("FEN-3004", f"{path.name} is not UTF-8 text", where=path.name) from exc
+        if intersheet_context is None:
+            contexts = contexts_for_path(path)
+            if len(contexts) != 1:
+                raise FormatError("select one explicit sheet instance", file=path.name, locator="instance")
+            intersheet_context = contexts[0]
         return build_kicad_schematic_scene(
-            text, name=path.name, data=data, palette=kicad or themes.palette("kicad")
+            text,
+            name=path.name,
+            data=data,
+            palette=kicad or themes.palette("kicad"),
+            intersheet_context=intersheet_context,
         )
     backend = registry.for_path(path)
     if backend is None:
@@ -1107,21 +1121,29 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         raise CliError("FEN-2001", f"--port: expected a port number, got {args.port!r}", where="--port")
     silk_gap = _mm_option(args.silk_gap, "--silk-gap")
     mask_expansion = _mm_option(args.mask_expansion, "--mask-expansion") or 0
-    tree = _tree(args.path, ctx)
+    original_tree = _tree(args.path, ctx)
+    bindings = Bindings(original_tree)
+    tree = bindings.tree
+    if original_tree.source == "sheet" and len(tree.documents) > 1 and not args.doc:
+        raise FormatError("select one explicit sheet instance with --doc", file=args.path, locator="instance")
     file_items, file_groups = overlay_files(args.overlay, ctx)
     kicad = theme_of(args.theme, ctx)
     store = SceneCache.at(args.cache, tree.root)
     theme_key = json.dumps(kicad, sort_keys=True) if kicad is not None else ""
 
-    def plain(path: Path) -> dict[str, Any]:
-        return store.scene(path, theme_key, lambda: scene_of(path, kicad))
+    def plain(path: Path, document: Document | None = None) -> dict[str, Any]:
+        context = bindings.context(path, document)
+        key = theme_key + (
+            ":intersheet:" + context.fingerprint if context is not None and context.enabled else ""
+        )
+        return store.scene(path, key, lambda: scene_of(path, kicad, intersheet_context=context))
 
     nets_of = _ProjectNets(tree, plain)
 
-    def make(path: Path, *, with_files: bool) -> dict[str, Any]:
+    def make(path: Path, *, with_files: bool, document: Document | None = None) -> dict[str, Any]:
         """The cached scene of ``path`` with the overlay files (the document shown) and, for a board, the
         review findings (change c0193); the cached scene itself is not changed."""
-        scene = cached(path)
+        scene = cached(path, document)
         items = list(file_items) if with_files else []
         if scene.get("kind") is not None:  # a sheet, a library or a drawing
             return scene | {"overlays": items}
@@ -1144,9 +1166,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     session: dict[str, dict[str, Any]] = {}
     """The check reply of each document after the page's runs (change c0302), by ``_session_key``."""
 
-    def cached(path: Path) -> dict[str, Any]:
+    def cached(path: Path, document: Document | None = None) -> dict[str, Any]:
         found = session.get(_session_key(tree, path), reply)
-        scene = _with_roles(roles, path, nets_of.annotate(path, plain(path)))
+        scene = _with_roles(roles, path, nets_of.annotate(path, plain(path, document)))
         scene = _with_proposals(proposals, path, scene)
         scene = _with_check(found, tree, path, scene)
         if found is not None and scene.get("kind") is None and isinstance(scene.get("check"), dict):
@@ -1173,7 +1195,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     ref: InputRef | None = None
     scenes: dict[str, dict[str, Any]] = {}
     if doc is not None and doc.viewable and doc.file is not None and doc.present:
-        scene: dict[str, Any] = make(doc.file, with_files=True)
+        scene: dict[str, Any] = make(doc.file, with_files=True, document=doc)
         if args.variant is not None:
             scene = scene | {"variant": _variant(args.variant, nets_of, scene, result)}
         if args.compare:
@@ -1226,7 +1248,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             if chosen is not None and other.id not in chosen:
                 continue
             if other.viewable and other.present and other.file is not None and other.id not in scenes:
-                scenes[other.id] = make(other.file, with_files=False)
+                scenes[other.id] = make(other.file, with_files=False, document=other)
         if not args.no_models:
             for other in tree.documents:
                 if other.id in scenes and other.file is not None and scenes[other.id].get("kind") is None:
@@ -1253,6 +1275,15 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         def build(path: Path) -> dict[str, Any]:
             built = make(path, with_files=doc is not None and path == doc.file)
             if args.compare and doc is not None and path == doc.file:  # rebuilt on save: compared again
+                built = built | {"diff": _compare(built, args.compare, ctx, cached)}
+            return built
+
+        def build_document(document: Document) -> dict[str, Any]:
+            assert document.file is not None
+            built = make(
+                document.file, with_files=doc is not None and document.id == doc.id, document=document
+            )
+            if args.compare and doc is not None and document.id == doc.id:
                 built = built | {"diff": _compare(built, args.compare, ctx, cached)}
             return built
 
@@ -1316,6 +1347,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             choices=_choices(),
             derive=derive,
             actions=runner if args.allow_actions else None,
+            document_builder=build_document,
+            dependency_key=bindings.dependency_key,
         )
         try:
             httpd = server.serve(live, port)
@@ -1355,7 +1388,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         evidence=evidence,
         input=ref,
         writes=writes,
-        depends=depends_on(ctx.cwd, *dependencies),
+        depends=depends_on(ctx.cwd, *dependencies, *bindings.dependencies),
     )
 
 

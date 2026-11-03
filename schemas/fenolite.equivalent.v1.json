@@ -1,0 +1,944 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.equivalent.v1",
+  "title": "EquivalentResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "differences": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EquivalentDifferencesItem"
+      }
+    },
+    "equivalent": {
+      "type": "boolean"
+    },
+    "excluded": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EquivalentExcludedItem"
+      }
+    },
+    "frame": {
+      "type": "string"
+    },
+    "level": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "enum": [
+            "S"
+          ]
+        }
+      ]
+    },
+    "levels": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EquivalentLevelsItem"
+      }
+    },
+    "notices": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EquivalentNoticesItem"
+      }
+    },
+    "profile": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/EquivalentProfile"
+        }
+      ]
+    },
+    "sides": {
+      "$ref": "#/$defs/EquivalentSides"
+    },
+    "tolerances": {
+      "$ref": "#/$defs/EquivalentTolerances"
+    },
+    "tool_version": {
+      "type": "string"
+    },
+    "translation": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "EquivalentDifferencesItem": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "field",
+        "kind",
+        "level",
+        "where"
+      ]
+    },
+    "EquivalentExcludedItem": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
+        },
+        "rule": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "field",
+        "kind",
+        "level",
+        "rule",
+        "where"
+      ]
+    },
+    "EquivalentLevelsItem": {
+      "type": "object",
+      "properties": {
+        "compared": {
+          "type": "integer"
+        },
+        "differences": {
+          "type": "integer"
+        },
+        "excluded": {
+          "type": "integer"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "notices": {
+          "type": "integer"
+        },
+        "summary": {
+          "$ref": "#/$defs/EquivalentLevelsItemSummary"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "compared",
+        "differences",
+        "excluded",
+        "level",
+        "name",
+        "notices",
+        "summary"
+      ]
+    },
+    "EquivalentLevelsItemSummary": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "integer"
+        },
+        "extraction_issues": {
+          "type": "integer"
+        },
+        "instances": {
+          "type": "integer"
+        },
+        "pins": {
+          "type": "integer"
+        },
+        "symbols": {
+          "type": "integer"
+        },
+        "changes": {
+          "$ref": "#/$defs/EquivalentLevelsItemSummaryChanges"
+        },
+        "components": {
+          "$ref": "#/$defs/EquivalentLevelsItemSummaryComponents"
+        },
+        "copper_no_net": {
+          "$ref": "#/$defs/EquivalentLevelsItemSummaryCopperNoNet"
+        },
+        "copper_unknown": {
+          "type": "integer"
+        },
+        "dimensions": {
+          "type": "integer"
+        },
+        "footprint_items": {
+          "type": "integer"
+        },
+        "footprints": {
+          "type": "integer"
+        },
+        "frame": {
+          "type": "string"
+        },
+        "graphics": {
+          "type": "integer"
+        },
+        "holes": {
+          "type": "integer"
+        },
+        "ignored": {
+          "type": "integer"
+        },
+        "keepouts": {
+          "type": "integer"
+        },
+        "layers": {
+          "type": "integer"
+        },
+        "length": {
+          "$ref": "#/$defs/EquivalentLevelsItemSummaryLength"
+        },
+        "netclasses": {
+          "type": "integer"
+        },
+        "nets": {
+          "type": "integer"
+        },
+        "nets_unpaired": {
+          "$ref": "#/$defs/EquivalentLevelsItemSummaryNetsUnpaired"
+        },
+        "outline": {
+          "type": "integer"
+        },
+        "pieces": {
+          "$ref": "#/$defs/EquivalentLevelsItemSummaryPieces"
+        },
+        "pitch_nm": {
+          "$ref": "#/$defs/EquivalentLevelsItemSummaryPitchNm"
+        },
+        "pixel_ppm": {
+          "type": "integer"
+        },
+        "renamed": {
+          "type": "integer"
+        },
+        "rules": {
+          "type": "integer"
+        },
+        "sheets": {
+          "type": "integer"
+        },
+        "sources": {
+          "$ref": "#/$defs/EquivalentLevelsItemSummarySources"
+        },
+        "stackup": {
+          "type": "integer"
+        },
+        "strict": {
+          "$ref": "#/$defs/EquivalentLevelsItemSummaryStrict"
+        },
+        "texts": {
+          "type": "integer"
+        },
+        "translation": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "unjudged": {
+          "type": "integer"
+        },
+        "unnumbered": {
+          "$ref": "#/$defs/EquivalentLevelsItemSummaryUnnumbered"
+        },
+        "unshaped": {
+          "$ref": "#/$defs/EquivalentLevelsItemSummaryUnshaped"
+        },
+        "vias": {
+          "$ref": "#/$defs/EquivalentLevelsItemSummaryVias"
+        },
+        "zones": {
+          "type": "integer"
+        },
+        "zones_unfilled": {
+          "$ref": "#/$defs/EquivalentLevelsItemSummaryZonesUnfilled"
+        }
+      },
+      "additionalProperties": true
+    },
+    "EquivalentLevelsItemSummaryChanges": {
+      "type": "object",
+      "properties": {
+        "board": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "EquivalentLevelsItemSummaryComponents": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "EquivalentLevelsItemSummaryCopperNoNet": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "EquivalentLevelsItemSummaryLength": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "EquivalentLevelsItemSummaryNetsUnpaired": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "EquivalentLevelsItemSummaryPieces": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "EquivalentLevelsItemSummaryPitchNm": {
+      "type": "object",
+      "properties": {
+        "board": {
+          "type": "integer"
+        },
+        "sheet": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "board",
+        "sheet"
+      ]
+    },
+    "EquivalentLevelsItemSummarySources": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "EquivalentLevelsItemSummaryStrict": {
+      "type": "object",
+      "properties": {
+        "arcs": {
+          "$ref": "#/$defs/EquivalentLevelsItemSummaryStrictArcs"
+        },
+        "tracks": {
+          "$ref": "#/$defs/EquivalentLevelsItemSummaryStrictTracks"
+        },
+        "vias": {
+          "$ref": "#/$defs/EquivalentLevelsItemSummaryStrictVias"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "arcs",
+        "tracks",
+        "vias"
+      ]
+    },
+    "EquivalentLevelsItemSummaryStrictArcs": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        },
+        "matched": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "matched"
+      ]
+    },
+    "EquivalentLevelsItemSummaryStrictTracks": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        },
+        "matched": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "matched"
+      ]
+    },
+    "EquivalentLevelsItemSummaryStrictVias": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        },
+        "matched": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "matched"
+      ]
+    },
+    "EquivalentLevelsItemSummaryUnnumbered": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "EquivalentLevelsItemSummaryUnshaped": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "EquivalentLevelsItemSummaryVias": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "EquivalentLevelsItemSummaryZonesUnfilled": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "EquivalentNoticesItem": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "field",
+        "kind",
+        "level",
+        "where"
+      ]
+    },
+    "EquivalentProfile": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "rules": {
+          "type": "integer"
+        },
+        "tool_version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "rules",
+        "tool_version"
+      ]
+    },
+    "EquivalentSides": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "$ref": "#/$defs/EquivalentSidesA"
+        },
+        "b": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/EquivalentSidesB"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "EquivalentSidesA": {
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "components": {
+          "type": "integer"
+        },
+        "footprints": {
+          "type": "integer"
+        },
+        "netlist_source": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "power_symbols": {
+          "type": "integer"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "exact context input basenames mapped to SHA-256"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "backend",
+        "components",
+        "footprints",
+        "netlist_source",
+        "path",
+        "sha256"
+      ]
+    },
+    "EquivalentSidesB": {
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "components": {
+          "type": "integer"
+        },
+        "footprints": {
+          "type": "integer"
+        },
+        "netlist_source": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "tool_version": {
+          "type": "string"
+        },
+        "power_symbols": {
+          "type": "integer"
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "exact context input basenames mapped to SHA-256"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "backend",
+        "components",
+        "footprints",
+        "netlist_source",
+        "path",
+        "sha256"
+      ]
+    },
+    "EquivalentTolerances": {
+      "type": "object",
+      "properties": {
+        "angle_udeg": {
+          "type": "integer"
+        },
+        "length_nm": {
+          "type": "integer"
+        },
+        "length_ppm": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "angle_udeg",
+        "length_nm",
+        "length_ppm"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    }
+  }
+}

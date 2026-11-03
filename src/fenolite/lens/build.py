@@ -72,6 +72,7 @@ from fenolite.backends.kicad.outline import (
     outline_case,
 )
 from fenolite.backends.kicad.pcb import WRITE_EVIDENCE, read_board, write_board
+from fenolite.backends.kicad.pro_template import validate_project_template
 from fenolite.backends.kicad.schgen import GeneratedSchematic
 from fenolite.backends.kicad.schlayout import SymbolPlacement
 from fenolite.backends.kicad.sexpr import parse_bytes
@@ -82,6 +83,7 @@ from fenolite.core.coords import Point, Size
 from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.core.units import Nm, Udeg
 from fenolite.lens import edits as edits_mod
 from fenolite.lens import preserve
@@ -1507,6 +1509,7 @@ def build_design(
     drawn_file: str = "schematic.toml",
     context_symbols: Contexts | None = None,
     schematic_groups: Mapping[str, Sequence[SheetGroup]] | None = None,
+    project_template: str | None = None,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
 
@@ -1597,6 +1600,13 @@ def build_design(
         raise ValueError(
             f"unknown schematic layout {schematic_layout!r}; use one of: {', '.join(schgen.LAYOUTS)}"
         )
+    if project_template is not None:
+        validate_project_template(project_template, managed_frame=drawing_sheet is not None)
+    effective_project = (
+        project_template
+        if project_template is not None
+        else (prepared.existing.project if prepared is not None else None)
+    )
     issues: list[Issue] = [*prepared.issues] if prepared is not None else []
     parts, libraries = _resolve(design, resolver, issues, authored_footprints, authored_symbols)
     plan = _vendor_plan(parts, vendor, issues)
@@ -1834,7 +1844,11 @@ def build_design(
     if copper_intents:
         assert built.board is not None
         held = prepared.board if prepared is not None else None
-        project_text = prepared.existing.project if prepared is not None else None
+        project_text = effective_project
+        if project_template is not None:
+            project_text = pro.update_project(
+                project_template, built, target=target, allow_lossy=allow_lossy, issues=issues
+            )
         project_data = (
             pro.read_project_text(project_text) if project_text is not None else pro.template(target)
         )
@@ -1870,7 +1884,11 @@ def build_design(
     if generated_copper:
         assert built.board is not None
         held = prepared.board if prepared is not None else None
-        project_text = prepared.existing.project if prepared is not None else None
+        project_text = effective_project
+        if project_template is not None:
+            project_text = pro.update_project(
+                project_template, built, target=target, allow_lossy=allow_lossy, issues=issues
+            )
         project_data = (
             pro.read_project_text(project_text) if project_text is not None else pro.template(target)
         )
@@ -1902,7 +1920,11 @@ def build_design(
     role_evidence: Evidence | None = None
     if role_copper is not None and role_planner is not None and built.board is not None:
         held = prepared.board if prepared is not None else None
-        project_text = prepared.existing.project if prepared is not None else None
+        project_text = effective_project
+        if project_template is not None:
+            project_text = pro.update_project(
+                project_template, built, target=target, allow_lossy=allow_lossy, issues=issues
+            )
         project_data = (
             pro.read_project_text(project_text) if project_text is not None else pro.template(target)
         )
@@ -1923,6 +1945,8 @@ def build_design(
         role_summary = dict(outcome.summary)
         role_evidence = outcome.evidence
     existing = prepared.existing if prepared is not None else preserve.ExistingProject()
+    if project_template is not None:
+        existing = dataclasses.replace(existing, project=project_template)
     board_read = prepared is not None and prepared.board is not None
     preserved: dict[str, object] = {}
     target_design = built
@@ -2089,6 +2113,10 @@ def build_design(
         issues=issues,
     )
     pcb_name, pro_name, dru_name = (f"{name}.kicad_pcb", f"{name}.kicad_pro", f"{name}.kicad_dru")
+    if project_template is not None:
+        project_data = pro.read_project_text(texts[pro_name])
+        project_data["meta"]["filename"] = pro_name
+        texts[pro_name] = pro.write_project_text(project_data)
     if existing.rules is not None:
         texts[dru_name] = preserve.merge_rules(
             texts[dru_name],
@@ -2963,7 +2991,7 @@ def read_record(out_dir: Path) -> Mapping[str, str] | None:
         return None
     record = cast(dict[str, object], data)
     files = record.get("files")
-    if record.get("schema") != RECORD_SCHEMA or not isinstance(files, dict):
+    if not accepts_schema(record.get("schema"), RECORD_SCHEMA) or not isinstance(files, dict):
         return None
     return {str(k): v for k, v in cast(dict[object, object], files).items() if isinstance(v, str)}
 

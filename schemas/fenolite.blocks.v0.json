@@ -1,0 +1,1238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.blocks.v0",
+  "title": "BlocksResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProtocolPage"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "block": {
+      "$ref": "#/$defs/BlockShown"
+    },
+    "blocks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BlocksBlocksItem"
+      }
+    },
+    "capture": {
+      "$ref": "#/$defs/BlocksCapture"
+    },
+    "current": {
+      "type": "boolean"
+    },
+    "file": {
+      "type": "string"
+    },
+    "golden_plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BlocksGoldenPlanItem"
+      }
+    },
+    "id": {
+      "type": "string"
+    },
+    "lock": {
+      "type": "string"
+    },
+    "output": {
+      "type": "string"
+    },
+    "record": {
+      "$ref": "#/$defs/BlocksRecord"
+    },
+    "source": {
+      "type": "string"
+    },
+    "text": {
+      "type": "string"
+    },
+    "upgrades": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BlocksUpgradesItem"
+      }
+    },
+    "uses": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BlocksUsesItem"
+      }
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "BlockData": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "licence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "replaces": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deprecated": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockDeprecation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BlockParameter"
+          }
+        },
+        "ports": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BlockPort"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parts": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nets": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "blocks": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BlockNested"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requires": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockRequires"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "elaboration": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockElaboration"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "digests": {
+          "$ref": "#/$defs/BlockDigests"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "schema",
+        "name",
+        "id",
+        "version",
+        "summary",
+        "category",
+        "licence",
+        "evidence",
+        "replaces",
+        "deprecated",
+        "sources",
+        "params",
+        "ports",
+        "parts",
+        "nets",
+        "blocks",
+        "requires",
+        "elaboration",
+        "digests"
+      ]
+    },
+    "BlockDeprecation": {
+      "type": "object",
+      "properties": {
+        "by": {
+          "type": "string"
+        },
+        "since": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "by",
+        "since",
+        "reason"
+      ]
+    },
+    "BlockDigests": {
+      "type": "object",
+      "properties": {
+        "definition": {
+          "type": "string"
+        },
+        "interface": {
+          "type": "string"
+        },
+        "record": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "definition",
+        "interface",
+        "record"
+      ]
+    },
+    "BlockElaboration": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "BlockNested": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "block": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "block"
+      ]
+    },
+    "BlockParameter": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "choices": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "doc": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "type",
+        "unit",
+        "required",
+        "default",
+        "min",
+        "max",
+        "choices",
+        "doc"
+      ]
+    },
+    "BlockPort": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string"
+        },
+        "optional": {
+          "type": "boolean"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "doc": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "kind",
+        "direction",
+        "optional",
+        "members",
+        "doc"
+      ]
+    },
+    "BlockRequires": {
+      "type": "object",
+      "properties": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lib_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "devices",
+        "lib_ids",
+        "queries"
+      ]
+    },
+    "BlockShown": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "licence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "replaces": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deprecated": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockDeprecation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BlockParameter"
+          }
+        },
+        "ports": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BlockPort"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parts": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nets": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "blocks": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BlockNested"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requires": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockRequires"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "elaboration": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockElaboration"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "digests": {
+          "$ref": "#/$defs/BlockDigests"
+        },
+        "source": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        },
+        "layout": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "usage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tests": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "golden": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "schema",
+        "name",
+        "id",
+        "version",
+        "summary",
+        "category",
+        "licence",
+        "evidence",
+        "replaces",
+        "deprecated",
+        "sources",
+        "params",
+        "ports",
+        "parts",
+        "nets",
+        "blocks",
+        "requires",
+        "elaboration",
+        "digests",
+        "source",
+        "where",
+        "layout",
+        "usage",
+        "tests",
+        "golden"
+      ]
+    },
+    "BlocksBlocksItem": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "deprecated": {
+          "type": "boolean"
+        },
+        "digest": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "golden": {
+          "type": "string"
+        },
+        "golden_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "licence": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BlocksBlocksItemTestsItem"
+          }
+        },
+        "usage": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "version"
+      ]
+    },
+    "BlocksBlocksItemTestsItem": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "message",
+        "name",
+        "status"
+      ]
+    },
+    "BlocksCapture": {
+      "type": "object",
+      "properties": {
+        "arcs": {
+          "type": "integer"
+        },
+        "block": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "hint": {
+          "type": "string"
+        },
+        "instance": {
+          "type": "string"
+        },
+        "left": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "parts": {
+          "type": "integer"
+        },
+        "tracks": {
+          "type": "integer"
+        },
+        "version": {
+          "type": "string"
+        },
+        "vias": {
+          "type": "integer"
+        },
+        "zones": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "instance"
+      ]
+    },
+    "BlocksGoldenPlanItem": {
+      "type": "object",
+      "properties": {
+        "new_sha256": {
+          "type": "string"
+        },
+        "old_sha256": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "new_sha256",
+        "old_sha256",
+        "path"
+      ]
+    },
+    "BlocksRecord": {
+      "type": "object",
+      "properties": {
+        "fenolite": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "record": {
+          "$ref": "#/$defs/BlockData"
+        },
+        "schema": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "fenolite",
+        "id",
+        "namespace",
+        "record",
+        "schema",
+        "version"
+      ]
+    },
+    "BlocksUpgradesItem": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": "string"
+        },
+        "before": {
+          "type": "string"
+        },
+        "circuit": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BlocksUpgradesItemCircuitItem"
+          }
+        },
+        "deprecated": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockDeprecation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BlocksUpgradesItemIssuesItem"
+          }
+        },
+        "path": {
+          "type": "string"
+        },
+        "record": {
+          "$ref": "#/$defs/BlockData"
+        },
+        "step": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "after",
+        "before",
+        "deprecated",
+        "id",
+        "issues",
+        "path",
+        "record",
+        "step"
+      ]
+    },
+    "BlocksUpgradesItemCircuitItem": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "$ref": "#/$defs/BlocksUpgradesItemCircuitItemAfter"
+        },
+        "before": {
+          "$ref": "#/$defs/BlocksUpgradesItemCircuitItemBefore"
+        },
+        "change": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "after",
+        "before",
+        "change",
+        "path"
+      ]
+    },
+    "BlocksUpgradesItemCircuitItemAfter": {
+      "type": "object",
+      "properties": {
+        "device": {
+          "type": "string"
+        },
+        "footprint": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "device",
+        "footprint",
+        "symbol",
+        "value"
+      ]
+    },
+    "BlocksUpgradesItemCircuitItemBefore": {
+      "type": "object",
+      "properties": {
+        "device": {
+          "type": "string"
+        },
+        "footprint": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "device",
+        "footprint",
+        "symbol",
+        "value"
+      ]
+    },
+    "BlocksUpgradesItemIssuesItem": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "hint": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "hint",
+        "message",
+        "retryable",
+        "severity",
+        "where"
+      ]
+    },
+    "BlocksUsesItem": {
+      "type": "object",
+      "properties": {
+        "design": {
+          "type": "string"
+        },
+        "instance": {
+          "type": "string"
+        },
+        "lock": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "design",
+        "instance",
+        "lock",
+        "version"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    }
+  }
+}

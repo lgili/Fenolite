@@ -26,6 +26,7 @@ from typing import Any, cast
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Level
 from fenolite.core.io import sha256_bytes
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.verify.hypotheses import HypothesisRow
 from fenolite.verify.kit.manifest import Kit, canonical_json
 from fenolite.verify.kit.results import ALTIUM_VERSION, DATE, HOME_FOLDER, KitVerdict, absolute_paths
@@ -150,7 +151,7 @@ def record_problems(record: object) -> list[str]:
     if not isinstance(record, dict):
         return ["the record is not a JSON object"]
     body = cast(dict[str, Any], record)
-    if body.get("schema") != RUN_SCHEMA:
+    if not accepts_schema(body.get("schema"), RUN_SCHEMA):
         return [f"the record's schema is not {RUN_SCHEMA}"]
     found = [f"the field {name} is missing" for name in _FIELDS if name not in body]
     found += [f"unknown field {name}" for name in sorted(set(body) - set(_FIELDS))]

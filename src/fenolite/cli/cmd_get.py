@@ -33,6 +33,7 @@ from fenolite.cli._examples import EXAMPLE_LIBRARY
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.core.evidence import Evidence, Level
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.library import cache as library_cache
 from fenolite.library.audit import audit
 from fenolite.library.get import (
@@ -228,7 +229,9 @@ def _parse_index(data: bytes, where: str) -> dict[str, Any]:
         index = load_json(data, where)
     except ValueError as exc:
         raise CliError("FEN-3004", str(exc), where=where) from exc
-    if index.get("schema") != "fenolite.library-index.v0" or not isinstance(index.get("items"), list):
+    if not accepts_schema(index.get("schema"), "fenolite.library-index.v0") or not isinstance(
+        index.get("items"), list
+    ):
         raise CliError("FEN-3004", f"{where} is not a fenolite.library-index.v0 index", where=where)
     return index
 

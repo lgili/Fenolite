@@ -1,0 +1,533 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.inspect.v1",
+  "title": "InspectResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "blocks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/InspectBlocksItem"
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "x-fenolite-map": true,
+      "description": "Keys are supplied by named items, rather than fixed record fields."
+    },
+    "difat_sectors": {
+      "type": "integer"
+    },
+    "directory_entries": {
+      "type": "integer"
+    },
+    "documents": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/InspectDocumentsItem"
+      }
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/InspectEntriesItem"
+      }
+    },
+    "fat_sectors": {
+      "type": "integer"
+    },
+    "format_version": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "generator": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "generator_version": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "kind": {
+      "type": "string"
+    },
+    "major": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "mini_sector_size": {
+      "type": "integer"
+    },
+    "minor": {
+      "type": "integer"
+    },
+    "model_findings": {
+      "$ref": "#/$defs/InspectModelFindings"
+    },
+    "opaque_count": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "root_clsid": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sector_size": {
+      "type": "integer"
+    },
+    "sectors": {
+      "type": "integer"
+    },
+    "stackup": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/InspectStackup"
+        }
+      ]
+    },
+    "status": {
+      "type": "string"
+    },
+    "streams": {
+      "$ref": "#/$defs/InspectStreams"
+    },
+    "via_protection": {
+      "$ref": "#/$defs/InspectViaProtection"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "InspectBlocksItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "instances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InspectBlocksItemInstancesItem"
+          }
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "instances",
+        "version"
+      ]
+    },
+    "InspectBlocksItemInstancesItem": {
+      "type": "object",
+      "properties": {
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InspectBlocksItemInstancesItemParamsItem"
+          }
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path"
+      ]
+    },
+    "InspectBlocksItemInstancesItemParamsItem": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "text",
+        "type"
+      ]
+    },
+    "InspectDocumentsItem": {
+      "type": "object",
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "exists",
+        "kind",
+        "name",
+        "role"
+      ]
+    },
+    "InspectEntriesItem": {
+      "type": "object",
+      "properties": {
+        "children": {
+          "type": "integer"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "type"
+      ]
+    },
+    "InspectModelFindings": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "integer"
+        },
+        "warning": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true
+    },
+    "InspectStackup": {
+      "type": "object",
+      "properties": {
+        "finish": {
+          "type": "string"
+        },
+        "impedance_controlled": {
+          "type": "boolean"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InspectStackupLayersItem"
+          }
+        },
+        "thickness": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "finish",
+        "impedance_controlled",
+        "layers",
+        "thickness"
+      ]
+    },
+    "InspectStackupLayersItem": {
+      "type": "object",
+      "properties": {
+        "color": {
+          "type": "string"
+        },
+        "dielectric_kind": {
+          "type": "string"
+        },
+        "epsilon_r": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "loss_tangent": {
+          "type": "string"
+        },
+        "material": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "thickness": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "name",
+        "thickness"
+      ]
+    },
+    "InspectStreams": {
+      "type": "object",
+      "properties": {
+        "opaque": {
+          "type": "integer"
+        },
+        "typed": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "opaque",
+        "typed"
+      ]
+    },
+    "InspectViaProtection": {
+      "type": "object",
+      "properties": {
+        "by_default": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "default": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "effective": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "by_default",
+        "default",
+        "effective"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    }
+  }
+}

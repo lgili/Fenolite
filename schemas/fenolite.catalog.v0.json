@@ -1,0 +1,948 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.catalog.v0",
+  "title": "CatalogResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "catalog": {
+      "type": "string"
+    },
+    "series": {
+      "type": "string"
+    },
+    "case": {
+      "type": "string"
+    },
+    "values": {
+      "$ref": "#/$defs/FamilyValues"
+    },
+    "category": {
+      "type": "string"
+    },
+    "count": {
+      "type": "integer"
+    },
+    "counts": {
+      "$ref": "#/$defs/CatalogCounts"
+    },
+    "definition": {
+      "$ref": "#/$defs/CatalogDefinition"
+    },
+    "device": {
+      "type": "string"
+    },
+    "digest": {
+      "type": "string"
+    },
+    "edited": {
+      "type": "boolean"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CatalogEntry"
+      }
+    },
+    "evidence": {
+      "type": "string"
+    },
+    "export": {
+      "$ref": "#/$defs/CatalogExport"
+    },
+    "filters": {
+      "$ref": "#/$defs/CatalogFilters"
+    },
+    "functions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "id": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "lib_id": {
+      "type": "string"
+    },
+    "licence": {
+      "type": "string"
+    },
+    "out": {
+      "type": "string"
+    },
+    "record": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DeviceDef"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "replaces": {
+      "type": "boolean"
+    },
+    "shadowed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sources": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "x-fenolite-map": true
+        }
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "uid": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "CatalogCounts": {
+      "type": "object",
+      "properties": {
+        "footprints": {
+          "type": "integer"
+        },
+        "symbols": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "footprints",
+        "symbols"
+      ]
+    },
+    "CatalogDefinition": {
+      "type": "object",
+      "properties": {
+        "graphics": {
+          "type": "integer"
+        },
+        "pins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CatalogPin"
+          }
+        },
+        "pads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CatalogPad"
+          }
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "graphics"
+      ]
+    },
+    "CatalogEntry": {
+      "type": "object",
+      "properties": {
+        "lib_id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "sources": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "x-fenolite-map": true
+            }
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "licence": {
+          "type": "string"
+        },
+        "uid": {
+          "type": "string"
+        },
+        "series": {
+          "type": "string"
+        },
+        "case": {
+          "type": "string"
+        },
+        "values": {
+          "$ref": "#/$defs/FamilyValues"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "lib_id",
+        "kind",
+        "category",
+        "summary",
+        "evidence",
+        "sources"
+      ]
+    },
+    "CatalogExport": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "bytes",
+        "sha256"
+      ]
+    },
+    "CatalogFilters": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "query"
+      ]
+    },
+    "CatalogPad": {
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "string"
+        },
+        "size_nm": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "number",
+        "size_nm"
+      ]
+    },
+    "CatalogPin": {
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "etype": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "number",
+        "name",
+        "etype"
+      ]
+    },
+    "Decimal10": {
+      "description": "The exact decimal m · 10^e in its one canonical form (change c0246).",
+      "type": "object",
+      "properties": {
+        "m": {
+          "type": "integer"
+        },
+        "e": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "m",
+        "e"
+      ]
+    },
+    "DeviceBridge": {
+      "description": "An authored series connection between two device functions or pin numbers.",
+      "type": "object",
+      "properties": {
+        "between": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "delay_fs": {
+          "type": "integer"
+        },
+        "loss_mdb": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "between"
+      ]
+    },
+    "DeviceDef": {
+      "description": "A device (change c0248): one reviewed record that joins a symbol, a footprint, the map from pin",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "footprint": {
+          "type": "string"
+        },
+        "manufacturer": {
+          "type": "string"
+        },
+        "mpn": {
+          "type": "string"
+        },
+        "datasheet": {
+          "type": "string"
+        },
+        "ref_prefix": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "case": {
+          "type": "string"
+        },
+        "tolerance": {
+          "type": "string"
+        },
+        "dielectric": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ground": {
+          "type": "string"
+        },
+        "unused_pads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ends": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true
+        },
+        "pins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DevicePin"
+          }
+        },
+        "ratings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Rating"
+          }
+        },
+        "limits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PinPairLimit"
+          }
+        },
+        "cls": {
+          "type": "string"
+        },
+        "interfaces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeviceInterface"
+          }
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeviceOption"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DeviceProvenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bridges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeviceBridge"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id"
+      ]
+    },
+    "DeviceInterface": {
+      "description": "An interface port a device declares (``[[interfaces]]``, change c0252): its name, kind and direction,",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "direction": {
+          "enum": [
+            "in",
+            "out",
+            "inout"
+          ]
+        },
+        "members": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "x-fenolite-map": true
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ValueRange"
+          },
+          "x-fenolite-map": true
+        },
+        "reference": {
+          "type": "string"
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "kind"
+      ]
+    },
+    "DeviceOption": {
+      "description": "One interface option a device offers (``[[options]]``, change c0257): the interface ``kind``",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "x-fenolite-map": true
+          }
+        },
+        "evidence": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "name"
+      ]
+    },
+    "DevicePin": {
+      "description": "One function of a device: its name, the symbol pins it joins and their pads as ordered",
+      "type": "object",
+      "properties": {
+        "function": {
+          "type": "string"
+        },
+        "pin_pads": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "ratings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Rating"
+          }
+        },
+        "thresholds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Threshold"
+          }
+        },
+        "must_connect": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "function"
+      ]
+    },
+    "DeviceProvenance": {
+      "description": "The stamp of a device written by a tool: the tool, its source (lib ids, never a path), the ISO 8601",
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "tool",
+        "source",
+        "date",
+        "sha256"
+      ]
+    },
+    "FamilyValues": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": "string"
+        },
+        "max": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "min",
+        "max"
+      ]
+    },
+    "PinPairLimit": {
+      "description": "A limit between two functions of a device (change c0274): ``between`` names them, the voltage being",
+      "type": "object",
+      "properties": {
+        "between": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ratings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Rating"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    },
+    "Rating": {
+      "description": "One limit of a device, of a device pin or of a pair of pins: ``key`` (``voltage``, ``current``,",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "unit": {
+          "enum": [
+            "uV",
+            "uA",
+            "uW",
+            "mK"
+          ]
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limit": {
+          "enum": [
+            "abs_max",
+            "operating"
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "key",
+        "unit"
+      ]
+    },
+    "Threshold": {
+      "description": "One logic threshold of a device pin (change c0274): ``key``, its integer ``unit`` (``uV`` for a",
+      "type": "object",
+      "properties": {
+        "key": {
+          "enum": [
+            "input_high_min",
+            "input_low_max",
+            "output_current_max",
+            "output_high_min",
+            "output_low_max"
+          ]
+        },
+        "unit": {
+          "enum": [
+            "uV",
+            "uA",
+            "uW",
+            "mK"
+          ]
+        },
+        "value": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "key",
+        "unit",
+        "value"
+      ]
+    },
+    "ValueRange": {
+      "description": "An exact range of an electrical value: unit, low, nominal and high, at least one bound given.",
+      "type": "object",
+      "properties": {
+        "unit": {
+          "enum": [
+            "ohm",
+            "farad",
+            "henry",
+            "volt",
+            "ampere",
+            "hertz",
+            "watt",
+            "second",
+            "kelvin"
+          ]
+        },
+        "low": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nominal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "high": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "unit"
+      ]
+    }
+  }
+}

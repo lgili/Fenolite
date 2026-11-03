@@ -24,6 +24,7 @@ from typing import Any, cast
 from fenolite.backends.base import BoardPad
 from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError, Issue
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.core.trig import ONE
 from fenolite.core.units import (
     format_angle,
@@ -182,7 +183,7 @@ def read_block_layout(path: str | Path) -> BlockLayout:
             "zones",
         },
     )
-    if data.get("schema") != SCHEMA:
+    if not accepts_schema(data.get("schema"), SCHEMA):
         raise BlockLayoutError("unsupported block layout schema", file=r.file, key="schema", code="FEN-3002")
     header = {
         name: r.text(data.get(name), name)

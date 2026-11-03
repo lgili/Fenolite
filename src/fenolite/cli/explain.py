@@ -143,6 +143,11 @@ def _spelled(key: str) -> list[str]:
     return [key.replace(ORACLE, oracle) for oracle in ORACLES]
 
 
+def table_codes(table: Mapping[str, object]) -> tuple[str, ...]:
+    """Expanded keys of a registered issue table, using the same family/oracle rules as all_codes."""
+    return tuple(code for key in table for code in _spelled(key))
+
+
 @cache
 def all_codes() -> Mapping[str, tuple[str, ...]]:
     """Every code of ``TABLES`` and of the FEN registry → its severities (none for an error code). A

@@ -1,0 +1,522 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.roundtrip.v0",
+  "title": "RoundtripResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "level": {
+      "type": "string"
+    },
+    "rt0": {
+      "$ref": "#/$defs/RoundtripRt0"
+    },
+    "rt1": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RoundtripRt1"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "rt2": {
+      "$ref": "#/$defs/RoundtripRt2"
+    },
+    "rta0": {
+      "$ref": "#/$defs/RoundtripRta0"
+    },
+    "rta1": {
+      "$ref": "#/$defs/RoundtripRta1"
+    },
+    "rta2": {
+      "$ref": "#/$defs/RoundtripRta2"
+    },
+    "rta3": {
+      "$ref": "#/$defs/RoundtripRta3"
+    },
+    "unwritten": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "x-fenolite-map": true,
+      "description": "Keys are supplied by named items, rather than fixed record fields."
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    },
+    "RoundtripRt0": {
+      "type": "object",
+      "properties": {
+        "difference": {
+          "type": "string"
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "difference",
+        "passed"
+      ]
+    },
+    "RoundtripRt1": {
+      "type": "object",
+      "properties": {
+        "difference": {
+          "type": "string"
+        },
+        "opaque_count": {
+          "type": "integer"
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "difference",
+        "opaque_count",
+        "passed"
+      ]
+    },
+    "RoundtripRt2": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "$ref": "#/$defs/RoundtripRt2After"
+        },
+        "before": {
+          "$ref": "#/$defs/RoundtripRt2Before"
+        },
+        "difference": {
+          "type": "string"
+        },
+        "differences": {
+          "type": "integer"
+        },
+        "judged": {
+          "type": "boolean"
+        },
+        "normalised": {
+          "type": "boolean"
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "runs": {
+          "$ref": "#/$defs/RoundtripRt2Runs"
+        },
+        "schematic": {
+          "$ref": "#/$defs/RoundtripRt2Schematic"
+        },
+        "unstable": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "after",
+        "before",
+        "difference",
+        "differences",
+        "judged",
+        "normalised",
+        "passed",
+        "runs",
+        "unstable"
+      ]
+    },
+    "RoundtripRt2After": {
+      "type": "object",
+      "properties": {
+        "unconnected": {
+          "type": "integer"
+        },
+        "violations": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "unconnected",
+        "violations"
+      ]
+    },
+    "RoundtripRt2Before": {
+      "type": "object",
+      "properties": {
+        "unconnected": {
+          "type": "integer"
+        },
+        "violations": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "unconnected",
+        "violations"
+      ]
+    },
+    "RoundtripRt2Runs": {
+      "type": "object",
+      "properties": {
+        "original": {
+          "type": "integer"
+        },
+        "redump": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "original",
+        "redump"
+      ]
+    },
+    "RoundtripRt2Schematic": {
+      "type": "object",
+      "properties": {
+        "difference": {
+          "type": "string"
+        },
+        "exact": {
+          "type": "boolean"
+        },
+        "judged": {
+          "type": "boolean"
+        },
+        "kept": {
+          "type": "integer"
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "redumped": {
+          "type": "integer"
+        },
+        "violations": {
+          "type": "integer"
+        },
+        "violations_redump": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "difference",
+        "exact",
+        "judged",
+        "kept",
+        "passed",
+        "redumped",
+        "violations",
+        "violations_redump"
+      ]
+    },
+    "RoundtripRta0": {
+      "type": "object",
+      "properties": {
+        "documents": {
+          "type": "integer"
+        },
+        "failed": {
+          "type": "integer"
+        },
+        "level": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "streams": {
+          "type": "integer"
+        },
+        "unjudged": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "documents",
+        "failed",
+        "level",
+        "reason",
+        "status",
+        "streams",
+        "unjudged"
+      ]
+    },
+    "RoundtripRta1": {
+      "type": "object",
+      "properties": {
+        "bytes_equal": {
+          "type": "integer"
+        },
+        "documents": {
+          "type": "integer"
+        },
+        "failed": {
+          "type": "integer"
+        },
+        "level": {
+          "type": "string"
+        },
+        "opaque_count": {
+          "type": "integer"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "records": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string"
+        },
+        "streams": {
+          "type": "integer"
+        },
+        "unjudged": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "bytes_equal",
+        "documents",
+        "failed",
+        "level",
+        "opaque_count",
+        "reason",
+        "records",
+        "status",
+        "streams",
+        "unjudged"
+      ]
+    },
+    "RoundtripRta2": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "reason",
+        "status"
+      ]
+    },
+    "RoundtripRta3": {
+      "type": "object",
+      "properties": {
+        "differences": {
+          "type": "integer"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "holds": {
+          "type": "boolean"
+        },
+        "level": {
+          "type": "string"
+        },
+        "presentation": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "unwritten": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "written": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "differences",
+        "files",
+        "holds",
+        "level",
+        "presentation",
+        "reason",
+        "status",
+        "unwritten",
+        "written"
+      ]
+    }
+  }
+}

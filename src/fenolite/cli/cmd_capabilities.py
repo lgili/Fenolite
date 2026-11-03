@@ -17,8 +17,9 @@ from typing import Any, cast
 from fenolite import __version__
 from fenolite.agent import guide
 from fenolite.backends import registry
-from fenolite.cli import describe
-from fenolite.cli.api import Command, Context, Result, discover
+from fenolite.cli import api as cli_api
+from fenolite.cli import deprecation, describe
+from fenolite.cli.api import Command, Context, Result, contract_schema, discover
 from fenolite.cli.errors import CliError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.pick.propose import suppliers
@@ -201,10 +202,12 @@ def _command_view(commands: Mapping[str, Command], name: str) -> dict[str, Any]:
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if args.brief and args.described is not None:
         raise CliError("FEN-2001", "--brief and --command are mutually exclusive", hint="use one of them")
+    found = discover()
+    contract = {"contract": cli_api.CONTRACT_VERSION, "deprecated": deprecation.entries(found)}
     if args.brief:
-        return Result(result=_brief(discover(), no_tools=bool(args.no_tools)))
+        return Result(result=_brief(found, no_tools=bool(args.no_tools)) | contract)
     if args.described is not None:
-        return Result(result=_command_view(discover(), str(args.described)))
+        return Result(result=_command_view(found, str(args.described)) | contract)
 
     from fenolite.backends import matrix  # its rows import the claims of every backend package
     from fenolite.backends.altium import claims
@@ -232,7 +235,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         {
             "name": "library seed",
             "mutates": True,
-            "schema": "fenolite.library.v0",
+            "schema": contract_schema("library"),
             "hidden": False,
             "usage": (
                 "fenolite library seed --from-librepcb DIR --commit SHA "
@@ -279,7 +282,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "suppliers": supplier_capabilities(suppliers()),
         "sends_data_offsite": False,
     }
-    return Result(result=result)
+    return Result(result=result | contract)
 
 
 COMMAND = Command(

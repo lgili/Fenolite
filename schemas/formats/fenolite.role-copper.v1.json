@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.role-copper.v1",
+  "title": "RoleCopperFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.role-copper.v1"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/OwnedCopper"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "items"
+  ],
+  "$defs": {
+    "OwnedCopper": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "sha256"
+      ]
+    }
+  }
+}

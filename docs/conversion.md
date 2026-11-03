@@ -125,6 +125,7 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
 | `graphic` | presentation | report |
 | `dimension` | presentation | report |
 | `schematic-text` | presentation | report |
+| `project-curve-error` | project | refuse |
 | `schematic` | project | report |
 <!-- kinds:end -->
 

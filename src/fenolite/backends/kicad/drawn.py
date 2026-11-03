@@ -267,6 +267,13 @@ def _field_ext(fields: Sequence[DrawnField]) -> dict[str, ExtBag]:
     return {sch.DRAWN_EXT: sch.field_pose_ext(poses)} if poses else {}
 
 
+def _label_ext(label: DrawnLabel) -> dict[str, ExtBag]:
+    ext = _text_ext(label.font, label.justify)
+    if label.intersheet_refs is not None:
+        ext[sch.INTERSHEET_EXT] = _field_ext((label.intersheet_refs,))[sch.DRAWN_EXT]
+    return ext
+
+
 def _sheet_ext(ref: DrawnSheetRef) -> dict[str, ExtBag]:
     ext = _field_ext((*ref.fields, *(prop.pose for prop in ref.properties)))
     if ref.properties:
@@ -923,7 +930,7 @@ def _sheet(
                 position=label.at,
                 rotation=label.rotation,
                 shape=label.shape,
-                ext=_text_ext(label.font, label.justify),
+                ext=_label_ext(label),
             )
             for i, label in enumerate(sheet.labels)
         ),
@@ -1048,6 +1055,56 @@ def _fields(symbol: SymbolInstance, *, power: bool = False) -> tuple[DrawnField,
             continue
         found.append(DrawnField(pose.name, pose.at, pose.rotation, pose.justify, pose.hide, pose.font))
     return tuple(found)
+
+
+def _intersheet_pose(native: Node, kind: str, *, file: str, where: str) -> DrawnField | None:
+    properties = native.nodes("property")
+    if not properties:
+        return None
+    if kind != "global" or len(properties) != 1:
+        raise FormatError("a reference field is one fixed global-label property", file=file, locator=where)
+    prop = properties[0]
+    if tuple(atom.value for atom in prop.atoms()) != sch.INTERSHEET or any(
+        atom.kind.name != "STRING" for atom in prop.atoms()
+    ):
+        raise FormatError("unsupported label property name or placeholder", file=file, locator=where)
+    keys = [child.name for child in prop.nodes()]
+    if len(keys) != len(set(keys)):
+        raise FormatError("repeated label property metadata", file=file, locator=where)
+    allowed = {"at", "effects", "hide", "show_name", "do_not_autoplace"}
+    if any(child.name not in allowed for child in prop.nodes()):
+        raise FormatError("unsupported label property metadata", file=file, locator=where)
+    for flag in ("show_name", "do_not_autoplace"):
+        values = prop.nodes(flag)
+        if len(values) > 1 or (values and tuple(a.value for a in values[0].atoms()) != ("no",)):
+            raise FormatError("unsupported label property display/autoplace flag", file=file, locator=where)
+    positions = prop.nodes("at")
+    if len(positions) != 1 or len(positions[0].atoms()) != 3 or len(prop.nodes("effects")) > 1:
+        raise FormatError("a reference field requires one exact pose", file=file, locator=where)
+    atoms = positions[0].atoms()
+    effects = prop.find("effects")
+    for holder in (prop, effects):
+        for flag in holder.nodes("hide") if holder is not None else ():
+            if (
+                flag.nodes()
+                or len(flag.atoms()) > 1
+                or any(atom.kind.name != "SYMBOL" or atom.value not in {"yes", "no"} for atom in flag.atoms())
+            ):
+                raise FormatError("unsupported label property hide flag", file=file, locator=where)
+    if positions[0].nodes() or any(atom.kind.name != "NUMBER" for atom in atoms):
+        raise FormatError("unsupported label property position", file=file, locator=where)
+    try:
+        at = Point(atoms[0].to_nm(), atoms[1].to_nm())
+        rotation = sch._udeg(atoms[2].value)  # pyright: ignore[reportPrivateUsage]
+        font = _drawn_font.read_font(
+            prop, default_nm=sch.TEXT_SIZE, where=f"{where}.intersheet_refs.font", file=file
+        )
+        justify = _drawn_font.read_justify(prop, where=f"{where}.intersheet_refs.justify", file=file)
+        effects = prop.find("effects")
+        hidden = sch._hidden(prop) or (effects is not None and sch._hidden(effects))  # pyright: ignore[reportPrivateUsage]
+        return DrawnField(sch.INTERSHEET[0], at, rotation, justify, hidden, font)
+    except (TypeError, ValueError) as error:
+        raise FormatError(f"unsupported inter-sheet field pose: {error}", file=file, locator=where) from error
 
 
 def _text_effects(native: Node, *, legacy: str, file: str, where: str) -> tuple[DrawnFont | None, str | None]:
@@ -1375,23 +1432,11 @@ def extract_with_pins(
             font, justify = _text_effects(
                 native, legacy=_drawn_font.label_justify(label.rotation), file=file, where=where
             )
-            for prop in native.nodes("property"):
-                effective = prop.find("effects")
-                hidden = sch._hidden(prop) or (effective is not None and sch._hidden(effective))  # pyright: ignore[reportPrivateUsage]
-                if (
-                    not hidden
-                    or _drawn_font.read_font(
-                        prop, default_nm=sch.TEXT_SIZE, where=f"{where}.property.font", file=file
-                    )
-                    is not None
-                ):
-                    raise FormatError(
-                        "drawn label properties with visible/custom effects are not represented",
-                        file=file,
-                        locator=where,
-                    )
+            reference = _intersheet_pose(native, label.kind, file=file, where=where)
             labels.append(
-                DrawnLabel(label.kind, label.name, label.position, label.rotation, shape, font, justify)
+                DrawnLabel(
+                    label.kind, label.name, label.position, label.rotation, shape, font, justify, reference
+                )
             )  # type: ignore[arg-type]
         refs: list[DrawnSheetRef] = []
         ref_keys: set[str] = set()

@@ -79,3 +79,28 @@ The maintainer accepted every recommended answer below on 2026-10-27 (roadmap, "
 2. Should a removed result key be refused by a test after 1.0, as c0216 refuses a removed option?
    Recommended: yes, by comparing each schema's property names with the last release tag's, in this
    change's drift test. Decided by the maintainer on 2026-10-27: as recommended.
+
+## Current-source symbol contexts: reviewed before implementation
+
+The actual c0327 source adds public authoring input fenolite.symbol-contexts.v0, absent from the
+historical remote inventory. Classify it public and publish a closed prepared v1 descriptor matching
+docs/symbol-contexts.md: exact four root keys, nonempty symbol rows with eight string keys, target9/10
+excluding bool and lowercase64-hex digests. The writer remains v0 byte-identical.
+
+The binding SHA includes the schema ID. A bounded v1 reader must validate using the actual accepted
+schema string; changing only schema without rebinding must refuse. A deliberately recomputed v1
+binding may load, retaining all source/asset/definition hashes and native contracts. Future schemas,
+unknown keys, malformed hashes, wrong target and stale bindings still refuse. No generic input
+rewriting, new model field or identity relaxation is authorized. Root approved this scope explicitly.
+
+## Current drawn source mirror
+
+Actual source d5ae37b0 includes typed fonts, explicit label/pin justification, mirrored power symbols,
+sheet-reference built-in field poses, literal custom properties, and the reviewed c0348 global-label
+Intersheetrefs pose. The raw TOML descriptor must reflect FIELD_KEYS/FONT_KEYS/LABEL_KEYS/PIN_KEYS/
+SHEET_REF_KEYS and the actual writer, rather than replacing model or reader classes with historical
+versions. All five font attributes preserve optional presence, false, zero and exact numeric pairs.
+Custom properties retain their text plus pose/font; fields and properties stay typed user-keyed maps.
+The inter-sheet field uses the same raw field-pose record. Reader semantic validation remains authoritative
+for names, legal global-label attachment and nonempty fonts. Authored actual writer/reader/schema
+roundtrips fail with ten missing descriptor properties before these descriptor-only additions.

@@ -202,12 +202,32 @@ def golden_bytes(entry: CatalogEntry, data: dict[str, Any]) -> bytes:
     ).encode("utf-8")
 
 
+def _golden_comparison(data: bytes) -> bytes:
+    """A canonical v1 mirror compares as v0; noncanonical bytes retain their existing refusal."""
+    from fenolite.model import canonical
+
+    try:
+        raw = json.loads(data)
+        if isinstance(raw, dict):
+            body = cast(dict[str, Any], raw)
+            if body.get("schema") == "fenolite.block-golden.v1":
+                if canonical.dumps(body).encode("utf-8") == data:
+                    body["schema"] = "fenolite.block-golden.v0"
+                    return canonical.dumps(body).encode("utf-8")
+    except (TypeError, ValueError, UnicodeError):
+        pass
+    return data
+
+
 def differing_paths(before: bytes, after: bytes) -> tuple[str, ...]:
     """The first twenty changed JSON leaves, sorted; malformed input differs at its root."""
+    before, after = _golden_comparison(before), _golden_comparison(after)
     try:
         old, new = json.loads(before), json.loads(after)
     except (ValueError, UnicodeDecodeError):
         return ("$",)
+    if before == after:
+        return ()
     paths: list[str] = []
 
     def walk(a: Any, b: Any, path: str) -> None:
@@ -252,7 +272,7 @@ def _golden(
         return GoldenWrite(path, built)
     if not path.is_file():
         return None
-    old = path.read_bytes()
+    old = _golden_comparison(path.read_bytes())
     row["golden"] = "equal" if old == built else "differs"
     if old != built:
         changed = differing_paths(old, built)

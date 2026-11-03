@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.family.v1",
+  "title": "FamilyGrammarFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.family.v1"
+    },
+    "id": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "manufacturer": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "licence": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "string"
+    },
+    "sources": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "pattern": {
+      "type": "string"
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/GrammarField"
+      }
+    },
+    "valid": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/$defs/GrammarSpan"
+          }
+        ]
+      }
+    },
+    "exclude": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "datasheet": {
+      "type": "string"
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "footprint": {
+      "type": "string"
+    },
+    "pins": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "tail": {
+      "type": "string"
+    },
+    "reviewed_by": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Review"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "id",
+    "kind",
+    "summary",
+    "manufacturer",
+    "version",
+    "licence",
+    "evidence",
+    "sources",
+    "pattern",
+    "fields",
+    "valid"
+  ],
+  "$defs": {
+    "GrammarField": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string"
+        },
+        "prefer": {
+          "type": "string"
+        },
+        "codes": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        },
+        "scheme": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "series": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "role"
+      ]
+    },
+    "GrammarSpan": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": "string"
+        },
+        "max": {
+          "type": "string"
+        },
+        "series": {
+          "type": "string"
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Review": {
+      "description": "One review of a record: who, when, of which version and digest, and the label asserted.",
+      "type": "object",
+      "properties": {
+        "who": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "sheet": {
+          "type": "string"
+        },
+        "sheet_sha256": {
+          "type": "string"
+        },
+        "previous_evidence": {
+          "type": "string"
+        },
+        "accepted_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fenolite_version": {
+          "type": "string"
+        },
+        "record_sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "who",
+        "date",
+        "version",
+        "digest",
+        "evidence"
+      ]
+    }
+  }
+}

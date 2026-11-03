@@ -5448,3 +5448,8 @@ see = "build"
 meaning = "A canonical BOM-only purchasing item also claims electrical or physical membership."
 fix = "Remove its pins, connections and placed footprint, or make it a regular component; preserve its purchasing identity."
 see = "check"
+
+["cli.deprecated"]
+meaning = "This command or option has a declared replacement and remains available through contract 1.x."
+fix = "Use the replacement named in the warning. Deprecation alone does not change the command's exit code or writes."
+see = "Stability"

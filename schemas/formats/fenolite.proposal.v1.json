@@ -1,0 +1,2472 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.proposal.v1",
+  "title": "ProposalFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.proposal.v1"
+    },
+    "datasheet": {
+      "$ref": "#/$defs/Datasheet"
+    },
+    "proposer": {
+      "$ref": "#/$defs/ProposalAuthor"
+    },
+    "device": {
+      "$ref": "#/$defs/ProposedDevice"
+    },
+    "package": {
+      "$ref": "#/$defs/ProposalPackage"
+    },
+    "pin": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProposedPin"
+      }
+    },
+    "ratings": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/ProposedRating"
+      }
+    },
+    "part": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProposedPart"
+      }
+    },
+    "doubt": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Doubt"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "datasheet",
+    "proposer",
+    "device",
+    "package"
+  ],
+  "$defs": {
+    "Bounds": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": "string"
+        },
+        "max": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Citation": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "integer"
+        },
+        "table": {
+          "type": "string"
+        },
+        "figure": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "page"
+      ]
+    },
+    "Datasheet": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "sha256"
+      ]
+    },
+    "Depopulated": {
+      "type": "object",
+      "properties": {
+        "center": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "center"
+      ]
+    },
+    "Doubt": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "field",
+        "reason"
+      ]
+    },
+    "GeneratedAlternate": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "shape": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ]
+    },
+    "ProposalAuthor": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "name",
+        "date"
+      ]
+    },
+    "ProposalBall": {
+      "type": "object",
+      "properties": {
+        "diameter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "diameter"
+      ]
+    },
+    "ProposalBody": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "standoff": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalBody2": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "standoff": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalBody3": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "standoff": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalBody4": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "standoff": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalBody5": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "standoff": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalBody6": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "standoff": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "offset": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalBody7": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "standoff": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalBody8": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "standoff": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "offset": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "height"
+      ]
+    },
+    "ProposalBody9": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/ProposalBodyLength"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "offset": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalBodyLength": {
+      "type": "object",
+      "properties": {
+        "per_position": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "extra": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "per_position",
+        "extra"
+      ]
+    },
+    "ProposalEp": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalLandChip": {
+      "type": "object",
+      "properties": {
+        "pad": {
+          "$ref": "#/$defs/ProposalLandChipPad"
+        },
+        "row_spacing": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "row_spacing_x": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "row_spacing_y": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProposalLandChipPad": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalLandConnector": {
+      "type": "object",
+      "properties": {
+        "drill": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "pad_diameter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProposalLandDip": {
+      "type": "object",
+      "properties": {
+        "drill": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "pad_diameter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProposalLandGrid": {
+      "type": "object",
+      "properties": {
+        "pad_diameter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pad_diameter"
+      ]
+    },
+    "ProposalLandGullwing": {
+      "type": "object",
+      "properties": {
+        "pad": {
+          "$ref": "#/$defs/ProposalLandGullwingPad"
+        },
+        "row_spacing": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "row_spacing_x": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "row_spacing_y": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "tab": {
+          "$ref": "#/$defs/ProposalLandGullwingTab"
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProposalLandGullwingPad": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalLandGullwingTab": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width",
+        "at"
+      ]
+    },
+    "ProposalLandHeader": {
+      "type": "object",
+      "properties": {
+        "drill": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "pad_diameter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "pad": {
+          "$ref": "#/$defs/ProposalLandHeaderPad"
+        },
+        "row_spacing": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProposalLandHeaderPad": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalLandMolded": {
+      "type": "object",
+      "properties": {
+        "pad": {
+          "$ref": "#/$defs/ProposalLandMoldedPad"
+        },
+        "row_spacing": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "row_spacing_x": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "row_spacing_y": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProposalLandMoldedPad": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalLandNolead": {
+      "type": "object",
+      "properties": {
+        "pad": {
+          "$ref": "#/$defs/ProposalLandNoleadPad"
+        },
+        "row_spacing": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "row_spacing_x": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "row_spacing_y": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "ep": {
+          "$ref": "#/$defs/ProposalLandNoleadEp"
+        },
+        "paste": {
+          "$ref": "#/$defs/ProposalLandNoleadPaste"
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProposalLandNoleadEp": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalLandNoleadPad": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalLandNoleadPaste": {
+      "type": "object",
+      "properties": {
+        "grid": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "window": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "pitch": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "grid",
+        "window",
+        "pitch"
+      ]
+    },
+    "ProposalLandTo": {
+      "type": "object",
+      "properties": {
+        "drill": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "pad_diameter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "pad": {
+          "$ref": "#/$defs/ProposalLandToPad"
+        },
+        "tab": {
+          "$ref": "#/$defs/ProposalLandToTab"
+        },
+        "row_spacing": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProposalLandToPad": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalLandToTab": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width",
+        "at"
+      ]
+    },
+    "ProposalLead": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalLead2": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposalLead3": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "thickness",
+        "length"
+      ]
+    },
+    "ProposalLead4": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "thickness"
+      ]
+    },
+    "ProposalMechanical": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "drill": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "pad_diameter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "beyond": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "y": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "number": {
+          "type": "string"
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "drill",
+        "beyond",
+        "y"
+      ]
+    },
+    "ProposalPackage": {
+      "type": "object",
+      "properties": {
+        "family": {
+          "type": "string"
+        },
+        "pins": {
+          "type": "integer"
+        },
+        "row_labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        },
+        "body": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProposalBody"
+            },
+            {
+              "$ref": "#/$defs/ProposalBody2"
+            },
+            {
+              "$ref": "#/$defs/ProposalBody3"
+            },
+            {
+              "$ref": "#/$defs/ProposalBody4"
+            },
+            {
+              "$ref": "#/$defs/ProposalBody5"
+            },
+            {
+              "$ref": "#/$defs/ProposalBody6"
+            },
+            {
+              "$ref": "#/$defs/ProposalBody7"
+            },
+            {
+              "$ref": "#/$defs/ProposalBody8"
+            },
+            {
+              "$ref": "#/$defs/ProposalBody9"
+            }
+          ]
+        },
+        "terminal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProposalTerminal"
+            },
+            {
+              "$ref": "#/$defs/ProposalTerminal2"
+            }
+          ]
+        },
+        "polarity": {
+          "type": "string"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "lead": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProposalLead"
+            },
+            {
+              "$ref": "#/$defs/ProposalLead2"
+            },
+            {
+              "$ref": "#/$defs/ProposalLead3"
+            },
+            {
+              "$ref": "#/$defs/ProposalLead4"
+            }
+          ]
+        },
+        "lead_style": {
+          "type": "string"
+        },
+        "pitch": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "arrangement": {
+          "type": "string"
+        },
+        "span_x": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "span_y": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "side": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalSide"
+          }
+        },
+        "tab": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProposalTab"
+            },
+            {
+              "$ref": "#/$defs/ProposalTab2"
+            }
+          ]
+        },
+        "pull_back": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "ep": {
+          "$ref": "#/$defs/ProposalEp"
+        },
+        "ep_number": {
+          "type": "string"
+        },
+        "paste": {
+          "$ref": "#/$defs/ProposalPaste"
+        },
+        "rows": {
+          "type": "integer"
+        },
+        "columns": {
+          "type": "integer"
+        },
+        "pitch_x": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "pitch_y": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "ball": {
+          "$ref": "#/$defs/ProposalBall"
+        },
+        "pad": {
+          "type": "string"
+        },
+        "depopulated": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "$ref": "#/$defs/Depopulated"
+            }
+          ]
+        },
+        "mount": {
+          "type": "string"
+        },
+        "leads": {
+          "type": "integer"
+        },
+        "row_spacing": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "orientation": {
+          "type": "string"
+        },
+        "pin": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProposalPin"
+            },
+            {
+              "$ref": "#/$defs/ProposalPin2"
+            }
+          ]
+        },
+        "numbering": {
+          "type": "string"
+        },
+        "series": {
+          "type": "string"
+        },
+        "positions": {
+          "type": "string"
+        },
+        "name_pattern": {
+          "type": "string"
+        },
+        "mechanical": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalMechanical"
+          }
+        },
+        "land": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProposalLandChip"
+            },
+            {
+              "$ref": "#/$defs/ProposalLandMolded"
+            },
+            {
+              "$ref": "#/$defs/ProposalLandGullwing"
+            },
+            {
+              "$ref": "#/$defs/ProposalLandNolead"
+            },
+            {
+              "$ref": "#/$defs/ProposalLandGrid"
+            },
+            {
+              "$ref": "#/$defs/ProposalLandTo"
+            },
+            {
+              "$ref": "#/$defs/ProposalLandDip"
+            },
+            {
+              "$ref": "#/$defs/ProposalLandHeader"
+            },
+            {
+              "$ref": "#/$defs/ProposalLandConnector"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProposalPaste": {
+      "type": "object",
+      "properties": {
+        "grid": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "window": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "pitch": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "grid",
+        "window",
+        "pitch"
+      ]
+    },
+    "ProposalPin": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "length_above": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "length_below": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "length_above",
+        "length_below"
+      ]
+    },
+    "ProposalPin2": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "length_above": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "length_below": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "width"
+      ]
+    },
+    "ProposalSide": {
+      "type": "object",
+      "properties": {
+        "edge": {
+          "type": "string"
+        },
+        "numbers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "positions": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "edge",
+        "numbers",
+        "positions"
+      ]
+    },
+    "ProposalTab": {
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "string"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "edge": {
+          "type": "string"
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "number",
+        "width",
+        "length",
+        "edge"
+      ]
+    },
+    "ProposalTab2": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "hole": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "number": {
+          "type": "string"
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "length"
+      ]
+    },
+    "ProposalTerminal": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length"
+      ]
+    },
+    "ProposalTerminal2": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/QuantityRange"
+            }
+          ]
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "ProposedDevice": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "manufacturer": {
+          "type": "string"
+        },
+        "mpn": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "ref_prefix": {
+          "type": "string"
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ]
+    },
+    "ProposedPart": {
+      "type": "object",
+      "properties": {
+        "mpn": {
+          "type": "string"
+        },
+        "extends": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "manufacturer": {
+          "type": "string"
+        },
+        "packing": {
+          "type": "string"
+        },
+        "lifecycle": {
+          "type": "string"
+        },
+        "grade": {
+          "type": "string"
+        },
+        "datasheet": {
+          "type": "string"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "ratings": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/Rating"
+          }
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "mpn"
+      ]
+    },
+    "ProposedPin": {
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "group": {
+          "type": "string"
+        },
+        "side": {
+          "type": "string"
+        },
+        "bus": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "integer"
+        },
+        "shape": {
+          "type": "string"
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "stacked": {
+          "type": "boolean"
+        },
+        "alternates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GeneratedAlternate"
+          }
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "number",
+        "name",
+        "type"
+      ]
+    },
+    "ProposedRating": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": "string"
+        },
+        "max": {
+          "type": "string"
+        },
+        "cite": {
+          "$ref": "#/$defs/Citation"
+        },
+        "limit": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "QuantityRange": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": "string"
+        },
+        "nominal": {
+          "type": "string"
+        },
+        "max": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Rating": {
+      "type": "object",
+      "properties": {
+        "abs_max": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Bounds"
+            }
+          ]
+        },
+        "operating": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Bounds"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

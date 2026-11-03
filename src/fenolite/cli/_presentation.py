@@ -21,6 +21,8 @@ from fenolite.checks.equivalence import PRESENTATION_LEVEL, LevelResult
 from fenolite.checks.equivalence.model import Difference
 from fenolite.model.design import Design
 from fenolite.view import fidelity, themes
+from fenolite.view.intersheet_bindings import instance_suffix
+from fenolite.view.kicad_intersheet import contexts_for_path
 from fenolite.view.kicad_schematic import build_kicad_schematic_scene
 
 BOARD = "board"
@@ -42,19 +44,36 @@ def board_scenes(design: Design, backend: str) -> dict[str, Mapping[str, Any]]:
     return {BOARD: fidelity.board_scene(design, _frame(backend), name=BOARD, backend=backend)}
 
 
-def sheet_scenes(root: Path, sheets: Sequence[Path] | None = None) -> dict[str, Mapping[str, Any]]:
+def sheet_scenes(
+    root: Path, sheets: Sequence[Path] | None = None, *, project: Path | None = None
+) -> dict[str, Mapping[str, Any]]:
     """The scene of each KiCad schematic sheet under the folder ``root``, by its path relative to it; with
     ``sheets``, of those sheets only (one project's sheet tree, change c0281)."""
     palette = themes.palette("kicad")
+    if project is None:
+        candidates = sorted(root.glob("*.kicad_pro"))
+        if len(candidates) == 1:
+            project = candidates[0]
     found: dict[str, Mapping[str, Any]] = {}
     for path in sorted(root.rglob("*.kicad_sch") if sheets is None else sheets):
         rel = path.relative_to(root).as_posix()
         if rel.startswith((".", "lib/")) or "/." in rel:
             continue
         data = path.read_bytes()
-        found[f"sheet:{rel}"] = build_kicad_schematic_scene(
-            data.decode("utf-8"), name=path.name, data=data, palette=palette
-        )
+        contexts = contexts_for_path(path, project=project)
+        for context in contexts:
+            suffix = (
+                instance_suffix(context.instance)
+                if len(contexts) > 1 and context is not None and context.enabled
+                else ""
+            )
+            found[f"sheet:{rel}{suffix}"] = build_kicad_schematic_scene(
+                data.decode("utf-8"),
+                name=path.name,
+                data=data,
+                palette=palette,
+                intersheet_context=context,
+            )
     return found
 
 

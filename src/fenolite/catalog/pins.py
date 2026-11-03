@@ -22,6 +22,7 @@ from typing import Any, get_args
 
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import parse_level
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.model.circuit import PinType
 from fenolite.model.library import (
     PinAlternate,
@@ -155,11 +156,11 @@ def _schema(data: dict[str, Any], reader: _Reader) -> None:
     found = _SCHEMA.fullmatch(value) if isinstance(value, str) else None
     if found is None:
         raise reader.fail("schema", f"'schema' must be {SCHEMA!r}")
-    if int(found.group(1)) > FORMAT_VERSION:
+    if int(found.group(1)) > max(FORMAT_VERSION, 1):
         raise PinsSchemaError(
             f"pin table schema {value!r} is newer than {SCHEMA!r}", file=reader.file, locator="schema"
         )
-    if value != SCHEMA:
+    if not accepts_schema(value, SCHEMA):
         raise reader.fail("schema", f"'schema' must be {SCHEMA!r}")
 
 

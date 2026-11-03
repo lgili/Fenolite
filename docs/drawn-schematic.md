@@ -72,7 +72,7 @@ more `[[sheet]]` tables.
 | `bus_entry` | `at`, `size` | a bus entry from `at` to `at + size` |
 | `junction` | `at`, `diameter` (optional) | a junction |
 | `no_connect` | `at` | a no-connect flag |
-| `label` | `kind` (`local`, `global`, `hierarchical`), `text`, `at`, `rotation`, `shape` (global and hierarchical: `input`, `output`, `bidirectional`, `tri_state`, `passive`), optional `font`, `justify` | a label |
+| `label` | `kind` (`local`, `global`, `hierarchical`), `text`, `at`, `rotation`, `shape` (global and hierarchical: `input`, `output`, `bidirectional`, `tri_state`, `passive`), optional `font`, `justify`, `intersheet_refs` | a label; `intersheet_refs` is a field-pose table allowed only for a global label, with fixed native name/text |
 | `bus_alias` | `name`, `members` | a bus alias of this sheet; on a bus, write it as `{NAME}` |
 | `sheet_ref` | `key`, `sheet`, `module`, `name`, `file` (optional), `at`, `size`, `page`, optional `fields`, `properties`, `[[pin]]` | a reference to the drawn sheet `sheet`; `module` is the code module, relative to the module of the instance that holds the reference (`""`: the same module), whose parts that instance shows; property poses may name only `Sheetname` and `Sheetfile` |
 | `properties.<name>` | required `text` and `at`; optional `rotation`, `justify`, `hide`, `font` | ordered custom sheet-reference metadata; empty text is preserved; names are unique and cannot be `Sheetname` or `Sheetfile` |
@@ -114,6 +114,21 @@ The exact model can hold positive sub-µm sizes; the current native/render bound
 refuses them explicitly. It never substitutes 1.27 mm after µm rounding, and a
 1 µm axis stays small. Level 8 still compares the existing text envelopes with
 unchanged thresholds; it is not an oracle proof of actual native glyph ink.
+
+## Global-label inter-sheet reference fields
+
+`intersheet_refs = { at = [15, 22], rotation = 90, justify = "right", hide = true }`
+keeps the pose of one global-label `Intersheetrefs` property. Its native text is
+always `${INTERSHEET_REFS}`; arbitrary names/text and duplicate properties refuse.
+The table accepts the same optional font as a field pose. Canonical default
+`DrawnLabel.intersheet_refs=None` is appended and omitted, preserving old values.
+Only `global` labels may carry it. Hidden poses are preserved too: actual KiCad
+project settings can display the field despite its stored hide flag.
+
+The native pipeline writes the placeholder for KiCad to resolve from the project.
+Effective viewer text additionally needs the actual project settings and selected
+sheet instance. That contextual viewer work and exact-head validation are separate
+pending c0348 gates; a typed native round trip alone does not certify that view.
 
 ## Repeated sheets
 

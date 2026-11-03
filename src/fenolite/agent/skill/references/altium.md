@@ -164,4 +164,18 @@ These files stay `INFERRED`: the drawn-sheet writer needs the native kit in
 `docs/evidence/altium-schematic.md`. Altium is currently unavailable; own-reader checks do not establish
 application acceptance or drawing identity.
 
+
+
+## Version scopes
+
+```fenolite-cmd
+fenolite capabilities --no-tools --fields matrix --json
+```
+
+Read `versions` per operation: `version`, `tool`, `level`, `source`. Empty lists mean no recorded
+version-specific scope. Sources name existing tests or actual native-kit runs; their existence is
+traceability, not a new execution or broader native guarantee. Keep current CI and native acceptance
+pending until their exact-commit proofs pass. The repository publishes `docs/evidence/conformance.json`
+and `conformance.md`; releases attach the JSON and checksum.
+
 Read next: `files`, `rules`, `checks`.

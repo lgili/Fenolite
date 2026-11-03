@@ -18,6 +18,7 @@ from fenolite.catalog.footprints.record import FAMILY_KEYS, LAND_KEYS, Key
 from fenolite.catalog.pins import GROUPS, PIN_SHAPES, PIN_TYPES, SIDES
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.quantities import LengthRange, QuantityError, micro_units, parse_length_range
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.library.codes import issue
 
 SCHEMA = "fenolite.proposal.v0"
@@ -222,10 +223,10 @@ def parse_proposal(text: str, *, file: str = "") -> Proposal:
     if (
         isinstance(schema, str)
         and re.fullmatch(r"fenolite\.proposal\.v\d+", schema)
-        and int(schema.rsplit("v", 1)[1]) > 0
+        and int(schema.rsplit("v", 1)[1]) > 1
     ):
         raise ProposalTooNew("proposal schema is newer than supported", file=file, locator="schema")
-    if schema != SCHEMA:
+    if not accepts_schema(schema, SCHEMA):
         raise FormatError(f"schema must be {SCHEMA}", file=file, locator="schema")
     ds = _table(data.get("datasheet"), file, "datasheet", {"file", "sha256", "revision", "title"})
     name = _text(ds.get("file"), file, "datasheet.file")

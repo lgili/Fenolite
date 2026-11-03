@@ -1,0 +1,408 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.block-layout.v1",
+  "title": "BlockLayoutFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.block-layout.v1"
+    },
+    "block": {
+      "type": "string"
+    },
+    "block_version": {
+      "type": "string"
+    },
+    "parts_digest": {
+      "type": "string"
+    },
+    "nets_digest": {
+      "type": "string"
+    },
+    "licence": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "string"
+    },
+    "captured_from": {
+      "type": "string"
+    },
+    "parts": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/LayoutPart"
+      }
+    },
+    "tracks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LayoutTrack"
+      }
+    },
+    "arcs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LayoutArc"
+      }
+    },
+    "vias": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LayoutVia"
+      }
+    },
+    "zones": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LayoutZone"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "block",
+    "block_version",
+    "parts_digest",
+    "nets_digest",
+    "licence",
+    "evidence"
+  ],
+  "$defs": {
+    "LayoutArc": {
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "start": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "end": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "width": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "pads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mid": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "net",
+        "start",
+        "end",
+        "width",
+        "layer",
+        "mid"
+      ]
+    },
+    "LayoutHatch": {
+      "type": "object",
+      "properties": {
+        "orientation": {
+          "type": "string"
+        },
+        "gap": {
+          "type": "string"
+        },
+        "thickness": {
+          "type": "string"
+        },
+        "smoothing_level": {
+          "type": "integer"
+        },
+        "smoothing_value": {
+          "type": "string"
+        },
+        "border": {
+          "type": "string"
+        },
+        "min_hole_area": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "LayoutPart": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "rotation": {
+          "type": "string"
+        },
+        "side": {
+          "enum": [
+            "top",
+            "bottom"
+          ]
+        },
+        "footprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "at",
+        "rotation",
+        "side",
+        "footprint"
+      ]
+    },
+    "LayoutTrack": {
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "start": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "end": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "width": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "pads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "net",
+        "start",
+        "end",
+        "width",
+        "layer"
+      ]
+    },
+    "LayoutVia": {
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "size": {
+          "type": "string"
+        },
+        "drill": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "via_type": {
+          "type": "string"
+        },
+        "pads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "net",
+        "at",
+        "size",
+        "drill",
+        "layers"
+      ]
+    },
+    "LayoutZone": {
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "outline": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "integer"
+        },
+        "settings": {
+          "$ref": "#/$defs/LayoutZoneSettings"
+        },
+        "pads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "net",
+        "outline",
+        "layers"
+      ]
+    },
+    "LayoutZoneSettings": {
+      "type": "object",
+      "properties": {
+        "clearance": {
+          "type": "string"
+        },
+        "min_thickness": {
+          "type": "string"
+        },
+        "thermal_gap": {
+          "type": "string"
+        },
+        "thermal_spoke_width": {
+          "type": "string"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "fill_mode": {
+          "type": "string"
+        },
+        "min_island_area": {
+          "type": "string"
+        },
+        "island_removal": {
+          "type": "string"
+        },
+        "smoothing": {
+          "type": "string"
+        },
+        "smoothing_radius": {
+          "type": "string"
+        },
+        "hatch": {
+          "$ref": "#/$defs/LayoutHatch"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

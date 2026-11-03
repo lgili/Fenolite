@@ -1,0 +1,345 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.manifest.v0",
+  "title": "ManifestResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ManifestArtifactsItem"
+      }
+    },
+    "check": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/ManifestCheck"
+        }
+      ]
+    },
+    "differences": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ManifestDifferencesItem"
+      }
+    },
+    "manifest": {
+      "type": "string"
+    },
+    "project": {
+      "$ref": "#/$defs/ManifestProject"
+    },
+    "states": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "x-fenolite-map": true,
+      "description": "Keys are supplied by named items, rather than fixed record fields."
+    },
+    "verified": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "ManifestArtifactsItem": {
+      "type": "object",
+      "properties": {
+        "held": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "stale": {
+          "type": "boolean"
+        },
+        "state": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "held",
+        "kind",
+        "path",
+        "stale",
+        "state"
+      ]
+    },
+    "ManifestCheck": {
+      "type": "object",
+      "properties": {
+        "stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ManifestCheckStagesItem"
+          }
+        },
+        "tool_version": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "stages",
+        "tool_version"
+      ]
+    },
+    "ManifestCheckStagesItem": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "oracle": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "level",
+        "name",
+        "oracle",
+        "status"
+      ]
+    },
+    "ManifestDifferencesItem": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "path"
+      ]
+    },
+    "ManifestProject": {
+      "type": "object",
+      "properties": {
+        "board": {
+          "$ref": "#/$defs/ManifestProjectBoard"
+        },
+        "schematic": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/ManifestProjectSchematic"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "board",
+        "schematic"
+      ]
+    },
+    "ManifestProjectBoard": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "type": "integer"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "format_version",
+        "path",
+        "sha256"
+      ]
+    },
+    "ManifestProjectSchematic": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "type": "integer"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "format_version",
+        "path",
+        "sha256"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    }
+  }
+}

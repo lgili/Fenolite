@@ -1030,3 +1030,21 @@ primitive/style multiset after import and fresh build, both plain and bold/itali
 Moving that field produces a different native multiset in each control. This
 verifies the authored cases only, not arbitrary fonts or manufacturing quality.
 Source: S-1286; hashes and scope in `docs/evidence/custom-footprint-field-poses.json`.
+### Common-tool padvia cache proof (c0340)
+
+- **ORACLE-VERIFIED(kicad-cli10.0.6), S-1208:** fresh `pcb drc --refill-zones
+  --save-board` on isolated copies of the declared public Complex source and
+  its generated board produces167 padvia cache regions on each side when
+  project max_error matches. Original raw caches remain165 versus0; no raw
+  cache equality, geometry-validity certificate or safety DRC pass is claimed.
+- The regenerated source contains12 outline/fill rings with proper segment
+  crossings (14 crossing edge pairs). Both sides retain and compare their
+  complete exact rational vertices/crossings/multiplicity; there is no repair
+  or vertex deletion. The artifact/geometry hashes and counts are recorded in
+  `docs/evidence/project-derived-cache-proof.json`. Parent qualification for
+  such a ring uses exact edge/body intersection, never an assumed interior.
+- The measured legacy cache has the name `$teardrop_padvia$`, hatch `full`,
+  and island_area_min; fresh10.0.6 cache has hatch `none` and island mode1.
+  These are observed cache metadata, not equality of the original caches.
+  Closed qualification refuses unknown or malformed metadata and zero-area
+  rings; ordinary zone priorities and pure equivalence are unchanged.

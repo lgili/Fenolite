@@ -22,6 +22,7 @@ from typing import cast
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import parse_level
 from fenolite.core.quantities import LengthRange, parse_length_range
+from fenolite.core.schema_ids import accepts_schema
 
 SCHEMA = "fenolite.package.v0"
 FAMILIES = ("chip", "molded", "gullwing", "nolead", "grid", "to", "dip", "header", "connector")
@@ -466,7 +467,7 @@ def package_from(raw: Mapping[str, object], *, file: str = "") -> Package:
     """The package of an already parsed TOML table (see ``read_package``)."""
     _no_floats(dict(raw), file, "")
     schema = raw.get("schema")
-    if schema != SCHEMA:
+    if not accepts_schema(schema, SCHEMA):
         raise _fail(f"schema must be {SCHEMA!r}, not {schema!r}", file, "schema")
     family = _envelope_text(raw, "family", file)
     generator = _envelope_text(raw, "generator", file)

@@ -48,3 +48,26 @@ These are decisions of the code, not facts about KiCad.
   check of its own for malformed courtyards; Fenolite does not claim to match it.
 - Script copper gets version-8 uuids with the marker `66656e6f-6c69` in the first 48 bits, so a rebuild
   can tell it from copper drawn in KiCad.
+
+### Explicit anchor contact controls (c0340)
+
+ORACLE-VERIFIED(kicad-cli10.0.6), S-1208: on original CC0 rectangular and
+circular anchors of1mm, an other-net routed probe strictly inside the anchor
+and outside an added contained radius0.1mm primitive reports native shorting
+contact for ordinary and custom pads. Outside-anchor controls report no such
+contact. All source bytes are unchanged. This supports using only an explicit
+anchor as a conservative contact subset; it does not approximate extra
+primitive copper or certify DRC safety. Actual input/driver/report digests and
+counts are in docs/evidence/project-custom-anchor-proof.json.
+
+### Shifted rectangle parent controls (c0340)
+
+ORACLE-VERIFIED(kicad-cli10.0.6), S-1208:16authored contact cases cover
+rect/roundrect, raw pad angles0/90/180/270 and both footprint sides. The
+through-hole pad's copper moves by its exact drill offset in the pad frame;
+the hole remains at pad.at. Other-net routes contacting the shifted body give
+native shorts; routes touching only the unshifted nominal body away from
+the hole do not. Inputs stay unchanged. This supports only exact whole-nm
+rectangle/roundrect parent translation, not a safety DRC pass. Other offset
+shapes/inexact values remain unqualified. Raw input/report/driver hashes are
+in docs/evidence/project-offset-parent-proof.json.

@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.family.v0",
+  "title": "FamilyRowsFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.family.v0"
+    },
+    "id": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "footprint": {
+      "type": "string"
+    },
+    "case": {
+      "type": "string"
+    },
+    "series": {
+      "type": "string"
+    },
+    "values": {
+      "$ref": "#/$defs/FamilyValues"
+    },
+    "tolerance": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "string"
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "power": {
+      "type": "string"
+    },
+    "voltage": {
+      "type": "string"
+    },
+    "rating": {
+      "type": "string"
+    },
+    "current": {
+      "type": "string"
+    },
+    "saturation": {
+      "type": "string"
+    },
+    "dcr": {
+      "type": "string"
+    },
+    "tempco": {
+      "type": "string"
+    },
+    "dielectric": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "id",
+    "kind",
+    "summary",
+    "symbol",
+    "footprint",
+    "case",
+    "series",
+    "values",
+    "tolerance",
+    "evidence"
+  ],
+  "$defs": {
+    "FamilyValues": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": "string"
+        },
+        "max": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "min",
+        "max"
+      ]
+    }
+  }
+}

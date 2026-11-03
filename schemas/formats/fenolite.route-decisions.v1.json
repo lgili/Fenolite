@@ -1,0 +1,276 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.route-decisions.v1",
+  "title": "RouteDecisionsFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.route-decisions.v1"
+    },
+    "board": {
+      "type": "string"
+    },
+    "locked": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RouteLocked"
+      }
+    },
+    "rejected": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RouteRejected"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "board",
+    "locked",
+    "rejected"
+  ],
+  "$defs": {
+    "RouteCorridor": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outline": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "layers",
+        "outline"
+      ]
+    },
+    "RouteEnd": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "name",
+        "layers"
+      ]
+    },
+    "RouteLocked": {
+      "type": "object",
+      "properties": {
+        "candidate": {
+          "type": "string"
+        },
+        "proposal": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "ends": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RouteEnd"
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RouteTrack"
+              },
+              {
+                "$ref": "#/$defs/RouteVia"
+              }
+            ]
+          }
+        },
+        "corridors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RouteCorridor"
+          }
+        },
+        "relaxed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "plan": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "candidate",
+        "proposal",
+        "subject",
+        "net",
+        "ends",
+        "items",
+        "corridors",
+        "relaxed",
+        "plan"
+      ]
+    },
+    "RouteRejected": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "subject",
+        "reason"
+      ]
+    },
+    "RouteTrack": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "track"
+          ]
+        },
+        "layer": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "layer",
+        "width",
+        "points"
+      ]
+    },
+    "RouteVia": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "via"
+          ]
+        },
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "diameter": {
+          "type": "integer"
+        },
+        "drill": {
+          "type": "integer"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "at",
+        "diameter",
+        "drill",
+        "layers"
+      ]
+    }
+  }
+}

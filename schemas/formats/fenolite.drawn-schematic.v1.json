@@ -1,0 +1,902 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.drawn-schematic.v1",
+  "title": "DrawnSchematicFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.drawn-schematic.v1"
+    },
+    "root": {
+      "type": "string"
+    },
+    "sheet": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DrawnSheet"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "root",
+    "sheet"
+  ],
+  "$defs": {
+    "DrawnAlias": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "members"
+      ]
+    },
+    "DrawnAt": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "at"
+      ]
+    },
+    "DrawnBusEntry": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "size": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "at",
+        "size"
+      ]
+    },
+    "DrawnField": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "rotation": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "justify": {
+          "type": "string"
+        },
+        "hide": {
+          "type": "boolean"
+        },
+        "font": {
+          "$ref": "#/$defs/DrawnFont"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "at"
+      ]
+    },
+    "DrawnFont": {
+      "type": "object",
+      "properties": {
+        "size": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "bold": {
+          "type": "boolean"
+        },
+        "italic": {
+          "type": "boolean"
+        },
+        "face": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "DrawnJunction": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "diameter": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "at"
+      ]
+    },
+    "DrawnLabel": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "kind": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "rotation": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "shape": {
+          "type": "string"
+        },
+        "font": {
+          "$ref": "#/$defs/DrawnFont"
+        },
+        "justify": {
+          "type": "string"
+        },
+        "intersheet_refs": {
+          "$ref": "#/$defs/DrawnField"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "at",
+        "kind",
+        "text"
+      ]
+    },
+    "DrawnOpaque": {
+      "type": "object",
+      "properties": {
+        "kicad": {
+          "type": "string"
+        },
+        "altium": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "DrawnPin": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "name": {
+          "type": "string"
+        },
+        "shape": {
+          "type": "string"
+        },
+        "rotation": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "font": {
+          "$ref": "#/$defs/DrawnFont"
+        },
+        "justify": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "at",
+        "name",
+        "shape"
+      ]
+    },
+    "DrawnPower": {
+      "type": "object",
+      "properties": {
+        "symbol": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "rotation": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "fields": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/DrawnField"
+          }
+        },
+        "mirror": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "symbol",
+        "net",
+        "at"
+      ]
+    },
+    "DrawnSheet": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "paper": {
+          "type": "string"
+        },
+        "title_block": {
+          "$ref": "#/$defs/DrawnTitle"
+        },
+        "generated": {
+          "type": "boolean"
+        },
+        "symbol": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DrawnSymbol"
+          }
+        },
+        "power": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DrawnPower"
+          }
+        },
+        "wire": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Polyline"
+          }
+        },
+        "bus": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Polyline"
+          }
+        },
+        "bus_entry": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DrawnBusEntry"
+          }
+        },
+        "junction": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DrawnJunction"
+          }
+        },
+        "no_connect": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DrawnAt"
+          }
+        },
+        "label": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DrawnLabel"
+          }
+        },
+        "bus_alias": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DrawnAlias"
+          }
+        },
+        "sheet_ref": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DrawnSheetRef"
+          }
+        },
+        "opaque": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DrawnOpaque"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key"
+      ]
+    },
+    "DrawnSheetProperty": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "rotation": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "justify": {
+          "type": "string"
+        },
+        "hide": {
+          "type": "boolean"
+        },
+        "font": {
+          "$ref": "#/$defs/DrawnFont"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "at",
+        "text"
+      ]
+    },
+    "DrawnSheetRef": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "key": {
+          "type": "string"
+        },
+        "sheet": {
+          "type": "string"
+        },
+        "module": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "size": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "file": {
+          "type": "string"
+        },
+        "page": {
+          "type": "string"
+        },
+        "pin": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DrawnPin"
+          }
+        },
+        "fields": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/DrawnField"
+          }
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/DrawnSheetProperty"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "at",
+        "key",
+        "sheet",
+        "module",
+        "name",
+        "size"
+      ]
+    },
+    "DrawnSymbol": {
+      "type": "object",
+      "properties": {
+        "part": {
+          "type": "string"
+        },
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "unit": {
+          "type": "integer"
+        },
+        "rotation": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "mirror": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/DrawnField"
+          }
+        },
+        "symbol": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "part",
+        "at"
+      ]
+    },
+    "DrawnTitle": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "organization": {
+          "type": "string"
+        },
+        "doc_id": {
+          "type": "string"
+        },
+        "responsible": {
+          "type": "string"
+        },
+        "approver": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Polyline": {
+      "type": "object",
+      "properties": {
+        "pts": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pts"
+      ]
+    }
+  }
+}

@@ -1,0 +1,655 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.provenance.v1",
+  "title": "ProvenanceFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.provenance.v1"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "spdx": {
+      "type": "string"
+    },
+    "origin": {
+      "enum": [
+        "converted",
+        "authored",
+        "seeded"
+      ]
+    },
+    "authors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "modification_notice": {
+      "type": "string"
+    },
+    "upstream": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Upstream"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "copyright": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "licence_text_sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evidence": {
+      "type": "string"
+    },
+    "trademarks": {
+      "$ref": "#/$defs/Trademarks"
+    },
+    "featured": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Featured"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "licence_review": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LicenceReview"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "conversion": {
+      "$ref": "#/$defs/Conversion"
+    },
+    "import": {
+      "$ref": "#/$defs/EmbeddedImport"
+    },
+    "fidelity": {
+      "$ref": "#/$defs/Fidelity"
+    },
+    "sources": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "library": {
+      "type": "object",
+      "description": "Caller-supplied library metadata preserved verbatim by verify-source; its keys and JSON values are not interpreted."
+    },
+    "replay": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "regeneration": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema"
+  ],
+  "$defs": {
+    "Conversion": {
+      "type": "object",
+      "properties": {
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConversionTool"
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConversionStep"
+          }
+        },
+        "outputs_tree": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "tools",
+        "steps",
+        "outputs_tree"
+      ]
+    },
+    "ConversionStep": {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "argv"
+      ]
+    },
+    "ConversionTool": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ]
+    },
+    "EmbeddedImport": {
+      "description": "Earlier provenance containers preserve a sparse import member verbatim.",
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string"
+        },
+        "design": {
+          "type": "string"
+        },
+        "licence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "copyright": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source": {
+          "$ref": "#/$defs/ImportSource"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InputFile"
+          }
+        },
+        "upgrade": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Upgrade"
+          }
+        },
+        "fenolite": {
+          "type": "string"
+        },
+        "tools": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "date": {
+          "type": "string"
+        },
+        "notices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "findings": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "equivalence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImportEquivalence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "copy": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "schema"
+      ]
+    },
+    "Featured": {
+      "type": "object",
+      "properties": {
+        "permission": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "permission"
+      ]
+    },
+    "Fidelity": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/VerifySourceNewAcceptedItem"
+          }
+        },
+        "proof": {
+          "$ref": "#/$defs/FidelityProof"
+        }
+      },
+      "additionalProperties": false
+    },
+    "FidelityProof": {
+      "type": "object",
+      "properties": {
+        "levels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "skipped": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "fenolite": {
+          "type": "string"
+        },
+        "against": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "date": {
+          "type": "string"
+        },
+        "script_sha256": {
+          "type": "string"
+        },
+        "tolerances": {
+          "$ref": "#/$defs/VerifySourceTolerances"
+        },
+        "generated_read_files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "generated read-set paths mapped to SHA-256"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "levels"
+      ]
+    },
+    "ImportEquivalence": {
+      "type": "object",
+      "properties": {
+        "equivalent": {
+          "type": "boolean"
+        },
+        "levels": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "equivalent",
+        "levels"
+      ]
+    },
+    "ImportSource": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "revision"
+      ]
+    },
+    "InputFile": {
+      "description": "One file read: its base name, SHA-256 of its original bytes, format and format version.",
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "sha256",
+        "format"
+      ]
+    },
+    "LicenceReview": {
+      "type": "object",
+      "properties": {
+        "by": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "by",
+        "date",
+        "note"
+      ]
+    },
+    "Trademarks": {
+      "type": "object",
+      "properties": {
+        "marks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "restricted": {
+          "type": "boolean"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Upgrade": {
+      "description": "One upgrade of a file on a private copy (decision 13).",
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "tool_version": {
+          "type": "string"
+        },
+        "from_version": {
+          "type": "integer"
+        },
+        "to_version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sha256_before": {
+          "type": "string"
+        },
+        "sha256_after": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "tool",
+        "tool_version",
+        "from_version",
+        "to_version",
+        "sha256_before",
+        "sha256_after"
+      ]
+    },
+    "Upstream": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "commit": {
+          "type": "string"
+        },
+        "archive_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "retrieved": {
+          "type": "string"
+        },
+        "spdx_expression": {
+          "type": "string"
+        },
+        "source_location": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "commit"
+      ]
+    },
+    "VerifySourceNewAcceptedItem": {
+      "type": "object",
+      "properties": {
+        "attribution": {
+          "type": "string"
+        },
+        "decided": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "attribution",
+        "decided",
+        "field",
+        "id",
+        "kind",
+        "level",
+        "reason",
+        "where"
+      ]
+    },
+    "VerifySourceTolerances": {
+      "type": "object",
+      "properties": {
+        "angle_udeg": {
+          "type": "integer"
+        },
+        "frame": {
+          "type": "string"
+        },
+        "length_nm": {
+          "type": "integer"
+        },
+        "length_ppm": {
+          "type": "integer"
+        },
+        "pixel_ppm": {
+          "type": "integer"
+        },
+        "render_pitch_um": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "angle_udeg",
+        "frame",
+        "length_nm",
+        "length_ppm",
+        "pixel_ppm",
+        "render_pitch_um"
+      ]
+    }
+  }
+}

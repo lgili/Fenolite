@@ -589,3 +589,16 @@ Task 7.2 stays open until its literal strict proof passes in both required versi
 - **c0249 design-lock:** references in the lock, never in the drawing.
 - **c0264 library-import, c0266 device-packs and c0279 fenolite-library:** power and part symbols of a drawing resolve like any part
   symbol, so a vendored `lib/` or an item vendored by `fenolite get` provides them.
+## Independent clean native acceptance control (2026-11-03)
+
+The corrected bus fixture already retains all40pins/36groups and native names;
+its remaining two errors and two warnings describe the truly unused input pins
+U1-11/U1-12. An independently authored variant may explicitly declare these two
+pins unconnected in both circuit and drawn source. The existing native NoERC
+markers must appear only at those two pin endpoints. No global ERC setting is
+changed, no connected pin is masked, and complete pin/group comparisons remain.
+Keep the original raw findings and the deliberate broken-child-bus negative.
+This is an authored source-intent control, not a writer workaround or a claim
+that the unchanged original examples compile without findings. The coordinator
+approves this narrow characterization before authoring the control; no model,
+schema or public DSL change is needed.

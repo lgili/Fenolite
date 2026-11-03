@@ -359,12 +359,17 @@ def _constraints(
         try:
             raw = path.read_bytes()
             data = json.loads(raw)
-            if (
-                not isinstance(data, dict)
-                or cast(dict[str, Any], data).get("schema") != "fenolite.placement-request.v0"
-            ):
+            if not isinstance(data, dict) or cast(dict[str, Any], data).get("schema") not in {
+                "fenolite.placement-request.v0",
+                "fenolite.placement-request.v1",
+            }:
                 raise ValueError("constraints need explicit schema fenolite.placement-request.v0")
-            request = canonical.loads(raw.decode("utf-8"), PlacementRequest, file=path.name)
+            # The prepared v1 file has the same grammar; the domain value keeps its writer's ID.
+            request = canonical.loads(
+                json.dumps({**data, "schema": "fenolite.placement-request.v0"}),
+                PlacementRequest,
+                file=path.name,
+            )
         except (OSError, UnicodeError, ValueError, FormatError) as error:
             raise CliError("FEN-3004", f"{path.name}: {error}", where=path.name) from None
         request = replace(

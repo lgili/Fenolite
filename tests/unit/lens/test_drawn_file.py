@@ -61,7 +61,7 @@ def test_unknown_key_located() -> None:
 
 def test_wrong_schema() -> None:
     """Scenario "Wrong schema"."""
-    _fails(MINIMAL.replace("drawn-schematic.v0", "drawn-schematic.v1"), "schema")
+    _fails(MINIMAL.replace("drawn-schematic.v0", "drawn-schematic.v2"), "schema")
 
 
 def test_missing_key_wrong_type_duplicate_sheet_and_unknown_root() -> None:

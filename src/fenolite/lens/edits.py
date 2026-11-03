@@ -28,6 +28,7 @@ from fenolite.backends.kicad.embed import PATH_PROPERTY
 from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.lens.placements import decimal_text, is_component_path, table_name
 from fenolite.model.board import FootprintInstance
 from fenolite.model.circuit import Component
@@ -464,7 +465,7 @@ def read_edits(text: str, *, origin: Point, file: str = "") -> EditsFile:
         data = tomllib.loads(text, parse_float=Decimal)
     except tomllib.TOMLDecodeError as error:
         raise FormatError(f"not TOML: {error}", file=file) from error
-    if data.get("schema") != EDITS_SCHEMA:
+    if not accepts_schema(data.get("schema"), EDITS_SCHEMA):
         raise FormatError(
             f"schema is {data.get('schema')!r}, not {EDITS_SCHEMA!r}; fenolite sync --to-source writes the "
             "file",

@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from fenolite.core.errors import FormatError
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.core.units import format_length
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.record import (
@@ -147,7 +148,7 @@ def _ports(value: object) -> tuple[PortRecord, ...] | None:
 def read_record(value: object) -> StoredBlockRecord:
     table = _object(value, "record")
     expected = set(record_data(BlockRecord("", None, ())))
-    if set(table) != expected or table.get("schema") != RECORD_SCHEMA:
+    if set(table) != expected or not accepts_schema(table.get("schema"), RECORD_SCHEMA):
         raise _fail(f"record holds exactly the {RECORD_SCHEMA} fields")
     ident = _text(table["id"], "record.id")
     try:
@@ -258,7 +259,7 @@ def read_item(text: str, *, item_id: str | None = None, item_version: str | None
         canonical.dumps(table)  # refuses non-integer numbers and non-JSON values
     except (ValueError, TypeError) as error:
         raise _fail(f"not canonical JSON data: {error}") from error
-    if set(table) != _KEYS or table.get("schema") != SCHEMA:
+    if set(table) != _KEYS or not accepts_schema(table.get("schema"), SCHEMA):
         raise _fail(f"the block item holds exactly the {SCHEMA} fields")
     record = read_record(table["record"])
     item = from_record(record, fenolite=_text(table["fenolite"], "fenolite"))

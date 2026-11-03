@@ -27,7 +27,7 @@ from fenolite.backends.kicad.versions import (
     inspect,
     require_readable,
 )
-from fenolite.core.errors import FenoliteError, Issue
+from fenolite.core.errors import FenoliteError, FormatError, Issue
 from fenolite.model.design import Design
 from fenolite.model.rules import Rule
 from fenolite.model.schematic import SchematicSheet
@@ -120,6 +120,8 @@ class Source:
     hierarchy: Mapping[str, SchematicSheet] = field(default_factory=lambda: {})
     sheet_origins: Mapping[str, tuple[str, str]] = field(default_factory=lambda: {})
     """Reference to native sheet file/element identity across an in-memory backend conversion."""
+    project_text: str | None = None
+    """Checked native project bytes decoded as UTF-8 for explicit import emission; not canonical data."""
 
 
 def _sha(data: bytes) -> str:
@@ -175,11 +177,16 @@ def read_kicad(path: Path, *, upgrade: Upgrader | None = None) -> Source:
     design = read_board(text, file=board_path.name)
     major = info.major if info.major is not None else 10
     minimums: dict[str, int] = {}
+    project_text = None
     project = folder / f"{stem}.kicad_pro"
     if project.is_file():
         raw = project.read_bytes()
         paths.append(project)
-        found = read_project(raw.decode("utf-8"), file=project.name, issues=issues)
+        try:
+            project_text = raw.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise FormatError("project input is not UTF-8", file=project.name) from error
+        found = read_project(project_text, file=project.name, issues=issues)
         inputs.append(InputFile(project.name, _sha(raw), "kicad_pro", found.meta_version))
         design = apply_project(design, found, issues=issues)
         minimums = project_minimums(found.data, issues=issues)
@@ -221,6 +228,7 @@ def read_kicad(path: Path, *, upgrade: Upgrader | None = None) -> Source:
             paths=tuple(paths),
             folder=folder,
             hierarchy=hierarchy,
+            project_text=project_text,
         )
     )
 

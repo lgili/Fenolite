@@ -25,6 +25,7 @@ from fenolite.backends.kicad._fpmap import node
 from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse
 from fenolite.backends.kicad.versions import FORMAT_VERSIONS, FileKind, inspect
 from fenolite.core.errors import FormatError
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.model.circuit import Circuit
 from fenolite.model.drawn import DrawnSchematic
 from fenolite.model.drawn_connect import component_path, instances
@@ -113,8 +114,8 @@ def source_files(drawn: DrawnSchematic, root_file: str) -> dict[str, str]:
     return found
 
 
-def _binding(row: Mapping[str, str], drawing: str, target: int) -> str:
-    value = {"schema": SCHEMA, "drawing": drawing, "target": target, **row}
+def _binding(row: Mapping[str, str], drawing: str, target: int, *, schema: str = SCHEMA) -> str:
+    value = {"schema": schema, "drawing": drawing, "target": target, **row}
     return sha(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
 
 
@@ -342,7 +343,9 @@ def read(path: Path, *, drawing_path: Path, drawn: DrawnSchematic, project_folde
         data = tomllib.loads(_read(path, project_folder).decode("utf-8"))
     except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
         raise FormatError(f"invalid UTF-8 context index: {error}", file=path.name) from error
-    if set(data) != {"schema", "drawing", "target", "symbol"} or data.get("schema") != SCHEMA:
+    if set(data) != {"schema", "drawing", "target", "symbol"} or not accepts_schema(
+        data.get("schema"), SCHEMA
+    ):
         raise FormatError("context index has missing/unknown keys or an unsupported schema", file=path.name)
     drawing, target, rows = data["drawing"], data["target"], data["symbol"]
     if not isinstance(drawing, str) or drawing != drawing_path.name or not _relative(drawing):
@@ -383,7 +386,7 @@ def read(path: Path, *, drawing_path: Path, drawn: DrawnSchematic, project_folde
         ):
             raise FormatError("context row has an invalid SHA-256 digest", file=path.name)
         if row["asset"] != f"{ASSETS}{row['asset_sha256']}.kicad_sym" or row["binding_sha256"] != _binding(
-            {k: row[k] for k in _FIELDS}, drawing, target
+            {k: row[k] for k in _FIELDS}, drawing, target, schema=data["schema"]
         ):
             raise FormatError("context row has a wrong asset path or stale binding digest", file=path.name)
         asset = path.parent / row["asset"]

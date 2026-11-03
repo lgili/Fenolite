@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
-from fenolite.cli.api import Context, PlannedWrite, Result, depends_on
+from fenolite.cli.api import Context, PlannedWrite, Result, contract_schema, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.library.audit import audit
@@ -38,7 +38,7 @@ def capability_entries() -> list[dict[str, object]]:
         {
             "name": f"library {verb}",
             "mutates": writes,
-            "schema": "fenolite.library.v0",
+            "schema": contract_schema("library"),
             "hidden": False,
             "usage": usage,
         }
