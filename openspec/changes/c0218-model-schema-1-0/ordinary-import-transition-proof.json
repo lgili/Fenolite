@@ -1,0 +1,172 @@
+{
+  "allowed_delta": {
+    "after": "1.0",
+    "before": "0",
+    "field": "schema_version",
+    "path": ".fenolite/meta.json"
+  },
+  "baseline_maps_sha256": "b561b0feac890a862e80518b053b6d5faee5c207a42bc68378efb5db21626e5e",
+  "candidate_source_commit": "cd9ead5c5d3875cc9463302494d2e59de6823668",
+  "cases": {
+    "10": {
+      "after_built_digest": "2e35cd7b815f69783fa0ce26faacbe45a8e030c1cdd344484edb0f3e113aef4e",
+      "after_built_map": {
+        ".fenolite/board.json": "2f1bbf7ac41cae0d41c8b71edc6f416d7d6c9d92ed8669f75f4f5cb44aad7887",
+        ".fenolite/build.json": "17ee31b1976f9b1ebb8041970abaeef8756a8dd0835b6ed0b8f7cfcafc68cc19",
+        ".fenolite/circuit.json": "08a49a084d3a38ce71e21485f28c636ab648e7e088cc7230b19c9755b8985bbd",
+        ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+        ".fenolite/meta.json": "722b79be7632d1de58823a854fa329510f6c517fa7f66dd772a553af8d05ed14",
+        ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+        "fenolite-base.json": "f1b5fc489b9e9d13fda14f1b9b8d6f89bcf3bce8808eeae9374a43bdf4bc8c49",
+        "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
+        "lib/Mini.kicad_sym": "e5f37ccbfa3c7ae1b64beaafbe45ae692839d3bfe03af585d176edc23ac41bd4",
+        "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "08827eb0aa9be020d2b7eedbb11d7ad8fbaf258716857ce5eaf1a34b3805ed27",
+        "lib/Mini.pretty/Mini_R_0603.kicad_mod": "6ab4d2f19325058de2e8e887aa16bdd74ed4145035f7dd74eba7463bf648b91e",
+        "sheets/ch1.kicad_sch": "bf6db0cff8d35d2ce53128d92964e660258a48f1d56e2fbfb6ed12f3c84cbd35",
+        "sheets/ch2.kicad_sch": "14df25f4610331113eaee05893f63f43453fcbed4f7c1670d1a4ad605b90e0ee",
+        "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9",
+        "two_sheet.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+        "two_sheet.kicad_pcb": "968910a05a4e2bc43313b2fdda32dae0057534aed324f5ffe731cad7a78de0f3",
+        "two_sheet.kicad_pro": "c0c49764831dbbb9ab9a54a643153d4fb636b70e8113c56e328e1f431f78173f",
+        "two_sheet.kicad_sch": "8526067ddfa0d128c78ed139f9d6d05918c9f7f190d427a686dc9bcd19ccf39e"
+      },
+      "after_meta": {
+        "fenolite_version": "0.7.0.dev0",
+        "id": "dsn_ebe2b373-c864-523e-8044-03d9474eceea",
+        "name": "two_sheet",
+        "schema_version": "1.0"
+      },
+      "before_built_digest": "51366c597857fee8572d0d883e998a7f67f7d3f056fcad4e1cc66e04a5005462",
+      "before_built_map": {
+        ".fenolite/board.json": "2f1bbf7ac41cae0d41c8b71edc6f416d7d6c9d92ed8669f75f4f5cb44aad7887",
+        ".fenolite/build.json": "17ee31b1976f9b1ebb8041970abaeef8756a8dd0835b6ed0b8f7cfcafc68cc19",
+        ".fenolite/circuit.json": "08a49a084d3a38ce71e21485f28c636ab648e7e088cc7230b19c9755b8985bbd",
+        ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+        ".fenolite/meta.json": "81596dc22759fd7d7633909146974798390a08d353b34ec2400b4455b60937b7",
+        ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+        "fenolite-base.json": "f1b5fc489b9e9d13fda14f1b9b8d6f89bcf3bce8808eeae9374a43bdf4bc8c49",
+        "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
+        "lib/Mini.kicad_sym": "e5f37ccbfa3c7ae1b64beaafbe45ae692839d3bfe03af585d176edc23ac41bd4",
+        "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "08827eb0aa9be020d2b7eedbb11d7ad8fbaf258716857ce5eaf1a34b3805ed27",
+        "lib/Mini.pretty/Mini_R_0603.kicad_mod": "6ab4d2f19325058de2e8e887aa16bdd74ed4145035f7dd74eba7463bf648b91e",
+        "sheets/ch1.kicad_sch": "bf6db0cff8d35d2ce53128d92964e660258a48f1d56e2fbfb6ed12f3c84cbd35",
+        "sheets/ch2.kicad_sch": "14df25f4610331113eaee05893f63f43453fcbed4f7c1670d1a4ad605b90e0ee",
+        "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9",
+        "two_sheet.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+        "two_sheet.kicad_pcb": "968910a05a4e2bc43313b2fdda32dae0057534aed324f5ffe731cad7a78de0f3",
+        "two_sheet.kicad_pro": "c0c49764831dbbb9ab9a54a643153d4fb636b70e8113c56e328e1f431f78173f",
+        "two_sheet.kicad_sch": "8526067ddfa0d128c78ed139f9d6d05918c9f7f190d427a686dc9bcd19ccf39e"
+      },
+      "before_meta": {
+        "fenolite_version": "0.7.0.dev0",
+        "id": "dsn_ebe2b373-c864-523e-8044-03d9474eceea",
+        "name": "two_sheet",
+        "schema_version": "0"
+      },
+      "changed_files": [
+        ".fenolite/meta.json"
+      ],
+      "import_map": {
+        "PROVENANCE.json": "eb92d88bf85a2ce53efdca5a90c57c5572f3a0ed72c16c40bc1bf9eee82fd477",
+        "copper.py": "4490f086e8aa99ce11f57e8088dbe6b69b6cc187e3b338dd55e0ca468948fd78",
+        "design.lock": "1c0a69c1ed5f9f2a35284b6736b74ac327c929976a1748122361aeb2c4a3c2ea",
+        "design.py": "42663e031f7f62cc67b71dbb736899ba23eed0afe9749eb051c06ebe4257bd1f",
+        "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
+        "lib/Mini.kicad_sym": "e5f37ccbfa3c7ae1b64beaafbe45ae692839d3bfe03af585d176edc23ac41bd4",
+        "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "08827eb0aa9be020d2b7eedbb11d7ad8fbaf258716857ce5eaf1a34b3805ed27",
+        "lib/Mini.pretty/Mini_R_0603.kicad_mod": "6ab4d2f19325058de2e8e887aa16bdd74ed4145035f7dd74eba7463bf648b91e",
+        "native/project.kicad_pro": "c0c49764831dbbb9ab9a54a643153d4fb636b70e8113c56e328e1f431f78173f",
+        "schematic.toml": "f4623e86ea1d7ff1faa3a8d67609547befaf3a4e3b362cacd989ce2331086063",
+        "sheets/__init__.py": "89f77c294c6b75c45dd9bb64e2919d43968b3a1ab8c1e4430312d2ffed42ebf4",
+        "sheets/ch1.py": "e780fb319b32dca5a95df51c77e26ea02d8f4d627f86866433025041c580f62a",
+        "sheets/ch2.py": "6e425bc71b5a8485937866493d6497dba2d2c2b655769f94f7b92d3b97c7ca22",
+        "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+      },
+      "unchanged_import_files": 14,
+      "unchanged_rebuilt_files": 18
+    },
+    "9": {
+      "after_built_digest": "f535482d5912b876b00f00ac2134cee65171f2d03b143c13dc4a3f41481a66b0",
+      "after_built_map": {
+        ".fenolite/board.json": "3c4ec7d5708c0f975aa0a42f35e6ca0fe988aa8409f860e50a7c4023718e0209",
+        ".fenolite/build.json": "3dcaefa7f0acdf46f8d5e083226b6a392224b9c39d017c1bb43fadcd765aa15e",
+        ".fenolite/circuit.json": "08a49a084d3a38ce71e21485f28c636ab648e7e088cc7230b19c9755b8985bbd",
+        ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+        ".fenolite/meta.json": "722b79be7632d1de58823a854fa329510f6c517fa7f66dd772a553af8d05ed14",
+        ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+        "fenolite-base.json": "f1b5fc489b9e9d13fda14f1b9b8d6f89bcf3bce8808eeae9374a43bdf4bc8c49",
+        "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
+        "lib/Mini.kicad_sym": "399d4201583a7642b20e932f82ee3d206acad83155f9e8230fc7274c73662fe8",
+        "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "a074a234317e88999459652eb4e2c3e4580f8f9eb1c141900ed1d06083d230d3",
+        "lib/Mini.pretty/Mini_R_0603.kicad_mod": "c768e1bd852edf2a39c66d32c850d9d9bb9660905f6f0cc716904d4f7122c14c",
+        "sheets/ch1.kicad_sch": "9b24a1c0ba5f895fc4cb159e77746972ad9c3d91c47dd508dafe4ca347e98cd6",
+        "sheets/ch2.kicad_sch": "fd6bb39ca8ce790422758c4b66ec56786d159568cb25a63c702b1c25966b0f15",
+        "sym-lib-table": "3d046811d8a722aff296f987928108858c0cd29eeb2a7aff7932f33631292f2c",
+        "two_sheet.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+        "two_sheet.kicad_pcb": "580e6e3ffa08b601b31b5e8145380159e30e513d806684626d7ac7598a2159a0",
+        "two_sheet.kicad_pro": "5f4731e3fbd2751dda94ef46341a22fb910af322a88404bd946a9a83e785fd7c",
+        "two_sheet.kicad_sch": "b2f3988e67001122be322265110b2fdcf42457d34f960ce5bcaa57d0d515aa55"
+      },
+      "after_meta": {
+        "fenolite_version": "0.7.0.dev0",
+        "id": "dsn_ebe2b373-c864-523e-8044-03d9474eceea",
+        "name": "two_sheet",
+        "schema_version": "1.0"
+      },
+      "before_built_digest": "9e4907bf50866e9699d7d1d37e3a607d11c2e485608edda64251c2fd1ca0a761",
+      "before_built_map": {
+        ".fenolite/board.json": "3c4ec7d5708c0f975aa0a42f35e6ca0fe988aa8409f860e50a7c4023718e0209",
+        ".fenolite/build.json": "3dcaefa7f0acdf46f8d5e083226b6a392224b9c39d017c1bb43fadcd765aa15e",
+        ".fenolite/circuit.json": "08a49a084d3a38ce71e21485f28c636ab648e7e088cc7230b19c9755b8985bbd",
+        ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+        ".fenolite/meta.json": "81596dc22759fd7d7633909146974798390a08d353b34ec2400b4455b60937b7",
+        ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+        "fenolite-base.json": "f1b5fc489b9e9d13fda14f1b9b8d6f89bcf3bce8808eeae9374a43bdf4bc8c49",
+        "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
+        "lib/Mini.kicad_sym": "399d4201583a7642b20e932f82ee3d206acad83155f9e8230fc7274c73662fe8",
+        "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "a074a234317e88999459652eb4e2c3e4580f8f9eb1c141900ed1d06083d230d3",
+        "lib/Mini.pretty/Mini_R_0603.kicad_mod": "c768e1bd852edf2a39c66d32c850d9d9bb9660905f6f0cc716904d4f7122c14c",
+        "sheets/ch1.kicad_sch": "9b24a1c0ba5f895fc4cb159e77746972ad9c3d91c47dd508dafe4ca347e98cd6",
+        "sheets/ch2.kicad_sch": "fd6bb39ca8ce790422758c4b66ec56786d159568cb25a63c702b1c25966b0f15",
+        "sym-lib-table": "3d046811d8a722aff296f987928108858c0cd29eeb2a7aff7932f33631292f2c",
+        "two_sheet.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+        "two_sheet.kicad_pcb": "580e6e3ffa08b601b31b5e8145380159e30e513d806684626d7ac7598a2159a0",
+        "two_sheet.kicad_pro": "5f4731e3fbd2751dda94ef46341a22fb910af322a88404bd946a9a83e785fd7c",
+        "two_sheet.kicad_sch": "b2f3988e67001122be322265110b2fdcf42457d34f960ce5bcaa57d0d515aa55"
+      },
+      "before_meta": {
+        "fenolite_version": "0.7.0.dev0",
+        "id": "dsn_ebe2b373-c864-523e-8044-03d9474eceea",
+        "name": "two_sheet",
+        "schema_version": "0"
+      },
+      "changed_files": [
+        ".fenolite/meta.json"
+      ],
+      "import_map": {
+        "PROVENANCE.json": "37e78c0a03d5ee5e8339be4f4be25daa8c00b1f019b1c8948dbd48c34c3bba80",
+        "copper.py": "4490f086e8aa99ce11f57e8088dbe6b69b6cc187e3b338dd55e0ca468948fd78",
+        "design.lock": "1c0a69c1ed5f9f2a35284b6736b74ac327c929976a1748122361aeb2c4a3c2ea",
+        "design.py": "3d1e19e78990cc51cd5c86568896368bd2eff8a1a9bf9ffa63743b35e0f0b931",
+        "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
+        "lib/Mini.kicad_sym": "399d4201583a7642b20e932f82ee3d206acad83155f9e8230fc7274c73662fe8",
+        "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "a074a234317e88999459652eb4e2c3e4580f8f9eb1c141900ed1d06083d230d3",
+        "lib/Mini.pretty/Mini_R_0603.kicad_mod": "c768e1bd852edf2a39c66d32c850d9d9bb9660905f6f0cc716904d4f7122c14c",
+        "native/project.kicad_pro": "5f4731e3fbd2751dda94ef46341a22fb910af322a88404bd946a9a83e785fd7c",
+        "schematic.toml": "647a1e2d63072160cf62083f436576b669878571f8cf314da7b3c8935eaac272",
+        "sheets/__init__.py": "89f77c294c6b75c45dd9bb64e2919d43968b3a1ab8c1e4430312d2ffed42ebf4",
+        "sheets/ch1.py": "e780fb319b32dca5a95df51c77e26ea02d8f4d627f86866433025041c580f62a",
+        "sheets/ch2.py": "6e425bc71b5a8485937866493d6497dba2d2c2b655769f94f7b92d3b97c7ca22",
+        "sym-lib-table": "3d046811d8a722aff296f987928108858c0cd29eeb2a7aff7932f33631292f2c"
+      },
+      "unchanged_import_files": 14,
+      "unchanged_rebuilt_files": 18
+    }
+  },
+  "root_independent_pre0356_same_failures_confirmed": true,
+  "root_independent_pre0356_source_commit": "896addf7fc3bbe6def2e8b258aef5258ffc0ef1f"
+}

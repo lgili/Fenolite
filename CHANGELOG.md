@@ -6,6 +6,16 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Preserve project-root aliases in declared resource paths and canonical proof trace keys; rebinding an alias invalidates reviewed input plans (c0354).
+
+- Keep historical complete byte pins exact while explicitly asserting the intentional schema1.0 metadata marker; no native or other canonical bytes are excluded (c0218).
+
+- Retain the original footprint-projection canonical digest pins through schema1 activation by pinning only the authorized metadata marker back to0. Independent controls preserve every native byte and reject hidden content changes; no fixture or golden was regenerated (c0218).
+- **Exact imported physical pad annotations** (c0355): preserve existing native pinfunction/pintype children and their absence per physical pad in explicit imported definitions. Conflicting duplicate pad numbers retain their own metadata; changed identities and ambiguous annotated sources refuse. Source/output top/bottom controls retain metadata, and malformed annotations refuse before planning. Generic library extraction and default writers remain unchanged. Native identity/order normalization remains an unimplemented proposal with strict annotation and ambiguity preconditions; derived-cache differences remain visible.
+- Extend the canonical1 activation proof to both strict ordinary-import/rebuild aggregate guards: all28import files and36non-metadata rebuilt files stay byte-identical; only two canonical metadata version markers change. Refresh those two aggregate digests while retaining complete-file assertions (c0218).
+
+- **Explicit import targets** (c0356): honor an explicitly supplied `--kicad-version` for both emission and private verification, including KiCad9 boards with KiCad10 project settings. Omitted targets retain source-major behavior and payload bytes; incompatible project keys and changed reviewed targets still refuse.
+
 - **Qualified legacy upgrade scope** (c0347): use the maintainer-authorized same-tool KiCad10 original-to-upgraded electrical proof. All five declared floor controls pass locally on exact source, including the complete284pin/84group legacy project. Preserve the original reader refusal and every native9 observation, including its historical disagreement, while retaining all pin/partition/name/provenance guards and supported9 requirements. Required combined CI remains pending.
 - **Public library proof checkpoint** (c0352): fresh Tiny, Complex, Multichannel, Interf and ECC83 imports have all nine fidelity levels equal. Royal’s supported native class/floor comparison now agrees; its independent derived-geometry failures remain explicit blockers, with no accepted differences or release claim.
 
@@ -19,11 +29,13 @@ All notable changes to Fenolite are documented here. The format follows
 
 - Prove declared native worksheet scopes through actual KiCad9/10 SVG exports and complete public Interf replay without accepted differences (c0354).
 
-- **Declared project worksheets** (c0354): imported native projects carry their exact relative worksheet resources as checked inputs and outputs. PCB and schematic frame scopes remain independent; unsafe or missing resources refuse, and input edits invalidate reviewed plans.
+- **Declared project worksheets** (c0354): imported native projects carry their exact relative worksheet resources as checked inputs and outputs. PCB and schematic frame scopes remain independent; unsafe or missing resources refuse, and input edits invalidate reviewed plans. Shared resource policy stays in the backend layer, preserving importer/lens separation.
 
 - c0352: keep the schematic-comparison guide navigation after its native-context and receipt explanations.
 - c0353: resolve ordinary source-symbol inheritance with the existing canonical resolver before exact pin binding, preserving parent pins/units, child properties and the original contextual-inheritance refusal; combined imports follow the locked formatter order.
 - Preserve explicit authored9/10 controls for active inter-sheet references without a field pose; keep the refusal and disabled behavior unchanged (c0348).
+
+- **Native identity causality review** (c0355 proposal): document exact Royal controls showing pad/via/track UUID and item-order effects on derived copper. Runtime matching, annotation preservation and any private normalization remain subject to explicit review; no acceptance or writer behavior changes.
 
 
 

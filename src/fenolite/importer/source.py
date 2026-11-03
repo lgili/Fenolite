@@ -192,8 +192,7 @@ def read_kicad(path: Path, *, upgrade: Upgrader | None = None) -> Source:
         found = read_project(project_text, file=project.name, issues=issues)
         inputs.append(InputFile(project.name, _sha(raw), "kicad_pro", found.meta_version))
         from fenolite.backends.kicad import _json
-        from fenolite.backends.kicad.pro_template import RESOURCE_POINTERS
-        from fenolite.lens.project_resources import read_project_resources
+        from fenolite.backends.kicad.pro_template import RESOURCE_POINTERS, read_project_resources
 
         if any(_json.get(found.data, pointer) not in (None, "") for pointer in RESOURCE_POINTERS):
             for resource in read_project_resources(project, project_text):

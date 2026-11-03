@@ -11,8 +11,8 @@ import json
 import pytest
 from _project_resources import WORKSHEET
 
+from fenolite.backends.kicad.pro_template import MAX_RESOURCE_BYTES, ProjectResource, validate_resources
 from fenolite.core.errors import FormatError
-from fenolite.lens.project_resources import MAX_RESOURCE_BYTES, ProjectResource, validate_resources
 from fenolite.lens.project_template import read_project_template
 
 

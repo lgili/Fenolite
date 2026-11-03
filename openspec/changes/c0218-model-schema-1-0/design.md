@@ -109,3 +109,12 @@ Actual2026-11-03 maintainer review approves KEEP of the source-bound original
 source report hash. No type/default/identifier change is authorized. The
 previously prepared Step helper remains separate migration machinery; do not
 pretend its addition changed or was present in the original reviewed inventory.
+
+Fast7 revealed older canonical aggregate/unused-key/default-byte guards that
+correctly include metadata but still pin schema0. Keep those historic digests
+unchanged and explicitly require actual schema1.0. A test-only compatibility
+view may restore the one exact schema literal in a copied meta.json body for
+comparison against that legacy reference; every other raw byte remains exact.
+The active version assertion and full75-plan before/after proof separately
+certify the intentional change. No broad exclusion, pin regeneration, runtime
+writer change, evidence-warning omission or acceptance flag is authorized.

@@ -33,3 +33,7 @@ preserve every pre-existing input hash and report tool/output hashes. Public
 Interf is cloned externally and receives only its already manifested worksheet;
 all nine strict operators must be equal without accepted findings. No runtime
 change or retained public CAD is authorized by this evidence task.
+
+### Necessary root-alias coordinate consistency follow-up
+
+A caller may address a project through a root directory alias. Canonical containment protects the read boundary, while returned resource paths retain the caller’s lexical project-parent coordinate for Source.folder and declared input hashes. Interior resource-component symlinks remain refused. Canonical ReadSide board/project traces are relativized against the canonical original root before merging into portable proof keys; lexical original input dependencies remain intact so rebinding a root alias to changed board/resource bytes invalidates reviewed plans. This fixes path-coordinate consistency only; it adds no ambient search or broader resource acceptance.

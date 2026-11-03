@@ -172,6 +172,6 @@ def test_every_design_is_pinned_for_both_targets() -> None:
     )
 
 
-def test_the_model_version_is_zero() -> None:
+def test_the_model_version_is_one() -> None:
     meta = json.loads(build(blink(), 10).files[".fenolite/meta.json"])
-    assert meta["schema_version"] == "0"
+    assert meta["schema_version"] == "1.0"

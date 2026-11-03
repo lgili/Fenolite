@@ -110,3 +110,30 @@ The user separately approved the newly disclosed58th CLI command with the exact
 reply "Aprovo incluir migrate" after its1.0 folder/dry-plan/confirm/no-CAD-script
 scope was explained. This complements the original57-command API review; it
 does not rewrite the original reviewed packet or old pending observations.
+
+- [x] C.5 Extend activation proof to the two strict ordinary-import/rebuild complete-map guards (targets9/10): compare all14import files and19rebuilt files to preserved model0 receipts; allow ONLY parsed meta.schema_version0→1.0, then update only their aggregate rebuilt digests. Keep complete-file assertions and all native/import hashes strict. This follow-up is independent of c0356 target selection.
+
+C.5 follow-up actual proof: complete model0 carrier receipts contain14import files and19rebuilt files per target. Current sourcecd9ead5c and independent root896 both expose the same two aggregate failures, unrelated to explicit import target selection. Every imported byte and18/19rebuilt bytes per target remain identical; the sole meta.json parsed delta is schema_version0→1.0. `ordinary-import-transition-proof.json` records complete maps/digests and both parsed metadata objects. Updating only the two rebuilt aggregate pins restores all16physical identity/import/alias/early-and-late target guards; no native golden or assertion is weakened. Broader focused run had370other passes. Exact-head root fast/CI still required.
+
+## Historical byte-guard reconciliation after fast7
+
+- [x] C.5 Preserve every complete legacy pin while requiring the actual current
+  schema1.0 marker. For the narrowly named legacy comparisons, restore only the
+  single exact metadata schema literal in a copy; do not discard metadata,
+  files, physical bytes, other canonical fields or issues. Prove active/future
+  marker negatives, full75 maps and focused affected tests before checking.
+  Pin-assignment evidence warnings are separate runtime diagnostics, not waived.
+
+C.5 proof: affected active-version/default-file/unused-key/device-canonical/model
+controls57passed. Every legacy digest constant remains unchanged; the copied
+metadata view requires the exact current1.0 marker, rejects0/1.1/2.0, changes
+only its one literal and preserves every other byte. The writer version test
+now explicitly asserts1.0. Fresh complete source96375-plan capture compared
+to clean source7c1789 model0 gives identical1137 path sets/exits with exactly
+63 changed meta.json files; actual JSON differs ONLY in schema_version. All
+native and other canonical bytes remain identical. Full map digests and every
+changed row are recorded in legacy-pin-map-proof.json. Pin-assignment warning
+assertions remain intact for their separate c0219 runtime repair.
+- [x] C.6 Preserve all three original c0126 canonical digest pins and all native projection byte guards. Reproduce the nine failures after schema activation, pin only the explicitly authorized header schema marker back to0 alongside the existing release-version pin, and prove all other canonical content remains protected. Add independent current-versus-historical metadata native-byte equality and body-mutation negatives; do not regenerate fixtures or native goldens. Run only focused projection/model controls; final root fast/CI remain separate.
+
+C.6 actual focused proof on963f9cc0: all nine original failures reproduce in0.89s. Pinning only the one literal schema marker1.0→0 restores the ORIGINAL three canonical hashes without changing a hash or fixture. Independent legacy-header construction reproduces each original hash, and targets9/10 native board bytes remain exact against the current header. Header-name and board curve-error mutations still change the pinned digest; no non-metadata content is hidden. The complete projection module and model-version controls pass48tests in1.12s; focused ruff/format and strict OpenSpec pass. No production file/native golden/frozen model0 payload changed; root combined fast/CI remain separate.

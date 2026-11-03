@@ -6,10 +6,12 @@ parts in the model"). The example device is authored for Fenolite and illustrati
 from __future__ import annotations
 
 import hashlib
+import json
 import runpy
 from pathlib import Path
 
 import pytest
+from _schema_pin import legacy_meta_bytes
 
 from fenolite.catalog.devices import device_digest, parse_device
 from fenolite.dsl import Design, DslError, Module, Part, ohm, to_model
@@ -105,7 +107,9 @@ def test_reserved_names_stay_reserved() -> None:
 def test_designs_without_devices_are_unchanged() -> None:
     namespace = runpy.run_path(str(ROOT / "examples" / "blink_2layer" / "design.py"))
     texts = canonical.dump_texts(to_model(namespace["design"]))
-    assert _digest(texts) == BLINK_DIGEST
+    assert json.loads(texts["meta.json"])["schema_version"] == "1.0"
+    legacy = {**texts, "meta.json": legacy_meta_bytes(texts["meta.json"].encode()).decode()}
+    assert _digest(legacy) == BLINK_DIGEST
     assert "fenolite.device" not in "".join(texts.values())
 
 

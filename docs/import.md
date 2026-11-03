@@ -18,6 +18,8 @@ upstream licence with its `NOTICE` and `PROVENANCE.json`, in the separate `fenol
 test flags any tracked `.py` file holding a `Converted from <URL>` line without the marker `Authored for
 Fenolite`.
 
+An explicit `--kicad-version 9` or `--kicad-version 10` selects both emitted native assets and the private verification build. Without that option, import retains a supported source board’s major (otherwise the common default10). A newer project sidecar can therefore require an explicit target10 even when its board is9; incompatible target9 project settings still refuse, including with `--allow-lossy`.
+
 ## Inputs
 
 | input | read by | notes |

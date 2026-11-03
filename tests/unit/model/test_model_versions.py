@@ -107,3 +107,23 @@ def test_current_fields_and_bom_validation_survive_legacy_read() -> None:
     upgraded, _ = migrate(payload, "0")
     assert canonical.loads(json.dumps(upgraded["label"]), DrawnLabel) == label
     assert upgraded["label"] == payload["label"]
+
+
+@pytest.mark.parametrize("version", ["0", "1.1", "2.0"])
+def test_legacy_pin_view_refuses_noncurrent_schema_markers(version):
+    import json
+
+    from _schema_pin import legacy_meta_bytes
+
+    with pytest.raises(AssertionError):
+        legacy_meta_bytes(json.dumps({"schema_version": version}).encode())
+
+
+def test_legacy_pin_view_preserves_every_other_byte():
+    from _schema_pin import legacy_meta_bytes
+
+    current = b'{"schema_version": "1.0", "extra": [0, false, "1.0"], "opaque": "kept"}\n'
+    assert (
+        legacy_meta_bytes(current)
+        == b'{"schema_version": "0", "extra": [0, false, "1.0"], "opaque": "kept"}\n'
+    )

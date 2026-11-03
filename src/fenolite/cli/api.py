@@ -75,6 +75,8 @@ class Context:
     block, so ``restore -`` and ``view --serve`` refuse with ``FEN-2001``."""
     deprecations: tuple[Issue, ...] = ()
     """Notices for deprecated spellings actually used in this call, outside the plan arguments."""
+    kicad_target_explicit: bool = False
+    """The common target was actually supplied; source-preserving imports keep their defaults otherwise."""
 
 
 @dataclass(frozen=True, slots=True)

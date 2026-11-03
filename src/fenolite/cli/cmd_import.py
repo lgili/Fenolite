@@ -252,7 +252,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         date=ctx.timestamp.date().isoformat(),
         notices=notices,
     )
-    target = source.major if source.major in (9, 10) else ctx.kicad_target
+    target = ctx.kicad_target if ctx.kicad_target_explicit or source.major not in (9, 10) else source.major
     emission = emit(source, Options(name, provenance, target=target))
     if emission.unexpressed and not ctx.allow_lossy:
         raise LossyImportError(emission.unexpressed)

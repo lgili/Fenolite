@@ -72,6 +72,7 @@ from fenolite.backends.kicad.outline import (
     outline_case,
 )
 from fenolite.backends.kicad.pcb import WRITE_EVIDENCE, read_board, write_board
+from fenolite.backends.kicad.pro_template import ProjectResource, validate_resources
 from fenolite.backends.kicad.schgen import GeneratedSchematic
 from fenolite.backends.kicad.schlayout import SymbolPlacement
 from fenolite.backends.kicad.sexpr import parse_bytes
@@ -90,7 +91,6 @@ from fenolite.lens.fields import FieldRequestLike, apply_requests, merge_fields
 from fenolite.lens.moved import identity_map
 from fenolite.lens.pins import PIN_ISSUE_CODES
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
-from fenolite.lens.project_resources import ProjectResource, validate_resources
 from fenolite.lens.rolecopper import RoleCopperPlanner, apply_plan
 from fenolite.model import canonical, drawn_connect, pairs
 from fenolite.model.board import (

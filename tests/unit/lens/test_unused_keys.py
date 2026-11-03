@@ -30,6 +30,7 @@ import os
 from pathlib import Path
 
 import pytest
+from _schema_pin import legacy_meta_bytes
 
 import fenolite.cli.main as cli_main
 
@@ -172,7 +173,7 @@ def digests(files: dict[str, bytes]) -> dict[str, str]:
     found: dict[str, str] = {}
     for rel, data in files.items():
         if rel == ".fenolite/meta.json":
-            meta = json.loads(data)
+            meta = json.loads(legacy_meta_bytes(data))
             meta["fenolite_version"] = ""
             data = json.dumps(meta, sort_keys=True).encode()
         found[rel] = hashlib.sha256(data).hexdigest()

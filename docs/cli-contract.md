@@ -324,7 +324,7 @@ command name, like `--seed`. A command that writes KiCad files uses `--kicad-ver
 major of what it writes, and `--allow-lossy` as permission to drop content that major cannot read:
 each dropped part is reported as a warning, and without the flag the command fails with `FEN-7001`
 (exit 7). Content the model holds is never dropped, with or without the flag. Any other
-`--kicad-version` value is a usage error (`FEN-2001`, exit 2).
+`--kicad-version` value is a usage error (`FEN-2001`, exit 2). Python import retains its supported source board major when the option is omitted; an explicit value selects both emitted assets and its private verification build. Incompatible preserved project settings still refuse, rather than being discarded.
 
 A check severity of the script (`design.rules.severity()`) whose key the target major does not have is
 refused the same way, with `kicad.project.unknown-check`; with `--allow-lossy` it is left out and

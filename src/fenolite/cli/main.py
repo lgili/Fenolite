@@ -97,6 +97,20 @@ class _Parser(argparse.ArgumentParser):
         super().exit(status, message)
 
 
+class _KicadTarget(argparse.Action):
+    """Retain whether the common target was supplied, independently of its default value."""
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Any,
+        option_string: str | None = None,
+    ) -> None:
+        setattr(namespace, self.dest, values)
+        namespace.kicad_target_explicit = True
+
+
 def _add_global_options(parser: argparse.ArgumentParser, *, top_level: bool) -> None:
     default: object = argparse.SUPPRESS
     group = parser.add_argument_group("output and determinism")
@@ -121,9 +135,16 @@ def _add_global_options(parser: argparse.ArgumentParser, *, top_level: bool) -> 
     group.add_argument("--no-backup", action="store_true", default=False if top_level else default,
                        help="do not keep .bak copies of overwritten files")  # fmt: skip
     kicad = parser.add_argument_group("KiCad output")
-    kicad.add_argument("--kicad-version", type=int, choices=KICAD_TARGETS, dest="kicad_version",
-                       default=DEFAULT_KICAD_TARGET if top_level else default, metavar="{9,10}",
-                       help="KiCad major that written files target (default 10)")  # fmt: skip
+    kicad.add_argument(
+        "--kicad-version",
+        type=int,
+        action=_KicadTarget,
+        choices=KICAD_TARGETS,
+        dest="kicad_version",
+        default=DEFAULT_KICAD_TARGET if top_level else default,
+        metavar="{9,10}",
+        help="KiCad major that written files target (default 10)",
+    )
     kicad.add_argument("--allow-lossy", action="store_true", default=False if top_level else default,
                        help="drop content the target KiCad version cannot read, with a warning")  # fmt: skip
 
@@ -186,6 +207,7 @@ def _context(args: argparse.Namespace, mode: OutputMode, err: TextIO, cwd: Path,
         no_backup=bool(args.no_backup),
         cwd=cwd,
         kicad_target=int(args.kicad_version),
+        kicad_target_explicit=bool(getattr(args, "kicad_target_explicit", False)),
         allow_lossy=bool(args.allow_lossy),
         state=state_dir(),
         in_process=in_process,

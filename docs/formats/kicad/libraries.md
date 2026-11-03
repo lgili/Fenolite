@@ -561,6 +561,18 @@ above.
   opaque slots, and coordinates and angles are taken as stored. Two placements of one footprint give
   equal ids, so such definitions serve round trips and comparisons, not a `Library`.
 
+- **Import-only physical pad annotations (c0355).** Existing native pad slots retain
+  `pinfunction` and `pintype` verbatim. The importer restores those exact source children across its
+  known local-frame transformation before deriving explicit physical definitions; complete ordered
+  pad identities/cardinality bind every occurrence, including duplicate numbers. It never obtains
+  these children from deduplicated Component.Pin values. Existing full native definition signatures
+  separate different annotation presence/values into variants. Generic library extraction still
+  removes circuit annotations. S-1294 authored controls load on native9.0.9 and10.0.6; native10 save
+  retains the nonempty/unknown/passthrough values and explicit passive, but omits the independently
+  authored empty `pinfunction`. This native serialization observation does not remove that explicit
+  empty child from imported raw definitions or generated board output. Evidence: KICAD-VERIFIED
+  for the stated native observations only; no cache-filler equivalence follows.
+
 | code | severity | when |
 |---|---|---|
 | `kicad.footprint.dropped-too-new` | warning | `allow_lossy` removed an opaque child the target cannot read |

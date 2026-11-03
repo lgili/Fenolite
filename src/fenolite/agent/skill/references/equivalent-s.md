@@ -58,4 +58,6 @@ their exact bytes. The PCB and schematic frame scopes stay independent. Missing 
 symlinks and unsupported worksheet versions refuse. An explicit `design.sheet` retains its existing
 managed-frame precedence; no ambient worksheet or library search occurs.
 
+For `fenolite import`, an explicit `--kicad-version` selects emitted assets and verification; omission keeps the supported source board major. Target9 still refuses preserved KiCad10-only project settings, even with `--allow-lossy`; changing targets requires a new reviewed plan.
+
 Read next: `checks`, `files`.

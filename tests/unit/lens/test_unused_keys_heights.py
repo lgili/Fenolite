@@ -27,6 +27,7 @@ from pathlib import Path
 
 import pytest
 from _buildhelp import build
+from _schema_pin import legacy_meta_bytes
 
 import fenolite.cli.main as cli_main
 from fenolite.dsl import Design, heights, mm, to_model
@@ -92,7 +93,7 @@ def _digests(out: Path) -> dict[str, str]:
             continue
         rel, data = path.relative_to(out).as_posix(), path.read_bytes()
         if rel == ".fenolite/meta.json":
-            meta = json.loads(data)
+            meta = json.loads(legacy_meta_bytes(data))
             meta["fenolite_version"] = ""
             data = json.dumps(meta, sort_keys=True).encode()
         found[rel] = hashlib.sha256(data).hexdigest()

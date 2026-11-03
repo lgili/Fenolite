@@ -223,6 +223,12 @@ def _project_files(path: Path) -> tuple[Path, ...]:
             tree = None
         if tree is not None:
             found += [root / name for name in tree.files[1:]]
+    # Worksheet bytes are explicit transitive inputs, including when the root is addressed by alias.
+    from fenolite.backends.kicad.pro_template import read_project_resources
+
+    project = root / f"{board.stem}.kicad_pro"
+    if project.is_file():
+        found.extend(resource.path for resource in read_project_resources(project, project.read_text()))
     return tuple(sorted({p for p in found if p.is_file()}))
 
 
@@ -672,7 +678,12 @@ def _verify(
         where = OPTIONS.get(error.where, error.where)
         raise CliError(error.cli_code, error.message, where=where, hint=error.hint) from None
     for path, digest in side_a.source_files:
-        key = path.relative_to(original.root).as_posix()
+        try:
+            key = path.relative_to(original.root.resolve()).as_posix()
+        except ValueError:
+            raise CliError(
+                "FEN-3004", "proof input leaves the declared project folder", where=path.name
+            ) from None
         prior = base["against"]["files"].get(key)
         if prior is not None and prior != digest:
             raise CliError(

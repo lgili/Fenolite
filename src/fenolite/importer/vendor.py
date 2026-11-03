@@ -25,6 +25,7 @@ from fenolite.backends.kicad.sym import read_symbol_library, write_symbol_librar
 from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.ids import derived_id
+from fenolite.importer._pad_annotations import annotation_restorer
 from fenolite.importer.codes import issue
 from fenolite.importer.schematic import SourceSymbols
 from fenolite.importer.schematic import symbols as source_symbols
@@ -127,9 +128,14 @@ def vendor(design: Design, text: str, *, target: int, source: Source | None = No
             pad.number for pad in footprint.pads if pad.number and pad.net_id
         )
     prefixes: dict[str, str] = {}
+    restore_annotations = annotation_restorer(text)
+
+    def prepare(node: Node) -> Node:
+        return library_footprint(restore_annotations(node))
+
     for nickname in nicknames:
         derived = derive_from_model(design, text, library=nickname, target=target, nickname=nickname,
-                                    default=DEFAULT_NICKNAME, prepare=library_footprint)  # fmt: skip
+                                    default=DEFAULT_NICKNAME, prepare=prepare)  # fmt: skip
         issues += [found for found in derived.issues if found.code != "library.instances-differ"]
         symbols: list[SymbolDef] = []
         for footprint in derived.footprints:

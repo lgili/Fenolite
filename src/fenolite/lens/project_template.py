@@ -9,9 +9,9 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from fenolite.backends.kicad.pro_template import ProjectResource, read_project_resources
 from fenolite.backends.kicad.pro_template import validate_project_template as validate_project_template
 from fenolite.core.errors import FormatError
-from fenolite.lens.project_resources import ProjectResource, read_project_resources
 
 
 @dataclass(frozen=True, slots=True)

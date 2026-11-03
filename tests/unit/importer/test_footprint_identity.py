@@ -216,7 +216,7 @@ def test_actual_native_name_change_is_not_explained_as_a_variant(name: str) -> N
 def test_target10_project_is_not_silently_lowered_to_target9(tmp_path: Path) -> None:
     source = copy_project(tmp_path)
     before = _snapshot(source.parent)
-    assert imported(tmp_path, source, "--kicad-version", "9", "--confirm").exit_code == 0
+    assert imported(tmp_path, source, "--kicad-version", "10", "--confirm").exit_code == 0
     out = tmp_path / "out"
     imported_before = _snapshot(out)
     reply = build(out, "--kicad-version", "9", "--dry-run")
@@ -227,18 +227,28 @@ def test_target10_project_is_not_silently_lowered_to_target9(tmp_path: Path) -> 
     assert _snapshot(source.parent) == before
 
 
+def test_target10_project_explicit_import9_refuses_before_output(tmp_path: Path) -> None:
+    source = copy_project(tmp_path)
+    before = _snapshot(source.parent)
+    reply = imported(tmp_path, source, "--kicad-version", "9", "--confirm")
+    assert reply.exit_code == 5 and reply.error is not None
+    assert any("too-new-key" in issue["message"] for issue in reply.envelope["issues"])
+    assert not (tmp_path / "out").exists()
+    assert _snapshot(source.parent) == before
+
+
 @pytest.mark.parametrize(
     "target,imported_digest,expected",
     (
         (
             9,
             "403dfe636c95151c39c4c7687dd90f0393986d7c4accafd7f7e025440f2cf5be",
-            "9e4907bf50866e9699d7d1d37e3a607d11c2e485608edda64251c2fd1ca0a761",
+            "f535482d5912b876b00f00ac2134cee65171f2d03b143c13dc4a3f41481a66b0",
         ),
         (
             10,
             "64788ade238c244ddce1e60f1870afbbe1202c4aae31936360c0915a1fbef24a",
-            "51366c597857fee8572d0d883e998a7f67f7d3f056fcad4e1cc66e04a5005462",
+            "2e35cd7b815f69783fa0ce26faacbe45a8e030c1cdd344484edb0f3e113aef4e",
         ),
     ),
 )

@@ -29,3 +29,14 @@ two distinct resources,24 process exports/48 SVG pages with explicit authored
 text presence/absence and unchanged inputs. Metadata and every input/output
 hash are in docs/evidence/project-resource-native.json. Earlier external harness
 failures remain preserved; no runtime guard was changed. Task3.2 remains open.
+
+- [x] 2.3 Keep native project resource policy in the backend layer shared by importer and lens; preserve every existing import-graph edge restriction and resource control. Proof: strict import graph and full focused resource/template controls.
+
+Task 2.3 proof: strict import graph plus all focused CLI/lens resource and project-template controls: 124 passed.
+
+- [x] 4.1 Prove authored project-root alias verification with/without a worksheet and lexical resource read paths; preserve both interior-symlink refusals. Source red controls must reproduce FEN1001 and mixed-coordinate paths before correction.
+- [x] 4.2 Prove rebinding a root alias to changed board/resource bytes invalidates an exact reviewed record plan (FEN4002/no write); root owns backend helper move and runtime correction.
+
+Initial root-alias diagnosis: ordinary no-resource and worksheet verify-source controls both fail FEN1001; resource read returns a resolved path outside lexical Source.folder. Sonde’s public project has EMPTY worksheet pointers: its separate direct cause is canonical ReadSide.source_files against lexical Original.root in verify-source trace merging, not resource reading. No root runtime file was changed by this red packet.
+
+Alias correction proof: 40 focused resource/template/alias tests pass, including both changed-byte root rebindings. Original red run: five failures; first correction: two worksheet trace/dependency failures; complete correction includes explicit transitive worksheet inputs.

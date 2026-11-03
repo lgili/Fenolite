@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 
 import pytest
+from _schema_pin import legacy_meta_bytes
 
 from fenolite.api import run
 
@@ -53,7 +54,11 @@ def test_optional_definition_changes_no_default_file(
     )
     assert reply.exit_code == 0, reply.error
     table = {
-        p.relative_to(out).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+        p.relative_to(out).as_posix(): hashlib.sha256(
+            legacy_meta_bytes(p.read_bytes())
+            if p.relative_to(out).as_posix() == ".fenolite/meta.json"
+            else p.read_bytes()
+        ).hexdigest()
         for p in out.rglob("*")
         if p.is_file()
     }
