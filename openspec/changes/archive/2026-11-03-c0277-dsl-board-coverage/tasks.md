@@ -145,4 +145,36 @@ Each task makes one kind that `fenolite import --to python` leaves out (c0275, `
 - [x] 5.2 Agent guide: a tested line for each new public DSL name (`teardrops`, `group`, `image`, `radial_dimension`, `leader`, `center_mark`, `override`, `edit_pad`, `model`, `verbatim`) and for the new codes, then `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent/test_pages.py -q`.
 - [x] 5.3 Residue and evidence: every fixture authored for Fenolite, the evidence matrix regenerated. Proof: `make residue`; `uv run python tools/gen_evidence_matrix.py --check`.
 - [x] 5.4 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. The integrated development base permits the entry. Proof: `uv run pytest tests/unit/test_release_record*.py tests/unit/test_release_tool.py -k changelog -q` (2026-11-01: 7 passed).
-- [ ] 5.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
+- [x] 5.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
+
+
+## Scoped implementation closure — 2026-11-03
+
+The maintainer clarified that problematic geometry was already outside this
+closure CI batch before the run. Close only this specification’s implementation
+on tested source 985f59a1d01a612b2eac0219243199896c24075a and reviewed
+archival documentation. Run 41708879698 remains FAILURE: the27known c0332
+geometry failures are DEFERRED_NOT_PASSED, not passed tests. KiCad9 and all
+five unit jobs succeeded. The relevant KiCad10 module results are inferred
+from complete unfiltered collection and the exhaustive -ra non-pass report.
+Explicitly contracted unsupported-target skips remain skips; no nominal
+PASSED line or green KiCad10 job is claimed.
+
+`scoped-ci-985f59a1.json` binds the exact tests, explicit KiCad9 positive
+lines, complete log hashes, reused fast proof and existing scoped records.
+The isolated runtime/tests/tools/configuration remain byte-identical to985;
+this does not validate later CAC runtime, close c0355 or replace subsequent
+integration CI. Existing authored/native/default-map proofs and limitations
+remain intact. No suite, native CAD test or CI rerun was started for archive.
+
+Entry refresh: previously implemented prerequisites are now archived in the
+required order: no literal prior archive requirement. Existing APIs and reviewed normative
+unions were checked against the current living text; no runtime change or
+external publication was needed. Contracted native9/10 unsupported-target
+skips remain skips and are explicitly retained in the portable receipt.
+
+The specification has no dependency under its own proposal. The longer old
+plan predecessor list was rehearsal order, not a newly imposed dependency on
+c0170 or the distinct c0281 archive prerequisites. c0275 is still active; its
+future Zones in the DSL delta must preserve this archived union. H-A-STACK-32
+remains INFERRED with its kit requirement and no graduation claim.
