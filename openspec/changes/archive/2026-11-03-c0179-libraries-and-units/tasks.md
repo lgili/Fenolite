@@ -59,3 +59,26 @@ project review, a missing implementation or a passing native outcome.
 ## Maintainer review — 2026-11-03
 
 The maintainer reviewed the three current exported Fenolite-authored library pages and answered "Revisei e aprovo as bibliotecas autorais". The review covers the two Altium footprints, two Altium symbols and eight KiCad symbol views including Mini_DualGate unitsA/B/C, item selection, Q mm/mil switching and M measurement. The choice of authored libraries is explicit; no personal-library or 3D review is inferred. The exact source/page hashes and scope are recorded in docs/evidence/library-viewer-maintainer-review-20261103.json. All three pages were generated with reviewed dry-run/exact-plan confirmation and unchanged input hashes before the human decision. No renderer change was made. Final exact-head CI and coordinated archival remain separate.
+
+
+## Scoped implementation closure — 2026-11-03
+
+The maintainer clarified that problematic geometry was already outside this
+closure CI batch before the run. Close only this specification’s implementation
+on tested source 985f59a1d01a612b2eac0219243199896c24075a and reviewed
+archival documentation. Run 41708879698 remains FAILURE: the27known c0332
+geometry failures are DEFERRED_NOT_PASSED, not passed tests. KiCad9 and all
+five unit jobs succeeded. The viewer job and all five unit jobs succeeded. This library-viewer
+change requires no additional native execution result; its actual maintainer
+approval and exact reviewed packet are separately bound below.
+
+`scoped-ci-985f59a1.json` binds the exact tests, explicit KiCad9 positive
+lines, complete log hashes, reused fast proof and existing scoped records.
+The isolated runtime/tests/tools/configuration remain byte-identical to985;
+this does not validate later CAC runtime, close c0355 or replace subsequent
+integration CI. Existing authored/native/default-map proofs and limitations
+remain intact. No suite, native CAD test or CI rerun was started for archive.
+
+The already recorded special gate is verified, without asking for a new
+review: actual maintainer approval. Its exact record and scope are bound in the
+portable receipt; original limits and no-results statements remain intact.
