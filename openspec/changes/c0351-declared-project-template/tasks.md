@@ -17,6 +17,18 @@
 
 - [x] 2.5 Revalidate imported-example and physical-identity controls against the explicit project carrier: author genuine target9 inputs for target9 positives, retain a source10-to9 zero-output refusal, and review complete derived file maps before updating byte pins. Preserve every physical/identity assertion and source fixture. Proof: 62 focused examples/identity/alias/data/determinism and76 complete byte guards passed; all75 complete before/after plan maps and target-specific maps are recorded in carrier-regression-proof.json (2026-11-03).
 
+- [x] 2.6 Prove actual native-carrier/context refusal precedence and a distinct authored context-only
+  control, stripping only the AST Expr and preserving every other source/schema/asset hash. Proof:
+  `uv run pytest tests/unit/cli/test_contextual_symbols.py -q`.
+
+Follow-up proof: `uv run pytest tests/unit/cli/test_contextual_symbols.py -q` reports 25 passed.
+The actual imported Altium request refuses FEN-7001 at native/project.kicad_pro before context-mode
+checking; skipping the schematic refuses FEN-3004 at symbol-contexts.toml. Two separate authored
+context-only requests remove solely the complete AST Expr kicad_project call, including all multiline
+arguments; every other existing source/index/native-asset hash remains exact before and after the
+refusal. Both still refuse FEN-3004, plan no write and create no built folder. No runtime, loader,
+tamper, schema or geometry behavior changed; root combined fast/CI stays independent.
+
 ## 3. Required closure
 
 - [ ] 3.1 Root-owned combined fast and required exact-head CI, plus public-surface review and all linked c0348 context/presentation gates. Proof: successful exact jobs; no archive while any literal task remains incomplete.
@@ -30,3 +42,4 @@ source found a missing generated backend-module row (2 failed/133 passed).
 module declaration and regenerated evidence index retain all evidence levels.
 The exact two failed page guards are rerun after regeneration; full combined
 fast/CI remains independent.
+

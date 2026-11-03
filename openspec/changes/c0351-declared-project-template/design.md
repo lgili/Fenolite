@@ -113,6 +113,18 @@ be measured and reviewed, never blindly regenerated. No canonical field is added
 The public surface delta is an implementation change, not completion of the
 separate pending maintainer surface-inventory review.
 
+
 ## c0352 ownership addendum
 
 An optional `preserve_minimums: bool = False` keyword to the existing declaration distinguishes imported source hard floors from authored minimum rules. DefaultFalse preserves this design's managed-wins contract and original controls. ExplicitTrue retains the five native project floor values from the digest-bound declaration in all planners/final output, while actual custom DRU overrides remain independent and effective. Import emitsTrue. This is recipe/request ownership only, not a canonical model property.
+
+## Combined-fast negative-control precedence follow-up
+
+An ordinary imported contextual-symbol project now explicitly declares its native project baseline.
+Targeting Altium correctly refuses that carrier with FEN-7001 before the later contextual-symbol
+FEN-3004 boundary. Preserve both real boundaries: assert the actual imported carrier refusal with
+zero plan/output, and create an authored context-only variant by removing solely the whole AST Expr
+calling kicad_project (including multiline arguments). Every other source/index/asset byte remains
+unchanged. Both skip-schematic and Altium variants must still reach the original contextual-symbol
+FEN-3004 without that independent declaration. No runtime ordering or loader/tamper guard changes.
+

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import shutil
 import tomllib
@@ -110,8 +111,13 @@ def test_same_byte_symlink_replacement_invalidates_review(which: str, tmp_path: 
 def test_contexts_are_not_ignored_by_other_output_modes(args, tmp_path: Path) -> None:
     script = code(tmp_path / "code")
     reply = build(tmp_path, script, *args, "--dry-run")
-    assert reply.exit_code == 3 and (reply.error or {})["code"] == "FEN-3004"
-    assert not (tmp_path / "built").exists()
+    expected = (
+        (7, "FEN-7001", "native/project.kicad_pro")
+        if args == ("--target", "altium")
+        else (3, "FEN-3004", "symbol-contexts.toml")
+    )
+    assert (reply.exit_code, (reply.error or {})["code"], (reply.error or {})["where"]) == expected
+    assert not reply.result.get("plan") and not (tmp_path / "built").exists()
 
 
 def test_build_needs_no_original_cad_after_import(tmp_path: Path) -> None:
@@ -269,3 +275,45 @@ def test_missing_required_context_index_never_uses_a_global_default(tmp_path: Pa
     assert reply.exit_code == 3 and (reply.error or {})["code"] == "FEN-3004"
     assert "context" in (reply.error or {})["message"]
     assert not (tmp_path / "refused").exists()
+
+
+@pytest.mark.parametrize("args", [("--schematic", "skip"), ("--target", "altium")])
+def test_context_mode_guard_without_independent_native_carrier(args, tmp_path: Path) -> None:
+    script = code(tmp_path / "code")
+    original = script.read_text(encoding="utf-8")
+    before = {
+        path.relative_to(script.parent).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in script.parent.rglob("*")
+        if path.is_file()
+    }
+    expressions = [
+        node
+        for node in ast.walk(ast.parse(original))
+        if isinstance(node, ast.Expr)
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Attribute)
+        and node.value.func.attr == "kicad_project"
+    ]
+    assert len(expressions) == 1
+    expression = expressions[0]
+    assert expression.end_lineno is not None
+    lines = original.splitlines(keepends=True)
+    edited = "".join(lines[: expression.lineno - 1] + lines[expression.end_lineno :])
+    script.write_text(edited, encoding="utf-8")
+    expected = before | {script.name: hashlib.sha256(edited.encode("utf-8")).hexdigest()}
+    assert {
+        name: hashlib.sha256((script.parent / name).read_bytes()).hexdigest() for name in before
+    } == expected
+    assert not any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "kicad_project"
+        for node in ast.walk(ast.parse(edited))
+    )
+    reply = build(tmp_path, script, *args, "--dry-run")
+    assert reply.exit_code == 3 and (reply.error or {})["code"] == "FEN-3004"
+    assert (reply.error or {})["where"] == "symbol-contexts.toml"
+    assert not reply.result.get("plan") and not (tmp_path / "built").exists()
+    assert {
+        name: hashlib.sha256((script.parent / name).read_bytes()).hexdigest() for name in before
+    } == expected

@@ -6,11 +6,16 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+
 - **Imported example target controls** (c0351): refresh the authored imported example with its exact native project input, Default class and retained hidden reference fields. Physical-identity and alias positives now use genuinely authored target9 inputs; an independent incompatible target10-to9 build still refuses without outputs. Complete file-map comparisons retain all rebuilt native bytes.
 
 
 - **Imported native rule semantics** (c0352, in progress): preserve the actual Default netclass in emitted canonical code and rebuilt native projects. Imported digest-bound project declarations set the new optional `preserve_minimums=True` ownership flag so native hard floors remain independent of actual custom DRU overrides; default False retains authored DSL behavior. Native KiCad9/10 controls and traced representation census bound these claims. Path-based level6 now names exact supported native floor/class/membership coverage and source hashes; canonical Design comparisons remain unchanged. Imported provenance records accept their existing typed fidelity proof in the closed schema.
 - **Checked inter-sheet presentation context** (c0348): view and level8 use actual owning project settings and explicit repeated-instance scenes. Cache and live reloads bind project/hierarchy inputs; ambiguous or missing contexts refuse while live views retain their last good scene. Public owning-project replay passes on native9/10; strict adjacent checks retain the legacy writer10 explicit hidden pose, while target9 retains its absent field. Exact-head CI remains required.
+
+- c0351: prove native-project refusal precedence independently from contextual-symbol output-mode refusal, retaining exact source/asset hashes and zero-write controls for both boundaries.
+
+
 - c0217: retain the real unsupported-v2 proposal refusal while proving the reviewed v1 mirror preserves every authored field; literal decimal pin counts remain rejected under both mirrors.
 
 - **Explicit unused-pin acceptance control** (c0276): add an authored connected
