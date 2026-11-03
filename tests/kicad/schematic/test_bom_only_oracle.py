@@ -87,3 +87,49 @@ def test_native_bom_only_roundtrip_keeps_bill_without_adding_electrical_pins(
         f"{_probes.runner().version()} {fixture} dnp={dnp}: BOM={len(native_rows[0])}, "
         f"pins={len(original_pins)}, groups={len(first)}"
     )
+
+
+@pytest.mark.parametrize("defect", ["", "on_board", "no_bom", "dnp"])
+def test_native_pinless_multiunit_flag_inputs_remain_electrically_complete(
+    tmp_path: Path, defect: str
+) -> None:
+    output = _drawn.build("flat", _probes.major())
+    assert output.files
+    file = _drawn.root_name(output)
+    before = _erc.netlist(_probes.runner(), file, output.files)
+    files = dict(output.files)
+    original = sch.read_schematic(files[file].decode(), file=file)
+    files[file] = dumps(_drawn.bom_only_multiunit(original, _probes.major(), defect=defect)).encode()
+    for relative, data in files.items():
+        if relative.startswith(".fenolite/"):
+            continue
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    source = tmp_path / file
+    native = _probes.runner().export_bom(
+        source, fields=bom.BASE_FIELDS, files={p.name: p for p in tmp_path.iterdir()}
+    )
+    assert native.returncode == 0, native.stderr
+    rows = bom.read_bom_csv(native.outputs[BOM].decode(), fields=bom.BASE_FIELDS)
+    assert [row.ref for row in rows].count("M1") == 1
+    after = _erc.netlist(_probes.runner(), file, files)
+    assert {frozenset(group) for group in before.values()} == {frozenset(group) for group in after.values()}
+    assert len({pin for group in after.values() for pin in group}) == 34
+    read = sch.read_schematic(source)
+    assert (
+        next(
+            definition for definition in read.lib_symbols if definition.name == "AuthoredAccessory"
+        ).unit_count
+        == 2
+    )
+    flags = sorted(
+        (symbol.unit, symbol.in_bom, symbol.on_board, symbol.dnp)
+        for symbol in read.symbols
+        if symbol.ref == "M1"
+    )
+    assert flags == [(1, True, False, False), (2, defect != "no_bom", defect == "on_board", defect == "dnp")]
+    print(
+        f"{_probes.runner().version()} multiunit {defect}: "
+        f"native accepts original flags={flags}; 34 complete pins"
+    )

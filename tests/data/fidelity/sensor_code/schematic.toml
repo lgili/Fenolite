@@ -1,0 +1,265 @@
+# Authored CC0 fixture for Fenolite; no external source data.
+schema = "fenolite.drawn-schematic.v0"
+root = "root"
+[[sheet]]
+key = "root"
+paper = "A4"
+
+[[sheet.symbol]]
+part = "U1"
+unit = 1
+at = [63.5, 76.2]
+rotation = 0
+
+[[sheet.symbol]]
+part = "R1"
+unit = 1
+at = [25.4, 50.8]
+rotation = 90
+
+[[sheet.symbol]]
+part = "D1"
+unit = 1
+at = [25.4, 63.5]
+rotation = 0
+
+[[sheet.label]]
+kind = "local"
+text = "SIG"
+at = [50.8, 57.15]
+rotation = 0
+
+[[sheet.label]]
+kind = "local"
+text = "VIN"
+at = [50.8, 77.47]
+rotation = 0
+
+[[sheet.label]]
+kind = "global"
+text = "GND"
+at = [50.8, 80.01]
+rotation = 0
+
+[[sheet.label]]
+kind = "local"
+text = "SIG"
+at = [21.59, 50.8]
+rotation = 0
+
+[[sheet.label]]
+kind = "local"
+text = "LED"
+at = [29.21, 50.8]
+rotation = 0
+
+[[sheet.label]]
+kind = "global"
+text = "GND"
+at = [21.59, 63.5]
+rotation = 0
+
+[[sheet.label]]
+kind = "local"
+text = "LED"
+at = [29.21, 63.5]
+rotation = 0
+
+[[sheet.wire]]
+pts = [[76.2, 57.15], [88.9, 57.15]]
+
+[[sheet.bus_entry]]
+at = [88.9, 57.15]
+size = [2.54, -2.54]
+
+[[sheet.label]]
+kind = "local"
+text = "SENSE0"
+at = [81.28, 57.15]
+rotation = 0
+
+[[sheet.sheet_ref]]
+key = "ch0"
+sheet = "channel"
+module = "ch0"
+name = "ch0"
+at = [114.3, 82.55]
+size = [25.4, 12.7]
+page = "2"
+
+[[sheet.sheet_ref.pin]]
+name = "IN"
+shape = "passive"
+at = [114.3, 88.9]
+rotation = 180
+
+[[sheet.wire]]
+pts = [[109.22, 88.9], [114.3, 88.9]]
+
+[[sheet.label]]
+kind = "local"
+text = "SENSE0"
+at = [109.22, 88.9]
+rotation = 0
+
+[[sheet.wire]]
+pts = [[76.2, 59.69], [88.9, 59.69]]
+
+[[sheet.bus_entry]]
+at = [88.9, 59.69]
+size = [2.54, -2.54]
+
+[[sheet.label]]
+kind = "local"
+text = "SENSE1"
+at = [81.28, 59.69]
+rotation = 0
+
+[[sheet.sheet_ref]]
+key = "ch1"
+sheet = "channel"
+module = "ch1"
+name = "ch1"
+at = [114.3, 107.95]
+size = [25.4, 12.7]
+page = "3"
+
+[[sheet.sheet_ref.pin]]
+name = "IN"
+shape = "passive"
+at = [114.3, 114.3]
+rotation = 180
+
+[[sheet.wire]]
+pts = [[109.22, 114.3], [114.3, 114.3]]
+
+[[sheet.label]]
+kind = "local"
+text = "SENSE1"
+at = [109.22, 114.3]
+rotation = 0
+
+[[sheet.bus]]
+pts = [[91.44, 50.8], [91.44, 76.2]]
+
+[[sheet.label]]
+kind = "local"
+text = "SENSE[0..1]"
+at = [91.44, 76.2]
+rotation = 0
+
+[[sheet.wire]]
+pts = [[83.82, 57.15], [83.82, 50.8]]
+
+[[sheet.junction]]
+at = [83.82, 57.15]
+
+[[sheet.label]]
+kind = "local"
+text = "SENSE0"
+at = [83.82, 50.8]
+rotation = 0
+
+[[sheet.no_connect]]
+at = [50.8, 59.69]
+
+[[sheet.no_connect]]
+at = [50.8, 62.23]
+
+[[sheet.no_connect]]
+at = [50.8, 64.77]
+
+[[sheet.no_connect]]
+at = [50.8, 67.31]
+
+[[sheet.no_connect]]
+at = [50.8, 69.85]
+
+[[sheet.no_connect]]
+at = [50.8, 72.39]
+
+[[sheet.no_connect]]
+at = [50.8, 74.93]
+
+[[sheet.no_connect]]
+at = [50.8, 82.55]
+
+[[sheet.no_connect]]
+at = [50.8, 85.09]
+
+[[sheet.no_connect]]
+at = [50.8, 87.63]
+
+[[sheet.no_connect]]
+at = [50.8, 90.17]
+
+[[sheet.no_connect]]
+at = [50.8, 92.71]
+
+[[sheet.no_connect]]
+at = [50.8, 95.25]
+
+[[sheet.no_connect]]
+at = [76.2, 62.23]
+
+[[sheet.no_connect]]
+at = [76.2, 64.77]
+
+[[sheet.no_connect]]
+at = [76.2, 67.31]
+
+[[sheet.no_connect]]
+at = [76.2, 69.85]
+
+[[sheet.no_connect]]
+at = [76.2, 72.39]
+
+[[sheet.no_connect]]
+at = [76.2, 74.93]
+
+[[sheet.no_connect]]
+at = [76.2, 77.47]
+
+[[sheet.no_connect]]
+at = [76.2, 80.01]
+
+[[sheet.no_connect]]
+at = [76.2, 82.55]
+
+[[sheet.no_connect]]
+at = [76.2, 85.09]
+
+[[sheet.no_connect]]
+at = [76.2, 87.63]
+
+[[sheet.no_connect]]
+at = [76.2, 90.17]
+
+[[sheet.no_connect]]
+at = [76.2, 92.71]
+
+[[sheet.no_connect]]
+at = [76.2, 95.25]
+
+[[sheet]]
+key = "channel"
+paper = "A4"
+
+[[sheet.symbol]]
+part = "LOAD"
+unit = 1
+at = [101.6, 76.2]
+rotation = 0
+
+[[sheet.label]]
+kind = "hierarchical"
+text = "IN"
+at = [101.6, 72.39]
+rotation = 90
+shape = "passive"
+
+[[sheet.power]]
+symbol = "Mini:Mini_GND"
+net = "GND"
+at = [101.6, 80.01]
+rotation = 0

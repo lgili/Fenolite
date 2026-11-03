@@ -605,7 +605,7 @@
 			(at 4.15 2.8)
 			(size 1.5 0.55)
 			(layers "F.Cu" "F.Mask" "F.Paste")
-			(net "unconnected-(U1-PB2-Pad17)")
+			(net "SENSE0")
 			(roundrect_rratio 0.25)
 			(uuid "e92dae8a-5164-5931-908b-55eaec97e5b4")
 		)
@@ -613,7 +613,7 @@
 			(at 4.15 2)
 			(size 1.5 0.55)
 			(layers "F.Cu" "F.Mask" "F.Paste")
-			(net "unconnected-(U1-PB3-Pad18)")
+			(net "SENSE1")
 			(roundrect_rratio 0.25)
 			(uuid "d7af2e18-a827-5a27-824a-de7f201421c0")
 		)
@@ -731,6 +731,302 @@
 		)
 		(embedded_fonts no)
 		(model "${KICAD10_3DMODEL_DIR}/Mini.3dshapes/Mini_QFP-32_7x7mm_P0.8mm.step"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
+	)
+	(footprint "Mini:Mini_R_0603"
+		(layer "F.Cu")
+		(uuid "f9825977-0510-514f-8f58-c1887d957827")
+		(at 125 125)
+		(descr "Mini 0603 resistor. Synthetic geometry for Fenolite tests, not a validated land pattern")
+		(tags "resistor mini")
+		(property "Reference" "R2"
+			(at 0 -1.45 0)
+			(layer "F.SilkS")
+			(uuid "d1d59377-286c-5327-aa1a-8122689e7167")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Value" "10k"
+			(at 0 1.45 0)
+			(layer "F.Fab")
+			(uuid "63cdbfc5-2c01-58fb-8a82-6ad57e7e8048")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "783f3bed-f7fc-56ff-b638-9d2cd8a10c29")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Description" "Mini 0603 resistor. Synthetic geometry for Fenolite tests, not a validated land pattern"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "a40ff1ff-e693-5be1-b961-47142ea2bc86")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "fenolite.path" "ch0/LOAD"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "9583740b-26f5-538c-8481-3a3d3691b8c9")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(path "/d2145424-8c24-5aca-98d8-1aef5fb9602f/4b206397-ba85-537b-94fc-7d2033ac08b8")
+		(attr smd)
+		(fp_line
+			(start -0.25 -0.55)
+			(end 0.25 -0.55)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
+			(uuid "8138ab63-959d-546e-b1c5-9fc10aa2eeb8")
+		)
+		(fp_line
+			(start -0.25 0.55)
+			(end 0.25 0.55)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
+			(uuid "cdb94b11-946c-52c0-8f0d-97278adf0d2a")
+		)
+		(fp_rect
+			(start -1.5 -0.75)
+			(end 1.5 0.75)
+			(stroke
+				(width 0.05)
+				(type solid)
+			)
+			(fill no)
+			(layer "F.CrtYd")
+			(uuid "75c2bbee-69fd-5fd6-a518-24b314bc4a04")
+		)
+		(fp_rect
+			(start -0.8 -0.4)
+			(end 0.8 0.4)
+			(stroke
+				(width 0.1)
+				(type solid)
+			)
+			(fill no)
+			(layer "F.Fab")
+			(uuid "d0a622e3-31c9-542b-a375-44599539d563")
+		)
+		(fp_text user "${REFERENCE}"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(uuid "77bd1221-d164-5062-bdac-c7c64b151ae0")
+			(effects
+				(font
+					(size 0.4 0.4)
+					(thickness 0.06)
+				)
+			)
+		)
+		(pad "1" smd roundrect
+			(at -0.8 0)
+			(size 0.9 0.95)
+			(layers "F.Cu" "F.Mask" "F.Paste")
+			(net "SENSE0")
+			(roundrect_rratio 0.25)
+			(uuid "5403b690-4f6e-52cf-98d0-10ce6c025093")
+		)
+		(pad "2" smd roundrect
+			(at 0.8 0)
+			(size 0.9 0.95)
+			(layers "F.Cu" "F.Mask" "F.Paste")
+			(net "GND")
+			(roundrect_rratio 0.25)
+			(uuid "90936de8-6f28-56b2-82c3-10420fa84e20")
+		)
+		(embedded_fonts no)
+		(model "${KICAD10_3DMODEL_DIR}/Mini.3dshapes/Mini_R_0603.step"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
+	)
+	(footprint "Mini:Mini_R_0603"
+		(layer "F.Cu")
+		(uuid "53fa8558-3d18-56d1-a07a-a228e134f43f")
+		(at 130 125)
+		(descr "Mini 0603 resistor. Synthetic geometry for Fenolite tests, not a validated land pattern")
+		(tags "resistor mini")
+		(property "Reference" "R3"
+			(at 0 -1.45 0)
+			(layer "F.SilkS")
+			(uuid "9a090cd7-a8bd-577e-843f-9fc87406dffd")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Value" "10k"
+			(at 0 1.45 0)
+			(layer "F.Fab")
+			(uuid "51b2fa97-6c04-58dc-9b97-fd57c9b151d3")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "c3133038-5862-57f2-b3a4-1ae2826f4fc5")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Description" "Mini 0603 resistor. Synthetic geometry for Fenolite tests, not a validated land pattern"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "5a08c0d5-5695-5870-b257-7e978902e8fc")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "fenolite.path" "ch1/LOAD"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "ff5bd122-e13c-5901-aad0-f156c48ac987")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(path "/85aabe06-7787-5503-8aaa-1533138e3b43/4b206397-ba85-537b-94fc-7d2033ac08b8")
+		(attr smd)
+		(fp_line
+			(start -0.25 -0.55)
+			(end 0.25 -0.55)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
+			(uuid "ea7885e8-500e-5cb3-9c33-71eb437eb629")
+		)
+		(fp_line
+			(start -0.25 0.55)
+			(end 0.25 0.55)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
+			(uuid "676bc44c-7dad-518c-9c6c-c38083c25e2c")
+		)
+		(fp_rect
+			(start -1.5 -0.75)
+			(end 1.5 0.75)
+			(stroke
+				(width 0.05)
+				(type solid)
+			)
+			(fill no)
+			(layer "F.CrtYd")
+			(uuid "76918420-17a5-51d2-8ba8-4ad447ef6620")
+		)
+		(fp_rect
+			(start -0.8 -0.4)
+			(end 0.8 0.4)
+			(stroke
+				(width 0.1)
+				(type solid)
+			)
+			(fill no)
+			(layer "F.Fab")
+			(uuid "a2cb921d-0e83-5358-9178-410b5451f531")
+		)
+		(fp_text user "${REFERENCE}"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(uuid "da63fdc6-3c6d-55a6-ac7c-127a44daa7b6")
+			(effects
+				(font
+					(size 0.4 0.4)
+					(thickness 0.06)
+				)
+			)
+		)
+		(pad "1" smd roundrect
+			(at -0.8 0)
+			(size 0.9 0.95)
+			(layers "F.Cu" "F.Mask" "F.Paste")
+			(net "SENSE1")
+			(roundrect_rratio 0.25)
+			(uuid "77026bb3-12fb-5053-8ded-5b0399d06599")
+		)
+		(pad "2" smd roundrect
+			(at 0.8 0)
+			(size 0.9 0.95)
+			(layers "F.Cu" "F.Mask" "F.Paste")
+			(net "GND")
+			(roundrect_rratio 0.25)
+			(uuid "7136477f-af19-5479-b867-b2312c0a7a67")
+		)
+		(embedded_fonts no)
+		(model "${KICAD10_3DMODEL_DIR}/Mini.3dshapes/Mini_R_0603.step"
 			(offset
 				(xyz 0 0 0)
 			)

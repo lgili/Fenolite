@@ -15,6 +15,28 @@ from fenolite.model.circuit import Component
 if TYPE_CHECKING:
     from fenolite.importer.source import Source
     from fenolite.model.design import Design
+    from fenolite.model.schematic import SchematicSheet, SymbolInstance
+
+
+def _ref_at(symbol: SymbolInstance, at: str, project: str) -> str:
+    uses = [use for use in symbol.uses if use.path == at]
+    use = next((use for use in uses if use.project == project), uses[0] if uses else None)
+    return use.ref if use is not None else symbol.ref
+
+
+def _unit_flags(sheet: SchematicSheet, symbol: SymbolInstance, ref: str, project: str, file: str) -> None:
+    uses = [use for use in symbol.uses if use.ref == ref]
+    use = next((use for use in uses if use.project == project), uses[0] if uses else None)
+    at = use.path if use is not None else ""
+    for other in sheet.symbols:
+        if _ref_at(other, at, project) != ref:
+            continue
+        # Both-excluded pinless graphics retain their own flags through the existing opaque path.
+        if other.on_board or (other.in_bom and other.dnp != symbol.dnp):
+            raise FormatError(
+                f"{ref}: BOM-only units have incompatible board or DNP flags; cannot preserve them",
+                file=file,
+            )
 
 
 def preserve(design: Design, root: Path) -> Design:
@@ -50,6 +72,7 @@ def discover(source: Source) -> Source:
             # Unresolved/inherited definitions remain strict drawing findings, never guessed pinless.
             if definition is None or definition.extends or definition.pins or definition.power:
                 continue
+            _unit_flags(sheet, symbol, ref, source.name, instance.file)
             path = "/".join(hierarchy.paths.get(ref, (*instance.path, symbol.ref or ref)))
             current = next((component for component in components if component.ref == ref), None)
             if current is not None and (current.pins or current.id in physical):

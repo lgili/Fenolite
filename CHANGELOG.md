@@ -55,7 +55,13 @@ All notable changes to Fenolite are documented here. The format follows
   and descriptive footprint names without physical geometry. KiCad project import/build keeps their
   BOM flags and identity; neutral model BOM includes them and equivalence detects missing items or
   changed membership. Altium output refuses before staging. Authored native controls preserve the
-  complete BOM and electrical pins; final model-0 inventory, 75-plan byte check and required CI remain pending.
+  complete BOM and electrical pins. A focused input guard now refuses incompatible board/DNP flags
+  between units before planning, preserving supported both-excluded opaque units. Final model-0
+  inventory, 75-plan byte check and required CI remain pending.
+- **Complete sensor fidelity fixture** (c0278): preserve the original four-layer
+  board cases and add two populated resistor channels sharing one drawn sheet,
+  with a real root bus, hierarchy and junction. Fixture copies retain drawn
+  dependencies; source GUI save and exact-source CI remain separate gates.
 
 - **Certified final neck cut** (c0332, in progress): replace the final Altium
   neck-removal difference with exact signed face selection and one shared

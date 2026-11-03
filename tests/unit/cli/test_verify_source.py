@@ -54,6 +54,10 @@ def variant(folder: Path, old: str = "", new: str = "", provenance: dict[str, An
     for table in ("fp-lib-table", "sym-lib-table"):
         source = (SCRIPT.parent / table).read_text(encoding="utf-8")
         (folder / table).write_text(source.replace("${KIPRJMOD}/../../libs/", LIBS.as_posix() + "/"), "utf-8")
+    for config in SCRIPT.parent.glob("*.toml"):
+        shutil.copy2(config, folder / config.name)
+    if (SCRIPT.parent / "sheets").is_dir():
+        shutil.copytree(SCRIPT.parent / "sheets", folder / "sheets", dirs_exist_ok=True)
     if provenance is not None:
         (folder / "PROVENANCE.json").write_text(json.dumps(provenance), encoding="utf-8")
     return script
@@ -102,7 +106,9 @@ def test_authored_board_proves_itself(monkeypatch: pytest.MonkeyPatch, tmp_path:
     assert result["against"]["backend"] == "kicad" and "sensor.kicad_pcb" in result["against"]["files"]
     assert "fidelity.level-skipped" not in codes(env)
     drawn = next(level for level in result["levels"] if level["level"] == "S")
-    assert drawn["summary"]["symbols"] == 3 and drawn["summary"]["extraction_issues"] == 0
+    # S counts unique templates; one populated child is instanced twice.
+    assert drawn["summary"]["symbols"] == 4 and drawn["summary"]["extraction_issues"] == 0
+    assert drawn["summary"]["instances"] == 3 and drawn["summary"]["pins"] == 40
     assert "H-K-DRAWN-CONNECT" in env["evidence"]["hypotheses"]
     assert (tree_snapshot(SCRIPT.parent), tree_snapshot(ORIGINAL)) == before
 
@@ -343,3 +349,86 @@ def test_discoverable(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     code, env, _, _ = run(monkeypatch, tmp_path, "capabilities", "--no-tools")
     entry = next(c for c in env["result"]["commands"] if c["name"] == "verify-source")
     assert code == 0 and entry["mutates"] is True and entry["schema"] == "fenolite.verify-source.v0"
+
+
+def test_sensor_keeps_physical_cases_and_a_populated_shared_child() -> None:
+    """The S summary counts templates; actual repeat contexts and original copper stay explicit."""
+    import tomllib
+
+    from fenolite.backends.kicad.pcb import read_board
+    from fenolite.backends.kicad.sexpr import parse
+    from fenolite.core.coords import Point
+
+    drawing = tomllib.loads((SCRIPT.parent / "schematic.toml").read_text())
+    root, child = drawing["sheet"]
+    assert {p["part"] for p in root["symbol"]} == {"U1", "R1", "D1"}
+    assert [(s["sheet"], s["module"]) for s in root["sheet_ref"]] == [("channel", "ch0"), ("channel", "ch1")]
+    assert [p["part"] for p in child["symbol"]] == ["LOAD"]
+    assert len(root["bus"]) == 1 and len(root["bus_entry"]) == 2 and len(root["junction"]) == 1
+    native_root = parse((ORIGINAL / "sensor.kicad_sch").read_text())
+    files = [
+        p.atoms()[1].value
+        for s in native_root.nodes("sheet")
+        for p in s.nodes("property")
+        if p.atoms()[0].value == "Sheetfile"
+    ]
+    assert files == ["sheets/channel.kicad_sch"] * 2
+    native_child = parse((ORIGINAL / files[0]).read_text())
+    resistors = [
+        symbol
+        for symbol in native_child.nodes("symbol")
+        if symbol.nodes("lib_id")[0].atoms()[0].value == "Mini:Mini_R"
+    ]
+    assert len(resistors) == 1
+    model = read_board(ORIGINAL / "sensor.kicad_pcb")
+    board = model.board
+    assert board is not None
+    assert [layer.name for layer in board.layers if layer.kind == "copper"] == [
+        "F.Cu",
+        "In1.Cu",
+        "In2.Cu",
+        "B.Cu",
+    ]
+    assert len(board.footprints) == 5 and len(board.tracks) == 8 and len(board.arcs) == 1
+    assert {(v.via_type, v.layers) for v in board.vias} == {
+        ("through", ("F.Cu", "B.Cu")),
+        ("blind", ("F.Cu", "In2.Cu")),
+    }
+    assert len(board.vias) == 3 and [z.layers for z in board.zones] == [("In1.Cu",)]
+    assert any(t.text == "SENSOR" for t in board.texts)
+    refs = {component.id: component.ref for component in model.circuit.components}
+    positions = {refs[fp.component_id]: fp.position for fp in board.footprints}
+    assert {ref: positions[ref] for ref in ("U1", "R1", "D1")} == {
+        "U1": Point(112_000_000, 115_000_000),
+        "R1": Point(127_000_000, 109_000_000),
+        "D1": Point(132_000_000, 121_000_000),
+    }
+    project = json.loads((ORIGINAL / "sensor.kicad_pro").read_text())
+    assert {"PWR", "SIG"} <= {row["name"] for row in project["net_settings"]["classes"]}
+    assert "sig_gap" in (ORIGINAL / "sensor.kicad_dru").read_text()
+
+
+@pytest.mark.parametrize("removed", ["junction", "populated-child"])
+def test_sensor_missing_drawn_feature_is_a_real_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, removed: str
+) -> None:
+    from fenolite.backends.kicad.sexpr import Node, dumps, parse
+
+    original = tmp_path / "edited-source"
+    shutil.copytree(ORIGINAL, original)
+    path = original / ("sensor.kicad_sch" if removed == "junction" else "sheets/channel.kicad_sch")
+    sheet = parse(path.read_text())
+
+    def retain(child: Node | object) -> bool:
+        if not isinstance(child, Node):
+            return True
+        if removed == "junction":
+            return child.name != "junction"
+        return not (child.name == "symbol" and child.nodes("lib_id")[0].atoms()[0].value == "Mini:Mini_R")
+
+    changed = sheet.with_children(child for child in sheet.children if retain(child))
+    assert changed != sheet
+    path.write_text(dumps(changed))
+    code, env, _, _ = verify(monkeypatch, tmp_path, str(SCRIPT), "--against", str(original), "--levels", "S")
+    assert code == 5 and statuses(env) == {"S": "differs"}
+    assert env["result"]["differences"] and env["result"]["accepted"] == []

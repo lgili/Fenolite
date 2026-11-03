@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 from _buildhelp import build as build_design
-from _drawn import bom_only_instance, excluded_passive, slash_aliases
+from _drawn import bom_only_instance, bom_only_multiunit, excluded_passive, slash_aliases
 from _drawn import design as drawn_design
 from _drawn import drawn as drawing
 from _drawn import folder as drawing_folder
@@ -288,6 +288,46 @@ def test_planted_bom_flag_loss_is_detected_in_source_comparison(tmp_path: Path) 
     )
     assert proof.exit_code != 0
     assert any(difference["kind"] == "component-missing" for difference in proof.result["differences"])
+
+
+@pytest.mark.parametrize("target", [9, 10])
+@pytest.mark.parametrize("defect", ["on_board", "dnp"])
+def test_bom_only_multiunit_incompatible_flags_refuse_before_plan(
+    target: int, defect: str, tmp_path: Path
+) -> None:
+    source = project(tmp_path / "original", "flat", target)
+    path = source.with_suffix(".kicad_sch")
+    path.write_text(dumps(bom_only_multiunit(sch.read_schematic(path), target, defect=defect)))
+    before = snapshot(source.parent)
+    for flags in ((), ("--allow-lossy",)):
+        planned = imported(tmp_path, source, "--dry-run", *flags)
+        assert planned.exit_code == 3, (planned.error, planned.envelope)
+        assert planned.error and planned.error["code"] == "FEN-3004" and planned.error["where"]
+        assert not planned.result.get("plan") and not planned.result.get("plan_id")
+        assert not (tmp_path / "code").exists()
+        assert snapshot(source.parent) == before
+
+
+@pytest.mark.parametrize("defect", ["", "no_bom"])
+def test_bom_only_multiunit_same_or_opaque_flags_are_preserved(defect: str, tmp_path: Path) -> None:
+    source = project(tmp_path / "original", "flat", 10)
+    path = source.with_suffix(".kicad_sch")
+    path.write_text(dumps(bom_only_multiunit(sch.read_schematic(path), 10, defect=defect)))
+    expected = sorted(
+        (symbol.unit, symbol.in_bom, symbol.on_board, symbol.dnp)
+        for symbol in sch.read_schematic(path).symbols
+        if symbol.ref == "M1"
+    )
+    assert_strict_roundtrip(tmp_path, source)
+    back = sch.read_schematic(next((tmp_path / "built").glob("*.kicad_sch")))
+    assert (
+        sorted(
+            (symbol.unit, symbol.in_bom, symbol.on_board, symbol.dnp)
+            for symbol in back.symbols
+            if symbol.ref == "M1"
+        )
+        == expected
+    )
 
 
 @pytest.mark.parametrize("target", [9, 10])

@@ -15,3 +15,9 @@ A canonical component MAY be explicitly BOM-only without a board footprint insta
 #### Scenario: Electrical lookalike
 - **WHEN** a source instance has pins, a power role or contradictory physical flags
 - **THEN** this narrow BOM-only path refuses it before staging and cannot treat it as an opaque graphic
+
+#### Scenario: Incompatible flags between purchasing units
+- **GIVEN** pinless units of one source reference have board or DNP flags that one canonical component cannot preserve
+- **WHEN** strict import or source comparison reads them
+- **THEN** a located existing input error refuses before a write plan, even with loss acceptance
+- **AND** equal flags and independently preserved both-excluded opaque units retain their existing behavior

@@ -9,7 +9,7 @@ Authored for Fenolite as a test fixture of change c0278; no file, value, name or
 project.
 """
 
-from fenolite.dsl import Design, Net, Part, Power, arc_to, connect, mm, select, via_step
+from fenolite.dsl import Design, Module, Net, Part, Power, arc_to, connect, mm, select, via_step
 
 design = Design("sensor")
 design.board(mm(40), mm(30), copper=4)
@@ -24,6 +24,16 @@ connect(vin, u1[9])
 connect(gnd, u1[10], d1[1])
 connect(sig, u1[1], r1[1])
 connect(led, r1[2], d1[2])
+# Two populated contexts share one channel drawing; existing three parts stay intact.
+for index in range(2):
+    channel = Module(f"ch{index}")
+    design.add(channel)
+    load = channel.part(
+        name="LOAD", prefix="R", lib_id="Mini:Mini_R", footprint="Mini:Mini_R_0603", value="10k"
+    )
+    connect(Net(f"SENSE{index}"), u1[17 + index], load[1])
+    connect(gnd, load[2])
+    load.place(mm(25 + 5 * index), mm(25))
 u1.unused_no_connect()
 design.add(Power(vin, gnd))
 design.rules.netclass("PWR", clearance=mm(0.25), track_width=mm(0.4), nets=(vin, gnd))
@@ -52,3 +62,6 @@ design.track(
 design.via("gnd_tie", mm(20), mm(25), net=gnd, diameter=mm(0.6), drill=mm(0.3))
 design.zone(gnd, layers=("In1.Cu",), clearance=mm(0.3), connection="solid")
 design.text("label", "SENSOR", (mm(20), mm(27)), size=mm(1.2), thickness=mm(0.18))
+
+# Geometry is authored separately; code remains the electrical source of truth.
+design.load_schematic("schematic.toml")

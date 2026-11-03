@@ -21,7 +21,7 @@ from fenolite.api.sides import read_side
 from fenolite.backends.kicad import drawn as kdrawn
 from fenolite.backends.kicad import sch, symembed
 from fenolite.backends.kicad.schlayout import pin_point
-from fenolite.backends.kicad.sexpr import Atom, Node, parse
+from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse
 from fenolite.backends.kicad.sym import read_symbol_library
 from fenolite.core.coords import Point
 from fenolite.core.ids import derived_id
@@ -184,6 +184,48 @@ def bom_only_instance(sheet: SchematicSheet, target: int, *, defect: str = "", d
     assert symbols is not None
     added = symbols.with_children((*symbols.children, *((definition_node,) if defect != "missing" else ())))
     return root.with_children((*(added if child is symbols else child for child in root.children), native))
+
+
+def bom_only_multiunit(sheet: SchematicSheet, target: int, *, defect: str = "") -> Node:
+    """Two original pinless units of one purchasing part; independently plant inconsistent flags."""
+    from fenolite.model.library import SymbolUnit
+
+    root = bom_only_instance(sheet, target)
+    read = sch.read_schematic(dumps(root))
+    definition = next(symbol for symbol in read.lib_symbols if symbol.name == "AuthoredAccessory")
+    definition = dataclasses.replace(definition, units=(SymbolUnit(1, 1), SymbolUnit(2, 1)), ext={})
+    embedded = symembed.embed_symbol(definition, target=target)
+    first = next(symbol for symbol in read.symbols if symbol.ref == "M1")
+    second = dataclasses.replace(
+        first,
+        id=derived_id("sci", "authored", "accessory-unit2"),
+        native_ids={},
+        ext={},
+        unit=2,
+        position=Point(first.position.x + 10_160_000, first.position.y),
+        in_bom=defect != "no_bom",
+        on_board=defect == "on_board",
+        dnp=defect == "dnp",
+        uses=tuple(dataclasses.replace(use, unit=2) for use in first.uses),
+    )
+    created = SchematicSheet(
+        id=derived_id("sch", "authored", "accessory-unit2"),
+        name="unit2",
+        lib_symbols=(embedded.definition,),
+        symbols=(second,),
+    )
+    native = parse(sch.write_schematic(created, target=target).text).nodes("symbol")[0]
+    library = root.find("lib_symbols")
+    assert library is not None
+    changed = library.with_children(
+        tuple(
+            embedded.node
+            if isinstance(node, Node) and node.name == "symbol" and node.atoms()[0].value == definition.lib_id
+            else node
+            for node in library.children
+        )
+    )
+    return root.with_children((*(changed if child is library else child for child in root.children), native))
 
 
 def build(name: str, target: int = 10, value: DrawnSchematic | None = None, **kwargs: object) -> BuildOutput:

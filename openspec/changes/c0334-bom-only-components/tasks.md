@@ -16,7 +16,10 @@
 - [x] 2.3 Review parity/equivalence/readback guards and keep all original physical/electrical assertions meaningful. Refuse unsupported backends before output. Proof: all-level authored comparisons, complete pin sets and no-output negatives.
 - [ ] 2.4 Rerun the actual affected public owner and literal census with hashes; retain every other failure. Proof: actual value-free row receipts, no acceptance/baseline changes.
 
+- [x] 2.5 Before final freeze, author a pinless multi-unit same-flags positive and contradictory BOM/board/DNP controls; measure native behavior and reproduce the source/rebuild boundary before correction. If confirmed, refuse only unrepresentable flags before staging with an existing located code. Proof: authored native inputs, focused import/no-output tests and unchanged same-flags complete partitions. Coordinator approved this independent audit while full-census/freeze tasks remain open.
+
 ## 3. Combined proof
+
 
 - [ ] 3.1 Recapture complete 75 plans and the final model-0 inventory/schemas; coordinate and prove c0217/c0218 transition from that exact source. Proof: complete file maps, field/default/type review and migration/native-byte comparisons.
 - [ ] 3.2 Run focused lint/format/types/generated checks/residue and the root-owned fast and exact-head CI gates; update CHANGELOG truthfully. Proof: source-bound successful logs. Archive only when all literal criteria pass.

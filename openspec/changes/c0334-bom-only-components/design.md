@@ -29,6 +29,12 @@ cannot preserve this item, refuse with located FEN-7001 before staging, includin
 
 ## Authored proof and rollout
 
+Coordinator addendum, 2026-11-02: before freezing, independently measure pinless multi-unit source
+symbols whose instance BOM/board/DNP flags disagree. A confirmed unrepresentable flag combination
+must refuse with a located existing input error before staging; no unit may be silently normalized
+to another unit's flags. Prove the same-flags positive independently and retain all electrical pins.
+This focused boundary audit is independent of the root-owned full-census/freeze work.
+
 Author a tiny Fenolite-only drawing with one ordinary electrical part and one pinless purchasing accessory, independently of the public board. Native 9/10 exports must show equal original/rebuilt BOM membership and unchanged complete electrical pin partitions; the model BOM must include the accessory and there must be no physical footprint for it. Plant removal and flag changes to ensure the comparison/BOM checks detect them. Cover repeated sheet instances, DNP, contradictory flags, pinned/power/on-board lookalikes and missing definitions.
 
 Keep API/result key shapes unchanged except the reviewed optional model field and public DSL argument. Update the guide with a tested line. Recapture all existing complete 75 plans and final model-0 field/schema inventory; coordinate the new field with c0217/c0218's pending freeze. Run focused tests and the one coordinated fast/CI gates. No evidence promotion follows from an authored codec test alone.

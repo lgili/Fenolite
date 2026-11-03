@@ -165,3 +165,18 @@ With `--record`, the command SHALL plan one write of the provenance file whose `
 #### Scenario: Codes documented
 - **WHEN** `uv run pytest tests/unit/cli/test_verify_source.py -k docs tests/unit/agent/test_pages.py` runs
 - **THEN** every code of `ISSUE_CODES` appears in `docs/cli-contract.md`, and the guide test passes
+
+### Requirement: Sensor fixture contains the specified native hierarchy
+The authored sensor fixture SHALL preserve the original three parts and physical
+board cases and additionally contain two real resistor module contexts sharing
+one nonempty sheet, a hierarchical bus and junctions. Strict all-level proof
+SHALL inspect those actual objects and distinct channel nets, rather than
+substituting independent fixtures or weakening comparisons. GUI save SHALL
+remain a separate explicit proof.
+
+#### Scenario: Real sensor repeat and bus
+- **WHEN** the target10 sensor script is built and imported
+- **THEN** it contains five real component symbols/footprints and two instances
+  of the same nonempty resistor channel sheet with distinct connected nets
+- **AND** strict levels1–8+S agree and native10 exports the expected partition
+- **AND** the original arc, through/blind vias, inner zone, rules and text remain

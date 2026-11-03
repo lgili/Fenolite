@@ -142,6 +142,8 @@
   authored and declared; `sensor/` is the target-10 build of the script, a text stand-in until a KiCad GUI
   save (maintainer). It holds four layers, net classes, a custom rule, a zone, an arc and vias, board text
   and a flat schematic; the hierarchical drawn schematic with a bus waits for c0276. The proof passes.
+- [x] 4.1a Complete the sensor's actual hierarchy/bus/nonempty repeated sheet, preserve original physical cases, declare new authored dependencies and strengthen copy/fixture/import tests. Proof: focused verify-source tests and manifest; target10 strict levels1–8+S.
+- [ ] 4.1b Prove native10 net partition and import/build, then supply exact prepared project to root for real GUI save. No GUI proof is inferred from generated files. Proof: source-bound native receipts and root GUI follow-up.
 - [x] 4.2 Add `cmd_verify_source.py`: inputs, the temporary build, the levels, tolerances, result schema
   `fenolite.verify-source.v0`, exit codes and `ISSUE_CODES` (scenarios of "Verify-source command",
   "Verify-source inputs", "Build in a temporary folder", "Verify-source levels", "Verify-source
@@ -292,3 +294,22 @@ raw differences are 3:footprint-name=7 and 8:render-pixels=1 on one input, and 7
 observations in the evidence page; attribution remains undecided and all 24 baselines remain pending.
 This failed local proof does not close 6.2 or claim native/CI evidence. The corpus ratchet requires all
 nine level entries and a nonempty reason for any explicit skipped level.
+
+Sensor completion preparation (2026-11-02, base e2658942): actual shared child
+contains one resistor symbol and is instantiated in ch0/ch1, while original
+U1/R1/D1 and all physical board cases remain. Native10 netlist contains five
+components and distinct SENSE0(U1.17/R2.1) and SENSE1(U1.18/R3.1). S summary
+counts four unique symbol templates, three sheet instances and40 resolved pins;
+these are asserted alongside five physical footprints,8tracks/1arc/3vias,4copper
+layers, inner zone, original placements/text/rules. Missing junction or populated
+child makes S fail; no relaxed comparison or accepted difference was added.
+
+Proof:107 focused verify-source/drawn/replay/manifest tests passed54.05s; two
+additional planted sensor-feature removals passed2.98s. Native10 sensor partition
+and import→build→verify-source strict1–8+S passed, with no differences/acceptances.
+Touched-file Ruff and script/native-test Pyright pass. A broader exploratory
+direct Pyright run over the existing CLI test modules reports48 legacy unknown-
+fixture/unused-variable errors outside these additions; the normal gate types
+src, and no runtime source is changed here. Prepared native text source remains pending
+root's actual GUI-save receipt under4.1/4.1b, and exact-source CI remains pending.
+No generated source file is represented as already GUI-saved.

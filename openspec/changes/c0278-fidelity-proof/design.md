@@ -347,3 +347,18 @@ Raw schematic sides for S are read from their hierarchy/embedded definitions wit
 S resolves the actual drawing itself. S does not run the PCB import triangle or the strict copper rule.
 Profiles/tolerances retain their existing validation; unrecognized level strings remain usage errors.
 The version-1 contract owner has the exact unchanged-key shape and will type it without an Any fallback.
+
+### Complete authored sensor source fixture
+Retain every existing physical case and root part. Add two resistor module
+instances ch0/ch1, each with a local SENSE pin connected to a distinct MCU pin,
+and GND at the other pin. One shared drawn channel sheet contains that resistor
+and is instantiated twice with distinct module contexts, never an empty repeat.
+The root contains original U1/R1/D1, a real two-member bus and branch junctions;
+actual hierarchical labels join the channel pin to the root bus members. Update
+variant helpers to copy schematic.toml and sheet dependencies, and strengthen
+assertions for five real symbols/footprints, two nonempty contexts, bus/junction
+presence, separate channel nets and preserved original board arcs/vias/rules.
+Regenerate the declared target10 original for root GUI-save; prove hermetic
+strict levels1–8+S and import/build/native10. No expectation is weakened to hide
+a regression; any discovered production bug is reported separately. Native GUI
+save remains pending until root supplies the actual application receipt.

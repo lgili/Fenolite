@@ -2834,7 +2834,7 @@ notes = "board of the authored fidelity original (c0278), written by the target-
 path = "tests/data/fidelity/sensor/sensor.kicad_sch"
 origin = "authored"
 corpus_id = ""
-notes = "schematic of the same build (c0278), beside its board"
+notes = "root drawn schematic of the authored sensor build (c0278), with a real bus, junction and two references to one populated channel sheet; pending root GUI-save"
 
 [[file]]
 path = "tests/data/fidelity/sensor/sensor.kicad_pro"
@@ -4984,3 +4984,15 @@ path = "tests/data/kicad/project/tuning_10.kicad_pro"
 origin = "authored"
 corpus_id = ""
 notes = "Authored CC0 impedance bench copy; SE50 Single 50 ohm and USB90 Differential 90 ohm profiles created and saved through the KiCad 10.0.6 macOS GUI, 2026-11-02. No third-party board data. SHA-256 c9ce320f1be18609b3339cc6fbf7d95db7000be5642ede68b5406412ad6829cf."
+
+[[file]]
+path = "tests/data/fidelity/sensor_code/schematic.toml"
+origin = "authored"
+corpus_id = ""
+notes = "authored c0278 sensor drawing: root bus/junction and two populated instances of one shared resistor channel, preserving original board cases"
+
+[[file]]
+path = "tests/data/fidelity/sensor/sheets/channel.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "authored shared nonempty child sheet of sensor ch0/ch1, generated target10 pending root GUI-save; real distinct resistor/net contexts"

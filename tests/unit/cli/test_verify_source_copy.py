@@ -139,11 +139,19 @@ def test_project_two_projects_in_one_folder(tmp_path: Path, verify) -> None:  # 
     folder = tmp_path / "two"
     shutil.copytree(ORIGINAL, folder)
     for path in sorted(ORIGINAL.iterdir()):
+        if not path.is_file():
+            continue
         (folder / path.name.replace("sensor.", "sensor_v2.")).write_bytes(path.read_bytes())
     script = variant(tmp_path / "code")
     code, env = verify(script, against=folder / "sensor.kicad_pro")
     files = env["result"]["against"]["files"]
-    assert sorted(files) == ["sensor.kicad_dru", "sensor.kicad_pcb", "sensor.kicad_pro", "sensor.kicad_sch"]
+    assert sorted(files) == [
+        "sensor.kicad_dru",
+        "sensor.kicad_pcb",
+        "sensor.kicad_pro",
+        "sensor.kicad_sch",
+        "sheets/channel.kicad_sch",
+    ]
     assert not [d for d in env["result"]["differences"] if "sensor_v2" in d["where"]]
     assert code == 0, env["result"]["differences"]
 

@@ -66,3 +66,21 @@ The final model-0 inventory, 75 complete unchanged-plan byte comparison, c0217/c
 root-owned fast gate, full current literal census and required exact-head KiCad 9/10 CI still need
 their independent receipts. This patch must not be archived from focused native proof alone. The
 literal 130-row census on the earlier immutable source remains separate and is never relabeled.
+
+## Multi-unit boundary audit before freeze
+
+The coordinator requested and approved this focused follow-up. Independently authored pinless two-unit
+native inputs expose a real normalization error before the guard: every input exports a native 10.0.6
+BOM successfully. With a board-included second unit, strict import initially succeeds but rebuild
+changes that unit to board-excluded. With mixed DNP flags, it changes false/true to true/true. The
+unchanged-flags positive and a both-excluded second unit preserve their original flags. All controls
+retain the complete ordinary native graph (34 pins/33 groups).
+
+The before-regression group records four failures and two supported positives. The correction checks
+the actual reference/use path before canonical discovery and raises a located existing FEN-3004 on
+only the unrepresentable board/DNP combinations, before staging, including with allow_lossy. The
+supported both-excluded graphic stays opaque and retains its own flags. It adds no model field, schema,
+dependency, comparison waiver or fallback. The focused after group passes 38 tests, including no plan,
+no output and immutable-source assertions on target 9/10; the native flat/repeat/DNP and four authored
+multi-unit controls pass all eight cases on the actual 10.0.6 CLI. Ruff and focused typing pass. Required
+exact-head CI and release freeze remain separate pending gates.

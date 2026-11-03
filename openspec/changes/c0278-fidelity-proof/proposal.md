@@ -107,3 +107,11 @@ place to write down a difference that is understood and accepted.
   `explain.toml`, `docs/equivalence.md`, `docs/cli-contract.md`, `docs/roadmap.md`, `docs/hypotheses.md`,
   the guide page `checks.md`, `CHANGELOG.md`.
 - Size: about 9 design-days (M).
+
+## Sensor fixture completion (2026-11-02)
+Complete the literal task4.1 authored sensor drawing rather than using separate
+flat/hierarchy/bus/repeat stand-ins. Preserve its original U1/R1/D1 and all four-
+layer routing/rules/zone/text cases; add two authored resistor channels sharing
+one nonempty child sheet. Draw a real bus, hierarchical labels and junctions,
+keep channel nets distinct, and strengthen fixture/copy/import/native proofs.
+GUI save and exact-source CI remain explicit root gates after preparation.
