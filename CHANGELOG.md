@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- **Supplier lookup scope** (c0267): defer remaining JLC work at the
+  maintainer's request; keep its evidence and completion gates open.
+
 - **Nested device review** (c0341): resolve sibling symbol and footprint
   records for a directly selected nested library device with a valid matching
   item manifest. Preserve bounded discovery, exact-content approval and stale
@@ -64,8 +67,8 @@ All notable changes to Fenolite are documented here. The format follows
   when the stronger projected point-set fast gate differs. All 77 geometry
   and 183 expanded caller/byte tests pass. All 75 complete plans
   match the reviewed pilot; native read-only opening preserves the expected
-  copper hole counts. Broader caller repair failures, final combined fast
-  validation and exact-head CI/native acceptance remain pending. Include the
+  copper hole counts. The clean checkpoint fast gate passes20,182 tests with50 skips;
+  exact-head CI/native acceptance and later combined changes remain pending. Include the
   exact final cut in the optional same-run diagnostic without changing writes.
 
 - **Native drawn bus aliases** (c0331, in progress): lower exact sequential

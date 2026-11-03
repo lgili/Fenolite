@@ -1,0 +1,18 @@
+{
+  "clean_after": true,
+  "command": "make check-fast PYTEST_MAX_WORKERS=4",
+  "driver_sha256": "4593b7d37829e0d3f9093d0cb058671df218ab1810517034e178905b08ccc837",
+  "exit": 0,
+  "head_unchanged": true,
+  "log_sha256": "fd3a31f92ed08427d74d10083b080af7fdf2ea32ffd552f22d9958058a65e2f0",
+  "schema": "fenolite.local-fast-gate.v0",
+  "scope": "Local fast gate on the clean signed c0332 checkpoint; later CAC changes require their own accumulated gate.",
+  "seconds": 2314.5264386670024,
+  "source_commit": "e26589420db604771f0a884b962a0546a2283e43",
+  "tests": {
+    "failed": 0,
+    "passed": 20182,
+    "pytest_seconds": "2127.64",
+    "skipped": 50
+  }
+}

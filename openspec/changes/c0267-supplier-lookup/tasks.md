@@ -1,3 +1,13 @@
+## Maintainer deferral — 2026-11-02
+
+The maintainer explicitly authorized skipping this change if JLC remained
+blocked: "qualquer coisa se ficar travado com a jlc pula essa spec, vou deixar
+ela mais para frente dai". The remaining c0267/JLC work is deferred from the
+overnight CAC delivery. Approved access and the public documentation landing
+page were supplied, but no complete reviewed HTTP contract/terms proof was
+established. Existing unchecked tasks remain unchecked; this is a deferral,
+not completion or authorization to register a guessed plugin.
+
 ## 0. Entry check
 
 - [x] 0.1 Read `openspec list`, the living specs this change touches (`cli-contract`, `package-layering`) and c0254 (archived or open) and c0263. Write under this task, with the date and the base commit:

@@ -73,7 +73,7 @@
 
 ## 2. Combined validation
 
-- [ ] 2.1 Run local make check-fast and focused tests on the final combined signed source; record exact failures without bypasses. Proof: complete local logs and source SHA.
+- [x] 2.1 Run local make check-fast and focused tests on the final combined signed source; record exact failures without bypasses. Proof: complete local logs and source SHA.
 - [ ] 2.2 Only with explicit push authorization, require exact-head CI and required native acceptance before merge/archive. Proof: exact commit/job/native receipts; interrupted or partial jobs do not pass.
 
 Integrated proof — 2026-11-02: clean signed 71d2ac93 reproduces all 75
@@ -116,3 +116,10 @@ All183expanded caller/copper/byte/observer tests and77geometry tests pass
 with original assertions. The specifically reviewed single golden update
 remains the only one. Task1.3 is satisfied; 2.1/2.2 remain separate pending
 clean-source fast and exact CI/native acceptance gates.
+
+Final clean checkpoint fast proof: signed e26589420db604771f0a884b962a0546a2283e43
+passes `make check-fast PYTEST_MAX_WORKERS=4`:20182passed/50skipped/0failed.
+Source stayed clean and unchanged; command exit0. Full lint, generated guide,
+format, types and private residue gate passed. See
+`docs/evidence/neck-cut-final-fast.json` for log/driver digests. Later
+accumulated CAC changes retain their own combined gates; task2.2 remains open.
