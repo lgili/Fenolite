@@ -190,7 +190,7 @@ No new `FEN-` code; no new `fidelity.*` or `import.*` code (the two unexpressed 
 
 | id | statement | settled by |
 |---|---|---|
-| `H-K-COPPER-EPSILON` | KiCad's DRC reports a copper clearance only below the value in force minus 500 nm, for every pair kind and source, the class pair gap included | `tests/kicad/copper/test_drc_tolerance.py` in the `kicad-9` and `kicad-10` jobs |
+| `H-K-COPPER-EPSILON` | The selected authored straight-item rows under rule/class/floor and the pair-class gap bench are clean at c-500 nm and report clearance at c-501 nm; no near-boundary arc parity is claimed | `tests/kicad/copper/test_drc_tolerance.py::test_kicad_tolerance` in both native jobs; source985f59a1 scoped receipt records explicit9 PASSED lines and10 completed-run inference |
 
 ## Files
 

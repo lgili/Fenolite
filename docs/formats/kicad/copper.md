@@ -92,8 +92,16 @@ not repeatable ("Via re-net" below), so shorts are proved by Fenolite's own exac
 | clearance from net classes | the larger of the two classes | the same | equal | equal | H-K-COPPER-RESOLVE |
 | clearance from the board minimum | raises class values; does not raise a custom rule | the same | equal | equal | H-K-PRO-FLOOR; H-K-PRO-MIN-RULE-2 |
 | clearance between the two nets of a differential pair | for two nets that pair by name, both in one class whose pair gap is below its clearance, the class value is the pair gap (source `pair-gap:<class>`); a governing custom rule replaces it, the board minimum is a floor above it, and a `diff_pair` leaf is compared with its letter case | the same; KiCad's extra `diff_pair_gap_out_of_range` under a board minimum is not a clearance finding and is not compared | equal | equal | H-K-COPPER-PAIR; H-K-PRO-PAIR |
-| the clearance boundary | with the KiCad rules source: an exact gap at `c − 500 nm` is clean and at `c − 501 nm` is a finding, including circular cores (c0282); a direct call without tolerance stays strict | measured 500 nm tolerance for straight tracks, vias and pads; an earlier arc–track row was already reported at `c − 500 nm` | 500 nm threshold pending CI | straight-pair threshold measured locally 2026-10-30; exact arc boundary rows pending CI | H-K-COPPER-EPSILON; exact ideal arc decisions remove the earlier 1.001 µm band, without claiming near-boundary KiCad arc parity |
+| the clearance boundary | with the KiCad rules source: an exact ideal gap at `c − 500 nm` is clean and at `c − 501 nm` is a finding, including circular cores (c0282); a direct call without tolerance stays strict | measured500 nm threshold for the authored straight track/via/pad/through-hole rows under rule/class/floor, plus the pair-class gap bench; this does not cover near-boundary arc parity | selected straight rows equal on9.0.9, four explicit PASSED controls in source985f59a1 | selected straight rows equal on10.0.6 by completed-run terminal-classification inference, source985f59a1; job10 badge remains failure | H-K-COPPER-EPSILON KICAD-VERIFIED (9.0.x, 10.0.x), scoped receipt below; exact ideal arc decisions do not claim near-boundary KiCad arc parity |
 | a project without net classes | no clearance in force; shorts only | KiCad's own defaults apply | n/a | n/a | documented difference |
+
+The [straight-clearance scoped receipt](../../evidence/cac-c0281-scoped-ci-985f59a1.json)
+binds the four `test_kicad_tolerance` controls to source
+`985f59a1d01a612b2eac0219243199896c24075a` and preserved CI logs from2026-11-03.
+The completed native10 run has no failure, skip or xfail in this module; its27
+geometry failures were outside the maintainer-authorized batch scope. The run
+and native10 job remain failed. The label covers the selected straight rows
+only; the following near-boundary arc observations are not promoted.
 
 ## Exact-arc boundary observations (c0282)
 

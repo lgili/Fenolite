@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Record verified evidence for the selected straight-clearance hypothesis and complete c0281.3.3; retain arc-parity limits, final integration and required archive ordering as open, without archiving c0281.
+
 - Record source985 token-edit oracle evidence and archive the manual-edit merge contract after its nominal documentation checks; keep GUI-editor evidence INFERRED and deferred geometry/later integration gates explicit (c0250).
 
 - Record fifteen source-bound scoped archives and the zero-finding static library audit, retaining later integration, current Royal fidelity and external release gates (c0319,c0266,c0273).

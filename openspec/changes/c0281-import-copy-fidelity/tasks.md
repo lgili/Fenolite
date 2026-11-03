@@ -42,7 +42,7 @@
   build's guard and the stage (scenario "KiCad's tolerance"; "Strict comparison" keeps passing). Proof:
   `uv run pytest tests/unit/checks/test_copper_tolerance.py tests/unit/checks/test_copper.py tests/kicad/copper/test_parity_bench.py -q`.
   Done 2026-10-30: `DesignRules.clearance_tolerance`, `KICAD_DRC_EPSILON_NM`, `check_copper(tolerance=)`, the guard and the stage; proof passed.
-- [ ] 3.3 The `kicad-9` and `kicad-10` jobs run `tests/kicad/copper/test_drc_tolerance.py`; raise
+- [x] 3.3 The `kicad-9` and `kicad-10` jobs run `tests/kicad/copper/test_drc_tolerance.py`; raise
   `H-K-COPPER-EPSILON` to `KICAD-VERIFIED (9.0.x, 10.0.x)` after both pass. Proof: the KiCad jobs of the
   commit on GitHub CI are green.
   Open 2026-10-30: CI runs with the batch (not pushed here).
@@ -129,3 +129,40 @@
   and KiCad jobs on the exact commit. Proof: `make check-fast`; the required CI jobs are green on the commit.
 
   Open 2026-10-30: `make check-fast PYTEST_WORKERS=2` passed locally; CI runs with the batch.
+
+## Scoped exact-source completion evidence —2026-11-03
+
+For3.3, source985f59a1 original run41708879698 completes both native collections.
+KiCad9.0.9 has explicit PASSED lines for class/floor/pair-class/rule. KiCad10.0.6
+includes the same four test_kicad_tolerance cases without any selected-module
+FAIL/SKIP/XFAIL in the complete -ra terminal records. That is a source-bound
+inference from a completed run, not a per-node PASSED line or a green native10
+badge. Its27terminal geometry failures are the maintainer-excluded batch scope
+and remain DEFERRED_NOT_PASSED under c0332; original run and job10 remain failed.
+The receipt `docs/evidence/cac-c0281-scoped-ci-985f59a1.json` binds all hashes.
+H-K-COPPER-EPSILON is raised only for these authored straight-item controls;
+arc-track is explicitly excluded by their unchanged body and near-boundary arc
+parity remains unclaimed. The hypothesis parser requires eight cells and accepts
+the existing scoped label KICAD-VERIFIED (9.0.x, 10.0.x); no parser is changed.
+For11.4, five unit jobs pass and the separate frozen-runtime fast/residue proof
+is reused. The coordinator must run the nominal documentation/evidence checks
+after applying these documentary updates before closing3.3/11.4. This records
+source985 only; no later runtime integration or library release is claimed.
+
+
+Actual partial evidence proof —2026-11-03: the four nominal documentation
+commands passed on runtime985 imported from the isolated tree's own src.
+The register/inferred/fact/matrix tests passed86cases in112.43s; matrix
+--check, nominal strict validation and diff checks exited0. No derived page
+needed regeneration. The scoped JSON records actual command outputs/hashes.
+Task3.3 is complete only for the source-bound straight-clearance hypothesis
+under the previously authorized geometry exclusion. Six straight-item kinds
+and four sources are covered; arc-track and near-boundary ideal/native arc
+parity remain excluded/unclaimed. The general copper operation is not promoted.
+
+This specification is NOT archived. Entry0.1's required order after c0275,
+c0278 and c0279 remains in force; those changes are still active. Task11.4
+stays unchecked, and final integration, c0355 and release gates remain open.
+The original global CI and native10 job remain FAILURE; deferred c0332 tests
+are not passed tests. No native test, CAD session, full/fast suite, CI rerun,
+runtime, fixture or comparator change was performed for this evidence commit.
