@@ -124,3 +124,22 @@
 Integration 2026-11-01 on `8d74a798`: merged the CI-green source `a61bd390` (run `40987149835`). The integrated fmt/catalog/version proof passed 44 tests; guide proof passed 81, and the expanded teaching assertions passed once more. Ruff/format and pyright passed (0 errors/warnings). Migration teaching is on `library-items` to preserve the `files` page budget. Full gate and CI of this integration remain pending.
 
 Integration with c0311 on 2026-11-01: portable-format/get/replay regression proof passed 35 tests, Ruff/format passed and pyright reported 0 errors/warnings. The full gate for this combined candidate remains pending; c0311's own source gate is recorded in its change.
+
+
+## Scoped implementation closure — 2026-11-03
+
+The maintainer clarified that problematic geometry was already outside this
+closure CI batch before the run. Close only this specification’s implementation
+on tested source 985f59a1d01a612b2eac0219243199896c24075a and reviewed
+archival documentation. Run 41708879698 remains FAILURE: the27known c0332
+geometry failures are DEFERRED_NOT_PASSED, not passed tests. KiCad9 and all
+five unit jobs succeeded. The relevant KiCad10 module results are inferred
+from complete unfiltered collection and the exhaustive -ra non-pass report;
+no nominal PASSED line or green KiCad10 job is claimed.
+
+`scoped-ci-985f59a1.json` binds the exact tests, explicit KiCad9 positive
+lines, complete log hashes, reused fast proof and existing scoped records.
+The isolated runtime/tests/tools/configuration remain byte-identical to985;
+this does not validate later CAC runtime, close c0355 or replace subsequent
+integration CI. Existing authored/native/default-map proofs and limitations
+remain intact. No suite, native CAD test or CI rerun was started for archive.
