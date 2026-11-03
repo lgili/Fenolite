@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive c0345-custom-footprint-field-poses using its tested985 implementation, scoped unit/native CI evidence and existing proofs; preserve the authorized geometry deferral and pending later integration gates.
+
 - Archive c0261-symbol-generator using its tested985 implementation, scoped unit/native CI evidence and existing proofs; preserve the authorized geometry deferral and pending later integration gates.
 
 - Archive c0259-library-data-format using its tested985 implementation, scoped unit/native CI evidence and existing proofs; preserve the authorized geometry deferral and pending later integration gates.
