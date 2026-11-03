@@ -73,4 +73,9 @@ Confirm the reviewed plan to write only the lock; existing refs, picks, pins and
 Confirmation with `--plan` does not run the script again. `--block` selects ids; `--allow-major` needs
 an explicit review, and `--frozen` is not accepted. See `docs/blocks.md` for authoring and version rules.
 
+Imported native footprint aliases retain the source instance declaration, with exact local
+board geometry and explicit `footprint_definition` variants for edits. Conflicting definition lookups
+or genuine basename mismatches refuse before staging; do not remove the explicit lookup or substitute
+an arbitrary Footprint text override to silence a level3/S/8 difference.
+
 Read next: `footprints`, `files`, `recovery`.

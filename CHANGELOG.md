@@ -6,6 +6,17 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- **Refresh authored project identity caches** (c0344): regenerate only the
+  two-sheet import fixture project caches after the native identity fix; retain
+  every other fixture byte and pin ordinary import/build outputs against the
+  clean combined source on both KiCad targets.
+
+- **Preserve schematic footprint aliases** (c0342): import binds the original
+  declared alias by native symbol identity and vendors the board-exact geometry
+  locally. Explicit definition lookups preserve edited variants and field poses;
+  conflicting lookup payloads and genuine basename mismatches refuse before
+  staging, without relaxing physical or drawing comparisons.
+
 - **Reviewed licence registry** (c0333): synchronize the three explicitly
   approved original licence-text digests with the library, preserving all
   earlier approved digests and every other licence restriction.

@@ -28,3 +28,11 @@ updated for this documented identity-cache writer change; all76 example-byte
 tests pass in10.38s. Full delta is in
 `docs/evidence/project-sheet-identity-plan-delta.json`. This does not pass the
 remaining accumulated fast or exact-head CI gates.
+Follow-up authored import fixture: tests/data/import_python/two_sheet remained
+pinned to the old empty-template .pro caches. A fresh build proves ONLY its
+.kicad_pro differs, and only top_level_sheets/sheets change; every other fixture
+byte stays identical. The fixture was refreshed mechanically. Nonalias import/
+build outputs on9/10 were measured with clean bffa03fd source and the same
+refreshed fixture, then compared file-by-file with the alias worker: every SHA
+matches exactly. Stale96d687d1 aggregate pins are reanchored to this source-bound
+combined baseline, with complete metadata/manifest guards retained.

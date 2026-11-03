@@ -684,9 +684,9 @@
     "subpart_id_separator": 0,
     "top_level_sheets": [
       {
-        "filename": "empty_10.kicad_sch",
-        "name": "",
-        "uuid": "f5a6a7c7-8304-471a-a7a0-3f368669c59d"
+        "filename": "two_sheet.kicad_sch",
+        "name": "two_sheet",
+        "uuid": "9047e0f8-88b0-503a-ab89-520971ebbfcd"
       }
     ],
     "used_designators": "",
@@ -694,8 +694,16 @@
   },
   "sheets": [
     [
-      "f5a6a7c7-8304-471a-a7a0-3f368669c59d",
-      ""
+      "9047e0f8-88b0-503a-ab89-520971ebbfcd",
+      "two_sheet"
+    ],
+    [
+      "bed5fbab-be52-5e30-9d6e-176f8debbc56",
+      "ch2"
+    ],
+    [
+      "c8f3004f-becf-5633-823d-e39b2eb139b2",
+      "ch1"
     ]
   ],
   "text_variables": {},

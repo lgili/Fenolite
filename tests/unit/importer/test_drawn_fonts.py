@@ -174,15 +174,15 @@ def test_independent_footprint_text_difference_stays_visible(tmp_path: Path) -> 
         encoding="utf-8",
     )
     before = snapshot(original)
-    output = _confirmed(original, tmp_path)
-    reply = api.run(
-        "verify-source", str(output / "design.py"), "--against", str(original), cwd=tmp_path, seed=0
-    )
-    assert reply.exit_code == 5, (reply.error, reply.result.get("differences"))
-    assert reply.result["accepted"] == [] and not reply.result["equivalent"]
-    levels = {row["level"]: row["status"] for row in reply.result["levels"]}
-    assert levels == {**{level: "equal" for level in range(1, 8)}, "S": "equal", 8: "differs"}
-    assert {row["kind"] for row in reply.result["differences"]} == {"render-pixels"}
+    output = tmp_path / "code"
+    reply = api.run("import", *_args(original, output), "--dry-run", cwd=tmp_path, seed=0)
+    # c0342 rejects contradictory physical identity rather than inventing a text override.
+    assert reply.exit_code == 3 and reply.error is not None
+    assert reply.error["code"] == "FEN-3004"
+    assert reply.error["message"].startswith("R1.Footprint:")
+    assert "Other" in reply.error["message"] and "Mini_R_0603" in reply.error["message"]
+    assert not output.exists() and reply.envelope is not None
+    assert not reply.envelope["result"].get("plan") and reply.envelope["receipt"] is None
     assert snapshot(original) == before
 
 

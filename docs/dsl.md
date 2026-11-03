@@ -356,6 +356,12 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
 - `Range`, `Tolerance`, `between()` and `pct()`: exact value ranges with worst-case arithmetic ("Ranges").
 - `to_model(design)` and `placements(design)` turn a DSL design into a model `Design` and the
   placement requests; `build` calls them.
+  KiCad import also preserves an original schematic footprint alias when only
+  its library namespace differs from the physical board name. The local
+  definition keeps exact board geometry; edited instances select explicit
+  variants with `footprint_definition`. A collision on one definition lookup
+  with incompatible payloads refuses; genuine basename changes are not hidden.
+
 
 Nothing of the DSL is re-exported from the root `fenolite` package: the DSL `Design` and the model
 `Design` are different classes.

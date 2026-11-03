@@ -206,15 +206,20 @@ def test_actual_native_name_change_is_not_explained_as_a_variant(name: str) -> N
 @pytest.mark.parametrize(
     "target,expected",
     (
-        (9, "be71f0c621bf28fff6b540e27c4bf8b9dfdf778170b30687e14d4f539dcb7f68"),
-        (10, "fcda403911b0fe3dd066354ad9a5fc7d0b1dfeb04cc7cf2e5ecf89b64a896fdf"),
+        (9, "29817d226e47a4f9f06a37a85d84f83f3cbb0418e1f7ea5deaee289d24723dbd"),
+        (10, "cfea7242149b092102244be518c5c98be58d57d34c3a09cca09d6b97342a168a"),
     ),
 )
 def test_ordinary_import_and_rebuild_keep_every_byte(tmp_path: Path, target: int, expected: str) -> None:
-    """Complete file-map hashes measured on immutable 96d687d1 before implementation."""
+    """Pins refreshed on clean bffa03fd plus c0344's two-sheet identity-cache refresh.
+
+    Every imported/built file matches that clean baseline byte-for-byte on9/10;
+    c0342 leaves nonalias imports unchanged. The source fixture changed only
+    .pro top_level_sheets/sheets, to stay a fresh build after c0344.
+    """
     assert imported(tmp_path, PROJECT, "--confirm", "--kicad-version", str(target)).exit_code == 0
     out = tmp_path / "out"
-    assert _digest(out) == "30eabdb78de8bb06aa13bcfb0e25de2cccd00ed8d6c27b9c8b529e6fe79c99bd"
+    assert _digest(out) == "34ce82be48949789f53cb7985d26bfe4be00806334b65ef316a520ad22359f03"
     assert build(out, "--kicad-version", str(target)).exit_code == 0
     assert _digest(out / "built") == expected
 

@@ -19,6 +19,7 @@ from dataclasses import dataclass, field, replace
 
 from fenolite.backends.kicad import symembed
 from fenolite.backends.kicad.libs import LibRow, LibTable, write_lib_table
+from fenolite.backends.kicad.mod import read_footprint, write_footprint
 from fenolite.backends.kicad.sexpr import Atom, Node
 from fenolite.backends.kicad.sym import read_symbol_library, write_symbol_library
 from fenolite.core.coords import Point
@@ -29,6 +30,7 @@ from fenolite.importer.schematic import SourceSymbols
 from fenolite.importer.schematic import symbols as source_symbols
 from fenolite.importer.source import Source
 from fenolite.library import derive_from_model, nickname_of
+from fenolite.library.derive import footprint_signature
 from fenolite.model.design import Design
 from fenolite.model.library import SymbolDef, SymbolGraphic, SymbolPin, SymbolUnit
 
@@ -167,10 +169,107 @@ def vendor(design: Design, text: str, *, target: int, source: Source | None = No
     return _with_source(found, source, target) if source is not None else found
 
 
+def _safe_library_name(name: str) -> bool:
+    reserved = {
+        "con",
+        "prn",
+        "aux",
+        "nul",
+        *(f"com{i}" for i in range(1, 10)),
+        *(f"lpt{i}" for i in range(1, 10)),
+    }
+    return (
+        bool(re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.+ -]*", name))
+        and not name.endswith((".", " "))
+        and name.partition(".")[0].casefold() not in reserved
+    )
+
+
+def source_footprints(source: Source) -> dict[str, str]:
+    """Explicit instance aliases joined through exact native UUID/file/use/ref contexts."""
+    from fenolite.importer.emit.sheets import instances
+
+    if source.backend != "kicad":
+        return {}
+    aliases: dict[str, str] = {}
+    for context in instances(source, include_root=True):
+        by_id = {symbol.id: symbol for symbol in source.hierarchy[context.file].symbols}
+        for symbol_id, ref in context.refs.items():
+            alias = by_id[symbol_id].footprint
+            if not alias:
+                continue
+            previous = aliases.setdefault(ref, alias)
+            if previous != alias:
+                raise FormatError(
+                    f"source reference {ref!r} has conflicting footprint aliases", file=context.file
+                )
+    return aliases
+
+
+def _alias_footprints(found: Vendored, source: Source, native: SourceSymbols, target: int) -> Vendored:
+    board = source.design.board
+    if board is None:
+        return found
+    refs = {component.id: component.ref for component in source.design.circuit.components}
+    originals = {refs[fp.component_id]: fp.lib_ref for fp in board.footprints}
+    files, bindings = dict(found.files), dict(found.footprints)
+    for ref, alias in sorted(source_footprints(source).items()):
+        if ref not in native.refs or ref not in bindings or alias == originals.get(ref):
+            continue
+        original = originals.get(ref, "")
+        library, separator, name = alias.partition(":")
+        if not separator:
+            library, name = DEFAULT_NICKNAME, alias
+        if name != original.rpartition(":")[2]:
+            raise FormatError(
+                f"{ref}.Footprint: alias basename {name!r} differs from physical {original!r}",
+                locator=f"component:{ref}/Footprint",
+            )
+        if (
+            not _safe_library_name(library)
+            or not name
+            or name in {".", ".."}
+            or any(c in name for c in "/\\:\x00")
+            or name.endswith((".", " "))
+        ):
+            raise FormatError(f"{ref}: source footprint alias {alias!r} cannot name a vendored file")
+        old_library, _, old_name = bindings[ref].partition(":")
+        definition = read_footprint(
+            files[f"lib/{old_library}.pretty/{old_name}.kicad_mod"], library=old_library
+        )
+        renamed = replace(
+            definition,
+            name=old_name,
+            library=library,
+            properties={**definition.properties, "Reference": "REF**", "Value": old_name},
+        )
+        path = f"lib/{library}.pretty/{old_name}.kicad_mod"
+        conflicting_path = next((p for p in files if p.casefold() == path.casefold() and p != path), None)
+        if conflicting_path is not None:
+            raise FormatError(f"{ref}: source footprint alias {alias!r} has an ambiguous filesystem spelling")
+        if path in files:
+            existing = read_footprint(files[path], library=library)
+            if footprint_signature(existing, old_name, library, target) != footprint_signature(
+                renamed, old_name, library, target
+            ):
+                raise FormatError(
+                    f"{ref}: source footprint alias {alias!r} binds incompatible board geometry"
+                )
+        else:
+            files[path] = write_footprint(renamed, target=target, allow_lossy=True)
+        bindings[ref] = f"{library}:{old_name}"
+    used = sorted({lib_id.partition(":")[0] for lib_id in bindings.values()})
+    files["fp-lib-table"] = write_lib_table(
+        LibTable("footprint", tuple(_row(n, "footprint") for n in used)), target=target
+    )
+    return replace(found, files=files, footprints=bindings)
+
+
 def _with_source(found: Vendored, source: Source, target: int) -> Vendored:
     native = source_symbols(source, target=target)
     if not native.definitions:
         return found
+    found = _alias_footprints(found, source, native, target)
     fallback: dict[str, SymbolDef] = {}
     files = dict(found.files)
     for file in tuple(files):
@@ -211,19 +310,7 @@ def _with_source(found: Vendored, source: Source, target: int) -> Vendored:
     libraries: dict[str, list[symembed.EmbeddedSymbol]] = {}
     for definition in definitions.values():
         nickname = definition.nickname
-        if (
-            not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.+ -]*", nickname)
-            or nickname.endswith((".", " "))
-            or nickname.partition(".")[0].casefold()
-            in {
-                "con",
-                "prn",
-                "aux",
-                "nul",
-                *(f"com{i}" for i in range(1, 10)),
-                *(f"lpt{i}" for i in range(1, 10)),
-            }
-        ):
+        if not _safe_library_name(nickname):
             raise FormatError(f"source symbol library {nickname!r} cannot name a vendored file")
         libraries.setdefault(nickname, []).append(definition)
     for nickname, definitions_of in sorted(libraries.items()):
@@ -241,4 +328,4 @@ def _with_source(found: Vendored, source: Source, target: int) -> Vendored:
     )
 
 
-__all__ = ["DEFAULT_NICKNAME", "Vendored", "natural", "symbol_for", "vendor"]
+__all__ = ["DEFAULT_NICKNAME", "Vendored", "natural", "source_footprints", "symbol_for", "vendor"]

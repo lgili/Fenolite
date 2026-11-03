@@ -70,7 +70,7 @@ from fenolite.importer.texts import (
     text_style,
     zone_arc_ring,
 )
-from fenolite.importer.vendor import natural, vendor
+from fenolite.importer.vendor import natural, source_footprints, vendor
 from fenolite.model._drawn_text import write_drawn
 from fenolite.model.base import Entity, Opaque
 from fenolite.model.board import (
@@ -1449,6 +1449,7 @@ def emit(source: Source, options: Options) -> Emission:
         issues.append(
             issue("import.sheet-renamed", f"the sheet {sheet!r} is the module {module!r}", where=sheet)
         )
+    original_aliases = source_footprints(source)
     taken_paths: set[tuple[str, ...]] = set()
     for footprint in sorted(
         footprints, key=lambda fp: tuple(natural(s) for s in paths[refs[fp.component_id]])
@@ -1464,8 +1465,11 @@ def emit(source: Source, options: Options) -> Emission:
         if component.id not in board_only:
             lock_refs["/".join(path)] = ref  # a board-only part keeps its ref and no lock entry
         lib_id = vendored.footprints[ref]
-        kwargs = [("footprint", text(footprint.lib_ref))]
-        if lib_id != footprint.lib_ref:
+        native_footprint = (
+            original_aliases.get(ref, footprint.lib_ref) if ref in vendored.native_refs else footprint.lib_ref
+        )
+        kwargs = [("footprint", text(native_footprint))]
+        if lib_id != native_footprint:
             kwargs.append(("footprint_definition", text(lib_id)))
         if component.value:
             kwargs.append(("value", text(component.value)))

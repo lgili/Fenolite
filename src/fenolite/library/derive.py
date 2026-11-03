@@ -166,6 +166,11 @@ def _signature(definition: FootprintDef, source: str, library: str, target: int)
     return _UUID.sub("", written)
 
 
+def footprint_signature(definition: FootprintDef, source: str, library: str, target: int) -> str:
+    """Reuse the established exact derive signature without changing its work/identity contract."""
+    return _signature(definition, source, library, target)
+
+
 def _graphics(definition: FootprintDef, layers: tuple[str, ...]) -> list[tuple[object, ...]]:
     def key(graphic: Graphic) -> tuple[object, ...]:
         points = tuple((p.x, p.y) for p in graphic.points)
@@ -251,6 +256,7 @@ __all__ = [
     "Derived",
     "Footprint",
     "derive_library",
+    "footprint_signature",
     "differences",
     "drift",
     "drift_issues",
