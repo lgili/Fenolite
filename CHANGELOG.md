@@ -6,19 +6,19 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- **Qualified legacy upgrade scope** (c0347): use the maintainer-authorized same-tool KiCad10 original-to-upgraded electrical proof. All five declared floor controls pass locally on exact source, including the complete284pin/84group legacy project. Preserve the original reader refusal and every native9 observation, including its historical disagreement, while retaining all pin/partition/name/provenance guards and supported9 requirements. Required combined CI remains pending.
+- **Imported native rule semantics** (c0352, in progress): preserve the actual Default netclass in emitted canonical code and rebuilt native projects. Imported digest-bound project declarations set the new optional `preserve_minimums=True` ownership flag so native hard floors remain independent of actual custom DRU overrides; default False retains authored DSL behavior. Native KiCad9/10 controls and traced representation census bound these claims. Path-based level6 now names exact supported native floor/class/membership coverage and source hashes; canonical Design comparisons remain unchanged. Imported provenance records accept their existing typed fidelity proof in the closed schema. Existing derived-cache receipts now have closed typed structure and narrow finite canonical-wire unjudged leaves; actual native record/schema/source-binding controls pass without changing cache acceptance. Exact electrical binding permits parallel physical copies only with identical complete terminal-to-net signatures, retaining every physical footprint and refusing conflict/decomposition. Explicit native null class fields remain represented unset and named unjudged, with no invented fallback. Generated exact class patterns and planner reads now use the same stored native net spelling as the PCB writer; ambiguous stored-name collisions refuse.
 - c0276: record complete source-bound KiCad9/10 drawn censuses, with naming findings, read-floor refusals and version skips preserved separately from connectivity.
 - Prove schema1.0 activation changes only the version marker in63 canonical metadata files across75 complete build plans; native and other canonical bytes remain identical (c0218).
 
 - c0219: retain explicit route materialization hypotheses and context-aware view evidence controls in combined validation.
-- **Qualified legacy upgrade scope** (c0347): use the maintainer-authorized same-tool KiCad10 original-to-upgraded electrical proof. Preserve the original reader refusal and every native9 observation, including its historical disagreement, while retaining all pin/partition/name/provenance guards and supported9 requirements.
 
-- **Imported native rule semantics** (c0352, in progress): preserve the actual Default netclass in emitted canonical code and rebuilt native projects. Imported digest-bound project declarations set the new optional `preserve_minimums=True` ownership flag so native hard floors remain independent of actual custom DRU overrides; default False retains authored DSL behavior. Native KiCad9/10 controls and traced representation census bound these claims. Path-based level6 now names exact supported native floor/class/membership coverage and source hashes; canonical Design comparisons remain unchanged. Imported provenance records accept their existing typed fidelity proof in the closed schema. Existing derived-cache receipts now have closed typed structure and narrow finite canonical-wire unjudged leaves; actual native record/schema/source-binding controls pass without changing cache acceptance. Exact electrical binding permits parallel physical copies only with identical complete terminal-to-net signatures, retaining every physical footprint and refusing conflict/decomposition. Explicit native null class fields remain represented unset and named unjudged, with no invented fallback.
 - Prove declared native worksheet scopes through actual KiCad9/10 SVG exports and complete public Interf replay without accepted differences (c0354).
 
 - **Declared project worksheets** (c0354): imported native projects carry their exact relative worksheet resources as checked inputs and outputs. PCB and schematic frame scopes remain independent; unsafe or missing resources refuse, and input edits invalidate reviewed plans.
 
 - c0352: keep the schematic-comparison guide navigation after its native-context and receipt explanations.
-- c0353: resolve ordinary source-symbol inheritance with the existing canonical resolver before exact pin binding, preserving parent pins/units, child properties and the original contextual-inheritance refusal.
+- c0353: resolve ordinary source-symbol inheritance with the existing canonical resolver before exact pin binding, preserving parent pins/units, child properties and the original contextual-inheritance refusal; combined imports follow the locked formatter order.
 - Preserve explicit authored9/10 controls for active inter-sheet references without a field pose; keep the refusal and disabled behavior unchanged (c0348).
 
 
@@ -93,7 +93,7 @@ All notable changes to Fenolite are documented here. The format follows
   labels without inventing a parent, retaining exact pins, groups and names.
   Generic resolution and unmatched child-port errors keep their strict policy.
   The native10-upgraded legacy control retains all284pins/84groups; the original
-  reader-floor refusal and independent cross-version gate remain explicit.
+  reader-floor refusal and historical cross-version discrepancy remain explicit.
 
 - **Derived blank-title intent** (c0339): keep explicit blank metadata in the
   authored import example and record the exact removal of empty native blocks
@@ -130,7 +130,7 @@ All notable changes to Fenolite are documented here. The format follows
   supported font through board-to-code import. Refuse unrepresentable poses
   before staging. Native 9/10 SVG controls and the complete Multichannel proof
   retain the custom fields without relaxing geometry or rendering checks.
-- **Explicit reader-floor evidence** (c0347): retain original schematic refusals as strict negative tests and measure official copy upgrades separately, with complete pin/partition/name and digest provenance. Both native jobs must supply matching evidence to a new CI bridge gate. Four genuine old inputs qualify locally; the fifth remains explicitly partial because native9 omits 88 ordinary pins and standalone ports still refuse lowering. No parser floor or acceptance baseline changed. Closed workflow prerequisite tests retain all resource and heavy-input guards after the new schematic fetch.
+- **Explicit reader-floor evidence** (c0347): retain original schematic refusals as strict negative tests and measure official copy upgrades separately, with complete pin/partition/name and digest provenance. Both native jobs must supply same-source observations and complete native10 upgrade evidence to the required CI bridge gate. The user-authorized scope above supersedes the initial additional cross-major condition; the native9 missing88pins discrepancy remains retained without a9equivalence claim. Closed workflow prerequisite tests retain all resource and heavy-input guards after the new schematic fetch.
 
 - **BOM-only diagnostics** (c0334): complete the closed issue ledgers, CLI explanations and guide teaching. Invalid pinned purchasing items now return the intended located build error before producing files. The existing Altium refusal, appended-field order and reserved device-interface name are covered by their adjacent contracts.
 

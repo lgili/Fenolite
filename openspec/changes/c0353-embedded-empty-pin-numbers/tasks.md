@@ -31,3 +31,5 @@ binder and contextual CLI components: 100 passed. Exact pin tuples, units and ch
 proved; all existing cardinality/unit/style/geometry/refusal controls remain. Pyright reports zero
 errors/warnings. No model fields, dependencies, defaults, tolerances or evidence levels change.
 Root combined fast/CI remains open.
+
+- [x] 2.4 Keep the inherited-source resolver import in the locked formatter order after integration. Proof: complete ruff check/format pass (3372 files), before the next fast gate; no runtime behavior change.

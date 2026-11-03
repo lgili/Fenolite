@@ -12,8 +12,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 
 from fenolite.backends.kicad import drawn, sch, symembed
-from fenolite.backends.kicad.sym import resolve_extends
 from fenolite.backends.kicad.sexpr import dumps
+from fenolite.backends.kicad.sym import resolve_extends
 from fenolite.backends.kicad.symbol_contexts import compatible
 from fenolite.core.errors import FormatError, Issue
 from fenolite.importer.source import Source

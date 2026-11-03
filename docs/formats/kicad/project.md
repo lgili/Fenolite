@@ -352,3 +352,7 @@ SVG reference text, full named electrical partitions, and a native annular-width
 an unmanaged project minimum. Every unrelated DRC finding is compared too. This proves the scoped
 controls, not semantic interpretation of every retained native key. The original and portable
 sidecar are checked unchanged. Proof: `tests/kicad/importer/test_project_template.py`.
+
+### Exact stored names in class patterns (c0352)
+
+**ORACLE-VERIFIED(kicad-cli)** (S-1288, authored native controls): KiCad9.0.9 and10.0.6 both enforce a named clearance class for an exact literal source net `/12Vext` and its generated PCB spelling `{slash}12Vext`, when the project pattern uses the corresponding exact stored spelling. Both arms preserve the measured track UUID pair and independent DRU canary. Fenolite reuses `pcb.stored_net_name` for writer-owned class patterns and project application, retaining native-read spellings rather than guessing slash substitutions. Native-name collisions refuse before dictionary overwrite; arbitrary user patterns and existing unsafe/overmatch refusals are unchanged. Proof: `tests/kicad/project/test_pro_native_names.py`; this is not a claim that arbitrary regex semantics match every native case.

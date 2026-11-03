@@ -34,7 +34,7 @@ from fenolite.backends.kicad.lowering import (
     lower_netclass,
     millimetres,
 )
-from fenolite.backends.kicad.pcb import source_info
+from fenolite.backends.kicad.pcb import source_info, stored_net_name
 from fenolite.backends.kicad.proerrors import ISSUE_CODES, project_issue
 from fenolite.backends.kicad.sexpr import parse
 from fenolite.backends.kicad.tuning import TuningProfile, lift_profiles, read_profiles
@@ -530,9 +530,10 @@ def apply_project(design: Design, info: ProjectInfo, *, issues: list[Issue] | No
         usable.append((pattern, assigned, cls))
     nets: list[Net] = []
     for net in design.circuit.nets:
+        native_name = stored_net_name(net)
         candidates: list[str] = []
         for pattern, assigned, cls in usable:
-            hit = assigned == net.name if pattern is None else pattern_matches(pattern, net.name)
+            hit = assigned == native_name if pattern is None else pattern_matches(pattern, native_name)
             if hit and cls not in candidates:
                 candidates.append(cls)
         chosen = min(candidates, key=lambda c: rank[c]) if candidates else None
@@ -671,8 +672,13 @@ def _net_class_names(design: Design) -> dict[str, str]:
     classes = _model_classes(design)
     out: dict[str, str] = {}
     for net in design.circuit.nets:
+        native_name = stored_net_name(net)
+        if native_name in out:
+            raise ConsistencyError(
+                f"model.duplicate-netname: native stored name {native_name!r} is ambiguous"
+            )
         if net.netclass_id is None:
-            out[net.name] = DEFAULT_CLASS
+            out[native_name] = DEFAULT_CLASS
             continue
         cls = classes.get(net.netclass_id)
         if cls is None:
@@ -681,7 +687,7 @@ def _net_class_names(design: Design) -> dict[str, str]:
                 "which the circuit "
                 "does not hold; run Design.validate() first"
             )
-        out[net.name] = cls.name
+        out[native_name] = cls.name
     return out
 
 
@@ -1132,12 +1138,13 @@ def update_project(
     _check_classes(data, design, target=target, issues=found)
     settings = cast(JsonObject, data["net_settings"])
     names = _net_class_names(design)
+    owned_exact = {*names, *(net.name for net in design.circuit.nets)}
     existing = settings.get("netclass_patterns")
     kept: list[Any] = []
     for entry in cast(list[Any], existing) if isinstance(existing, list) else []:
         pattern = cast(JsonObject, entry).get("pattern") if isinstance(entry, dict) else None
         exact = isinstance(pattern, str) and not (UNSAFE_PATTERN_CHARS & set(pattern))
-        if exact and (pattern in names or pattern in renamed_nets):
+        if exact and (pattern in owned_exact or pattern in renamed_nets):
             continue
         kept.append(entry)
     _conflicts(kept, settings.get("netclass_assignments"), names, found)

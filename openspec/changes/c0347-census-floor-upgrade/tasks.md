@@ -26,4 +26,4 @@ Entry review2026-11-02: reserved c0347; clean combined base24e63d06, AGENTS/c027
 
 - [x] 4.1 Record the user's explicit “Validar a atualização no KiCad10” decision before changing the gate. Preserve historical9 discrepancy, original floor negatives, complete inputs and all supported9 requirements. Proof: reviewed addendum and strict packet validation.
 - [x] 4.2 Author disagreeing9/10 observation positive and changed10 pin/partition/name/provenance negatives, then align only the upgrade gate with same-tool10 original→upgraded truth. No pin filtering/schema/reader changes.
-- [ ] 4.3 Recapture all five native10 full-owner upgrade controls (especially092 full284pins/84groups) and focused unit/workflow proofs on the exact source, retain every original9 observation, update evidence/CHANGELOG. Root-owned final CI3.1 stays open.
+- [x] 4.3 Recapture all five native10 full-owner upgrade controls (especially092 full284pins/84groups) and focused unit/workflow proofs on the exact source, retain every original9 observation, update evidence/CHANGELOG. Root-owned final CI3.1 stays open.

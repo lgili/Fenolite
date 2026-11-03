@@ -89,3 +89,26 @@ production parser/floor/model remain unchanged; ordinary supported9 tests remain
 The initial focused floor/bridge/workflow group passes98 tests in1.09s. A further planted
 native10-original signature mismatch is included in final verification. Root-owned combined
 fast and exact-head required CI remain separate3.1 gates.
+
+Final focused controls pass99 tests in0.55s. On clean source
+`30d18b13e6097645ce60dc31f4a2454524ff4dcf` (receipts use its unique abbreviation
+`30d18b13`), official native10.0.6 passes the authored control and all five declared floor
+controls:6passed in40.77s. Official native9.0.9 on that same source passes the authored
+original observation and all five original-only controls:6passed in22.37s. Their joint
+verifier passes all five complete owner proofs. The original immutable source remains
+refused with FEN-3003 in every row; native9 never claims an upgrade or equality.
+
+Complete native10 original/upgraded pin/group counts are092=284/84,008=30/9,
+012=49/13,013=10/4 and014=19/7. Each pair has identical full pin-universe, partition
+and named signatures, and every own/lowered/native comparison is exact. Every input
+and owner digest is bound and unchanged. Native9 retains092=196/44, while its other
+four count pairs match the corresponding observations above. This explicitly retains
+the historical vendor-version disagreement without a native9 equivalence claim.
+
+External immutable artifacts use the names `c0347-ten-scope-native10`,
+`c0347-ten-scope-native9`, `c0347-ten-scope-recap.json` and
+`c0347-ten-scope-verifier.log`; the recap is a diagnostic summary, not a new public
+format. Both native runs retain the existing pytest record-property/JUnit compatibility
+warning; no native finding was filtered. Strict OpenSpec, focused ruff and the private
+staged scanner pass (8files,0hits,gate on). These local proofs complete4.3 only;
+root-owned combined validation and exact-head required CI3.1 remain pending.
