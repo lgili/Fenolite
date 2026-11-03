@@ -1,0 +1,54 @@
+{
+  "EXPLORATORY_SINGLE_APPROVED_CASE_NO_PRODUCTION_OR_PAIR_EQUALITY": true,
+  "all_other_project_json_values_exact": true,
+  "args": [
+    "pcb",
+    "drc",
+    "--format",
+    "json",
+    "--severity-all",
+    "--refill-zones",
+    "--save-board",
+    "-o",
+    "drc.json",
+    "RoyalBlue54L-Feather.kicad_pcb"
+  ],
+  "baseline_derived_geometry_sha256": "a562fa7965020cc8dfd270a007b7dcf1da04d716c994b7ffeb8a8fb81278ad12",
+  "baseline_derived_regions": 289,
+  "baseline_native_sha256": "d87c746745726e1d5c4e6569111a0151cb5dae9a7cf718b2aafabcd866ad086f",
+  "complete_derived_geometry_equal_to_original_baseline": false,
+  "complete_literal_net_partitions_unchanged": true,
+  "coordinator_approval": "2026-11-03 explicit one-case10.0.6 approval after proposal review",
+  "derived_input_regions": 263,
+  "driver_sha256": "e934d5c0f0c87c22e98a5a2fb7d689d9ae6034328debbabc1c5c060aaba37886",
+  "external_summary_sha256": "a86c04d4ed503ec43ff52501d230462d7b48e49fbe7564c2efe9f46dcc2664a5",
+  "input_sha256": {
+    "RoyalBlue54L-Feather.kicad_pcb": "535dbe212f43a8bab12b23277e176a94ac9694177258af2981c0e7b08e4b7252",
+    "RoyalBlue54L-Feather.kicad_pro": "6db0a99a1d614ac6624bad04ca6da7f37a046ef7bbbbbf7808346bdedca21350"
+  },
+  "native_derived_geometry_sha256": "9241ebb6ee97ab8a3e319981b18c15f915c82cb306a0eb84a283c328d3b4c58f",
+  "native_derived_regions": 289,
+  "native_returncode": 0,
+  "no_rerun_or_iteration": true,
+  "one_native_run": true,
+  "ordinary_comparison_scope": "raw complete ordinary filled_polygon AST; no canonical normal-fill geometry equality claim",
+  "ordinary_input_fills": 35,
+  "ordinary_output_count": 35,
+  "ordinary_output_exact_to_original_baseline": false,
+  "ordinary_output_sha256": "cce67e9cd71b0a44b7cf92591f37c8ce94b688e26746b9ce64b256e8a862fad9",
+  "original_input_sha256": {
+    "RoyalBlue54L-Feather.kicad_pcb": "535dbe212f43a8bab12b23277e176a94ac9694177258af2981c0e7b08e4b7252",
+    "RoyalBlue54L-Feather.kicad_pro": "a25ffa7ff829d5eaff27b29724b57821ce2ee7fd39ae367b9ea078d290e37690"
+  },
+  "original_sources_and_companions_unchanged": true,
+  "output_sha256": {
+    "RoyalBlue54L-Feather.kicad_pcb": "74dd91e821aeeacdb40dc8591b6ba4ccd42695e568a686492ff3fe221c9b2972",
+    "RoyalBlue54L-Feather.kicad_prl": "338b5a26624b7163cac27cd763df84059c16a704ebb4e51cddf0dd6267de503a",
+    "drc.json": "0fb96cfe963d72768e4380e9dbcd38a2b3e20cb34326f892b4983590803aca1d"
+  },
+  "outside_value_span_bytes_exact": true,
+  "pcb_bytes_original_exact": true,
+  "plan_sha256": "a8d2396e8ee8bd4efcb66e1c4b70750302200f21bc1b248bf9ef5e4b096b4a8f",
+  "result": "causal geometry change, not fixed; no production acceptance",
+  "tool_version": "10.0.6"
+}

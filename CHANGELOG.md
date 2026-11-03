@@ -15,6 +15,10 @@ All notable changes to Fenolite are documented here. The format follows
 - Preserve the completed failed fast-gate receipt and the exact five-case repair replay, keeping the next whole-source and native validation gates open (c0319).
 
 - Restore the drawn-example negative coverage test after the GND correction and assert its new IN label explicitly, retaining no-write and rebuild identity checks (c0319).
+- Record the approved single-variable Royal pattern diagnostic: unchanged PCB/caches and only two added project patterns change complete native geometry; retain the genuine production failure and all output evidence (c0355).
+
+- Prepare a gated single-variable external project-pattern diagnostic for Royal, preserving every original PCB byte/cache and requiring coordinator review before any native execution (c0355).
+
 - Bound the test-only ERC conflict-matrix numeric descriptor to documented0..2 values with native9/10 key-linkage and malformed/unknown negatives; Royal renumbering remains blocked (c0355).
 
 - Add an incomplete, closed test-only numeric-role ledger with authored NO_NET, silkscreen-cache and footprint-connection guards; unknown project/Plot fields continue to block Royal renumbering (c0355).
@@ -24,6 +28,20 @@ All notable changes to Fenolite are documented here. The format follows
 - Keep historical release records current with newly opened acceptance tasks and letter-suffixed continuation IDs; make the open-task negative independent of later task completion (c0319).
 
 - Isolate repeated-sheet caller tests in temporary source copies, retaining the original fixture bytes and keeping generated resolver locks out of tests/data (c0276).
+- Prepare the externalmicrowave1.0.2 refresh with actual target10 source proof, replay and scoped audit, preserving original attribution/licence, notices and remaining failures.
+
+- Prepare the externalpic_programmer1.0.2 refresh with actual target10 source proof, replay and scoped audit, preserving original attribution/licence, notices and remaining failures.
+
+- Prepare the externalmultichannel1.0.2 refresh with actual target10 source proof, replay and scoped audit, preserving original attribution/licence, notices and remaining failures.
+
+- Prepare the externalkit-dev-coldfire-xilinx_52131.0.2 refresh with actual target10 source proof, replay and scoped audit, preserving original attribution/licence, notices and remaining failures.
+
+- Prepare the externalinterf_u1.0.2 refresh with actual target10 source proof, replay and scoped audit, preserving original attribution/licence, notices and remaining failures.
+
+- Prepare the externalecc831.0.2 refresh with actual target10 source proof, replay and scoped audit, preserving original attribution/licence, notices and remaining failures.
+
+- Prepare the externalcomplex_hierarchy1.0.2 refresh with actual target10 source proof, replay and scoped audit, preserving original attribution/licence, notices and remaining failures.
+
 - Complete a source-bound external Tiny1.0.2 pilot with actual target10 full proof, replay and scoped audit; preserve all notices, original library bytes and the remaining seventeen unrelated findings.
 
 - Document the measured KiCad10 CLI/official IPC limit for headless theme creation and the exact native-theme handoff; retain the missing real theme and human-review gates.

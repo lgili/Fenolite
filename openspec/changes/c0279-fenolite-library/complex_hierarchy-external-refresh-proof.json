@@ -1,0 +1,94 @@
+{
+  "source_core": "5b0853b718e54f2ce487a2545a3ed44df7bd0f9a",
+  "upstream": {
+    "archive_sha256": null,
+    "commit": "97acc80c223d75520c03fc44cab63cd9a3202c42",
+    "licence_files": [
+      "LICENSE.CC-BY-SA-4.0"
+    ],
+    "path": "demos/complex_hierarchy",
+    "retrieved": "2026-10-31",
+    "source_location": "https://gitlab.com/kicad/code/kicad/-/tree/97acc80c223d75520c03fc44cab63cd9a3202c42/demos/complex_hierarchy",
+    "spdx_expression": "CC-BY-SA-4.0",
+    "url": "https://gitlab.com/kicad/code/kicad"
+  },
+  "item_name": "complex_hierarchy",
+  "version": "1.0.2",
+  "actual_build_target": "kicad-10",
+  "native_cli_observed": "10.0.6",
+  "native_project_schema_major": 9,
+  "source_CAD_inputs": 4,
+  "active_resources": [],
+  "nominal_tables": [
+    "fp-lib-table",
+    "sym-lib-table"
+  ],
+  "licence_sources_sha256": {
+    "LICENSE.CC-BY-SA-4.0": "00ba11b9a22d453aed299954eaca389d8efef441a4673d84e2dc4ae10ebc7ca5"
+  },
+  "licence_text_sha256": "17a696cf6cf01b8d795151556dfd51cc121c1b678a33d509d6548658c1008391",
+  "licence_bytes_equal_approved_item": true,
+  "original_authors": [
+    "KiCad project (no individual author is named in the demo's files)"
+  ],
+  "model_references": 68,
+  "unique_model_names": 10,
+  "model_scope": "name-only, no3Dassets/official libraries copied; geometry/licences/equality not judged",
+  "levels": {
+    "1": "equal",
+    "2": "equal",
+    "3": "equal",
+    "4": "equal",
+    "5": "equal",
+    "6": "equal",
+    "7": "equal",
+    "S": "equal",
+    "8": "equal"
+  },
+  "actual_skips": {},
+  "differences": 0,
+  "accepted": 0,
+  "excluded": 0,
+  "notices_exact": [
+    {
+      "level": 5,
+      "kind": "route-unjudged",
+      "where": "GND",
+      "field": "zones",
+      "a": "",
+      "b": "pieces=26"
+    }
+  ],
+  "native_project_unjudged": "custom DRU rules and unrelated native properties",
+  "raw_import_verbatim": true,
+  "import_dry_exit": 0,
+  "import_confirm_exit": 0,
+  "record_dry_exit": 0,
+  "record_confirm_exit": 0,
+  "replay_exit": 0,
+  "replay_equal": true,
+  "scoped_proof_version_audit_exit": 0,
+  "whole_frame_audit_exit": 5,
+  "remaining_findings": 15,
+  "payload_delta": {
+    "old_count": 54,
+    "new_count": 108,
+    "counts": {
+      "changed": 54,
+      "added": 54
+    }
+  },
+  "all_item_files_scanned": 113,
+  "private_hits": 0,
+  "private_waivers": 0,
+  "private_exclusions": 0,
+  "outputs_tree": "fenolite-tree-1:cc1cabee1c4f598240debaac8aa7b5f25b6eb8246002bd8d2dfc25042ef0f9f4",
+  "provenance_sha256": "a14b352d68a1f8d75fd57e7c1da643415da4475193998533004336e6b56a4e97",
+  "receipt_sha256": "be30b525c087398b9f2efc3a95c467c42f115076957805910801e238c0ea567b",
+  "original_inputs_unchanged": true,
+  "authoritative_unchanged": true,
+  "outside_item_unchanged": true,
+  "published": false,
+  "promoted": false,
+  "CI_closure_claimed": false
+}
