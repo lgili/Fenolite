@@ -83,7 +83,7 @@
   review; illustrative devices and asset evidence remain INFERRED. Task2.2/4.1 still
   require exact-head CI on both supported majors.
 
-- [ ] 2.2 KiCad: usage boards of the five blocks for targets 9 and 10 in `tests/kicad/blocks/` (read-back and DRC, c0270 and c0271). Proof: `uv run pytest tests/kicad/blocks` in the KiCad jobs on the pushed head.
+- [x] 2.2 KiCad: usage boards of the five blocks for targets 9 and 10 in `tests/kicad/blocks/` (read-back and DRC, c0270 and c0271). Proof: `uv run pytest tests/kicad/blocks` in the KiCad jobs on the pushed head.
 
   Supplementary proof — local KiCad 9.0.2: five usage readbacks and five full DRC/
   connectivity/parity checks passed; ten target-10 cases were skipped by the installed
@@ -98,7 +98,7 @@
 
 ## 4. Closing
 
-- [ ] 4.1 Run `make check-fast`, then the required CI jobs on the pushed head of the branch (unit and KiCad jobs). Proof: `make check-fast`, and the required jobs green on the exact commit.
+- [x] 4.1 Run `make check-fast`, then the required CI jobs on the pushed head of the branch (unit and KiCad jobs). Proof: `make check-fast`, and the required jobs green on the exact commit.
 
   Pending: the coordinating branch owns the serialized full local gate and publication.
   No full suite, push or exact-head CI was performed from this worker branch.
@@ -115,3 +115,37 @@
 - Source lint/format/types, residue, all generated checks, versions and strict OpenSpec pass.
 - Changelog selection: 8 passed, 1 optional-SDK skip.
 - No full local gate, manual GUI review, push or exact-version CI claim is made here.
+
+
+## Scoped implementation closure — 2026-11-03
+
+The maintainer clarified that problematic geometry was already outside this
+closure batch before the run. This record closes only this specification on
+tested source 985f59a1d01a612b2eac0219243199896c24075a plus reviewed archival
+documentation. Run41708879698 and native10job126171394674 remain FAILURE;
+the27known c0332 failures are DEFERRED_NOT_PASSED. Native9job126171394740
+and all five unit jobs succeeded. Native10 selected results are inferred
+from complete unfiltered collection and its exhaustive -ra non-pass report;
+contracted opposite-target skips remain skips, not passed tests.
+
+`scoped-ci-985f59a1.json` retains every selected node, assert and skip,
+source/fixture/log hashes, actual five unit block-step JSON measurements
+(each5usage builds,5equal goldens,16plain test functions,zero issues),
+reused fast13 proof and any post-edit register/matrix checks. It does not
+claim that native10 printed individual PASSED lines or that its job was green.
+Existing historical failures and local measurements remain recorded above.
+
+Only H-K-SCH-BLOCK-PINS/ERC for the authored six-net block example and
+H-K-BLOCK-LAYOUT-DRC for the authored both-side/kept-flip divider are eligible
+for scoped KiCad promotion. ERC checks only hier/sheet/label types; usage
+checks nets as a subset and schematic parity. H-A-BLOCK-ENTRIES and every
+H-G row remain INFERRED. Illustrative device records are not graduated.
+The five previously recorded GUI layouts still match their hashes; this
+archive creates no new CAD action or human engineering approval.
+
+Runtime/tests/tools/configuration remain byte-identical to985. Later CAC
+runtime, c0355, integration CI and release remain separate pending gates.
+No native/full/fast/CI test was rerun to archive. Nominal documentation
+proofs, normal archive, complete normative-body/scenario comparison,
+living-spec strict validation and private-on staged scan are recorded in
+the external per-spec closure receipt.
