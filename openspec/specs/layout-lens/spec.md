@@ -76,7 +76,7 @@ The module `fenolite.lens.preserve` SHALL hold the layout preservation of `build
 - **THEN** `R1` is matched with key `uuid` to the original node, and the copy is the only orphan
 
 ### Requirement: Placement precedence
-`lens.preserve.effective_placements(placements, match, *, design, board, source={}, base=None, takes=())` SHALL decide each part's placement: a locked `place()` wins; otherwise the part's *request* (its `source` entry, else its unlocked `place()`, else none) and the existing board are merged per property by the three-way rule of `edit-merge` ("Three-way property merge") against the base record `base` of the output folder, and without a base for the part by the fixed precedence of before: the existing board, then the request, then the build's staging (later, c0022's placer). `prepare` SHALL call it, and `cmd_build` SHALL pass the result to `build_design` as its `placements`.
+`lens.preserve.effective_placements(placements, match, *, design, board, source={}, base=None, takes=(), resolver=None)` SHALL decide each part's placement by the fixed precedence written in `docs/lens.md`, "Placement precedence": (1) a locked `place()`, absolute or relative, composed with its block poses; (2) the existing board, merged per property with the part's *request* by the three-way rule of `edit-merge` ("Three-way property merge") against the base record `base` of the output folder, and without a base for the part winning as before; (3) the part's `source` entry (the edits file, or a legacy placements file); (4) an unlocked `place()`, absolute or relative, composed with its block poses; (5) the strategy of the innermost enclosing frame that has one, a layout strategy or a block layout reuse (`placement-in-code`, `layout-reuse`); (6) the build's staging. Levels 3 to 5 are the part's request, the *code* side of the merge. `prepare` SHALL call it, and `cmd_build` SHALL pass the result to `build_design` as its `placements`.
 - `placements` MUST be `dsl.placements(design)` (c0011): component path → an object with `at`, `rotation`, `side` and `locked`. "Locked" means `place(…, locked=True)` in the script.
 - `source` MUST map component paths to `SourcePlacement` entries: the position keys of the edits file (`edit-merge`, "Edits file schema"), or the entries of a legacy placements file ("Placements file"). An entry that wins MUST be given as a `KeptPlacement` with the entry's position, rotation, side and lock, so the build writes the entry's lock; that lock gives the entry no precedence.
 - `base` MUST be the `BaseRecord` read from the output folder (`edit-merge`, "Base record file"), or `None`. `takes` MUST be the parsed `--take` resolutions (`edit-merge`, "Take option of build").
@@ -90,6 +90,10 @@ The module `fenolite.lens.preserve` SHALL hold the layout preservation of `build
 - An unlocked `place()` whose position, rotation or side differs from a kept board placement MUST give `layout.place-overridden` (info), naming the part and both placements, with the hint "lock the placement in the script, move the footprint in KiCad, or re-run with --discard-layout". When it differs from a `source` entry that wins, the same code MUST be given with the hint "lock the placement in the script, or edit edits.toml".
 - A `source` entry of a part that keeps a board placement different from the entry MUST give `layout.source-stale` (info) naming the part and both placements, with the hint "run fenolite sync --to-source". An entry that names no part of the design MUST give `layout.source-unknown` (warning).
 - A locked `place()` that differs from the board's position, rotation, side or lock MUST give `layout.place-forced` (warning), because the footprint is then re-placed from its definition ("Kept and re-placed footprints").
+- Relative requests (`dsl.relative_requests(design)`), block poses and strategies MUST be resolved by `resolver`, which `cmd_build` injects from `placement.relative` and `placement.strategies` (`lens` imports neither), in the order of `placement-in-code`, "Resolution order". `resolver(fixed)` gives the code placement of every part it places, composed with its block poses, given the placements `fixed` that the board or the `source` decided; `lens.preserve.resolving` calls it with no fixed placement, decides, and calls it again with the decided placements that differ from their code placement until those stop changing, so a relative request follows the merged position of its reference. Without `resolver`, `placements` is the code side unchanged.
+- A relative request decides at the level of its lock (1 or 4); a part with an unlocked request MUST NOT be placed by a strategy. A part kept from the board keeps its slot in its frame's strategy. A part that no level 1 to 5 places is left unplaced and staged; a part of a strategy group staged as one box is staged at its strategy position (`placement-in-code`, "Strategy groups without a pose").
+- A part kept from the board MUST be moved rigidly with its block when the block's resolved pose differs from the pose of the last build (`placement-in-code`, "Rigid block moves"); the base entries of the block's parts move with it, so the rigid move is no change of either side.
+- A relative request that `layout.place-overridden` names MUST be given with its request text (`right_of=U1 gap=1mm`).
 - A conflict that no `--take` resolves MUST give `sync.conflict` (error), so the build plans no write; the footprint's placement in the returned mapping is then the board's.
 
 #### Scenario: The board wins over place()
@@ -156,6 +160,26 @@ The module `fenolite.lens.preserve` SHALL hold the layout preservation of `build
 - **GIVEN** a confirmed target-10 blink build in `B` whose base record was deleted, as on a board built before this change, edited by `edit_blink`
 - **WHEN** the build runs again with `--confirm --json`
 - **THEN** `D1` keeps its board placement as before, `issues` hold one `edit.base-missing`, and the written folder holds a base record, so the next build merges three ways
+
+#### Scenario: A relative request on a fresh build
+- **GIVEN** no existing board, `u1.place(mm(14), mm(15))` and `c5.place(right_of=u1, gap=mm(1))` with an injected resolver
+- **WHEN** `effective_placements` runs
+- **THEN** `C5` is placed with its courtyard box 1 mm right of `U1`'s, and no issue is given
+
+#### Scenario: The board wins over a relative request
+- **GIVEN** a confirmed build of that design whose `C5` was moved in KiCad
+- **WHEN** the build runs again with `--confirm`
+- **THEN** `C5` keeps its board placement, and `issues` hold one `layout.place-overridden` naming `C5` and the request `right_of=U1 gap=1mm`
+
+#### Scenario: A follower follows its moved reference
+- **GIVEN** a confirmed build of that design whose `U1` was moved 4 mm down in KiCad and whose `C5` was not
+- **WHEN** the build runs again with `--confirm`
+- **THEN** `U1` keeps its board placement and `C5` is 4 mm lower, still 1 mm right of `U1`
+
+#### Scenario: A request wins over the strategy
+- **GIVEN** a block with `b.layout(row())`, an unplaced part `R1` and a part `C1` with `c1.place(below=r1)`, and no existing board
+- **WHEN** `effective_placements` runs
+- **THEN** `R1` is placed by the row, `C1` below `R1` by its request, and the row holds only `R1`
 
 ### Requirement: Kept and re-placed footprints
 `lens.preserve.merge_layout(built, board, match, *, net_aliases={}, identities={}) -> Merged` SHALL keep the existing board's own footprint node for every matched part that stays where the board has it, and SHALL use the built copy otherwise. `identities` maps the component path of an alias match to its identity map, which `build_design` computes from the part's definition (`embed.uuid_locators`); an alias match without one MUST be re-placed.
