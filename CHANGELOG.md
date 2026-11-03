@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive c0262-library-rules with the retained 159-item checker/review-sheet artifact; preserve all 159 unreviewed states.
+
 - Archive c0260-footprint-generators with retained three/eight-model STEP proofs and reconciled generator contracts; limit STEP verification to those measured scopes.
 
 - Archive c0247-connection-helpers with retained source985 blink/ERC and pinned-byte proofs; keep failed CI badges and deferred geometry explicit.

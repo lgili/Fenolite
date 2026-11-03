@@ -81,11 +81,11 @@
 ## 5. Closing
 
 - [x] 5.1 Docs: `docs/library-rules.md` (every rule with a picture from the bad records, waivers, effective evidence, the review), `docs/library-ci.md` (decision 8), `library check` and `library review` in `docs/cli-contract.md`, and links from `docs/index.md`. Proof: `uv run pytest tests/unit -k "docs or facts_page" -q`; `uv run pytest tests/consistency -q`.
-- [ ] 5.2 CI: add `fenolite library check` of the shipped records to the unit job, with the sheets uploaded as an artefact. Proof: the unit job green on the pushed head, with the artefact present.
+- [x] 5.2 CI: add `fenolite library check` of the shipped records to the unit job, with the sheets uploaded as an artefact. Proof: the unit job green on the pushed head, with the artefact present.
 - [x] 5.3 Agent guide: add tested lines to the focused `library-review.md` page for `fenolite library check` and for `library review` as a human step, then run `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent/test_pages.py -q`.
 - [x] 5.4 Evidence: the hypotheses are registered and the evidence matrix is regenerated. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
 - [x] 5.5 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
-- [ ] 5.6 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
+- [x] 5.6 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
 
 Local validation record, 2026-11-01: proof logs are in the shared scratch validation folder for this
 change. The combined focused suite passed 153 tests (one official MCP SDK oracle skipped because the
@@ -110,3 +110,44 @@ filename collisions, authored-suffix edits and the existing scoped evidence gram
 The final metadata regression also binds authored properties and source maps whose keys happen to
 be named evidence/review, and keeps arbitrary authored suffix text. Its focused proof passed 15 tests
 and pyright reported zero errors after the broader suites; no author text is normalized out of a digest.
+
+## Proposed scoped closure receipt —2026-11-03
+
+Preflight base `9ba56e18562695c9cdf5ba3520cdb3e8d481db82` keeps runtime, tests and fixtures
+identical to CI source `985f59a1d01a612b2eac0219243199896c24075a`.
+`ci-scoped-985f59a1.json` records the actual selected results and limits from retained
+run41708879698: five green unit jobs, native9 explicit selected PASSED rows,
+and native10 completed required-CLI quiet-run inference, not an invented PASSED line.
+The run itself remains failed; the maintainer expressly excludes the27 deferred
+geometry cases from this closure batch, without passing them.
+This preparation marks no task and archives nothing; root review and the applicable
+scoped closing checks remain required. c0246 stays active; its missing literal double
+native-variant proof is not borrowed by this change.
+
+Documentary preflight (not a new native proof): nominal OpenSpec1.3.0 passes
+all four prepared changes and101 projected living specs. Its normal pure spec
+builder projects88 added requirements and120 added scenarios, two complete
+MODIFIED bodies, no removal/rename and no existing requirement/scenario loss.
+Both modified bodies preserve every old scenario body exactly. Matrix generator
+`--check` passes; the focused hypothesis-register/evidence-matrix modules pass
+59 tests in125.57s. No task checkbox or archive was changed by this preparation.
+
+## Authorized scoped closure —2026-11-03
+
+Root reviewed and approved the complete normative reconciliations and retained
+source985 proof. Local fast is the actual serialized fast13 receipt from
+`c0319-integration-repairs/fast13-receipt.json`: source
+`2c0540572c936303eb5c46a25002872648dfabad`, exit0,22366passed/52skipped.
+Runtime/tests/examples/tools Git trees and Makefile/pyproject/uv.lock/CI config
+are exactly equal through source985 and this docs-only executor. The original
+log and driver were independently rehashed. This is source-bound applicability,
+not an invented fast execution on985; later fast16/source863 is not used.
+
+The maintainer-authorized CI scope excludes the27 deferred geometry cases;
+those cases are NOT passed. Retained CI41708879698 and its native10 job remain
+FAILURE. Own native9 PASSED results, native10 completed quiet-run source-bound
+inference, five green unit jobs and the named artifact are recorded with their
+limits in ci-scoped-985f59a1.json. This closes the listed task proofs in that
+explicit scope, not a claim of whole-job green. The59 documentary tests,
+nominal strict validations and matrix check complement the retained fast/CI.
+No new fast/full/native/GUI/CI was run. c0246 stays open.
