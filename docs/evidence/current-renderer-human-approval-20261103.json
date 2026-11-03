@@ -1,0 +1,187 @@
+{
+  "approved_index_sha256": "8f220549ac6d4149964a506b8bc54715605d40fdf554d4ff2fe981b8aa4ecd72",
+  "approved_sheets_manifest_sha256": "0a83b17d0ac35698bb2eeae0891a4431dd73daba4a1f663f614e9dee6e218250",
+  "ci_or_release_complete": false,
+  "core_commit": "8737f3d7",
+  "decision_quote": "Aprovo as quatro fichas atualizadas, com os mesmos avisos",
+  "decision_scope": "seed-curated-sheets-current-renderer-v1 only; exact four hashes; no earlier approval inferred",
+  "items": [
+    {
+      "approved_review_sha256": "7c9e33b0cbef763515a3547902ece82586dbda419ff6c7898842815c7d72e7c2",
+      "id": "LibrePCBBaseReview:RESC1608__0603_",
+      "kind": "package",
+      "record_digest": "abf92b9996e910e46bbf608ba1e29908c40e54dfe63513733942e35a3ba03de9",
+      "record_relative_path": "footprints/cc0/LibrePCBBaseReview/RESC1608__0603_/record.toml",
+      "review": {
+        "digest": "abf92b9996e910e46bbf608ba1e29908c40e54dfe63513733942e35a3ba03de9",
+        "latest": {
+          "accepted_codes": [],
+          "date": "2026-11-03",
+          "digest": "abf92b9996e910e46bbf608ba1e29908c40e54dfe63513733942e35a3ba03de9",
+          "evidence": "CORPUS-VERIFIED",
+          "fenolite_version": "0.7.0.dev0",
+          "previous_evidence": "UNVERIFIED",
+          "record_sha256": "2a5c90f11e7b590d5637a354ace25150c969cf35b04e42d817505a2c1bbb0f49",
+          "sheet": "",
+          "sheet_sha256": "7c9e33b0cbef763515a3547902ece82586dbda419ff6c7898842815c7d72e7c2",
+          "version": "1.0.0",
+          "who": "Luiz Carlos Gili"
+        },
+        "state": "accepted"
+      },
+      "state": "accepted",
+      "warnings": [],
+      "written": [
+        {
+          "path": "seed-review-curated/footprints/cc0/LibrePCBBaseReview/RESC1608__0603_/record.toml",
+          "sha256": "2cd1d29abdf9c1d01a34f415ca77352e4e8547ca5f5fd75a67b6a0216aaab1b1"
+        }
+      ]
+    },
+    {
+      "approved_review_sha256": "5c3a685173a9f41a4cc11d0fa728fccabca5b83f96971fa04c1a08d24f7558c5",
+      "id": "LibrePCBBaseReview:RESC1608__0603__Density_Level_A__max_protrusion_",
+      "kind": "package",
+      "record_digest": "a5fcb45a704d0a87c31eaae037b0abd436071134aa4ef703c4eb6a247c2caa26",
+      "record_relative_path": "footprints/cc0/LibrePCBBaseReview/RESC1608__0603__Density_Level_A__max_protrusion_/record.toml",
+      "review": {
+        "digest": "a5fcb45a704d0a87c31eaae037b0abd436071134aa4ef703c4eb6a247c2caa26",
+        "latest": {
+          "accepted_codes": [],
+          "date": "2026-11-03",
+          "digest": "a5fcb45a704d0a87c31eaae037b0abd436071134aa4ef703c4eb6a247c2caa26",
+          "evidence": "CORPUS-VERIFIED",
+          "fenolite_version": "0.7.0.dev0",
+          "previous_evidence": "UNVERIFIED",
+          "record_sha256": "82ee68e9d9c002905746e01cb149216b28f02f3a457e81d69503f5285b26dc71",
+          "sheet": "",
+          "sheet_sha256": "5c3a685173a9f41a4cc11d0fa728fccabca5b83f96971fa04c1a08d24f7558c5",
+          "version": "1.0.0",
+          "who": "Luiz Carlos Gili"
+        },
+        "state": "accepted"
+      },
+      "state": "accepted",
+      "warnings": [],
+      "written": [
+        {
+          "path": "seed-review-curated/footprints/cc0/LibrePCBBaseReview/RESC1608__0603__Density_Level_A__max_protrusion_/record.toml",
+          "sha256": "bea88081f9a95e5b80258c7495e01e9b4d6258195786ecfe86c017deb68335aa"
+        }
+      ]
+    },
+    {
+      "approved_review_sha256": "66f052aedbbe56bd7c142579aed30509c0cb0b92bb646a06e2a0afd338e26f16",
+      "id": "LibrePCBBaseReview:Resistor",
+      "kind": "pins",
+      "record_digest": "95de6550099226b1d7885fc127faf2f86df65830c9fb7d4a70a358cc23916a08",
+      "record_relative_path": "symbols/cc0/LibrePCBBaseReview/Resistor/record.toml",
+      "review": {
+        "digest": "95de6550099226b1d7885fc127faf2f86df65830c9fb7d4a70a358cc23916a08",
+        "latest": {
+          "accepted_codes": [
+            "library.pin-grid"
+          ],
+          "date": "2026-11-03",
+          "digest": "95de6550099226b1d7885fc127faf2f86df65830c9fb7d4a70a358cc23916a08",
+          "evidence": "CORPUS-VERIFIED",
+          "fenolite_version": "0.7.0.dev0",
+          "previous_evidence": "UNVERIFIED",
+          "record_sha256": "ff4b4a1fb915b8ff88f68bae4ea90a731d3e4434f3f342b452c2cffbeadeaa53",
+          "sheet": "",
+          "sheet_sha256": "66f052aedbbe56bd7c142579aed30509c0cb0b92bb646a06e2a0afd338e26f16",
+          "version": "1.0.0",
+          "who": "Luiz Carlos Gili"
+        },
+        "state": "accepted"
+      },
+      "state": "accepted",
+      "warnings": [
+        {
+          "code": "library.pin-grid",
+          "hint": "",
+          "message": "connection point or length is off the preferred 100 mil grid",
+          "retryable": false,
+          "severity": "warning",
+          "waived": false,
+          "where": "LibrePCBBaseReview:Resistor:pin 1"
+        },
+        {
+          "code": "library.pin-grid",
+          "hint": "",
+          "message": "connection point or length is off the preferred 100 mil grid",
+          "retryable": false,
+          "severity": "warning",
+          "waived": false,
+          "where": "LibrePCBBaseReview:Resistor:pin 2"
+        }
+      ],
+      "written": [
+        {
+          "path": "seed-review-curated/symbols/cc0/LibrePCBBaseReview/Resistor/record.toml",
+          "sha256": "863959048ed1cc78627528ac3ca77f022ee9e45c214e171e0a56c6b3f43e58a0"
+        }
+      ]
+    },
+    {
+      "approved_review_sha256": "eda9df94ddeb2a715795713f324314b8f7f2ea0e416a73d2d62010fe4fbea985",
+      "id": "LibrePCBBaseReview:Resistor_1608__0603_",
+      "kind": "device",
+      "record_digest": "16a5dd0549814d4be96d61b330323d42f9d9309bd97c391afc6701b3e9048307",
+      "record_relative_path": "devices/cc0/LibrePCBBaseReview/Resistor_1608__0603_/record.toml",
+      "review": {
+        "digest": "16a5dd0549814d4be96d61b330323d42f9d9309bd97c391afc6701b3e9048307",
+        "latest": {
+          "accepted_codes": [
+            "library.pin-grid"
+          ],
+          "date": "2026-11-03",
+          "digest": "16a5dd0549814d4be96d61b330323d42f9d9309bd97c391afc6701b3e9048307",
+          "evidence": "CORPUS-VERIFIED",
+          "fenolite_version": "0.7.0.dev0",
+          "previous_evidence": "UNVERIFIED",
+          "record_sha256": "ef8cfac3fcaaaccd5ca274db9b12243eff6a37901cf11e796154a9f31c752afc",
+          "sheet": "",
+          "sheet_sha256": "eda9df94ddeb2a715795713f324314b8f7f2ea0e416a73d2d62010fe4fbea985",
+          "version": "1.0.0",
+          "who": "Luiz Carlos Gili"
+        },
+        "state": "accepted"
+      },
+      "state": "accepted",
+      "warnings": [
+        {
+          "code": "library.pin-grid",
+          "hint": "",
+          "message": "connection point or length is off the preferred 100 mil grid",
+          "retryable": false,
+          "severity": "warning",
+          "waived": false,
+          "where": "LibrePCBBaseReview:Resistor_1608__0603_ -> LibrePCBBaseReview:Resistor:pin 1"
+        },
+        {
+          "code": "library.pin-grid",
+          "hint": "",
+          "message": "connection point or length is off the preferred 100 mil grid",
+          "retryable": false,
+          "severity": "warning",
+          "waived": false,
+          "where": "LibrePCBBaseReview:Resistor_1608__0603_ -> LibrePCBBaseReview:Resistor:pin 2"
+        }
+      ],
+      "written": [
+        {
+          "path": "seed-review-curated/devices/cc0/LibrePCBBaseReview/Resistor_1608__0603_/record.toml",
+          "sha256": "3385aeeb6be3a7fa6763a2fd867366fa1b55425df07517e362ba0f9f66649652"
+        }
+      ]
+    }
+  ],
+  "materialization_driver_sha256": "82edba950971572d0779c17b3f67760e4fbe8ea7676383a13040d8a20a6e6163",
+  "materialization_receipt_sha256": "0e9308c7b6b59fb2e7e210133fcc7f56b1ff7480c2e7f0a6884e397845ab34f8",
+  "notes": "Exact current-renderer package approved by real maintainer reply; all four dry plans confirmed by exact plan IDs, post-check accepted and sheet hashes unchanged. Human warnings remain unchanged. Earlier approval was not substituted.",
+  "review_package": "seed-curated-sheets-current-renderer-v1",
+  "reviewer": "Luiz Carlos Gili",
+  "source_is_public_pin": false,
+  "timestamp": "2026-11-03T08:14:38Z"
+}

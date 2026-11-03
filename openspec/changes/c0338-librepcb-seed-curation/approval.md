@@ -22,3 +22,9 @@ This is not release/audit/CI completion. c0266 task4.2 stays pending until its
 actual library releasejob and audit exit0 on the release tag, with other required
 items/gates. Native proof is connectivity of the explicit tested circuit, not
 fabrication or rating qualification. Public CAD payload remains outside core.
+
+## Updated renderer approval and all four materializations (2026-11-03)
+
+Luiz Carlos Gili explicitly stated: “Aprovo as quatro fichas atualizadas, com os mesmos avisos”. This NEW decision applies only to the current-renderer-v1 package and its four exact approved sheet hashes; the earlier approval does not implicitly cover changed bytes. The four actual CLI dry-run/exact-plan/confirm acceptance receipts now exist, including the direct device with its dependencies. The source renderer snapshot is8737f3d7, not a final public pin. Geometry, dependencies and all four preferred100mil WARN remain unchanged.
+
+The complete decisions, exact record/sheet digests, reviewed index/manifest digests, raw-receipt digests and all four confirmation receipts are preserved in `docs/evidence/current-renderer-human-approval-20261103.json` (byte-identical to library commit6a6c14a). This supersedes only the older materialization-pending state above; it does not close library integration, exact-head CI, audit or release gates.
