@@ -84,3 +84,9 @@ dependency, comparison waiver or fallback. The focused after group passes 38 tes
 no output and immutable-source assertions on target 9/10; the native flat/repeat/DNP and four authored
 multi-unit controls pass all eight cases on the actual 10.0.6 CLI. Ruff and focused typing pass. Required
 exact-head CI and release freeze remain separate pending gates.
+
+An actual isolated official 9.0.9 CLI subsequently passed all eight native BOM/multi-unit controls
+(flat/repeat × DNP plus original multi-unit flags). Its first attempt exposed a test setup bug: the
+explicit rebuild omitted its target major and wrote default-target-10 files, which native9 correctly
+refused. The oracle now passes the running major to build, matching the existing fidelity harness.
+No product refusal or version policy was changed; source-bound 9 evidence remains partial until CI.

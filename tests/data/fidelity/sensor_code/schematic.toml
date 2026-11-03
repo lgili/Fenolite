@@ -38,6 +38,7 @@ rotation = 0
 [[sheet.label]]
 kind = "global"
 text = "GND"
+shape = "bidirectional"
 at = [50.8, 80.01]
 rotation = 0
 
@@ -56,6 +57,7 @@ rotation = 0
 [[sheet.label]]
 kind = "global"
 text = "GND"
+shape = "bidirectional"
 at = [21.59, 63.5]
 rotation = 0
 

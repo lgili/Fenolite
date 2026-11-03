@@ -2828,13 +2828,13 @@ notes = "the symbol table of the fidelity script (c0278): the authored mini libr
 path = "tests/data/fidelity/sensor/sensor.kicad_pcb"
 origin = "authored"
 corpus_id = ""
-notes = "board of the authored fidelity original (c0278), written by the target-10 build of tests/data/fidelity/sensor_code/design.py; a text stand-in for a project saved by the KiCad GUI (task 4.1 of c0278 stays open until the GUI save)"
+notes = "board of the authored fidelity original (c0278), written by the target-10 build of tests/data/fidelity/sensor_code/design.py; saved in the real KiCad10.0.6 GUI on2026-11-02 after c0344 project identity binding; all-level and native partition proof passed"
 
 [[file]]
 path = "tests/data/fidelity/sensor/sensor.kicad_sch"
 origin = "authored"
 corpus_id = ""
-notes = "root drawn schematic of the authored sensor build (c0278), with a real bus, junction and two references to one populated channel sheet; pending root GUI-save"
+notes = "root drawn schematic of the authored sensor build (c0278), with a real bus, junction and two references to one populated channel sheet; saved by the KiCad10.0.6 GUI on2026-11-02 and proved at all9strict levels"
 
 [[file]]
 path = "tests/data/fidelity/sensor/sensor.kicad_pro"
@@ -4995,4 +4995,4 @@ notes = "authored c0278 sensor drawing: root bus/junction and two populated inst
 path = "tests/data/fidelity/sensor/sheets/channel.kicad_sch"
 origin = "authored"
 corpus_id = ""
-notes = "authored shared nonempty child sheet of sensor ch0/ch1, generated target10 pending root GUI-save; real distinct resistor/net contexts"
+notes = "authored shared nonempty child sheet of sensor ch0/ch1, saved by the real KiCad10.0.6 GUI on2026-11-02 through both ch0/ch1 contexts; native partition retains R2/R3 and separate SENSE nets"

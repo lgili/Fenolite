@@ -12,6 +12,9 @@ the board is lost at the next update. Many faults that a layout review finds wer
 `Part(..., bom_only=True)` retains a pinless purchasing item in the canonical BOM and KiCad schematic,
 with no board footprint, placement or electrical pins. DNP is independent; Altium output refuses it.
 
+Keep formatted bus prefixes literal: `BUS_{A}{D[0..3]}` contains `BUS_{A}.D0` through `BUS_{A}.D3`.
+Flattening the markup changes electrical names; malformed groups must not invent connections.
+
 ## One master
 
 - **Make every change in the schematic.** Change nets, values and part numbers there, and derive the

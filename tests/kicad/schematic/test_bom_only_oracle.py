@@ -45,7 +45,16 @@ def test_native_bom_only_roundtrip_keeps_bill_without_adding_electrical_pins(
     assert planned.exit_code == 0, (planned.error, planned.envelope)
     confirmed = run(*args, "--confirm", "--plan", planned.result["plan_id"], cwd=tmp_path)
     assert confirmed.exit_code == 0, confirmed.error
-    rebuilt = run("build", "code/design.py", "--out", "rebuilt", "--confirm", cwd=tmp_path)
+    rebuilt = run(
+        "build",
+        "code/design.py",
+        "--out",
+        "rebuilt",
+        "--confirm",
+        "--kicad-version",
+        str(_probes.major()),
+        cwd=tmp_path,
+    )
     assert rebuilt.exit_code == 0, (rebuilt.error, rebuilt.envelope)
     native_rows = []
     native_partitions = []

@@ -112,6 +112,54 @@ def value(form: Form, contact: Contact) -> DrawnSchematic:
     return replace(original, sheets=tuple(sheets))
 
 
+def formatted_prefix(prefix: str, *, child_prefix: str | None = None, group: bool = True) -> DrawnSchematic:
+    """An authored literal group prefix, optionally planting nonmatching child member text (c0343)."""
+    drawing = value("group", "entry")
+    sheets = []
+    for sheet in drawing.sheets:
+
+        def renamed(text: str, *, scalar: bool = False, key: str = sheet.key) -> str:
+            if not group and text == "CHANNEL{D[0..3]}":
+                return prefix
+            chosen = child_prefix if scalar and key == "child" and child_prefix is not None else prefix
+            return text.replace("CHANNEL", chosen)
+
+        labels = tuple(
+            replace(label, text=renamed(label.text, scalar=label.kind == "local")) for label in sheet.labels
+        )
+        refs = tuple(
+            replace(ref, pins=tuple(replace(pin, name=renamed(pin.name)) for pin in ref.pins))
+            for ref in sheet.sheet_refs
+        )
+        sheets.append(replace(sheet, labels=labels, sheet_refs=refs))
+    return replace(drawing, sheets=tuple(sheets))
+
+
+def vector_prefix(prefix: str) -> DrawnSchematic:
+    """Original vector control, including a planted malformed prefix that must not invent joins."""
+    drawing = value("vector", "entry")
+
+    def renamed(text: str) -> str:
+        if text == "D[0..3]":
+            return f"{prefix}[0..3]"
+        return prefix + text[1:] if text.startswith("D") and text[1:].isdigit() else text
+
+    return replace(
+        drawing,
+        sheets=tuple(
+            replace(
+                sheet,
+                labels=tuple(replace(label, text=renamed(label.text)) for label in sheet.labels),
+                sheet_refs=tuple(
+                    replace(ref, pins=tuple(replace(pin, name=renamed(pin.name)) for pin in ref.pins))
+                    for ref in sheet.sheet_refs
+                ),
+            )
+            for sheet in drawing.sheets
+        ),
+    )
+
+
 @cache
 def base(target: int):
     output = _drawn.build("bus", target)

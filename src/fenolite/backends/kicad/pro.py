@@ -36,6 +36,7 @@ from fenolite.backends.kicad.lowering import (
 )
 from fenolite.backends.kicad.pcb import source_info
 from fenolite.backends.kicad.proerrors import ISSUE_CODES, project_issue
+from fenolite.backends.kicad.sexpr import parse
 from fenolite.backends.kicad.tuning import TuningProfile, lift_profiles, read_profiles
 from fenolite.backends.kicad.versions import (
     DEFAULT_TARGET,
@@ -805,6 +806,50 @@ def _check_classes(data: JsonObject, design: Design, *, target: int, issues: lis
     )
 
 
+def bind_schematic_identity(project_text: str, *, root_file: str, schematics: Mapping[str, str]) -> str:
+    """Bind managed identity caches to emitted sheets, never the empty-project template UUID.
+
+    Only a caller actually writing those schematics may call this (c0344).
+    Other project keys remain unchanged, and no source file is edited here.
+    """
+    if root_file not in schematics or Path(root_file).name != root_file:
+        raise ValueError("schematic identity needs the emitted root filename")
+    root = parse(schematics[root_file], file=root_file)
+    root_id = root.find("uuid")
+    if root.name != "kicad_sch" or root_id is None or len(root_id.atoms()) != 1:
+        raise ValueError("emitted root schematic needs one UUID")
+    root_uuid = root_id.atoms()[0].value
+    name = Path(root_file).stem
+    identities = {root_uuid: name}
+    for filename, text in sorted(schematics.items()):
+        sheet = parse(text, file=filename)
+        for child in sheet.nodes("sheet"):
+            child_id = child.find("uuid")
+            names = [p for p in child.nodes("property") if p.atoms() and p.atoms()[0].value == "Sheetname"]
+            if (
+                child_id is None
+                or len(child_id.atoms()) != 1
+                or len(names) != 1
+                or len(names[0].atoms()) != 2
+            ):
+                raise ValueError("emitted sheet reference needs UUID and Sheetname")
+            key, value = child_id.atoms()[0].value, names[0].atoms()[1].value
+            if key in identities and identities[key] != value:
+                raise ValueError("conflicting emitted sheet identities")
+            identities[key] = value
+    data = _json.loads(project_text)
+    settings = _object(data, "schematic", "", "/schematic")
+    if settings is None:
+        settings = {}
+        data["schematic"] = settings
+    settings["top_level_sheets"] = [{"filename": root_file, "name": name, "uuid": root_uuid}]
+    data["sheets"] = [
+        [root_uuid, name],
+        *[[key, identities[key]] for key in sorted(identities) if key != root_uuid],
+    ]
+    return _json.dumps(data)
+
+
 def synthesize_project(
     design: Design,
     *,
@@ -1106,6 +1151,7 @@ __all__ = [
     "project_major",
     "read_project",
     "read_project_text",
+    "bind_schematic_identity",
     "synthesize_project",
     "template",
     "update_project",

@@ -132,7 +132,7 @@
 
 ## 4. verify-source
 
-- [ ] 4.1 Author `tests/data/fidelity/sensor/` (a KiCad 10 project authored for Fenolite, CC0, saved by the
+- [x] 4.1 Author `tests/data/fidelity/sensor/` (a KiCad 10 project authored for Fenolite, CC0, saved by the
   KiCad GUI per "Project fixtures saved by the KiCad GUI": four layers, net classes, a custom rule, zones,
   arcs, vias, board text, a drawn hierarchical schematic with a bus, a repeated sheet and junctions) and its
   converted script `tests/data/fidelity/sensor_code/`; declare both in `tests/data/MANIFEST.toml`. Until
@@ -143,7 +143,7 @@
   save (maintainer). It holds four layers, net classes, a custom rule, a zone, an arc and vias, board text
   and a flat schematic; the hierarchical drawn schematic with a bus waits for c0276. The proof passes.
 - [x] 4.1a Complete the sensor's actual hierarchy/bus/nonempty repeated sheet, preserve original physical cases, declare new authored dependencies and strengthen copy/fixture/import tests. Proof: focused verify-source tests and manifest; target10 strict levels1–8+S.
-- [ ] 4.1b Prove native10 net partition and import/build, then supply exact prepared project to root for real GUI save. No GUI proof is inferred from generated files. Proof: source-bound native receipts and root GUI follow-up.
+- [x] 4.1b Prove native10 net partition and import/build, then supply exact prepared project to root for real GUI save. No GUI proof is inferred from generated files. Proof: source-bound native receipts and root GUI follow-up.
 - [x] 4.2 Add `cmd_verify_source.py`: inputs, the temporary build, the levels, tolerances, result schema
   `fenolite.verify-source.v0`, exit codes and `ISSUE_CODES` (scenarios of "Verify-source command",
   "Verify-source inputs", "Build in a temporary folder", "Verify-source levels", "Verify-source
@@ -313,3 +313,7 @@ fixture/unused-variable errors outside these additions; the normal gate types
 src, and no runtime source is changed here. Prepared native text source remains pending
 root's actual GUI-save receipt under4.1/4.1b, and exact-source CI remains pending.
 No generated source file is represented as already GUI-saved.
+
+Actual GUI proof completed after c0344: fresh runtime-fixed v4 opened without auto-repair, root/ch0/ch1/board saved in real KiCad10.0.6 GUI; post-GUI strict1–8+S and native five-component partition are equal, no accepted differences. Only five native files captured; exact SHA table and rejected v1 diagnosis are in ../c0344-kicad-project-sheet-identity/native-proof.md. Task4.1 remains subject to its literal residue/manifest proof below and root exact-source CI; generated text was not mistaken for a GUI save.
+
+Task4.1 literal residue/manifest proof is now complete: the combined focused run executed tests/residue and tests/corpus/test_manifest.py along with sensor/import/native regressions,224 passed146.09s. The actual GUI-saved five-file source is captured and source-bound; broader c0278 native/corpus/CI gates elsewhere remain open.

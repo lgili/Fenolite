@@ -2150,6 +2150,13 @@ def build_design(
             issues += [found for found in written.issues if found not in issues]
             files[path] = written.text.encode("utf-8")
     if generated is not None:
+        files[pro_name] = pro.bind_schematic_identity(
+            files[pro_name].decode("utf-8"),
+            root_file=f"{name}.kicad_sch",
+            schematics={
+                path: value.decode("utf-8") for path, value in files.items() if path.endswith(".kicad_sch")
+            },
+        ).encode("utf-8")
         issues += stale_sheets(record, files)
         for nickname, found in sorted(symbol_files.items()):
             path = f"lib/{nickname}.kicad_sym"

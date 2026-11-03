@@ -9,6 +9,14 @@ All notable changes to Fenolite are documented here. The format follows
 - **Reviewed licence registry** (c0333): synchronize the three explicitly
   approved original licence-text digests with the library, preserving all
   earlier approved digests and every other licence restriction.
+- **Literal formatted bus prefixes** (c0343): recognize measured subscript, superscript and overbar
+  spans in group prefixes without changing the member names or count. Prevent malformed groups from
+  falling through as vectors and inventing connections. Authored complete-pin controls pass on native
+  9.0.9/10.0.6; all fifteen affected public owner rows now retain their 4712 pins and 1355 native groups.
+  Existing naming/warning findings, standalone ports and reader-floor refusals remain explicit;
+  required exact-head CI remains pending.
+
+- **Same-sheet power aliases** (c0336): KiCad drawn connectivity joins a global power declaration to the identical local scalar name in that sheet. Authored native controls retain every pin and isolate other names and sheets; generic/Altium defaults and power-output behavior remain unchanged. Exact-head 9/10 CI remains required.
 
 - **Supplier lookup scope** (c0267): defer remaining JLC work at the
   maintainer's request; keep its evidence and completion gates open.
@@ -18,7 +26,6 @@ All notable changes to Fenolite are documented here. The format follows
   item manifest. Preserve bounded discovery, exact-content approval and stale
   dependency checks; invalid or unrelated manifests do not expand discovery.
 
-- **Same-sheet power aliases** (c0336): KiCad drawn connectivity joins a global power declaration to the identical local scalar name in that sheet. Authored native controls retain every pin and isolate other names and sheets; generic/Altium defaults and power-output behavior remain unchanged. Exact-head 9/10 CI remains required.
 - **Explicit seed artwork curation plan** (c0338): document a reproducible external
   four-item CC0 resistor draft with two pin lengths changed by32um, preserving
   electrical mappings and physical footprints. Original failures remain visible;
@@ -58,10 +65,19 @@ All notable changes to Fenolite are documented here. The format follows
   complete BOM and electrical pins. A focused input guard now refuses incompatible board/DNP flags
   between units before planning, preserving supported both-excluded opaque units. Final model-0
   inventory, 75-plan byte check and required CI remain pending.
+- **Preserve native project sheet identity** (c0344): bind project root/sheet
+  identity caches to the emitted schematics. A real KiCad GUI save now keeps
+  repeated child references distinct; stale template UUIDs previously caused
+  automatic repair to collapse them. The sensor fixture is captured from the
+  validated native GUI save, with strict all-level and partition proofs.
+  All75 default plans retain every other native/canonical file; update only
+  the41 project byte expectations affected by this identity-cache repair.
+
 - **Complete sensor fidelity fixture** (c0278): preserve the original four-layer
   board cases and add two populated resistor channels sharing one drawn sheet,
   with a real root bus, hierarchy and junction. Fixture copies retain drawn
-  dependencies; source GUI save and exact-source CI remain separate gates.
+  dependencies; the GUI round trip is proved by c0344 and exact-source CI
+  remains a separate gate.
 
 - **Certified final neck cut** (c0332, in progress): replace the final Altium
   neck-removal difference with exact signed face selection and one shared

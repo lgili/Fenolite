@@ -1,6 +1,6 @@
 (kicad_sch
 	(version 20260306)
-	(generator "fenolite")
+	(generator "eeschema")
 	(generator_version "10.0")
 	(uuid "731190ca-858f-53a6-8ac8-09e020d08ceb")
 	(paper "A4")
@@ -17,17 +17,23 @@
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
 			(property "Reference" "#PWR"
 				(at 0 -6.35 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
-					(hide yes)
 				)
 			)
 			(property "Value" "GND"
 				(at 0 -3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(effects
 					(font
 						(size 1.27 1.27)
@@ -36,38 +42,46 @@
 			)
 			(property "Footprint" ""
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
-					(hide yes)
 				)
 			)
 			(property "Datasheet" ""
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
-					(hide yes)
 				)
 			)
 			(property "Description" "Mini ground power symbol. Fenolite test symbol"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
-					(hide yes)
 				)
 			)
 			(property "ki_keywords" "global power"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
-					(hide yes)
 				)
 			)
 			(symbol "Mini_GND_0_1"
@@ -117,8 +131,12 @@
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
 			(property "Reference" "R"
 				(at 2.032 0 90)
+				(show_name no)
+				(do_not_autoplace no)
 				(effects
 					(font
 						(size 1.27 1.27)
@@ -127,6 +145,8 @@
 			)
 			(property "Value" "Mini_R"
 				(at 0 0 90)
+				(show_name no)
+				(do_not_autoplace no)
 				(effects
 					(font
 						(size 1.27 1.27)
@@ -135,6 +155,8 @@
 			)
 			(property "Footprint" "Mini:Mini_R_0603"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -144,6 +166,8 @@
 			)
 			(property "Datasheet" ""
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -153,6 +177,8 @@
 			)
 			(property "Description" "Mini resistor. Fenolite test symbol"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -162,6 +188,8 @@
 			)
 			(property "ki_keywords" "R res resistor"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -171,6 +199,8 @@
 			)
 			(property "ki_fp_filters" "Mini_R_*"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -278,9 +308,9 @@
 		)
 		(property "Footprint" "Mini:Mini_R_0603"
 			(at 101.6 76.2 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
-			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -289,9 +319,9 @@
 		)
 		(property "Datasheet" ""
 			(at 101.6 76.2 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
-			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -300,9 +330,9 @@
 		)
 		(property "Description" "Mini 0603 resistor. Synthetic geometry for Fenolite tests, not a validated land pattern"
 			(at 101.6 76.2 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
-			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -311,9 +341,9 @@
 		)
 		(property "fenolite.path" "ch0/LOAD"
 			(at 101.6 76.2 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
-			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -328,12 +358,12 @@
 		)
 		(instances
 			(project "sensor"
-				(path "/9ef0253f-c4fa-5a0a-88b5-27d2359264fd/d2145424-8c24-5aca-98d8-1aef5fb9602f"
-					(reference "R2")
-					(unit 1)
-				)
 				(path "/9ef0253f-c4fa-5a0a-88b5-27d2359264fd/85aabe06-7787-5503-8aaa-1533138e3b43"
 					(reference "R3")
+					(unit 1)
+				)
+				(path "/9ef0253f-c4fa-5a0a-88b5-27d2359264fd/d2145424-8c24-5aca-98d8-1aef5fb9602f"
+					(reference "R2")
 					(unit 1)
 				)
 			)
@@ -374,9 +404,9 @@
 		)
 		(property "Footprint" ""
 			(at 101.6 80.01 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
-			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -385,9 +415,9 @@
 		)
 		(property "Datasheet" ""
 			(at 101.6 80.01 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
-			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -396,9 +426,9 @@
 		)
 		(property "Description" ""
 			(at 101.6 80.01 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
-			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -410,12 +440,12 @@
 		)
 		(instances
 			(project "sensor"
-				(path "/9ef0253f-c4fa-5a0a-88b5-27d2359264fd/d2145424-8c24-5aca-98d8-1aef5fb9602f"
-					(reference "#PWR01")
-					(unit 1)
-				)
 				(path "/9ef0253f-c4fa-5a0a-88b5-27d2359264fd/85aabe06-7787-5503-8aaa-1533138e3b43"
 					(reference "#PWR02")
+					(unit 1)
+				)
+				(path "/9ef0253f-c4fa-5a0a-88b5-27d2359264fd/d2145424-8c24-5aca-98d8-1aef5fb9602f"
+					(reference "#PWR01")
 					(unit 1)
 				)
 			)

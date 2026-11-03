@@ -1,6 +1,6 @@
 (kicad_sch
 	(version 20260306)
-	(generator "fenolite")
+	(generator "eeschema")
 	(generator_version "10.0")
 	(uuid "9ef0253f-c4fa-5a0a-88b5-27d2359264fd")
 	(paper "A4")
@@ -16,8 +16,12 @@
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
 			(property "Reference" "D"
 				(at 0 2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(effects
 					(font
 						(size 1.27 1.27)
@@ -26,6 +30,8 @@
 			)
 			(property "Value" "Mini_LED"
 				(at 0 -2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(effects
 					(font
 						(size 1.27 1.27)
@@ -34,6 +40,8 @@
 			)
 			(property "Footprint" "Mini:Mini_LED_THT_3mm"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -43,6 +51,8 @@
 			)
 			(property "Datasheet" ""
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -52,6 +62,8 @@
 			)
 			(property "Description" "Mini light emitting diode. Fenolite test symbol"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -61,6 +73,8 @@
 			)
 			(property "ki_keywords" "LED diode"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -70,6 +84,8 @@
 			)
 			(property "ki_fp_filters" "Mini_LED_*"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -150,8 +166,12 @@
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
 			(property "Reference" "U"
 				(at -10.16 22.86 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(effects
 					(font
 						(size 1.27 1.27)
@@ -160,6 +180,8 @@
 			)
 			(property "Value" "Mini_QFP32_IC"
 				(at 10.16 22.86 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(effects
 					(font
 						(size 1.27 1.27)
@@ -168,47 +190,57 @@
 			)
 			(property "Footprint" "Mini:Mini_QFP-32_7x7mm_P0.8mm"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
-					(hide yes)
 				)
 			)
 			(property "Datasheet" ""
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
-					(hide yes)
 				)
 			)
 			(property "Description" "Mini 32-pin IC. Fenolite test symbol"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
-					(hide yes)
 				)
 			)
 			(property "ki_keywords" "IC mini"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
-					(hide yes)
 				)
 			)
 			(property "ki_fp_filters" "Mini_QFP*"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
-					(hide yes)
 				)
 			)
 			(symbol "Mini_QFP32_IC_0_1"
@@ -816,8 +848,12 @@
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
 			(property "Reference" "R"
 				(at 2.032 0 90)
+				(show_name no)
+				(do_not_autoplace no)
 				(effects
 					(font
 						(size 1.27 1.27)
@@ -826,6 +862,8 @@
 			)
 			(property "Value" "Mini_R"
 				(at 0 0 90)
+				(show_name no)
+				(do_not_autoplace no)
 				(effects
 					(font
 						(size 1.27 1.27)
@@ -834,6 +872,8 @@
 			)
 			(property "Footprint" "Mini:Mini_R_0603"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -843,6 +883,8 @@
 			)
 			(property "Datasheet" ""
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -852,6 +894,8 @@
 			)
 			(property "Description" "Mini resistor. Fenolite test symbol"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -861,6 +905,8 @@
 			)
 			(property "ki_keywords" "R res resistor"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -870,6 +916,8 @@
 			)
 			(property "ki_fp_filters" "Mini_R_*"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -931,119 +979,128 @@
 			(embedded_fonts no)
 		)
 	)
-	(no_connect
-		(at 50.8 59.69)
-		(uuid "c23563a7-eec7-58a4-a796-d7c6595386fb")
-	)
-	(no_connect
-		(at 50.8 62.23)
-		(uuid "5bfe7cbb-e530-531f-886e-f42ec978baf2")
-	)
-	(no_connect
-		(at 50.8 64.77)
-		(uuid "aca0fbde-efe9-51f0-a480-a567178518e3")
-	)
-	(no_connect
-		(at 50.8 67.31)
-		(uuid "2c32999d-7cc6-5d44-ad53-44baeb02328c")
-	)
-	(no_connect
-		(at 50.8 69.85)
-		(uuid "b2645763-9e18-53b2-b324-ba3c4ea2228b")
-	)
-	(no_connect
-		(at 50.8 72.39)
-		(uuid "3770fab7-a5fa-5b0b-a2aa-c6be2b0224ef")
-	)
-	(no_connect
-		(at 50.8 74.93)
-		(uuid "ab1cec42-6c7e-5f96-8d3b-27c78bcbb67f")
-	)
-	(no_connect
-		(at 50.8 82.55)
-		(uuid "d254c264-240b-53c3-8893-ce33a262c842")
-	)
-	(no_connect
-		(at 50.8 85.09)
-		(uuid "3088b13b-ad4b-54e5-8d81-40fa066e9a46")
-	)
-	(no_connect
-		(at 50.8 87.63)
-		(uuid "3b7f8a00-5d86-5b91-8317-9dc857d7c06c")
-	)
-	(no_connect
-		(at 50.8 90.17)
-		(uuid "b6fb8d18-8163-5c25-ab3f-37aeaa534cf0")
-	)
-	(no_connect
-		(at 50.8 92.71)
-		(uuid "e6f04ea7-7582-555e-81d0-0585dfe6b5fc")
-	)
-	(no_connect
-		(at 50.8 95.25)
-		(uuid "40dd07ed-37cc-554f-8d08-fd80a9ab6649")
-	)
-	(no_connect
-		(at 76.2 62.23)
-		(uuid "61ef5b95-793d-50b4-8d35-33530a76ca7d")
-	)
-	(no_connect
-		(at 76.2 64.77)
-		(uuid "34bd1615-203d-53be-b229-77cda245651e")
+	(junction
+		(at 83.82 57.15)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "3fe80d6e-c49c-525a-9c9c-bf1f302a42c1")
 	)
 	(no_connect
 		(at 76.2 67.31)
 		(uuid "07a9ebe4-6060-5c0e-8f58-9cf7b6262e8b")
 	)
 	(no_connect
-		(at 76.2 69.85)
-		(uuid "58d60dec-8e78-58d0-bf48-5aadc61a3cbd")
+		(at 50.8 67.31)
+		(uuid "2c32999d-7cc6-5d44-ad53-44baeb02328c")
+	)
+	(no_connect
+		(at 50.8 85.09)
+		(uuid "3088b13b-ad4b-54e5-8d81-40fa066e9a46")
+	)
+	(no_connect
+		(at 76.2 64.77)
+		(uuid "34bd1615-203d-53be-b229-77cda245651e")
+	)
+	(no_connect
+		(at 50.8 72.39)
+		(uuid "3770fab7-a5fa-5b0b-a2aa-c6be2b0224ef")
+	)
+	(no_connect
+		(at 50.8 87.63)
+		(uuid "3b7f8a00-5d86-5b91-8317-9dc857d7c06c")
+	)
+	(no_connect
+		(at 50.8 95.25)
+		(uuid "40dd07ed-37cc-554f-8d08-fd80a9ab6649")
 	)
 	(no_connect
 		(at 76.2 72.39)
 		(uuid "502b47cf-d7ff-5708-ab3f-c05b2391cb27")
 	)
 	(no_connect
-		(at 76.2 74.93)
-		(uuid "8514ecf4-65d9-5cff-8f13-7e43d6256ec3")
+		(at 76.2 92.71)
+		(uuid "534c81ea-a9e2-58ff-9b71-bc4cc1f5780d")
 	)
 	(no_connect
-		(at 76.2 77.47)
-		(uuid "af2fc251-157f-5948-bf23-5ba21c72e61f")
+		(at 76.2 69.85)
+		(uuid "58d60dec-8e78-58d0-bf48-5aadc61a3cbd")
+	)
+	(no_connect
+		(at 50.8 62.23)
+		(uuid "5bfe7cbb-e530-531f-886e-f42ec978baf2")
+	)
+	(no_connect
+		(at 76.2 62.23)
+		(uuid "61ef5b95-793d-50b4-8d35-33530a76ca7d")
+	)
+	(no_connect
+		(at 76.2 74.93)
+		(uuid "8514ecf4-65d9-5cff-8f13-7e43d6256ec3")
 	)
 	(no_connect
 		(at 76.2 80.01)
 		(uuid "9beef4e7-9261-599d-a840-eae12e8e4795")
 	)
 	(no_connect
-		(at 76.2 82.55)
-		(uuid "d992729a-129c-50b3-a9b2-c80971c4a401")
+		(at 50.8 74.93)
+		(uuid "ab1cec42-6c7e-5f96-8d3b-27c78bcbb67f")
+	)
+	(no_connect
+		(at 50.8 64.77)
+		(uuid "aca0fbde-efe9-51f0-a480-a567178518e3")
+	)
+	(no_connect
+		(at 76.2 77.47)
+		(uuid "af2fc251-157f-5948-bf23-5ba21c72e61f")
+	)
+	(no_connect
+		(at 50.8 69.85)
+		(uuid "b2645763-9e18-53b2-b324-ba3c4ea2228b")
+	)
+	(no_connect
+		(at 50.8 90.17)
+		(uuid "b6fb8d18-8163-5c25-ab3f-37aeaa534cf0")
+	)
+	(no_connect
+		(at 50.8 59.69)
+		(uuid "c23563a7-eec7-58a4-a796-d7c6595386fb")
 	)
 	(no_connect
 		(at 76.2 85.09)
 		(uuid "cdb4d9df-de8b-5fb5-ba03-5b0393fb80e0")
 	)
 	(no_connect
-		(at 76.2 87.63)
-		(uuid "f6e5b364-9f28-59b9-8e1f-7edca6d205c9")
-	)
-	(no_connect
 		(at 76.2 90.17)
 		(uuid "d177dedd-520d-5c0d-8f60-472948321222")
 	)
 	(no_connect
-		(at 76.2 92.71)
-		(uuid "534c81ea-a9e2-58ff-9b71-bc4cc1f5780d")
+		(at 50.8 82.55)
+		(uuid "d254c264-240b-53c3-8893-ce33a262c842")
 	)
 	(no_connect
 		(at 76.2 95.25)
 		(uuid "d34180d5-5b22-59b6-bdfc-3334ce6191f1")
 	)
-	(junction
-		(at 83.82 57.15)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "3fe80d6e-c49c-525a-9c9c-bf1f302a42c1")
+	(no_connect
+		(at 76.2 82.55)
+		(uuid "d992729a-129c-50b3-a9b2-c80971c4a401")
+	)
+	(no_connect
+		(at 50.8 92.71)
+		(uuid "e6f04ea7-7582-555e-81d0-0585dfe6b5fc")
+	)
+	(no_connect
+		(at 76.2 87.63)
+		(uuid "f6e5b364-9f28-59b9-8e1f-7edca6d205c9")
+	)
+	(bus_entry
+		(at 88.9 59.69)
+		(size 2.54 -2.54)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0ead0da8-fa0b-5800-9745-5a1402a744a0")
 	)
 	(bus_entry
 		(at 88.9 57.15)
@@ -1054,14 +1111,15 @@
 		)
 		(uuid "bd902f50-9f91-5a6e-90eb-8c0f6c3e5245")
 	)
-	(bus_entry
-		(at 88.9 59.69)
-		(size 2.54 -2.54)
+	(wire
+		(pts
+			(xy 109.22 114.3) (xy 114.3 114.3)
+		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "0ead0da8-fa0b-5800-9745-5a1402a744a0")
+		(uuid "1fb2214a-570d-55f8-9ff8-5cf29ae3a681")
 	)
 	(wire
 		(pts
@@ -1073,45 +1131,15 @@
 		)
 		(uuid "27a633fb-9f23-5216-ace3-510c5d8ea989")
 	)
-	(wire
+	(bus
 		(pts
-			(xy 83.82 57.15) (xy 88.9 57.15)
+			(xy 91.44 54.61) (xy 91.44 57.15)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "a6b6603d-f8b9-5e05-b17c-c3ef7d084583")
-	)
-	(wire
-		(pts
-			(xy 109.22 88.9) (xy 114.3 88.9)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b5c39d4d-8e98-504f-aa49-511a5f1f690e")
-	)
-	(wire
-		(pts
-			(xy 76.2 59.69) (xy 88.9 59.69)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6b6d8235-1810-5c16-acd2-2e79001a451b")
-	)
-	(wire
-		(pts
-			(xy 109.22 114.3) (xy 114.3 114.3)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "1fb2214a-570d-55f8-9ff8-5cf29ae3a681")
+		(uuid "315aa1f1-090a-54a8-bcbf-3a00bd964ca3")
 	)
 	(wire
 		(pts
@@ -1133,15 +1161,35 @@
 		)
 		(uuid "4bbaeb55-2112-578c-bc00-c3bb3dba47b3")
 	)
-	(bus
+	(wire
 		(pts
-			(xy 91.44 54.61) (xy 91.44 57.15)
+			(xy 76.2 59.69) (xy 88.9 59.69)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "315aa1f1-090a-54a8-bcbf-3a00bd964ca3")
+		(uuid "6b6d8235-1810-5c16-acd2-2e79001a451b")
+	)
+	(wire
+		(pts
+			(xy 83.82 57.15) (xy 88.9 57.15)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a6b6603d-f8b9-5e05-b17c-c3ef7d084583")
+	)
+	(wire
+		(pts
+			(xy 109.22 88.9) (xy 114.3 88.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b5c39d4d-8e98-504f-aa49-511a5f1f690e")
 	)
 	(bus
 		(pts
@@ -1163,100 +1211,6 @@
 		)
 		(uuid "1fbbbfd9-6467-586e-8195-0541d2ac115e")
 	)
-	(label "VIN"
-		(at 50.8 77.47 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "c112cb10-ae9e-57de-9cec-6d2d6afb0308")
-	)
-	(global_label "GND"
-		(at 50.8 80.01 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "ffb3432c-866f-5d90-81cf-db3da2ed4a44")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 50.8 80.01 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-	)
-	(label "SIG"
-		(at 21.59 50.8 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "d0bbd33c-f317-581f-bae0-dacad44686fd")
-	)
-	(label "LED"
-		(at 29.21 50.8 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "c28fb38d-22bf-54dc-9141-98ebed23e190")
-	)
-	(global_label "GND"
-		(at 21.59 63.5 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "f79692ab-ad9b-5843-855a-6ee7b5c8a06a")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 21.59 63.5 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-	)
-	(label "LED"
-		(at 29.21 63.5 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "a4a83356-d7c6-56a5-b0dc-c7e98ad752d2")
-	)
-	(label "SENSE0"
-		(at 81.28 57.15 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "d69b4f52-f87e-599f-a005-7fc1ac361765")
-	)
 	(label "SENSE0"
 		(at 109.22 88.9 0)
 		(effects
@@ -1266,26 +1220,6 @@
 			(justify left)
 		)
 		(uuid "3d3c6232-282b-5028-957a-6929abc62a48")
-	)
-	(label "SENSE1"
-		(at 81.28 59.69 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "e3a72933-e68f-5221-a16a-4cf387a62e76")
-	)
-	(label "SENSE1"
-		(at 109.22 114.3 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "9c808b20-ae47-505f-bcc1-67e07da09988")
 	)
 	(label "SENSE[0..1]"
 		(at 91.44 76.2 0)
@@ -1306,6 +1240,122 @@
 			(justify left)
 		)
 		(uuid "620f70cf-9738-5d0f-9ba0-d8c7331497ad")
+	)
+	(label "SENSE1"
+		(at 109.22 114.3 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "9c808b20-ae47-505f-bcc1-67e07da09988")
+	)
+	(label "LED"
+		(at 29.21 63.5 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "a4a83356-d7c6-56a5-b0dc-c7e98ad752d2")
+	)
+	(label "VIN"
+		(at 50.8 77.47 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "c112cb10-ae9e-57de-9cec-6d2d6afb0308")
+	)
+	(label "LED"
+		(at 29.21 50.8 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "c28fb38d-22bf-54dc-9141-98ebed23e190")
+	)
+	(label "SIG"
+		(at 21.59 50.8 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "d0bbd33c-f317-581f-bae0-dacad44686fd")
+	)
+	(label "SENSE0"
+		(at 81.28 57.15 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "d69b4f52-f87e-599f-a005-7fc1ac361765")
+	)
+	(label "SENSE1"
+		(at 81.28 59.69 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "e3a72933-e68f-5221-a16a-4cf387a62e76")
+	)
+	(global_label "GND"
+		(shape bidirectional)
+		(at 21.59 63.5 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "f79692ab-ad9b-5843-855a-6ee7b5c8a06a")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 21.59 63.5 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+	)
+	(global_label "GND"
+		(shape bidirectional)
+		(at 50.8 80.01 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "ffb3432c-866f-5d90-81cf-db3da2ed4a44")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 50.8 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
 	)
 	(symbol
 		(lib_id "Mini:Mini_QFP32_IC")
@@ -1342,9 +1392,9 @@
 		)
 		(property "Footprint" "Mini:Mini_QFP-32_7x7mm_P0.8mm"
 			(at 63.5 76.2 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
-			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1353,9 +1403,9 @@
 		)
 		(property "Datasheet" ""
 			(at 63.5 76.2 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
-			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1364,9 +1414,9 @@
 		)
 		(property "Description" "Mini QFP, 32 pins, 7 x 7 mm body, 0.8 mm pitch. Synthetic geometry for Fenolite tests, not a validated land pattern"
 			(at 63.5 76.2 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
-			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1375,9 +1425,9 @@
 		)
 		(property "fenolite.path" "U1"
 			(at 63.5 76.2 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
-			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1490,96 +1540,6 @@
 		)
 	)
 	(symbol
-		(lib_id "Mini:Mini_R")
-		(at 25.4 50.8 90)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "db3204f5-86fd-56f4-9b45-ef5f6f16062c")
-		(property "Reference" "R1"
-			(at 23.114 45.72 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "1k"
-			(at 23.114 48.26 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Mini:Mini_R_0603"
-			(at 25.4 50.8 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 25.4 50.8 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Mini 0603 resistor. Synthetic geometry for Fenolite tests, not a validated land pattern"
-			(at 25.4 50.8 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "fenolite.path" "R1"
-			(at 25.4 50.8 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "2ec9992b-081e-5993-bde4-11ab94284cee")
-		)
-		(pin "2"
-			(uuid "6cc2d113-79e5-5b7b-b75e-15217a875a07")
-		)
-		(instances
-			(project "sensor"
-				(path "/9ef0253f-c4fa-5a0a-88b5-27d2359264fd"
-					(reference "R1")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Mini:Mini_LED")
 		(at 25.4 63.5 0)
 		(unit 1)
@@ -1614,9 +1574,9 @@
 		)
 		(property "Footprint" "Mini:Mini_LED_THT_3mm"
 			(at 25.4 63.5 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
-			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1625,9 +1585,9 @@
 		)
 		(property "Datasheet" ""
 			(at 25.4 63.5 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
-			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1636,9 +1596,9 @@
 		)
 		(property "Description" "Mini 3 mm through-hole LED. Synthetic geometry for Fenolite tests, not a validated land pattern"
 			(at 25.4 63.5 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
-			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1647,9 +1607,9 @@
 		)
 		(property "fenolite.path" "D1"
 			(at 25.4 63.5 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
-			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1671,57 +1631,92 @@
 			)
 		)
 	)
-	(sheet
-		(at 114.3 82.55)
-		(size 25.4 12.7)
+	(symbol
+		(lib_id "Mini:Mini_R")
+		(at 25.4 50.8 90)
+		(unit 1)
+		(body_style 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
+		(in_pos_files yes)
 		(dnp no)
-		(stroke
-			(width 0)
-			(type solid)
-		)
-		(fill
-			(color 0 0 0 0.0)
-		)
-		(uuid "d2145424-8c24-5aca-98d8-1aef5fb9602f")
-		(property "Sheetname" "ch0"
-			(at 114.3 81.28 0)
+		(uuid "db3204f5-86fd-56f4-9b45-ef5f6f16062c")
+		(property "Reference" "R1"
+			(at 23.114 45.72 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
 			)
 		)
-		(property "Sheetfile" "sheets/channel.kicad_sch"
-			(at 114.3 96.52 0)
+		(property "Value" "1k"
+			(at 23.114 48.26 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
 			)
 		)
-		(pin "IN" passive
-			(at 114.3 88.9 180)
-			(uuid "215a21c7-e674-5041-a23a-50df378fc79f")
+		(property "Footprint" "Mini:Mini_R_0603"
+			(at 25.4 50.8 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
 			)
+		)
+		(property "Datasheet" ""
+			(at 25.4 50.8 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Mini 0603 resistor. Synthetic geometry for Fenolite tests, not a validated land pattern"
+			(at 25.4 50.8 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "fenolite.path" "R1"
+			(at 25.4 50.8 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "2ec9992b-081e-5993-bde4-11ab94284cee")
+		)
+		(pin "2"
+			(uuid "6cc2d113-79e5-5b7b-b75e-15217a875a07")
 		)
 		(instances
 			(project "sensor"
 				(path "/9ef0253f-c4fa-5a0a-88b5-27d2359264fd"
-					(page "2")
+					(reference "R1")
+					(unit 1)
 				)
 			)
 		)
@@ -1738,7 +1733,7 @@
 			(type solid)
 		)
 		(fill
-			(color 0 0 0 0.0)
+			(color 0 0 0 0)
 		)
 		(uuid "85aabe06-7787-5503-8aaa-1533138e3b43")
 		(property "Sheetname" "ch1"
@@ -1781,9 +1776,65 @@
 			)
 		)
 	)
+	(sheet
+		(at 114.3 82.55)
+		(size 25.4 12.7)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "d2145424-8c24-5aca-98d8-1aef5fb9602f")
+		(property "Sheetname" "ch0"
+			(at 114.3 81.28 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Sheetfile" "sheets/channel.kicad_sch"
+			(at 114.3 96.52 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "IN" passive
+			(at 114.3 88.9 180)
+			(uuid "215a21c7-e674-5041-a23a-50df378fc79f")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(instances
+			(project "sensor"
+				(path "/9ef0253f-c4fa-5a0a-88b5-27d2359264fd"
+					(page "2")
+				)
+			)
+		)
+	)
 	(sheet_instances
 		(path "/"
 			(page "1")
 		)
 	)
+	(embedded_fonts no)
 )

@@ -70,7 +70,6 @@ NETLIST_HINT = (
     "the code: the code is the source of the nets"
 )
 _VECTOR = re.compile(r"^(.*?)\[(\d+)\.\.(\d+)\]$")
-_GROUP = re.compile(r"^([^{}]*)\{([\s\S]*)\}$")
 _NATURAL = re.compile(r"(\d+)")
 
 Element = tuple[str, str]
@@ -181,18 +180,53 @@ def instances(drawn: DrawnSchematic) -> tuple[tuple[DrawnInstance, ...], tuple[I
 # --- bus names ------------------------------------------------------------------------------------
 
 
+def _format_end(text: str, start: int) -> int | None:
+    """The end of one balanced literal formatting span; bare nested groups are not formatting."""
+    depth = 1
+    for index in range(start + 1, len(text)):
+        if text[index] == "{":
+            if text[index - 1] not in "~_^":
+                return None
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if not depth:
+                return index + 1
+    return None
+
+
+def _group_start(text: str) -> int:
+    """First non-format group delimiter, length for a literal prefix, or -1 for malformed braces."""
+    index = 0
+    while index < len(text):
+        if text[index] == "}":
+            return -1
+        if text[index] == "{":
+            if not index or text[index - 1] not in "~_^":
+                return index
+            end = _format_end(text, index)
+            if end is None:
+                return -1
+            index = end
+        else:
+            index += 1
+    return index
+
+
 def bus_vector(text: str) -> tuple[str, int, int] | None:
     """The literal prefix and index endpoints of a vector definition, before member expansion."""
     vector = _VECTOR.match(text)
-    return None if vector is None else (vector.group(1), int(vector.group(2)), int(vector.group(3)))
+    if vector is None or _group_start(vector.group(1)) != len(vector.group(1)):
+        return None
+    return vector.group(1), int(vector.group(2)), int(vector.group(3))
 
 
 def bus_group_parts(text: str) -> tuple[str, tuple[str, ...]] | None:
-    """Split a group while retaining formatted overbar spans as literal member text."""
-    match = _GROUP.match(text)
-    if match is None or match.group(1).endswith("~"):
+    """Split a group while retaining literal formatted prefixes and overbar member spans."""
+    start = _group_start(text)
+    if start < 0 or start == len(text) or not text.endswith("}"):
         return None
-    body = match.group(2)
+    prefix, body = text[:start], text[start + 1 : -1]
     items: list[str] = []
     token: list[str] = []
     depth = 0
@@ -215,7 +249,7 @@ def bus_group_parts(text: str) -> tuple[str, tuple[str, ...]] | None:
         return None
     if token:
         items.append("".join(token))
-    return match.group(1), tuple(items)
+    return prefix, tuple(items)
 
 
 def expand(text: str, aliases: Mapping[str, Sequence[str]], depth: int = 0) -> tuple[str, ...] | None:

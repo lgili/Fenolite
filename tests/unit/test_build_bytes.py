@@ -20,6 +20,12 @@ three example rows were remeasured for that explicit source change (c0276 task 4
 The native drawn Altium writer moves only drawn@altium and import_python@altium: the project/root
 schematic, their new native child sheets and removal of the generated-layout cache. Both examples
 retain their exact Altium PCB and library digests (c0276 task 6.1).
+
+c0344 binds native project sheet identity caches to the emitted drawings. A complete clean
+75-plan/1172-file comparison changes only41 KiCad project files and their41 build manifests;
+all other1090 files and ten strict refusals remain identical. The41 recorded project digests
+were reviewed against that explicit writer change and the independent native GUI proof.
+See docs/evidence/project-sheet-identity-plan-delta.json; no other pin is refreshed here.
 """
 
 from __future__ import annotations

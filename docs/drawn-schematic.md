@@ -153,6 +153,11 @@ local and hierarchical/global labels join on their own sheet without making anot
 global. Generic/Altium scope defaults stay unchanged. Authored native9.0.2 controls cover these rules,
 disconnected buses, reversed nested-vector negatives, unequal names and missing members (S-1280).
 
+Formatted group prefixes such as `BUS_{A}{D[0..3]}` preserve literal member names `BUS_{A}.D0` through
+`BUS_{A}.D3`. Measured subscript, superscript and overbar spans, including nested formatting, do not
+open the group. Formatting alone declares no members; malformed braces and unsupported nested groups
+cannot fall through as vectors and invent joins. Native 9.0.9/10.0.6 controls retain all pins (c0343).
+
 In the KiCad connectivity view, equal sheet bus ports on separate parent bus
 islands do not create parent scalar labels by themselves. A physical bus
 connection, an actual matching scalar label or corresponding explicit bus

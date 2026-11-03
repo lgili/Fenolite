@@ -711,9 +711,9 @@
     "subpart_id_separator": 0,
     "top_level_sheets": [
       {
-        "filename": "empty_10.kicad_sch",
-        "name": "",
-        "uuid": "f5a6a7c7-8304-471a-a7a0-3f368669c59d"
+        "filename": "sensor.kicad_sch",
+        "name": "sensor",
+        "uuid": "9ef0253f-c4fa-5a0a-88b5-27d2359264fd"
       }
     ],
     "used_designators": "",
@@ -721,8 +721,16 @@
   },
   "sheets": [
     [
-      "f5a6a7c7-8304-471a-a7a0-3f368669c59d",
-      ""
+      "9ef0253f-c4fa-5a0a-88b5-27d2359264fd",
+      "sensor"
+    ],
+    [
+      "d2145424-8c24-5aca-98d8-1aef5fb9602f",
+      "ch0"
+    ],
+    [
+      "85aabe06-7787-5503-8aaa-1533138e3b43",
+      "ch1"
     ]
   ],
   "text_variables": {},
