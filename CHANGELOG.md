@@ -6,6 +6,16 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive the completed MCP server specification using its exact-source successful MCP and unit CI jobs, preserving the already authorized geometry exclusion, failed workflow history and optional client-session policy (c0195).
+
+- Restore the agreed CAC working-branch exclusion of 27 known geometry failures, visibly deferred with source digests; retain full release/PR selection, runtime behavior and the open geometry spec (c0319).
+
+- Record the maintainer’s acceptance of the current Altium24 drawn report and conclude task6.2 with all drawing limitations retained; keep the formal-kit label conservative, writers experimental and CI separate (c0276).
+
+- Record the complete source-bound fast15 pass (22421 passed, 52 skipped) with portable receipt/log/driver hashes, preserving failed fast14 and the separate published-CI, Royal L7 and archival gates (c0319).
+
+- Record actual visual inspection of all fourteen saved Altium drawn-sheet controls, unchanged source hashes and visible drawing limitations; retain the maintainer-report, CI and writer-graduation gates (c0276).
+
 - Keep ordinary imported projects editable when their native class representation needs no binding; qualify immutable context using the actual DSL spelling projection and preserved native rules, while retaining every genuine model/input guard (c0355).
 
 - Declare the shared native-net binding helper under the existing inferred PCB-reader evidence and regenerate its matrix row; retain the independent rebuild and native Royal failures (c0355).

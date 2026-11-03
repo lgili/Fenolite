@@ -136,3 +136,24 @@ independent native-project helper layering repair:137passed3.64s across
 `test_device_pins.py`, `test_part_keys.py`, `test_block_ports.py`,
 `test_blocks.py` and `test_import_graph.py`. The earlier failed attempt stays
 recorded above; this focused result does not replace the exact-source CI gate.
+
+
+## Scoped CI verification and archival — 2026-11-03
+
+The maintainer clarified that problematic geometry was already outside the
+scope of this closure CI batch. Apply that existing scope to this MCP-server
+change; do not require the unrelated geometry result or claim the whole run
+passed. In run41708879698 on exact source
+985f59a1d01a612b2eac0219243199896c24075a, the official-client MCP job126171394030
+and all five unit jobs completed successfully. The complete workflow still
+failed in KiCad10 geometry and its dependent drawn-floor guard; those failures
+remain recorded and are not closed by this archive.
+
+The archival tree preserves all tested runtime, tests, tools and configuration
+bytes. Its post-source changes are reviewed OpenSpec/CHANGELOG documentation;
+the c0195 import-layer union matches reviewed7f253a40 and retains earlier
+requirements and scenarios. Existing focused and fast proofs are reused;
+no test suite, paid agent, CAD session or CI rerun was started for archival.
+Optional maintainer task5.4 stays unchecked under its explicit "Nothing waits
+on it" contract. This records MCP-specific validation, not full-workflow or
+release acceptance.

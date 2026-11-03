@@ -1102,3 +1102,31 @@ def test_release_conformance_asset_is_copied_from_the_tag_and_checksummed() -> N
     create = github.index('gh release create "$TAG" dist/*')
     assert "working-directory: source" in github[:copy]
     assert copy < checksum < upload and checksum < create
+
+
+def test_cac_closure_deferral_is_explicit_source_bound_and_branch_limited() -> None:
+    import hashlib
+    import json
+
+    text = WORKFLOW.read_text(encoding="utf-8")
+    job = job_text(text, "kicad-10")
+    start = job.index("      - name: Apply the agreed CAC closure scope")
+    end = job.index("      - name: Oracle and corpus tests", start)
+    step = job[start:end]
+    assert "if: github.ref == 'refs/heads/codex/cac-next'" in step
+    assert "DEFERRED_NOT_PASSED" in step and "GITHUB_STEP_SUMMARY" in step
+    assert "--deselect=" in step and "c0332 remains open" in step
+    assert KICAD10_PYTEST in job
+    assert "cac_geometry_deferred" not in job_text(text, "kicad-9")
+    scope = json.loads((ROOT / "tools/ci/cac_geometry_deferred.json").read_text())
+    assert scope["deferred_change"] == "c0332-certified-neck-cut"
+    assert scope["status"] == "DEFERRED_NOT_PASSED"
+    rows = scope["tests"]
+    assert len(rows) == len({row["nodeid"] for row in rows}) == 27
+    for row in rows:
+        node = row["nodeid"]
+        assert node.startswith(("tests/kicad/", "tests/corpus/"))
+        assert "::" in node and not any(c.isspace() for c in node)
+        assert (
+            hashlib.sha256((ROOT / node.split("::")[0]).read_bytes()).hexdigest() == row["test_file_sha256"]
+        )

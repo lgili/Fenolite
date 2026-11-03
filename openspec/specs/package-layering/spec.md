@@ -2,13 +2,13 @@
 
 ## Purpose
 Keep the dependency graph between `fenolite` sub-packages acyclic and intentional, and keep the core importable with no third-party packages installed.
-
 ## Requirements
-
 ### Requirement: Allowed import edges
-Sub-packages of `fenolite` MUST only import from their own package, from `core` (which every package MAY import), and from the packages listed for them: `core` → standard library only; `model` → nothing else; `geometry` → nothing else; `dsl` → `model`; `catalog` → `model`; `lens` → `model`, `backends`; `backends` (its top-level modules such as `base` and `registry`) → `model`, `geometry`, any `backends.<x>`; `backends.<x>` → `model`, `geometry`, `backends.base`; `libs` → `model`, `geometry`; `checks`, `analysis`, `placement` → `model`, `geometry`, `backends.base`; `roles` → `model`, `geometry`, `backends.base`, `analysis`; `routing` (its `protocol` and other top-level modules) → `model`, `geometry`; `routing.plugins.<x>` → `routing`, `model`, `geometry`, `backends.<x>`; `templates` → `model`; `render`, `exports`, `convert`, `verify` → `model`, `geometry`, `backends`; `view` → `model`, `geometry`, `backends`, any `backends.<x>`; `api` → `model`, `geometry`, `backends`, any `backends.<x>`, `checks`, `analysis`, `convert`, `lens`; `cli` and the root modules `fenolite/__init__.py`, `fenolite/__main__.py` → any `fenolite` package; `agent` → `cli`. No package but `cli`, `agent` and the root modules MAY import `api`. No package but `cli` and the root modules MAY import `roles`. A sub-package that is not in this table MUST be added to it before it is created.
+Sub-packages of `fenolite` MUST only import from their own package, from `core` (which every package MAY import), and from the packages listed for them: `core` → standard library only; `model` → nothing else; `geometry` → nothing else; `dsl` → `model`, `schematic`, `catalog`; `schematic` → nothing else; `catalog` → `model`; `lens` → `model`, `backends`; `backends` (its top-level modules such as `base` and `registry`) → `model`, `geometry`, any `backends.<x>`; `backends.<x>` → `model`, `geometry`, `backends.base`; `libs` → `model`, `geometry`; `checks`, `analysis`, `placement` → `model`, `geometry`, `backends.base`; `roles` → `model`, `geometry`, `backends.base`, `analysis`; `routing` (its `protocol` and other top-level modules) → `model`, `geometry`; `routing.plugins.<x>` → `routing`, `model`, `geometry`, `backends.<x>`; `templates` → `model`; `render`, `exports`, `convert`, `verify` → `model`, `geometry`, `backends`; `view` → `model`, `geometry`, `backends`, any `backends.<x>`; `api` → `model`, `geometry`, `backends`, any `backends.<x>`, `checks`, `analysis`, `convert`, `lens`; `cli` and the root modules `fenolite/__init__.py`, `fenolite/__main__.py` → any `fenolite` package; `agent` → `cli`; `mcp` → `cli`, `agent` (the MCP server of change c0195: it describes and runs the commands and reads the guide, with the standard library only). No package but `cli`, `agent` and the root modules MAY import `api`. No package but `cli` and the root modules MAY import `roles`. A sub-package that is not in this table MUST be added to it before it is created.
 
 A router plugin returns model entities and transforms pads, so it imports `model` and `geometry` as its backend does; it still MUST NOT import another backend or `backends.base` consumers such as `checks`.
+
+The edge `dsl` → `catalog` exists so that a device part can be checked at the call that creates it (`design-dsl`, "Checked pin access on device parts"). `catalog` MUST NOT import `dsl`, so the edge adds no cycle.
 
 #### Scenario: Forbidden edge fails
 - **GIVEN** `src/fenolite/model/board.py` imports `fenolite.backends.kicad`
@@ -39,6 +39,16 @@ A router plugin returns model entities and transforms pads, so it imports `model
 - **GIVEN** `src/fenolite/roles/measure.py` importing `fenolite.analysis.shapes` and `src/fenolite/checks/roles.py` importing only `fenolite.checks.stages`, `fenolite.model.design` and `fenolite.backends.base`
 - **WHEN** `pytest tests/unit/test_import_graph.py` runs
 - **THEN** it passes; `src/fenolite/checks/roles.py` importing `fenolite.roles` or `fenolite.analysis` makes it fail naming the edge, and so does `src/fenolite/roles/measure.py` importing `fenolite.backends.kicad`
+
+#### Scenario: The DSL reads the catalog, not the reverse
+- **GIVEN** `src/fenolite/dsl/devices.py` importing `fenolite.catalog.devices`
+- **WHEN** `pytest tests/unit/test_import_graph.py` runs
+- **THEN** it passes; `src/fenolite/catalog/devices.py` importing `fenolite.dsl` makes it fail naming `catalog → dsl`
+
+#### Scenario: The MCP server imports the command line and the guide
+- **GIVEN** `src/fenolite/mcp/tools.py` importing `fenolite.cli.describe` and `src/fenolite/mcp/resources.py` importing `fenolite.agent.guide`
+- **WHEN** `pytest tests/unit/test_import_graph.py` runs
+- **THEN** it passes; a module of `fenolite.mcp` importing `fenolite.backends` or a third-party package makes it fail naming the edge
 
 ### Requirement: Third-party imports only in extras-guarded modules
 Modules outside `core`, `model`, `geometry` and `dsl` MUST import third-party packages only inside a function or under `try/except ImportError` guarded by the extra name, and `import fenolite` SHALL succeed with no extras installed. Modules inside `core`, `model`, `geometry` and `dsl` MUST NOT import third-party packages, statically or through `importlib.import_module` or `__import__`, with one exception: `fenolite.geometry.boolean._extra.load_extra(name)` MAY load, at call time, a package whose import name is in its closed tuple `GEO_MODULES`, and SHALL be the only place in those four packages that calls `importlib.import_module` or `__import__`. `GEO_MODULES` MUST equal the import names of the packages listed in the `geo` extra of `pyproject.toml`, and `import fenolite.geometry` SHALL succeed with no extra installed.

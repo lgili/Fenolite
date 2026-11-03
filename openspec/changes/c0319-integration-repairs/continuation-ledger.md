@@ -332,3 +332,30 @@ Final c0332 integration checkpoint: clean d348705f has77geometry and183
 expanded actual tests passing; fresh all75plans/1172hashes exactly repeat
 the reviewed map with ten refusals. Task1.3 closes again on these broader
 actual proofs; final local fast and exact CI/native acceptance remain open.
+
+
+## Complete fast15 reproof —2026-11-03
+
+`make check-fast PYTEST_MAX_WORKERS=4` passed on clean unchanged source
+`9ff58f57ba2daf05309391b8ebcd23bb9cf67186`:22421passed/52skipped,
+1034.28s pytest,1127.695304666995s complete driver, exit0. Ruff, guide and
+Altium-graduation generation checks, format (3423files), source types
+(0errors/0warnings), and private-enabled residue (0hits/7080files/22existing
+waivers) pass. The [portable receipt](fast15-receipt.json) preserves the
+external original receipt SHA256 and the recomputed complete log/driver hashes;
+only portable artifact identifiers are committed. All52skips remain skips,
+including missing native/library/measurement inputs; none proves a
+separate native acceptance gate.
+
+The failed [fast14 receipt](fast14-receipt.json) remains byte-identical:
+7failed/22399passed/52skipped on b1e9349a. Its historical pending-fast15
+snapshot is superseded by this independent later result, not relabelled as a
+pass. The two focused repair commits are250041e7 and9ff58f57. Changes after
+9ff58f57 through d4130531 affect documentation, evidence/OpenSpec/CHANGELOG
+and the Altium documentary guard test; this receipt makes no claim to have
+run those later revisions. No production runtime path changed in that delta.
+
+The published CI source985f59a1/run41708879698 remains distinct, with all14
+required jobs needed for its own closure verdict. Fast15 is not that verdict,
+a Royal L7 repair, a full local suite, a release or an actual archive. The two
+Royal L7 failures and every independent native/library/release gate remain.

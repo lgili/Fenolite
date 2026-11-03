@@ -266,7 +266,7 @@ def test_part_j_reports_hold_no_altium_verified_row_without_a_report() -> None:
     assert rows and not [line for line in rows if "| ALTIUM-VERIFIED" in line]
 
 
-def test_drawn_kit_is_concrete_but_native_acceptance_remains_pending() -> None:
+def test_drawn_report_acceptance_preserves_historical_failures_and_kit_scope() -> None:
     section = _section(
         _page("evidence/altium-schematic.md"), "## Drawn-sheet kit request (c0276, 2026-11-01)"
     )
@@ -283,8 +283,20 @@ def test_drawn_kit_is_concrete_but_native_acceptance_remains_pending() -> None:
     ):
         assert words in section
     row = next(line for line in _page("hypotheses.md").splitlines() if line.startswith("| H-A-DRAWN-WRITE |"))
-    assert "INFERRED" in row and "native acceptance stays pending" in row
-    assert "actual Altium 22.2.1" in row and "altium-drawn-native.md" in row
+    assert "INFERRED" in row and "formal-kit drawn step/source binding" in row
+    assert "Altium24.5.2.23" in row and "altium-drawn-native.md" in row
+    proof = json.loads((ROOT / "openspec/changes/c0276-drawn-schematic/native-visual-proof.json").read_text())
+    approval = proof["maintainer_report_approval"]
+    assert approval["status"] == "APPROVED"
+    assert approval["answer"] == "Aprovo o relatório com essas limitações"
+    assert len(approval["reviewed_report_sha256"]) == 64
+    assert len(proof["captures"]) == 14
+    assert all(capture["operator_inspected"] for capture in proof["captures"])
+    assert proof["all_fourteen_native_sources_unchanged"]
+    assert len(proof["limitations"]) == 5
+    assert approval["writer_experimental"] and approval["CI_pending"]
+    assert not proof["hypothesis_level_changed"]
+    assert not proof["writer_graduation_claimed"] and not proof["current_CI_pass_claimed"]
     observed = json.loads(_page("evidence/altium-drawn-native.json"))
     assert not observed["full_gate_passed"] and not observed["evidence_promoted"]
     assert len(observed["original_cases"]) == 6

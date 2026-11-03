@@ -1,0 +1,137 @@
+{
+  "run": 41708879698,
+  "source": "985f59a1d01a612b2eac0219243199896c24075a",
+  "conclusion": "failure",
+  "metadata_sha256": "cd7a28fbc69631a6f3613865fba28f4879ab79efcf2d6c6a2e2cc82879da73fe",
+  "jobs": [
+    {
+      "id": 126171394030,
+      "name": "mcp (the official MCP client against fenolite mcp)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394269,
+      "name": "unit (windows-latest, py3.12)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394424,
+      "name": "wheel (the built package installs alone)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394428,
+      "name": "unit (ubuntu-latest, py3.12)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394431,
+      "name": "viewer (visual tests)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394457,
+      "name": "dco (every commit is signed off)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394460,
+      "name": "unit (macos-latest, py3.12)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394540,
+      "name": "routing (KiCad 10, pinned KiCadRoutingTools and Freerouting)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394556,
+      "name": "unit (ubuntu-latest, py3.11)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394674,
+      "name": "kicad-10 (kicad-cli oracle and corpus)",
+      "status": "completed",
+      "conclusion": "failure"
+    },
+    {
+      "id": 126171394700,
+      "name": "unit (ubuntu-latest, py3.13)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394705,
+      "name": "routing (KiCad 9, pinned KiCadRoutingTools and Freerouting)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394740,
+      "name": "kicad-9 (kicad-cli 9.0 oracle)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 126224639714,
+      "name": "drawn-floor (same-commit native10 upgrade qualification)",
+      "status": "completed",
+      "conclusion": "failure"
+    }
+  ],
+  "native10": {
+    "job": 126171394674,
+    "failed": 27,
+    "passed": 3992,
+    "skipped": 168,
+    "xfailed": 3,
+    "seconds": "5797.51",
+    "log_sha256": "014e4eb36c889f4848842d7abf57462ab6da185e2b8fcf5b28ddbb9334d1a68b",
+    "log_bytes": 368635,
+    "families": {
+      "enumeration-node": 12,
+      "proposal-node": 8,
+      "nonsimple": 1,
+      "input-edge": 4,
+      "deadline": 2
+    }
+  },
+  "bridge": {
+    "job": 126224639714,
+    "log_sha256": "3cc295c22a528d39d5b5731703641355c3992534bd2954f0120a30796e48ba07",
+    "failed_step": {
+      "number": 5,
+      "name": "Both complete native jobs remain required",
+      "command": "test \"$NATIVE_NINE_RESULT\" = success && test \"$NATIVE_TEN_RESULT\" = success",
+      "environment": {
+        "NATIVE_NINE_RESULT": "success",
+        "NATIVE_TEN_RESULT": "failure"
+      },
+      "exit": 1,
+      "time": "2026-11-03T21:42:54.3717173Z"
+    },
+    "bridge_qualification_step": {
+      "number": 4,
+      "name": "Require complete immutable original and upgraded graphs",
+      "conclusion": "success",
+      "reported_complete_same_commit_native10_upgrade_owner_proofs": 5,
+      "native9_cross_version_equality_claimed": false,
+      "observation_time": "2026-11-03T21:42:54.3517380Z",
+      "independent_reexecution_performed": false
+    },
+    "causal_classification": "Dependent-job failure propagated intentionally; no demonstrated artifact/source/qualification defect in this bridge run. KiCad10 root-cause analysis belongs to library agent."
+  },
+  "scope_correction": "Maintainer clarified that known geometry was already outside the closure batch. Full14 success was an overbroad operational archival precondition; restore scope per spec and preserve actual failure, c0332 open. No new CI or rerun was launched for this correction.",
+  "runtime_changed": false,
+  "CI_pass_claimed": false
+}

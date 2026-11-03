@@ -54,8 +54,16 @@ eligible actual archive will have its own maintainer-signed commit.
 
 The later c0355native-project correction is b1e9349a. It has focused controls
 and an authored native diagnostic, but it does not inherit CI985f59a1. Its
-separate clean-source fast14run is still in progress with observed failures;
-the completed failure report must be reconciled before further publication.
+separate clean-source fast14run failed:7failed,22399passed,52skipped.
+The immutable [failed receipt](fast14-receipt.json) is retained. The missing
+evidence declaration and two second-build activation failures were repaired
+separately in250041e7/9ff58f57 with focused proofs. The complete fast15 run
+on clean unchanged9ff58f57 passed:22421passed/52skipped, exit0. Its
+[portable receipt](fast15-receipt.json) binds the original external receipt,
+log and driver hashes. The pending-fast15 text inside fast14 is the frozen
+historical snapshot, superseded by this later result without rewriting it.
+This local result does not inherit or complete CI985f59a1; further publication
+and archival still wait for their required validation.
 
 The first fresh Royal comparison on b1preserves the entire native net-settings
 object, all95native names/physical partitions and levels1–6/S/8, but still
@@ -65,3 +73,18 @@ not authorize archiving c0355, changing a baseline or accepting those findings.
 
 c0267/JLC stays explicitly deferred and outside these37. Routing and enclosure
 branches retain their own owners and are not part of this closure batch.
+
+
+## Restored maintainer scope after terminal CI result
+
+Run41708879698 completed with12successful jobs and two failed jobs: native10 has27known
+c0332 geometry failures; the dependent drawn-floor passed its five owner qualifications and then
+correctly propagated native10 failure. `ci-41708879698-terminal.json` preserves the exact verdict
+and source/log bindings. This is not a passing complete-run claim.
+
+The maintainer clarified that problematic geometry was already excluded from this closure batch.
+Requiring all14jobs for every archive was an overbroad operational condition of the prepared plan,
+not a new maintainer requirement. Preserve that old plan as history; assess each spec's actual
+proofs and dependency order using the authorized scope. The working-branch-only selection fix
+explicitly reports27source-bound cases as deferred, not passed; c0332 remains open. No new CI
+execution is authorized or implied by this local correction, and no failed result is rewritten.

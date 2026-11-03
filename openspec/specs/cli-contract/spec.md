@@ -2,9 +2,7 @@
 
 ## Purpose
 Define the machine-readable contract every `fenolite` command follows (output modes, envelope, typed errors, exit codes, mutation protocol, determinism flags, capability discovery) so that AI agents and CI pipelines can drive the tool without parsing human text.
-
 ## Requirements
-
 ### Requirement: Output mode selection
 Every `fenolite` command SHALL emit JSON on stdout when stdout is not a TTY and human-readable text when it is. The flags `--json` and `--text` SHALL override the detection. JSON output MUST be exactly one JSON document followed by a newline.
 
@@ -2374,3 +2372,12 @@ When the plan of `fenolite copper` changes nothing on the board, the command SHA
 #### Scenario: A run on its own output
 - **WHEN** `uv run pytest tests/unit/roles/test_copper_repeat.py` runs `fenolite copper --dry-run` on the board it has just written
 - **THEN** `result.changed` is false, no `plan_id` is given and the board's bytes are unchanged
+
+### Requirement: MCP command
+`fenolite mcp [--root DIR] [--read-only] [--tools NAME,...] [--timeout SECONDS]` SHALL serve the MCP server of capability `mcp-server` until its input ends; while it serves, standard output belongs to the protocol and no envelope is written.
+- A usage error before the server starts (an unknown tool name, a root that is not a folder) MUST be the usual error object with exit 2.
+- `fenolite capabilities` MUST list the command with the protocol versions it serves.
+
+#### Scenario: Unknown tool name
+- **WHEN** `uv run fenolite mcp --tools nope` runs
+- **THEN** the exit code is 2 and the error object names `nope`

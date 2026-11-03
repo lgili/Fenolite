@@ -308,7 +308,7 @@
   both retain their PCB, PCB library and symbol library hashes. The focused byte selection passed
   21 cases. Documentation/guide proofs passed 106 cases. Native Altium acceptance is not implied.
 
-- [ ] 6.2 Add a kit step that compiles the drawn example and records the nets and messages
+- [x] 6.2 Add a kit step that compiles the drawn example and records the nets and messages
   (`H-A-DRAWN-WRITE`); the row stays `INFERRED` until the maintainer reports. Proof:
   `uv run pytest tests/unit/test_altium_verification_docs.py -q`.
   2026-10-29: open: depends on 6.1 and the maintainer's kit.
@@ -322,6 +322,17 @@
   connected boundary plus an independently broken native control. Original
   source ERC and raw name findings remain, so the no-connectivity-message
   criterion and this task stay open. See `docs/evidence/altium-drawn-native.md`.
+
+
+  2026-11-03 maintainer report accepted: “Aprovo o relatório com essas limitações”. The actual
+  current24 corrected EXAMPLE38pins/33groups, FULL40/32 and canonical REPEAT8/5, both forms,
+  retain complete exports, Info-only compiles, new-copy save/reopen and all14 visual inspections.
+  `native-visual-proof.json` binds the exact reviewed report and the decision. Historical original
+  failures, text overlaps, FB0/FB1, flattened children, unsupported justification/mirror identity and
+  declared graphical losses remain. The report closes only6.2; writers remain experimental and
+  the independent CI gates remain open. H-A-DRAWN-WRITE conservatively stays INFERRED because
+  the machine-checked formal kit has no drawn step/source binding; no synthetic kit run is created.
+  Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -q` —15 passed in0.59s. Register/matrix/documentation focused selection:79 passed in122.65s; both canonical generator checks passed.
 
 - [x] 6.3 Author an independent native clean-ERC bus acceptance control with explicit
   intentional no-connects ONLY on the two truly unused input pins U1-11/U1-12.
@@ -583,3 +594,23 @@ bound in full-closure-proof.json. This completes task6.5. Aggregate6.2,
 KiCad CI/census7.1/7.2 and exact-current-CI9.2 remain open; no whole-spec archive
 or aggregate H-A-DRAWN-WRITE promotion is made. Earlier pending notes remain
 historical and are superseded only for this literal task.
+
+
+## Actual visual kit step4 —2026-11-03
+
+- [x] 6.2v Complete source-bound native visual inspection of the already saved/reopened14 authored SchDocs, both writer origins, without repeating compile/save tests. Seal unchanged screenshots and final Windows input hashes, inspect poses/bends/entries/fields, retain transformed text, flattened hierarchy, unsupported justification/mirror and actual overlaps. This is the visual subproof of6.2, not a human viewer review, complete drawing identity, writer graduation or CI success. Proof: metadata/hash validation and `uv run pytest tests/unit/test_altium_verification_docs.py -q`.
+
+The operator inspected all14 original native window captures on24.5.2.23, including the four simple
+children; every source file still has its recorded hash after the inspection. The independent
+connectivity/save-reopen receipts retain EXAMPLE38pins/33groups, FULL40/32 and REPEAT8/5 in both
+writer origins, with their original failures preserved. Source-bound capture/proof metadata is
+`native-visual-proof.json`. A separate wheel-view experiment did not prove a zoom and is retained
+only as a diagnostic. Text/field overlap is visible, not called drawing equivalence.
+
+The maintainer report decision required by6.2 remains pending. The parent checkbox and
+H-A-DRAWN-WRITE stay unchanged/INFERRED pending that decision; this visual subproof does not
+approve c0177/c0181/c0186, native writers' graduation or the still-running exact-source CI.
+
+Visual subproof validation: all14 source/image/receipt hashes matched and the final Windows14-file
+read passed; `test_altium_verification_docs.py` passed15cases0.52s. Parent6.2 remains pending
+the separate maintainer-report decision; no old native failure, limitation or CI gate was waived.

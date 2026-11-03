@@ -352,6 +352,14 @@
   producer change is used to hide that existing Mac mismatch. Keep this task
   open; the earlier L10 receipt remains historical.
 
+  Fast15 continuation —2026-11-03: the independent runtime candidate
+  9ff58f57ba2daf05309391b8ebcd23bb9cf67186 passed the complete
+  `make check-fast PYTEST_MAX_WORKERS=4`:22421passed/52skipped, exit0,
+  1034.28s pytest/1127.695304666995s complete driver, clean unchanged HEAD.
+  See fast15-receipt.json for the recomputed external receipt/log/driver
+  bindings. Failed fast14 remains unchanged and historical. This proves the
+  local gate on9ff58f57 only, not task2.3, Royal L7 or any actual archive.
+
 - [ ] 2.3 Publish one reviewed batch and confirm all required CI jobs on that
   exact commit; keep native/private/release proofs separate.
   Proof: required GitHub CI jobs completed successfully on the recorded commit.
@@ -426,3 +434,27 @@ c5e34749 contain only evidence/docs/OpenSpec/CHANGELOG changes, with separate
 inferred. Revalidate any subsequent runtime candidate. The source-bound local
 fast requirement2.2 is complete; exact-head required GitHub CI2.3 and every
 independent native/library/private/release gate remain open.
+
+
+- [x] 2.12 Record the complete fast15 result with a portable source/log/driver/receipt binding; reconcile current local-fast tracking without rewriting fast14 or closing CI/native/Royal/archive gates. Proof: recompute external SHA-256 bindings and literal counts; strict c0319 validation; git diff --check; staged residue scan with the private gate enabled.
+
+  Passed 2026-11-03: all original external receipt fields and three SHA-256
+  bindings match; literal 22421 passed / 52 skipped / 1034.28 s matches the
+  complete log. The failed fast14 receipt is byte-identical. Strict c0319
+  validation and whitespace checks pass; staged private-enabled residue scans
+  all seven changed documentation files with zero hits. No suite/native/CI
+  rerun, runtime change, publication or actual archival was performed.
+
+
+- [x] 2.13 Restore the maintainer’s already agreed geometry exclusion for the CAC closure batch.
+  On pushes to codex/cac-next only, explicitly deselect the 27 source-bound known c0332 native
+  failures, report them as deferred rather than passed, and leave main/dev/PR selection unchanged.
+  Preserve all runtime, assertions and geometry budgets; do not rerun the complete CI to rediscover
+  known failures. Required jobs/proofs of other specs are judged in their own scope. Proof:
+  `uv run pytest tests/unit/test_ci_workflow.py -q`; strict c0319 validation; scope manifest/hash
+  verification; diff and private residue checks. No new CI or push is implied by this local repair.
+
+  Proof2026-11-03:51workflow unit cases pass in0.25s; the exact inline scope script verified all27
+  bound test-file digests and produced exactly their deselect arguments plus explicit summary,
+  without executing pytest/native/CI. Strict c0319 and diff checks pass; private staged scan0hits
+  in9files. No runtime changed, no push/new CI, and the previous failed run remains failed.

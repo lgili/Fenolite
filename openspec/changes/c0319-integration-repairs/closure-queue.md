@@ -5,7 +5,11 @@ records the16first candidates,20additional candidates and c0250ordering
 prerequisite. All37normal archives and97resulting living specifications were
 rehearsed externally; this branch still has no actual archives from that batch.
 The published985f59a1workflow has14required jobs, including the dependent
-drawn-floor bridge. Later runtime b1e9349a requires independent validation.
+drawn-floor bridge. Later runtime b1e9349a failed fast14; its repairs culminate
+in9ff58f57, whose independent fast15 passed22421cases with52skips and exit0
+on a clean unchanged source ([receipt](fast15-receipt.json)). This closes its
+local-fast result only; it supplies no CI985 verdict, Royal L7 pass or actual
+archive. The failed fast14 receipt remains unchanged.
 
 ## Active order after maintainer reset —2026-11-03
 
@@ -106,7 +110,7 @@ native/evidence tasks require reconciliation with actual receipts before ticking
 | c0273 | 4.3 external block jobs; 5.3 core CI | External library plus CI |
 | c0274 | 7.5 | Fast/exact CI |
 | c0275 | 4.3 source-bound corpus measurement, counts and evidence; 5.5 | Census artifact/CI; preserve failures |
-| c0276 | Aggregate6.2 reconciliation; 7.1 native resolver; 7.2 corpus; 9.2 CI | Tasks6.5/6.6 now reconciled complete:113/107focused passes, unchanged native source/writer and172closed files reverified; maintainer explicitly accepted only the disclosed retrospective FULL acquisition chronology. Current24 FULL40pins/32groups and REPEAT8pins/5groups compile/export and ten-document save/reopen complete; all raw exports byte-identical. Original baseline chronology stays disclosed. Remaining aggregate/census/current CI gates do not inherit that scoped acceptance. |
+| c0276 | 7.1 native resolver; 7.2 corpus; 9.2 CI | Aggregate6.2 now complete: maintainer accepted the current24 report and all14 visual inspections with the recorded drawing limits; EXAMPLE38pins/33groups, FULL40/32 and REPEAT8/5 in both forms, Info-only compiles, complete exports/save-reopen. The report digest and approval are bound in native-visual-proof.json. Prior6.5/6.6 and retrospective FULL chronology remain separately recorded. Formal-kit label stays INFERRED; writers remain experimental and census/current CI gates remain open. |
 | c0277 | 5.5 | Fast/exact CI |
 | c0278 | 6.1 native upgrade/refill; 6.2 roundtrip test and accepted ledger present; 8.2 | Native/census evidence and CI; existing GUI sensor proof does not settle every case |
 | c0279 | 3.2 first library PR/workflow CI; 3.3 first library release and core table; 4.4 replay/proof/bench/gallery workflow results; 4.5 first-board integration proof; 5.6 core CI | Real library/publication and CI gates. External OpenAir4.5a preparation is complete; preparation does not close publication. |
@@ -282,3 +286,12 @@ No workflow filtering, job cancellation, green verdict, archival or dev/tag/
 library publication is inferred. Keep2.3 and actual archive gates open until
 the required jobs finish successfully on that SHA. Later local documentation
 and library8b38b30 are outside this published core candidate.
+
+
+2026-11-03 scope correction: CI41708879698 is terminal FAILURE (12jobs success; native10 has
+27geometry failures and drawn-floor propagates that failure after passing its own qualification).
+The maintainer clarified geometry was already outside this closure batch. The old37plan's global
+14-job requirement is not a blanket block on specs whose own required jobs/proofs passed.
+Assess those proofs and explicit dependencies individually; do not close c0332 or infer missing
+native comparisons. Local working-branch scope restoration is recorded by task2.13 and
+ci-41708879698-terminal.json. No new push or CI run accompanies the correction.

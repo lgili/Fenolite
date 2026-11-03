@@ -1660,3 +1660,33 @@ new-copy save/reopen and c0331's corrected/negative bus controls. All source
 ERC/raw name findings remain visible. This is a bounded native observation,
 not execution of the entire formal kit. The original no-connectivity-message
 criterion is not met; `H-A-DRAWN-WRITE` remains INFERRED and pending.
+
+
+## Current24 drawn visual inspection —2026-11-03
+
+The maintainer-authorized operator inspected actual Altium Designer24.5.2.23 windows for all14
+already native-saved authored documents: EXAMPLE/FULL roots and children, and REPEAT roots and
+both local-net children, in each writer origin. The original PNGs and per-capture receipts are
+retained externally; their source/image hashes and observations are bound by
+[the visual proof](../../openspec/changes/c0276-drawn-schematic/native-visual-proof.json).
+A final Windows read confirms all14 disk hashes remain unchanged. No new compile, save or
+connectivity outcome is inferred from opening/inspecting these copies.
+
+Body poses, bends, sheet entries and field positions were inspected. Actual text/field overlaps
+remain visible beside power ports/values/local labels and on sheet-box names. FB0/FB1, flattened
+ordinary child sheets, the FULL B[0..1] replacement, unsupported justification/mirror metadata,
+missing per-sheet titles and the two opaque graphic drops remain explicit limitations. This is
+not a claim of complete drawing identity or perfect label legibility. A separate mouse-wheel
+view merely panned; it is not represented as a native zoom.
+
+The prior complete current24 graph/export/save-reopen receipts remain independently scoped.
+On2026-11-03 the maintainer accepted this exact report: “Aprovo o relatório com essas limitações”.
+This concludes c0276.6.2: corrected EXAMPLE38pins/33groups, FULL40/32 and canonical REPEAT8/5
+in both forms, with Info-only compilation, complete exports and native save/reopen. The proof
+records the reviewed report digest and this decision. The original22.2.1 failures above remain
+historical observations, not results of these corrected controls.
+
+H-A-DRAWN-WRITE conservatively remains INFERRED because the machine-checked formal kit has
+no drawn step/source binding; this is a representation boundary, not a missing native run or
+maintainer decision. No synthetic formal-kit record is created. Writers remain experimental;
+there is no writer graduation, separate human viewer approval or CI pass from this acceptance.
