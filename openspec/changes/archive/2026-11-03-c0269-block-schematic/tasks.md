@@ -99,7 +99,7 @@
 
 ## 4. Evidence
 
-- [ ] 4.1 KiCad CI job: build `examples/blocks/design.py` for each major, export its netlist with
+- [x] 4.1 KiCad CI job: build `examples/blocks/design.py` for each major, export its netlist with
   `kicad-cli` and run ERC (scenario "KiCad reads the block netlist"). Add the rows `H-K-SCH-BLOCK-PINS`
   and `H-K-SCH-BLOCK-ERC` to the evidence matrix as `KICAD-VERIFIED (9.0.x, 10.0.x)` only after the job
   passes. Proof: the KiCad job of the commit on GitHub CI is green;
@@ -126,9 +126,42 @@
 - [x] 6.1 `CHANGELOG.md`: one entry under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`,
   because at `0.6.0` the v0.6 guard requires `[Unreleased]` to be empty. Proof:
   `uv run pytest tests/unit/test_release_record_v06.py tests/consistency -q` on the `0.7.0.dev0` base.
-- [ ] 6.2 Push the batch to the working branch and confirm that the required unit and KiCad jobs pass on
+- [x] 6.2 Push the batch to the working branch and confirm that the required unit and KiCad jobs pass on
   that exact commit. Run only `make check-fast` and the focused tests locally (AGENTS.md, workflow 4).
   Proof: the run of the commit on GitHub CI is green; `make check-fast` passes locally.
   2026-10-29: open: CI runs with the batch. `make check-fast PYTEST_WORKERS=2` passed locally (TMPDIR outside the worktree): 16 243 passed, 48 skipped, exit 0.
 
   2026-10-29: entry under `## [Unreleased]` (the base already holds 0.7.0.dev0 entries). Proof: `tests/consistency` passed.
+
+## Scoped implementation closure — 2026-11-03
+
+The maintainer clarified that problematic geometry was already outside this
+closure batch before the run. This record closes only this specification on
+tested source 985f59a1d01a612b2eac0219243199896c24075a plus reviewed archival
+documentation. Run41708879698 and native10job126171394674 remain FAILURE;
+the27known c0332 failures are DEFERRED_NOT_PASSED. Native9job126171394740
+and all five unit jobs succeeded. Native10 selected results are inferred
+from complete unfiltered collection and its exhaustive -ra non-pass report;
+contracted opposite-target skips remain skips, not passed tests.
+
+`scoped-ci-985f59a1.json` retains every selected node, assert and skip,
+source/fixture/log hashes, actual five unit block-step JSON measurements
+(each5usage builds,5equal goldens,16plain test functions,zero issues),
+reused fast13 proof and any post-edit register/matrix checks. It does not
+claim that native10 printed individual PASSED lines or that its job was green.
+Existing historical failures and local measurements remain recorded above.
+
+Only H-K-SCH-BLOCK-PINS/ERC for the authored six-net block example and
+H-K-BLOCK-LAYOUT-DRC for the authored both-side/kept-flip divider are eligible
+for scoped KiCad promotion. ERC checks only hier/sheet/label types; usage
+checks nets as a subset and schematic parity. H-A-BLOCK-ENTRIES and every
+H-G row remain INFERRED. Illustrative device records are not graduated.
+The five previously recorded GUI layouts still match their hashes; this
+archive creates no new CAD action or human engineering approval.
+
+Runtime/tests/tools/configuration remain byte-identical to985. Later CAC
+runtime, c0355, integration CI and release remain separate pending gates.
+No native/full/fast/CI test was rerun to archive. Nominal documentation
+proofs, normal archive, complete normative-body/scenario comparison,
+living-spec strict validation and private-on staged scan are recorded in
+the external per-spec closure receipt.

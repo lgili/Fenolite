@@ -29,6 +29,19 @@ STEPS = [
 KICAD10_PYTEST = (
     "run: uv run pytest tests/kicad tests/corpus -q --basetemp /tmp/fenolite-kicad-corpus " + PARALLEL
 )
+VIEW_ACTIONS_PYTEST = (
+    "run: uv run pytest "
+    "tests/unit/cli/test_view_actions.py::test_export_plans_files_under_fab "
+    "tests/unit/cli/test_view_actions.py::test_fill_plan "
+    "tests/unit/cli/test_view_actions.py::test_tidy_with_the_drc_gate "
+    "-q -rA --basetemp /tmp/fenolite-view-actions-native " + PARALLEL
+)
+VIEW_ACTIONS_REQUIRED_STEP = (
+    "      - name: Native viewer action plans (c0303)\n"
+    "        env:\n"
+    "          FENOLITE_REQUIRE: kicad\n"
+    f"        {VIEW_ACTIONS_PYTEST}\n"
+)
 UNIT_PYTEST = f"run: uv run pytest -q {PARALLEL}"
 MAC_BYTE_PROBE = (
     "run: uv run pytest 'tests/unit/test_build_bytes.py::test_example_keeps_its_bytes[board_40parts@altium]' "
@@ -110,7 +123,9 @@ def job_problems(workflow: str) -> list[str]:
         problems.append("kicad-10: cache key must hash tests/corpus/manifest.toml")
     if not re.search(r"FENOLITE_REQUIRE: kicad,corpus", job):
         problems.append("kicad-10: pytest must run with FENOLITE_REQUIRE=kicad,corpus")
-    if pytest_steps(job) != [KICAD10_PYTEST]:
+    if VIEW_ACTIONS_REQUIRED_STEP not in job:
+        problems.append("kicad-10: native viewer actions must require kicad-cli")
+    if pytest_steps(job) != [VIEW_ACTIONS_PYTEST, KICAD10_PYTEST]:
         problems.append(f"kicad-10: the pytest step must end with {PARALLEL}")
     return problems
 
@@ -209,7 +224,9 @@ def kicad9_problems(workflow: str) -> list[str]:
             "kicad-9: cache key must be corpus-rt2-9-sch-9-downgrade-demo-"
             "<hash of tests/corpus/manifest.toml>"
         )
-    if pytest_steps(job) != [KICAD9_PYTEST]:
+    if VIEW_ACTIONS_REQUIRED_STEP not in job:
+        problems.append("kicad-9: native viewer actions must require kicad-cli")
+    if pytest_steps(job) != [VIEW_ACTIONS_PYTEST, KICAD9_PYTEST]:
         problems.append(f"kicad-9: the pytest step must end with {PARALLEL}")
     if "FENOLITE_CORPUS_CACHE:" not in job:
         problems.append("kicad-9: FENOLITE_CORPUS_CACHE must name the cached folder")
@@ -230,6 +247,33 @@ def test_kicad_9_job() -> None:
 def test_serial_kicad_9_step_rejected() -> None:
     text = WORKFLOW.read_text(encoding="utf-8").replace(KICAD9_PYTEST, KICAD9_PYTEST[: -len(PARALLEL) - 1])
     assert f"kicad-9: the pytest step must end with {PARALLEL}" in kicad9_problems(text)
+
+
+def test_native_viewer_action_nodes_are_required_in_both_jobs() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    for name, validate in (("kicad-9", kicad9_problems), ("kicad-10", job_problems)):
+        job = job_text(text, name)
+        assert not validate(text)
+        for node in (
+            "test_export_plans_files_under_fab",
+            "test_fill_plan",
+            "test_tidy_with_the_drc_gate",
+        ):
+            selector = f"tests/unit/cli/test_view_actions.py::{node} "
+            assert job.count(selector) == 1
+            changed = job.replace(selector, "", 1)
+            problems = validate(text.replace(job, changed))
+            assert f"{name}: the pytest step must end with {PARALLEL}" in problems, (name, node)
+
+
+def test_native_viewer_actions_cannot_silently_skip_a_missing_cli() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    for name, validate in (("kicad-9", kicad9_problems), ("kicad-10", job_problems)):
+        job = job_text(text, name)
+        assert job.count(VIEW_ACTIONS_REQUIRED_STEP) == 1
+        without_requirement = VIEW_ACTIONS_REQUIRED_STEP.replace("          FENOLITE_REQUIRE: kicad\n", "")
+        changed = job.replace(VIEW_ACTIONS_REQUIRED_STEP, without_requirement)
+        assert f"{name}: native viewer actions must require kicad-cli" in validate(text.replace(job, changed))
 
 
 def test_both_kicad_jobs_run_tests_kicad() -> None:

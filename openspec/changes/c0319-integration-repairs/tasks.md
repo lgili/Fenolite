@@ -470,3 +470,23 @@ independent native/library/private/release gate remain open.
   archival commit has the maintainer DCO; living specs exactly match the reviewed archive chain.
   All86living specs and c0319/c0266/c0273 strict checks pass; diff passes; private staged scan
   reports0hits in9files. Library audit and CI cleanup receipts retain their exact sources and limits.
+
+- [x] 2.15 Reconcile the current32 actual scoped archives and their complete source/CAC commit,
+  file and DCO bindings after integrating the twelve additional catalog/DSL archives and five viewer
+  archives. Preserve the historical fifteen-archive proof, failed CI verdict, authorized geometry
+  deferral, later runtime CI gate, and the five original-plan changes still active. Update only the
+  current closure ledger; do not infer missing native, human or library release outcomes.
+  Proof: all archive files equal their reviewed source commits; living specifications equal the
+  reviewed archive chain; strict living/c0319 validation; diff and private staged residue checks.
+
+Task2.15 proof2026-11-03: all242 files in32archives equal their reviewed source commits, both source and CAC archive messages contain the exact maintainer DCO, and all95living files equal reviewed archive chain2d780d9e. Nominal PATH OpenSpec1.3.0 (the archive executor tool) passes95/95living specs and c0319 strict. A separate later1.16.0 strict diagnostic reports17passed/78failed for new style warnings (zero ERROR items); its log is retained, not represented as passing or used to mass-rewrite unrelated contracts. No requirement/scenario loss is excused by tool choice; the independent complete file/byte comparisons passed. Diff check passes; private staged residue must pass before commit. No new native/CI/push; current runtime integration remains independently open.
+
+- [x] 2.16 Reconcile the three additional completed failed/cancelled runs on the separate
+  ci-layers-and-coverage branch (41719443567,41717667385,41715402200) with the maintainer's
+  cleanup instruction. Retain run/job metadata, complete available logs and artifact bytes,
+  SHA256/server sizes/digests and ZIP CRCs before any deletion. Recheck terminal state, delete
+  only those reviewed runs and verify404. Do not cancel live work, remove source branches,
+  trigger CI, or equate deletion with a passing source verdict. Record any unavailable
+  logs explicitly instead of claiming they were captured.
+
+Task2.16 proof: all3 reviewed terminal runs were removed with HTTP204 and each subsequently returned404. Independent retention verified30artifacts/69335748bytes/1280members against server digests/sizes/CRCs, plus3run-logZIPs/1231175bytes/108members and54 top-level job logs. Unavailable macOS logs are explicitly retained as404 evidence:417154 had an assigned runner/eight successful steps/Tests begun, so its full log is NOT claimed captured;417194 had runner0/zero steps, also no available log. Metadata/steps/available ZIPs and HTTP responses remain preserved. Portable receipt docs/evidence/cac-ci-cleanup-extra3-20261103.json binds the complete external receipts/manifest. No rerun, push, live cancellation or source-branch deletion. Post-cleanup remote failed/cancelled counts: {"lgili/Fenolite": 0, "lgili/fenolite-library": 0}. Removal is not a passing CI verdict.

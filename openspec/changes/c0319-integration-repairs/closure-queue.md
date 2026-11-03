@@ -1,5 +1,13 @@
 # Bounded v0.7 closure queue — 2026-11-03
 
+Current authoritative closure snapshot: **32 actual scoped archives**, individually signed,
+with all242 archived files and all95 living specification files checked against the reviewed
+archive chain. See [current status](closure-current-20261103.md) and
+[complete bindings](archived-scoped-20261103.json). The preparation and zero/fifteen-archive
+counts below are dated historical observations, superseded only for the current count.
+Geometry remains deferred, the original CI remains failed, and later runtime/native/release
+gates remain independent. No new push or CI is authorized by this status update.
+
 Current batch preparation: [closure-batches-20261103.md](closure-batches-20261103.md)
 records the16first candidates,20additional candidates and c0250ordering
 prerequisite. All37normal archives and97resulting living specifications were

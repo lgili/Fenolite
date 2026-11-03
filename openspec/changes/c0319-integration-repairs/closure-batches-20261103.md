@@ -94,3 +94,7 @@ Actual completion update:15of the original first16changes are now archived in CA
 signed and source-bound in `archived-scoped-20261103.json`; c0170 remains active for the explicit
 c0160 archive prerequisite. This replaces only the current preparation count, not historical
 zero-archive observations. Other queued changes remain pending their own proofs and ordering.
+
+## Current actual closure snapshot —32 archives
+
+The updated archived-scoped-20261103.json contains32 actual individually signed CAC archive commits, their reviewed source commits and242 exact archived file hashes. The full95-file living tree equals reviewed archive chain2d780d9e. The historical fifteen-entry receipt remains available at c9b9dcba and its digest is retained in the current receipt. Original plan37 still has five active changes: c0170 (literal c0160 prerequisite), c0281 (required archive ordering), c0282 (own proof reconciliation), c0303 (three original native CI cases not yet executed) and c0305 (six actual views still missing). No missing test/review/release is inferred from an archive count. c0303 collection is repaired locally, not natively proved; all18 c0275 full import measurements are retained and reconciled without rerunning them. Later runtime c0355 and whole integration remain open independently.

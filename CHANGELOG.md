@@ -6,6 +6,18 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive c0269-block-schematic on tested source985 using scoped unit/native block proofs; retain contracted skips, deferred geometry and pending later integration.
+
+- Remove three additional terminal failed/cancelled CI runs after retaining all available logs and30 artifacts; explicitly preserve two unavailable-log404 records, including the started macOS job, without claiming full retention or CI success (c0319).
+
+- Record the five reviewed authored drawn-sheet probe outcomes for KiCad 9.0.9 and 10.0.6, preserving every prior snapshot value and keeping corpus naming warnings, hypothesis promotion and CI closure pending (c0276).
+
+- Register the five existing drawn-sheet probes and share only input/tool-bound native I/O; preserve connected-pin, singleton and naming-warning behavior. Measurements and snapshots remain separately gated (c0276).
+
+- Reconcile32 actual scoped CAC archives, preserving all242 archived files, the complete95-file living-spec chain, individual maintainer DCO and independent pending integration/release gates.
+
+- Collect the three original native viewer-action cases explicitly in both KiCad CI jobs, retaining the fill-on-9 skip and geometry deferral; reopen their unproved native gate (c0303).
+
 - Archive c0311-cross-platform-batch-gates using its tested985 implementation, scoped unit/native CI evidence and existing proofs; preserve the authorized geometry deferral and pending later integration gates.
 
 - Archive c0302-viewer-run-checks using its tested985 implementation, scoped unit/native CI evidence and existing proofs; preserve the authorized geometry deferral and pending later integration gates.

@@ -12,7 +12,37 @@
 - [x] 3.1 Add `POST /action/plan`: the dry run through the runner core, the plan check against the command and the root, and the preview from the staged board (scenario "A designator plan previewed"). Proof: `uv run pytest tests/unit/cli/test_view_actions.py -k silk_plan -q -n 2`.
 - [x] 3.2 Add `POST /action/confirm` for plans of the session, with `FEN-4002` passed through (scenario "The file changed after the review"). Proof: `uv run pytest tests/unit/cli/test_view_actions.py -k "confirm or changed" -q -n 2`.
 - [x] 3.3 Keep the receipts, write them to the state folder, add `POST /action/undo` through `restore`, and `result.serve.writes` (scenarios "Write and undo", "Receipts in the reply"). Proof: `uv run pytest tests/unit/cli/test_view_actions.py -k "undo or reply" -q -n 2`.
-- [x] 3.4 Cover `move`, `shift` and `turn` (one moved part in the preview), `export` and `bom` (writes under `fab/` only) and `testpoints`; mark `fill` and `tidy --gate drc` as needing `kicad-cli`. Proof: `uv run pytest tests/unit/cli/test_view_actions.py -q -n 2`; the KiCad CI jobs for the tests that need `kicad-cli`.
+- [ ] 3.4 Cover `move`, `shift` and `turn` (one moved part in the preview), `export` and `bom` (writes under `fab/` only) and `testpoints`; mark `fill` and `tidy --gate drc` as needing `kicad-cli`. Proof: `uv run pytest tests/unit/cli/test_view_actions.py -q -n 2`; the KiCad CI jobs for the tests that need `kicad-cli`.
+
+  Reopened 2026-11-03: the pure move/export-boundary/testpoints controls exist,
+  but CI 985f59a1 did not execute the three native action cases. All five unit
+  jobs lacked kicad-cli and skipped them; native 9 collected tests/kicad only,
+  native 10 collected tests/kicad and tests/corpus only. The original export,
+  fill and tidy tests remain in tests/unit/cli/test_view_actions.py. Their
+  native CI proof is pending; passing visual/fake-runner cases do not replace it.
+- [x] 3.5 Before completing the remaining native proof of 3.4, add an explicit
+  three-node native-action step to each pinned KiCad 9/10 job. Keep the original
+  test bodies, assertions, fixtures, fill minimum-major 10 skip, main suite commands
+  and deferred geometry manifest unchanged. Require kicad-cli in the new step,
+  and extend the existing strict workflow checker with mutations that remove
+  each selected node. Proof: `uv run pytest tests/unit/test_ci_workflow.py -q`;
+  collect only the three original nodeIDs; focused Ruff/format, strict OpenSpec,
+  diff and private residue checks. Expected later native execution: 9 collects 3,
+  runs export/tidy and skips fill; 10 runs all 3. Local collection/checks do not
+  complete 3.4 or closing task 6.1, which await actual native CI.
+
+
+  Local proof 2026-11-03: the existing workflow checker first reproduces the
+  missing collection with 3 failures/49 passes on the unchanged workflow.
+  After the two explicit steps and guards, all 53 focused workflow tests pass
+  (0.28 s), including removal of each node in each job (six mutations) and
+  removal of the CLI requirement in each focused step (two mutations).
+  Collect-only reports exactly the three original nodes (0.53 s); it executes
+  no test body or CAD. Ruff, format, strict OpenSpec and diff checks pass;
+  staged private residue scans four changed files with zero hits, gate on.
+  Original native test bytes, the fill-on-9 skip and geometry deferral manifest
+  are unchanged; removing only the two new steps reproduces the base workflow
+  byte for byte. Task 3.4 and closing 6.1 remain open for the real native CI.
 
 ## 4. Page
 

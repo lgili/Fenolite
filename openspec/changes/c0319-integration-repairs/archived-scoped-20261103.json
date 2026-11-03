@@ -1,18 +1,8 @@
 {
-  "count": 15,
-  "implementation_CI_source": "985f59a1d01a612b2eac0219243199896c24075a",
-  "original_CI_conclusion": "failure",
-  "maintainer_scope": "Known c0332 geometry excluded from this closure batch; use each spec own completed proofs, never a fabricated passing workflow badge",
-  "later_runtime_integration_CI_claimed": false,
-  "later_runtime_gate": "c0355 and current integration remain independently open",
-  "new_CI_or_push": false,
-  "source_archive_files_match_reviewed_commits": true,
-  "living_specs_match_reviewed_archive_chain": true,
+  "count": 32,
   "each_spec_has_maintainer_DCO": true,
   "entries": [
     {
-      "spec": "c0195-mcp-server",
-      "source_archive_commit": "de1ee76e42d35aec44899a766f6794d69412243d",
       "CAC_commit": "682fe3de01c6510500f77872992530c8f1ed4db2",
       "archive": "openspec/changes/archive/2026-11-03-c0195-mcp-server",
       "files_sha256": {
@@ -23,11 +13,11 @@
         "openspec/changes/archive/2026-11-03-c0195-mcp-server/specs/package-layering/spec.md": "48914262eb417d7db9a1ba125a3929160289724f3a10fd6aca0d2aa9f8a31260",
         "openspec/changes/archive/2026-11-03-c0195-mcp-server/specs/repo-layout/spec.md": "c5e8d484192aa3b4ea2a2649b33d4ef31bfc9acf143f85aa7dc7a719db64cc2d",
         "openspec/changes/archive/2026-11-03-c0195-mcp-server/tasks.md": "831f606c886fec85f5d2c7907809c3a23bebd96bed0bb8824d75651f686cfa04"
-      }
+      },
+      "source_archive_commit": "de1ee76e42d35aec44899a766f6794d69412243d",
+      "spec": "c0195-mcp-server"
     },
     {
-      "spec": "c0196-mcp-design-and-images",
-      "source_archive_commit": "43d9a100794af421c95f18c91978fa6e742926ec",
       "CAC_commit": "2a098a244d8b3ea66f9ae4956fe935b520b93173",
       "archive": "openspec/changes/archive/2026-11-03-c0196-mcp-design-and-images",
       "files_sha256": {
@@ -36,11 +26,11 @@
         "openspec/changes/archive/2026-11-03-c0196-mcp-design-and-images/specs/cli-contract/spec.md": "8cc412d10b2f4196e8e2b4af1e1ba3572a6e5486b47fc9b145ebad1e968dbeb9",
         "openspec/changes/archive/2026-11-03-c0196-mcp-design-and-images/specs/mcp-server/spec.md": "669724d0b5a1cd3d1269fd60bece0dd2096ae2293ac5209857e350c1a3541ade",
         "openspec/changes/archive/2026-11-03-c0196-mcp-design-and-images/tasks.md": "f1f3824fe205aa2a7b4810fbee557f6a26922c5d5b5838b8c3eacc2905324822"
-      }
+      },
+      "source_archive_commit": "43d9a100794af421c95f18c91978fa6e742926ec",
+      "spec": "c0196-mcp-design-and-images"
     },
     {
-      "spec": "c0248-device-catalog",
-      "source_archive_commit": "9aab3d2cd6d9176d9c657af52189cd2c808f21a1",
       "CAC_commit": "8133a95876e8c3ec3e0dc012c788ce19613e9354",
       "archive": "openspec/changes/archive/2026-11-03-c0248-device-catalog",
       "files_sha256": {
@@ -52,11 +42,11 @@
         "openspec/changes/archive/2026-11-03-c0248-device-catalog/specs/fenolite-component-catalog/spec.md": "d982d59a8d437b5eca46531502b5f33075386732dead3c0ce5b346135cfb03d7",
         "openspec/changes/archive/2026-11-03-c0248-device-catalog/specs/package-layering/spec.md": "48914262eb417d7db9a1ba125a3929160289724f3a10fd6aca0d2aa9f8a31260",
         "openspec/changes/archive/2026-11-03-c0248-device-catalog/tasks.md": "ebbded54dbc0020ea93bf19613e2ded9b8396ea875959278fc2c78a0459bb3f4"
-      }
+      },
+      "source_archive_commit": "9aab3d2cd6d9176d9c657af52189cd2c808f21a1",
+      "spec": "c0248-device-catalog"
     },
     {
-      "spec": "c0259-library-data-format",
-      "source_archive_commit": "5f8ec0bfcfff46180a4e885f41c1ddd11446f783",
       "CAC_commit": "0ff2668afe98b116d011bda57147aae74dda8ad6",
       "archive": "openspec/changes/archive/2026-11-03-c0259-library-data-format",
       "files_sha256": {
@@ -66,11 +56,11 @@
         "openspec/changes/archive/2026-11-03-c0259-library-data-format/specs/fenolite-component-catalog/spec.md": "70eeed3b5e12c6e4bd35144ce45375dabec275d4e090bd0f331a95f8fb442a21",
         "openspec/changes/archive/2026-11-03-c0259-library-data-format/specs/library-records/spec.md": "49b8fa93bb15d38801bfad921ea99526e641bb92e013fccc14073836d42ddd50",
         "openspec/changes/archive/2026-11-03-c0259-library-data-format/tasks.md": "b5ef3d2df3e06616309c724e13d306f792b3fe24429b747a0ebcf3ea98a3da49"
-      }
+      },
+      "source_archive_commit": "5f8ec0bfcfff46180a4e885f41c1ddd11446f783",
+      "spec": "c0259-library-data-format"
     },
     {
-      "spec": "c0261-symbol-generator",
-      "source_archive_commit": "1d97a4da0a88cc0c867db3a5c7caab6132768b03",
       "CAC_commit": "ff813e1e7862719132eeb12cffd498ac281b621d",
       "archive": "openspec/changes/archive/2026-11-03-c0261-symbol-generator",
       "files_sha256": {
@@ -82,11 +72,11 @@
         "openspec/changes/archive/2026-11-03-c0261-symbol-generator/specs/design-dsl/spec.md": "33e71cc92052d7d73a43be09126926c509f66135417b71418e85d06bb1325302",
         "openspec/changes/archive/2026-11-03-c0261-symbol-generator/specs/symbol-generation/spec.md": "e066f972c4391d103be1a57ef45f1ddee50228c6b3762be96be44142de61d861",
         "openspec/changes/archive/2026-11-03-c0261-symbol-generator/tasks.md": "32c048862f0655a4d8138ce2ad7afdbd3c7d7a1a5d6f13eefca45e8caf1b9907"
-      }
+      },
+      "source_archive_commit": "1d97a4da0a88cc0c867db3a5c7caab6132768b03",
+      "spec": "c0261-symbol-generator"
     },
     {
-      "spec": "c0345-custom-footprint-field-poses",
-      "source_archive_commit": "799b34acb570783f7c7858b7dc351d487d2cde58",
       "CAC_commit": "35e90b1815936642bdce52f5cacc273c8ad6744b",
       "archive": "openspec/changes/archive/2026-11-03-c0345-custom-footprint-field-poses",
       "files_sha256": {
@@ -95,11 +85,11 @@
         "openspec/changes/archive/2026-11-03-c0345-custom-footprint-field-poses/scoped-ci-985f59a1.json": "41ba05d1328a9a3028ffc6d6e62e8010a95b47aca651092e43b130e8e5f5ab7c",
         "openspec/changes/archive/2026-11-03-c0345-custom-footprint-field-poses/specs/board-to-code/spec.md": "3040212e4b110d92b63f4fd8b57f456885928512a36f5fab9af70199fd49ba41",
         "openspec/changes/archive/2026-11-03-c0345-custom-footprint-field-poses/tasks.md": "bb9892791d714e2948bb3b648d9070fd310d40852617e73ab01b0b3fa8635dd5"
-      }
+      },
+      "source_archive_commit": "799b34acb570783f7c7858b7dc351d487d2cde58",
+      "spec": "c0345-custom-footprint-field-poses"
     },
     {
-      "spec": "c0358-native-custom-property-preservation",
-      "source_archive_commit": "a24ce4f34b93edb5cdcce2234deb2d6d8b949860",
       "CAC_commit": "0d52f60a5bb906f274ba5dafc06f553eb760f6cc",
       "archive": "openspec/changes/archive/2026-11-03-c0358-native-custom-property-preservation",
       "files_sha256": {
@@ -111,11 +101,11 @@
         "openspec/changes/archive/2026-11-03-c0358-native-custom-property-preservation/scoped-ci-985f59a1.json": "d395ee20c573180cfadc596acac1374d7101bad7d13c7721836d78ff6cc3e2b4",
         "openspec/changes/archive/2026-11-03-c0358-native-custom-property-preservation/specs/import-python/spec.md": "1c5f5826f011884f8b470cad3f14904073184bb77322565dfafeac8fda03e900",
         "openspec/changes/archive/2026-11-03-c0358-native-custom-property-preservation/tasks.md": "0717cc908cc136083eb5a868a55e8739148f49dafdd2142d0e6fcd18cac0f4ad"
-      }
+      },
+      "source_archive_commit": "a24ce4f34b93edb5cdcce2234deb2d6d8b949860",
+      "spec": "c0358-native-custom-property-preservation"
     },
     {
-      "spec": "c0359-declared-native-rule-context",
-      "source_archive_commit": "d90c86c3f5586212f5ccb20c82eb0aeac559be2e",
       "CAC_commit": "a7c4cb0c801e0307a13dc7fcc936652eec84cd01",
       "archive": "openspec/changes/archive/2026-11-03-c0359-declared-native-rule-context",
       "files_sha256": {
@@ -125,11 +115,11 @@
         "openspec/changes/archive/2026-11-03-c0359-declared-native-rule-context/scoped-ci-985f59a1.json": "6b3885d2458b8102c953567f401a8e71cbe3d372a9faca00bf9f7254eca50bb1",
         "openspec/changes/archive/2026-11-03-c0359-declared-native-rule-context/specs/native-project-inputs/spec.md": "4d90ecefa510823d6fd4ae219d7862b2929b1fcd29bb1d70a722a19a6a091ee3",
         "openspec/changes/archive/2026-11-03-c0359-declared-native-rule-context/tasks.md": "39831149ebb2548162fc138dda81275c976d1149ed1ae316faa95cf704981e5a"
-      }
+      },
+      "source_archive_commit": "d90c86c3f5586212f5ccb20c82eb0aeac559be2e",
+      "spec": "c0359-declared-native-rule-context"
     },
     {
-      "spec": "c0363-native-tab-property-preservation",
-      "source_archive_commit": "08211c4ec5c0b3c28d886d6bfe5ab84004a558d3",
       "CAC_commit": "46a91e6d6e89bb99d95812f049c8e3857a8c46f6",
       "archive": "openspec/changes/archive/2026-11-03-c0363-native-tab-property-preservation",
       "files_sha256": {
@@ -141,11 +131,11 @@
         "openspec/changes/archive/2026-11-03-c0363-native-tab-property-preservation/scoped-ci-985f59a1.json": "b58d8f4552562bd2ddfe297fa6d7bff39c616560105931b5a0e1d7d13284cd37",
         "openspec/changes/archive/2026-11-03-c0363-native-tab-property-preservation/specs/import-python/spec.md": "137d8b110dd29a9482b111d3a23bed0154836b1c21af44163d72bdd957f97001",
         "openspec/changes/archive/2026-11-03-c0363-native-tab-property-preservation/tasks.md": "6547bbd83321adbe4348e82c141c21d838b216cd0cd1d78711038b44117827e3"
-      }
+      },
+      "source_archive_commit": "08211c4ec5c0b3c28d886d6bfe5ab84004a558d3",
+      "spec": "c0363-native-tab-property-preservation"
     },
     {
-      "spec": "c0249-design-lock",
-      "source_archive_commit": "f10fbc19f9e98122c5362b71815b0ecfab8b223e",
       "CAC_commit": "51c8340d587fbea8f506213ede4ef5a0e1d2c24e",
       "archive": "openspec/changes/archive/2026-11-03-c0249-design-lock",
       "files_sha256": {
@@ -156,11 +146,11 @@
         "openspec/changes/archive/2026-11-03-c0249-design-lock/specs/design-dsl/spec.md": "a58d18fe78ee817b4aa2b26fe635ad1526bebd56ec5205337d775bdedee705a6",
         "openspec/changes/archive/2026-11-03-c0249-design-lock/specs/layout-lens/spec.md": "f3d2478527466928a0ea51c374fa5b8cefbde5035cc04cdf56ea1238f9d3feaf",
         "openspec/changes/archive/2026-11-03-c0249-design-lock/tasks.md": "c1b62bfd0086dcde20b60f8fea87350aedec801fe557fc2ab0b2034e70b22a8d"
-      }
+      },
+      "source_archive_commit": "f10fbc19f9e98122c5362b71815b0ecfab8b223e",
+      "spec": "c0249-design-lock"
     },
     {
-      "spec": "c0251-circuit-blocks",
-      "source_archive_commit": "4c4f93d92054fe03d46f1779470368faa2051add",
       "CAC_commit": "cace8b7828b345426095e50f4a9ad1afcb85ff32",
       "archive": "openspec/changes/archive/2026-11-03-c0251-circuit-blocks",
       "files_sha256": {
@@ -170,11 +160,11 @@
         "openspec/changes/archive/2026-11-03-c0251-circuit-blocks/specs/design-dsl/spec.md": "8c4747e5844756039515c93b77396f10b1c1425531de8504d6ba0fd273aab5a9",
         "openspec/changes/archive/2026-11-03-c0251-circuit-blocks/specs/design-model/spec.md": "7101973d4ca2476ae9b6fa81040523ce105ed203aa809e86d1b5297fae8fb61e",
         "openspec/changes/archive/2026-11-03-c0251-circuit-blocks/tasks.md": "2824521fc1e402e01620b646a0207c5486c0742c1b0c1a6893dfca31bb8961a3"
-      }
+      },
+      "source_archive_commit": "4c4f93d92054fe03d46f1779470368faa2051add",
+      "spec": "c0251-circuit-blocks"
     },
     {
-      "spec": "c0081-agent-eval",
-      "source_archive_commit": "2f1783640ba8670a33ba6798095fe700649b952e",
       "CAC_commit": "f12c748edd404ffe8501cf337c266030b90b7740",
       "archive": "openspec/changes/archive/2026-11-03-c0081-agent-eval",
       "files_sha256": {
@@ -184,11 +174,11 @@
         "openspec/changes/archive/2026-11-03-c0081-agent-eval/scoped-ci-985f59a1.json": "f64b55ab9bc24c6436d54562705a91c7e5d3f214118443bf5b307db6cf034a44",
         "openspec/changes/archive/2026-11-03-c0081-agent-eval/specs/agent-eval/spec.md": "53e71d691e0c8a12fc02ac21344615275b6817cb3b0c74a87ebb91f635c0a72c",
         "openspec/changes/archive/2026-11-03-c0081-agent-eval/tasks.md": "3c4a0248fcb0e8c427d96d5a4041ce1b3ee2da500687034e007f44e0579149d3"
-      }
+      },
+      "source_archive_commit": "2f1783640ba8670a33ba6798095fe700649b952e",
+      "spec": "c0081-agent-eval"
     },
     {
-      "spec": "c0105-impedance-targets",
-      "source_archive_commit": "544694cd6f16ef2f4aed641b1a4fa8c34e5b9329",
       "CAC_commit": "f77b3d769af249472b95fe8d0ebd7f658ae63f3a",
       "archive": "openspec/changes/archive/2026-11-03-c0105-impedance-targets",
       "files_sha256": {
@@ -205,11 +195,11 @@
         "openspec/changes/archive/2026-11-03-c0105-impedance-targets/specs/kicad-oracle/spec.md": "94e4b0da856568a18dbb6b37f94aca6fe69f08a72d2fc96c21c61e04ed4b44e9",
         "openspec/changes/archive/2026-11-03-c0105-impedance-targets/specs/manufacturing-exports/spec.md": "1c3c64c0193173ed763f2a741a5b098ee721b19c0e85d87b367f57c7aa236e5c",
         "openspec/changes/archive/2026-11-03-c0105-impedance-targets/tasks.md": "0292aa2500db0a3c10fc2ff6d6f0ab9efc8dca8ac2e59f380d4c4388364762ff"
-      }
+      },
+      "source_archive_commit": "544694cd6f16ef2f4aed641b1a4fa8c34e5b9329",
+      "spec": "c0105-impedance-targets"
     },
     {
-      "spec": "c0178-native-themes",
-      "source_archive_commit": "44ee9fd2f503817f9e154a729daacd38efe463ad",
       "CAC_commit": "09b6ca73bc66d4ca778ef68616c5db017779393b",
       "archive": "openspec/changes/archive/2026-11-03-c0178-native-themes",
       "files_sha256": {
@@ -221,11 +211,11 @@
         "openspec/changes/archive/2026-11-03-c0178-native-themes/specs/cli-contract/spec.md": "10f0273573c3d627af9358bcac7eac996683cc4ec174f5f2f28f0500d505e489",
         "openspec/changes/archive/2026-11-03-c0178-native-themes/specs/native-themes/spec.md": "043e7630498fbcec6f1bb5b44382f05019629ffc0d231500dbf0235620e760cd",
         "openspec/changes/archive/2026-11-03-c0178-native-themes/tasks.md": "66071f3394ff03f1b5d541ee5a4a2867e516be2cfe614169b3fef014d4b6c3c3"
-      }
+      },
+      "source_archive_commit": "44ee9fd2f503817f9e154a729daacd38efe463ad",
+      "spec": "c0178-native-themes"
     },
     {
-      "spec": "c0179-libraries-and-units",
-      "source_archive_commit": "47ff07c17ba1ac5ea7356629e78a5230d5c61f57",
       "CAC_commit": "da60199a8507f1089914a719084a2e023fac045c",
       "archive": "openspec/changes/archive/2026-11-03-c0179-libraries-and-units",
       "files_sha256": {
@@ -235,7 +225,319 @@
         "openspec/changes/archive/2026-11-03-c0179-libraries-and-units/specs/cli-contract/spec.md": "ca35e102af772cdf9633d326717620aa65e1afc03e1ad35d0a1717cc74aa2130",
         "openspec/changes/archive/2026-11-03-c0179-libraries-and-units/specs/library-viewer/spec.md": "1aed060cc38b4e0c3f1197af3b067cc61b128f93b30881dde9069a9ce987d936",
         "openspec/changes/archive/2026-11-03-c0179-libraries-and-units/tasks.md": "4d3ae3587a08a9e0ac554f073ceb80097cd37e931a76212f3266a1233af93571"
-      }
+      },
+      "source_archive_commit": "47ff07c17ba1ac5ea7356629e78a5230d5c61f57",
+      "spec": "c0179-libraries-and-units"
+    },
+    {
+      "CAC_commit": "0321e6b5bee327e6be31b80c8c63b7e3a9f106d2",
+      "archive": "openspec/changes/archive/2026-11-03-c0252-parametric-interfaces",
+      "files_sha256": {
+        "openspec/changes/archive/2026-11-03-c0252-parametric-interfaces/design.md": "3f3ec366125c66938d7f6ca2d09beb154672b75014ffd5abc408b502470e846a",
+        "openspec/changes/archive/2026-11-03-c0252-parametric-interfaces/proposal.md": "19381885d36104850bd8c43f941123ff63292e673f039954cc5aacb1490bdf9c",
+        "openspec/changes/archive/2026-11-03-c0252-parametric-interfaces/scoped-ci-985f59a1.json": "31787dbd8d34ac79a96b3fe12ad2d13962e58ed77ee9e53cdedffeb029e0ea91",
+        "openspec/changes/archive/2026-11-03-c0252-parametric-interfaces/specs/design-dsl/spec.md": "9dad45f684f78de2e87ea072a9072e17b7d46a7b97c444be2c0bdea2170c01bc",
+        "openspec/changes/archive/2026-11-03-c0252-parametric-interfaces/specs/design-model/spec.md": "21ce9c0a8aa2e1416cec2252c6afd1964560294a6bafdd2157361514c3e7de63",
+        "openspec/changes/archive/2026-11-03-c0252-parametric-interfaces/specs/fenolite-component-catalog/spec.md": "e9fa68777491890e4d91f971b4bd98c1b23eef6973ff1710835810b75f03730a",
+        "openspec/changes/archive/2026-11-03-c0252-parametric-interfaces/specs/verification-loop/spec.md": "c45afdfbcf518230e4cb9f546c2d9564885f4e0caf2c2ee8f82e929c507acfd5",
+        "openspec/changes/archive/2026-11-03-c0252-parametric-interfaces/tasks.md": "86b53f6216ef8d5111bc278e71d995d1aa6636fe9765174bfc4557a51a1c7933"
+      },
+      "source_archive_commit": "3a64e6fc72518f2fec990ff3346ca7624f6cbdf8",
+      "spec": "c0252-parametric-interfaces"
+    },
+    {
+      "CAC_commit": "67b43d496cdd5c11c1fb7edcd5b3de407b313077",
+      "archive": "openspec/changes/archive/2026-11-03-c0253-electrical-contracts",
+      "files_sha256": {
+        "openspec/changes/archive/2026-11-03-c0253-electrical-contracts/design.md": "dbc5a326af130e711537d0cae4913f30486a03fedea0081be019a45b8318aa78",
+        "openspec/changes/archive/2026-11-03-c0253-electrical-contracts/proposal.md": "76744ee6397def87a18f9a4b72074b06105b3efc5cd8925cd968b7425f0dc386",
+        "openspec/changes/archive/2026-11-03-c0253-electrical-contracts/scoped-ci-985f59a1.json": "f2dddc80076fda144e73b1f36b6eefd0a3cc5321c69cdc16c3fd6209f0e47620",
+        "openspec/changes/archive/2026-11-03-c0253-electrical-contracts/specs/board-analyses/spec.md": "73d98f3ac59f442ce4455cc0b151beeabbb02e7cec770e55034a839d943824bf",
+        "openspec/changes/archive/2026-11-03-c0253-electrical-contracts/specs/cli-contract/spec.md": "b814f1d1051f8066fc90acabc600f876cedb0237d7f863c096213c1f81343301",
+        "openspec/changes/archive/2026-11-03-c0253-electrical-contracts/specs/design-dsl/spec.md": "791059ad152c89883782dd37c42995d6eea952d1f094efb21b20d6b2014ab938",
+        "openspec/changes/archive/2026-11-03-c0253-electrical-contracts/specs/design-model/spec.md": "171ca8860f31f46eea137a47817134c23468002d84f06ddd61db2aa34fcaf37e",
+        "openspec/changes/archive/2026-11-03-c0253-electrical-contracts/specs/electrical-contracts/spec.md": "6115a2d010c5e5732b46627b7a1c758541a0941803338cb7ad0293edcf69e046",
+        "openspec/changes/archive/2026-11-03-c0253-electrical-contracts/specs/net-roles/spec.md": "64b8555419f5b9dc37961cc557d6ba729a75d5a05ae5b6994f01a562285332a3",
+        "openspec/changes/archive/2026-11-03-c0253-electrical-contracts/specs/verification-loop/spec.md": "367c23884c3916f010ccfeabce1a6141d812eed574718caf5dacfb43d5672d0a",
+        "openspec/changes/archive/2026-11-03-c0253-electrical-contracts/tasks.md": "ba12be12c55de8fa439f43f9dc4b1f24624505d17710fec9adcefb7f0ca5158e"
+      },
+      "source_archive_commit": "fb18a89912487e5f93ed60eb98b90ecd7fa346a2",
+      "spec": "c0253-electrical-contracts"
+    },
+    {
+      "CAC_commit": "ff5f78fcb0906fa4e798c38c07a0b468b29262ad",
+      "archive": "openspec/changes/archive/2026-11-03-c0254-parametric-part-selection",
+      "files_sha256": {
+        "openspec/changes/archive/2026-11-03-c0254-parametric-part-selection/design.md": "9512c146a5a88db9eeed3f4c09ed20dec86992433f0b4ed00e97d9410bd8e5b1",
+        "openspec/changes/archive/2026-11-03-c0254-parametric-part-selection/proposal.md": "5c5dce70f5936ce3bf5072e827456d0034e67b5acbe88cc94a1759153e56b38c",
+        "openspec/changes/archive/2026-11-03-c0254-parametric-part-selection/scoped-ci-985f59a1.json": "f397e3547f6973ea4147948bbdace2e8e82481c45ab7117193ff09dfea435f47",
+        "openspec/changes/archive/2026-11-03-c0254-parametric-part-selection/specs/cli-contract/spec.md": "ce960755ae5ebb0fb4c9847f7a6c3ea8722cfd21d1956a958e1ceb16ac4aae84",
+        "openspec/changes/archive/2026-11-03-c0254-parametric-part-selection/specs/design-dsl/spec.md": "e2a4887aac8f7d353e2f7672a816d04da83989a27dadcee8c3ef929805e5162a",
+        "openspec/changes/archive/2026-11-03-c0254-parametric-part-selection/specs/fenolite-component-catalog/spec.md": "fe084dc00dcd99f7603121bc777cd92a30eef9bf3f62f76493fe5df09163c929",
+        "openspec/changes/archive/2026-11-03-c0254-parametric-part-selection/specs/package-layering/spec.md": "25f1761fbfad011af151ec29df2a85c67257f3709014543774f34a77df90f948",
+        "openspec/changes/archive/2026-11-03-c0254-parametric-part-selection/specs/part-selection/spec.md": "bba8263d2bbdc24165b4b5b4e07a4d517489812af6118fd055644da374599aee",
+        "openspec/changes/archive/2026-11-03-c0254-parametric-part-selection/tasks.md": "f35644fe50d0ff44a12bce46171748b02492a383dfda4f3a02b4e797505f6431"
+      },
+      "source_archive_commit": "8783b4e3f58c7fb987b4dee1fe9c39f53404afdc",
+      "spec": "c0254-parametric-part-selection"
+    },
+    {
+      "CAC_commit": "9afa76c3b25f5ee7da49b1e6291435416c1430b5",
+      "archive": "openspec/changes/archive/2026-11-03-c0255-relative-placement",
+      "files_sha256": {
+        "openspec/changes/archive/2026-11-03-c0255-relative-placement/design.md": "ddae70271095036579efa508588adf82b3694736a6623f8906fa268475e7b293",
+        "openspec/changes/archive/2026-11-03-c0255-relative-placement/proposal.md": "d73e810831b814f078ff56c398f0f80e4cf76f3d1792669eb01dfcc46d84cc8d",
+        "openspec/changes/archive/2026-11-03-c0255-relative-placement/scoped-ci-985f59a1.json": "7a2947fe585a91e5fe2bfa75db64c897e3eee1a6a90a7630c2bcffd95851118f",
+        "openspec/changes/archive/2026-11-03-c0255-relative-placement/specs/design-dsl/spec.md": "26cbd4e524a15631614596b6ef548e456884f56c971a11f3d04563b3e71cecfc",
+        "openspec/changes/archive/2026-11-03-c0255-relative-placement/specs/layout-lens/spec.md": "0002340199542a328bef1a89e8f271d992244e9fedcd0fb8174820bd53730d80",
+        "openspec/changes/archive/2026-11-03-c0255-relative-placement/specs/layout-reuse/spec.md": "3e5b6d32981cb74bfb1ec1e72d550365362020d34ce78554e9272335af6587b5",
+        "openspec/changes/archive/2026-11-03-c0255-relative-placement/specs/placement-in-code/spec.md": "d44f5fe90cb6060593a946fbfa272d9a5fa7398c66d998c0365496c38a1c8a83",
+        "openspec/changes/archive/2026-11-03-c0255-relative-placement/tasks.md": "140ac85174dbebdc8e1af8c4a2ac3ac7ad2940f2da1ae6963011e5f7e41bd970"
+      },
+      "source_archive_commit": "84b311fb8595953153f1046b6291d1953728c603",
+      "spec": "c0255-relative-placement"
+    },
+    {
+      "CAC_commit": "0ad97a0da40a8292c9ef09d9bd035dcf49d2c0a6",
+      "archive": "openspec/changes/archive/2026-11-03-c0256-design-testing",
+      "files_sha256": {
+        "openspec/changes/archive/2026-11-03-c0256-design-testing/design.md": "a8eb0c314ab08b1f28aca74bef5205fa9382cba18d1e528786de674e15dc09a6",
+        "openspec/changes/archive/2026-11-03-c0256-design-testing/proposal.md": "00cbc2c89d31c2c3de474886305e340c273d1344fb1fdcdfee9e49568299b2c6",
+        "openspec/changes/archive/2026-11-03-c0256-design-testing/scoped-ci-985f59a1.json": "1c473cca37fd5bdf0fdbb14aace82fca01d3040e54be780911289b81efb947e8",
+        "openspec/changes/archive/2026-11-03-c0256-design-testing/specs/agent-guide/spec.md": "778cf84c7ac8fe77a58f100563cc553fc9a12b93a72058d50e87bd86a2a7368a",
+        "openspec/changes/archive/2026-11-03-c0256-design-testing/specs/check-overlay/spec.md": "d28f333839c765889f7964c8c021f2e2b9686f2e395a9d864b69f8537661a6d3",
+        "openspec/changes/archive/2026-11-03-c0256-design-testing/specs/cli-contract/spec.md": "697714729608656d9c167220be140ff98988c12a05f12075c5439adb973f4b23",
+        "openspec/changes/archive/2026-11-03-c0256-design-testing/specs/design-dsl/spec.md": "77025ec0bdab4c3dbd7057eefa216923f4f53242c7e948de8416a29a1f6873dd",
+        "openspec/changes/archive/2026-11-03-c0256-design-testing/specs/design-testing/spec.md": "ddfd87a35d798ece878ba49055944ed3c89cd734939af455ec2ef9d9134cbd13",
+        "openspec/changes/archive/2026-11-03-c0256-design-testing/specs/manufacturing-exports/spec.md": "b065df43f58174d25d7ed7c8e2aa2fe6092797c0708ab23f27ed0164369da6ae",
+        "openspec/changes/archive/2026-11-03-c0256-design-testing/specs/package-layering/spec.md": "5b37ad0cf4f39d93c2295d3bcffb8bfc121f58deca8a94751dcd2a909de4652a",
+        "openspec/changes/archive/2026-11-03-c0256-design-testing/specs/verification-loop/spec.md": "97cc74a7c4508a94f78140a9eb5929837d3631f19b2d8bd217d819543f15d2d1",
+        "openspec/changes/archive/2026-11-03-c0256-design-testing/tasks.md": "1002573fed90a0e1a6d2df68c8bbdb320731d8cdf35d28d98c992273feb3daa3"
+      },
+      "source_archive_commit": "42ade37902c96f4f7ecc887c652d310456053cb1",
+      "spec": "c0256-design-testing"
+    },
+    {
+      "CAC_commit": "d36f9c8666e4cc0220cda594693640100dc60eac",
+      "archive": "openspec/changes/archive/2026-11-03-c0257-interface-pin-assignment",
+      "files_sha256": {
+        "openspec/changes/archive/2026-11-03-c0257-interface-pin-assignment/design.md": "0dc38e50adfd87e16c60b67f5a86449ece88198ea75e9cc6b3ededad61c36cc8",
+        "openspec/changes/archive/2026-11-03-c0257-interface-pin-assignment/proposal.md": "428b67270161d95932b3980ef37e67c362fe998f626b794aa4ca632697f58a03",
+        "openspec/changes/archive/2026-11-03-c0257-interface-pin-assignment/scoped-ci-985f59a1.json": "d89c324311e7cc77a939f0cf8935158c64ec4bf21cb2fc1eea6a54de8bc7ae9f",
+        "openspec/changes/archive/2026-11-03-c0257-interface-pin-assignment/specs/pin-assignment/spec.md": "e23f0a728b3bbabae9f01eb9d4953ca7f4462df9c1e16c08d4c0ac4602019dda",
+        "openspec/changes/archive/2026-11-03-c0257-interface-pin-assignment/tasks.md": "7bc5191b4cd7f95b3f8698a5da73e3b9bfb3de04a250927eb3427303f2898a5e"
+      },
+      "source_archive_commit": "a3c3ab4f4352d443d1bec0f29aaa3f1ae78c49d7",
+      "spec": "c0257-interface-pin-assignment"
+    },
+    {
+      "CAC_commit": "1b002dd312af7a721f34831f77574a82e827a7c1",
+      "archive": "openspec/changes/archive/2026-11-03-c0263-passive-families",
+      "files_sha256": {
+        "openspec/changes/archive/2026-11-03-c0263-passive-families/design.md": "e688264b8fd9885faacd9781acf2bccaeabd20878852cbdca594bbb524a5be3c",
+        "openspec/changes/archive/2026-11-03-c0263-passive-families/proposal.md": "6ef1c48b423428b58644020a9fa3a75614701894b307177e1da385e250d081cd",
+        "openspec/changes/archive/2026-11-03-c0263-passive-families/scoped-ci-985f59a1.json": "3934243d4b16f25f766f3c1d08946147072ad3a2197e0dc0ca7782b1db70a888",
+        "openspec/changes/archive/2026-11-03-c0263-passive-families/specs/cli-contract/spec.md": "8c5994f1cf79f3e90b03b279058d70bc4569fe7c7ccd07d882574d857f469dd5",
+        "openspec/changes/archive/2026-11-03-c0263-passive-families/specs/part-selection/spec.md": "766bdd8d941058c95daae2886c6cddd9e75cb59e574f0e2112c1914d6d4d54e8",
+        "openspec/changes/archive/2026-11-03-c0263-passive-families/specs/passive-families/spec.md": "07e9593db605351e7c64604e601b5b6ee8b766ebf2deb96adcd88e4a8f57d792",
+        "openspec/changes/archive/2026-11-03-c0263-passive-families/tasks.md": "a6a23438471376ec3ed259c5b105b93087050a826799c345f077ccacc654565a"
+      },
+      "source_archive_commit": "90b19ac4b31e500148a291505df21aba6fd73a08",
+      "spec": "c0263-passive-families"
+    },
+    {
+      "CAC_commit": "7d13e93786361f132649553421334f1e671e0eac",
+      "archive": "openspec/changes/archive/2026-11-03-c0265-datasheet-proposals",
+      "files_sha256": {
+        "openspec/changes/archive/2026-11-03-c0265-datasheet-proposals/design.md": "c35c67444a308c2dffd30cf208633ec3e86b0236932748147732be2c52e312bf",
+        "openspec/changes/archive/2026-11-03-c0265-datasheet-proposals/proposal.md": "014ce8c628f3af2ffe590535b0fe611f9b92040d2772865090488bb97584d102",
+        "openspec/changes/archive/2026-11-03-c0265-datasheet-proposals/scoped-ci-985f59a1.json": "14740c4d12c4a636c3523ee93e42ea820cf625f8647e6d3bd3482051f9bc8ce5",
+        "openspec/changes/archive/2026-11-03-c0265-datasheet-proposals/specs/agent-guide/spec.md": "3fd9988c2af4934f791ed3f39e3f7350dbc9fe20d807efdf23c37bdf99673076",
+        "openspec/changes/archive/2026-11-03-c0265-datasheet-proposals/specs/cli-contract/spec.md": "ea6a3f4af6ddd412b50636a2d9aa421b5451f9866aebd0cacbeb576de4813c55",
+        "openspec/changes/archive/2026-11-03-c0265-datasheet-proposals/specs/datasheet-proposals/spec.md": "89ff16ba10495b2c95055b0450dd29a501b81507877bac449fca223821c29f9a",
+        "openspec/changes/archive/2026-11-03-c0265-datasheet-proposals/tasks.md": "378d603bc07ab01e95c1dcbb2fdb414972bcd0639a7e9f8dcf3e297b013bf43b"
+      },
+      "source_archive_commit": "83f2946f9567e5b7673c9e028c8ca821306c6718",
+      "spec": "c0265-datasheet-proposals"
+    },
+    {
+      "CAC_commit": "ebc50d5b0c66d0be3957a5635dd095b752ae14f4",
+      "archive": "openspec/changes/archive/2026-11-03-c0268-block-records",
+      "files_sha256": {
+        "openspec/changes/archive/2026-11-03-c0268-block-records/design.md": "04552292021f1576fc7bdf6479d090fb74d49b3f92eb482ffc5da085dde0e38b",
+        "openspec/changes/archive/2026-11-03-c0268-block-records/proposal.md": "786b6e41bcf43a4602165906733196bf2aded9a4faec96e2475ae7c620261c76",
+        "openspec/changes/archive/2026-11-03-c0268-block-records/scoped-ci-985f59a1.json": "f7e33dc2f60e7ab375356787f77e9106627b14a725b0dde430ea35fdd4c42baa",
+        "openspec/changes/archive/2026-11-03-c0268-block-records/specs/block-library/spec.md": "8e35944deaae6bfdef156200248d499fbb7d03bffc1025cc3dc4d92428497433",
+        "openspec/changes/archive/2026-11-03-c0268-block-records/specs/cli-contract/spec.md": "a015a9bb014eec4a67cca26783ba07e39dca9275426d432b3a8773178ac05f9d",
+        "openspec/changes/archive/2026-11-03-c0268-block-records/specs/design-dsl/spec.md": "371c510bf2f4a2f722f9502877abf8cd721a2e6dc75cedba1ee4694f7630e7f7",
+        "openspec/changes/archive/2026-11-03-c0268-block-records/specs/design-model/spec.md": "c18552f8d564e3de13a86d8fa98279209a6bd1789eb91612dbc60efc1e71cf21",
+        "openspec/changes/archive/2026-11-03-c0268-block-records/specs/package-layering/spec.md": "3113aa9d7db1ef4fe69aa11e3f629ca2ee7bc059c68203384ff327dd2380519e",
+        "openspec/changes/archive/2026-11-03-c0268-block-records/tasks.md": "7cdb22dfc44917a6cff41117006952f40863239bbd117d5eb7b2e2a4a9309610"
+      },
+      "source_archive_commit": "a14576306d9bcad5abc72c5dc58bb8ee96e70dae",
+      "spec": "c0268-block-records"
+    },
+    {
+      "CAC_commit": "d3501003a2ed31e99efddb37f963118a2e23c802",
+      "archive": "openspec/changes/archive/2026-11-03-c0274-electrical-requirements",
+      "files_sha256": {
+        "openspec/changes/archive/2026-11-03-c0274-electrical-requirements/design.md": "110a90521fdef41ded5e79ece2014702eab583dbf75bfd0e646ef251fddafdd0",
+        "openspec/changes/archive/2026-11-03-c0274-electrical-requirements/proposal.md": "38b13f40157d77744b200040f968c6a14f3ce02fa939c2682373db263783381b",
+        "openspec/changes/archive/2026-11-03-c0274-electrical-requirements/scoped-ci-985f59a1.json": "6d7e7082c7730592df5a007db6bd8af5fb4c5127acb492a2376f721426aa6729",
+        "openspec/changes/archive/2026-11-03-c0274-electrical-requirements/specs/cli-contract/spec.md": "4e01bb6cea564580b53c1ab3f8609a0f225bd57d77cb3b1afcdcb1e85b3f8efc",
+        "openspec/changes/archive/2026-11-03-c0274-electrical-requirements/specs/design-dsl/spec.md": "d93d22a406f1f98826731c239a9be893a359cda534244fcd7d1a447f40825782",
+        "openspec/changes/archive/2026-11-03-c0274-electrical-requirements/specs/design-model/spec.md": "1fae6e25ff0fbb68cb3f61679627ab07323f908950f3c548627965126081e112",
+        "openspec/changes/archive/2026-11-03-c0274-electrical-requirements/specs/fenolite-component-catalog/spec.md": "10adcac357afc78fda461e27083be420aa0e98dcfd9fb3c2bdf497cf3bb9efc1",
+        "openspec/changes/archive/2026-11-03-c0274-electrical-requirements/specs/net-roles/spec.md": "e9ddee2a7c2fbb06480e9b9037e12a1e3c6c7968e5576c60b4f40dcc45e3e8d0",
+        "openspec/changes/archive/2026-11-03-c0274-electrical-requirements/specs/verification-loop/spec.md": "af40bf7ed8e8b7a4a0961ae082db90c7fb14ed2be89c9c7b3d6d5d212cb40e30",
+        "openspec/changes/archive/2026-11-03-c0274-electrical-requirements/tasks.md": "843c724a445618f5517f76c84820ddc403d58a03980fcd4f754988a64415a134"
+      },
+      "source_archive_commit": "122e0505caca220288d13ddbd8c88c1e668baecd",
+      "spec": "c0274-electrical-requirements"
+    },
+    {
+      "CAC_commit": "9926d1b6c6c196ff16f47edb8c20125c5adb21b9",
+      "archive": "openspec/changes/archive/2026-11-03-c0277-dsl-board-coverage",
+      "files_sha256": {
+        "openspec/changes/archive/2026-11-03-c0277-dsl-board-coverage/design.md": "31e243c6903b25cbd419aceadf2bcf1d7bdcab755125961e9821ea140639e731",
+        "openspec/changes/archive/2026-11-03-c0277-dsl-board-coverage/proposal.md": "20193ef5fccfd0e523c53065170c3e388856855798a57582cf36490310734cfc",
+        "openspec/changes/archive/2026-11-03-c0277-dsl-board-coverage/scoped-ci-985f59a1.json": "68ec91a5c74edcf4fbf0ac92ba448e5cda84af173da393c45ff153455889e99c",
+        "openspec/changes/archive/2026-11-03-c0277-dsl-board-coverage/specs/altium-build/spec.md": "237a3b41c70c284786c07ae4babaafeba06f5638d925841d6fddee0831ae28c0",
+        "openspec/changes/archive/2026-11-03-c0277-dsl-board-coverage/specs/board-to-code/spec.md": "178526e9c58b256df126d5a687422e6cd132d49442bd0339c74087745c55bc76",
+        "openspec/changes/archive/2026-11-03-c0277-dsl-board-coverage/specs/design-dsl/spec.md": "fb23e0df02b146d27e378da86a882c96e0c19d8d34c7f767bdb7832fc8bd437b",
+        "openspec/changes/archive/2026-11-03-c0277-dsl-board-coverage/specs/design-equivalence/spec.md": "bdb153167dca95290e8c58ecb41d9f24e9cd96e931ca5049c2765119c9b593e5",
+        "openspec/changes/archive/2026-11-03-c0277-dsl-board-coverage/specs/dsl-footprint-authoring/spec.md": "f47fb94a30b931c87cb256825fc1fdc4639bb26f761ddc1a460e8124f5903aa6",
+        "openspec/changes/archive/2026-11-03-c0277-dsl-board-coverage/specs/kicad-file-backend/spec.md": "04f4be9e072b441acc01f9471d55d9f8a7c38e79b9fc1e14ceb7715fa7c696fb",
+        "openspec/changes/archive/2026-11-03-c0277-dsl-board-coverage/specs/kicad-oracle/spec.md": "707b61b6fb9626db951c1f2c11b38fbe2c945402d149934d8262c9affa471688",
+        "openspec/changes/archive/2026-11-03-c0277-dsl-board-coverage/tasks.md": "f2cb5ad5d2c764db0b1b916f5c56d4c7493ef0f05083cadd0091feebd9bd64b0"
+      },
+      "source_archive_commit": "be6d0e25a972f98c94d32c10add873e99de47c98",
+      "spec": "c0277-dsl-board-coverage"
+    },
+    {
+      "CAC_commit": "e7c441b52be1793d6963a6f9c4b88c1b99fab318",
+      "archive": "openspec/changes/archive/2026-11-03-c0304-viewer-build",
+      "files_sha256": {
+        "openspec/changes/archive/2026-11-03-c0304-viewer-build/design.md": "c6fc01f60196b0eb4bbed843a8e8e98fce3c50749ac3f3ef1ebf259e3382a420",
+        "openspec/changes/archive/2026-11-03-c0304-viewer-build/proposal.md": "b8ef853b01b2abe7a0d6b8a9c348cd171aa38db16349ec6407dff54d73d94b6f",
+        "openspec/changes/archive/2026-11-03-c0304-viewer-build/scoped-ci-985f59a1.json": "fa4e31dcb22c0030d73318a1173fcd1e0b9d61fcfd3b843431bedc604277b698",
+        "openspec/changes/archive/2026-11-03-c0304-viewer-build/specs/board-viewer/spec.md": "d885a6ed90136427d1aacb2a4d5106607b8e3e21f3b0fb2bf887c520fa63df6f",
+        "openspec/changes/archive/2026-11-03-c0304-viewer-build/specs/licensing-and-notices/spec.md": "b6a97153cd554bb6b2d2c458be81d277d1d56a9b7ce69f18c30d55f906196d09",
+        "openspec/changes/archive/2026-11-03-c0304-viewer-build/tasks.md": "e168309eac5bf7851c05eb5540f96120d09bfe8a4453b69757210d5bfe3a9557"
+      },
+      "source_archive_commit": "e63acd4b67ef9f90df16f9286e652cd4699cea4f",
+      "spec": "c0304-viewer-build"
+    },
+    {
+      "CAC_commit": "5371363d91e7d300e86de59f0dc96266e1eaba9e",
+      "archive": "openspec/changes/archive/2026-11-03-c0300-viewer-shell",
+      "files_sha256": {
+        "openspec/changes/archive/2026-11-03-c0300-viewer-shell/design.md": "b54938ed27ff5417e700d32e2e6d2216034c118de745d8957ee26c764b8a8641",
+        "openspec/changes/archive/2026-11-03-c0300-viewer-shell/proposal.md": "e9a57b84f8311e41b4b2c986f9112dc6b8dae99db64d6d3a9a7b68c003ccc059",
+        "openspec/changes/archive/2026-11-03-c0300-viewer-shell/scoped-ci-985f59a1.json": "578213104bc12a941df0fa3b3159c5bb95bb4f926568548f30eb92a3d79f2d85",
+        "openspec/changes/archive/2026-11-03-c0300-viewer-shell/specs/board-viewer/spec.md": "7ccf9d7f35efd67dbf6a72a4383b0c32a142736614be17f7f2c377624bfbf0eb",
+        "openspec/changes/archive/2026-11-03-c0300-viewer-shell/specs/viewer-visual-tests/spec.md": "b5f06affd361574e664e012c8edb6f72425c0654b027f8165bd92b556de4a8a5",
+        "openspec/changes/archive/2026-11-03-c0300-viewer-shell/tasks.md": "58d4ff6b7011c7111ee7caa0e98ba0b0083d36c16cda7cb7f88ed1d0626b5e86"
+      },
+      "source_archive_commit": "9fb5d1944dd57fd77683be3744b8a00af585fae3",
+      "spec": "c0300-viewer-shell"
+    },
+    {
+      "CAC_commit": "303a92e0ad1cbb9353926e8f27c24de78a34ceae",
+      "archive": "openspec/changes/archive/2026-11-03-c0301-viewer-inspector",
+      "files_sha256": {
+        "openspec/changes/archive/2026-11-03-c0301-viewer-inspector/design.md": "60e86ca0022be3a6df163fbf241e038c601db1efc8cb36d6973c15b53bbb137f",
+        "openspec/changes/archive/2026-11-03-c0301-viewer-inspector/proposal.md": "3b50e57db63cec7f081e2382d52c66f39050b5d38efcce3823a01b8e27871009",
+        "openspec/changes/archive/2026-11-03-c0301-viewer-inspector/scoped-ci-985f59a1.json": "c9dd38a19dcb13698e913969256e0939b5496a462eeac3a0973aa70acd06c6fb",
+        "openspec/changes/archive/2026-11-03-c0301-viewer-inspector/specs/board-viewer/spec.md": "50372e948fcfc68680f2d388a3fb946f59a695ccd6295033a2519eeb552172f8",
+        "openspec/changes/archive/2026-11-03-c0301-viewer-inspector/specs/viewer-visual-tests/spec.md": "8846e59978ad736fbe1b47506785917f427f30d83b3cd26100ad5c20a3336994",
+        "openspec/changes/archive/2026-11-03-c0301-viewer-inspector/tasks.md": "ad9fd6bb5e4b185bf355a964ce0345d6e54bbf1c782b4cea4c8b565e84c341e3"
+      },
+      "source_archive_commit": "c5df557aedbc53e760a54aa5360b26e18f0f4d6e",
+      "spec": "c0301-viewer-inspector"
+    },
+    {
+      "CAC_commit": "e021bef44246f2c70cefcd2a2e766b39be1665d4",
+      "archive": "openspec/changes/archive/2026-11-03-c0302-viewer-run-checks",
+      "files_sha256": {
+        "openspec/changes/archive/2026-11-03-c0302-viewer-run-checks/design.md": "a71f4463962e114458ef103dd512a4dc79f8f02a50e497abc5efa9f828d294f3",
+        "openspec/changes/archive/2026-11-03-c0302-viewer-run-checks/proposal.md": "91fa2e4404cb05387922e097d475dbde79d2ba857c5d8a89c58bb18218e123cc",
+        "openspec/changes/archive/2026-11-03-c0302-viewer-run-checks/scoped-ci-985f59a1.json": "b65bb93f4c45664bb81d65befc6c76751f8d34e8ab6fa03d86b082dafc6f5c91",
+        "openspec/changes/archive/2026-11-03-c0302-viewer-run-checks/specs/board-viewer/spec.md": "df1dfd83c9e3f1f68747a6c1aab9eae5dcb56d905a28be128c909076ee0c6364",
+        "openspec/changes/archive/2026-11-03-c0302-viewer-run-checks/specs/cli-contract/spec.md": "36eb0cc78b97e671e8f398740f305db81954e0b6521a33e94fed395358c25435",
+        "openspec/changes/archive/2026-11-03-c0302-viewer-run-checks/tasks.md": "2de20825a5d8072da75bd0c7245ba17509867b7d37958512931552cba39697fb"
+      },
+      "source_archive_commit": "61eeb727238a48713d6a3649dd52f2f250beb5e0",
+      "spec": "c0302-viewer-run-checks"
+    },
+    {
+      "CAC_commit": "6ad380062565063810bdc699ff68372b39893afe",
+      "archive": "openspec/changes/archive/2026-11-03-c0311-cross-platform-batch-gates",
+      "files_sha256": {
+        "openspec/changes/archive/2026-11-03-c0311-cross-platform-batch-gates/design.md": "6aec96c095d25adb119a8c87d60a320baad749d1007093f96c6895a826219630",
+        "openspec/changes/archive/2026-11-03-c0311-cross-platform-batch-gates/proposal.md": "e917fb60c1232de5d829110174358a02ca1eaa0e397f3e75b35ed62925bae84b",
+        "openspec/changes/archive/2026-11-03-c0311-cross-platform-batch-gates/scoped-ci-985f59a1.json": "f68cf8ff66b5232dd940552b27e8e37d54d32e576f11fe2c761d3ae2b5608454",
+        "openspec/changes/archive/2026-11-03-c0311-cross-platform-batch-gates/specs/ci-baseline/spec.md": "38cec461679ca874db995d77f3a0b1aad3b9dcf9dcd9ca2c4ced9cfeb273d81e",
+        "openspec/changes/archive/2026-11-03-c0311-cross-platform-batch-gates/specs/cli-contract/spec.md": "bf9dc0f17c24871d070e5e24a34adf57540f4d1a3fbf904afa712e60703cc2e8",
+        "openspec/changes/archive/2026-11-03-c0311-cross-platform-batch-gates/tasks.md": "7f53ccd416399ae3f754bcd375d91ab27163e39e2bafacef247f6ce265a8dee5"
+      },
+      "source_archive_commit": "2d780d9e6e23d94899ee56cd7cc660c5e90aef06",
+      "spec": "c0311-cross-platform-batch-gates"
+    },
+    {
+      "CAC_commit": "c38e6a798f530c6fc49e88f739a2c03f9af0165e",
+      "archive": "openspec/changes/archive/2026-11-03-c0250-manual-edit-merge",
+      "files_sha256": {
+        "openspec/changes/archive/2026-11-03-c0250-manual-edit-merge/design.md": "9577a9b4574694c8865997e60a4a9557f1acb84bbabd23ae2875aaa14e16dabe",
+        "openspec/changes/archive/2026-11-03-c0250-manual-edit-merge/proposal.md": "d31b7097da5175c1ec6e49f8e7ddd3d9530111c8156b4a3da3bd7041f637614c",
+        "openspec/changes/archive/2026-11-03-c0250-manual-edit-merge/specs/check-overlay/spec.md": "6cf72016a8e7c12fc375c9b3b4dac35385bc67fcede3efec7d3f3461c2ff0cbb",
+        "openspec/changes/archive/2026-11-03-c0250-manual-edit-merge/specs/cli-contract/spec.md": "67980b870f156ebdedaf2b39c8d6841f46397f7d9cd48bfd48f9e30d4ac01e89",
+        "openspec/changes/archive/2026-11-03-c0250-manual-edit-merge/specs/design-dsl/spec.md": "d36ccb726be7c4442eb785a4bddea28b5770264805f525bf22ebcc33d501972c",
+        "openspec/changes/archive/2026-11-03-c0250-manual-edit-merge/specs/edit-merge/spec.md": "b8dd6525ce21e784496eec65dc34eb7a35daeffb117644810894dbf25a2b47ac",
+        "openspec/changes/archive/2026-11-03-c0250-manual-edit-merge/specs/layout-lens/spec.md": "23b810067b3ddc9a0830b6cfb8f59b6f0ced14a5d2dd022384ad97f62154409e",
+        "openspec/changes/archive/2026-11-03-c0250-manual-edit-merge/tasks.md": "31092044b2ece9457497fe99f3ea453b0be7af681387ad0b73b4247b33c727c7"
+      },
+      "source_archive_commit": "b4dd46d3b56e624d1a75b4638fcbb165f3d82894",
+      "spec": "c0250-manual-edit-merge"
     }
-  ]
+  ],
+  "historical_fifteen_receipt": {
+    "CAC_commit": "c9b9dcba",
+    "count": 15,
+    "sha256": "8a883949f07b1db5688966e721481e30970782736d2a87b249fb6d4e152308ed"
+  },
+  "implementation_CI_source": "985f59a1d01a612b2eac0219243199896c24075a",
+  "later_runtime_gate": "c0355 and current integration remain independently open",
+  "later_runtime_integration_CI_claimed": false,
+  "living_specification_file_count": 95,
+  "living_specs_match_reviewed_archive_chain": true,
+  "maintainer_scope": "Known c0332 geometry excluded from this closure batch; use each spec own completed proofs, never a fabricated passing workflow badge",
+  "new_CI_or_push": false,
+  "original_CI_conclusion": "failure",
+  "original_plan37_remaining_active": [
+    "c0170",
+    "c0281",
+    "c0282",
+    "c0303",
+    "c0305"
+  ],
+  "reviewed_archive_chain": "2d780d9e6e23d94899ee56cd7cc660c5e90aef06",
+  "snapshot_CAC_HEAD": "c8f820893e628da7dfff2e513e44b83f857f45e8",
+  "source_archive_files_match_reviewed_commits": true,
+  "validation": {
+    "later_tool_style_diagnostic": {
+      "failed": 78,
+      "log_sha256": "d8ed404253ade5d21a18da6d7e6ee198cd489af7657c3b69baff900395975380",
+      "passed": 17,
+      "reason": "New strict style warnings (placeholder Purpose and long requirement text); not an archive file/body mismatch. Preserved externally; no mass rewrite or validator alteration.",
+      "reported_error_items": 0,
+      "tool": "OpenSpec 1.16.0"
+    },
+    "living_strict": {
+      "failed": 0,
+      "log_sha256": "71bc4000561cb5f23d69bb3c0ad51fa5e4151f8a858502bd4ca58983f7bbd2c8",
+      "passed": 95
+    },
+    "nominal_tool": "OpenSpec 1.3.0 (same PATH tool used for reviewed archive chain)"
+  }
 }

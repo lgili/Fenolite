@@ -403,6 +403,47 @@
   2026-10-30: `test_generated_blocks_inside_a_drawing` added to the same file; the file passed locally on
   `docker:kicad/kicad:10.0.6` (13 tests). Still open: CI runs with the batch; no 9.0.9 image here today.
 
+  Implementation follow-up — 2026-11-03, base `cc2a86e2`: implement only the five
+  already-required probe records. Begin with hermetic missing-ID REDs, share
+  native I/O by complete input/tool identity, preserve the existing physical
+  pin domain, connected-pin failures and legitimate native-omitted singletons,
+  and keep global run/outcomes/verify unchanged. Prepare the isolated six-fixture
+  driver for review before any native execution. Do not fill snapshots or
+  promote labels before reviewed measurements. Focused proof:
+  `uv run pytest tests/unit/test_drawn_probes.py tests/unit/test_kicad_probes.py -q`,
+  focused Ruff/format and strict OpenSpec. The missing-ID test first failed for all
+  five absent IDs; after implementation, 33 focused hermetic cases passed (1.75s),
+  including connected-pin loss, omitted open singleton, input/tool cache identity,
+  fresh comparisons and failures not cached. All 13 original oracle assert ASTs,
+  global run/outcomes/verify ASTs and both snapshot files are unchanged. No native
+  measurement or snapshot update has run. Review correction: author-source builds
+  must use temporary source copies, preserve original complete file maps/no lock
+  and produce deterministic inputs. Without --exit-code-violations, successful
+  ERC returns0 even with nonconnective warning/error findings; preserve those
+  accepted findings and refuse tool failures/invalid reports. Establish focused
+  RED controls before the source-copy correction. The review correction first
+  produced13 source-copy REDs and7 consumed-ERC-shape REDs; afterward63 focused
+  hermetic cases passed (2.87s). All6fixtures on each target9/10 preserve their
+  complete source maps/no design.lock and produce byte-identical emitted maps
+  across independent copies. Code0 reports retain all nonconnective findings;
+  invalid consumed shapes and tool failures cannot become cache positives.
+  Parent 7.1/7.2/9.2 remain open.
+
+- [x] 7.1a Record only the five measured authored-fixture probe outcomes in the 9.0.9
+  and 10.0.6 snapshot maps, preserving all 881/1116 existing pairs and both versions.
+  Bind the portable receipt to source `cc7c4c42`, immutable driver/bindings, both
+  reports and the sealed measurement. Before editing, verify every new value is
+  the reviewed equal outcome. Proof: hermetic exclusive-addition reconciliation
+  (all old pairs unchanged, only five keys per snapshot), retained report reads,
+  and `uv run pytest tests/unit/test_drawn_probes.py::test_five_probes_registered_without_native_execution -q`.
+  This local recording does not complete 7.1/7.2/9.2, promote hypotheses, erase
+  corpus naming warnings or claim a whole KiCad/CI job passed.
+  Completed locally on 2026-11-03: exclusive-addition proof preserves 881/1116 pairs,
+  adds exactly 5 equal values per version (886/1121 total), removes/changes 0 old pairs
+  and verifies both source-bound report hashes; focused registration 1 passed.
+  See five-probe-records-proof.json for before/after SHA-256 and measurement
+  bindings. No native rerun, aggregate, label promotion or CI closure occurred.
+
 - [ ] 7.2 Extract each demo schematic row of the corpus into a temporary folder, lower it, resolve it and
   record counts and timings in `docs/evidence/drawn-schematic.md` (row ids, kinds and counts only; no
   derived file is kept). Verify cached manifest hashes, compare full original/lowered/native pin

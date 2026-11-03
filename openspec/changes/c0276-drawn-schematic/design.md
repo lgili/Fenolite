@@ -690,3 +690,35 @@ criterion, complete pin universe, comparator, ERC setting, resource budget,
 CI requirement or other task is waived. See full-closure-proof.json for the
 review-packet hash and scoped evidence. This decision is not permission to
 repeat the procedural deviation in another task.
+
+
+## Five existing probe records — implementation follow-up, 2026-11-03
+
+Implement task7.1's drawn-connect/names/bus/repeat/write records in the existing
+private oracle harness only. No product API/model/DSL/issue code changes. The
+six authored fixtures are the existing flat/full/hier/bus/repeat/example cohort.
+Cache native I/O only by complete output-input bytes, root and immutable tool
+identity/version; compute comparisons from the current resolver. Preserve the
+current drawn-component physical domain and native-omitted singleton handling;
+a missing connected pin must still fail. Global probe execution/cache/snapshot
+APIs stay unchanged. Keep corpus naming warnings and do not promote universal
+H-K-DRAWN-NAMES. Before any native run, review the isolated fixed-image driver
+and its export/stdout retention, allow-list and source binding. No full probe
+aggregator, DIFAT, corpus or geometry replay is authorized by this addition.
+
+Review correction: resolve the same authored Mini libraries from a disposable
+copy of each source folder; never execute original design.py or write its lock.
+Verify both complete source maps and deterministic emitted bytes across copies.
+The existing run_erc call omits --exit-code-violations: retain exit0 reports with
+nonconnective findings of any severity, and reject tool failure/timeout or an
+invalid consumed report structure (sheets/violations lists and string types).
+Do not introduce a zero-total-ERC criterion. Driver capture paths and source
+bindings must be bounded relative paths with no symlink traversal.
+
+Selective measured-record follow-up: after coordinator review of the unchanged
+source cc7c4c42/driver/input/report hashes, insert only drawn-connect, drawn-names,
+drawn-bus, drawn-repeat and drawn-write as equal into each existing 9.0.9/10.0.6
+snapshot. Preserve every old value and version; retain portable before/after
+hashes and complete measurement references. This records the six authored
+fixtures only, preserves corpus naming warnings and leaves 7.1/7.2/9.2 and all
+hypothesis promotions pending the independently required CI/evidence gates.

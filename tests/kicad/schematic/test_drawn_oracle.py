@@ -14,17 +14,20 @@ from collections import Counter
 from pathlib import Path
 
 import _drawn
+import _drawn_probe
 import _erc
 import _probes
 import pytest
 from _buildhelp import build as build_design
+from _drawn_probe import kicad_partition as _kicad_partition
+from _drawn_probe import partition as _partition
+from _drawn_probe import refs as _refs
 
 from fenolite.api.sides import read_side
 from fenolite.backends.kicad import drawn as kdrawn
 from fenolite.backends.kicad import sch
 from fenolite.backends.kicad.sexpr import dumps
 from fenolite.model.drawn import DrawnLabelKind
-from fenolite.model.drawn_connect import DrawnNetlist
 
 pytestmark = pytest.mark.needs_kicad
 CASES = (*_drawn.NAMES, "example")
@@ -71,33 +74,17 @@ def test_excluded_passive_has_no_native_node_or_partition_effect() -> None:
                for item in found.sheets[0].opaques)  # fmt: skip
 
 
-def _refs(output: object) -> dict[str, str]:
-    circuit = output.design.circuit  # type: ignore[attr-defined]
-    return {c.properties["fenolite.path"]: c.ref for c in circuit.components}
-
-
-def _partition(netlist: DrawnNetlist, refs: dict[str, str]) -> set[frozenset[tuple[str, str]]]:
-    groups = {frozenset((refs[p], n) for p, n in net.members) for net in netlist.nets}
-    return groups | {frozenset({(refs[p], n)}) for p, n in netlist.open}
-
-
-def _kicad_partition(
-    nets: dict[str, set[tuple[str, str]]], pins: set[tuple[str, str]]
-) -> set[frozenset[tuple[str, str]]]:
-    groups = {frozenset(nodes & pins) for nodes in nets.values()} - {frozenset()}
-    seen = {pin for group in groups for pin in group}
-    return groups | {frozenset({pin}) for pin in pins - seen}
-
-
 @pytest.mark.parametrize("name", CASES)
 def test_resolver_equals_the_export(name: str) -> None:
     """Scenario "Oracle on 9.0 and 10.0" (``H-K-DRAWN-CONNECT``, ``-BUS``, ``-REPEAT``)."""
-    output = _drawn.build(name, _probes.major())
+    output = _drawn_probe.build(name, _probes.major())
     files = dict(output.files)
     _drawn_value, netlist, _circuit = _drawn.resolved(output)
     refs = _refs(output)
     pins = {(refs[p], n) for p, n in netlist.pins}
-    exported = _erc.netlist(_probes.runner(), _drawn.root_name(output), files)
+    exported = _drawn_probe.native_netlist(
+        _probes.runner(), _drawn.root_name(output), files, version=_probes.version()
+    )
     ours, theirs = _partition(netlist, refs), _kicad_partition(exported, pins)
     print(
         f"{name}: {len(ours)} groups; only ours {sorted(map(sorted, ours - theirs))}; only KiCad's "
@@ -118,8 +105,10 @@ def test_resolver_equals_the_export(name: str) -> None:
 def test_kicad_loads_the_drawn_sheets(name: str) -> None:
     """Scenario "KiCad loads the drawn sheets" (``H-K-DRAWN-WRITE``): ERC runs on every written fixture and
     reports no violation about a wire, a dangling label, a bus or a sheet pin."""
-    output = _drawn.build(name, _probes.major())
-    report = _erc.run_erc(_probes.runner(), _drawn.root_name(output), dict(output.files))
+    output = _drawn_probe.build(name, _probes.major())
+    report = _drawn_probe.native_erc(
+        _probes.runner(), _drawn.root_name(output), dict(output.files), version=_probes.version()
+    )
     found: Counter[str] = _erc.types(_erc.violations(report))
     print(f"{name}: ERC {dict(found)}")
     connectivity = {

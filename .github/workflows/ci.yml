@@ -259,6 +259,10 @@ jobs:
               summary.write("\n".join("- `" + r["nodeid"] + "`" for r in rows) + "\n")
           print("CAC closure: 27 known geometry cases deferred, not passed; all other selected tests remain required.")
           PY
+      - name: Native viewer action plans (c0303)
+        env:
+          FENOLITE_REQUIRE: kicad
+        run: uv run pytest tests/unit/cli/test_view_actions.py::test_export_plans_files_under_fab tests/unit/cli/test_view_actions.py::test_fill_plan tests/unit/cli/test_view_actions.py::test_tidy_with_the_drc_gate -q -rA --basetemp /tmp/fenolite-view-actions-native -n auto --dist loadfile
       - name: Oracle and corpus tests
         env:
           FENOLITE_REQUIRE: kicad,corpus
@@ -312,6 +316,10 @@ jobs:
           key: corpus-rt2-9-sch-9-downgrade-demo-${{ hashFiles('tests/corpus/manifest.toml') }}
       - name: Fetch the rt2-9, sch-9, project and downgrade demo rows
         run: uv run python tools/corpus_fetch.py --uses rt2-9 --uses sch-9 --uses project --uses downgrade-demo
+      - name: Native viewer action plans (c0303)
+        env:
+          FENOLITE_REQUIRE: kicad
+        run: uv run pytest tests/unit/cli/test_view_actions.py::test_export_plans_files_under_fab tests/unit/cli/test_view_actions.py::test_fill_plan tests/unit/cli/test_view_actions.py::test_tidy_with_the_drc_gate -q -rA --basetemp /tmp/fenolite-view-actions-native -n auto --dist loadfile
       - name: Oracle tests
         env:
           FENOLITE_REQUIRE: kicad
