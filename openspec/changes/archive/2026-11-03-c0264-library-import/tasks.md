@@ -71,7 +71,7 @@
 - [x] 4.1 Add the subcommand dispatch of `fenolite library` if no other change did (scenarios "The board form is unchanged", "A board folder named like a word"). Proof: `uv run pytest tests/unit/cli/test_library.py -q`.
 - [x] 4.2 Add `library import` with its options, the `--into` rules, re-import, the result schema and the codes in `fenolite.library.codes` and `explain.toml` (scenarios "Import an authored archive", "Shipped catalog refused", "Re-import over a reviewed device", "Result fields", "Consistency suite covers the import"). Proof: `uv run pytest tests/unit/cli/test_library_import.py tests/consistency -q`.
 - [x] 4.3 Make `catalog import` the alias with `catalog.import-deprecated` (scenario "Alias keeps its bytes"). Proof: `uv run pytest tests/unit/cli/test_catalog_import.py -q`.
-- [ ] 4.4 Author `examples/library_import/` (the authored archive imported into the example's `devices/` and a design that places it) and the KiCad build test (scenario "Confirmed import builds"). Proof: `uv run pytest tests/unit/test_examples.py -k library_import -q`; `uv run pytest tests/kicad/build/test_imported_device.py -rA` (in CI).
+- [x] 4.4 Author `examples/library_import/` (the authored archive imported into the example's `devices/` and a design that places it) and the KiCad build test (scenario "Confirmed import builds"). Proof: `uv run pytest tests/unit/test_examples.py -k library_import -q`; `uv run pytest tests/kicad/build/test_imported_device.py -rA` (in CI).
 
 ## 5. Closing
 
@@ -79,7 +79,7 @@
 - [x] 5.2 Agent guide: a tested line of `library import` on the page `parts.md`, saying that the device stays `UNVERIFIED` until reviewed, then `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent/test_pages.py -q`.
 - [x] 5.3 Residue and evidence: no third-party file in the repository (every test source authored for Fenolite), the evidence matrix regenerated. Proof: `make residue`; `uv run python tools/gen_evidence_matrix.py --check`.
 - [x] 5.4 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
-- [ ] 5.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
+- [x] 5.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
 
 Proof record 2026-11-01: task 1.1, `uv run pytest tests/unit/library/importer/test_zipsafe.py -q`: 12 passed.
 Proof record 2026-11-01: task 1.2, `uv run pytest tests/unit/library/importer/test_sources.py -q`: 7 passed.
@@ -89,3 +89,44 @@ Proof record 2026-11-01: 4.2 command plus consistency 675 passed, 41 skipped; 4.
 Proof record 2026-11-01: 5.3 residue 0 hits (15 scoped waivers; the new file waiver covers only four known writer viewport numbers), evidence matrix check clean; 5.4 changelog 8 passed, 1 skipped on version 0.7.0.dev0. 4.4 local example and plain control 2 passed; CI oracle remains unrun.
 Proof record 2026-11-01: final imported-record/build compatibility run 106 passed (including body-volume preservation and three example controls); alias/source/zip/command-focused run 69 passed; authored data-manifest selection 1 passed. Explain registry 14 passed after fixing table ordering and section links. Current native source fixtures include their authored SPDX marker and fictional datasheet.
 Final local verification 2026-11-01: `pyright src` 0 errors/warnings; `ruff check .` clean; `ruff format --check .` 2864 files formatted; generated guide/evidence checks clean; strict OpenSpec valid without warnings. Destination-symlink regression proof: `tests/unit/cli/test_library_import.py` 15 passed. Tasks 0.1 and 5.5 retain the scheduled full-gate/CI portion; task 4.4 retains the unrun KiCad oracle. No push or full local suite was run.
+
+## Proposed scoped closure receipt —2026-11-03
+
+Preflight base `9ba56e18562695c9cdf5ba3520cdb3e8d481db82` keeps runtime, tests and fixtures
+identical to CI source `985f59a1d01a612b2eac0219243199896c24075a`.
+`ci-scoped-985f59a1.json` records the actual selected results and limits from retained
+run41708879698: five green unit jobs, native9 explicit selected PASSED rows,
+and native10 completed required-CLI quiet-run inference, not an invented PASSED line.
+The run itself remains failed; the maintainer expressly excludes the27 deferred
+geometry cases from this closure batch, without passing them.
+This preparation marks no task and archives nothing; root review and the applicable
+scoped closing checks remain required. c0246 stays active; its missing literal double
+native-variant proof is not borrowed by this change.
+
+Documentary preflight (not a new native proof): nominal OpenSpec1.3.0 passes
+all four prepared changes and101 projected living specs. Its normal pure spec
+builder projects88 added requirements and120 added scenarios, two complete
+MODIFIED bodies, no removal/rename and no existing requirement/scenario loss.
+Both modified bodies preserve every old scenario body exactly. Matrix generator
+`--check` passes; the focused hypothesis-register/evidence-matrix modules pass
+59 tests in125.57s. No task checkbox or archive was changed by this preparation.
+
+## Authorized scoped closure —2026-11-03
+
+Root reviewed and approved the complete normative reconciliations and retained
+source985 proof. Local fast is the actual serialized fast13 receipt from
+`c0319-integration-repairs/fast13-receipt.json`: source
+`2c0540572c936303eb5c46a25002872648dfabad`, exit0,22366passed/52skipped.
+Runtime/tests/examples/tools Git trees and Makefile/pyproject/uv.lock/CI config
+are exactly equal through source985 and this docs-only executor. The original
+log and driver were independently rehashed. This is source-bound applicability,
+not an invented fast execution on985; later fast16/source863 is not used.
+
+The maintainer-authorized CI scope excludes the27 deferred geometry cases;
+those cases are NOT passed. Retained CI41708879698 and its native10 job remain
+FAILURE. Own native9 PASSED results, native10 completed quiet-run source-bound
+inference, five green unit jobs and the named artifact are recorded with their
+limits in ci-scoped-985f59a1.json. This closes the listed task proofs in that
+explicit scope, not a claim of whole-job green. The59 documentary tests,
+nominal strict validations and matrix check complement the retained fast/CI.
+No new fast/full/native/GUI/CI was run. c0246 stays open.

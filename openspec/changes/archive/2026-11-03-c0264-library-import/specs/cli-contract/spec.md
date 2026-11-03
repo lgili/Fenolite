@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Library subcommand words
-The first positional argument of `fenolite library` SHALL select a subcommand when it is `import`, `propose`, `check`, `review` or `fetch`, and a subcommand that is not registered yet MUST exit 2 with `FEN-2001`. Any other first argument MUST keep the board form of "Library made from a board" unchanged; a board path spelled like a word is written `./import`.
+The first positional argument of `fenolite library` SHALL select a subcommand when it is a registered action of the shared `cmd_library.ACTIONS` dispatch: `symbol`, `generate`, `check`, `review`, `import`, `propose`, `seed`, `audit`, `replay`, `release` or `gallery`. An action listed there but unavailable in the installed version MUST exit 2 with `FEN-2001`. Any other first argument MUST keep the board form of "Library made from a board" unchanged; a board path spelled like a registered word is written `./import`. This requirement MUST NOT register `fetch` or introduce a second dispatcher.
 
 #### Scenario: The board form is unchanged
 - **WHEN** `fenolite library <example board> --out lib.pretty --dry-run --json` runs
