@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive c0274-electrical-requirements using its tested985 implementation, scoped unit/native CI evidence and existing proofs; preserve the authorized geometry deferral and pending later integration gates.
+
 - Archive c0268-block-records using its tested985 implementation, scoped unit/native CI evidence and existing proofs; preserve the authorized geometry deferral and pending later integration gates.
 
 - Archive c0265-datasheet-proposals using its tested985 implementation, scoped unit/native CI evidence and existing proofs; preserve the authorized geometry deferral and pending later integration gates.

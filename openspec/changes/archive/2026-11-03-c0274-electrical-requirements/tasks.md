@@ -83,7 +83,7 @@ Phases B to F (sections 3 to 6) waited for c0252 and c0253, which were not merge
 - [x] 7.4 Residue: every authored record and example carries its authored-for-Fenolite line, and no threshold, rating or table comes from another project or a standard. Proof: `make residue`.
   - 2026-10-29: the rewritten records keep their authored-for-Fenolite line; no threshold, rating or table is taken from another project. `make residue` runs in `make check-fast`, which passed. Left open until phases B to F add `examples/circuit/ferrite/`.
   - 2026-10-30: done. `examples/circuit/ferrite/` (scripts, board module and three device records) carries the authored-for-Fenolite lines; no threshold, rating or table comes from another project. `make residue` passed (0 hits).
-- [ ] 7.5 Push each phase to the working branch and confirm that the required unit and KiCad jobs pass on that exact commit; run only `make check-fast` and the focused tests locally (AGENTS.md, workflow 4). Proof: the CI run of the commit is green; `make check-fast` passes locally.
+- [x] 7.5 Push each phase to the working branch and confirm that the required unit and KiCad jobs pass on that exact commit; run only `make check-fast` and the focused tests locally (AGENTS.md, workflow 4). Proof: the CI run of the commit is green; `make check-fast` passes locally.
   - 2026-10-29: CI runs with the batch (not pushed: the coordinator batches the push). `make check-fast PYTEST_WORKERS=2` passed locally.
   - 2026-10-30: CI runs with the batch (not pushed). `make check-fast PYTEST_WORKERS=2`: lint, format, types and residue passed; the test step gave 16 964 passed and one failure (`test_import_graph`: `roles` imported `checks`), fixed by moving the rule to `core/decidable.py`; the import-graph, circuit, roles-stage, waiver and agent tests then passed, and lint, format, types and residue again.
 - [x] 7.6 Validate the change. Proof: `openspec validate c0274-electrical-requirements --strict`.
@@ -91,3 +91,29 @@ Phases B to F (sections 3 to 6) waited for c0252 and c0253, which were not merge
 
 - [x] 7.7 Declare every authored example under `examples/circuit/ferrite/` in `tests/data/MANIFEST.toml` (batch CI correction). Proof: `uv run pytest tests/corpus/test_manifest.py -q`.
   2026-10-30: declared the authored example payloads; proof passed (48 passed, one corpus-dependent test skipped).
+
+
+## Scoped implementation closure — 2026-11-03
+
+The maintainer clarified that problematic geometry was already outside this
+closure CI batch before the run. Close only this specification’s implementation
+on tested source 985f59a1d01a612b2eac0219243199896c24075a and reviewed
+archival documentation. Run 41708879698 remains FAILURE: the27known c0332
+geometry failures are DEFERRED_NOT_PASSED, not passed tests. KiCad9 and all
+five unit jobs succeeded. The relevant KiCad10 module results are inferred
+from complete unfiltered collection and the exhaustive -ra non-pass report.
+Explicitly contracted unsupported-target skips remain skips; no nominal
+PASSED line or green KiCad10 job is claimed.
+
+`scoped-ci-985f59a1.json` binds the exact tests, explicit KiCad9 positive
+lines, complete log hashes, reused fast proof and existing scoped records.
+The isolated runtime/tests/tools/configuration remain byte-identical to985;
+this does not validate later CAC runtime, close c0355 or replace subsequent
+integration CI. Existing authored/native/default-map proofs and limitations
+remain intact. No suite, native CAD test or CI rerun was started for archive.
+
+Entry refresh: previously implemented prerequisites are now archived in the
+required order: c0252-parametric-interfaces, c0253-electrical-contracts. Existing APIs and reviewed normative
+unions were checked against the current living text; no runtime change or
+external publication was needed. Contracted native9/10 unsupported-target
+skips remain skips and are explicitly retained in the portable receipt.
