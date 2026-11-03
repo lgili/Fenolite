@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Preserve the failed historical drawn-context evidence guard and permit measurement closure only with the complete source 985f59a1 CI receipt; resolve one active or archived spec, reject ambiguous locations and preserve receipt scope independently of later task closure; reject incomplete or altered rows, counts, timings, hashes, partitions, aliases, warnings and receipt bindings (c0276).
+
 - Archive c0282-import-copper-exact using retained source985 import/arc/chamfer evidence within its measured scope; preserve contracted skips, near-boundary differences and pending later integration.
 
 - Archive c0275-board-to-code using retained source985 import/arc/chamfer evidence within its measured scope; preserve contracted skips, near-boundary differences and pending later integration.

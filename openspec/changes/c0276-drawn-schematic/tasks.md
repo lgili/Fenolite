@@ -493,6 +493,31 @@
   native 10 and overall CI remain failure, 7.1/9.2 stay open and no hypothesis is
   promoted. The 10 job used -q; no -rA stdout or whole-job success is invented.
 
+- [x] 7.2a Preserve the insufficient historical 9.0.2 context guard while allowing
+  documentary closure only through the complete source 985f59a1 CI receipt. Require
+  all 130 IDs per major, exact 87/5/38 and 113/1/16 outcomes, complete partitions,
+  five stage timings, entity-kind counts, manifest/context/project hashes,
+  aliases and naming warnings, and source/report/receipt bindings. Add hermetic
+  negative controls for missing/altered data; do not replace the old test with
+  a checkbox assertion. Preserve the historical 92 contexts/41 refusals and
+  keep 7.1/9.2 open. Proof: `uv run pytest tests/unit/test_drawn_census.py tests/unit/test_drawn_context_evidence.py -q`, focused Ruff/format and strict OpenSpec.
+
+  Archive-readiness follow-up: resolve exactly one active OR archived change
+  directory before reading its tasks/receipt. Refuse absent, active+archive or
+  multiple-archive matches. Prove unchanged sealed receipt validation from both
+  locations using temporary copies only; never move the real spec or relax seals.
+  Keep 7.1/9.2 limitations in the immutable source985 receipt, without forcing
+  future checkboxes open after independent proofs. Test archived future closure
+  and refusal of each promoted receipt scope flag; actual 7.1/9.2 stay unchanged.
+  Source guard RED failed before implementation; both existing modules now pass
+  54 cases, including 24 data negatives, seven scope negatives, two valid lookups,
+  three missing/ambiguous lookup refusals and archived future closure.
+  All original historical assert ASTs remain present; the old open-checkbox
+  assertion remains in the no-closure branch. Changed context/project metadata
+  is rehashed in negative controls so actual semantic gates reject it before
+  immutable-byte seals. See documentary-guard-proof.json. No full/fast/native,
+  corpus measurement or CI was run; 7.1/9.2 and all evidence levels are unchanged.
+
 - [x] 7.3 Implement and prove the census driver/comparison/privacy controls with authored CC0 inputs,
   preserving every production drawn/model field and strict native contract; retain the actual measured
   result and any remaining refusal/mismatch instead of marking 7.2 from code completion.
