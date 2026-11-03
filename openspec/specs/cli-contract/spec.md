@@ -73,17 +73,21 @@ Whenever a command exits with a non-zero code, stderr MUST carry exactly one err
 - **THEN** `FEN-1002`, `FEN-1003` and `FEN-4002` are in the registry with exit codes 1, 1 and 4, and each has a table in `explain.toml`
 
 ### Requirement: Exit-code vocabulary
-Commands MUST use only these exit codes: `0` success; `1` internal failure; `2` usage error; `3` input unreadable or from a future format version; `4` confirmation required; `5` verification produced findings of severity `error`; `6` external tool missing or incompatible; `7` requested operation not representable without loss.
+Commands MUST use only these exit codes: `0` success; `1` internal failure; `2` usage error; `3` unreadable or future input; `4` confirmation required; `5` verification findings of severity error, or incomplete `blocks test` warnings; `6` external tool missing or incompatible; `7` refused lossy operation.
 
 #### Scenario: Findings map to 5
-- **GIVEN** `_echo --issue error` produces an issue of severity `error`
-- **WHEN** it runs
-- **THEN** the exit code is 5 and `ok` is `false`
+- **GIVEN** `_echo --issue error` produces an error finding
+- **WHEN** it runs with `--json`
+- **THEN** the exit code is 5 and `ok` is false
 
 #### Scenario: Warnings do not fail
 - **GIVEN** `_echo --issue warning` produces only warnings
-- **WHEN** it runs
-- **THEN** the exit code is 0 and `ok` is `true`
+- **WHEN** it runs with `--json`
+- **THEN** the exit code is 0 and `ok` is true
+
+#### Scenario: Incomplete block tests fail
+- **WHEN** `uv run pytest tests/unit/cli/test_blocks_test.py -k warning -q` runs a test needing a fixture
+- **THEN** `blocks test` exits 5 with `blocks.test-unsupported` at severity warning
 
 ### Requirement: Mutation protocol
 A command declared as mutating MUST accept `--dry-run` and `--confirm`. With `--dry-run` it MUST return the plan of intended writes in `result.plan` with exit 0 and write nothing. Without `--confirm` it MUST return the plan with exit 4 and error `FEN-4001` and write nothing. With `--confirm` it MUST write atomically (temporary file then rename), keep a `.bak` of any overwritten file unless `--no-backup` is given, and fill `receipt.written` with `{path, sha256}` for every file written.
@@ -2678,3 +2682,21 @@ Git checkouts used by library get and replay SHALL use explicit autocrlf-disable
 #### Scenario: The caller enables automatic newline conversion
 - **WHEN** a pinned authored library or upstream is fetched with global autocrlf enabled
 - **THEN** its payload and replay outputs retain the expected byte digests
+
+### Requirement: Block test command
+`fenolite blocks test [ID...] [--golden] [--only usage|golden|tests]` SHALL run, for each selected block in id order, the convention check, the usage build, the golden comparison and the test functions, and return `result.blocks` with per block `id`, `version`, `usage`, `golden` and `tests`. It MUST exit 0 when no finding is above `info` and 5 otherwise, and MUST write only with `--golden` under the protocol.
+
+#### Scenario: One block tested
+- **WHEN** `uv run pytest tests/unit/cli/test_blocks_test.py -k one` runs `fenolite blocks test Test:divider --json` on the authored library
+- **THEN** the exit code is 0, `result.blocks[0].usage` is `passed`, `golden` is `equal`, every test is `passed`, and no file was written
+
+#### Scenario: Unknown block
+- **WHEN** `fenolite blocks test Test:dividr --json` runs
+- **THEN** the exit code is 2 with `FEN-2001`, and the hint names `Test:divider`
+
+### Requirement: Project block convention discovery
+Without `--from`, `blocks test` SHALL also discover local Python modules with a matching `usage/<module>.py` or `tests/test_<module>.py`. It MUST apply explicit id and category filters to the combined catalog.
+
+#### Scenario: Project example from its folder
+- **WHEN** `uv run fenolite blocks test --json` runs in `examples/blocks/`
+- **THEN** `Example:divider` passes its usage, golden comparison and test functions

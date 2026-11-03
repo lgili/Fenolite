@@ -76,7 +76,7 @@
 ## 4. Repository suite and CI
 
 - [x] 4.1 `tests/unit/blocks/test_convention.py` and `tests/unit/blocks/test_shipped_blocks.py` (parametrised over the shipped ids; empty until c0272 lands, then each block) (scenarios "Every shipped block follows the convention", "Shipped blocks in the fast suite"). Proof: `uv run pytest tests/unit/blocks -q`.
-- [ ] 4.2 `tests/kicad/blocks/test_usage_boards.py` for targets 9 and 10, and a step `uv run fenolite blocks test --json` in the unit jobs of `.github/workflows/ci.yml` (scenario "Usage boards read back"). Proof: `uv run pytest tests/unit -k workflow -q`; the KiCad jobs green on the pushed head.
+- [x] 4.2 `tests/kicad/blocks/test_usage_boards.py` for targets 9 and 10, and a step `uv run fenolite blocks test --json` in the unit jobs of `.github/workflows/ci.yml` (scenario "Usage boards read back"). Proof: `uv run pytest tests/unit -k workflow -q`; the KiCad jobs green on the pushed head.
 - [x] 4.3 `examples/blocks/` gains a project block laid out under the convention, with its usage example, tests and golden file. Proof: `uv run fenolite blocks test --json` in `examples/blocks/` exits 0; `make residue`.
 
 ## 5. Docs and guide
@@ -86,7 +86,7 @@
 
 ## 6. Closing
 
-- [ ] 6.1 Run `make check-fast`, then the required CI jobs on the pushed head of the branch. Proof: `make check-fast`, and the required jobs green on the exact commit.
+- [x] 6.1 Run `make check-fast`, then the required CI jobs on the pushed head of the branch. Proof: `make check-fast`, and the required jobs green on the exact commit.
 - [x] 6.2 Evidence: register `H-G-BLOCK-GOLDEN` in `docs/hypotheses.md` with its measurement on the three unit jobs and regenerate the evidence matrix. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
   2026-11-02: the exact L9 block-step observations and complete-job failures are recorded in the
   register and design section 9. The literal register proof passes (38 tests); the regenerated
@@ -137,3 +137,37 @@ After updating the register, `uv run pytest tests/unit/test_hypotheses_register.
 The matrix renders backend claims; this general hypothesis keeps its existing `INFERRED` level.
 Task 6.2 is complete. Entry/full-gate task 0.1, KiCad read-back task 4.2 and final integration
 task 6.1 remain open. No source, model, schema, golden, decoder or byte expectation changes here.
+
+
+## Scoped implementation closure — 2026-11-03
+
+The maintainer clarified that problematic geometry was already outside this
+closure batch before the run. This record closes only this specification on
+tested source 985f59a1d01a612b2eac0219243199896c24075a plus reviewed archival
+documentation. Run41708879698 and native10job126171394674 remain FAILURE;
+the27known c0332 failures are DEFERRED_NOT_PASSED. Native9job126171394740
+and all five unit jobs succeeded. Native10 selected results are inferred
+from complete unfiltered collection and its exhaustive -ra non-pass report;
+contracted opposite-target skips remain skips, not passed tests.
+
+`scoped-ci-985f59a1.json` retains every selected node, assert and skip,
+source/fixture/log hashes, actual five unit block-step JSON measurements
+(each5usage builds,5equal goldens,16plain test functions,zero issues),
+reused fast13 proof and any post-edit register/matrix checks. It does not
+claim that native10 printed individual PASSED lines or that its job was green.
+Existing historical failures and local measurements remain recorded above.
+
+Only H-K-SCH-BLOCK-PINS/ERC for the authored six-net block example and
+H-K-BLOCK-LAYOUT-DRC for the authored both-side/kept-flip divider are eligible
+for scoped KiCad promotion. ERC checks only hier/sheet/label types; usage
+checks nets as a subset and schematic parity. H-A-BLOCK-ENTRIES and every
+H-G row remain INFERRED. Illustrative device records are not graduated.
+The five previously recorded GUI layouts still match their hashes; this
+archive creates no new CAD action or human engineering approval.
+
+Runtime/tests/tools/configuration remain byte-identical to985. Later CAC
+runtime, c0355, integration CI and release remain separate pending gates.
+No native/full/fast/CI test was rerun to archive. Nominal documentation
+proofs, normal archive, complete normative-body/scenario comparison,
+living-spec strict validation and private-on staged scan are recorded in
+the external per-spec closure receipt.

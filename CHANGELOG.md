@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive c0270-block-tests on tested source985 using scoped unit/native block proofs; retain contracted skips, deferred geometry and pending later integration.
+
 - Archive c0269-block-schematic on tested source985 using scoped unit/native block proofs; retain contracted skips, deferred geometry and pending later integration.
 
 - Remove three additional terminal failed/cancelled CI runs after retaining all available logs and30 artifacts; explicitly preserve two unavailable-log404 records, including the started macOS job, without claiming full retention or CI success (c0319).
