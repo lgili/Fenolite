@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive c0282-import-copper-exact using retained source985 import/arc/chamfer evidence within its measured scope; preserve contracted skips, near-boundary differences and pending later integration.
+
 - Archive c0275-board-to-code using retained source985 import/arc/chamfer evidence within its measured scope; preserve contracted skips, near-boundary differences and pending later integration.
 
 - Reconcile all 130 drawn-census row IDs on each retained KiCad CI version, with counts, timings, hashes, original reader-floor refusals and naming warnings; complete only the source 985f59a1 measurement/reporting task while preserving failed overall CI and later integration gates (c0276.7.2).

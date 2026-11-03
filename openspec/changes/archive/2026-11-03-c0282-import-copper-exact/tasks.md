@@ -62,7 +62,45 @@
   `npx -y @fission-ai/openspec validate c0282-import-copper-exact --strict`.
   Passed 2026-11-01: ruff checks clean; 2548 files formatted; pyright 0 errors/warnings;
   staged residue proof 38 passed, 5 skipped (unfetched corpus); strict OpenSpec valid without warnings.
-- [ ] 4.3 Confirm exact-commit unit, KiCad 9 and KiCad 10 CI jobs, including authored arc and
+- [x] 4.3 Confirm exact-commit unit, KiCad 9 and KiCad 10 CI jobs, including authored arc and
   bottom-chamfer oracle tests. Proof: required jobs green on the published commit.
   Open: publication and exact-commit CI are grouped with the larger integration batch.
   Local 9.0.2 oracle results are recorded above; exact-commit required CI jobs remain unconfirmed.
+
+
+## Scoped implementation closure — 2026-11-03
+
+The maintainer clarified that problematic geometry was already excluded from
+this closure batch before the run. Close only this specification on tested
+source 985f59a1d01a612b2eac0219243199896c24075a plus reviewed documentation.
+Run 41708879698 and KiCad10 job126171394674 remain FAILURE; the27known
+c0332 failures remain DEFERRED_NOT_PASSED. KiCad9 job126171394740 and all
+five unit jobs succeeded. Selected KiCad10 results are source-bound
+inferences from completed unfiltered collection and exhaustive -ra non-pass
+classification, with no printed nominal PASSED line or green job10 claimed.
+
+`scoped-ci-985f59a1.json` binds source/fixture/log hashes and exact oracle
+assertions. The retained census contains18real full conversions, all exit0
+and equivalenttrue, plus1byte-identical pytest-current alias;19ZIP members
+were checked against original hashes and CRC. Historical and emission-only
+measurements remain separate. Upgrade9 is one legitimate minimum-major skip
+within the631grouped skips, not an invented per-node result.
+
+The arc controls require native clear/violation endpoints while recording
+near-boundary behaviour separately from exact ideal Fenolite decisions. No
+arc parity is claimed. The chamfer canary covers four authored rotations
+and a wrong-corner control, not every native shape. H-G-CHAMFER-FLIP
+and H-A-IMPORT-CODE remain INFERRED. H-G-IMPORT-CODE retains its existing
+CORPUS-VERIFIED label and its historical failed-job qualifications, without
+new promotion or a global-green claim. Existing observations and scope
+limits remain unchanged.
+
+The isolated runtime/tests/tools/configuration remain byte-identical to985.
+Fast13 is reused only after checking its tested source equivalence. Later
+CAC runtime, c0355, integration CI and release remain independent gates.
+No import, CAD/native test, geometry test, full/fast suite or CI was rerun.
+Normal OpenSpec1.3 archive, complete normative-body/scenario comparison,
+living strict, diff check and private-on staged scan are recorded in the
+external per-spec closure receipt. No cumulative rehearsal ordering is
+introduced as a new prerequisite: c0249 is archived, and c0281 keeps its own
+distinct open archive order.

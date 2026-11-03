@@ -2,9 +2,7 @@
 
 ## Purpose
 Give every package one exact, deterministic, platform-independent integer geometry (predicates, arcs, circles, polygons and their normal form, mixed contours, microdegree transforms, a spatial index) in the KiCad file frame, and record KiCad's frame and arc conventions with kicad-cli evidence.
-
 ## Requirements
-
 ### Requirement: Stdlib-only integer geometry package
 `fenolite.geometry` SHALL be importable with no optional extra installed, SHALL import from `fenolite` only `fenolite.core` and its own modules, SHALL contain no static import of a third-party package and SHALL load optional packages only through `fenolite.geometry.boolean._extra`. It SHALL re-export `Point` and `Size` from `fenolite.core.coords` (the same classes, not copies). Every public function that returns a `Point` SHALL return integer nanometres, exact rational results SHALL be `Fraction`, and no public function SHALL return a `float`. Public functions that take a `Point` or a microdegree angle SHALL raise `TypeError` naming the argument when a coordinate or the angle is not an `int`.
 
@@ -520,3 +518,10 @@ For two `Thick` shapes `a` and `b`, the gap SHALL be `dist(core_a, core_b) − (
 #### Scenario: The equivalence check is unchanged
 - **WHEN** `uv run pytest tests/unit/checks/equivalence -k routing` runs after `pieces` calls `touch_groups`
 - **THEN** every test passes without an edit
+
+### Requirement: Exact circular thick cores
+`Thick` SHALL accept an optional `arc` core with integer stored points. Its box, touch and strict-distance decisions, positive integer gap floor and deterministic rounded witness MUST use exact rational and radical arithmetic for arc/point, arc/segment, arc/arc and arc/filled-ring pairs, including equality, without runtime dependencies.
+
+#### Scenario: Tangent boundary and reflected arcs
+- **WHEN** authored tangent, fractional-centre, shallow, major, concentric and intersecting arcs are checked, reversed, reflected and turned by quarter turns
+- **THEN** touch and clearance decisions preserve exact equality and symmetry, gaps are floored exactly and boxes contain the curves

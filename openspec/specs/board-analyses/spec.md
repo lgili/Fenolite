@@ -125,19 +125,16 @@ Compute engineering measures on a board with `fenolite analyze`: the current cap
 - **THEN** the first gives three cut-outs (the lone slot, the merged L, the rounded cut-out) and `band == DEFAULT_TOL + 1`; the second gives `source == "none"` and `problem == "overlap-needs-geo"`
 
 ### Requirement: Copper of a net as thick shapes
-`fenolite.analysis.copper.net_copper(design, *, pads, arc_tol=ARC_TOL_NM) -> NetCopper` SHALL turn the copper of the board into `Thick` shapes (`geometry-kernel`, "Thick shapes") per net and per copper layer, with the shapes that `copper-check` defines in "Copper items and their shapes": tracks, arcs as polylines with their band, vias on every layer of their span, pads from the `PadCopper` entries of c0028's `BoardPad` records, and zone fills. `fenolite.analysis` MUST NOT import `fenolite.checks`.
-- Each shape MUST keep its item: `kind`, `where` (`REF-PIN` for a pad, `provenance.locator` otherwise), `entity_id` and its band (`arc_tol + 1` for an arc, else 0).
-- Items that cannot be shaped, and every pad of a kind other than `np_thru_hole` when `pads` is `None`, MUST be counted per kind in `NetCopper.unsupported`; each analysis that uses the record MUST report one `analysis.item-unsupported` warning per kind with the count.
-- Copper without a net MUST be left out.
+`fenolite.analysis.copper.net_copper` SHALL group copper `Thick` shapes by net and layer. Tracks, vias, pads and fills use the copper check's shapes. Arcs remain polylines at `arc_tol`, with band `arc_tol + 1`; their underlying arc and width MUST match the check's exact arc. Keep kind, locator and entity id, count unsupported items by kind and omit netless copper. `fenolite.analysis` MUST NOT import `fenolite.checks`.
 
 #### Scenario: Shapes equal the copper check's
-- **GIVEN** generated boards with tracks, arcs, vias, fills and fake `BoardPad` records
-- **WHEN** `uv run pytest tests/unit/analysis/test_copper.py -k same_shapes` compares the shapes of `net_copper` with the copper items of `fenolite.checks.copper`
-- **THEN** per layer and net, the two sets of `Thick` shapes are equal
+- **GIVEN** generated boards with tracks, arcs, vias, fills and authored pad records
+- **WHEN** `uv run pytest tests/unit/analysis/test_copper.py -k same_shapes` compares both builders
+- **THEN** non-arc shapes match exactly and analysis arcs match polygonisations of the check's exact arcs, retaining their widths and declared bands
 
 #### Scenario: Layering holds
 - **WHEN** `uv run pytest tests/unit/test_import_graph.py` runs
-- **THEN** it passes, and no module of `fenolite.analysis` imports `fenolite.checks`
+- **THEN** analysis imports no checks module
 
 ### Requirement: Measures
 A distance SHALL be reported as the frozen record `Measure(low, high, layer, points, items, bounded=False)`: `low` and `high` are integers in nanometres with `low ≤ d ≤ high`, `d` being the distance as this capability defines it; `layer` names the layer, or the two faces joined by `/`; `points` are the points of the path in order, rounded to integers; `items` are the `where` of the two copper items.
