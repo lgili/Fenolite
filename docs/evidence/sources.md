@@ -548,3 +548,6 @@ proposals and `docs/formats/` pages cite ids from this table. Ids are `S-NNNN`, 
 
 | S-1204 | https://dev-docs.kicad.org/en/file-formats/sexpr-intro/#_text_effects | Public primary documentation; facts only, no grammar/code copied | c0337 text effects: independent height/width, line thickness, bold and italic syntax | 2026-11-02 |
 | S-1205 | Native KiCad CLI 10.0.6 macOS, authored free-text style controls, 2026-11-02 | Fenolite-authored CC0 controls; black-box observations only, no glyph resources copied | c0337 actual explicit thickness/bold/italic and coloured SVG probes, source/SVG digests in aggregate receipt | 2026-11-02 |
+| S-1283 | Native KiCad 10.0.6 macOS BOM/netlist exports, 2026-11-02; `tests/kicad/schematic/test_bom_only_oracle.py` | Original Fenolite authored Mini flat/repeated drawings; black-box subprocess measurements only; no third-party fixture or parser copied | Explicit off-board/BOM-included pinless purchasing instances, original/rebuilt BOM identity, DNP, descriptive Footprint metadata and full electrical partitions | 2026-11-02 |
+
+| S-1206 | Native KiCad CLI10.0.6 macOS, authored dated-parent/blank-child hierarchy, 2026-11-02 | Fenolite-authored CC0 controls; black-box export observations only | c0339 original and generated SVG drawing sheets display parent date and leave child blank; source snapshots unchanged | 2026-11-02 |

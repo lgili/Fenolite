@@ -203,21 +203,25 @@ def read_kicad(path: Path, *, upgrade: Upgrader | None = None) -> Source:
             raw = sheet.read_bytes()
             paths.append(sheet)
             inputs.append(InputFile(Path(name).as_posix(), _sha(raw), "kicad_sch", None))
-    return Source(
-        name=stem,
-        backend="kicad",
-        design=design,
-        board_text=text,
-        major=major,
-        inputs=tuple(inputs),
-        upgrades=tuple(upgrades),
-        minimums=minimums,
-        custom_rules=rules,
-        sheets=sheets,
-        issues=tuple(i for i in issues if i.severity != "error"),
-        paths=tuple(paths),
-        folder=folder,
-        hierarchy=hierarchy,
+    from fenolite.importer.bom_only import discover
+
+    return discover(
+        Source(
+            name=stem,
+            backend="kicad",
+            design=design,
+            board_text=text,
+            major=major,
+            inputs=tuple(inputs),
+            upgrades=tuple(upgrades),
+            minimums=minimums,
+            custom_rules=rules,
+            sheets=sheets,
+            issues=tuple(i for i in issues if i.severity != "error"),
+            paths=tuple(paths),
+            folder=folder,
+            hierarchy=hierarchy,
+        )
     )
 
 

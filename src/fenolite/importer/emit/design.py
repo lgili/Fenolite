@@ -1501,6 +1501,38 @@ def emit(source: Source, options: Options) -> Emission:
         xy = (length(at.x - ORIGIN.x), length(at.y - ORIGIN.y))
         place_calls[ref] = Call(f"{var}.place", xy, tuple(place))
         place_lines.append(statement(place_calls[ref]))
+    for component in sorted(
+        (c for c in design.circuit.components if c.bom_only), key=lambda c: natural(c.ref)
+    ):
+        ref = component.ref
+        path = hierarchy.paths.get(ref, (ref,))
+        paths[ref] = path
+        var = identifier(ref, writer.taken, prefix="p")
+        part_vars[ref] = var
+        lock_refs["/".join(path)] = ref
+        kwargs = [("bom_only", Raw("True"))]
+        if component.value:
+            kwargs.append(("value", text(component.value)))
+        if component.lib_footprint_ref:
+            kwargs.append(("footprint", text(component.lib_footprint_ref)))
+        if path[-1] != ref:
+            kwargs.append(("name", text(path[-1])))
+        if component.dnp:
+            kwargs.append(("dnp", Raw("True")))
+        props = _properties(component.properties)
+        if props is not None:
+            kwargs.append(("properties", props))
+        part_calls[ref] = Call("Part", (text(ref), text(vendored.symbols[ref])), tuple(kwargs))
+        part_lines.append(statement(part_calls[ref], target=var))
+        for depth in range(1, len(path)):
+            prefix = path[:depth]
+            if prefix not in module_vars:
+                mvar = identifier("_".join(prefix), writer.taken, prefix="m")
+                module_vars[prefix] = mvar
+                module_lines.append(statement(Call("Module", (text(prefix[-1]),)), target=mvar))
+                containers.setdefault(prefix[:-1], []).append(mvar)
+                containers[prefix] = []
+        containers[path[:-1]].append(var)
     if part_vars:
         writer.imports.add("Part")
     if module_vars:

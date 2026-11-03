@@ -138,6 +138,18 @@ when empty; old documents load unchanged and ordinary builds keep their bytes. E
 native/symbol fallback. A nonempty reference also permits an explicitly empty native name. It conveys
 no equivalence, pin mapping or electrical claim. Altium builds refuse this explicit selection.
 
+### BOM-only purchasing items
+
+`Component.bom_only: bool = False` (c0334) marks an explicit pinless purchasing item on the schematic and
+canonical bill of materials, excluded from the physical board. It is appended and omitted when false;
+old model-0 documents decode with false and keep their canonical bytes. True excludes `board_only`,
+logical pins/connections, pin-pad maps, physical footprint instances and explicit geometry definitions.
+A native footprint string may remain descriptive metadata and never triggers geometry lookup. DNP is
+independent. KiCad project import/build preserves explicit `in_bom yes`/`on_board no` and per-instance
+identity, including repeated sheets. A standalone PCB writer projects the board domain and does not
+claim to transport the schematic BOM; Altium project output refuses this unsupported marker before
+staging. Both-excluded opaque graphics remain governed by their existing stricter contract.
+
 ## Library definitions
 
 `fenolite.model.library` holds reference data shared by many designs, outside `Design` and outside

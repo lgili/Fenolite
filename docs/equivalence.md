@@ -269,6 +269,7 @@ level are sorted by `where`, then kind.
 | 1 | `ref-ambiguous` | `ref` | a reference that a side holds more than once, or an empty reference; `a` and `b` are the two counts |
 | 1 | `value` | `value` | the values differ |
 | 1 | `dnp` | `dnp` | the do-not-populate flags differ |
+| 1 | `bom-only` | `bom_only` | typed off-board BOM membership differs |
 | 2 | `pin-missing` | `pin` | a `REF-PIN` of a common component that only one side holds |
 | 2 | `net` | `net` | a `REF-PIN` whose net block differs; `a` and `b` are the net names |
 | 3 | `footprint-missing` | `footprint` | a common component that is placed on one side only |

@@ -282,6 +282,10 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   footprint with the `dnp` attribute, KiCad's own marks, so `fenolite export bom` and `pnp` count it under
   `counts.dnp`; its pins stay connected.
 - `Part(..., board_only=True)` is a part on the board only ("Board-only parts"; change c0277).
+- `Part(..., bom_only=True)` is a pinless purchasing accessory in the schematic and canonical BOM,
+  with no physical footprint or placement. It excludes `board_only`, devices, pad maps and electrical
+  connections; DNP remains independent. A footprint string is descriptive metadata only. KiCad preserves
+  its explicit `in_bom yes`/`on_board no` flags; Altium output currently refuses before writing.
 - `Part(..., footprint_definition="Local:Variant")` selects a KiCad geometry definition while preserving
   the explicit `footprint="Original:Name"` as native PCB/schematic identity (change c0318). It requires
   an explicit symbol and footprint, so device/query parts refuse it; Altium builds refuse it before

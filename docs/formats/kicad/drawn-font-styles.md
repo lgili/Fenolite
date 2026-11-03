@@ -14,3 +14,10 @@ The view-only adapter validates all four channels and preserves the original
 opaque font node; no typed colour carrier is inferred. Level8’s existing BW
 geometric masks do not judge RGB equality. Native colour observations are not
 a justification to omit effective RGB or promote general native glyph evidence.
+
+S-1205 nonvisual hyperlink addendum, ORACLE-VERIFIED(kicad-cli10.0.6): authored
+free-text effects with one string href have exactly the same BW/coloured text
+group, ancestor styles and bounds as no href. The view adapter validates one
+string and adapts only a clone; the complete original remains opaque and
+strictly compared atS. It opens no URL and adds no clickable-link feature.
+Typed effects and malformed/repeated href remain refused.

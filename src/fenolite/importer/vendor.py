@@ -178,6 +178,13 @@ def _with_source(found: Vendored, source: Source, target: int) -> Vendored:
             nickname = file.removeprefix("lib/").removesuffix(".kicad_sym")
             fallback.update({s.lib_id: s for s in read_symbol_library(files.pop(file), library=nickname)})
     refs = {ref: native.refs.get(ref, lib_id) for ref, lib_id in found.symbols.items()}
+    refs.update(
+        {
+            component.ref: native.refs[component.ref]
+            for component in source.design.circuit.components
+            if component.bom_only and component.ref in native.refs
+        }
+    )
     definitions = dict(native.definitions)
     renamed_ids: dict[str, str] = {}
     for ref, old_id in found.symbols.items():

@@ -326,7 +326,7 @@ class _Part:
     component: Component
     path: str
     symbol: SymbolDef
-    footprint: FootprintDef
+    footprint: FootprintDef | None
     location: Location | None
     parents: tuple[SymbolDef, ...] = ()
     """The symbols ``symbol`` extends, as their library holds them (the schematic embeds a flat copy)."""
@@ -375,6 +375,19 @@ def _resolve(
                 ).origin
         except LibraryError as error:
             errors.append(error)
+            continue
+        if component.bom_only:
+            if symbol.pins or symbol.power:
+                issues.append(
+                    issue(
+                        "build.bom-only",
+                        f"{component.ref}: a BOM-only symbol must be pinless and non-power",
+                        _path(component),
+                    )
+                )
+                continue
+            origin = libraries[component.lib_symbol_ref]
+            found.append(_Part(component, _path(component), symbol, None, None, parents, origin))
             continue
         native_ref = component.lib_footprint_ref
         if not component.footprint_definition_ref:
@@ -724,6 +737,7 @@ def _case_collisions(design: Design, issues: list[Issue]) -> None:
 def _user_properties(part: _Part, issues: list[Issue]) -> list[tuple[str, str]]:
     """The user properties to append to ``part``'s footprint, in code-point order, after the checks of
     "User properties on built footprints"; a property equal to a library property is not appended."""
+    assert part.footprint is not None  # only the physical placement loop asks for footprint properties
     user = {
         k: v
         for k, v in part.component.properties.items()
@@ -1593,7 +1607,8 @@ def build_design(
             device = device_of.get(found.component.id)
             if device is not None and device.id not in checked:
                 checked.add(device.id)  # one report per device
-                issues += device_check(device, found.symbol, found.footprint)
+                if found.footprint is not None:
+                    issues += device_check(device, found.symbol, found.footprint)
     pins, on_net = _resolve_pins(design, parts, issues, functions)
     marks = _resolve_marks(design, parts, pins, on_net, issues, functions)
     marks = _resolve_requests(
@@ -1658,6 +1673,17 @@ def build_design(
     overrides_by_id: dict[str, FootprintOverrides] = {}
     edits_by_id: dict[str, tuple[str, tuple[tuple[str, Mapping[str, object]], ...]]] = {}
     for part in parts:
+        if part.footprint is None:
+            if part.path in placements or part.path in fields or part.path in pad_zones:
+                issues.append(
+                    issue(
+                        "build.bom-only",
+                        f"{part.component.ref}: a BOM-only component has no physical geometry",
+                        part.path,
+                    )
+                )
+            components.append(part.component)
+            continue
         missing = [name for name in MANDATORY_FIELDS if name not in part.footprint.properties]
         if missing and part.footprint.lib_id not in lacking:
             # a library footprint of another origin: ``place_footprint`` adds the fields (c0077)
@@ -2096,7 +2122,9 @@ def build_design(
         built, readback, preserve.match_footprints(built, readback), lock_outline=lock_outline
     ).design
     vendored = _vendor(plan, target, files, record, issues)
-    authored_ids = {part.footprint.lib_id for part in parts if part.location is None}
+    authored_ids = {
+        part.footprint.lib_id for part in parts if part.location is None and part.footprint is not None
+    }
     for lib_id in sorted(authored_ids):
         definition = authored_footprints[lib_id]
         path = f"lib/{definition.library}.pretty/{definition.name}.kicad_mod"

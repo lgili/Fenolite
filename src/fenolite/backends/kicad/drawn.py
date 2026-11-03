@@ -533,8 +533,11 @@ def lower_drawn(
                 footprint=first.lib_footprint_ref,
                 properties=properties,
                 dnp=first.dnp,
-                in_bom="exclude_from_bom" not in first_part.footprint.flags,
-                on_board=True,
+                in_bom=first.bom_only
+                or (
+                    first_part.footprint is not None and "exclude_from_bom" not in first_part.footprint.flags
+                ),
+                on_board=not first.bom_only,
                 uses=tuple(SymbolUse(name, use_paths[i], c.ref, symbol.unit) for i, (_, c) in known),
                 ext=_field_ext(symbol.fields),
             )
@@ -1445,7 +1448,7 @@ def extract_with_pins(
             DrawnSheet(
                 key,
                 paper,
-                title_pairs(sheet.title_block),
+                title_pairs(sheet.title_block) or (("title", ""),),
                 False,
                 tuple(symbols),
                 tuple(powers),

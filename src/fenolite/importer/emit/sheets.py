@@ -37,9 +37,18 @@ def _stem(name: str) -> str:
 
 def _symbols(sheet: SchematicSheet, at: str, project: str) -> dict[str, str]:
     refs: dict[str, str] = {}
+    definitions = {definition.lib_id: definition for definition in sheet.lib_symbols}
     for symbol in sheet.symbols:
         if not symbol.on_board:
-            continue
+            definition = definitions.get(symbol.lib_name or symbol.lib_ref)
+            if (
+                not symbol.in_bom
+                or definition is None
+                or definition.extends
+                or definition.pins
+                or definition.power
+            ):
+                continue
         uses = [use for use in symbol.uses if use.path == at]
         use = next((u for u in uses if u.project == project), uses[0] if uses else None)
         ref = use.ref if use is not None else symbol.ref
@@ -225,7 +234,8 @@ class Hierarchy:
                 if local and net in net_vars:
                     rows += statement(Call("connect", (Raw(net_vars[net]), *local)), depth)
             for ref in sorted(held[scope], key=lambda r: paths[r]):
-                rows += statement(places[ref], depth)
+                if ref in places:  # BOM-only purchasing symbols deliberately have no physical placement
+                    rows += statement(places[ref], depth)
             for child in sorted(self.instances):
                 if child and child[:-1] == scope:
                     rows += statement(child_call(child, "module"), depth)

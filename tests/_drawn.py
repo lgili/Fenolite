@@ -129,6 +129,63 @@ def excluded_passive(sheet: SchematicSheet, target: int, *, defect: str = "") ->
     return root.with_children((*(added if c is symbols else c for c in root.children), native))
 
 
+def bom_only_instance(sheet: SchematicSheet, target: int, *, defect: str = "", dnp: bool = False) -> Node:
+    """Append an original pinless purchasing accessory; planted flags/pins never qualify (c0334)."""
+    from fenolite.model.library import SymbolGraphic
+
+    definition = SymbolDef(
+        id=derived_id("sym", "authored", "purchasing-accessory"),
+        name="AuthoredAccessory",
+        library="Mini",
+        properties={"Reference": "M", "Value": "ACCESSORY"},
+        graphics=(SymbolGraphic("rect", (Point(-1_270_000, -1_270_000), Point(1_270_000, 1_270_000))),),
+        pins=library()["Mini:Mini_R"].pins if defect in {"pins", "hidden"} else (),
+    )
+    if defect == "hidden":
+        definition = dataclasses.replace(
+            definition, pins=tuple(dataclasses.replace(pin, hidden=True) for pin in definition.pins)
+        )
+    embedded = symembed.embed_symbol(definition, target=target)
+    metadata = "AuthoredMetadata:NoPhysicalGeometry"
+    instance = SymbolInstance(
+        id=derived_id("sci", "authored", "purchasing-accessory"),
+        lib_ref=definition.lib_id,
+        position=Point(20_320_000, 20_320_000),
+        ref="M1",
+        value="ACCESSORY",
+        footprint=metadata,
+        dnp=dnp,
+        in_bom=defect != "no_bom",
+        on_board=defect == "on_board",
+        properties={"Reference": "M1", "Value": "ACCESSORY", "Footprint": metadata, "Datasheet": ""},
+        uses=tuple(
+            dataclasses.replace(use, ref=f"M{index + 1}") for index, use in enumerate(sheet.symbols[0].uses)
+        )
+        if sheet.symbols
+        else (),
+    )
+    created = SchematicSheet(
+        id=derived_id("sch", "authored", "purchasing-accessory"),
+        name="accessory",
+        lib_symbols=(embedded.definition,),
+        symbols=(instance,),
+    )
+    native = parse(sch.write_schematic(created, target=target).text).nodes("symbol")[0]
+    definition_node = embedded.node
+    if defect == "power":
+        definition_node = definition_node.with_children(
+            (
+                *definition_node.children,
+                Node(Atom.symbol("power"), (Atom.symbol("global"),) if target >= 10 else ()),
+            )
+        )
+    root = sch.rebuild_schematic(sheet)
+    symbols = root.find("lib_symbols")
+    assert symbols is not None
+    added = symbols.with_children((*symbols.children, *((definition_node,) if defect != "missing" else ())))
+    return root.with_children((*(added if child is symbols else child for child in root.children), native))
+
+
 def build(name: str, target: int = 10, value: DrawnSchematic | None = None, **kwargs: object) -> BuildOutput:
     """The build of fixture ``name`` with its drawn schematic (or ``value``), hermetic: the project tables of
     the fixture's folder only."""

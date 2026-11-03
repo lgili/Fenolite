@@ -23,3 +23,12 @@ a documented BW geometric ink comparison and does not judge RGB equality;
 no extra RGB findings, carriers, thresholds or colour layers are introduced.
 The actual opaque comparison/preservation remains in existing S semantics.
 No independent check-fast runs concurrently with the coordinator’s batch.
+
+## Reviewed hyperlink metadata addendum, before code
+2026-11-02 coordinator approved one uniquely represented string href on opaque
+free text after CLI10 authored absent/present href controls have identical BW
+and coloured text-group signatures, native ancestry/styles and bounds. The
+view-only clone may omit this measured nonvisual metadata from closed font
+validation while preserving the complete original opaque node. No URL is opened
+and no clickable-link feature or native font claim is added. Typed effects
+remain closed; duplicate, nonstring and nested href inputs refuse.

@@ -154,6 +154,45 @@
     "receipt_sha256": "0896d487dbf715a13b230fc22c10bc6d8270670a012e7d1701c8206319a7db1d",
     "version": "10.0.6"
   },
+  "href_addendum": {
+    "cases": {
+      "href": {
+        "box_mm": [
+          71.2008,
+          39.0595,
+          88.6781,
+          40.3295
+        ],
+        "color_exit": 0,
+        "color_signature_sha256": "faa63bb8e5fcaf770185720e51ec1619bd5d118b7b1195dc1ccd2d6383d60cae",
+        "color_svg_sha256": "394ff9014a33c913c3e8f04cf8b50448bb73c738e5c93455cdd0cc9b4278621a",
+        "signature_sha256": "333740375251902e65841632f4ab2b83a02149d5d43fc764c7b22c17cafda47e",
+        "source_sha256": {
+          "drawn_full.kicad_sch": "2eab9fb259684da10757a22525bb00b5f1400219feda0423b4c4ae69357a4428",
+          "sheets/sub.kicad_sch": "3702ce88ee1a6e80d5aeb100d5a0904e886b59a73bb135f60656de039677a53a"
+        }
+      },
+      "normal": {
+        "box_mm": [
+          71.2008,
+          39.0595,
+          88.6781,
+          40.3295
+        ],
+        "color_exit": 0,
+        "color_signature_sha256": "faa63bb8e5fcaf770185720e51ec1619bd5d118b7b1195dc1ccd2d6383d60cae",
+        "color_svg_sha256": "c3d90cc54249dac3fa3fc387c1f39d846b6894ccf805bd73a21b843f42284845",
+        "signature_sha256": "333740375251902e65841632f4ab2b83a02149d5d43fc764c7b22c17cafda47e",
+        "source_sha256": {
+          "drawn_full.kicad_sch": "3d3ddcaa4f0a02a58e57d666c18d1ff249206af9f0a78331301c1f721de5b326",
+          "sheets/sub.kicad_sch": "3702ce88ee1a6e80d5aeb100d5a0904e886b59a73bb135f60656de039677a53a"
+        }
+      }
+    },
+    "observed_colored_text_groups_equal": true,
+    "receipt_sha256": "276c061229630c9ca1df370c1dce7017b00b995c2b0519044bde7ba11eb4ac56",
+    "version": "10.0.6"
+  },
   "observations": {
     "bold_1_27_stroke_mm": "0.2540",
     "default_stroke_mm": "0.1524",

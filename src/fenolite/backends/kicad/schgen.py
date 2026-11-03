@@ -118,7 +118,7 @@ class SchematicPart(Protocol):
     def symbol(self) -> SymbolDef: ...
 
     @property
-    def footprint(self) -> FootprintDef: ...
+    def footprint(self) -> FootprintDef | None: ...
 
     @property
     def parents(self) -> Sequence[SymbolDef]: ...
@@ -861,8 +861,9 @@ def _content(
             footprint=component.lib_footprint_ref,
             properties=properties,
             dnp=component.dnp,
-            in_bom="exclude_from_bom" not in part.footprint.flags,
-            on_board=True,
+            in_bom=component.bom_only
+            or (part.footprint is not None and "exclude_from_bom" not in part.footprint.flags),
+            on_board=not component.bom_only,
             uses=(SymbolUse(name, use_path, component.ref, unit),),
         )
         content.symbols.append(instance)

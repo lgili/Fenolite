@@ -29,13 +29,26 @@ All notable changes to Fenolite are documented here. The format follows
   names, numbers, geometry or electrical mappings. Exact signed cardinal pin
   rotations are canonicalized modulo360 with source-bound warnings; near-cardinal
   and noncardinal inputs are refused without rounding.
+- **Preserve blank native title blocks** (c0339, in progress): keep imported
+  empty sheet metadata explicitly blank instead of inheriting a dated board.
+  Authored inheritance and all75 default plans remain unchanged. Authored
+  target9/10 full proofs and CLI10.0.6 drawing-sheet controls pass; public-board
+  replay and exact-head CI remain required.
+
 - **Authored schematic font styles** (c0337, in progress): render preserved
   thickness, bold weight and italic shear in Fenolite’s own stroke font and
   style-sensitive glyph-box masks. Preserve all22 default scenes and existing
   comparison thresholds; keep named-face, mirror and sub-µm refusals. Preserve
   validated opaque free-text RGB and original RGBA nodes without expanding
-  typed fonts; level8 remains a BW geometric comparison. Actual
+  typed fonts; retain nonvisual opaque href metadata while keeping typed
+  effects closed. Level8 remains a BW geometric comparison. Actual
   KiCad10.0.6 authored lowering controls pass; exact-head CI remains required.
+- **BOM-only purchasing items** (c0334, in progress): retain explicit off-board, pinless/non-power
+  purchasing symbols as typed canonical components and DSL parts, including DNP, repeated instances
+  and descriptive footprint names without physical geometry. KiCad project import/build keeps their
+  BOM flags and identity; neutral model BOM includes them and equivalence detects missing items or
+  changed membership. Altium output refuses before staging. Authored native controls preserve the
+  complete BOM and electrical pins; final model-0 inventory, 75-plan byte check and required CI remain pending.
 
 - **Certified final neck cut** (c0332, in progress): replace the final Altium
   neck-removal difference with exact signed face selection and one shared

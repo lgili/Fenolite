@@ -238,6 +238,9 @@
         },
         "footprint_definition_ref": {
           "type": "string"
+        },
+        "bom_only": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,

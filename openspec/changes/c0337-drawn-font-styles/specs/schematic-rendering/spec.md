@@ -25,3 +25,10 @@ The view SHALL display validated effective RGB from opaque free-text fonts witho
 #### Scenario: Unsupported typed colour
 - **WHEN** a typed drawn field or label requests font colour
 - **THEN** existing closed-font validation refuses it with a locator
+
+### Requirement: Opaque nonvisual hyperlink metadata
+The view adapter MAY omit measured nonvisual href metadata from its local clone only when exactly one href contains exactly one string. It MUST preserve the complete original opaque node, refuse malformed or repeated href, keep typed effects closed, and open no URL.
+
+#### Scenario: Original link metadata preserved
+- **WHEN** opaque free text has one valid href
+- **THEN** the glyph scene remains unchanged while strict replay retains the complete source node

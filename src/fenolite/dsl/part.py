@@ -268,7 +268,8 @@ def _device_properties(ref: str, device: DeviceDef, user: Mapping[str, str]) -> 
 class Part(Edges):
     """A component: reference, symbol lib id, optional footprint lib id, value and user properties; or a
     reference and a device id, which gives the rest (``docs/devices.md``). Its edges (``part.left``,
-    ``part.center_y``, ...) are placement references (change c0255)."""
+    ``part.center_y``, ...) are placement references (change c0255). ``bom_only=True`` declares a pinless
+    purchasing accessory on the schematic and canonical BOM, with no board footprint or placement."""
 
     device: DeviceDef | None
     """The device of a part made with ``device=``; ``None`` for any other part."""
@@ -293,7 +294,18 @@ class Part(Edges):
         dnp: bool = False,
         board_only: bool = False,
         footprint_definition: str = "",
+        bom_only: bool = False,
     ) -> None:
+        if not isinstance(bom_only, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part {ref or name}: bom_only must be a bool, not {bom_only!r}")
+        if bom_only and (
+            board_only or device is not None or pad_map or height is not None or footprint_definition
+        ):
+            raise DslError(
+                f"part {ref or name}: bom_only excludes board_only, device, pad_map, height "
+                "and footprint_definition"
+            )
+        self.bom_only = bom_only
         if not isinstance(board_only, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part {ref or name}: board_only must be a bool, not {board_only!r}")
         self.board_only = board_only
@@ -527,6 +539,8 @@ class Part(Edges):
         return None if parent is None else parent.design
 
     def __getitem__(self, designator: str | int) -> PinHandle:
+        if self.bom_only:
+            raise DslError(f"part {self.label}: a BOM-only part has no electrical pins")
         if isinstance(designator, bool) or not isinstance(designator, (str, int)):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part {self.label}: a designator is a pin number or name, not {designator!r}")
         text = str(designator)
@@ -692,6 +706,8 @@ class Part(Edges):
         expression such as ``board.left + mm(2)``); and ``by=part.pad(n)``, which places the part by one of
         its pads. Such a request is recorded and resolved by the build. ``place(rot=90)`` alone turns a
         part that a layout strategy places."""
+        if self.bom_only:
+            raise DslError(f"part {self.label}: a BOM-only part has no physical placement")
         if self.request is not None or self.relative is not None or self.turn is not None:
             raise DslError(f"part {self.label} is already placed")
         if side not in ("top", "bottom"):

@@ -164,6 +164,10 @@ def level_components(
                 differences.append(_difference(1, "value", ref, one.value, other.value))
             if one.dnp != other.dnp:
                 differences.append(_difference(1, "dnp", ref, _flag(one.dnp), _flag(other.dnp)))
+            if one.bom_only != other.bom_only:
+                differences.append(
+                    _difference(1, "bom-only", ref, _flag(one.bom_only), _flag(other.bom_only))
+                )
     summary = {
         "components": {"a": len(a.circuit.components), "b": len(b.circuit.components)},
         "ignored": len(ignored_a | ignored_b),

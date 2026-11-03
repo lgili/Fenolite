@@ -207,6 +207,23 @@ class Design:
                 severity: Severity = "warning" if board_only or ref.endswith("**") else "error"
                 add("model.duplicate-ref", severity, f"reference used {count} times", ref)
         for component in self.circuit.components:
+            if component.bom_only and (
+                component.board_only
+                or component.pins
+                or component.pin_pad_map
+                or component.footprint_definition_ref
+                or component.id in placed
+                or any(
+                    member.component_id == component.id for net in self.circuit.nets for member in net.members
+                )
+            ):
+                add(
+                    "model.bom-only",
+                    "error",
+                    "a BOM-only component must be pinless, off-board and unconnected",
+                    component.ref,
+                    "remove physical and electrical declarations or unset bom_only",
+                )
             for pin, text in pin_pad_map_problems(component):
                 add("model.pin-pad-map", "error", text, f"{component.ref}-{pin}",
                     "give each pad one pin, and each pair once")  # fmt: skip

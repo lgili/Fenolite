@@ -47,6 +47,7 @@ KINDS: tuple[tuple[LevelId, str, str], ...] = (
     (1, "ref-ambiguous", "ref"),
     (1, "value", "value"),
     (1, "dnp", "dnp"),
+    (1, "bom-only", "bom_only"),
     (2, "pin-missing", "pin"),
     (2, "net", "net"),
     (3, "footprint-missing", "footprint"),

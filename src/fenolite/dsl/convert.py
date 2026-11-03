@@ -158,6 +158,7 @@ def _component(part: Part) -> Component:
         dnp=part.dnp,
         board_only=part.board_only,
         footprint_definition_ref=part.footprint_definition,
+        bom_only=part.bom_only,
     )
 
 

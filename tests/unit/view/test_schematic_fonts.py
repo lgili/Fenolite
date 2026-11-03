@@ -230,3 +230,28 @@ def test_malformed_free_text_color_refuses_with_locator(color: str) -> None:
 def test_duplicate_free_text_color_refuses() -> None:
     with pytest.raises(FormatError):
         scene(native("free", "(font (size 1.27 1.27) (color 194 0 0 1) (color 0 0 0 0))"))
+
+
+def test_opaque_href_metadata_keeps_exact_glyph_scene_and_original_node() -> None:
+    from fenolite.backends.kicad.sexpr import dumps, parse
+    from fenolite.view.kicad_schematic import _free_text_effects
+
+    source = native("free", '(font (size 1.27 1.27)) (href "https://example.invalid/authored-link")')
+    item = parse(source).nodes("text")[0]
+    before = dumps(item)
+    _free_text_effects(item, file="authored.kicad_sch")
+    assert dumps(item) == before
+    assert scene(source) == scene(native("free", "(font (size 1.27 1.27))"))
+
+
+@pytest.mark.parametrize(
+    "href", ("(href)", "(href 123)", '(href (link "x"))', '(href "x" "y")', '(href "x") (href "y")')
+)
+def test_malformed_opaque_href_refuses(href: str) -> None:
+    with pytest.raises(FormatError):
+        scene(native("free", f"(font (size 1.27 1.27)) {href}"))
+
+
+def test_typed_href_stays_refused() -> None:
+    with pytest.raises(FormatError, match="effect 'href'"):
+        scene(native("field", '(font (size 1.27 1.27)) (href "https://example.invalid/authored-link")'))

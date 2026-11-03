@@ -235,6 +235,22 @@ class LossyWriteError(FenoliteError):
         super().__init__(f"the Altium documents would not hold every item of the model ({kinds})")
 
 
+def refuse_bom_only(design: Design) -> None:
+    """No Altium writer currently preserves typed off-board purchasing symbols (c0334)."""
+    found = [
+        Issue(
+            "altium.not-lowered",
+            "error",
+            f"{component.ref}: BOM-only schematic items are not supported by the Altium writer",
+            where=component.path or component.ref,
+        )
+        for component in design.circuit.components
+        if component.bom_only
+    ]
+    if found:
+        raise LossyWriteError(found)
+
+
 @dataclass(frozen=True, slots=True)
 class AltiumInputs:
     """What the writers take for one design. ``pcb`` is ``None`` when no PCB document can be written;
@@ -1704,6 +1720,9 @@ def write_design(
     c0215): ``None`` is ``computed``, which writes the outline with one ``altium.pour-unavailable`` warning
     without the ``geo`` extra; an explicit ``computed`` raises ``BackendUnavailable`` then; a rewrite
     (``rewrite``) pours every polygon again."""
+    refuse_bom_only(design)
+    if schematic is not None:
+        refuse_bom_only(schematic)
     issues: list[Issue] = []
     inputs = from_design(
         design, issues=issues, corner_ratios=corner_ratios, rewrite=rewrite, bodies=bodies, edges=edges

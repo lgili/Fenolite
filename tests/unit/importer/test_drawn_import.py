@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pytest
 from _buildhelp import build as build_design
+from _drawn import bom_only_instance, excluded_passive, slash_aliases
 from _drawn import design as drawn_design
 from _drawn import drawn as drawing
-from _drawn import excluded_passive, slash_aliases
 from _drawn import folder as drawing_folder
 from _importcode import ROOT
 
@@ -215,6 +215,79 @@ def graphic_source(folder: Path, target: int = 10) -> Path:
     root = root.with_children((*(changed if s is library else s for s in root.children), native))
     path.write_text(dumps(root))
     return source
+
+
+def bom_only_source(folder: Path, target: int = 10) -> Path:
+    """Original pinless purchasing accessory with explicit BOM inclusion and board exclusion."""
+    source = project(folder, "flat", target)
+    path = source.with_suffix(".kicad_sch")
+    path.write_text(dumps(bom_only_instance(sch.read_schematic(path), target)))
+    return source
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_bom_only_accessory_survives_strict_import(target: int, tmp_path: Path) -> None:
+    source = bom_only_source(tmp_path / "original", target)
+    original = read_kicad(source)
+    accessory = next(component for component in original.design.circuit.components if component.ref == "M1")
+    assert accessory.bom_only and not accessory.pins
+    assert not any(fp.component_id == accessory.id for fp in original.design.board.footprints)
+    assert_strict_roundtrip(tmp_path, source)
+
+
+def test_bom_only_accessory_keeps_each_repeated_sheet_instance(tmp_path: Path) -> None:
+    source = project(tmp_path / "original", "repeat", 10)
+    child = source.parent / "sheets/channel.kicad_sch"
+    child.write_text(dumps(bom_only_instance(sch.read_schematic(child), 10, dnp=True)))
+    original = read_kicad(source)
+    accessories = [component for component in original.design.circuit.components if component.bom_only]
+    assert {component.ref for component in accessories} == {"M1", "M2"}
+    assert len({component.path for component in accessories}) == 2
+    assert all(component.dnp and not component.pins for component in accessories)
+    assert_strict_roundtrip(tmp_path, source)
+
+
+@pytest.mark.parametrize("defect", ["pins", "hidden", "power", "on_board", "missing"])
+def test_off_board_accessory_unsafe_forms_do_not_become_bom_only(defect: str, tmp_path: Path) -> None:
+    source = project(tmp_path / "original", "flat", 10)
+    path = source.with_suffix(".kicad_sch")
+    path.write_text(dumps(bom_only_instance(sch.read_schematic(path), 10, defect=defect)))
+    original = read_kicad(source)
+    assert not any(component.bom_only for component in original.design.circuit.components)
+    planned = imported(tmp_path, source, "--dry-run")
+    assert planned.exit_code != 0
+    assert not (tmp_path / "code").exists()
+
+
+def test_planted_bom_flag_loss_is_detected_in_source_comparison(tmp_path: Path) -> None:
+    source = bom_only_source(tmp_path / "original", 10)
+    assert_strict_roundtrip(tmp_path, source)
+    path = source.with_suffix(".kicad_sch")
+    root = parse(path.read_text())
+    children = []
+    for child in root.children:
+        if isinstance(child, Node) and child.name == "symbol":
+            ref = next(
+                prop.atoms()[1].value
+                for prop in child.nodes("property")
+                if prop.atoms()[0].value == "Reference"
+            )
+            if ref == "M1":
+                child = child.with_children(
+                    tuple(
+                        Node(prop.head, (Atom.symbol("no"),))
+                        if isinstance(prop, Node) and prop.name == "in_bom"
+                        else prop
+                        for prop in child.children
+                    )
+                )
+        children.append(child)
+    path.write_text(dumps(root.with_children(tuple(children))))
+    proof = run(
+        "verify-source", "code/design.py", "--against", str(source.parent), cwd=tmp_path, timestamp=STAMP
+    )
+    assert proof.exit_code != 0
+    assert any(difference["kind"] == "component-missing" for difference in proof.result["differences"])
 
 
 @pytest.mark.parametrize("target", [9, 10])

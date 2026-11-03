@@ -150,7 +150,13 @@ def measure(
             folder=folder,
             hierarchy=sheets,
         )
-        native_parts = {p.ref: p for p in sch.hierarchy_components(folder / root_file, on_board_only=True)}
+        from fenolite.importer.bom_only import discover
+
+        source = discover(source)
+        bom_only_refs = {
+            component.ref for component in source.design.circuit.components if component.bom_only
+        }
+        native_parts = {p.ref: p for p in sch.hierarchy_components(folder / root_file)}
         stage = "source-symbols"
         library = symbols(source, target=major)
         hierarchy = Hierarchy(source)
@@ -186,6 +192,7 @@ def measure(
                     ref=ref,
                     lib_symbol_ref=library.refs[ref],
                     properties={"fenolite.path": paths[ref]},
+                    bom_only=ref in bom_only_refs,
                 )
                 for ref in sorted(paths)
             ],
@@ -244,7 +251,9 @@ def measure(
                 symbol=library.definitions[library.refs[c.ref]].definition,
                 parents=(),
                 symbol_origin="project",
-                footprint=FootprintDef(
+                footprint=None
+                if c.bom_only
+                else FootprintDef(
                     id=derived_id("fpd", "drawn-census", c.ref),
                     library="Census",
                     name="UnusedGeometry",

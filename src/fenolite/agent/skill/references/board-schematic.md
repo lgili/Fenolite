@@ -9,6 +9,9 @@ summary: One master for every change, net classes on the wire, connectivity by p
 The board is drawn from the schematic. A fault in the schematic reaches the board, and a fix made only on
 the board is lost at the next update. Many faults that a layout review finds were born on a sheet.
 
+`Part(..., bom_only=True)` retains a pinless purchasing item in the canonical BOM and KiCad schematic,
+with no board footprint, placement or electrical pins. DNP is independent; Altium output refuses it.
+
 ## One master
 
 - **Make every change in the schematic.** Change nets, values and part numbers there, and derive the

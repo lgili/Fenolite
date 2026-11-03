@@ -195,7 +195,10 @@ def _build(emission: Emission, name: str, major: int, ctx: Context) -> tuple[lis
                 "",
             )
         board = root / "built" / f"{name}.kicad_pcb"
-        return [], read_board(board).design, board.read_text(encoding="utf-8")
+        from fenolite.importer.bom_only import preserve
+
+        native = preserve(read_board(board).design, board.with_suffix(".kicad_sch"))
+        return [], native, board.read_text(encoding="utf-8")
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:

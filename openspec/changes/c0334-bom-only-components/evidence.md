@@ -1,0 +1,68 @@
+# Focused implementation proof, 2026-11-02
+
+Source base `d348705f6344a542c842e8cd8bd4423e75c9bca7`, with local c0336 power-alias correction
+`795a9c6e`. Tests explicitly bind `PYTHONPATH=src:tests` to the isolated repair source. No third-party
+CAD fixture, parser, opaque exception, loss acceptance, tolerance or count baseline is added.
+
+## Independently authored boundary
+
+Before implementation an original authored Mini pinless accessory with explicit BOM inclusion and
+board exclusion appeared in the actual KiCad 10.0.6 BOM with the ordinary two parts, while adding no
+electrical pin: all 34 pins and 33 groups remained. Original model discovery omitted it; both the
+target-9 and target-10 authored reader controls failed before the change. Native input hashes and
+full logs are preserved outside the repository.
+
+After implementation, the native flat/repeated-sheet × DNP false/true controls pass: original and
+rebuilt complete native BOM rows match; every original electrical pin and partition remains intact
+(flat 34 pins/33 groups; repeated 8 pins/5 groups). Flat BOM has three entries; repeated BOM has six,
+including two independent accessory references. Both the canonical model and the raw schematic side
+retain typed membership, identity, DNP and descriptive footprint metadata; there is no physical
+footprint. The descriptive definition intentionally does not exist, proving no geometry lookup.
+The source-controlled strict round trip also compares all levels 1–8 and S, including repeats.
+
+The repeated control initially exposed a real path defect: compiled reference M2 was incorrectly used
+as the common leaf of a shared sheet. Level S detected the difference rather than passing it. The
+implementation now uses the existing hierarchy's actual stable paths, retaining refs M1/M2. No
+opaque rule or S comparison was weakened.
+
+Planted pinned, hidden-pin, power, on-board and unresolved-definition forms refuse before output and
+never acquire the marker. Planted BOM exclusion is detected as a missing canonical component. Model
+tests detect contradictory board-only/pin/map/physical claims and changed membership; ordinary
+grouping and DNP filtering remain the existing template's behavior. Altium project output refuses
+with located FEN-7001 even with allow_lossy. A standalone KiCad PCB writer still projects only the board
+domain and does not claim to transport the schematic BOM; the project and canonical model carry it.
+
+## Public owner, without copying public CAD into core
+
+All eight affected declared source rows `kicad-demo-10-0-6-sch-002` through `009`, source tag 10.0.6
+(`caf7377e9cb6`), pass their native owner-context electrical/lowering census. Each retains all 603
+pins and 221 groups; the original and lowered native graphs remain equal. Existing 84 bus-member
+warnings, five dangling warnings and two own/native naming differences remain visible. These are not
+promoted into a full-fidelity acceptance claim.
+
+A separate actual native BOM measurement confirms the formerly refused purchasing item is retained
+as a typed canonical BOM-only component. All native base BOM fields and every original user BOM field
+agree. The added `fenolite.path` remains generated canonical identity metadata, not a claimed field of
+the original native BOM. The public source and every contributing cache input were SHA-checked; copied
+CAD was removed after measurement. The original broad-properties comparison, which had not requested
+the user fields from the native exporter, is preserved as a failed probe; its corrected explicit-field
+measurement passes without changing product behavior or accepting any lost source property.
+
+## Focused validation and remaining gates
+
+- Source controls: 9 passed, including all unsafe forms and planted BOM loss. Log SHA-256
+  `e658c8614b6640a051453c13f7a72c91bc19cd628f4e5cd6d328ade977200ab8`.
+- Actual native flat/repeated/DNP and raw schematic-side controls: 4 passed. Log SHA-256
+  `354d3b02f5deb0623d86ad6a274939ecae654d587a0e099afcc4fae855190458`.
+- Import neighbor file: 78 passed; consumer/model/Altium-build/schematic-generator neighbors: 90
+  passed; BOM/model/guide group: 129 passed; canonical controls: 20 passed. Legacy unmarked canonical
+  component bytes are exact and old bytes decode with false. These groups overlap and are not summed
+  into a unique-test total.
+- Ruff check/format and generated schema/guide checks pass. Full src typing found one empty-set type
+  annotation, corrected with its focused zero-error rerun; required combined root validation remains
+  pending. No runtime dependency or default schema version is changed.
+
+The final model-0 inventory, 75 complete unchanged-plan byte comparison, c0217/c0218 transition review,
+root-owned fast gate, full current literal census and required exact-head KiCad 9/10 CI still need
+their independent receipts. This patch must not be archived from focused native proof alone. The
+literal 130-row census on the earlier immutable source remains separate and is never relabeled.

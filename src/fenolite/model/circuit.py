@@ -132,6 +132,9 @@ class Component(Entity):
     footprint_definition_ref: str = ""
     """An explicit KiCad definition lookup, separate from the original/native ``lib_footprint_ref``
     (change c0318). Empty uses ordinary footprint resolution and is omitted from canonical JSON."""
+    bom_only: bool = False
+    """An explicitly off-board, pinless purchasing item (c0334), retained in the canonical BOM.
+    It has a schematic symbol but no physical footprint; false is omitted from canonical JSON."""
 
     def pads_of(self, pin: str) -> tuple[str, ...]:
         """The pads that ``pin`` is bonded to: the pads of its pairs in ``pin_pad_map``, in map order, the

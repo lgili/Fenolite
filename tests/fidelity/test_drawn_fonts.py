@@ -201,7 +201,7 @@ def test_planted_writer_losses_fail_after_a_passing_all_level_control(
 
 
 @pytest.mark.parametrize("target", (9, 10))
-def test_opaque_free_text_color_survives_strict_full_roundtrip(target: int, tmp_path: Path) -> None:
+def test_opaque_free_text_color_and_href_survive_strict_full_roundtrip(target: int, tmp_path: Path) -> None:
     from fenolite.lens.drawn import read_drawn
 
     original = _drawn_fonts.styled_hierarchy(tmp_path / "original", target=target)
@@ -214,7 +214,10 @@ def test_opaque_free_text_color_survives_strict_full_roundtrip(target: int, tmp_
     assert font is not None
     colored_font = font.with_children((*font.children, parse("(color 194 0 0 0.5)")))
     colored_effects = effects.with_children(
-        tuple(colored_font if child is font else child for child in effects.children)
+        (
+            *[colored_font if child is font else child for child in effects.children],
+            parse('(href "https://example.invalid/authored-link")'),
+        )
     )
     colored = text.with_children(
         tuple(colored_effects if child is effects else child for child in text.children)

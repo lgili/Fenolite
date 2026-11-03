@@ -337,6 +337,21 @@ def _free_text_effects(item: Node, *, file: str = "") -> tuple[_Effects, str | N
     effects = item.nodes("effects")
     if len(effects) != 1:
         return _effects(item, file=file), None
+    hrefs = effects[0].nodes("href")
+    if hrefs:
+        href = hrefs[0]
+        atoms = href.atoms()
+        if len(hrefs) != 1 or len(href.children) != 1 or len(atoms) != 1 or atoms[0].kind != AtomKind.STRING:
+            raise FormatError(
+                "opaque text href requires exactly one string",
+                file=file,
+                locator=f"text[{_text(item)}].effects.href",
+            )
+        effect = effects[0].with_children(tuple(child for child in effects[0].children if child is not href))
+        adapted = item.with_children(
+            tuple(effect if child is effects[0] else child for child in item.children)
+        )
+        return _free_text_effects(adapted, file=file)
     fonts = effects[0].nodes("font")
     if len(fonts) != 1:
         return _effects(item, file=file), None

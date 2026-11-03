@@ -324,3 +324,13 @@ The authored CLI controls expose conflicting meanings of format-9 custom text
 and scene rendering refuse that ambiguous legacy value. Format-10 literal tilde
 is supported; writing literal tilde to target 9 refuses. These narrow measurements do not close a public corpus,
 native application, full combined or exact-head CI gate.
+
+Native empty title metadata is extracted as an explicit blank title pair
+`title = ""` (c0339). This keeps an imported blank sheet blank when the board
+has a date. Authored omission continues to inherit the board’s title metadata.
+The existing pair representation and writer behavior are unchanged; source
+absence is no longer mistaken for an authoring request to inherit.
+
+One valid string `href` on opaque free text is preserved without changing its
+measured nonvisual glyph rendering (c0337). The view adapts a clone, opens no
+URL and adds no clickable-link feature; typed effects remain closed.

@@ -173,7 +173,12 @@ def read_path(path: Path) -> ReadSide:
             f"{path.name} is a library, not a design", where=path.name, hint="compare libraries with diff"
         )
     kind = path.suffix.lower().lstrip(".")
-    return ReadSide(path.name, _digest(path), backend.name, read.content, notices(found), read.evidence, kind)
+    design = read.content
+    if kind == "kicad_pcb":
+        from fenolite.importer.bom_only import preserve
+
+        design = preserve(design, path.with_suffix(".kicad_sch"))
+    return ReadSide(path.name, _digest(path), backend.name, design, notices(found), read.evidence, kind)
 
 
 def netlist_design(netlist: KicadNetlist, name: str, *, dnp: frozenset[str] = frozenset()) -> Design:
@@ -285,6 +290,9 @@ def read_schematic(path: Path, *, kicad_cli: str | None = None, timeout: float =
         for component in design.circuit.components
     )
     design = replace(design, circuit=replace(design.circuit, components=components))
+    from fenolite.importer.bom_only import preserve
+
+    design = preserve(design, path)
     return ReadSide(
         path.name, _digest(path), SCHEMATIC_BACKEND, design, (), evidence, SCHEMATIC_KIND,
         netlist_source=SCHEMATIC_SOURCE, power_symbols=_power_symbols(sheets, project),

@@ -52,6 +52,7 @@ any child it does not reproduce tree-equal (`kicad.sch.kept-opaque`); this is ho
 | Load check of a schematic: `kicad-cli sch export netlist <file> -o <out>` exits 0 and writes the netlist; a schematic it cannot load gives "Failed to load schematic" and exit 3 | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-TOKENS |
 | Load check of a symbol library: `kicad-cli sym export svg <file> -o <folder>` exits 0 and writes one SVG per unit and body style | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-TOKENS |
 | `sch export netlist --format kicadsexpr` lists one `comp` per reference with `ref`, `value` and `footprint`; the units of one symbol give one `comp`, power symbols (reference starting with `#`) give none, and a symbol with `(on_board no)` gives none on 9.0.9 and on 10.0.6 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-COMPONENTS-2 |
+| Authored pinless, non-power instances with explicit `(in_bom yes)` and `(on_board no)` appear in the 10.0.6 native BOM but add no electrical netlist node. Original/rebuilt flat and repeated-sheet instances retain their references, DNP and descriptive Footprint property, with complete electrical pin partitions unchanged. This does not make a standalone PCB file carry schematic BOM items | S-1283 | INFERRED (10.0.6 measured; required matrix CI pending) | H-K-BOM-CSV |
 
 ## Generated sheets
 

@@ -100,6 +100,9 @@ def read_drawn_side(path: Path) -> ReadSide:
         for held in sch.hierarchy_components(path)
     )
     design = replace(Design.new(path.stem, seed=0), circuit=Circuit(components=components), board=None)
+    from fenolite.importer.bom_only import preserve
+
+    design = preserve(design, path)
     powers = {
         ref
         for sheet in sheets

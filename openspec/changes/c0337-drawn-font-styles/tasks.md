@@ -8,6 +8,8 @@
 
 - [x] 1.4 Implement the reviewed opaque free-text colour adapter with exact original-node preservation, native-probed alpha/sentinel semantics, strict malformed/duplicate/range controls and retained typed refusal. Proof: focused view, opaque roundtrip and source-bound coloured native receipts. Level8 remains BW geometry, not RGB equality.
 
+- [x] 1.5 Preserve original opaque free-text href and adapt only the measured nonvisual view clone; keep typed effects closed and malformed/duplicate negatives. Proof: actual native absent/present href receipts and focused source/S full-node controls. Affected public replay remains task2.2.
+
 ## 2. Validation
 - [x] 2.1 Prove default scenes remain byte-identical and face/mirror/submicrometre still refuse. Proof: default scene census and focused regressions.
 - [ ] 2.2 Run authored native and remaining public style-board replays on the clean candidate; preserve actual outcomes. Proof: source-bound receipts and unchanged inputs.
@@ -35,3 +37,12 @@ full nine-level roundtrips pass with accepted/differences empty and source
 snapshots unchanged; parsed original free-text nodes exactly survive in the
 opaque model slot. Native10 colour receipts record RGB, all-zero sentinel and
 alpha observations. The BW ink contract makes no RGB-equality claim.
+
+Task1.5 passed: the positive original-node/href control fails before the adapter;
+154 focused view/Node/mask cases pass afterward, including malformed, repeated
+and retained typed-effect refusal controls. Both target9/10 full strict
+colour+href source/S controls pass with the exact original opaque node, no
+accepted/differences and unchanged source snapshots. Pyright and ruff pass.
+Actual10.0.6 absent/present href text groups are exactly identical in BW and
+colour SVG; raw inputs/outputs/hashes are preserved externally and aggregate
+digests in the format evidence. Tiny full replay remains open under task2.2.
