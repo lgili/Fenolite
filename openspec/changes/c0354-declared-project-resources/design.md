@@ -21,3 +21,15 @@ Interf failure and peer review with the library owner. Global design.sheet is
 rejected as a workaround because it changes the schematic frame. The public WKS
 already appears in the corpus manifest as kicad-demo-10-0-6-wks-01; public CAD stays
 external. No native comparison tolerance, evidence promotion or acceptance waiver.
+
+## Native scope evidence controls
+
+Task3.1 uses the existing independently authored two-sheet/resource helper,
+with PCB-only, schematic-only, and two distinct resource payloads. Import and
+build use reviewed plans. Export both original and generated PCB/schematic SVG
+with the installed native9/10 process, using project declarations only (never
+--drawing-sheet). Assert actual AUTHORED text presence and absence per scope,
+preserve every pre-existing input hash and report tool/output hashes. Public
+Interf is cloned externally and receives only its already manifested worksheet;
+all nine strict operators must be equal without accepted findings. No runtime
+change or retained public CAD is authorized by this evidence task.
