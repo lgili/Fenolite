@@ -91,7 +91,7 @@ What the rows show:
 - The documents of format version 22 have four root members more than those of version 21:
   `DocumentId`, `LayoutDrawingData`, `WiringDiagramData` and `WiringListInformationData` (the last three
   nil).
-- Round F0 adds what each step of Altium Designer 26.5 adds (task 2.2, the F0 half).
+- Round F0 adds what each pending step of the approved Altium Designer 24.5.2.23 adds (task 2.2, the F0 half).
 
 ### Phase 1 budget
 
@@ -121,7 +121,7 @@ corner, and the view counts are the same in both readings (corrected 2026-10-25)
 ## Part F: Draftsman documents
 
 Change c0172; pending, no Altium verification is claimed. Part F has three rounds: F0, observation files
-that the maintainer saves in Altium Designer 26.5 from a project Fenolite built (task 1.3); FP, probe
+that the maintainer saves in the approved Altium Designer 24.5.2.23 from a project Fenolite built (task 1.3); FP, probe
 documents written by Fenolite that decide gates G2 and G3 (task 3.2); F1 to F8, the acceptance of a
 build's document (task 6.1). Every file Altium saves stays in the maintainer's folder; only counts and
 element names derived from it enter the repository, after `fenolite kit verify`'s path scan.
@@ -235,3 +235,16 @@ No report of Part F has been received. Nothing on this page or in `docs/formats/
 2026-11-01 availability update: the maintainer reports that Altium Designer is unavailable now.
 F0 saves, FP outcomes, F1-F8 and the native gates remain open. Public corpus read-back and authored
 candidate kits are mechanical preparation only; they are not author reports or application saves.
+
+## Approved pending-native scope — 2026-11-03
+
+The maintainer explicitly authorized the pending Altium validations on the
+available Altium Designer 24.5.2.23: "tenho so o24.5, mas eu autorizo as
+validacoes serem no24, nao precisa ser na26". This replaces the version
+prerequisite of pending runs only. Record the actual tool/build, input hashes
+and each observed outcome. It does not complete a case, open a write gate,
+raise evidence, prove26.5 equivalence or replace any historical26.5 report.
+Do not combine different versions/input digests into one fictional kit run.
+All existing acceptance criteria, facts-before-code rules and final CI remain.
+The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
+build 24.5.2.23 in the separate native observation report, not a new form key.

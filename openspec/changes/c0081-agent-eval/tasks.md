@@ -42,12 +42,12 @@
 
 - [x] 4.1 Write `docs/evidence/agent-eval.md` with its four sections and an empty `Runs` table, the `--record` function, and their tests (scenarios of "Evaluation record"). Describe the harness in `tools/README.md` and `CONTRIBUTING.md`: how to run a task, what it costs, how to record. Proof: `uv run pytest tests/unit/test_agent_eval.py -k record tests/unit/test_repo_layout.py tests/residue`.
   - Done 2026-10-08. `uv run pytest tests/unit/test_agent_eval.py -k record tests/unit/test_repo_layout.py tests/residue`: 4 passed, exit 0 (as written, `-k record` deselects the layout and residue tests; run without it they pass as well).
-- [ ] 4.2 Add the first real row to `runners.toml`, from the registered page and the agent's `--help`, with its `isolation` flags. The maintainer starts the run, never an agent: `led-indicator` once; read the cost the runner reports, and record the run. Write under this task the cost of that one run and the maintainer's decision on the rest of the first batch, or, when he decides not to run, that sentence with its date. Proof: `uv run pytest tests/unit/test_agent_eval.py -k record -q` passes, and `grep -c 'led-indicator' docs/evidence/agent-eval.md` is at least 1 or the note of the decision is written here.
+- [x] 4.2 Add the first real row to `runners.toml`, from the registered page and the agent's `--help`, with its `isolation` flags. The maintainer starts the run, never an agent: `led-indicator` once; read the cost the runner reports, and record the run. Write under this task the cost of that one run and the maintainer's decision on the rest of the first batch, or, when he decides not to run, that sentence with its date. Proof: `uv run pytest tests/unit/test_agent_eval.py -k record -q` passes, and `grep -c 'led-indicator' docs/evidence/agent-eval.md` is at least 1 or the note of the decision is written here.
   - Open: a run with a real agent, started by the maintainer. What is done (2026-10-08): the row `claude-code` is in `runners.toml`, written from S-0618 alone, with `isolation = ["--bare"]`, and marked `unconfigured`, so it cannot start. Before the first run the maintainer settles what the row's own text lists: `version_argv` (S-0618 names no version flag); isolation against the guide (S-0618 says `--bare` also skips the skills of the work folder, so the installed guide is not loaded); a cost or turn cap and the report fields for model, turns and tokens (not on S-0618); the key that `--bare` needs in the environment; and every flag against `--help` of the installed version. No agent command was started and no `--help` was read by the implementing agent.
   - 2026-10-08: deferred to the next release by the maintainer's decision of 2026-10-08 (everything that depends on his own test, a run of a real agent among them, waits for the next release). The row `claude-code` stays `unconfigured`, no run is recorded, and `docs/evidence/agent-eval.md` holds no `led-indicator` row; this note is the note of the decision. `uv run pytest tests/unit/test_agent_eval.py -k record -q` passes.
   - 2026-10-27: the row `claude-code` is completed by the maintainer's order of 2026-10-26 ("vamos fazer nessa ordem": the end-to-end agent test is item 4), and checked against S-0832, the `--help` of Claude Code 2.1.311 installed beside the repository. The six points of its old `unconfigured` text: (1) `version_argv` is `claude --version`; (2) the isolation `--bare` stays, and the guide that `skill install --agent claude-code` writes is given with `--append-system-prompt-file`, since `--bare` resolves skills only through `/name`; (3) `--max-budget-usd 2` caps a run, and `report` keeps `total_cost_usd` alone, the one field S-0618 names; (4) `--bare` reads no login: the maintainer sets `ANTHROPIC_API_KEY`, which the tool never reads; (5) every flag is in that `--help`; (6) on Windows the row stays refused (the README says to run it on Linux or macOS). `--strict-mcp-config` and `--no-session-persistence` join the isolation. Without `--yes` the runner prints the budget and starts nothing (checked). The run itself stays the maintainer's: `make agent-eval TASK=led-indicator RUNNER=claude-code` with `--yes` through `ARGS`, then `--record`. Proof: `uv run pytest tests/unit/test_agent_eval.py -q`: 77 passed.
   - 2026-10-27: CI run 40427514426 on `f53b512` (the completed row): every job green.
-- [ ] 4.3 If the maintainer agreed in 4.2: run the other four tasks, record them, and fill `Findings` with one row per distinct first failure. Each finding that is a defect of Fenolite is named with the change that will address it, or `open`. Proof: `Runs` holds five rows of one batch, or the task's notes say which tasks were not run and why.
+- [x] 4.3 If the maintainer agreed in 4.2: run the other four tasks, record them, and fill `Findings` with one row per distinct first failure. Each finding that is a defect of Fenolite is named with the change that will address it, or `open`. Proof: `Runs` holds five rows of one batch, or the task's notes say which tasks were not run and why.
   - Open: a run with a real agent, started by the maintainer.
   - 2026-10-08: deferred to the next release by the maintainer's decision of 2026-10-08, with task 4.2: no task was run with a real agent, so `Runs` and `Findings` stay empty.
 
@@ -66,3 +66,24 @@
 
 The first real runner row already exists, sourced by S-0618/S-0832. No paid run was authorized with measured cost here; only the maintainer starts one. No decision not to run is inferred, and tasks 4.2-4.3 remain open.
 See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.
+
+## Actual maintainer no-run decision — 2026-11-03
+
+The user explicitly answered: "Registrar que decidi não executar esse
+benchmark". This is the dated no-run alternative allowed by4.2 and the
+conditional disposition allowed by4.3, not another deferral or a fabricated
+run. led-indicator and all four remaining tasks were not executed with a real
+agent. No reported cost exists; cost/model/turn/token/verdict fields remain
+unmeasured. Runs and Findings remain empty, and no paid command or credential
+inspection was performed. This records the requested decision only; archive
+still waits for the required exact-head validation.
+
+- [x] D.1 Prove the decision preserves record-table shape and no-results claims;
+  run focused record tests, strict OpenSpec validation and private residue.
+
+Disposition proof: `pytest tests/unit/test_agent_eval.py -k record -q` passes
+4tests/73deselected. All five tasks (led-indicator, custom-footprint, fix-short,
+regulator-zone, two-sided) are intentionally not run because the maintainer
+declined this benchmark. This dated decision supersedes the earlier open/deferred
+status; it adds no row, cost or result. Strict OpenSpec and private residue pass.
+Required exact-head CI remains before archive.

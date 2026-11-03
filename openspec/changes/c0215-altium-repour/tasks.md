@@ -77,7 +77,7 @@
   - 2026-10-26: steps K6.2 to K6.11 and the checks `repoured`, `pour-match` (naming the probe of each failure), `pour-same` (`Step.same_as`) and `pour-kept` (`cli._kit.pour_problems`); an input row is judged by `repoured` and the `pour-match` of its probes only (`steps.PROBE_ROWS`, `results._probe_outcome`). Deviations, also in the spec: no step is scripted (the script cannot save under a new name: a new entry of `script.NOT_SCRIPTED`, with `IPCB_Polygon.Rebuild` registered as S-0836), so K6.2 rebuilds in the Polygon Manager and `H-A-POUR-SCRIPT` now compares that with Repour All; `resave` is not a check of K6.2 and K6.9 (the repoured board joins nets that the unpoured reference leaves apart) and no pour step runs `parity` (free documents). The rows of `docs/hypotheses.md` name their steps. Proof: `uv run pytest tests/unit/verify/kit -q` passes (with `test_pour_steps.py`: the three scenarios) but for the tracked-files test above.
 - [x] 7.3 `docs/altium-kit.md`, group K6, with the steps and their minutes (an estimate), and `routed` built with `outline` for K6.1. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -q`.
   - 2026-10-26: `docs/altium-kit.md`: the seven samples, group K6 with 11 steps and 34 minutes (an estimate; 94 in all), the four checks, the settlement by probe, the manual pour steps, and `routed` built with `outline`; `examples/kit/README.md` likewise. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -q` passes.
-- [ ] 7.4 The maintainer's K6 round on Altium Designer 26.5 (a test of the maintainer, in v0.6 by open question 6): record the run with `fenolite kit record`, set the levels of the rows it settles, and write the verdict per probe into `docs/evidence/altium-pour.md`. Proof: `uv run fenolite kit verify <kit> --json` exits 0; `uv run pytest tests/unit/test_hypotheses_register.py -q`.
+- [ ] 7.4 The maintainer's K6 round on Altium Designer 24.5.2.23 (approved pending-run scope) (a test of the maintainer, in v0.6 by open question 6): record the run with `fenolite kit record`, set the levels of the rows it settles, and write the verdict per probe into `docs/evidence/altium-pour.md`. Proof: `uv run fenolite kit verify <kit> --json` exits 0; `uv run pytest tests/unit/test_hypotheses_register.py -q`.
 
 ## 8. Documentation
 
@@ -97,3 +97,16 @@
 
 Altium Designer is unavailable per the maintainer. Older native K6 reports do not settle this change's later computed-pour probes; task 7.4 stays open.
 See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.
+
+## Approved pending-native scope — 2026-11-03
+
+The maintainer explicitly authorized the pending Altium validations on the
+available Altium Designer 24.5.2.23: "tenho so o24.5, mas eu autorizo as
+validacoes serem no24, nao precisa ser na26". This replaces the version
+prerequisite of pending runs only. Record the actual tool/build, input hashes
+and each observed outcome. It does not complete a case, open a write gate,
+raise evidence, prove26.5 equivalence or replace any historical26.5 report.
+Do not combine different versions/input digests into one fictional kit run.
+All existing acceptance criteria, facts-before-code rules and final CI remain.
+The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
+build 24.5.2.23 in the separate native observation report, not a new form key.

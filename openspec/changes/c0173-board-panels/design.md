@@ -172,3 +172,16 @@ All decided by the maintainer on 2026-10-16: every recommended answer is accepte
 6. **Panel fiducials in Altium as free pads?** Decided 2026-10-16: yes, free round pads with the mask from the rule, as c0118's footprint cannot be written to a `.PcbLib`; Q9 shows whether they reach the outputs. The page S-0791 names only tooling holes as acceptable free pads, so the docs say so.
 7. **How does this change enter 0.5.0?** Decided 2026-10-16: release 0.5.0 is **held** until the native Embedded Board Array passes the maintainer's kit ("hold 0.5.0 until it closes"): Q7, Q8 and Q9 of Part Q decide `EMBEDDED_ARRAYS`, and the release waits on them. The stop rules of Decision 8 still apply: if the array cannot be established, the flattened Altium panel is what ships, and the hold ends with that verdict. The release change c0171 adds the row and moves the changelog lines into `[0.5.0]`, since its guard keeps `[Unreleased]` empty.
 8. **Vendor-named limit presets** (`limits="jlcpcb"`)? Decided 2026-10-16: no; the defaults cite their sources, `limits=` takes the user's fabricator's figures, and a preset would age silently.
+
+## Approved pending-native scope — 2026-11-03
+
+The maintainer explicitly authorized the pending Altium validations on the
+available Altium Designer 24.5.2.23: "tenho so o24.5, mas eu autorizo as
+validacoes serem no24, nao precisa ser na26". This replaces the version
+prerequisite of pending runs only. Record the actual tool/build, input hashes
+and each observed outcome. It does not complete a case, open a write gate,
+raise evidence, prove26.5 equivalence or replace any historical26.5 report.
+Do not combine different versions/input digests into one fictional kit run.
+All existing acceptance criteria, facts-before-code rules and final CI remain.
+The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
+build 24.5.2.23 in the separate native observation report, not a new form key.

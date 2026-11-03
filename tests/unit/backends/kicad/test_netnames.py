@@ -59,3 +59,8 @@ def test_proved_characters() -> None:
     assert netnames.proved("PA1") and netnames.proved("") and netnames.proved("A/B 1")
     assert not netnames.proved("µC") and not netnames.proved("A(B)")
     assert {"A", "z", "0", " ", "/"} <= netnames.PROVED_PIN_CHARS
+
+
+def test_hash_names_are_measured_without_admitting_other_characters() -> None:
+    assert all(netnames.proved(name) for name in ("#", "RESET#", "A/# B"))
+    assert not netnames.proved("RESET#(A)") and not netnames.proved("µ#")

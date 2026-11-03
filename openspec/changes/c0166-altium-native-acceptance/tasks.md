@@ -193,3 +193,30 @@ Altium Designer is unavailable per the maintainer. Existing K1-K9 and scoped aut
 See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.
 
 Task 4.1 proof — 2026-11-01: the dated inventory reconciles actual reports, unavailable environments and all 18 continuation changes without promoting evidence. The Unreleased entry records that scope. The required register/provenance/native-documentation proofs pass within the 865-pass focused documentation/consistency group; strict c0166 validation passes without warnings. Completed 1.x task records were moved back under group 1 without changing their ids, proof text or checked state. Full/CI outcomes and unfinished application requests retain their existing scope.
+
+## Approved pending-native scope — 2026-11-03
+
+The maintainer explicitly authorized the pending Altium validations on the
+available Altium Designer 24.5.2.23: "tenho so o24.5, mas eu autorizo as
+validacoes serem no24, nao precisa ser na26". This replaces the version
+prerequisite of pending runs only. Record the actual tool/build, input hashes
+and each observed outcome. It does not complete a case, open a write gate,
+raise evidence, prove26.5 equivalence or replace any historical26.5 report.
+Do not combine different versions/input digests into one fictional kit run.
+All existing acceptance criteria, facts-before-code rules and final CI remain.
+The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
+build 24.5.2.23 in the separate native observation report, not a new form key.
+
+- [x] 0.2 Prove the existing kit form/record validators accept the approved AD 24.5
+  family, keep historical AD 26.5 metadata valid and reject malformed/full-build
+  strings in the unchanged major.minor form dialect. No new matrix scope or
+  native verdict may be generated from this authorization alone.
+
+Scope proof:60 form/record/capability controls pass, including authored AD24.5
+and retained AD26.5 structural metadata controls. The15 protocol-document tests
+pass after updating only the pending F0 target assertion to24.5.2.23; all14F0
+steps/expected outcomes/path scan remain required. Full-build strings in the
+existing major.minor form field remain refused. These simulated controls create
+no native record or matrix scope. Historical PartS2026-10-17 bytes, claims.py
+and conformance.json are unchanged. Every previously unchecked native task
+stays unchecked; no runtime module, write gate or evidence label changes.

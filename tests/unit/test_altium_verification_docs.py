@@ -155,7 +155,7 @@ def test_part_f_f0_names_the_fourteen_steps_with_their_expected_outcomes() -> No
         "H-A-DWF-CONTAINER",
         "H-A-DWF-FIELD",
         "fenolite kit verify",
-        "Altium Designer 26.5",
+        "Altium Designer 24.5.2.23",
     ):
         assert name in f0 or name in part, name
 

@@ -544,3 +544,30 @@ def test_a_document_saved_under_the_name_of_another_kind_is_named(kit: Path) -> 
     assert reasons["K1.2"] == ("results/flat/flat.PcbDoc does not exist",)
     stray.unlink()
     assert _outcomes(verify_results(kit, judge=quick))["K5.1"] == "skipped"
+
+
+@pytest.mark.parametrize("version", ["AD 24.5", "AD 26.5"])
+def test_pending_native_version_form_syntax_without_claiming_a_run(version):
+    form = {
+        "schema": results.FORM_SCHEMA,
+        "altium_version": version,
+        "os_family": "Windows",
+        "date": "2026-11-03",
+        "synthetic": True,
+        "values": {},
+    }
+    assert form_problems(form, ()) == []
+    assert form["synthetic"] is True
+
+
+@pytest.mark.parametrize("version", ["AD 24.5.2.23", "24.5", "AD 24", "AD 24.x"])
+def test_pending_native_scope_preserves_exact_major_minor_form_dialect(version):
+    form = {
+        "schema": results.FORM_SCHEMA,
+        "altium_version": version,
+        "os_family": "Windows",
+        "date": "2026-11-03",
+        "synthetic": True,
+        "values": {},
+    }
+    assert form_problems(form, ()) == ["altium_version is not of the form 'AD <major>.<minor>'"]

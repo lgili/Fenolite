@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Literal, TextIO
 
-from fenolite.cli._evidence_limits import incomplete_reply
+from fenolite.cli._evidence_limits import conservative_inputs, incomplete_reply
 from fenolite.cli.errors import CliError, ErrorInfo
 from fenolite.core.errors import ISSUE_CODE, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
@@ -41,9 +41,11 @@ def evidence_issues(
     if evidence.level not in (Level.UNVERIFIED, Level.UNKNOWN) and not evidence.hypotheses:
         problem = f"{evidence.label()} evidence names no hypothesis"
     elif evidence.level is Level.UNVERIFIED and not no_claim:
-        if not any(
-            command in EXPERIMENTAL_ISSUE_COMMANDS.get(issue.code, ()) for issue in issues
-        ) and not incomplete_reply(command, result or {}, issues):
+        if (
+            not any(command in EXPERIMENTAL_ISSUE_COMMANDS.get(issue.code, ()) for issue in issues)
+            and not incomplete_reply(command, result or {}, issues)
+            and not conservative_inputs(command, result or {}, evidence)
+        ):
             problem = "UNVERIFIED evidence has no no-claim, named experimental or supported incomplete scope"
     elif evidence.level is Level.UNKNOWN and not unknown_detection:
         problem = "UNKNOWN evidence is reserved for detection of an unknown file"

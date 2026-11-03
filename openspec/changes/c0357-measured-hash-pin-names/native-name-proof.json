@@ -1,0 +1,119 @@
+{
+  "cases": [
+    {
+      "actual_names": {
+        "11": "unconnected-(X1-#-Pad11)",
+        "12": "unconnected-(X1-RESET#-Pad12)",
+        "13": "unconnected-(X1-A{slash}#_B-Pad13)"
+      },
+      "actual_nc_marked_types_verified": true,
+      "all_exact": true,
+      "input_sha256": "fa1909f5a7d46f59a7e69ed26157d07b8a9a54c8b5db77da1fed4f7058d8a316",
+      "marked": false,
+      "native_netlist_sha256": "30811e56a86c22e4c40153f326fda0bb9f32bab9bccce7d9178ea8d8ee5f5496",
+      "native_version": "9.0.9",
+      "receipt_sha256": "53302924dfb8617370f4d7887ec7422f5a0a7b72108465097fd5999a4122b991"
+    },
+    {
+      "actual_names": {
+        "11": "unconnected-(X1-#-Pad11)",
+        "12": "unconnected-(X1-RESET#-Pad12)",
+        "13": "unconnected-(X1-A{slash}#_B-Pad13)"
+      },
+      "actual_nc_marked_types_verified": true,
+      "all_exact": true,
+      "input_sha256": "73e98c98ab2d2f07de65bb7e0990f20697357e240e441620f22921c30dee28b6",
+      "marked": true,
+      "native_netlist_sha256": "7ff9b2806abfef1049607df502eba9e2a9bc66b6b80f2f0b09a42fb9a4a27d64",
+      "native_version": "9.0.9",
+      "receipt_sha256": "1223e1c6f8077e14e8d6173d81b7938e8a7f7312c5e3a9965350047fe5e2fb6c"
+    },
+    {
+      "actual_names": {
+        "11": "unconnected-(X1-#-Pad11)",
+        "12": "unconnected-(X1-RESET#-Pad12)",
+        "13": "unconnected-(X1-A{slash}#_B-Pad13)"
+      },
+      "actual_nc_marked_types_verified": true,
+      "all_exact": true,
+      "input_sha256": "158c804bf2820fe26a511c0524154763bfaa1cee759cdb52daf6c821aa3addce",
+      "marked": false,
+      "native_netlist_sha256": "f2c8576954d2df962eb63bec25195c384a6f91050da489ad687f12be5ee6d257",
+      "native_version": "10.0.6",
+      "receipt_sha256": "84d547b36fd76e48ef9765dec66bff6b0f53b55b883178b2572ff87693fc9055"
+    },
+    {
+      "actual_names": {
+        "11": "unconnected-(X1-#-Pad11)",
+        "12": "unconnected-(X1-RESET#-Pad12)",
+        "13": "unconnected-(X1-A{slash}#_B-Pad13)"
+      },
+      "actual_nc_marked_types_verified": true,
+      "all_exact": true,
+      "input_sha256": "df9901b55c195f5041ac724faab4583c408b12f4f714c54d396bae961a755fed",
+      "marked": true,
+      "native_netlist_sha256": "1f6874d5b4c5596eb14f8ebe0753f1bcc004efc4cdee2a36829377da48c33abe",
+      "native_version": "10.0.6",
+      "receipt_sha256": "e5ed3534238048af91488d86f184bba5cfb7e896fc74c3e5ac201a7ac1fd4f49"
+    }
+  ],
+  "facts_source": "S-0020",
+  "measured_before_runtime_extension": true,
+  "native_only_process_boundary": true,
+  "original_authored_controls": true,
+  "post_confirmation_input_bytes_identical": true,
+  "pre_extension_cases": [
+    {
+      "actual_names": {
+        "11": "unconnected-(X1-#-Pad11)",
+        "12": "unconnected-(X1-RESET#-Pad12)",
+        "13": "unconnected-(X1-A{slash}#_B-Pad13)"
+      },
+      "all_exact": true,
+      "input_sha256": "fa1909f5a7d46f59a7e69ed26157d07b8a9a54c8b5db77da1fed4f7058d8a316",
+      "marked": false,
+      "native_netlist_sha256": "10bc12cb5b6214ebf2ca1e21348a2a1199e0f856011a951b34d6504d9ae235d3",
+      "native_version": "9.0.9",
+      "receipt_sha256": "f31bec98f7ba3d3e09f0ed4b65992f00d768a8d1efc14ed8c2a3dd1eb2f419e8"
+    },
+    {
+      "actual_names": {
+        "11": "unconnected-(X1-#-Pad11)",
+        "12": "unconnected-(X1-RESET#-Pad12)",
+        "13": "unconnected-(X1-A{slash}#_B-Pad13)"
+      },
+      "all_exact": true,
+      "input_sha256": "73e98c98ab2d2f07de65bb7e0990f20697357e240e441620f22921c30dee28b6",
+      "marked": true,
+      "native_netlist_sha256": "cf8f45ce9114b7ccbfad27258c75718cd971bf222442fa6cbdf1b87f233ae476",
+      "native_version": "9.0.9",
+      "receipt_sha256": "da7565ddb7edaeaeeaebc0dc9f84230f9045b06d9bcbe6b89a4a31514ac7037c"
+    },
+    {
+      "actual_names": {
+        "11": "unconnected-(X1-#-Pad11)",
+        "12": "unconnected-(X1-RESET#-Pad12)",
+        "13": "unconnected-(X1-A{slash}#_B-Pad13)"
+      },
+      "all_exact": true,
+      "input_sha256": "158c804bf2820fe26a511c0524154763bfaa1cee759cdb52daf6c821aa3addce",
+      "marked": false,
+      "native_netlist_sha256": "e8035328f2a63a8246f5515574b1a998531a43982c21f86d8e51755b85253e04",
+      "native_version": "10.0.6",
+      "receipt_sha256": "70a126c120ebfae4116c1b56a0c076f3b3d5fcfaecc2c6b2857d0ecfd066bed9"
+    },
+    {
+      "actual_names": {
+        "11": "unconnected-(X1-#-Pad11)",
+        "12": "unconnected-(X1-RESET#-Pad12)",
+        "13": "unconnected-(X1-A{slash}#_B-Pad13)"
+      },
+      "all_exact": true,
+      "input_sha256": "df9901b55c195f5041ac724faab4583c408b12f4f714c54d396bae961a755fed",
+      "marked": true,
+      "native_netlist_sha256": "70b3664519be8c4f8d1cd01d2d9122daf1b01d30ff87f13e926ca0fc8709f03d",
+      "native_version": "10.0.6",
+      "receipt_sha256": "ad409076999ffb211945f0d4368e83366ec190be3a8c4ac7fa87ab1d74f081e7"
+    }
+  ]
+}

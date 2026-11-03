@@ -14,6 +14,7 @@ from collections.abc import Mapping
 from typing import Any, cast, get_args
 
 from fenolite.core.errors import Issue
+from fenolite.core.evidence import Evidence
 
 
 def _map(value: object) -> Mapping[str, Any]:
@@ -32,6 +33,44 @@ def _positive(value: object) -> bool:
 
 def _counts(value: object) -> bool:
     return any(_positive(count) for count in _map(value).values())
+
+
+def conservative_inputs(command: str, result: Mapping[str, Any], evidence: Evidence) -> bool:
+    """An actual pin choice references a declared, digested unverified input device."""
+    if command != "build" or "H-G-PIN-SOLVE-DETERMINISTIC" not in evidence.hypotheses:
+        return False
+    parts: set[str] = set()
+    for device in _rows(result.get("devices")):
+        digest = device.get("sha256")
+        paths = device.get("parts")
+        if (
+            device.get("evidence") == "UNVERIFIED"
+            and isinstance(device.get("id"), str)
+            and bool(device["id"])
+            and isinstance(digest, str)
+            and re.fullmatch(r"[a-f0-9]{64}", digest)
+            and isinstance(paths, (list, tuple))
+        ):
+            parts.update(
+                path
+                for path in cast(list[object] | tuple[object, ...], paths)
+                if isinstance(path, str) and path
+            )
+    for row in _rows(result.get("pins")):
+        key = row.get("key")
+        pins = _map(row.get("pins"))
+        if (
+            isinstance(key, str)
+            and any(key.startswith(part + "/") for part in parts)
+            and all(isinstance(row.get(name), str) and bool(row[name]) for name in ("kind", "option"))
+            and type(row.get("alternative")) is int
+            and row["alternative"] >= 0
+            and row.get("source") in ("solved", "locked")
+            and pins
+            and all(isinstance(value, str) and bool(value) for value in pins.values())
+        ):
+            return True
+    return False
 
 
 def _analysis(result: Mapping[str, Any], issues: tuple[Issue, ...]) -> bool:
@@ -122,6 +161,28 @@ def _stage_limits(stages: object, issues: tuple[Issue, ...]) -> bool:
             continue
         name, status = stage.get("name"), stage.get("status")
         state = _map(stage.get("summary"))
+        if name == "circuit.rules" and "H-G-CIRCUIT-RULES" in _map(stage.get("evidence")).get(
+            "hypotheses", ()
+        ):
+            for requirement in _rows(state.get("requirements")):
+                limit = _map(requirement.get("limit"))
+                if (
+                    "circuit.value-unknown" in codes
+                    and requirement.get("status") == "unknown"
+                    and "value" in requirement
+                    and requirement["value"] is None
+                    and isinstance(requirement.get("missing"), str)
+                    and bool(requirement["missing"])
+                ):
+                    return True
+                if (
+                    limit.get("source") == "device"
+                    and limit.get("evidence") == "UNVERIFIED"
+                    and isinstance(limit.get("basis"), str)
+                    and bool(limit["basis"])
+                    and bool(_map(limit.get("range")))
+                ):
+                    return True
         if name == "copper.clearance":
             if "copper.clearance-unset" in codes and _positive(state.get("unset_pairs")):
                 return True
@@ -346,4 +407,4 @@ def incomplete_reply(command: str, result: Mapping[str, Any], issues: tuple[Issu
     return False
 
 
-__all__ = ["incomplete_reply"]
+__all__ = ["conservative_inputs", "incomplete_reply"]

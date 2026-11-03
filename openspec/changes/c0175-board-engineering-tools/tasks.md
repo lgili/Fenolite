@@ -180,3 +180,8 @@ Altium body copy still needs measured c0241 operations and a named house library
 See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.
 
 Closing documentation proof — 2026-11-01: strict validation passes the dated entry review (0.1). The version after 0.5.0 is already open; the Unreleased decision/dependency entry satisfies 14.3. Its exact `tests/unit -k "release_record or changelog"` proof passes: 167 passed, 1 optional SDK skip, 17466 deselected. The native body-copy dependency (10.4) and coordinating full/CI gate (14.1) remain open.
+
+Pending Altium observations may use the actual available Designer 24.5.2.23,
+by the maintainer's explicit2026-11-03 approval recorded in c0166. Historical
+26.5 observations remain unchanged; this version permission is not a personal
+project review, a missing implementation or a passing native outcome.

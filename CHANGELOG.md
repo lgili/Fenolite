@@ -6,12 +6,21 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Record the maintainer's approval of the five Altium acceptance criteria; retain the unmeasured acceptance-tree and graduation gates explicitly (c0092).
+
+- Record the maintainer’s explicit decision not to execute the paid agent benchmark, leaving all run tables and measured results empty (c0081).
+
+- Preserve conservative pin-choice and circuit-input evidence without spurious metadata warnings; keep primary failed/no-write diagnostics while checking every attempted write (c0219).
+- Record the maintainer-approved Altium24.5.2.23 scope for pending native validations, preserving historical26.5 reports and every acceptance gate (c0166).
+
 - Preserve project-root aliases in declared resource paths and canonical proof trace keys; rebinding an alias invalidates reviewed input plans (c0354).
 
 - Keep historical complete byte pins exact while explicitly asserting the intentional schema1.0 metadata marker; no native or other canonical bytes are excluded (c0218).
 
 - Retain the original footprint-projection canonical digest pins through schema1 activation by pinning only the authorized metadata marker back to0. Independent controls preserve every native byte and reject hidden content changes; no fixture or golden was regenerated (c0218).
 - **Exact imported physical pad annotations** (c0355): preserve existing native pinfunction/pintype children and their absence per physical pad in explicit imported definitions. Conflicting duplicate pad numbers retain their own metadata; changed identities and ambiguous annotated sources refuse. Source/output top/bottom controls retain metadata, and malformed annotations refuse before planning. Generic library extraction and default writers remain unchanged. Native identity/order normalization remains an unimplemented proposal with strict annotation and ambiguity preconditions; derived-cache differences remain visible.
+- **Measured hash pin names** (c0357): preserve `#` in native open/no-connect pin net names after exact authored KiCad9/10 export proofs. Other unmeasured characters remain unsupported; strict native class-membership comparison is unchanged.
+
 - Extend the canonical1 activation proof to both strict ordinary-import/rebuild aggregate guards: all28import files and36non-metadata rebuilt files stay byte-identical; only two canonical metadata version markers change. Refresh those two aggregate digests while retaining complete-file assertions (c0218).
 
 - **Explicit import targets** (c0356): honor an explicitly supplied `--kicad-version` for both emission and private verification, including KiCad9 boards with KiCad10 project settings. Omitted targets retain source-major behavior and payload bytes; incompatible project keys and changed reviewed targets still refuse.

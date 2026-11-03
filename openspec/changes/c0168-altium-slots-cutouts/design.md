@@ -125,3 +125,16 @@ Cut order: (1) cut-out regions (stop after task 1.2 when no imported form is fou
 3. **Should the import turn free unnamed non-plated pads into `Hole`s?** Recommended: yes, only those without a copper ring (Decision 6); any other free pad stays a footprint. Decided by the maintainer on 2026-10-15: yes, only those without a copper ring; any other free pad stays a footprint.
 4. **Should the gate be a build option instead of a constant?** Recommended: no; an option would let a user write an unconfirmed form. The kit run flips it once. Decided by the maintainer on 2026-10-15: no; the gate stays a constant, flipped once by the kit run.
 5. **Arcs of the outer board ring in `Board6`?** Recommended: a follow-up change; the reader already knows the arc vertex, the writer needs its own rows and a kit case. Decided by the maintainer on 2026-10-15: a follow-up change.
+
+## Approved pending-native scope — 2026-11-03
+
+The maintainer explicitly authorized the pending Altium validations on the
+available Altium Designer 24.5.2.23: "tenho so o24.5, mas eu autorizo as
+validacoes serem no24, nao precisa ser na26". This replaces the version
+prerequisite of pending runs only. Record the actual tool/build, input hashes
+and each observed outcome. It does not complete a case, open a write gate,
+raise evidence, prove26.5 equivalence or replace any historical26.5 report.
+Do not combine different versions/input digests into one fictional kit run.
+All existing acceptance criteria, facts-before-code rules and final CI remain.
+The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
+build 24.5.2.23 in the separate native observation report, not a new form key.

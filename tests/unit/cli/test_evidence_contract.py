@@ -22,6 +22,84 @@ from fenolite.core.evidence import Evidence, Level
 ROOT = Path(__file__).resolve().parents[3]
 
 
+def test_conservative_pin_input_has_a_complete_existing_receipt(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FENOLITE_CONTRACT_CHECK", "1")
+    evidence = Evidence(Level.UNVERIFIED, hypotheses=("H-G-PIN-SOLVE-DETERMINISTIC",))
+    result = {
+        "devices": [{"id": "Example:MCU", "evidence": "UNVERIFIED", "sha256": "a" * 64, "parts": ["mcu"]}],
+        "pins": [
+            {
+                "key": "mcu/i2c",
+                "kind": "i2c",
+                "option": "I2C1",
+                "alternative": 0,
+                "pins": {"sda": "P1", "scl": "P2"},
+                "source": "solved",
+            }
+        ],
+    }
+    assert evidence_issues("build", evidence, (), no_claim=False, result=result) == ()
+    for changed in ({**result, "pins": []}, {**result, "devices": []}):
+        with pytest.raises(CliError):
+            evidence_issues("build", evidence, (), no_claim=False, result=changed)
+    with pytest.raises(CliError):
+        evidence_issues("fmt", evidence, (), no_claim=False, result=result)
+
+
+@pytest.mark.parametrize("limited", ("missing", "device"))
+def test_conservative_circuit_rows_preserve_actual_scope(
+    monkeypatch: pytest.MonkeyPatch, limited: str
+) -> None:
+    monkeypatch.setenv("FENOLITE_CONTRACT_CHECK", "1")
+    requirement = (
+        {"status": "unknown", "value": None, "missing": "voltage of SIG"}
+        if limited == "missing"
+        else {
+            "status": "pass",
+            "limit": {
+                "source": "device",
+                "evidence": "UNVERIFIED",
+                "basis": "Example:TVS abs_max",
+                "range": {"unit": "volt"},
+            },
+        }
+    )
+    issues = (Issue("circuit.value-unknown", "info", "one unjudged row"),) if limited == "missing" else ()
+    stage = {
+        "name": "circuit.rules",
+        "status": "ok",
+        "evidence": {"level": "UNVERIFIED", "hypotheses": ["H-G-CIRCUIT-RULES"]},
+        "summary": {"requirements": [requirement]},
+    }
+    evidence = Evidence(Level.UNVERIFIED, hypotheses=("H-G-CIRCUIT-RULES",))
+    assert evidence_issues("check", evidence, issues, no_claim=False, result={"stages": [stage]}) == issues
+    stage["summary"] = {"requirements": [{"status": "pass", "missing": "", "value": 1}]}
+    with pytest.raises(CliError):
+        evidence_issues("check", evidence, issues, no_claim=False, result={"stages": [stage]})
+
+
+@pytest.mark.parametrize("attempted_write", (False, True))
+def test_primary_failure_with_context_keeps_no_write_diagnostic_boundary(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, attempted_write: bool
+) -> None:
+    monkeypatch.setenv("FENOLITE_CONTRACT_CHECK", "1")
+    _returned(
+        monkeypatch,
+        "fmt",
+        Result(
+            result={"lines": 7},
+            issues=(Issue("model.corner-ratio", "error", "authored invalid input"),),
+            writes=(PlannedWrite("out.txt", b"bad", "file"),) if attempted_write else (),
+        ),
+    )
+    code, reply, error, _ = run(monkeypatch, tmp_path, "fmt", "unused", "--confirm")
+    if attempted_write:
+        assert code == 1 and error["code"] == "FEN-1001"
+    else:
+        assert code == 5 and [issue["code"] for issue in reply["issues"]] == ["model.corner-ratio"]
+    assert not (tmp_path / "out.txt").exists()
+
+
 def _returned(monkeypatch: pytest.MonkeyPatch, name: str, result: Result) -> None:
     module = importlib.import_module(f"fenolite.cli.cmd_{name}")
     monkeypatch.setattr(module, "COMMAND", dataclasses.replace(module.COMMAND, run=lambda args, ctx: result))

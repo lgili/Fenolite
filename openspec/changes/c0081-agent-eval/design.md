@@ -184,3 +184,11 @@ Cut order: (1) `two-sided`; (2) `--repeat`; (3) `custom-footprint` (it waits for
 - **A second real runner.** Default: when someone needs it; a row and its source are all it takes.
 - **Tasks that need Freerouting.** Default: none in the first five; a sixth task can ask for it once c0078 is archived, and then measures `fetch`.
 - **Windows.** Default: not supported by the runner (process groups and the shim are POSIX); the judge and the tasks are portable.
+
+## Actual first-batch disposition, 2026-11-03
+
+The maintainer explicitly chose: "Registrar que decidi não executar esse
+benchmark". Tasks4.2/4.3 already permit a dated no-run decision instead of paid
+execution. Record this decision and the five unexecuted tasks; preserve empty
+Runs/Findings tables, no measured cost, no model/agent verdict and no release
+claim. No paid runner or credential access is authorized by this disposition.

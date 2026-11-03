@@ -178,3 +178,7 @@ It does not authorize publish, arbitrary private names, hidden future commands
 or claiming higher evidence without actual hypothesis IDs. Keep the exact
 hidden _echo protocol exemption separate and retain all incomplete-receipt
 negatives. The complete census must pass without edit/mcp deselection.
+
+### Conservative input and diagnostic reconciliation
+
+A pin solve may be deterministic while an actually used device remains UNVERIFIED. The existing devices digest/parts rows and complete pin-choice rows identify that input limitation; no evidence level is promoted. A circuit stage similarly retains explicit unknown/missing requirement rows or UNVERIFIED device limits. These are bounded existing receipts, not a generic no-claim flag. Failed UNVERIFIED outcomes with primary errors and no requested writes make no successful judgment and preserve their primary diagnostics; an attempted write still undergoes the strict evidence guard. Successful empty or arbitrary replies remain checked.

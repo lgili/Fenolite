@@ -141,3 +141,7 @@ The earlier failed edit/mcp strict receipts remain historical failures.
   fast and exact-head CI remain separate.
 
 Approved B.6 actual complete evidence/capabilities/CLI-consistency selection:792passed,41explicit mutating skips in120.97s; no edit/mcp deselection, all strict JSON envelope cases now pass. The skips are pre-existing confirmation-protocol cases exercised in their focused command tests, not edit/mcp exemptions. Earlier112pass/4fail receipt remains historical. Source CLIv0 and all higher-label/hypothesis negatives retained.
+
+- [ ] 2.2d Reconcile actual lowest-wins pin-source and circuit-input evidence using existing complete result receipts; preserve UNVERIFIED, primary failed/no-write diagnostics, strict rejection of arbitrary successful replies and every attempted write. Prove authored positive/negative controls and all affected original pins/block/route/roles assertions before ticking.
+
+Conservative-input reconciliation: four authored positive cases reproduced strict failures before runtime; after correction, complete evidence framework61 passed, original pins/route/roles regressions4 passed, all shipped blocks5 passed, and focused source pyright reports zero errors. The larger producer selection and root fast/CI remain separately pending. An initial authored fixture used an undeclared fmt result field; corrected to the existing lines field before the61-test proof.

@@ -40,3 +40,8 @@
 
 Altium Designer is unavailable per the maintainer; no personal native variant comparison was supplied. Task 2.2 remains open.
 See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.
+
+Pending Altium observations may use the actual available Designer 24.5.2.23,
+by the maintainer's explicit2026-11-03 approval recorded in c0166. Historical
+26.5 observations remain unchanged; this version permission is not a personal
+project review, a missing implementation or a passing native outcome.

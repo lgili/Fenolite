@@ -105,11 +105,17 @@ CI completion for task 3.3 (2026-10-14): run [38534846859](https://github.com/lg
 
   - **2026-10-15 (integration re-proof on `codex/c0161-c0092-integration`).** Documentation, layout and residue tests pass inside check-fast. The merged Altium guide page keeps the notice line within the 150000-byte skill budget (`tests/unit/agent`: 81 passed, 12 skipped).
   - **2026-10-14.** Rewrote current limits from the documented written scope, distinguishing DSL build, model rewrite, native kit and acceptance-project comparisons. Updated README and the packaged skill status without exceeding its size budget. Reconciled the milestone row and Phase 4 with dependency archives, acceptance/probe, the published native derivative and runtime graduation; historical release records remain unchanged. Prepared a five-row measured acceptance review alongside the existing criteria, retaining the proposal heading and the unmet write-promotion part of item 5. Documentation/layout/residue plus guide-budget/historical-release proof: 445 passed, 25 skipped (22 mutating consistency cases, 2 absent official-library cases, 1 absent kicad-cli case), 72.19s. Guide generator check, strict validation and diff check passed. Task 5.2 still requires the maintainer's explicit review; closing and archive still require exact-commit CI.
-- [ ] 5.2 Put the v0.3 acceptance block of `docs/roadmap.md` to the maintainer for review, with the measured result of each of its points beside it; record his answer and the date under this task, and change the block's heading from a proposal to the accepted text or to what he asks. The change does not close before that. Proof: `grep -n "v0.3 acceptance" docs/roadmap.md` shows no "proposal" in the heading, or this task holds his dated refusal.
+- [x] 5.2 Put the v0.3 acceptance block of `docs/roadmap.md` to the maintainer for review, with the measured result of each of its points beside it; record his answer and the date under this task, and change the block's heading from a proposal to the accepted text or to what he asks. The change does not close before that. Proof: `grep -n "v0.3 acceptance" docs/roadmap.md` shows no "proposal" in the heading, or this task holds his dated refusal.
 
   - **2026-10-15.** No new answer from the maintainer is recorded. The heading stays a proposal; task open (needs the maintainer).
   - **2026-10-14.** The maintainer answered "Revisar o quadro antes de aprovar". This requests further review and is neither approval nor a dated refusal. Keep the proposal heading and this task open. In particular, the measured native kit does not satisfy the still-unmet promotion criterion: all nine write kinds remain experimental.
   - **2026-10-08 (release 0.3.0).** Not put to the maintainer as a review. The release record of 0.3.0 holds each point of the block with its measured result; point 5 (a recorded kit run, and the PCB document and schematic document writes out of `experimental`) is not met. The heading still says proposal. Task open.
+
+### Maintainer review — 2026-11-03
+
+The maintainer reviewed the five-criterion packet (SHA-256 `d24031407f7ce1eeca17c8cc61dc72bc38cf9bca73489b9a7bb346b2900ea349`) and answered: "Aprovo os cinco critérios como alvo". The roadmap now records accepted criteria. This is not a passing native acceptance or a writer graduation. Historical nine write kinds and today's additional Draftsman remain distinct. The separate authorization accepts actual Altium24.5.2.23 for pending native tests, without relabelling historical26.5 observations.
+
+- [ ] 5.3 Complete accepted criterion5 on the actual `examples/acceptance_v03` tree: record the real Altium24.5.2.23 run with source-bound hashes and all required steps; satisfy the unchanged graduation rule for PCB and schematic writes, or retain the measured failure visibly. A historical kit on other samples does not satisfy this task. Proof: actual eligible native run, current register/graduation output and exact-source CI. No evidence promotion by approval alone. This task stays open while accepted criterion5 is unmet; a recorded failure is evidence, not completion.
 
 ## 6. Closing
 
@@ -143,3 +149,18 @@ The acceptance-block decision is still absent; existing published/author evidenc
 See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.
 
 Task 6.2 remains open on this base: its literal declaration proof has the three pre-existing failures named in c0172's continuation note. The coordinating branch owns the cross-backend declaration repair. Current own-readback and matrix regeneration do not promote the new Draftsman kind or settle the maintainer's separate acceptance-block decision.
+
+## Approved pending-native scope — 2026-11-03
+
+The maintainer explicitly authorized the pending Altium validations on the
+available Altium Designer 24.5.2.23: "tenho so o24.5, mas eu autorizo as
+validacoes serem no24, nao precisa ser na26". This replaces the version
+prerequisite of pending runs only. Record the actual tool/build, input hashes
+and each observed outcome. It does not complete a case, open a write gate,
+raise evidence, prove26.5 equivalence or replace any historical26.5 report.
+Do not combine different versions/input digests into one fictional kit run.
+All existing acceptance criteria, facts-before-code rules and final CI remain.
+The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
+build 24.5.2.23 in the separate native observation report, not a new form key.
+
+Review-record proof: historical v0.3 release-record tests21 passed; strict OpenSpec validation passed. The roadmap acceptance heading no longer says proposal. Native acceptance, graduation and final CI remain open.

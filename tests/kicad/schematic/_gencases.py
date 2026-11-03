@@ -46,6 +46,7 @@ SLASH_TEXT = "mod/LED_A"
 CHAR_PINS: tuple[tuple[str, str], ...] = (
     ("1", "A B"), ("2", "A/B"), ("3", "V+"), ("4", "~"), ("5", "~{RST}"), ("6", "1WIRE"), ("7", "DUP"),
     ("8", "DUP"), ("9", "A-B_C.D"), ("10", "D{0}"),
+    ("11", "#"), ("12", "RESET#"), ("13", "A/# B"),
 )  # fmt: skip
 """Pin number and name of the probe symbol ``Probe:Chars``: one pin per character class."""
 

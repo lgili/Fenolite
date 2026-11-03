@@ -1,0 +1,3 @@
+# Preserve measured hash characters in open-pin net names
+
+Video's seven new nativeL6 differences all stem from source unconnected pin names containing `#`. Fenolite deliberately leaves these pads on no named net because `PROVED_PIN_CHARS` excludes that unmeasured character; L2's connectivity semantics allow singletons, but strict native Default-class partition membership exposes the missing names. Do not relax L6, guess net names, drop singletons or waive the difference. Measure original authored `#` pin-name controls on actual KiCad9/10, then extend only the measured character if exact naming is proved.

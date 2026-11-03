@@ -47,6 +47,7 @@ from fenolite.cli.output import (
     write_error,
 )
 from fenolite.core.errors import FenoliteError, Issue
+from fenolite.core.evidence import Level
 from fenolite.core.io import RecoveryError, WriteError, atomic_write_all, sha256_bytes
 from fenolite.core.state import state_dir
 
@@ -612,10 +613,12 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
             outcome = command.run(args, ctx)
             if outcome.writes and not command.mutates:
                 raise RuntimeError(f"command {command.name!r} returned writes but is not declared mutating")
-        # Exception-only and empty diagnostic failures make no design claim. Successful command
-        # results (including empty ones) and every write are checked before plans or files exist.
+        # A failed UNVERIFIED diagnostic can retain context without claiming a successful judgment.
+        # Successful results and every attempted write are checked before plans or files exist.
         diagnostic_only = (
-            not outcome.result and not outcome.writes and any(i.severity == "error" for i in outcome.issues)
+            (not outcome.result or outcome.evidence.level is Level.UNVERIFIED)
+            and not outcome.writes
+            and any(i.severity == "error" for i in outcome.issues)
         )
         if not diagnostic_only:
             unknown = (

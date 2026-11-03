@@ -238,3 +238,16 @@ forbidden. The guard and a no-subprocess packing proof cover this minimum bridge
 5. **If no gate has passed by the 0.5.0 cut?** Recommended: ship route P in 0.5.0 (project parameters and the procedure, which are useful on their own) and the document in a 0.5.x release. Do not hold the release. **Decided 2026-10-16 (maintainer): hold 0.5.0 until the native document passes his kit.** The fallback to a 0.5.x release does not apply. The stop rules of Decision 9 still apply: when a gate fails, route T or route P is what ships in 0.5.0.
 6. **Do-not-populate parts on the assembly sheets?** Recommended: report them with `altium.not-lowered` and draw them as fitted, because the Altium build writes no variant. Variants and their not-fitted display are a later change. **Decided 2026-10-16 (maintainer): reported and drawn as fitted.**
 7. **Commit the public samples?** Recommended: no. Manifest rows `altium-third-party-pcbdwf-01` to `-04`, fetched, `embeddable = false`, as the other Altium rows. **Decided 2026-10-16 (maintainer): fetched-only rows, never committed.**
+
+## Approved pending-native scope — 2026-11-03
+
+The maintainer explicitly authorized the pending Altium validations on the
+available Altium Designer 24.5.2.23: "tenho so o24.5, mas eu autorizo as
+validacoes serem no24, nao precisa ser na26". This replaces the version
+prerequisite of pending runs only. Record the actual tool/build, input hashes
+and each observed outcome. It does not complete a case, open a write gate,
+raise evidence, prove26.5 equivalence or replace any historical26.5 report.
+Do not combine different versions/input digests into one fictional kit run.
+All existing acceptance criteria, facts-before-code rules and final CI remain.
+The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
+build 24.5.2.23 in the separate native observation report, not a new form key.

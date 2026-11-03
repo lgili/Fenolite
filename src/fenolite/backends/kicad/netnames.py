@@ -18,7 +18,7 @@ from collections.abc import Sequence
 
 SLASH = "{slash}"
 UNCONNECTED_PREFIX = "unconnected-("
-PROVED_PIN_CHARS: frozenset[str] = frozenset(string.ascii_letters + string.digits + " /+-_.~{}")
+PROVED_PIN_CHARS: frozenset[str] = frozenset(string.ascii_letters + string.digits + " /+-_.~{}#")
 """The characters of a pin name for which ``unconnected_name`` equals KiCad's name on 9.0.9 and 10.0.6
 (probes ``sch-unconnected-*``). A pin whose name holds another character keeps its pad on no net."""
 
