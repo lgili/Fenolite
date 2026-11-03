@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- **Derived blank-title intent** (c0339): keep explicit blank metadata in the
+  authored import example and record the exact removal of empty native blocks
+  from its independent rebuild byte guards.
+
 - **Derived project identity guards** (c0344): refresh the authored sync project,
   import provenance and independent blink digests after exact cache-only review;
   verify skip-mode templates and every unrelated project setting independently.
@@ -82,7 +86,8 @@ All notable changes to Fenolite are documented here. The format follows
 - **Preserve blank native title blocks** (c0339, in progress): keep imported
   empty sheet metadata explicitly blank instead of inheriting a dated board.
   Authored inheritance and all75 default plans remain unchanged. Authored
-  target9/10 full proofs and CLI10.0.6 drawing-sheet controls pass; public-board
+  target9/10 full proofs and CLI10.0.6 drawing-sheet controls pass. Resolve
+  blank intent before omitting empty native blocks to preserve frozen drawings; public-board
   replay and exact-head CI remain required.
 
 - **Authored schematic font styles** (c0337, in progress): render preserved

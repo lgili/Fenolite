@@ -904,6 +904,9 @@ def _sheet(
             )
         )
     block = sheet.block() or board_block
+    # Resolve blank intent before omitting the empty native node; do not inherit again.
+    if block is not None and not title_pairs(block):
+        block = None
     opaque = [*slanted, *(item.kicad for item in sheet.opaques)]
     return SchematicSheet(
         id=sheet_id,

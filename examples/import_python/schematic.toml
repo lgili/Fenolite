@@ -6,6 +6,9 @@ root = "root"
 key = "root"
 paper = "A4"
 
+[sheet.title_block]
+title = ""
+
 [[sheet.symbol]]
 part = "J1"
 unit = 1
@@ -51,6 +54,9 @@ page = "3"
 [[sheet]]
 key = "ch1"
 paper = "A4"
+
+[sheet.title_block]
+title = ""
 
 [[sheet.symbol]]
 part = "D101"
@@ -99,6 +105,9 @@ shape = "passive"
 [[sheet]]
 key = "ch2"
 paper = "A4"
+
+[sheet.title_block]
+title = ""
 
 [[sheet.symbol]]
 part = "D101"

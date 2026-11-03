@@ -21,3 +21,32 @@ Fresh baselinee265 maps match all22 complete scenes (420455compactbytes) and
 all75 complete API plans (1172files across65success/10existingrefusals).
 Driver, native-output and input digests are recorded; no byte table changed.
 Required coordinator batch gates and affected public-board replay remain open.
+
+## 3. Freeze compatibility follow-up
+- [x] 3.1 Preserve existing absent-native-title-block bytes when an extracted explicit blank suppresses inheritance; keep dated-parent/blank-child controls. Proof: four original test_drawn_freeze controls unchanged plus full authored title proofs.
+
+Follow-up reproduced2026-11-02: all four original target9/10 blink/nested
+freeze byte controls fail solely because lowering writes an empty(title_block)
+node where the generated source omitted it. Resolve explicit blank intent
+before native emission, then omit a wholly empty resolved native block. Native
+absence is already the documented blank semantics; no inheritance is added.
+
+Task3.1 passed: all4original frozen blink/nested target9/10 exact-byte tests
+and both dated-parent/blank-child full1–8/S proofs pass unchanged; actual
+KiCad10.0.6 title SVG control passes after the omission fix. No comparison
+assertion, expected byte or tolerance was relaxed.
+
+- [x] 3.2 Refresh the derived authored import example with literal blank intent;
+  prove only three empty native title blocks and their manifest hashes change
+  in ordinary imports before updating the independent aggregate pins.
+  Proof: exact complete pre/post maps, 75 complete default plans and focused import/freeze tests.
+
+Task3.2 proof: clean ed972353 and15661b65 complete ordinary-import maps
+on9/10 differ only by omitting three empty native title_block nodes and their
+three paired manifest hashes. All other bytes stay exact. The source import
+aggregate stays exact. Only the corresponding independent rebuilt aggregates
+are refreshed. Derived TOML adds exactly blank-title intent on its three
+sheets, nothing else. Complete75default plans/1172files match bffa03fd with
+zero changes after the omission repair. The full importer identity, original
+freeze and examples modules pass53 tests in8.39s. Receipt:
+`docs/evidence/drawn-empty-title-import-bytes.json`. Fast/CI remains pending.

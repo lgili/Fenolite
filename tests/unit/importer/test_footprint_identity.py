@@ -206,14 +206,15 @@ def test_actual_native_name_change_is_not_explained_as_a_variant(name: str) -> N
 @pytest.mark.parametrize(
     "target,expected",
     (
-        (9, "29817d226e47a4f9f06a37a85d84f83f3cbb0418e1f7ea5deaee289d24723dbd"),
-        (10, "cfea7242149b092102244be518c5c98be58d57d34c3a09cca09d6b97342a168a"),
+        (9, "021ad831c254ca8cc7908258abf68881a987f78e1e7607b4ced093f3c128a526"),
+        (10, "f89bb04ccb4d8bece6b5fdfd76a5c774e2dda952ef141815a4d2503efc0bca8d"),
     ),
 )
 def test_ordinary_import_and_rebuild_keep_every_byte(tmp_path: Path, target: int, expected: str) -> None:
-    """Pins refreshed on clean bffa03fd plus c0344's two-sheet identity-cache refresh.
+    """Pins include c0344 identity caches and c0339 absent-title-block preservation.
 
-    Every imported/built file matches that clean baseline byte-for-byte on9/10;
+    All rebuilt files retain that baseline except the three empty native title blocks
+    deliberately omitted by c0339 and their paired manifest hashes;
     c0342 leaves nonalias imports unchanged. The source fixture changed only
     .pro top_level_sheets/sheets, to stay a fresh build after c0344.
     """
