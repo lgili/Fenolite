@@ -84,3 +84,43 @@ come from the public IServerDocument reference, not vendor installation files
 or decompilation. Native acceptance, remaining ERC/name/visual/save requirements,
 full formal kit execution and exact-head CI remain open. H-A-DRAWN-WRITE stays
 INFERRED; no source ERC finding, default byte guard or tolerance is waived.
+
+
+## Current native24 clean-control acceptance (2026-11-03)
+
+[The scoped clean-control receipt](altium-clean-drawn-native.json) records actual
+Altium Designer **24.5.2.23**, one frontend started2026-11-03T00:58:08Z, and writer
+`da89051f6bd7cfe81cae5fd3daedaa3e8d565629`. This is a new application-version
+measurement; the original22.2.1 observations above remain historical evidence.
+Only new isolated Fenolite-authored clones were opened, compiled or saved.
+
+| Control | Complete pins | Groups | Declared-name differences | Every compiler message |
+| --- | ---: | ---: | ---: | --- |
+| Unmarked ASCII |40|36|0|2 errors,2 warnings on U1-11/U1-12|
+| Marked binary, before and after native save/reopen |40|36|0|1 compile-success Info each; no error/warning|
+| Marked ASCII, before and after native save/reopen |40|36|0|1 compile-success Info each; no error/warning|
+| Independent child-port NAME-only broken ASCII |40|40|4|14 errors, strict partition difference|
+
+The two marked controls declare only the truly unused U1-11/U1-12 inputs; each
+root has exactly two active point-scoped NoERC directives and the child has none.
+All original and saved marker coordinates, active/suppression flags and symbol
+text are identical. The point's native SUPPRESSALL flag is retained; there is no
+global ERC configuration change or marker on a connected bus pin. Every native
+pin/net membership and all36 native short/full names are identical before
+marking and after save/reopen. The broken control still splits four connected
+two-pin groups into eight singletons and reports the unmatched bus boundary;
+its40-pin universe and all14 messages are retained, not filtered.
+
+Both original output forms were saved as `Advanced Schematic binary` into new
+owned copies. Four files exist with native CFB headers and retained digests;
+each was closed and independently reopened, then both complete saved projects
+were recompiled/exported. All60 reviewed source files remain byte-identical on
+Mac and Windows, and save-source clones remain unchanged. SDK scripts, raw
+exports, versions, source/plan/input digests and every message remain in the
+external `fenolite-cac-altium24-clean-drawn-20261103` packet. S-1293 records the
+original authored controls; existing S-0501/S-0503/S-0504/S-0505 supply SDK facts.
+
+This completes only c0276 task6.3's independent clean acceptance control. It
+does not retroactively pass original6.2's source findings, claim GUI authorship
+or all Altium versions/metadata, or promote H-A-DRAWN-WRITE from INFERRED. The
+overall gate, required exact-head CI and maintainer reviews stay open.

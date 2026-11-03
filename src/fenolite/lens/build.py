@@ -72,7 +72,6 @@ from fenolite.backends.kicad.outline import (
     outline_case,
 )
 from fenolite.backends.kicad.pcb import WRITE_EVIDENCE, read_board, write_board
-from fenolite.backends.kicad.pro_template import validate_project_template
 from fenolite.backends.kicad.schgen import GeneratedSchematic
 from fenolite.backends.kicad.schlayout import SymbolPlacement
 from fenolite.backends.kicad.sexpr import parse_bytes
@@ -80,7 +79,7 @@ from fenolite.backends.kicad.symbol_contexts import Contexts, check_written
 from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.kicad.zones import PadZoneRequestLike, apply_pad_connections, keep_pad_connections
 from fenolite.core.coords import Point, Size
-from fenolite.core.errors import FenoliteError, Issue, Severity
+from fenolite.core.errors import FenoliteError, FormatError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.core.schema_ids import accepts_schema
@@ -91,6 +90,7 @@ from fenolite.lens.fields import FieldRequestLike, apply_requests, merge_fields
 from fenolite.lens.moved import identity_map
 from fenolite.lens.pins import PIN_ISSUE_CODES
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
+from fenolite.lens.project_resources import ProjectResource, validate_resources
 from fenolite.lens.rolecopper import RoleCopperPlanner, apply_plan
 from fenolite.model import canonical, drawn_connect, pairs
 from fenolite.model.board import (
@@ -1510,6 +1510,7 @@ def build_design(
     context_symbols: Contexts | None = None,
     schematic_groups: Mapping[str, Sequence[SheetGroup]] | None = None,
     project_template: str | None = None,
+    project_resources: Sequence[ProjectResource] = (),
     preserve_project_minimums: bool = False,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
@@ -1604,7 +1605,9 @@ def build_design(
     if preserve_project_minimums and project_template is None:
         raise ValueError("preserving native project floors requires a declared project template")
     if project_template is not None:
-        validate_project_template(project_template, managed_frame=drawing_sheet is not None)
+        validate_resources(project_template, project_resources, managed_frame=drawing_sheet is not None)
+    elif project_resources:
+        raise ValueError("native worksheet resources require a declared project template")
     effective_project = (
         project_template
         if project_template is not None
@@ -2253,6 +2256,10 @@ def build_design(
                 target="kicad",
             )
         ).encode("utf-8")
+    for resource in project_resources:
+        if resource.name in files:
+            raise FormatError("native worksheet output collides with a generated file", file=resource.name)
+        files[resource.name] = resource.data
     record = {path: hashlib.sha256(data).hexdigest() for path, data in sorted(files.items())}
     for file_name, text in canonical.dump_texts(layout).items():
         files[f"{CACHE_DIR}/{file_name}"] = text.encode("utf-8")

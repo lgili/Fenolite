@@ -6,17 +6,25 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- **Imported native rule semantics** (c0352, in progress): preserve the actual Default netclass in emitted canonical code and rebuilt native projects. Imported digest-bound project declarations set the new optional `preserve_minimums=True` ownership flag so native hard floors remain independent of actual custom DRU overrides; default False retains authored DSL behavior. Native KiCad9/10 controls and traced representation census bound these claims. Path-based level6 now names exact supported native floor/class/membership coverage and source hashes; canonical Design comparisons remain unchanged. Imported provenance records accept their existing typed fidelity proof in the closed schema. Existing derived-cache receipts now have closed typed structure and narrow finite canonical-wire unjudged leaves; actual native record/schema/source-binding controls pass without changing cache acceptance. Exact electrical binding permits parallel physical copies only with identical complete terminal-to-net signatures, retaining every physical footprint and refusing conflict/decomposition. Explicit native null class fields remain represented unset and named unjudged, with no invented fallback.
+- **Declared project worksheets** (c0354): imported native projects carry their exact relative worksheet resources as checked inputs and outputs. PCB and schematic frame scopes remain independent; unsafe or missing resources refuse, and input edits invalidate reviewed plans.
+
+- c0352: keep the schematic-comparison guide navigation after its native-context and receipt explanations.
+- c0353: resolve ordinary source-symbol inheritance with the existing canonical resolver before exact pin binding, preserving parent pins/units, child properties and the original contextual-inheritance refusal.
+- Preserve explicit authored9/10 controls for active inter-sheet references without a field pose; keep the refusal and disabled behavior unchanged (c0348).
+
+
 
 - **Imported example target controls** (c0351): refresh the authored imported example with its exact native project input, Default class and retained hidden reference fields. Physical-identity and alias positives now use genuinely authored target9 inputs; an independent incompatible target10-to9 build still refuses without outputs. Complete file-map comparisons retain all rebuilt native bytes.
 
 
-- **Imported native rule semantics** (c0352, in progress): preserve the actual Default netclass in emitted canonical code and rebuilt native projects. Imported digest-bound project declarations set the new optional `preserve_minimums=True` ownership flag so native hard floors remain independent of actual custom DRU overrides; default False retains authored DSL behavior. Native KiCad9/10 controls and traced representation census bound these claims. Path-based level6 now names exact supported native floor/class/membership coverage and source hashes; canonical Design comparisons remain unchanged. Imported provenance records accept their existing typed fidelity proof in the closed schema.
 - **Checked inter-sheet presentation context** (c0348): view and level8 use actual owning project settings and explicit repeated-instance scenes. Cache and live reloads bind project/hierarchy inputs; ambiguous or missing contexts refuse while live views retain their last good scene. Public owning-project replay passes on native9/10; strict adjacent checks retain the legacy writer10 explicit hidden pose, while target9 retains its absent field. Exact-head CI remains required.
 
 - c0351: prove native-project refusal precedence independently from contextual-symbol output-mode refusal, retaining exact source/asset hashes and zero-write controls for both boundaries.
 
 
 - c0217: retain the real unsupported-v2 proposal refusal while proving the reviewed v1 mirror preserves every authored field; literal decimal pin counts remain rejected under both mirrors.
+- **Native clean drawn acceptance control** (c0276): Altium24.5.2.23 compiles both authored output forms with only the two intentional unused inputs marked; complete40-pin connectivity, names and Info-only logs survive isolated native save/reopen. The unmarked findings and broken-bus negative remain visible; original gates and evidence limits stay open.
 
 - **Explicit unused-pin acceptance control** (c0276): add an authored connected
   bus variant whose two unused inputs are declared unconnected. Both Altium

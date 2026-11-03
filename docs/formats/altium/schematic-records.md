@@ -505,6 +505,15 @@ Record 22: a No ERC directive.
 | `SYMBOL` | text | "" | `symbol` | S-0130, S-0131 | INFERRED | H-A-RD-SCH-CASE |
 | `ORIENTATION` | quarter turns 0 to 3 | 0 | `orientation` | S-0130, S-0131 | INFERRED | H-A-RD-SCH-CASE |
 
+**ORACLE-VERIFIED(Altium Designer24.5.2.23 SDK)**, S-1293: two original authored
+active point-scoped NoERC records at unused U1-11/U1-12 remove exactly the corresponding
+two floating-input errors/two no-driver warnings. Complete40-pin/36-group connectivity
+and all native names remain unchanged; a separately broken connected bus still has
+40pins/40groups and14 errors. Both original forms compile cleanly and new-copy native
+binary save/reopen retains the two exact locations, active/suppression flags and symbol.
+No record-wide/default-field or global ERC-policy verification is inferred; the rows
+above and H-A-DRAWN-WRITE keep their existing evidence limits.
+
 ### 25 `NetLabel`
 
 Record 25: a net label; its location is the connection point.

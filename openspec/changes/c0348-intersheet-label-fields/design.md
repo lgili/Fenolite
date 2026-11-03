@@ -102,3 +102,16 @@ instance lookup cannot become a None fallback. Discovery is restricted to an
 explicit project or adjacent project files within the known directory, never
 ancestor search or disk traversal. A repeated child requires an actual explicit
 instance document ID; default selection cannot silently choose the first.
+
+## Explicit missing-pose regression control
+
+A project-template investigation enables project reference display on the full
+authored drawing. That drawing has no authored label field poses: target9 keeps
+that absence, while target10's existing writer supplies its legacy hidden
+property. Therefore the target9 active viewer refusal is intentional input
+validation, not permission to synthesize a pose. Add independent authored9/10
+controls for exact explicit field text and coordinates, missing-field refusal
+when display is active, and unchanged disabled behavior. No runtime, original
+helper, default writer, or native guard changes are requested. The coordinator
+authorized these focused regression controls after reviewing the actual
+FEN-3004 locator VCC; this is distinct from a power-symbol guard.

@@ -15,6 +15,8 @@
 - [x] 2.3 Teach the actual public field, regenerate the agent guide and update docs/formats/evidence/CHANGELOG. Proof: guide/schema/generated checks and declared public provenance.
 - [x] 2.4 Replay all three real affected corpus inputs with complete owner inputs, source hashes, all native graph partitions and visible native fields. Keep every unrelated warning/failure. Proof: actual9/10 focused receipts without retained third-party CAD.
 
+- [x] 2.5 Preserve authored9/10 regression controls: active visible references without a native field pose refuse; an explicit authored pose renders exact text/position; disabled project settings need no invented pose. Reuse existing native9/10 SVG controls; do not alter the project-template full helper to conceal a refused input.
+
 ## 3. Required final gates
 
 - [ ] 3.1 Run focused lint/format/types/residue and coordinate final model0 inventory/75 plans plus root-owned fast and exact-head native CI. Proof: exact source-bound logs; archive only after every task passes.
@@ -33,3 +35,5 @@ No native default field pose is invented when the source lacks it.
 Public2.4 native9/10 owner replay now passes with c0351 carrier and c0353 direct embedding repair, recorded in evidence.md. Required exact-head CI/model reviews3.1 stay open.
 
 Adjacent closed expectation after root fast-batch4: target10 legacy writer materializes an explicit hidden reference field at the authored label anchor (rotation0, exact justify); extraction must preserve it. The every-kind characterization now asserts that exact appended field and all other label fields, while target9 retains None. No producer or native pose is normalized away. Focused before/after and prior authored native hide/pose controls are recorded in evidence.md.
+
+Focused2.5 proof: `pytest tests/unit/view/test_kicad_intersheet.py -q`29passed; actualnative9.0.9 and10.0.6 `pytest tests/kicad/schematic/test_intersheet_fields.py -q -k "native_effective_reference_matrix and (on or stored-hide)"` each3passed/16deselected (includes the matching punctuation case). Existing native SVG text assertions and immutable input hashes retained. Runtime/helper unchanged; root fast/exact-head CI3.1 remain pending.

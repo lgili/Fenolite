@@ -3,6 +3,28 @@
   "census_sha256": "78cf9255ddeb2c85cbf69ddbaa45a8859264434f9dd76ad328a0e28129d3dae5",
   "change": "c0352",
   "core_snapshot": "6d464cd3",
+  "existing_derived_cache_wire_support": {
+    "actual_exact_geometry_sha256": [
+      "0bc42a2c68a8b5a08495919748aed3a8950e6f30ec0b1add82675cd16bf589db",
+      "0bc42a2c68a8b5a08495919748aed3a8950e6f30ec0b1add82675cd16bf589db"
+    ],
+    "actual_native_control": "full1\u20138+S, record dry/confirm, closed schema0/1 semantics/source hash binding, missing tool/malformed rules/curve tamper;1passed5.82s",
+    "actual_native_receipt_sha256": "6295103a8448cd37040a30c581e928397b7f3f9e551b8883de8f74a34bd0703a",
+    "actual_native_version": "10.0.6",
+    "actual_raw_counts": [
+      2,
+      0
+    ],
+    "actual_regenerated_counts": [
+      2,
+      2
+    ],
+    "global_any_payload_added": false,
+    "known_structure": "closed typed root/config/status/sides/crossings; exact existing partial native failure branches",
+    "mocked_protocol_controls": "16 cases; recursive/source-bound0/1mirror and unknown/type/nonfinite/unsupported-object negatives, explicitly not native evidence",
+    "runtime_producer_and_acceptance_changed": false,
+    "uninterpreted_leaf_scope": "only unjudged_project_rule_deltas a/b; null/bool/int/string/recursive arrays; rational numbers and key-value array mappings"
+  },
   "floor_ownership_native": {
     "10": [
       {
@@ -303,10 +325,26 @@
     "native_cache_acceptance_changed": false,
     "pure_design_hard_floor_property_invented": false
   },
+  "native_null_unset_guard": {
+    "after": "exact null or absent-both remain None and explicitly unjudged; numeric counterpart differs; malformed bool/string/inexact still refuse",
+    "before": "literal null rejected despite existing parser None mapping",
+    "controls": 54,
+    "native_fallback_or_inheritance_claimed": false,
+    "royal_combined_replay": "pending"
+  },
   "native_project_floor_values_equal": true,
   "native_rebuilt_dru_sha256": "68c46e1476dfd993ef1d85646cba1ef5074b89f3a77361a3f445e1cca7669361",
   "native_rebuilt_project_sha256": "54347fd5eda9fd3b7e6779d60a2cb8c277cdbdca61c32439ea79383eedf7e5bd",
   "native_source_project_sha256": "a25ffa7ff829d5eaff27b29724b57821ce2ee7fd39ae367b9ea078d290e37690",
+  "parallel_physical_reference_binding": {
+    "author_controls": 113,
+    "physical_geometry_or_uuid_rewritten": false,
+    "physical_objects_removed": 0,
+    "public_full_replay": "pending combined source",
+    "scope": "same complete connected numbered-terminal-to-net signature only; conflicting/partial/decomposed identities refuse",
+    "source_audit_sha256": "997c42082a7d6e329b42dab78c14131cb12f52913a361308156902ee805ff732",
+    "source_board_sha256": "0d26bf9b6d561e32cf610d428541d6433e60b45e1838f34f73467e25b9144814"
+  },
   "phase": "pre-runtime controls and representation census",
   "representations": {
     "emitted_code_model": {

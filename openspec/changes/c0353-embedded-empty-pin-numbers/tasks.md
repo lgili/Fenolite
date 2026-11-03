@@ -17,3 +17,17 @@
 - [ ] 3.1 Root-owned combined fast and exact-head required CI, plus related c0348/c0351 public replays. Proof: actual jobs; no archive before literal gates pass.
 
 Focused implementation proof is recorded in `proof.md`. Public clean-head receipts are recorded; root-owned CI remains required; no archival or acceptance adjustment is claimed.
+
+- [x] 0.3 Parent approved resolving the existing canonical inheritance chain before embedding in the
+  source-import caller; preserve exact binder and original contextual guard, ordinary9/10 positives.
+- [x] 2.3 Prove unresolved ordinary source inheritance and original contextual negative before fix;
+  use existing resolve_extends before embed and rerun contextual/embedding/pin negative components.
+
+Inheritance follow-up proof: original contextual negative plus ordinary target9/10 positives all
+failed at raw/model cardinality before the caller correction. Existing canonical resolve_extends
+now supplies parent-derived pins before embedding. Three authored controls pass; original contextual
+negative text/assertion is unchanged. Complete contextual importer, embedded symbols, empty-number
+binder and contextual CLI components: 100 passed. Exact pin tuples, units and child properties are
+proved; all existing cardinality/unit/style/geometry/refusal controls remain. Pyright reports zero
+errors/warnings. No model fields, dependencies, defaults, tolerances or evidence levels change.
+Root combined fast/CI remains open.

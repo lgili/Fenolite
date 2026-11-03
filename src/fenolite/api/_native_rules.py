@@ -46,11 +46,28 @@ def bindings(design: Design) -> dict[str, tuple[str, ...]]:
 
 
 def raw_bindings(root: Node, expected: frozenset[tuple[str, ...]]) -> dict[str, tuple[str, ...]]:
-    """Bind raw native net tokens by exact numbered-pad partitions, never spelling substitutions."""
+    """Bind complete electrical terminal signatures; retain all physical copies outside this set view."""
     members: dict[str, list[str]] = defaultdict(list)
     seen: dict[str, str] = {}
-    seen_refs: set[str] = set()
+    identities: dict[str, tuple[str, str]] = {}
+    signatures: dict[str, tuple[tuple[str, str], ...]] = {}
     for footprint in root.nodes("footprint"):
+        terminals: dict[str, str] = {}
+        for pad in footprint.nodes("pad"):
+            atoms = pad.atoms()
+            if not atoms or atoms[0].kind != AtomKind.STRING:
+                raise ValueError("native pad number malformed")
+            if not atoms[0].value or not pad.nodes("net"):
+                continue
+            net = native_net(pad, root)
+            if not net:
+                continue
+            number = atoms[0].value
+            if number in terminals and terminals[number] != net:
+                raise ValueError("native numbered-pad identity ambiguous")
+            terminals[number] = net
+        if not terminals:
+            continue  # No numbered electrical terminal to bind; no physical object is removed.
         references = [
             p.atoms()[1].value
             for p in footprint.nodes("property")
@@ -62,20 +79,18 @@ def raw_bindings(root: Node, expected: frozenset[tuple[str, ...]]) -> dict[str, 
             if len(p.atoms()) >= 2 and p.atoms()[0].value == "reference"
         ]
         if len(references) != 1 or not references[0]:
-            raise ValueError("native footprint has no unique reference")
-        if references[0] in seen_refs:
-            raise ValueError("native footprint reference ambiguous")
-        seen_refs.add(references[0])
-        for pad in footprint.nodes("pad"):
-            atoms = pad.atoms()
-            if not atoms or atoms[0].kind != AtomKind.STRING:
-                raise ValueError("native pad number malformed")
-            if not atoms[0].value or not pad.nodes("net"):
-                continue
-            net = native_net(pad, root)
-            if not net:
-                continue
-            element = references[0] + "-" + atoms[0].value
+            raise ValueError("native electrical footprint has no unique reference")
+        reference = references[0]
+        signature = tuple(sorted(terminals.items()))
+        if reference in signatures and signatures[reference] != signature:
+            raise ValueError("native repeated reference has ambiguous terminal decomposition")
+        signatures[reference] = signature
+        for number, net in signature:
+            element = reference + "-" + number
+            identity = (reference, number)
+            if element in identities and identities[element] != identity:
+                raise ValueError("native terminal spelling is ambiguous")
+            identities[element] = identity
             if element in seen:
                 if seen[element] != net:
                     raise ValueError("native numbered-pad identity ambiguous")
@@ -138,9 +153,13 @@ def context(side: ReadSide) -> NativeContext | None:
     raw_classes = cast(list[_json.JsonObject], info.data["net_settings"]["classes"])
     for index, entry in enumerate(raw_classes):
         for key in NETCLASS_KEYS.values():
-            if key in entry and (
-                not isinstance(entry[key], _json.JsonNumber)
-                or cast(_json.JsonNumber, entry[key]).text.startswith("-")
+            if (
+                key in entry
+                and entry[key] is not None
+                and (
+                    not isinstance(entry[key], _json.JsonNumber)
+                    or cast(_json.JsonNumber, entry[key]).text.startswith("-")
+                )
             ):
                 raise FormatError(
                     "native class field is malformed or unsupported",

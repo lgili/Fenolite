@@ -1718,15 +1718,16 @@ def emit(source: Source, options: Options) -> Emission:
     if source.backend == "kicad" and source.project_text is not None:
         from fenolite.backends.kicad.pro_template import validate_project_template
 
-        held_board = source.design.board
         validate_project_template(
             source.project_text,
             file="native/project.kicad_pro",
-            managed_frame=bool(held_board and held_board.sheet and held_board.sheet.drawing_sheet),
+            resource_names=tuple(source.project_resources),
         )
         project_bytes = source.project_text.encode("utf-8")
         project_path = "native/project.kicad_pro"
         files[project_path] = source.project_text
+        for resource_name, resource_text in source.project_resources.items():
+            files[f"native/{resource_name}"] = resource_text
         project_sha = hashlib.sha256(project_bytes).hexdigest()
         declaration = Call(
             "design.kicad_project",

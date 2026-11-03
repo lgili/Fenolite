@@ -21,3 +21,18 @@ pass separately; do not alter that pipeline or claim the direct-embedding failur
 Coordinator review — 2026-11-03: parent approved c0353 and S-1291 before code, narrow measured
 blank-number boundary, authored empty versus literal-tilde controls first, all four source/target
 combinations and complete identities/names with no filter, no new fields and no silent fallback.
+
+## Unresolved source inheritance addendum (review approved before code)
+
+The combined source-context negative revealed a caller ordering violation: source import passes
+an unresolved derived SymbolDef (empty own pin list) to embed_symbol, while _flatten correctly
+emits the parent's body. Exact binding then sees raw parent pins versus empty unresolved model pins
+before the existing contextual-inheritance refusal can run. Normal resolver callers already pass
+sym.resolve_extends(chain)[0]. Use that same existing canonical resolver in the source-import caller
+before embedding, retaining the child raw slots/properties and the original parent chain. Do not
+alter cardinality/unit/style/geometry/identity checks or weaken the contextual rejection.
+
+Author ordinary single-sheet inheritance controls on targets9/10 that prove exact parent-derived
+pins/units and child property overrides; keep the original contextual-inheritance negative unchanged.
+Run all existing contextual, embedded-pin and embedded-symbol negatives after the focused repair.
+No native grammar fact, model field, default, tolerance or output-scope change is introduced.

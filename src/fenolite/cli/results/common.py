@@ -5,11 +5,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, NewType
 
 from fenolite.analysis.report import Measure
 from fenolite.checks.copper import CopperRef
 from fenolite.core.coords import Point
+
+CanonicalNativeJson = NewType("CanonicalNativeJson", object)
+"""Uninterpreted exact canonical-wire delta leaf: null/bool/int/string/recursive arrays.
+
+Only derived-cache unjudged a/b metadata uses this marker. JSON numbers are rational triples;
+object mappings become key/value arrays. The generator supplies its closed recursive schema.
+"""
 
 
 @dataclass(frozen=True, kw_only=True)

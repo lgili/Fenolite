@@ -151,6 +151,28 @@
     "schema"
   ],
   "$defs": {
+    "CanonicalNativeJson": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CanonicalNativeJson"
+          }
+        }
+      ]
+    },
     "Conversion": {
       "type": "object",
       "properties": {
@@ -210,6 +232,256 @@
       "required": [
         "name",
         "version"
+      ]
+    },
+    "DerivedCacheCrossings": {
+      "type": "object",
+      "properties": {
+        "rings_with_proper_crossings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "proper_edge_pair_crossings": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "rings_with_proper_crossings",
+        "proper_edge_pair_crossings"
+      ]
+    },
+    "DerivedCacheRuleDelta": {
+      "description": "Uninterpreted native JSON canonicalization; not judged rule/geometry semantics.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "a": {
+          "$ref": "#/$defs/CanonicalNativeJson"
+        },
+        "b": {
+          "$ref": "#/$defs/CanonicalNativeJson"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "a",
+        "b"
+      ]
+    },
+    "DerivedCacheSettingDelta": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "a_canonical_sha256": {
+          "type": "string"
+        },
+        "b_canonical_sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "a_canonical_sha256",
+        "b_canonical_sha256"
+      ]
+    },
+    "DerivedCacheSide": {
+      "type": "object",
+      "properties": {
+        "raw_caches": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "raw_non_simple_rings": {
+          "$ref": "#/$defs/DerivedCacheCrossings"
+        },
+        "native_input_sha256": {
+          "type": "string"
+        },
+        "qualified_caches_removed_from_private_input": {
+          "type": "boolean",
+          "enum": [
+            true
+          ]
+        },
+        "input_files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "command": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "stdout_sha256": {
+          "type": "string"
+        },
+        "stderr_sha256": {
+          "type": "string"
+        },
+        "output_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "regenerated_caches": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "native_non_simple_rings": {
+          "$ref": "#/$defs/DerivedCacheCrossings"
+        },
+        "exact_geometry_sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "raw_caches",
+        "raw_non_simple_rings",
+        "native_input_sha256",
+        "qualified_caches_removed_from_private_input",
+        "input_files",
+        "command",
+        "exit",
+        "outcome",
+        "stdout_sha256",
+        "stderr_sha256",
+        "output_sha256"
+      ]
+    },
+    "DerivedCacheSides": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "$ref": "#/$defs/DerivedCacheSide"
+        },
+        "b": {
+          "$ref": "#/$defs/DerivedCacheSide"
+        }
+      },
+      "additionalProperties": false
+    },
+    "DerivedCacheSummary": {
+      "description": "Existing common-tool receipt, not raw-cache equality or a DRC safety certificate.",
+      "type": "object",
+      "properties": {
+        "judged_project_keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unjudged_project_rule_deltas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DerivedCacheRuleDelta"
+          }
+        },
+        "unjudged_project_setting_deltas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DerivedCacheSettingDelta"
+          }
+        },
+        "whole_project_json_equality_claimed": {
+          "type": "boolean",
+          "enum": [
+            false
+          ]
+        },
+        "whole_native_rule_file_equality_claimed": {
+          "type": "boolean",
+          "enum": [
+            false
+          ]
+        },
+        "tool": {
+          "type": "string",
+          "enum": [
+            "kicad-cli"
+          ]
+        },
+        "version": {
+          "type": "string"
+        },
+        "raw_cache_equality_claimed": {
+          "type": "boolean",
+          "enum": [
+            false
+          ]
+        },
+        "drc_safety_gate_claimed": {
+          "type": "boolean",
+          "enum": [
+            false
+          ]
+        },
+        "sides": {
+          "$ref": "#/$defs/DerivedCacheSides"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "equal",
+            "differs",
+            "native-failed",
+            "native-config-changed",
+            "native-cache-unqualified"
+          ]
+        },
+        "complete_regenerated_geometry_equal": {
+          "type": "boolean"
+        },
+        "normal_zone_priorities_normalized": {
+          "type": "boolean",
+          "enum": [
+            false
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "judged_project_keys",
+        "unjudged_project_rule_deltas",
+        "unjudged_project_setting_deltas",
+        "whole_project_json_equality_claimed",
+        "whole_native_rule_file_equality_claimed",
+        "tool",
+        "version",
+        "raw_cache_equality_claimed",
+        "drc_safety_gate_claimed",
+        "sides",
+        "status"
       ]
     },
     "EmbeddedImport": {
@@ -329,6 +601,9 @@
     "FidelityProof": {
       "type": "object",
       "properties": {
+        "derived_cache": {
+          "$ref": "#/$defs/DerivedCacheSummary"
+        },
         "native_project_rules": {
           "$ref": "#/$defs/NativeProjectRulesSummary"
         },

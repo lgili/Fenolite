@@ -10,6 +10,7 @@ from pathlib import Path
 import _intersheet
 import pytest
 
+from fenolite.backends.kicad.sexpr import dumps, parse
 from fenolite.core.errors import FormatError
 from fenolite.view import kicad_intersheet as refs
 from fenolite.view import themes
@@ -180,3 +181,47 @@ def test_no_project_path_is_standalone_but_failed_or_ambiguous_owner_is_not(tmp_
     (tmp_path / "other.kicad_sch").unlink()
     path.unlink()
     assert refs.contexts_for_path(child) == (None,)
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_active_references_require_an_authored_native_pose(target, tmp_path) -> None:
+    payload = _intersheet.files(target, settings={"intersheets_ref_show": True}, hidden=True)
+    for name, data in payload.items():
+        (tmp_path / name).write_bytes(data)
+    schematic = tmp_path / "tiny.kicad_sch"
+    project_path = tmp_path / "tiny.kicad_pro"
+    native = parse(schematic.read_text())
+
+    def scene():
+        data = schematic.read_bytes()
+        context = refs.resolve_project(project_path).select(schematic.name)
+        return build_kicad_schematic_scene(
+            data.decode(),
+            name=schematic.name,
+            data=data,
+            palette=themes.palette("kicad"),
+            intersheet_context=context,
+        )
+
+    explicit = scene()
+    assert field_texts(explicit) == ["2"]
+    (field,) = [p for p in explicit["prims"] if p.get("role") == "intersheet_refs"]
+    assert (field["x"], field["y"]) == (65000, 50000)
+    labels = tuple(native.nodes("global_label"))
+    replaced = {
+        id(label): label.with_children(tuple(c for c in label.children if c not in label.nodes("property")))
+        for label in labels
+    }
+    missing = native.with_children(tuple(replaced.get(id(c), c) for c in native.children))
+    schematic.write_text(dumps(missing))
+    with pytest.raises(
+        FormatError, match="visible reference requires an explicit native field pose"
+    ) as caught:
+        scene()
+    assert caught.value.locator == "AUTH_SHARED"
+    assert caught.value.file == "tiny.kicad_sch"
+    project_data = json.loads(project_path.read_text())
+    project_data["schematic"]["drawing"]["intersheets_ref_show"] = False
+    project_path.write_text(json.dumps(project_data))
+    assert not field_texts(scene())
+    assert schematic.read_text() == dumps(missing)

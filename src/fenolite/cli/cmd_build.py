@@ -1332,6 +1332,7 @@ def _built(
         source_inputs.extend(run.source_files)
     design = run.design
     native_project_text = None
+    native_project_resources = ()
     native_project_request = design._kicad_project_input  # pyright: ignore[reportPrivateUsage] - DSL request state
     if native_project_request is not None:
         if args.target != "kicad":
@@ -1347,8 +1348,10 @@ def _built(
             script_path, native_project_request, managed_frame=drawing_sheet_source(design) is not None
         )
         native_project_text = declared_project.text
+        native_project_resources = declared_project.resources
         if source_inputs is not None:
             source_inputs.append(declared_project.path)
+            source_inputs.extend(item.path for item in declared_project.resources)
     if design.symbol_context_source is not None and (args.target != "kicad" or args.schematic == "skip"):
         raise FormatError(
             "contextual native symbols require KiCad schematic output",
@@ -1711,6 +1714,7 @@ def _built(
         drawn_file=drawn_name or "schematic.toml",
         context_symbols=drawn_contexts,
         project_template=native_project_text,
+        project_resources=native_project_resources,
         preserve_project_minimums=design._kicad_project_preserve_minimums,  # pyright: ignore[reportPrivateUsage] - DSL request ownership
     )
     if plan is not None:

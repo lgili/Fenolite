@@ -333,6 +333,24 @@ class SchemaBuilder:
         return schema
 
     def type_schema(self, tp: Any) -> dict[str, Any]:
+        from fenolite.cli.results.common import CanonicalNativeJson
+
+        if tp is CanonicalNativeJson:
+            # Narrow uninterpreted native delta leaves only; no Python objects or nonfinite floats.
+            name = "CanonicalNativeJson"
+            self.defs.setdefault(
+                name,
+                {
+                    "anyOf": [
+                        {"type": "null"},
+                        {"type": "boolean"},
+                        {"type": "integer"},
+                        {"type": "string"},
+                        {"type": "array", "items": {"$ref": f"#/$defs/{name}"}},
+                    ]
+                },
+            )
+            return {"$ref": f"#/$defs/{name}"}
         origin = typing.get_origin(tp)
         args = typing.get_args(tp)
         if tp is Any or tp is object:

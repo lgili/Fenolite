@@ -12,6 +12,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 
 from fenolite.backends.kicad import drawn, sch, symembed
+from fenolite.backends.kicad.sym import resolve_extends
 from fenolite.backends.kicad.sexpr import dumps
 from fenolite.backends.kicad.symbol_contexts import compatible
 from fenolite.core.errors import FormatError, Issue
@@ -81,8 +82,9 @@ def symbols(source: Source, *, target: int) -> SourceSymbols:
                 cursor = parent
             if parents:
                 inherited.add(canonical_id)
+            resolved = resolve_extends((definition, *parents))[0] if parents else definition
             embedded = symembed.embed_symbol(
-                replace(definition, library=canonical_id.partition(":")[0]),
+                replace(resolved, library=canonical_id.partition(":")[0]),
                 parents=parents,
                 target=target,
                 issues=issues,

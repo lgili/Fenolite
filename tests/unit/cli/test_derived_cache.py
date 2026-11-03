@@ -118,7 +118,8 @@ def test_raw_native_spelling_binds_only_by_exact_pin_partition():
     with pytest.raises(ValueError, match="partitions changed"):
         cache._raw_bindings(source, frozenset({("R2-1",)}))
     with pytest.raises(ValueError, match="ambiguous"):
-        cache._raw_bindings(parse(f"(kicad_pcb {PARENT} {PARENT})"), frozenset({("R1-1",)}))
+        split = PARENT.replace('(net "N")', '(net "Conflicting")')
+        cache._raw_bindings(parse(f"(kicad_pcb {PARENT} {split})"), frozenset({("R1-1",)}))
 
 
 @pytest.mark.parametrize(
@@ -181,3 +182,40 @@ def test_model_stacked_partition_collapses_only_same_net_and_preserves_physical_
     bad_fp = replace(footprint, pads=(*footprint.pads, conflicting))
     with pytest.raises(ValueError, match="ambiguous"):
         cache._bindings(replace(design, board=replace(design.board, footprints=(bad_fp,))))
+
+
+@pytest.mark.parametrize("connected", (False, True))
+def test_parallel_physical_copies_bind_only_an_identical_complete_electrical_signature(connected):
+    from fenolite.backends.kicad.sexpr import dumps
+
+    second = (
+        PARENT.replace("(at 1 1)", "(at 4 4)", 1)
+        if connected
+        else '(footprint "OwnLogo" (layer "F.Cu") (property "Reference" "G***"))'
+    )
+    duplicates = second if connected else second + second
+    root = parse(f"(kicad_pcb {PARENT} {duplicates})")
+    before = dumps(root)
+    footprints = root.nodes("footprint")
+    pads = sum(len(fp.nodes("pad")) for fp in footprints)
+    assert cache._raw_bindings(root, frozenset({("R1-1",)})) == {"N": ("R1-1",)}
+    assert dumps(root) == before
+    assert len(root.nodes("footprint")) == len(footprints)
+    assert sum(len(fp.nodes("pad")) for fp in root.nodes("footprint")) == pads
+
+
+@pytest.mark.parametrize(
+    "second", (PARENT.replace('"1" smd', '"2" smd'), PARENT.replace('(net "N")', '(net "Other")'))
+)
+def test_repeated_reference_requires_the_complete_same_terminal_to_net_mapping(second):
+    root = parse(f"(kicad_pcb {PARENT} {second})")
+    with pytest.raises(ValueError, match="ambiguous"):
+        cache._raw_bindings(root, frozenset({("R1-1",)}))
+
+
+def test_ambiguous_ref_pad_delimiter_identity_is_not_collapsed():
+    first = PARENT.replace('"R1"', '"R-1"')
+    second = PARENT.replace('"R1"', '"R"').replace('"1" smd', '"1-1" smd')
+    root = parse(f"(kicad_pcb {first} {second})")
+    with pytest.raises(ValueError, match="spelling is ambiguous"):
+        cache._raw_bindings(root, frozenset({("R-1-1",)}))

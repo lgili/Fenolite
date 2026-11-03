@@ -1063,6 +1063,8 @@ def test_equivalent_s_teaches_declared_native_project_template() -> None:
         "actual custom DRU",
         "native_project_rules",
         "Pure Design-vs-Design",
+        "CanonicalNativeJson",
+        "grant no rule/geometry equality",
         "typed rules",
         "Altium output refuse",
     ):
@@ -1093,3 +1095,16 @@ def test_viewer_teaches_actual_project_instance_context() -> None:
 def test_routing_teaches_mechanical_plan_scope() -> None:
     text = (SKILL / "references/routing.md").read_text()
     assert "INFERRED" in text and "byte materialization, not electrical correctness" in text
+
+
+def test_equivalent_teaches_declared_worksheet_bundle() -> None:
+    text = guide.page("equivalent-s").text
+    for words in (
+        "declared worksheet bundle",
+        "exact bytes",
+        "frame scopes stay independent",
+        "Missing files",
+        "symlinks",
+        "no ambient worksheet",
+    ):
+        assert words in text

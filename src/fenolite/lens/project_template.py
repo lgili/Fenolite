@@ -9,8 +9,9 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from fenolite.backends.kicad.pro_template import validate_project_template
+from fenolite.backends.kicad.pro_template import validate_project_template as validate_project_template
 from fenolite.core.errors import FormatError
+from fenolite.lens.project_resources import ProjectResource, read_project_resources
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,12 +19,13 @@ class ProjectTemplate:
     path: Path
     text: str
     sha256: str
+    resources: tuple[ProjectResource, ...] = ()
 
 
 def read_project_template(
     script: Path, request: tuple[str, str], *, managed_frame: bool = False
 ) -> ProjectTemplate:
-    """Read only the explicit input and bind its bytes; never follow JSON resource references."""
+    """Read the explicit input and its bounded exact worksheet dependencies."""
     named, expected = request
     normalized = named.replace("\\", "/")
     parts = normalized.split("/")
@@ -54,5 +56,5 @@ def read_project_template(
         text = raw.decode("utf-8")
     except UnicodeDecodeError as error:
         raise FormatError("declared native project is not UTF-8", file=named) from error
-    validate_project_template(text, file=named, managed_frame=managed_frame)
-    return ProjectTemplate(path, text, actual)
+    resources = read_project_resources(path, text, managed_frame=managed_frame)
+    return ProjectTemplate(path, text, actual, resources)

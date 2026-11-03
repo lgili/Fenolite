@@ -1,0 +1,690 @@
+{
+  "all_native_names_before_marking_and_after_save": {
+    "marked-ascii": {
+      "all_native_name_partitions_equal": true,
+      "groups": 36,
+      "sha256": "23ed0b5cd389f9774fa9440a4504de9dd02b11160b43b17a7c3a72b0618c0400"
+    },
+    "marked-binary": {
+      "all_native_name_partitions_equal": true,
+      "groups": 36,
+      "sha256": "23ed0b5cd389f9774fa9440a4504de9dd02b11160b43b17a7c3a72b0618c0400"
+    }
+  },
+  "artifact_packet": "fenolite-cac-altium24-clean-drawn-20261103",
+  "build_receipt_sha256": "ae84c3b4e95a64c7b8a5c08d6e059effa8938868f64963871d5a75a110c66d73",
+  "cases": [
+    {
+      "all_native_pins": 40,
+      "all_pin_partition_sha256": "7bf191b8d22a74c3956eb745847495a3ef096b37b2e3498e219e2055d7a64e10",
+      "all_pins": 40,
+      "assigned_unlisted": [],
+      "blocking_messages": {
+        "[Error]": 2,
+        "[Warning]": 2
+      },
+      "case": "unmarked-ascii",
+      "compiler_log": [
+        "[Error]|Net NetU1_11 contains floating input pins (Pin U1-11)|Compiler",
+        "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+        "[Warning]|Net NetU1_11 has no driving source (Pin U1-11)|Compiler",
+        "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+      ],
+      "compiler_messages": {
+        "[Error]": 2,
+        "[Warning]": 2
+      },
+      "connectivity_equal": true,
+      "evidence_promoted": false,
+      "expected_groups": 36,
+      "name_differences": [],
+      "native_groups": 36,
+      "native_memberships": 39,
+      "native_process_id": 5212,
+      "native_version": "24.5.2.23",
+      "only_code_groups": [],
+      "only_native_groups": [],
+      "probe": "unmarked-ascii",
+      "raw_sha256": {
+        "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+        "NativeCase.pas": "dda10d0ebca2ee0936d90d7c33a9ffd3f4a601a5c964889d71a4bedf13fd9b5f",
+        "messages.txt": "4597945971823d442fe263e6ecbff6e4bb1d8f1f0add75c0b4094424fc31d0bc",
+        "nets.tsv": "1d02152ca018f7fc2f943ecbe218d3dbd9d1bd9b4493965121b43c9e930be306",
+        "pins.tsv": "2699d75d02fa0b388ce08795a3c170c57ecdc6d7d0a402f6511d26417b7e5388",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "unlisted_native_net_pins": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "writer_source_commit": "da89051f6bd7cfe81cae5fd3daedaa3e8d565629"
+    },
+    {
+      "all_native_pins": 40,
+      "all_pin_partition_sha256": "7bf191b8d22a74c3956eb745847495a3ef096b37b2e3498e219e2055d7a64e10",
+      "all_pins": 40,
+      "assigned_unlisted": [],
+      "blocking_messages": {},
+      "case": "marked-binary",
+      "compiler_log": [
+        "[Info]|Compile successful, no errors found.|Compiler"
+      ],
+      "compiler_messages": {
+        "[Info]": 1
+      },
+      "connectivity_equal": true,
+      "evidence_promoted": false,
+      "expected_groups": 36,
+      "name_differences": [],
+      "native_groups": 36,
+      "native_memberships": 39,
+      "native_process_id": 5212,
+      "native_version": "24.5.2.23",
+      "only_code_groups": [],
+      "only_native_groups": [],
+      "probe": "marked-binary",
+      "raw_sha256": {
+        "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+        "NativeCase.pas": "e4c04be1016eb438c309d5440aeaaaa01ca23df36a3423b083706b7696819a8a",
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "1d02152ca018f7fc2f943ecbe218d3dbd9d1bd9b4493965121b43c9e930be306",
+        "pins.tsv": "2699d75d02fa0b388ce08795a3c170c57ecdc6d7d0a402f6511d26417b7e5388",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "unlisted_native_net_pins": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "writer_source_commit": "da89051f6bd7cfe81cae5fd3daedaa3e8d565629"
+    },
+    {
+      "all_native_pins": 40,
+      "all_pin_partition_sha256": "7bf191b8d22a74c3956eb745847495a3ef096b37b2e3498e219e2055d7a64e10",
+      "all_pins": 40,
+      "assigned_unlisted": [],
+      "blocking_messages": {},
+      "case": "marked-ascii",
+      "compiler_log": [
+        "[Info]|Compile successful, no errors found.|Compiler"
+      ],
+      "compiler_messages": {
+        "[Info]": 1
+      },
+      "connectivity_equal": true,
+      "evidence_promoted": false,
+      "expected_groups": 36,
+      "name_differences": [],
+      "native_groups": 36,
+      "native_memberships": 39,
+      "native_process_id": 5212,
+      "native_version": "24.5.2.23",
+      "only_code_groups": [],
+      "only_native_groups": [],
+      "probe": "marked-ascii",
+      "raw_sha256": {
+        "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+        "NativeCase.pas": "2a5024dbd7cbe94a7045742cc98c38bc0df0277ca4754db2bf754559e1cd1bfb",
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "1d02152ca018f7fc2f943ecbe218d3dbd9d1bd9b4493965121b43c9e930be306",
+        "pins.tsv": "2699d75d02fa0b388ce08795a3c170c57ecdc6d7d0a402f6511d26417b7e5388",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "unlisted_native_net_pins": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "writer_source_commit": "da89051f6bd7cfe81cae5fd3daedaa3e8d565629"
+    },
+    {
+      "all_native_pins": 40,
+      "all_pin_partition_sha256": "91c8d20818647f83ceac420761ffb4816ebf8ce40b2d11665597259712413eef",
+      "all_pins": 40,
+      "assigned_unlisted": [],
+      "blocking_messages": {
+        "[Error]": 14
+      },
+      "case": "marked-broken-ascii",
+      "compiler_log": [
+        "[Error]|Duplicate Net Names Wire D0|Compiler",
+        "[Error]|Duplicate Net Names Wire D1|Compiler",
+        "[Error]|Duplicate Net Names Wire D2|Compiler",
+        "[Error]|Duplicate Net Names Wire D3|Compiler",
+        "[Error]|Net D0 has only one pin (Pin R10-1)|Compiler",
+        "[Error]|Net D0 has only one pin (Pin U1-17)|Compiler",
+        "[Error]|Net D1 has only one pin (Pin R11-1)|Compiler",
+        "[Error]|Net D1 has only one pin (Pin U1-18)|Compiler",
+        "[Error]|Net D2 has only one pin (Pin R12-1)|Compiler",
+        "[Error]|Net D2 has only one pin (Pin U1-19)|Compiler",
+        "[Error]|Net D3 has only one pin (Pin R13-1)|Compiler",
+        "[Error]|Net D3 has only one pin (Pin U1-20)|Compiler",
+        "[Error]|Port BROKEN[0..3] not matched to Sheet Entry at 2400mil,4600mil|Compiler",
+        "[Error]|Sheet-Entry D[0..3] not matched to Port at 4000mil,4600mil|Compiler"
+      ],
+      "compiler_messages": {
+        "[Error]": 14
+      },
+      "connectivity_equal": false,
+      "evidence_promoted": false,
+      "expected_groups": 36,
+      "name_differences": [
+        {
+          "code": "D0",
+          "native": [],
+          "pins": [
+            [
+              "R10",
+              "1"
+            ],
+            [
+              "U1",
+              "17"
+            ]
+          ]
+        },
+        {
+          "code": "D1",
+          "native": [],
+          "pins": [
+            [
+              "R11",
+              "1"
+            ],
+            [
+              "U1",
+              "18"
+            ]
+          ]
+        },
+        {
+          "code": "D2",
+          "native": [],
+          "pins": [
+            [
+              "R12",
+              "1"
+            ],
+            [
+              "U1",
+              "19"
+            ]
+          ]
+        },
+        {
+          "code": "D3",
+          "native": [],
+          "pins": [
+            [
+              "R13",
+              "1"
+            ],
+            [
+              "U1",
+              "20"
+            ]
+          ]
+        }
+      ],
+      "native_groups": 40,
+      "native_memberships": 39,
+      "native_process_id": 5212,
+      "native_version": "24.5.2.23",
+      "only_code_groups": [
+        [
+          [
+            "R12",
+            "1"
+          ],
+          [
+            "U1",
+            "19"
+          ]
+        ],
+        [
+          [
+            "R11",
+            "1"
+          ],
+          [
+            "U1",
+            "18"
+          ]
+        ],
+        [
+          [
+            "R13",
+            "1"
+          ],
+          [
+            "U1",
+            "20"
+          ]
+        ],
+        [
+          [
+            "R10",
+            "1"
+          ],
+          [
+            "U1",
+            "17"
+          ]
+        ]
+      ],
+      "only_native_groups": [
+        [
+          [
+            "U1",
+            "18"
+          ]
+        ],
+        [
+          [
+            "R11",
+            "1"
+          ]
+        ],
+        [
+          [
+            "U1",
+            "20"
+          ]
+        ],
+        [
+          [
+            "U1",
+            "19"
+          ]
+        ],
+        [
+          [
+            "R10",
+            "1"
+          ]
+        ],
+        [
+          [
+            "U1",
+            "17"
+          ]
+        ],
+        [
+          [
+            "R13",
+            "1"
+          ]
+        ],
+        [
+          [
+            "R12",
+            "1"
+          ]
+        ]
+      ],
+      "probe": "marked-broken-ascii",
+      "raw_sha256": {
+        "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+        "NativeCase.pas": "f13245581878b810aba18cc648b1149c3c7fc3c64018659bd9b702114128c4c5",
+        "messages.txt": "bdac871bd31b28852a367346681f71ea8f044d2ca334a3f5c4265779205d5aa2",
+        "nets.tsv": "151cf904171a60853734344475cf3f850f7d6a2a12cab640a5d72f4d614c2260",
+        "pins.tsv": "2699d75d02fa0b388ce08795a3c170c57ecdc6d7d0a402f6511d26417b7e5388",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "unlisted_native_net_pins": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "writer_source_commit": "da89051f6bd7cfe81cae5fd3daedaa3e8d565629"
+    }
+  ],
+  "change": "c0276",
+  "evidence_promoted": false,
+  "full_gate_passed": false,
+  "intentional_unused_pins": [
+    [
+      "U1",
+      "11"
+    ],
+    [
+      "U1",
+      "12"
+    ]
+  ],
+  "marker_comparisons": [
+    {
+      "after": [
+        {
+          "active": true,
+          "at": [
+            20000000,
+            43500000
+          ],
+          "suppress_all_at_point": true,
+          "symbol": "Thin Cross"
+        },
+        {
+          "active": true,
+          "at": [
+            20000000,
+            42500000
+          ],
+          "suppress_all_at_point": true,
+          "symbol": "Thin Cross"
+        }
+      ],
+      "before": [
+        {
+          "active": true,
+          "at": [
+            20000000,
+            43500000
+          ],
+          "suppress_all_at_point": true,
+          "symbol": "Thin Cross"
+        },
+        {
+          "active": true,
+          "at": [
+            20000000,
+            42500000
+          ],
+          "suppress_all_at_point": true,
+          "symbol": "Thin Cross"
+        }
+      ],
+      "case": "marked-binary",
+      "file": "drawn_bus.SchDoc",
+      "positions_and_flags_exact": true
+    },
+    {
+      "after": [],
+      "before": [],
+      "case": "marked-binary",
+      "file": "drawn_bus_drawn_QMSFTVMJ.SchDoc",
+      "positions_and_flags_exact": true
+    },
+    {
+      "after": [
+        {
+          "active": true,
+          "at": [
+            20000000,
+            43500000
+          ],
+          "suppress_all_at_point": true,
+          "symbol": "Thin Cross"
+        },
+        {
+          "active": true,
+          "at": [
+            20000000,
+            42500000
+          ],
+          "suppress_all_at_point": true,
+          "symbol": "Thin Cross"
+        }
+      ],
+      "before": [
+        {
+          "active": true,
+          "at": [
+            20000000,
+            43500000
+          ],
+          "suppress_all_at_point": true,
+          "symbol": "Thin Cross"
+        },
+        {
+          "active": true,
+          "at": [
+            20000000,
+            42500000
+          ],
+          "suppress_all_at_point": true,
+          "symbol": "Thin Cross"
+        }
+      ],
+      "case": "marked-ascii",
+      "file": "drawn_bus.SchDoc",
+      "positions_and_flags_exact": true
+    },
+    {
+      "after": [],
+      "before": [],
+      "case": "marked-ascii",
+      "file": "drawn_bus_drawn_QMSFTVMJ.SchDoc",
+      "positions_and_flags_exact": true
+    }
+  ],
+  "measured_on": "2026-11-03",
+  "native_process_started_utc": "2026-11-03T00:58:08.9779646Z",
+  "native_saved_format": "Advanced Schematic binary",
+  "native_version": "24.5.2.23",
+  "operator_changed_global_erc_settings": false,
+  "operator_sha256": {
+    "fenolite_altium_ui.py": "a3d8680710c68a3bba0ffe9ebbff31f57287b0e3d8d35d86b2e6070ffd5a0251",
+    "fenolite_c0276_clean_compare.py": "68c9da8933c1c129586ffc313989430f2011159107414518bde379bdb501a6a2",
+    "fenolite_c0276_clean_native.py": "b51b6632e9c2f184366b5e4e81e5aba630368d8e0c21df1d5bceabac21427509",
+    "fenolite_c0276_clean_save.py": "34d5f71b7430162bd39ab96a00dfa2af1281586094c5760de67e7a2734569880",
+    "fenolite_c0276_clean_save_collect.py": "c45ac4461b2538d8503ee27ba7404b72ddf4cbbc2a505545138e5244962a3a4b"
+  },
+  "original_6_2_findings_preserved": true,
+  "original_input_maps": [
+    {
+      "case": "unmarked-ascii",
+      "files": {
+        ".fenolite/board.json": "8679f531773bc3c8c3f6d3bbddc7bde3d8ff8f26f09d31df3725c4921d258015",
+        ".fenolite/build.json": "fa4581f3e3825c03a99e722704feaad6406f229e9e60bcbc656a19eccd3436fc",
+        ".fenolite/circuit.json": "404c88627eb6230891a42d2c5d83195a9d460e3729b3d0ad8ec776f9f4970891",
+        ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+        ".fenolite/meta.json": "0722bc86e417b8decea98056435a2b4a3fa4794e0ec3278a1fbd46ae82dd989a",
+        ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+        "drawn_bus.OutJob": "49dfa126c3ed1c5291aa915fdf532536827dc5669e069ad21aad1da47b334ca3",
+        "drawn_bus.PcbDoc": "255081bb4a946b806a384149e3b8f411bd62bf6e2bd6e78c749c83ebd9db8ca5",
+        "drawn_bus.PcbLib": "af66b8f62824f76248b46ef819b5e905c71ef9cc35e4de4d246339fa71730bf0",
+        "drawn_bus.PrjPcb": "4c6e55e5d04cc688574bd44533566592e940e26a6abdfa9105d02f2ad46ecd82",
+        "drawn_bus.SchDoc": "acde21854925458f06882fe831d61f30859fa69157b94caf3ea53e6098826d6a",
+        "drawn_bus.SchLib": "0c25c97e6c1a5a1922cf3d84209d14bc42a0364f7f506f864d28c7b35f701e15",
+        "drawn_bus_drawn_QMSFTVMJ.SchDoc": "bebd49b09499fdd97ed16e65e92a750f513b8bb940b549ab1251f729bbdbe746",
+        "fenolite-base.json": "7a1a163ee2fa33c79d92e0364873cbd484c411b5a6be0aaa9726934ec1c21e45"
+      },
+      "plan_id": "db93db9e5bfdb168"
+    },
+    {
+      "case": "marked-binary",
+      "files": {
+        ".fenolite/board.json": "8679f531773bc3c8c3f6d3bbddc7bde3d8ff8f26f09d31df3725c4921d258015",
+        ".fenolite/build.json": "3a5b1f2368d0c747abe4adb7d2f2144e95e21225642001f7616835bde6f55c1d",
+        ".fenolite/circuit.json": "aa3bf43553f743bd4ef6f17d16d6966a28a9e7bffd1b4c719978c330a57ea38b",
+        ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+        ".fenolite/meta.json": "0722bc86e417b8decea98056435a2b4a3fa4794e0ec3278a1fbd46ae82dd989a",
+        ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+        "drawn_bus.OutJob": "49dfa126c3ed1c5291aa915fdf532536827dc5669e069ad21aad1da47b334ca3",
+        "drawn_bus.PcbDoc": "255081bb4a946b806a384149e3b8f411bd62bf6e2bd6e78c749c83ebd9db8ca5",
+        "drawn_bus.PcbLib": "af66b8f62824f76248b46ef819b5e905c71ef9cc35e4de4d246339fa71730bf0",
+        "drawn_bus.PrjPcb": "4c6e55e5d04cc688574bd44533566592e940e26a6abdfa9105d02f2ad46ecd82",
+        "drawn_bus.SchDoc": "4a1bd82a105addfccc37b472fbbae040e2efba9aef512d5fdad1a623db68f5f4",
+        "drawn_bus.SchLib": "0c25c97e6c1a5a1922cf3d84209d14bc42a0364f7f506f864d28c7b35f701e15",
+        "drawn_bus_drawn_QMSFTVMJ.SchDoc": "4f6cd9287633d377baac07e43e1770c761130bb2d18a4b8138777fac9be4dfdd",
+        "fenolite-base.json": "7a1a163ee2fa33c79d92e0364873cbd484c411b5a6be0aaa9726934ec1c21e45"
+      },
+      "plan_id": "587b5d03dc231c47"
+    },
+    {
+      "case": "marked-ascii",
+      "files": {
+        ".fenolite/board.json": "8679f531773bc3c8c3f6d3bbddc7bde3d8ff8f26f09d31df3725c4921d258015",
+        ".fenolite/build.json": "58dd396dbe668db409c160cf5865bbca832934716a5e22ea42d2d95507cbda7f",
+        ".fenolite/circuit.json": "aa3bf43553f743bd4ef6f17d16d6966a28a9e7bffd1b4c719978c330a57ea38b",
+        ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+        ".fenolite/meta.json": "0722bc86e417b8decea98056435a2b4a3fa4794e0ec3278a1fbd46ae82dd989a",
+        ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+        "drawn_bus.OutJob": "49dfa126c3ed1c5291aa915fdf532536827dc5669e069ad21aad1da47b334ca3",
+        "drawn_bus.PcbDoc": "255081bb4a946b806a384149e3b8f411bd62bf6e2bd6e78c749c83ebd9db8ca5",
+        "drawn_bus.PcbLib": "af66b8f62824f76248b46ef819b5e905c71ef9cc35e4de4d246339fa71730bf0",
+        "drawn_bus.PrjPcb": "4c6e55e5d04cc688574bd44533566592e940e26a6abdfa9105d02f2ad46ecd82",
+        "drawn_bus.SchDoc": "7561a3ae4fea7c5b2de5e628d50894291a2812e6d4ddc745ce696dda1293c896",
+        "drawn_bus.SchLib": "0c25c97e6c1a5a1922cf3d84209d14bc42a0364f7f506f864d28c7b35f701e15",
+        "drawn_bus_drawn_QMSFTVMJ.SchDoc": "bebd49b09499fdd97ed16e65e92a750f513b8bb940b549ab1251f729bbdbe746",
+        "fenolite-base.json": "7a1a163ee2fa33c79d92e0364873cbd484c411b5a6be0aaa9726934ec1c21e45"
+      },
+      "plan_id": "e867b94352798bb1"
+    },
+    {
+      "case": "marked-broken-ascii",
+      "files": {
+        ".fenolite/board.json": "8679f531773bc3c8c3f6d3bbddc7bde3d8ff8f26f09d31df3725c4921d258015",
+        ".fenolite/build.json": "58dd396dbe668db409c160cf5865bbca832934716a5e22ea42d2d95507cbda7f",
+        ".fenolite/circuit.json": "aa3bf43553f743bd4ef6f17d16d6966a28a9e7bffd1b4c719978c330a57ea38b",
+        ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+        ".fenolite/meta.json": "0722bc86e417b8decea98056435a2b4a3fa4794e0ec3278a1fbd46ae82dd989a",
+        ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+        "drawn_bus.OutJob": "49dfa126c3ed1c5291aa915fdf532536827dc5669e069ad21aad1da47b334ca3",
+        "drawn_bus.PcbDoc": "255081bb4a946b806a384149e3b8f411bd62bf6e2bd6e78c749c83ebd9db8ca5",
+        "drawn_bus.PcbLib": "af66b8f62824f76248b46ef819b5e905c71ef9cc35e4de4d246339fa71730bf0",
+        "drawn_bus.PrjPcb": "4c6e55e5d04cc688574bd44533566592e940e26a6abdfa9105d02f2ad46ecd82",
+        "drawn_bus.SchDoc": "7561a3ae4fea7c5b2de5e628d50894291a2812e6d4ddc745ce696dda1293c896",
+        "drawn_bus.SchLib": "0c25c97e6c1a5a1922cf3d84209d14bc42a0364f7f506f864d28c7b35f701e15",
+        "drawn_bus_drawn_QMSFTVMJ.SchDoc": "5f44ac4fe23b096baf5c91738aabcc80769021b1c26abc4959f04f6877d13e24",
+        "fenolite-base.json": "7a1a163ee2fa33c79d92e0364873cbd484c411b5a6be0aaa9726934ec1c21e45"
+      },
+      "plan_id": null
+    }
+  ],
+  "original_mac_and_windows_files_unchanged": 60,
+  "saved_documents": [
+    {
+      "bytes": 23040,
+      "case": "marked-binary",
+      "file": "drawn_bus.SchDoc",
+      "saved_sha256": "6b8b1157795e97301c181998271132a810939ca4ec3fc05ba7e395f96c77b150",
+      "source_sha256": "4a1bd82a105addfccc37b472fbbae040e2efba9aef512d5fdad1a623db68f5f4"
+    },
+    {
+      "bytes": 16384,
+      "case": "marked-binary",
+      "file": "drawn_bus_drawn_QMSFTVMJ.SchDoc",
+      "saved_sha256": "35485248de556932ee3587d0e98fe121cb494e9e19cc1dc13b874378ac9c2fe4",
+      "source_sha256": "4f6cd9287633d377baac07e43e1770c761130bb2d18a4b8138777fac9be4dfdd"
+    },
+    {
+      "bytes": 23040,
+      "case": "marked-ascii",
+      "file": "drawn_bus.SchDoc",
+      "saved_sha256": "5f68ec80fcf50c0fa0dae8dd5383723f60f8f18e26d3faa6024eebeda857ea0c",
+      "source_sha256": "7561a3ae4fea7c5b2de5e628d50894291a2812e6d4ddc745ce696dda1293c896"
+    },
+    {
+      "bytes": 16384,
+      "case": "marked-ascii",
+      "file": "drawn_bus_drawn_QMSFTVMJ.SchDoc",
+      "saved_sha256": "dfc622f121e7b45a9cc074af10e1c6d5161a49956fb6ec33a2eaa1a87732558b",
+      "source_sha256": "bebd49b09499fdd97ed16e65e92a750f513b8bb940b549ab1251f729bbdbe746"
+    }
+  ],
+  "saved_receipt_sha256": "a26c1b74b85d95fcb240d07a6e67817e3b1e58e87f6fa811b3d8e3beba005ce5",
+  "saved_reopened_cases": [
+    {
+      "all_native_pins": 40,
+      "all_pin_partition_sha256": "7bf191b8d22a74c3956eb745847495a3ef096b37b2e3498e219e2055d7a64e10",
+      "all_pins": 40,
+      "assigned_unlisted": [],
+      "blocking_messages": {},
+      "case": "marked-binary",
+      "compiler_log": [
+        "[Info]|Compile successful, no errors found.|Compiler"
+      ],
+      "compiler_messages": {
+        "[Info]": 1
+      },
+      "connectivity_equal": true,
+      "evidence_promoted": false,
+      "expected_groups": 36,
+      "name_differences": [],
+      "native_groups": 36,
+      "native_memberships": 39,
+      "native_process_id": 5212,
+      "native_version": "24.5.2.23",
+      "only_code_groups": [],
+      "only_native_groups": [],
+      "probe": "marked-binary-saved",
+      "raw_sha256": {
+        "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+        "NativeCase.pas": "fc598a0894a283d0bbf318c60e3f73cedf095d8f56f6a48c0c99b9b25e9b9e9d",
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "1d02152ca018f7fc2f943ecbe218d3dbd9d1bd9b4493965121b43c9e930be306",
+        "pins.tsv": "2699d75d02fa0b388ce08795a3c170c57ecdc6d7d0a402f6511d26417b7e5388",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "unlisted_native_net_pins": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "writer_source_commit": "da89051f6bd7cfe81cae5fd3daedaa3e8d565629"
+    },
+    {
+      "all_native_pins": 40,
+      "all_pin_partition_sha256": "7bf191b8d22a74c3956eb745847495a3ef096b37b2e3498e219e2055d7a64e10",
+      "all_pins": 40,
+      "assigned_unlisted": [],
+      "blocking_messages": {},
+      "case": "marked-ascii",
+      "compiler_log": [
+        "[Info]|Compile successful, no errors found.|Compiler"
+      ],
+      "compiler_messages": {
+        "[Info]": 1
+      },
+      "connectivity_equal": true,
+      "evidence_promoted": false,
+      "expected_groups": 36,
+      "name_differences": [],
+      "native_groups": 36,
+      "native_memberships": 39,
+      "native_process_id": 5212,
+      "native_version": "24.5.2.23",
+      "only_code_groups": [],
+      "only_native_groups": [],
+      "probe": "marked-ascii-saved",
+      "raw_sha256": {
+        "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+        "NativeCase.pas": "a374e30774d0097d90c3fd9137fc285ea59510fad40fa4e2157269d8c09cce65",
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "1d02152ca018f7fc2f943ecbe218d3dbd9d1bd9b4493965121b43c9e930be306",
+        "pins.tsv": "2699d75d02fa0b388ce08795a3c170c57ecdc6d7d0a402f6511d26417b7e5388",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "unlisted_native_net_pins": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "writer_source_commit": "da89051f6bd7cfe81cae5fd3daedaa3e8d565629"
+    }
+  ],
+  "scope": "Actual native24 compile, every pin/net membership/name/message, isolated new-copy native save/close/reopen and complete project recompile. Only two authored unused inputs carry point-scoped NoERC markers. Original observations and overall hypothesis remain pending; no tolerance, filtering, GUI authorship, global format coverage or other-version claim.",
+  "sources": [
+    "S-1293",
+    "S-0501",
+    "S-0503",
+    "S-0504",
+    "S-0505"
+  ],
+  "task": "6.3",
+  "task_6_3_passed": true,
+  "writer_source_commit": "da89051f6bd7cfe81cae5fd3daedaa3e8d565629"
+}

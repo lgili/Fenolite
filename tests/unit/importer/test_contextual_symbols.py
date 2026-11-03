@@ -366,3 +366,47 @@ def test_semantic_and_unknown_nonproperty_changes_remain_closed(defect: str, tmp
     path.write_text(change(path.read_text(encoding="utf-8"), lambda n: mutation(n, defect)), encoding="utf-8")
     with pytest.raises(FormatError, match="conflicting definitions"):
         symbols(source(tmp_path), target=9)
+
+
+@pytest.mark.parametrize("target", (9, 10))
+def test_ordinary_source_inheritance_binds_resolved_parent_pins(target: int, tmp_path: Path) -> None:
+    shutil.copytree(FIXTURE, tmp_path, dirs_exist_ok=True)
+    expected = next(
+        item for item in source(tmp_path).hierarchy[SECOND].lib_symbols if item.lib_id == NATIVE_ID
+    )
+    path = tmp_path / SECOND
+    root = parse(path.read_text(encoding="utf-8"))
+    library = root.find("lib_symbols")
+    assert library is not None
+    child = definition(path.read_text(encoding="utf-8"))
+
+    def parent(item):
+        if isinstance(item, Atom):
+            return item
+        children = tuple(parent(c) for c in item.children)
+        if item.name == "symbol":
+            old = item.atoms()[0].value
+            children = (Atom.string(old.replace("Mini_R", "AuthoredBase", 1)), *children[1:])
+        return item.with_children(children)
+
+    inherited = child.with_children(
+        (child.children[0], parse('(extends "AuthoredBase")'), *child.nodes("property"))
+    )
+    library_new = library.with_children(
+        (*(inherited if node == child else node for node in library.children), parent(child))
+    )
+    path.write_text(
+        dumps(root.with_children(tuple(library_new if node is library else node for node in root.children))),
+        encoding="utf-8",
+    )
+    found = source(tmp_path)
+    sheet = found.hierarchy[SECOND]
+    raw_child = next(item for item in sheet.lib_symbols if item.lib_id == NATIVE_ID)
+    assert raw_child.extends == "AuthoredBase" and raw_child.pins == ()
+    # One physical sheet has no contextual variant; this is ordinary supported inheritance.
+    result = symbols(replace(found, hierarchy={SECOND: sheet}), target=target)
+    embedded = result.definitions[NATIVE_ID]
+    assert embedded.definition.pins == expected.pins
+    assert embedded.definition.units == expected.units
+    assert embedded.definition.properties == expected.properties
+    assert embedded.node.find("extends") is None and not result.contexts

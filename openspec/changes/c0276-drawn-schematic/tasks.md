@@ -323,7 +323,7 @@
   source ERC and raw name findings remain, so the no-connectivity-message
   criterion and this task stay open. See `docs/evidence/altium-drawn-native.md`.
 
-- [ ] 6.3 Author an independent native clean-ERC bus acceptance control with explicit
+- [x] 6.3 Author an independent native clean-ERC bus acceptance control with explicit
   intentional no-connects ONLY on the two truly unused input pins U1-11/U1-12.
   Preserve the full40-pin universe, all connected bus groups and original source
   findings. Build both Altium forms and verify the two exact native marker positions;
@@ -331,6 +331,15 @@
   Retain the independent broken-bus full-partition negative. This control does not
   retroactively pass the original examples or suppress messages on connected pins.
   Proof: focused authored writer controls and actual source-bound native receipts.
+  2026-11-03: actual Altium24.5.2.23 on writerda89051f compiles both marked forms with
+  full40pins/36groups/zero declared-name differences and Info1 only. Unmarked retains2 errors/
+  2 warnings, and NAME-only broken bus retains all40pins but40groups/4 name differences/14errors.
+  Four new-copy native binary documents were saved, closed/reopened and both projects recompiled
+  with identical complete partitions/all36 native short/full names and Info-only logs. Both exact
+  marker positions/flags/symbols and all60 source inputs are unchanged. Receipt:
+  `docs/evidence/altium-clean-drawn-native.json`; narrative: `docs/evidence/altium-drawn-native.md`.
+  This passes only the independent6.3 control: original6.2 findings and H-A-DRAWN-WRITE INFERRED
+  remain, as do exact-head9.2 CI and the other literal gates.
 
 ## 7. Evidence
 

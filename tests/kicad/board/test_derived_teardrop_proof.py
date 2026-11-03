@@ -8,12 +8,14 @@ import json
 from pathlib import Path
 
 import _kicad
+import _schema
 import pytest
 from _drawn_curve import curve_project
 from _fidelity import roundtrip, snapshot
 
 from fenolite import api
 from fenolite.backends.kicad.cli import KicadCli
+from fenolite.importer.provenance import import_record
 
 pytestmark = pytest.mark.needs_kicad
 
@@ -55,6 +57,14 @@ def test_source_cache_and_fresh_build_compare_by_complete_native_geometry(tmp_pa
         "derived_cache"
     ]
     assert recorded["status"] == "equal"
+    document = json.loads((script.parent / "PROVENANCE.json").read_text())
+    mirror = {**document, "schema": "fenolite.import-provenance.v1"}
+    assert _schema.validate(mirror, _schema.load("formats/fenolite.import-provenance.v1.json")) == []
+    original_member, mirrored_member = import_record(document), import_record(mirror)
+    assert original_member is not None and mirrored_member is not None
+    assert original_member["fidelity"] == mirrored_member["fidelity"]
+    against = document["fidelity"]["proof"]["against"]
+    assert all(against[name] == digest for name, digest in recorded["sides"]["a"]["input_files"].items())
     assert [recorded["sides"][side]["raw_caches"] for side in ("a", "b")] == [2, 0]
     assert snapshot(source) == before
     missing = api.run(

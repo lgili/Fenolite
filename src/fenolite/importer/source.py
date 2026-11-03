@@ -122,6 +122,8 @@ class Source:
     """Reference to native sheet file/element identity across an in-memory backend conversion."""
     project_text: str | None = None
     """Checked native project bytes decoded as UTF-8 for explicit import emission; not canonical data."""
+    project_resources: Mapping[str, str] = field(default_factory=lambda: {})
+    """Only exact declared worksheet snapshots; native pointers retain their separate scopes."""
 
 
 def _sha(data: bytes) -> str:
@@ -178,6 +180,7 @@ def read_kicad(path: Path, *, upgrade: Upgrader | None = None) -> Source:
     major = info.major if info.major is not None else 10
     minimums: dict[str, int] = {}
     project_text = None
+    project_resources: dict[str, str] = {}
     project = folder / f"{stem}.kicad_pro"
     if project.is_file():
         raw = project.read_bytes()
@@ -188,6 +191,17 @@ def read_kicad(path: Path, *, upgrade: Upgrader | None = None) -> Source:
             raise FormatError("project input is not UTF-8", file=project.name) from error
         found = read_project(project_text, file=project.name, issues=issues)
         inputs.append(InputFile(project.name, _sha(raw), "kicad_pro", found.meta_version))
+        from fenolite.backends.kicad import _json
+        from fenolite.backends.kicad.pro_template import RESOURCE_POINTERS
+        from fenolite.lens.project_resources import read_project_resources
+
+        if any(_json.get(found.data, pointer) not in (None, "") for pointer in RESOURCE_POINTERS):
+            for resource in read_project_resources(project, project_text):
+                paths.append(resource.path)
+                body = resource.data.decode("utf-8")
+                version = inspect(parse(body), file=resource.name).version
+                inputs.append(InputFile(resource.name, _sha(resource.data), "kicad_wks", version))
+                project_resources[resource.name] = body
         design = apply_project(design, found, issues=issues)
         minimums = project_minimums(found.data, issues=issues)
     rules: tuple[Rule, ...] = ()
@@ -229,6 +243,7 @@ def read_kicad(path: Path, *, upgrade: Upgrader | None = None) -> Source:
             folder=folder,
             hierarchy=hierarchy,
             project_text=project_text,
+            project_resources=project_resources,
         )
     )
 

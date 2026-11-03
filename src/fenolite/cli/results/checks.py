@@ -964,6 +964,75 @@ class EquivalentLevelsItemSummaryZonesUnfilled:
 
 
 @dataclass(frozen=True, kw_only=True)
+class DerivedCacheCrossings:
+    rings_with_proper_crossings: int = field(metadata={"minimum": 0})
+    proper_edge_pair_crossings: int = field(metadata={"minimum": 0})
+
+
+@dataclass(frozen=True, kw_only=True)
+class DerivedCacheRuleDelta:
+    """Uninterpreted native JSON canonicalization; not judged rule/geometry semantics."""
+
+    key: str
+    a: wire.CanonicalNativeJson
+    b: wire.CanonicalNativeJson
+
+
+@dataclass(frozen=True, kw_only=True)
+class DerivedCacheSettingDelta:
+    key: str
+    a_canonical_sha256: str
+    b_canonical_sha256: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class DerivedCacheSide:
+    raw_caches: int = field(metadata={"minimum": 0})
+    raw_non_simple_rings: DerivedCacheCrossings
+    native_input_sha256: str
+    qualified_caches_removed_from_private_input: bool = field(metadata={"enum": [True]})
+    input_files: dict[str, str]
+    command: list[str]
+    exit: int | None
+    outcome: str
+    stdout_sha256: str
+    stderr_sha256: str
+    output_sha256: str | None
+    regenerated_caches: int = field(metadata={"optional": True, "minimum": 0})
+    native_non_simple_rings: DerivedCacheCrossings = field(metadata={"optional": True})
+    exact_geometry_sha256: str = field(metadata={"optional": True})
+
+
+@dataclass(frozen=True, kw_only=True)
+class DerivedCacheSides:
+    a: DerivedCacheSide = field(metadata={"optional": True})
+    b: DerivedCacheSide = field(metadata={"optional": True})
+
+
+@dataclass(frozen=True, kw_only=True)
+class DerivedCacheSummary:
+    """Existing common-tool receipt, not raw-cache equality or a DRC safety certificate."""
+
+    judged_project_keys: list[str]
+    unjudged_project_rule_deltas: list[DerivedCacheRuleDelta]
+    unjudged_project_setting_deltas: list[DerivedCacheSettingDelta]
+    whole_project_json_equality_claimed: bool = field(metadata={"enum": [False]})
+    whole_native_rule_file_equality_claimed: bool = field(metadata={"enum": [False]})
+    tool: str = field(metadata={"enum": ["kicad-cli"]})
+    version: str
+    raw_cache_equality_claimed: bool = field(metadata={"enum": [False]})
+    drc_safety_gate_claimed: bool = field(metadata={"enum": [False]})
+    sides: DerivedCacheSides
+    status: str = field(
+        metadata={
+            "enum": ["equal", "differs", "native-failed", "native-config-changed", "native-cache-unqualified"]
+        }
+    )
+    complete_regenerated_geometry_equal: bool = field(metadata={"optional": True})
+    normal_zone_priorities_normalized: bool = field(metadata={"optional": True, "enum": [False]})
+
+
+@dataclass(frozen=True, kw_only=True)
 class NativeProjectRulesSummary:
     """Scoped exact native context; unknown rule properties are explicitly outside coverage."""
 
@@ -980,6 +1049,7 @@ class NativeProjectRulesSummary:
 
 @dataclass(frozen=True, kw_only=True)
 class EquivalentLevelsItemSummary:
+    derived_cache: DerivedCacheSummary = field(metadata={"optional": True})
     project_geometry: int = field(metadata={"optional": True})
     native_project_rules: NativeProjectRulesSummary = field(metadata={"optional": True})
     items: int = field(metadata={"optional": True})
@@ -1566,6 +1636,7 @@ class VerifySourceLevelsItemSummaryZonesUnfilled:
 
 @dataclass(frozen=True, kw_only=True)
 class VerifySourceLevelsItemSummary:
+    derived_cache: DerivedCacheSummary = field(metadata={"optional": True})
     project_geometry: int = field(metadata={"optional": True})
     native_project_rules: NativeProjectRulesSummary = field(metadata={"optional": True})
     changes: VerifySourceLevelsItemSummaryChanges = field(metadata={"optional": True})

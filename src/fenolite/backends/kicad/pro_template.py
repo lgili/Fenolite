@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from pathlib import PurePosixPath
 
 from fenolite.backends.kicad import _json, pro
@@ -16,7 +17,11 @@ RESOURCE_POINTERS = ("/pcbnew/page_layout_descr_file", "/schematic/page_layout_d
 
 
 def validate_project_template(
-    text: str, *, file: str = "project_template", managed_frame: bool = False
+    text: str,
+    *,
+    file: str = "project_template",
+    managed_frame: bool = False,
+    resource_names: Collection[str] = (),
 ) -> None:
     """Exact backend JSON/version policy; known native resources need explicit managed inputs."""
     info = pro.read_project(text, file=file)
@@ -56,7 +61,7 @@ def validate_project_template(
                 file=file,
                 locator=pointer,
             )
-        if not managed_frame:
+        if not managed_frame and relative not in resource_names:
             raise FormatError(
                 "native drawing sheet requires an explicit design.sheet(drawing_sheet=...) input",
                 file=file,

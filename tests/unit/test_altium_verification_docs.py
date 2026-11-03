@@ -292,3 +292,41 @@ def test_drawn_kit_is_concrete_but_native_acceptance_remains_pending() -> None:
     assert any(case["compiler_messages"].get("[Error]", 0) for case in observed["original_cases"])
     assert observed["native_saved_copies"]["complete_projects_reopened"] == 10
     assert observed["native_negative_control"]["correctly_refused"]
+
+
+def test_clean_drawn_native_control_is_scoped_and_preserves_its_negative() -> None:
+    observed = json.loads(_page("evidence/altium-clean-drawn-native.json"))
+    assert "schema" not in observed  # internal evidence, not a new public persisted format
+    assert observed["native_version"] == "24.5.2.23"
+    assert observed["writer_source_commit"] == "da89051f6bd7cfe81cae5fd3daedaa3e8d565629"
+    assert (
+        observed["task_6_3_passed"] and not observed["full_gate_passed"] and not observed["evidence_promoted"]
+    )
+    assert observed["original_6_2_findings_preserved"]
+    assert observed["intentional_unused_pins"] == [["U1", "11"], ["U1", "12"]]
+    cases = {case["case"]: case for case in observed["cases"]}
+    assert len(cases) == 4
+    assert cases["unmarked-ascii"]["compiler_messages"] == {"[Error]": 2, "[Warning]": 2}
+    negative = cases["marked-broken-ascii"]
+    assert not negative["connectivity_equal"] and negative["native_groups"] == 40
+    assert len(negative["name_differences"]) == 4 and negative["compiler_messages"] == {"[Error]": 14}
+    positives = [cases[name] for name in ("marked-binary", "marked-ascii")]
+    assert len(observed["saved_reopened_cases"]) == 2
+    for case in positives + observed["saved_reopened_cases"]:
+        assert case["connectivity_equal"] and case["native_groups"] == 36
+        assert not case["name_differences"] and not case["blocking_messages"]
+        assert case["compiler_messages"] == {"[Info]": 1}
+    assert all(
+        case["all_pins"] == case["all_native_pins"] == 40
+        for case in observed["cases"] + observed["saved_reopened_cases"]
+    )
+    assert observed["original_mac_and_windows_files_unchanged"] == 60
+    assert len(observed["saved_documents"]) == len(observed["marker_comparisons"]) == 4
+    for case in observed["marker_comparisons"]:
+        assert case["positions_and_flags_exact"] and case["before"] == case["after"]
+        assert len(case["before"]) == (2 if case["file"] == "drawn_bus.SchDoc" else 0)
+    assert all(
+        case["all_native_name_partitions_equal"] and case["groups"] == 36
+        for case in observed["all_native_names_before_marking_and_after_save"].values()
+    )
+    assert "24.5.2.23" in _page("evidence/altium-drawn-native.md")

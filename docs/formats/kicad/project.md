@@ -335,7 +335,9 @@ The Python importer retains the checked original project JSON as `native/project
 and emits `design.kicad_project(path, sha256=..., preserve_minimums=True)`. This is a declared, digest-bound input,
 not a canonical model field and not ambient discovery. Paths must stay within the script folder;
 exact JSON, writable version pairs and known drawing-sheet resource references are checked before
-staging. The existing managed drawing-sheet input must own any nonempty native frame reference.
+staging. A nonempty native frame reference must be covered by an exact checked relative worksheet
+bundle (c0354), or replaced by the existing explicit managed drawing-sheet input. The bundle retains
+raw worksheet bytes and each native pointer scope; it adds no canonical setting or semantic-equality claim.
 
 With this declaration the native input is authoritative for unmanaged values on both fresh builds
 and rebuilds. Typed/code-owned minima, classes, stack, copper curve, text variables and frame

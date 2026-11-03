@@ -48,6 +48,14 @@ classes, stack, text variables, frame and fresh schematic identities win. A temp
 connectivity or proves all native settings semantically. Unsafe paths/resources, unsupported JSON
 versions and Altium output refuse before staging; declare a drawing sheet through `design.sheet`.
 
-Read next: `checks`, `files`.
-
 For path-based level6, `native_project_rules` names the five judged native floors, represented class fields and exact numbered-pad membership, with input hashes and absent fields explicitly unjudged. Pure Design-vs-Design has no independent native hard-floor field. Custom DRU and unrelated project properties are outside this native-context comparison; retained JSON alone does not prove them. Ambiguous bindings, unbound nets, unsupported aggregation and changed traced bytes refuse complete native-context comparison.
+
+`derived_cache` receipts keep known fields closed. Only unjudged native delta leaves use `CanonicalNativeJson` recursive canonical arrays/scalars; they grant no rule/geometry equality and reject floats/nonfinite values or raw objects. Source hashes, exact geometry comparisons and native outcomes remain authoritative.
+
+Relative native `.kicad_wks` references form an exact declared worksheet bundle beside the project
+sidecar. Import copies only those named inputs; build binds them to the reviewed plan and writes
+their exact bytes. The PCB and schematic frame scopes stay independent. Missing files, unsafe paths,
+symlinks and unsupported worksheet versions refuse. An explicit `design.sheet` retains its existing
+managed-frame precedence; no ambient worksheet or library search occurs.
+
+Read next: `checks`, `files`.

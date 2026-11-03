@@ -840,6 +840,7 @@ class Conversion:
 
 @dataclass(frozen=True, kw_only=True)
 class FidelityProof:
+    derived_cache: checks.DerivedCacheSummary = field(metadata={"optional": True})
     native_project_rules: checks.NativeProjectRulesSummary = field(metadata={"optional": True})
     levels: dict[str, str]
     skipped: dict[str, str] = field(default_factory=lambda: {})

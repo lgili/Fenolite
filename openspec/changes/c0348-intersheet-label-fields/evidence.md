@@ -176,3 +176,21 @@ The final focused writer/explicit-field/view-context group passes53 tests; an in
 test path and two incorrect fixture-rotation assumptions are retained as failed attempts, then
 corrected by inspecting the authored fixture. They are not treated as production bugs or passed
 runs. Log: c0348-adjacent-default-after-v4.log. Root exact-head CI remains separate.
+
+## Missing-pose regression, after project carrier integration
+
+On the full authored project with show=true and own_page=true, target9's
+existing default writer supplies no reference property when the drawing has
+none. Its import succeeds and full verify-source then refuses FEN-3004 at
+global-label VCC because the effective reference is visible without an explicit
+pose. Target10's existing default hidden property supplies that pose and the
+same verification passes. This is not a power-symbol guard failure.
+
+The regression now independently checks native9/10 authored explicit positions
+render text2 at exact scene coordinate65000,50000. Removing only the native
+label properties makes active viewing refuse with exact file/label location;
+disabling the actual project setting permits viewing without inventing or
+writing a field. Unit29pass. Existing native9.0.9/10.0.6 SVG matrix subset
+on/stored-hide/punctuation each3pass16deselected, with input hashes unchanged.
+No template helper, writer, viewer runtime, model or format interpretation was
+changed by this focused regression addition.

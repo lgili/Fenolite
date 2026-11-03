@@ -51,6 +51,8 @@ native identifiers and derived priority ordinals are normalized; normal zone
 priorities and pure `equivalent` remain strict. No tolerance or glyph mask is
 used for this copper proof.
 
+The `derived_cache` summary/proof has closed known fields. Only unjudged native rule delta `a`/`b` leaves carry uninterpreted canonical wire JSON: null, bool, integer, string and recursive arrays; numbers are rational integer triples and mappings are key/value arrays. Raw objects, floats/nonfinite values and unsupported Python values are not this canonical shape. This metadata does not prove rule or geometry equality.
+
 Level7 `summary.derived_cache` and recorded proof retain raw counts/hashes,
 stripped native-input hashes, tool/version/command/outcome, regenerated counts
 and geometry hashes. A raw165→167 change remains visible: regenerated equality
