@@ -1,5 +1,9 @@
-## ADDED Requirements
+# footprint-generators Specification
 
+## Purpose
+Generate deterministic, Fenolite-authored lands and physical body models from sourced package records, retaining drawing conventions, explicit evidence and transactional outputs.
+
+## Requirements
 ### Requirement: Public per-family footprint generators
 `fenolite.catalog.footprints.generate(package, *, density="nominal") -> Generated` SHALL draw a footprint from one `fenolite.package.v0` record (c0259) by its `family`: `chip`, `molded`, `gullwing`, `nolead`, `grid`, `to`, `dip`, `header` or `connector`. It MUST be pure (no file, clock or environment). `Generated` holds `footprint` (`None` on an error finding), `land`, `stamp` and sorted `issues`.
 
@@ -171,7 +175,7 @@ A generated footprint whose record gives a body height SHALL hold `ComponentBody
 
 #### Scenario: KiCad reads the models
 - **GIVEN** a built board whose parts use three `drawing = 1` generated footprints
-- **WHEN** `uv run pytest tests/kicad/export/test_generated_models.py -rA` runs `fenolite export step` on KiCad 9 and 10
+- **WHEN** `uv run pytest tests/kicad/export/test_generated_models.py -rA` runs `kicad-cli pcb export step` on KiCad 9 and 10
 - **THEN** the STEP holds three `NEXT_ASSEMBLY_USAGE_OCCURRENCE` and no line says `Could not add 3D model`
 
 ### Requirement: Generated STEP models in a build
@@ -203,10 +207,10 @@ Before drawing, the generator SHALL give the error `package.dimensions-inconsist
 - **THEN** there is no footprint and one error `package.dimensions-inconsistent` naming `span`
 
 ### Requirement: Library generate command
-`fenolite library generate PACKAGE... --out DIR [--library NICK] [--positions N] [--no-step]` SHALL plan `DIR/<NICK>.pretty/<name>.kicad_mod` and `DIR/<NICK>.3dshapes/<name>.step` per package, writing through `--dry-run` and `--confirm --plan`, all files or none, with a receipt. An error finding MUST give exit 5 and write nothing. `NICK` defaults to `Local`.
+`fenolite library generate PACKAGE... --out DIR [--library NICK] [--positions N] [--no-step] [--no-pcblib]` SHALL plan `DIR/<NICK>.pretty/<name>.kicad_mod` and `DIR/<NICK>.3dshapes/<name>.step` per package, writing through `--dry-run` and `--confirm --plan`, all files or none, with a receipt. An error finding MUST give exit 5 and write nothing. `NICK` defaults to `Local`.
 
 #### Scenario: Plan and confirm
-- **WHEN** `fenolite library generate tests/data/packages/soic8.toml --out lib --dry-run --json` runs, then the same with `--confirm --plan <plan_id>`
+- **WHEN** `fenolite library generate tests/data/packages/soic8.toml --out lib --no-pcblib --dry-run --json` runs, then the same with `--confirm --plan <plan_id>`
 - **THEN** the plan lists the two files, the second run writes them, and the receipt lists both with their SHA-256
 
 ### Requirement: Generated footprints in an Altium PCB library

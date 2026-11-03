@@ -87,7 +87,7 @@
   Done 2026-10-30: `tests/unit/backends/test_step.py` 9 passed (two writes of the SOIC bodies give equal bytes; every reference resolves; each of the 17 solids uses every edge once in each sense and has V - E + F = 2; no number has an exponent; refusals) and `test_import_graph.py` 52 passed. `docs/formats/step/part21.md` records the file structure (S-0991), the AP214 schema identifier (S-0992) and the attribute order of every entity written (S-0993); ISO's catalogue page of ISO 10303-21 refused the fetch (HTTP 403) and no CAx-IF recommended practice was needed. A manual `kicad-cli pcb export step` (10.0.6) of a board naming the SOIC model added its body; the oracle test is task 5.4.
 - [x] 5.3 Plan generated STEP models in `fenolite build` (scenario "Model written beside the library"); check that a design with only catalog footprints keeps its KiCad bytes. Proof: `uv run pytest tests/unit/lens/test_build_generated_models.py -q`.
   Done 2026-10-30: `tests/unit/lens/test_build_generated_models.py` 2 passed: a design using `Local:CHIP0603_B1.6x0.8` from `Footprint.from_package` builds `lib/Local.pretty/CHIP0603_B1.6x0.8.kicad_mod` naming its model and `lib/Local.3dshapes/CHIP0603_B1.6x0.8.step` (equal bytes on a second build); the placed part holds the generated bodies (ids derived from the part), so its outward height is 0.55 mm; the blink design with only library footprints plans no `.3dshapes` file and gains no body. `Footprint.from_package` was written first for this test (its own proof is task 6.1). `fenolite.dsl` imports the generators lazily inside it: a new `LAZY` edge `dsl` -> `catalog` and an ADDED requirement in a new `package-layering` delta (the design said no layering change; c0248 adds the same edge on its branch). `lens`, `dsl` and `cli` unit tests: 3817 passed, the only failure besides the base one fixed in `tests/unit/dsl/test_fields.py`.
-- [ ] 5.4 KiCad oracle: register `H-K-STEP-MODELS` and add `tests/kicad/export/test_generated_models.py` (scenario "KiCad reads the models"). Proof: `uv run pytest tests/kicad/export/test_generated_models.py -rA` (in CI, KiCad 9 and 10).
+- [x] 5.4 KiCad oracle: register `H-K-STEP-MODELS` and add `tests/kicad/export/test_generated_models.py` (scenario "KiCad reads the models"). Proof: `uv run pytest tests/kicad/export/test_generated_models.py -rA` (in CI, KiCad 9 and 10).
   Re-checked 2026-10-30 after the merge of `circuits-as-code` 52f32e8c: both tests of the file passed on kicad-cli 10.0.6 (docker), with the example board of task 6.3 added. Open until CI runs with the batch.
   Status 2026-10-30 (open until CI): `FENOLITE_REQUIRE=kicad uv run pytest tests/kicad/export/test_generated_models.py -rA` passed on kicad-cli 10.0.6 locally (three generated models added, one `NEXT_ASSEMBLY_USAGE_OCCURRENCE` per reference, no `Could not add 3D model`); `H-K-STEP-MODELS` names the test and stays `INFERRED` until the `kicad-9` and `kicad-10` jobs pass on the pushed head.
 
@@ -114,7 +114,48 @@
   Done 2026-10-30: `make residue` 0 hits (5417 files); `test_hypotheses_register.py` 38 passed (the entry record of task 0.1 no longer cites the withdrawn row of c0269); `tools/gen_evidence_matrix.py --check` exits 0. Every record under `tests/data/packages/` and `examples/generated/packages/` opens with the authored-for-Fenolite line and cites registered sources (renumbered S-0981 to S-0993 at the merge of `circuits-as-code`, whose S-0860 to S-0863 and the reservation S-0855 collided); `IPC-7351` appears only in the statements that none of it is used; no third-party footprint or model is in the change.
 - [x] 7.4 Add the entry to `CHANGELOG.md` under `## [Unreleased]`, noting that `.fenolite/board.json` gains bodies for catalog footprints whose records give heights. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
   Done 2026-10-30: `pytest tests/unit -k changelog` 8 passed; the entry is under `## [Unreleased]` / Added (dev is `0.7.0.dev0`).
-- [ ] 7.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
+- [x] 7.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
   Open 2026-10-30: `make check-fast PYTEST_WORKERS=2` passed on the branch head (17268 passed, 50 skipped); CI runs with the batch (the coordinator pushes it).
 
 2026-10-31: task 6.4 reproduced the Windows-rooted-path failure with PureWindowsPath on the local host (1 failed before the fix). Checking the path anchor rejects rooted folders; the complete generator command proof passed (15 tests). Strict validation and lint passed.
+
+## Proposed scoped closure receipt —2026-11-03
+
+Preflight base `9ba56e18562695c9cdf5ba3520cdb3e8d481db82` keeps runtime, tests and fixtures
+identical to CI source `985f59a1d01a612b2eac0219243199896c24075a`.
+`ci-scoped-985f59a1.json` records the actual selected results and limits from retained
+run41708879698: five green unit jobs, native9 explicit selected PASSED rows,
+and native10 completed required-CLI quiet-run inference, not an invented PASSED line.
+The run itself remains failed; the maintainer expressly excludes the27 deferred
+geometry cases from this closure batch, without passing them.
+This preparation marks no task and archives nothing; root review and the applicable
+scoped closing checks remain required. c0246 stays active; its missing literal double
+native-variant proof is not borrowed by this change.
+
+Documentary preflight (not a new native proof): nominal OpenSpec1.3.0 passes
+all four prepared changes and101 projected living specs. Its normal pure spec
+builder projects88 added requirements and120 added scenarios, two complete
+MODIFIED bodies, no removal/rename and no existing requirement/scenario loss.
+Both modified bodies preserve every old scenario body exactly. Matrix generator
+`--check` passes; the focused hypothesis-register/evidence-matrix modules pass
+59 tests in125.57s. No task checkbox or archive was changed by this preparation.
+
+## Authorized scoped closure —2026-11-03
+
+Root reviewed and approved the complete normative reconciliations and retained
+source985 proof. Local fast is the actual serialized fast13 receipt from
+`c0319-integration-repairs/fast13-receipt.json`: source
+`2c0540572c936303eb5c46a25002872648dfabad`, exit0,22366passed/52skipped.
+Runtime/tests/examples/tools Git trees and Makefile/pyproject/uv.lock/CI config
+are exactly equal through source985 and this docs-only executor. The original
+log and driver were independently rehashed. This is source-bound applicability,
+not an invented fast execution on985; later fast16/source863 is not used.
+
+The maintainer-authorized CI scope excludes the27 deferred geometry cases;
+those cases are NOT passed. Retained CI41708879698 and its native10 job remain
+FAILURE. Own native9 PASSED results, native10 completed quiet-run source-bound
+inference, five green unit jobs and the named artifact are recorded with their
+limits in ci-scoped-985f59a1.json. This closes the listed task proofs in that
+explicit scope, not a claim of whole-job green. The59 documentary tests,
+nominal strict validations and matrix check complement the retained fast/CI.
+No new fast/full/native/GUI/CI was run. c0246 stays open.

@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive c0260-footprint-generators with retained three/eight-model STEP proofs and reconciled generator contracts; limit STEP verification to those measured scopes.
+
 - Archive c0247-connection-helpers with retained source985 blink/ERC and pinned-byte proofs; keep failed CI badges and deferred geometry explicit.
 
 - Preserve the failed historical drawn-context evidence guard and permit measurement closure only with the complete source 985f59a1 CI receipt; resolve one active or archived spec, reject ambiguous locations and preserve receipt scope independently of later task closure; reject incomplete or altered rows, counts, timings, hashes, partitions, aliases, warnings and receipt bindings (c0276).
