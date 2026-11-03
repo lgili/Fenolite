@@ -75,7 +75,7 @@
 - [x] 4.2 Docs: `docs/datasheet-proposals.md` (the pipeline, the schema with every key, the checks, dense packages, the review gate, why no model runs in Fenolite), `library propose` in `docs/cli-contract.md`, links from `docs/index.md` and `docs/library-import.md`. Proof: `uv run pytest tests/unit -k docs -q`.
 - [x] 4.3 Residue and evidence: every test file authored for Fenolite, no real datasheet or manufacturer document committed, the evidence matrix regenerated. Proof: `make residue`; `uv run python tools/gen_evidence_matrix.py --check`.
 - [x] 4.4 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
-- [ ] 4.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
+- [x] 4.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
 
 Proof 2026-11-01: combined proposal/rule/importer/record/CLI/MCP compatibility: 234 passed;
 consistency: 727 passed, 41 intentional mutating skips; guide/residue tests: 120 passed, five corpus
@@ -84,3 +84,32 @@ skips; docs/changelog selection: 69 passed, one SDK-oracle skip. Final review-st
 PDF independently reports exactly one page. Strict OpenSpec validation passes without warnings.
 Tasks 0.1 and 4.5 remain open because the integration owner runs the complete local gate and checks
 the required CI jobs on the exact published commit; this worktree was neither pushed nor archived.
+
+
+## Scoped implementation closure — 2026-11-03
+
+The maintainer clarified that problematic geometry was already outside this
+closure CI batch before the run. Close only this specification’s implementation
+on tested source 985f59a1d01a612b2eac0219243199896c24075a and reviewed
+archival documentation. Run 41708879698 remains FAILURE: the27known c0332
+geometry failures are DEFERRED_NOT_PASSED, not passed tests. KiCad9 and all
+five unit jobs succeeded. The relevant KiCad10 module results are inferred
+from complete unfiltered collection and the exhaustive -ra non-pass report.
+Explicitly contracted unsupported-target skips remain skips; no nominal
+PASSED line or green KiCad10 job is claimed.
+
+`scoped-ci-985f59a1.json` binds the exact tests, explicit KiCad9 positive
+lines, complete log hashes, reused fast proof and existing scoped records.
+The isolated runtime/tests/tools/configuration remain byte-identical to985;
+this does not validate later CAC runtime, close c0355 or replace subsequent
+integration CI. Existing authored/native/default-map proofs and limitations
+remain intact. No suite, native CAD test or CI rerun was started for archive.
+
+Entry refresh: previously implemented prerequisites are now archived in the
+required order: no literal prior archive requirement. Existing APIs and reviewed normative
+unions were checked against the current living text; no runtime change or
+external publication was needed. Contracted native9/10 unsupported-target
+skips remain skips and are explicitly retained in the portable receipt.
+
+Proposal review stays a real human gate for future proposed records. This
+change does not require publishing a server/plugin or a future proposal.

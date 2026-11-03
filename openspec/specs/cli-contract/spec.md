@@ -2576,3 +2576,17 @@ Without `--update`, `--update-all` or `--propose`, `pick` SHALL be read-only: `r
 - **GIVEN** `subprocess.run`, `subprocess.Popen` and `socket.socket` patched to raise
 - **WHEN** `uv run pytest tests/unit/cli/test_hermetic_examples.py` runs `family` with its `example_args` `("expand", "Example:EX_MLCC", "--project", EXAMPLE_FAMILIES, "--json")`
 - **THEN** the exit code is 0 and `result.candidates` lists at most 50 MPNs in canonical order with `truncated` set
+
+### Requirement: Library propose command
+`fenolite library propose` SHALL be a command of the registry, read-only without `--proposal` and mutating with it, described in `docs/cli-contract.md` ("library propose") with its options (`--datasheet`, `--proposal` once or twice, `--out`, `--licence`), its result schema `fenolite.library-propose.v0` and its codes. Its example arguments MUST name authored files under `tests/data/proposals/`.
+
+#### Scenario: Consistency suite covers propose
+- **WHEN** `uv run pytest tests/consistency -q` runs
+- **THEN** `library propose` runs with its example arguments, its skeleton form exits 0 and its proposal form's dry run exits 0
+
+### Requirement: Library propose result
+The result of `library propose` with proposals SHALL hold `device`, `folder`, `datasheet` (`file`, `sha256`), `proposals` (`file`, `sha256`, `proposer`), `package` (family and pins), `doubts`, `uncited` and `plan`. The envelope evidence MUST be `INFERRED` with `H-G-PROPOSAL`; the device's own label is a field.
+
+#### Scenario: Result fields
+- **WHEN** the authored proposal is proposed with `--dry-run --json`
+- **THEN** the result holds every field above and `evidence.level` is `INFERRED`
