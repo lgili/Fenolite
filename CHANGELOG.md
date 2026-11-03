@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive c0304-viewer-build using its tested985 implementation, scoped unit/native CI evidence and existing proofs; preserve the authorized geometry deferral and pending later integration gates.
+
+- Reconcile all18 retained source985 full import measurements, including both heavy boards, and complete only c0275.4.3 without rerunning CI or changing historical/emission-only evidence.
+
 - Archive c0277-dsl-board-coverage using its tested985 implementation, scoped unit/native CI evidence and existing proofs; preserve the authorized geometry deferral and pending later integration gates.
 
 - Archive c0274-electrical-requirements using its tested985 implementation, scoped unit/native CI evidence and existing proofs; preserve the authorized geometry deferral and pending later integration gates.

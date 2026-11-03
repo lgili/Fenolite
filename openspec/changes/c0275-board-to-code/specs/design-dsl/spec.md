@@ -30,17 +30,18 @@ A table SHALL raise `DslError` at the call, naming the table key and the row ind
 ## MODIFIED Requirements
 
 ### Requirement: Zones in the DSL
-`Design.zone(net, *, layers, name=None, outline=None, priority=0, clearance=None, min_thickness=None, connection=None, thermal_gap=None, thermal_spoke_width=None, islands=None, min_island_area=None, locked=False, key=None)` SHALL declare one copper zone, and `dsl.to_model` SHALL put one model `Zone` per declared zone into `Board.zones`, in key order. This adds zones to the `Board` of "DSL to model".
+`Design.zone(net, *, layers, name=None, outline=None, priority=0, clearance=None, min_thickness=None, connection=None, thermal_gap=None, thermal_spoke_width=None, islands=None, min_island_area=None, locked=False, key=None, smoothing=None, smoothing_radius=None)` SHALL declare one copper zone, and `dsl.to_model` SHALL put one model `Zone` per declared zone into `Board.zones`, in key order. This adds zones to the `Board` of "DSL to model".
 - `board()` MUST have been called first. `layers` MUST be a non-empty sequence of distinct copper layer names of the board, those of `Design.copper_layers`: `F.Cu`, the inner layers `In1.Cu` … `In<copper − 2>.Cu` and `B.Cu` ("Board and placements in the DSL"). The message of a refused name MUST list the board's copper layers.
 - `net` MUST be a `Net`, which joins the design, or `None` for a zone without a net. `name` defaults to the net's name when `key` is `None`, and is required when both `net` and `key` are `None`. A given name MUST be non-empty and without surrounding spaces, and given names MUST be unique.
 - `key` (change c0275) is `None` or a string matching `^[A-Za-z0-9_.+-]+(/[A-Za-z0-9_.+-]+)*$`: the zone's identity across builds, written nowhere in the board. Without `key`, the key is the name, which is today's rule. With `key` and no `name`, the zone has no name (`name == ""` in the model) and the net's name is not taken. Keys MUST be unique among zones.
-- `outline` is `None`, which means the box of the board ring, or at least three `(x, y)` pairs of lengths in the board frame of "Board and placements in the DSL". Points are written with `BOARD_ORIGIN` added. The box of the board ring is the smallest axis-aligned rectangle that holds its vertices and the mid points of its arcs, written from its top-left corner in the order of the board rectangle; for `board(width, height)` it is the board rectangle. Cut-outs do not change it: KiCad clips a fill to the board.
+- `outline` is `None`, which means the box of the board ring, or a closed path in the board frame of "Board and placements in the DSL": at least three `(x, y)` pairs of lengths, which may be followed by `arc_to` steps as in "Outline shapes in the DSL" (change c0277). The model zone holds the points and, for each arc edge, an `OutlineArc` in `Zone.arcs`, which is left out of canonical JSON when empty. Points are written with `BOARD_ORIGIN` added. The box of the board ring is the smallest axis-aligned rectangle that holds its vertices and the mid points of its arcs, written from its top-left corner in the order of the board rectangle; for `board(width, height)` it is the board rectangle. Cut-outs do not change it: KiCad clips a fill to the board.
 - A setting given as `None` MUST take the `ZoneSettings` default. Lengths follow "DSL lengths and angles". `clearance` MUST be at least 0, and `min_thickness`, `thermal_gap` and `thermal_spoke_width` above 0.
 - `connection` MUST be one of `solid`, `thermal`, `none` and `thru_hole_only`, and `islands` one of `always`, `never` and `below_area`.
 - `min_island_area` MUST be a string with the unit `mm2`, such as `"2.5mm2"`, converted exactly to square nanometres, and is accepted only together with `islands="below_area"`.
+- `smoothing` MUST be `None`, `chamfer` or `fillet`, and `smoothing_radius` a length of at least 0 accepted only with a smoothing (change c0277); they set `ZoneSettings.smoothing` and `smoothing_radius`.
 - `priority` MUST be an `int` of at least 0, and `locked` a `bool`.
 - Each violation MUST raise `DslError` at the call, naming the argument.
-- The model zone MUST have the id `derived_id("zon", "dsl", "zone:<key>")` (`design-model`, "Identifier derivation"), `name`, the layers, the net's id, `priority`, `locked`, the settings, `filled == False` and no fills. Hatching and smoothing are not DSL arguments and keep their defaults.
+- The model zone MUST have the id `derived_id("zon", "dsl", "zone:<key>")` (`design-model`, "Identifier derivation"), `name`, the layers, the net's id, `priority`, `locked`, the settings, `filled == False` and no fills. Hatching is not a DSL argument and keeps its default.
 
 #### Scenario: Pour with a 0.3 mm clearance
 - **GIVEN** a design with `board(mm(50), mm(30))` and `d.zone(gnd, layers=("F.Cu", "B.Cu"), clearance=mm(0.3))`
@@ -73,6 +74,11 @@ A table SHALL raise `DslError` at the call, naming the table key and the row ind
 - **GIVEN** `d.zone(gnd, layers=("F.Cu",))`
 - **WHEN** `d.zone(gnd, layers=("B.Cu",))` is called, and then `d.zone(gnd, layers=("B.Cu",), name="GND_BOTTOM")`
 - **THEN** the first raises `DslError` naming the name `GND`, and the second is accepted
+
+#### Scenario: Zone with an arc edge
+- **GIVEN** a design with `board(mm(50), mm(30))` and `d.zone(gnd, layers=("F.Cu",), outline=((mm(0), mm(0)), (mm(20), mm(0)), arc_to((mm(30), mm(10)), (mm(20), mm(20))), (mm(0), mm(20))))`
+- **WHEN** `to_model(d)` runs
+- **THEN** the zone has four outline points and one `OutlineArc` whose mid point is (130 mm, 110 mm), and a zone without arcs gives the same canonical JSON as before this change
 
 #### Scenario: Zone on a round board
 - **GIVEN** a design with `board(outline=shape.circle(mm(20), mm(20), mm(40)))` and `d.zone(gnd, layers=("B.Cu",))`

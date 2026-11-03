@@ -1,0 +1,570 @@
+{
+  "CI_source": "985f59a1d01a612b2eac0219243199896c24075a",
+  "all_imports_exit_0_and_equivalent": true,
+  "artifact": {
+    "bytes": 7515,
+    "digest_matches": true,
+    "id": 13272434225,
+    "name": "import-census",
+    "path": "retention/artifacts/13272434225.zip",
+    "server_digest": "sha256:1e179e5c80e839e67d5263291e09ff3e4274d829270e0624eac36b73482d13ac",
+    "server_size_bytes": 7515,
+    "sha256": "1e179e5c80e839e67d5263291e09ff3e4274d829270e0624eac36b73482d13ac",
+    "size_matches": true,
+    "zip_crc_verified": true
+  },
+  "artifact_members": 19,
+  "counts_and_seconds_are_full_conversion_measurements": true,
+  "date": "2026-11-03",
+  "duplicate_aliases": 1,
+  "emission_observations_remain_separate": true,
+  "historical_conversion_table_unchanged": true,
+  "job_id": 126171394674,
+  "known_geometry_deferral_does_not_mean_CI_passed": true,
+  "members": [
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva1/import-census.json",
+      "row": "02",
+      "sha256": "2f896bde71996fab8d7896b664bdf807044d3a04c42f45ec64e9f61d7409263d"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva10/import-census.json",
+      "row": "11",
+      "sha256": "72e442092ba1af53b0fa9d6fd2cb120968f82d17b2dfabef34b9fa9674eb66f1"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva11/import-census.json",
+      "row": "12",
+      "sha256": "8e77b19ccc735443c1afe2550f0f8688b0c3fd88045c8d143dd1c150308e58ea"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva0/import-census.json",
+      "row": "01",
+      "sha256": "7e95a30ab822275d40f08dc0e3504d25ce35c02490aa273347fdae16ebb89629"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva12/import-census.json",
+      "row": "13",
+      "sha256": "c53049e9381cfe42770c194109d25ce0cc5236370a905c2aced8c085c82470be"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva13/import-census.json",
+      "row": "14",
+      "sha256": "634fcb23f078c59b8b6f987fded618aa937c3988c1d9b203610086d334e049c1"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva14/import-census.json",
+      "row": "15",
+      "sha256": "e9177f07b0e3eb858b7c1dc3a47b7cae45556b99079af63d7d3887da1879dd3d"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva15/import-census.json",
+      "row": "16",
+      "sha256": "22b05584193d9cc0ebc177964e7d6353a056158aa235f5eb980b8584fc243f68"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva16/import-census.json",
+      "row": "17",
+      "sha256": "5ecae9918cbd6f46d16043791c55d7f0138403ddc2f6fe1dc2a84d976340d714"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva17/import-census.json",
+      "row": "18",
+      "sha256": "69f6f958be6adc5e3c16d0a9448df16d9dc49f31e60ffce922bb18e759a1ea2a"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva2/import-census.json",
+      "row": "03",
+      "sha256": "6a150784a181d50c7f0e536352cef78018900015041d11b2e3dc04bf2072de7f"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva3/import-census.json",
+      "row": "04",
+      "sha256": "0c9583ad68ba32617c7f4c725650e9c6d0fa789056f65a40bcea043d032c542d"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva4/import-census.json",
+      "row": "05",
+      "sha256": "d1e6d55c20a8f0a4cf11917dcfcad0e186c4e2bbe40ff40e25efc634ed28d062"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva5/import-census.json",
+      "row": "06",
+      "sha256": "b934b135e7fcdb6d44cc1c836cbdd1a85895aa3c529e646ef4dd04ca1ceee551"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva6/import-census.json",
+      "row": "07",
+      "sha256": "568756f18c5c183e99261180c37002fc9afb9b48562c290a5ad21a687834d95b"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva7/import-census.json",
+      "row": "08",
+      "sha256": "500a56390c4b98a1a666dd98d8945cfc91661e7bcb0398a29545f84ed584970b"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva9/import-census.json",
+      "row": "10",
+      "sha256": "e041a5fd06a4d2da183435192bf2db40cd2ed4c631748e9c9d1218dfac3f2604"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equiva8/import-census.json",
+      "row": "09",
+      "sha256": "5d20aafeba6faba11018878bf214fe5148cf67f792696b8508bee8559f6466d1"
+    },
+    {
+      "path": "popen-gw0/test_demo_board_imports_equivacurrent/import-census.json",
+      "row": "18",
+      "sha256": "69f6f958be6adc5e3c16d0a9448df16d9dc49f31e60ffce922bb18e759a1ea2a"
+    }
+  ],
+  "new_CI_or_push": false,
+  "no_reexecution": true,
+  "original_job_conclusion": "failure",
+  "original_run_conclusion": "failure",
+  "rows": [
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-01",
+      "input_sha256": "123e209e6245cbcc344c1c70b425dcb44a12cd0a2d05f00a39d3f2e7ff307ffa",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "CM5_MINIMA_3.kicad_pcb",
+        "counts": {
+          "arcs": 200,
+          "drawings": 219,
+          "nets": 159,
+          "parts": 112,
+          "rule_areas": 1,
+          "tables": 355,
+          "tracks": 1884,
+          "vias": 444,
+          "zones": 13
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "none",
+        "row": "01",
+        "seconds": 31
+      }
+    },
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-02",
+      "input_sha256": "d5f4162d4c766448832723d139f9e0fcb88a17c82340f10f6f6dc6c2042f0d69",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "complex_hierarchy.kicad_pcb",
+        "counts": {
+          "arcs": 0,
+          "drawings": 2,
+          "nets": 50,
+          "parts": 68,
+          "rule_areas": 0,
+          "tables": 78,
+          "tracks": 364,
+          "vias": 0,
+          "zones": 1
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "none",
+        "row": "02",
+        "seconds": 8
+      }
+    },
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-03",
+      "input_sha256": "0ab45f4f8c90ac877e3313a1888d875107f2be3fc2b2f40cfb7927873b35260c",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "ecc83-pp.kicad_pcb",
+        "counts": {
+          "arcs": 0,
+          "drawings": 0,
+          "nets": 9,
+          "parts": 15,
+          "rule_areas": 0,
+          "tables": 8,
+          "tracks": 59,
+          "vias": 0,
+          "zones": 1
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "none",
+        "row": "03",
+        "seconds": 1
+      }
+    },
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-04",
+      "input_sha256": "9be2caf4c257a93fc2b3904add1061a4d2e23cde502a7846513ae7db6b214c30",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "ecc83-pp_v2.kicad_pcb",
+        "counts": {
+          "arcs": 0,
+          "drawings": 0,
+          "nets": 9,
+          "parts": 15,
+          "rule_areas": 0,
+          "tables": 9,
+          "tracks": 53,
+          "vias": 0,
+          "zones": 1
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "none",
+        "row": "04",
+        "seconds": 1
+      }
+    },
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-05",
+      "input_sha256": "a740ce7fde77ab6af191e23ece21e57d36bb3c29325879248520dcd9ab47b57e",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "interf_u.kicad_pcb",
+        "counts": {
+          "arcs": 0,
+          "drawings": 10,
+          "nets": 110,
+          "parts": 25,
+          "rule_areas": 0,
+          "tables": 221,
+          "tracks": 731,
+          "vias": 84,
+          "zones": 1
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "none",
+        "row": "05",
+        "seconds": 7
+      }
+    },
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-06",
+      "input_sha256": "e61179b68ac151376f5552f91a8acc2aed46f0cc4cd9c771049490735cdbf3f8",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "jetson-agx-thor-baseboard.kicad_pcb",
+        "counts": {
+          "arcs": 2316,
+          "drawings": 298,
+          "nets": 883,
+          "parts": 1125,
+          "rule_areas": 28,
+          "tables": 2398,
+          "tracks": 19835,
+          "vias": 3235,
+          "zones": 97
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "dimension-style 24, drawing 6, rule-area-placement 2",
+        "row": "06",
+        "seconds": 1375
+      }
+    },
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-07",
+      "input_sha256": "392cf6bf4b9b62beb435f965ccd7671a46decb17f947b74bfde482acd2132a5e",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "kit-dev-coldfire-xilinx_5213.kicad_pcb",
+        "counts": {
+          "arcs": 0,
+          "drawings": 5,
+          "nets": 209,
+          "parts": 160,
+          "rule_areas": 0,
+          "tables": 550,
+          "tracks": 2935,
+          "vias": 253,
+          "zones": 3
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "none",
+        "row": "07",
+        "seconds": 29
+      }
+    },
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-08",
+      "input_sha256": "7f17191488b51f8782efc0a3b9ce7b5748a4e771ff0babb34ec0369ffcf43be5",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "microwave.kicad_pcb",
+        "counts": {
+          "arcs": 0,
+          "drawings": 3,
+          "nets": 0,
+          "parts": 4,
+          "rule_areas": 0,
+          "tables": 0,
+          "tracks": 0,
+          "vias": 0,
+          "zones": 0
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "none",
+        "row": "08",
+        "seconds": 1
+      }
+    },
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-09",
+      "input_sha256": "149b2dce16e0f59adb78f87068f4137b7dafca0e991a0b21fdd967c873fd5ee9",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "multichannel_mixer-unrouted.kicad_pcb",
+        "counts": {
+          "arcs": 0,
+          "drawings": 2,
+          "nets": 79,
+          "parts": 114,
+          "rule_areas": 4,
+          "tables": 25,
+          "tracks": 140,
+          "vias": 19,
+          "zones": 1
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "none",
+        "row": "09",
+        "seconds": 23
+      }
+    },
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-10",
+      "input_sha256": "44b7c119a0d05c98e9f294659879184038a5f6c30073c04d9536990429ca413e",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "multichannel_mixer.kicad_pcb",
+        "counts": {
+          "arcs": 0,
+          "drawings": 2,
+          "nets": 79,
+          "parts": 114,
+          "rule_areas": 4,
+          "tables": 85,
+          "tracks": 576,
+          "vias": 29,
+          "zones": 2
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "none",
+        "row": "10",
+        "seconds": 21
+      }
+    },
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-11",
+      "input_sha256": "a577ba5e2b337c9b827f3c30256161a1893da8303d278fb7db10dba4f02ea810",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "One-Air-Max.kicad_pcb",
+        "counts": {
+          "arcs": 16,
+          "drawings": 55,
+          "nets": 121,
+          "parts": 210,
+          "rule_areas": 3,
+          "tables": 297,
+          "tracks": 1638,
+          "vias": 410,
+          "zones": 34
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "none",
+        "row": "11",
+        "seconds": 32
+      }
+    },
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-12",
+      "input_sha256": "1ca70b620506818eb0227e2863bbd573d1fec1672072dc43d0dbe8475e69c8fb",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "pic_programmer.kicad_pcb",
+        "counts": {
+          "arcs": 0,
+          "drawings": 19,
+          "nets": 34,
+          "parts": 63,
+          "rule_areas": 0,
+          "tables": 46,
+          "tracks": 370,
+          "vias": 6,
+          "zones": 1
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "none",
+        "row": "12",
+        "seconds": 10
+      }
+    },
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-13",
+      "input_sha256": "535dbe212f43a8bab12b23277e176a94ac9694177258af2981c0e7b08e4b7252",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "RoyalBlue54L-Feather.kicad_pcb",
+        "counts": {
+          "arcs": 0,
+          "drawings": 72,
+          "nets": 68,
+          "parts": 71,
+          "rule_areas": 0,
+          "tables": 207,
+          "tracks": 943,
+          "vias": 183,
+          "zones": 4
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "none",
+        "row": "13",
+        "seconds": 36
+      }
+    },
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-14",
+      "input_sha256": "cd87e6d1b20fe0d129d9a9c807af3118c67749eff44b1f032d85c047a814c6dc",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "RoyalBlue54L-NFC-Antenna.kicad_pcb",
+        "counts": {
+          "arcs": 48,
+          "drawings": 21,
+          "nets": 1,
+          "parts": 2,
+          "rule_areas": 0,
+          "tables": 9,
+          "tracks": 112,
+          "vias": 2,
+          "zones": 0
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "none",
+        "row": "14",
+        "seconds": 3
+      }
+    },
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-15",
+      "input_sha256": "d0dee876715fcdd3f656dd6a77cc1141c39bec4d6f8492a3784d38edd6b9a998",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "sonde xilinx.kicad_pcb",
+        "counts": {
+          "arcs": 0,
+          "drawings": 9,
+          "nets": 26,
+          "parts": 25,
+          "rule_areas": 0,
+          "tables": 38,
+          "tracks": 208,
+          "vias": 3,
+          "zones": 1
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "none",
+        "row": "15",
+        "seconds": 3
+      }
+    },
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-16",
+      "input_sha256": "0d26bf9b6d561e32cf610d428541d6433e60b45e1838f34f73467e25b9144814",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "tinytapeout-demo.kicad_pcb",
+        "counts": {
+          "arcs": 0,
+          "drawings": 584,
+          "nets": 108,
+          "parts": 309,
+          "rule_areas": 0,
+          "tables": 372,
+          "tracks": 2143,
+          "vias": 405,
+          "zones": 2
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "none",
+        "row": "16",
+        "seconds": 64
+      }
+    },
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-17",
+      "input_sha256": "f620675158ddd5c61e5ce9e15f4c92b230ae1df1cbcec6c502b8ce266e4007ea",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "video.kicad_pcb",
+        "counts": {
+          "arcs": 0,
+          "drawings": 17,
+          "nets": 371,
+          "parts": 189,
+          "rule_areas": 0,
+          "tables": 982,
+          "tracks": 7932,
+          "vias": 808,
+          "zones": 2
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "none",
+        "row": "17",
+        "seconds": 52
+      }
+    },
+    {
+      "corpus_id": "kicad-demo-10-0-6-pcb-18",
+      "input_sha256": "1c76ac238b04babc238d2d50585858988fb3f6c4f8d0fbacc738cfe4862fff5b",
+      "license": "CC-BY-SA-4.0",
+      "measurement": {
+        "board": "vme-wren.kicad_pcb",
+        "counts": {
+          "arcs": 1792,
+          "drawings": 1515,
+          "nets": 1338,
+          "parts": 1508,
+          "rule_areas": 5,
+          "tables": 4097,
+          "tracks": 24853,
+          "vias": 4374,
+          "zones": 123
+        },
+        "equivalent": true,
+        "exit_code": 0,
+        "left_out": "text 10, zero-length-track 5, zone-name 6, zone-setting 1",
+        "row": "18",
+        "seconds": 686
+      }
+    }
+  ],
+  "run_id": 41708879698,
+  "schema": "fenolite.import-corpus-ci-receipt.v1",
+  "scope": "Complete CLI import/build/Fenolite comparison at levels 1 to 5 and copper item by item with --allow-lossy; no level S/6/7/8, native load, GUI or release claim",
+  "source_bindings": {
+    "docs/evidence/import-coverage.json": "fd385d6eacb52265312aab012d1d5caf9047c7bd8f2debbe306c1f074b7fbbd6",
+    "tests/_importcoverage.py": "30157e98adb54c62c549978bfb1a2d07f3e018aa0030953867a0d2b4049a3cf6",
+    "tests/corpus/manifest.toml": "bdc796c64b61f1e0a0240f2c133e879cc367a1ed256ea006cf883320b2cb4dcc",
+    "tests/corpus/test_import_corpus.py": "0f41048d3d70cf37b20ed98665c3bb182a43cafb5537a171482c6f1f62775c71",
+    "tools/measure_import_coverage.py": "c603ae4d932eefedba6655974ada60dc965386d3ed0c8c086fd9df898a5d4c6b"
+  },
+  "unique_rows": 18
+}

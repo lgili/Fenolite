@@ -57,7 +57,7 @@
 
 ## 6. Closing
 
-- [ ] 6.1 Run the tests and the residue scan. Proof: the focused run of task 4.3 and `uv run python tools/residue/scan.py`; `make check` in CI on the branch (the maintainer's rule of 2026-10-14).
+- [x] 6.1 Run the tests and the residue scan. Proof: the focused run of task 4.3 and `uv run python tools/residue/scan.py`; `make check` in CI on the branch (the maintainer's rule of 2026-10-14).
   - 2026-10-29: the focused run and the residue scan pass locally; `make check` in CI is open until the batch is
     published.
 - [x] 6.2 Confirm that no evidence label changes (no format fact is involved). Proof: `uv run python tools/gen_evidence_matrix.py --check`.
@@ -68,3 +68,38 @@
 
 
 Published build proof, 2026-11-01: `uv run pytest tests/unit/test_ci_workflow.py -q` passed all 48 cases on exact published commit `96d687d18450f429bcc57b60087f9e6f43dfb707`. [CI run 41359100272, viewer job 125005408616](https://github.com/lgili/Fenolite/actions/runs/41359100272/job/125005408616) completed successfully. Its step 6 ran `uv run python tools/build_viewer.py --check` and exited 0 before step 9 passed all 104 visual cases. This closes only task 5.1; the complete gate in task 6.1 remains open.
+
+
+## Scoped implementation closure — 2026-11-03
+
+The maintainer clarified that problematic geometry was already outside this
+closure CI batch before the run. Close only this specification’s implementation
+on tested source 985f59a1d01a612b2eac0219243199896c24075a and reviewed
+archival documentation. Run 41708879698 remains FAILURE: the27known c0332
+geometry failures are DEFERRED_NOT_PASSED, not passed tests. KiCad9 and all
+five unit jobs succeeded. The relevant KiCad10 module results are inferred
+from complete unfiltered collection and the exhaustive -ra non-pass report.
+Explicitly contracted unsupported-target skips remain skips; no nominal
+PASSED line or green KiCad10 job is claimed.
+
+`scoped-ci-985f59a1.json` binds the exact tests, explicit KiCad9 positive
+lines, complete log hashes, reused fast proof and existing scoped records.
+The isolated runtime/tests/tools/configuration remain byte-identical to985;
+this does not validate later CAC runtime, close c0355 or replace subsequent
+integration CI. Existing authored/native/default-map proofs and limitations
+remain intact. No suite, native CAD test or CI rerun was started for archive.
+
+Entry refresh: previously implemented prerequisites are now archived in the
+required order: no literal prior archive requirement. Existing APIs and reviewed normative
+unions were checked against the current living text; no runtime change or
+external publication was needed. Contracted native9/10 unsupported-target
+skips remain skips and are explicitly retained in the portable receipt.
+
+The existing viewer job126171394431 passed bundle freshness and104visual
+cases on source985. All eleven PNG references exactly match the prior
+reviewed/published/source985 maps, preserving the dated delegated image
+inspection without inventing a new approval from automation. Unit, viewer
+and applicable MCP/DCO jobs are recorded individually in the portable proof.
+No bundle, PNG, runtime, assertion or measurement was regenerated here.
+The missing three native action CI cases ofc0303 and six real variant views
+ofc0305 remain separate open requirements; neither is closed by this record.

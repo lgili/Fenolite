@@ -105,3 +105,32 @@ expectations. No converted content is retained here.
 | 17 | `f620675158ddd5c61e5ce9e15f4c92b230ae1df1cbcec6c502b8ce266e4007ea` | none |
 | 18 | `1c76ac238b04babc238d2d50585858988fb3f6c4f8d0fbacc738cfe4862fff5b` | text 10, zero-length-track 5, zone-name 6, zone-setting 1 |
 <!-- import-coverage:end -->
+
+## Complete retained conversion measurements — 2026-11-03
+
+The retained `import-census` artifact from source `985f59a1d01a612b2eac0219243199896c24075a` contains all18 actual full CLI imports, including heavy rows06 and18: exit0 and equivalent=true at levels1–5 and copper item by item with `--allow-lossy`. These are conversion measurements, separate from the emission-only observations above. The [portable receipt](import-corpus-ci-985f59a1.json) binds every declared input, current omitted-kind expectation, raw artifact member and source file. Nineteen artifact members represent18 unique rows; the pytest-current alias is byte-identical, not another measurement.
+
+The artifact ZIP is7515bytes, SHA256 `1e179e5c80e839e67d5263291e09ff3e4274d829270e0624eac36b73482d13ac`; its original server digest, size and all member CRCs agree. Job126171394674 and run41708879698 remain failed due to the separately deferred27 geometry cases. Artifact retention and authorized run deletion do not turn them into a passing CI badge. No import, native tool or CI was rerun for this reconciliation.
+
+The counts below are copied verbatim from those full conversions. They do not replace the historical table or the emission-only counts: the stages can count different retained representations. Omitted kinds are reported, not silently accepted as lossless. This closes only c0275 task4.3 on that source; later integration, library release and levelsS/6–8 remain independently unproven.
+
+| row | left out (kind count) | parts | tracks | arcs | vias | zones | equivalent | seconds |
+|---|---|---|---|---|---|---|---|---|
+| 01 | none | 112 | 1884 | 200 | 444 | 13 | yes | 31 |
+| 02 | none | 68 | 364 | 0 | 0 | 1 | yes | 8 |
+| 03 | none | 15 | 59 | 0 | 0 | 1 | yes | 1 |
+| 04 | none | 15 | 53 | 0 | 0 | 1 | yes | 1 |
+| 05 | none | 25 | 731 | 0 | 84 | 1 | yes | 7 |
+| 06 | dimension-style 24, drawing 6, rule-area-placement 2 | 1125 | 19835 | 2316 | 3235 | 97 | yes | 1375 |
+| 07 | none | 160 | 2935 | 0 | 253 | 3 | yes | 29 |
+| 08 | none | 4 | 0 | 0 | 0 | 0 | yes | 1 |
+| 09 | none | 114 | 140 | 0 | 19 | 1 | yes | 23 |
+| 10 | none | 114 | 576 | 0 | 29 | 2 | yes | 21 |
+| 11 | none | 210 | 1638 | 16 | 410 | 34 | yes | 32 |
+| 12 | none | 63 | 370 | 0 | 6 | 1 | yes | 10 |
+| 13 | none | 71 | 943 | 0 | 183 | 4 | yes | 36 |
+| 14 | none | 2 | 112 | 48 | 2 | 0 | yes | 3 |
+| 15 | none | 25 | 208 | 0 | 3 | 1 | yes | 3 |
+| 16 | none | 309 | 2143 | 0 | 405 | 2 | yes | 64 |
+| 17 | none | 189 | 7932 | 0 | 808 | 2 | yes | 52 |
+| 18 | text 10, zero-length-track 5, zone-name 6, zone-setting 1 | 1508 | 24853 | 1792 | 4374 | 123 | yes | 686 |
