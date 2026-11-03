@@ -1,0 +1,287 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
+"""Private conservative indexing and exact signed edge splitting (c0332).
+
+Closed AABBs include endpoint contacts. Rational intersections never snap to a
+grid. Multiplicity and every source-edge direction survive coincident edges,
+including edges whose total current cancels. There is no process-global state.
+"""
+
+from __future__ import annotations
+
+import heapq
+import time
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
+from fractions import Fraction
+
+from fenolite.geometry.boolean.base import COORD_LIMIT
+from fenolite.geometry.errors import OUT_OF_RANGE, GeometryError
+
+IntPoint = tuple[int, int]
+ExactPoint = tuple[Fraction, Fraction]
+
+
+class ResourceLimit(GeometryError):
+    """A per-operation bound, still using the existing geometry/FEN-3005 error."""
+
+
+@dataclass(frozen=True, slots=True)
+class Limits:
+    """Deterministic storage/work caps; deadlines bound the remaining arithmetic."""
+
+    input_edges: int = 10_000
+    comparisons: int = 1_000_000
+    candidates: int = 250_000
+    nodes: int = 100_000
+    fragments: int = 100_000
+    incidences: int = 1_000_000
+    coordinate_bits: int = 256
+    halfedges: int = 200_000
+    faces: int = 100_000
+    winding_visits: int = 10_000_000
+    repair_nodes: int = 16
+    repair_proposal_nodes: int = 256
+    repair_candidates: int = 4096
+    distance_predicates: int = 1_000_000
+    distance_intervals: int = 16_384
+    distance_depth: int = 32
+    distance_bits: int = 1024
+    total_seconds: int = 240
+    stage_seconds: int = 120
+
+
+@dataclass(slots=True)
+class Budget:
+    limits: Limits = field(default_factory=Limits)
+    clock: Callable[[], float] = time.monotonic
+    _started: float = field(init=False)
+    _stage_started: float = field(init=False)
+    _stage: str = field(default="start", init=False)
+    _visits: int = field(default=0, init=False)
+    _distance_predicates: int = field(default=0, init=False)
+    _distance_intervals: int = field(default=0, init=False)
+    _repair_trials: int = field(default=0, init=False)
+
+    def __post_init__(self) -> None:
+        self._started = self._stage_started = self.clock()
+
+    def check(self) -> None:
+        now = self.clock()
+        if (
+            now - self._started > self.limits.total_seconds
+            or now - self._stage_started > self.limits.stage_seconds
+        ):
+            raise ResourceLimit(f"exact geometry deadline exceeded during {self._stage}")
+
+    def stage(self, name: str) -> None:
+        self.check()
+        self._stage = name
+        self._stage_started = self.clock()
+
+    def coordinate(self, value: Fraction) -> None:
+        if (
+            max(abs(value.numerator).bit_length(), value.denominator.bit_length())
+            > self.limits.coordinate_bits
+        ):
+            raise ResourceLimit("exact geometry coordinate bit budget exceeded")
+
+    def visit(self, count: int) -> None:
+        self._visits += count
+        if self._visits > self.limits.winding_visits:
+            raise ResourceLimit("exact geometry winding visit budget exceeded")
+        self.check()
+
+    def distance_value(self, value: Fraction) -> Fraction:
+        if max(abs(value.numerator).bit_length(), value.denominator.bit_length()) > self.limits.distance_bits:
+            raise ResourceLimit("exact geometry distance bit budget exceeded")
+        return value
+
+    def distance_probe(self) -> None:
+        self._distance_predicates += 1
+        if self._distance_predicates > self.limits.distance_predicates:
+            raise ResourceLimit("exact geometry distance predicate budget exceeded")
+        if self._distance_predicates % 256 == 0:
+            self.check()
+
+    def distance_interval(self) -> None:
+        self._distance_intervals += 1
+        if self._distance_intervals > self.limits.distance_intervals:
+            raise ResourceLimit("exact geometry distance interval budget exceeded")
+
+    def repair_trial(self) -> None:
+        self._repair_trials += 1
+        if self._repair_trials > self.limits.repair_candidates:
+            raise ResourceLimit("exact geometry repair candidate budget exceeded")
+        self.check()
+
+
+@dataclass(frozen=True, slots=True)
+class Segment:
+    a: IntPoint
+    b: IntPoint
+    channel: int
+
+
+@dataclass(frozen=True, slots=True)
+class Fragment:
+    a: ExactPoint
+    b: ExactPoint
+    current: tuple[int, int]
+    provenance: tuple[tuple[int, int], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class NodeGraph:
+    fragments: tuple[Fragment, ...]
+    nodes: int
+    candidate_pairs: int
+    intersecting_pairs: int
+
+
+def _validate(segments: Sequence[Segment], budget: Budget, edge_limit: int) -> None:
+    if len(segments) > edge_limit:
+        raise GeometryError("exact geometry input-edge budget exceeded")
+    for s in segments:
+        if type(s.channel) is not int or s.channel not in (0, 1):
+            raise GeometryError("exact geometry requires operand channel 0 or 1")
+        for p in (s.a, s.b):
+            if any(type(c) is not int for c in p):
+                raise GeometryError("exact geometry requires integer input coordinates")
+            if any(abs(c) > COORD_LIMIT for c in p):
+                raise GeometryError("exact geometry input outside coordinate domain", code=OUT_OF_RANGE)
+            for c in p:
+                budget.coordinate(Fraction(c))
+
+
+def candidate_pairs(
+    segments: Sequence[Segment], budget: Budget, *, edge_limit: int | None = None, start_stage: bool = True
+) -> tuple[tuple[int, int], ...]:
+    """Every pair of overlapping closed AABBs, with bounded integer-only work."""
+    _validate(segments, budget, budget.limits.input_edges if edge_limit is None else edge_limit)
+    if start_stage:
+        budget.stage("index")
+    bounds = [
+        (min(s.a[0], s.b[0]), min(s.a[1], s.b[1]), max(s.a[0], s.b[0]), max(s.a[1], s.b[1])) for s in segments
+    ]
+
+    def density(axis: int) -> int:
+        heap: list[tuple[int, int]] = []
+        count = 0
+        for i in sorted(range(len(bounds)), key=lambda j: (bounds[j][axis], j)):
+            budget.check()
+            while heap and heap[0][0] < bounds[i][axis]:
+                heapq.heappop(heap)
+            count += len(heap)
+            heapq.heappush(heap, (bounds[i][axis + 2], i))
+        return count
+
+    densities = (density(0), density(1))
+    axis = 0 if densities[0] <= densities[1] else 1
+    other = 1 - axis
+    active: dict[int, None] = {}
+    heap: list[tuple[int, int]] = []
+    result: list[tuple[int, int]] = []
+    comparisons = 0
+    for i in sorted(range(len(bounds)), key=lambda j: (bounds[j][axis], j)):
+        budget.check()
+        while heap and heap[0][0] < bounds[i][axis]:
+            _, old = heapq.heappop(heap)
+            del active[old]
+        for j in active:
+            comparisons += 1
+            if comparisons > budget.limits.comparisons:
+                raise GeometryError("exact geometry index-comparison budget exceeded")
+            if comparisons % 1024 == 0:
+                budget.check()
+            if bounds[j][other + 2] >= bounds[i][other] and bounds[i][other + 2] >= bounds[j][other]:
+                if len(result) >= budget.limits.candidates:
+                    raise GeometryError("exact geometry candidate-pair budget exceeded")
+                result.append((min(i, j), max(i, j)))
+        active[i] = None
+        heapq.heappush(heap, (bounds[i][axis + 2], i))
+    budget.check()
+    return tuple(sorted(result))
+
+
+def _on(p: IntPoint, s: Segment) -> bool:
+    return (
+        (p[0] - s.a[0]) * (s.b[1] - s.a[1]) == (p[1] - s.a[1]) * (s.b[0] - s.a[0])
+        and min(s.a[0], s.b[0]) <= p[0] <= max(s.a[0], s.b[0])
+        and min(s.a[1], s.b[1]) <= p[1] <= max(s.a[1], s.b[1])
+    )
+
+
+def _hits(s: Segment, t: Segment) -> set[ExactPoint]:
+    rx, ry = s.b[0] - s.a[0], s.b[1] - s.a[1]
+    ux, uy = t.b[0] - t.a[0], t.b[1] - t.a[1]
+    det = rx * uy - ry * ux
+    if det:
+        dx, dy = t.a[0] - s.a[0], t.a[1] - s.a[1]
+        first = Fraction(dx * uy - dy * ux, det)
+        second = Fraction(dx * ry - dy * rx, det)
+        if 0 <= first <= 1 and 0 <= second <= 1:
+            return {(Fraction(s.a[0]) + first * rx, Fraction(s.a[1]) + first * ry)}
+        return set()
+    return {(Fraction(p[0]), Fraction(p[1])) for p in (s.a, s.b, t.a, t.b) if _on(p, s) and _on(p, t)}
+
+
+def node_segments(segments: Sequence[Segment], budget: Budget | None = None) -> NodeGraph:
+    """Split the indexed arrangement, retaining signed multiplicity and provenance."""
+    budget = budget if budget is not None else Budget()
+    pairs = candidate_pairs(segments, budget)
+    budget.stage("noding")
+    cuts: list[set[ExactPoint]] = [
+        {(Fraction(s.a[0]), Fraction(s.a[1])), (Fraction(s.b[0]), Fraction(s.b[1]))} for s in segments
+    ]
+    incidence_count = sum(map(len, cuts))
+    if incidence_count > budget.limits.incidences:
+        raise GeometryError("exact geometry cut-incidence budget exceeded")
+    hits_count = 0
+    for k, (i, j) in enumerate(pairs):
+        if k % 1024 == 0:
+            budget.check()
+        hits = _hits(segments[i], segments[j])
+        if hits:
+            hits_count += 1
+            for q in hits:
+                budget.coordinate(q[0])
+                budget.coordinate(q[1])
+                for source in (i, j):
+                    if q not in cuts[source]:
+                        cuts[source].add(q)
+                        incidence_count += 1
+            if incidence_count > budget.limits.incidences:
+                raise GeometryError("exact geometry cut-incidence budget exceeded")
+    nodes: set[ExactPoint] = set()
+    counts: dict[tuple[ExactPoint, ExactPoint], list[int]] = {}
+    provenance: dict[tuple[ExactPoint, ExactPoint], list[tuple[int, int]]] = {}
+    for i, (s, points) in enumerate(zip(segments, cuts, strict=True)):
+        if i % 256 == 0:
+            budget.check()
+        nodes.update(points)
+        if len(nodes) > budget.limits.nodes:
+            raise GeometryError("exact geometry node budget exceeded")
+        if s.a == s.b:
+            continue
+        direction = 1 if s.a < s.b else -1
+        ordered = sorted(points)
+        for a, b in zip(ordered, ordered[1:], strict=False):
+            key = (a, b)
+            if key not in counts:
+                if len(counts) >= budget.limits.fragments:
+                    raise GeometryError("exact geometry fragment budget exceeded")
+                counts[key] = [0, 0]
+                provenance[key] = []
+            counts[key][s.channel] += direction
+            provenance[key].append((i, direction))
+    budget.check()
+    return NodeGraph(
+        tuple(
+            Fragment(a, b, (counts[a, b][0], counts[a, b][1]), tuple(provenance[a, b]))
+            for a, b in sorted(counts)
+        ),
+        len(nodes),
+        len(pairs),
+        hits_count,
+    )

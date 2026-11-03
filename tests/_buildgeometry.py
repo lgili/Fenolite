@@ -188,7 +188,9 @@ def _wrap(name: str, original: Callable[..., Any], trace: Trace) -> Callable[...
                 bound.apply_defaults()
                 arguments = bound.arguments
                 operands = (
-                    ("a", "b")
+                    ("subject", "cut")
+                    if name == "certified-neck-cut"
+                    else ("a", "b")
                     if name in ("intersection", "difference")
                     else ("paths",)
                     if name == "stroke"
@@ -242,16 +244,24 @@ def observe(example: str, target: str, out: Path, source_root: Path) -> Generato
     trace = Trace()
     originals: dict[str, Any] = {}
     backend: Any = None
+    cut_module: Any = None
+    cut_original: Any = None
     try:
+        from fenolite.backends.altium import pour
         from fenolite.geometry.boolean.clipper import ClipperBackend
 
         backend = ClipperBackend
         for name in METHODS:
             originals[name] = getattr(backend, name)
             setattr(backend, name, _wrap(name, originals[name], trace))
+        cut_module = pour
+        cut_original = pour._certified_neck_cut
+        pour._certified_neck_cut = _wrap("certified-neck-cut", cut_original, trace)
     except Exception:
         for name, original in originals.items():
             setattr(backend, name, original)
+        if cut_original is not None:
+            cut_module._certified_neck_cut = cut_original
         yield None
         return
     try:
@@ -259,3 +269,5 @@ def observe(example: str, target: str, out: Path, source_root: Path) -> Generato
     finally:
         for name, original in originals.items():
             setattr(backend, name, original)
+        if cut_original is not None:
+            cut_module._certified_neck_cut = cut_original

@@ -120,8 +120,9 @@ imply that a dependent combined gate has passed. This takeover ledger's own
 | [c0329-sheet-custom-properties](../c0329-sheet-custom-properties/tasks.md) | 3.2 | 1 |
 | [c0330-root-sheet-presentation-identity](../c0330-root-sheet-presentation-identity/tasks.md) | 2.1 | 1 |
 | [c0331-altium-drawn-bus-aliases](../c0331-altium-drawn-bus-aliases/tasks.md) | 2.2 | 1 |
+| [c0332-certified-neck-cut](../c0332-certified-neck-cut/tasks.md) | 2.1, 2.2 | 2 |
 
-Total: 95 unchecked numbered tasks across 60 active change files.
+Total: 97 unchecked numbered tasks across 61 active change files.
 
 Earlier proved source: clean signed `1918e63214a7d0123e1f5fa8ef095c73fd2e1472`.
 The complete VME partition now agrees on all 6811 pins/1800 groups; the own
@@ -225,3 +226,109 @@ tol 3175); its original postpolicy output lacks 447 of the 3601 protected source
 vertices that the exact candidate restores with nonzero turns. The original
 strict failure and all production/CI gates remain open. Aggregate receipt:
 `docs/evidence/boolean-debris-policy-audit.json`; raw geometry stays external.
+
+c0332's complete external semantic pilot now passes on clean e8552220. All
+75 baseline plans match the prior 1172-file map; the candidate retains all
+75 plans and ten refusals. Only the authored 40-part PcbDoc and its hash in
+build.json change; all other 1170 files match. Two full affected-plan repeats
+and complete source order/direction/start variants agree, with five positive
+review certificates. Root approves a private portable per-call implementation;
+integration/byte/local-fast/CI/native gates remain open. See c0332 root review.
+
+The private index/noding portion is signed at 690e635c: 18 focused tests,
+269 exhaustive bounded graphs and the complete indexed authored graph agree.
+Its completed clean-head `make check-fast` has 20117 passed, 50 skipped and
+only the existing board-40 Altium byte failure. A separate focused negative
+captures the same actual 01fdc848 PcbDoc versus golden 7f49a78f; all 188 observed
+operations are recorded without observer errors. Types, lint/format/pages and
+private-gated residue pass. No caller integration, golden refresh or passing
+full-fast claim is made. See c0332 validation and machine receipts.
+
+An unintegrated external typed face draft now matches 84 analytic controls and
+all 441 exact source loops, with independent finite-winding and planted-failure
+checks. Continue its reviewed port before realization/caller integration.
+Read-only availability checks confirm responding Altium in Windows 11 and a
+native KiCad app/CLI 10.0.6 on the Mac. No GUI/native task is closed by discovery.
+
+c0332 1.1 now passes with the actual portable face/selection implementation:
+38 focused tests, 84 analytic/independent finite-winding controls and all 441
+exact cached source loops agree. Face/halfedge/winding/deadline limits and
+corrupted currents refuse; independent concurrent calls retain no shared state.
+Projection, whole-face certification, caller integration and combined gates
+remain pending. Source-bound aggregate: `docs/evidence/ported-exact-faces.json`.
+
+c0332 1.2 now passes with the actual half-even projection and certificates.
+All 55 focused geometry tests pass, including whole-piece/child ownership,
+rounded bow-tie and spike failures, erased original corners, wrong ties and
+new contacts. Independent quantization/policy auditors certify all 84 controls
+and the full current source pipeline (5822 nodes, 3601 protected vertices,
+430 eligible losses, same exact candidate hash). Local sign changes remain
+reported separately; the old strict experiment is not promoted. A fresh 269-
+graph noding proof also passes after result-index support. Caller integration,
+the final combined fast gate and exact-head CI/native gates remain open.
+
+The actual c0332 caller now passes 72 geometry and 49 pour/copper tests.
+Two large-hole crossing contexts are repaired with independently verified
+complete continuous bounds, preserving all original integer corners. Seven
+broader failures are traced to a tiny projected inversion; only qualified
+whole faces may be discarded, while retained orientation still must agree.
+The four actual captured contexts pass with fresh source-bound runtime proofs.
+Complete file comparison and the explicit byte review still gate 1.3; no
+golden, final combined fast, exact-head CI or native acceptance is inferred.
+
+The integrated c0332 source at 71d2ac93 reproduces all 75 reviewed candidate
+plans/1172 files with ten unchanged refusals and only the two expected
+PcbDoc/manifest hash changes. The narrowly reviewed one-file byte pin is
+updated; all 76 focused byte tests pass. Task 1.3 closes; the final clean
+signed-source fast gate and exact-head CI/native requirements remain open.
+
+Correction from the broader 8e42f61d attempt: c0332 1.3 is reopened. The
+interrupted fast attempt observes 18 failures / 20145 passes / 50 skips; it
+does not pass 2.1. Seventeen failures concern additional projection/repair
+contexts; one is the diagnostic missing the exact replacement operation.
+All limits and original assertions stay active. Native read-only opening of
+the actual reviewed board40 PcbDoc completes: 573 objects and three regions
+with hole counts 10/0/0; its SHA remains unchanged. This is scoped reading,
+not DRC, repour, native save or full acceptance. No push occurred.
+
+The actual bounded single-proposal port now passes 75 geometry cases and
+181 expanded caller/byte/observer cases. Two buck_shunt-bad build/convert
+cases remain refused for cleanup losing projected boundary points. All
+75 complete plans/1172 files match the reviewed integrated map. This reduces
+the measured caller failures; it does not close 1.3 or any full/CI/native
+gate. Continue the remaining contour proof before another complete fast run.
+
+## Overnight delivery — authorised by maintainer, 2026-11-02
+
+Deadline: 2026-11-03 07:00 America/Sao_Paulo. The maintainer now explicitly
+requests all local/native tests and CI, authorising publication of the CAC
+working branch; the earlier no-push hold is superseded for this delivery.
+Full suites run in CI; local fast and focused native groups retain measured
+source/exit receipts. Three parallel agents own gate audit/model1 preparation,
+native KiCad censuses, and library audit/conversion repairs. Root owns final
+c0332 integration, CI orchestration, JLC approved-documentation review and
+coordinated GUI/Altium operations. The maintainer will leave Mac/VM/Altium
+available and supplied the approved JLC documentation URL.
+
+Order: (1) clean signed final-model0 source, complete plans and local fast/CI;
+(2) real native130-root and24-root censuses, original GUI fixture/layout proofs
+and Altium gates with failures repaired; (3) preserve final0 inventory, port
+model1 selectively and refresh public contracts/package/guide/viewer proofs;
+(4) use the validated public core pin for library replays, CI and reviewed
+first release/index; (5) only after exact required gates pass, archive completed
+changes and rebuild dev integration with one complete commit per spec.
+Remove only used auxiliary branches/worktrees after preserving unique work;
+keep protected main/dev and the requested CAC branch. No unfinished or paused
+unrelated work may be deleted.
+
+Current actual c0332 cleanup port passes77 geometry +183 expanded callers
+with original assertions. Final complete plans and fast/CI are still pending.
+The library CODEOWNER separately approved the two byte-identical original
+licence texts from the concrete review packet; the library agent owns its
+documented registry update. Seeded LibrePCB review is not yet performed: the
+maintainer requested a concrete review packet.
+
+Final c0332 integration checkpoint: clean d348705f has77geometry and183
+expanded actual tests passing; fresh all75plans/1172hashes exactly repeat
+the reviewed map with ten refusals. Task1.3 closes again on these broader
+actual proofs; final local fast and exact CI/native acceptance remain open.

@@ -1,0 +1,152 @@
+{
+  "artifact_sha256": {
+    "baseline-plans.json": "738150226a4e5ee5cf473f71966747539ad77e4261c7c278342781d6f6973520",
+    "calls.json": "78d86f2695501d4ac15ecaec3970ca165a1cd611525e01a756e03a8404673605",
+    "candidate-plans.json": "de03b0c76a584497636fcfd8b5eb1a226c1e5af63e0925919dffaf30b641c084",
+    "pilot-receipt.json": "3f29271b1757063e93b617559b1c933f8ea38b841173e8f5ebee8ef9883ddaf7",
+    "pilot_neck_cut.py": "07a3086850706fedc256a206accc3f87be4943de2a25765d67e9304d5b6eabe3",
+    "review/review-receipt.json": "4805a934cd1b15f77944705f07cf6fe32ad0f57fe038130248b14d960181fbad",
+    "review_pilot.py": "b62610b1e9bd7dea73bde8e93abf090955499863313e21a755f544e312bec571"
+  },
+  "baseline_files": 1172,
+  "baseline_plans": 75,
+  "candidate_files": 1172,
+  "changes": [
+    {
+      "after_error": null,
+      "after_exit": 0,
+      "before_error": null,
+      "before_exit": 0,
+      "files": [
+        {
+          "after": "e53f696cd65d58eddd30ffac83629a9ddcfa7ce8dc179965ef60b79c030731b7",
+          "before": "edd2a676026e54d06f40ff478371c3b4fb0746edf26f08e35ba44863044b4a21",
+          "path": ".fenolite/build.json"
+        },
+        {
+          "after": "9e3cabd7ab7fb0e204fb23c521a63a2985997266f272352d690b3e9a2cd14a98",
+          "before": "01fdc8486cd05e964850311b2e473487759ee11f81891da0bfe43220f8698911",
+          "path": "board_40parts.PcbDoc"
+        }
+      ],
+      "plan": "board_40parts@altium"
+    }
+  ],
+  "evidence": "INFERRED",
+  "exact_calls": 1,
+  "operator": {
+    "candidate_pairs": 20346,
+    "input_edges": 8058,
+    "input_sha256": "456068f10e7aff38b3f7771f60ee7122199af215d189f3442dcaae1b87fea51e",
+    "noding": {
+      "cancelled_edges": 0,
+      "cancelled_provenance_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "graph_sha256": "18d9c68488a4e3f771f2db71e08f8b9f6385e30e6aef2f8b15016565293375a0",
+      "intersecting_pairs": 16018,
+      "kept_current_edges": 10334,
+      "max_denominator_bits": 28,
+      "nodes": 7889,
+      "subedges": 10334
+    },
+    "ordinal": 0,
+    "plan": "board_40parts@altium",
+    "policy": {
+      "loss_sha256": "5e8fe0f8b262e5462b24b5b191003b985a1c516414c32681ff53eaf3ad3162c0",
+      "name": "pilot/0",
+      "output_sha256": "923aaa891d6ade45f20cae028ca7fb7894cf6780cc6459bc9b72e494e3e8af17",
+      "postpolicy_holes": 10,
+      "postpolicy_polygons": 1,
+      "prepolicy_holes": 413,
+      "prepolicy_polygons": 1,
+      "projected_nodes": 5822,
+      "retained_loops": 11,
+      "seconds": 0.5758301659952849,
+      "simple_prepolicy_loops": 414,
+      "unchanged_runtime_policy_equal": true,
+      "whole_face_losses": 430,
+      "zero_current_collapsed_loops": 27
+    },
+    "resources": {
+      "peak_memory_bytes": 141328384,
+      "rational_max_bits": {
+        "area": 350,
+        "local": 77
+      },
+      "seconds": 6.310023832978914,
+      "seed_visits": 908502,
+      "stage_seconds": {
+        "faces": 0.7196635409782175,
+        "index": 0.06378270799177699,
+        "noding": 0.47775341701344587,
+        "projection": 0.3694511250068899,
+        "retained-certificate": 1.049346042011166,
+        "selection": 0.3078179170261137,
+        "start": 1.4999997802078724e-05,
+        "winding": 3.3221834159921855
+      }
+    },
+    "retained": {
+      "cleanup_point_sets_equal": true,
+      "local_sign_changes": 17,
+      "protected_vertices": 3601,
+      "retained_contact_points": 0,
+      "retained_loops": 11
+    },
+    "seconds": 6.316880083002616,
+    "selection": {
+      "area": [
+        40041127894482867265108663384223777803693276280511939318710043471412359088515073158033925664120105229355847437794555742457650885725423599820693167,
+        5135730903291648891078624923651615209014892290310511660982666153966447203058744364033354305524894808743098439159503402400078388000
+      ],
+      "boundary_halfedges": 6156,
+      "exact_loop_sha256": "6000b60bb707a6e4825f27159d67d58257fde42e0a3caefce802f89fb7ecacfb",
+      "loops": 441,
+      "negative": 413,
+      "positive": 28
+    },
+    "status": "certified",
+    "tol": 3175
+  },
+  "production_integrated": false,
+  "refused_calls": 0,
+  "repeats": {
+    "affected_plan": "board_40parts@altium",
+    "all_file_hashes_equal": true,
+    "artifact_sha256": {
+      "calls.json": "80bdcc4ae8f524cc0e165dc94669aa25d42a40ef7d305392456fd3034e77675d"
+    },
+    "audit_only": true,
+    "build_manifest_only_changed_pcbdoc_sha256": [
+      {
+        "after": "9e3cabd7ab7fb0e204fb23c521a63a2985997266f272352d690b3e9a2cd14a98",
+        "before": "01fdc8486cd05e964850311b2e473487759ee11f81891da0bfe43220f8698911",
+        "path": [
+          "files",
+          "board_40parts.PcbDoc"
+        ]
+      }
+    ],
+    "candidate_repetitions": 2,
+    "certified_calls": 5,
+    "complete_repeat_files": 15,
+    "full_source_invariances": {
+      "direction": "923aaa891d6ade45f20cae028ca7fb7894cf6780cc6459bc9b72e494e3e8af17",
+      "order": "923aaa891d6ade45f20cae028ca7fb7894cf6780cc6459bc9b72e494e3e8af17",
+      "start": "923aaa891d6ade45f20cae028ca7fb7894cf6780cc6459bc9b72e494e3e8af17"
+    },
+    "original_functions_restored": true,
+    "pilot_receipt_sha256": "3f29271b1757063e93b617559b1c933f8ea38b841173e8f5ebee8ef9883ddaf7",
+    "production_approved": false,
+    "refused_calls": 0,
+    "schema": "fenolite.neck-cut-pilot-review.v0",
+    "script_sha256": "b62610b1e9bd7dea73bde8e93abf090955499863313e21a755f544e312bec571",
+    "seconds": 38.29906429199036,
+    "source_commit": "e855222079de342bbdc408747bdfa03f30824f04",
+    "status": "review-measured"
+  },
+  "schema": "fenolite.neck-cut-reviewed-pilot.v0",
+  "source_commit": "e855222079de342bbdc408747bdfa03f30824f04",
+  "status": "reviewed-local-pilot",
+  "unchanged_files": 1170,
+  "unchanged_strict_refusals": 10
+}

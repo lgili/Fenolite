@@ -6,6 +6,26 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- **Same-sheet power aliases** (c0336): KiCad drawn connectivity joins a global power declaration to the identical local scalar name in that sheet. Authored native controls retain every pin and isolate other names and sheets; generic/Altium defaults and power-output behavior remain unchanged. Exact-head 9/10 CI remains required.
+
+- **Certified final neck cut** (c0332, in progress): replace the final Altium
+  neck-removal difference with exact signed face selection and one shared
+  half-even projection. Preserve original integer corners, contacts, hole
+  parentage and the existing piece-before-hole debris policy. A bounded repair
+  may omit only implicated noninteger intersections after proving complete
+  bidirectional continuous boundary error within the same sqrt(2)/2 nm bound.
+  Record discarded inversions and require exact/integer whole-face eligibility;
+  retained inversions and uncertified results refuse through FEN-3005 before
+  writing. One capped proposal handles many independent hairlines before
+  exhaustive fallback, with unchanged integer-corner and full-curve guards.
+  Cleanup retains integer nodes and uses a complete continuous certificate
+  when the stronger projected point-set fast gate differs. All 77 geometry
+  and 183 expanded caller/byte tests pass. All 75 complete plans
+  match the reviewed pilot; native read-only opening preserves the expected
+  copper hole counts. Broader caller repair failures, final combined fast
+  validation and exact-head CI/native acceptance remain pending. Include the
+  exact final cut in the optional same-run diagnostic without changing writes.
+
 - **Native drawn bus aliases** (c0331, in progress): lower exact sequential
   bus members to Altium vector identifiers across labels and sheet boundaries,
   reporting each text change. Refuse unrepresentable groups before output;

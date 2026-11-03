@@ -400,6 +400,8 @@ def resolve(
                     union.join(point(at), ("G", power.net))
             if global_net:
                 name(("G", power.net), 0, power.net, power.net)
+                if _local_scalar_aliases:
+                    union.join(("G", power.net), ("L", index, power.net))
         for junction in sheet.junctions:
             touched[junction.at] += 1
             interest.append(junction.at)

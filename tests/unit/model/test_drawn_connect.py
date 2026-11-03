@@ -18,7 +18,14 @@ from hypothesis import strategies as st
 
 import fenolite.model.drawn_connect as drawn_connect
 from fenolite.core.coords import Point
-from fenolite.model.drawn import DrawnJunction, DrawnLabel, DrawnSchematic, DrawnSheet, DrawnSymbol
+from fenolite.model.drawn import (
+    DrawnJunction,
+    DrawnLabel,
+    DrawnPower,
+    DrawnSchematic,
+    DrawnSheet,
+    DrawnSymbol,
+)
 from fenolite.model.drawn_connect import DrawnNetlist, PinPoint, expand, resolve
 
 P = Point
@@ -30,6 +37,25 @@ def _groups(netlist: DrawnNetlist) -> set[frozenset[tuple[str, str]]]:
 
 def _group(netlist: DrawnNetlist, element: tuple[str, str]) -> frozenset[tuple[str, str]]:
     return next(g for g in _groups(netlist) if element in g)
+
+
+@pytest.mark.parametrize("native_policy", [False, True])
+@pytest.mark.parametrize("power_type", ["power_in", "power_out", "passive"])
+def test_same_sheet_power_local_alias_is_a_scoped_native_policy(native_policy: bool, power_type: str) -> None:
+    sheet = DrawnSheet(
+        "root",
+        symbols=(DrawnSymbol("A", 1, P(0, 0)), DrawnSymbol("B", 1, P(100, 0))),
+        powers=(DrawnPower("Mini:Mini_GND", "SUPPLY_A", P(100, 0)),),
+        labels=(DrawnLabel("local", "SUPPLY_A", P(0, 0)),),
+    )
+    pins = {
+        ("root", "symbol", 0): (PinPoint("1", P(0, 0)),),
+        ("root", "symbol", 1): (PinPoint("1", P(100, 0)),),
+        ("root", "power", 0): (PinPoint("1", P(100, 0), power_type),),
+    }
+    netlist = resolve(DrawnSchematic("root", (sheet,)), pins, _local_scalar_aliases=native_policy)
+    assert len(_group(netlist, ("A", "1"))) == (2 if native_policy and power_type == "power_in" else 1)
+    assert set(netlist.pins) == {("A", "1"), ("B", "1")}
 
 
 def _sheet(

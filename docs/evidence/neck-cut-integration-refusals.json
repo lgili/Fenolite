@@ -1,0 +1,68 @@
+{
+  "artifact_sha256": {
+    "integration-refusals-v1/receipt.json": "80920ca3870148d019cc7ac5c0ba4aaeaf15dbd7a7616db2bab4b139940fba03"
+  },
+  "producer_sha256": "7a1c951697beee5e9b8e992f9c29c998fb80eb6ac72201239ea05bb41fb16dc9",
+  "production_promoted": false,
+  "pytest_exit": 1,
+  "rows": [
+    {
+      "bad_rings": [
+        {
+          "bad_contacts": 6,
+          "exact_signed_area": [
+            -415991890440301452919801960587738515359726064489,
+            109344989607936515324099939046911175
+          ],
+          "integer_bbox_area": [
+            4851693454336,
+            1
+          ],
+          "integer_signed_area": [
+            -3804398403066,
+            1
+          ],
+          "loop": 7,
+          "vertices": 136
+        }
+      ],
+      "exact_loops": 8,
+      "input_edges": 158,
+      "raw_file": "case-0.json",
+      "sha256": "07c0ffe68e9e8c210fc19f437e52f8e7be835b75050476bf6c2966298855d36c",
+      "test": "tests/unit/backends/altium/test_pour_engine.py::test_direct_connect_and_no_connect",
+      "tol": 3175
+    },
+    {
+      "bad_rings": [
+        {
+          "bad_contacts": 2,
+          "exact_signed_area": [
+            -347681616207099497469943,
+            5865032866
+          ],
+          "integer_bbox_area": [
+            59387868854254,
+            1
+          ],
+          "integer_signed_area": [
+            -59280420786004,
+            1
+          ],
+          "loop": 1,
+          "vertices": 282
+        }
+      ],
+      "exact_loops": 3,
+      "input_edges": 290,
+      "raw_file": "case-1.json",
+      "sha256": "1324eb10005af844a929699e8ead1ba117e317e92a245f638b42be918ee6204a",
+      "test": "tests/unit/backends/altium/test_pour_engine.py::test_dead_copper",
+      "tol": 3175
+    }
+  ],
+  "script_sha256": "e9719a3a6e665a4e6f9f365550c9514135855ab6beac84fdddef948b88337f60",
+  "seconds": 0.8908928750024643,
+  "source_base": "ea44b96040c0994c779777302fc538e5545e9674",
+  "status": "actual-integration-refusals-captured"
+}

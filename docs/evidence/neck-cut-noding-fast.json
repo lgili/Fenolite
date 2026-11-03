@@ -1,0 +1,49 @@
+{
+  "artifact_sha256": {
+    "check-fast-noding-receipt.json": "92973a3199a79f9ae0cb8d8ef8cd7fc09ca291f765306b3463a0c0b854771b0e",
+    "check-fast-noding.log": "c4217ffe9c2f5dfdb0abfa77ba3813d00e8303c42e4e720c8321073388045a36",
+    "check_fast_noding.py": "f045216609e0a79a0f884963db235c42651728659595ff57142f7a8514173045",
+    "fast-byte-failure/fenolite-byte-diagnostics/receipt.json": "1b7677e73f00a1af017134c2188b4f6012bbd8d9df1196829f177b83acbe3ee0",
+    "focused-byte-failure-status.json": "448e1fe185f94aa828894f2b3c8fda6935b412c3ce53ba7100449bc17ef1132a",
+    "focused-byte-failure.log": "482e73fd9acff13b8b1af106bad2ce134242eb05a4a020a7d8c408b32ca797e2"
+  },
+  "checks": {
+    "format": "3240 files passed",
+    "generated_pages": "passed",
+    "pyright": "zero errors/warnings",
+    "residue": {
+      "files": 6422,
+      "hits": 0,
+      "private_gate": true
+    },
+    "ruff": "passed"
+  },
+  "ci_run": false,
+  "clean_after": true,
+  "command": "make check-fast",
+  "driver_sha256": "f045216609e0a79a0f884963db235c42651728659595ff57142f7a8514173045",
+  "exit": 2,
+  "failure": {
+    "expected_sha256": "7f49a78f2726633ab31fbe956a187bbd85fee9af8878d42710f10a5930adc6a1",
+    "focused_diagnostic_exit": 1,
+    "geometry_operations": 188,
+    "limited": false,
+    "observed_sha256": "01fdc8486cd05e964850311b2e473487759ee11f81891da0bfe43220f8698911",
+    "observer_errors": 0,
+    "test": "tests/unit/test_build_bytes.py::test_example_keeps_its_bytes[board_40parts@altium]"
+  },
+  "full_make_check_run": false,
+  "gate_passed": false,
+  "head_unchanged": true,
+  "implementation_scope": "private indexing/noding only; no final-neck-cut caller integration",
+  "log_sha256": "c4217ffe9c2f5dfdb0abfa77ba3813d00e8303c42e4e720c8321073388045a36",
+  "pytest": {
+    "failed": 1,
+    "passed": 20117,
+    "seconds": 1130.16,
+    "skipped": 50
+  },
+  "schema": "fenolite.local-fast-gate.v0",
+  "seconds": 1288.2039646659978,
+  "source_commit": "690e635c33c806d98b3ba950742ebccb1f9f86c8"
+}

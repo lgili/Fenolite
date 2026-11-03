@@ -1,0 +1,53 @@
+{
+  "clean_after": true,
+  "command": "make check-fast",
+  "complete": false,
+  "driver_sha256": "9d842271ecf0bb114056bc618343b9f21fe36da406b9d3f2d0f4839a6247db7c",
+  "exit": 2,
+  "failure_tests": [
+    "tests/unit/test_build_byte_diagnostics.py::test_original_assertion_fails_and_retains_exact_same_run_bytes",
+    "tests/unit/backends/altium/test_lower.py::test_own_document_is_written_from_its_model[board6/board6.PcbDoc]",
+    "tests/unit/backends/altium/test_lower_items.py::test_own_document_keeps_its_silkscreen[board6/board6.PcbDoc]",
+    "tests/unit/cli/test_build_altium_script_copper.py::test_role_copper_built_for_altium",
+    "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[buck_shunt-good]",
+    "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[buck_shunt-bad]",
+    "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[half_bridge-good]",
+    "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[half_bridge-bad]",
+    "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[bms-good]",
+    "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[bms-bad]",
+    "tests/unit/roles/test_proposal_reference.py::test_altium_readback[bms-bad]",
+    "tests/unit/roles/test_proposal_reference.py::test_altium_readback[bms-good]",
+    "tests/unit/roles/test_proposal_reference.py::test_altium_readback[buck_shunt-bad]",
+    "tests/unit/roles/test_proposal_reference.py::test_altium_readback[buck_shunt-good]",
+    "tests/unit/roles/test_proposal_reference.py::test_altium_readback[half_bridge-bad]",
+    "tests/unit/roles/test_proposal_reference.py::test_altium_readback[half_bridge-good]",
+    "tests/unit/backends/altium/test_part_s.py::test_part_s_kit",
+    "tests/unit/backends/altium/test_part_g.py::test_part_g_files"
+  ],
+  "head_unchanged": true,
+  "interrupted": true,
+  "interruption_receipt_sha256": "450da7772be3f9f7890a5b1a3028f1f69d21263053fbba112fe4373eb54c90f2",
+  "log_sha256": "2eef12fb47e4299f25adeb8031c5eba94045259c9440362e3109c285aa9a919c",
+  "observed_pytest": {
+    "failed": 18,
+    "passed": 20145,
+    "seconds": 1680.58,
+    "skipped": 50
+  },
+  "observer_followup": {
+    "base_commit": "8e42f61deea74b8fdc94e9a2375b12419b61d998",
+    "exit": 0,
+    "log_sha256": "0155e4ec4f8599856de90782c67b88261f923c82978073ec8b1d3cb97bf1e778",
+    "passed": 41,
+    "seconds": 16.22,
+    "source_binding": "base plus candidate test-helper changes",
+    "test_files_sha256": {
+      "tests/_buildgeometry.py": "acfbdd07283255078332ebbaebd01f4635a388406081588b8ecdc01e5496ca73",
+      "tests/unit/test_build_geometry_trace.py": "a88e958604f90ccf6b767b83546fa3ef6b016c0d9bb3a38a02d68ead1fb8f771"
+    }
+  },
+  "passed_gate": false,
+  "schema": "fenolite.local-fast-gate.v0",
+  "seconds": 1931.127374417003,
+  "source_commit": "8e42f61deea74b8fdc94e9a2375b12419b61d998"
+}

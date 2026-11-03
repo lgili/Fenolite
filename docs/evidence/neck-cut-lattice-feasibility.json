@@ -1,0 +1,52 @@
+{
+  "artifact_sha256": {
+    "lattice-feasibility-v1/receipt.json": "6d524c34abab1801e8d6573e6d763581da2db43ef087ea78a3f88e317ca4a1dd"
+  },
+  "base_commit": "66805f2bfb7418c699e4137277c7ddd3aefb0de7",
+  "old_half_even_pipeline_passed": false,
+  "production_approved": false,
+  "rows": [
+    {
+      "attempts": 4,
+      "candidate_counts": [
+        2,
+        2
+      ],
+      "implicated_nodes": 2,
+      "input_sha256": "07c0ffe68e9e8c210fc19f437e52f8e7be835b75050476bf6c2966298855d36c",
+      "rejections": {
+        "geometry.degenerate: exact geometry: nonsimple projected/retained ring": 4
+      },
+      "seconds": 0.31949645798886195,
+      "success": null,
+      "test": "tests/unit/backends/altium/test_pour_engine.py::test_direct_connect_and_no_connect"
+    },
+    {
+      "attempts": 4,
+      "candidate_counts": [
+        2,
+        2
+      ],
+      "implicated_nodes": 2,
+      "input_sha256": "1324eb10005af844a929699e8ead1ba117e317e92a245f638b42be918ee6204a",
+      "rejections": {
+        "geometry.degenerate: exact geometry: cleanup loses projected boundary points": 1,
+        "geometry.degenerate: exact geometry: nonsimple projected/retained ring": 3
+      },
+      "seconds": 0.2162594590045046,
+      "success": null,
+      "test": "tests/unit/backends/altium/test_pour_engine.py::test_dead_copper"
+    }
+  ],
+  "schema": "fenolite.lattice-feasibility.v0",
+  "scratch_only": true,
+  "script_sha256": "da5a4cec4c16f289915cb8c124ff0fd6ddfafb195cb11ee6679e5529cdcc166b",
+  "seconds": 0.5571669590135571,
+  "source_files_sha256": {
+    "_exact_contacts.py": "192bae86e204dabb6f03d1be8dadd3858ff1b7d23c8d85800865d9064476e3e4",
+    "_exact_faces.py": "a228cbd0011b7b604c282e85b0d7034907ea09147e3d703f5825adec513fa3e1",
+    "_exact_noding.py": "b54d22c1cc22e0f223d03581a44fc60b0c2cf8423a9cdc77739640b596c42374",
+    "_exact_realization.py": "1d6f3694c718b3302e8a208ef4ecbafcd56ed7f0fc5699a5a09aa7704d536910"
+  },
+  "status": "not-established"
+}

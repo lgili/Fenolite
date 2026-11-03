@@ -1,0 +1,43 @@
+{
+  "artifact_sha256": {
+    "native-raw/NativeOpen.PrjScr": "0b64867706d6b1afc5b04ab3a00f373f5ace340a9239be3402e23dc0dc8708e9",
+    "native-raw/NativeOpen.pas": "d9d088fb51749c899db8832d15f382c025bcd0ef6bbb8775f2dd3828612c77fe",
+    "native-raw/NativeRegions.PrjScr": "62ae40b8a16d1c788de3dc64c8a89c2a6093eb9a6b618d1ed4ce425f7688cd5a",
+    "native-raw/NativeRegions.pas": "5252918561fdd3e1ee60d6160b51b330dae7baf9bca4f2ebdf1d47edfbdc0d28",
+    "native-raw/objects.tsv": "544c5f60d44645f3e6cffe3b6e0d9b3782e3d32406987d6f25df72818a274f1d",
+    "native-raw/regions-stage.txt": "d28ba19de6050c2ed2f4a9ccfa5f45a9fff84170fe882cf09b08c2106c168b74",
+    "native-raw/regions.tsv": "7f2ebfa21d3f6f05c5f31ffba62cd6b73e44d3b73ac370bce12ba6c45b35d07e",
+    "native-raw/stage.txt": "83e9949e78c77a24b15e284f3e8f87d1b64052a0e32b2157cc89ecb479f475d6"
+  },
+  "native_file_unchanged": true,
+  "native_objects": 573,
+  "native_region_hole_counts": [
+    10,
+    0,
+    0
+  ],
+  "object_id_histogram": {
+    "1": 54,
+    "10": 2,
+    "11": 3,
+    "2": 140,
+    "3": 2,
+    "4": 292,
+    "8": 40,
+    "9": 40
+  },
+  "pcb_sha256": "9e3cabd7ab7fb0e204fb23c521a63a2985997266f272352d690b3e9a2cd14a98",
+  "polygon_point_counts": [
+    4,
+    4
+  ],
+  "process_file_version": null,
+  "public_api_sources": [
+    "https://www.altium.com/documentation/altium-dxp-developer/pcb-api-system-interfaces-reference",
+    "https://www.altium.com/documentation/altium-dxp-developer/pcb-api-design-objects-interfaces-reference",
+    "https://www.altium.com/documentation/altium-dxp-developer/system-api"
+  ],
+  "schema": "fenolite.altium-native-open.v0",
+  "scope": "native open and guarded object enumeration only; no DRC, repour, native save or full acceptance",
+  "source_commit": "8e42f61deea74b8fdc94e9a2375b12419b61d998"
+}

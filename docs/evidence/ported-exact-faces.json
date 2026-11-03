@@ -1,0 +1,28 @@
+{
+  "all_small_face_windings_independently_equal": true,
+  "artifact_sha256": {
+    "ported-faces-receipt.json": "5a894f4d35609c0188437dd08cc433397540665ea13b879935d9ccfa4a8b3bdf"
+  },
+  "base_commit": "69518b2abd0703fdd940dae854126e1ddd48af79",
+  "cached_exact_loops_sha256": "bf003c784270e897362c00a477f0deb8826524c27b9fee1eb568a1675d14a404",
+  "complete_cached_exact_loops_equal": true,
+  "controls": 84,
+  "files_sha256": {
+    "src/fenolite/geometry/boolean/_exact_faces.py": "a228cbd0011b7b604c282e85b0d7034907ea09147e3d703f5825adec513fa3e1",
+    "src/fenolite/geometry/boolean/_exact_noding.py": "0414bcb60645e1fefde2f23099d65195e0c509292c12e31d90a02c32470fc225",
+    "tests/unit/geometry/test_exact_faces.py": "26f0018b207ca7f5d3d938d34a8a6a2333e4b7050bba4a0b2c72a810dd79ea2e",
+    "tests/unit/geometry/test_exact_noding.py": "ac057acf57d0d80d0e5f1b75f2bda7657d66210a959da4b300e07120d4b0f984"
+  },
+  "frozen_reference_sha256": "1273679f8535b2b3f5744f150b12f9f40d5318d07665ae0aacbade87fd98f47f",
+  "schema": "fenolite.ported-exact-faces-proof.v0",
+  "script_sha256": "0e71beab554c083033af24144e969d5be84cf6fec03ff42b0c947b09349a7ac4",
+  "seconds": 4.097302999987733,
+  "source_binding": "base plus exact candidate file hashes",
+  "source_edges": 8058,
+  "source_loops": 441,
+  "status": "ported-faces-passed",
+  "unit_tests": {
+    "passed": 38,
+    "seconds": 13.46
+  }
+}

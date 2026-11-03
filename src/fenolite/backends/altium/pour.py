@@ -876,7 +876,7 @@ class _Geometry:
             if found and not tips and max(box.width, box.height) <= half + tol:
                 continue  # the sliver the round opening takes off a corner of 89.5° or more stays
             cut.append(piece)
-        return _without_debris(self.minus(polys, cut), tol) if cut else tuple(polys)
+        return _certified_neck_cut(polys, cut, tol) if cut else tuple(polys)
 
     def union(self, polys: Sequence[Polygon]) -> tuple[Polygon, ...]:
         return self.backend.union(polys) if polys else ()
@@ -904,6 +904,47 @@ def _without_debris(polys: Sequence[Polygon], tol: int) -> tuple[Polygon, ...]:
         holes = tuple(hole for hole in poly.holes if abs(area2(hole)) >= 2 * floor)
         kept.append(poly if len(holes) == len(poly.holes) else Polygon(poly.outer, holes))
     return tuple(kept)
+
+
+def _certified_neck_cut(subject: Sequence[Polygon], cut: Sequence[Polygon], tol: int) -> tuple[Polygon, ...]:
+    """Exact final opening cut; retain the existing debris policy and certify its result."""
+    from fenolite.geometry.boolean._exact_faces import difference_loops
+    from fenolite.geometry.boolean._exact_noding import Budget, ResourceLimit, Segment
+    from fenolite.geometry.boolean._exact_realization import project_boundaries, project_nodes
+    from fenolite.geometry.boolean._exact_repair import candidates
+
+    budget = Budget()
+    segments: list[Segment] = []
+    for channel, polygons in enumerate((subject, cut)):
+        for poly in polygons:
+            for ring in poly.rings():
+                for a, b in zip(ring, ring[1:] + ring[:1], strict=True):
+                    if len(segments) >= budget.limits.input_edges:
+                        raise GeometryError("exact final neck cut input-edge budget exceeded")
+                    segments.append(Segment((a.x, a.y), (b.x, b.y), channel))
+                    if len(segments) % 256 == 0:
+                        budget.check()
+    loops = difference_loops(segments, budget)
+    budget.stage("realization")
+    projected = project_nodes(loops, budget)
+    try:
+        projection = project_boundaries(loops, segments, budget, projected=projected)
+        result = _without_debris(projection.polygons, tol)
+        projection.certify(result, tol, budget)
+        return result
+    except ResourceLimit:
+        raise
+    except GeometryError as failure:
+        for projection in candidates(loops, segments, projected, budget):
+            result = _without_debris(projection.polygons, tol)
+            try:
+                projection.certify(result, tol, budget)
+            except ResourceLimit:
+                raise
+            except GeometryError:
+                continue
+            return result
+        raise failure
 
 
 def _convex_corners(polys: Sequence[Polygon], radius: int) -> dict[Point, int]:

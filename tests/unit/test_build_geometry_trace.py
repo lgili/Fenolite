@@ -12,6 +12,7 @@ import _buildgeometry as observer
 import pytest
 from _buildgeometry import METHODS, ROOT, Trace, observe, summary
 
+from fenolite.backends.altium import pour
 from fenolite.geometry.boolean.clipper import ClipperBackend
 from fenolite.geometry.polygon import Polygon
 
@@ -43,11 +44,43 @@ def test_filter_precedes_registration(monkeypatch: pytest.MonkeyPatch, tmp_path:
 def test_original_exception_restores_methods(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     out = enabled(monkeypatch, tmp_path)
     originals = {name: getattr(ClipperBackend, name) for name in METHODS}
+    exact_original = pour._certified_neck_cut
     with pytest.raises(RuntimeError, match="original producer"):
         with observe("board_40parts", "altium", out, ROOT) as trace:
             assert trace is not None
             raise RuntimeError("original producer")
     assert all(getattr(ClipperBackend, name) is value for name, value in originals.items())
+    assert pour._certified_neck_cut is exact_original
+
+
+def test_exact_final_cut_is_observed_once_and_restored(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    out = enabled(monkeypatch, tmp_path)
+    subject = (Polygon(((0, 0), (20, 0), (20, 20), (0, 20))),)
+    cut = (Polygon(((0, 0), (2, 0), (0, 2))),)
+    calls = []
+
+    def original(subject: Any, cut: Any, tol: int) -> Any:
+        calls.append((subject, cut, tol))
+        return subject
+
+    monkeypatch.setattr(pour, "_certified_neck_cut", original)
+    with observe("board_40parts", "altium", out, ROOT) as trace:
+        assert trace is not None
+        assert pour._certified_neck_cut(subject, cut, 1) is subject
+        assert trace.seen == 1 and trace.errors == 0 and not trace.limited
+        assert trace.rows == [
+            {
+                "index": 0,
+                "method": "certified-neck-cut",
+                "inputs": [summary(subject), summary(cut)],
+                "parameters": {"tol": 1},
+                "output": summary(subject),
+            }
+        ]
+    assert len(calls) == 1 and calls[0][0] is subject and calls[0][1] is cut
+    assert pour._certified_neck_cut is original
 
 
 def test_hash_error_never_repeats_or_changes_operation(

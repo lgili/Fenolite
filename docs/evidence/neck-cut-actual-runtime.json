@@ -1,0 +1,128 @@
+{
+  "artifact_sha256": {
+    "actual-runtime-v2.log": "b85222d8a98109e34e822ad36c07d3fa838069b322c2dec7aee0cdb048afc3a6",
+    "actual-runtime-v2/receipt.json": "9af2c2c68cbbec4580ed24cd71a7456a876f5a7b3056d40be36cbd6c775005c1",
+    "pour-integration-current.log": "8fa9b52b06831faf3509f85552e95bb77bd109cee00ca9c8ec06e37cef78805d",
+    "verify_actual_repair_runtime_v2.py": "20149edb0224c17ced1ea09098f008e6c6b18873357289621a2e7cb74e13f245"
+  },
+  "base_commit": "7d0cc3dea2e94f0b823abfacf6a67cd931f4a429",
+  "combined_fast_pending": true,
+  "files_sha256": {
+    "src/fenolite/backends/altium/pour.py": "4b03a1b5572bc0c5cfbce162308b38fee77c3707013c40110a4311c885d3e903",
+    "src/fenolite/geometry/boolean/_exact_contacts.py": "6741111eb0525103ddda1609c40ffb68659b367453f0321034784e0c1666ad45",
+    "src/fenolite/geometry/boolean/_exact_distance.py": "1eb008628a331e966641692e6985689b681e35e732648a879cd372477a46e514",
+    "src/fenolite/geometry/boolean/_exact_faces.py": "a228cbd0011b7b604c282e85b0d7034907ea09147e3d703f5825adec513fa3e1",
+    "src/fenolite/geometry/boolean/_exact_noding.py": "936ba313eb3bfc1ad87242a10ee779b16c3dafac0804c4fbd5ac5028a5970661",
+    "src/fenolite/geometry/boolean/_exact_realization.py": "63d7a289e62b7f7d7765ec5acf2612620f667fcd318be3eef51fdf8e9c2bc214",
+    "src/fenolite/geometry/boolean/_exact_repair.py": "6b3e50e6486bff899403d3314ffa89aabda1ee8e5e2a180276f923dd41058bcf"
+  },
+  "focused_tests": {
+    "geometry": {
+      "passed": 72,
+      "seconds": 0.58
+    },
+    "pour_and_copper": {
+      "passed": 49,
+      "seconds": 25.08
+    }
+  },
+  "full_plan_comparison_pending": true,
+  "pytest_exit": 0,
+  "rows": [
+    {
+      "capture_sha256": "07c0ffe68e9e8c210fc19f437e52f8e7be835b75050476bf6c2966298855d36c",
+      "explicit_inverted_losses": 0,
+      "kind": "repair",
+      "omitted_nodes": 4,
+      "output_sha256": "be7125bee1454cfc4d18ac87ec4b7f2d15860833b2356efd536bd051618e959a",
+      "raw_record": "0.json",
+      "raw_sha256": "970e3c1046a730bb131b044f89c84c82ca2dca87ed63cae174375a12940e40a4",
+      "runtime_continuous_leaves": 354,
+      "supplemental_unchanged_leaves": 8,
+      "test": "tests/unit/backends/altium/test_pour_engine.py::test_direct_connect_and_no_connect",
+      "verification": {
+        "continuous_leaves": 362,
+        "output_sha256": "be7125bee1454cfc4d18ac87ec4b7f2d15860833b2356efd536bd051618e959a",
+        "protected_vertices": 104,
+        "whole_face_losses": 6
+      }
+    },
+    {
+      "capture_sha256": "1324eb10005af844a929699e8ead1ba117e317e92a245f638b42be918ee6204a",
+      "explicit_inverted_losses": 0,
+      "kind": "repair",
+      "omitted_nodes": 2,
+      "output_sha256": "3c1c7d231c23255c7acbbae35a897244c0386b504f84f8d2bce92d2959ccaa4e",
+      "raw_record": "1.json",
+      "raw_sha256": "b21281a489b8ce69d834da0f08752fecc296a32163aeefda003fa3c6b5d671dc",
+      "runtime_continuous_leaves": 588,
+      "supplemental_unchanged_leaves": 16,
+      "test": "tests/unit/backends/altium/test_pour_engine.py::test_dead_copper",
+      "verification": {
+        "continuous_leaves": 604,
+        "output_sha256": "3c1c7d231c23255c7acbbae35a897244c0386b504f84f8d2bce92d2959ccaa4e",
+        "protected_vertices": 284,
+        "whole_face_losses": 0
+      }
+    },
+    {
+      "capture_sha256": "acf980f7d4f32c2565f48628cf9214a40261479364e050d62fc7ecf5af5b283b",
+      "explicit_inverted_losses": 1,
+      "kind": "discarded-inversion",
+      "omitted_nodes": 0,
+      "output_sha256": "ad377af2c89d39fe7784342fccf2884c542ecfc25fedc5225aba8cd092fc44b4",
+      "raw_record": "2.json",
+      "raw_sha256": "77838ab13effa9dbc03ac15fcc6e4488d2f7da6f4e86564c8c6c431a43e1af51",
+      "runtime_continuous_leaves": 0,
+      "supplemental_unchanged_leaves": 0,
+      "test": "tests/unit/backends/altium/test_pour_modes.py::test_computed_and_reference_inputs_differ_in_the_pour_only",
+      "verification": {
+        "actual_policy_equal": true,
+        "inverted_losses": [
+          {
+            "exact_area": [
+              77,
+              61
+            ],
+            "integer_area": [
+              97,
+              2
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "capture_sha256": "1228c8e7ba0055a97bda9b8092ab3002f759c3c30b511beb0749e12568195490",
+      "explicit_inverted_losses": 1,
+      "kind": "discarded-inversion",
+      "omitted_nodes": 0,
+      "output_sha256": "01859dab4dfac78e3597fc241a97cd8fbf2755d9f02a3ea01ee405595b3743ca",
+      "raw_record": "3.json",
+      "raw_sha256": "c1da61e8fb84c63d62bb1dee06e33b6fdff9553d7b70edc2edd7523977aa1690",
+      "runtime_continuous_leaves": 0,
+      "supplemental_unchanged_leaves": 0,
+      "test": "tests/unit/backends/altium/test_pour_rules.py::test_edge_clearance",
+      "verification": {
+        "actual_policy_equal": true,
+        "inverted_losses": [
+          {
+            "exact_area": [
+              77,
+              61
+            ],
+            "integer_area": [
+              97,
+              2
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "schema": "fenolite.actual-neck-cut-runtime-proof.v0",
+  "script_sha256": "20149edb0224c17ced1ea09098f008e6c6b18873357289621a2e7cb74e13f245",
+  "seconds": 2.7448135839949828,
+  "source_binding": "base plus exact candidate hashes",
+  "status": "actual-runtime-certificates-passed"
+}
