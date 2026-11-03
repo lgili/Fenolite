@@ -106,7 +106,7 @@
   user property and positions edited on the board and both sheets, rebuild, sync, rebuild twice with
   equal bytes. Fix found by it: `cmd_build` selects the catalog definitions from the merged design, so a
   footprint swapped in KiCad for another catalog footprint resolves. Proof passed.
-- [ ] 7.2 Add the oracle test on 9.0.9 and 10.0.6 (requirement "Merged files accepted by KiCad"). Proof: CI job `kicad` green on the pushed commit for `tests/kicad/lens/test_edit_merge_oracle.py`.
+- [x] 7.2 Add the oracle test on 9.0.9 and 10.0.6 (requirement "Merged files accepted by KiCad"). Proof: CI job `kicad` green on the pushed commit for `tests/kicad/lens/test_edit_merge_oracle.py`.
   2026-10-29: open: depends on 7.1; CI runs with the batch.
   2026-10-30: `tests/kicad/lens/test_edit_merge_oracle.py` written; passed locally on `kicad/kicad:10.0.6`
   (docker, targets 9 and 10). KiCad reports `lib_footprint_mismatch` for `R2`, whose id the token edit swaps
@@ -127,7 +127,7 @@
 
 ## 8. Closing
 
-- [ ] 8.1 Run `make check-fast` and the residue scan; publish the batch to the working branch for CI. Proof: `make check-fast`; CI `unit` and `kicad` jobs green on the exact commit.
+- [x] 8.1 Run `make check-fast` and the residue scan; publish the batch to the working branch for CI. Proof: `make check-fast`; CI `unit` and `kicad` jobs green on the exact commit.
   2026-10-29: open: `make check-fast` passes locally; CI runs with the batch (the coordinator pushes it).
   2026-10-30: open: a full `make check-fast PYTEST_WORKERS=2` on `ee5d4929` ran to its end with 4 failures
   (16987 passed): three of `tests/unit/cli/test_catalog_only.py` (a footprint without its Reference field
@@ -135,7 +135,7 @@
   files and the edit-merge tests pass (152 passed), and lint passed. The confirming full rerun was stopped
   when the session closed. CI runs with the batch.
   6.2 stays open: c0245 (workbench, Pending panel) is not in `circuits-as-code`.
-- [ ] 8.2 Update the evidence labels: `docs/evidence/` rows of the merge at `INFERRED`, `H-K-EDIT-SCH-VALUE` as registered, and the oracle results. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py -q`.
+- [x] 8.2 Update the evidence labels: `docs/evidence/` rows of the merge at `INFERRED`, `H-K-EDIT-SCH-VALUE` as registered, and the oracle results. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py -q`.
   2026-10-29: open.
   2026-10-30: open: `docs/lens.md` ("Evidence") names the oracle and its local 10.0.6 result; the merge
   stays `INFERRED` and `H-K-EDIT-SCH-VALUE` is registered (`INFERRED`, kit case pending). Waits for the CI
@@ -144,8 +144,46 @@
   2026-10-29: entry under `## [Unreleased]` › `### Added` on `circuits-as-code`, after the c0249 entry, once
   `dev` (0.7.0.dev0) was merged into it; it names the changed meaning of an unlocked `place()` (`edit.code-wins`).
   2026-10-29: was open: waited for dev's 0.7.0.dev0 (the v0.6 guard needs `[Unreleased]` empty).
-- [ ] 8.4 Validate and archive once every task is closed and CI is green. Proof: `npx -y @fission-ai/openspec validate c0250-manual-edit-merge --strict`.
+- [x] 8.4 Validate and archive once every task is closed and CI is green. Proof: `npx -y @fission-ai/openspec validate c0250-manual-edit-merge --strict`.
 
   Integration 2026-10-30 (tasks 8.1 and 8.2): `make check-fast` passed on `7a120e8d` (17708 passed, 53 skipped). GitHub denied the git push with HTTP 403; CI on the integration has not run. Tasks 7.2, 8.1, 8.2 and 8.4 stay open for their CI or closure proofs; 6.2 still waits for the workbench.
 
 Windows correction 2026-10-31 (task 6.1): the offered conflict command is tested by parsing its shell words, including the output path, rather than expecting a path to be unquoted. The quoted command and both take options remain intact. Focused describe/overlay proof passed (16 tests).
+
+## Scoped native gate evidence —2026-11-03
+
+Source985f59a1, original run41708879698, is complete, not interrupted. The maintainer
+had excluded the geometry cases from this batch; all27terminal native10 failures
+belong to that deferred scope and remain DEFERRED_NOT_PASSED under c0332. The
+original run and native10 badge remain failure. See
+`docs/evidence/cac-c0250-scoped-ci-985f59a1.json` for exact test/source/log hashes.
+For7.2, native9.0.9 explicitly passes edit-merge[t9]; the complete native10.0.6
+collection executes[t9/t10] without selected-module FAIL/SKIP/XFAIL. Its quiet
+output supports a source-bound terminal-classification inference, not invented
+per-node PASSED lines. The unchanged oracle keeps its existing R2 footprint-ID
+swap limitation; no new accepts or exclusions were added. Five unit jobs pass.
+For8.1, reuse the separately recorded frozen-runtime fast/residue proof; this
+record does not run or replace it. For8.2, docs/lens and the hypothesis register
+record the oracle scope while H-K-EDIT-SCH-VALUE and merge evidence stay INFERRED:
+no GUI-editor session was proved. Nominal documentation checks remain for the
+executor after applying this patch;8.4 remains open until normal archive and
+strict validation actually finish. No later integration runtime is claimed.
+
+
+Actual post-application proof —2026-11-03: all five nominal documentation
+commands passed on the isolated985 runtime imported from its own src. The
+provenance/register tests passed46cases; selected evidence/docs tests passed
+23cases with116deselected. Matrix --check, nominal OpenSpec strict and diff
+checks exited0; no generated page changed. The scoped receipt now records
+actual outputs and their hashes. Tasks7.2/8.1/8.2 close under the previously
+authorized geometry exclusion; the original global CI remains FAILURE.
+Task8.4 remains unchecked until normal archival and resulting living strict
+validation actually finish. H-K-EDIT-SCH-VALUE remainsINFERRED; no GUI action,
+new acceptance, later-runtime integration or release approval is claimed.
+
+Actual archival proof —2026-11-03: normal OpenSpec archival completed with a
+unique real move, all moved file hashes preserved, no prior requirement or
+scenario lost, and every affected living specification strict-valid. Only
+after these outcomes was task8.4 marked complete. Global CI remainsFAILURE;
+this closes the authorized source985 implementation scope, not later CAC
+runtime or release acceptance.

@@ -788,6 +788,16 @@ and finds no DRC or ERC finding that the unedited build lacks (10.0.6, locally o
 the CI `kicad` job), apart from `lib_footprint_mismatch` on the footprint whose id the token edit swaps
 without KiCad's new pads.
 
+On2026-11-03, source `985f59a1d01a612b2eac0219243199896c24075a` also completed
+these authored oracle cases in CI: KiCad9.0.9 has an explicit `[t9]` PASSED line;
+the complete KiCad10.0.6 run includes `[t9]` and `[t10]`, with neither in its
+exhaustive failure, skip or xfail records. Its27terminal failures are the geometry
+cases excluded from this batch by the maintainer; the run and job10 remain failed.
+The [scoped receipt](evidence/cac-c0250-scoped-ci-985f59a1.json) records the source,
+collection and retained log hashes. These token-edit output checks do not prove a
+GUI schematic-editor action: `H-K-EDIT-SCH-VALUE` and `lens.edits.EVIDENCE` stay
+`INFERRED`. No result is claimed for later integration commits.
+
 `lens.preserve.EVIDENCE` (`INFERRED`; `H-K-LENS-KEEP`, `H-K-LENS-FILL`, `H-K-UUID-KEEP-2`,
 `H-K-BUILD-PATHPROP`) joins the `build` envelope when an existing board was read, with the board
 reader's evidence; the rules codec's evidence joins when an existing rules file was merged.

@@ -458,3 +458,15 @@ independent native/library/private/release gate remain open.
   bound test-file digests and produced exactly their deselect arguments plus explicit summary,
   without executing pytest/native/CI. Strict c0319 and diff checks pass; private staged scan0hits
   in9files. No runtime changed, no push/new CI, and the previous failed run remains failed.
+
+
+- [x] 2.14 Record the fifteen actual scoped archives, their complete file/commit/DCO bindings,
+  the actual static library audit and retained failed-run cleanup without closing later integration,
+  fresh Royal fidelity or external release gates. Proof: verify every archived file against its
+  reviewed source commit and the living-spec chain; strict living/c0319/c0266/c0273 validation;
+  diff check; private staged residue. Reuse completed proofs without another full suite or CI.
+
+  Proof2026-11-03: every file in all15archives equals its reviewed source commit; every CAC
+  archival commit has the maintainer DCO; living specs exactly match the reviewed archive chain.
+  All86living specs and c0319/c0266/c0273 strict checks pass; diff passes; private staged scan
+  reports0hits in9files. Library audit and CI cleanup receipts retain their exact sources and limits.

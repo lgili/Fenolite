@@ -6,6 +6,12 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Record source985 token-edit oracle evidence and archive the manual-edit merge contract after its nominal documentation checks; keep GUI-editor evidence INFERRED and deferred geometry/later integration gates explicit (c0250).
+
+- Record fifteen source-bound scoped archives and the zero-finding static library audit, retaining later integration, current Royal fidelity and external release gates (c0319,c0266,c0273).
+
+- Preserve complete failed-run logs and artifacts before removing CI41708879698, with verified hashes, sizes, ZIP CRCs and deletion receipt (c0319).
+
 - Archive c0179-libraries-and-units using its tested985 implementation, scoped unit/native CI evidence and existing proofs; preserve the authorized geometry deferral and pending later integration gates.
 
 - Archive c0178-native-themes using its tested985 implementation, scoped unit/native CI evidence and existing proofs; preserve the authorized geometry deferral and pending later integration gates.

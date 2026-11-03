@@ -295,3 +295,20 @@ The maintainer clarified geometry was already outside this closure batch. The ol
 Assess those proofs and explicit dependencies individually; do not close c0332 or infer missing
 native comparisons. Local working-branch scope restoration is recorded by task2.13 and
 ci-41708879698-terminal.json. No new push or CI run accompanies the correction.
+
+
+## Actual scoped closures —2026-11-03
+
+Fifteen specs are now archived in CAC with one maintainer-signed commit each: c0081,c0105,
+c0178,c0179,c0195,c0196,c0248,c0249,c0251,c0259,c0261,c0345,c0358,c0359,c0363.
+`archived-scoped-20261103.json` binds all archive files and both source/integration SHAs.
+Their reviewed living-spec chain is byte-identical to the integrated chain. This supersedes
+older zero-archive preparation counts, without changing historical observations or the pending
+later-runtime integration gate. c0170 still requires the real c0160 archival dependency.
+
+Library5edffa6 now has an actual static root audit exit0/zero findings for20items. Its historical
+Royal metadata was repaired with all67payload files/licence/accepts preserved; current fresh L7
+findings and external CI/publication remain separate. c0266/c0273 notes preserve those gates.
+Run41708879698 was removed only after preserving all14logs and all6artifact ZIPs with complete
+hash/size/CRC verification. `docs/evidence/cac-ci-cleanup-41708879698.json` records DELETE204
+and GET404; removal does not turn the failed run into a passing result. No new CI or push ran.

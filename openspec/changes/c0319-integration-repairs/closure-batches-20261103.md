@@ -88,3 +88,9 @@ not a new maintainer requirement. Preserve that old plan as history; assess each
 proofs and dependency order using the authorized scope. The working-branch-only selection fix
 explicitly reports27source-bound cases as deferred, not passed; c0332 remains open. No new CI
 execution is authorized or implied by this local correction, and no failed result is rewritten.
+
+
+Actual completion update:15of the original first16changes are now archived in CAC, individually
+signed and source-bound in `archived-scoped-20261103.json`; c0170 remains active for the explicit
+c0160 archive prerequisite. This replaces only the current preparation count, not historical
+zero-archive observations. Other queued changes remain pending their own proofs and ordering.

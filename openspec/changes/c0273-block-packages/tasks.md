@@ -127,6 +127,25 @@
   unchanged. This is an item-level local proof; no push, PR, tag, release, Pages publication, full
   external audit success or actual CI is claimed.
 
+  Local source update — 2026-11-03, library
+  `5edffa69584890dbf5c4cea0bc3ad613fa176f6c`: the immutable KiCad image is
+  already configured as
+  `docker.io/kicad/kicad@sha256:18693567392b80da435f9fa952ce3a3e534c66eb5a6033f5b9c80aa3b19dd3ec`.
+  The actual read-only root audit now exits 0 with zero findings across 20
+  items; the 19 other item rows are identical to the preceding audit. The
+  actual Royal per-item audit with base `8b38b30` also exits 0, including its
+  metadata version step. See `local-library-audit-proof.json` for commands,
+  sources and complete log/receipt hashes. This dated update supersedes only
+  the older unset-image and 38-finding status above.
+
+  Royal's correction restores historical metadata only: the expected checksum
+  of 67 unchanged payload files and the original documented S skip reason.
+  Payload, licence, accepted entries and original proof levels remain intact.
+  It is not a new replay or current fidelity qualification; the two fresh L7
+  findings remain open separately. The public core pin is still `b8b24842`;
+  actual required library CI/publication and release gates remain open.
+  Task 4.3 is not checked by this local schema-audit result.
+
 ## 5. Closing
 
 - [x] 5.1 Run `uv run pytest tests/residue -q` and update evidence labels. Proof:
