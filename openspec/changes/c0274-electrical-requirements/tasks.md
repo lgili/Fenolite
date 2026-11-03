@@ -10,6 +10,9 @@
 
   Proof: `openspec validate c0274-electrical-requirements --strict`; `make check-fast`.
 
+
+  2026-11-03 archival preparation: The documentation proof names the existing consistency suite, preserving the earlier note that test_docs_links.py does not exist. No electrical limit, policy or waiver behavior changed. The ten-change normal external rehearsal preserves all prior requirement/scenario names and passes strict validation. Local hermetic proof is the source-bound fast13 receipt (2c054057); runtime, tests, examples and tools are byte-identical at 985f59a1. Later c0355 runtime changes require their own fast/CI proof. The exact-commit CI task remains unchecked; no actual archive is claimed.
+
 ## 1. Phase A: units and products (after c0246, before c0252)
 
 - [x] 1.1 Add the unit `kelvin` to `dsl/quantity.py` and to the model's `RangeUnit`, `celsius()` and `kelvin()` to `fenolite.dsl`, temperature texts in `core/quantities`, and the Celsius text of absolute temperatures (scenarios "A Celsius range", "An ambient range in kelvin"). Proof: `uv run pytest tests/unit/dsl/test_quantity.py -k "celsius or kelvin" tests/unit/model/test_circuit.py -k kelvin -q`; `uv run python tools/gen_schemas.py --check`.
@@ -67,7 +70,7 @@ Phases B to F (sections 3 to 6) waited for c0252 and c0253, which were not merge
 
 ## 7. Docs, guide, changelog and CI
 
-- [x] 7.1 Docs: `docs/catalog/README.md` (limits, `[[limits]]`, thresholds, `class`, temperatures), `docs/dsl.md` (temperatures, products, one-sided ranges, circuit waivers), `docs/contracts.md` (origins, propagation, decidable stages, the matrix, waivers that expire), `docs/roles.md` (the three classes). Proof: `uv run pytest tests/consistency tests/unit/test_docs_links.py -q`.
+- [x] 7.1 Docs: `docs/catalog/README.md` (limits, `[[limits]]`, thresholds, `class`, temperatures), `docs/dsl.md` (temperatures, products, one-sided ranges, circuit waivers), `docs/contracts.md` (origins, propagation, decidable stages, the matrix, waivers that expire), `docs/roles.md` (the three classes). Proof: `uv run pytest tests/consistency -q`.
   - 2026-10-29: phase A part done (`docs/devices.md`, `docs/dsl.md`: temperatures, products, one-sided ranges; `docs/design-model.md`). Open: circuit waivers, `docs/contracts.md` and `docs/roles.md` wait for phases B to F.
   - 2026-10-30: phases B to F done: `docs/devices.md` (the `class` key, thresholds that ports take from pins), `docs/dsl.md` (circuit waivers), `docs/contracts.md` (propagation, origins, decidable stages, waivers that expire, the matrix, the three classes), `docs/roles.md` (the three classes and the device class), `docs/design-model.md` (`Waiver.digest`), `docs/cli-contract.md`. `tests/unit/test_docs_links.py` does not exist on this base; `uv run pytest tests/consistency -q` passed.
 - [x] 7.2 Agent guide (AGENTS.md rule 6): tested lines for `celsius`, `kelvin` and a `circuit.*` waiver with its digest on `design-script`; `fenolite check --matrix`, `deferred` and `check.waiver-expired` on `checks`; `[[limits]]`, `abs_max` and `operating` on `board-power`. Then run the generator. Proof: `uv run python tools/gen_agent_guide.py`; `uv run pytest tests/unit/agent/test_pages.py -q`.

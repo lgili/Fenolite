@@ -27,6 +27,9 @@
   texts in the `Acme` namespace). The open questions take the recommended answers ("Decided" in
   `design.md`). Left open: `openspec validate` is run by the coordinator; `make check-fast` passed.
 
+
+  2026-11-03 archival preparation: The package-layering delta is reconciled after c0254 and c0256: blocks are added without deleting the prior catalog, schematic, pick, testing or MCP contracts/scenarios. The blocks-import exception includes testing, preserving its existing any-package boundary and the tested import table. The ten-change normal external rehearsal preserves all prior requirement/scenario names and passes strict validation. Local hermetic proof is the source-bound fast13 receipt (2c054057); runtime, tests, examples and tools are byte-identical at 985f59a1. Later c0355 runtime changes require their own fast/CI proof. The exact-commit CI task remains unchecked; no actual archive is claimed.
+
 ## 1. Records and parameter metadata
 
 - [x] 1.1 Add the record keywords to `@block` with their checks, the reserved namespace `Fenolite`, and the

@@ -5,102 +5,19 @@
 from __future__ import annotations
 
 import hashlib
-from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from typing import cast
 
 from fenolite.api.sides import ReadSide
 from fenolite.backends.kicad import _json, pro
-from fenolite.backends.kicad.derived_teardrops import native_net
 from fenolite.backends.kicad.lowering import MINIMUM_KEYS, NETCLASS_KEYS
-from fenolite.backends.kicad.sexpr import AtomKind, Node, parse_bytes
-from fenolite.checks.assignment_compare import board_netlist, net_names
+from fenolite.backends.kicad.native_net_binding import bindings as bindings
+from fenolite.backends.kicad.native_net_binding import raw_bindings as raw_bindings
+from fenolite.backends.kicad.sexpr import parse_bytes
 from fenolite.checks.equivalence.exclusions import Rule, apply_rules
 from fenolite.checks.equivalence.model import Difference, EquivalenceReport, LevelResult
 from fenolite.core.errors import FormatError, Issue
-from fenolite.model.design import Design
-
-
-def bindings(design: Design) -> dict[str, tuple[str, ...]]:
-    netlist, _ = board_netlist(design)
-    members: dict[str, list[str]] = defaultdict(list)
-    seen: dict[str, str] = {}
-    for assignment in netlist.assignments:
-        if assignment.element in seen:
-            if seen[assignment.element] != assignment.net:
-                raise ValueError("ambiguous numbered-pad binding")
-            continue
-        seen[assignment.element] = assignment.net
-        members[assignment.net].append(assignment.element)
-    names = net_names(design)
-    result: dict[str, tuple[str, ...]] = {}
-    for net, elements in members.items():
-        name = names.get(net)
-        if name is None:
-            continue
-        if name in result:
-            raise ValueError("ambiguous native net name")
-        result[name] = tuple(sorted(elements))
-    return result
-
-
-def raw_bindings(root: Node, expected: frozenset[tuple[str, ...]]) -> dict[str, tuple[str, ...]]:
-    """Bind complete electrical terminal signatures; retain all physical copies outside this set view."""
-    members: dict[str, list[str]] = defaultdict(list)
-    seen: dict[str, str] = {}
-    identities: dict[str, tuple[str, str]] = {}
-    signatures: dict[str, tuple[tuple[str, str], ...]] = {}
-    for footprint in root.nodes("footprint"):
-        terminals: dict[str, str] = {}
-        for pad in footprint.nodes("pad"):
-            atoms = pad.atoms()
-            if not atoms or atoms[0].kind != AtomKind.STRING:
-                raise ValueError("native pad number malformed")
-            if not atoms[0].value or not pad.nodes("net"):
-                continue
-            net = native_net(pad, root)
-            if not net:
-                continue
-            number = atoms[0].value
-            if number in terminals and terminals[number] != net:
-                raise ValueError("native numbered-pad identity ambiguous")
-            terminals[number] = net
-        if not terminals:
-            continue  # No numbered electrical terminal to bind; no physical object is removed.
-        references = [
-            p.atoms()[1].value
-            for p in footprint.nodes("property")
-            if len(p.atoms()) >= 2 and p.atoms()[0].value == "Reference"
-        ]
-        references += [
-            p.atoms()[1].value
-            for p in footprint.nodes("fp_text")
-            if len(p.atoms()) >= 2 and p.atoms()[0].value == "reference"
-        ]
-        if len(references) != 1 or not references[0]:
-            raise ValueError("native electrical footprint has no unique reference")
-        reference = references[0]
-        signature = tuple(sorted(terminals.items()))
-        if reference in signatures and signatures[reference] != signature:
-            raise ValueError("native repeated reference has ambiguous terminal decomposition")
-        signatures[reference] = signature
-        for number, net in signature:
-            element = reference + "-" + number
-            identity = (reference, number)
-            if element in identities and identities[element] != identity:
-                raise ValueError("native terminal spelling is ambiguous")
-            identities[element] = identity
-            if element in seen:
-                if seen[element] != net:
-                    raise ValueError("native numbered-pad identity ambiguous")
-                continue
-            seen[element] = net
-            members[net].append(element)
-    result = {name: tuple(sorted(elements)) for name, elements in members.items()}
-    if frozenset(result.values()) != expected:
-        raise ValueError("native named-pad partitions changed")
-    return result
 
 
 @dataclass(frozen=True)

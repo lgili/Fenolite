@@ -18,6 +18,7 @@ import hashlib
 import os
 import tempfile
 from collections import Counter
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -179,9 +180,10 @@ def _build(emission: Emission, name: str, major: int, ctx: Context) -> tuple[lis
             target = root / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
+        from fenolite.lens.native_project_context import import_owner as project_owner
         from fenolite.lens.native_rule_context import import_owner
 
-        with import_owner(root / "design.py"):
+        with import_owner(root / "design.py"), project_owner(root / "design.py"):
             reply = run(
                 "build", "design.py", "--out", "built", "--confirm", "--kicad-version", str(major),
                 "--copper-check", "warn", "--schematic",
@@ -292,62 +294,93 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         )
     equivalence: dict[str, object] | None = None
     adopted: Adopted | None = None
+    from fenolite.lens import native_project_context as project_context
+    from fenolite.lens.native_rule_context import CERTIFICATE, capture_import, certificate
+
+    needs_context = (
+        source.backend == "kicad"
+        and source.project_text is not None
+        and project_context.required(source.design, source.project_text)
+    )
     if args.no_verify:
-        if source.native_rules_text is not None:
-            raise FormatError("native custom rules require the verified two-build import baseline")
+        if source.native_rules_text is not None or needs_context:
+            raise FormatError("native custom rules or project context require the verified import baseline")
         issues.append(issue("import.unverified", "--no-verify: the emitted code was not built and compared"))
     else:
-        if source.native_rules_text is not None:
-            if source.project_text is None:
-                raise FormatError("native custom rules require their declared native project")
-            from fenolite.lens.native_rule_context import CERTIFICATE, capture_import, certificate
-
-            build_issues, built, built_text = [], None, ""
-            captured = None
-            try:
-                with capture_import(name, target) as captured:
-                    build_issues, built, built_text = _build(emission, name, target, ctx)
-            except FormatError:
-                # No baseline is issued: retain the primary failed-build diagnostic.
-                if built is not None or not build_issues:
-                    raise
-            issues += build_issues
-            if (
-                built is not None
-                and captured is not None
-                and captured.design is not None
-                and captured.emitted_pcb is not None
-                and captured.emitted_project is not None
-            ):
-                _native_rule_context(source.board_text, built_text, source.native_rules_text)
-                bound = dict(emission.files)
-                raw_rules = source.native_rules_text.encode("utf-8")
-                # Leading-private aliases cannot collide with emitted user identifiers,
-                # which the printer strips of surrounding underscores.
-                bound["design.py"] += (
-                    b"\nfrom pathlib import Path as _fenolite_native_rules_path\n"
-                    b"for _fenolite_native_rules_input in (\n"
-                    b'    "native/project.kicad_dru", "native/project.rules-context.json",\n'
-                    b"):\n"
-                    b"    if not (_fenolite_native_rules_path(__file__).parent / "
-                    b"_fenolite_native_rules_input).is_file():\n"
-                    b'        raise ValueError("required native rule input is missing: " + '
-                    b"_fenolite_native_rules_input)\n"
-                )
-                bound["native/project.kicad_dru"] = raw_rules
-                bound[f"native/{CERTIFICATE}"] = certificate(
-                    bound["native/project.kicad_pro"],
-                    raw_rules,
-                    captured.design,
-                    target,
-                    [{"path": row.file, "sha256": row.sha256, "kind": row.format} for row in source.inputs],
-                    emitted_pcb=captured.emitted_pcb,
-                    emitted_project=captured.emitted_project,
-                )
-                emission = dataclasses.replace(emission, files=bound)
+        if source.native_rules_text is not None and source.project_text is None:
+            raise FormatError("native custom rules require their declared native project")
+        inputs = [{"path": row.file, "sha256": row.sha256, "kind": row.format} for row in source.inputs]
+        project_capture = (
+            project_context.capture_import(
+                name, target, source.design, source.board_text.encode(), source.project_text, inputs
+            )
+            if needs_context and source.project_text is not None
+            else nullcontext(None)
+        )
+        rule_capture = (
+            capture_import(name, target) if source.native_rules_text is not None else nullcontext(None)
+        )
+        build_issues, built, built_text = [], None, ""
+        captured = None
+        context_capture = None
+        try:
+            with project_capture as context_capture, rule_capture as captured:
                 build_issues, built, built_text = _build(emission, name, target, ctx)
-                issues += build_issues
-        else:
+        except FormatError:
+            if built is not None or not build_issues:
+                raise
+        issues += build_issues
+        bound = dict(emission.files)
+        if built is not None and context_capture is not None:
+            raw_context = context_capture.certificate()
+            bound[f"native/{project_context.CERTIFICATE}"] = raw_context
+            context_sha = hashlib.sha256(raw_context).hexdigest()
+            bound["design.py"] += (
+                "\nfrom pathlib import Path as _fenolite_project_path\n"
+                "from hashlib import sha256 as _fenolite_project_sha\n\n"
+                "_fenolite_project_context = _fenolite_project_path(__file__).parent / "
+                '"native/project.context.json"\n'
+                "if _fenolite_project_context.is_symlink() or not _fenolite_project_context.is_file():\n"
+                '    raise ValueError("required native project context is missing or a symlink")\n'
+                "if _fenolite_project_context.stat().st_size > 16777216:\n"
+                '    raise ValueError("native project context exceeds the byte limit")\n'
+                "if _fenolite_project_sha(_fenolite_project_context.read_bytes()).hexdigest() != (\n"
+                f'    "{context_sha}"\n'
+                "):\n"
+                '    raise ValueError("required native project context digest differs")\n'
+            ).encode()
+        if (
+            built is not None
+            and captured is not None
+            and captured.design is not None
+            and captured.emitted_pcb is not None
+            and captured.emitted_project is not None
+            and source.native_rules_text is not None
+        ):
+            _native_rule_context(source.board_text, built_text, source.native_rules_text)
+            raw_rules = source.native_rules_text.encode("utf-8")
+            bound["design.py"] += (
+                b"\nfrom pathlib import Path as _fenolite_native_rules_path\n"
+                b"for _fenolite_native_rules_input in (\n"
+                b'    "native/project.kicad_dru", "native/project.rules-context.json",\n'
+                b"):\n"
+                b"    if not (_fenolite_native_rules_path(__file__).parent / "
+                b"_fenolite_native_rules_input).is_file():\n"
+                b'        raise ValueError("required native rule input is missing: " + '
+                b"_fenolite_native_rules_input)\n"
+            )
+            bound["native/project.kicad_dru"] = raw_rules
+            bound[f"native/{CERTIFICATE}"] = certificate(
+                bound["native/project.kicad_pro"],
+                raw_rules,
+                captured.design,
+                target,
+                inputs,
+                emitted_pcb=captured.emitted_pcb,
+                emitted_project=captured.emitted_project,
+            )
+        if bound != emission.files:
+            emission = dataclasses.replace(emission, files=bound)
             build_issues, built, built_text = _build(emission, name, target, ctx)
             issues += build_issues
         if built is not None:

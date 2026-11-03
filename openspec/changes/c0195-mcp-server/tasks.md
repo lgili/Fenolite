@@ -111,3 +111,28 @@
 
 No personal MCP-client session was supplied. The optional task 5.4 stays open; no client configuration is changed or external session assumed.
 See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.
+
+
+## Archive reconciliation under entry0.1 and closing5.3 —2026-11-03
+
+The c0195 Allowed import edges MODIFIED block preceded c0248 and would erase
+the later dsl-to-catalog permission and its no-reverse-edge scenario when
+archived after c0248. Rebased that block to retain the existing dsl-to-model,
+schematic and catalog edges, the acyclic catalog-to-model restriction, and
+all earlier viewer/router/roles scenarios, while keeping c0195 mcp-to-cli/agent
+and the MCP isolation scenario. No runtime, allowed-edge test or third-party
+dependency policy changed. This is preservation of both approved deltas.
+
+The frozen985f59a1 focused proof passes137cases4.16s, including import-graph
+controls. A separate moving-worktree attempt retains its unrelated c0355
+lens-to-api failure (136passed/1failed), not treated as passing validation.
+All sixteen external archive moves succeed with no requirement/scenario loss;
+actual current-CI success and archival remain pending. Optional5.4 stays
+unchecked and its explicit "Nothing waits on it" policy remains unchanged;
+no personal client session is fabricated or newly required.
+
+Subsequent coordinator focused validation on the moving tree, after the
+independent native-project helper layering repair:137passed3.64s across
+`test_device_pins.py`, `test_part_keys.py`, `test_block_ports.py`,
+`test_blocks.py` and `test_import_graph.py`. The earlier failed attempt stays
+recorded above; this focused result does not replace the exact-source CI gate.

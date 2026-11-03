@@ -277,3 +277,21 @@ of a third-party board belongs in the library repository or your own folder.
 The emitter, the tables, the keys, the provenance and the determinism are `INFERRED` (`H-G-IMPORT-CODE`):
 the authored two-sheet project of `tests/data/import_python/` and the built examples import and rebuild
 equal. The upgrade is measured with `kicad-cli` 10.0 in CI (`H-K-IMPORT-UPGRADE`).
+
+## Portable native project representation
+
+When an unchanged native project's net spellings or assignment/pattern representation would otherwise
+change, verified import additionally writes private `native/project.context.json` beside its declared
+`native/project.kicad_pro`. Keep those files with the emitted Python when moving the folder. The script
+binds the context's exact digest; build includes it in the reviewed input set. The original project and
+source files stay read-only. The context records source hashes for provenance; build never opens or
+fetches those source paths.
+
+Preservation requires a complete physical numbered-terminal bijection and unchanged class values and
+membership. The closed context is limited to 16 MiB and binds the whole lowered model before restoring
+only existing native stored-name metadata. Changed names, classes, connections, references, target or
+other model fields require a new reviewed import; missing, edited, ambiguous or unsupported context
+refuses with `FEN-3004`, and a staged input change with `FEN-4002`. This is independent of
+`preserve_minimums` and composes with the existing immutable native-rule context. Ordinary imports whose
+representation is unchanged retain their existing editable path. No new DSL argument or native geometry,
+DRC or electrical correctness claim is introduced.

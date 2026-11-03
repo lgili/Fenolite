@@ -13,6 +13,9 @@
 
   Proof: `npx -y @fission-ai/openspec validate c0252-parametric-interfaces --strict`; `make check-fast`.
 
+
+  2026-11-03 archival preparation: The issue-code proof now names the actual checks/test_codes.py module; the earlier dated proof already identifies that module. No code-set claim or task completion changed. The ten-change normal external rehearsal preserves all prior requirement/scenario names and passes strict validation. Local hermetic proof is the source-bound fast13 receipt (2c054057); runtime, tests, examples and tools are byte-identical at 985f59a1. Later c0355 runtime changes require their own fast/CI proof. The exact-commit CI task remains unchecked; no actual archive is claimed.
+
 ## 1. Model
 
 - [x] 1.1 Add `params`, `reference` and `shared` to the model `Interface`, and `params`, `reference`, `share` and `requires` to `Port`, with params in c0246's encoding. Add the kinds `ground` and `logic` and the model-side parameter table, regenerate the schemas, and update `docs/design-model.md` (scenarios "Parameters round trip", "Older circuit files keep their bytes", "Unknown param refused"). Proof: `uv run pytest tests/unit/model/test_circuit.py -k "param or kind" -q`; `uv run python tools/gen_schemas.py --check`.
@@ -40,7 +43,7 @@
 
 ## 4. Checks
 
-- [x] 4.1 Create the package `checks/circuit/` with `rails.py`: `circuit_issues` with the rail grouping, hiding, alias and sum rules (loads against sources only), the three logic comparisons, the bus pull-up rules and the companion check, and the nine codes in `checks.codes.ISSUE_CODES`, `docs/cli-contract.md` and `explain.toml` (scenarios "Sensor on a 5 V rail", "Over budget", "1.2 A load on a 1 A source fails", "Two regulators on one rail", "No voltage to judge against", "3.3 V output into a 1.8 V input", "A weak high level", "Thresholds not stated", "Same reference passes", "Pulled up to the wrong rail", "A pull-up stronger than a port sinks", "A sensor without pull-ups", "VDD and VDDA split"). Proof: `uv run pytest tests/unit/checks/circuit/test_rails.py -q`; `uv run pytest tests/unit/checks tests/unit/test_codes.py -k codes -q`.
+- [x] 4.1 Create the package `checks/circuit/` with `rails.py`: `circuit_issues` with the rail grouping, hiding, alias and sum rules (loads against sources only), the three logic comparisons, the bus pull-up rules and the companion check, and the nine codes in `checks.codes.ISSUE_CODES`, `docs/cli-contract.md` and `explain.toml` (scenarios "Sensor on a 5 V rail", "Over budget", "1.2 A load on a 1 A source fails", "Two regulators on one rail", "No voltage to judge against", "3.3 V output into a 1.8 V input", "A weak high level", "Thresholds not stated", "Same reference passes", "Pulled up to the wrong rail", "A pull-up stronger than a port sinks", "A sensor without pull-ups", "VDD and VDDA split"). Proof: `uv run pytest tests/unit/checks/circuit/test_rails.py -q`; `uv run pytest tests/unit/checks tests/unit/checks/test_codes.py -k codes -q`.
   2026-10-29: proof passed (tests/unit/checks/circuit/test_rails.py, tests/unit/checks/test_codes.py).
 - [x] 4.2 Add the stage `circuit.rules` to `checks/stages.py` (`STAGE_ORDER` and `DOCUMENT_STAGES`) and `cmd_check`, with the skip reasons `no-model` and `no-parameters` and `summary.halves` (scenarios "A board without parameters is unchanged", "A native board has no model"). Proof: `uv run pytest tests/unit/checks/test_circuit_stage.py -k "skip or order" -q`.
   2026-10-29: proof passed; also in `DOCUMENT_STAGES` with its runner.

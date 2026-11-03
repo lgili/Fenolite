@@ -1074,6 +1074,48 @@ def _resolve_nine(
         edits.extend(found)
 
 
+@dataclass(frozen=True, slots=True)
+class NativeNetContext:
+    """Private writer policy, issued only for a completely unchanged imported context."""
+
+    project_sha256: str
+    target: int
+    model_sha256: str
+
+
+def _context_fingerprint(design: Design) -> str:
+    from fenolite.model import canonical
+
+    model = dataclasses.replace(design, header=dataclasses.replace(design.header, fenolite_version=""))
+    return hashlib.sha256(canonical.dumps(model).encode()).hexdigest()
+
+
+def native_net_context(text: str, design: Design, target: int) -> NativeNetContext:
+    """Qualify exact native class values/membership; this is not a public DSL input."""
+    found: list[Issue] = []
+    info = read_project(text, issues=found)
+    names = [cls.name for cls in info.classes]
+    if info.major != target or len(set(names)) != len(names) or names.count(DEFAULT_CLASS) != 1:
+        raise FormatError("native project context requires unique supported same-target classes")
+    applied = apply_project(design, info, issues=found)
+    if found:
+        raise FormatError(
+            "native project class semantics are not completely represented: " + found[0].message
+        )
+
+    def values(model: Design) -> dict[str, tuple[int | None, ...]]:
+        result = {
+            cls.name: tuple(getattr(cls, key) for key in NETCLASS_KEYS) for cls in model.circuit.netclasses
+        }
+        if len(result) != len(model.circuit.netclasses):
+            raise FormatError("native project model class names collide")
+        return result
+
+    if values(applied) != values(design) or _net_class_names(applied) != _net_class_names(design):
+        raise FormatError("native project class values or complete membership differ")
+    return NativeNetContext(hashlib.sha256(text.encode()).hexdigest(), target, _context_fingerprint(design))
+
+
 def update_project(
     existing_text: str,
     design: Design,
@@ -1085,6 +1127,7 @@ def update_project(
     downgrade: bool = False,
     edits: list[resolver.Edit] | None = None,
     preserve_minimums: bool = False,
+    _native_context: NativeNetContext | None = None,
 ) -> str:
     """``existing_text`` with only its managed keys changed (project.md, "Updates").
 
@@ -1116,6 +1159,11 @@ def update_project(
         _write_minimums(data, design, target=target, update=True, issues=found)
     _write_curve_error(data, design)
     _write_severities(data, design, target=target, allow_lossy=allow_lossy, issues=found)
+    if _native_context is not None:
+        if _native_context != native_net_context(existing_text, design, target):
+            raise FormatError("native project context no longer binds this exact model/project/target")
+        _check_classes(data, design, target=target, issues=found)
+        return _json.dumps(data)
     classes = _classes(data)
     by_name = {cast(JsonObject, c).get("name"): i for i, c in enumerate(classes) if isinstance(c, dict)}
     default_index = by_name.get(DEFAULT_CLASS, 0)

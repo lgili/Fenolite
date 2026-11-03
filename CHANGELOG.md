@@ -6,6 +6,32 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Reconcile existing native evidence against the literal remaining c0092 acceptance criteria, preserving source/version boundaries and unfinished aggregate, graduation and CI gates.
+
+- Prepare a second twenty-spec closure batch plus its edit-merge ordering prerequisite, preserving the complete 37-change external rehearsal, the dependent CI bridge and separate later-runtime failures without claiming actual archival (c0319).
+
+- Retain the first fresh RoyalBlue comparison after the native-project correction: names, class context and levels 1–6/S/8 agree, while both level-7 findings remain; preserve the exact native failure without retries or acceptance (c0355).
+
+- Reconcile electrical-requirement documentation proof with the existing consistency suite; retain pending exact-source CI and actual archival (c0274).
+
+- Preserve testing and catalog import permissions in the block-record archive delta; retain pending exact-source CI and actual archival (c0268).
+
+- Preserve accumulated package-layer scenarios in the design-testing archive delta; retain pending exact-source CI and actual archival (c0256).
+
+- Preserve accumulated import-layer contracts in the part-selection archive delta; retain pending exact-source CI and actual archival (c0254).
+
+- Validate the role-source requirement and reconcile its existing documentation proof; retain pending exact-source CI and actual archival (c0253).
+
+- Reconcile the parametric-interface issue-code proof with the existing test module; retain pending exact-source CI and actual archival (c0252).
+
+- Preserve native net spelling and original class assignments in an explicitly bound, portable imported-project context; guard unchanged model, target and inputs, retain ordinary build bytes, and record the authored KiCad 10 diagnostic separately from pending RoyalBlue and integration acceptance (c0355).
+
+- Preserve the catalog import direction and existing package-layer scenarios while applying the MCP server archive delta; retain the optional client-session policy and required CI (c0195).
+
+- Preserve call-time device pin checks and named-part paths when archiving the circuit-block DSL delta, retaining the existing port-net contract and all CI gates (c0251).
+
+- Bind nine sealed library board integrations to local library8b38b30 (audit 21→2 remaining Royal metadata findings), and record the maintainer-authorized CAC CI batch on exact985f59a1 without claiming success (c0279/c0319).
+
 - Bind the local integration of four exactly re-approved LibrePCB items to library23deaee, preserving existing source IDs, native outputs and outstanding CI/release/audit gates (c0338).
 
 - Repair stale example-byte proof commands in quantity-range and connection-helper tasks; retain all pending CI requirements and record historical closure dependency checks (c0246/c0247/c0319).

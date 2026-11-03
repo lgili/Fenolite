@@ -25,6 +25,9 @@
     c0252's question 1 is "errors stop the build". Not ticked: the `openspec` CLI is not installed on this
     machine, so the proof did not run.
 
+
+  2026-11-03 archival preparation: The source-attribution requirement now has a normative first sentence, preserving its existing four SHALL clauses and scenario; OpenSpec 1.16.0 strict validation and a normal external archive pass. The documentation proof uses the existing consistency suite, as the earlier implementation note already records. The ten-change normal external rehearsal preserves all prior requirement/scenario names and passes strict validation. Local hermetic proof is the source-bound fast13 receipt (2c054057); runtime, tests, examples and tools are byte-identical at 985f59a1. Later c0355 runtime changes require their own fast/CI proof. The exact-commit CI task remains unchecked; no actual archive is claimed.
+
 ## 1. Units and the row type
 
 - [x] 1.1 Add `parse_area` to `core/units.py` beside `parse_length`; electrical values and temperature differences use `core/quantities` (c0248, c0274) and no other parser is written. Proof: `uv run pytest tests/unit/core/test_units.py -k area -q`.
@@ -103,7 +106,7 @@
   - link it from `docs/roles.md`, `docs/dsl.md`, `docs/analyses.md` and `docs/index.md`;
   - add a section to `docs/roles.md` on the role rows of the table.
 
-  Proof: `uv run pytest tests/unit/test_docs_links.py tests/consistency -q`.
+  Proof: `uv run pytest tests/consistency -q`.
   - 2026-10-30: `docs/contracts.md`, linked from roles, dsl, analyses and index; `tests/unit/test_docs_links.py` does not exist on this base, `tests/consistency` passes.
 - [x] 6.2 Agent guide:
   - put tested lines for `design.derating`, `design.operating`, `design.contracts`, `design.expect`, `design.rig` and the ten helper names in a `fenolite-design` block of `board-power`;

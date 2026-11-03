@@ -16,7 +16,7 @@ from collections.abc import Collection
 from fenolite.backends.kicad import verbatim as verbatimlib
 from fenolite.backends.kicad.lowering import lower_rules
 from fenolite.backends.kicad.pcb import write_board
-from fenolite.backends.kicad.pro import apply_sheet_keys, synthesize_project, update_project
+from fenolite.backends.kicad.pro import NativeNetContext, apply_sheet_keys, synthesize_project, update_project
 from fenolite.backends.kicad.resolver import Edit
 from fenolite.backends.kicad.tuning import apply_profile_keys
 from fenolite.backends.kicad.versions import DEFAULT_TARGET
@@ -35,6 +35,7 @@ def write_triad(
     target: int = DEFAULT_TARGET,
     existing_project: str | None = None,
     preserve_minimums: bool = False,
+    _native_context: NativeNetContext | None = None,
     renamed_nets: Collection[str] = (),
     schematic: bool = False,
     allow_lossy: bool = False,
@@ -66,6 +67,7 @@ def write_triad(
             existing_project,
             design,
             preserve_minimums=preserve_minimums,
+            _native_context=_native_context,
             target=target,
             allow_lossy=allow_lossy,
             issues=found,

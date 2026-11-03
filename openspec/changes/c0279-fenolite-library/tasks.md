@@ -175,3 +175,25 @@ Integration gate 2026-10-31: the complete `make check-fast` on the reconciled in
 2026-10-31: task 6.2 passed (9 tests). The index-cache assertion compares native path components; assertions of zero requests, no cache writes, expected digest and byte size remain unchanged.
 
 Integration proof 2026-11-01: the complete quick gate of corrected source `9d1b8667` finished with exit 0 (17725 passed, 49 skipped; 1740.11 s). All five touched changes validated strictly without warnings. Exact-head CI remains required; interrupted earlier gates are not counted.
+
+
+Local authoritative integration of4.5a–i —2026-11-03: the nine exact sealed
+1.0.2 candidate subtrees are now integrated locally into fenolite-library,
+996files/951payloads. Complete before/after maps and retired source trees are
+preserved; all original terms,11other items including4LibrePCB, sources, public
+pin and Royal bytes are unchanged. Nine real integrated --proof/--base item
+audits pass; one combined root audit drops21→2unchanged Royal metadata errors.
+Royal's two actualL7 failures remain unresolved and are not cleared by this
+audit. Eight historic proofs equal1–8/S; Microwave retains its recorded
+L5no-copper/Sno-schematic scopes. No native/replay rerun or new acceptance.
+47focused tests and complete private-gated library residue pass. Library
+receipt: docs/nine-board-local-integration-20261103.json. Parent4.5, required
+exact-source CI, public pin, PR/release/Pages remain open; no publication.
+
+Root reviewed all1018A/M/D actions against HEAD23deaee and current files by
+SHA256/size, then committed the nine complete sealed item trees locally as
+library8b38b308411b9c7e36d44f65625f648798910378 with maintainer DCO. Private staged scan
+0hits/983present files/private gateON. Three whitespace-only warnings belong
+to OpenAir's byte-identical upstream native DRU and were preserved explicitly;
+all other staged paths pass whitespace checks. Library worktree is clean.
+No library push, pin, CI or release is claimed by this local commit.

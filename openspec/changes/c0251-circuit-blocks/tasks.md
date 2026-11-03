@@ -78,3 +78,28 @@
   recorded parameters and allocated refs; `design.use`; `build.port-unused` and `build.block-net-escape`."
   2026-10-29: done: that entry under `## [Unreleased]` › `### Added` on `circuits-as-code`;
   `uv run pytest tests/unit/test_release_record_v06.py tests/consistency -q` passed.
+
+## Archive reconciliation under entry0.1 —2026-11-03
+
+The normal archive order c0248/c0249 before c0251 exposed stale MODIFIED blocks.
+Rebased the two design-dsl blocks to retain BOTH call-time device pin checking
+(c0248), named-part paths/automatic references (c0249), AND block-local names,
+port-net binding and its refusals (c0251). Restored the prior scenarios
+"Device part checked at the call" and "Path from a name". No runtime behavior,
+fixture, model, public surface or CI requirement changed.
+
+External frozen985f59a1 focused device-pin/part-key/block-port/block/import-graph
+proof:137passed4.16s. The separate moving-worktree attempt has136passed/1failed
+on an unrelated uncommitted c0355 lens-to-api edge; that failure is retained,
+not waived or reported green. The sixteen-change external archive rehearsal
+with the reconciled deltas moves every change and loses no requirement or
+prior scenario. Only three explicitly designed existing scenario modifications
+in c0259/c0261/c0195 remain classified separately in the external comparison.
+Task6.2 and actual archival still await the required exact-source CI result;
+no checkbox or real archive is changed by this reconciliation.
+
+Subsequent coordinator focused validation on the moving tree, after the
+independent native-project helper layering repair:137passed3.64s across
+`test_device_pins.py`, `test_part_keys.py`, `test_block_ports.py`,
+`test_blocks.py` and `test_import_graph.py`. The earlier failed attempt stays
+recorded above; this focused result does not replace the exact-source CI gate.

@@ -2122,8 +2122,10 @@ def build_design(
             issues.append(differs)
             return _refused(built, issues, libraries, prepared)
         target_design = lower_for_schematic(target_design, generated)
+    from fenolite.lens.native_project_context import before_write as before_project_write
     from fenolite.lens.native_rule_context import before_write
 
+    target_design, native_project_policy = before_project_write(target_design, name, target)
     declared_native_rules = before_write(target_design, name, target)
     texts = write_triad(
         target_design,
@@ -2131,6 +2133,7 @@ def build_design(
         target=target,
         existing_project=existing.project,
         preserve_minimums=preserve_project_minimums,
+        _native_context=native_project_policy,
         renamed_nets=tuple(prepared.net_aliases.values()) if prepared is not None else (),
         # the drawing sheet of design.sheet() frames the schematic the build writes, too (c0074)
         schematic=schematic == "write",

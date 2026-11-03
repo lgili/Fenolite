@@ -157,3 +157,38 @@ The separate S-1299 erc.pin_map descriptor is exactly12×12 wire integer cells0.
 ### Proposed single-variable project-pattern diagnostic (review pending)
 
 The complete read-only project comparison found only an absent/null class field, two added exact class patterns and schematic sheet identity metadata; every numeric/boolean and all board settings stayed exact. Task0.5 proposes one external source-original PCB case changing only the netclass_patterns JSON value. Compute the candidate project in memory first, pin its hash and the exact unchanged prefix/suffix, and retain the whole original PCB byte-for-byte, including35ordinary and263derived cache regions. The original source baseline has289fresh native regions; that observation is a comparison reference, not an expected result imposed on the candidate. Use the same native version, basename and original declared companion set; one case only after coordinator approval. The exact public third-party pattern strings and diff stay external, not core. No runtime normalizer, cache manipulation, renumbering or acceptance change is proposed.
+
+
+## Approved private native-project context correction
+
+Coordinator review on 2026-11-03 approves the concrete private sibling architecture in
+`carrier-review.md`. A closed version-1 `native/project.context.json` binds its exact project bytes,
+original declared source digests, target, complete numbered physical net partitions, native spellings,
+class values/membership and the whole version-neutral lowered model BEFORE restoring native spelling.
+Only an existing `Net.ext["kicad"]` stored payload is restored on a copy. IDs, logical names and all
+other model fields remain unchanged. The c0359 guard/capture observes that same restored model.
+
+The carrier is issued only when an unchanged native project would otherwise lose its exact native
+name/assignment/pattern representation; ordinary imports with identical representation keep their
+existing editable path. It is never selected by preserve_minimums. A required but unqualified context
+refuses. There is no new public DSL/model/ext/FEN surface. The original project is read-only; the
+private artifact and its literal stdlib digest guard travel with emitted Python. The consumer reads
+only the fixed sibling of the explicitly declared project, includes it in the reviewed read-set,
+and never opens/fetches/discovers source PCB inputs from the provenance rows.
+
+Closed decoding reuses the existing 16 MiB context bound, portable paths and supported targets,
+rejects unknown/duplicate/missing keys, malformed types, collisions and incomplete partitions.
+Model/name/class/physical changes or stale project/target refuse rather than silently retaining an
+immutable native representation. Scoped immutable target/owner state has no global cache and refuses
+nested capture/build scopes. Qualified backend policy verifies exact project digest and complete
+class values/membership before retaining original assignments/patterns. Ordinary synthesis and
+unqualified writers retain their existing path. No comparator, tolerance, native cache eligibility,
+source geometry or acceptance baseline is changed. The coordinator owns subsequent native review,
+combined fast, exact-head CI and shared CHANGELOG integration.
+
+The coordinator additionally approved relocating the existing native physical binding helpers into
+`backends/kicad/native_net_binding.py` with unchanged API reexports, after independent authored parity
+controls. This avoids a forbidden lens→API/checks dependency. The backend traversal retains exactly the
+old empty NO_NET label, missing-component reference `""`, duplicate/conflicting terminals and duplicate
+net-name behavior; the carrier's stricter completeness check is separate. No comparator or proof gate
+is weakened by this refactor.

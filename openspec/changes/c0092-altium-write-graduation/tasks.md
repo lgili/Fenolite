@@ -269,3 +269,12 @@ S-1308 focused proof:70 evidence/register/format tests passed50.68s. Evidence-ma
 generator check, strict c0092 validation and whitespace checks passed. This
 documentation-only receipt does not require or claim a new runtime fast result;
 fast13 remains bound to2c054057 and exact-current CI remains open.
+
+
+## Literal existing-native reconciliation —2026-11-03
+
+The source-bound per-criterion audit in [native-reconciliation.md](native-reconciliation.md) and
+its JSON proof hashes distinguishes completed native portions, historical observations, existing
+receipt mapping and genuinely unmatched criteria. Do not request an already measured subcase
+again merely because its parent task stays open. No whole aggregate task, current CI, writer gate,
+graduation or hypothesis promotion was inferred; all existing unchecked rows remain unchanged.

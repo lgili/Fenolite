@@ -48,3 +48,57 @@ Task0.4 ERC follow-up remains partial: coordinator approved only TEST-ONLY erc.p
 
 
 Task0.5 actual approved single-case result: native10.0.6 exits0 after exactly one refill/save, with the original PCB535dbe... byte-identical and35ordinary/263derived input caches retained. Only the two reviewed generated patterns replace the source empty array; candidate project6db0a99a... matches the pre-review prediction, all other JSON/prefix/suffix bytes remain exact. Complete labelled physical partitions remain unchanged. The289output regions have exact geometry digest9241ebb6ee97ab8a3e319981b18c15f915c82cb306a0eb84a283c328d3b4c58f, DIFFERENT from the recorded original289/a562baseline; ordinary output count stays35 but its raw AST digest also changes. This is a positive causal observation for that pattern addition in this exact source context, NOT a repaired production comparison or proof of the source/generated289/293 cause in full. All outputs/findings/stdout/stderr and source hashes are retained externally; no rerun/iteration/renumber/cache manipulation. Receipt project-pattern-causal-proof.json. Every production/final CI gate remains open.
+
+
+## 4. Approved private native-project context correction (2026-11-03)
+
+Coordinator explicitly approved the bounded private `native/project.context.json` architecture in
+carrier-review.md before implementation. This does not approve identity normalization or a Royal pass.
+
+- [x] 4.1 Before runtime, author actual reviewed import/build REDs for a raw native spelling with scalar/list legacy assignment, moved-folder rebuild, closed decoder negatives, stale confirmation and composition with c0359; retain the failing output.
+- [x] 4.2 Implement the private bounded producer/consumer: original physical bijection and exact class values/membership, version-neutral pre-restoration fingerprint, digest guard/read-set, scoped existing stored-name bag restoration and qualified native assignment/pattern preservation. Reject missing/tamper/symlink/oversize/duplicate/unknown/collision/stale/edited model/target/nested capture. Never change IDs/canonical names, source bytes, comparator, derived eligibility, public DSL/model or default writer behavior.
+- [x] 4.3 Prove the authored REDs green, focused affected modules/types/lint and unchanged default build byte maps without updating baselines. Document portable read-only context and no input fetching. Return code/proofs and proposed original authored native bench to coordinator BEFORE any CAD/Royal execution.
+- [ ] 4.4 After coordinator review, perform only the approved authored native proof and then the approved original Royal comparison, retaining complete old acceptance gates; coordinator-owned combined fast/exact-head CI and final closure remain required.
+
+- [x] 4.2a Coordinator-approved prerequisite refactor: first prove literal authored parity for existing native `bindings`/`raw_bindings` (NO_NET, missing refs, unnamed pads, repeated physical copies, conflicting references/pads/names), then relocate only those helpers to the KiCad backend and reexport them from API. Preserve the exact old semantics and package-layering; no comparator/profile/baseline change.
+
+
+Tasks4.1–4.3/4.2a local proof: native-project-context-proof.json pins runtime/test/doc bytes and retained
+external logs to base4b11df0a (later coordinator commits are unrelated spec/docs). Initial12actual API
+REDs became green; final34carrier+6helper controls pass, c0359/project-template/Altium/guide155pass,
+API/native-rule/derived-cache/verify100pass, helper+package-layering73pass. The one default-guard
+regression invocation had261pass and one new guide-writing failure; every default byte guard passed,
+then the guide wording was fixed and its full page module passed. No interrupted or failed aggregate
+is labelled passed; no baseline was changed or default guard rerun. Touched ruff/format/types pass.
+The original authored native candidate is prepared, NOT executed; zero input derived caches means
+production cache eligibility is intentionally false. Its direct native diagnostic proposal and exact
+requests require coordinator review. Task4.4 and all broader production/final gates remain unchecked.
+
+
+Task4.4 partial approved authored native proof: native-project-authored-native-proof.json records exactly
+one native10.0.6 refill/save per side using the reviewed driver/bin/requests, both exit0, one NONZERO
+derived region each and complete exact region digest161dd373e65bf56768c178bbcab52b394654ad709e02c14fce7aa6b4e0551567
+equal. Complete named physical bindings, original files and native project/rule companions remain
+unchanged. Each side also has one ordinary filled_polygon with equal complete literal AST digest;
+this grants no general ordinary-fill or DRC-safety claim. Raw DRC findings remain unwaived in captured
+reports. Zero raw derived cache inputs deliberately leave production eligibility false; this is an
+original authored diagnostic, not a production acceptance or Royal pass. Runtime remains frozen;
+no Royal run, normalization, eligibility change, fullfast/CI or commit/push occurred. Task4.4 and every
+final broader gate remain open pending coordinator review and any separately approved Royal proof.
+
+
+Task4.4 first approved fresh Royal production comparison FAILED and is retained in
+royal-fresh-project-context-proof.json. Coreb1e9349a, public source7hashes and licence were unchanged;
+importdry/exactplanconfirm/freshbuilddry/exactplanconfirm all exit0. The ONE read-only verify-source
+(target9, oracle10.0.6) ran all1–8/S with0accepted/0excluded: L1–6,S,8equal, L7retains2findings.
+The original whole net_settings,4legacy assignments, empty patterns, complete class values/membership
+and95literal native names/physical partitions now agree. Nevertheless fresh native output is
+source289/a562fa7965020cc8dfd270a007b7dcf1da04d716c994b7ffeb8a8fb81278ad12 versus
+generated293/4b439125f5f7f38c4fa565299aafcf2a2332a2886730288467ddf06a54e6844c;
+raw teardrop263→0 correctly remains a conditional finding while exact geometry differs. Both native
+requests exit0, with complete captured byte inputs/outputs/stdout/stderr and an immutable manifest.
+No retry, normalization/renumber/COPY/UUID/cache edit, acceptance, runtime/library edit or push followed.
+Root explicitly allowed this independent native proof before the separately running combined-fast14
+verdict, which remains required and unpresumed. Context mutation is resolved, but is not the sole
+Royal mismatch cause. Task4.4 and every final broader/CI gate remain UNCHECKED; this is no completion,
+archive, waiver, hypothesis promotion or permission for another Royal experiment.

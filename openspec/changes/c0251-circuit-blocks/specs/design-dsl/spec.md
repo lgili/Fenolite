@@ -1,12 +1,12 @@
 ## MODIFIED Requirements
 
 ### Requirement: Design structure and names
-`Design(name)`, `Module(name)` and `Part(ref, lib_id, footprint=None, value="")` SHALL build a tree whose paths name every component, and SHALL raise `DslError` at the offending call for every structural error of this list. A block instance ("Blocks in the DSL") is a module of this tree.
-- A design name MUST match `^[A-Za-z0-9][A-Za-z0-9_.-]*$`, because it becomes the stem of the KiCad files. Module names, block instance names, block names, port names, local net names, local part names and refs MUST match `[A-Za-z0-9_.+-]+`.
-- `Design.add(*objs)` and `Module.add(*objs)` attach parts, modules, nets and interfaces. `Module.path` is the module name at the top and `<parent path>/<name>` below. A component path is `<module path>/<ref>` (`power/ldo/C1`), or `<ref>` at the top. In a block instance, the path leaf is the part's local name ("Blocks in the DSL").
+`Design(name)`, `Module(name)` and `Part(ref=None, lib_id=None, footprint=None, value="", *, device=None, name=None, prefix=None, ...)` SHALL build a tree whose paths name every component, and SHALL raise `DslError` at the offending call for every structural error of this list. A block instance ("Blocks in the DSL") is a module of this tree.
+- A design name MUST match `^[A-Za-z0-9][A-Za-z0-9_.-]*$`, because it becomes the stem of the KiCad files. Module names, block instance names, block names, port names, local net names, local part names, part names, refs and keys MUST match `[A-Za-z0-9_.+-]+`.
+- `Design.add(*objs)` and `Module.add(*objs)` attach parts, modules, nets and interfaces; `Design.part(...)` and `Module.part(...)` create a part and attach it. `Module.path` is the module name at the top and `<parent path>/<name>` below. A component path is `<module path>/<key>` (`power/ldo/C1`), or `<key>` at the top, where the key is the part's `name`, else its explicit ref, else its reference prefix ("Parts without a ref"). In a block instance, the path leaf is the part's local name ("Blocks in the DSL").
 - Net names are global and literal. A module-local net is named by the script, for example `Net(f"{m.path}/FB")`. In a block, `b.net(name)` gives the net `<block path>/<name>`. A port net takes its name by the binding rule of "Connections and pin designators".
-- `DslError` MUST be raised for: a duplicate component or module path; a duplicate net, net-class or interface name; two distinct `Net` objects with one name; a net in two classes; a second `place()` or `board()`; a `copper` that is not an `int` of `COPPER_COUNTS` (2, 4, 6 and 8, "Board and placements in the DSL"); one designator connected to two nets; a `side` other than `top` and `bottom`; an invalid name or ref.
-- Equal refs in different modules are not a DSL error. They are left to `Design.validate()` (`model.duplicate-ref`, exit 5 from `build`). The board refs of parts in block instances are allocated so that they do not collide ("Blocks in the DSL").
+- `DslError` MUST be raised for: a duplicate component or module path; a second unnamed part with one prefix in one container; a part with neither `lib_id` nor `device`, or with both; a part without a ref whose prefix is unknown; a duplicate net, net-class or interface name; two distinct `Net` objects with one name; a net in two classes; a second `place()` or `board()`; a `copper` that is not an `int` of `COPPER_COUNTS` (2, 4, 6 and 8, "Board and placements in the DSL"); one designator connected to two nets; a `side` other than `top` and `bottom`; an invalid name, key or ref.
+- Equal refs in different modules are not a DSL error. They are left to `Design.validate()` (`model.duplicate-ref`, exit 5 from `build`). Automatic refs are never equal to each other or to an explicit ref ("Automatic reference designators"). The board refs of parts in block instances are allocated so that they do not collide ("Blocks in the DSL").
 
 #### Scenario: Paths from modules
 - **GIVEN** `Module("power")` holding `Module("ldo")` holding `Part("C1", "Mini:Mini_R")`, added to a design
@@ -30,13 +30,18 @@
 - **WHEN** `Design("my board")` is called
 - **THEN** `DslError` is raised naming the pattern
 
+#### Scenario: Path from a name
+- **GIVEN** `Module("sensor")` added to a design
+- **WHEN** `sensor.part(name="R_pull_sda", device="Fenolite:R_0603")` is called
+- **THEN** the part's path is `"sensor/R_pull_sda"`
+
 #### Scenario: Local net of a nested block
 - **GIVEN** a block `buck` that calls `b.net("FB")`, used as `buck1` inside a block instance `power`
 - **WHEN** `to_model` runs
 - **THEN** the model holds a net named `power/buck1/FB`
 
 ### Requirement: Connections and pin designators
-`part[designator]` SHALL return a pin handle and `connect(net, *pins) -> Net` SHALL record that each pin joins `net`; designators MUST be stored as written and resolved only by the build ("Pins and pads in a build").
+`part[designator]` SHALL return a pin handle and `connect(net, *pins) -> Net` SHALL record that each pin joins `net`. Designators MUST be stored as written. On a part without a device they MUST be resolved only by the build ("Pins and pads in a build"). On a device part they MUST also be checked at the call against the device's functions and symbol pin numbers ("Checked pin access on device parts").
 - A designator MUST be a non-empty `str` or an `int`; `part[1]` and `part["1"]` MUST name the same pin. A pin name such as `part["GND"]` is accepted as written.
 - `net` MUST be a `Net`, a port net, or a net-like port handle ("Block ports in the DSL"); any other value MUST raise `DslError`. A pin argument MAY also be a port net or a net-like port handle, which binds it to `net`.
 - **Port nets.** A port net has no name of its own. `connect` binds nets and port nets into groups. At `to_model`, a group holding one script-named net (a `Net` or a block-local net) MUST take that net's name. A group holding none MUST take the path of its preferred port member: an `out` port first, then the smallest path in code-point order. The path is `<owner path>/<port>` for a single-member port and `<owner path>/<port>.<member>` otherwise. Joining two script-named nets in one group MUST raise `DslError` at that call, naming both nets. There are no other implicit nets and no net merges.
@@ -70,6 +75,11 @@
 - **GIVEN** `connect(Net("A"), ch0.VIN)`
 - **WHEN** `connect(Net("B"), ch0.VIN)` is called
 - **THEN** `DslError` is raised naming `A`, `B` and `ch0/VIN`
+
+#### Scenario: Device part checked at the call
+- **GIVEN** `u1 = design.part("U1", device="Example:BUCK_6V_2A")`
+- **WHEN** `connect(vin, u1["VIM"])` is called
+- **THEN** `DslError` is raised at that call, naming `VIM` and `closest: VIN`
 
 ## ADDED Requirements
 

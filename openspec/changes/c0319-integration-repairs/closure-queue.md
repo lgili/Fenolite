@@ -1,5 +1,12 @@
 # Bounded v0.7 closure queue — 2026-11-03
 
+Current batch preparation: [closure-batches-20261103.md](closure-batches-20261103.md)
+records the16first candidates,20additional candidates and c0250ordering
+prerequisite. All37normal archives and97resulting living specifications were
+rehearsed externally; this branch still has no actual archives from that batch.
+The published985f59a1workflow has14required jobs, including the dependent
+drawn-floor bridge. Later runtime b1e9349a requires independent validation.
+
 ## Active order after maintainer reset —2026-11-03
 
 The maintainer requested closure and organization before further geometry
@@ -256,3 +263,22 @@ personal-session task is not a new functional prerequisite; its own CI/closing
 gates still apply. Never classify archive success from exit0 alone. The first
 eight rehearsal was checked independently by actual postconditions:8moves,
 0active directories,49identical inputs,0Aborted logs and12valid living specs.
+
+
+## Maintainer-authorized CAC CI batch —2026-11-03
+
+The maintainer explicitly requested publishing an available batch of about ten
+CI-only specs. The first eight plus c0249/c0251 meet that classification; their
+required jobs are not claimed green yet. Published ONLY core codex/cac-next
+from b5f6c84a to985f59a1d01a612b2eac0219243199896c24075a, fast-forward.
+Selected-ancestry private audit passes7079blob/path pairs/0hits, private gateON;
+all73new nonmerge commits carry the maintainer's DCO. Production code remains
+byte-identical to complete-fast13 source2c054057; the intervening22paths are
+docs/OpenSpec/evidence/CHANGELOG only.
+
+Workflow ci run41708879698 was observed in_progress on EXACT985f59a1:
+https://github.com/lgili/Fenolite/actions/runs/41708879698
+No workflow filtering, job cancellation, green verdict, archival or dev/tag/
+library publication is inferred. Keep2.3 and actual archive gates open until
+the required jobs finish successfully on that SHA. Later local documentation
+and library8b38b30 are outside this published core candidate.

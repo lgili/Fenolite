@@ -9,7 +9,7 @@ The judge of `fenolite.roles` SHALL give one `RequirementRow` (`fenolite.core.re
 - **THEN** `result.requirements` holds a row whose `id` starts with `roles.loop-area:` and names the hot loop, with status `fail`, and the issues equal those of the same command before this change
 
 ### Requirement: Sources of role rows
-In a role row:
+A role row MUST attribute its sources as follows:
 - a limit of origin `profile` SHALL have source `policy`, with a basis naming its key and its `S-` or `H-G-ROLE-` id;
 - a limit of origin `override` SHALL have source `user`, with basis `role_limits`;
 - a limit of origin `requirements` SHALL have source `user`, with the row's `source` text or `requirements.toml` as basis;
