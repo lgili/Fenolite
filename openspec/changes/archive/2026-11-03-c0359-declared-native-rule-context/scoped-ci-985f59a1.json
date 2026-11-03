@@ -1,0 +1,130 @@
+{
+  "schema": "fenolite.scoped-cac-closure.v1",
+  "spec": "c0359-declared-native-rule-context",
+  "tested_implementation": "985f59a1d01a612b2eac0219243199896c24075a",
+  "scope_decision": "The maintainer clarified that problematic c0332 geometry was already excluded from this closure CI batch before the run. Its27known failures remain DEFERRED_NOT_PASSED.",
+  "CI_run": 41708879698,
+  "whole_workflow_result": "failure",
+  "KiCad10_job_result": "failure",
+  "global_success_claimed": false,
+  "later_CAC_runtime_validated": false,
+  "c0355_and_later_integration_CI_closed": false,
+  "successful_required_jobs": [
+    {
+      "id": 126171394269,
+      "name": "unit (windows-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394428,
+      "name": "unit (ubuntu-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394460,
+      "name": "unit (macos-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394556,
+      "name": "unit (ubuntu-latest, py3.11)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394700,
+      "name": "unit (ubuntu-latest, py3.13)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394740,
+      "name": "kicad-9 (kicad-cli 9.0 oracle)",
+      "conclusion": "success"
+    }
+  ],
+  "native_proofs": [
+    {
+      "path": "tests/kicad/rules/test_native_import_context.py",
+      "source985_sha256": "21c5416a2ea6e0ae09921ae9b78ee8f75918362b6bf1e532e1201b3245ad4362",
+      "current_file_equal": true,
+      "native9_explicit_PASSED": [
+        {
+          "line": 4284,
+          "text": "2026-11-03T21:22:42.1558139Z PASSED tests/kicad/rules/test_native_import_context.py::test_original_and_emitted_rules_really_load_with_native_canary"
+        }
+      ],
+      "native10_explicit_nonpass_records": [],
+      "native10_proof_method": "Completed exhaustive suite; module is included by command, not absent through -k/--ignore/deselect; all terminal FAIL/SKIP/XFAIL records retained and none name this module. Quiet log has no per-node PASSED: do not invent XML or PASSED lines. Source-bound inference only; job badge remains failure."
+    }
+  ],
+  "KiCad10_proof_method": "Source-bound inference: complete unfiltered collection reaches100percent; exhaustive configured -ra report has27failures/168skips/3xfails, none in this spec’s modules; no nominal PASSED line or green job10 claimed.",
+  "log_bindings": {
+    "20261103T214312Z-metadata.json": {
+      "bytes": 36593,
+      "sha256": "cd7a28fbc69631a6f3613865fba28f4879ab79efcf2d6c6a2e2cc82879da73fe"
+    },
+    "kicad9-126171394740-completed.log": {
+      "bytes": 1951631,
+      "sha256": "3ac138d8cafad5c225d11d9bd22774c872f9369925c7d892d271be0401ab8d94"
+    },
+    "126171394674/logs.raw": {
+      "bytes": 368635,
+      "sha256": "014e4eb36c889f4848842d7abf57462ab6da185e2b8fcf5b28ddbb9334d1a68b"
+    }
+  },
+  "fast_proof": {
+    "source": "2c0540572c936303eb5c46a25002872648dfabad",
+    "receipt": "c0319-integration-repairs/fast13-receipt.json",
+    "receipt_sha256": "6b7c348011a8bafe24cc532e5ce74d505addecfd1dc3d56dba9f35bb80628a8e",
+    "command": "make check-fast PYTEST_MAX_WORKERS=2",
+    "exit": 0,
+    "log_sha256": "3e74d627e77139979c42ba6ca13e53344a23b8416aff252e747e34d56286abfe",
+    "tested_runtime_tests_tools_config_equal_to_985": true,
+    "rerun": false
+  },
+  "closed_remaining_tasks": [
+    "3.2"
+  ],
+  "authorized_normative_rebase": null,
+  "existing_supporting_records": [
+    {
+      "spec": "c0358-native-custom-property-preservation",
+      "file": "mirror-implementation-proof.json",
+      "sha256": "2ea3b613eeaadb6f903d3d628aadbcf15100553dbc6efdf036ff7230c5abd90b"
+    },
+    {
+      "spec": "c0358-native-custom-property-preservation",
+      "file": "public-source-proof.json",
+      "sha256": "d2c11d2e6fa2ea81a8211ffcd58a4abcdff82240fc262125de6e2fe8d97fff5e"
+    },
+    {
+      "spec": "c0358-native-custom-property-preservation",
+      "file": "mirror-proposal-proof.json",
+      "sha256": "c0a2af4329c3b2ddd5892602acc1bc343fa05c58d9d151d4cafb3ea622b9d9f0"
+    },
+    {
+      "spec": "c0359-declared-native-rule-context",
+      "file": "public-source-proof.json",
+      "sha256": "7de7892b2b819ef98457c7b78e031537d8beb550d02fd4b230faa58911d1f07b"
+    },
+    {
+      "spec": "c0363-native-tab-property-preservation",
+      "file": "native-proposal-proof.json",
+      "sha256": "00192527ffda559663e213d6ff116eadae472b415d1072b8534ece202c6790de"
+    },
+    {
+      "spec": "c0363-native-tab-property-preservation",
+      "file": "native-proof-placement.json",
+      "sha256": "8fe321752a9701ebda9ea751a4574155a8545250cd1092a110295e18d8a2f653"
+    },
+    {
+      "spec": "c0363-native-tab-property-preservation",
+      "file": "implementation-proof.json",
+      "sha256": "8469496adc5556e05766783bddc55bac156526a8a61ad566a8e4ee620d0eaf9a"
+    }
+  ],
+  "limitations": [
+    "Original RED, incomplete, native skip and geometry-failure observations remain historical evidence.",
+    "No library item/catalog audit, review, publication, Altium evidence graduation, CAD quality or release gate is closed here.",
+    "Runtime/tests/tools/configuration in the isolated archive equal985; later root runtime remains separately pending."
+  ]
+}
