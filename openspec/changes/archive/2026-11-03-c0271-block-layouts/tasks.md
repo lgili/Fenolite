@@ -87,14 +87,14 @@
 
 ## 5. Example, KiCad, docs and guide
 
-- [ ] 5.1 `examples/blocks/layouts.py` with one instance on each side and copper, and `tests/kicad/blocks/test_block_layouts.py` for targets 9 and 10 (scenario "Both sides in KiCad"); register `H-K-BLOCK-LAYOUT-DRC`. Proof: `uv run pytest tests/kicad/blocks/test_block_layouts.py` in the KiCad jobs on the pushed head; `make residue`.
+- [x] 5.1 `examples/blocks/layouts.py` with one instance on each side and copper, and `tests/kicad/blocks/test_block_layouts.py` for targets 9 and 10 (scenario "Both sides in KiCad"); register `H-K-BLOCK-LAYOUT-DRC`. Proof: `uv run pytest tests/kicad/blocks/test_block_layouts.py` in the KiCad jobs on the pushed head; `make residue`.
 - [x] 5.2 Docs: `docs/placement.md` ("Block layouts", mirrored poses, capture from a bench script), `docs/lens.md` (level 5 holds block layouts; the code side of c0250's merge), `docs/cli-contract.md` (`blocks capture`). Proof: `uv run pytest tests/consistency -q`.
 - [x] 5.3 Agent guide: a tested line for `fenolite blocks capture` and for `side="bottom"` of a block pose on a focused page linked from `placement`, then `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
 
 ## 6. Closing
 
-- [ ] 6.1 Run `make check-fast`, then the required CI jobs on the pushed head of the branch (unit and KiCad jobs). Proof: `make check-fast`, and the required jobs green on the exact commit.
-- [ ] 6.2 Evidence: record the measurements of `H-G-BLOCK-LAYOUT` and `H-K-BLOCK-LAYOUT-DRC` in `docs/hypotheses.md` and regenerate the evidence matrix. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
+- [x] 6.1 Run `make check-fast`, then the required CI jobs on the pushed head of the branch (unit and KiCad jobs). Proof: `make check-fast`, and the required jobs green on the exact commit.
+- [x] 6.2 Evidence: record the measurements of `H-G-BLOCK-LAYOUT` and `H-K-BLOCK-LAYOUT-DRC` in `docs/hypotheses.md` and regenerate the evidence matrix. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
 - [x] 6.3 Add an entry to `CHANGELOG.md` under `## [Unreleased]`. This waits for `0.7.0.dev0`: on `0.6.0` the v0.6 guard requires `[Unreleased]` empty. Proof: `uv run pytest tests/unit -k changelog -q`.
 
 Implementation proof record, 2026-11-01:
@@ -137,3 +137,37 @@ oracle tests (both initial sides and a kept block flipped between builds) are au
 example builds for targets 9 and 10 pass, but its required exact-head KiCad jobs are not run here.
 6.1 awaits the root local gate and exact-head required CI jobs. 6.2 records the measured unit evidence
 at INFERRED; H-K-BLOCK-LAYOUT-DRC remains pending those KiCad jobs and has not been promoted.
+
+
+## Scoped implementation closure — 2026-11-03
+
+The maintainer clarified that problematic geometry was already outside this
+closure batch before the run. This record closes only this specification on
+tested source 985f59a1d01a612b2eac0219243199896c24075a plus reviewed archival
+documentation. Run41708879698 and native10job126171394674 remain FAILURE;
+the27known c0332 failures are DEFERRED_NOT_PASSED. Native9job126171394740
+and all five unit jobs succeeded. Native10 selected results are inferred
+from complete unfiltered collection and its exhaustive -ra non-pass report;
+contracted opposite-target skips remain skips, not passed tests.
+
+`scoped-ci-985f59a1.json` retains every selected node, assert and skip,
+source/fixture/log hashes, actual five unit block-step JSON measurements
+(each5usage builds,5equal goldens,16plain test functions,zero issues),
+reused fast13 proof and any post-edit register/matrix checks. It does not
+claim that native10 printed individual PASSED lines or that its job was green.
+Existing historical failures and local measurements remain recorded above.
+
+Only H-K-SCH-BLOCK-PINS/ERC for the authored six-net block example and
+H-K-BLOCK-LAYOUT-DRC for the authored both-side/kept-flip divider are eligible
+for scoped KiCad promotion. ERC checks only hier/sheet/label types; usage
+checks nets as a subset and schematic parity. H-A-BLOCK-ENTRIES and every
+H-G row remain INFERRED. Illustrative device records are not graduated.
+The five previously recorded GUI layouts still match their hashes; this
+archive creates no new CAD action or human engineering approval.
+
+Runtime/tests/tools/configuration remain byte-identical to985. Later CAC
+runtime, c0355, integration CI and release remain separate pending gates.
+No native/full/fast/CI test was rerun to archive. Nominal documentation
+proofs, normal archive, complete normative-body/scenario comparison,
+living-spec strict validation and private-on staged scan are recorded in
+the external per-spec closure receipt.

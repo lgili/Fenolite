@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive c0271-block-layouts on tested source985 using scoped unit/native block proofs; retain contracted skips, deferred geometry and pending later integration.
+
 - Archive c0270-block-tests on tested source985 using scoped unit/native block proofs; retain contracted skips, deferred geometry and pending later integration.
 
 - Archive c0269-block-schematic on tested source985 using scoped unit/native block proofs; retain contracted skips, deferred geometry and pending later integration.
