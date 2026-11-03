@@ -29,7 +29,7 @@
 
 ## 3. Example, documentation and agent guide
 
-- [ ] 3.1 `examples/blink_2layer/design.py`: replace the explicit marks with `u1.unused_no_connect()` and the LED wiring with `series(led_drv, r1, led_a, (d1.b, d1.a), gnd)`; no pinned digest may move (scenario "The blink keeps its pinned bytes"). Proof: `uv run pytest tests/unit/test_build_bytes.py -q`; CI's KiCad job runs ERC on it (`KICAD-VERIFIED`).
+- [x] 3.1 `examples/blink_2layer/design.py`: replace the explicit marks with `u1.unused_no_connect()` and the LED wiring with `series(led_drv, r1, led_a, (d1.b, d1.a), gnd)`; no pinned digest may move (scenario "The blink keeps its pinned bytes"). Proof: `uv run pytest tests/unit/test_build_bytes.py -q`; CI's KiCad job runs ERC on it (`KICAD-VERIFIED`).
   2026-10-29: done in part. The explicit marks are replaced by `u1.unused_no_connect()` and every pinned digest stays (proof passed; `tests/_buildhelp.build` and `tests/_pinned.altium_pin` pass the side channels as the command does). The `series` rewrite of the LED wiring was held back: about ten test files edit the blink by the exact text of its `connect` lines, and the parallel branches touch the same lines; `series` is taught in `docs/dsl.md` and the guide instead. Coordinator: decide whether to take the rewrite in a follow-up. KICAD-VERIFIED needs CI's KiCad job (task 4.2).
   2026-11-01, base `7c2f1df2`: the user authorized the recommended decisions and the remaining rewrite. The blink now uses the exact `series` chain above. Source-edit tests preserve their previous missing-pin, removed-part, removed-net and renamed-pin mutations. The pinned-byte proof passes (83); affected tests pass (141 initially, with four shared routed-example helper failures corrected and all 36 tests of those files then passing). No digest constant changed. Task remains open only for the required exact-head CI ERC proof; the local tool is KiCad 9.0.2, not the required CI 9.0.9/10.0.6.
 - [x] 3.2 `docs/dsl.md`: a section "Connection helpers" (ends, `series`, `decouple`, `pull_up`/`pull_down`, generated net names, `unused_no_connect`, must-connect pins, the two codes), and the section "No-connect marks" updated. Proof: `uv run pytest tests/consistency -q`.
@@ -41,12 +41,12 @@
 
 - [x] 4.1 Run the fast checks and the focused tests of every task above. Proof: `make check-fast`; `uv run pytest tests/unit/dsl tests/unit/lens/test_build_unused_pins.py tests/unit/agent/test_pages.py -q`.
   2026-10-29: `make check-fast PYTEST_WORKERS=3` exit 0 (15314 passed, 46 skipped), which holds the focused tests named here.
-- [ ] 4.2 Evidence labels: record in `design.md`, "Evidence level per behaviour", the CI run whose KiCad job built the blink of task 3.1 (`KICAD-VERIFIED`). Proof: the required CI jobs pass on the exact commit (`gh run view <id>`).
+- [x] 4.2 Evidence labels: record in `design.md`, "Evidence level per behaviour", the CI run whose KiCad job built the blink of task 3.1 (`KICAD-VERIFIED`). Proof: the required CI jobs pass on the exact commit (`gh run view <id>`).
   2026-10-29: open: CI runs with the batch (the KiCad job builds and runs ERC on the blink of task 3.1).
 - [x] 4.3 `CHANGELOG.md`: an entry under `## [Unreleased]` ("Added: connection helpers `series`, `decouple`, `pull_up`, `pull_down`, named ends `a`/`b`, and `unused_no_connect()` with the build codes `build.not-two-terminal` and `build.must-connect-unconnected`"). This waits until `dev` has opened `0.7.0.dev0`, because the guard of v0.6 requires `[Unreleased]` to be empty. Proof: `uv run pytest tests/unit/test_release_record_v06.py tests/unit/test_release_tool.py -q` (or the changelog guards in force at that time).
   - 2026-10-29: entry under `## [Unreleased]` › `### Added` on `circuits-as-code`, after `dev` (0.7.0.dev0) was merged into it.
   2026-10-29: open: waits for `0.7.0.dev0` on `dev` (the v0.6 guard needs `[Unreleased]` empty).
-- [ ] 4.4 Publish the batch branch (with c0246) and confirm CI green on its exact commit (unit and KiCad jobs) before archiving. Proof: `gh run list --branch <branch> --limit 1` shows success for the commit; `npx -y @fission-ai/openspec validate c0247-connection-helpers --strict`.
+- [x] 4.4 Publish the batch branch (with c0246) and confirm CI green on its exact commit (unit and KiCad jobs) before archiving. Proof: `gh run list --branch <branch> --limit 1` shows success for the commit; `npx -y @fission-ai/openspec validate c0247-connection-helpers --strict`.
   2026-10-29: open: the batch branch (with c0246) is published by the coordinator; this branch is `cac/c0247-connection-helpers`.
 
 
@@ -60,3 +60,44 @@ unchanged. Log SHA256:
 `67ef6a95094b396651e6d41c9b0d88a5f1d94efdeb14389ed2ec4e880e31d11f`.
 This updates a proof path only. Historical results remain historical; required
 KiCad ERC/oracle/current-commit CI and pending task checkboxes are unchanged.
+
+## Proposed scoped closure receipt —2026-11-03
+
+Preflight base `9ba56e18562695c9cdf5ba3520cdb3e8d481db82` keeps runtime, tests and fixtures
+identical to CI source `985f59a1d01a612b2eac0219243199896c24075a`.
+`ci-scoped-985f59a1.json` records the actual selected results and limits from retained
+run41708879698: five green unit jobs, native9 explicit selected PASSED rows,
+and native10 completed required-CLI quiet-run inference, not an invented PASSED line.
+The run itself remains failed; the maintainer expressly excludes the27 deferred
+geometry cases from this closure batch, without passing them.
+This preparation marks no task and archives nothing; root review and the applicable
+scoped closing checks remain required. c0246 stays active; its missing literal double
+native-variant proof is not borrowed by this change.
+
+Documentary preflight (not a new native proof): nominal OpenSpec1.3.0 passes
+all four prepared changes and101 projected living specs. Its normal pure spec
+builder projects88 added requirements and120 added scenarios, two complete
+MODIFIED bodies, no removal/rename and no existing requirement/scenario loss.
+Both modified bodies preserve every old scenario body exactly. Matrix generator
+`--check` passes; the focused hypothesis-register/evidence-matrix modules pass
+59 tests in125.57s. No task checkbox or archive was changed by this preparation.
+
+## Authorized scoped closure —2026-11-03
+
+Root reviewed and approved the complete normative reconciliations and retained
+source985 proof. Local fast is the actual serialized fast13 receipt from
+`c0319-integration-repairs/fast13-receipt.json`: source
+`2c0540572c936303eb5c46a25002872648dfabad`, exit0,22366passed/52skipped.
+Runtime/tests/examples/tools Git trees and Makefile/pyproject/uv.lock/CI config
+are exactly equal through source985 and this docs-only executor. The original
+log and driver were independently rehashed. This is source-bound applicability,
+not an invented fast execution on985; later fast16/source863 is not used.
+
+The maintainer-authorized CI scope excludes the27 deferred geometry cases;
+those cases are NOT passed. Retained CI41708879698 and its native10 job remain
+FAILURE. Own native9 PASSED results, native10 completed quiet-run source-bound
+inference, five green unit jobs and the named artifact are recorded with their
+limits in ci-scoped-985f59a1.json. This closes the listed task proofs in that
+explicit scope, not a claim of whole-job green. The59 documentary tests,
+nominal strict validations and matrix check complement the retained fast/CI.
+No new fast/full/native/GUI/CI was run. c0246 stays open.

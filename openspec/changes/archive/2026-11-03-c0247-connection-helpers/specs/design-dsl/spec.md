@@ -93,7 +93,7 @@ A build SHALL check every part whose `two_terminal` is set: a resolved symbol wi
 - **THEN** each raises `DslError`, the last with the hint `part.pad(<number>)`
 
 ### Requirement: Pull resistors in the DSL
-`fenolite.dsl.wiring.pull_up(target, rail, *resistors)` and `pull_down(target, ground, *resistors)` SHALL join each resistor's `a` to a signal net and its `b` to `rail` or `ground`. `target` MUST be a `Net` (one resistor) or an `I2C` (two resistors: the first on `sda`, the second on `scl`).
+`fenolite.dsl.wiring.pull_up(target, rail, *resistors)` and `pull_down(target, ground, *resistors)` SHALL join each resistor's `a` to a signal net and its `b` to `rail` or `ground`. `target` MUST be a `Net` (one resistor), an `I2C` interface or `i2c` port (two resistors: the first on `sda`, the second on `scl`), or a `Logic` interface or `logic` port (one resistor on `io`), preserving "Pull-ups on a bus". The rail or ground MUST also accept the net-like interfaces and ports of "Net-like interfaces" through their main member.
 
 #### Scenario: I2C pull-ups
 - **GIVEN** `bus = I2C(sda, scl)` and `pull_up(bus, v33, r3, r4)`
@@ -105,7 +105,7 @@ A build SHALL check every part whose `two_terminal` is set: a resolved symbol wi
 - **THEN** `EN` holds `R5` pin `1` and `GND` holds `R5` pin `2`
 
 ### Requirement: Pull resistor refusals
-`pull_up` and `pull_down` SHALL raise `DslError`, connecting nothing, when the number of resistors differs from the number of target nets, when a target net is the rail or ground net, when `target` is another interface (naming its kind), or when a resistor is not a `Part`; a `Quantity` or `Range` MUST give a message saying that a value does not choose a part.
+`pull_up` and `pull_down` SHALL raise `DslError`, connecting nothing, when the number of resistors differs from the number of target nets, when a target net is the rail or ground net, when `target` is an interface or port of an unsupported kind (naming its kind), or when a resistor is not a `Part`; a `Quantity` or `Range` MUST give a message saying that a value does not choose a part.
 
 #### Scenario: Refused pull resistors
 - **WHEN** `pull_up(bus, v33, r3)`, `pull_up(v33, v33, r3)`, `pull_up(SPI(sck, mosi, miso), v33, r3, r4, r5)` and `pull_up(sda, v33, ohm("4k7"))` are called
@@ -128,7 +128,7 @@ A build SHALL resolve each request after the explicit marks: in pin-number order
 
 #### Scenario: The blink keeps its pinned bytes
 - **GIVEN** `examples/blink_2layer/design.py` with its `no_connect` call replaced by `u1.unused_no_connect()`
-- **WHEN** `uv run pytest tests/unit/lens/test_build_bytes_pinned.py` builds it
+- **WHEN** `uv run pytest tests/unit/test_build_bytes.py` builds it
 - **THEN** every digest of `blink@9` and `blink@10` is unchanged, and `.fenolite/circuit.json` holds the 29 marks
 
 #### Scenario: Kept pins stay open without a mark

@@ -202,7 +202,7 @@ Both join `lens.build.BUILD_ISSUE_CODES` and the Altium build's codes, `docs/cli
 | behaviour | level before merge |
 |---|---|
 | helpers lower to nets, marks and rules | unit tests on `to_model` |
-| unused marks and the `series` chain equal explicit wiring | local pinned-byte proof: 83 passed on 2026-11-01 without changing a digest; the required exact-head KiCad ERC/CI proof remains pending (tasks 3.1 and 4.2) |
+| unused marks and the `series` chain equal explicit wiring | `KICAD-VERIFIED (9.0.x, 10.0.x)` for the unchanged blink of source985f59a1: retained CI41708879698/native9 explicit clean-ERC PASSED rows and native10 completed required-CLI quiet-run inference; pinned bytes remain covered by the five green unit jobs; see ci-scoped-985f59a1.json. This does not claim zero DRC on the unrouted board or whole-run CI success |
 | new codes stop the build | build tests (no `kicad-cli` needed) |
 
 ## Risks / Trade-offs
