@@ -27,10 +27,45 @@
 
 ## 7. Closing
 
-- [ ] 7.1 Run the tests and the residue scan. Proof: `make check-fast`, then the CI jobs of the branch, `viewer` and the KiCad jobs included.
+- [x] 7.1 Run the tests and the residue scan. Proof: `make check-fast`, then the CI jobs of the branch, `viewer` and the KiCad jobs included.
 - [x] 7.2 Confirm that run results keep each stage's evidence label unchanged and that no label of the matrix changes. Proof: `uv run pytest tests/unit/view/test_server.py -k evidence -q -n 2`; `uv run python tools/gen_evidence_matrix.py --check`.
 - [x] 7.3 Add an entry to `CHANGELOG.md` under `## [Unreleased]` for each closed task. Proof: `uv run pytest tests/unit -k "release_record or changelog" -q -n 2`.
 
 Open on the branch (2026-10-29): 7.1 waits for `make check-fast` on the maintainer's machine and the CI jobs (only focused tests ran here: ruff, ruff format, pyright of the changed packages, the residue scan, `tests/unit/view`, `tests/unit/cli/test_view_cmd.py`, the new tests, `tests/unit/agent`, `tests/consistency`, `tests/unit/mcp`, `tests/visual`). 7.3: the entry is written under `## [Unreleased]`, but `tests/unit/test_release_record_v06.py::test_changelog_section` requires `[Unreleased]` empty while `fenolite.__version__` is still `0.6.0`; it passes once the version moves on.
 
 Changelog proof, 2026-11-01, source `b02e09fe`: the literal `uv run pytest tests/unit -k "release_record or changelog" -q -n 2` passed 167 cases with one optional MCP SDK skip. The existing Unreleased entry names this change; no extra entry is added. Complete fast-gate and exact CI tasks remain open.
+
+
+## Scoped implementation closure — 2026-11-03
+
+The maintainer clarified that problematic geometry was already outside this
+closure CI batch before the run. Close only this specification’s implementation
+on tested source 985f59a1d01a612b2eac0219243199896c24075a and reviewed
+archival documentation. Run 41708879698 remains FAILURE: the27known c0332
+geometry failures are DEFERRED_NOT_PASSED, not passed tests. KiCad9 and all
+five unit jobs succeeded. The relevant KiCad10 module results are inferred
+from complete unfiltered collection and the exhaustive -ra non-pass report.
+Explicitly contracted unsupported-target skips remain skips; no nominal
+PASSED line or green KiCad10 job is claimed.
+
+`scoped-ci-985f59a1.json` binds the exact tests, explicit KiCad9 positive
+lines, complete log hashes, reused fast proof and existing scoped records.
+The isolated runtime/tests/tools/configuration remain byte-identical to985;
+this does not validate later CAC runtime, close c0355 or replace subsequent
+integration CI. Existing authored/native/default-map proofs and limitations
+remain intact. No suite, native CAD test or CI rerun was started for archive.
+
+Entry refresh: previously implemented prerequisites are now archived in the
+required order: no literal prior archive requirement. Existing APIs and reviewed normative
+unions were checked against the current living text; no runtime change or
+external publication was needed. Contracted native9/10 unsupported-target
+skips remain skips and are explicitly retained in the portable receipt.
+
+The existing viewer job126171394431 passed bundle freshness and104visual
+cases on source985. All eleven PNG references exactly match the prior
+reviewed/published/source985 maps, preserving the dated delegated image
+inspection without inventing a new approval from automation. Unit, viewer
+and applicable MCP/DCO jobs are recorded individually in the portable proof.
+No bundle, PNG, runtime, assertion or measurement was regenerated here.
+The missing three native action CI cases ofc0303 and six real variant views
+ofc0305 remain separate open requirements; neither is closed by this record.
