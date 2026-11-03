@@ -2568,3 +2568,11 @@ Without `--update`, `--update-all` or `--propose`, `pick` SHALL be read-only: `r
 - **GIVEN** the same `examples/picks`
 - **WHEN** `fenolite pick examples/picks --update C_in --dry-run --json` runs, then `--confirm --plan <plan_id>`
 - **THEN** the dry run plans one write of the design lock showing the old and the new device, the receipt lists the design lock with its SHA-256, and a following `fenolite build --dry-run` holds no `pick.stale`
+
+### Requirement: Family command
+`fenolite family {list|show ID|lint PATH...|decode MPN...|encode QUERY|expand ID} [--project PATH] [--families DIR]... [--limit N]` SHALL be registered by `src/fenolite/cli/cmd_family.py` with `mutates=False`. It MUST run no subprocess, open no network connection and write no file; an unknown family id MUST be `FEN-2001`, and an error finding MUST exit 5.
+
+#### Scenario: Family example is hermetic
+- **GIVEN** `subprocess.run`, `subprocess.Popen` and `socket.socket` patched to raise
+- **WHEN** `uv run pytest tests/unit/cli/test_hermetic_examples.py` runs `family` with its `example_args` `("expand", "Example:EX_MLCC", "--project", EXAMPLE_FAMILIES, "--json")`
+- **THEN** the exit code is 0 and `result.candidates` lists at most 50 MPNs in canonical order with `truncated` set
