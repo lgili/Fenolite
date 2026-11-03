@@ -444,7 +444,7 @@
   See five-probe-records-proof.json for before/after SHA-256 and measurement
   bindings. No native rerun, aggregate, label promotion or CI closure occurred.
 
-- [ ] 7.2 Extract each demo schematic row of the corpus into a temporary folder, lower it, resolve it and
+- [x] 7.2 Extract each demo schematic row of the corpus into a temporary folder, lower it, resolve it and
   record counts and timings in `docs/evidence/drawn-schematic.md` (row ids, kinds and counts only; no
   derived file is kept). Verify cached manifest hashes, compare full original/lowered/native pin
   partitions and record naming outcomes/refusals separately. Preserve per-row census JSON even on
@@ -470,6 +470,28 @@
   missing/invalid cache cases, internal errors or retained CAD files. The earlier `695dee0f`
   diagnostic and byte-identical `9c44f7a2` artifact remain separate. Task 7.2 remains open for
   source coverage and actual required versioned CI; neither native 10 nor full CI is claimed.
+
+  2026-11-03 source 985f59a1 documentary reconciliation: read the already-retained
+  native 9.0.9/10.0.6 census JSONs and the prior hash/CRC audit only. Reconcile all
+  row IDs, schematic/count kinds, complete input/context hashes, timings, strict
+  refusals, tag nonexecution and alias deduplication into portable reporting.
+  Do not repeat the census or convert a bounded measurement into a passing
+  global CI result; keep 7.1/9.2 and hypothesis promotions separate.
+
+  Completed measurement/reporting on 2026-11-03 on measured source
+  `985f59a1d01a612b2eac0219243199896c24075a`, run 41708879698: 130 declared
+  rows in each native job, with 87 equal/5 explicit floor/38 tag-incompatible on 9
+  and 113 equal/1 floor/16 tag-incompatible on 10. All per-row IDs, kinds/counts,
+  input/context/project hashes and all five stage timings are retained in
+  docs/evidence/drawn-ci-census-985f59a1.json and summarized in the required MD.
+  The 262/131 raw JSONs consolidate to 130 IDs only after byte equality; owner
+  comparisons remain complete. Resolver/source naming warnings 57/82 and all
+  original reader-floor outcomes remain explicit. Source 985 temporary-copy
+  cleanup and strict no-loss policy are unchanged. Read-only documentary proof
+  expanded every catalog reference against the original retained JSON, with
+  zero native/corpus reruns. See census-7.2-proof.json. This completes only 7.2;
+  native 10 and overall CI remain failure, 7.1/9.2 stay open and no hypothesis is
+  promoted. The 10 job used -q; no -rA stdout or whole-job success is invented.
 
 - [x] 7.3 Implement and prove the census driver/comparison/privacy controls with authored CC0 inputs,
   preserving every production drawn/model field and strict native contract; retain the actual measured

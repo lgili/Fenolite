@@ -2,9 +2,7 @@
 
 ## Purpose
 Describe the public test corpus with licences and hashes, fetch it reproducibly, and allow only public-domain or authored files to be committed.
-
 ## Requirements
-
 ### Requirement: Corpus manifest schema
 `tests/corpus/manifest.toml` SHALL describe every external test file as a `[[file]]` table with the keys `id`, `url`, `ref`, `sha256`, `license` (SPDX identifier), `license_variant`, `embeddable` (boolean), `uses` (list of strings) and `notes`, and `tests/corpus/test_manifest.py` SHALL validate the schema.
 
@@ -434,3 +432,16 @@ A copy of a `sch` row that `kicad-cli` 10.0.6 makes with `sch upgrade --force` S
 - **GIVEN** a temporary manifest with one `rt0` row and one `rta` row
 - **WHEN** `uv run python tools/corpus_fetch.py --manifest <it> --cache <tmp> --uses rta` runs
 - **THEN** only the `rta` row is fetched, and the summary counts one item
+
+### Requirement: Converted code stays out of the tool repository
+Code that `fenolite import` writes from a corpus item or any third-party board SHALL be written only under pytest's temporary directory or the corpus cache, and MUST NOT be committed to the tool repository; converted boards live in the separate `fenolite-library` repository. A residue test MUST flag every tracked file that holds the line `Converted from` followed by a URL, unless the file also holds `Authored for Fenolite`.
+
+#### Scenario: Converted corpus board planted
+- **GIVEN** the code of a corpus board imported into a tracked folder in the test
+- **WHEN** `uv run pytest tests/residue/test_converted_code.py -q` runs
+- **THEN** the detector reports every emitted `.py` and its conversion line
+
+#### Scenario: Authored import example passes
+- **GIVEN** `examples/import_python/`, imported from a board authored for Fenolite and marked `Authored for Fenolite`
+- **WHEN** the same test runs
+- **THEN** no file of it is reported

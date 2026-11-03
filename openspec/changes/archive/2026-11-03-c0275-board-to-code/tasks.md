@@ -85,7 +85,7 @@
   Done 2026-10-29: `make residue` and `gen_evidence_matrix.py --check` pass; no third-party file or converted code is tracked.
 - [x] 5.4 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: the v0.6 guard requires `[Unreleased]` to stay empty while the version is `0.6.0`. Proof: `uv run pytest tests/unit -k changelog -q`.
   Done 2026-10-29: the entry under `## [Unreleased]` (dev is at 0.7.0.dev0); `tests/unit -k changelog` passes.
-- [ ] 5.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
+- [x] 5.5 Run `make check-fast`, publish the batch to its working branch, and confirm the required CI jobs (unit and KiCad) on the exact commit. Proof: `make check-fast`, and the required jobs green on the pushed head.
   Open 2026-10-29: `make check-fast PYTEST_WORKERS=2` passes locally; CI runs with the batch (the coordinator pushes it).
 Integration proof 2026-10-31: the refreshed 16 non-heavy corpus rows passed the focused census (16 passed); every import returned exit 0 and equivalent=true. Aggregate records generated the table. Heavy rows and exact-head CI remain pending; 4.3 and 5.5 stay open. The batch check-fast completed with exit 0 (17724 passed, 49 skipped).
 
@@ -100,3 +100,41 @@ All18 declared, allow-listed demo inputs have full import/build measurements in 
 - [x] 5.5a Rebase the c0275 Zones in the DSL MODIFIED block onto the now-archived c0277 living requirement, preserving its complete arc scenario, smoothing arguments/paragraph and every prior scenario while retaining c0275 explicit keys, key ordering and unnamed-zone scenario. Documentation only; do not run geometry or change runtime. Proof: exact scenario/body comparison, strict c0275 and git diff --check.
 
 Proof2026-11-03: retained records/server digest/size/CRC and all18 current omitted-kind expectations agree; five focused import-measurement unit cases pass in1.34s, including the immutable historical-table digest. Strict c0275 passes after the documentation rebase: all9 inherited zone scenario bodies are byte-identical, the explicit-key scenario is retained as the10th, and the full existing outline/smoothing paragraphs and signature survive. Diff check passes; no runtime, native, geometry, conversion or CI ran. Task5.5 remains open for its independent integration gate.
+
+
+## Scoped implementation closure — 2026-11-03
+
+The maintainer clarified that problematic geometry was already excluded from
+this closure batch before the run. Close only this specification on tested
+source 985f59a1d01a612b2eac0219243199896c24075a plus reviewed documentation.
+Run 41708879698 and KiCad10 job126171394674 remain FAILURE; the27known
+c0332 failures remain DEFERRED_NOT_PASSED. KiCad9 job126171394740 and all
+five unit jobs succeeded. Selected KiCad10 results are source-bound
+inferences from completed unfiltered collection and exhaustive -ra non-pass
+classification, with no printed nominal PASSED line or green job10 claimed.
+
+`scoped-ci-985f59a1.json` binds source/fixture/log hashes and exact oracle
+assertions. The retained census contains18real full conversions, all exit0
+and equivalenttrue, plus1byte-identical pytest-current alias;19ZIP members
+were checked against original hashes and CRC. Historical and emission-only
+measurements remain separate. Upgrade9 is one legitimate minimum-major skip
+within the631grouped skips, not an invented per-node result.
+
+The arc controls require native clear/violation endpoints while recording
+near-boundary behaviour separately from exact ideal Fenolite decisions. No
+arc parity is claimed. The chamfer canary covers four authored rotations
+and a wrong-corner control, not every native shape. H-G-CHAMFER-FLIP
+and H-A-IMPORT-CODE remain INFERRED. H-G-IMPORT-CODE retains its existing
+CORPUS-VERIFIED label and its historical failed-job qualifications, without
+new promotion or a global-green claim. Existing observations and scope
+limits remain unchanged.
+
+The isolated runtime/tests/tools/configuration remain byte-identical to985.
+Fast13 is reused only after checking its tested source equivalence. Later
+CAC runtime, c0355, integration CI and release remain independent gates.
+No import, CAD/native test, geometry test, full/fast suite or CI was rerun.
+Normal OpenSpec1.3 archive, complete normative-body/scenario comparison,
+living strict, diff check and private-on staged scan are recorded in the
+external per-spec closure receipt. No cumulative rehearsal ordering is
+introduced as a new prerequisite: c0249 is archived, and c0281 keeps its own
+distinct open archive order.

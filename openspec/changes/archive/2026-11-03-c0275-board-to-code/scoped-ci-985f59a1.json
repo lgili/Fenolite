@@ -1,0 +1,1469 @@
+{
+  "schema": "fenolite.0275-0282-scoped-closure.v1",
+  "spec": "c0275-board-to-code",
+  "tested_implementation": "985f59a1d01a612b2eac0219243199896c24075a",
+  "scope_decision": "Maintainer clarified before closure that problematic c0332 geometry was already excluded from this batch;27known failures remain DEFERRED_NOT_PASSED.",
+  "CI_run": 41708879698,
+  "whole_workflow_result": "failure",
+  "KiCad10_job_result": "failure",
+  "global_success_claimed": false,
+  "later_CAC_runtime_validated": false,
+  "c0355_and_later_integration_CI_closed": false,
+  "native_module_proofs": {
+    "tests/kicad/importer/test_adopt_kicad.py": {
+      "spec": "c0275",
+      "declared": 1,
+      "native9_passed": 1,
+      "native9_skipped": 0,
+      "native10_inferred_passed": 1,
+      "sha256": "c5eea87f7b6c603ffb5276b1c816c8b1f4e19c84cc9e5359d8c1f926e8f655b4",
+      "native9_explicit_PASSED": [
+        {
+          "line": 4274,
+          "text": "2026-11-03T21:22:42.1555277Z PASSED tests/kicad/importer/test_adopt_kicad.py::test_kicad_loads_the_adopted_board"
+        }
+      ],
+      "native10_explicit_nonpass": [],
+      "asserts": [
+        {
+          "function": "test_kicad_loads_the_adopted_board",
+          "decorators": [],
+          "assertions": [
+            {
+              "line": 22,
+              "text": "reply.exit_code == 0"
+            },
+            {
+              "line": 26,
+              "text": "before.report is not None and after.report is not None"
+            },
+            {
+              "line": 28,
+              "text": "[e for e in new if e[0] == \"violations\"] == [e for e in old if e[0] == \"violations\"]"
+            },
+            {
+              "line": 37,
+              "text": "ends(new) == ends(old)"
+            }
+          ]
+        }
+      ]
+    },
+    "tests/kicad/importer/test_upgrade_kicad.py": {
+      "spec": "c0275",
+      "declared": 1,
+      "native9_passed": 0,
+      "native9_skipped": 1,
+      "native10_inferred_passed": 1,
+      "sha256": "bbc6968372f37e9bf0fd78fc5c18903648226a989dc7974f69cbf8b51bdc9a99",
+      "native9_explicit_PASSED": [],
+      "native10_explicit_nonpass": [],
+      "asserts": [
+        {
+          "function": "test_kicad_7_board",
+          "decorators": [],
+          "assertions": [
+            {
+              "line": 21,
+              "text": "reply.exit_code == 0"
+            },
+            {
+              "line": 23,
+              "text": "row[\"from_version\"] == OLD_VERSION and row[\"to_version\"] > OLD_VERSION"
+            },
+            {
+              "line": 24,
+              "text": "row[\"tool_version\"].startswith(\"10.\")"
+            },
+            {
+              "line": 25,
+              "text": "row[\"sha256_before\"] == hashlib.sha256(before).hexdigest()"
+            },
+            {
+              "line": 26,
+              "text": "source.read_bytes() == before"
+            },
+            {
+              "line": 27,
+              "text": "reply.result[\"equivalence\"] == {\"levels\": [1, 2, 3, 4, 5], \"equivalent\": True}"
+            },
+            {
+              "line": 28,
+              "text": "sorted(p.name for p in source.parent.iterdir()) == [\"old.kicad_pcb\"]"
+            }
+          ]
+        }
+      ],
+      "native9_skip_method": "Collection marker kicad_min_major(10) invokes tests/conftest.py:116; report groups631same-reason skips, not an explicit node line. This1declared test is necessarily one such source-bound skip, not passed.",
+      "native9_grouped_skip": [
+        {
+          "line": 4341,
+          "text": "2026-11-03T21:22:42.1574289Z SKIPPED [631] tests/conftest.py:116: needs kicad-cli 10.x; running 9.x"
+        }
+      ]
+    }
+  },
+  "native10_proof_method": "Source-bound inference from completed unfiltered collection with exhaustive -ra classification. No nominal PASSED line or green job10 claimed.",
+  "successful_unit_jobs": [
+    {
+      "id": 126171394269,
+      "name": "unit (windows-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394428,
+      "name": "unit (ubuntu-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394460,
+      "name": "unit (macos-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394556,
+      "name": "unit (ubuntu-latest, py3.11)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394700,
+      "name": "unit (ubuntu-latest, py3.13)",
+      "conclusion": "success"
+    }
+  ],
+  "source_fixture_bindings": {
+    ".github/workflows/ci.yml": {
+      "source985_sha256": "fd42a446eed335b74eb02fbead70b12b3b9105d93ecac3dcffb8d70a6330bce8",
+      "executor_equals985": true
+    },
+    "pyproject.toml": {
+      "source985_sha256": "862171de532c6aca37a9f5546f892aec0b030cc2eeca95710619f858386a3d4b",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/__init__.py": {
+      "source985_sha256": "f346aa4108447c689c1549d625fe22c7d8dcd26ca1e4c588dbf1af9890f48705",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/_pad_annotations.py": {
+      "source985_sha256": "3af4f1a47e0478c7912ad2d6bc3350e1078a432be9ae6084b0f40d698d3acb7f",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/adopt.py": {
+      "source985_sha256": "79137568962c6725695edde1d3f97ca550b52b6a8a1181c14002104a46320946",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/bom_only.py": {
+      "source985_sha256": "88c12a7a489972dd31ff18aaf0ef29ce6555c08bf47ac2223e55e5c3dbb883c9",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/check.py": {
+      "source985_sha256": "7cf2ce00237d6e8a3e25f887ea87a3391831dd3026055ac43e1219c2cd30a048",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/codes.py": {
+      "source985_sha256": "94703c381cf7d8e4c93dcf6aa8dafb83bf8231619c18920c85bfcdb91f33aeec",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/coverage.py": {
+      "source985_sha256": "59d0238d36ce93f50b55fff87d2e7a2c6590a34b8cb45dcf56d150b514eff17c",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/emit/__init__.py": {
+      "source985_sha256": "442be036b8163fa0996628a0b1fcf22c18be26de6760184a9f1e571f21646f12",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/emit/design.py": {
+      "source985_sha256": "3b8b8247fd3d821abb88d856c69211e1da444b32a12699858d9e0b920ecaaa67",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/emit/fields.py": {
+      "source985_sha256": "28ce75f486f7c47acc79453fc43601cb1337c6d3b6883b71cf44b8fc7d3c106e",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/emit/printer.py": {
+      "source985_sha256": "e14eeb7638d12910b64a0ce67d51c163530b34838c8309ba627508721595cec2",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/emit/sheets.py": {
+      "source985_sha256": "f90439b7c369f1e46dfcca93fad54e100ebfced664576274dcd042f6ccebb51d",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/keys.py": {
+      "source985_sha256": "4a29aad5143a952c7f436de4b1ff894090239aad78e672460cf14e31afcd6303",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/provenance.py": {
+      "source985_sha256": "477804ab540dc0dab5dabf4a4f9d23215ad7513e82a2ad74fc7234a181ea15d0",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/schema.py": {
+      "source985_sha256": "ce5529a2d3d62cc0ff13be4024b59b6b7c0b6b14e05fc78319e814d913f0dca2",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/schematic.py": {
+      "source985_sha256": "a198547240271f67693841abf3be14336290652b61a9bf5a082eb507c8a39350",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/source.py": {
+      "source985_sha256": "c3583d55803cf61502603e48b3ee6f0d8b3758b3e46637c8ebfbb007f4177cf3",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/tables.py": {
+      "source985_sha256": "5df2dddecd10e783a68f4292723456304482e2432501a7359ae452c95901ee1c",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/texts.py": {
+      "source985_sha256": "4dcc548be216aef6a2ece7706ff44aa6b47c680774c92af7849e1dcb32273cfb",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/upgrade.py": {
+      "source985_sha256": "c8d86d58d10d43867414e79ac401076ff0ba116183d6378d606716273619954d",
+      "executor_equals985": true
+    },
+    "src/fenolite/importer/vendor.py": {
+      "source985_sha256": "6ec11f9cc516f60dd9576ad3ee0410fdd47799a52919e79c7535e55eae1021b4",
+      "executor_equals985": true
+    },
+    "tests/_importcode.py": {
+      "source985_sha256": "9ade23e7305abd07832a3d620f56e28d1dd741339901a22ef529f6a6517f981d",
+      "executor_equals985": true
+    },
+    "tests/conftest.py": {
+      "source985_sha256": "93d87eb105c3031eab751185e7d682d045763cdba5e4c41817f521f9adb5b4d2",
+      "executor_equals985": true
+    },
+    "tests/data/import_python/README.md": {
+      "source985_sha256": "6580328d44f748341f895ce0ca4ddfbc413b9943ac0a8668ee20f67edd1abe2b",
+      "executor_equals985": true
+    },
+    "tests/data/import_python/src/fp-lib-table": {
+      "source985_sha256": "136d3c5cc6e0984541acb9dc872ac3fb486c4dc9b4807cc2796e3ea8c23b3604",
+      "executor_equals985": true
+    },
+    "tests/data/import_python/src/sym-lib-table": {
+      "source985_sha256": "fd7905c783d72351b8ae0e0e4c23631c30e76b81e402d8d4b1fb6c867a2b3d41",
+      "executor_equals985": true
+    },
+    "tests/data/import_python/src/two_sheet.py": {
+      "source985_sha256": "3a4f47cf74c29464adf1b2c0abcdb888abe460520df511f6107f864f43713988",
+      "executor_equals985": true
+    },
+    "tests/data/import_python/two_sheet/fp-lib-table": {
+      "source985_sha256": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
+      "executor_equals985": true
+    },
+    "tests/data/import_python/two_sheet/lib/Mini.kicad_sym": {
+      "source985_sha256": "e5f37ccbfa3c7ae1b64beaafbe45ae692839d3bfe03af585d176edc23ac41bd4",
+      "executor_equals985": true
+    },
+    "tests/data/import_python/two_sheet/lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": {
+      "source985_sha256": "c7b983f563898280b4c7a3d2647653a90e8688505e988dc9d23666748e9a7ee9",
+      "executor_equals985": true
+    },
+    "tests/data/import_python/two_sheet/lib/Mini.pretty/Mini_R_0603.kicad_mod": {
+      "source985_sha256": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+      "executor_equals985": true
+    },
+    "tests/data/import_python/two_sheet/sheets/ch1.kicad_sch": {
+      "source985_sha256": "280884022e103c5e8a58ec92bb7a5fcf411e0a45efa371cc3ab1aa06176688f2",
+      "executor_equals985": true
+    },
+    "tests/data/import_python/two_sheet/sheets/ch2.kicad_sch": {
+      "source985_sha256": "922c206d25a7e5a9cf5289b7a53f70c7157867874c79ba989d2fabea0bd976a5",
+      "executor_equals985": true
+    },
+    "tests/data/import_python/two_sheet/sym-lib-table": {
+      "source985_sha256": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9",
+      "executor_equals985": true
+    },
+    "tests/data/import_python/two_sheet/two_sheet.kicad_dru": {
+      "source985_sha256": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "executor_equals985": true
+    },
+    "tests/data/import_python/two_sheet/two_sheet.kicad_pcb": {
+      "source985_sha256": "5d36b265d908efbe009932da3a76d28770ef76cc831cebb862c85c520954308e",
+      "executor_equals985": true
+    },
+    "tests/data/import_python/two_sheet/two_sheet.kicad_pro": {
+      "source985_sha256": "c0c49764831dbbb9ab9a54a643153d4fb636b70e8113c56e328e1f431f78173f",
+      "executor_equals985": true
+    },
+    "tests/data/import_python/two_sheet/two_sheet.kicad_sch": {
+      "source985_sha256": "3dfb5fc01986b6d4afdc5a3191ce1fa316adc47e60056044e2022224b85a7a91",
+      "executor_equals985": true
+    },
+    "tests/data/kicad/footprint/ExactChamfer.kicad_mod": {
+      "source985_sha256": "4204f04f767eab64be03c554cab06f1ad826784de083a9534f9a0c7191ffab81",
+      "executor_equals985": true
+    },
+    "tests/kicad/_probes.py": {
+      "source985_sha256": "167a20c399328d0bbf2c0ae802c055ec6cf44682c952b846f543dcf2d4fef1e8",
+      "executor_equals985": true
+    },
+    "tests/kicad/conftest.py": {
+      "source985_sha256": "7cfad2c2869501cfd17c7cec2ba1400f122e4d97ba4b0354dfb03443f1d34816",
+      "executor_equals985": true
+    },
+    "tests/kicad/copper/_copperparity.py": {
+      "source985_sha256": "4f15e24bc5dafd42396fe44acbc220ea849443ee06c506aea002eb1cfff1198e",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_adopt.py": {
+      "source985_sha256": "1dfccacffffcbe2f1e10967a49ca853922ef3811635e22489b3c6ee8adecf962",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_altium_input.py": {
+      "source985_sha256": "4758b2366aeda3ca93f3f6ceea78f50aa188eb177bfeb4c5cb08d856ec3aae68",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_board_items.py": {
+      "source985_sha256": "e13bd730f376ca3895bcbcb6e744ff3c871fb5d0f597366168979755168a47ac",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_board_only.py": {
+      "source985_sha256": "393d9f6f3f9386348217d9b030d32ba9f9d80e0616da91959f6b436ad492f981",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_contextual_symbols.py": {
+      "source985_sha256": "73c7e86068cca783510a59bead6f9d3a825d8e10dc16c1bacbffa00f7f7b1075",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_copy_mode.py": {
+      "source985_sha256": "c7e8eb7abef8f800b6bd54a5ce40b2ee5baff5830685f90d3c010fd78b15d80a",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_coverage.py": {
+      "source985_sha256": "c4f5eae55635e27a8b2ae21a5fe94142bdb7ff95b2b3603de62b39b24a7206ea",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_curve_error.py": {
+      "source985_sha256": "e784efd7358a715f56e5baa0d37748b66df8a26ee1e98f004e61eaeff95e758c",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_custom_field_poses.py": {
+      "source985_sha256": "f3d5ada737ddaf8d953aa0f8ba429ac525a2be30eef6da35eb9925b62a3ea997",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_data.py": {
+      "source985_sha256": "096782211f5e1c97a039c05ad528f85ee9992e2aed1638b69638e3bb16550d2c",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_determinism.py": {
+      "source985_sha256": "96580d3d90410100b7def51ca4ed6b462b2f26b1a4062bebf1ecb7847041ae34",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_dimension_kinds.py": {
+      "source985_sha256": "8737d1476747ec9799b11b800eef3ff4d95af2dc6cc54fab6f28847bd303aa25",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_drawn_fonts.py": {
+      "source985_sha256": "44bac6fb835f8a8fa5dc30ebbe68d0078cc0d3b952cf165028eb760d1e6642b3",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_drawn_import.py": {
+      "source985_sha256": "736c5b61f6604274e71efa6ad3b1ba57cf7e8909e8e925d4e06fe3dcae91ddc4",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_drawn_items.py": {
+      "source985_sha256": "3fccd30cd26804075e6ba8f3fb022b46bee83677c24ac46cd07567e6cee8c928",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_emit_design.py": {
+      "source985_sha256": "ba5aaa7aee8fede29d5a13015f6eff7b5015b18356986e6132e733915407ad03",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_explicit_edge_ownership.py": {
+      "source985_sha256": "889b45c125ac14f5aa59056032df767118f3e75e2c73a046c554b61d2889e891",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_footprint_alias.py": {
+      "source985_sha256": "3cb20e4772fed96da46ab91051a36f790cec90850a59cfe21bb364d04e9c00c5",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_footprint_identity.py": {
+      "source985_sha256": "23a0bc56b7babbb515ac69c00e722216ccff7523362e88c3724cd0761f426d32",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_groups.py": {
+      "source985_sha256": "5d06219496cea06bc43910e567d33c6e66f847f6229877ebedabdb17ffd4d661",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_images.py": {
+      "source985_sha256": "23de0fe941ae13d508aea4fd9056bd7103e9aee2018407868d2860a5562ebfd5",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_import_coverage_measurement.py": {
+      "source985_sha256": "dc870537761db8391f74789db58bc037a288793822e7152f61b61d8a88640b80",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_keys.py": {
+      "source985_sha256": "e7eaab067ef355672c53d78e7eaf5b9179892db0b98e42e5b83a1312fabe1e5c",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_native_custom_property.py": {
+      "source985_sha256": "a94e4935be31f83f63851fcb72d3ac82bfb470c334705f2e0f5fb7cbca02ba61",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_native_mirror_property.py": {
+      "source985_sha256": "cab4e9e6d6153dc62764be3ddeaf9764de04612dbf1618382656d41cca33c545",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_native_rule_context.py": {
+      "source985_sha256": "f989b75b1a1fa0a4057992cc98cd556509df565372363dd42dfe5d206e3d44cd",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_native_tab_property.py": {
+      "source985_sha256": "6a90602688f5d788e32ae983020fa8762d5c6d138d70b2b0bafbbd0a28f732cb",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_no_net_pads.py": {
+      "source985_sha256": "c4857b766b0a0f994f9360e171a53700d5e216cdae60d5ebe2925b21ffde9b5c",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_notched.py": {
+      "source985_sha256": "f4982b6d71fc36517084fa5c28d6210324337c4485b66448180df2e39fff2b9c",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_outline_width.py": {
+      "source985_sha256": "1c07b46eb57f246ba278c040d0dc33a7e1cf2843b3470381fa02689ce1f72dce",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_pad_annotations.py": {
+      "source985_sha256": "d7f978778148d9b7f5640c3b49859ca08732d29e25e61ef69fb45f6ac0d166b2",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_project_template.py": {
+      "source985_sha256": "ddab08cdf35e439078164e4eb973e652cb560a6677633cb5d5ce6eb56c22405f",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_provenance.py": {
+      "source985_sha256": "857bd16efce7320caca9d6fc833cf9c17d7512df3a555125dfcb8f2013febfa6",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_roundtrip.py": {
+      "source985_sha256": "deaed81d2f88a4c62315d4d0fc48e2d258e514f2a95bdf8d3a75932a7cbf3fe2",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_rule_semantics.py": {
+      "source985_sha256": "fe08aa9fb308bbcf7e98bca8e9d8fb0fb82b295a37090c0e5c8f7f444d104fdf",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_selfcheck.py": {
+      "source985_sha256": "333214185ef437498d062f946a1175df30df045af15059848cf2fbe9ce8d2c28",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_sheets.py": {
+      "source985_sha256": "8a035bccc7020f388ede4283602a4da2e23fe366a2d4946a6ade86c5833a633f",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_tables.py": {
+      "source985_sha256": "2665f34e0544be69c9de992f60485ff3447040eed328f9f00beed03658a8243e",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_teardrops.py": {
+      "source985_sha256": "ee14c03251c1ed4365207a71639b45b5b418a8e2101eeee3a9f0ca0a9d971cbe",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_technical_layers.py": {
+      "source985_sha256": "5f2c6f877cb2b9de64a4bf2a1b41a5636f63799ae8d2e875c2d620d41abdb6fc",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_unexpressed_c0281.py": {
+      "source985_sha256": "86fa97f04711867fd0ef493296e660e70829a4939be3ddeac96ce79452976a74",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_unfitted.py": {
+      "source985_sha256": "fb26ce8011364fc04f64fdacb6df4a7f0e2200c4d183c6d2b7d5b4cca109c39f",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_upgrade.py": {
+      "source985_sha256": "807ac84d3d8a0f90e955286ae8e46376248fa4df4e2822874d26b58374334b57",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_vendor.py": {
+      "source985_sha256": "89c83fa71d3c3b89ab571580de05ea14a427d8b376bf8adca5d8d4eb65ca823a",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_verbatim.py": {
+      "source985_sha256": "3f3e0365ec34b54d995a85cc0362c08ad78640255d82d2c710e4c076e79b176e",
+      "executor_equals985": true
+    },
+    "tests/unit/importer/test_zone_arcs.py": {
+      "source985_sha256": "0b90ce85d9f2e9b515ee4738c5c09e3e1f9fc656719b371fb5db612f3843fcf6",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/__init__.py": {
+      "source985_sha256": "72d7190a71e7bd0a0f1b5a2cbc7e30cd732126ff0fbea10f4e3459c417cfa135",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/_curved.py": {
+      "source985_sha256": "1579e445ca00fc806fbf303739ed0d8cfd35ed4d28a8b4216bfa09764f183f01",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/_radical.py": {
+      "source985_sha256": "6887e252b38d268ebab808175f30b8a811aa55f65e26710b03026f04765d6070",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/boolean/__init__.py": {
+      "source985_sha256": "6165d64cb5e844906353c5f18e307d71bda9007dc2059ba9f8393e58978e216e",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/boolean/_exact_cells.py": {
+      "source985_sha256": "167a636c0f8442c6171c11f8abad0be2d8276ec066b256549ad266035eb61344",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/boolean/_exact_contacts.py": {
+      "source985_sha256": "6741111eb0525103ddda1609c40ffb68659b367453f0321034784e0c1666ad45",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/boolean/_exact_distance.py": {
+      "source985_sha256": "3916433c93880beb4cfe0bd2312305d01bc51bf9e3d2c7cdd53607db897924e9",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/boolean/_exact_faces.py": {
+      "source985_sha256": "6757823edb87f6db835e8fa8ef05aedab0ed88bf52833093ea48f9645517fee7",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/boolean/_exact_identity.py": {
+      "source985_sha256": "0c1977f364358b1986042f86453f81051db2005124639e5a8f036671213fd3cc",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/boolean/_exact_noding.py": {
+      "source985_sha256": "4207dcd382532a669d999d2a7dcc8769efc4ae36e2856b2b8ece23b7ec37964f",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/boolean/_exact_realization.py": {
+      "source985_sha256": "cc62f10d9b847dfc0e03783516226a6995ae2d4256cbf61e077a40b503247c87",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/boolean/_exact_refinement.py": {
+      "source985_sha256": "47a66f1654de16d5e82fb8f30490fd3526a8a51fc4e71ab5b46b777b123eed0d",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/boolean/_exact_repair.py": {
+      "source985_sha256": "409e28adbe000f2cac7cbf8e35840eb5500dcfe918b23cd9979f267cb404a629",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/boolean/_exact_seed_index.py": {
+      "source985_sha256": "ce7d58996b0847d0d7fb07c21bfb3e06d0cb2fcb638498c48d6821c487b834ac",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/boolean/_extra.py": {
+      "source985_sha256": "7b73ed16de93c893e6db619f46e86e5df40594e8edc0f16ae1b60259b1f3c4f5",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/boolean/base.py": {
+      "source985_sha256": "a7a8f77ccd547b357789c4bba0ddc25818bcfc1c8c3b6bdad6ea22ba8d290610",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/boolean/clipper.py": {
+      "source985_sha256": "7d812b6f4b1420ddd6ce7180a290741ef3a0972529885b6a465165289bebd045",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/boolean/fallback.py": {
+      "source985_sha256": "88120948e91491905a87aad84cf3962d4b9ef76225925f6f3580c73cd053b1d4",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/errors.py": {
+      "source985_sha256": "fad87fdeb515c3a04bf6e750da14a8c78e62dff1bbe52244affc18cfb9e0cf7d",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/index.py": {
+      "source985_sha256": "e47cb284a124690edbdf773b246e8486dfecd6ac1861db7b055d713836b99540",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/lengths.py": {
+      "source985_sha256": "e3cc93fd31936f4f6248d9c505b4b0bf6fedcb89325b84ac8e31914b78cb9184",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/polygon.py": {
+      "source985_sha256": "a8eb8cf74cd65db5bdc87bd54b48836a1df9c9984976eb51baaf552db9f87153",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/predicates.py": {
+      "source985_sha256": "204c0f2ab165d8011e036da06d7d6e148b837c5848e820338dede0e9753ebd19",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/rings.py": {
+      "source985_sha256": "90edcd4af403e80de590135ba8d3e9a32d8a3b74c27ff09e9081373cd87a8a93",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/shapes.py": {
+      "source985_sha256": "121ea2c79f99086508a4d8b54a26300628c4738e811ab77c855c990f99708221",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/shelf.py": {
+      "source985_sha256": "6917a529ee867c066d24602d52b6300b34f1c4675f2201396138232919d1afa7",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/thick.py": {
+      "source985_sha256": "0fa82e6d747998b87d08f03e556e6b1b064cd3f5e0ce6e98f216613c8329a714",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/touch.py": {
+      "source985_sha256": "3674f1751afd8c2938b822a16b8f7dcade11d3b66761c15e4a036c9a51692f2b",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/transform.py": {
+      "source985_sha256": "51c4babc8293357246c155e7d2d4f2d03ed92e86a70791610d4e5c181c7bdcc9",
+      "executor_equals985": true
+    },
+    "src/fenolite/geometry/vector.py": {
+      "source985_sha256": "48e2a4ec2752bff28f565b57e213c3f7aefeb4e0a24cc92664e73eec512b58b7",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/__init__.py": {
+      "source985_sha256": "87f5ee22c79ea2bb38bf592db8e49c8c6a11f9db799f098f690bb13333c109f0",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/assignment_compare.py": {
+      "source985_sha256": "27e555558aacff6eca3588bd628173e75a4a3d586ca448cda8c51eed1ae705b2",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/circuit/__init__.py": {
+      "source985_sha256": "407811a1d8f5a26fe26f5c489318e28e2b06222cc5b20d6157e814b889b5b993",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/circuit/corners.py": {
+      "source985_sha256": "06506cd5be4794719fcb81d9728ea68393e841d42856bb444f764a2c770b68ae",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/circuit/decidable.py": {
+      "source985_sha256": "a890b541c5450926d2a35f1cbd192bfcb5e801423b4c758fe2dda72c9aa6b13d",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/circuit/expect.py": {
+      "source985_sha256": "f55b32e6ff4cf13b1db7c13b0ad15d31bdc49c7e3a5df429a30af0f3af37c919",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/circuit/matrix.py": {
+      "source985_sha256": "25300ff298cd2aa922457009f832bd29e4e97d9ab4f74194d075910b74406136",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/circuit/propagate.py": {
+      "source985_sha256": "cc036022223f5e09d6a2b0f2a0391186e2bcc8bfeadc629af498142cf8c71c6d",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/circuit/rails.py": {
+      "source985_sha256": "398a621ce477570e66491aa875c2b2f4777fe7e68a3026785534a72616191af7",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/circuit/ratings.py": {
+      "source985_sha256": "76e588ac2c6716fb1dbfebfcfdbd3ffb003750a4d5536659a368008d26615066",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/circuit/table.py": {
+      "source985_sha256": "c444ed6f7fe5995864276c1dd38a92965ebf2f26e93b6ec24b3eb9a47f9c38ea",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/circuit/values.py": {
+      "source985_sha256": "ac4d169e84838af138e4d1a034df774b389a7eac85b73e9b2f4afb1102b04bd2",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/clearance.py": {
+      "source985_sha256": "8ab8521b620a3f3926ec44b1325c549fd34654c74ada2551f21ac9e3f5e82251",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/codes.py": {
+      "source985_sha256": "90657a96e5cbf111950ba5bc72ed609220421080541b94ddac6440eddae4fc77",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/containers.py": {
+      "source985_sha256": "dbf1052b527460c9f4a13dae7a3433082c6167354f8e058de46ffa72dc37ca07",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/copper.py": {
+      "source985_sha256": "8610794c133b97e8830a51498c59d598fc5e94ce5e5da7e8db193a2054286068",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/diff.py": {
+      "source985_sha256": "8eb70b1ff637bfaf9a65a52574e2e0fb285f46d8e4fb4ed7aeecffe5dc79487a",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/diffgate.py": {
+      "source985_sha256": "6077735be73c6e0ee1f7f0ca592dfc891787df69a8a485c5b43487f4952b142d",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/documents.py": {
+      "source985_sha256": "c8042f4dc2d061393010a3dd0680f6fd9885b3146fe6c36a48ae138a380d1c18",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/drawn.py": {
+      "source985_sha256": "0cf37c6f2446b02669cbf851fb2c385c0cb9ff9656f46e58d41d199467e1887c",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/drc.py": {
+      "source985_sha256": "bda67d4a89062dd71bf0b037902a4afdfac68c0c02f600cd0cd79baed0dba106",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/drc_json.py": {
+      "source985_sha256": "7388d155ed09e9d9396f7efcd8f2c327552b3b73b6829b608f9ac7ec758ffdcb",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/equivalence/__init__.py": {
+      "source985_sha256": "e16571275f36fbd6a6fda5b5a2f23215f73bef121cda635be81075bdea5f4c32",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/equivalence/codes.py": {
+      "source985_sha256": "f415cec156016476f181622b389b41bd0c4f8c4517f6467b23d70551974288eb",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/equivalence/drawn.py": {
+      "source985_sha256": "bc48b2e5cf6648aa0fdb705aa537bb5158cc7ad5fbad769feac30273145c450d",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/equivalence/exclusions.py": {
+      "source985_sha256": "4d7c3821afd0c57993bbfbb9449212fdf44ecb4ee82ecca6aeb422d4620cc49b",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/equivalence/levels.py": {
+      "source985_sha256": "5b752209445951396a20bd32ca0b9b9ee96becc9c657d6dddffe2f72efd6b59f",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/equivalence/model.py": {
+      "source985_sha256": "8b84497fadf6274a7d76b3e60030c186d770e05d9259c034cd8e8ffa1d43f074",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/equivalence/norm.py": {
+      "source985_sha256": "91bd84ad3a5d3f8327ca84c5bc90e733073dffe62d51355b17f2fc67646e0745",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/equivalence/routing.py": {
+      "source985_sha256": "7053ca0666d5ba9d5d5a4a09e0e318b42a042e3b164256baa58c455dbd6e0c42",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/equivalence/rules.py": {
+      "source985_sha256": "33a41faa81318c2aee0144c4a0bc9c63a01790bcb1381ca6e9687e803d49198d",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/equivalence/shapes.py": {
+      "source985_sha256": "03ecfbf753ee7e5fd6608d7724caef2958964ffe2d5f95d30c52906ac2a868f1",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/equivalence/strict.py": {
+      "source985_sha256": "9396e8e382e429a1eeb923867caddc573cbac7194223913aa038af98ae43e0b3",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/erc.py": {
+      "source985_sha256": "2074435e567b2ef7aa40cbfb1a4bf1f5becf7812ad42aa9eb484ca342ef176d5",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/erc_json.py": {
+      "source985_sha256": "bab2f21606bc3d97cfd8147ec43be75641f239596c39325cda42bfef2591c9e8",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/erc_lite.py": {
+      "source985_sha256": "a9013210489635b3549f557ba74693c248fc42544e06cc63cb2d7fa6500805c4",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/fill.py": {
+      "source985_sha256": "3ddffbd23fc7f22e5c4d659f885154361b6c65984d0659720b79cfd5341f5c23",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/length.py": {
+      "source985_sha256": "cb94f89fba235cefd8cda0b2ec6e8a9c0d0a0c4e7634f42b6bca4c60099becac",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/padpath.py": {
+      "source985_sha256": "0cb16ab6891f90366a4f195b8ed080263f5b7c5398238ba7cc67c2bd944efbfd",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/parity.py": {
+      "source985_sha256": "c5bbaa8b15c61cba6d43224f45e9162765f3357307ef2ddbeb73c393b710517c",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/parity_stage.py": {
+      "source985_sha256": "9f9362bd7dfbeb38f1391e4138946e4eb341e2f531be2773ce9c9b8bed90bd9c",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/placement.py": {
+      "source985_sha256": "4dc92a00d4e031b4b56e95f4396b23667c75b18d66477145c4287569e04ee751",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/readiness.py": {
+      "source985_sha256": "8eef942df366eb7be11d7e7b3efab072630d5cee756ba4fd2ab5c49a4614cb0e",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/render.py": {
+      "source985_sha256": "dfff94c485061d14dc5775e01b897fc0cd03ea3e59b9e93b8da5543e2f0a7a2b",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/roles.py": {
+      "source985_sha256": "1923ab89c049049e50ef6e66dc3d986f3ada55c4ee017493b7b56165a5d3f56c",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/roundtrip.py": {
+      "source985_sha256": "cd6fa0488f09aca0098a618f45bb0f1efa122b6b3eae604e855b29f631815cbd",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/rt2.py": {
+      "source985_sha256": "c1107b7c7ca30aa7377cca84b6d04b7d98f23b4d3dd996f9698c76c65728ee25",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/rta2.py": {
+      "source985_sha256": "b494b13096e48c51b6aa29d1c7dd5809a744598cdea76149b89d08907487137e",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/rta3.py": {
+      "source985_sha256": "4437690a23d5363feda3db8e6e93b44989f333932cf838de01617484bcb74d6d",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/specificity.py": {
+      "source985_sha256": "f01d1bdbd767f15a9b92434de8d8238786c2b13917c38f22454c738f5736f6e5",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/stages.py": {
+      "source985_sha256": "5580b7c73d1cbeeccc14f18e8f4b466314d50c8e3ece6e26f446f4abbd8927ec",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/subjects.py": {
+      "source985_sha256": "73119e3fd75e97987fc49c6ed672a3933e6d58bfd1ec4afc241c21cfefe56347",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/topology.py": {
+      "source985_sha256": "e996498d8c8c19543ee5e1b42cd1d29c17a4545fae058534f039319587be2e8f",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/validate.py": {
+      "source985_sha256": "68807482afe0dd89005d6183f936e0100a20146de2a2c9ab88004436817324bf",
+      "executor_equals985": true
+    },
+    "src/fenolite/checks/waivers.py": {
+      "source985_sha256": "853026e25da07b155285caf034eda339524733df09da88b75bbb941ba234e02a",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/PROVENANCE.md": {
+      "source985_sha256": "46aa3b59c6a91ba1a443ad8fe4c2a6bed5c17268220495216db6e48b9aade5b8",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/__init__.py": {
+      "source985_sha256": "689b874bc5fc5470d0109d069f3cbb5a0d70b7e96825989de28682dc124d98b9",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/_drawn_font.py": {
+      "source985_sha256": "0375286e4b7f74509624a12a73fea4110bb5a2951c440113157cacf33631d427",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/_drawn_style.py": {
+      "source985_sha256": "5528a7678cdc053e9ab96d6738fc66708f431de604e434be33de822f379a2929",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/_edgesign.py": {
+      "source985_sha256": "9bbc85a10a05db22fbfc0bff5f5ef2a741a4d0b7a3bdbb3d77adee2eafbe6f01",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/_fpmap.py": {
+      "source985_sha256": "e94af5638c77b0b96fb838c1ffe51fb22a445ceb1a781e97e8485522d0ebee8f",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/_json.py": {
+      "source985_sha256": "25f48794c3588a6a506a207f3334e8c5b92f3deaacf7c51e872d77b553261fb3",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/_libread.py": {
+      "source985_sha256": "504f3f1708d8c8864c5df10bd292357a92b20fec5e3381d4ffe56da8d30b96f2",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/_lowering.py": {
+      "source985_sha256": "98c170e2acd237c35d25e1e0e511b4b57e5edbad3a84f268fce412b5f169676e",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/_pcbwrite.py": {
+      "source985_sha256": "0f57e31693a1f5f09f4457939b979e2bdaa9c1abbd9fd326ec552f04296ac2ce",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/altium_import.py": {
+      "source985_sha256": "fa11b5f781a109950808f726956c90635cdd1ded575fc34aedfdfa8ae0dfee9f",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/backend.py": {
+      "source985_sha256": "1a843f04d8cfcdf434cdef1b1e5fba42c9e4bf1019bfbd5a5d6c7783f6984495",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/boarditems.py": {
+      "source985_sha256": "770501d55e261934c8bf9bbb06323a3da7bd9f79c973d6d499bd940f721c1de0",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/bom.py": {
+      "source985_sha256": "e2e0f75fef5f05cb27926b21d5b3424bc3152e010e71abd9485a283104329703",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/canary.py": {
+      "source985_sha256": "dda16f3cd4091b498bf9247279595369f88cb7eb6b0b9649dee7ae82d5f747a8",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/claims.py": {
+      "source985_sha256": "cce3a33b39fa701e18178063633f6a393b490e6bfc21be80768465a80cd47eea",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/cli.py": {
+      "source985_sha256": "48b68a6d9da0027f0a76b9ac7bcdd9621534ed2005363749bd103099f2ec87a4",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/copper.py": {
+      "source985_sha256": "c1287c98ef25e0d69aee18fd54759889e4384d6c4cb21503f96210db3abfc98c",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/copperrules.py": {
+      "source985_sha256": "03ba44ca0020b17f5c1d761b309935d388b0fcba6c947c88cce76db136e4e8c7",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/data/altium_import_exclusions.toml": {
+      "source985_sha256": "15f6e910bff29f3729880e0a7d2915c4941359f38d18c78ffe5c806a5b22d781",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/data/downgrade.toml": {
+      "source985_sha256": "8efbe8b605f1df35c17104e8f7f40ba90c6448d6b29e55c9f5202d4fb18c6684",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/data/libraries.toml": {
+      "source985_sha256": "2be0358d46d39e3339add9465fdc221fa5e1e357a338aa5696555e8a3e627d45",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/data/project_template_10.json": {
+      "source985_sha256": "f2d6fac4e71a35fca31a65a8dfba7c7ad2355b43154e2f7c3876250a31d5bbee",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/data/project_template_9.json": {
+      "source985_sha256": "1cb7957030935971d04e2eeb653b06adbf711bb285488d118a0a76af21868a7f",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/data/tokens.toml": {
+      "source985_sha256": "2a8e7aeca8f233e9ab1d4af30a573ae9cd11b780423199dc4e95fb72a044e00e",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/derived_teardrops.py": {
+      "source985_sha256": "6810923b575df451c174215c94d43a836a7590513a0d8051ca8ac7f8bed462b2",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/drawing.py": {
+      "source985_sha256": "06ef308b9c375947efe3d243129f773d08d921172c1a8c4cc295cec7fc148c73",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/drawn.py": {
+      "source985_sha256": "b7162e6bc079caf38521907110dee5e458e6570813f16ab8c66d0bf19cd6215a",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/drc.py": {
+      "source985_sha256": "cea70259451640dd2735d066d3666229eafbea1fc0f32fe0cc9b2a057b30e500",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/dru.py": {
+      "source985_sha256": "330f811b40de0ffb36e865b134d390a4bc9ee49cd99aa3103e5ea5534de40b31",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/embed.py": {
+      "source985_sha256": "fec36cd8220be55202e84a5eeb97ed0fea5a523e376ec644a32ee66b4d95ef94",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/erc.py": {
+      "source985_sha256": "88691931c307fe02d9c97ed7a1cd74af29ff0b623204890f593f9b879b6a185e",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/exclusions.py": {
+      "source985_sha256": "d45189c324b0bfd65d6b2cdbac94b6e2b3b2c8dec161e98351f816d38dedf014",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/fanout.py": {
+      "source985_sha256": "75d68ddc085c02a9da3582ac680abf36e35a9a8c581b3e3d08b7f937ffbd53f1",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/fields.py": {
+      "source985_sha256": "ab91e4f3c8fcb99bbad74f72e3cf51c17dfa20639fbc613c2ea8d00ea762dd62",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/fill.py": {
+      "source985_sha256": "b7ccd6b7e6af39c5fab9ea8c239604392cb011f6d59b50e579ca87bf373bf1b8",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/fpitems.py": {
+      "source985_sha256": "4c7ef44aaec98d135b4c430ed4e672a323d70a6565a3a54f41a787f71c93c1ad",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/frame.py": {
+      "source985_sha256": "5a83bc37e150dd189b4a2367d6e98b035f6ae7983bc53d36c46147517316141a",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/generate.py": {
+      "source985_sha256": "532ec3a3bfdf4cf788d8920633f315e85d9027d5d2690bdcbb9b1a3a9ff080d7",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/helpmatrix.py": {
+      "source985_sha256": "f735c11bf28865d081e63b5dac9a88885da2406124b22157c10da32b4edfe339",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/ipcd356.py": {
+      "source985_sha256": "7d4b655859930cdcc1455ba5b0fb90744c3e5c2093e10f6f5fbe9d50cc7f2756",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/layers.py": {
+      "source985_sha256": "58cf06a8e4753b53548e1a1fcb6a84316620acdb63ac84c54e9e8cb1fdf0739b",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/lengths.py": {
+      "source985_sha256": "ff07f7c112b4cf2c61c999df0f00eaddfef16c7ee2ffdf9b0f53d4437f813568",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/libcache.py": {
+      "source985_sha256": "b5a3f0f78114e54634a5e7d89102ca4050130a2e609a2f7e70a4f0b5a6417c87",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/liberrors.py": {
+      "source985_sha256": "eb35be267ff0fac5628f2fb2bcce515d16df4a8c568504c215d6f51d52d321bc",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/libs.py": {
+      "source985_sha256": "e666a11724a324b06a762930433409c9c212b76c527dcb7d36067b44691a2d2e",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/lowering.py": {
+      "source985_sha256": "8d57a737c5c8bb7bbf155203257ad5570d1d68212eed49717b09a0fd3c128b51",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/meander.py": {
+      "source985_sha256": "a51d029453a3ab72f37bf4716ea5ca39d3164621c0ae815a5b0483393c09f312",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/merge.py": {
+      "source985_sha256": "bb9fcda2c8172d0f831dccf92e887c42c91a3a2ea9eb9e085982475e2fbcdd5f",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/mod.py": {
+      "source985_sha256": "792301d312972b24061cbb2b089e23a89579a492b224bb6876bc188a12d2005e",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/models.py": {
+      "source985_sha256": "5ea46e561602366db4bc0756a7b7078270aa6d12153300caa0693c2ea2113a79",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/native_rule_profile.py": {
+      "source985_sha256": "462579d406fde32b775b91244525d37f186fad27d1d124af68f94d0cbefe2ce4",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/netlist.py": {
+      "source985_sha256": "b3a035395fe0dc28531c0d4a9c94eb0d24953e2d3eab8cc8430b0ff446651cd3",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/netnames.py": {
+      "source985_sha256": "f09a296cb6c6706faf4e4aed36b6d9f7f315dd7400b8384e9b6a9affcaa4e9f0",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/oracle.py": {
+      "source985_sha256": "26835c4b07cd47c47f5d65a2b16b59c4d7db40c94ace67f9b3b0508876fb96df",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/outline.py": {
+      "source985_sha256": "f7da37a9896d60f97f7da6b0e95eb99efd11e6b02b1058615992a73cce368c9a",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/padnets.py": {
+      "source985_sha256": "a9c168a8eeba57ce48503637b01cd962095fcbd596eb7a46dc7a3f0762e9313b",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/parity_inputs.py": {
+      "source985_sha256": "b77601a19808caf6a8ae136dfe4a20ca4fd19d00fdcf6bc9a9095bab24768549",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/pcb.py": {
+      "source985_sha256": "13ef56b7c0cfd2e1b67000d0df813edc274941d542e6ec2eeb6a4e41cf06aafa",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/plot.py": {
+      "source985_sha256": "9c8f073932dfe935f22228a39fbb0f6854889246bf08fb42f0a81fb8aeb8ab14",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/pro.py": {
+      "source985_sha256": "0f685ab9e80a144b6500ea5f2e5c4a414d959241158638eac255da8637729f60",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/pro_template.py": {
+      "source985_sha256": "87cceeb90345d9ff51d3144caace608fcf6bbac36bbe9a3cc5e50a92ee218b90",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/proerrors.py": {
+      "source985_sha256": "b006aa393de022b268bf39d7226081ea600d37949accbde137d98d57d57c0fb6",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/projectset.py": {
+      "source985_sha256": "8d919995a2bfcbc166ceee57188ebfe982270ffee72c993d953175ea9efbbcec",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/replace.py": {
+      "source985_sha256": "8f723a435f227697aad75643e1d1eacb4da3a00e6eeaef24e12efe245e572f30",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/resolver.py": {
+      "source985_sha256": "a80c5180b5698f8a6cd1c6c22f3bbbd8f747739e372b4d54cfdf9836b418d672",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/roundtrip.py": {
+      "source985_sha256": "79d697731416e3976c466ceb186386b972e2ea5a1807d513acc8597d887038e0",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/rulemap.py": {
+      "source985_sha256": "4355f5af951548a98ad9ab33491d20b5bd55b1cfe50b42f2f85b297bfe8bb185",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/sch.py": {
+      "source985_sha256": "e17f74d8e2b155758be4902f18f07c5b75941bc0b8ae4bbc46339334e4a73c79",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/sch_netlist.py": {
+      "source985_sha256": "dfd3e675ce4518cf16c75723f1f1914225315b3eb93b63a71289b9b12cd3961a",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/schgen.py": {
+      "source985_sha256": "673663136b63d6c5d42ed44c33cf2c647d80044e1361b618eaed6275ee92dd7b",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/schlayout.py": {
+      "source985_sha256": "6da9bdfa085440ed31645bfaf5e2779c6983fee4e85df95f23501da2df85104a",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/sexpr.py": {
+      "source985_sha256": "390cfe323fd06971a2fdef4c10bc4beab0331c2c1764d89d19f44861ffe433a8",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/slots.py": {
+      "source985_sha256": "1e06a79864a56d6b43c3bebe91805fd9371abb11a19f5cde663bed8b228f9366",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/stackup.py": {
+      "source985_sha256": "71e3ce74860b230c5595842f65c83668853b1804e3a70d42323c13e7fc320289",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/sym.py": {
+      "source985_sha256": "4bf4560979aefb0d020a7da71438a1927de3168b2d050fa56b07b51a2c7e64dc",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/symbol_contexts.py": {
+      "source985_sha256": "91e967fd17d24c325c8ac16df625cd3a678dcd22afb96ee49959659046a7b11f",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/symembed.py": {
+      "source985_sha256": "a5c619b89479bef2a45e07e076361ac89b3c29eae52bab4be31dfead54446a1e",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/teardrops.py": {
+      "source985_sha256": "dc9d24c554e2635e95c2553842c1441885d7abd7f56a92de1db0339f1ba71ceb",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/textink.py": {
+      "source985_sha256": "79b3b985b1235e9e56d88f6c8a3611cb4bf9c1ac077b50c0429b686f94737941",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/topology.py": {
+      "source985_sha256": "5cd8b1092bca664eb290dc4e526081654c3bb02b321bf962769ab3e88e074441",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/triad.py": {
+      "source985_sha256": "1cec8b7e56fe8afa97c6362dc4de2a2254a3512ef0d909e5a8811c9f2782420e",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/tuning.py": {
+      "source985_sha256": "44fa97419aa366d8ca747c8d2f8a89643837b8c5799d174be712b92b5a8fb3a5",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/verbatim.py": {
+      "source985_sha256": "d35a371e19b927322ed0d6fafeb8d1a80f54c9599f6c6ad185830851734e31b0",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/versions.py": {
+      "source985_sha256": "20edb3271355fc8bd93a05d4fd83f91eab4a76e30cc9c95cb958b923c2966dfb",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/via_protection.py": {
+      "source985_sha256": "6066ad195c658231ef6f11ac54b5667cc6fd583d02d3e6dc3c50568a28ca6875",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/wks.py": {
+      "source985_sha256": "33adf08eb29fae518d24725cda8a10d55311c64388a53cec6144a5f3a2f29118",
+      "executor_equals985": true
+    },
+    "src/fenolite/backends/kicad/zones.py": {
+      "source985_sha256": "ec06c71d6a06b07e5a97cbbe2ac3286b545d9e7dd18cf897caa5daf24d71bc70",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/__init__.py": {
+      "source985_sha256": "7186bdd4ca896872fe88c91693e550e6c069f4115adb4817ed31247c52036528",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/audit.py": {
+      "source985_sha256": "47bcb9b3b3d2d7cb56a5a93d66aa6addad8e809724661c5e53c5370263b3ccf2",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/cache.py": {
+      "source985_sha256": "f9b71ca0e4d9591e90876513de43959886c38a8347732ecbfe035a4d832e370b",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/codes.py": {
+      "source985_sha256": "5cbec7cfa48edaf9cffd42102239a56cbf8c0c8f260e5e84b8b1dd43da08a1f7",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/derive.py": {
+      "source985_sha256": "3dc0e3a1940a03a644873cf7c47f43a0743a61445dfaec98c6b41c322578863e",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/device_items.py": {
+      "source985_sha256": "fb2b382ce90c339ca565c1dfbd0fe41dd5859221f67ac8953d249cc95885b0fa",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/gallery.py": {
+      "source985_sha256": "5fcab16199d863b102cad15dbc3197aced66822cfcb4b1d1686aeb69c9816c73",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/get.py": {
+      "source985_sha256": "a419ab5d942027a69895b3836808dafb6dbf26ddcf21c0f3efd349c6305c000d",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/importer/__init__.py": {
+      "source985_sha256": "56154543750d155a15aecc6f4d7d0a9dc13f47076723c42a494b65a2149ddb89",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/importer/crosscheck.py": {
+      "source985_sha256": "1804873fda98c562710671efe41b1bf0cef71c1bbf297287f7e6b8d68e686d17",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/importer/native.py": {
+      "source985_sha256": "d3f7a79751a28f4903efefb0bd81cded8361d8464c6006b0b2e74475c1c97dbb",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/importer/records.py": {
+      "source985_sha256": "6b7a9d2cb2aa086ff86449823b2130a4c146152fed089abd4943cc3437d2b1c4",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/importer/shipping.py": {
+      "source985_sha256": "e96242afe154688c21485dc9aab729bb9f7887338bda1a0a904a457acbb4cd85",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/importer/sources.py": {
+      "source985_sha256": "607ea7d38acee97e164f81ccbe22f49506f3f08dd83a0ef6540add056d26aec9",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/importer/templates.py": {
+      "source985_sha256": "63a56d589a90eef95c622eca0d38195c12c978374c8d9c919d70676f66c7bb29",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/importer/zipsafe.py": {
+      "source985_sha256": "5827f8f7382b88be0c7e90e4a69a1f576b417f6ded4bb588c4b5a0a7a1f34027",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/items.py": {
+      "source985_sha256": "6f62004a55636e16e67f96cab8cfbe83f4b275a0952fa1fc10f25966be2f4eca",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/licences.py": {
+      "source985_sha256": "323e2635a7cba8762954f73b0bfd7f23d34c8b1de118a3b61775dfd2c38e4bbe",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/proof.py": {
+      "source985_sha256": "847ab4d51e95941c9059d277d9aaab998039990a254501170f90df343f69a246",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/proposals/__init__.py": {
+      "source985_sha256": "b7b81e270c0c2ce2bbe0b8ce5b14df666a4a1511fa3945a1ffa076181ed6ed7f",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/proposals/agreement.py": {
+      "source985_sha256": "7e87b9df290f9998a83a5a65da1122aad004af9932c33b11f94e9048174b2c21",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/proposals/checks.py": {
+      "source985_sha256": "02d412036af056fc6ff97b2421d742b22a6db402d7dd40415388a727ec16556c",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/proposals/convert.py": {
+      "source985_sha256": "e87243265e4c4647f0289579206c75585b5839bfcf9a2cb41a08a3b8fe5780c6",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/proposals/gate.py": {
+      "source985_sha256": "87b9e846ba9b4ac26adb52cec487f72e6fe8b50e42149a4f212d9b60d0e6fd2f",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/proposals/schema.py": {
+      "source985_sha256": "d40cc59b27d192a303ba3d746d82b24cd700243a3000b12708997330f12774af",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/provenance.py": {
+      "source985_sha256": "86c14646fbfa6ae644e576a88679e75f3b540dd5fb236ddf1493456464d3826e",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/release.py": {
+      "source985_sha256": "fff9341bfb25db6afbe79046bd353da52490796768486ca92dad3a1bfbde80fb",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/review.py": {
+      "source985_sha256": "aa87d380815f3a5b81137d2518cf617ba68e8649b2ac4480c784f7b3e47aeed4",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/rules.py": {
+      "source985_sha256": "80908215af311ea0c4686e666c352a9b9fe650cc5cc872042a5e98b8ec921256",
+      "executor_equals985": true
+    },
+    "src/fenolite/library/seed.py": {
+      "source985_sha256": "b6501402cd5b214a6fe666d4cd1a411b4176708c610f6beb3ab2e53ca6942210",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/PROVENANCE.md": {
+      "source985_sha256": "8df52646492afe5cb89d1b1a82dec159333b5786849bb3e2275edf6d735ca35c",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/__init__.py": {
+      "source985_sha256": "27b8972f62806ff8624ce965ce94bbe4df6e3768b0c1a2f2fabf86d21a3e0db2",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/body_volumes.py": {
+      "source985_sha256": "e280adc56c55822dbd782270cd607464acce9442461f53ddb7110d2aab637591",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/boundary.py": {
+      "source985_sha256": "7356cba7715d32daacac4493da6f21ed45f83d2b6ff2b352284f3db383e6a3be",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/codes.py": {
+      "source985_sha256": "8c420163083c5596d8ca470b5db820e926cde5d5022aa095c18d51b8d7b61c2b",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/connectivity.py": {
+      "source985_sha256": "859d0cff9a7eed61e39a9bb59804a09143f715ce45eb2bdd911627752f6c87b3",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/copper.py": {
+      "source985_sha256": "1e065dc9564730d61e53769180a38120f372779188e744dfc6e09dd5c80a5c9f",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/coupling.py": {
+      "source985_sha256": "04eadae29711729d689d6a69cf7a208392477e113436f1d9548ae79c75505569",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/crossings.py": {
+      "source985_sha256": "22ee194dd37642935c363d65330669f9315b9164de809955728869a6913b9987",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/current.py": {
+      "source985_sha256": "b3ef6c8e3a57b3856a815df81c0a7a4cc18b0399e7ebb3cca44a38bb36a3bfe9",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/distance.py": {
+      "source985_sha256": "b955e815c3bb6d675a95168cd9374b4673aefc6b80390b293058a0a802c7437f",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/fills.py": {
+      "source985_sha256": "94b1b838146abe9e7bf170da0e64dd35cab35a1477e816b1673cd4236a4d5b61",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/grooves.py": {
+      "source985_sha256": "f00f575a20e40ea439a7d40feb80677fe0e3b79bf1e71c1f7a6895889e56a3a3",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/impedance.py": {
+      "source985_sha256": "3b3167a44a81282de61bda75a413d8544d0c686542a07e87f4309ae34360f30a",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/insulation.py": {
+      "source985_sha256": "a5f139b03ac62f3a5b18d18f1a6bf6ac4cee0fda28d6ee4e6c495061b681f076",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/length.py": {
+      "source985_sha256": "ba81c6be107c96575df85c5a0256a581728697b6ee8f13afb112ce0aada172ed",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/network.py": {
+      "source985_sha256": "532ed9709d46cf0b3b9346c1435deb3ec9024ad4dae0875cbf0057f64dcb23cd",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/pour.py": {
+      "source985_sha256": "8771045de8ddbd2e39fe570311e33481b2aef5a24b4ab91d1b05dde576470440",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/power.py": {
+      "source985_sha256": "c9d3a070071e3808892dcc7d9d19c258f21976bb8332ba5f2df769f8f437e9a9",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/practice.py": {
+      "source985_sha256": "f651641dd77217f893971016cb0c399d6b0925b9531102278984308a8258d3f9",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/region.py": {
+      "source985_sha256": "0a7df24cf520457d1bb6de7f110d5472e85b21a6a1823ad4e4243755ae6eb7bb",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/report.py": {
+      "source985_sha256": "42772ec77d9e76d1d9c7613e7f37feaefd9b2b918c5b90170adf910915ce0a04",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/requirements.py": {
+      "source985_sha256": "0205027965a89b156b42e812221c5b800bd893d0f302ba566ffad6f120bba14c",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/returns.py": {
+      "source985_sha256": "d5df3e4449935585e082f14755dc11cb669caaef6b48d05f7c8c6ee266da945c",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/section.py": {
+      "source985_sha256": "309f71893234791656bf55062c39a06281f4e96e9158d469cd2df23c64ea1d47",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/shapes.py": {
+      "source985_sha256": "dbdc8b9c61d6da953d88bb10e747c557263f26d9e50ef46f8d7251ce7de1ab79",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/split.py": {
+      "source985_sha256": "9db5712fc4337c844b7ef5595fb72a39556cbadec52c6fc023cc83acc3574303",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/surface.py": {
+      "source985_sha256": "694b8e291ecef36d617940155f439a0f4cfe44f22a5dbf24c834c4d705bc3bb6",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/ties.py": {
+      "source985_sha256": "77a057f6811810e8ec01e660c5a3ed3e5aa8b99cdda91a4369bcc551bc3b0cf0",
+      "executor_equals985": true
+    },
+    "src/fenolite/analysis/views.py": {
+      "source985_sha256": "f4457525a5e016629b9e05dea030d85e0daabcb8705dbc56cb42c3ec68b51b4f",
+      "executor_equals985": true
+    }
+  },
+  "log_hashes": {
+    "native9": "3ac138d8cafad5c225d11d9bd22774c872f9369925c7d892d271be0401ab8d94",
+    "native10": "014e4eb36c889f4848842d7abf57462ab6da185e2b8fcf5b28ddbb9334d1a68b",
+    "metadata": "cd7a28fbc69631a6f3613865fba28f4879ab79efcf2d6c6a2e2cc82879da73fe"
+  },
+  "retained_actual_import_census": {
+    "path": "docs/evidence/import-corpus-ci-985f59a1.json",
+    "sha256": "d2b765b0828fbf98a0e3dfe6161f94bcadfb54739a46f090bbc8d858b973c539",
+    "raw_zip_sha256": "1e179e5c80e839e67d5263291e09ff3e4274d829270e0624eac36b73482d13ac",
+    "members_verified": 19,
+    "unique_actual_conversions": 18,
+    "byte_identical_aliases": 1,
+    "all_exit0_equivalent_true": true,
+    "source_bindings_verified": true
+  },
+  "corpus_documentation_original_commit": "3a4ce775543f037fe9560315d5839ebafa0ef594",
+  "hypothesis_labels_preserved": {
+    "H-G-CHAMFER-FLIP": "INFERRED",
+    "H-A-IMPORT-CODE": "INFERRED",
+    "H-G-IMPORT-CODE": "CORPUS-VERIFIED"
+  },
+  "fast_proof": {
+    "source": "2c0540572c936303eb5c46a25002872648dfabad",
+    "receipt": "c0319-integration-repairs/fast13-receipt.json",
+    "receipt_sha256": "6b7c348011a8bafe24cc532e5ce74d505addecfd1dc3d56dba9f35bb80628a8e",
+    "command": "make check-fast PYTEST_MAX_WORKERS=2",
+    "exit": 0,
+    "log_sha256": "3e74d627e77139979c42ba6ca13e53344a23b8416aff252e747e34d56286abfe",
+    "runtime_tests_tools_config_equal985": true,
+    "rerun": false
+  },
+  "closed_remaining_tasks": [
+    "5.5"
+  ],
+  "limitations": [
+    "Upgrade test on9is1source-bound skip within631grouped minimum-major skips; no nominal node line fabricated.",
+    "Arc near-boundary native outcomes are observed separately and not equated to ideal exact Fenolite geometry.",
+    "Chamfer canary checks four authored rotations plus a wrong-corner control, not every subset or all rotations.",
+    "No arc parity, chamfer, Altium-input or general emitter hypothesis is promoted.",
+    "Current root runtime/c0355 and release/integration remain independently pending."
+  ]
+}
